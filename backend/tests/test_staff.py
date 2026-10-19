@@ -180,7 +180,7 @@ async def test_double_accept_409(
 async def test_accept_by_a_current_member_409(
     as_owner: httpx.AsyncClient, db: AsyncSession, identities: FakeIdentityProvider
 ) -> None:
-    inv = await _invite(as_owner, "diego@birchbarkpets.ca")
+    inv = await _invite(as_owner, "diego@birchbark.example")
     diego = await session_token(identities, db, "us_diego")
     res = await as_owner.post(
         "/v1/staff/invites/accept",
@@ -194,7 +194,7 @@ async def test_a_removed_member_rejoins_through_a_new_invite(
     as_owner: httpx.AsyncClient, db: AsyncSession, identities: FakeIdentityProvider
 ) -> None:
     assert (await as_owner.post("/v1/staff/st_priya/remove", json=_CANCEL)).status_code == 200
-    inv = await _invite(as_owner, "priya@birchbarkpets.ca")
+    inv = await _invite(as_owner, "priya@birchbark.example")
     priya = await session_token(identities, db, "us_priya")
     res = await as_owner.post(
         "/v1/staff/invites/accept",
@@ -307,7 +307,7 @@ async def test_team_lists_members_and_invites(as_owner: httpx.AsyncClient) -> No
     assert res.status_code == 200, res.text
     body = res.json()
     owner = next(m for m in body["members"] if m["id"] == "st_owner")
-    assert owner["email"] == "hannah@birchbarkpets.ca"
+    assert owner["email"] == "hannah@birchbark.example"
     assert owner["last_active_at"] is not None
     invite = next(i for i in body["invites"] if i["id"] == "st_invite")
     assert invite["email"] == "sam.newhire@example.com"

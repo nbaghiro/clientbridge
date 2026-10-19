@@ -43,6 +43,7 @@ from clientbridge.services.plans import (
     PlanPrice,
     product_names,
 )
+from scripts.demo_context import LEGAL_ADDRESSES
 
 TAG = "clientbridge"
 DOMAIN = re.compile(r"[a-z0-9-]+(\.[a-z0-9-]+)+")
@@ -132,10 +133,6 @@ class DemoBusiness:
     email: str
     first_name: str
     last_name: str
-    phone: str
-    city: str
-    province: str
-    postal_code: str
     product_description: str
     primary_color: str
     url: str | None = None
@@ -145,13 +142,9 @@ DEMO_BUSINESSES = (
     DemoBusiness(
         id="bz_birchbark",
         name="Birchbark Pet Studio",
-        email="hello@birchbarkpets.ca",
+        email="hello@birchbark.example",
         first_name="Hannah",
         last_name="Wong",
-        phone="+16045550123",
-        city="Victoria",
-        province="BC",
-        postal_code="V8W 1A1",
         product_description="Pet grooming and daycare",
         primary_color="#2E4A3F",
         url="https://birchbarkpets.ca",
@@ -162,11 +155,7 @@ DEMO_BUSINESSES = (
         email="owner@cedarcoast.example.test",
         first_name="Rowan",
         last_name="Ellis",
-        phone="+16045550199",
-        city="Vancouver",
-        province="BC",
-        postal_code="V6B 1A1",
-        product_description="Pet care for tenant isolation checks",
+        product_description="Dog walking and drop-in pet care",
         primary_color="#35576B",
     ),
 )
@@ -577,6 +566,7 @@ def plan_destination(destinations: Sequence[Mapping[str, object]], url: str | No
 
 def account_body(biz: DemoBusiness) -> dict[str, object]:
     descriptor = payment_descriptor(biz.name) or ""
+    legal = LEGAL_ADDRESSES[biz.id]
     support: dict[str, object] = {"email": biz.email}
     profile: dict[str, object] = {"product_description": biz.product_description}
     if biz.url is not None:
@@ -595,12 +585,12 @@ def account_body(biz: DemoBusiness) -> dict[str, object]:
                 "given_name": biz.first_name,
                 "surname": biz.last_name,
                 "email": biz.email,
-                "phone": biz.phone,
+                "phone": legal.legal_phone,
                 "address": {
                     "line1": "address_full_match",
-                    "city": biz.city,
-                    "state": biz.province,
-                    "postal_code": biz.postal_code,
+                    "city": legal.city,
+                    "state": legal.province,
+                    "postal_code": legal.postal_code,
                     "country": "ca",
                 },
             },

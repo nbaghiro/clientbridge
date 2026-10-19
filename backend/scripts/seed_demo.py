@@ -1,10 +1,11 @@
-"""Build and validate an isolated demo; an existing one keeps its rows unless --reset-demo."""
+"""Build, validate and write the demo, replacing only the demo businesses' rows on every run."""
 
 from __future__ import annotations
 
 import argparse
 import asyncio
 import random
+from dataclasses import asdict
 from datetime import UTC, date, datetime, time, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -12,7 +13,7 @@ from zoneinfo import ZoneInfo
 import boto3
 from botocore.config import Config as BotoConfig
 from botocore.exceptions import BotoCoreError, ClientError
-from sqlalchemy import delete, select, text, update
+from sqlalchemy import ColumnElement, delete, func, select, text, update
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
@@ -43,7 +44,7 @@ from clientbridge.services.forms import form_definition
 from scripts.demo_calendar import build_calendar
 from scripts.demo_catalog import add_catalog_images
 from scripts.demo_chronology import align_chronology, chronology_errors
-from scripts.demo_context import DEMO_VERSION, DemoContext
+from scripts.demo_context import DEMO_VERSION, LEGAL_ADDRESSES, DemoContext
 from scripts.demo_engagement import build_engagement
 from scripts.demo_finance import add_finance_scenarios, prepare_finance, seed_finance
 from scripts.demo_identity import build_identity, placeholder_identity
@@ -56,21 +57,7 @@ BIZ = "bz_birchbark"
 DEMO_PASSWORD = "demo1234"  # every seeded user logs in with this
 STAGING_DATABASE = "staging_clientbridge"
 rows: list[Base] = []
-EARNING_STAGE: dict[str, str] = {}  # booking id -> how far its groomer's earning has gone
 PACKAGE_USED = {"pkg_marcus": 2, "pkg_grace": 5, "pkg_sophie": 4}
-# business settings the app requires, brought to the seed's values on an existing demo
-DEMO_SETTINGS = (
-    "province",
-    "unit",
-    "street_number",
-    "street_name",
-    "city",
-    "postal_code",
-    "legal_phone",
-    "subject",
-    "plan",
-    "plan_status",
-)
 
 
 def at(days_offset: float, hour: int = 9, minute: int = 0) -> datetime:
@@ -80,10 +67,6 @@ def at(days_offset: float, hour: int = 9, minute: int = 0) -> datetime:
         .replace(hour=hour, minute=minute, second=0, microsecond=0)
         .astimezone(UTC)
     )
-
-
-def face(seed: str) -> str:
-    return f"https://i.pravatar.cc/300?u={seed}"
 
 
 ASSETS = Path(__file__).parent / "demo_assets"
@@ -122,26 +105,28 @@ def seed_identity() -> tuple[str, str]:
             name="Birchbark Pet Studio",
             slug="birchbark",
             timezone="America/Vancouver",
-            province="BC",
-            street_number="1207",
-            street_name="Government Street",
-            city="Victoria",
-            postal_code="V8W 1Y9",
-            legal_phone="+12505550110",
-            gst_hst_number="84720 1539 RT0001",
+            **asdict(LEGAL_ADDRESSES[BIZ]),
+            gst_hst_number="847201539RT0001",
             tax_registered=True,
             brand={
                 "logo_file_id": "fl_logo",
                 "primary": "#2E4A3F",
                 "tagline": "Calm, careful grooming on Vancouver Island.",
             },
-            billing_email="hello@birchbarkpets.ca",
+            booking_policy={"approve_new_clients": True},
+            billing_email="hello@birchbark.example",
             sms_number="+12505550999",
+            # a fixture account, fully onboarded so its status agrees with the seeded payments
             stripe_account_id="acct_demo_birchbark",
-            # the demo account is mid-onboarding: it can't charge yet, but it is a payments account
+            stripe_charges_enabled=True,
+            stripe_payouts_enabled=True,
             stripe_requirements={
-                "card_status": "restricted",
-                "currently_due": ["external_account"],
+                "currently_due": [],
+                "eventually_due": [],
+                "past_due": [],
+                "disabled_reason": None,
+                "card_status": "active",
+                "current_deadline": None,
             },
             status="active",
             plan="team",
@@ -164,8 +149,8 @@ def seed_identity() -> tuple[str, str]:
     rows.append(
         User(
             id=owner_id,
-            identity_id=placeholder_identity("hannah@birchbarkpets.ca"),
-            email="hannah@birchbarkpets.ca",
+            identity_id=placeholder_identity("hannah@birchbark.example"),
+            email="hannah@birchbark.example",
             name="Hannah Wong",
             phone="+12505550110",
         )
@@ -173,8 +158,8 @@ def seed_identity() -> tuple[str, str]:
     rows.append(
         User(
             id="us_diego",
-            identity_id=placeholder_identity("diego@birchbarkpets.ca"),
-            email="diego@birchbarkpets.ca",
+            identity_id=placeholder_identity("diego@birchbark.example"),
+            email="diego@birchbark.example",
             name="Diego Ramirez",
             phone="+12505550111",
         )
@@ -182,8 +167,8 @@ def seed_identity() -> tuple[str, str]:
     rows.append(
         User(
             id="us_priya",
-            identity_id=placeholder_identity("priya@birchbarkpets.ca"),
-            email="priya@birchbarkpets.ca",
+            identity_id=placeholder_identity("priya@birchbark.example"),
+            email="priya@birchbark.example",
             name="Priya Patel",
             phone="+12505550112",
         )
@@ -194,12 +179,11 @@ def seed_identity() -> tuple[str, str]:
             business_id=BIZ,
             user_id=owner_id,
             role="owner",
-            payee=True,
-            rate_bps=10000,
-            rate_type="percent",
+            payee=False,
             title="Owner & Lead Groomer",
             color="#3F5E80",
             status="active",
+            bookable_online=True,
         )
     )
     rows.append(
@@ -214,6 +198,7 @@ def seed_identity() -> tuple[str, str]:
             title="Senior Groomer",
             color="#2E7A5A",
             status="active",
+            bookable_online=True,
         )
     )
     rows.append(
@@ -228,6 +213,7 @@ def seed_identity() -> tuple[str, str]:
             title="Bather & Front Desk",
             color="#86621E",
             status="active",
+            bookable_online=True,
         )
     )
     # a pending invite (staff row with status=invited, no user yet)
@@ -239,6 +225,8 @@ def seed_identity() -> tuple[str, str]:
             status="invited",
             invite_email="sam.newhire@example.com",
             invite_token=hash_token("inv_tok_sam"),
+            invited_at=now - timedelta(days=1),
+            invited_by="us_admin",
             title="Groomer (trial)",
             color="#6E757E",
         )
@@ -581,16 +569,15 @@ def seed_items(owner: str) -> None:
             )
 
 
-# id, name, email, phone, tags, ltv($), face-seed, status, [pets], note
+# id, name, email, phone, tags, ltv($), status, [pets], note
 CLIENTS = [
     (
         "cl_amelie",
         "Amélie Tremblay",
-        "amelie.t@example.com",
-        "+12505550201",
+        "amelie.t@example.test",
+        "+12505550180",
         ["regular", "vip"],
         1240,
-        "amelie",
         "active",
         [("sj_bella", "Bella", "Goldendoodle", 22, "anxious", "bella")],
         "Bella gets nervous with dryers — towel-dry first, muzzle for nails. Amélie prefers text.",
@@ -598,11 +585,10 @@ CLIENTS = [
     (
         "cl_marcus",
         "Marcus Bennett",
-        "marcus.b@example.com",
-        "+12505550202",
+        "marcus.b@example.test",
+        "+12505550181",
         ["regular"],
         880,
-        "marcus",
         "active",
         [
             ("sj_rex", "Rex", "German Shepherd", 38, "friendly", "rex"),
@@ -613,11 +599,10 @@ CLIENTS = [
     (
         "cl_sophie",
         "Sophie Nguyen",
-        "sophie.n@example.com",
-        "+12505550203",
+        "sophie.n@example.test",
+        "+12505550182",
         ["new"],
         95,
-        "sophie",
         "active",
         [("sj_mochi", "Mochi", "Shih Tzu", 6, "calm", "mochi")],
         "First-time client — found us on Google.",
@@ -625,11 +610,10 @@ CLIENTS = [
     (
         "cl_david",
         "David Okafor",
-        "david.o@example.com",
-        "+12505550204",
+        "david.o@example.test",
+        "+12505550183",
         ["regular", "daycare"],
         2100,
-        "david",
         "active",
         [("sj_zeus", "Zeus", "Rottweiler", 45, "gentle", "zeus")],
         "Daycare regular, M/W/F.",
@@ -637,11 +621,10 @@ CLIENTS = [
     (
         "cl_grace",
         "Grace Lin",
-        "grace.l@example.com",
-        "+12505550205",
+        "grace.l@example.test",
+        "+12505550184",
         ["regular"],
         640,
-        "grace",
         "active",
         [("sj_pepper", "Pepper", "Mini Schnauzer", 8, "vocal", "pepper")],
         None,
@@ -649,11 +632,10 @@ CLIENTS = [
     (
         "cl_liam",
         "Liam O'Connor",
-        "liam.oc@example.com",
-        "+12505550206",
+        "liam.oc@example.test",
+        "+12505550185",
         ["regular", "vip"],
         1560,
-        "liam",
         "active",
         [("sj_maple", "Maple", "Nova Scotia Duck Toller", 20, "sweet", "maple")],
         "Maple is a show dog — careful around the tail feathering.",
@@ -661,11 +643,10 @@ CLIENTS = [
     (
         "cl_yuki",
         "Yuki Tanaka",
-        "yuki.t@example.com",
-        "+12505550207",
+        "yuki.t@example.test",
+        "+12505550186",
         ["regular"],
         720,
-        "yuki",
         "active",
         [("sj_miso", "Miso", "Domestic Shorthair (cat)", 5, "skittish", "miso")],
         "Cat groom only. Books quarterly.",
@@ -673,11 +654,10 @@ CLIENTS = [
     (
         "cl_fatima",
         "Fatima Al-Sayed",
-        "fatima.a@example.com",
-        "+12505550208",
+        "fatima.a@example.test",
+        "+12505550187",
         ["new"],
         0,
-        "fatima",
         "active",
         [("sj_simba", "Simba", "Pomeranian", 4, "bouncy", "simba")],
         "Inquiry — hasn't booked yet.",
@@ -685,11 +665,10 @@ CLIENTS = [
     (
         "cl_noah",
         "Noah Schmidt",
-        "noah.s@example.com",
-        "+12505550209",
+        "noah.s@example.test",
+        "+12505550188",
         ["regular"],
         410,
-        "noah",
         "active",
         [("sj_cooper", "Cooper", "Labrador Retriever", 32, "friendly", "cooper")],
         None,
@@ -697,11 +676,10 @@ CLIENTS = [
     (
         "cl_priscilla",
         "Priscilla Adeyemi",
-        "p.adeyemi@example.com",
-        "+12505550210",
+        "p.adeyemi@example.test",
+        "+12505550189",
         ["regular", "daycare"],
         1890,
-        "priscilla",
         "active",
         [("sj_kobe", "Kobe", "French Bulldog", 12, "stubborn", "kobe")],
         "Kobe — watch breathing, keep grooming short and cool.",
@@ -709,11 +687,10 @@ CLIENTS = [
     (
         "cl_ethan",
         "Ethan Wright",
-        "ethan.w@example.com",
-        "+12505550211",
+        "ethan.w@example.test",
+        "+12505550190",
         [],
         150,
-        "ethan",
         "active",
         [("sj_willow", "Willow", "Cavalier King Charles", 9, "gentle", "willow")],
         None,
@@ -721,11 +698,10 @@ CLIENTS = [
     (
         "cl_olivia",
         "Olivia Martin",
-        "olivia.m@example.com",
-        "+12505550212",
+        "olivia.m@example.test",
+        "+12505550191",
         ["churn-risk"],
         320,
-        "olivia",
         "active",
         [("sj_bandit", "Bandit", "Australian Shepherd", 24, "anxious", "bandit")],
         "Hasn't booked in 4 months — send a win-back.",
@@ -734,7 +710,7 @@ CLIENTS = [
 
 
 def seed_clients(owner: str) -> None:
-    for cid, name, email, phone, tags, _ltv, seed, status, pets, note in CLIENTS:
+    for cid, name, email, phone, tags, _ltv, status, pets, note in CLIENTS:
         rows.append(
             Client(
                 id=cid,
@@ -745,10 +721,7 @@ def seed_clients(owner: str) -> None:
                 phone=phone,
                 tags=tags,
                 status=status,
-                custom_fields={
-                    "avatar_url": face(seed),
-                    "source": "google" if "new" in tags else "referral",
-                },
+                custom_fields={"source": "google" if "new" in tags else "referral"},
             )
         )
         for pid, pname, breed, weight, temperament, pseed in pets:
@@ -762,7 +735,6 @@ def seed_clients(owner: str) -> None:
                         "breed": breed,
                         "weight_kg": weight,
                         "temperament": temperament,
-                        "vaccinated": True,
                     },
                 )
             )
@@ -866,9 +838,9 @@ APPTS = [
     (0, 13, "it_deshed", "st_diego", "cl_marcus", "sj_rex", "confirmed"),
     (1, 9, "it_bath", "st_priya", "cl_noah", "sj_cooper", "confirmed"),
     (2, 11, "it_groom_lg", "st_diego", "cl_david", "sj_zeus", "confirmed"),
-    (3, 14, "it_cat", "st_owner", "cl_yuki", "sj_miso", "pending"),
+    (3, 14, "it_cat", "st_owner", "cl_yuki", "sj_miso", "confirmed"),
     (5, 10, "it_groom_sm", "st_owner", "cl_sophie", "sj_mochi", "confirmed"),
-    (6, 13, "it_nails", "st_priya", "cl_ethan", "sj_willow", "pending"),
+    (6, 13, "it_nails", "st_priya", "cl_ethan", "sj_willow", "confirmed"),
     (7, 9, "it_deshed", "st_diego", "cl_liam", "sj_maple", "confirmed"),
     (9, 11, "it_groom_sm", "st_owner", "cl_olivia", "sj_bandit", "canceled"),
 ]
@@ -911,10 +883,6 @@ def seed_appointments() -> None:
                 source="online" if i % 3 == 0 else "manual",
                 manage_token=f"manage_{bk}" if i % 3 == 0 else None,
                 price_cents=price,
-                deposit_amount_cents=2000 if price >= 10000 else 0,
-                deposit_status="pending"
-                if price >= 10000 and status in {"pending", "confirmed"}
-                else "none",
                 confirmed_at=at(d - 1, 12) if status in {"confirmed", "completed"} else None,
                 completed_at=at(d, h + 1) if status == "completed" else None,
                 canceled_at=at(d - 1, 9) if status == "canceled" else None,
@@ -1002,8 +970,6 @@ def _invoice_for(
                 paid_at=at(d, 18),
             )
         )
-        if member in {"st_owner", "st_diego"}:
-            EARNING_STAGE[bk] = "paid" if d < -7 else "approved" if d < -3 else "pending"
 
 
 def seed_catalog_instances() -> None:
@@ -1964,7 +1930,7 @@ def seed_calendar_filler() -> None:
                 busy.append((member, start, end))
                 client, pet = rng.choice(pairs)
                 done = end < now
-                status = "completed" if done else "pending" if rng.random() < 0.2 else "confirmed"
+                status = "completed" if done else "confirmed"
                 ses, bk = f"ses_f{n:03d}", f"bk_f{n:03d}"
                 n += 1
                 rows.append(
@@ -1992,8 +1958,7 @@ def seed_calendar_filler() -> None:
                         source="online" if n % 3 == 0 else "manual",
                         manage_token=f"manage_{bk}" if n % 3 == 0 else None,
                         price_cents=price,
-                        deposit_amount_cents=0,
-                        confirmed_at=start - timedelta(days=1) if status != "pending" else None,
+                        confirmed_at=start - timedelta(days=1),
                         completed_at=end if done else None,
                     )
                 )
@@ -2003,6 +1968,97 @@ def seed_calendar_filler() -> None:
 
 SERIES_VISITS = 8
 DISPUTED = "pay_1006"
+# client, name, email, phone, pet, pet name, breed, weight, day, item, member
+FIRST_VISITS = [
+    (
+        "cl_nadia",
+        "Nadia Kowalczyk",
+        "nadia.k@example.test",
+        "+12505550192",
+        "sj_biscuit",
+        "Biscuit",
+        "Cavapoo",
+        7,
+        5,
+        "it_groom_sm",
+        "st_owner",
+    ),
+    (
+        "cl_tom",
+        "Tom Becker",
+        "tom.b@example.test",
+        "+12505550193",
+        "sj_juno",
+        "Juno",
+        "Labrador Retriever",
+        28,
+        8,
+        "it_bath",
+        "st_priya",
+    ),
+]
+
+
+def seed_first_visits() -> None:
+    """New clients' first online bookings, which wait for approval under the booking policy."""
+    for index, (cid, name, email, phone, pid, pet, breed, kg, d, item_id, member) in enumerate(
+        FIRST_VISITS
+    ):
+        item = next(x for x in ITEMS if x[0] == item_id)
+        start = at(d, 10)
+        joined = at(-3, 19)
+        rows.append(
+            Client(
+                id=cid,
+                business_id=BIZ,
+                name=name,
+                email=email,
+                phone=phone,
+                tags=["new"],
+                status="active",
+                custom_fields={"source": "online booking"},
+                created_at=joined,
+                updated_at=joined,
+            )
+        )
+        rows.append(
+            Subject(
+                id=pid,
+                business_id=BIZ,
+                client_id=cid,
+                name=pet,
+                attributes={"breed": breed, "weight_kg": kg, "temperament": "friendly"},
+                created_at=joined,
+                updated_at=joined,
+            )
+        )
+        rows.append(
+            Slot(
+                id=f"ses_welcome_{index}",
+                business_id=BIZ,
+                item_id=item_id,
+                staff_id=member,
+                starts_at=start,
+                ends_at=start + timedelta(minutes=item[4] or 60),
+                capacity=1,
+                status="scheduled",
+            )
+        )
+        rows.append(
+            Booking(
+                id=f"bk_welcome_{index}",
+                business_id=BIZ,
+                slot_id=f"ses_welcome_{index}",
+                starts_at=start,
+                staff_id=member,
+                client_id=cid,
+                subject_id=pid,
+                status="pending",
+                source="online",
+                manage_token=f"manage_bk_welcome_{index}",
+                price_cents=item[3],
+            )
+        )
 
 
 def seed_client_series() -> None:
@@ -2081,7 +2137,6 @@ def build_demo(as_of: datetime | None = None) -> DemoContext:
         clock.travel(as_of)
     now = (clock.now() if as_of is None else as_of).astimezone(VANCOUVER)
     rows = []
-    EARNING_STAGE.clear()
     INV_SEQ[0] = 1000
     owner, _ = seed_identity()
     seed_items(owner)
@@ -2097,6 +2152,7 @@ def build_demo(as_of: datetime | None = None) -> DemoContext:
     seed_open_sale()
     seed_online_shop()
     seed_client_series()
+    seed_first_visits()
     seed_calendar_filler()
     seed_dispute()
     ctx = DemoContext(now, BIZ, owner, rows)
@@ -2139,7 +2195,7 @@ def build_demo(as_of: datetime | None = None) -> DemoContext:
     return ctx
 
 
-def validate_seed_target(reset_demo: bool) -> None:
+def validate_seed_target() -> None:
     settings = get_settings()
     url = make_url(settings.migration_database_url)
     # staging's pods reach their own database through the Cloud SQL proxy on localhost too
@@ -2188,18 +2244,45 @@ async def purge_businesses(
     await session.execute(text("ALTER TABLE entries ENABLE TRIGGER entries_append_only"))
 
 
-async def refresh_demo_settings(session: AsyncSession, ctx: DemoContext) -> list[str]:
-    changed: list[str] = []
-    for seeded in ctx.all(Business):
-        business = await session.get(Business, seeded.id)
-        if business is None:
+async def date_seed_writes(session: AsyncSession, business_ids: list[str], as_of: datetime) -> None:
+    """Rows the database stamped while seeding take the scenario's times, not the wall clock."""
+    accounts, entries = Base.metadata.tables["accounts"], Base.metadata.tables["entries"]
+    span = select(entries.c.occurred_at).where(entries.c.account_id == accounts.c.id)
+    await session.execute(
+        update(accounts)
+        .where(accounts.c.business_id.in_(business_ids))
+        .values(
+            created_at=func.coalesce(
+                span.with_only_columns(func.min(entries.c.occurred_at)).scalar_subquery(), as_of
+            ),
+            updated_at=func.coalesce(
+                span.with_only_columns(func.max(entries.c.occurred_at)).scalar_subquery(), as_of
+            ),
+        )
+    )
+    # the balance check is deferred, and a table with pending trigger events cannot be altered
+    await session.execute(text("SET CONSTRAINTS ALL IMMEDIATE"))
+    await session.execute(text("ALTER TABLE entries DISABLE TRIGGER entries_append_only"))
+    await session.execute(
+        update(entries)
+        .where(entries.c.business_id.in_(business_ids))
+        .values(created_at=entries.c.occurred_at)
+    )
+    await session.execute(text("ALTER TABLE entries ENABLE TRIGGER entries_append_only"))
+    for table in Base.metadata.sorted_tables:
+        if table.name in {"accounts", "entries"}:
             continue
-        for field in DEMO_SETTINGS:
-            if getattr(business, field) != getattr(seeded, field):
-                setattr(business, field, getattr(seeded, field))
-                changed.append(f"{business.id}.{field}")
-    await session.flush()
-    return changed
+        scope: ColumnElement[bool]
+        if "business_id" in table.c:
+            scope = table.c.business_id.in_(business_ids)
+        elif table.name == "businesses":
+            scope = table.c.id.in_(business_ids)
+        else:
+            continue
+        for column in ("created_at", "updated_at"):
+            if column in table.c:
+                stamped = table.c[column] == func.transaction_timestamp()
+                await session.execute(update(table).where(scope, stamped).values({column: as_of}))
 
 
 async def link_identities(ctx: DemoContext) -> None:
@@ -2216,24 +2299,14 @@ async def link_identities(ctx: DemoContext) -> None:
         ) from exc
 
 
-async def main(*, reset_demo: bool = False, as_of: datetime | None = None) -> None:
-    validate_seed_target(reset_demo)
+async def main(*, as_of: datetime | None = None) -> None:
+    validate_seed_target()
     ctx = build_demo(as_of)
     await link_identities(ctx)
     upload_demo_assets()
     # replacing demo rows pauses the ledger's append-only trigger, which only the owner may do
     owner = create_async_engine(get_settings().migration_database_url)
     async with async_sessionmaker(owner, expire_on_commit=False)() as session:
-        business_ids = [row.id for row in ctx.all(Business)]
-        exists = await session.scalar(select(Business.id).where(Business.id.in_(business_ids)))
-        if exists and not reset_demo:
-            changed = await refresh_demo_settings(session, ctx)
-            await session.commit()
-            await owner.dispose()
-            summary = ", ".join(changed) or "none changed"
-            print(f"Demo accounts already exist; refreshed their settings ({summary}).")
-            print("Use --reset-demo to replace the rest of their rows.")
-            return
         await replace_demo_rows(session, ctx)
         for cls in INSERT_ORDER:
             batch = [r for r in rows if type(r) is cls]
@@ -2242,6 +2315,7 @@ async def main(*, reset_demo: bool = False, as_of: datetime | None = None) -> No
                 await session.flush()
         await seed_finance(session, ctx)
         await session.flush()
+        await date_seed_writes(session, [row.id for row in ctx.all(Business)], ctx.now)
         report = await validate_database(session, as_of=ctx.now)
         if not report["ok"]:
             raise ValueError(f"Demo validation failed: {report['errors']}")
@@ -2284,7 +2358,6 @@ def upload_demo_assets() -> None:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--reset-demo", action="store_true")
     parser.add_argument("--as-of", type=datetime.fromisoformat)
     args = parser.parse_args()
-    asyncio.run(main(reset_demo=args.reset_demo, as_of=args.as_of))
+    asyncio.run(main(as_of=args.as_of))

@@ -132,7 +132,7 @@ async def test_gift_card_sell_redeem_and_expire(
                 "amount_cents": 5000,
                 "purchaser_client_id": MARCUS,
                 "payment_method_id": "default",
-                "recipient": "gift-flow@example.com",
+                "recipient": "gift-flow@example.ca",
             },
         ),
         201,
@@ -145,7 +145,7 @@ async def test_gift_card_sell_redeem_and_expire(
 
     await settle(api, db, sold["payment_id"])
     assert await gift_card(db, gid) == ("active", 5000)
-    assert any(sold["code"] in m.body for m in email.sent if m.to == "gift-flow@example.com")
+    assert any(sold["code"] in m.body for m in email.sent if m.to == "gift-flow@example.ca")
 
     redeemed = ok(
         await api.post("/v1/gift-cards/redeem", json={"code": sold["code"], "amount_cents": 2000})

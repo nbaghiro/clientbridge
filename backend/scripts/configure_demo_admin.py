@@ -24,13 +24,13 @@ async def main() -> None:
         raise SystemExit("demo platform access can only be configured with ENV=dev")
     async with SessionLocal() as db:
         user = await db.get(User, "us_dev")
-        if user is None or user.email != "hannah@birchbarkpets.ca":
+        if user is None or user.email != "hannah@birchbark.example":
             raise SystemExit("seed the demo accounts with make seed first")
         identity_id = await get_identity_provider().find_identity(user.email)
         if identity_id is None or identity_id != user.identity_id:
             raise SystemExit("the demo account is not linked to its current auth identity")
         save_identity(Path(".env"), identity_id)
-    print("Configured Hannah Wong (hannah@birchbarkpets.ca) as a development platform admin.")
+    print("Configured Hannah Wong (hannah@birchbark.example) as a development platform admin.")
     print("Restart the API to load the grant. Other demo accounts remain non-admin.")
 
 

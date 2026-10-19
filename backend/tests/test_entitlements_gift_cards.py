@@ -90,7 +90,7 @@ async def test_purchase_settles_active_and_notifies_recipient(
                 "amount_cents": 8000,
                 "purchaser_client_id": PURCHASER,
                 "payment_method_id": "default",
-                "recipient": "mum@example.com",
+                "recipient": "mum@example.ca",
             },
         )
     ).json()
@@ -100,7 +100,7 @@ async def test_purchase_settles_active_and_notifies_recipient(
         await db.execute(select(GiftCard).where(GiftCard.id == body["gift_card_id"]))
     ).scalar_one()
     assert card.status == "active"
-    sent = [m for m in email.sent if m.to == "mum@example.com"]
+    sent = [m for m in email.sent if m.to == "mum@example.ca"]
     assert len(sent) == 1
     assert body["code"] in sent[0].body
     assert "a $80.00 gift card" in sent[0].body  # in the purchase's currency
@@ -118,7 +118,7 @@ async def test_settle_redelivery_activates_once_and_notifies_once(
                 "amount_cents": 6000,
                 "purchaser_client_id": PURCHASER,
                 "payment_method_id": "default",
-                "recipient": "gran@example.com",
+                "recipient": "gran@example.ca",
             },
         )
     ).json()
@@ -127,14 +127,14 @@ async def test_settle_redelivery_activates_once_and_notifies_once(
         await db.execute(select(GiftCard).where(GiftCard.id == body["gift_card_id"]))
     ).scalar_one()
     assert card.status == "active"
-    assert len([m for m in email.sent if m.to == "gran@example.com"]) == 1
+    assert len([m for m in email.sent if m.to == "gran@example.ca"]) == 1
 
     await settle(as_owner, db, body["payment_id"], "evt_gc_redelivery")  # second event id
     card = (
         await db.execute(select(GiftCard).where(GiftCard.id == body["gift_card_id"]))
     ).scalar_one()
     assert card.status == "active"  # still active, not re-activated
-    assert len([m for m in email.sent if m.to == "gran@example.com"]) == 1  # emailed exactly once
+    assert len([m for m in email.sent if m.to == "gran@example.ca"]) == 1  # emailed exactly once
 
 
 async def test_redeem_before_activation_409(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:

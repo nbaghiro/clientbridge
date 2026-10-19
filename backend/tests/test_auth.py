@@ -41,7 +41,7 @@ async def test_me_describes_the_signed_in_user(
     assert res.status_code == 200, res.text
     assert res.json() == {
         "user_id": OWNER_USER,
-        "email": "hannah@birchbarkpets.ca",
+        "email": "hannah@birchbark.example",
         "name": "Hannah Wong",
         "email_verified": True,
         "second_factor": False,
@@ -83,7 +83,7 @@ async def test_profile_changes_in_the_auth_service_reach_the_user(
 async def test_an_email_held_by_another_user_409(
     api: httpx.AsyncClient, identities: FakeIdentityProvider
 ) -> None:
-    taken = fresh("hannah@birchbarkpets.ca")
+    taken = fresh("hannah@birchbark.example")
     res = await api.get("/v1/me", headers={"X-Session-Token": identities.issue(taken)})
     assert res.status_code == 409 and res.json()["error"] == "email_in_use"
 
@@ -94,7 +94,7 @@ async def test_a_deleted_identity_is_relinked_when_the_email_is_verified(
     owner = await db.get(User, OWNER_USER)
     assert owner is not None
     identities.deleted.add(owner.identity_id)
-    again = fresh("hannah@birchbarkpets.ca")
+    again = fresh("hannah@birchbark.example")
     unverified = replace(again, verified_emails=frozenset())
     refused = await api.get("/v1/me", headers={"X-Session-Token": identities.issue(unverified)})
     assert refused.status_code == 409
@@ -110,7 +110,7 @@ async def test_me_relinks_from_the_fresh_identity_right_after_verification(
     owner = await db.get(User, OWNER_USER)
     assert owner is not None
     identities.deleted.add(owner.identity_id)
-    again = fresh("hannah@birchbarkpets.ca")
+    again = fresh("hannah@birchbark.example")
     token = identities.issue(again)
     identities.cached[token] = replace(again, verified_emails=frozenset())
     res = await api.get("/v1/me", headers={"X-Session-Token": token})

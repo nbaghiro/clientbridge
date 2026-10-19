@@ -554,9 +554,9 @@ async def test_trial_reminders_go_three_days_before_and_on_the_last_day(
 ) -> None:
     now = await local_hour(db, 9)
     notifier = Notifier(email, sms, push)
-    await _trial(db, timedelta(days=3, hours=2), billing_email="owner@birchbark.test")
+    await _trial(db, timedelta(days=3, hours=2), billing_email="owner@example.ca")
     assert await run_trial_reminders(db, notifier, now) == 1
-    assert email.sent[-1].to == "owner@birchbark.test"
+    assert email.sent[-1].to == "owner@example.ca"
     assert "/setup/plan" in email.sent[-1].body
     await _trial(db, timedelta(hours=5))
     assert await run_trial_reminders(db, notifier, now) == 1
@@ -731,11 +731,11 @@ async def test_the_last_reminder_goes_at_the_last_9_am_before_the_trial_ends(
 ) -> None:
     now = await local_hour(db, 9)
     notifier = Notifier(email, sms, push)
-    await _trial(db, -timedelta(hours=1), billing_email="owner@birchbark.test")
+    await _trial(db, -timedelta(hours=1), billing_email="owner@example.ca")
     assert await run_trial_reminders(db, notifier, now) == 0
-    await _trial(db, timedelta(hours=22), billing_email="owner@birchbark.test")
+    await _trial(db, timedelta(hours=22), billing_email="owner@example.ca")
     assert await run_trial_reminders(db, notifier, now) == 1
-    await _trial(db, timedelta(hours=26), billing_email="owner@birchbark.test")
+    await _trial(db, timedelta(hours=26), billing_email="owner@example.ca")
     assert await run_trial_reminders(db, notifier, now) == 0
 
 
@@ -830,7 +830,7 @@ async def test_trial_reminder_job_replay_does_not_send_twice(
     db: AsyncSession, email: FakeEmailSender, sms: FakeSmsSender, push: FakePushSender
 ) -> None:
     now = await local_hour(db, 9)
-    await _trial(db, timedelta(hours=5), billing_email="owner@birchbark.test")
+    await _trial(db, timedelta(hours=5), billing_email="owner@example.ca")
     notifier = Notifier(email, sms, push)
     assert await run_trial_reminders(db, notifier, now) == 1
     assert await run_trial_reminders(db, notifier, now) == 0

@@ -1430,7 +1430,7 @@ Size: M · Area: Platform and launch
 
 **Flow:** One full pass of the product as owners, staff and clients use it, across devices, before launch.
 
-**Built:** Demo business Birchbark Pet Studio; owner [hannah@birchbarkpets.ca](mailto:hannah@birchbarkpets.ca) and staff [priya@birchbarkpets.ca](mailto:priya@birchbarkpets.ca), password demo1234.
+**Built:** Demo business Birchbark Pet Studio; owner hannah@birchbark.example and staff priya@birchbark.example, password demo1234.
 
 **To do:**
 

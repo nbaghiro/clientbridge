@@ -39,7 +39,7 @@ test("a client books a visit online and opens the manage link", async ({ page })
     const openingsResponse = page.waitForResponse(
         (response) => response.url().includes(`/book/${links.slug}/days?`) && response.ok(),
     );
-    await page.getByRole("button", { name: /^Full Groom — Large Dog/ }).click();
+    await page.getByRole("button", { name: /^Full Groom — Small Dog/ }).click();
     await expect(page.getByRole("heading", { name: b.stepTime })).toBeVisible();
     const openings = (await (await openingsResponse).json()) as {
         days: { count: number; closed: boolean }[];
@@ -67,22 +67,25 @@ test("a client books a visit online and opens the manage link", async ({ page })
     await page.getByRole("textbox", { name: b.subject("pet") }).fill("Pepper");
     await page.getByRole("textbox", { name: b.phone }).fill("2505550199");
     await page.getByRole("textbox", { name: new RegExp(`^${b.email}`) }).fill("robin@example.com");
-    await page.getByRole("button", { name: b.confirmAndPay("$27.50") }).click();
-    const outcome = page.getByRole("heading", {
-        name: new RegExp(`^(${b.payTitle}|${b.doneTitle}|${b.pendingTitle})$`),
-    });
-    await expect(outcome).toHaveText(
-        new RegExp(`^(${b.payTitle}|${b.doneTitle}|${b.pendingTitle})$`),
+    const booked = page.waitForResponse(
+        (response) =>
+            response.url().endsWith(`/book/${links.slug}`) &&
+            response.request().method() === "POST",
     );
-    if ((await outcome.textContent()) !== b.payTitle) {
-        const m = strings.publicManage;
-        await page.getByRole("button", { name: b.manage }).click();
-        await expect(page).toHaveURL(/\/m\//);
-        await expect(page.getByText(m.title, { exact: true })).toBeVisible();
-        await page.getByRole("button", { name: m.cancel }).click();
-        await page.getByRole("button", { name: m.cancelConfirm }).click();
-        await expect(page.getByRole("heading", { name: m.canceledTitle })).toBeVisible();
-    }
+    await page.getByRole("button", { name: b.confirm, exact: true }).click();
+    expect((await booked).status()).toBe(200);
+    await expect(
+        page.getByRole("heading", {
+            name: new RegExp(`^(${b.doneTitle}|${b.pendingTitle})$`),
+        }),
+    ).toBeVisible();
+    const m = strings.publicManage;
+    await page.getByRole("button", { name: b.manage }).click();
+    await expect(page).toHaveURL(/\/m\//);
+    await expect(page.getByText(m.title, { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: m.cancel }).click();
+    await page.getByRole("button", { name: m.cancelConfirm }).click();
+    await expect(page.getByRole("heading", { name: m.canceledTitle })).toBeVisible();
     expect(errors).toEqual([]);
 });
 

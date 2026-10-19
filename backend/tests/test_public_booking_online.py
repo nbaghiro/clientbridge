@@ -127,6 +127,7 @@ async def test_lead_time_and_horizon_bound_open_times_and_booking(
 async def test_booking_keeps_subject_note_and_returns_a_manage_link(
     api: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
 ) -> None:
+    await _policy(db, approve_new_clients=False)
     res = await api.post(
         f"/book/{SLUG}",
         json=_body(staff="any", subject_name=" Biscuit ", note="Nervous with dryers"),

@@ -71,3 +71,7 @@ Focused validation for this slice: 33 backend tests and 12 shared view-model tes
 ## Main branch conflict resolution
 
 Merged `origin/main` through `cfc44acf`, preserving the Google-first screens and the newer searchable client picker with person media. Regenerated API, locale and sync outputs from the merged sources. Renumbered the approved, undeployed internal-review cleanup to `cb0022` after `cb0021` because main now owns `cb0019`–`cb0021`; the cleanup data operations and rollback behavior are unchanged. No live database was modified.
+
+## CI walkthrough repair
+
+Run 39177895198 tested GitHub's merge with main `b1eeb3e7`, whose demo seed changed after the previous merge. Updated staff-pay navigation to a seeded payee, mobile payout setup to the ready state, and Cedar Coast booking navigation to its populated catalog. The booking/manage walkthrough now uses a no-deposit service, so it creates and cancels a real booking without requiring Stripe credentials that CI does not provide. The deposit/slot-conflict boundary test remains in place. Merged the same main commit locally to validate the actual CI tree.

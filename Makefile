@@ -33,7 +33,7 @@ help:
 	@echo "lighthouse-site  Lighthouse budget against the site preview on :8710"
 	@echo "migrate          alembic upgrade head"
 	@echo "revision         alembic autogenerate (name=...)"
-	@echo "seed             load the Birchbark Pet Studio demo business (idempotent)"
+	@echo "seed             replace the demo businesses' rows; other tenants are kept"
 	@echo "gen-api          regenerate the frontend api-client from the backend OpenAPI"
 	@echo "gen-sync-schema  regenerate the PowerSync client schema from models + sync streams"
 	@echo "gen-themes       regenerate the theme tokens from .docs/design/app-explorer.html"
@@ -292,10 +292,7 @@ hooks:
 
 check: lint codegen-check test
 
-.PHONY: demo-reset demo-check demo-snapshot
-
-demo-reset:
-	cd backend && uv run python -m scripts.seed_demo --reset-demo
+.PHONY: demo-check demo-snapshot
 
 demo-check:
 	cd backend && uv run python -m scripts.demo_validate

@@ -210,14 +210,14 @@ async def test_admin_email_preview_and_send(
     assert "data:image/png;base64," in preview["html"]
     assert "cid:" not in preview["html"]
     body = {
-        "recipient": "operator@example.com",
+        "recipient": "operator@example.ca",
         "transport": "smtp",
         "request_id": "admin-test-delivery-001",
     }
     response = await api.post("/admin/v1/emails/invoice/send", headers=admin_headers, json=body)
     assert response.status_code == 200, response.text
     assert len(email.sent) == 1
-    assert email.sent[0].to == "operator@example.com"
+    assert email.sent[0].to == "operator@example.ca"
     assert email.sent[0].subject.startswith("[TEST]")
     assert email.sent[0].images
     history = await api.get("/admin/v1/deliveries", headers=admin_headers)

@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.ids import new_id
 from clientbridge.models.billing import Invoice, Line, Order
+from clientbridge.models.clients import Client
 from clientbridge.models.ledger import Account, Entry
 from clientbridge.models.payments import Payment
 from clientbridge.services import ledger
@@ -288,6 +289,9 @@ async def test_a_second_tipped_instalment_receipt_counts_every_tip_on_the_invoic
     )
     invoice = await db.get(Invoice, inv)
     assert invoice is not None
+    client = await db.get(Client, invoice.client_id)
+    assert client is not None
+    client.email = "pat@example.ca"  # seeded contacts use reserved addresses, which never send
     first = Payment(
         id=new_id("payment"),
         business_id=BIZ,

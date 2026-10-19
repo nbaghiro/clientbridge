@@ -4,6 +4,7 @@ from decimal import ROUND_HALF_UP, Decimal
 from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.core.scoping import scoped
 from clientbridge.integrations.stripe import ChargeFees
 from clientbridge.models.billing import Estimate, Invoice, Line, Order
@@ -13,7 +14,7 @@ from clientbridge.models.clients import Note
 from clientbridge.models.ledger import Account, Entry
 from clientbridge.models.payments import Payment, PaymentMethod
 from clientbridge.models.scheduling import Booking, Slot
-from clientbridge.services import earnings, ledger
+from clientbridge.services import bookings, earnings, ledger
 from clientbridge.services.lines import fetch_lines, included_totals, price_lines
 from clientbridge.services.tax import (
     TaxComponent,
@@ -25,6 +26,11 @@ from clientbridge.services.tax import (
 )
 from scripts.demo_context import DemoContext
 
+GIFT_TENDERS = (
+    ("gc_used", "inv_gift_david", 5000, -15),
+    ("gc_expired", "inv_gift_ethan", 2500, -20),
+)
+APPLIED_DEPOSIT = "bk_001"
 PACKAGE_VISITS = (
     ("pkg_marcus", "cl_marcus", "sj_rex", (-52, -24)),
     ("pkg_grace", "cl_grace", "sj_pepper", (-105, -84, -63, -42, -21)),
@@ -222,10 +228,7 @@ def _entitlements(ctx: DemoContext) -> None:
         card.status = "active"
         card.created_at = ctx.at(-120 if card.id == "gc_used" else -60)
         card.updated_at = card.created_at
-    for card_id, invoice_id, amount, day in (
-        ("gc_used", "inv_gift_david", 5000, -15),
-        ("gc_expired", "inv_gift_ethan", 2500, -20),
-    ):
+    for card_id, invoice_id, amount, day in GIFT_TENDERS:
         card = ctx.get(GiftCard, card_id)
         client_id = card.purchaser_client_id
         if client_id is None:
@@ -274,7 +277,12 @@ def price_documents(ctx: DemoContext) -> None:
 def _payments(ctx: DemoContext, previous_totals: dict[str, int]) -> None:
     invoices = {invoice.id: invoice for invoice in ctx.all(Invoice)}
     orders = {order.id: order for order in ctx.all(Order)}
+    tendered = {invoice_id for _, invoice_id, _, _ in GIFT_TENDERS}
     for invoice in invoices.values():
+        if invoice.status == "draft":
+            invoice.issued_at = invoice.due_at = invoice.overdue_notified_at = None
+            invoice.created_at = invoice.updated_at = invoice.created_at or ctx.at(-2)
+            continue
         visits = [
             ctx.get(Booking, line.booking_id)
             for line in ctx.all(Line)
@@ -290,7 +298,9 @@ def _payments(ctx: DemoContext, previous_totals: dict[str, int]) -> None:
         invoice.created_at = min(invoice.created_at or issued, issued)
         invoice.due_at = due
         invoice.overdue_notified_at = (
-            due + timedelta(days=1) if due + timedelta(days=1) < ctx.now else None
+            due + timedelta(days=1)
+            if due + timedelta(days=1) < ctx.now and invoice.id not in tendered
+            else None
         )
     original_amounts = {p.id: p.amount_cents for p in ctx.all(Payment)}
     for payment in ctx.all(Payment):
@@ -339,6 +349,42 @@ def _payments(ctx: DemoContext, previous_totals: dict[str, int]) -> None:
         )
         payment.paid_at = payment.updated_at = paid
         payment.created_at = paid - timedelta(minutes=5)
+    for order in orders.values():
+        paid_at = [
+            p.paid_at
+            for p in ctx.all(Payment)
+            if p.order_id == order.id and p.status == "succeeded" and p.kind != "refund"
+        ]
+        order.paid_at = max((at for at in paid_at if at), default=None)
+
+
+def _applied_deposit(ctx: DemoContext) -> None:
+    """A visit whose deposit was taken at booking; seed_finance applies it to the invoice."""
+    booking = ctx.get(Booking, APPLIED_DEPOSIT)
+    paid = booking.created_at + timedelta(minutes=10)
+    booking.deposit_status = "collected"
+    settled = next(
+        p for p in ctx.all(Payment) if p.invoice_id == booking.invoice_id and p.kind == "payment"
+    )
+    settled.amount_cents -= booking.deposit_amount_cents
+    ctx.add(
+        Payment(
+            id="pay_dep_applied",
+            business_id=ctx.business_id,
+            client_id=booking.client_id,
+            booking_id=booking.id,
+            kind="deposit",
+            amount_cents=booking.deposit_amount_cents,
+            currency="CAD",
+            method="card",
+            provider="stripe",
+            provider_ref="pi_demo_dep_applied",
+            status="succeeded",
+            paid_at=paid,
+            created_at=paid - timedelta(minutes=5),
+            updated_at=paid,
+        )
+    )
 
 
 def _inventory(ctx: DemoContext) -> None:
@@ -496,6 +542,7 @@ def prepare_finance(ctx: DemoContext) -> None:
     _journeys(ctx)
     price_documents(ctx)
     _payments(ctx, previous)
+    _applied_deposit(ctx)
     tipped = ctx.get(Payment, "pay_ord1")
     tipped.amount_cents = ctx.get(Order, "ord_1").total_cents + tipped.tip_cents
     for status in ("pending", "failed"):
@@ -549,10 +596,7 @@ async def _purchases(db: AsyncSession, ctx: DemoContext) -> None:
 
 
 async def _gift_tender(db: AsyncSession, ctx: DemoContext) -> None:
-    for card_id, invoice_id, amount in (
-        ("gc_used", "inv_gift_david", 5000),
-        ("gc_expired", "inv_gift_ethan", 2500),
-    ):
+    for card_id, invoice_id, amount, _ in GIFT_TENDERS:
         card, invoice = ctx.get(GiftCard, card_id), ctx.get(Invoice, invoice_id)
         when = (invoice.issued_at or ctx.at(-1)) + timedelta(minutes=10)
         await ledger.post(
@@ -736,6 +780,15 @@ async def seed_finance(db: AsyncSession, ctx: DemoContext) -> None:
         if refund.kind == "refund" and refund.status == "succeeded":
             await ledger.post_refund(db, refund, ctx.get(Payment, refund.parent_payment_id or ""))
     await _gift_tender(db, ctx)
+    applied = ctx.get(Booking, APPLIED_DEPOSIT)
+    invoice = ctx.get(Invoice, applied.invoice_id or "")
+    resume = clock.now()
+    clock.freeze(invoice.issued_at or ctx.now)
+    try:
+        if not await bookings.apply_deposit(db, applied, invoice):
+            raise ValueError(f"{applied.id}: its deposit was not applied to {invoice.id}")
+    finally:
+        clock.travel(resume)
     for booking in sorted(ctx.all(Booking), key=lambda b: b.completed_at or ctx.now):
         if booking.package_id and booking.status == "completed":
             await ledger.post_consumption(
