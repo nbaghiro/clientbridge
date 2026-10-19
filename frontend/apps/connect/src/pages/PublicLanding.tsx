@@ -136,7 +136,7 @@ export function PublicLanding() {
                             variant="mark"
                             color={page.brand.primary}
                             size="xl"
-                            className="mb-4 !bg-surface p-1"
+                            className="mb-4 !bg-surface"
                         />
                         <h1 className="font-display text-4xl font-bold tracking-tight md:text-5xl">
                             {page.business_name}

@@ -23,10 +23,21 @@ export function Avatar({
     const tinted = color
         ? { backgroundColor: tint(color, 12), color: shade(color, 25) }
         : undefined;
+    const image = src && src !== failedSrc ? src : null;
+    // one painted layer, so the rounded clip cannot let the backing colour show at the edge
+    const painted = image
+        ? {
+              backgroundImage: `url(${JSON.stringify(image)})`,
+              backgroundOrigin: "content-box",
+              backgroundPosition: "center",
+              backgroundRepeat: "no-repeat",
+              backgroundSize: variant === "mark" ? "contain" : "cover",
+          }
+        : undefined;
     return (
         <span
             aria-hidden
-            style={tinted}
+            style={{ ...tinted, ...painted }}
             className={cx(
                 `flex overflow-hidden shrink-0 select-none items-center justify-center rounded-avatar font-bold ${
                     tinted ? "" : "bg-accent-weak text-accent"
@@ -34,13 +45,13 @@ export function Avatar({
                 className,
             )}
         >
-            {src && src !== failedSrc ? (
+            {image ? (
                 <img
-                    src={src}
+                    src={image}
                     alt=""
-                    className={`h-full w-full ${variant === "mark" ? "object-contain" : "object-cover"}`}
+                    className="hidden"
                     onError={() => {
-                        setFailedSrc(src);
+                        setFailedSrc(image);
                     }}
                 />
             ) : /^\p{L}/u.test(name) ? (
