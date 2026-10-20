@@ -556,14 +556,14 @@
         "message": "Outstanding"
     },
     "billing.statOutstandingHint": {
-        "message": "{n, plural, one {# invoice awaiting payment} other {# invoices awaiting payment}}",
+        "message": "{n, plural, one {# invoice} other {# invoices}}",
         "args": ["n"]
     },
     "billing.statOverdue": {
         "message": "Overdue"
     },
     "billing.statOverdueHint": {
-        "message": "{n, plural, =0 {Nothing overdue} one {# invoice past due} other {# invoices past due}}",
+        "message": "{n, plural, =0 {Nothing overdue} one {# invoice} other {# invoices}}",
         "args": ["n"]
     },
     "billing.statPaid": {

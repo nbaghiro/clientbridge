@@ -504,13 +504,13 @@
         "message": "[Öûţšţåñðîñĝ one two]"
     },
     "billing.statOutstandingHint": {
-        "message": "[{n,plural,one{# îñṽöîçé åŵåîţîñĝ þåýɱéñţ} other{# îñṽöîçéš åŵåîţîñĝ þåýɱéñţ}} one two three four]"
+        "message": "[{n,plural,one{# îñṽöîçé} other{# îñṽöîçéš}} one two]"
     },
     "billing.statOverdue": {
         "message": "[Öṽéŕðûé one]"
     },
     "billing.statOverdueHint": {
-        "message": "[{n,plural,one{# îñṽöîçé þåšţ ðûé} other{# îñṽöîçéš þåšţ ðûé} =0{Ñöţĥîñĝ öṽéŕðûé}} one two three four]"
+        "message": "[{n,plural,one{# îñṽöîçé} other{# îñṽöîçéš} =0{Ñöţĥîñĝ öṽéŕðûé}} one two three]"
     },
     "billing.statPaid": {
         "message": "[Þåîð, ļåšţ 30 ðåýš one two]"

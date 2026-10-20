@@ -196,33 +196,29 @@ function InvoiceDeskView({
                 banner={
                     desk.nothingYet || desk.load.state === "error" ? undefined : (
                         <View style={styles.stats}>
-                            <View style={styles.stat}>
-                                <Stat
-                                    size="lg"
-                                    currency={BUSINESS_CURRENCY}
-                                    label={s.statOutstanding}
-                                    cents={ready ? desk.stats.outstandingCents : null}
-                                    hint={
-                                        ready
-                                            ? s.statOutstandingHint(desk.stats.outstandingCount)
-                                            : undefined
-                                    }
-                                />
-                            </View>
-                            <View style={styles.stat}>
-                                <Stat
-                                    size="lg"
-                                    currency={BUSINESS_CURRENCY}
-                                    label={s.statOverdue}
-                                    cents={ready ? desk.stats.overdueCents : null}
-                                    tone={desk.stats.overdueCents > 0 ? "danger" : "ink"}
-                                    hint={
-                                        ready
-                                            ? s.statOverdueHint(desk.stats.overdueCount)
-                                            : undefined
-                                    }
-                                />
-                            </View>
+                            <Stat
+                                size="lg"
+                                style={styles.stat}
+                                currency={BUSINESS_CURRENCY}
+                                label={s.statOutstanding}
+                                cents={ready ? desk.stats.outstandingCents : null}
+                                hint={
+                                    ready
+                                        ? s.statOutstandingHint(desk.stats.outstandingCount)
+                                        : undefined
+                                }
+                            />
+                            <Stat
+                                size="lg"
+                                style={styles.stat}
+                                currency={BUSINESS_CURRENCY}
+                                label={s.statOverdue}
+                                cents={ready ? desk.stats.overdueCents : null}
+                                tone={desk.stats.overdueCents > 0 ? "danger" : "ink"}
+                                hint={
+                                    ready ? s.statOverdueHint(desk.stats.overdueCount) : undefined
+                                }
+                            />
                         </View>
                     )
                 }
