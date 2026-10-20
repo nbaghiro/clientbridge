@@ -386,7 +386,8 @@ function ShellBody({
             </aside>
 
             <div className="relative isolate flex min-w-0 flex-1">
-                {/* Outside the scrolling area, so the art stays in the window's corner. */}
+                {/* Outside the scrolling area, so the art stays in the window's corners. */}
+                <Backdrop corner="topRight" />
                 <Backdrop corner="bottomRight" />
                 <main className="relative flex-1 overflow-y-auto">
                     {notice !== null ? (
