@@ -268,7 +268,10 @@ SQL_CHECKS = {
         "OR EXISTS (SELECT 1 FROM invoices i WHERE i.client_id=f.parent_id AND "
         "(i.overdue_notified_at IS NOT NULL OR (i.status='sent' AND i.total_cents > coalesce(("
         "SELECT sum(p.amount_cents) FROM payments p WHERE p.invoice_id=i.id AND "
-        "p.status='succeeded' AND p.kind != 'refund'), 0)))) "
+        "p.status='succeeded' AND p.kind != 'refund'), 0) + coalesce(("
+        "SELECT sum(p.amount_cents) FROM payments p JOIN bookings b ON b.id=p.booking_id "
+        "WHERE b.invoice_id=i.id AND b.deposit_status='applied' AND p.kind='deposit' AND "
+        "p.status='succeeded'), 0)))) "
         "OR EXISTS (SELECT 1 FROM responses r WHERE r.client_id=f.parent_id AND "
         "(r.answers->>'rating')::int <= 3))"
     ),

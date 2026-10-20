@@ -656,6 +656,16 @@ async def seed_earnings(db: AsyncSession, ctx: DemoContext) -> None:
             continue
         when = max(p.paid_at for p in payments if p.paid_at)
         await earnings.ensure_earnings(db, invoice, occurred_at=when)
+    resume = clock.now()
+    try:
+        for order in sorted(ctx.all(Order), key=lambda o: o.paid_at or ctx.now):
+            if order.paid_at is None:
+                continue
+            if (await ledger.order_state(db, order))[0] == "paid":
+                clock.freeze(order.paid_at)
+                await earnings.ensure_order_earning(db, order)
+    finally:
+        clock.travel(resume)
     rows = (
         (
             await db.execute(

@@ -2,6 +2,7 @@
 
 import importlib
 import random
+from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass
 from datetime import UTC, date, datetime, time, timedelta
 from pathlib import Path
@@ -219,6 +220,7 @@ class Demo:
                     ("rate_type", person.rate_type),
                     ("rate_bps", person.rate_bps),
                     ("rate_cents", person.rate_cents),
+                    ("retail_rate_bps", person.retail_rate_bps),
                 )
                 if value is not None
             }
@@ -757,6 +759,12 @@ class Demo:
         )
         booking.deposit_status = "collected"
         return payment
+
+    def forfeit(self, booking: Booking) -> None:
+        """A no-show keeps its collected deposit; the ledger moves it to revenue after the visit."""
+        if booking.status != "no_show" or booking.deposit_status != "collected":
+            raise ValueError(f"{booking.id}: only a no-show's collected deposit is forfeited")
+        booking.deposit_status = "forfeited"
 
     def refund(self, payment: Payment, cents: int, when: datetime, reason: str) -> Payment:
         document = (
@@ -1470,8 +1478,12 @@ class Demo:
         self.ctx.add(response)
         return response
 
-    def fill(self, clients: list[str], pacing: Pacing | None = None) -> list[Booking]:
-        """The routine visits behind the storyline, paced by the spec's (or `pacing`'s) volume."""
+    def fill(
+        self,
+        clients: Sequence[str] | Mapping[str, Sequence[str]],
+        pacing: Pacing | None = None,
+    ) -> list[Booking]:
+        """Routine visits paced by the spec or `pacing`; `clients` is shared or keyed by staff."""
         pacing = pacing or self.spec.pacing
         if pacing is None:
             return []
@@ -1481,10 +1493,12 @@ class Demo:
             month = self.local(self.at(week * 7)).month
             for staff, usual in pacing.visits_per_week.items():
                 count = round(usual * pacing.seasonality.get(month, 1.0))
-                for index in range(count):
+                pool = clients.get(staff, ()) if isinstance(clients, Mapping) else clients
+                services = pacing.staff_services.get(staff, pacing.services)
+                for index in range(count if pool else 0):
                     turn += 1
-                    client_key = clients[turn % len(clients)]
-                    item_id = pacing.services[turn % len(pacing.services)]
+                    client_key = pool[turn % len(pool)]
+                    item_id = services[turn % len(services)]
                     day = week * 7 + index * 5 // max(count, 1) + (1 if week >= 0 else 0)
                     past = day < 0
                     start = self.place(
@@ -1508,6 +1522,10 @@ class Demo:
                         created,
                         source="online" if turn % 3 == 0 else "manual",
                     )
+                    if booking.deposit_amount_cents and status != "canceled":
+                        self.deposit(booking, created + timedelta(minutes=10))
+                        if status == "no_show":
+                            self.forfeit(booking)
                     if status == "completed":
                         self.bill(booking, pacing.settlements[turn % len(pacing.settlements)])
                     made.append(booking)
@@ -1542,7 +1560,8 @@ class Demo:
             held = sum(
                 b.deposit_amount_cents
                 for b in bookings
-                if parent.id in {b.invoice_id, b.order_id} and b.deposit_status != "pending"
+                if parent.id in {b.invoice_id, b.order_id}
+                and b.deposit_status in {"collected", "applied"}
             )
             payment.amount_cents = (
                 parent.total_cents - (held if size == "balance" else 0) + (payment.tip_cents or 0)
@@ -1691,6 +1710,10 @@ async def seed_ledger(db: AsyncSession, demo: Demo) -> None:
         for card_id, cents, when in demo.redemptions:
             clock.freeze(when)
             await ledger.post_redemption(db, ctx.get(GiftCard, card_id), cents)
+        for booking in sorted(ctx.all(Booking), key=lambda b: b.starts_at):
+            if booking.deposit_status == "forfeited":
+                clock.freeze(ctx.get(Slot, booking.slot_id).ends_at + timedelta(hours=2))
+                await ledger.post_forfeit(db, booking)
     finally:
         clock.travel(resume)
     await seed_earnings(db, ctx)

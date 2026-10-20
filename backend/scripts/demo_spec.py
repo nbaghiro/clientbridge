@@ -34,6 +34,7 @@ class Person:
     rate_type: RateType | None = None
     rate_bps: int | None = None
     rate_cents: int | None = None
+    retail_rate_bps: int | None = None
     photo: bool = True
 
 
@@ -116,6 +117,10 @@ class Pacing:
 
     visits_per_week: Mapping[str, int]
     services: tuple[str, ...]
+    # a member's own services when they differ from the shared ones
+    staff_services: Mapping[str, tuple[str, ...]] = field(
+        default_factory=dict[str, tuple[str, ...]]
+    )
     weeks: int = 26
     ahead_weeks: int = 4
     # month (1 to 12) -> share of the usual week's visits

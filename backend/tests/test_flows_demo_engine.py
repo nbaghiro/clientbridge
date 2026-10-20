@@ -73,6 +73,7 @@ SPEC = BusinessSpec(
             payee=True,
             rate_type="percent",
             rate_bps=4000,
+            retail_rate_bps=1000,
             photo=False,
         ),
     ),
@@ -186,6 +187,7 @@ SPEC = BusinessSpec(
     pacing=Pacing(
         {"st_pb_owner": 3, "st_pb_kai": 4},
         ("it_pb_survey",),
+        staff_services={"st_pb_kai": ("it_pb_survey", "it_pb_service_call")},
         weeks=12,
         seasonality={7: 0.5},
         no_show_every=17,
@@ -319,6 +321,24 @@ class Probe(Demo):
         self.visit(
             "missed", "regular_a", "it_pb_survey", "st_pb_owner", -15, status="no_show", settle=None
         )
+        kept = self.visit(
+            "kept", "away", "it_pb_service_call", "st_pb_kai", -26, status="no_show", settle=None
+        )
+        assert kept is not None
+        self.deposit(kept, kept.created_at + timedelta(minutes=10))
+        self.forfeit(kept)
+        retail = self.visit("retail", "cash", "it_pb_survey", "st_pb_kai", -6, settle=None)
+        assert retail is not None and retail.completed_at is not None
+        self.sale(
+            "retail",
+            "cash",
+            "st_pb_kai",
+            Quote("it_pb_survey", (("it_pb_turret", 2),)),
+            retail,
+            retail.created_at,
+            retail.completed_at + timedelta(minutes=5),
+            tip=("st_pb_kai", 1000),
+        )
         self.visit("dropped", "regular_b", "it_pb_survey", "st_pb_owner", 3, status="canceled")
         past = self.session("workshop_past", "it_pb_system_check", "st_pb_owner", self.at(-7, 13))
         upcoming = self.session(
@@ -367,7 +387,12 @@ class Probe(Demo):
             {"goal": "Tidy"},
             self.at(-9, 8),
         )
-        self.fill(["regular_a", "regular_b", "regular_c", "away"])
+        self.fill(
+            {
+                "st_pb_owner": ["regular_a", "regular_b"],
+                "st_pb_kai": ["regular_c", "away", "regular_b"],
+            }
+        )
         self.consents()
         self.withdraw("away", "email", self.at(-5))
         self.broadcast("news", "News", "A short note to clients.", self.at(-20, 10))
@@ -478,3 +503,23 @@ async def test_engine_rows_post_through_the_ledger_and_validate(owner_db: AsyncS
         )
     )
     assert stripe == 0
+    forfeits = await db.scalar(
+        select(func.sum(Entry.amount_cents)).where(
+            Entry.business_id == PROBE,
+            Entry.event == "forfeit",
+            Entry.subject_id == "bk_pb_kept",
+            Entry.amount_cents > 0,
+        )
+    )
+    assert forfeits == 5000
+    commission = await db.scalar(
+        select(func.count())
+        .select_from(Entry)
+        .where(Entry.event == "earning", Entry.subject_id == "ord_pb_retail")
+    )
+    assert commission
+    kai = [b for b in demo.ctx.all(Booking) if b.id.startswith("bk_pb_fill_kai")]
+    held = {b.deposit_status for b in kai if b.deposit_amount_cents and b.status != "canceled"}
+    assert "applied" in held and held <= {"applied", "collected", "forfeited"}
+    owner = [b for b in demo.ctx.all(Booking) if b.id.startswith("bk_pb_fill_owner")]
+    assert owner and not any(b.deposit_amount_cents for b in owner)
