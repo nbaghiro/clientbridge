@@ -44,7 +44,7 @@ from clientbridge.services.plans import (
     PlanPrice,
     product_names,
 )
-from scripts.demo_context import LEGAL_ADDRESSES
+from scripts.demo_context import DEMO_BUSINESSES, FIXTURE_BUSINESS, DemoBusiness
 
 TAG = "clientbridge"
 DOMAIN = re.compile(r"[a-z0-9-]+(\.[a-z0-9-]+)+")
@@ -101,50 +101,6 @@ DASHBOARD_STEPS = (
 type Runner = Callable[[Sequence[str]], str]
 type Json = dict[str, object]
 type Action = Literal["create", "update", "keep", "blocked"]
-
-
-@dataclass(frozen=True)
-class DemoBusiness:
-    id: str
-    name: str
-    email: str
-    first_name: str
-    last_name: str
-    product_description: str
-    primary_color: str
-    url: str | None = None
-
-
-DEMO_BUSINESSES = (
-    DemoBusiness(
-        id="bz_birchbark",
-        name="Birchbark Pet Studio",
-        email="hello@birchbark.example",
-        first_name="Hannah",
-        last_name="Wong",
-        product_description="Pet grooming and daycare",
-        primary_color="#2E4A3F",
-        url="https://birchbarkpets.ca",
-    ),
-    DemoBusiness(
-        id="bz_demo_second",
-        name="Cedar Coast Pet Care",
-        email="owner@cedarcoast.example.test",
-        first_name="Rowan",
-        last_name="Ellis",
-        product_description="Dog walking and drop-in pet care",
-        primary_color="#35576B",
-    ),
-    DemoBusiness(
-        id="bz_northlight",
-        name="Northlight Security",
-        email="hello@northlight.example",
-        first_name="Erik",
-        last_name="Lindqvist",
-        product_description="Security camera installation and service",
-        primary_color="#1F2F4A",
-    ),
-)
 
 
 @dataclass(frozen=True)
@@ -552,7 +508,7 @@ def plan_destination(destinations: Sequence[Mapping[str, object]], url: str | No
 
 def account_body(biz: DemoBusiness) -> dict[str, object]:
     descriptor = payment_descriptor(biz.name) or ""
-    legal = LEGAL_ADDRESSES[biz.id]
+    legal = biz.legal
     support: dict[str, object] = {"email": biz.email, "phone": legal.legal_phone}
     profile: dict[str, object] = {
         "product_description": biz.product_description,
@@ -1348,9 +1304,9 @@ def main(argv: Sequence[str] | None = None, runner: Runner = cli_runner) -> int:
     publishable = config.get("test_mode_pub_key", "<pk_test_...>")
     print(f"  VITE_STRIPE_PUBLISHABLE_KEY={publishable}  (frontend/apps/web and apps/connect)")
     print(f"  STRIPE_PUBLISHABLE_KEY={publishable}  (frontend/apps/mobile)")
-    birchbark = resolved.get("bz_birchbark")
-    if birchbark is not None:
-        print(f"  STRIPE_TEST_CONNECTED_ACCOUNT={birchbark['id']}  (make test-e2e)")
+    fixture = resolved.get(FIXTURE_BUSINESS)
+    if fixture is not None:
+        print(f"  STRIPE_TEST_CONNECTED_ACCOUNT={fixture['id']}  (make test-e2e)")
     print("\ndemo businesses:")
     for biz in DEMO_BUSINESSES:
         account = resolved.get(biz.id)

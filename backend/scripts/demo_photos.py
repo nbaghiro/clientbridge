@@ -11,7 +11,6 @@ ASSETS = Path(__file__).parent / "demo_assets"
 TEAMS: dict[str, tuple[str, ...]] = {
     "bz_birchbark": ("us_dev", "us_admin", "us_diego", "us_priya"),
     "bz_demo_second": ("us_second_owner",),
-    "bz_northlight": ("us_nl_owner", "us_nl_office", "us_nl_liam", "us_nl_ava"),
 }
 
 # about a third of each book, all clients without a negative storyline (demo_validate checks)
@@ -52,31 +51,19 @@ CLIENTS: dict[str, tuple[str, ...]] = {
         "cl_regular_73",
     ),
     "bz_demo_second": ("cl_second_private",),
-    "bz_northlight": (
-        "cl_nl_aisha",
-        "cl_nl_arjun",
-        "cl_nl_claire",
-        "cl_nl_diane",
-        "cl_nl_hana",
-        "cl_nl_harper",
-        "cl_nl_jasmine",
-        "cl_nl_joan",
-        "cl_nl_louise",
-        "cl_nl_meilin",
-        "cl_nl_owen",
-        "cl_nl_rajesh",
-        "cl_nl_ruth",
-        "cl_nl_sarah",
-        "cl_nl_simon",
-        *(f"cl_nl_home_{n:02}" for n in range(10)),
-    ),
 }
 
 
 def add_people_photos(ctx: DemoContext, business_id: str) -> None:
+    add_photos(ctx, business_id, list(TEAMS[business_id]), list(CLIENTS[business_id]))
+
+
+def add_photos(
+    ctx: DemoContext, business_id: str, user_ids: list[str], client_ids: list[str]
+) -> None:
     people: list[tuple[FileParent, str]] = [
-        *(("user", user_id) for user_id in TEAMS[business_id]),
-        *(("client", client_id) for client_id in CLIENTS[business_id]),
+        *(("user", user_id) for user_id in user_ids),
+        *(("client", client_id) for client_id in client_ids),
     ]
     for parent_type, parent_id in people:
         path = ASSETS / f"face_{parent_id}.jpg"

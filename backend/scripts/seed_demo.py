@@ -44,16 +44,11 @@ from clientbridge.services.forms import form_definition
 from scripts.demo_calendar import build_calendar
 from scripts.demo_catalog import add_catalog_images
 from scripts.demo_chronology import align_chronology, chronology_errors
-from scripts.demo_context import DEMO_VERSION, LEGAL_ADDRESSES, DemoContext
+from scripts.demo_context import DEMO_PASSWORD, DEMO_VERSION, DemoContext, demo_business
 from scripts.demo_engagement import build_engagement
+from scripts.demo_engine import Demo, build_edition, editions, seed_ledger
 from scripts.demo_finance import add_finance_scenarios, prepare_finance, seed_finance
 from scripts.demo_identity import SECOND, build_identity, placeholder_identity
-from scripts.demo_northlight import (
-    NORTHLIGHT,
-    NORTHLIGHT_OWNER,
-    build_northlight,
-    seed_northlight_finance,
-)
 from scripts.demo_photos import add_people_photos
 from scripts.demo_scenarios import add_scenarios
 from scripts.demo_schedule import add_class_timetable, add_repeat_visits, finish_schedule
@@ -62,9 +57,9 @@ from scripts.demo_validate import validate_database, validate_graph
 VANCOUVER = ZoneInfo("America/Vancouver")
 now = clock.now().astimezone(VANCOUVER)
 BIZ = "bz_birchbark"
-DEMO_PASSWORD = "demo1234"  # every seeded user logs in with this
 STAGING_DATABASE = "staging_clientbridge"
 rows: list[Base] = []
+built: list[Demo] = []
 PACKAGE_USED = {"pkg_marcus": 2, "pkg_grace": 5, "pkg_sophie": 4}
 
 
@@ -113,7 +108,7 @@ def seed_identity() -> tuple[str, str]:
             name="Birchbark Pet Studio",
             slug="birchbark",
             timezone="America/Vancouver",
-            **asdict(LEGAL_ADDRESSES[BIZ]),
+            **asdict(demo_business(BIZ).legal),
             gst_hst_number="847201539RT0001",
             tax_registered=True,
             brand={
@@ -2112,13 +2107,14 @@ def seed_dispute() -> None:
 
 
 def build_demo(as_of: datetime | None = None) -> DemoContext:
-    global now, rows
+    global now, rows, built
     if as_of is not None:
         if as_of.tzinfo is None:
             raise ValueError("--as-of must include a timezone offset")
         clock.travel(as_of)
     now = (clock.now() if as_of is None else as_of).astimezone(VANCOUVER)
     rows = []
+    built = []
     INV_SEQ[0] = 1000
     owner, _ = seed_identity()
     seed_items(owner)
@@ -2179,7 +2175,10 @@ def build_demo(as_of: datetime | None = None) -> DemoContext:
     errors = validate_graph(ctx) + chronology_errors(ctx)
     if errors:
         raise ValueError("Invalid demo graph: " + "; ".join(errors[:20]))
-    rows.extend(build_northlight(now).rows)
+    for edition in editions():
+        demo = build_edition(edition, now)
+        built.append(demo)
+        rows.extend(demo.ctx.rows)
     return ctx
 
 
@@ -2302,9 +2301,8 @@ async def main(*, as_of: datetime | None = None) -> None:
                 session.add_all(batch)
                 await session.flush()
         await seed_finance(session, ctx)
-        await seed_northlight_finance(
-            session, DemoContext(ctx.now, NORTHLIGHT, NORTHLIGHT_OWNER, ctx.rows)
-        )
+        for demo in built:
+            await seed_ledger(session, demo)
         await session.flush()
         await date_seed_writes(session, [row.id for row in ctx.all(Business)], ctx.now)
         report = await validate_database(session, as_of=ctx.now)

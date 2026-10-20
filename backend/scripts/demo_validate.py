@@ -2,6 +2,7 @@ import argparse
 import asyncio
 import json
 from collections import Counter
+from collections.abc import Sequence
 from datetime import datetime, timedelta
 from typing import get_args
 from zoneinfo import ZoneInfo
@@ -24,7 +25,7 @@ from clientbridge.schemas.forms import FormDefinition
 from clientbridge.schemas.subjects import ATTRIBUTES
 from clientbridge.services.public import validate_answers
 from clientbridge.services.remittances import RemittanceService
-from scripts.demo_context import DEMO_BUSINESSES, DemoContext
+from scripts.demo_context import DEMO_BUSINESSES, DEMO_IDS, DemoContext
 
 
 def validate_graph(ctx: DemoContext) -> list[str]:
@@ -36,6 +37,7 @@ def validate_graph(ctx: DemoContext) -> list[str]:
     hours = ctx.all(Hours)
     business = ctx.get(Business, ctx.business_id)
     zone = ZoneInfo(business.timezone)
+    rules = next((b.rules for b in DEMO_BUSINESSES if b.id == ctx.business_id), ())
     if business.subject is not None:
         for subject in pets.values():
             try:
@@ -52,18 +54,9 @@ def validate_graph(ctx: DemoContext) -> list[str]:
             pet = pets[booking.subject_id]
             if pet.client_id != booking.client_id:
                 errors.append(f"{booking.id}: subject owner mismatch")
-            if (
-                business.subject == "pet"
-                and (slot.item_id == "it_cat") != (pet.attributes.get("species") == "cat")
-                and slot.item_id in {"it_cat", "it_groom_sm", "it_groom_lg"}
-            ):
-                errors.append(f"{booking.id}: incompatible species")
-            if (
-                business.subject == "pet"
-                and slot.item_id == "it_groom_sm"
-                and float(str(pet.attributes.get("weight_kg", 0))) > 11.34
-            ):
-                errors.append(f"{booking.id}: small dog weight limit")
+            for rule in rules:
+                if slot.item_id in rule.items and not rule.fits(pet.attributes):
+                    errors.append(f"{booking.id}: subject {rule.attribute} does not suit the visit")
         if booking.confirmed_at and booking.confirmed_at > ctx.now:
             errors.append(f"{booking.id}: future confirmation")
         if booking.status == "completed" and (
@@ -286,12 +279,14 @@ SQL_CHECKS = {
 }
 
 
-async def tax_errors(db: AsyncSession, now: datetime) -> list[str]:
+async def tax_errors(
+    db: AsyncSession, now: datetime, business_ids: Sequence[str] = DEMO_IDS
+) -> list[str]:
     """Registered demo businesses have filed every return already due, so only open tax is kept."""
     found = await db.execute(
         select(Staff, Business.timezone)
         .join(Business, Business.id == Staff.business_id)
-        .where(Business.id.in_(DEMO_BUSINESSES), Business.tax_registered, Staff.role == "owner")
+        .where(Business.id.in_(business_ids), Business.tax_registered, Staff.role == "owner")
     )
     errors: list[str] = []
     resume = clock.now()
@@ -327,18 +322,17 @@ async def tax_errors(db: AsyncSession, now: datetime) -> list[str]:
 
 
 async def validate_database(
-    db: AsyncSession, *, as_of: datetime | None = None
+    db: AsyncSession, *, as_of: datetime | None = None, business_ids: Sequence[str] = DEMO_IDS
 ) -> dict[str, object]:
     now = as_of or clock.now()
     found = await db.execute(
         select(Business.id, Staff.user_id)
         .join(Staff, Staff.business_id == Business.id)
-        .where(Business.id.in_(DEMO_BUSINESSES), Staff.role == "owner")
+        .where(Business.id.in_(business_ids), Staff.role == "owner")
     )
     owners = {business_id: user_id or "" for business_id, user_id in found.tuples().all()}
     contexts = [
-        DemoContext(now, business_id, owners.get(business_id, ""))
-        for business_id in DEMO_BUSINESSES
+        DemoContext(now, business_id, owners.get(business_id, "")) for business_id in business_ids
     ]
     for ctx in contexts:
         for model in (
@@ -377,7 +371,7 @@ async def validate_database(
                         select(table.c.id)
                         .join(parent, column == fk.column)
                         .where(
-                            table.c.business_id.in_(DEMO_BUSINESSES),
+                            table.c.business_id.in_(business_ids),
                             table.c.business_id != parent.c.business_id,
                         )
                     )
@@ -387,14 +381,14 @@ async def validate_database(
                     )
     scope = ", ".join(
         f"{table.name} AS (SELECT * FROM public.{table.name} "
-        f"WHERE business_id IN ({', '.join(repr(b) for b in DEMO_BUSINESSES)}))"
+        f"WHERE business_id IN ({', '.join(repr(b) for b in business_ids)}))"
         for table in Base.metadata.tables.values()
         if "business_id" in table.c
     )
     for name, sql in SQL_CHECKS.items():
         failures = (await db.execute(text(f"WITH {scope} {sql}"), {"as_of": now})).scalars().all()
         errors.extend(f"{name}: {value}" for value in failures)
-    errors.extend(await tax_errors(db, now))
+    errors.extend(await tax_errors(db, now, business_ids))
     return {
         "ok": not errors,
         "as_of": now.isoformat(),
@@ -406,10 +400,10 @@ async def validate_database(
     }
 
 
-async def main(as_of: datetime | None) -> None:
+async def main(as_of: datetime | None, business_ids: Sequence[str]) -> None:
     async with SessionLocal() as db:
         await db.execute(text("SET TRANSACTION READ ONLY"))
-        report = await validate_database(db, as_of=as_of)
+        report = await validate_database(db, as_of=as_of, business_ids=business_ids)
     await engine.dispose()
     print(json.dumps(report, indent=2))
     if not report["ok"]:
@@ -419,5 +413,6 @@ async def main(as_of: datetime | None) -> None:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--as-of", type=datetime.fromisoformat)
+    parser.add_argument("--business", action="append", choices=DEMO_IDS)
     args = parser.parse_args()
-    asyncio.run(main(args.as_of))
+    asyncio.run(main(args.as_of, args.business or DEMO_IDS))

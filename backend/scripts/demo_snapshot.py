@@ -1,3 +1,4 @@
+import argparse
 import asyncio
 import json
 import subprocess
@@ -21,8 +22,8 @@ from clientbridge.services import ledger
 from clientbridge.services.bookings import open_slots
 from clientbridge.services.catalog import deposit_cents
 from clientbridge.services.tax import tax_for_amount
+from scripts.demo_context import DEMO_BUSINESSES, FIXTURE_BUSINESS, Showcase, demo_business
 
-BIZ = "bz_birchbark"
 DESTINATION = (
     Path(__file__).resolve().parents[2] / "frontend/apps/site/src/content/demo-snapshot.ts"
 )
@@ -35,10 +36,12 @@ def label(value: str) -> str:
 async def calendar_snapshot(
     db: AsyncSession,
     business: Business,
+    staff_id: str,
     as_of: datetime,
     clients: dict[str, Client],
     items: dict[str, Item],
 ) -> dict[str, object]:
+    biz = business.id
     zone = ZoneInfo(business.timezone)
     local = as_of.astimezone(zone)
     monday = local.date() - timedelta(days=local.weekday())
@@ -48,8 +51,8 @@ async def calendar_snapshot(
             for day in (
                 await db.scalars(
                     select(Hours.weekday).where(
-                        Hours.business_id == BIZ,
-                        Hours.staff_id == "st_owner",
+                        Hours.business_id == biz,
+                        Hours.staff_id == staff_id,
                         Hours.basis == "recurring",
                         Hours.available.is_(True),
                         Hours.weekday.isnot(None),
@@ -67,17 +70,17 @@ async def calendar_snapshot(
         for day in dates
     ]
     slots = {
-        row.id: row for row in (await db.scalars(select(Slot).where(Slot.business_id == BIZ))).all()
+        row.id: row for row in (await db.scalars(select(Slot).where(Slot.business_id == biz))).all()
     }
     pets = {
         row.id: row
-        for row in (await db.scalars(select(Subject).where(Subject.business_id == BIZ))).all()
+        for row in (await db.scalars(select(Subject).where(Subject.business_id == biz))).all()
     }
     bookings = (
         await db.scalars(
             select(Booking).where(
-                Booking.business_id == BIZ,
-                Booking.staff_id == "st_owner",
+                Booking.business_id == biz,
+                Booking.staff_id == staff_id,
                 Booking.status.in_(["completed", "confirmed", "pending"]),
             )
         )
@@ -128,12 +131,12 @@ async def calendar_snapshot(
 
 
 async def booking_snapshot(
-    db: AsyncSession, business: Business, item: Item, as_of: datetime
+    db: AsyncSession, business: Business, staff_id: str, item: Item, as_of: datetime
 ) -> dict[str, object]:
     zone = ZoneInfo(business.timezone)
     for offset in range(1, 15):
         day = as_of.astimezone(zone).date() + timedelta(days=offset)
-        openings = await open_slots(db, BIZ, item, "st_owner", day)
+        openings = await open_slots(db, business.id, item, staff_id, day)
         if openings:
             return {
                 "date": day.isoformat(),
@@ -144,32 +147,30 @@ async def booking_snapshot(
     raise ValueError("No real booking openings found for the marketing snapshot")
 
 
-async def main() -> None:
+async def main(biz: str, picks: Showcase) -> None:
     async with SessionLocal() as db:
         await db.execute(text("SET TRANSACTION READ ONLY"))
-        audit = await db.get(Audit, "aud_demo_seed")
+        audit = await db.scalar(
+            select(Audit).where(Audit.business_id == biz, Audit.action == "demo.seed")
+        )
         if audit is None:
             raise ValueError("Export requires a versioned demo seed")
-        business = await db.get(Business, BIZ)
+        business = await db.get(Business, biz)
         if business is None:
             raise ValueError("Demo business is missing")
         as_of = datetime.fromisoformat(str(audit.changes["as_of"]))
         items = {
-            r.id: r for r in (await db.scalars(select(Item).where(Item.business_id == BIZ))).all()
+            r.id: r for r in (await db.scalars(select(Item).where(Item.business_id == biz))).all()
         }
         clients = {
             r.id: r
-            for r in (await db.scalars(select(Client).where(Client.business_id == BIZ))).all()
+            for r in (await db.scalars(select(Client).where(Client.business_id == biz))).all()
         }
         invoices = []
         for invoice in (
             await db.scalars(
                 select(Invoice)
-                .where(
-                    Invoice.id.in_(
-                        ["inv_1001", "inv_1002", "inv_1003", "inv_1004", "inv_1005", "inv_draft"]
-                    )
-                )
+                .where(Invoice.business_id == biz, Invoice.id.in_(picks.invoices))
                 .order_by(Invoice.number.desc())
             )
         ).all():
@@ -189,7 +190,7 @@ async def main() -> None:
             await db.scalars(
                 select(Payment)
                 .where(
-                    Payment.business_id == BIZ,
+                    Payment.business_id == biz,
                     Payment.status == "succeeded",
                     Payment.kind == "payment",
                     Payment.client_id.isnot(None),
@@ -207,18 +208,18 @@ async def main() -> None:
                     "paidAt": payment.paid_at.isoformat() if payment.paid_at else None,
                 }
             )
-        awaiting = await ledger.account_total(db, BIZ, Account.category == "receivable")
-        taxes = -await ledger.account_total(db, BIZ, Account.category == "tax")
-        revenue = -await ledger.account_total(db, BIZ, Account.category == "revenue")
+        awaiting = await ledger.account_total(db, biz, Account.category == "receivable")
+        taxes = -await ledger.account_total(db, biz, Account.category == "tax")
+        revenue = -await ledger.account_total(db, biz, Account.category == "revenue")
         count_invoices = await db.scalar(
-            select(func.count()).select_from(Invoice).where(Invoice.business_id == BIZ)
+            select(func.count()).select_from(Invoice).where(Invoice.business_id == biz)
         )
         count_estimates = await db.scalar(
-            select(func.count()).select_from(Estimate).where(Estimate.business_id == BIZ)
+            select(func.count()).select_from(Estimate).where(Estimate.business_id == biz)
         )
-        service_ids = ["it_groom_lg", "it_bath", "it_cat", "it_nails"]
+        service_ids = picks.services
         stock = []
-        for item_id in ["it_shampoo", "it_brush", "it_nails"]:
+        for item_id in picks.stock:
             item = items[item_id]
             stock.append(
                 {
@@ -232,8 +233,8 @@ async def main() -> None:
                     and (item.stock_on_hand or 0) <= (item.low_stock_at or 0),
                 }
             )
-        tap_item = items["it_groom_sm"]
-        tap_tax = await tax_for_amount(db, BIZ, tap_item.price_cents, tax_class=tap_item.tax_class)
+        tap_item = items[picks.tap_item]
+        tap_tax = await tax_for_amount(db, biz, tap_item.price_cents, tax_class=tap_item.tax_class)
         snapshot = {
             "version": audit.changes.get("version"),
             "asOf": audit.changes.get("as_of"),
@@ -253,7 +254,7 @@ async def main() -> None:
             ],
             "stockRows": stock,
             "tapToPay": {
-                "client": clients["cl_amelie"].name,
+                "client": clients[picks.tap_client].name,
                 "itemId": tap_item.id,
                 "subtotalCents": tap_tax.subtotal_cents,
                 "taxCents": tap_tax.tax_total_cents,
@@ -263,8 +264,12 @@ async def main() -> None:
                     for code, cents in tap_tax.by_jurisdiction.items()
                 ],
             },
-            "calendar": await calendar_snapshot(db, business, as_of, clients, items),
-            "bookingPage": await booking_snapshot(db, business, items[service_ids[0]], as_of),
+            "calendar": await calendar_snapshot(
+                db, business, picks.staff_id, as_of, clients, items
+            ),
+            "bookingPage": await booking_snapshot(
+                db, business, picks.staff_id, items[service_ids[0]], as_of
+            ),
             "shop": {
                 "items": [
                     {
@@ -274,7 +279,7 @@ async def main() -> None:
                         "priceCents": items[iid].price_cents,
                         "qty": 1,
                     }
-                    for iid in ["it_shampoo", "it_brush"]
+                    for iid in picks.shop
                 ],
             },
             "today": {
@@ -300,4 +305,9 @@ async def main() -> None:
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    parser = argparse.ArgumentParser()
+    showcased = [b.id for b in DEMO_BUSINESSES if b.showcase is not None]
+    parser.add_argument("--business", default=FIXTURE_BUSINESS, choices=showcased)
+    chosen = demo_business(parser.parse_args().business)
+    assert chosen.showcase is not None
+    asyncio.run(main(chosen.id, chosen.showcase))

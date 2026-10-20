@@ -27,7 +27,7 @@ from clientbridge.services.tax import (
     rates_on,
     tax_for_lines,
 )
-from scripts.demo_context import BUSINESS_TIMEZONE, DemoContext
+from scripts.demo_context import DemoContext
 
 GIFT_TENDERS = (
     ("gc_used", "inv_gift_david", 5000, -15),
@@ -79,11 +79,13 @@ def add_finance_scenarios(ctx: DemoContext) -> None:
             )
 
 
-def _tax(ctx: DemoContext, lines: list[Line]) -> TaxResult:
+def tax_on(ctx: DemoContext, lines: list[Line]) -> TaxResult:
     business = ctx.get(Business, ctx.business_id)
+    if business.province is None:
+        raise ValueError(f"{business.id} needs a province for its demo taxes")
     result = compute_tax(
         [TaxLine(line.amount_cents, tax_class=line.tax_class) for line in lines],
-        [TaxComponent(r.jurisdiction, r.rate) for r in rates_on("BC", ctx.now.date())],
+        [TaxComponent(r.jurisdiction, r.rate) for r in rates_on(business.province, ctx.now.date())],
         registered=business.tax_registered,
     )
     for line, part in zip(lines, result.lines, strict=True):
@@ -202,7 +204,7 @@ def _membership(ctx: DemoContext) -> None:
     _line(ctx, item.id, "ln_subscription_david", invoice_id=invoice.id)
     payment = ctx.get(Payment, "pay_sub_david")
     payment.invoice_id, payment.method = invoice.id, method.method
-    payment.amount_cents = _tax(ctx, [ctx.get(Line, "ln_subscription_david")]).total_cents
+    payment.amount_cents = tax_on(ctx, [ctx.get(Line, "ln_subscription_david")]).total_cents
     payment.paid_at = payment.updated_at = when + timedelta(minutes=5)
     payment.created_at = when
     payment.note = f"Simulated recurring charge for {subscription.id}, method {method.id}."
@@ -270,7 +272,7 @@ def price_documents(ctx: DemoContext) -> None:
                 key=lambda line: line.position,
             )
             price_lines(lines, parent)
-            result = included_totals(lines, _tax(ctx, lines))
+            result = included_totals(lines, tax_on(ctx, lines))
             parent.subtotal_cents, parent.tax_total_cents, parent.total_cents = (
                 result.subtotal_cents,
                 result.tax_total_cents,
@@ -500,7 +502,7 @@ def _journeys(ctx: DemoContext) -> None:
                 for_pickup=True,
             )
         )
-        total = _tax(ctx, [ctx.get(Line, f"ln_{order_id}")]).total_cents
+        total = tax_on(ctx, [ctx.get(Line, f"ln_{order_id}")]).total_cents
         ctx.add(
             Payment(
                 id=f"pay_{order_id}",
@@ -570,7 +572,7 @@ async def _purchases(db: AsyncSession, ctx: DemoContext) -> None:
         if isinstance(target, Package):
             client_id = target.client_id
             item = ctx.get(Item, target.item_id)
-            amount = _tax(
+            amount = tax_on(
                 ctx, [Line(amount_cents=item.price_cents, tax_class=item.tax_class)]
             ).total_cents
         else:
@@ -823,7 +825,7 @@ async def seed_returns(db: AsyncSession, ctx: DemoContext) -> None:
         filings = await service.filings()
     finally:
         clock.travel(resume)
-    today = ctx.now.astimezone(BUSINESS_TIMEZONE).date()
+    today = ctx.now.astimezone(ctx.zone).date()
     for period in reversed(filings.periods):
         if period.due >= today:
             continue
@@ -843,7 +845,7 @@ async def seed_returns(db: AsyncSession, ctx: DemoContext) -> None:
                     filed_on=filed_on,
                 ),
                 filed_on=filed_on,
-                occurred_at=datetime.combine(filed_on, time(hour), tzinfo=BUSINESS_TIMEZONE),
+                occurred_at=datetime.combine(filed_on, time(hour), tzinfo=ctx.zone),
             )
 
 

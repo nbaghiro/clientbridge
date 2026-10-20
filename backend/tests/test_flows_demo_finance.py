@@ -31,7 +31,7 @@ from tests.helpers import enable_payments
 
 def test_demo_headers_tax_service_and_retail_separately_and_preserve_conversion() -> None:
     ctx = DemoContext(datetime(2026, 10, 8, tzinfo=UTC), "bz_test", "us_test")
-    ctx.add(Business(id=ctx.business_id, tax_registered=True))
+    ctx.add(Business(id=ctx.business_id, province="BC", tax_registered=True))
     ctx.add(Item(id="it_groom_lg", tax_class="federal_only", price_cents=11000, name="Groom"))
     ctx.add(Item(id="it_retail", tax_class="standard", price_cents=2400, name="Shampoo"))
     ctx.add(Invoice(id="inv_demo", total_cents=1, issued_at=ctx.at(-1)))
@@ -245,7 +245,7 @@ async def test_package_tax_and_dated_visit_consumption_use_real_posting(
 
 def test_demo_optional_estimate_totals_exclude_unselected_addons_and_match_conversion() -> None:
     ctx = DemoContext(datetime(2026, 10, 8, tzinfo=UTC), "bz_test", "us_test")
-    ctx.add(Business(id=ctx.business_id, tax_registered=True))
+    ctx.add(Business(id=ctx.business_id, province="BC", tax_registered=True))
     for item_id, price, tax_class in (
         ("it_service", 10000, "federal_only"),
         ("it_deshed", 2000, "federal_only"),

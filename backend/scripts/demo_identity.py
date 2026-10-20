@@ -11,7 +11,7 @@ from clientbridge.models.documents import FieldInput, Form, FormField
 from clientbridge.models.payments import Payment
 from clientbridge.models.platform import Audit, Webhook
 from clientbridge.models.scheduling import Hours
-from scripts.demo_context import LEGAL_ADDRESSES, DemoContext
+from scripts.demo_context import DemoContext, demo_business
 
 SECOND = "bz_demo_second"
 # name, input, label, help, required, options
@@ -85,7 +85,7 @@ def build_identity(ctx: DemoContext) -> None:
             slug="cedar-coast-demo",
             subject="pet",
             timezone="America/Vancouver",
-            **asdict(LEGAL_ADDRESSES[SECOND]),
+            **asdict(demo_business(SECOND).legal),
             status="active",
             plan="team",
             plan_status="trialing",

@@ -19,6 +19,7 @@ from clientbridge.models.scheduling import Booking, Slot
 from clientbridge.services import ledger
 from clientbridge.services.consents import prefs_token
 from clientbridge.services.forms import snapshot_form
+from scripts.demo_context import DEMO_IDS, FIXTURE_BUSINESS
 
 type Tokened = Invoice | Estimate | Order | Booking | FormResponse | Signature
 
@@ -153,5 +154,5 @@ async def main(biz: str) -> None:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--business", default="bz_birchbark")
+    parser.add_argument("--business", default=FIXTURE_BUSINESS, choices=DEMO_IDS)
     asyncio.run(main(parser.parse_args().business))

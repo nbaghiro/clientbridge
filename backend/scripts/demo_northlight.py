@@ -1,55 +1,31 @@
-"""Northlight Security: a four-person camera installer in Victoria, seeded beside Birchbark."""
+"""Northlight Security: a four-person camera installer in Victoria, built on the demo engine."""
 
-import random
-from dataclasses import asdict, dataclass
-from datetime import UTC, date, datetime, time, timedelta
-from pathlib import Path
-from typing import Literal
+from dataclasses import dataclass
+from datetime import UTC, datetime, time, timedelta
 
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from clientbridge.models.base import TimestampMixin
-from clientbridge.models.billing import Estimate, Invoice, Line, Order
-from clientbridge.models.business import Business, Staff, User
-from clientbridge.models.catalog import Item, StockMovement, Subscription
-from clientbridge.models.clients import Client, Consent, Note, Subject
-from clientbridge.models.documents import (
-    Contract,
-    FieldInput,
-    Form,
-    FormField,
-    FormResponse,
-    Signature,
-)
-from clientbridge.models.messaging import Broadcast, Message, Thread
-from clientbridge.models.payments import Payment, PaymentMethod
-from clientbridge.models.platform import Audit, File
-from clientbridge.models.reviews import ReviewRequest
-from clientbridge.models.scheduling import Addon, Booking, BookingStatus, Hours, Slot
-from clientbridge.schemas.business import BrandInput
+from clientbridge.models.billing import Estimate, Invoice
+from clientbridge.models.catalog import Item, ItemKind
+from clientbridge.models.clients import Client, Subject
+from clientbridge.models.documents import Signature
+from clientbridge.models.platform import File
+from clientbridge.models.scheduling import Booking, BookingStatus, Slot
 from clientbridge.schemas.subjects import Building, Equipment, SiteAttributes
-from clientbridge.services.catalog import deposit_cents
-from clientbridge.services.consents import allows_marketing
-from clientbridge.services.forms import form_definition
-from scripts.demo_catalog import add_catalog_images
-from scripts.demo_chronology import align_timestamps, chronology_errors
-from scripts.demo_context import BUSINESS_TIMEZONE, LEGAL_ADDRESSES, DemoContext
-from scripts.demo_finance import (
-    apply_deposit_at,
-    post_invoices,
-    post_payments,
-    price_documents,
-    seed_earnings,
-    seed_payouts,
-    seed_returns,
+from scripts.demo_context import demo_business
+from scripts.demo_engine import ASSETS, Demo, Quote
+from scripts.demo_spec import (
+    BusinessSpec,
+    ContractSpec,
+    DocField,
+    FormSpec,
+    Offering,
+    Person,
+    Settle,
+    Stage,
+    Stock,
 )
-from scripts.demo_identity import placeholder_identity
-from scripts.demo_photos import add_people_photos
-from scripts.demo_validate import validate_graph
 
 NORTHLIGHT = "bz_northlight"
 NORTHLIGHT_OWNER = "us_nl_owner"
-ASSETS = Path(__file__).parent / "demo_assets"
 
 BOSS, OFFICE, LIAM, AVA = "st_nl_owner", "st_nl_office", "st_nl_liam", "st_nl_ava"
 SURVEY, HOME, SHOP, CALL, CHECK = (
@@ -73,7 +49,7 @@ AGREEMENT, NOTICE = "con_nl_agreement", "con_nl_surveillance"
 PLAN_AGREEMENT = "con_nl_maintenance"
 
 # id, kind, name, price, minutes, category, description
-ITEMS: tuple[tuple[str, str, str, int, int | None, str, str], ...] = (
+ITEMS: tuple[tuple[str, ItemKind, str, int, int | None, str, str], ...] = (
     (
         SURVEY,
         "service",
@@ -280,8 +256,6 @@ HOURS: dict[str, dict[int, tuple[time, time]]] = {
 }
 TRAVEL_MIN = 30
 WARRANTY_DAYS = 730
-# name, input, label, help, required, options
-type DocField = tuple[str, FieldInput, str, str | None, bool, tuple[str, ...]]
 # the agreement's version 2 took effect this many days ago; earlier clients signed version 1
 AGREEMENT_REVISED = 120
 AGREEMENT_V1 = (
@@ -524,14 +498,6 @@ class Household:
     internet: str | None = None
     recorder: str | None = None
 
-
-@dataclass(frozen=True)
-class Quote:
-    labour: str
-    parts: tuple[tuple[str, int], ...]
-
-
-type Settle = Literal["card", "etransfer", "cheque", "open", "overdue"]
 
 HOMEOWNERS = (
     Household(
@@ -937,15 +903,178 @@ HOME_QUOTES = (
 SETTLEMENTS: tuple[Settle, ...] = ("card", "card", "etransfer", "card", "cheque", "etransfer")
 
 
-def _add_months(day: date, months: int) -> date:
-    index = day.month - 1 + months
-    year, month = day.year + index // 12, index % 12 + 1
-    for last in (31, 30, 29, 28):
-        try:
-            return date(year, month, min(day.day, last))
-        except ValueError:
-            continue
-    raise ValueError(f"no day in {year}-{month}")
+def _offering(row: tuple[str, ItemKind, str, int, int | None, str, str]) -> Offering:
+    item_id, kind, name, price, minutes, category, description = row
+    stock = STOCK.get(item_id)
+    install = item_id in {HOME, SHOP}
+    return Offering(
+        id=item_id,
+        kind=kind,
+        name=name,
+        price_cents=price,
+        category=category,
+        description=description,
+        tax_class="standard" if kind == "product" else "federal_only",
+        minutes=minutes,
+        color=COLORS.get(item_id, "#5E7391"),
+        online_bookable=item_id in {SURVEY, CALL, CHECK},
+        addon_for=(HOME, SHOP) if kind == "product" else (),
+        buffer_after_min=TRAVEL_MIN if kind == "service" else 0,
+        deposit_type="percent" if install else "none",
+        deposit_value=25 if install else None,
+        frequency=("year" if item_id == MAINTENANCE else "month")
+        if kind == "subscription"
+        else None,
+        sku=stock[3] if stock else ("NL-CAT6-RUN" if item_id == CABLE else None),
+        cost_cents=stock[2] if stock else (1800 if item_id == CABLE else None),
+        stock=Stock(stock[0], stock[1]) if stock else None,
+        ref={REMOTE: "remote", MAINTENANCE: "plan"}.get(item_id),
+        contract=PLAN_AGREEMENT if item_id == MAINTENANCE else None,
+    )
+
+
+SPEC = BusinessSpec(
+    listing=demo_business(NORTHLIGHT),
+    code="nl",
+    slug="northlight",
+    login_domain="northlight.example",
+    owner=NORTHLIGHT_OWNER,
+    people=(
+        Person(
+            NORTHLIGHT_OWNER,
+            BOSS,
+            "owner",
+            "Erik Lindqvist",
+            "+12505550194",
+            "owner",
+            "Owner, surveys and commercial installs",
+            "#1F2F4A",
+            HOURS[BOSS],
+        ),
+        Person(
+            "us_nl_office",
+            OFFICE,
+            "office",
+            "Naomi Clarke",
+            "+12505550195",
+            "admin",
+            "Office manager",
+            "#6B7280",
+            bookable_online=False,
+        ),
+        Person(
+            "us_nl_liam",
+            LIAM,
+            "liam",
+            "Liam Doucette",
+            "+12505550196",
+            "staff",
+            "Installer",
+            "#2E7A5A",
+            HOURS[LIAM],
+            payee=True,
+            rate_type="percent",
+            rate_bps=4000,
+        ),
+        Person(
+            "us_nl_ava",
+            AVA,
+            "ava",
+            "Ava Reyes",
+            "+12505550197",
+            "staff",
+            "Installer",
+            "#A0703A",
+            HOURS[AVA],
+            payee=True,
+            rate_type="hourly",
+            rate_cents=3200,
+        ),
+    ),
+    items=tuple(_offering(row) for row in ITEMS),
+    brand={
+        "tagline": "Security cameras and video doorbells for homes and businesses in "
+        "Greater Victoria.",
+        "about": (
+            "Northlight Security is a team of four based in Quadra Village. We survey "
+            "your home or business, quote the equipment and labour line by line, "
+            "install the system and show you how to use it before we leave. Every "
+            "install has a two-year parts warranty, and we offer remote viewing and a "
+            "yearly maintenance plan that includes a system check."
+        ),
+        "address": "2860 Quadra Street, Victoria, BC V8T 4E7",
+        "phone": "+1 250-555-0198",
+        "email": "hello@northlight.example",
+        "website": "https://northlight.example",
+        "neighbourhood": "Quadra Village",
+    },
+    booking_policy={
+        "approve_new_clients": True,
+        "lead_hours": 24,
+        "cancel_cutoff_hours": 48,
+        "reschedule_cutoff_hours": 48,
+    },
+    subject="site",
+    sms_number="+12505550998",
+    gst_hst_number="781934625RT0001",
+    pst_number="PST10427788",
+    forms=(
+        FormSpec(SURVEY_FORM, "Site survey", "ff_nl_", SURVEY_FIELDS, send_on="booking"),
+        FormSpec(
+            HANDOVER_FORM,
+            "Installation handover",
+            "ff_nl_handover_",
+            HANDOVER_FIELDS,
+            require_signature=True,
+        ),
+    ),
+    contracts=(
+        ContractSpec(
+            AGREEMENT,
+            "Installation and service agreement",
+            AGREEMENT_BODY,
+            version=2,
+            earlier_body=AGREEMENT_V1,
+            revised_day=-AGREEMENT_REVISED,
+        ),
+        ContractSpec(NOTICE, "Video surveillance notice", NOTICE_BODY),
+        ContractSpec(
+            PLAN_AGREEMENT, "Maintenance plan agreement", MAINTENANCE_BODY, created_day=-370
+        ),
+    ),
+    storyline=(
+        Stage("New lead, pending survey with a survey form", "harper", ("bk_nl_harper_survey",)),
+        Stage("Estimate sent with optional lines", "rajesh", ("est_nl_rajesh",)),
+        Stage("Accepted estimate ready for Book the install", "ruth", ("est_nl_ruth",)),
+        Stage("Install booked from its estimate, deposit paid", "claire", ("bk_nl_claire",)),
+        Stage("Today's install, on site", "owen", ("bk_nl_owen",)),
+        Stage("Today's install, on the way", "meilin", ("bk_nl_meilin",)),
+        Stage("Installed and paid by Tap to Pay", "sarah", ("bk_nl_sarah", "ord_nl_sarah")),
+        Stage("Commercial client with two sites, overdue", "islandstorage"),
+        Stage("Warranty call on a camera nearing its end date", "fiona", ("bk_nl_fiona_warranty",)),
+        Stage("Declined estimate", "gordon", ("est_nl_gordon",)),
+        Stage("Cancelled survey", "natalie", ("bk_nl_natalie_survey",)),
+    ),
+    photo_clients=(
+        "aisha",
+        "arjun",
+        "claire",
+        "diane",
+        "hana",
+        "harper",
+        "jasmine",
+        "joan",
+        "louise",
+        "meilin",
+        "owen",
+        "rajesh",
+        "ruth",
+        "sarah",
+        "simon",
+        *(f"home_{n:02}" for n in range(10)),
+    ),
+    inbox_user="us_nl_office",
+)
 
 
 def _site_attributes(home: Household) -> dict[str, object]:
@@ -978,691 +1107,51 @@ def _generated_household(index: int) -> Household:
     )
 
 
-class Northlight:
-    def __init__(self, ctx: DemoContext) -> None:
-        self.ctx = ctx
-        self.rng = random.Random(23)
-        self.busy: list[tuple[str, str | None, datetime, datetime, int, int]] = []
-        self.invoice_number = 2100
-        self.estimate_number = 300
+class Northlight(Demo):
+    spec = SPEC
+
+    def __init__(self, now: datetime) -> None:
+        super().__init__(now)
         self.serial = 1800
-        self.payment_number = 0
-        self.sized: list[tuple[Payment, Literal["deposit", "balance", "total"]]] = []
-        self.items: dict[str, Item] = {}
 
-    def at(self, days: float, hour: int = 9, minute: int = 0) -> datetime:
-        return self.ctx.at(days, hour, minute)
-
-    @property
-    def now(self) -> datetime:
-        return self.ctx.now
-
-    def build(self) -> None:
-        self.identity()
-        self.catalog()
-        self.documents()
+    def story(self) -> None:
         self.households()
         self.storyline()
         self.history()
         self.upcoming()
         self.plans()
         self.engagement()
-        self.finish()
 
-    def identity(self) -> None:
-        ctx = self.ctx
-        founded = self.at(-640)
-        brand = BrandInput.model_validate(
-            {
-                "logo_file_id": "fl_nl_logo",
-                "primary": "#1F2F4A",
-                "tagline": "Security cameras and video doorbells for homes and businesses in "
-                "Greater Victoria.",
-                "about": (
-                    "Northlight Security is a team of four based in Quadra Village. We survey "
-                    "your home or business, quote the equipment and labour line by line, "
-                    "install the system and show you how to use it before we leave. Every "
-                    "install has a two-year parts warranty, and we offer remote viewing and a "
-                    "yearly maintenance plan that includes a system check."
-                ),
-                "address": "2860 Quadra Street, Victoria, BC V8T 4E7",
-                "phone": "+1 250-555-0198",
-                "email": "hello@northlight.example",
-                "website": "https://northlight.example",
-                "neighbourhood": "Quadra Village",
-                "public_staff_ids": [BOSS, LIAM, AVA],
-            }
-        )
-        ctx.add(
-            Business(
-                id=NORTHLIGHT,
-                name="Northlight Security",
-                slug="northlight",
-                timezone="America/Vancouver",
-                **asdict(LEGAL_ADDRESSES[NORTHLIGHT]),
-                gst_hst_number="781934625RT0001",
-                pst_number="PST10427788",
-                tax_registered=True,
-                brand=brand.model_dump(exclude_none=True),
-                booking_policy={
-                    "approve_new_clients": True,
-                    "lead_hours": 24,
-                    "cancel_cutoff_hours": 48,
-                    "reschedule_cutoff_hours": 48,
-                },
-                billing_email="hello@northlight.example",
-                sms_number="+12505550998",
-                # a fixture account, fully onboarded so its status agrees with the seeded payments
-                stripe_account_id="acct_demo_northlight",
-                stripe_charges_enabled=True,
-                stripe_payouts_enabled=True,
-                stripe_requirements={
-                    "currently_due": [],
-                    "eventually_due": [],
-                    "past_due": [],
-                    "disabled_reason": None,
-                    "card_status": "active",
-                    "current_deadline": None,
-                },
-                status="active",
-                plan="team",
-                plan_status="active",
-                trial_ends_at=founded + timedelta(days=14),
-                subject="site",
-                created_at=founded,
-                updated_at=founded,
-            ),
-            File(
-                id="fl_nl_logo",
-                business_id=NORTHLIGHT,
-                parent_type="business",
-                parent_id=NORTHLIGHT,
-                purpose="logo",
-                s3_key=f"{NORTHLIGHT}/demo/nl_logo.png",
-                content_type="image/png",
-                size=(ASSETS / "nl_logo.png").stat().st_size,
-                created_at=founded,
-                updated_at=founded,
-            ),
-        )
-        people = (
-            (NORTHLIGHT_OWNER, BOSS, "owner", "Erik Lindqvist", "+12505550194"),
-            ("us_nl_office", OFFICE, "office", "Naomi Clarke", "+12505550195"),
-            ("us_nl_liam", LIAM, "liam", "Liam Doucette", "+12505550196"),
-            ("us_nl_ava", AVA, "ava", "Ava Reyes", "+12505550197"),
-        )
-        for user_id, _staff, login, name, phone in people:
-            email = f"{login}@northlight.example"
-            ctx.add(
-                User(
-                    id=user_id,
-                    identity_id=placeholder_identity(email),
-                    email=email,
-                    name=name,
-                    phone=phone,
-                    created_at=founded,
-                    updated_at=founded,
-                )
-            )
-        ctx.add(
-            Staff(
-                id=BOSS,
-                business_id=NORTHLIGHT,
-                user_id=NORTHLIGHT_OWNER,
-                role="owner",
-                payee=False,
-                title="Owner, surveys and commercial installs",
-                color="#1F2F4A",
-                status="active",
-                bookable_online=True,
-            ),
-            Staff(
-                id=OFFICE,
-                business_id=NORTHLIGHT,
-                user_id="us_nl_office",
-                role="admin",
-                payee=False,
-                title="Office manager",
-                color="#6B7280",
-                status="active",
-                bookable_online=False,
-            ),
-            Staff(
-                id=LIAM,
-                business_id=NORTHLIGHT,
-                user_id="us_nl_liam",
-                role="staff",
-                payee=True,
-                rate_type="percent",
-                rate_bps=4000,
-                title="Installer",
-                color="#2E7A5A",
-                status="active",
-                bookable_online=True,
-            ),
-            Staff(
-                id=AVA,
-                business_id=NORTHLIGHT,
-                user_id="us_nl_ava",
-                role="staff",
-                payee=True,
-                rate_type="hourly",
-                rate_cents=3200,
-                title="Installer",
-                color="#A0703A",
-                status="active",
-                bookable_online=True,
-            ),
-        )
-        for staff_id, days in HOURS.items():
-            for weekday, (start, end) in days.items():
-                ctx.add(
-                    Hours(
-                        id=f"av_{staff_id}_{weekday}",
-                        business_id=NORTHLIGHT,
-                        staff_id=staff_id,
-                        basis="recurring",
-                        weekday=weekday,
-                        start_time=start,
-                        end_time=end,
-                        available=True,
-                    )
-                )
-        for row in ctx.rows:
-            if isinstance(row, TimestampMixin):
-                row.created_at = row.created_at or founded
-                row.updated_at = row.updated_at or founded
-
-    def catalog(self) -> None:
-        opened = self.at(-300)
-        installs = [HOME, SHOP]
-        for item_id, kind, name, price, minutes, category, description in ITEMS:
-            stock = STOCK.get(item_id)
-            item = Item(
-                id=item_id,
-                business_id=NORTHLIGHT,
-                created_by=NORTHLIGHT_OWNER,
-                kind=kind,
-                name=name,
-                description=description,
-                price_cents=price,
-                currency="CAD",
-                tax_class="standard" if kind == "product" else "federal_only",
-                duration_min=minutes,
-                capacity=1 if kind == "service" else None,
-                category=category,
-                color=COLORS.get(item_id, "#5E7391"),
-                online_bookable=item_id in {SURVEY, CALL, CHECK},
-                sell_online=False,
-                addon=kind == "product",
-                addon_for=installs if kind == "product" else [],
-                buffer_before_min=0,
-                buffer_after_min=TRAVEL_MIN if kind == "service" else 0,
-                deposit_type="percent" if item_id in {HOME, SHOP} else "none",
-                deposit_value=25 if item_id in {HOME, SHOP} else None,
-                interval=1 if kind == "subscription" else None,
-                frequency=("year" if item_id == MAINTENANCE else "month")
-                if kind == "subscription"
-                else None,
-                sku=stock[3] if stock else ("NL-CAT6-RUN" if item_id == CABLE else None),
-                cost_cents=stock[2] if stock else (1800 if item_id == CABLE else None),
-                track_stock=stock is not None,
-                stock_on_hand=stock[0] if stock else None,
-                low_stock_at=stock[1] if stock else None,
-                active=True,
-                created_at=opened,
-                updated_at=opened,
-            )
-            self.items[item_id] = item
-            self.ctx.add(item)
-        add_catalog_images(self.ctx, lambda item_id: "nl_it_" + item_id.removeprefix("it_nl_"))
-        for image in self.ctx.all(File):
-            if image.parent_type == "item":
-                image.created_at = image.updated_at = opened
-
-    def documents(self) -> None:
-        ctx = self.ctx
-        created = self.at(-290)
-        ctx.add(
-            Form(
-                id=SURVEY_FORM,
-                business_id=NORTHLIGHT,
-                name="Site survey",
-                require_signature=False,
-                active=True,
-                send_on="booking",
-                created_at=created,
-                updated_at=created,
-            ),
-            Form(
-                id=HANDOVER_FORM,
-                business_id=NORTHLIGHT,
-                name="Installation handover",
-                require_signature=True,
-                active=True,
-                send_on="manual",
-                created_at=created,
-                updated_at=created,
-            ),
-            Contract(
-                id=AGREEMENT,
-                business_id=NORTHLIGHT,
-                name="Installation and service agreement",
-                version=2,
-                active=True,
-                body=AGREEMENT_BODY,
-                created_at=created,
-                updated_at=self.at(-AGREEMENT_REVISED, 9),
-            ),
-            Contract(
-                id=NOTICE,
-                business_id=NORTHLIGHT,
-                name="Video surveillance notice",
-                version=1,
-                active=True,
-                body=NOTICE_BODY,
-                created_at=created,
-                updated_at=created,
-            ),
-            Contract(
-                id=PLAN_AGREEMENT,
-                business_id=NORTHLIGHT,
-                name="Maintenance plan agreement",
-                version=1,
-                active=True,
-                body=MAINTENANCE_BODY,
-                created_at=self.at(-370),
-                updated_at=self.at(-370),
-            ),
-        )
-        for form_id, prefix, fields in (
-            (SURVEY_FORM, "ff_nl_", SURVEY_FIELDS),
-            (HANDOVER_FORM, "ff_nl_handover_", HANDOVER_FIELDS),
-        ):
-            for position, (name, kind, label, hint, required, options) in enumerate(fields):
-                ctx.add(
-                    FormField(
-                        id=f"{prefix}{name}",
-                        business_id=NORTHLIGHT,
-                        form_id=form_id,
-                        name=name,
-                        input=kind,
-                        label=label,
-                        help=hint,
-                        required=required,
-                        options=list(options),
-                        position=position,
-                        created_at=created,
-                        updated_at=created,
-                    )
-                )
+    def visit_note(self, item: Item, booking: Booking) -> str:
+        address = self.ctx.get(Subject, booking.subject_id or "").attributes.get("address", "")
+        return f"{item.name} at {address}."
 
     def households(self) -> None:
         for home in (*HOMEOWNERS, *(_generated_household(i) for i in range(GENERATED))):
-            self.client(home, tags=[])
+            self.household(home, tags=[])
         for shop in BUSINESSES:
-            self.client(shop, tags=["commercial"])
-        self.ctx.add(
-            Subject(
-                id="sj_nl_islandstorage_saanich",
-                business_id=NORTHLIGHT,
-                client_id="cl_nl_islandstorage",
-                name=STORAGE_SAANICH.name,
-                attributes=_site_attributes(STORAGE_SAANICH),
-            )
+            self.household(shop, tags=["commercial"])
+        self.subject(
+            "islandstorage_saanich",
+            "islandstorage",
+            STORAGE_SAANICH.name,
+            _site_attributes(STORAGE_SAANICH),
         )
         self.ctx.get(Subject, "sj_nl_islandstorage").name = "Langford facility"
-        add_people_photos(self.ctx, NORTHLIGHT)
+        self.photos()
 
-    def client(self, home: Household, *, tags: list[str]) -> None:
-        name = home.address.split(",")[0]
-        self.ctx.add(
-            Client(
-                id=f"cl_nl_{home.key}",
-                business_id=NORTHLIGHT,
-                created_by=NORTHLIGHT_OWNER,
-                name=home.name,
-                email=home.email,
-                phone=home.phone,
-                tags=tags,
-                status="active",
-                preferred_channel="email" if tags else "sms",
-                custom_fields={"source": "referral" if len(home.key) % 3 == 0 else "google"},
-            ),
-            Subject(
-                id=f"sj_nl_{home.key}",
-                business_id=NORTHLIGHT,
-                client_id=f"cl_nl_{home.key}",
-                name=name,
-                attributes=_site_attributes(home),
-            ),
+    def household(self, home: Household, *, tags: list[str]) -> None:
+        self.client(
+            home.key,
+            home.name,
+            home.email,
+            home.phone,
+            tags=tags,
+            channel="email" if tags else "sms",
+            fields={"source": "referral" if len(home.key) % 3 == 0 else "google"},
+            subject=home.address.split(",")[0],
+            attributes=_site_attributes(home),
         )
-
-    def joined(self, key: str, when: datetime) -> None:
-        """Clients and their sites date from their first contact."""
-        client = self.ctx.get(Client, f"cl_nl_{key}")
-        client.created_at = min(client.created_at or when, when)
-        client.updated_at = max(client.updated_at or when, when)
-        for site in self.ctx.all(Subject):
-            if site.client_id == client.id:
-                site.created_at = min(site.created_at or when, when)
-                site.updated_at = max(site.updated_at or when, when)
-
-    def hours_on(self, staff: str, day: date) -> tuple[time, time] | None:
-        return HOURS.get(staff, {}).get(day.weekday())
-
-    def free(self, staff: str, site: str | None, start: datetime, end: datetime) -> bool:
-        before, after = 0, TRAVEL_MIN
-        return not any(
-            (other == staff or (site is not None and other_site == site))
-            and start - timedelta(minutes=before) < other_end + timedelta(minutes=other_after)
-            and other_start - timedelta(minutes=other_before) < end + timedelta(minutes=after)
-            for other, other_site, other_start, other_end, other_before, other_after in self.busy
-        )
-
-    def place(
-        self,
-        staff: str,
-        item_id: str,
-        day: int,
-        site: str | None,
-        *,
-        past: bool,
-        not_before: datetime | None = None,
-        forward: bool = False,
-    ) -> datetime | None:
-        minutes = self.items[item_id].duration_min or 60
-        step = -1 if past and not forward else 1
-        for offset in range(60):
-            current = day + step * offset
-            if (past and current >= 0) or (not past and current <= 0):
-                continue
-            local = self.at(current).astimezone(BUSINESS_TIMEZONE)
-            window = self.hours_on(staff, local.date())
-            if window is None:
-                continue
-            starts = [
-                local.replace(hour=h, minute=m)
-                for h in range(window[0].hour, window[1].hour)
-                for m in (0, 30)
-            ]
-            for start_local in starts:
-                start = start_local.astimezone(UTC)
-                end = start + timedelta(minutes=minutes)
-                if end.astimezone(BUSINESS_TIMEZONE).time() > window[1] or (
-                    end.astimezone(BUSINESS_TIMEZONE).date() != local.date()
-                ):
-                    break
-                if start_local.time() < window[0]:
-                    continue
-                if not_before is not None and start < not_before:
-                    continue
-                if past and end >= self.now - timedelta(hours=1):
-                    continue
-                if not past and start <= self.now + timedelta(hours=1):
-                    continue
-                if self.free(staff, site, start, end):
-                    return start
-        return None
-
-    def book(
-        self,
-        key: str,
-        client_key: str,
-        item_id: str,
-        staff: str,
-        start: datetime,
-        status: BookingStatus,
-        created: datetime,
-        *,
-        site: str | None = None,
-        source: Literal["online", "manual"] = "manual",
-        price: int | None = None,
-    ) -> Booking:
-        item = self.items[item_id]
-        end = start + timedelta(minutes=item.duration_min or 60)
-        site_id = site or f"sj_nl_{client_key}"
-        slot = Slot(
-            id=f"ses_nl_{key}",
-            business_id=NORTHLIGHT,
-            item_id=item_id,
-            staff_id=staff,
-            starts_at=start,
-            ends_at=end,
-            capacity=1,
-            status="completed"
-            if status in {"completed", "no_show"}
-            else "canceled"
-            if status == "canceled"
-            else "scheduled",
-            created_at=created,
-            updated_at=min(end, self.now),
-        )
-        deposit = deposit_cents(item) if price is None else 0
-        booking = Booking(
-            id=f"bk_nl_{key}",
-            business_id=NORTHLIGHT,
-            slot_id=slot.id,
-            starts_at=start,
-            staff_id=staff,
-            client_id=f"cl_nl_{client_key}",
-            subject_id=site_id,
-            status=status,
-            source=source,
-            manage_token=f"manage_bk_nl_{key}" if source == "online" else None,
-            price_cents=item.price_cents if price is None else price,
-            deposit_amount_cents=deposit,
-            deposit_status="pending" if deposit and status in {"pending", "confirmed"} else "none",
-            confirmed_at=created + timedelta(hours=1)
-            if status in {"confirmed", "completed", "no_show"}
-            else None,
-            completed_at=end if status == "completed" else None,
-            canceled_at=min(start - timedelta(days=1), self.now - timedelta(hours=3))
-            if status == "canceled"
-            else None,
-            created_at=created,
-            updated_at=min(end, self.now),
-        )
-        self.ctx.add(slot, booking)
-        if status != "canceled":
-            self.busy.append((staff, site_id, start, end, 0, TRAVEL_MIN))
-        self.joined(client_key, created - timedelta(hours=2))
-        return booking
-
-    def payment(
-        self,
-        client_key: str,
-        paid_at: datetime,
-        method: Literal["card", "etransfer", "cheque"],
-        *,
-        kind: Literal["payment", "deposit"] = "payment",
-        invoice_id: str | None = None,
-        booking_id: str | None = None,
-        order_id: str | None = None,
-        size: Literal["deposit", "balance", "total"] = "total",
-    ) -> Payment:
-        self.payment_number += 1
-        number = self.payment_number
-        payment = Payment(
-            id=f"pay_nl_{number:04}",
-            business_id=NORTHLIGHT,
-            client_id=f"cl_nl_{client_key}",
-            kind=kind,
-            invoice_id=invoice_id,
-            booking_id=booking_id,
-            order_id=order_id,
-            amount_cents=0,
-            currency="CAD",
-            method=method,
-            provider="stripe" if method == "card" else "manual",
-            provider_ref=f"pi_demo_nl_{number:04}" if method == "card" else None,
-            reference=f"CA{number:04}NLET"
-            if method == "etransfer"
-            else f"Cheque {3100 + number}"
-            if method == "cheque"
-            else None,
-            status="succeeded",
-            paid_at=paid_at,
-            created_at=paid_at - timedelta(minutes=5),
-            updated_at=paid_at,
-        )
-        self.ctx.add(payment)
-        self.sized.append((payment, size))
-        return payment
-
-    def lines(
-        self,
-        parent: Literal["invoice", "estimate", "order"],
-        parent_id: str,
-        quote: Quote,
-        created: datetime,
-        *,
-        booking: Booking | None = None,
-        optional: tuple[tuple[str | None, int, str, int], ...] = (),
-    ) -> None:
-        labour = self.items[quote.labour]
-        specs: list[tuple[str | None, int, str, int, bool]] = [
-            (
-                labour.id,
-                1,
-                labour.name,
-                booking.price_cents if booking else labour.price_cents,
-                False,
-            ),
-            *(
-                (part, qty, self.items[part].name, self.items[part].price_cents, False)
-                for part, qty in quote.parts
-            ),
-            *((item_id, qty, name, price, True) for item_id, qty, name, price in optional),
-        ]
-        for position, (item_id, qty, name, price, extra) in enumerate(specs):
-            self.ctx.add(
-                Line(
-                    id=f"ln_{parent_id}_{position}",
-                    business_id=NORTHLIGHT,
-                    invoice_id=parent_id if parent == "invoice" else None,
-                    estimate_id=parent_id if parent == "estimate" else None,
-                    order_id=parent_id if parent == "order" else None,
-                    item_id=item_id,
-                    booking_id=booking.id if booking is not None and position == 0 else None,
-                    staff_id=booking.staff_id if booking is not None and position == 0 else None,
-                    description=name,
-                    quantity=qty,
-                    unit_amount_cents=price,
-                    amount_cents=price * qty,
-                    tax_class=self.items[item_id].tax_class if item_id else "standard",
-                    optional=extra,
-                    selected=False,
-                    position=position,
-                    created_at=created,
-                    updated_at=created,
-                )
-            )
-
-    def estimate(
-        self,
-        key: str,
-        client_key: str,
-        quote: Quote,
-        created: datetime,
-        *,
-        status: Literal["draft", "sent", "accepted", "declined"],
-        decided: datetime | None = None,
-        note: str | None = None,
-        optional: tuple[tuple[str | None, int, str, int], ...] = (),
-    ) -> Estimate:
-        self.estimate_number += 1
-        estimate = Estimate(
-            id=f"est_nl_{key}",
-            business_id=NORTHLIGHT,
-            client_id=f"cl_nl_{client_key}",
-            number=self.estimate_number,
-            status=status,
-            valid_until=(created + timedelta(days=30)).astimezone(BUSINESS_TIMEZONE).date(),
-            accepted_at=decided if status == "accepted" else None,
-            declined_at=decided if status == "declined" else None,
-            notes=note,
-            view_token=None if status == "draft" else f"demo_estimate_est_nl_{key}",
-            created_at=created,
-            updated_at=decided or created,
-        )
-        self.ctx.add(estimate)
-        self.lines("estimate", estimate.id, quote, created, optional=optional)
-        return estimate
-
-    def sign(
-        self,
-        key: str,
-        client_key: str,
-        contract_id: str,
-        signed: datetime,
-        site: str | None,
-        *,
-        status: Literal["signed", "pending", "declined"] = "signed",
-    ) -> None:
-        client = self.ctx.get(Client, f"cl_nl_{client_key}")
-        contract = self.ctx.get(Contract, contract_id)
-        earlier = contract_id == AGREEMENT and signed < self.at(-AGREEMENT_REVISED, 9)
-        done = status == "signed"
-        self.ctx.add(
-            Signature(
-                id=f"sig_nl_{key}",
-                business_id=NORTHLIGHT,
-                contract_id=contract_id,
-                client_id=client.id,
-                parent_type="client" if site is None else "subject",
-                parent_id=client.id if site is None else site,
-                token=f"demo_signature_nl_{key}",
-                status=status,
-                signed_at=signed if done else None,
-                signed_body=(AGREEMENT_V1 if earlier else contract.body) if done else None,
-                contract_version=1 if earlier else contract.version,
-                signer_name=client.name if done else None,
-                method="typed" if done else None,
-                ip=f"192.0.2.{10 + len(key) * 3 % 200}" if done else None,
-                opened_at=signed - timedelta(minutes=12),
-                created_at=signed - timedelta(minutes=30),
-                updated_at=signed,
-            )
-        )
-
-    def invoice(
-        self, key: str, client_key: str, issued: datetime, created: datetime, note: str
-    ) -> Invoice:
-        self.invoice_number += 1
-        invoice = Invoice(
-            id=f"inv_nl_{key}",
-            business_id=NORTHLIGHT,
-            client_id=f"cl_nl_{client_key}",
-            number=self.invoice_number,
-            status="sent",
-            currency="CAD",
-            issued_at=issued,
-            due_at=issued + timedelta(days=14),
-            notes=note,
-            pay_token=f"demo_pay_inv_nl_{key}",
-            created_at=created,
-            updated_at=issued,
-        )
-        self.ctx.add(invoice)
-        return invoice
-
-    def settle(self, invoice: Invoice, client_key: str, settle: Settle) -> None:
-        issued = invoice.issued_at or self.now
-        paid = {
-            "card": issued + timedelta(hours=3),
-            "etransfer": (issued + timedelta(days=1)).replace(minute=12),
-            "cheque": issued + timedelta(days=4),
-        }
-        if settle in paid and paid[settle] < self.now - timedelta(hours=1):
-            method: Literal["card", "etransfer", "cheque"] = (
-                "card" if settle == "card" else "etransfer" if settle == "etransfer" else "cheque"
-            )
-            self.payment(client_key, paid[method], method, invoice_id=invoice.id, size="balance")
-            return
-        due = invoice.due_at or issued
-        if settle == "overdue" and due + timedelta(days=1) < self.now:
-            invoice.overdue_notified_at = due + timedelta(days=1)
 
     def equip(
         self,
@@ -1675,7 +1164,7 @@ class Northlight:
     ) -> None:
         site = self.ctx.get(Subject, site_id)
         recorder = str(site.attributes.get("recorder_location") or "Network cabinet")
-        day = installed.astimezone(BUSINESS_TIMEZONE).date()
+        day = self.local(installed).date()
         equipment = list(SiteAttributes.model_validate(site.attributes).equipment or [])
         cameras = len([e for e in equipment if e.location in spots])
         for part, qty in quote.parts:
@@ -1705,44 +1194,6 @@ class Northlight:
             "equipment": [e.model_dump(mode="json", exclude_none=True) for e in equipment],
         }
 
-    def line(self, invoice_id: str, item_id: str, created: datetime, position: int = 0) -> None:
-        item = self.items[item_id]
-        self.ctx.add(
-            Line(
-                id=f"ln_{invoice_id}_{position}",
-                business_id=NORTHLIGHT,
-                invoice_id=invoice_id,
-                item_id=item.id,
-                description=item.name,
-                quantity=1,
-                unit_amount_cents=item.price_cents,
-                amount_cents=item.price_cents,
-                tax_class=item.tax_class,
-                position=position,
-                created_at=created,
-                updated_at=created,
-            )
-        )
-
-    def addons(self, booking: Booking, estimate: Estimate, quote: Quote) -> None:
-        booking.estimate_id = estimate.id
-        for index, (part, qty) in enumerate(quote.parts):
-            item = self.items[part]
-            self.ctx.add(
-                Addon(
-                    id=f"bka_{booking.id}_{index}",
-                    business_id=NORTHLIGHT,
-                    booking_id=booking.id,
-                    staff_id=booking.staff_id,
-                    item_id=item.id,
-                    description=item.name,
-                    quantity=qty,
-                    unit_amount_cents=item.price_cents,
-                    created_at=booking.created_at,
-                    updated_at=booking.created_at,
-                )
-            )
-
     def survey(
         self,
         key: str,
@@ -1769,7 +1220,7 @@ class Northlight:
             start,
             status,
             created,
-            site=site_id,
+            subject=site_id,
             source="online" if online else "manual",
         )
 
@@ -1818,10 +1269,10 @@ class Northlight:
         estimate, booked = self.quoted(key, client_key, survey, quote)
         earliest = booked + timedelta(days=2)
         start = self.place(
-            installer, quote.labour, install_day, site_id, past=True, not_before=earliest
+            installer, quote.service, install_day, site_id, past=True, not_before=earliest
         ) or self.place(
             installer,
-            quote.labour,
+            quote.service,
             install_day,
             site_id,
             past=True,
@@ -1831,19 +1282,11 @@ class Northlight:
         if start is None:
             return None
         booking = self.book(
-            key, client_key, quote.labour, installer, start, "completed", booked, site=site_id
+            key, client_key, quote.service, installer, start, "completed", booked, subject=site_id
         )
         assert booking.completed_at is not None
         if booking.deposit_amount_cents:
-            self.payment(
-                client_key,
-                booked + timedelta(minutes=10),
-                "card",
-                kind="deposit",
-                booking_id=booking.id,
-                size="deposit",
-            )
-            booking.deposit_status = "collected"
+            self.deposit(booking, booked + timedelta(minutes=10))
         address = self.ctx.get(Subject, site_id).attributes.get("address", "")
         invoice = self.invoice(
             key,
@@ -1860,94 +1303,12 @@ class Northlight:
             self.handover(key, booking, quote)
         return booking
 
-    def visit(
-        self,
-        key: str,
-        client_key: str,
-        item_id: str,
-        staff: str,
-        day: int,
-        *,
-        settle: Settle | None = "card",
-        site: str | None = None,
-        price: int | None = None,
-        note: str | None = None,
-        status: BookingStatus | None = None,
-    ) -> Booking | None:
-        past = day < 0
-        site_id = site or f"sj_nl_{client_key}"
-        start = self.place(staff, item_id, day, site_id, past=past)
-        if start is None:
-            return None
-        created = min(start - timedelta(days=5), self.now - timedelta(hours=5))
-        booking = self.book(
-            key,
-            client_key,
-            item_id,
-            staff,
-            start,
-            status or ("completed" if past else "confirmed"),
-            created,
-            site=site_id,
-            price=price,
-        )
-        if note:
-            self.note(booking.id, "booking", note, created)
-        if past and settle is not None and booking.price_cents and booking.completed_at:
-            invoice = self.invoice(
-                key, client_key, booking.completed_at + timedelta(minutes=20), created, note or ""
-            )
-            address = self.ctx.get(Subject, site_id).attributes.get("address", "")
-            invoice.notes = f"{self.items[item_id].name} at {address}."
-            booking.invoice_id = invoice.id
-            self.ctx.add(
-                Line(
-                    id=f"ln_{invoice.id}_0",
-                    business_id=NORTHLIGHT,
-                    invoice_id=invoice.id,
-                    item_id=item_id,
-                    booking_id=booking.id,
-                    staff_id=staff,
-                    description=self.items[item_id].name,
-                    quantity=1,
-                    unit_amount_cents=booking.price_cents,
-                    amount_cents=booking.price_cents,
-                    tax_class="federal_only",
-                    position=0,
-                    created_at=created,
-                    updated_at=created,
-                )
-            )
-            self.settle(invoice, client_key, settle)
-        return booking
-
-    def note(
-        self,
-        parent_id: str,
-        parent: Literal["client", "subject", "booking"],
-        body: str,
-        when: datetime,
-    ) -> None:
-        count = len([n for n in self.ctx.all(Note) if n.parent_id == parent_id])
-        self.ctx.add(
-            Note(
-                id=f"nt_{parent_id}_{count}",
-                business_id=NORTHLIGHT,
-                created_by=NORTHLIGHT_OWNER,
-                parent_type=parent,
-                parent_id=parent_id,
-                body=body,
-                created_at=when,
-                updated_at=when,
-            )
-        )
-
     def handover(self, key: str, booking: Booking, quote: Quote) -> None:
         slot = self.ctx.get(Slot, booking.slot_id)
         client = self.ctx.get(Client, booking.client_id)
         site = self.ctx.get(Subject, booking.subject_id or "")
         cameras = sum(qty for part, qty in quote.parts if part in {TURRET, BULLET, DOORBELL, PTZ})
-        day = slot.starts_at.astimezone(BUSINESS_TIMEZONE).date()
+        day = self.local(slot.starts_at).date()
         recorder = site.attributes.get("recorder_location")
         locations = [
             f"{e.model} ({e.location})"
@@ -1956,109 +1317,28 @@ class Northlight:
         ]
         submitted = slot.ends_at - timedelta(minutes=10)
         commercial = "commercial" in (client.tags or [])
-        self.ctx.add(
-            FormResponse(
-                id=f"fr_nl_handover_{key}",
-                business_id=NORTHLIGHT,
-                form_id=HANDOVER_FORM,
-                client_id=client.id,
-                parent_type="booking",
-                parent_id=booking.id,
-                status="submitted",
-                token=f"demo_handover_nl_{key}",
-                opened_at=submitted - timedelta(minutes=8),
-                submitted_at=submitted,
-                answers={
-                    "install_date": day.isoformat(),
-                    "cameras_installed": cameras,
-                    "camera_locations": "; ".join(locations),
-                    "recorder_location": str(recorder or "Network cabinet"),
-                    "storage": "About 30 days",
-                    "app_setup": True,
-                    "retention_explained": True,
-                    "password_received": True,
-                    **({"signs_posted": True} if commercial else {}),
-                    "rating": 5 if len(key) % 3 else 4,
-                },
-                signature={"name": client.name, "strokes": None, "ip": "192.0.2.80"},
-                created_at=submitted - timedelta(minutes=20),
-                updated_at=submitted,
-            )
+        self.response(
+            "handover",
+            key,
+            HANDOVER_FORM,
+            booking,
+            {
+                "install_date": day.isoformat(),
+                "cameras_installed": cameras,
+                "camera_locations": "; ".join(locations),
+                "recorder_location": str(recorder or "Network cabinet"),
+                "storage": "About 30 days",
+                "app_setup": True,
+                "retention_explained": True,
+                "password_received": True,
+                **({"signs_posted": True} if commercial else {}),
+                "rating": 5 if len(key) % 3 else 4,
+            },
+            submitted,
+            opened=submitted - timedelta(minutes=8),
+            created=submitted - timedelta(minutes=20),
+            signature={"name": client.name, "strokes": None, "ip": "192.0.2.80"},
         )
-
-    def card(self, client_key: str, when: datetime, brand: str, last4: str) -> PaymentMethod:
-        found = next(
-            (m for m in self.ctx.all(PaymentMethod) if m.id == f"pm_nl_{client_key}"), None
-        )
-        if found is not None:
-            return found
-        method = PaymentMethod(
-            id=f"pm_nl_{client_key}",
-            business_id=NORTHLIGHT,
-            client_id=f"cl_nl_{client_key}",
-            method="card",
-            brand=brand,
-            last4=last4,
-            exp_month=1 + len(client_key) % 12,
-            exp_year=2028 + len(client_key) % 3,
-            holder_name=self.ctx.get(Client, f"cl_nl_{client_key}").name,
-            provider_ref=f"pm_demo_nl_{client_key}",
-            preferred=True,
-            mandate_status="none",
-            created_at=when,
-            updated_at=when,
-        )
-        self.ctx.add(method)
-        return method
-
-    def subscribe(self, client_key: str, item_id: str, start: datetime) -> Subscription:
-        """A plan billed by card on each period, recorded as a paid invoice the way renewals are."""
-        brands = (("Visa", "4242"), ("Mastercard", "4444"), ("Visa", "1881"), ("Amex", "8431"))
-        brand, last4 = brands[len(client_key) % len(brands)]
-        method = self.card(client_key, start - timedelta(minutes=30), brand, last4)
-        yearly = item_id == MAINTENANCE
-        if yearly:
-            self.sign(
-                f"{client_key}_plan", client_key, PLAN_AGREEMENT, start - timedelta(hours=1), None
-            )
-        first = start.astimezone(BUSINESS_TIMEZONE).date()
-        period = 0
-        while True:
-            day = _add_months(first, 12 * period if yearly else period)
-            issued = datetime.combine(day, time(10, 0), BUSINESS_TIMEZONE).astimezone(UTC)
-            if issued >= self.now - timedelta(hours=1):
-                break
-            if period == 0 and issued < start:
-                issued = start + timedelta(minutes=5)
-            following = _add_months(first, 12 * (period + 1) if yearly else period + 1)
-            key = f"{'plan' if yearly else 'remote'}_{client_key}_{period:02}"
-            invoice = self.invoice(
-                key,
-                client_key,
-                issued,
-                issued,
-                f"{self.items[item_id].name}, {day.isoformat()} to {following.isoformat()}.",
-            )
-            self.line(invoice.id, item_id, issued)
-            self.payment(client_key, issued + timedelta(minutes=2), "card", invoice_id=invoice.id)
-            period += 1
-        end = _add_months(first, 12 * period if yearly else period)
-        subscription = Subscription(
-            id=f"sub_nl_{'plan' if yearly else 'remote'}_{client_key}",
-            business_id=NORTHLIGHT,
-            client_id=f"cl_nl_{client_key}",
-            item_id=item_id,
-            status="active",
-            current_period_end=datetime.combine(end, time(10, 0), BUSINESS_TIMEZONE).astimezone(
-                UTC
-            ),
-            payment_method_id=method.id,
-            provider_ref=f"sub_demo_nl_{'plan' if yearly else 'remote'}_{client_key}",
-            created_at=start,
-            updated_at=start,
-        )
-        self.ctx.add(subscription)
-        return subscription
 
     def earlier_system(self, client_key: str, quote: Quote, days_ago: int) -> None:
         """Equipment installed before the seeded history, with the client dating from then."""
@@ -2069,16 +1349,16 @@ class Northlight:
     def today_jobs(self) -> tuple[Booking, Booking]:
         owen_quote = Quote(HOME, ((TURRET, 4), (DOORBELL, 1), (NVR8, 1), (CABLE, 5), (JBOX, 4)))
         meilin_quote = Quote(HOME, ((TURRET, 3), (BULLET, 1), (NVR8, 1), (CABLE, 4), (JBOX, 3)))
-        local = self.now.astimezone(BUSINESS_TIMEZONE)
+        local = self.local(self.now)
         floor = local.replace(minute=local.minute // 15 * 15, second=0, microsecond=0)
         liam_start = (floor - timedelta(minutes=60)).astimezone(UTC)
         ava_start = (floor + timedelta(minutes=45)).astimezone(UTC)
         window = self.hours_on(LIAM, local.date())
         four = timedelta(hours=4)
         today = window is not None and all(
-            start.astimezone(BUSINESS_TIMEZONE).time() >= window[0]
-            and (start + four).astimezone(BUSINESS_TIMEZONE).time() <= window[1]
-            and (start + four).astimezone(BUSINESS_TIMEZONE).date() == local.date()
+            self.local(start).time() >= window[0]
+            and self.local(start + four).time() <= window[1]
+            and self.local(start + four).date() == local.date()
             for start in (liam_start, ava_start)
         )
         jobs: list[Booking] = []
@@ -2095,15 +1375,7 @@ class Northlight:
                 start = found
             booking = self.book(key, key, HOME, staff, start, "confirmed", booked)
             self.addons(booking, estimate, quote)
-            self.payment(
-                key,
-                booked + timedelta(minutes=10),
-                "card",
-                kind="deposit",
-                booking_id=booking.id,
-                size="deposit",
-            )
-            booking.deposit_status = "collected"
+            self.deposit(booking, booked + timedelta(minutes=10))
             jobs.append(booking)
         owen, meilin = jobs
         if today:
@@ -2174,15 +1446,7 @@ class Northlight:
         assert start is not None
         claire = self.book("claire", "claire", HOME, LIAM, start, "confirmed", booked)
         self.addons(claire, estimate, claire_quote)
-        self.payment(
-            "claire",
-            booked + timedelta(minutes=10),
-            "card",
-            kind="deposit",
-            booking_id=claire.id,
-            size="deposit",
-        )
-        claire.deposit_status = "collected"
+        self.deposit(claire, booked + timedelta(minutes=10))
         # accepted and waiting to be booked, for Book the install
         ruth_quote = Quote(HOME, ((TURRET, 2), (DOORBELL, 1), (NVR8, 1), (CABLE, 3), (JBOX, 2)))
         ruth_survey = self.survey("ruth", "ruth", -9)
@@ -2266,7 +1530,7 @@ class Northlight:
         self.addons(simon, estimate, simon_quote)
         diane = self.survey("diane", "diane", 5, online=True, status="confirmed", lead_days=4)
         assert diane is not None
-        self.survey_draft("diane", diane)
+        self.response("survey", "diane", SURVEY_FORM, diane, {}, None)
 
     def tap_to_pay(self) -> None:
         quote = Quote(HOME, ((TURRET, 4), (DOORBELL, 1), (NVR8, 1), (CABLE, 5), (JBOX, 4)))
@@ -2278,35 +1542,9 @@ class Northlight:
         booking = self.book("sarah", "sarah", HOME, LIAM, start, "completed", booked)
         booking.estimate_id = estimate.id
         assert booking.completed_at is not None
-        self.payment(
-            "sarah",
-            booked + timedelta(minutes=10),
-            "card",
-            kind="deposit",
-            booking_id=booking.id,
-            size="deposit",
-        )
+        self.deposit(booking, booked + timedelta(minutes=10))
         paid = booking.completed_at + timedelta(minutes=15)
-        order = Order(
-            id="ord_nl_sarah",
-            business_id=NORTHLIGHT,
-            number=1,
-            client_id="cl_nl_sarah",
-            staff_id=LIAM,
-            status="open",
-            currency="CAD",
-            source="pos",
-            paid_at=paid,
-            receipt_token="demo_receipt_ord_nl_sarah",
-            receipt_channel="email",
-            receipt_sent_at=paid + timedelta(minutes=1),
-            created_at=booked,
-            updated_at=paid,
-        )
-        self.ctx.add(order)
-        self.lines("order", order.id, quote, booked, booking=booking)
-        booking.order_id, booking.charged_at, booking.deposit_status = order.id, paid, "applied"
-        self.payment("sarah", paid, "card", order_id=order.id, size="balance")
+        self.sale("sarah", "sarah", LIAM, quote, booking, booked, paid)
         self.equip("sj_nl_sarah", quote, start, CAMERA_SPOTS)
         self.handover("sarah", booking, quote)
         for index, (asset, caption) in enumerate(
@@ -2333,25 +1571,6 @@ class Northlight:
             )
         self.subscribe("sarah", REMOTE, booking.completed_at)
 
-    def survey_draft(self, key: str, booking: Booking) -> None:
-        """The survey form sent with a first booking, not yet filled in."""
-        sent = booking.created_at + timedelta(minutes=5)
-        self.ctx.add(
-            FormResponse(
-                id=f"fr_nl_survey_{key}",
-                business_id=NORTHLIGHT,
-                form_id=SURVEY_FORM,
-                client_id=booking.client_id,
-                parent_type="booking",
-                parent_id=booking.id,
-                status="draft",
-                token=f"demo_survey_nl_{key}",
-                answers={},
-                created_at=sent,
-                updated_at=sent,
-            )
-        )
-
     def survey_answers(self, key: str, booking: Booking, *, photos: bool) -> None:
         site = self.ctx.get(Subject, booking.subject_id or "")
         submitted = min(booking.created_at + timedelta(hours=20), self.now - timedelta(hours=2))
@@ -2370,10 +1589,7 @@ class Northlight:
             "internet": str(site.attributes.get("internet") or "Telus fibre"),
             "lighting": "Motion lights",
             "access_notes": "A friendly dog at home; we'll put her in the back room for the visit.",
-            "preferred_date": (booking.starts_at + timedelta(days=10))
-            .astimezone(BUSINESS_TIMEZONE)
-            .date()
-            .isoformat(),
+            "preferred_date": self.local(booking.starts_at + timedelta(days=10)).date().isoformat(),
             "budget": 2500,
             "goals": "The front door and driveway, and the side gate where parcels get left.",
         }
@@ -2398,23 +1614,7 @@ class Northlight:
                     )
                 )
                 answers[field] = file_id
-        self.ctx.add(
-            FormResponse(
-                id=response_id,
-                business_id=NORTHLIGHT,
-                form_id=SURVEY_FORM,
-                client_id=booking.client_id,
-                parent_type="booking",
-                parent_id=booking.id,
-                status="submitted",
-                token=f"demo_survey_nl_{key}",
-                opened_at=submitted - timedelta(minutes=15),
-                submitted_at=submitted,
-                answers=answers,
-                created_at=booking.created_at + timedelta(minutes=5),
-                updated_at=submitted,
-            )
-        )
+        self.response("survey", key, SURVEY_FORM, booking, answers, submitted)
 
     def history(self) -> None:
         named: tuple[tuple[str, Quote, int, int, str, Settle], ...] = (
@@ -2572,23 +1772,7 @@ class Northlight:
         if booking.invoice_id is None:
             return
         for position, (part, qty) in enumerate(quote.parts, start=1):
-            item = self.items[part]
-            self.ctx.add(
-                Line(
-                    id=f"ln_{booking.invoice_id}_{position}",
-                    business_id=NORTHLIGHT,
-                    invoice_id=booking.invoice_id,
-                    item_id=item.id,
-                    description=item.name,
-                    quantity=qty,
-                    unit_amount_cents=item.price_cents,
-                    amount_cents=item.price_cents * qty,
-                    tax_class=item.tax_class,
-                    position=position,
-                    created_at=booking.created_at,
-                    updated_at=booking.created_at,
-                )
-            )
+            self.line(booking.invoice_id, part, booking.created_at, position, quantity=qty)
         self.equip(booking.subject_id or "", quote, booking.starts_at, CAMERA_SPOTS)
 
     def upcoming(self) -> None:
@@ -2604,7 +1788,7 @@ class Northlight:
                 lead_days=3 + offset,
             )
             assert lead is not None
-            self.survey_draft(key, lead)
+            self.response("survey", key, SURVEY_FORM, lead, {}, None)
         for offset, index in enumerate(QUOTED):
             key = f"home_{index:02}"
             survey = self.survey(key, key, -8 + offset * 2)
@@ -2629,15 +1813,7 @@ class Northlight:
             booking = self.book(key, key, HOME, staff, start, "confirmed", booked)
             self.addons(booking, estimate, quote)
             if offset != 2:
-                self.payment(
-                    key,
-                    booked + timedelta(minutes=10),
-                    "card",
-                    kind="deposit",
-                    booking_id=booking.id,
-                    size="deposit",
-                )
-                booking.deposit_status = "collected"
+                self.deposit(booking, booked + timedelta(minutes=10))
         self.visit(
             "patrick_carport",
             "patrick",
@@ -2652,7 +1828,7 @@ class Northlight:
             CALL,
             BOSS,
             10,
-            site="sj_nl_islandstorage_saanich",
+            subject="sj_nl_islandstorage_saanich",
             note="Adjust the gate camera so plates are readable at night.",
         )
 
@@ -2688,135 +1864,36 @@ class Northlight:
         self.sign("colin_plan", "colin", PLAN_AGREEMENT, self.at(-2, 15), None, status="declined")
 
     def engagement(self) -> None:
-        ctx = self.ctx
-        for index, client in enumerate(sorted(ctx.all(Client), key=lambda c: c.id)):
-            online = any(b.source == "online" for b in ctx.all(Booking) if b.client_id == client.id)
-            for channel, wanted in (("email", index % 5 != 4), ("sms", index % 3 != 2)):
-                if not wanted:
-                    continue
-                ctx.add(
-                    Consent(
-                        id=f"cns_{client.id}_{channel}",
-                        business_id=NORTHLIGHT,
-                        client_id=client.id,
-                        channel=channel,
-                        status="granted",
-                        source="online_booking" if online else "in_person",
-                        recorded_by=None if online else NORTHLIGHT_OWNER,
-                        created_at=client.created_at,
-                        updated_at=client.created_at,
-                    )
-                )
-        withdrawn = self.now - timedelta(days=20)
-        ctx.add(
-            Consent(
-                id="cns_cl_nl_kevin_email_withdrawn",
-                business_id=NORTHLIGHT,
-                client_id="cl_nl_kevin",
-                channel="email",
-                status="withdrawn",
-                source="unsubscribe",
-                created_at=withdrawn,
-                updated_at=withdrawn,
-            )
-        )
-        self.broadcast()
-        self.conversations()
-        self.review_requests()
-
-    def thread(self, client_key: str, channel: Literal["sms", "email"], when: datetime) -> Thread:
-        thread_id = f"th_nl_{client_key}_{channel}"
-        found = next((t for t in self.ctx.all(Thread) if t.id == thread_id), None)
-        if found is None:
-            found = Thread(
-                id=thread_id,
-                business_id=NORTHLIGHT,
-                client_id=f"cl_nl_{client_key}",
-                channel=channel,
-                status="open",
-                created_at=when,
-                updated_at=when,
-            )
-            self.ctx.add(found)
-        found.created_at = min(found.created_at, when)
-        found.updated_at = max(found.updated_at, when)
-        return found
-
-    def say(
-        self,
-        thread: Thread,
-        body: str,
-        when: datetime,
-        *,
-        sender: str | None = "us_nl_office",
-        broadcast_id: str | None = None,
-    ) -> None:
-        index = len([m for m in self.ctx.all(Message) if m.thread_id == thread.id])
-        incoming = sender is None
-        self.ctx.add(
-            Message(
-                id=f"msg_{thread.id}_{index}",
-                business_id=NORTHLIGHT,
-                thread_id=thread.id,
-                direction="in" if incoming else "out",
-                channel=thread.channel,
-                sent_by=sender,
-                body=body,
-                status="read" if incoming else "delivered",
-                broadcast_id=broadcast_id,
-                created_at=when,
-                updated_at=when,
-            )
-        )
-        thread.created_at = min(thread.created_at, when)
-        thread.updated_at = max(thread.updated_at, when)
-
-    def broadcast(self) -> None:
-        ctx = self.ctx
-        when = self.at(-185, 10)
-        body = (
+        self.consents()
+        self.withdraw("kevin", "email", self.now - timedelta(days=20))
+        self.broadcast(
+            "spring",
+            "Spring camera check",
             "Spring is a good time to check your cameras. Wipe each lens with a soft cloth, trim "
             "plants that block a view, and open the app to confirm every camera shows a live "
             "picture. If a camera is offline or the picture looks wrong, reply to this email or "
-            "book a service call online."
+            "book a service call online.",
+            self.at(-185, 10),
         )
-        candidates = [c for c in ctx.all(Client) if c.created_at <= when and c.email]
-        recipients: list[Client] = []
-        for client in candidates:
-            history = [
-                c
-                for c in ctx.all(Consent)
-                if c.client_id == client.id and c.channel == "email" and c.created_at <= when
-            ]
-            consent = max(history, key=lambda c: (c.created_at, c.id), default=None)
-            if allows_marketing(consent, when):
-                recipients.append(client)
-        ctx.add(
-            Broadcast(
-                id="bro_nl_spring",
-                business_id=NORTHLIGHT,
-                created_by=NORTHLIGHT_OWNER,
-                name="Spring camera check",
-                channel="email",
-                body=body,
-                audience={"all": True},
-                status="sent",
-                scheduled_at=when,
-                recipient_count=len(recipients),
-                excluded_count=len(candidates) - len(recipients),
-                created_at=when - timedelta(days=1),
-                updated_at=when,
-            )
-        )
-        for index, client in enumerate(sorted(recipients, key=lambda c: c.id)):
-            thread = self.thread(client.id.removeprefix("cl_nl_"), "email", when)
-            self.say(
-                thread,
-                body,
-                when + timedelta(seconds=index),
-                sender=NORTHLIGHT_OWNER,
-                broadcast_id="bro_nl_spring",
-            )
+        self.conversations()
+        for key in (
+            "sarah",
+            "ingrid",
+            "marco",
+            "rebecca",
+            "nora",
+            "kevin",
+            "gorgeauto",
+            "harbourbikes",
+            "tariq",
+            "colin",
+            *(
+                f"home_{index:02}"
+                for index in range(BOOKED.stop, GENERATED, 5)
+                if any(b.id == f"bk_nl_home_{index:02}" for b in self.ctx.all(Booking))
+            ),
+        ):
+            self.review(key)
 
     def conversations(self) -> None:
         ctx = self.ctx
@@ -2872,7 +1949,7 @@ class Northlight:
         ):
             booking = ctx.get(Booking, f"bk_nl_{key}")
             when = min(booking.starts_at - timedelta(hours=20), self.now - timedelta(hours=2))
-            local = booking.starts_at.astimezone(BUSINESS_TIMEZONE)
+            local = self.local(booking.starts_at)
             thread = self.thread(key, "sms", when)
             self.say(
                 thread,
@@ -2926,160 +2003,5 @@ class Northlight:
             when + timedelta(minutes=6),
         )
 
-    def review_requests(self) -> None:
-        ctx = self.ctx
-        keys = [
-            "sarah",
-            "ingrid",
-            "marco",
-            "rebecca",
-            "nora",
-            "kevin",
-            "gorgeauto",
-            "harbourbikes",
-            "tariq",
-            "colin",
-            *(
-                f"home_{index:02}"
-                for index in range(BOOKED.stop, GENERATED, 5)
-                if any(b.id == f"bk_nl_home_{index:02}" for b in ctx.all(Booking))
-            ),
-        ]
-        for key in keys:
-            booking = ctx.get(Booking, f"bk_nl_{key}")
-            if booking.completed_at is None:
-                continue
-            requested = booking.completed_at + timedelta(hours=2)
-            ctx.add(
-                ReviewRequest(
-                    id=f"rr_nl_{key}",
-                    business_id=NORTHLIGHT,
-                    client_id=booking.client_id,
-                    booking_id=booking.id,
-                    requested_at=requested,
-                    created_at=requested,
-                    updated_at=requested,
-                )
-            )
 
-    def finish(self) -> None:
-        ctx = self.ctx
-        price_documents(ctx)
-        parents: dict[str, Invoice | Order] = {
-            **{i.id: i for i in ctx.all(Invoice)},
-            **{o.id: o for o in ctx.all(Order)},
-        }
-        bookings = ctx.all(Booking)
-        for payment, size in self.sized:
-            if size == "deposit":
-                payment.amount_cents = ctx.get(
-                    Booking, payment.booking_id or ""
-                ).deposit_amount_cents
-                continue
-            parent = parents[payment.invoice_id or payment.order_id or ""]
-            held = sum(
-                b.deposit_amount_cents
-                for b in bookings
-                if parent.id in {b.invoice_id, b.order_id} and b.deposit_status != "pending"
-            )
-            payment.amount_cents = parent.total_cents - (held if size == "balance" else 0)
-        self.stock(parents)
-        forms = {form.id: form for form in ctx.all(Form)}
-        for response in ctx.all(FormResponse):
-            response.definition = form_definition(
-                forms[response.form_id],
-                [f for f in ctx.all(FormField) if f.form_id == response.form_id],
-                "reconstructed",
-            )
-        for file in ctx.all(File):
-            file.uploaded_at = file.updated_at or file.created_at
-        for row in ctx.rows:
-            if isinstance(row, TimestampMixin):
-                row.created_at = row.created_at or self.at(-300)
-                row.updated_at = row.updated_at or row.created_at
-        align_timestamps(ctx)
-        ctx.add(
-            Audit(
-                id="aud_nl_demo_seed",
-                business_id=NORTHLIGHT,
-                performed_by=NORTHLIGHT_OWNER,
-                action="demo.seed",
-                entity_type="business",
-                entity_id=NORTHLIGHT,
-                changes={"as_of": self.now.isoformat()},
-                created_at=self.now,
-            )
-        )
-
-    def stock(self, parents: dict[str, Invoice | Order]) -> None:
-        ctx = self.ctx
-        paid = {
-            p.invoice_id or p.order_id: p.paid_at
-            for p in ctx.all(Payment)
-            if p.kind == "payment" and (p.invoice_id or p.order_id) and p.paid_at
-        }
-        sold: dict[str, int] = {}
-        for line in ctx.all(Line):
-            parent_id = line.invoice_id or line.order_id
-            if parent_id is None or parent_id not in paid or line.item_id not in STOCK:
-                continue
-            when = paid[parent_id]
-            assert when is not None and parent_id in parents
-            sold[line.item_id] = sold.get(line.item_id, 0) + int(line.quantity)
-            ctx.add(
-                StockMovement(
-                    id=f"sm_sale_{line.id}",
-                    business_id=NORTHLIGHT,
-                    item_id=line.item_id,
-                    line_id=line.id,
-                    reason="sale",
-                    quantity=-int(line.quantity),
-                    created_by=NORTHLIGHT_OWNER,
-                    created_at=when,
-                    updated_at=when,
-                )
-            )
-        for item_id, (on_hand, _low, cost, _sku) in STOCK.items():
-            needed = on_hand + sold.get(item_id, 0)
-            deliveries = (-300, -240, -180, -120, -60, -20)
-            share = needed // len(deliveries)
-            for index, day in enumerate(deliveries):
-                quantity = share if index < len(deliveries) - 1 else needed - share * index
-                if quantity <= 0:
-                    continue
-                when = self.at(day, 8)
-                ctx.add(
-                    StockMovement(
-                        id=f"mv_{item_id}_{index}",
-                        business_id=NORTHLIGHT,
-                        item_id=item_id,
-                        reason="restock",
-                        quantity=quantity,
-                        unit_cost_cents=cost,
-                        note="Opening count" if index == 0 else "Supplier delivery",
-                        created_by=NORTHLIGHT_OWNER,
-                        created_at=when,
-                        updated_at=when,
-                    )
-                )
-            self.items[item_id].stock_on_hand = on_hand
-
-
-def build_northlight(now: datetime) -> DemoContext:
-    ctx = DemoContext(now, NORTHLIGHT, NORTHLIGHT_OWNER)
-    Northlight(ctx).build()
-    errors = validate_graph(ctx) + chronology_errors(ctx)
-    if errors:
-        raise ValueError("Invalid Northlight demo graph: " + "; ".join(errors[:20]))
-    return ctx
-
-
-async def seed_northlight_finance(db: AsyncSession, ctx: DemoContext) -> None:
-    await post_invoices(db, ctx)
-    await post_payments(db, ctx)
-    for booking in sorted(ctx.all(Booking), key=lambda b: b.completed_at or ctx.now):
-        if booking.deposit_status == "collected" and booking.invoice_id:
-            await apply_deposit_at(db, booking, ctx.get(Invoice, booking.invoice_id))
-    await seed_earnings(db, ctx)
-    await seed_payouts(db, ctx, first_day=-266, failed_day=None)
-    await seed_returns(db, ctx)
+EDITION = Northlight

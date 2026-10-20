@@ -1,5 +1,6 @@
 """Give the web smoke test a series, a low-stock product, a dispute and a duplicate client."""
 
+import argparse
 import asyncio
 import hashlib
 import hmac
@@ -20,20 +21,19 @@ from clientbridge.models.catalog import Item
 from clientbridge.models.clients import Client, Subject
 from clientbridge.models.payments import Payment
 from clientbridge.models.scheduling import Recurrence, Slot
+from scripts.demo_context import DEMO_IDS, DEMO_PASSWORD, FIXTURE_BUSINESS, demo_business
 
-BIZ = "bz_birchbark"
-OWNER = {"email": "hannah@birchbark.example", "password": "demo1234"}
 API = os.environ.get("API_URL", "http://localhost:8701")
 # a near-duplicate with no money or saved cards, so the merge flow is not blocked
 DUPLICATE = "Robin Test"
 
 
-async def _has_series(db: AsyncSession) -> bool:
+async def _has_series(db: AsyncSession, biz: str) -> bool:
     found = await db.execute(
         select(Recurrence.id)
         .join(Slot, Slot.recurrence_id == Recurrence.id)
         .where(
-            Recurrence.business_id == BIZ,
+            Recurrence.business_id == biz,
             Recurrence.client_id.is_not(None),
             Recurrence.status == "active",
             Slot.starts_at > clock.now(),
@@ -43,11 +43,11 @@ async def _has_series(db: AsyncSession) -> bool:
     return found.first() is not None
 
 
-async def _has_low_stock(db: AsyncSession) -> bool:
+async def _has_low_stock(db: AsyncSession, biz: str) -> bool:
     found = await db.execute(
         select(Item.id)
         .where(
-            Item.business_id == BIZ,
+            Item.business_id == biz,
             Item.track_stock.is_(True),
             Item.active.is_(True),
             Item.stock_on_hand <= Item.low_stock_at,
@@ -57,43 +57,47 @@ async def _has_low_stock(db: AsyncSession) -> bool:
     return found.first() is not None
 
 
-async def _has_duplicate(db: AsyncSession) -> bool:
+async def _has_duplicate(db: AsyncSession, biz: str) -> bool:
     found = await db.execute(
         select(Client.id)
-        .where(Client.business_id == BIZ, Client.name == DUPLICATE, Client.deleted_at.is_(None))
+        .where(Client.business_id == biz, Client.name == DUPLICATE, Client.deleted_at.is_(None))
         .limit(1)
     )
     return found.first() is not None
 
 
-async def _has_dispute(db: AsyncSession) -> bool:
+async def _has_dispute(db: AsyncSession, biz: str) -> bool:
     found = await db.execute(
         select(Payment.id)
-        .where(Payment.business_id == BIZ, Payment.dispute_status.is_not(None))
+        .where(Payment.business_id == biz, Payment.dispute_status.is_not(None))
         .limit(1)
     )
     return found.first() is not None
 
 
-async def _series_body(db: AsyncSession) -> dict[str, object]:
-    pet = (
+async def _series_body(db: AsyncSession, biz: str) -> dict[str, object]:
+    active = (Client.business_id == biz, Client.status == "active", Client.deleted_at.is_(None))
+    subject = (
         await db.execute(
             select(Subject)
             .join(Client, Client.id == Subject.client_id)
-            .where(
-                Subject.business_id == BIZ,
-                Client.status == "active",
-                Client.deleted_at.is_(None),
-            )
+            .where(*active)
             .order_by(Subject.id)
             .limit(1)
         )
-    ).scalar_one()
+    ).scalar_one_or_none()
+    client_id = (
+        subject.client_id
+        if subject is not None
+        else (
+            await db.execute(select(Client.id).where(*active).order_by(Client.id).limit(1))
+        ).scalar_one()
+    )
     service = (
         await db.execute(
             select(Item)
             .where(
-                Item.business_id == BIZ,
+                Item.business_id == biz,
                 Item.kind == "service",
                 Item.active.is_(True),
                 Item.duration_min > 0,
@@ -103,17 +107,17 @@ async def _series_body(db: AsyncSession) -> dict[str, object]:
         )
     ).scalar_one()
     owner = (
-        await db.execute(select(Staff).where(Staff.business_id == BIZ, Staff.role == "owner"))
+        await db.execute(select(Staff).where(Staff.business_id == biz, Staff.role == "owner"))
     ).scalar_one()
-    business = await db.get(Business, BIZ)
+    business = await db.get(Business, biz)
     assert business is not None
     tz = ZoneInfo(business.timezone)
     today = clock.today(tz)
     wednesday = today + timedelta(days=(2 - today.weekday()) % 7 + 7)
     starts_at = datetime.combine(wednesday, datetime.min.time(), tz).replace(hour=15)
     return {
-        "client_id": pet.client_id,
-        "subject_id": pet.id,
+        "client_id": client_id,
+        "subject_id": subject.id if subject is not None else None,
         "item_id": service.id,
         "staff_id": owner.id,
         "starts_at": starts_at.isoformat(),
@@ -125,13 +129,13 @@ async def _series_body(db: AsyncSession) -> dict[str, object]:
     }
 
 
-async def _dispute_event(db: AsyncSession) -> bytes:
+async def _dispute_event(db: AsyncSession, biz: str) -> bytes:
     refunded = select(Payment.parent_payment_id).where(Payment.parent_payment_id.is_not(None))
     payment = (
         await db.execute(
             select(Payment)
             .where(
-                Payment.business_id == BIZ,
+                Payment.business_id == biz,
                 Payment.kind == "payment",
                 Payment.method == "card",
                 Payment.status == "succeeded",
@@ -185,20 +189,21 @@ async def sign_in(http: httpx.AsyncClient, *, email: str, password: str) -> str:
     return str(login.json()["session_token"])
 
 
-async def main() -> None:
+async def main(biz: str) -> None:
     async with SessionLocal() as db:
-        need_series = not await _has_series(db)
-        need_stock = not await _has_low_stock(db)
-        need_dispute = not await _has_dispute(db)
-        need_duplicate = not await _has_duplicate(db)
-        series = await _series_body(db) if need_series else None
-        dispute = await _dispute_event(db) if need_dispute else None
+        need_series = not await _has_series(db, biz)
+        need_stock = not await _has_low_stock(db, biz)
+        need_dispute = not await _has_dispute(db, biz)
+        need_duplicate = not await _has_duplicate(db, biz)
+        series = await _series_body(db, biz) if need_series else None
+        dispute = await _dispute_event(db, biz) if need_dispute else None
     await engine.dispose()
 
     added: list[str] = []
     async with httpx.AsyncClient(base_url=API, timeout=30) as http:
-        http.headers["X-Session-Token"] = await sign_in(http, **OWNER)
-        http.headers["X-Business-Id"] = BIZ
+        owner = demo_business(biz).owner_login
+        http.headers["X-Session-Token"] = await sign_in(http, email=owner, password=DEMO_PASSWORD)
+        http.headers["X-Business-Id"] = biz
         stamp = clock.today(UTC).isoformat()
         if series is not None:
             booked = await http.post(
@@ -253,4 +258,6 @@ async def main() -> None:
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--business", default=FIXTURE_BUSINESS, choices=DEMO_IDS)
+    asyncio.run(main(parser.parse_args().business))
