@@ -14,6 +14,10 @@ import {
     useSubjectKind,
     formatList,
     formatParts,
+    formatMonthDay,
+    formatMoney,
+    BUSINESS_CURRENCY,
+    useBusinessZone,
 } from "@clientbridge/app-core";
 import {
     Avatar,
@@ -381,6 +385,35 @@ export function TeamPanel({ team }: { team: TeamDay[] }) {
                 ))}
             </ul>
         </Panel>
+    );
+}
+
+export function FilingCard({
+    setAsideCents,
+    filingDue,
+    filingDays,
+}: {
+    setAsideCents: number;
+    filingDue: Date | null;
+    filingDays: number | null;
+}) {
+    const zone = useBusinessZone();
+    return (
+        <div className="flex items-center justify-between gap-4 rounded-lg border border-line bg-surface px-4 py-3 shadow-card">
+            <div className="min-w-0">
+                <p className="text-sm font-semibold text-ink">{t.setAside}</p>
+                <p className="mt-0.5 truncate text-xs text-muted">
+                    {filingDue === null || filingDays === null
+                        ? t.notRegistered
+                        : filingDays < 0
+                          ? t.filingLate(formatMonthDay(filingDue, zone))
+                          : t.filing(formatMonthDay(filingDue, zone), filingDays)}
+                </p>
+            </div>
+            <span className="shrink-0 text-base font-semibold tabular-nums text-ink">
+                {formatMoney(setAsideCents, BUSINESS_CURRENCY)}
+            </span>
+        </div>
     );
 }
 

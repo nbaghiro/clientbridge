@@ -9097,6 +9097,20 @@
         "message": "{n, plural, one {# open invoice} other {# open invoices}}",
         "args": ["n"]
     },
+    "today.setAside": {
+        "message": "Sales tax set aside"
+    },
+    "today.filing": {
+        "message": "{days, plural, =0 {Return due today, {due}} other {Return due {due}, in # days}}",
+        "args": ["due", "days"]
+    },
+    "today.filingLate": {
+        "message": "Return was due {due}",
+        "args": ["due"]
+    },
+    "today.notRegistered": {
+        "message": "Not registered for GST/HST, so nothing is set aside."
+    },
     "today.schedule": {
         "message": "Today’s schedule"
     },

@@ -37,6 +37,7 @@ import { Fragment, type ReactNode } from "react";
 
 import {
     AttentionPanel,
+    FilingCard,
     KpiStrip,
     KpiStripLoading,
     QuietSchedule,
@@ -226,7 +227,16 @@ function OwnerTodayPage() {
                                     loading={loading}
                                     empty={t.allClear}
                                 />
-                                <TeamPanel team={view.team} />
+                                <div className="space-y-6">
+                                    <TeamPanel team={view.team} />
+                                    {loading || moneyLoad.state !== "ready" ? null : (
+                                        <FilingCard
+                                            setAsideCents={money.setAsideCents}
+                                            filingDue={money.filingDue}
+                                            filingDays={money.filingDays}
+                                        />
+                                    )}
+                                </div>
                             </div>
                         </div>
                     )}
