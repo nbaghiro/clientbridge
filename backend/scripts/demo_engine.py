@@ -1059,6 +1059,8 @@ class Demo:
         booking: Booking,
         created: datetime,
         paid: datetime,
+        *,
+        tip: tuple[str, int] | None = None,
     ) -> Order:
         """Checkout by Tap to Pay: a point-of-sale order for the visit, paid by card present."""
         self.order_number += 1
@@ -1083,7 +1085,7 @@ class Demo:
         booking.order_id, booking.charged_at = order.id, paid
         if booking.deposit_status == "collected":
             booking.deposit_status = "applied"
-        self.payment(client_key, paid, "card", order_id=order.id, size="balance")
+        self.payment(client_key, paid, "card", order_id=order.id, size="balance", tip=tip)
         return order
 
     def note(self, parent_id: str, parent: NoteParent, body: str, when: datetime) -> None:

@@ -19,7 +19,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
-from clientbridge.models.billing import Invoice
+from clientbridge.models.billing import Invoice, Order
 from clientbridge.models.catalog import Package
 from clientbridge.models.ledger import Account, Entry
 from clientbridge.models.payments import Payment
@@ -268,6 +268,7 @@ class Probe(Demo):
             tap,
             tap.created_at,
             tap.completed_at + timedelta(minutes=10),
+            tip=("st_pb_owner", 1000),
         )
         package = self.package("pack", "it_pb_maintenance", self.at(-50, 12))
         for index, day in enumerate((-40, -12)):
@@ -370,6 +371,9 @@ async def test_engine_rows_post_through_the_ledger_and_validate(owner_db: AsyncS
     assert deposit.deposit_status == "applied"
     invoice = demo.ctx.get(Invoice, deposit.invoice_id or "")
     assert await ledger.invoice_balance(db, invoice) == 0
+    order = demo.ctx.get(Order, "ord_pb_tap")
+    tapped = next(p for p in demo.ctx.all(Payment) if p.order_id == order.id)
+    assert (tapped.tip_cents, tapped.amount_cents) == (1000, order.total_cents + 1000)
     stripe = await db.scalar(
         select(func.sum(Entry.amount_cents))
         .join(Account, Account.id == Entry.account_id)

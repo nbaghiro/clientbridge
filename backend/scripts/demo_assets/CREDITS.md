@@ -1,6 +1,6 @@
 # Demo catalog imagery
 
-These are illustrative images for the fictional Birchbark and Northlight Security demo businesses. People and pets in stock photographs are not staff or customers of either business.
+These are illustrative images for the fictional Birchbark, Northlight Security and Brightwater Home Cleaning demo businesses. People and pets in stock photographs are not staff or customers of any of them.
 
 | Asset                                                                                                                                                                             | Source / creator                                                                                                                                                                                                             |
 | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -49,6 +49,67 @@ The survey answer photos and the booking's before, after and recorder photos are
 | `nl_photo_recorder.jpg` | [Network rack (panumas nikhomkhai)](https://www.pexels.com/photo/network-rack-17323801/)                                                     |
 
 `nl_logo.png` is a placeholder lighthouse mark drawn with a short script: a 512-pixel transparent PNG with a navy tower, an amber top and a blue beam, made for the white logo tile in the header.
+
+## Brightwater Home Cleaning
+
+Brightwater's catalog photos are stock photos, one per catalog item: 14 from Pexels and the inside-the-fridge photo from Unsplash. They are cropped to 4:3 and saved as 1024 × 768 JPEGs. Some stand in for a close relative of the item: the dryer balls are craft felt balls, the all-purpose refill is a glass bottle filled at a soap refill pump, the sponge cloths are knitted dishcloths and the touch-up duster is a disposable duster with no visible brand.
+
+| Asset                   | Source / creator                                                                                                                                                                          |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `bw_it_standard.jpg`    | [Crop unrecognizable person in yellow gloves cleaning white surface (Karola G)](https://www.pexels.com/photo/crop-unrecognizable-person-in-yellow-gloves-cleaning-white-surface-4239035/) |
+| `bw_it_recurring.jpg`   | [Person in Gray Sweater Mopping and Cleaning the Floor (Tima Miroshnichenko)](https://www.pexels.com/photo/person-in-gray-sweater-mopping-and-cleaning-the-floor-6196566/)                |
+| `bw_it_deep.jpg`        | [Hand in Rubber Glove Cleaning Bathroom Tiles (Liliana Drew)](https://www.pexels.com/photo/hand-in-rubber-glove-cleaning-bathroom-tiles-9462766/)                                         |
+| `bw_it_move_out.jpg`    | [Empty Modern House Room (Max Vakhtbovych)](https://www.pexels.com/photo/empty-modern-house-room-8146330/)                                                                                |
+| `bw_it_move_in.jpg`     | [A Person Cleaning the Handles of Cabinet using a Rag (Liliana Drew)](https://www.pexels.com/photo/a-person-cleaning-the-handles-of-cabinet-using-a-rag-9462227/)                         |
+| `bw_it_touch_up.jpg`    | [Person Holding Yellow Handle Swiffer (Liliana Drew)](https://www.pexels.com/photo/person-holding-yellow-handle-swiffer-9462103/)                                                         |
+| `bw_it_oven.jpg`        | [Hand in Rubber Glove Cleaning Oven Surface (Liliana Drew)](https://www.pexels.com/photo/hand-in-rubber-glove-cleaning-oven-surface-9462303/)                                             |
+| `bw_it_fridge.jpg`      | [An open refrigerator with a jar of mustard in it (Onur Burak Akın)](https://unsplash.com/photos/an-open-refrigerator-with-a-jar-of-mustard-in-it-xocC8MJasM8)                            |
+| `bw_it_windows.jpg`     | [A Person Cleaning a Glass Window (Polina Tankilevitch)](https://www.pexels.com/photo/a-person-cleaning-a-glass-window-4440540/)                                                          |
+| `bw_it_laundry.jpg`     | [Stack of fresh gray towels on white stool (Karola G)](https://www.pexels.com/photo/stack-of-fresh-gray-towels-on-white-stool-4210376/)                                                   |
+| `bw_it_refill.jpg`      | [Woman pouring soap into plastic bottle (Sarah Chai)](https://www.pexels.com/photo/woman-pouring-soap-into-plastic-bottle-7262969/)                                                       |
+| `bw_it_bottle.jpg`      | [Spray Bottle Without a Label (Andrzej Gdula)](https://www.pexels.com/photo/spray-bottle-without-a-label-12037266/)                                                                       |
+| `bw_it_cloths.jpg`      | [Photo of a Pile of Hand Towels (Jessica Lewis)](https://www.pexels.com/photo/photo-of-a-pile-of-hand-towels-14739181/)                                                                   |
+| `bw_it_dryer_balls.jpg` | [Close-Up of Assorted Natural Felt Balls (Valentin Ivantsov)](https://www.pexels.com/photo/close-up-of-assorted-natural-felt-balls-35698173/)                                             |
+| `bw_it_gift.jpg`        | [Pink Roses and Gift Box with Golden Bow (Ylanite Koppens)](https://www.pexels.com/photo/pink-roses-and-gift-box-with-golden-bow-30399680/)                                               |
+
+The two photos attached to Daniel's home details form are Pexels stock photos of different homes.
+
+| Asset                   | Source / creator                                                                                                                                                    |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `bw_photo_kitchen.jpg`  | [Cozy Vintage Kitchen with Dishes and Spices (Riedelmax)](https://www.pexels.com/photo/cozy-vintage-kitchen-with-dishes-and-spices-39740141/)                       |
+| `bw_photo_bathroom.jpg` | [A White and Black Themed Bathroom with Square Bathtub (Curtis Adams)](https://www.pexels.com/photo/a-white-and-black-themed-bathroom-with-square-bathtub-7168080/) |
+
+`bw_logo.png` is a placeholder mark drawn with a short script: a 512-pixel transparent PNG with a teal water drop and two white waves, made for the white logo tile in the header.
+
+Brightwater's 25 portraits, 4 team members and 21 clients, are 512 × 512 JPEGs cropped square around the face: 17 from Pexels and 8 from Unsplash, none of them Unsplash+. The seed attaches a client's portrait only while that client has no negative storyline at the seed's date, so a client with an unpaid invoice that day shows no photo. The people in the photos are not the named staff or clients.
+
+| Asset                     | Stands in for       | Source / creator                                                                                                                                                                              |
+| ------------------------- | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `face_us_bw_owner.jpg`    | Leah Tran           | [woman in black shirt smiling (panitan punpuang)](https://unsplash.com/photos/woman-in-black-shirt-smiling-OuxJHYeUYpk), Unsplash                                                             |
+| `face_us_bw_joy.jpg`      | Joy Mendoza         | [Smiling Woman Posing Outdoors in Manila (Kimy Moto)](https://www.pexels.com/photo/smiling-woman-posing-outdoors-in-manila-38336130/), Pexels                                                 |
+| `face_us_bw_harpreet.jpg` | Harpreet Gill       | [Traditional Portrait of a Smiling Woman in Punjab (Divyam Arora)](https://www.pexels.com/photo/traditional-portrait-of-a-smiling-woman-in-punjab-30912268/), Pexels                          |
+| `face_us_bw_tomasz.jpg`   | Tomasz Nowak        | [smiling man during daytime (Christian Buehner)](https://unsplash.com/photos/kx9TLY_7fX8), Unsplash                                                                                           |
+| `face_cl_bw_sofia.jpg`    | Sofia Martínez      | [smiling woman in gray tank top (Fabian Centeno)](https://unsplash.com/photos/smiling-woman-in-gray-tank-top-njeVb6E3XB8), Unsplash                                                           |
+| `face_cl_bw_daniel.jpg`   | Daniel Okafor       | [man in black dress shirt wearing black framed eyeglasses (Olawale Munna)](https://unsplash.com/photos/_ObjhzjnMmc), Unsplash                                                                 |
+| `face_cl_bw_wei.jpg`      | Wei Zhang           | [A man in a light blue denim shirt sitting at a white desk (Juan Encalada)](https://unsplash.com/photos/man-in-denim-shirt-at-desk-WC7KIHo13Fc), Unsplash                                     |
+| `face_cl_bw_margaret.jpg` | Margaret Fraser     | [smiling woman (Ravi Patel)](https://unsplash.com/photos/VMGAbeeJTKo), Unsplash                                                                                                               |
+| `face_cl_bw_anjali.jpg`   | Anjali Patel        | [Portrait of an Adult Woman Wearing Eyeglasses Sitting Outdoors (R.O.Y.)](https://www.pexels.com/photo/portrait-of-an-adult-woman-wearing-eyeglasses-sitting-outdoors-15984371/), Pexels      |
+| `face_cl_bw_linh.jpg`     | Linh Nguyen         | [Portrait of Woman (Thể Phạm)](https://www.pexels.com/photo/portrait-of-woman-25211443/), Pexels                                                                                              |
+| `face_cl_bw_chidi.jpg`    | Chidi Eze           | [Smiling Man in Traditional Clothing (victor Wellrich)](https://www.pexels.com/photo/smiling-man-in-traditional-clothing-16543392/), Pexels                                                   |
+| `face_cl_bw_kateryna.jpg` | Kateryna Bondarenko | [A Woman in White Long Sleeves Smiling at the Camera (Gustavo Fring)](https://www.pexels.com/photo/a-woman-in-white-long-sleeves-smiling-at-the-camera-7446787/), Pexels                      |
+| `face_cl_bw_amara.jpg`    | Amara Haile         | [Young Brunette in a White Blouse Standing Outside (Abiy Fikru)](https://www.pexels.com/photo/young-brunette-in-a-white-blouse-standing-outside-18146804/), Pexels                            |
+| `face_cl_bw_fatima.jpg`   | Fatima Siddiqui     | [A Woman in a Hijab Smiling (Cedric Fauntleroy)](https://www.pexels.com/photo/a-woman-in-a-hijab-smiling-8155047/), Pexels                                                                    |
+| `face_cl_bw_jasmine.jpg`  | Jasmine Cruz        | [woman wearing red collared top (Courtney Cook)](https://unsplash.com/photos/o1nsevOSdXY), Unsplash                                                                                           |
+| `face_cl_bw_teresita.jpg` | Teresita Cruz       | [Elegant Portrait of a Smiling Senior Woman (Kimy Moto)](https://www.pexels.com/photo/elegant-portrait-of-a-smiling-senior-woman-37718930/), Pexels                                           |
+| `face_cl_bw_omar.jpg`     | Omar Haddad         | [man in yellow crew-neck shirt smiling (Tânia Mousinho)](https://unsplash.com/photos/man-in-yellow-crew-neck-shirt-smiling-goMxTZWVOlE), Unsplash                                             |
+| `face_cl_bw_jennifer.jpg` | Jennifer MacDonald  | [A Woman in Floral Top Smiling while Leaning on a Wooden Wall (Los Muertos Crew)](https://www.pexels.com/photo/a-woman-in-floral-top-smiling-while-leaning-on-a-wooden-wall-8459999/), Pexels |
+| `face_cl_bw_priya.jpg`    | Priya Sharma        | [Portrait of a Smiling Woman in Front of Graffiti (Sayantan Dhar)](https://www.pexels.com/photo/portrait-of-a-smiling-woman-in-front-of-graffiti-34719529/), Pexels                           |
+| `face_cl_bw_luis.jpg`     | Luis Hernández      | [Portrait of a Smiling Young Hispanic Man (Cesar Lalangui Eras)](https://www.pexels.com/photo/portrait-of-a-smiling-young-hispanic-man-32593263/), Pexels                                     |
+| `face_cl_bw_hyejin.jpg`   | Hye-jin Park        | [Beautiful Smiling Woman in Black Outfit (Ramon Karolan)](https://www.pexels.com/photo/beautiful-smiling-woman-in-black-outfit-13557308/), Pexels                                             |
+| `face_cl_bw_grace.jpg`    | Grace Lee           | [Woman Smiling at the Camera (Marcus Aurelius)](https://www.pexels.com/photo/woman-smiling-at-the-camera-6787568/), Pexels                                                                    |
+| `face_cl_bw_samuel.jpg`   | Samuel Mensah       | [Portrait of a Man with a Moustache (Mehmet Turgut Kirkgoz)](https://www.pexels.com/photo/portrait-of-a-man-with-a-moustache-11522116/), Pexels                                               |
+| `face_cl_bw_carmen.jpg`   | Carmen Ruiz         | [Smiling Woman in Blouse Holding a Smartphone (Matheus Bertelli)](https://www.pexels.com/photo/smiling-woman-in-blouse-holding-a-smartphone-11749490/), Pexels                                |
+| `face_cl_bw_elena.jpg`    | Elena Petrova       | [Smiling Mature Woman in Cozy Indoor Setting (Doğan Alpaslan Demir)](https://www.pexels.com/photo/smiling-mature-woman-in-cozy-indoor-setting-40405413/), Pexels                              |
 
 Stock sources use the [Pexels License](https://www.pexels.com/license/), and the Unsplash photo uses the [Unsplash License](https://unsplash.com/license). Files are downloaded and stored locally, not hotlinked. Images are JPEGs with a maximum 1024-pixel edge; the complete 24-image Birchbark set is about 3 MB. Existing marketing catalog copies in `frontend/apps/site/public/images/demo/` share these sources.
 
