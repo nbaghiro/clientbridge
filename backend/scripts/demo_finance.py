@@ -266,11 +266,13 @@ def price_documents(ctx: DemoContext) -> None:
         ("estimate", ctx.all(Estimate)),
         ("order", ctx.all(Order)),
     ):
+        children: dict[str, list[Line]] = {}
+        for line in ctx.all(Line):
+            parent_id = getattr(line, f"{kind}_id")
+            if parent_id is not None:
+                children.setdefault(parent_id, []).append(line)
         for parent in parents:
-            lines = sorted(
-                [line for line in ctx.all(Line) if getattr(line, f"{kind}_id") == parent.id],
-                key=lambda line: line.position,
-            )
+            lines = sorted(children.get(parent.id, []), key=lambda line: line.position)
             price_lines(lines, parent)
             result = included_totals(lines, tax_on(ctx, lines))
             parent.subtotal_cents, parent.tax_total_cents, parent.total_cents = (

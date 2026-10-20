@@ -389,10 +389,11 @@ class Probe(Demo):
             self.at(-9, 8),
         )
         self.fill(
-            {
+            (),
+            by_staff={
                 "st_pb_owner": ["regular_a", "regular_b"],
                 "st_pb_kai": ["regular_c", "away", "regular_b"],
-            }
+            },
         )
         self.consents()
         self.withdraw("away", "email", self.at(-5))
@@ -573,3 +574,37 @@ async def test_an_invoice_settled_by_its_deposit_and_balance_counts_as_paid(
     await db.flush()
     report = await validate_database(db, as_of=demo.now, business_ids=[PROBE])
     assert report["errors"] == []
+
+
+def test_pacing_gives_a_member_their_own_services_and_clients() -> None:
+    assert SPEC.pacing is not None
+    pacing = replace(SPEC.pacing, staff_services={"st_pb_kai": ("it_pb_service_call",)})
+
+    class Split(Probe):
+        spec = replace(SPEC, pacing=pacing, storyline=())
+
+        def story(self) -> None:
+            for index, key in enumerate(("owners", "kais", "kais_too")):
+                self.client(
+                    key,
+                    key.title(),
+                    f"{key}@example.test",
+                    f"+1780555{2000 + index}",
+                    since=self.at(-120),
+                )
+            self.fill(["owners"], by_staff={"st_pb_kai": ["kais", "kais_too"]})
+
+    demo = build_edition(Split, clock.now())
+    visits = {
+        (b.staff_id, demo.ctx.get(Slot, b.slot_id).item_id, b.client_id)
+        for b in demo.ctx.all(Booking)
+    }
+    assert {(staff, item) for staff, item, _ in visits} == {
+        ("st_pb_owner", "it_pb_survey"),
+        ("st_pb_kai", "it_pb_service_call"),
+    }
+    assert {client for staff, _, client in visits if staff == "st_pb_kai"} == {
+        "cl_pb_kais",
+        "cl_pb_kais_too",
+    }
+    assert {client for staff, _, client in visits if staff == "st_pb_owner"} == {"cl_pb_owners"}

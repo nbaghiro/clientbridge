@@ -182,6 +182,58 @@ Lakeside's team and 19 of its parents have stock portraits: 19 from Pexels and 4
 | `face_cl_ls_ibrahim.jpg`    | Amina Ibrahim     | [Smiling Woman in Blue Hijab and Dress Outdoors (Harrun Muhammad)](https://www.pexels.com/photo/smiling-woman-in-blue-hijab-and-dress-outdoors-35168456/), Pexels                                     |
 | `face_cl_ls_wong.jpg`       | Karen Wong        | [A Smiling Woman in a Black Sweater (Thanh Xuan Nguyen Ly)](https://www.pexels.com/photo/a-smiling-woman-in-a-black-sweater-20051635/), Pexels                                                        |
 
+## Harbourside Massage and Wellness
+
+Harbourside's catalog photos are 14 Pexels stock photos, one per catalog item, cropped to 4:3 and saved as 1024 × 768 JPEGs, about 1.3 MB for the set. Three stand in for a close relative of the item: the herbal heat compress is a lemongrass massage poultice, the couples massage is a tight crop of two clients face down side by side with the therapists' faces cropped out, and the prenatal massage shows the client lying on her back with a towel across her chest.
+
+| Asset                   | Source / creator                                                                                                                                                     |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `hs_it_m30.jpg`         | [A Woman Having a Massage (Karola G)](https://www.pexels.com/photo/a-woman-having-a-massage-6629562/)                                                                |
+| `hs_it_m60.jpg`         | [A Woman Having a Massage (KoolShooters)](https://www.pexels.com/photo/a-woman-having-a-massage-6628601/)                                                            |
+| `hs_it_m90.jpg`         | [A Close-Up Shot of a Person's Legs being Massaged (Gustavo Fring)](https://www.pexels.com/photo/a-close-up-shot-of-a-person-s-legs-being-massaged-5888062/)         |
+| `hs_it_deep.jpg`        | [Relaxing Deep Tissue Massage in Spa Setting (tommy picone)](https://www.pexels.com/photo/relaxing-deep-tissue-massage-in-spa-setting-38407786/)                     |
+| `hs_it_prenatal.jpg`    | [Pregnant Woman Relaxing in a Massage Parlour (Jonathan Borba)](https://www.pexels.com/photo/pregnant-woman-relaxing-in-a-massage-parlour-19666196/)                 |
+| `hs_it_hotstone.jpg`    | [Top View of a Person with Hot Stones on their Back (Anna Tarazevich)](https://www.pexels.com/photo/top-view-of-a-person-with-hot-stones-on-their-back-6560266/)     |
+| `hs_it_couples.jpg`     | [Women Getting a Massage (Halosa Sapa)](https://www.pexels.com/photo/women-getting-a-massage-18120171/)                                                              |
+| `hs_it_acu_initial.jpg` | [Professional Acupuncture Therapy in Session (Letícia Alvares)](https://www.pexels.com/photo/professional-acupuncture-therapy-in-session-36717696/)                  |
+| `hs_it_acu_follow.jpg`  | [A Man Undergoing Acupuncture (RDNE Stock project)](https://www.pexels.com/photo/a-man-undergoing-acupuncture-8312859/)                                              |
+| `hs_it_pack5.jpg`       | [A Lavender Near the Bottle with Oil and a Bath Towel (Elina Fairytale)](https://www.pexels.com/photo/a-lavender-near-the-bottle-with-oil-and-a-bath-towel-3865607/) |
+| `hs_it_pack10.jpg`      | [Settee by the Window (KoolShooters)](https://www.pexels.com/photo/settee-by-the-window-6628520/)                                                                    |
+| `hs_it_gift.jpg`        | [Brown Gift Box (Lucie Liz)](https://www.pexels.com/photo/brown-gift-box-3298040/)                                                                                   |
+| `hs_it_oil.jpg`         | [Close Up Shot of Brown Glass Bottle (Alesia Kozik)](https://www.pexels.com/photo/close-up-shot-of-brown-glass-bottle-7795845/)                                      |
+| `hs_it_heat.jpg`        | [Relaxing Herbal Massage Poultice with Lemongrass (Anna Tarazevich)](https://www.pexels.com/photo/hand-relaxation-health-treatment-6560280/)                         |
+
+Its team and a third of its clients have portraits: 12 from Pexels and 12 from Unsplash, none of them Unsplash+, each cropped square around the face and saved as a 512 × 512 JPEG, about 1.1 MB for the 24. None of these people appears elsewhere in the demo, and the clients with a late cancellation, a missed visit or four-star feedback have none.
+
+| Asset                     | Stands in for  | Source / creator                                                                                                                                                                     |
+| ------------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `face_us_hs_owner.jpg`    | Leila Moradi   | [Woman in Black Shirt Smiling (Clay Elliot)](https://www.pexels.com/photo/woman-in-black-shirt-smiling-14634932/), Pexels                                                            |
+| `face_us_hs_jun.jpg`      | Jun Park       | [Man in Gray Crew Neck Shirt Smiling (Andrea Piacquadio)](https://www.pexels.com/photo/man-in-gray-crew-neck-shirt-smiling-3761521/), Pexels                                         |
+| `face_us_hs_wen.jpg`      | Wen Liu        | [Portrait of an Elegantly Dressed Woman (거열 박)](https://www.pexels.com/photo/portrait-of-an-elegantly-dressed-woman-6990687/), Pexels                                             |
+| `face_us_hs_teresa.jpg`   | Teresa Santos  | [Smiling Woman wearing Brown Dress (Harvey Tan Villarino)](https://www.pexels.com/photo/smiling-woman-wearing-brown-dress-8242941/), Pexels                                          |
+| `face_cl_hs_ananya.jpg`   | Ananya Iyer    | [A smiling woman in a red patterned sweater outdoors with blurred greenery behind (Parimal Jain)](https://unsplash.com/photos/woman-in-red-patterned-sweater-MHg6J6m_eqI), Unsplash  |
+| `face_cl_hs_kenji.jpg`    | Kenji Watanabe | [A Happy Man Sitting at an Office (RDNE Stock project)](https://www.pexels.com/photo/a-happy-man-sitting-at-an-office-7845165/), Pexels                                              |
+| `face_cl_hs_sofia.jpg`    | Sofia Marquez  | [Confident Woman in a Black Blazer Portrait (Zoe Galarza)](https://www.pexels.com/photo/confident-woman-in-a-black-blazer-portrait-35843378/), Pexels                                |
+| `face_cl_hs_ethan.jpg`    | Ethan Ng       | [a young man wearing glasses and a tie (Le Thanh Son)](https://unsplash.com/photos/JddS3Gig2kU), Unsplash                                                                            |
+| `face_cl_hs_harjit.jpg`   | Harjit Gill    | [Man Wearing Gray Blazer Smiling (Satvinder Ghotra)](https://www.pexels.com/photo/man-wearing-gray-blazer-smiling-10707324/), Pexels                                                 |
+| `face_cl_hs_margaret.jpg` | Margaret Lau   | [Senior Woman Enjoying Warm Beverage Indoors (Gatsby Yang)](https://www.pexels.com/photo/senior-woman-enjoying-warm-beverage-indoors-37669325/), Pexels                              |
+| `face_cl_hs_lucas.jpg`    | Lucas Fournier | [man in white crew neck shirt smiling (sergey mikheev)](https://unsplash.com/photos/man-in-white-crew-neck-shirt-smiling-H982yXJ7vOk), Unsplash                                      |
+| `face_cl_hs_leah.jpg`     | Leah Goldberg  | [woman in white crew neck shirt smiling (Jake Nackos)](https://unsplash.com/photos/woman-in-white-crew-neck-shirt-smiling-IF9TK5Uy-KI), Unsplash                                     |
+| `face_cl_hs_aaron.jpg`    | Aaron Goldberg | [man wearing Henley top portrait (Jurica Koletić)](https://unsplash.com/photos/man-wearing-Henley-top-portrait-7YVZYZeITc8), Unsplash                                                |
+| `face_cl_hs_fatemeh.jpg`  | Fatemeh Rahimi | [woman in black turtleneck shirt smiling (Zahra Amiri)](https://unsplash.com/photos/JEsHUiqOJIM), Unsplash                                                                           |
+| `face_cl_hs_navneet.jpg`  | Navneet Brar   | [woman in black leather jacket smiling (Pargat Dhillon)](https://unsplash.com/photos/woman-in-black-leather-jacket-smiling-DmGzwwuLPG8), Unsplash                                    |
+| `face_cl_hs_olivia.jpg`   | Olivia Bennett | [closeup photography of woman smiling (Michael Dam)](https://unsplash.com/photos/closeup-photography-of-woman-smiling-mEZ3PoFGs_k), Unsplash                                         |
+| `face_cl_hs_raj.jpg`      | Rajinder Sidhu | [Portrait of a Senior Man Wearing a Turban (Ravinder Ravi)](https://www.pexels.com/photo/portrait-of-a-senior-man-wearing-a-turban-29725612/), Pexels                                |
+| `face_cl_hs_grace.jpg`    | Grace Nakamura | [Close-Up Shot of a Woman Smiling (Darina Belonogova)](https://www.pexels.com/photo/close-up-shot-of-a-woman-smiling-8788808/), Pexels                                               |
+| `face_cl_hs_amara.jpg`    | Amara Okafor   | [Young woman with braided hair smiles confidently (Blessing Olarewaju)](https://unsplash.com/photos/78akGVck7EY), Unsplash                                                           |
+| `face_cl_hs_jessica.jpg`  | Jessica Tran   | [Young woman smiling while resting her chin on hand (Phước Sang)](https://unsplash.com/photos/young-woman-smiling-while-resting-her-chin-on-hand-jBqMJdzTcgA), Unsplash              |
+| `face_cl_hs_elif.jpg`     | Elif Yilmaz    | [woman in red shirt smiling (Rita Malçok)](https://unsplash.com/photos/woman-in-red-shirt-smiling-oOhTXx5mJqI), Unsplash                                                             |
+| `face_cl_hs_samuel.jpg`   | Samuel Abebe   | [smiling man in blue dress shirt by hedge during daytime (Gift Habeshaw)](https://unsplash.com/photos/smiling-man-in-blue-dress-shirt-by-hedge-during-daytime-aozgq3Zc9sg), Unsplash |
+| `face_cl_hs_yuki.jpg`     | Yuki Tanaka    | [Woman with Camera under Blossoming Tree (Huu Huynh)](https://www.pexels.com/photo/woman-with-camera-under-blossoming-tree-20383878/), Pexels                                        |
+| `face_cl_hs_wei.jpg`      | Wei Zhang      | [A Man in Gray Shirt Smiling (RDNE Stock project)](https://www.pexels.com/photo/a-man-in-gray-shirt-smiling-8297585/), Pexels                                                        |
+
+`hs_logo.png` is a placeholder mark drawn with a short script: a 512-pixel transparent PNG with a teal disc, a sand-coloured sun and two white waves, made for the white logo tile in the header.
+
 ## People
 
 Team members and some clients have stock portraits: 35 from Pexels under the Pexels License and 33 from Unsplash under the Unsplash License, none of them Unsplash+. Each is cropped square around the face and saved as a 512 × 512 JPEG, about 2.8 MB for the 68. Only clients without a negative storyline have one, because the licences don't allow showing identifiable people in a bad light, and `demo_validate` checks this. The people in the photos are not the named staff or clients, and nobody appears twice.

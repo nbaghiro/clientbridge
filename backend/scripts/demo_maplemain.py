@@ -1027,7 +1027,7 @@ class MapleMain(Demo):
         self.storyline()
         self.short_cuts()
         self.checkouts()
-        self.fill(POOLS)
+        self.fill((), by_staff=POOLS)
         self.paperwork()
         self.photos()
         self.engagement()

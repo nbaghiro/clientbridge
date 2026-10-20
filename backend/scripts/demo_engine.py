@@ -1480,10 +1480,12 @@ class Demo:
 
     def fill(
         self,
-        clients: Sequence[str] | Mapping[str, Sequence[str]],
+        clients: Sequence[str],
         pacing: Pacing | None = None,
+        *,
+        by_staff: Mapping[str, Sequence[str]] | None = None,
     ) -> list[Booking]:
-        """Routine visits paced by the spec or `pacing`; `clients` is shared or keyed by staff."""
+        """Routine visits paced by the spec or `pacing`; `by_staff` gives a member their clients."""
         pacing = pacing or self.spec.pacing
         if pacing is None:
             return []
@@ -1494,7 +1496,7 @@ class Demo:
             seasonal = pacing.services_by_month.get(month, pacing.services)
             for staff, usual in pacing.visits_per_week.items():
                 count = round(usual * pacing.seasonality.get(month, 1.0))
-                pool = clients.get(staff, ()) if isinstance(clients, Mapping) else clients
+                pool = (by_staff or {}).get(staff, clients)
                 services = pacing.staff_services.get(staff, seasonal)
                 for index in range(count if pool else 0):
                     turn += 1
@@ -1541,6 +1543,13 @@ class Demo:
         }
         bookings = ctx.all(Booking)
         purchased = {payment.id: target for payment, target in self.purchases}
+        deposits: dict[str, int] = {}
+        for booking in bookings:
+            if booking.deposit_status not in {"collected", "applied"}:
+                continue
+            for parent_id in {booking.invoice_id, booking.order_id} - {None}:
+                assert parent_id is not None
+                deposits[parent_id] = deposits.get(parent_id, 0) + booking.deposit_amount_cents
         for payment, size in self.sized:
             if size == "deposit":
                 payment.amount_cents = ctx.get(
@@ -1558,12 +1567,7 @@ class Demo:
                     ).total_cents
                 continue
             parent = parents[payment.invoice_id or payment.order_id or ""]
-            held = sum(
-                b.deposit_amount_cents
-                for b in bookings
-                if parent.id in {b.invoice_id, b.order_id}
-                and b.deposit_status in {"collected", "applied"}
-            )
+            held = deposits.get(parent.id, 0)
             payment.amount_cents = (
                 parent.total_cents - (held if size == "balance" else 0) + (payment.tip_cents or 0)
             )
