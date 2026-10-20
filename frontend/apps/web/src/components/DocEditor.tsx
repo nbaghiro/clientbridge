@@ -145,23 +145,25 @@ export function DocEditor({ kind, draft, onClose, onSent }: DocEditorProps) {
                         <div
                             className={`min-h-0 space-y-6 overflow-y-auto px-6 py-6 ${showPreview ? "max-@4xl:hidden" : ""}`}
                         >
-                            <ClientPicker
-                                clients={clients}
-                                value={c.clientId}
-                                editing={c.editing}
-                                error={c.clientError}
-                                onChange={c.setClientId}
-                            />
+                            <section className="rounded-lg border border-line bg-surface p-5 shadow-card">
+                                <ClientPicker
+                                    clients={clients}
+                                    value={c.clientId}
+                                    editing={c.editing}
+                                    error={c.clientError}
+                                    onChange={c.setClientId}
+                                />
+                            </section>
 
-                            <section className="space-y-3">
-                                <div className="flex items-baseline justify-between gap-4">
+                            <section className="overflow-hidden rounded-lg border border-line bg-surface shadow-card">
+                                <div className="flex items-baseline justify-between gap-4 border-b border-line px-5 py-3">
                                     <h3 className="text-sm font-semibold text-ink">{s.lines}</h3>
                                     <p className="text-xs text-muted">{c.rateNote}</p>
                                 </div>
                                 {c.lines.map((l) => (
                                     <div
                                         key={l.key}
-                                        className="space-y-3 rounded-lg border border-line bg-surface p-4"
+                                        className="space-y-3 border-b border-line-soft px-5 py-4"
                                     >
                                         <div className="flex items-center gap-3">
                                             <div className="min-w-0 flex-1">
@@ -203,7 +205,6 @@ export function DocEditor({ kind, draft, onClose, onSent }: DocEditorProps) {
                                         <div className="grid grid-cols-[5rem_7rem_minmax(0,1fr)] gap-3">
                                             <TextField
                                                 label={s.qty}
-                                                size="sm"
                                                 value={l.quantity}
                                                 type="number"
                                                 min="0"
@@ -214,7 +215,6 @@ export function DocEditor({ kind, draft, onClose, onSent }: DocEditorProps) {
                                             />
                                             <TextField
                                                 label={s.price}
-                                                size="sm"
                                                 {...currencyAffix(BUSINESS_CURRENCY)}
                                                 value={l.unit}
                                                 placeholder="0.00"
@@ -224,7 +224,6 @@ export function DocEditor({ kind, draft, onClose, onSent }: DocEditorProps) {
                                             />
                                             <Select
                                                 label={s.taxClass}
-                                                size="sm"
                                                 value={l.taxClass}
                                                 options={c.taxClassOptions}
                                                 onChange={(v) => {
@@ -237,58 +236,59 @@ export function DocEditor({ kind, draft, onClose, onSent }: DocEditorProps) {
                                                 }}
                                             />
                                         </div>
-                                        {kind === "estimate" ? (
-                                            <div>
-                                                <Checkbox
-                                                    label={s.optional}
-                                                    value={l.optional}
-                                                    onChange={(v) => {
-                                                        c.setLine(l.key, { optional: v });
+                                        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+                                            {kind === "estimate" ? (
+                                                <div>
+                                                    <Checkbox
+                                                        label={s.optional}
+                                                        value={l.optional}
+                                                        onChange={(v) => {
+                                                            c.setLine(l.key, { optional: v });
+                                                        }}
+                                                    />
+                                                    {l.optional ? (
+                                                        <p className="ml-7 text-xs text-muted">
+                                                            {s.optionalHint}
+                                                        </p>
+                                                    ) : null}
+                                                </div>
+                                            ) : null}
+                                            {discounting === l.key ? (
+                                                <DiscountForm
+                                                    title={s.lineDiscount(
+                                                        l.description || s.descriptionPlaceholder,
+                                                    )}
+                                                    initial={l.discount}
+                                                    baseCents={l.grossCents}
+                                                    onApply={(next) => {
+                                                        c.setLineDiscount(l.key, next);
+                                                        setDiscounting(null);
+                                                    }}
+                                                    onCancel={() => {
+                                                        setDiscounting(null);
                                                     }}
                                                 />
-                                                {l.optional ? (
-                                                    <p className="ml-7 text-xs text-muted">
-                                                        {s.optionalHint}
-                                                    </p>
-                                                ) : null}
-                                            </div>
-                                        ) : null}
-                                        {discounting === l.key ? (
-                                            <DiscountForm
-                                                title={s.lineDiscount(
-                                                    l.description || s.descriptionPlaceholder,
-                                                )}
-                                                initial={l.discount}
-                                                baseCents={l.grossCents}
-                                                onApply={(next) => {
-                                                    c.setLineDiscount(l.key, next);
-                                                    setDiscounting(null);
-                                                }}
-                                                onCancel={() => {
-                                                    setDiscounting(null);
-                                                }}
-                                            />
-                                        ) : (
-                                            <Button
-                                                variant="link"
-                                                size="sm"
-                                                icon="percent"
-                                                disabled={l.grossCents <= 0}
-                                                onPress={() => {
-                                                    setDiscounting(l.key);
-                                                }}
-                                            >
-                                                {l.discount !== null
-                                                    ? s.discountedBy(discountLabel(l.discount))
-                                                    : s.addDiscount}
-                                            </Button>
-                                        )}
+                                            ) : (
+                                                <Button
+                                                    variant="link"
+                                                    icon="percent"
+                                                    disabled={l.grossCents <= 0}
+                                                    onPress={() => {
+                                                        setDiscounting(l.key);
+                                                    }}
+                                                >
+                                                    {l.discount !== null
+                                                        ? s.discountedBy(discountLabel(l.discount))
+                                                        : s.addDiscount}
+                                                </Button>
+                                            )}
+                                        </div>
                                         {l.error !== null ? (
                                             <Notice tone="danger">{l.error}</Notice>
                                         ) : null}
                                     </div>
                                 ))}
-                                <div className="flex flex-wrap items-end gap-3">
+                                <div className="flex flex-wrap items-end gap-3 px-5 py-4">
                                     {catalog.length > 0 ? (
                                         <div className="w-64">
                                             <Select
@@ -319,61 +319,66 @@ export function DocEditor({ kind, draft, onClose, onSent }: DocEditorProps) {
                                     </Button>
                                 </div>
                                 {c.linesError !== null ? (
-                                    <Notice tone="danger">{c.linesError}</Notice>
+                                    <div className="px-5 pb-4">
+                                        <Notice tone="danger">{c.linesError}</Notice>
+                                    </div>
                                 ) : null}
+                                <div className="space-y-3 border-t border-line bg-bg/50 px-5 py-4">
+                                    {discounting === "doc" ? (
+                                        <DiscountForm
+                                            title={s.discountTitle}
+                                            initial={c.docDiscount}
+                                            baseCents={c.discountBaseCents}
+                                            onApply={(next) => {
+                                                c.setDocDiscount(next);
+                                                setDiscounting(null);
+                                            }}
+                                            onCancel={() => {
+                                                setDiscounting(null);
+                                            }}
+                                        />
+                                    ) : (
+                                        <div className="flex justify-end">
+                                            <Button
+                                                variant="link"
+                                                size="sm"
+                                                icon="percent"
+                                                disabled={c.discountBaseCents <= 0}
+                                                onPress={() => {
+                                                    setDiscounting("doc");
+                                                }}
+                                            >
+                                                {c.docDiscount !== null
+                                                    ? s.discountedBy(discountLabel(c.docDiscount))
+                                                    : s.discountTitle}
+                                            </Button>
+                                        </div>
+                                    )}
+                                    <div className="ml-auto max-w-sm">
+                                        <DocTotals currency={BUSINESS_CURRENCY} lines={c.totals} />
+                                    </div>
+                                </div>
                             </section>
 
-                            <div className="ml-auto max-w-sm space-y-3">
-                                {discounting === "doc" ? (
-                                    <DiscountForm
-                                        title={s.discountTitle}
-                                        initial={c.docDiscount}
-                                        baseCents={c.discountBaseCents}
-                                        onApply={(next) => {
-                                            c.setDocDiscount(next);
-                                            setDiscounting(null);
-                                        }}
-                                        onCancel={() => {
-                                            setDiscounting(null);
-                                        }}
+                            <section className="space-y-4 rounded-lg border border-line bg-surface p-5 shadow-card">
+                                <div className="max-w-xs">
+                                    <Select<DocTerms>
+                                        label={kind === "estimate" ? s.validFor : s.dueTerms}
+                                        value={c.terms}
+                                        options={c.termOptions}
+                                        onChange={c.setTerms}
                                     />
-                                ) : (
-                                    <div className="flex justify-end">
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            icon="percent"
-                                            disabled={c.discountBaseCents <= 0}
-                                            onPress={() => {
-                                                setDiscounting("doc");
-                                            }}
-                                        >
-                                            {c.docDiscount !== null
-                                                ? s.discountedBy(discountLabel(c.docDiscount))
-                                                : s.discountTitle}
-                                        </Button>
-                                    </div>
-                                )}
-                                <DocTotals currency={BUSINESS_CURRENCY} lines={c.totals} />
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <Select<DocTerms>
-                                    label={kind === "estimate" ? s.validFor : s.dueTerms}
-                                    value={c.terms}
-                                    options={c.termOptions}
-                                    onChange={c.setTerms}
+                                </div>
+                                <TextField
+                                    label={s.messageToClient}
+                                    optional
+                                    multiline
+                                    rows={3}
+                                    value={c.message}
+                                    placeholder={s.messagePlaceholder}
+                                    onChange={c.setMessage}
                                 />
-                            </div>
-                            <TextField
-                                label={s.messageToClient}
-                                optional
-                                multiline
-                                rows={3}
-                                value={c.message}
-                                placeholder={s.messagePlaceholder}
-                                onChange={c.setMessage}
-                            />
+                            </section>
                             {c.saved !== null ? <Notice tone="success">{c.saved}</Notice> : null}
                             {c.error !== null ? <Notice tone="danger">{c.error}</Notice> : null}
                         </div>
