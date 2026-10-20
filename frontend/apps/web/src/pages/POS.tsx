@@ -13,6 +13,7 @@ import {
     strings,
     useCatalogItems,
     useCheckoutQueue,
+    useLinkedVisit,
     usePeoplePhotos,
     useRegisterCatalog,
     useSale,
@@ -72,7 +73,7 @@ export function POS() {
         <div className="space-y-6">
             <Tabs items={views} active={view} onSelect={show} variant="pill" label={d.title} />
             {view === "register" ? (
-                <Register sale={sale} />
+                <Register sale={sale} linked={params.get("open")} />
             ) : view === "board" ? (
                 <SalesBoard onResume={resume} />
             ) : (
@@ -169,8 +170,9 @@ const PLAN_KINDS: { key: WalletKind; label: string; icon: "tag" | "box" | "repea
     },
 ];
 
-function Register({ sale }: { sale: SaleTicket }) {
+function Register({ sale, linked }: { sale: SaleTicket; linked: string | null }) {
     const queue = useCheckoutQueue();
+    useLinkedVisit(linked, queue, sale.addVisit);
     const catalog = useRegisterCatalog();
     const openLink = useOpenLink();
     const [paying, setPaying] = useState(false);
@@ -183,6 +185,17 @@ function Register({ sale }: { sale: SaleTicket }) {
     return (
         <div className="flex items-start gap-6">
             <section className="min-w-0 flex-1 space-y-5">
+                {linked === null ? null : (
+                    <Button
+                        variant="link"
+                        icon="chevronLeft"
+                        onPress={() => {
+                            openLink("today");
+                        }}
+                    >
+                        {d.backToToday}
+                    </Button>
+                )}
                 {noCatalog ? null : (
                     <div className="flex flex-wrap items-center justify-between gap-3">
                         <Choice

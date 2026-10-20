@@ -507,6 +507,7 @@ interface Strings {
             readonly holdSale: string;
             readonly addDiscount: string;
             readonly todaysVisits: string;
+            readonly backToToday: string;
             readonly todaysVisitsHint: string;
             readonly visitPaid: string;
             readonly visitInProgress: string;
@@ -3129,6 +3130,14 @@ interface Strings {
         readonly checkedIn: string;
         readonly arrive: string;
         readonly onSite: string;
+        readonly checkedInToast: (name: string) => string;
+        readonly arrivedToast: (name: string) => string;
+        readonly checkInError: string;
+        readonly checkInTemperament: (label: string) => string;
+        readonly checkInBody: string;
+        readonly arriveBody: string;
+        readonly checkInWatch: string;
+        readonly checkInDeposit: (amount: string) => string;
         readonly depart: string;
         readonly onTheWay: string;
         readonly inMinutes: (hours: number, minutes: number) => string;

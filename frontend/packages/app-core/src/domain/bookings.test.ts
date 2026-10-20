@@ -34,6 +34,7 @@ import {
 } from "./bookings";
 import type { ItemRow } from "./catalog";
 import type { StaffRow } from "./staff";
+import { canCheckIn } from "./today";
 
 const ZONE = "America/Vancouver";
 
@@ -679,5 +680,47 @@ describe("arrivalLabel", () => {
         expect(arrivalLabel(here, "site")).toBe(strings.bookings.arrivedOnSite);
         expect(arrivalLabel(here, "property")).toBe(strings.bookings.arrivedAtPlace);
         expect(arrivalLabel(here, "pet")).toBeNull();
+    });
+});
+
+describe("canCheckIn", () => {
+    const staff = { staffId: "st_amy", role: "staff" as const };
+    const visit = event("bk_1", at(10), at(11));
+
+    it("opens on the visit's day until it ends, for its member or a manager", () => {
+        expect(canCheckIn(visit, staff, "pet", ZONE, at(9))).toBe(true);
+        expect(canCheckIn(visit, { staffId: "st_x", role: "owner" }, "pet", ZONE, at(9))).toBe(
+            true,
+        );
+        expect(canCheckIn(visit, { staffId: "st_bo", role: "staff" }, "pet", ZONE, at(9))).toBe(
+            false,
+        );
+        expect(canCheckIn(visit, null, "pet", ZONE, at(9))).toBe(false);
+        expect(canCheckIn(visit, staff, "pet", ZONE, at(11, 30))).toBe(false);
+        expect(canCheckIn(visit, staff, "pet", ZONE, at(9, 0, -1))).toBe(false);
+    });
+
+    it("skips classes, closed and already checked-in visits", () => {
+        expect(
+            canCheckIn(event("c", at(10), at(11), { kind: "class" }), staff, "pet", ZONE, at(9)),
+        ).toBe(false);
+        expect(
+            canCheckIn(
+                event("d", at(10), at(11), { status: "canceled" }),
+                staff,
+                "pet",
+                ZONE,
+                at(9),
+            ),
+        ).toBe(false);
+        expect(
+            canCheckIn(event("e", at(10), at(11), { checkedIn: true }), staff, "pet", ZONE, at(9)),
+        ).toBe(false);
+    });
+
+    it("waits for On my way when the business goes to the client", () => {
+        expect(canCheckIn(visit, staff, "site", ZONE, at(9))).toBe(false);
+        const left = event("f", at(10), at(11), { departedAt: at(9) });
+        expect(canCheckIn(left, staff, "site", ZONE, at(9, 30))).toBe(true);
     });
 });

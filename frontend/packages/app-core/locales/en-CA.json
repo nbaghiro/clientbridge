@@ -1522,6 +1522,9 @@
     "pos.desk.todaysVisits": {
         "message": "Today's visits"
     },
+    "pos.desk.backToToday": {
+        "message": "Back to Today"
+    },
     "pos.desk.todaysVisitsHint": {
         "message": "Booked services ready to check out. Add retail and add-ons after."
     },
@@ -9195,6 +9198,34 @@
     },
     "today.onSite": {
         "message": "On site"
+    },
+    "today.checkedInToast": {
+        "message": "{name} checked in",
+        "args": ["name"]
+    },
+    "today.arrivedToast": {
+        "message": "On site for {name}",
+        "args": ["name"]
+    },
+    "today.checkInError": {
+        "message": "Couldn’t check in. Try again."
+    },
+    "today.checkInTemperament": {
+        "message": "Temperament: {label}",
+        "args": ["label"]
+    },
+    "today.checkInBody": {
+        "message": "Check the client in when they arrive."
+    },
+    "today.arriveBody": {
+        "message": "Mark yourself on site when you get there."
+    },
+    "today.checkInWatch": {
+        "message": "Watch for"
+    },
+    "today.checkInDeposit": {
+        "message": "The {amount} deposit hasn’t been paid yet.",
+        "args": ["amount"]
     },
     "today.depart": {
         "message": "On my way"

@@ -20,6 +20,8 @@ import {
     formatParts,
     BUSINESS_CURRENCY,
     useBusinessZone,
+    arrivalWords,
+    canCheckIn,
 } from "@clientbridge/app-core";
 import {
     ActivityTimeline,
@@ -41,6 +43,7 @@ import { type ChangeEvent, useRef, useState } from "react";
 
 import { api } from "../lib/api";
 import { useViewer } from "../lib/auth";
+import { CheckInSheet } from "./CheckInSheet";
 
 const s = strings.bookings;
 const c = strings.classes;
@@ -508,6 +511,50 @@ function Departure({ event }: { event: ScheduleEvent }) {
     );
 }
 
+function CheckInCard({ event }: { event: ScheduleEvent }) {
+    const viewer = useViewer();
+    const kind = useSubjectKind();
+    const zone = useBusinessZone();
+    const [open, setOpen] = useState(false);
+    const [done, setDone] = useState<string | null>(null);
+    if (done !== null)
+        return (
+            <Notice tone="success" banner>
+                {done}
+            </Notice>
+        );
+    if (event.bookingId === null || !canCheckIn(event, viewer, kind, zone)) return null;
+    const bookingId = event.bookingId;
+    const words = arrivalWords(kind);
+    return (
+        <div className="flex flex-wrap items-center gap-3 rounded-md border border-line bg-surface px-4 py-3">
+            <p className="min-w-0 flex-1 text-sm text-muted">
+                {kind === "site" ? strings.today.arriveBody : strings.today.checkInBody}
+            </p>
+            <Button
+                icon="check"
+                onPress={() => {
+                    setOpen(true);
+                }}
+            >
+                {words.action}
+            </Button>
+            {open ? (
+                <CheckInSheet
+                    bookingId={bookingId}
+                    onClose={() => {
+                        setOpen(false);
+                    }}
+                    onDone={(message) => {
+                        setOpen(false);
+                        setDone(message);
+                    }}
+                />
+            ) : null}
+        </div>
+    );
+}
+
 function DepositDue({ event }: { event: ScheduleEvent }) {
     const viewer = useViewer();
     const [collecting, setCollecting] = useState(false);
@@ -589,6 +636,7 @@ export function BookingBody({
                 <BookingFacts detail={detail} layout={narrow ? "stack" : "inline"} />
             </div>
             <Departure event={detail.event} />
+            <CheckInCard event={detail.event} />
             <DepositDue event={detail.event} />
             <BookingClient detail={detail} />
             <BookingRoster detail={detail} />

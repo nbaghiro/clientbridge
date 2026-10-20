@@ -49,6 +49,7 @@ import { config } from "../config";
 import { api } from "../lib/api";
 import { useViewer } from "../lib/auth";
 import { useOpenLink } from "../lib/links";
+import { CheckInLayer } from "../components/CheckInSheet";
 import { PageFrame } from "../components/PageFrame";
 
 const t = strings.today;
@@ -167,6 +168,7 @@ function OwnerTodayPage() {
                     </Notice>
                 </div>
             ) : null}
+            <CheckInLayer actions={actions} />
 
             {today.notices !== null ? (
                 <PaymentNotices
@@ -268,6 +270,7 @@ function StaffTodayPage() {
                     </Notice>
                 </div>
             ) : null}
+            <CheckInLayer actions={actions} />
 
             {load.state === "error" ? (
                 <div className="mt-6">
@@ -491,7 +494,7 @@ function NextClient({
                             if (id === null) return;
                             if (action === "checkout") openLink("checkout", id);
                             else if (action === "depart") actions.depart(id);
-                            else actions.checkIn(id);
+                            else actions.openCheckIn(id);
                         }}
                     >
                         {visitActionLabel(action, kind)}

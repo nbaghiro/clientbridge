@@ -36,7 +36,9 @@ export function PaymentsScreen() {
                             current.key,
                             tab === "invoices" ? params?.create : undefined,
                             params?.compose ?? "invoice",
-                            tab === "invoices" || tab === "refunds" ? params?.open : undefined,
+                            tab === "invoices" || tab === "refunds" || tab === "sales"
+                                ? params?.open
+                                : undefined,
                         )}
                     </View>
                 </>
@@ -55,7 +57,7 @@ function tabBody(
         case "invoices":
             return <Invoices createToken={createToken} createKind={createKind} openId={openId} />;
         case "sales":
-            return <POS />;
+            return <POS linked={openId} />;
         case "giftCards":
             return <GiftCards />;
         case "refunds":

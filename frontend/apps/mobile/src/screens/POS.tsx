@@ -13,6 +13,7 @@ import {
     strings,
     useCatalogItems,
     useCheckoutQueue,
+    useLinkedVisit,
     useRegisterCatalog,
     useSale,
     useSalesViews,
@@ -47,7 +48,7 @@ const d = strings.pos.desk;
 const c = theme.colors;
 
 /** Sales on a phone: the register, the front desk board and, for owners and admins, history. */
-export function POS() {
+export function POS({ linked }: { linked?: string | undefined }) {
     const viewer = useViewer();
     const role = viewer?.role ?? null;
     const sale = useSale(api, {
@@ -67,7 +68,12 @@ export function POS() {
         <View style={styles.screen}>
             <Tabs items={views} active={view} onSelect={setView} variant="pill" label={d.title} />
             {view === "register" ? (
-                <Register sale={sale} ticketOpen={ticketOpen} setTicketOpen={setTicketOpen} />
+                <Register
+                    sale={sale}
+                    linked={linked ?? null}
+                    ticketOpen={ticketOpen}
+                    setTicketOpen={setTicketOpen}
+                />
             ) : (
                 <ScrollView contentContainerStyle={styles.body}>
                     {view === "board" ? (
@@ -155,14 +161,20 @@ const PLAN_KINDS: { key: WalletKind; label: string; icon: "tag" | "box" | "repea
 
 function Register({
     sale,
+    linked,
     ticketOpen,
     setTicketOpen,
 }: {
     sale: SaleTicket;
+    linked: string | null;
     ticketOpen: boolean;
     setTicketOpen: (open: boolean) => void;
 }) {
     const queue = useCheckoutQueue();
+    useLinkedVisit(linked, queue, (visit) => {
+        sale.addVisit(visit);
+        setTicketOpen(true);
+    });
     const catalog = useRegisterCatalog();
     const openLink = useOpenLink();
     const [selling, setSelling] = useState<WalletKind | null>(null);

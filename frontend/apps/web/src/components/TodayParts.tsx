@@ -115,7 +115,7 @@ function VisitButton({ item, actions }: { item: AgendaItem; actions: TodayAction
                 busy={actions.busyKey === id}
                 onPress={() => {
                     if (action === "depart") actions.depart(id);
-                    else actions.checkIn(id);
+                    else actions.openCheckIn(id);
                 }}
             >
                 {visitActionLabel(action, kind)}

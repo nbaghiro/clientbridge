@@ -1391,6 +1391,9 @@
     "pos.desk.todaysVisits": {
         "message": "[Ţöðåý'š ṽîšîţš one two]"
     },
+    "pos.desk.backToToday": {
+        "message": "[Ɓåçķ ţö Ţöðåý one two]"
+    },
     "pos.desk.todaysVisitsHint": {
         "message": "[Ɓööķéð šéŕṽîçéš ŕéåðý ţö çĥéçķ öûţ. Åðð ŕéţåîļ åñð åðð-öñš åƒţéŕ. one two three four five]"
     },
@@ -8566,6 +8569,30 @@
     },
     "today.onSite": {
         "message": "[Öñ šîţé one]"
+    },
+    "today.checkedInToast": {
+        "message": "[{name} çĥéçķéð îñ one two]"
+    },
+    "today.arrivedToast": {
+        "message": "[Öñ šîţé ƒöŕ {name} one two]"
+    },
+    "today.checkInError": {
+        "message": "[Çöûļðñ’ţ çĥéçķ îñ. Ţŕý åĝåîñ. one two three]"
+    },
+    "today.checkInTemperament": {
+        "message": "[Ţéɱþéŕåɱéñţ: {label} one two]"
+    },
+    "today.checkInBody": {
+        "message": "[Çĥéçķ ţĥé çļîéñţ îñ ŵĥéñ ţĥéý åŕŕîṽé. one two three]"
+    },
+    "today.arriveBody": {
+        "message": "[Ṁåŕķ ýöûŕšéļƒ öñ šîţé ŵĥéñ ýöû ĝéţ ţĥéŕé. one two three]"
+    },
+    "today.checkInWatch": {
+        "message": "[Ŵåţçĥ ƒöŕ one]"
+    },
+    "today.checkInDeposit": {
+        "message": "[Ţĥé {amount} ðéþöšîţ ĥåšñ’ţ ƀééñ þåîð ýéţ. one two three]"
     },
     "today.depart": {
         "message": "[Öñ ɱý ŵåý one]"

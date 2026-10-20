@@ -1,7 +1,7 @@
 import { isManager } from "./auth";
 import { useBusinessQuery as useQuery } from "../hooks";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
     addDays,
@@ -1538,6 +1538,22 @@ export function useCheckoutQueue(): CheckoutQueue {
         visits,
         waiting: visits.filter((v) => v.state === "ready" || v.state === "inProgress").length,
     };
+}
+
+/** Puts the visit a checkout link names on the ticket once, as soon as today's queue has it. */
+export function useLinkedVisit(
+    bookingId: string | null,
+    queue: CheckoutQueue,
+    addVisit: (visit: CheckoutVisit) => void,
+): void {
+    const taken = useRef<string | null>(null);
+    const visit =
+        bookingId === null ? undefined : queue.visits.find((v) => v.bookingId === bookingId);
+    useEffect(() => {
+        if (visit === undefined || taken.current === visit.bookingId) return;
+        taken.current = visit.bookingId;
+        if (visit.state !== "paid") addVisit(visit);
+    }, [visit, addVisit]);
 }
 
 export type BoardColumn = "open" | "prepare" | "ready";

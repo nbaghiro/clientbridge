@@ -3,7 +3,7 @@ import { useBusinessQuery as useQuery } from "../hooks";
 import { useMemo, useState } from "react";
 
 import { strings } from "../strings";
-import type { ApiLike } from "../api";
+import { type ApiLike, failureMessage } from "../api";
 import {
     addDays,
     combineDayAndTime,
@@ -13,21 +13,29 @@ import {
     formatHour,
     formatMonthDay,
     formatTime,
+    formatTimeRange,
     formatWeekdayMonthDay,
     parseTimestamp,
+    sameDay,
     startOfDay,
     wallTime,
     useBusinessZone,
 } from "../datetime";
 import { firstName, formatList, formatMoney, BUSINESS_CURRENCY } from "../format";
-import { type Load, type Remote, useAsyncAction, useRemote } from "../hooks";
+import { type Load, type Remote, useAsyncAction, useFlash, useRemote } from "../hooks";
 import type { IconName } from "../icons";
 import type { Intent } from "../ui";
 import type { Viewer } from "./auth";
 import { useInvoices } from "./billing";
-import { slotBookingsJoin, slotOverlapSql } from "./bookings";
+import { type ScheduleEvent, slotBookingsJoin, slotOverlapSql } from "./bookings";
 import { isPlace } from "./publicBooking";
-import type { SubjectKind } from "./subjects";
+import {
+    type SubjectAlert,
+    type SubjectKind,
+    parseAttributes,
+    subjectAlerts,
+    subjectTemperament,
+} from "./subjects";
 import { utcSql } from "../datetime";
 import { useCatalogItems } from "./catalog";
 import { useEarnings } from "./earnings";
@@ -668,19 +676,23 @@ export interface TodayActions {
     sent: ReadonlySet<string>;
     busyKey: string | null;
     error: string | null;
-    checkIn: (bookingId: string) => void;
+    // The visit whose check-in sheet is open, and the line shown briefly once it's checked in.
+    checkingIn: string | null;
+    notice: string | null;
+    openCheckIn: (bookingId: string) => void;
+    closeCheckIn: () => void;
+    checkedIn: (message: string) => void;
     depart: (bookingId: string) => void;
     // Sends the reminder an attention item offers (an overdue invoice is sent again).
     send: (item: AttentionItem) => void;
 }
 
-function checkInBooking(api: ApiLike, bookingId: string): Promise<unknown> {
-    return api.post(`/v1/bookings/${bookingId}/check-in`, {});
-}
-
 export function useTodayActions(api: ApiLike): TodayActions {
     const [sent, setSent] = useState<ReadonlySet<string>>(new Set());
     const [busyKey, setBusyKey] = useState<string | null>(null);
+    const [checkingIn, setCheckingIn] = useState<string | null>(null);
+    const [notice, setNotice] = useState<string | null>(null);
+    const [showing, flash] = useFlash(4000);
     const { busy, error, run } = useAsyncAction();
     const go = (key: string, call: () => Promise<unknown>, done?: () => void): void => {
         setBusyKey(key);
@@ -693,8 +705,16 @@ export function useTodayActions(api: ApiLike): TodayActions {
         sent,
         busyKey: busy ? busyKey : null,
         error,
-        checkIn: (bookingId) => {
-            go(bookingId, () => checkInBooking(api, bookingId));
+        checkingIn,
+        notice: showing ? notice : null,
+        openCheckIn: setCheckingIn,
+        closeCheckIn: () => {
+            setCheckingIn(null);
+        },
+        checkedIn: (message) => {
+            setCheckingIn(null);
+            setNotice(message);
+            flash();
         },
         depart: (bookingId) => {
             go(bookingId, () => api.post(`/v1/bookings/${bookingId}/depart`, {}));
@@ -738,4 +758,124 @@ export function visitActionLabel(
 ): string {
     if (action === "checkout") return strings.today.checkout;
     return action === "depart" ? strings.today.depart : arrivalWords(kind).action;
+}
+
+/** A visit can be checked in on its day until it ends, by its member or a manager; place visits after "On my way". */
+export function canCheckIn(
+    event: ScheduleEvent,
+    viewer: Viewer | null,
+    kind: SubjectKind | null,
+    zone: string,
+    now: Date = new Date(),
+): boolean {
+    return (
+        event.kind === "visit" &&
+        event.bookingId !== null &&
+        !event.checkedIn &&
+        (event.status === "confirmed" || event.status === "pending") &&
+        (!isPlace(kind) || event.departedAt !== null) &&
+        sameDay(event.start, now, zone) &&
+        event.end > now &&
+        viewer !== null &&
+        (canManagePayments(viewer.role) || viewer.staffId === event.staffId)
+    );
+}
+
+const CHECK_IN_SQL = `
+SELECT b.status, b.deposit_status, b.deposit_amount_cents, s.starts_at, s.ends_at,
+       c.name AS client_name, sub.name AS subject_name, sub.attributes AS subject_attributes,
+       i.name AS item_name, ${staffNameSql("st")} AS staff_name
+FROM bookings b
+JOIN slots s ON s.id = b.slot_id
+JOIN clients c ON c.id = b.client_id
+LEFT JOIN subjects sub ON sub.id = b.subject_id AND sub.deleted_at IS NULL
+LEFT JOIN items i ON i.id = s.item_id
+LEFT JOIN staff st ON st.id = b.staff_id
+WHERE b.id = ? AND b.deleted_at IS NULL`;
+
+interface CheckInRow {
+    status: string;
+    deposit_status: string;
+    deposit_amount_cents: number;
+    starts_at: string;
+    ends_at: string;
+    client_name: string;
+    subject_name: string | null;
+    subject_attributes: string | null;
+    item_name: string | null;
+    staff_name: string | null;
+}
+
+interface CheckInVisit {
+    clientName: string;
+    subjectName: string | null;
+    serviceName: string;
+    time: string;
+    staffName: string | null;
+    temperament: string | null;
+    alerts: SubjectAlert[];
+    depositDue: string | null;
+}
+
+interface CheckIn {
+    load: Load;
+    visit: CheckInVisit | null;
+    title: string;
+    busy: boolean;
+    error: string | null;
+    submit: () => void;
+}
+
+/** The visit a check-in sheet confirms: who, what, anything to watch for and a deposit still due. */
+export function useCheckIn(
+    api: ApiLike,
+    bookingId: string,
+    kind: SubjectKind | null,
+    onDone: (message: string) => void,
+): CheckIn {
+    const zone = useBusinessZone();
+    const rows = useQuery<CheckInRow>(CHECK_IN_SQL, [bookingId]);
+    const { busy, error, run } = useAsyncAction();
+    const row = rows.data[0];
+    const visit = useMemo((): CheckInVisit | null => {
+        if (row === undefined) return null;
+        const attributes = parseAttributes(row.subject_attributes);
+        const temperament = row.subject_name === null ? null : subjectTemperament(kind, attributes);
+        return {
+            clientName: row.client_name,
+            subjectName: row.subject_name,
+            serviceName: row.item_name ?? "",
+            time: formatTimeRange(parseTimestamp(row.starts_at), parseTimestamp(row.ends_at), zone),
+            staffName: row.staff_name,
+            temperament: temperament === null || temperament.nervous ? null : temperament.label,
+            alerts:
+                row.subject_name === null ? [] : subjectAlerts(kind, attributes, new Date(), zone),
+            depositDue:
+                row.deposit_status === "pending" && row.deposit_amount_cents > 0
+                    ? formatMoney(row.deposit_amount_cents, BUSINESS_CURRENCY)
+                    : null,
+        };
+    }, [row, kind, zone]);
+    const words = arrivalWords(kind);
+    return {
+        load: useReplicaLoad([rows], visit === null),
+        visit,
+        title: words.action,
+        busy,
+        error,
+        submit: () => {
+            if (visit === null) return;
+            const name = visit.clientName;
+            run(() => api.post(`/v1/bookings/${bookingId}/check-in`, {}), {
+                onSuccess: () => {
+                    onDone(
+                        kind === "site"
+                            ? strings.today.arrivedToast(name)
+                            : strings.today.checkedInToast(name),
+                    );
+                },
+                errorMessage: (e) => failureMessage(e, strings.today.checkInError),
+            });
+        },
+    };
 }

@@ -35,6 +35,7 @@ import {
     TodayFailed,
     TodayHeader,
 } from "../components/TodayParts";
+import { CheckInLayer } from "../components/CheckInSheet";
 import { api } from "../lib/api";
 import { useViewer } from "../lib/auth";
 import { bookUrl } from "../lib/config";
@@ -118,6 +119,7 @@ function OwnerToday({ bell, onSecretTap }: { bell: number; onSecretTap: () => vo
                             </Notice>
                         </View>
                     ) : null}
+                    <CheckInLayer actions={actions} />
                     {firstRun ? <SetupGuide setup={setup} /> : null}
                     {!figures ? null : loading ? (
                         <KpiSummaryLoading />
@@ -219,6 +221,7 @@ function StaffToday({ bell, onSecretTap }: { bell: number; onSecretTap: () => vo
                             </Notice>
                         </View>
                     ) : null}
+                    <CheckInLayer actions={actions} />
                     <Section title={t.staff.nextClient}>
                         {next === null ? (
                             <View style={styles.card}>

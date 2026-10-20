@@ -28,6 +28,8 @@ import {
     BUSINESS_CURRENCY,
     useBusinessZone,
     kindWord,
+    arrivalWords,
+    canCheckIn,
     itemMedia,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
@@ -64,6 +66,7 @@ import { Image, Linking, ScrollView, StyleSheet, Text, View } from "react-native
 
 import { api } from "../lib/api";
 import { useViewer } from "../lib/auth";
+import { CheckInSheet } from "./CheckInSheet";
 
 const c = theme.colors;
 const s = strings.bookings;
@@ -81,6 +84,54 @@ function Departure({ event }: { event: ScheduleEvent }) {
                 </Button>
             </View>
             {departure.error !== null ? <Notice tone="danger">{departure.error}</Notice> : null}
+        </View>
+    );
+}
+
+function CheckInCard({ event }: { event: ScheduleEvent }) {
+    const viewer = useViewer();
+    const kind = useSubjectKind();
+    const zone = useBusinessZone();
+    const [open, setOpen] = useState(false);
+    const [done, setDone] = useState<string | null>(null);
+    if (done !== null)
+        return (
+            <View style={styles.checkIn}>
+                <Notice tone="success" banner>
+                    {done}
+                </Notice>
+            </View>
+        );
+    if (event.bookingId === null || !canCheckIn(event, viewer, kind, zone)) return null;
+    const bookingId = event.bookingId;
+    return (
+        <View style={styles.depart}>
+            <Text style={styles.sub}>
+                {kind === "site" ? strings.today.arriveBody : strings.today.checkInBody}
+            </Text>
+            <View style={styles.dueActions}>
+                <Button
+                    grow
+                    icon="check"
+                    onPress={() => {
+                        setOpen(true);
+                    }}
+                >
+                    {arrivalWords(kind).action}
+                </Button>
+            </View>
+            {open ? (
+                <CheckInSheet
+                    bookingId={bookingId}
+                    onClose={() => {
+                        setOpen(false);
+                    }}
+                    onDone={(message) => {
+                        setOpen(false);
+                        setDone(message);
+                    }}
+                />
+            ) : null}
         </View>
     );
 }
@@ -318,6 +369,7 @@ export function BookingBody({ detail }: { detail: BookingDetail }) {
                 />
             </View>
             <Departure event={e} />
+            <CheckInCard event={e} />
             <DepositDue event={e} />
             {client ? (
                 <DetailSection
@@ -873,6 +925,7 @@ export function BookingComposerSheet({
 
 const styles = StyleSheet.create({
     body: { gap: 4 },
+    checkIn: { marginBottom: 8 },
     photos: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
     depart: {
         gap: 4,

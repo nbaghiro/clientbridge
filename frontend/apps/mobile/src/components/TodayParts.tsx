@@ -358,7 +358,7 @@ export function NextActions({ item, actions }: { item: AgendaItem; actions: Toda
                     onPress={() => {
                         if (action === "checkout") openLink("checkout", id);
                         else if (action === "depart") actions.depart(id);
-                        else actions.checkIn(id);
+                        else actions.openCheckIn(id);
                     }}
                 >
                     {visitActionLabel(action, kind)}
