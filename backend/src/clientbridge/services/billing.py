@@ -28,7 +28,7 @@ from clientbridge.schemas.billing import (
     LineInput,
 )
 from clientbridge.services import ledger
-from clientbridge.services.bookings import apply_deposit, unapply_deposit
+from clientbridge.services.bookings import apply_deposit, hold_estimate, unapply_deposit
 from clientbridge.services.business import business_tz, businesses_at_hour
 from clientbridge.services.ledger import invoice_status_expr
 from clientbridge.services.lines import (
@@ -311,13 +311,20 @@ class BillingService:
     async def convert_estimate(self, estimate_id: str, idempotency_key: str | None) -> InvoiceOut:
         self._assert_admin()
         estimate = await self._estimate(estimate_id)
-        if estimate.converted_invoice_id is not None:
-            raise Conflict("this estimate was already converted")
         if estimate_status(estimate, await self._today()) not in ("sent", "accepted"):
             raise Conflict("only a sent or accepted estimate can be converted")
         await self._client(estimate.client_id)
 
         async def run(cmd: Command) -> InvoiceOut:
+            invoiced, booked = await hold_estimate(self.db, self.biz, estimate.id)
+            if invoiced is not None:
+                raise Conflict("this estimate was already converted")
+            if booked is not None:
+                raise Conflict(
+                    "the estimate's products are billed on its booked visit; "
+                    "cancel the visit to convert the estimate",
+                    code="estimate_on_visit",
+                )
             invoice = Invoice(
                 id=new_id("invoice"),
                 business_id=self.biz,

@@ -763,6 +763,9 @@ function EstimatePanel({
                                 if (rec.booked !== null) openLink("booking", rec.booked.id);
                             }}
                         />
+                        {rec.convertNote !== null ? (
+                            <Notice tone="info">{rec.convertNote}</Notice>
+                        ) : null}
                     </DetailSection>
                 ) : null}
                 {rec.row.decline_reason !== null ? (

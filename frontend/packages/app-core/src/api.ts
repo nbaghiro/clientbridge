@@ -61,6 +61,7 @@ const FAILURES: Record<string, () => string> = {
     concurrent_change: () => strings.api.concurrentChange,
     visit_not_started: () => strings.api.visitNotStarted,
     estimate_booked: () => strings.api.estimateBooked,
+    estimate_on_visit: () => strings.api.estimateOnVisit,
     deposit_not_due: () => strings.api.depositNotDue,
     deposit_in_progress: () => strings.api.depositInProgress,
     card_payments_unavailable: () => strings.api.cardPaymentsUnavailable,

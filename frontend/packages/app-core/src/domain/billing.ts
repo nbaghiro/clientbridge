@@ -2,7 +2,7 @@ import { useBusinessQuery as useQuery } from "../hooks";
 
 import { useMemo, useRef, useState } from "react";
 
-import { type ApiLike, type Attempt, attemptKey } from "../api";
+import { type ApiLike, type Attempt, attemptKey, failureMessage } from "../api";
 import {
     addDays,
     combineDayAndTime,
@@ -861,7 +861,7 @@ export function useInvoiceActions(api: ApiLike): InvoiceActions {
             async () => {
                 setNotice(message(await api.post<{ number: number | null }>(path, {})));
             },
-            { errorMessage: s.actionError },
+            { errorMessage: (e) => failureMessage(e, s.actionError) },
         );
     };
     return {
@@ -1140,6 +1140,8 @@ export interface EstimateRecord {
     canSend: boolean;
     canMark: boolean;
     canConvert: boolean;
+    // why Convert is hidden while a booked visit bills the estimate's products
+    convertNote: string | null;
     canBook: boolean;
     booked: { id: string; when: string } | null;
     rateNote: string;
@@ -1151,6 +1153,21 @@ export function estimateCanBook(
     row: Pick<EstimateRow, "converted_invoice_id" | "booking_id">,
 ): boolean {
     return status === "accepted" && row.converted_invoice_id === null && row.booking_id === null;
+}
+
+/** A sent or accepted estimate converts once, and not while a booked visit bills its products. */
+export function estimateCanConvert(
+    status: string,
+    row: Pick<EstimateRow, "converted_invoice_id" | "booking_id">,
+): boolean {
+    return estimateConvertible(status, row) && row.booking_id === null;
+}
+
+function estimateConvertible(
+    status: string,
+    row: Pick<EstimateRow, "converted_invoice_id">,
+): boolean {
+    return (status === "sent" || status === "accepted") && row.converted_invoice_id === null;
 }
 
 /** An open estimate is quoted at today's rates, so its totals come from that pricing. */
@@ -1272,9 +1289,11 @@ export function useEstimateRecord(id: string | null, payBase: string): EstimateR
         canEdit: view.status === "draft" || view.status === "sent",
         canSend: view.status === "draft",
         canMark: view.status === "sent",
-        canConvert:
-            (view.status === "sent" || view.status === "accepted") &&
-            row.converted_invoice_id === null,
+        canConvert: estimateCanConvert(view.status, row),
+        convertNote:
+            estimateConvertible(view.status, row) && row.booking_id !== null
+                ? s.convertOnVisit
+                : null,
         canBook: estimateCanBook(view.status, row),
         booked:
             row.booking_id === null || row.booking_starts_at === null

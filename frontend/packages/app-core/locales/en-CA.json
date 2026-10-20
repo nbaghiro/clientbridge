@@ -180,6 +180,9 @@
     "api.estimateBooked": {
         "message": "This estimate already has a booked visit. Cancel that visit to book the estimate again."
     },
+    "api.estimateOnVisit": {
+        "message": "This estimate's products are billed on its booked visit. Cancel the visit to convert the estimate to an invoice."
+    },
     "api.depositNotDue": {
         "message": "This deposit is already paid or no longer due."
     },
@@ -781,6 +784,9 @@
     },
     "billing.bookedVisitHint": {
         "message": "The estimate's products are on this visit as add-ons. Cancel the visit to book the estimate again."
+    },
+    "billing.convertOnVisit": {
+        "message": "The products are billed with this visit, so the estimate can't also become an invoice."
     },
     "billing.convertTitle": {
         "message": "Convert to invoice?"

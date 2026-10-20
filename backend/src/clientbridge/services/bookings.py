@@ -116,6 +116,7 @@ _TERMINAL = frozenset({"completed", "canceled", "no_show"})
 _AFTER_START = frozenset({"completed", "no_show"})
 _NOT_STARTED = "a visit can be completed or marked a no-show only once it has started"
 _ESTIMATE_BOOKED = "the estimate already has a booked visit; cancel it to book the estimate again"
+_ESTIMATE_INVOICED = "the estimate was already invoiced, so its products are billed there"
 _CLOSED_OR_WAITING = ("completed", "canceled", "no_show", "waitlisted")
 BookingNotice = Literal["confirmed", "canceled", "rescheduled"]
 
@@ -590,6 +591,25 @@ async def _open_invoice(db: AsyncSession, booking: Booking) -> Invoice | None:
     return rows.scalars().first()
 
 
+async def hold_estimate(
+    db: AsyncSession, business_id: str, estimate_id: str
+) -> tuple[str | None, str | None]:
+    """Lock the estimate, then read its invoice and its live booked visit, so the two can't race."""
+    invoiced = await db.scalar(
+        scoped(Estimate, business_id)
+        .with_only_columns(Estimate.converted_invoice_id)
+        .where(Estimate.id == estimate_id)
+        .with_for_update()
+    )
+    live = await db.scalar(
+        scoped(Booking, business_id, soft_delete=True)
+        .with_only_columns(Booking.id)
+        .where(Booking.estimate_id == estimate_id, Booking.status != "canceled")
+        .limit(1)
+    )
+    return invoiced, live
+
+
 class BookingService:
     def __init__(self, db: AsyncSession, principal: Principal, gateway: PaymentGateway) -> None:
         self.db = db
@@ -934,7 +954,7 @@ class BookingService:
         if estimate.status != "accepted":
             raise Conflict("only an accepted estimate can be booked")
         if estimate.converted_invoice_id is not None:
-            raise Conflict("the estimate was already invoiced, so its products are billed there")
+            raise Conflict(_ESTIMATE_INVOICED)
         lines = [
             ln
             for ln in await fetch_lines(self.db, self.biz, "estimate", estimate.id)
@@ -959,19 +979,9 @@ class BookingService:
         ]
 
     async def _assert_estimate_unbooked(self, estimate_id: str) -> None:
-        # the estimate row lock serialises two bookings racing for one estimate
-        await self.db.execute(
-            scoped(Estimate, self.biz)
-            .with_only_columns(Estimate.id)
-            .where(Estimate.id == estimate_id)
-            .with_for_update()
-        )
-        live = await self.db.scalar(
-            scoped(Booking, self.biz, soft_delete=True)
-            .with_only_columns(Booking.id)
-            .where(Booking.estimate_id == estimate_id, Booking.status != "canceled")
-            .limit(1)
-        )
+        invoiced, live = await hold_estimate(self.db, self.biz, estimate_id)
+        if invoiced is not None:
+            raise Conflict(_ESTIMATE_INVOICED)
         if live is not None:
             raise Conflict(_ESTIMATE_BOOKED, code="estimate_booked")
 

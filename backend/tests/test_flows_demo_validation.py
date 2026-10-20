@@ -4,10 +4,12 @@ from uuid import uuid4
 import pytest
 from scripts.demo_validate import validate_database, validate_graph
 from scripts.seed_demo import build_demo, validate_seed_target
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
 from clientbridge.core.config import get_settings
+from clientbridge.models.billing import Estimate, Invoice
 from clientbridge.models.clients import Consent
 from clientbridge.models.platform import File, FileParent
 from clientbridge.models.scheduling import Booking, Slot
@@ -23,6 +25,32 @@ def test_demo_preflight_rejects_corrupted_booking_timestamps() -> None:
     errors = validate_graph(ctx)
     assert f"{booking.id}: completion chronology" in errors
     assert f"{booking.id}: future confirmation" in errors
+
+
+async def test_demo_preflight_rejects_an_estimate_both_booked_and_invoiced(
+    db: AsyncSession,
+) -> None:
+    def invoiced(errors: object) -> list[str]:
+        assert isinstance(errors, list)
+        return [e for e in errors if isinstance(e, str) and "also invoiced" in e]
+
+    assert invoiced((await validate_database(db))["errors"]) == []
+    booking = (
+        await db.scalars(
+            select(Booking)
+            .where(Booking.estimate_id.is_not(None), Booking.status != "canceled")
+            .limit(1)
+        )
+    ).one()
+    estimate = await db.get(Estimate, booking.estimate_id)
+    invoice = (
+        await db.scalars(select(Invoice).where(Invoice.business_id == booking.business_id).limit(1))
+    ).one()
+    assert estimate is not None
+    estimate.converted_invoice_id = invoice.id
+    await db.flush()
+    errors = invoiced((await validate_database(db))["errors"])
+    assert f"{booking.id}: booked from an estimate that was also invoiced" in errors
 
 
 async def test_demo_preflight_rejects_cross_business_consent(db: AsyncSession) -> None:

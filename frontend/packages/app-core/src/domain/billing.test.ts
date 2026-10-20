@@ -15,6 +15,7 @@ import {
     priceDoc,
     documentRates,
     estimateCanBook,
+    estimateCanConvert,
     estimateTotals,
 } from "./billing";
 import { type SavedCardRow, canBeDefault, checkoutMethods } from "./payments";
@@ -362,6 +363,27 @@ describe("estimateTotals", () => {
             total_cents: 11_300,
         };
         expect(cents(accepted)).toEqual([10_000, 1300, 11_300]);
+    });
+});
+
+describe("estimateCanConvert", () => {
+    const open = { converted_invoice_id: null, booking_id: null };
+
+    it("converts a sent or accepted estimate once", () => {
+        expect(estimateCanConvert("sent", open)).toBe(true);
+        expect(estimateCanConvert("accepted", open)).toBe(true);
+        expect(estimateCanConvert("accepted", { ...open, converted_invoice_id: "inv_1" })).toBe(
+            false,
+        );
+    });
+
+    it("hides Convert while a live visit bills the estimate's products", () => {
+        expect(estimateCanConvert("accepted", { ...open, booking_id: "bk_1" })).toBe(false);
+    });
+
+    it("hides Convert for a draft, declined or expired estimate", () => {
+        for (const status of ["draft", "declined", "expired"])
+            expect(estimateCanConvert(status, open)).toBe(false);
     });
 });
 

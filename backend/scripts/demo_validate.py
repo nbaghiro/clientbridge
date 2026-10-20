@@ -149,6 +149,12 @@ def validate_graph(ctx: DemoContext) -> list[str]:
             errors.append(f"{booking.id}: booked from another client's or a missing estimate")
         elif estimate.status != "accepted":
             errors.append(f"{booking.id}: booked from an estimate that is not accepted")
+        elif (
+            estimate.converted_invoice_id is not None
+            and booking.status != "canceled"
+            and booking.deleted_at is None
+        ):
+            errors.append(f"{booking.id}: booked from an estimate that was also invoiced")
     for estimate_id, count in booked.items():
         if count > 1:
             errors.append(f"{estimate_id}: booked {count} times")

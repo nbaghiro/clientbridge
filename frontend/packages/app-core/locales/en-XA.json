@@ -155,6 +155,9 @@
     "api.estimateBooked": {
         "message": "[Ţĥîš éšţîɱåţé åļŕéåðý ĥåš å ƀööķéð ṽîšîţ. Çåñçéļ ţĥåţ ṽîšîţ ţö ƀööķ ţĥé éšţîɱåţé åĝåîñ. one two three four five six]"
     },
+    "api.estimateOnVisit": {
+        "message": "[Ţĥîš éšţîɱåţé'š þŕöðûçţš åŕé ƀîļļéð öñ îţš ƀööķéð ṽîšîţ. Çåñçéļ ţĥé ṽîšîţ ţö çöñṽéŕţ ţĥé éšţîɱåţé ţö åñ îñṽöîçé. one two three four five six seven]"
+    },
     "api.depositNotDue": {
         "message": "[Ţĥîš ðéþöšîţ îš åļŕéåðý þåîð öŕ ñö ļöñĝéŕ ðûé. one two three]"
     },
@@ -703,6 +706,9 @@
     },
     "billing.bookedVisitHint": {
         "message": "[Ţĥé éšţîɱåţé'š þŕöðûçţš åŕé öñ ţĥîš ṽîšîţ åš åðð-öñš. Çåñçéļ ţĥé ṽîšîţ ţö ƀööķ ţĥé éšţîɱåţé åĝåîñ. one two three four five six seven]"
+    },
+    "billing.convertOnVisit": {
+        "message": "[Ţĥé þŕöðûçţš åŕé ƀîļļéð ŵîţĥ ţĥîš ṽîšîţ, šö ţĥé éšţîɱåţé çåñ'ţ åļšö ƀéçöɱé åñ îñṽöîçé. one two three four five six]"
     },
     "billing.convertTitle": {
         "message": "[Çöñṽéŕţ ţö îñṽöîçé? one two]"

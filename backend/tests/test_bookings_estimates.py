@@ -1,14 +1,15 @@
 import httpx
 import pytest
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
-from clientbridge.models.billing import Estimate, Line
+from clientbridge.core.ids import new_id
+from clientbridge.models.billing import Estimate, Invoice, Line
 from clientbridge.models.catalog import Item
 from clientbridge.models.scheduling import Addon, Booking
-from tests.conftest import BIZ, Factory
-from tests.helpers import client_id, new_client
+from tests.conftest import BIZ, STAFF_USER, Factory, FakeIdentityProvider, session_token
+from tests.helpers import client_id, key, new_client, ok
 
 ST_OWNER = "st_owner"
 
@@ -267,3 +268,91 @@ async def test_another_business_estimate_404_and_its_bookings_do_not_count(
         "/v1/bookings", json=_body(cid, iid, "2027-03-22T17:00:00Z", estimate_id=eid)
     )
     assert mine.status_code == 201, mine.text
+
+
+async def _booked(as_owner: httpx.AsyncClient, db: AsyncSession, starts: str) -> tuple[str, str]:
+    cid = await client_id(db)
+    eid = await _accepted(as_owner, cid)
+    res = await as_owner.post(
+        "/v1/bookings", json=_body(cid, await _service(db), starts, estimate_id=eid)
+    )
+    assert res.status_code == 201, res.text
+    return eid, str(res.json()["id"])
+
+
+async def _invoices(db: AsyncSession) -> int:
+    return int(await db.scalar(select(func.count(Invoice.id))) or 0)
+
+
+async def test_an_estimate_with_a_booked_visit_is_not_converted(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    eid, _ = await _booked(as_owner, db, "2027-03-15T17:00:00Z")
+    before = await _invoices(db)
+    res = await as_owner.post(f"/v1/estimates/{eid}/convert", headers=key())
+    assert res.status_code == 409 and res.json()["error"] == "estimate_on_visit"
+    assert await _invoices(db) == before
+    estimate = await db.get(Estimate, eid, populate_existing=True)
+    assert estimate is not None and estimate.converted_invoice_id is None
+
+
+async def test_cancelling_the_visit_lets_the_estimate_convert(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    eid, bid = await _booked(as_owner, db, "2027-03-16T17:00:00Z")
+    headers = key()
+    refused = await as_owner.post(f"/v1/estimates/{eid}/convert", headers=headers)
+    assert refused.status_code == 409
+    ok(await as_owner.patch(f"/v1/bookings/{bid}", json={"status": "canceled"}))
+    converted = ok(await as_owner.post(f"/v1/estimates/{eid}/convert", headers=headers), 201)
+    again = ok(await as_owner.post(f"/v1/estimates/{eid}/convert", headers=headers), 201)
+    assert again.json()["id"] == converted.json()["id"]
+    rebook = await as_owner.post(
+        "/v1/bookings",
+        json=_body(
+            await client_id(db), await _service(db), "2027-03-17T17:00:00Z", estimate_id=eid
+        ),
+    )
+    assert rebook.status_code == 409
+
+
+async def test_a_completed_visit_still_holds_the_estimate(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    eid, bid = await _booked(as_owner, db, "2027-03-18T17:00:00Z")
+    await db.execute(
+        update(Booking)
+        .where(Booking.id == bid)
+        .values(status="completed", completed_at=clock.now())
+    )
+    res = await as_owner.post(f"/v1/estimates/{eid}/convert")
+    assert res.status_code == 409 and res.json()["error"] == "estimate_on_visit"
+
+
+async def test_a_deleted_visit_no_longer_holds_the_estimate(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    eid, bid = await _booked(as_owner, db, "2027-03-19T17:00:00Z")
+    await db.execute(update(Booking).where(Booking.id == bid).values(deleted_at=clock.now()))
+    ok(await as_owner.post(f"/v1/estimates/{eid}/convert"), 201)
+
+
+async def test_another_business_booking_does_not_hold_the_estimate(
+    as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory
+) -> None:
+    eid, bid = await _booked(as_owner, db, "2027-03-20T17:00:00Z")
+    other = await factory.business(name="Other Studio")
+    await db.execute(update(Booking).where(Booking.id == bid).values(business_id=other.id))
+    ok(await as_owner.post(f"/v1/estimates/{eid}/convert"), 201)
+
+
+async def test_staff_and_strangers_cannot_convert_a_booked_estimate(
+    as_owner: httpx.AsyncClient, db: AsyncSession, identities: FakeIdentityProvider
+) -> None:
+    eid, _ = await _booked(as_owner, db, "2027-03-21T17:00:00Z")
+    missing = await as_owner.post(f"/v1/estimates/{new_id('estimate')}/convert")
+    assert missing.status_code == 404
+    as_owner.headers["X-Session-Token"] = await session_token(identities, db, STAFF_USER)
+    assert (await as_owner.post(f"/v1/estimates/{eid}/convert")).status_code == 403
+    del as_owner.headers["X-Session-Token"]
+    assert (await as_owner.post(f"/v1/estimates/{eid}/convert")).status_code == 401

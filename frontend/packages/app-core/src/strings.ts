@@ -67,6 +67,7 @@ interface Strings {
         readonly concurrentChange: string;
         readonly visitNotStarted: string;
         readonly estimateBooked: string;
+        readonly estimateOnVisit: string;
         readonly depositNotDue: string;
         readonly depositInProgress: string;
         readonly cardPaymentsUnavailable: string;
@@ -261,6 +262,7 @@ interface Strings {
         readonly bookVisit: (kind: string) => string;
         readonly bookedVisit: (kind: string) => string;
         readonly bookedVisitHint: string;
+        readonly convertOnVisit: string;
         readonly convertTitle: string;
         readonly convertBody: string;
         readonly markAccepted: string;
