@@ -117,5 +117,5 @@ const styles = StyleSheet.create({
     },
     rowBorder: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.colors.border },
     rowLabel: { color: theme.colors.ink, fontSize: 15, fontWeight: "500" },
-    signOut: { alignItems: "center", paddingTop: 24 },
+    signOut: { flexDirection: "row", justifyContent: "center", paddingTop: 24 },
 });

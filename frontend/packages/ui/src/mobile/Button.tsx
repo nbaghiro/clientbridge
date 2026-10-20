@@ -79,6 +79,7 @@ const styles = StyleSheet.create({
         justifyContent: "center",
         gap: 6,
         borderRadius: theme.radius,
+        // A centred column can't override this, so centre a button with a row and justifyContent.
         alignSelf: "flex-start",
     },
     full: { alignSelf: "stretch" },

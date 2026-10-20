@@ -301,9 +301,13 @@ function Composer({ seed, onDone }: { seed: BroadcastSeed; onDone: () => void })
     if (draft.sent !== null)
         return (
             <View style={styles.done}>
-                <Text style={styles.title}>{draft.sent.title}</Text>
-                <Text style={styles.meta}>{draft.sent.body}</Text>
-                <Button onPress={onDone}>{s.sentDone}</Button>
+                <Empty
+                    variant="card"
+                    icon="check"
+                    message={draft.sent.title}
+                    body={draft.sent.body}
+                    actions={<Button onPress={onDone}>{s.sentDone}</Button>}
+                />
             </View>
         );
 
@@ -537,5 +541,5 @@ const styles = StyleSheet.create({
     gap: { gap: 12 },
     count: { color: c.ink, fontSize: 30, fontWeight: "700" },
     actions: { flexDirection: "row", gap: 10, marginTop: 8 },
-    done: { flex: 1, padding: 24, gap: 12, alignItems: "center", justifyContent: "center" },
+    done: { flex: 1, padding: 16, justifyContent: "center" },
 });

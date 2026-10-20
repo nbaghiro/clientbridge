@@ -297,7 +297,8 @@ function ThreadView({ thread, onBack }: { thread: InboxThread; onBack: () => voi
             >
                 {conversation.earlier.show ? (
                     <View style={styles.earlier}>
-                        <Button
+                        <View style={styles.earlierAction}>
+                            <Button
                             size="sm"
                             variant="quiet"
                             busy={conversation.earlier.busy}
@@ -305,6 +306,7 @@ function ThreadView({ thread, onBack }: { thread: InboxThread; onBack: () => voi
                         >
                             {s.thread.showEarlier}
                         </Button>
+                        </View>
                         {conversation.earlier.error !== null ? (
                             <Notice tone="danger">{conversation.earlier.error}</Notice>
                         ) : null}
@@ -529,7 +531,8 @@ function NewMessageSheet({
 }
 
 const styles = StyleSheet.create({
-    earlier: { alignItems: "center", gap: 8 },
+    earlier: { gap: 8 },
+    earlierAction: { flexDirection: "row", justifyContent: "center" },
     inboxTitle: {
         color: c.ink,
         fontSize: 28,

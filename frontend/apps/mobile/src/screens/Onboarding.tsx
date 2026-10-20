@@ -173,5 +173,5 @@ const styles = StyleSheet.create({
     },
     taxTitle: { color: c.ink, fontSize: 14, fontWeight: "600" },
     taxNote: { color: c.muted, fontSize: 12, marginTop: 2 },
-    signOut: { alignItems: "center", paddingTop: 20 },
+    signOut: { flexDirection: "row", justifyContent: "center", paddingTop: 20 },
 });
