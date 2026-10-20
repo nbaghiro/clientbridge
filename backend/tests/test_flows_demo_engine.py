@@ -464,6 +464,26 @@ def test_fill_takes_a_pacing_per_call() -> None:
     assert filled and all(b.staff_id == "st_pb_kai" for b in filled)
 
 
+def test_fill_books_the_services_of_each_month() -> None:
+    assert SPEC.pacing is not None
+    month = clock.now().astimezone(SPEC.listing.zone).month
+    pacing = replace(SPEC.pacing, services_by_month={month: ("it_pb_service_call",)})
+
+    class Seasonal(Probe):
+        spec = replace(SPEC, pacing=pacing)
+
+    demo = build_edition(Seasonal, clock.now())
+    # Kai's own services win over the month's, so only the owner's visits follow the season
+    filled = [b for b in demo.ctx.all(Booking) if b.id.startswith("bk_pb_fill_owner")]
+    by_item = {demo.ctx.get(Slot, b.slot_id).item_id for b in filled}
+    assert by_item == {"it_pb_survey", "it_pb_service_call"}
+    assert all(
+        demo.local(b.starts_at).month in {month, month % 12 + 1}
+        for b in filled
+        if demo.ctx.get(Slot, b.slot_id).item_id == "it_pb_service_call"
+    )
+
+
 def test_a_missing_storyline_stage_is_reported() -> None:
     class Gap(Probe):
         spec = replace(SPEC, storyline=(Stage("Lost", "nobody"),))

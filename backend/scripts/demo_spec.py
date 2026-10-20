@@ -125,6 +125,10 @@ class Pacing:
     ahead_weeks: int = 4
     # month (1 to 12) -> share of the usual week's visits
     seasonality: Mapping[int, float] = field(default_factory=dict[int, float])
+    # month (1 to 12) -> the services booked that month instead of `services`
+    services_by_month: Mapping[int, tuple[str, ...]] = field(
+        default_factory=dict[int, tuple[str, ...]]
+    )
     settlements: tuple[Settle, ...] = ("card", "card", "etransfer", "card", "cash")
     no_show_every: int = 0
     cancel_every: int = 0

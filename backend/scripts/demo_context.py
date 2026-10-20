@@ -193,6 +193,19 @@ DEMO_BUSINESSES = (
         timezone="America/Toronto",
         edition="scripts.demo_fieldnote",
     ),
+    DemoBusiness(
+        id="bz_foothills",
+        name="Foothills Lawn and Garden",
+        email="hello@foothills.example",
+        first_name="Ravi",
+        last_name="Gill",
+        product_description="Lawn care, landscaping and snow clearing",
+        primary_color="#2F5D3A",
+        legal=LegalAddress("2615", "42 Avenue NE", "Calgary", "AB", "T2E 7T1", "+15875550198"),
+        owner_login="owner@foothills.example",
+        timezone="America/Edmonton",
+        edition="scripts.demo_foothills",
+    ),
 )
 DEMO_IDS = tuple(business.id for business in DEMO_BUSINESSES)
 # the business the web, Connect and end-to-end fixtures target unless told otherwise

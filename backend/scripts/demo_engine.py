@@ -1491,10 +1491,11 @@ class Demo:
         turn = 0
         for week in range(-pacing.weeks, pacing.ahead_weeks):
             month = self.local(self.at(week * 7)).month
+            seasonal = pacing.services_by_month.get(month, pacing.services)
             for staff, usual in pacing.visits_per_week.items():
                 count = round(usual * pacing.seasonality.get(month, 1.0))
                 pool = clients.get(staff, ()) if isinstance(clients, Mapping) else clients
-                services = pacing.staff_services.get(staff, pacing.services)
+                services = pacing.staff_services.get(staff, seasonal)
                 for index in range(count if pool else 0):
                     turn += 1
                     client_key = pool[turn % len(pool)]

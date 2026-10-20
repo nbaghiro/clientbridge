@@ -15,7 +15,7 @@ One fully seeded demo business for each vertical the product serves, for showing
 | 7 | Tutoring and lessons | Lakeside Learning Studio | student | ON | done |
 | 8 | Massage and wellness | new | none | BC | todo |
 | 9 | Photography | Fieldnote Photography | none | ON | done |
-| 10 | Landscaping and lawn care | new | property | AB | todo |
+| 10 | Landscaping and lawn care | Foothills Lawn and Garden | property | AB | done |
 | 11 | Tattoo studio | new | none | BC | todo |
 
 Auto detailing is out of scope: it needs a `vehicle` subject kind.
