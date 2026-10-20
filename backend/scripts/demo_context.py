@@ -220,6 +220,19 @@ DEMO_BUSINESSES = (
         owner_login="owner@harbourside.example",
         edition="scripts.demo_harbourside",
     ),
+    DemoBusiness(
+        id="bz_inkwell",
+        name="Inkwell Tattoo Collective",
+        email="hello@inkwell.example",
+        first_name="Sasha",
+        last_name="Moreno",
+        product_description="Custom and flash tattoos, and piercing",
+        primary_color="#8C2F2F",
+        url="https://inkwell.example",
+        legal=LegalAddress("2418", "Main Street", "Vancouver", "BC", "V5T 3E2", "+16725550198"),
+        owner_login="owner@inkwell.example",
+        edition="scripts.demo_inkwell",
+    ),
 )
 DEMO_IDS = tuple(business.id for business in DEMO_BUSINESSES)
 # the business the web, Connect and end-to-end fixtures target unless told otherwise

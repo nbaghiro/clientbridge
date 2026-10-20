@@ -16,7 +16,7 @@ One fully seeded demo business for each vertical the product serves, for showing
 | 8 | Massage and wellness | Harbourside Massage and Wellness | none | BC | done |
 | 9 | Photography | Fieldnote Photography | none | ON | done |
 | 10 | Landscaping and lawn care | Foothills Lawn and Garden | property | AB | done |
-| 11 | Tattoo studio | new | none | BC | todo |
+| 11 | Tattoo studio | Inkwell Tattoo Collective | none | BC | done |
 
 Auto detailing is out of scope: it needs a `vehicle` subject kind.
 
