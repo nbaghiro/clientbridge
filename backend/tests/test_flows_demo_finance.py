@@ -1,4 +1,4 @@
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 import httpx
 import pytest
@@ -9,18 +9,23 @@ from scripts.demo_finance import (
     price_documents,
     seed_payouts,
 )
+from scripts.demo_validate import tax_errors
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
 from clientbridge.models.billing import Estimate, Invoice, Line
 from clientbridge.models.business import Business
 from clientbridge.models.catalog import Item, Package
+from clientbridge.models.clients import Client
 from clientbridge.models.ledger import Entry
 from clientbridge.models.payments import Payment
 from clientbridge.models.scheduling import Booking
 from clientbridge.services import ledger
-from tests.conftest import Factory
+from clientbridge.services.tax import TaxResult
+from tests.clock import FROZEN
+from tests.conftest import BIZ, Factory
 from tests.helpers import enable_payments
 
 
@@ -123,6 +128,66 @@ async def test_seeded_businesses_leave_nothing_in_stripe(db: AsyncSession) -> No
             db, business.id, owner_type="business", owner_id=business.id, category="stripe"
         )
         assert held == 0, business.id
+
+
+async def test_seeded_returns_leave_only_periods_not_yet_due(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    filings = (await as_owner.get("/v1/payments/remittances")).json()
+    today = date(2026, 10, 13)
+    assert filings["next_due"] == "2026-10-31"
+    for period in filings["periods"]:
+        due = date.fromisoformat(period["due"])
+        if due < today:
+            assert period["federal_status"] == "filed"
+            assert period["provincial_status"] in {"filed", "none"}
+            assert period["returns"]
+        else:
+            assert period["federal_status"] in {"open", "due"}
+            assert not period["returns"]
+        for filed in period["returns"]:
+            assert 3 <= (due - date.fromisoformat(filed["filed_on"])).days <= 14
+            assert filed["paid_cents"] == sum(filed["by_code"].values())
+    assert filings["federal_set_aside_cents"] == sum(
+        p["federal_cents"] for p in filings["periods"] if p["federal_status"] != "filed"
+    )
+    assert await tax_errors(db, FROZEN) == []
+
+
+async def _demo_tax(db: AsyncSession, issued_at: datetime) -> None:
+    client_id = await db.scalar(select(Client.id).where(Client.business_id == BIZ).limit(1))
+    assert client_id
+    invoice = Invoice(
+        id=new_id("invoice"),
+        business_id=BIZ,
+        client_id=client_id,
+        number=9700,
+        status="sent",
+        currency="CAD",
+        subtotal_cents=10000,
+        tax_total_cents=500,
+        total_cents=10500,
+        issued_at=issued_at,
+    )
+    db.add(invoice)
+    await db.flush()
+    await ledger.post_invoice(db, invoice, TaxResult(10000, 500, 10500, {"GST": 500}, []))
+
+
+async def test_demo_validation_flags_an_unfiled_return_past_its_due_date(
+    db: AsyncSession,
+) -> None:
+    await _demo_tax(db, datetime(2026, 2, 10, 18, tzinfo=UTC))
+    assert await tax_errors(db, FROZEN) == ["bz_birchbark: 2026-01-01 return is overdue"]
+
+
+async def test_demo_validation_flags_tax_kept_outside_the_filing_periods(
+    db: AsyncSession,
+) -> None:
+    await _demo_tax(db, datetime(2021, 2, 10, 18, tzinfo=UTC))
+    assert "bz_birchbark: tax set-aside differs from unfiled periods" in await tax_errors(
+        db, FROZEN
+    )
 
 
 async def test_package_tax_and_dated_visit_consumption_use_real_posting(

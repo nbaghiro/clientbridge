@@ -11,6 +11,7 @@ from clientbridge.core.ids import new_id
 from clientbridge.models.clients import Client
 from clientbridge.models.payments import PaymentMethod
 from clientbridge.services.business import business_tz
+from clientbridge.services.reports import add_months, period_of
 from tests.conftest import BIZ, FakePaymentGateway
 from tests.helpers import (
     business_balance,
@@ -171,11 +172,15 @@ async def test_remittance_files_the_tax_payable(
     owed = await _set_aside(api)
     assert owed - payable == 1200  # BC GST 5% + PST 7%
 
-    yesterday = clock.today(await business_tz(db, BIZ)) - timedelta(days=1)
+    today = clock.today(await business_tz(db, BIZ))
+    unfiled = add_months(period_of(today, "quarterly")[0], -3)
     filed = ok(
         await api.post(
             "/v1/payments/remittances",
-            json={"period_start": "2000-01-01", "period_end": yesterday.isoformat()},
+            json={
+                "period_start": unfiled.isoformat(),
+                "period_end": (today - timedelta(days=1)).isoformat(),
+            },
         ),
         201,
     ).json()

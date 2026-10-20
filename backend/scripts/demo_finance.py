@@ -1,21 +1,24 @@
-from datetime import datetime, timedelta
+from datetime import date, datetime, time, timedelta
 from decimal import ROUND_HALF_UP, Decimal
 
 from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
+from clientbridge.core.deps import Principal
 from clientbridge.core.scoping import scoped
 from clientbridge.integrations.stripe import ChargeFees
 from clientbridge.models.billing import Estimate, Invoice, Line, Order
-from clientbridge.models.business import Business
+from clientbridge.models.business import Business, Staff
 from clientbridge.models.catalog import GiftCard, Item, Package, StockMovement, Subscription
 from clientbridge.models.clients import Note
 from clientbridge.models.ledger import Account, Entry
 from clientbridge.models.payments import Payment, PaymentMethod
 from clientbridge.models.scheduling import Booking, Slot
+from clientbridge.schemas.payments import RemittanceIn, TaxFamily
 from clientbridge.services import bookings, earnings, ledger
 from clientbridge.services.lines import fetch_lines, included_totals, price_lines
+from clientbridge.services.remittances import RemittanceService
 from clientbridge.services.tax import (
     TaxComponent,
     TaxLine,
@@ -24,7 +27,7 @@ from clientbridge.services.tax import (
     rates_on,
     tax_for_lines,
 )
-from scripts.demo_context import DemoContext
+from scripts.demo_context import BUSINESS_TIMEZONE, DemoContext
 
 GIFT_TENDERS = (
     ("gc_used", "inv_gift_david", 5000, -15),
@@ -36,6 +39,7 @@ PACKAGE_VISITS = (
     ("pkg_grace", "cl_grace", "sj_pepper", (-105, -84, -63, -42, -21)),
     ("pkg_sophie", "cl_sophie", "sj_mochi", (-7,)),
 )
+FILING_LEAD_DAYS = (9, 5, 12, 7, 4, 13, 6, 10)
 
 
 def add_finance_scenarios(ctx: DemoContext) -> None:
@@ -796,6 +800,53 @@ async def apply_deposit_at(db: AsyncSession, booking: Booking, invoice: Invoice)
         clock.travel(resume)
 
 
+def owner_principal(ctx: DemoContext) -> Principal:
+    owner = next(s for s in ctx.all(Staff) if s.user_id == ctx.owner_id)
+    return Principal(
+        user_id=ctx.owner_id, business_id=ctx.business_id, staff_id=owner.id, role="owner"
+    )
+
+
+def _filed_on(ctx: DemoContext, due: date) -> date:
+    turn = due.year * 4 + due.month // 3 + sum(map(ord, ctx.business_id))
+    return due - timedelta(days=FILING_LEAD_DAYS[turn % len(FILING_LEAD_DAYS)])
+
+
+async def seed_returns(db: AsyncSession, ctx: DemoContext) -> None:
+    """File GST and PST apart, as BC does, for every period whose due date has passed."""
+    if not ctx.get(Business, ctx.business_id).tax_registered:
+        return
+    service = RemittanceService(db, owner_principal(ctx))
+    resume = clock.now()
+    clock.freeze(ctx.now)
+    try:
+        filings = await service.filings()
+    finally:
+        clock.travel(resume)
+    today = ctx.now.astimezone(BUSINESS_TIMEZONE).date()
+    for period in reversed(filings.periods):
+        if period.due >= today:
+            continue
+        filed_on = _filed_on(ctx, period.due)
+        families: list[tuple[TaxFamily, str, int]] = [
+            ("federal", period.federal_status, 10),
+            ("provincial", period.provincial_status, 11),
+        ]
+        for family, status, hour in families:
+            if status != "due":
+                continue
+            await service.post_return(
+                RemittanceIn(
+                    period_start=period.start,
+                    period_end=period.end,
+                    family=family,
+                    filed_on=filed_on,
+                ),
+                filed_on=filed_on,
+                occurred_at=datetime.combine(filed_on, time(hour), tzinfo=BUSINESS_TIMEZONE),
+            )
+
+
 async def seed_finance(db: AsyncSession, ctx: DemoContext) -> None:
     await post_invoices(db, ctx)
     await _purchases(db, ctx)
@@ -813,3 +864,4 @@ async def seed_finance(db: AsyncSession, ctx: DemoContext) -> None:
             )
     await seed_earnings(db, ctx)
     await seed_payouts(db, ctx)
+    await seed_returns(db, ctx)

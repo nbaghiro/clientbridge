@@ -105,6 +105,7 @@ async def test_overlapping_or_refiled_period_409(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     await _q1_tax(db)
+    seeded = await _remittances(db)
     assert (await as_owner.post("/v1/payments/remittances", json=Q1)).status_code == 201
     again = await as_owner.post(
         "/v1/payments/remittances", json=Q1, headers={"Idempotency-Key": "another-filing"}
@@ -112,7 +113,7 @@ async def test_overlapping_or_refiled_period_409(
     assert again.status_code == 409
     overlap = {"period_start": "2021-03-01", "period_end": "2021-05-31"}
     assert (await as_owner.post("/v1/payments/remittances", json=overlap)).status_code == 409
-    assert await _remittances(db) == 1
+    assert await _remittances(db) == seeded + 1
 
 
 async def test_period_with_no_tax_owed_409(as_owner: httpx.AsyncClient) -> None:
@@ -131,18 +132,20 @@ async def test_period_ending_before_it_starts_422(as_owner: httpx.AsyncClient) -
 
 async def test_staff_cannot_file_403(as_staff: httpx.AsyncClient, db: AsyncSession) -> None:
     await _q1_tax(db)
+    seeded = await _remittances(db)
     assert (await as_staff.post("/v1/payments/remittances", json=Q1)).status_code == 403
-    assert await _remittances(db) == 0
+    assert await _remittances(db) == seeded
 
 
 async def test_replayed_filing_posts_once(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
     await _q1_tax(db)
+    seeded = await _remittances(db)
     headers = {"Idempotency-Key": "file-q1"}
     first = await as_owner.post("/v1/payments/remittances", json=Q1, headers=headers)
     retry = await as_owner.post("/v1/payments/remittances", json=Q1, headers=headers)
     assert first.status_code == retry.status_code == 201
     assert retry.json() == first.json()
-    assert await _remittances(db) == 1
+    assert await _remittances(db) == seeded + 1
 
 
 async def test_other_business_tax_is_not_filed(

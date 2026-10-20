@@ -81,63 +81,14 @@ class RemittanceService:
             raise AppError(
                 "the filing date can't be in the future", status_code=422, code="invalid_filed_on"
             )
-        lo, hi = period_bounds(data.period_start, data.period_end, tz)
-        family = data.family
 
         async def run(cmd: Command) -> RemittanceOut:
             await self.db.execute(
                 select(Business.id).where(Business.id == self.biz).with_for_update()
             )
-            if await self._overlaps(data.period_start, data.period_end, family):
-                raise Conflict("this period overlaps a return that was already filed")
-            owed = await self._owed(lo, hi, family)
-            total = sum(owed.values())
-            if total <= 0:
-                raise Conflict("no tax is owed for this period")
-            federal = sum(owed.get(code, 0) for code in FAMILY_CODES["federal"])
-            if data.itc_cents > federal:
-                raise AppError(
-                    "input tax credits can't be more than the GST/HST collected",
-                    status_code=422,
-                    code="invalid_itc",
-                )
-            paid = total - data.itc_cents
-            credit_code = next((c for c in FAMILY_CODES["federal"] if c in owed), "GST")
-            scope = family or "all"
-            await ledger.post(
-                self.db,
-                self.biz,
-                event="remittance",
-                ref=f"remittance:{self.biz}:{scope}:{data.period_start}:{data.period_end}",
-                legs=[
-                    *(
-                        Leg("business", self.biz, "tax", cents, code)
-                        for code, cents in sorted(owed.items())
-                    ),
-                    Leg("business", self.biz, "itc", -data.itc_cents, credit_code),
-                    Leg("business", self.biz, "bank", -paid),
-                ],
-                meta={
-                    "start": data.period_start.isoformat(),
-                    "end": data.period_end.isoformat(),
-                    "family": family,
-                    "itc_cents": data.itc_cents,
-                    "confirmation": data.confirmation,
-                    "filed_on": filed_on.isoformat(),
-                },
-                occurred_at=clock.now(),
-            )
+            filed = await self.post_return(data, filed_on=filed_on, occurred_at=clock.now())
             cmd.record("tax.remit", entity_type="business", entity_id=self.biz)
-            return RemittanceOut(
-                period_start=data.period_start,
-                period_end=data.period_end,
-                family=family,
-                by_code=owed,
-                itc_cents=data.itc_cents,
-                total_cents=paid,
-                confirmation=data.confirmation,
-                filed_on=filed_on,
-            )
+            return filed
 
         return await run_command(
             self.db,
@@ -147,6 +98,63 @@ class RemittanceService:
             response_model=RemittanceOut,
             idempotency_key=idempotency_key,
             request=data,
+        )
+
+    async def post_return(
+        self, data: RemittanceIn, *, filed_on: date, occurred_at: datetime
+    ) -> RemittanceOut:
+        """Post one return's journal: the period's tax leaves tax payable for the bank."""
+        tz = zone((await self._business()).timezone)
+        lo, hi = period_bounds(data.period_start, data.period_end, tz)
+        family = data.family
+        if await self._overlaps(data.period_start, data.period_end, family):
+            raise Conflict("this period overlaps a return that was already filed")
+        owed = await self._owed(lo, hi, family)
+        total = sum(owed.values())
+        if total <= 0:
+            raise Conflict("no tax is owed for this period")
+        federal = sum(owed.get(code, 0) for code in FAMILY_CODES["federal"])
+        if data.itc_cents > federal:
+            raise AppError(
+                "input tax credits can't be more than the GST/HST collected",
+                status_code=422,
+                code="invalid_itc",
+            )
+        paid = total - data.itc_cents
+        credit_code = next((c for c in FAMILY_CODES["federal"] if c in owed), "GST")
+        scope = family or "all"
+        await ledger.post(
+            self.db,
+            self.biz,
+            event="remittance",
+            ref=f"remittance:{self.biz}:{scope}:{data.period_start}:{data.period_end}",
+            legs=[
+                *(
+                    Leg("business", self.biz, "tax", cents, code)
+                    for code, cents in sorted(owed.items())
+                ),
+                Leg("business", self.biz, "itc", -data.itc_cents, credit_code),
+                Leg("business", self.biz, "bank", -paid),
+            ],
+            meta={
+                "start": data.period_start.isoformat(),
+                "end": data.period_end.isoformat(),
+                "family": family,
+                "itc_cents": data.itc_cents,
+                "confirmation": data.confirmation,
+                "filed_on": filed_on.isoformat(),
+            },
+            occurred_at=occurred_at,
+        )
+        return RemittanceOut(
+            period_start=data.period_start,
+            period_end=data.period_end,
+            family=family,
+            by_code=owed,
+            itc_cents=data.itc_cents,
+            total_cents=paid,
+            confirmation=data.confirmation,
+            filed_on=filed_on,
         )
 
     async def _ranges(self, business: Business, today: date) -> list[tuple[date, date]]:

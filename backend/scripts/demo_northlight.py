@@ -41,6 +41,7 @@ from scripts.demo_finance import (
     price_documents,
     seed_earnings,
     seed_payouts,
+    seed_returns,
 )
 from scripts.demo_identity import placeholder_identity
 from scripts.demo_photos import add_people_photos
@@ -3081,3 +3082,4 @@ async def seed_northlight_finance(db: AsyncSession, ctx: DemoContext) -> None:
             await apply_deposit_at(db, booking, ctx.get(Invoice, booking.invoice_id))
     await seed_earnings(db, ctx)
     await seed_payouts(db, ctx, first_day=-266, failed_day=None)
+    await seed_returns(db, ctx)

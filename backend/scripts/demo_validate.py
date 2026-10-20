@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
 from clientbridge.core.db import Base, SessionLocal, engine
+from clientbridge.core.deps import Principal
 from clientbridge.core.errors import AppError
 from clientbridge.models.billing import Estimate, Invoice, Line
 from clientbridge.models.business import Business, Staff
@@ -22,6 +23,7 @@ from clientbridge.models.scheduling import Booking, Hours, Recurrence, Slot, Wee
 from clientbridge.schemas.forms import FormDefinition
 from clientbridge.schemas.subjects import ATTRIBUTES
 from clientbridge.services.public import validate_answers
+from clientbridge.services.remittances import RemittanceService
 from scripts.demo_context import DEMO_BUSINESSES, DemoContext
 
 
@@ -278,6 +280,46 @@ SQL_CHECKS = {
 }
 
 
+async def tax_errors(db: AsyncSession, now: datetime) -> list[str]:
+    """Registered demo businesses have filed every return already due, so only open tax is kept."""
+    found = await db.execute(
+        select(Staff, Business.timezone)
+        .join(Business, Business.id == Staff.business_id)
+        .where(Business.id.in_(DEMO_BUSINESSES), Business.tax_registered, Staff.role == "owner")
+    )
+    errors: list[str] = []
+    resume = clock.now()
+    clock.freeze(now)
+    try:
+        for owner, timezone in found.tuples().all():
+            principal = Principal(
+                user_id=owner.user_id or "",
+                business_id=owner.business_id,
+                staff_id=owner.id,
+                role=owner.role,
+            )
+            filings = await RemittanceService(db, principal).filings()
+            today = now.astimezone(ZoneInfo(timezone)).date()
+            for period in filings.periods:
+                if period.due < today and (
+                    period.federal_status != "filed"
+                    or period.provincial_status not in {"filed", "none"}
+                ):
+                    errors.append(f"{owner.business_id}: {period.start} return is overdue")
+            federal = sum(p.federal_cents for p in filings.periods if p.federal_status != "filed")
+            provincial = sum(
+                p.provincial_cents for p in filings.periods if p.provincial_status != "filed"
+            )
+            if (filings.federal_set_aside_cents, filings.provincial_set_aside_cents) != (
+                federal,
+                provincial,
+            ):
+                errors.append(f"{owner.business_id}: tax set-aside differs from unfiled periods")
+    finally:
+        clock.travel(resume)
+    return errors
+
+
 async def validate_database(
     db: AsyncSession, *, as_of: datetime | None = None
 ) -> dict[str, object]:
@@ -346,6 +388,7 @@ async def validate_database(
     for name, sql in SQL_CHECKS.items():
         failures = (await db.execute(text(f"WITH {scope} {sql}"), {"as_of": now})).scalars().all()
         errors.extend(f"{name}: {value}" for value in failures)
+    errors.extend(await tax_errors(db, now))
     return {
         "ok": not errors,
         "as_of": now.isoformat(),
