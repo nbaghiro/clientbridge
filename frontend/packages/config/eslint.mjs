@@ -93,7 +93,7 @@ export default tseslint.config(
             "**/packages/ui/src/**/*.{ts,tsx}",
             "**/packages/app-core/src/**/*.{ts,tsx}",
         ],
-        ignores: ["**/*.test.{ts,tsx}", "**/Debug*.tsx"],
+        ignores: ["**/*.test.{ts,tsx}", "**/Debug*.tsx", "**/packages/app-core/src/debug.ts"],
         rules: { "local/no-inline-ui-string": ["error", { literals: true }] },
     },
     {
@@ -125,8 +125,8 @@ export default tseslint.config(
         rules: { "local/no-module-scope-copy": "off" },
     },
     {
-        // Debug overlays are dev tooling, not product copy.
-        files: ["**/Debug*.tsx"],
+        // Debug overlays and the facts they share are dev tooling, not product copy.
+        files: ["**/Debug*.tsx", "**/packages/app-core/src/debug.ts"],
         rules: {
             "local/no-composed-copy": "off",
             "local/no-error-message-copy": "off",

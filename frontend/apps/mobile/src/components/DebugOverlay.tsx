@@ -2,7 +2,7 @@
 import { theme } from "@clientbridge/tokens/native";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
-import { useClientState } from "@clientbridge/app-core";
+import { debugFacts, useClientState } from "@clientbridge/app-core";
 import { Modal } from "@clientbridge/ui";
 
 export function DebugOverlay({ visible, onClose }: { visible: boolean; onClose: () => void }) {
@@ -19,13 +19,9 @@ export function DebugOverlay({ visible, onClose }: { visible: boolean; onClose: 
                 </View>
 
                 <View style={styles.section}>
-                    <Row k="queue diagnostics" v={JSON.stringify(queue)} />
-                    <Row k="connected" v={String(status.connected)} good={status.connected} />
-                    <Row k="connecting" v={String(status.connecting)} />
-                    <Row k="has synced" v={String(status.hasSynced ?? false)} />
-                    <Row k="last synced" v={status.lastSyncedAt?.toLocaleTimeString() ?? "—"} />
-                    <Row k="downloading" v={String(status.downloading)} />
-                    <Row k="uploading" v={String(status.uploading)} />
+                    {debugFacts(status, queue).map((f) => (
+                        <Row key={f.label} k={f.label} v={f.value} tone={f.tone} />
+                    ))}
                 </View>
 
                 <View style={styles.totals}>
@@ -52,11 +48,18 @@ export function DebugOverlay({ visible, onClose }: { visible: boolean; onClose: 
     );
 }
 
-function Row({ k, v, good }: { k: string; v: string; good?: boolean }) {
+function Row({ k, v, tone }: { k: string; v: string; tone: "good" | "bad" | "plain" }) {
     return (
         <View style={styles.row}>
             <Text style={styles.rowKey}>{k}</Text>
-            <Text style={[styles.rowVal, good === true ? styles.rowValGood : null]}>{v}</Text>
+            <Text
+                style={[
+                    styles.rowVal,
+                    tone === "good" ? styles.rowValGood : tone === "bad" ? styles.rowValBad : null,
+                ]}
+            >
+                {v}
+            </Text>
         </View>
     );
 }
@@ -92,6 +95,7 @@ const styles = StyleSheet.create({
     rowKey: { color: "rgba(255,255,255,0.5)", fontFamily: mono, fontSize: 12 },
     rowVal: { color: "rgba(255,255,255,0.9)", fontFamily: mono, fontSize: 12 },
     rowValGood: { color: theme.colors.success },
+    rowValBad: { color: theme.colors.danFg },
     totals: {
         flexDirection: "row",
         justifyContent: "space-between",

@@ -4,7 +4,7 @@ import { Modal } from "@clientbridge/ui";
 
 import { api } from "../lib/api";
 import { connectPowerSync, powersyncUrl } from "../lib/powersync";
-import { createClient, useClientState } from "@clientbridge/app-core";
+import { createClient, debugFacts, useClientState } from "@clientbridge/app-core";
 
 // Hidden developer overlay. Open by typing "debug" anywhere, or ⌘/Ctrl+Shift+D. Esc closes.
 export function DebugPanel() {
@@ -155,12 +155,9 @@ function Overlay({ onClose }: { onClose: () => void }) {
                 </div>
 
                 <div className="grid grid-cols-3 gap-x-8 gap-y-0.5 border-b border-white/10 px-5 py-2">
-                    <Row k="queue diagnostics" v={JSON.stringify(queue)} />
-                    <Row k="connected" v={String(status.connected)} good={status.connected} />
-                    <Row k="has synced" v={String(status.hasSynced ?? false)} />
-                    <Row k="last synced" v={status.lastSyncedAt?.toLocaleTimeString() ?? "—"} />
-                    <Row k="downloading" v={String(status.downloading)} />
-                    <Row k="uploading" v={String(status.uploading)} />
+                    {debugFacts(status, queue).map((f) => (
+                        <Row key={f.label} k={f.label} v={f.value} tone={f.tone} />
+                    ))}
                     <Row k="powersync" v={powersyncUrl} />
                 </div>
 
@@ -416,11 +413,15 @@ function Tab({ label, active, onClick }: { label: string; active: boolean; onCli
     );
 }
 
-function Row({ k, v, good }: { k: string; v: string; good?: boolean }) {
+const TONE = { good: "text-success", bad: "text-danger", plain: "text-bg/90" } as const;
+
+function Row({ k, v, tone = "plain" }: { k: string; v: string; tone?: keyof typeof TONE }) {
     return (
         <div className="flex items-center justify-between gap-4">
             <span className="text-bg/50">{k}</span>
-            <span className={`truncate ${good ? "text-success" : "text-bg/90"}`}>{v}</span>
+            <span className={`truncate ${TONE[tone]}`} title={v}>
+                {v}
+            </span>
         </div>
     );
 }
