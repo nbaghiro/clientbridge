@@ -496,6 +496,24 @@ Which signing secret each Stripe event uses, the pinned API version and the stag
 
 `uv run python -m scripts.payment_accounts` (needs `STRIPE_SECRET_KEY`, test mode) audits one connected account's display name, support email, business URL and statement descriptor through Accounts v2, writing missing fields only with `--apply`. Integration tests use normal dependency-injected recording adapters and per-test rollback; CI databases use the `clientbridge_test*` prefix.
 
+### Northlight Security walkthrough
+
+Northlight shows the `site` subject kind end to end for a camera sales and installation business: a client books a survey on Connect, the owner quotes equipment and labour, the client accepts and signs, an installer runs the visit from the mobile app, and the handover form is signed on site. Products carry GST and PST and labour GST only. Each stage has a seeded client, with ids following `bk_nl_<key>`, `est_nl_<key>` and `cl_nl_<key>`:
+
+| Stage                                          | Where to look                                                         |
+| ---------------------------------------------- | --------------------------------------------------------------------- |
+| New lead, pending survey with a survey form    | Harper (`bk_nl_harper_survey`)                                        |
+| Estimate sent with optional lines              | Rajesh (`est_nl_rajesh`)                                              |
+| Accepted estimate ready for Book the install   | Ruth (`est_nl_ruth`)                                                  |
+| Install booked from its estimate, deposit paid | Claire (`bk_nl_claire`)                                               |
+| Today's installs, on site and on the way       | Owen (`bk_nl_owen`) and Mei Lin (`bk_nl_meilin`)                      |
+| Installed and paid by Tap to Pay               | Sarah (`bk_nl_sarah`): photos, handover form, equipment, plan, review |
+| Commercial client with two sites, overdue      | Island Storage (`cl_nl_islandstorage`)                                |
+| Warranty call on a camera nearing its end date | Fiona (`bk_nl_fiona_warranty`)                                        |
+| Declined estimate, cancelled survey            | Gordon (`est_nl_gordon`), Natalie (`bk_nl_natalie_survey`)            |
+
+The scenario works around what the product does not do yet. A job has one installer, so a two-person or two-day install is shown as separate bookings, and the handover form stands in for a checklist; there is no time tracking. A Tap to Pay job goes through a sale, which pays retail commission only, so the installer earns nothing for Sarah's labour, and the payment reads as an ordinary card sale. The on-my-way text goes through the delivery job and does not appear in the inbox.
+
 ### PowerSync signing-key rotation
 
 The signing key, its key ID and the rotation procedure are in [operations](operations.md#powersync-signing-keys).
