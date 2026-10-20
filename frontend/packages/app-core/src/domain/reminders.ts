@@ -14,7 +14,8 @@ import {
 } from "../datetime";
 import { type Load, useAsyncAction, useRemote } from "../hooks";
 import { strings } from "../strings";
-import { type ScheduleEvent, needsClosing, useNow, useScheduleEvents } from "./bookings";
+import { type ScheduleEvent, needsClosing, useScheduleEvents } from "./bookings";
+import { useNow } from "../hooks";
 import { utcSql } from "../datetime";
 import { useReplicaLoad } from "./sync";
 

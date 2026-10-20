@@ -16,7 +16,8 @@ import {
 import { type Load, useAsyncAction } from "../hooks";
 import { strings } from "../strings";
 import type { Intent } from "../ui";
-import { slotOverlapSql, useNow } from "./bookings";
+import { slotOverlapSql } from "./bookings";
+import { useNow } from "../hooks";
 import { staffName, useStaff } from "./staff";
 import { parseAttributes, subjectSummary, subjectTemperament, useSubjectKind } from "./subjects";
 import { useReplicaLoad } from "./sync";

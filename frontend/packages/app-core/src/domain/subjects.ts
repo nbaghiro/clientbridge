@@ -1,15 +1,12 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 
 import type { ApiLike } from "../api";
-import { dateKey, formatDate, readDate, useBusinessZone } from "../datetime";
+import { dateKey, formatDate, readDate } from "../datetime";
 import { formatParts, parseNumber } from "../format";
 import { useAsyncAction, useBusinessQuery as useQuery } from "../hooks";
-import type { Load } from "../hooks";
 import { strings } from "../strings";
 import type { ChoiceOption, Intent } from "../ui";
 import { type Photo, useFileLinks } from "./files";
-import { CLIENT_VISITS_SQL, type ClientVisit, type VisitRow, isAhead, toVisit } from "./clients";
-import { useReplicaLoad } from "./sync";
 
 const s = strings.subjects;
 
@@ -578,14 +575,14 @@ export function subjectSummary(
     return "";
 }
 
-interface SubjectAlert {
+export interface SubjectAlert {
     key: string;
     label: string;
     intent: Intent;
 }
 
 /** What to watch for: allergies for pets and students, a pet's temperament and rabies vaccine. */
-function subjectAlerts(
+export function subjectAlerts(
     kind: SubjectKind | null,
     attributes: Record<string, unknown>,
     now: Date,
@@ -614,56 +611,6 @@ function subjectAlerts(
             });
     }
     return out;
-}
-
-export interface SubjectCard {
-    subject: SubjectRow;
-    line: string;
-    equipment: EquipmentLine[];
-    temperament: { label: string; nervous: boolean } | null;
-    alerts: SubjectAlert[];
-    visits: number;
-    lastVisit: Date | null;
-    next: Date | null;
-}
-
-function subjectCard(
-    kind: SubjectKind | null,
-    subject: SubjectRow,
-    visits: readonly ClientVisit[],
-    zone: string,
-    now: Date = new Date(),
-): SubjectCard {
-    const own = visits.filter((v) => v.subjectId === subject.id);
-    const done = own.filter((v) => v.status === "completed");
-    const ahead = own.filter((v) => isAhead(v, now)).sort((a, b) => +a.start - +b.start);
-    return {
-        subject,
-        line: subjectSummary(kind, subject.attributes, zone, now),
-        equipment: kind === "site" ? equipmentLines(subject.attributes, zone, now) : [],
-        temperament: subjectTemperament(kind, subject.attributes),
-        alerts: subjectAlerts(kind, subject.attributes, now, zone),
-        visits: done.length,
-        lastVisit: done[0]?.start ?? null,
-        next: ahead[0]?.start ?? null,
-    };
-}
-
-/** A client's subjects as cards: who or what they are, what to watch for and their visits. */
-export function useSubjectCards(clientId: string): {
-    load: Load;
-    kind: SubjectKind | null;
-    cards: SubjectCard[];
-} {
-    const kind = useSubjectKind();
-    const subjects = useQuery<SubjectDbRow>(CLIENT_SUBJECTS_SQL, [clientId]);
-    const visits = useQuery<VisitRow>(CLIENT_VISITS_SQL, [clientId]);
-    const zone = useBusinessZone();
-    const cards = useMemo(() => {
-        const all = visits.data.map(toVisit);
-        return subjects.data.map((r) => subjectCard(kind, toSubject(r), all, zone));
-    }, [kind, subjects.data, visits.data, zone]);
-    return { load: useReplicaLoad([subjects, visits], cards.length === 0), kind, cards };
 }
 
 export interface SubjectForm {

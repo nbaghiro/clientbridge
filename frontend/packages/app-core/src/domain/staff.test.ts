@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { ApiLike } from "../api";
 import { strings } from "../strings";
 import type { OccurrenceRow } from "../ui";
-import { BRAND_COLOURS } from "./business";
+import { BRAND_COLOURS } from "./staff";
 import { removalOutcome, useStaffProfileForm } from "./staff";
 
 const t = strings.staff.team;

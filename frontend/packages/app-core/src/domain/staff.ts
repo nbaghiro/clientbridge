@@ -10,10 +10,19 @@ import { formatMoney, formatNumber, formatParts, parseNumber, BUSINESS_CURRENCY 
 import { type Load, useAsyncAction, useRemote } from "../hooks";
 import type { Fact, Intent, OccurrenceRow, SelectOption } from "../ui";
 import type { Viewer } from "./auth";
-import { BRAND_COLOURS } from "./business";
 import { useReplicaLoad } from "./sync";
 import { strings } from "../strings";
 import { type ApiLike, type Attempt, failedCode, failureMessage, sendAttempt } from "../api";
+
+export const BRAND_COLOURS = [
+    "#2E4A3F",
+    "#3F5E80",
+    "#2E6670",
+    "#7D5A82",
+    "#A95C43",
+    "#86621E",
+    "#3A4654",
+] as const;
 
 export type MemberRole = "owner" | "admin" | "staff" | "contractor";
 

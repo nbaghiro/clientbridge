@@ -42,9 +42,9 @@ import {
     slotItemOf,
     slotProblem,
     useAvailability,
-    useNow,
     useScheduleEvents,
 } from "./bookings";
+import { useNow } from "../hooks";
 import { bookableItems, useCatalogItems } from "./catalog";
 import { useClients } from "./clients";
 import { type StaffRow, staffName, useStaff } from "./staff";

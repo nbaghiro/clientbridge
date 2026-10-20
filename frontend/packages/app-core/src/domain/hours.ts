@@ -37,9 +37,9 @@ import {
     type ScheduleBlock,
     type ScheduleEvent,
     useAvailability,
-    useNow,
     useScheduleEvents,
 } from "./bookings";
+import { useNow } from "../hooks";
 import { useBusinessId } from "./business";
 import { canManageStaff, staffName, useStaff } from "./staff";
 import { useDevicePref, useReplicaLoad } from "./sync";

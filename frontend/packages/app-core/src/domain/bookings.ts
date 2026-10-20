@@ -39,7 +39,7 @@ import {
     initials,
     BUSINESS_CURRENCY,
 } from "../format";
-import { type Load, isConnectionFailure, useAsyncAction } from "../hooks";
+import { type Load, isConnectionFailure, useAsyncAction, useNow } from "../hooks";
 import { strings } from "../strings";
 import type { CalendarEventFlag, Intent, OptionMedia, TimelineEntry } from "../ui";
 import type { Viewer } from "./auth";
@@ -343,19 +343,6 @@ function enrich(r: EventRow, staff: Map<string, StaffRow>, now: Date, zone: stri
 }
 
 /** The current time, refreshed every `ms`, so now lines and "needs closing" keep up. */
-export function useNow(ms = 60_000): Date {
-    const [now, setNow] = useState(() => new Date());
-    useEffect(() => {
-        const timer = setInterval(() => {
-            setNow(new Date());
-        }, ms);
-        return () => {
-            clearInterval(timer);
-        };
-    }, [ms]);
-    return now;
-}
-
 interface ActiveStaff {
     rows: StaffRow[];
     byId: Map<string, StaffRow>;

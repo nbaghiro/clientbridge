@@ -11,7 +11,7 @@ import type { ChoiceOption, Fact, SelectOption } from "../ui";
 import { mediaUrl } from "./files";
 import { durationLabel } from "./publicBooking";
 import type { ShellTarget } from "./navigation";
-import { useStaff, staffName } from "./staff";
+import { BRAND_COLOURS, useStaff, staffName } from "./staff";
 import { useReplicaLoad, useSyncStatus } from "./sync";
 import { SUPPORTED_ZONES, type SupportedZone } from "../zones";
 import { dateKey } from "../datetime";
@@ -864,16 +864,6 @@ export function useSetupChecklist(api: ApiLike, bookBase: string): SetupChecklis
         hideError: error,
     };
 }
-
-export const BRAND_COLOURS = [
-    "#2E4A3F",
-    "#3F5E80",
-    "#2E6670",
-    "#7D5A82",
-    "#A95C43",
-    "#86621E",
-    "#3A4654",
-] as const;
 
 export interface BrandForm {
     ready: boolean;

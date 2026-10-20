@@ -26,7 +26,7 @@ import {
     phoneDigits,
     BUSINESS_CURRENCY,
 } from "../format";
-import { useAsyncAction, useRemote } from "../hooks";
+import { useAsyncAction, useNow, useRemote } from "../hooks";
 import type { Load } from "../hooks";
 import type { IconName } from "../icons";
 import { strings } from "../strings";
@@ -42,15 +42,20 @@ import {
     savedCardLabel,
     setDefaultCard,
 } from "./payments";
-import { useNow } from "./bookings";
 import {
     CLIENT_SUBJECTS_SQL,
+    type EquipmentLine,
+    type SubjectAlert,
     type SubjectDbRow,
     type SubjectField,
     type SubjectKind,
     type SubjectRow,
     kindWord,
+    equipmentLines,
     leadField,
+    subjectAlerts,
+    subjectSummary,
+    subjectTemperament,
     toSubject,
     useSubjectKind,
 } from "./subjects";
@@ -282,7 +287,7 @@ export interface VisitRow {
     waitlist_closed: number | null;
 }
 
-export interface ClientVisit {
+interface ClientVisit {
     id: string;
     status: string;
     subjectId: string | null;
@@ -296,7 +301,7 @@ export interface ClientVisit {
     waitlistClosed: boolean;
 }
 
-export function toVisit(r: VisitRow): ClientVisit {
+function toVisit(r: VisitRow): ClientVisit {
     return {
         id: r.id,
         status: r.status,
@@ -313,7 +318,7 @@ export function toVisit(r: VisitRow): ClientVisit {
 }
 
 // Booked and not finished yet, so a visit under way still counts as coming up.
-export function isAhead(v: ClientVisit, now: Date = new Date()): boolean {
+function isAhead(v: ClientVisit, now: Date = new Date()): boolean {
     return v.end > now && (v.status === "confirmed" || v.status === "pending");
 }
 
@@ -1539,4 +1544,54 @@ export function useClientMerge(
 /** "Today" or "Wed, Oct 8" for the list's next visit column. */
 export function nextVisitLabel(next: Date | null, zone: string): string {
     return next === null ? s.record.noUpcoming : relativeDay(next, zone);
+}
+
+export interface SubjectCard {
+    subject: SubjectRow;
+    line: string;
+    equipment: EquipmentLine[];
+    temperament: { label: string; nervous: boolean } | null;
+    alerts: SubjectAlert[];
+    visits: number;
+    lastVisit: Date | null;
+    next: Date | null;
+}
+
+function subjectCard(
+    kind: SubjectKind | null,
+    subject: SubjectRow,
+    visits: readonly ClientVisit[],
+    zone: string,
+    now: Date = new Date(),
+): SubjectCard {
+    const own = visits.filter((v) => v.subjectId === subject.id);
+    const done = own.filter((v) => v.status === "completed");
+    const ahead = own.filter((v) => isAhead(v, now)).sort((a, b) => +a.start - +b.start);
+    return {
+        subject,
+        line: subjectSummary(kind, subject.attributes, zone, now),
+        equipment: kind === "site" ? equipmentLines(subject.attributes, zone, now) : [],
+        temperament: subjectTemperament(kind, subject.attributes),
+        alerts: subjectAlerts(kind, subject.attributes, now, zone),
+        visits: done.length,
+        lastVisit: done[0]?.start ?? null,
+        next: ahead[0]?.start ?? null,
+    };
+}
+
+/** A client's subjects as cards: who or what they are, what to watch for and their visits. */
+export function useSubjectCards(clientId: string): {
+    load: Load;
+    kind: SubjectKind | null;
+    cards: SubjectCard[];
+} {
+    const kind = useSubjectKind();
+    const subjects = useQuery<SubjectDbRow>(CLIENT_SUBJECTS_SQL, [clientId]);
+    const visits = useQuery<VisitRow>(CLIENT_VISITS_SQL, [clientId]);
+    const zone = useBusinessZone();
+    const cards = useMemo(() => {
+        const all = visits.data.map(toVisit);
+        return subjects.data.map((r) => subjectCard(kind, toSubject(r), all, zone));
+    }, [kind, subjects.data, visits.data, zone]);
+    return { load: useReplicaLoad([subjects, visits], cards.length === 0), kind, cards };
 }
