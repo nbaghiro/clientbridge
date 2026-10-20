@@ -178,6 +178,21 @@ DEMO_BUSINESSES = (
         timezone="America/Toronto",
         edition="scripts.demo_maplemain",
     ),
+    DemoBusiness(
+        id="bz_fieldnote",
+        name="Fieldnote Photography",
+        email="hello@fieldnote.example",
+        first_name="Amara",
+        last_name="Osei",
+        product_description="Portrait, wedding and event photography",
+        primary_color="#6B4F3A",
+        legal=LegalAddress(
+            "214", "James Street North", "Hamilton", "ON", "L8R 2L3", "+19055550198"
+        ),
+        owner_login="owner@fieldnote.example",
+        timezone="America/Toronto",
+        edition="scripts.demo_fieldnote",
+    ),
 )
 DEMO_IDS = tuple(business.id for business in DEMO_BUSINESSES)
 # the business the web, Connect and end-to-end fixtures target unless told otherwise

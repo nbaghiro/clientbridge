@@ -23,6 +23,7 @@ from clientbridge.models.billing import Invoice, Order
 from clientbridge.models.catalog import Item, Package, Subscription
 from clientbridge.models.ledger import Account, Entry
 from clientbridge.models.payments import Payment, PaymentMethod
+from clientbridge.models.platform import File
 from clientbridge.models.scheduling import Booking, Slot
 from clientbridge.services import ledger
 
@@ -523,3 +524,32 @@ async def test_engine_rows_post_through_the_ledger_and_validate(owner_db: AsyncS
     assert "applied" in held and held <= {"applied", "collected", "forfeited"}
     owner = [b for b in demo.ctx.all(Booking) if b.id.startswith("bk_pb_fill_owner")]
     assert owner and not any(b.deposit_amount_cents for b in owner)
+
+
+async def test_an_invoice_settled_by_its_deposit_and_balance_counts_as_paid(
+    owner_db: AsyncSession,
+) -> None:
+    db = owner_db
+    demo = build_edition(Probe, clock.now())
+    for cls in INSERT_ORDER:
+        batch = [row for row in demo.ctx.rows if type(row) is cls]
+        if batch:
+            db.add_all(batch)
+            await db.flush()
+    await seed_ledger(db, demo)
+    db.add(
+        File(
+            id="fl_face_cl_pb_booked",
+            business_id=PROBE,
+            parent_type="client",
+            parent_id="cl_pb_booked",
+            purpose="photo",
+            s3_key=f"{PROBE}/demo/face_cl_pb_booked.jpg",
+            content_type="image/jpeg",
+            size=1,
+            uploaded_at=demo.now,
+        )
+    )
+    await db.flush()
+    report = await validate_database(db, as_of=demo.now, business_ids=[PROBE])
+    assert report["errors"] == []
