@@ -178,6 +178,8 @@ const STARS = { ONE: 1, TWO: 2, THREE: 3, FOUR: 4, FIVE: 5 };
 function googleMessage(cause: unknown): string {
     const s = strings.reviews;
     switch (failedCode(cause)) {
+        case "forbidden":
+            return s.managerOnly;
         case "google_reconnect_required":
             return s.reconnectBody;
         case "google_access_denied":
@@ -186,6 +188,8 @@ function googleMessage(cause: unknown): string {
             return s.rateLimited;
         case "google_not_configured":
             return s.unavailable;
+        case "google_location_in_use":
+            return s.locationInUse;
         case "google_stale_reply":
             return s.staleReply;
         default:
@@ -462,7 +466,11 @@ export function useGoogleReviews(api: ApiLike) {
             execute("select", async (valid) => {
                 await api.post(
                     `${GOOGLE}/location`,
-                    { account_name: account, location_name: location },
+                    {
+                        account_name: account,
+                        location_name: location,
+                        generation: connection?.generation,
+                    },
                     { idempotencyKey: mutationKey(JSON.stringify({ account, location })) },
                 );
                 if (valid()) {
@@ -475,7 +483,7 @@ export function useGoogleReviews(api: ApiLike) {
             execute("disconnect", async (valid) => {
                 await api.post(
                     `${GOOGLE}/disconnect`,
-                    {},
+                    { generation: connection?.generation },
                     { idempotencyKey: mutationKey("disconnect") },
                 );
                 if (valid()) {

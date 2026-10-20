@@ -99,7 +99,12 @@ PROVIDED = (
     "GOOGLE_OAUTH_CLIENT_ID",
     "GOOGLE_OAUTH_CLIENT_SECRET",
 )
-CATALOG = GENERATED + PROVIDED
+GOOGLE_BUSINESS_SECRETS = (
+    ("GOOGLE_BUSINESS_CLIENT_ID", "GOOGLE_BUSINESS_CLIENT_SECRET")
+    if pulumi.Config().get_bool("googleBusinessEnabled")
+    else ()
+)
+CATALOG = GENERATED + PROVIDED + GOOGLE_BUSINESS_SECRETS
 
 # each container's environment variable → the secret it is read from
 _BACKEND_NAMES = (
@@ -112,6 +117,7 @@ _BACKEND_NAMES = (
     "POWERSYNC_PREVIOUS_PUBLIC_KEYS",
     "AUTH_EMAIL_HOOK_SECRET",
     *(name for name in PROVIDED if not name.startswith("GOOGLE_OAUTH_")),
+    *GOOGLE_BUSINESS_SECRETS,
 )
 BACKEND_SECRETS: Mapping[str, str] = {name: name for name in _BACKEND_NAMES}
 # db_access.py and Alembic build Settings too, so the migrate step passes the same startup check
@@ -212,6 +218,13 @@ def backend_env(env: Environment, bucket: pulumi.Input[str]) -> list[k8s.core.v1
     return [
         *_plain(
             {
+                "GOOGLE_BUSINESS_ENABLED": "true"
+                if pulumi.Config().get_bool("googleBusinessEnabled")
+                else "false",
+                "GOOGLE_BUSINESS_KMS_KEY": pulumi.Config().require("googleBusinessKmsKey")
+                if pulumi.Config().get_bool("googleBusinessEnabled")
+                else "",
+                "GOOGLE_BUSINESS_REDIRECT_URI": f"https://api.{env.base_domain}/v1/reviews/google/callback",
                 "ENV": env.name,
                 "BASE_DOMAIN": env.base_domain,
                 "TRUSTED_PROXY_HOPS": str(TRUSTED_PROXY_HOPS),

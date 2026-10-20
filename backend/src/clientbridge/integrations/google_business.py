@@ -6,6 +6,8 @@ from typing import Literal, Protocol
 from urllib.parse import urlencode
 
 import httpx
+from google.api_core.exceptions import GoogleAPICallError
+from google.auth.exceptions import GoogleAuthError
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from clientbridge.core.errors import AppError
@@ -321,3 +323,110 @@ def _parse[T: BaseModel](model: type[T], payload: object) -> T:
         return model.model_validate(payload)
     except ValidationError:
         raise GoogleBusinessError("Google returned an invalid response") from None
+
+
+class GoogleSecretStore(Protocol):
+    async def seal(self, value: str, context: str) -> tuple[bytes, str]: ...
+    async def open(self, value: bytes, context: str) -> str: ...
+
+
+class GoogleFlowStore(Protocol):
+    async def put(self, key: str, value: str, ttl: int = 600) -> None: ...
+    async def get(self, key: str) -> str | None: ...
+    async def pop(self, key: str) -> str | None: ...
+
+
+class KmsGoogleSecretStore:
+    async def seal(self, value: str, context: str) -> tuple[bytes, str]:
+        from google.cloud.kms_v1 import KeyManagementServiceAsyncClient
+
+        from clientbridge.core.config import get_settings
+
+        try:
+            async with KeyManagementServiceAsyncClient() as client:
+                result = await client.encrypt(
+                    request={
+                        "name": get_settings().google_business_kms_key,
+                        "plaintext": value.encode(),
+                        "additional_authenticated_data": context.encode(),
+                    }
+                )
+            return result.ciphertext, result.name
+        except (GoogleAPICallError, GoogleAuthError, UnicodeError):
+            raise GoogleBusinessError("Google credential encryption unavailable") from None
+
+    async def open(self, value: bytes, context: str) -> str:
+        from google.cloud.kms_v1 import KeyManagementServiceAsyncClient
+
+        from clientbridge.core.config import get_settings
+
+        try:
+            async with KeyManagementServiceAsyncClient() as client:
+                result = await client.decrypt(
+                    request={
+                        "name": get_settings().google_business_kms_key,
+                        "ciphertext": value,
+                        "additional_authenticated_data": context.encode(),
+                    }
+                )
+            return result.plaintext.decode()
+        except (GoogleAPICallError, GoogleAuthError, UnicodeError):
+            raise GoogleBusinessError("Google credential encryption unavailable") from None
+
+
+class RedisGoogleFlowStore:
+    async def _command(self, *args: str | int) -> str | None:
+        from redis.asyncio import Redis
+        from redis.exceptions import RedisError
+
+        from clientbridge.core.config import get_settings
+
+        try:
+            async with Redis.from_url(
+                get_settings().redis_url, socket_connect_timeout=2, socket_timeout=2
+            ) as redis:
+                result = await redis.execute_command(*args)
+                return result.decode() if isinstance(result, bytes) else None
+        except RedisError:
+            raise GoogleBusinessError("Google authorization storage unavailable") from None
+
+    async def put(self, key: str, value: str, ttl: int = 600) -> None:
+        await self._command("SET", f"google:{key}", value, "EX", ttl)
+
+    async def get(self, key: str) -> str | None:
+        return await self._command("GET", f"google:{key}")
+
+    async def pop(self, key: str) -> str | None:
+        return await self._command("GETDEL", f"google:{key}")
+
+
+def google_business_enabled() -> bool:
+    from clientbridge.core.config import get_settings
+
+    settings = get_settings()
+    return bool(
+        settings.google_business_enabled
+        and settings.google_business_client_id
+        and settings.google_business_client_secret
+        and settings.google_business_kms_key
+        and settings.google_business_redirect_uri
+    )
+
+
+def get_google_business_gateway() -> GoogleBusinessGateway:
+    from clientbridge.core.config import get_settings
+
+    settings = get_settings()
+    return HttpGoogleBusinessGateway(
+        settings.google_business_client_id,
+        settings.google_business_client_secret,
+        settings.google_business_redirect_uri,
+    )
+
+
+def get_google_secret_store() -> GoogleSecretStore:
+    return KmsGoogleSecretStore()
+
+
+def get_google_flow_store() -> GoogleFlowStore:
+    return RedisGoogleFlowStore()

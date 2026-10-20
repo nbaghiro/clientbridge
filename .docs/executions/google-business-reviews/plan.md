@@ -1,5 +1,11 @@
 # Google Business Profile reviews implementation plan
 
+## Approved execution scope — 2026-10-20
+
+The user approved continuous implementation on a new branch from main, without commits, pushes or PRs. Implement the final two-table slice in schema.md, including removal of the manual URL column. Preserve existing invitation settings and history; use the existing durable delivery queue. Complete OAuth, discovery, location selection, online reviews, durable explicit replies and reconnect/disconnect on web and mobile. Finish with full validation and a consenting live pilot when external prerequisites are ready.
+
+This scope supersedes broader proposals below: Pub/Sub, additional scheduling columns and production rollout are deferred. Cloud preview is in scope; cloud apply and production migrations are not. The unlinked setup card, disabled integration, empty connected profile and recoverable errors are distinct UI states. Live Google content/recipient actions require specific authorization. See runbook.md for setup, pilot and recovery, and progress.md for actual evidence.
+
 Status: ready for implementation planning review. Research checked 2026-10-18 against official Google and Pulumi documentation. This branch contains the execution plan and internal collection removal, not a deployed Google API integration. Follow [tasks](tasks.json), [schema proposal](schema.md), and [progress](progress.md).
 
 Build a Google connection that lets an owner choose their business location, read its Google reviews, publish and manage replies, and send neutral review invitations after appointments. Remove Clientbridge feedback collection entirely; retain invitation history separately from Google content. Provision supporting cloud resources with the existing Python Pulumi program; Google API access approval and OAuth configuration remain explicit operator tasks.

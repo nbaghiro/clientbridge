@@ -1,6 +1,6 @@
 # Google Business Profile schema proposal
 
-Status: proposed only. No model or migration changes are included. `CLAUDE.md` requires explicit approval of concrete schema changes before implementation; this document supplies the purpose, fields, data impact and rollback for that review. Final migrations must also specify SQL types, CHECK constraints and indexes exactly before editing models.
+Status: the final two-table implementation slice below was approved by the user on 2026-10-20 and is being implemented. Earlier broad proposals are historical and are not authorized scope. `CLAUDE.md` requires explicit approval of concrete schema changes before implementation; this document supplies the purpose, fields, data impact and rollback for that review. Final migrations must also specify SQL types, CHECK constraints and indexes exactly before editing models.
 
 ## New operational tables
 

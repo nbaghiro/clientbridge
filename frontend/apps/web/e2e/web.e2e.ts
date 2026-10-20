@@ -1251,3 +1251,55 @@ test.describe("in another time zone than the business", () => {
         walk.expectNoErrors();
     });
 });
+
+test("Google Reviews distinguishes unavailable, unlinked and empty profiles", async ({ page }) => {
+    let state: "unavailable" | "disconnected" | "active" = "unavailable";
+    await page.route("**/v1/reviews/google", (route) =>
+        route.fulfill({
+            json: {
+                state,
+                connection_id: state === "active" ? "gbc_test" : null,
+                generation: 1,
+                location:
+                    state === "active"
+                        ? { name: "locations/1", title: "Birchbark Pet Studio" }
+                        : null,
+                can_request: state === "active",
+            },
+        }),
+    );
+    await page.route("**/v1/reviews/google/reviews", (route) =>
+        route.fulfill({
+            json: { reviews: [], average_rating: null, total_count: 0, next_page_token: null },
+        }),
+    );
+    const walk = await signIn(page, OWNER);
+    await navigate(page, "/inbox?segment=reviews");
+    await expect(page.getByRole("heading", { name: strings.reviews.connectTitle })).toBeVisible();
+    await expect(page.getByText(strings.reviews.unavailable, { exact: true })).toBeVisible();
+    await expect(
+        page.getByRole("button", { name: strings.reviews.connect, exact: true }),
+    ).toHaveCount(0);
+    state = "disconnected";
+    await navigate(page, "/today");
+    await navigate(page, "/inbox?segment=reviews");
+    await expect(
+        page.getByRole("button", { name: strings.reviews.connect, exact: true }),
+    ).toBeEnabled();
+    await expect(page.getByRole("link", { name: strings.reviews.profileHelp })).toBeVisible();
+    for (const width of [1440, 390]) {
+        await page.setViewportSize({ width, height: 900 });
+        expect(
+            await page.evaluate(() => document.documentElement.scrollWidth - innerWidth),
+        ).toBeLessThanOrEqual(0);
+        expect(await axeIssues(page)).toEqual([]);
+    }
+    state = "active";
+    await navigate(page, "/today");
+    await navigate(page, "/inbox?segment=reviews");
+    await expect(
+        page.getByRole("button", { name: strings.reviews.connect, exact: true }),
+    ).toHaveCount(0);
+    await expect(page.getByText(strings.reviews.googleError, { exact: true })).toHaveCount(0);
+    walk.expectNoErrors();
+});

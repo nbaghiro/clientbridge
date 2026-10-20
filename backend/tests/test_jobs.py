@@ -5,6 +5,7 @@ from datetime import UTC, datetime, timedelta
 from types import FunctionType
 from typing import cast
 
+import pytest
 from arq.cron import CronJob
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -33,6 +34,7 @@ from tests.conftest import (
     FakePushSender,
     FakeSmsSender,
 )
+from tests.google_business import configure_google_review_profile, review_emails
 from tests.helpers import client_id, new_client, sent_invoice
 
 BIZ = "bz_birchbark"
@@ -236,7 +238,7 @@ async def test_review_requests_for_recently_completed(
 ) -> None:
     business = await db.get(Business, BIZ)
     assert business is not None
-    business.google_review_url = "https://g.page/r/example/review"
+    await configure_google_review_profile(db)
     await db.flush()
     cid = await client_id(db, email="rev-job@example.ca")
     bid = await _completed_booking(db, cid, completed_at=NOW)
@@ -247,7 +249,7 @@ async def test_review_requests_for_recently_completed(
         await db.execute(select(ReviewRequest).where(ReviewRequest.booking_id == bid))
     ).scalar_one()
     assert req.requested_at == REVIEWS_AT
-    assert any(m.to == "rev-job@example.ca" for m in email.sent)
+    assert any(m.to == "rev-job@example.ca" for m in await review_emails(db))
     assert await run_review_requests(db, notifier, REVIEWS_AT) == 0  # any existing request dedups
 
 
@@ -256,7 +258,7 @@ async def test_review_requests_skips_business_without_google_link(
 ) -> None:
     business = await db.get(Business, BIZ)
     assert business is not None
-    business.google_review_url = None
+    await configure_google_review_profile(db, False)
     await _completed_booking(db, await client_id(db), completed_at=NOW)
     assert await run_review_requests(db, _notifier(email, sms, push), REVIEWS_AT) == 0
     assert not email.sent
@@ -267,7 +269,7 @@ async def test_review_requests_skips_already_requested(
 ) -> None:
     business = await db.get(Business, BIZ)
     assert business is not None
-    business.google_review_url = "https://g.page/r/example/review"
+    await configure_google_review_profile(db)
     await db.flush()
     cid = await client_id(db)
     bid = await _completed_booking(db, cid, completed_at=NOW)
@@ -281,7 +283,7 @@ async def test_review_requests_skips_non_completed_and_stale(
 ) -> None:
     business = await db.get(Business, BIZ)
     assert business is not None
-    business.google_review_url = "https://g.page/r/example/review"
+    await configure_google_review_profile(db)
     await db.flush()
     cid = await client_id(db)
     await _completed_booking(db, cid, completed_at=NOW, status="confirmed")  # not completed
@@ -294,7 +296,7 @@ async def test_review_requests_ask_each_client_once(
 ) -> None:
     business = await db.get(Business, BIZ)
     assert business is not None
-    business.google_review_url = "https://g.page/r/example/review"
+    await configure_google_review_profile(db)
     await db.flush()
     cid = await new_client(db, email="regular@example.ca")
     await _completed_booking(db, cid, completed_at=NOW - timedelta(days=2))
@@ -303,7 +305,7 @@ async def test_review_requests_ask_each_client_once(
     assert await run_review_requests(db, notifier, REVIEWS_AT) == 1
     asked = (await db.scalars(select(ReviewRequest).where(ReviewRequest.client_id == cid))).all()
     assert [r.booking_id for r in asked] == [latest]
-    assert sum(m.to == "regular@example.ca" for m in email.sent) == 1
+    assert sum(m.to == "regular@example.ca" for m in await review_emails(db)) == 1
     assert await run_review_requests(db, notifier, REVIEWS_AT + timedelta(days=1)) == 0
 
 
@@ -312,7 +314,7 @@ async def test_review_requests_skip_businesses_that_turned_them_off(
 ) -> None:
     business = await db.get(Business, BIZ)
     assert business is not None
-    business.google_review_url = "https://g.page/r/example/review"
+    await configure_google_review_profile(db)
     business.review_requests_enabled = False
     await db.flush()
     await _completed_booking(db, await new_client(db), completed_at=NOW)
@@ -325,7 +327,7 @@ async def test_review_requests_skip_archived_clients(
 ) -> None:
     business = await db.get(Business, BIZ)
     assert business is not None
-    business.google_review_url = "https://g.page/r/example/review"
+    await configure_google_review_profile(db)
     await db.flush()
     cid = await new_client(db, email="archived@example.ca")
     await _completed_booking(db, cid, completed_at=NOW)
@@ -449,3 +451,6 @@ def test_stripe_recovery_is_not_scheduled() -> None:
         names.add(job.name.removeprefix("cron:"))
     assert "recover_payments" not in names
     assert "reconcile_ledger" in names
+
+
+pytestmark = pytest.mark.usefixtures("google_review_provider")

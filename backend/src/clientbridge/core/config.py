@@ -76,6 +76,12 @@ class Settings(BaseSettings):
     # A session dies this long after its sign-in, however often it was extended.
     session_max_age_days: int = 90
 
+    google_business_enabled: bool = False
+    google_business_client_id: str = ""
+    google_business_client_secret: str = Field(default="", repr=False)
+    google_business_redirect_uri: str = ""
+    google_business_kms_key: str = ""
+
     redis_url: str = "redis://localhost:8703/0"
 
     # Object storage: RustFS in dev, S3 in prod; clients upload and download via presigned URLs.

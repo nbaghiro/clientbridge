@@ -1,6 +1,7 @@
 from datetime import UTC, datetime, timedelta
 
 import httpx
+import pytest
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -21,6 +22,7 @@ from tests.conftest import (
     FakePushSender,
     FakeSmsSender,
 )
+from tests.google_business import configure_google_review_profile
 
 ST_OWNER = "st_owner"
 CLIENT = "cl_amelie"
@@ -118,7 +120,7 @@ async def test_a_visit_left_open_yesterday_is_completed_and_asked_for_a_review(
     # review requests go out at 8 a.m. in the business's zone (Vancouver, UTC-8 in January)
     business = await db.get(Business, visit.business_id)
     assert business is not None
-    business.google_review_url = "https://g.page/r/example/review"
+    await configure_google_review_profile(db)
     await db.flush()
     eight_am = NEXT_MORNING.replace(hour=16)
     assert await run_review_requests(db, Notifier(email, sms, push), eight_am) == 1
@@ -235,3 +237,6 @@ async def test_an_unapproved_visit_keeps_a_paid_deposit_for_staff(db: AsyncSessi
     assert (await _fresh(db, paid))[0].status == "pending"
     canceled, _ = await _fresh(db, unpaid)
     assert (canceled.status, canceled.deposit_status) == ("canceled", "none")
+
+
+pytestmark = pytest.mark.usefixtures("google_review_provider")

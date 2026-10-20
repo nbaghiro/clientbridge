@@ -15,6 +15,7 @@ from cloud import (
     dns,
     firebase,
     github,
+    google_business,
     identity,
     network,
     observability,
@@ -96,6 +97,14 @@ def cloud_stack() -> None:
         accounts = identity.workload_accounts(
             stack.project, project_number, env, list(settings.ACCOUNTS), gke
         )
+        if pulumi.Config().get_bool("googleBusinessEnabled"):
+            google_key = google_business.create(
+                stack.project,
+                stack.region,
+                env,
+                [member for name in ("api", "worker") for member in accounts[name].members],
+            )
+            pulumi.export(f"{env.name}GoogleBusinessKmsKey", google_key.id)
         # empty containers: secrets_init.py writes the generated values, so no state holds one
         stored = secrets.create(
             stack.region,

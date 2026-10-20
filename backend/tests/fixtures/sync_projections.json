@@ -349,7 +349,6 @@
       "qst_number",
       "pst_number",
       "filing_frequency",
-      "google_review_url",
       "review_requests_enabled",
       "brand",
       "stripe_account_id",

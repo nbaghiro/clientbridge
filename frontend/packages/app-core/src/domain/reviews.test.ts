@@ -157,6 +157,7 @@ it("selects a Google account and location before loading its reviews", async () 
     expect(post.mock.lastCall?.[1]).toEqual({
         account_name: "accounts/1",
         location_name: "locations/1",
+        generation: 1,
     });
     expect(post.mock.lastCall?.[2]).toHaveProperty("idempotencyKey");
 });

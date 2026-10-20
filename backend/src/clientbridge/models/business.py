@@ -71,7 +71,6 @@ class Business(PKMixin, TimestampMixin, Base):
     tax_registered: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     pst_number: Mapped[str | None] = mapped_column(String)
     setup_dismissed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    google_review_url: Mapped[str | None] = mapped_column(String)
     review_requests_enabled: Mapped[bool] = mapped_column(
         Boolean, default=True, server_default="true", nullable=False
     )

@@ -13,6 +13,7 @@ from clientbridge.models.reviews import ReviewRequest
 from clientbridge.models.scheduling import Booking, Slot
 from clientbridge.services.consents import record_consent
 from tests.conftest import Factory, FakeEmailSender, FakeSmsSender
+from tests.google_business import configure_google_review_profile, review_emails, review_texts
 from tests.helpers import client_id, new_client
 
 BIZ = "bz_birchbark"
@@ -56,13 +57,13 @@ async def _booking(db: AsyncSession, client: str, *, status: str = "completed") 
     return booking.id
 
 
-GOOGLE = "https://g.page/r/example/review"
+GOOGLE = "https://g.page/r/1/review"
 
 
 async def _configure(db: AsyncSession, url: str | None = GOOGLE) -> None:
     business = await db.get(Business, BIZ)
     assert business is not None
-    business.google_review_url = url
+    await configure_google_review_profile(db, url is not None)
     await db.flush()
 
 
@@ -78,10 +79,10 @@ async def test_request_creates_invitation_and_links_to_google(
     assert set(body) == {"id", "business_id", "client_id", "booking_id", "requested_at"}
     request = await db.get(ReviewRequest, body["id"])
     assert request is not None and request.business_id == BIZ
-    assert any(GOOGLE in message.body for message in email.sent)
-    count = len(email.sent)
+    assert any(GOOGLE in message.body for message in await review_emails(db))
+    count = len(await review_emails(db))
     replay = await as_owner.post("/v1/reviews/request", json={"client_id": cid}, headers=headers)
-    assert replay.json() == body and len(email.sent) == count
+    assert replay.json() == body and len(await review_emails(db)) == count
 
 
 async def test_request_waits_thirty_days_per_client(
@@ -110,7 +111,7 @@ async def test_invitation_email_carries_an_unsubscribe_link(
     cid = await new_client(db, email="unsub-review@example.ca")
     sent = await as_owner.post("/v1/reviews/request", json={"client_id": cid})
     assert sent.status_code == 201, sent.text
-    mail = next(m for m in email.sent if m.to == "unsub-review@example.ca")
+    mail = next(m for m in await review_emails(db) if m.to == "unsub-review@example.ca")
     assert "?unsubscribe=email" in (mail.html or "")
 
 
@@ -125,8 +126,8 @@ async def test_invitation_skips_email_after_opt_out(
     )
     sent = await as_owner.post("/v1/reviews/request", json={"client_id": cid})
     assert sent.status_code == 201, sent.text
-    assert not any(m.to == "optout-review@example.ca" for m in email.sent)
-    assert any(GOOGLE in text.body for text in sms.sent)
+    assert not any(m.to == "optout-review@example.ca" for m in await review_emails(db))
+    assert any(GOOGLE in text.body for text in await review_texts(db))
 
 
 async def test_business_update_no_longer_sets_the_review_link(
@@ -140,7 +141,7 @@ async def test_business_update_no_longer_sets_the_review_link(
     business = await db.get(Business, BIZ)
     assert business is not None
     await db.refresh(business)
-    assert business.google_review_url is None
+    assert "google_review_url" not in response.json()
 
 
 async def test_managers_turn_automatic_requests_off_and_manual_ones_still_send(
@@ -238,7 +239,11 @@ async def test_internal_review_collection_removed(api: httpx.AsyncClient) -> Non
 
 async def test_google_status_is_unavailable_without_integration(
     as_owner: httpx.AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    from clientbridge.core.config import get_settings
+
+    monkeypatch.setattr(get_settings(), "google_business_enabled", False)
     response = await as_owner.get("/v1/reviews/google")
     assert response.status_code == 200
     assert response.json() == {
@@ -256,3 +261,6 @@ async def test_google_status_requires_manager(as_staff: httpx.AsyncClient) -> No
 
 async def test_google_status_requires_authentication(unauth: httpx.AsyncClient) -> None:
     assert (await unauth.get("/v1/reviews/google")).status_code == 401
+
+
+pytestmark = pytest.mark.usefixtures("google_review_provider")

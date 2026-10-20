@@ -13661,13 +13661,25 @@
         "message": "Try again"
     },
     "reviews.unavailable": {
-        "message": "Google Business Profile connections are not available yet. Please try again later."
+        "message": "Google Business Profile connections are not enabled for Clientbridge yet. Once available, you can connect your profile here."
     },
     "reviews.connectTitle": {
         "message": "Connect your Google Business Profile"
     },
     "reviews.connectBody": {
-        "message": "Sign in with the Google account that manages your business, then choose a location to read reviews, reply publicly, and request new reviews."
+        "message": "Read and reply to Google reviews, and invite clients to review your business after appointments. Use a Google account that manages your business. You’ll choose the location next."
+    },
+    "reviews.managerOnly": {
+        "message": "An owner or administrator can connect Google Business Profile and manage reviews."
+    },
+    "reviews.changeAccount": {
+        "message": "Use another Google account"
+    },
+    "reviews.locationInUse": {
+        "message": "This Google location is already linked to another business in Clientbridge."
+    },
+    "reviews.profileHelp": {
+        "message": "Don’t have a Google Business Profile?"
     },
     "reviews.reconnectBody": {
         "message": "Your Google connection needs attention. Sign in again to access reviews and send invitations."
