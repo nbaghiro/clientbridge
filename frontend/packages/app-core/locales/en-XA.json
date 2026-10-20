@@ -12923,6 +12923,9 @@
     "reviews.replyInvalid": {
         "message": "[Éñţéŕ å ŕéþļý öƒ ñö ɱöŕé ţĥåñ 4,096 ÛŢƑ-8 ƀýţéš. one two three]"
     },
+    "reviews.replyRejected": {
+        "message": "[Ĝööĝļé ŕéĵéçţéð ţĥîš ŕéþļý. Éðîţ ýöûŕ ðŕåƒţ åñð ţŕý åĝåîñ. one two three four]"
+    },
     "reviews.replyFailed": {
         "message": "[Ĝööĝļé çöûļð ñöţ þûƀļîšĥ ţĥîš çĥåñĝé. Ýöûŕ ðŕåƒţ îš šţîļļ ĥéŕé. one two three four]"
     },

@@ -359,3 +359,53 @@ it("reverts the automatic request setting when saving fails", async () => {
     });
     expect(result.current.enabled).toBe(true);
 });
+
+it("keeps connection management available when Google profile reads fail", async () => {
+    const { api, get } = boundary();
+    get.mockResolvedValue({ ...active, can_request: false, error_code: "google_access_denied" });
+    const { result } = renderHook(() => useGoogleReviews(api), { wrapper });
+    await waitFor(() => {
+        expect(result.current.loading).toBe(false);
+    });
+    expect(result.current.connection?.generation).toBe(1);
+    expect(result.current.error).toBe(strings.reviews.accessDenied);
+    expect(result.current.canRequest).toBe(false);
+    expect(get).toHaveBeenCalledTimes(1);
+});
+
+it("shows a definitive reply error and gives a retry a new operation key", async () => {
+    const { api, get, post } = boundary();
+    get.mockResolvedValueOnce(active).mockResolvedValueOnce(page);
+    post.mockResolvedValue({
+        id: "gbo_failed",
+        state: "failed",
+        error_code: "google_request_rejected",
+    });
+    const { result } = renderHook(() => useGoogleReviews(api), { wrapper });
+    await waitFor(() => {
+        expect(result.current.connected).toBe(true);
+    });
+    act(() => {
+        const item = result.current.reviews[0];
+        if (item) result.current.editReply(item);
+    });
+    act(() => {
+        result.current.setComment("Thank you");
+    });
+    act(() => {
+        result.current.sendReply();
+    });
+    await waitFor(() => {
+        expect(result.current.busy).toBeNull();
+    });
+    expect(result.current.error).toBe(strings.reviews.replyRejected);
+    const first = post.mock.calls[0]?.[2] as { idempotencyKey: string };
+    act(() => {
+        result.current.sendReply();
+    });
+    await waitFor(() => {
+        expect(post).toHaveBeenCalledTimes(2);
+    });
+    const second = post.mock.calls[1]?.[2] as { idempotencyKey: string };
+    expect(second.idempotencyKey).not.toBe(first.idempotencyKey);
+});

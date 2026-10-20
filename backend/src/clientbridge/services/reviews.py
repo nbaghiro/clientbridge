@@ -148,13 +148,15 @@ class ReviewService:
 
 
 async def run_review_requests(db: AsyncSession, notifier: Notifier, now: datetime) -> int:
-    requests = []
+    count = 0
     for business in await businesses_at_hour(db, now, 8):
+        requests = []
         if plan_access(business, now) == "lapsed" or not business.review_requests_enabled:
             continue
         await google_lock(db, business.id)
         link = await google_invitation_url(db, business.id)
         if link is None:
+            await db.commit()
             continue
         requested = (
             scoped(ReviewRequest, business.id)
@@ -182,13 +184,14 @@ async def run_review_requests(db: AsyncSession, notifier: Notifier, now: datetim
             request = build_review_request(business.id, booking.client_id, booking.id, now)
             db.add(request)
             requests.append((request, link))
-    await db.flush()
-    for request, link in requests:
-        await queued_notifier(db, f"review:{request.id}", request.business_id).on_review_requested(
-            db, request.id, link
-        )
-    await db.commit()
-    return len(requests)
+        await db.flush()
+        for request, link in requests:
+            await queued_notifier(
+                db, f"review:{request.id}", request.business_id
+            ).on_review_requested(db, request.id, link)
+        await db.commit()
+        count += len(requests)
+    return count
 
 
 class GoogleFlow(BaseModel):
@@ -288,9 +291,10 @@ class GoogleReviewService:
                 result.location = GoogleLocationChoice(name=location.name, title=location.title)
                 result.can_request = valid_google_review_url(location.metadata.new_review_uri)
             except GoogleBusinessError as error:
-                if error.code != "google_reconnect_required":
-                    raise
-                result.state = "reconnect_required"
+                result.error_code = error.code
+                result.can_request = False
+                if error.code == "google_reconnect_required":
+                    result.state = "reconnect_required"
         await self.db.commit()
         return result
 
@@ -550,7 +554,9 @@ class GoogleReviewService:
             )
         self.db.add(operation)
         await self.db.flush()
-        return GoogleOperationOut(id=operation.id, state=operation.state)
+        return GoogleOperationOut(
+            id=operation.id, state=operation.state, error_code=operation.error_code
+        )
 
     async def operation(self, operation_id: str) -> GoogleOperationOut:
         self.authorize()
@@ -561,7 +567,9 @@ class GoogleReviewService:
         )
         if operation is None:
             raise NotFound("Google operation not found")
-        return GoogleOperationOut(id=operation.id, state=operation.state)
+        return GoogleOperationOut(
+            id=operation.id, state=operation.state, error_code=operation.error_code
+        )
 
     async def execute_operation(self, operation_id: str) -> None:
         self.authorize()
@@ -589,6 +597,7 @@ class GoogleReviewService:
             operation.expected_reply_revision = None
             await self.db.commit()
             return
+        reconciling = operation.state in ("running", "unknown")
         try:
             token = await self.token(row)
             current = await self.gateway.review(token, operation.review_name)
@@ -634,7 +643,21 @@ class GoogleReviewService:
                 operation.state = "confirmed"
         except GoogleBusinessError as error:
             operation.error_code = error.code
-            operation.state = "unknown" if operation.state == "running" else "queued"
+            if reconciling:
+                # A failed readback must never turn an uncertain write into a new write.
+                operation.state = "unknown"
+            elif error.code in {
+                "google_request_rejected",
+                "google_access_denied",
+                "google_not_found",
+                "google_invalid_resource",
+                "google_reconnect_required",
+            }:
+                operation.state = "failed"
+            elif error.code == "google_rate_limited":
+                operation.state = "queued"
+            else:
+                operation.state = "unknown" if operation.state == "running" else "queued"
             operation.next_at = clock.now() + timedelta(minutes=5)
         if operation.state in ("confirmed", "failed", "canceled"):
             operation.request_ciphertext = None

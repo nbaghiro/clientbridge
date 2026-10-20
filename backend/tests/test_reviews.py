@@ -252,6 +252,7 @@ async def test_google_status_is_unavailable_without_integration(
         "generation": 0,
         "location": None,
         "can_request": False,
+        "error_code": None,
     }
 
 

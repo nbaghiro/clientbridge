@@ -34,6 +34,7 @@ class GoogleReviewAvailability(BaseModel):
     generation: int = 0
     location: GoogleLocationChoice | None = None
     can_request: bool = False
+    error_code: str | None = None
 
 
 class GoogleLocationChoice(BaseModel):
@@ -80,5 +81,6 @@ class GoogleReplyCreate(BaseModel):
 
 
 class GoogleOperationOut(BaseModel):
+    error_code: str | None = None
     id: str
     state: Literal["queued", "running", "confirmed", "failed", "unknown", "canceled"]

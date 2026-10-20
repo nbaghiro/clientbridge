@@ -1254,6 +1254,7 @@ test.describe("in another time zone than the business", () => {
 
 test("Google Reviews distinguishes unavailable, unlinked and empty profiles", async ({ page }) => {
     let state: "unavailable" | "disconnected" | "active" = "unavailable";
+    let errorCode: string | null = null;
     await page.route("**/v1/reviews/google", (route) =>
         route.fulfill({
             json: {
@@ -1264,7 +1265,8 @@ test("Google Reviews distinguishes unavailable, unlinked and empty profiles", as
                     state === "active"
                         ? { name: "locations/1", title: "Birchbark Pet Studio" }
                         : null,
-                can_request: state === "active",
+                can_request: state === "active" && errorCode === null,
+                error_code: errorCode,
             },
         }),
     );
@@ -1301,5 +1303,13 @@ test("Google Reviews distinguishes unavailable, unlinked and empty profiles", as
         page.getByRole("button", { name: strings.reviews.connect, exact: true }),
     ).toHaveCount(0);
     await expect(page.getByText(strings.reviews.googleError, { exact: true })).toHaveCount(0);
+    errorCode = "google_access_denied";
+    await navigate(page, "/today");
+    await navigate(page, "/inbox?segment=reviews");
+    await expect(page.getByText(strings.reviews.accessDenied, { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: strings.reviews.changeAccount })).toBeEnabled();
+    await expect(
+        page.getByRole("button", { name: strings.reviews.disconnect, exact: true }),
+    ).toBeEnabled();
     walk.expectNoErrors();
 });

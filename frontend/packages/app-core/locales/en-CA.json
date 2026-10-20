@@ -13801,6 +13801,9 @@
     "reviews.replyInvalid": {
         "message": "Enter a reply of no more than 4,096 UTF-8 bytes."
     },
+    "reviews.replyRejected": {
+        "message": "Google rejected this reply. Edit your draft and try again."
+    },
     "reviews.replyFailed": {
         "message": "Google could not publish this change. Your draft is still here."
     },

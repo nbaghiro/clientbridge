@@ -1,3 +1,4 @@
+from typing import Literal
 from urllib.parse import parse_qs, urlsplit
 
 import httpx
@@ -303,3 +304,107 @@ async def test_concurrent_reply_commands_create_one_operation(
             await purge_businesses(session, [business.id], [user.id])
             await session.commit()
         await owner.dispose()
+
+
+@pytest.mark.parametrize("code", ["google_access_denied", "google_not_found", "google_unavailable"])
+async def test_profile_read_error_preserves_connection_management(
+    as_owner: httpx.AsyncClient,
+    google: tuple[FakeGoogle, FakeVault, FakeFlows],
+    monkeypatch: pytest.MonkeyPatch,
+    code: str,
+) -> None:
+    from clientbridge.integrations.google_business import GoogleBusinessError, GoogleLocation
+
+    status = await connect(as_owner)
+
+    async def unavailable(token: str, location: str) -> GoogleLocation:
+        raise GoogleBusinessError("unavailable", code=code)
+
+    monkeypatch.setattr(google[0], "location", unavailable)
+    result = await as_owner.get("/v1/reviews/google")
+    assert result.status_code == 200
+    assert result.json()["error_code"] == code
+    assert result.json()["can_request"] is False
+    assert result.json()["generation"] == status["generation"]
+    assert (
+        await as_owner.post(
+            "/v1/reviews/google/disconnect", json={"generation": status["generation"]}
+        )
+    ).json()["state"] == "disconnected"
+
+
+async def test_definite_reply_rejection_allows_corrected_intent(
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    google: tuple[FakeGoogle, FakeVault, FakeFlows],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from clientbridge.integrations.google_business import GoogleBusinessError
+    from clientbridge.models.reviews import GoogleBusinessOperation
+
+    await connect(as_owner)
+
+    async def rejected(token: str, name: str, comment: str) -> GoogleReply:
+        raise GoogleBusinessError("rejected", code="google_request_rejected", status_code=422)
+
+    monkeypatch.setattr(google[0], "put_reply", rejected)
+    result = await as_owner.post(
+        "/v1/reviews/google/replies",
+        json={"review_id": "1", "comment": "Thanks"},
+        headers={"Idempotency-Key": "rejected"},
+    )
+    await run_google_operations(db, *google)
+    operation = (await as_owner.get(f"/v1/reviews/google/operations/{result.json()['id']}")).json()
+    assert operation["state"] == "failed"
+    assert operation["error_code"] == "google_request_rejected"
+    row = await db.get(GoogleBusinessOperation, result.json()["id"])
+    assert row is not None and row.request_ciphertext is None
+    corrected = await as_owner.post(
+        "/v1/reviews/google/replies",
+        json={"review_id": "1", "comment": "Thank you"},
+        headers={"Idempotency-Key": "corrected"},
+    )
+    assert corrected.status_code == 200
+
+
+@pytest.mark.parametrize("initial_state", ["running", "unknown"])
+@pytest.mark.parametrize(
+    "code", ["google_unavailable", "google_rate_limited", "google_access_denied"]
+)
+async def test_uncertain_reply_readback_error_never_requeues_write(
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    google: tuple[FakeGoogle, FakeVault, FakeFlows],
+    monkeypatch: pytest.MonkeyPatch,
+    initial_state: Literal["running", "unknown"],
+    code: str,
+) -> None:
+    from clientbridge.integrations.google_business import GoogleBusinessError, GoogleReview
+    from clientbridge.models.reviews import GoogleBusinessOperation
+
+    await connect(as_owner)
+    result = await as_owner.post(
+        "/v1/reviews/google/replies",
+        json={"review_id": "1", "comment": "Thanks"},
+        headers={"Idempotency-Key": "uncertain"},
+    )
+    row = await db.get(GoogleBusinessOperation, result.json()["id"])
+    assert row is not None
+    row.state = initial_state
+    await db.commit()
+    original = google[0].review
+
+    async def unavailable(token: str, name: str) -> GoogleReview:
+        raise GoogleBusinessError("unavailable", code=code)
+
+    monkeypatch.setattr(google[0], "review", unavailable)
+    await run_google_operations(db, *google)
+    await db.refresh(row)
+    assert row.state == "unknown"
+    monkeypatch.setattr(google[0], "review", original)
+    row.next_at = None
+    await db.commit()
+    await run_google_operations(db, *google)
+    assert google[0].writes == 0
+    await db.refresh(row)
+    assert row.state == "unknown"

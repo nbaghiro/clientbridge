@@ -454,3 +454,54 @@ def test_stripe_recovery_is_not_scheduled() -> None:
 
 
 pytestmark = pytest.mark.usefixtures("google_review_provider")
+
+
+@pytest.mark.usefixtures("db")
+async def test_review_job_releases_previous_business_lock_before_next_provider_call(
+    monkeypatch: pytest.MonkeyPatch,
+    email: FakeEmailSender,
+    sms: FakeSmsSender,
+    push: FakePushSender,
+) -> None:
+    from scripts.seed_demo import purge_businesses
+    from sqlalchemy import text
+
+    from clientbridge.core.db import SessionLocal
+    from clientbridge.services import reviews
+
+    async with SessionLocal() as setup:
+        factory = Factory(setup)
+        first = await factory.business()
+        second = await factory.business()
+        await setup.commit()
+
+    async def businesses(db: AsyncSession, now: datetime, hour: int) -> list[Business]:
+        return [first, second]
+
+    async def link(db: AsyncSession, business_id: str) -> str | None:
+        if business_id == second.id:
+            async with SessionLocal() as probe:
+                assert (
+                    await probe.scalar(
+                        text("SELECT pg_try_advisory_xact_lock(hashtextextended(:key, 0))"),
+                        {"key": f"google:{first.id}"},
+                    )
+                    is True
+                )
+        return None
+
+    monkeypatch.setattr(reviews, "businesses_at_hour", businesses)
+    monkeypatch.setattr(reviews, "google_invitation_url", link)
+    try:
+        async with SessionLocal() as job:
+            assert await run_review_requests(job, _notifier(email, sms, push), REVIEWS_AT) == 0
+    finally:
+        from sqlalchemy.ext.asyncio import create_async_engine
+
+        from clientbridge.core.config import get_settings
+
+        owner = create_async_engine(get_settings().migration_database_url)
+        async with AsyncSession(owner) as cleanup:
+            await purge_businesses(cleanup, [first.id, second.id], [])
+            await cleanup.commit()
+        await owner.dispose()

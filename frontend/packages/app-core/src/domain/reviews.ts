@@ -145,6 +145,7 @@ interface GoogleReviewConnection {
     generation: number;
     location: { name: string; title: string } | null;
     can_request: boolean;
+    error_code?: string | null;
 }
 
 interface GoogleReview {
@@ -168,6 +169,7 @@ interface GoogleChoices {
     next_page_token: string | null;
 }
 interface GoogleReplyOperation {
+    error_code?: string | null;
     id: string;
     state: "queued" | "running" | "confirmed" | "failed" | "unknown" | "canceled";
 }
@@ -176,8 +178,12 @@ const GOOGLE = "/v1/reviews/google";
 const STARS = { ONE: 1, TWO: 2, THREE: 3, FOUR: 4, FIVE: 5 };
 
 function googleMessage(cause: unknown): string {
+    return googleCodeMessage(failedCode(cause));
+}
+
+function googleCodeMessage(code: string | null | undefined): string {
     const s = strings.reviews;
-    switch (failedCode(cause)) {
+    switch (code) {
         case "forbidden":
             return s.managerOnly;
         case "google_reconnect_required":
@@ -190,6 +196,8 @@ function googleMessage(cause: unknown): string {
             return s.unavailable;
         case "google_location_in_use":
             return s.locationInUse;
+        case "google_request_rejected":
+            return s.replyRejected;
         case "google_stale_reply":
             return s.staleReply;
         default:
@@ -235,7 +243,9 @@ export function useGoogleReviews(api: ApiLike) {
             const status = await api.get<GoogleReviewConnection>(GOOGLE);
             if (version !== generation.current) return;
             setConnection(status);
-            if (status.state === "active") {
+            if (status.error_code) {
+                setError(googleCodeMessage(status.error_code));
+            } else if (status.state === "active") {
                 const reviews = await api.get<GoogleReviewPage>(`${GOOGLE}/reviews`);
                 if (version === generation.current) setPage(reviews);
             } else if (status.state === "selecting") {
@@ -355,9 +365,13 @@ export function useGoogleReviews(api: ApiLike) {
                 await load();
             } else {
                 setPendingReply(false);
+                const terminal = result.state === "failed" || result.state === "canceled";
+                if (terminal) key.current = null;
                 setError(
-                    result.state === "failed" || result.state === "canceled"
-                        ? s.replyFailed
+                    terminal
+                        ? result.error_code
+                            ? googleCodeMessage(result.error_code)
+                            : s.replyFailed
                         : s.replyUncertain,
                 );
             }

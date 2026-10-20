@@ -119,8 +119,8 @@
   "execution": {
     "branch": "feat/google-business-reviews-complete",
     "base": "5e0bad49",
-    "commits": "Not authorized for this execution",
-    "live_changes": "Not authorized; infrastructure code and previews only",
+    "commits": "Commit, push, PR and merge authorized in the follow-up; PR #45.",
+    "live_changes": "Localhost setup requested; no production rollout. Google access still requires reauthentication.",
     "validation": "Local application gates passed; Google cloud preview and live readiness remain blocked on external prerequisites."
   }
 }

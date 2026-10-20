@@ -5227,6 +5227,8 @@ export interface components {
         };
         /** GoogleOperationOut */
         GoogleOperationOut: {
+            /** Error Code */
+            error_code?: string | null;
             /** Id */
             id: string;
             /**
@@ -5296,6 +5298,8 @@ export interface components {
              * @default false
              */
             can_request: boolean;
+            /** Error Code */
+            error_code?: string | null;
         };
         /** GoogleReviewer */
         GoogleReviewer: {

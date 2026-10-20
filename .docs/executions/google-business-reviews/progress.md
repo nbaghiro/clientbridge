@@ -33,3 +33,11 @@ Native-device and real-Google walkthroughs have not been performed. Automated re
 Google API approval, enabled-service quota, dedicated OAuth clients, consent publishing and a consenting live pilot remain unverified. A cloud preview against the configured GCS state backend failed with Google `invalid_grant` / `invalid_rapt`; gcloud and ADC credentials require reauthentication. No live schema migration, cloud deployment, Google reply or client invitation has been performed during implementation.
 
 Live testing must use a named consenting profile, approved reply content and an explicitly selected invitation recipient. Automated and simulated provider tests cannot establish production OAuth approval or provider behavior.
+
+## PR review follow-up — 2026-10-20
+
+The user subsequently authorized committing/pushing, PR creation, fixing review findings, merging after validation, and preparing the main worktree for localhost testing. PR #45 contains the implementation.
+
+The follow-up preserves connection management when Google reads fail, surfaces terminal reply errors, and commits invitation batches independently per business. A second review also identified and corrected a retry invariant: failed readback of an uncertain write must remain reconciliation-only, never become queued write work. Regression tests cover permission/read failures, definite write rejection, uncertain readback failures, and independent-session tenant-lock release.
+
+Local configuration is documented in `.env.example`; Google Business Profile uses separate credentials from Google sign-in. Gcloud still reports expired authentication; actual project API approval, OAuth credentials and ADC/KMS access remain prerequisites for a real localhost pilot.

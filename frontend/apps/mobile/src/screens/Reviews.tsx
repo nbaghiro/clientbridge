@@ -98,6 +98,11 @@ export function Reviews() {
                         </Button>
                     </Panel>
                 ) : null}
+                {google.connection?.state === "active" && google.error !== null ? (
+                    <Button variant="outline" disabled={google.busy !== null} onPress={connect}>
+                        {s.changeAccount}
+                    </Button>
+                ) : null}
                 {google.busy === "connect" ? (
                     <View style={styles.card}>
                         <Text style={styles.meta}>{s.authorizationWaiting}</Text>

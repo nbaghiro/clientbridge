@@ -2067,6 +2067,7 @@ interface Strings {
         readonly staleReply: string;
         readonly googleError: string;
         readonly replyInvalid: string;
+        readonly replyRejected: string;
         readonly replyFailed: string;
         readonly replyUncertain: string;
         readonly authorizationExpired: string;
