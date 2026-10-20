@@ -30,7 +30,8 @@ import {
 import { formatMoney, formatParts, normalizePhone, BUSINESS_CURRENCY } from "../format";
 import { isConnectionFailure, useAsyncAction } from "../hooks";
 import { strings } from "../strings";
-import type { DocTotalLine, ProgressStep } from "../ui";
+import type { DocTotalLine, OptionMedia, ProgressStep } from "../ui";
+import { personMedia } from "./files";
 import {
     type PublicBrand,
     type PublicDraftStorage,
@@ -72,6 +73,8 @@ interface PublicStaff {
     name: string | null;
     title: string | null;
     color: string | null;
+    // Only for members the business shows on its public profile.
+    photo_url?: string | null;
 }
 
 interface PublicAddon {
@@ -778,12 +781,19 @@ export function usePublicBookingFlow(
                 setStaffId(ANY_STAFF);
         },
         staffOptions: [
-            { id: ANY_STAFF, name: s.anyone, title: s.anyoneHint, color: null as string | null },
+            {
+                id: ANY_STAFF,
+                name: s.anyone,
+                title: s.anyoneHint,
+                color: null as string | null,
+                media: undefined as OptionMedia | undefined,
+            },
             ...staffFor.map((x) => ({
                 id: x.id,
                 name: x.name ?? "",
                 title: x.title ?? "",
                 color: x.color,
+                media: x.photo_url ? personMedia(x.name ?? "", x.color, x.photo_url) : undefined,
             })),
         ],
         staffId,

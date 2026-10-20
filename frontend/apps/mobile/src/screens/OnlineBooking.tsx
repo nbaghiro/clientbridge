@@ -5,6 +5,7 @@ import {
     useBookingPolicy,
     useOnlineBookingSettings,
     formatParts,
+    usePeoplePhotos,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import {
@@ -77,6 +78,7 @@ function Loading({
 }
 
 function PageSettings() {
+    const photos = usePeoplePhotos();
     const st = useOnlineBookingSettings(api, bookUrl, {
         copy: share,
         share,
@@ -135,7 +137,7 @@ function PageSettings() {
                 <Text style={styles.muted}>{s.teamHint}</Text>
                 {st.staff.map((x) => (
                     <View key={x.id} style={styles.rowGap}>
-                        <Avatar name={x.name} size="sm" color={x.color} />
+                        <Avatar name={x.name} src={photos.staff(x.id)} size="sm" color={x.color} />
                         <View style={styles.flex}>
                             <Toggle
                                 label={x.name}

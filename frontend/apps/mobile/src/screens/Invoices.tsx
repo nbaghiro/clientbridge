@@ -24,6 +24,7 @@ import {
     formatParts,
     BUSINESS_CURRENCY,
     kindWord,
+    usePeoplePhotos,
     useSubjectKind,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
@@ -165,6 +166,7 @@ function InvoiceDeskView({
     setOpenId: (id: string | null) => void;
     compose: (id: string | null) => void;
 }) {
+    const photos = usePeoplePhotos();
     const desk = useInvoiceDesk();
     const ready = desk.load.state === "ready";
     return (
@@ -259,7 +261,11 @@ function InvoiceDeskView({
                 }
                 renderRow={(r) => (
                     <View style={styles.row}>
-                        <Avatar name={r.row.client_name ?? ""} size="sm" />
+                        <Avatar
+                            name={r.row.client_name ?? ""}
+                            src={photos.client(r.row.client_id)}
+                            size="sm"
+                        />
                         <View style={styles.rowMain}>
                             <Text style={styles.rowName} numberOfLines={1}>
                                 {r.row.client_name}
@@ -537,6 +543,7 @@ function EstimateDeskView({
     compose: (id: string | null) => void;
     openInvoice: (id: string) => void;
 }) {
+    const photos = usePeoplePhotos();
     const desk = useEstimateDesk();
     return (
         <View style={styles.screen}>
@@ -597,7 +604,11 @@ function EstimateDeskView({
                 }
                 renderRow={(r) => (
                     <View style={styles.row}>
-                        <Avatar name={r.row.client_name ?? ""} size="sm" />
+                        <Avatar
+                            name={r.row.client_name ?? ""}
+                            src={photos.client(r.row.client_id)}
+                            size="sm"
+                        />
                         <View style={styles.rowMain}>
                             <Text style={styles.rowName} numberOfLines={1}>
                                 {r.row.client_name}

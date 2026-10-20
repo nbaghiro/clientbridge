@@ -53,3 +53,7 @@ class PublicFileUpload(BaseModel):
 
 class PublicFileComplete(BaseModel):
     file_id: str
+
+
+class FilePhotoCleared(BaseModel):
+    removed: int

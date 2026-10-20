@@ -12,6 +12,7 @@ const GLYPH = { sms: "phoneDevice", email: "mail" } as const;
 
 export function ConversationRow({
     name,
+    src,
     preview,
     at,
     unread,
@@ -31,7 +32,7 @@ export function ConversationRow({
             accessibilityLabel={formatList([name, channelLabel, preview], "unit")}
             style={({ pressed }) => [styles.row, (selected || pressed) && styles.active, style]}
         >
-            <Avatar name={name} size="lg" />
+            <Avatar name={name} src={src} size="lg" />
             <View style={styles.main}>
                 <View style={styles.top}>
                     <Text style={[styles.name, bold && styles.bold]} numberOfLines={1}>

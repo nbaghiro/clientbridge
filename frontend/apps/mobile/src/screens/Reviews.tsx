@@ -3,6 +3,7 @@ import {
     formatDate,
     parseTimestamp,
     strings,
+    usePeoplePhotos,
     useRequestReview,
     useReviewAutomation,
     useReviewQueue,
@@ -342,6 +343,7 @@ export function Reviews() {
 }
 
 function AskList({ queue }: { queue: ReviewQueue }) {
+    const photos = usePeoplePhotos();
     const zone = useBusinessZone();
     const req = useRequestReview(api);
     return (
@@ -351,7 +353,7 @@ function AskList({ queue }: { queue: ReviewQueue }) {
             {queue.suggestions.length === 0 ? <Text style={styles.meta}>{s.askEmpty}</Text> : null}
             {queue.suggestions.map((x) => (
                 <View key={x.bookingId} style={styles.row}>
-                    <Avatar name={x.clientName} size="sm" />
+                    <Avatar name={x.clientName} src={photos.client(x.clientId)} size="sm" />
                     <View style={styles.flex}>
                         <Text style={styles.rowName}>{x.clientName}</Text>
                         <Text style={styles.meta}>{x.visit}</Text>
@@ -378,7 +380,11 @@ function AskList({ queue }: { queue: ReviewQueue }) {
             {queue.requests.length === 0 ? <Text style={styles.meta}>{s.noRequests}</Text> : null}
             {queue.requests.map((r) => (
                 <View key={r.id} style={styles.row}>
-                    <Avatar name={r.client_name ?? s.clientFallback} size="sm" />
+                    <Avatar
+                        name={r.client_name ?? s.clientFallback}
+                        src={photos.client(r.client_id)}
+                        size="sm"
+                    />
                     <View style={styles.flex}>
                         <Text style={styles.rowName}>{r.client_name ?? s.clientFallback}</Text>
                         <Text style={styles.meta}>

@@ -4,6 +4,7 @@ import {
     type TeamHoursMember,
     type WeekCell,
     strings,
+    usePeoplePhotos,
     useTeamWeek,
     useTimeOffForm,
     useWeekEditor,
@@ -40,6 +41,7 @@ const s = strings.hours;
 
 /** The team's week at a glance with each person's hours, time off and closures, edited in dialogs. */
 export function Hours() {
+    const photos = usePeoplePhotos();
     const viewer = useViewer();
     const week = useTeamWeek(api, viewer);
     const [editing, setEditing] = useState<TeamHoursMember | null>(null);
@@ -162,7 +164,12 @@ export function Hours() {
                                     role="cell"
                                     className="flex min-w-0 items-center gap-3 px-4 py-3"
                                 >
-                                    <Avatar name={m.name} color={m.color} size="sm" />
+                                    <Avatar
+                                        name={m.name}
+                                        src={photos.staff(m.id)}
+                                        color={m.color}
+                                        size="sm"
+                                    />
                                     <span className="min-w-0">
                                         <span className="block truncate font-medium text-ink">
                                             {m.name}
@@ -310,6 +317,7 @@ function AwayPanel({
     onRemove: ((id: string) => void) | null;
     person?: boolean;
 }) {
+    const photos = usePeoplePhotos();
     return (
         <Panel flush title={title} subtitle={subtitle}>
             {entries.length === 0 ? (
@@ -319,7 +327,7 @@ function AwayPanel({
                     {entries.map((a) => (
                         <li key={a.id} className="flex items-center gap-3 px-4 py-3">
                             {person ? (
-                                <Avatar name={a.who} size="sm" />
+                                <Avatar name={a.who} src={photos.staff(a.staffId)} size="sm" />
                             ) : (
                                 <span className="flex w-7 shrink-0 justify-center text-ink-soft">
                                     <Icon name="lock" size={20} />
@@ -354,12 +362,13 @@ function AwayPanel({
 }
 
 function HoursModal({ member, onClose }: { member: TeamHoursMember; onClose: () => void }) {
+    const photos = usePeoplePhotos();
     const editor = useWeekEditor(api, member.id);
     return (
         <Modal variant="drawer" onClose={onClose} size="lg">
             <div className="space-y-4">
                 <div className="flex items-center gap-3">
-                    <Avatar name={member.name} color={member.color} />
+                    <Avatar name={member.name} src={photos.staff(member.id)} color={member.color} />
                     <div>
                         <h2 className="font-display text-lg font-bold text-ink">
                             {s.editHoursFor(member.name)}

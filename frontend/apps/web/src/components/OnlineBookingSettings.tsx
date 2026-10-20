@@ -5,6 +5,7 @@ import {
     useAddonOffers,
     useBookingPolicy,
     useOnlineBookingSettings,
+    usePeoplePhotos,
 } from "@clientbridge/app-core";
 import {
     Avatar,
@@ -76,6 +77,7 @@ function downloadQr(container: HTMLElement | null, name: string): void {
 
 /** The booking page settings: share, what and who is bookable, the rules, embed, with a live preview. */
 export function BookingPageSettings() {
+    const photos = usePeoplePhotos();
     const st = useOnlineBookingSettings(api, config.bookUrl, {
         copy: (text) => {
             navigator.clipboard.writeText(text).catch(() => undefined);
@@ -185,7 +187,12 @@ export function BookingPageSettings() {
                         <ul className="divide-y divide-line-soft">
                             {st.staff.map((x) => (
                                 <li key={x.id} className="flex items-center gap-3 py-2.5">
-                                    <Avatar name={x.name} size="sm" color={x.color} />
+                                    <Avatar
+                                        name={x.name}
+                                        src={photos.staff(x.id)}
+                                        size="sm"
+                                        color={x.color}
+                                    />
                                     <div className="min-w-0 flex-1">
                                         <Toggle
                                             label={x.name}

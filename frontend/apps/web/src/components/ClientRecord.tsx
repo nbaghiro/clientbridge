@@ -18,6 +18,7 @@ import {
     formatList,
     BUSINESS_CURRENCY,
     useBusinessZone,
+    usePeoplePhotos,
     useSubjectKind,
 } from "@clientbridge/app-core";
 import {
@@ -293,6 +294,7 @@ export function ClientRecordView({
     onClose: () => void;
     onDialog: (d: ClientDialog) => void;
 }) {
+    const photos = usePeoplePhotos();
     const zone = useBusinessZone();
     const kind = useSubjectKind();
     const viewer = useViewer();
@@ -339,7 +341,7 @@ export function ClientRecordView({
                 ),
             ])}
             status={c.archived ? { status: r.archived, intent: "warning" } : undefined}
-            leading={<Avatar name={c.name} size="lg" />}
+            leading={<Avatar name={c.name} src={photos.client(c.id)} size="lg" />}
             onClose={onClose}
             actions={
                 <RecordActions

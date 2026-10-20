@@ -61,6 +61,7 @@ export function SetupScreen() {
                     size="lg"
                     color={business.brandColor}
                     src={business.logoFileId ? mediaUrl(apiBaseUrl, business.logoFileId) : null}
+                    variant="mark"
                 />
                 <Text style={styles.rowLabel}>{business.businessName}</Text>
             </View>

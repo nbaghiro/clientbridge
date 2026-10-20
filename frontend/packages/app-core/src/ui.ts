@@ -314,6 +314,8 @@ export interface NoticeProps {
 export interface ChoiceOption<K extends string> {
     key: K;
     label: string;
+    // A person's photo or initials before the label; chips and cards only.
+    media?: OptionMedia | undefined;
     hint?: string | undefined;
     // A second line under the hint, smaller; tiles only.
     detail?: string | undefined;
@@ -487,6 +489,8 @@ export interface BackdropProps {
 export interface AvatarProps {
     src?: string | null | undefined;
     name: string;
+    // A photo fills the circle; a mark, such as a logo, shows whole.
+    variant?: "photo" | "mark" | undefined;
     size?: "sm" | "md" | "lg" | "xl" | undefined;
     // A staff or subject colour; defaults to the accent tint.
     color?: string | null | undefined;
@@ -630,6 +634,8 @@ export interface MessageBubbleProps {
 
 export interface ConversationRowProps {
     name: string;
+    // The client's photo, when they have one.
+    src?: string | null | undefined;
     preview: string;
     at: string;
     unread: number;

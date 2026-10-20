@@ -6,7 +6,7 @@ import { formatParts, formatRating } from "../format";
 import { type Load, useAsyncAction, useBusinessQuery as useQuery } from "../hooks";
 import { strings } from "../strings";
 import type { SelectOption } from "../ui";
-import { personMedia } from "./files";
+import { personMedia, usePeoplePhotos } from "./files";
 import { useClients } from "./clients";
 import { useReplicaLoad } from "./sync";
 
@@ -75,6 +75,7 @@ export interface ReviewQueue {
 }
 
 export function useReviewQueue(canRequest: boolean): ReviewQueue {
+    const photos = usePeoplePhotos();
     const zone = useBusinessZone();
     const requests = useQuery<ReviewRequestRow>(REVIEW_REQUESTS_SQL);
     const since = useMemo(() => new Date(Date.now() - 3 * 86_400_000).toISOString(), []);
@@ -99,7 +100,7 @@ export function useReviewQueue(canRequest: boolean): ReviewQueue {
         clientOptions: clients.map((c) => ({
             key: c.id,
             label: c.name,
-            media: personMedia(c.name),
+            media: personMedia(c.name, null, photos.client(c.id)),
         })),
     };
 }

@@ -11,6 +11,7 @@ import {
     useBookingDetail,
     useBookingStart,
     useMoveEvent,
+    usePeoplePhotos,
     useScheduleBoard,
     formatParts,
     useBusinessZone,
@@ -424,6 +425,7 @@ export function Schedule() {
 }
 
 function LaneHeads({ day, waiting }: { day: DayColumn; waiting: boolean }) {
+    const photos = usePeoplePhotos();
     return (
         <div className="flex border-b border-line">
             <div className="shrink-0" style={{ width: GUTTER_PX }} />
@@ -432,7 +434,7 @@ function LaneHeads({ day, waiting }: { day: DayColumn; waiting: boolean }) {
                     key={l.id}
                     className="flex min-w-0 flex-1 items-center gap-2.5 border-l border-line px-3 py-2.5"
                 >
-                    <Avatar name={l.name} size="sm" color={l.color} />
+                    <Avatar name={l.name} src={photos.staff(l.id)} size="sm" color={l.color} />
                     <div className="min-w-0 flex-1">
                         <div className="truncate text-sm font-semibold text-ink">{l.name}</div>
                         <div className="truncate text-xs text-muted">{l.hoursLabel}</div>

@@ -28,7 +28,7 @@ import {
 import { firstName } from "../format";
 import { type Load, useAsyncAction } from "../hooks";
 import { strings } from "../strings";
-import { itemMedia, personMedia } from "./files";
+import { itemMedia, personMedia, usePeoplePhotos } from "./files";
 import type { Intent, OccurrenceRow, SelectOption } from "../ui";
 import type { Viewer } from "./auth";
 import {
@@ -298,6 +298,7 @@ function useSeriesContext(first: Date, last: Date): Ctx & { sources: { isLoading
 
 /** A new series with its dates laid out as you type; every clash gets a suggested time or a skip. */
 export function useSeriesComposer(api: ApiLike, viewer: Viewer | null): SeriesComposer {
+    const photos = usePeoplePhotos();
     const clients = useClients();
     const kind = useSubjectKind();
     const subjects = useQuery<{ id: string; client_id: string; name: string }>(
@@ -379,7 +380,7 @@ export function useSeriesComposer(api: ApiLike, viewer: Viewer | null): SeriesCo
             .map((c) => ({
                 key: c.id,
                 label: c.name,
-                media: personMedia(c.name),
+                media: personMedia(c.name, null, photos.client(c.id)),
             })),
         subjectHint: subject === null ? null : s.subject(kindWord(kind), subject.name),
         itemId,
@@ -390,7 +391,7 @@ export function useSeriesComposer(api: ApiLike, viewer: Viewer | null): SeriesCo
         staffOptions: staffChoices.map((x) => ({
             key: x.id,
             label: staffName(x),
-            media: personMedia(staffName(x), x.color),
+            media: personMedia(staffName(x), x.color, photos.staff(x.id)),
         })),
         firstDay,
         setFirstDay,

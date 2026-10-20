@@ -92,6 +92,7 @@ function Navigation({
                     <Avatar
                         name={brand?.business_name ?? ""}
                         src={brand?.logo_url}
+                        variant="mark"
                         size="sm"
                         className="shrink-0 !bg-surface"
                     />

@@ -1,13 +1,16 @@
 import { strings, useSecuritySettings } from "@clientbridge/app-core";
 import { Button, Loading, Notice, Panel, TextField } from "@clientbridge/ui";
 
+import { PersonPhoto } from "../components/PersonPhoto";
 import { api, identity } from "../lib/api";
+import { getUserId } from "../lib/auth";
 import { webauthn } from "../lib/webauthn";
 
 const a = strings.auth;
 
 /** Account email and name, password, and second factors, all kept in the auth service. */
 export function Security() {
+    const userId = getUserId();
     const s = useSecuritySettings(identity, {
         api,
         ...(webauthn ? { webauthn } : {}),
@@ -82,6 +85,9 @@ export function Security() {
                         {a.securitySaveProfile}
                     </Button>
                 </div>
+                {userId !== null ? (
+                    <PersonPhoto owner={{ kind: "user", id: userId }} name={s.name} />
+                ) : null}
             </Panel>
 
             <Panel title={a.securityPassword}>

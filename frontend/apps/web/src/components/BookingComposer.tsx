@@ -6,6 +6,7 @@ import {
     formatPhone,
     strings,
     useBookingComposer,
+    usePeoplePhotos,
     useReschedule,
     formatList,
     kindWord,
@@ -53,6 +54,7 @@ export function BookingComposer({
     onDone: () => void;
     onCancel: () => void;
 }) {
+    const photos = usePeoplePhotos();
     const zone = useBusinessZone();
     const form = useBookingComposer(
         api,
@@ -79,7 +81,11 @@ export function BookingComposer({
                     <p className="text-sm font-medium text-ink-soft">{s.composerClient}</p>
                     {form.client ? (
                         <div className="flex items-center gap-3 rounded-md border border-accent bg-accent-weak/50 px-3 py-2">
-                            <Avatar name={form.client.name} size="sm" />
+                            <Avatar
+                                name={form.client.name}
+                                src={photos.client(form.client.id)}
+                                size="sm"
+                            />
                             <div className="min-w-0 flex-1">
                                 <div className="truncate text-sm font-semibold text-ink">
                                     {form.client.name}
@@ -114,7 +120,13 @@ export function BookingComposer({
                                         <ListRow
                                             key={m.client.id}
                                             density="compact"
-                                            leading={<Avatar name={m.client.name} size="sm" />}
+                                            leading={
+                                                <Avatar
+                                                    name={m.client.name}
+                                                    src={photos.client(m.client.id)}
+                                                    size="sm"
+                                                />
+                                            }
                                             title={m.client.name}
                                             detail={formatList(m.subjects, "unit")}
                                             onPress={() => {
@@ -159,6 +171,7 @@ export function BookingComposer({
                         options={form.staffOptions.map((o) => ({
                             key: o.id,
                             label: o.name.split(" ")[0] ?? o.name,
+                            media: o.media,
                             hint: form.item === null || o.free ? undefined : s.busy,
                         }))}
                         value={form.staffId}

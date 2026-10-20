@@ -25,6 +25,7 @@ import {
     formatParts,
     BUSINESS_CURRENCY,
     kindWord,
+    usePeoplePhotos,
     useSubjectKind,
 } from "@clientbridge/app-core";
 import {
@@ -188,6 +189,7 @@ function InvoiceDeskView({
     setOpenId: (id: string | null) => void;
     compose: (id: string | null) => void;
 }) {
+    const photos = usePeoplePhotos();
     const desk = useInvoiceDesk();
     const { stats } = desk;
     const ready = desk.load.state === "ready";
@@ -301,7 +303,11 @@ function InvoiceDeskView({
                     <div className={GRID}>
                         <span className="font-medium tabular-nums text-ink">{r.number}</span>
                         <span className="flex min-w-0 items-center gap-3">
-                            <Avatar name={r.row.client_name ?? ""} size="sm" />
+                            <Avatar
+                                name={r.row.client_name ?? ""}
+                                src={photos.client(r.row.client_id)}
+                                size="sm"
+                            />
                             <span className="truncate font-medium text-ink">
                                 {r.row.client_name}
                             </span>
@@ -661,6 +667,7 @@ function EstimateDeskView({
     compose: (id: string | null) => void;
     openInvoice: (id: string) => void;
 }) {
+    const photos = usePeoplePhotos();
     const desk = useEstimateDesk();
     return (
         <div>
@@ -739,7 +746,11 @@ function EstimateDeskView({
                     <div className={EST_GRID}>
                         <span className="font-medium tabular-nums text-ink">{r.number}</span>
                         <span className="flex min-w-0 items-center gap-3">
-                            <Avatar name={r.row.client_name ?? ""} size="sm" />
+                            <Avatar
+                                name={r.row.client_name ?? ""}
+                                src={photos.client(r.row.client_id)}
+                                size="sm"
+                            />
                             <span className="truncate font-medium text-ink">
                                 {r.row.client_name}
                             </span>

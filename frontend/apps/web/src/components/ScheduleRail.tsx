@@ -10,6 +10,7 @@ import {
     useBookingActions,
     formatParts,
     useBusinessZone,
+    usePeoplePhotos,
 } from "@clientbridge/app-core";
 import {
     Avatar,
@@ -92,6 +93,7 @@ function QuickClose({
 
 /** The right rail when nothing is selected: jump to a day, what's on now, what to close, the team's day. */
 export function ScheduleRail({ board }: { board: ScheduleBoard }) {
+    const photos = usePeoplePhotos();
     const zone = useBusinessZone();
     const day = board.focus;
     const inProgress = day.events.filter((e) => e.inProgress);
@@ -206,7 +208,12 @@ export function ScheduleRail({ board }: { board: ScheduleBoard }) {
                         <ul className="space-y-3">
                             {day.lanes.map((l) => (
                                 <li key={l.id} className="flex items-center gap-3">
-                                    <Avatar name={l.name} size="sm" color={l.color} />
+                                    <Avatar
+                                        name={l.name}
+                                        src={photos.staff(l.id)}
+                                        size="sm"
+                                        color={l.color}
+                                    />
                                     <div className="min-w-0 flex-1">
                                         <div className="flex items-baseline justify-between gap-2">
                                             <span className="truncate text-sm font-medium text-ink">

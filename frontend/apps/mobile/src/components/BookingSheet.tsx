@@ -16,6 +16,7 @@ import {
     useBookingAddons,
     useBookingPhotos,
     useDeparture,
+    usePeoplePhotos,
     useSubjectKind,
     useBookingComposer,
     useCollectDeposit,
@@ -276,6 +277,7 @@ function Addons({ event }: { event: ScheduleEvent }) {
 }
 
 export function BookingBody({ detail }: { detail: BookingDetail }) {
+    const photos = usePeoplePhotos();
     const zone = useBusinessZone();
     const e = detail.event;
     const { client, subject } = detail;
@@ -335,7 +337,7 @@ export function BookingBody({ detail }: { detail: BookingDetail }) {
                 >
                     <View style={styles.card}>
                         <View style={styles.cardRow}>
-                            <Avatar name={client.name} />
+                            <Avatar name={client.name} src={photos.client(client.id)} />
                             <View style={styles.flex}>
                                 <View style={styles.rowGap}>
                                     <Text style={styles.name} numberOfLines={1}>
@@ -676,6 +678,7 @@ export function BookingComposerSheet({
     board: ScheduleBoard;
     onClose: () => void;
 }) {
+    const photos = usePeoplePhotos();
     const form = useBookingComposer(
         api,
         slot,
@@ -693,7 +696,11 @@ export function BookingComposerSheet({
                 <Text style={styles.label}>{s.composerClient}</Text>
                 {form.client ? (
                     <View style={styles.picked}>
-                        <Avatar name={form.client.name} size="sm" />
+                        <Avatar
+                            name={form.client.name}
+                            src={photos.client(form.client.id)}
+                            size="sm"
+                        />
                         <View style={styles.flex}>
                             <Text style={styles.name}>{form.client.name}</Text>
                             <Text style={styles.sub}>
@@ -726,7 +733,13 @@ export function BookingComposerSheet({
                                 <ListRow
                                     key={m.client.id}
                                     density="compact"
-                                    leading={<Avatar name={m.client.name} size="sm" />}
+                                    leading={
+                                        <Avatar
+                                            name={m.client.name}
+                                            src={photos.client(m.client.id)}
+                                            size="sm"
+                                        />
+                                    }
                                     title={m.client.name}
                                     detail={formatList(m.subjects, "unit")}
                                     onPress={() => {

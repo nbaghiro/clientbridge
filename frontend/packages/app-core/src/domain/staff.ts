@@ -1,5 +1,5 @@
 import { isManager } from "./auth";
-import { personMedia } from "./files";
+import { personMedia, usePeoplePhotos } from "./files";
 import { useBusinessQuery as useQuery } from "../hooks";
 
 import { useEffect, useRef, useState } from "react";
@@ -33,6 +33,7 @@ interface TeamApiMember {
 
 export interface TeamMember {
     id: string;
+    userId: string | null;
     name: string;
     title: string | null;
     color: string | null;
@@ -132,6 +133,7 @@ export function useTeam(api: ApiLike, viewer: Viewer | null): TeamView {
                 last !== null && now.getTime() - parseTimestamp(last).getTime() < 15 * 60_000;
             return {
                 id: r.id,
+                userId: r.user_id,
                 name: staffName(r),
                 title: r.title,
                 color: r.color,
@@ -383,6 +385,7 @@ export function useRemoveMember(
     members: readonly TeamMember[],
     onRemoved: () => void,
 ): RemoveMemberView {
+    const photos = usePeoplePhotos();
     const t = strings.staff.team;
     const zone = useBusinessZone();
     const [now] = useState(() => new Date().toISOString());
@@ -440,7 +443,7 @@ export function useRemoveMember(
                 .map((m) => ({
                     key: m.id,
                     label: m.name,
-                    media: personMedia(m.name, m.color),
+                    media: personMedia(m.name, m.color, photos.staff(m.id)),
                 })),
         ],
         busy,

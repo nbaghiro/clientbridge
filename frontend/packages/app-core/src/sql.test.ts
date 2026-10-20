@@ -1059,6 +1059,51 @@ describe("app-core SQL against the replica schema", () => {
         ]);
     });
 
+    it("lists people's uploaded photos with the staff row of a user on this business", () => {
+        insert("staff", [
+            { id: "st_elsewhere", business_id: "bz_2", user_id: "us_owner", created_at: TS },
+        ]);
+        scoped("files", [
+            {
+                id: "fl_face",
+                parent_type: "client",
+                parent_id: "cl_ann",
+                purpose: "photo",
+                uploaded_at: TS,
+            },
+            {
+                id: "fl_me",
+                parent_type: "user",
+                parent_id: "us_owner",
+                purpose: "photo",
+                uploaded_at: TS,
+            },
+            { id: "fl_face_pending", parent_type: "client", parent_id: "cl_ann", purpose: "photo" },
+            {
+                id: "fl_pet",
+                parent_type: "subject",
+                parent_id: "sj_site",
+                purpose: "photo",
+                uploaded_at: TS,
+            },
+        ]);
+        insert("files", [
+            {
+                id: "fl_other_business",
+                business_id: "bz_2",
+                parent_type: "user",
+                parent_id: "us_owner",
+                purpose: "photo",
+                uploaded_at: TS,
+                created_at: TS,
+            },
+        ]);
+        expect(pick(run("PEOPLE_PHOTOS_SQL"), "id", "staff_id")).toEqual([
+            { id: "fl_face", staff_id: null },
+            { id: "fl_me", staff_id: "st_owner" },
+        ]);
+    });
+
     it("keeps visits longer than a week in an overlapping schedule window", () => {
         db.run(
             "UPDATE slots SET starts_at = '2026-06-01 10:00:00+00', ends_at = '2026-06-30 10:00:00+00' WHERE id = 'ss_1'",

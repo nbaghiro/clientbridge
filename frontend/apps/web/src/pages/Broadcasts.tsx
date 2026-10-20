@@ -16,6 +16,7 @@ import {
     formatParts,
     useBusinessZone,
     kindWord,
+    usePeoplePhotos,
     useSubjectKind,
 } from "@clientbridge/app-core";
 import {
@@ -96,6 +97,7 @@ export function Broadcasts() {
 }
 
 function BroadcastsHome({ onCompose }: { onCompose: (seed: BroadcastSeed) => void }) {
+    const photos = usePeoplePhotos();
     const zone = useBusinessZone();
     const home = useBroadcastsHome();
     const actions = useBroadcastActions(api, download);
@@ -268,7 +270,11 @@ function BroadcastsHome({ onCompose }: { onCompose: (seed: BroadcastSeed) => voi
                                                 key={`${o.clientId}-${o.channel}`}
                                                 className="flex items-center gap-3 px-4 py-2.5"
                                             >
-                                                <Avatar name={o.name} size="sm" />
+                                                <Avatar
+                                                    name={o.name}
+                                                    src={photos.client(o.clientId)}
+                                                    size="sm"
+                                                />
                                                 <div className="min-w-0 flex-1">
                                                     <div className="truncate text-sm font-medium text-ink">
                                                         {o.name}
@@ -299,7 +305,11 @@ function BroadcastsHome({ onCompose }: { onCompose: (seed: BroadcastSeed) => voi
                                                 key={`${o.clientId}-${o.channel}`}
                                                 className="flex items-center gap-3 px-4 py-2.5"
                                             >
-                                                <Avatar name={o.name} size="sm" />
+                                                <Avatar
+                                                    name={o.name}
+                                                    src={photos.client(o.clientId)}
+                                                    size="sm"
+                                                />
                                                 <div className="min-w-0 flex-1">
                                                     <div className="truncate text-sm font-medium text-ink">
                                                         {o.name}
@@ -560,6 +570,7 @@ function AudiencePicker({ draft }: { draft: BroadcastDraft }) {
 }
 
 function AudienceSummary({ draft }: { draft: BroadcastDraft }) {
+    const photos = usePeoplePhotos();
     const openLink = useOpenLink();
     const a = draft.audience;
     if (a.matched === 0)
@@ -600,7 +611,7 @@ function AudienceSummary({ draft }: { draft: BroadcastDraft }) {
                     <ul className="mt-4 max-h-72 divide-y divide-line-soft overflow-y-auto rounded-md border border-line">
                         {a.excluded.map((x) => (
                             <li key={x.id} className="flex items-center gap-2.5 px-3 py-2">
-                                <Avatar name={x.name} size="sm" />
+                                <Avatar name={x.name} src={photos.client(x.id)} size="sm" />
                                 <div className="min-w-0 flex-1">
                                     <div className="truncate text-sm font-medium text-ink">
                                         {x.name}

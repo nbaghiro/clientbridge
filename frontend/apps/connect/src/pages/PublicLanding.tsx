@@ -133,6 +133,7 @@ export function PublicLanding() {
                         <Avatar
                             name={page.business_name}
                             src={page.brand.logo_url}
+                            variant="mark"
                             color={page.brand.primary}
                             size="xl"
                             className="mb-4 !bg-surface p-1"
@@ -292,9 +293,12 @@ export function PublicLanding() {
                                         title={person.name ?? person.title ?? page.business_name}
                                         subtitle={person.title ?? undefined}
                                         leading={
-                                            <span className="flex h-12 w-12 items-center justify-center rounded-full bg-accent-weak text-lg font-bold text-accent">
-                                                {(person.name ?? page.business_name).slice(0, 1)}
-                                            </span>
+                                            <Avatar
+                                                name={person.name ?? page.business_name}
+                                                src={person.photo_url}
+                                                color={person.color}
+                                                size="lg"
+                                            />
                                         }
                                         onPress={() => {
                                             book(undefined, undefined, person.id);

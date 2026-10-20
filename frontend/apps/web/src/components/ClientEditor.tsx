@@ -8,6 +8,7 @@ import {
     strings,
     useClientEditor,
     formatParts,
+    usePeoplePhotos,
 } from "@clientbridge/app-core";
 import {
     Avatar,
@@ -23,6 +24,7 @@ import {
 } from "@clientbridge/ui";
 
 import { api } from "../lib/api";
+import { PersonPhoto } from "./PersonPhoto";
 import { useRole } from "../lib/auth";
 
 const s = strings.clients.edit;
@@ -36,12 +38,13 @@ function DuplicateCard({
     onOpen: () => void;
     onIgnore: () => void;
 }) {
+    const photos = usePeoplePhotos();
     return (
         <div
             role="status"
             className="flex items-start gap-3 rounded-md border border-warn-bg bg-warn-bg/50 p-3"
         >
-            <Avatar name={match.client.name} />
+            <Avatar name={match.client.name} src={photos.client(match.client.id)} />
             <div className="min-w-0 flex-1">
                 <p className="text-sm font-semibold text-ink">
                     {s.duplicateTitle(match.client.name)}
@@ -202,6 +205,7 @@ export function ClientEditorDialog({
     onOpen: (id: string) => void;
     onClose: () => void;
 }) {
+    const photos = usePeoplePhotos();
     const editor = useClientEditor(api, directory, clientId, (id) => {
         if (clientId === null) onOpen(id);
         else onClose();
@@ -234,9 +238,21 @@ export function ClientEditorDialog({
                     <h2 className="font-display text-lg font-bold text-ink">
                         {editor.mode === "add" ? s.addTitle : s.editTitle}
                     </h2>
-                    {editor.client !== null ? <Avatar name={editor.client.name} size="sm" /> : null}
+                    {editor.client !== null ? (
+                        <Avatar
+                            name={editor.client.name}
+                            src={photos.client(editor.client.id)}
+                            size="sm"
+                        />
+                    ) : null}
                 </div>
                 <div className="-mx-6 mt-4 max-h-[calc(100vh-13rem)] space-y-4 overflow-y-auto px-6 pb-1">
+                    {editor.client !== null ? (
+                        <PersonPhoto
+                            owner={{ kind: "client", id: editor.client.id }}
+                            name={editor.client.name}
+                        />
+                    ) : null}
                     {editor.archivedNote !== null ? (
                         <div className="flex items-center justify-between gap-3 rounded-md bg-warn-bg px-3 py-2.5 text-sm text-warn-fg">
                             <span>{editor.archivedNote}</span>

@@ -87,7 +87,11 @@ export function WhenPicker({ flow }: { flow: PublicBookingFlow }) {
                     label={s.with}
                     value={flow.staffId}
                     onChange={flow.setStaffId}
-                    options={flow.staffOptions.map((o) => ({ key: o.id, label: o.name }))}
+                    options={flow.staffOptions.map((o) => ({
+                        key: o.id,
+                        label: o.name,
+                        media: o.media,
+                    }))}
                 />
             </div>
             <div className="space-y-4">

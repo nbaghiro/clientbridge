@@ -77,7 +77,7 @@ export async function clearSession(): Promise<void> {
     await forgetSession();
 }
 
-function useUserId(): string | null {
+export function useUserId(): string | null {
     const [userId, setUserId] = useState<string | null>(null);
     useEffect(() => {
         getSession()

@@ -15,6 +15,7 @@ import {
     staffPaySummary,
     strings,
     useInviteTeammatesForm,
+    usePeoplePhotos,
     useStaffPay,
     useRemoveMember,
     useStaffPayForm,
@@ -53,6 +54,7 @@ import { useState } from "react";
 
 import { api } from "../lib/api";
 import { useViewer } from "../lib/auth";
+import { PersonPhoto } from "../components/PersonPhoto";
 
 const t = strings.staff.team;
 const grid =
@@ -356,6 +358,7 @@ function MemberDetail({
     pay: StaffPayRow | undefined;
     onClose: () => void;
 }) {
+    const photos = usePeoplePhotos();
     const [role, setRole] = useState<MemberRole>(member.role);
     const [removing, setRemoving] = useState(false);
     const owner = member.role === "owner";
@@ -367,7 +370,14 @@ function MemberDetail({
             open
             title={member.name}
             subtitle={member.title ?? roleLabel(member.role)}
-            leading={<Avatar name={member.name} size="lg" color={member.color} />}
+            leading={
+                <Avatar
+                    name={member.name}
+                    src={photos.staff(member.id)}
+                    size="lg"
+                    color={member.color}
+                />
+            }
             onClose={onClose}
             actions={
                 editable ? (
@@ -392,6 +402,13 @@ function MemberDetail({
                         ]}
                     />
                 </DetailSection>
+            ) : null}
+            {member.userId !== null ? (
+                <PersonPhoto
+                    owner={{ kind: "user", id: member.userId }}
+                    name={member.name}
+                    color={member.color}
+                />
             ) : null}
             <DetailSection title={t.changeRole}>
                 {owner ? (
@@ -540,6 +557,7 @@ function RoleAccess({ team }: { team: TeamView }) {
 }
 
 export function Team() {
+    const photos = usePeoplePhotos();
     const viewer = useViewer();
     const team = useTeam(api, viewer);
     const pay = useStaffPay();
@@ -612,7 +630,11 @@ export function Team() {
                             renderRow={(m) => (
                                 <div className={grid}>
                                     <div className="flex min-w-0 items-center gap-3">
-                                        <Avatar name={m.name} color={m.color} />
+                                        <Avatar
+                                            name={m.name}
+                                            src={photos.staff(m.id)}
+                                            color={m.color}
+                                        />
                                         <div className="min-w-0">
                                             <p className="flex min-w-0 items-center gap-2 font-medium text-ink">
                                                 <span className="truncate">{m.name}</span>

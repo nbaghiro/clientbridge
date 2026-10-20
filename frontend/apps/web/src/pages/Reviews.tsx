@@ -3,6 +3,7 @@ import {
     formatDate,
     parseTimestamp,
     strings,
+    usePeoplePhotos,
     useRequestReview,
     useReviewAutomation,
     useReviewQueue,
@@ -358,6 +359,7 @@ export function Reviews() {
 }
 
 function AskPanel({ queue }: { queue: ReviewQueue }) {
+    const photos = usePeoplePhotos();
     const zone = useBusinessZone();
     const req = useRequestReview(api);
     return (
@@ -373,7 +375,11 @@ function AskPanel({ queue }: { queue: ReviewQueue }) {
                     <ul className="mt-2 divide-y divide-line-soft rounded-md border border-line">
                         {queue.suggestions.map((x) => (
                             <li key={x.bookingId} className="flex items-center gap-2.5 px-3 py-2.5">
-                                <Avatar name={x.clientName} size="sm" />
+                                <Avatar
+                                    name={x.clientName}
+                                    src={photos.client(x.clientId)}
+                                    size="sm"
+                                />
                                 <div className="min-w-0 flex-1">
                                     <div className="truncate text-sm font-medium text-ink">
                                         {x.clientName}
@@ -410,7 +416,11 @@ function AskPanel({ queue }: { queue: ReviewQueue }) {
                     <ul className="mt-2 divide-y divide-line-soft rounded-md border border-line">
                         {queue.requests.map((r) => (
                             <li key={r.id} className="flex items-center gap-2.5 px-3 py-2.5">
-                                <Avatar name={r.client_name ?? s.clientFallback} size="sm" />
+                                <Avatar
+                                    name={r.client_name ?? s.clientFallback}
+                                    src={photos.client(r.client_id)}
+                                    size="sm"
+                                />
                                 <div className="min-w-0 flex-1">
                                     <div className="truncate text-sm font-medium text-ink">
                                         {r.client_name ?? s.clientFallback}

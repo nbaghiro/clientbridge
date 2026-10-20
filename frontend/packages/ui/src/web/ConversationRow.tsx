@@ -9,6 +9,7 @@ const GLYPH = { sms: "phoneDevice", email: "mail" } as const;
 
 export function ConversationRow({
     name,
+    src,
     preview,
     at,
     unread,
@@ -32,7 +33,7 @@ export function ConversationRow({
                 className,
             )}
         >
-            <Avatar name={name} />
+            <Avatar name={name} src={src} />
             <span className="min-w-0 flex-1">
                 <span className="flex items-center gap-2">
                     <span

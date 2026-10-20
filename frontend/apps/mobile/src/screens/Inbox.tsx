@@ -14,6 +14,7 @@ import {
     resolveInboxTarget,
     useMarkThreadRead,
     useNewMessage,
+    usePeoplePhotos,
     useThreadComposer,
     visibleInboxSegments,
     quickReplies,
@@ -105,6 +106,7 @@ export function InboxScreen() {
 }
 
 function Messages() {
+    const photos = usePeoplePhotos();
     const kind = useSubjectKind();
     const nav = useNavigation<BottomTabNavigationProp<TabParamList, "Inbox">>();
     const inbox = useInbox();
@@ -208,6 +210,7 @@ function Messages() {
                     renderItem={({ item: t }) => (
                         <ConversationRow
                             name={t.title}
+                            src={photos.client(t.client_id)}
                             preview={t.last_body ?? ""}
                             at={t.ago}
                             unread={t.unread_count}

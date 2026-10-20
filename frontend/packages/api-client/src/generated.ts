@@ -2887,6 +2887,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/files/photos/{parent_type}/{parent_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Clear Photo */
+        delete: operations["clear_photo_v1_files_photos__parent_type___parent_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/zones": {
         parameters: {
             query?: never;
@@ -4637,7 +4654,7 @@ export interface components {
              * Parent Type
              * @enum {string}
              */
-            parent_type: "business" | "subject" | "item" | "signature" | "form_response" | "booking";
+            parent_type: "business" | "subject" | "item" | "signature" | "form_response" | "booking" | "client" | "user";
             /** Parent Id */
             parent_id: string;
             /** Purpose */
@@ -4662,7 +4679,7 @@ export interface components {
              * Parent Type
              * @enum {string}
              */
-            parent_type: "business" | "subject" | "item" | "signature" | "form_response" | "booking";
+            parent_type: "business" | "subject" | "item" | "signature" | "form_response" | "booking" | "client" | "user";
             /** Parent Id */
             parent_id: string;
             /** Purpose */
@@ -7476,6 +7493,11 @@ export interface components {
             title: string | null;
             /** Color */
             color?: string | null;
+            /**
+             * Photo Url
+             * @description Set only for members shown on the business's public profile
+             */
+            photo_url?: string | null;
         };
         /** PublicUnsubscribe */
         PublicUnsubscribe: {
@@ -14772,6 +14794,41 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["FileLink"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    clear_photo_v1_files_photos__parent_type___parent_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "x-business-id"?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
+            };
+            path: {
+                parent_type: "business" | "subject" | "item" | "signature" | "form_response" | "booking" | "client" | "user";
+                parent_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

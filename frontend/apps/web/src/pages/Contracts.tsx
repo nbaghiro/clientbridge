@@ -13,6 +13,7 @@ import {
     useContractDraft,
     useContractLibrary,
     useNewContract,
+    usePeoplePhotos,
     useSignatureActions,
     formatParts,
     useBusinessZone,
@@ -185,6 +186,7 @@ function ContractDetail({
     issuer: string;
     onSend: () => void;
 }) {
+    const photos = usePeoplePhotos();
     const zone = useBusinessZone();
     const [editing, setEditing] = useState(false);
     const [viewing, setViewing] = useState<SignatureRequest | null>(null);
@@ -284,7 +286,11 @@ function ContractDetail({
                                 const name = r.client_name ?? "";
                                 return (
                                     <li key={r.id} className="flex items-center gap-3 px-4 py-3">
-                                        <Avatar name={name} size="sm" />
+                                        <Avatar
+                                            name={name}
+                                            src={photos.client(r.client_id)}
+                                            size="sm"
+                                        />
                                         <div className="min-w-0 flex-1">
                                             <div className="flex items-center gap-2">
                                                 <span className="truncate text-sm font-medium text-ink">

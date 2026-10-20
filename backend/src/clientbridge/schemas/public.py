@@ -51,6 +51,9 @@ class PublicStaff(Mirror):
     name: str | None
     title: str | None
     color: str | None = None
+    photo_url: str | None = Field(
+        default=None, description="Set only for members shown on the business's public profile"
+    )
 
 
 class PublicAddon(Mirror):

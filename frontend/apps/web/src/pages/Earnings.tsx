@@ -7,6 +7,7 @@ import {
     formatList,
     BUSINESS_CURRENCY,
     useBusinessZone,
+    usePeoplePhotos,
 } from "@clientbridge/app-core";
 import {
     Avatar,
@@ -28,6 +29,7 @@ import { useOpenLink } from "../lib/links";
 const s = strings.earnings;
 
 export function Earnings() {
+    const photos = usePeoplePhotos();
     const zone = useBusinessZone();
     const e = useEarningApprovals(api);
     const openLink = useOpenLink();
@@ -95,7 +97,13 @@ export function Earnings() {
                             {e.payees.map((p) => (
                                 <ListRow
                                     key={p.staffId}
-                                    leading={<Avatar name={p.name} color={p.color} />}
+                                    leading={
+                                        <Avatar
+                                            name={p.name}
+                                            src={photos.staff(p.staffId)}
+                                            color={p.color}
+                                        />
+                                    }
                                     selected={p.staffId === sel?.staffId}
                                     title={p.name}
                                     detail={p.title ?? undefined}
@@ -123,7 +131,12 @@ export function Earnings() {
                 ) : (
                     <Panel flush>
                         <div className="flex flex-wrap items-center gap-4 border-b border-line px-5 py-4">
-                            <Avatar name={sel.name} color={sel.color} size="lg" />
+                            <Avatar
+                                name={sel.name}
+                                src={photos.staff(sel.staffId)}
+                                color={sel.color}
+                                size="lg"
+                            />
                             <div className="min-w-0 flex-1">
                                 <h2 className="font-display text-lg font-bold text-ink">
                                     {sel.name}

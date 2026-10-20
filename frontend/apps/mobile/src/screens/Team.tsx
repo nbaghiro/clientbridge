@@ -15,6 +15,7 @@ import {
     staffPaySummary,
     strings,
     useInviteTeammatesForm,
+    usePeoplePhotos,
     useStaffPay,
     useRemoveMember,
     useStaffPayForm,
@@ -52,6 +53,7 @@ import { type ReactNode, useState } from "react";
 import { ScrollView, Share, StyleSheet, Text, View } from "react-native";
 
 import { api } from "../lib/api";
+import { PersonPhoto } from "../components/PersonPhoto";
 import { useViewer } from "../lib/auth";
 import { publicWebUrl } from "../lib/config";
 
@@ -339,6 +341,7 @@ function MemberSheet({
     pay: StaffPayRow | undefined;
     onClose: () => void;
 }) {
+    const photos = usePeoplePhotos();
     const [role, setRole] = useState<MemberRole>(member.role);
     const [removing, setRemoving] = useState(false);
     const owner = member.role === "owner";
@@ -348,7 +351,14 @@ function MemberSheet({
             open
             title={member.name}
             subtitle={member.title ?? roleLabel(member.role)}
-            leading={<Avatar name={member.name} size="lg" color={member.color} />}
+            leading={
+                <Avatar
+                    name={member.name}
+                    src={photos.staff(member.id)}
+                    size="lg"
+                    color={member.color}
+                />
+            }
             onClose={onClose}
             actions={
                 editable ? (
@@ -374,6 +384,13 @@ function MemberSheet({
                         ]}
                     />
                 </DetailSection>
+            ) : null}
+            {member.userId !== null ? (
+                <PersonPhoto
+                    owner={{ kind: "user", id: member.userId }}
+                    name={member.name}
+                    color={member.color}
+                />
             ) : null}
             <DetailSection title={t.changeRole}>
                 {owner ? (
@@ -470,6 +487,7 @@ function InviteLine({ invite, team }: { invite: TeamInvite; team: TeamView }) {
 }
 
 export function Team({ footer }: { footer?: ReactNode }) {
+    const photos = usePeoplePhotos();
     const viewer = useViewer();
     const team = useTeam(api, viewer);
     const pay = useStaffPay();
@@ -545,7 +563,13 @@ export function Team({ footer }: { footer?: ReactNode }) {
                             {team.members.map((m) => (
                                 <ListRow
                                     key={m.id}
-                                    leading={<Avatar name={m.name} color={m.color} />}
+                                    leading={
+                                        <Avatar
+                                            name={m.name}
+                                            src={photos.staff(m.id)}
+                                            color={m.color}
+                                        />
+                                    }
                                     title={m.isYou ? `${m.name}${strings.staff.youSuffix}` : m.name}
                                     detail={m.activeLabel || (m.title ?? "")}
                                     meta={

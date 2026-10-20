@@ -4,7 +4,8 @@ import { Button, GoogleIcon, Loading, Notice, Panel, TextField } from "@clientbr
 import { Image, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { api, identity, openAuthSession } from "../lib/api";
-import { getSession, keepSessionToken } from "../lib/auth";
+import { getSession, keepSessionToken, useUserId } from "../lib/auth";
+import { PersonPhoto } from "../components/PersonPhoto";
 
 const c = theme.colors;
 const a = strings.auth;
@@ -18,6 +19,7 @@ const settingsOptions = {
 
 /** Account, password, authenticator app and backup codes; security keys stay on the web. */
 export function SecurityScreen() {
+    const userId = useUserId();
     const s = useSecuritySettings(identity, settingsOptions);
 
     if (!s.ready && s.error === null) return <Loading label={a.securityTitle} />;
@@ -89,6 +91,9 @@ export function SecurityScreen() {
                         {a.securitySaveProfile}
                     </Button>
                 </View>
+                {userId !== null ? (
+                    <PersonPhoto owner={{ kind: "user", id: userId }} name={s.name} />
+                ) : null}
             </Panel>
 
             <Panel title={a.securityPassword}>

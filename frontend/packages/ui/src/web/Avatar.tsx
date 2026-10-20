@@ -11,7 +11,14 @@ const SIZE = {
     xl: "h-16 w-16 text-lg",
 } as const;
 
-export function Avatar({ name, src, size = "md", color, className }: WebProps<AvatarProps>) {
+export function Avatar({
+    name,
+    src,
+    variant = "photo",
+    size = "md",
+    color,
+    className,
+}: WebProps<AvatarProps>) {
     const [failedSrc, setFailedSrc] = useState<string | null>(null);
     const tinted = color
         ? { backgroundColor: tint(color, 12), color: shade(color, 25) }
@@ -31,7 +38,7 @@ export function Avatar({ name, src, size = "md", color, className }: WebProps<Av
                 <img
                     src={src}
                     alt=""
-                    className="h-full w-full object-contain"
+                    className={`h-full w-full ${variant === "mark" ? "object-contain" : "object-cover"}`}
                     onError={() => {
                         setFailedSrc(src);
                     }}

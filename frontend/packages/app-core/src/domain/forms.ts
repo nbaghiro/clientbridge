@@ -1,5 +1,5 @@
 import { useBusinessQuery as useQuery } from "../hooks";
-import { personMedia } from "./files";
+import { personMedia, usePeoplePhotos } from "./files";
 
 import { useMemo, useState } from "react";
 
@@ -424,6 +424,7 @@ export function useSendToClient(
     path: "/v1/forms/send" | "/v1/contracts/send",
     body: Record<string, string>,
 ): SendToClient {
+    const photos = usePeoplePhotos();
     const clients = useClients();
     const [clientId, setClientIdRaw] = useState("");
     const [sentTo, setSentTo] = useState<string | null>(null);
@@ -432,7 +433,7 @@ export function useSendToClient(
         clients: clients.map((c) => ({
             key: c.id,
             label: c.name,
-            media: personMedia(c.name),
+            media: personMedia(c.name, null, photos.client(c.id)),
         })),
         clientId,
         setClientId: (id) => {

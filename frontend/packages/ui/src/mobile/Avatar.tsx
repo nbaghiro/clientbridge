@@ -9,7 +9,14 @@ import type { NativeProps } from "./props";
 const c = theme.colors;
 const SIZE = { sm: 28, md: 36, lg: 44, xl: 64 } as const;
 
-export function Avatar({ name, src, size = "md", color, style }: NativeProps<AvatarProps>) {
+export function Avatar({
+    name,
+    src,
+    variant = "photo",
+    size = "md",
+    color,
+    style,
+}: NativeProps<AvatarProps>) {
     const [failedSrc, setFailedSrc] = useState<string | null>(null);
     const px = SIZE[size];
     return (
@@ -28,7 +35,7 @@ export function Avatar({ name, src, size = "md", color, style }: NativeProps<Ava
             {src && src !== failedSrc ? (
                 <Image
                     source={{ uri: src }}
-                    resizeMode="contain"
+                    resizeMode={variant === "mark" ? "contain" : "cover"}
                     style={{ width: px, height: px }}
                     onError={() => {
                         setFailedSrc(src);

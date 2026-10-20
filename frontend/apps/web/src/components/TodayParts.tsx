@@ -10,6 +10,7 @@ import {
     visitAction,
     visitActionLabel,
     arrivalWords,
+    usePeoplePhotos,
     useSubjectKind,
     formatList,
     formatParts,
@@ -357,12 +358,18 @@ export function AttentionPanel({
 }
 
 export function TeamPanel({ team }: { team: TeamDay[] }) {
+    const photos = usePeoplePhotos();
     return (
         <Panel flush title={t.team}>
             <ul className="divide-y divide-line-soft">
                 {team.map((m) => (
                     <li key={m.staffId} className="flex items-center gap-3 px-4 py-2.5">
-                        <Avatar name={m.name} size="sm" color={m.color} />
+                        <Avatar
+                            name={m.name}
+                            src={photos.staff(m.staffId)}
+                            size="sm"
+                            color={m.color}
+                        />
                         <div className="min-w-0 flex-1">
                             <div className="truncate text-sm font-medium text-ink">{m.name}</div>
                             <div className="truncate text-xs text-muted">

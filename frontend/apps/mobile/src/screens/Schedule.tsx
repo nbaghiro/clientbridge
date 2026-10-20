@@ -16,6 +16,7 @@ import {
     useBookingActions,
     useBookingDetail,
     useBookingStart,
+    usePeoplePhotos,
     useScheduleBoard,
     formatParts,
     BUSINESS_CURRENCY,
@@ -62,6 +63,7 @@ const PX = HOUR / 60;
 const GUTTER = 44;
 
 export function ScheduleScreen() {
+    const photos = usePeoplePhotos();
     const zone = useBusinessZone();
     const kind = useSubjectKind();
     const viewer = useViewer();
@@ -170,7 +172,7 @@ export function ScheduleScreen() {
                 <View style={{ width: GUTTER }} />
                 {day.lanes.map((l) => (
                     <View key={l.id} style={styles.laneHead}>
-                        <Avatar name={l.name} size="sm" color={l.color} />
+                        <Avatar name={l.name} src={photos.staff(l.id)} size="sm" color={l.color} />
                         <View style={styles.flex}>
                             <Text style={styles.laneName} numberOfLines={1}>
                                 {l.short}

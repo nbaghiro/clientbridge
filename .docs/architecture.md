@@ -574,6 +574,15 @@ member on the booking or a manager can add one, and `GET /v1/files/{id}/link` re
 URL to the same people. The booking detail on web and mobile lists them, and the subject's card on the
 client record shows the latest photos from its visits.
 
+People photos are `files` rows on a client or a user (`parent_type` client/user, `purpose` photo, image
+types only), scoped to one business like every file. Any member can set a client's photo; a member sets
+their own, and an owner or admin sets anyone's on the team. Completing an upload deletes the photo it
+replaces, so each person has one, and `DELETE /v1/files/photos/{parent_type}/{parent_id}` clears it. The
+rows sync with the other files, and `usePeoplePhotos` turns them into presigned links for every avatar. A
+client photo is never public. A user's photo is served from `/media/{file_id}`, and appears as
+`photo_url` on `PublicStaff`, only while that member is active, bookable online and on the profile's
+`public_staff_ids`.
+
 ### Payments — Stripe Connect custody
 
 Each business has one Accounts v2 connected account; clients have Customers inside that account.

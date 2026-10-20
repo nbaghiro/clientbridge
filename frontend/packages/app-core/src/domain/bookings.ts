@@ -41,12 +41,19 @@ import {
 } from "../format";
 import { type Load, isConnectionFailure, useAsyncAction } from "../hooks";
 import { strings } from "../strings";
-import type { CalendarEventFlag, Intent, TimelineEntry } from "../ui";
+import type { CalendarEventFlag, Intent, OptionMedia, TimelineEntry } from "../ui";
 import type { Viewer } from "./auth";
 import { type ItemRow, bookableItems, useCatalogItems } from "./catalog";
 import { type Checkout, useCheckout } from "./checkout";
 import { type ClientRow, useClients } from "./clients";
-import { type Photo, bookingPhotoTarget, useFileLinks, useFileUpload } from "./files";
+import {
+    type Photo,
+    bookingPhotoTarget,
+    personMedia,
+    useFileLinks,
+    useFileUpload,
+    usePeoplePhotos,
+} from "./files";
 import { canManagePayments } from "./payments";
 import { isPlace, mapsUrl, visitAddress } from "./publicBooking";
 import { type StaffRow, staffName, useStaff } from "./staff";
@@ -1744,7 +1751,7 @@ export interface BookingComposer {
     setItemId: (id: string) => void;
     staffId: string;
     setStaffId: (id: string) => void;
-    staffOptions: { id: string; name: string; free: boolean }[];
+    staffOptions: { id: string; name: string; free: boolean; media: OptionMedia }[];
     day: string;
     setDay: (key: string) => void;
     time: string;
@@ -1859,6 +1866,7 @@ export function useBookingComposer(
     board: { actors: StaffRow[]; window: VisibleWindow },
     onCreated: () => void,
 ): BookingComposer {
+    const photos = usePeoplePhotos();
     const clients = useClients();
     const kind = useSubjectKind();
     const allSubjects = useQuery<SubjectOption>(CLIENT_SUBJECT_OPTIONS_SQL).data;
@@ -1966,6 +1974,7 @@ export function useBookingComposer(
             id: x.id,
             name: staffName(x),
             free: check(x.id).problem === null,
+            media: personMedia(staffName(x), x.color, photos.staff(x.id)),
         })),
         day,
         setDay,
@@ -2077,7 +2086,7 @@ interface Reschedule {
     setDay: (key: string) => void;
     staffId: string;
     setStaffId: (id: string) => void;
-    staffOptions: { key: string; label: string }[];
+    staffOptions: { key: string; label: string; media: OptionMedia }[];
     groups: SlotGroup[];
     open: number;
     loading: boolean;
@@ -2097,6 +2106,7 @@ export function useReschedule(
     viewer: Viewer | null,
     onDone: () => void,
 ): Reschedule {
+    const photos = usePeoplePhotos();
     const now = useNow();
     const zone = useBusinessZone();
     const first = event.start < now ? now : event.start;
@@ -2146,6 +2156,7 @@ export function useReschedule(
         staffOptions: actorsFor(staff.rows, viewer).map((x) => ({
             key: x.id,
             label: firstName(staffName(x)),
+            media: personMedia(staffName(x), x.color, photos.staff(x.id)),
         })),
         groups: groupStarts(slots, zone),
         open: slots.filter((x) => !x.disabled).length,

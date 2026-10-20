@@ -12,6 +12,7 @@ import {
     useBookingAddons,
     useBookingPhotos,
     useDeparture,
+    usePeoplePhotos,
     useSubjectKind,
     useCollectDeposit,
     useNewMessage,
@@ -114,6 +115,7 @@ function BookingFacts({ detail, layout }: { detail: BookingDetail; layout: "inli
 }
 
 function BookingClient({ detail }: { detail: BookingDetail }) {
+    const photos = usePeoplePhotos();
     const { client, subject } = detail;
     const [messaging, setMessaging] = useState(false);
     const cards = useSavedCards(client?.id ?? "");
@@ -137,7 +139,7 @@ function BookingClient({ detail }: { detail: BookingDetail }) {
         >
             <div className="rounded-md border border-line">
                 <div className="flex items-center gap-3 px-3 py-2.5">
-                    <Avatar name={client.name} />
+                    <Avatar name={client.name} src={photos.client(client.id)} />
                     <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5">
                             <span className="truncate text-sm font-semibold text-ink">

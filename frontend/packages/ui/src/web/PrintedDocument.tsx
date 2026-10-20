@@ -20,7 +20,9 @@ type Doc = PrintedDoc;
 
 function BrandBlock({ doc, inverse = false }: { doc: Doc; inverse?: boolean }) {
     const b = doc.business;
-    const avatar = <Avatar name={b.name} src={b.avatarUrl} color={b.brandColor} size="lg" />;
+    const avatar = (
+        <Avatar name={b.name} src={b.avatarUrl} variant="mark" color={b.brandColor} size="lg" />
+    );
     return (
         <div className="flex items-center gap-3">
             {inverse ? <span className="rounded-avatar bg-surface">{avatar}</span> : avatar}

@@ -8,6 +8,7 @@ import {
     formatTime,
     strings,
     useFrontDeskBoard,
+    usePeoplePhotos,
     useSaleActions,
     useSaleDetail,
     useSalesHistory,
@@ -332,6 +333,7 @@ function SalePanel({
     onClose: () => void;
     onResume: (id: string) => void;
 }) {
+    const photos = usePeoplePhotos();
     const role = useRole();
     const zone = useBusinessZone();
     const { load, detail } = useSaleDetail(id, role);
@@ -433,7 +435,12 @@ function SalePanel({
                                         key={s.staffId}
                                         className="inline-flex items-center gap-2 rounded-full border border-line py-1 pl-1 pr-3 text-sm"
                                     >
-                                        <Avatar name={s.name} size="sm" color={s.color} />
+                                        <Avatar
+                                            name={s.name}
+                                            src={photos.staff(s.staffId)}
+                                            size="sm"
+                                            color={s.color}
+                                        />
                                         {s.name}
                                         <span className="font-semibold tabular-nums">
                                             {formatMoney(s.cents, BUSINESS_CURRENCY)}

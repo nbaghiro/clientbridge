@@ -8,6 +8,7 @@ import {
     formatParts,
     BUSINESS_CURRENCY,
     useBusinessZone,
+    usePeoplePhotos,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import {
@@ -35,6 +36,7 @@ const s = strings.earnings;
 const c = theme.colors;
 
 export function Earnings() {
+    const photos = usePeoplePhotos();
     const zone = useBusinessZone();
     const e = useEarningApprovals(api);
     const openLink = useOpenLink();
@@ -98,7 +100,13 @@ export function Earnings() {
                             {e.payees.map((p) => (
                                 <ListRow
                                     key={p.staffId}
-                                    leading={<Avatar name={p.name} color={p.color} />}
+                                    leading={
+                                        <Avatar
+                                            name={p.name}
+                                            src={photos.staff(p.staffId)}
+                                            color={p.color}
+                                        />
+                                    }
                                     title={p.name}
                                     detail={s.count(p.pendingCount)}
                                     meta={formatMoney(p.pendingCents, BUSINESS_CURRENCY)}

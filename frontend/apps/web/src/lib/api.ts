@@ -1,4 +1,5 @@
 import { type Session, createIdentityClient, createSession } from "@clientbridge/api-client";
+import { setPhotoApi } from "@clientbridge/app-core";
 
 import { config } from "../config";
 import { forgetUser, getUserId, sessionEpoch } from "./auth";
@@ -32,9 +33,11 @@ const session = createSession({
 });
 
 export let api: Session = session;
+setPhotoApi(api);
 
 export const identity = createIdentityClient({ baseUrl: config.authUrl, mode: "browser" });
 
 export function selectBusiness(businessId: string | null): void {
     api = session.forBusiness(businessId);
+    setPhotoApi(api);
 }

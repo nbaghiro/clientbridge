@@ -8,6 +8,7 @@ import {
     type SyncNotice,
     strings,
     useNotifications,
+    usePeoplePhotos,
     usePlanNotice,
     useShellNav,
     useStripeAccountId,
@@ -29,7 +30,7 @@ import {
 
 import { api, apiBaseUrl } from "../lib/api";
 import { connectPowerSync } from "../lib/powersync";
-import { useViewer } from "../lib/auth";
+import { getUserId, useViewer } from "../lib/auth";
 import { ShellContext, linkPath, useOpenLink } from "../lib/links";
 import { CommandPalette } from "./CommandPalette";
 import { NotificationsPanel } from "./NotificationsPanel";
@@ -220,6 +221,7 @@ function ShellBody({
     onRetrySync: () => void;
     onDiscardSync?: (() => void) | undefined;
 }) {
+    const photos = usePeoplePhotos();
     const openLink = useOpenLink();
     const n = strings.navigation;
     return (
@@ -235,6 +237,7 @@ function ShellBody({
                             name={nav.setup.businessName}
                             size="sm"
                             color={nav.brandColor}
+                            variant="mark"
                             src={
                                 nav.setup.logoFileId
                                     ? mediaUrl(apiBaseUrl, nav.setup.logoFileId)
@@ -340,7 +343,12 @@ function ShellBody({
                         {n.setup}
                     </NavLink>
                     <div className="mt-2 flex items-center gap-2.5 rounded-md px-2 py-1.5">
-                        <Avatar name={nav.name} size="sm" color={nav.color} />
+                        <Avatar
+                            name={nav.name}
+                            src={photos.user(getUserId())}
+                            size="sm"
+                            color={nav.color}
+                        />
                         <div className="min-w-0 flex-1">
                             <div className="truncate text-sm font-medium text-ink">{nav.name}</div>
                             <div className="truncate text-xs text-muted">{nav.roleLabel}</div>

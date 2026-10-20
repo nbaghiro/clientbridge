@@ -1,4 +1,5 @@
 import { type Session, createIdentityClient, createSession } from "@clientbridge/api-client";
+import { setPhotoApi } from "@clientbridge/app-core";
 import * as WebBrowser from "expo-web-browser";
 
 import { forgetSession, getSession, sessionEpoch } from "./auth";
@@ -35,6 +36,7 @@ const session = createSession({
 });
 
 export let api: Session = session;
+setPhotoApi(api);
 
 const AUTH_CALLBACK = "clientbridge://auth/callback";
 
@@ -53,4 +55,5 @@ export async function openAuthSession(url: string): Promise<string | null> {
 
 export function selectBusiness(businessId: string | null): void {
     api = session.forBusiness(businessId);
+    setPhotoApi(api);
 }

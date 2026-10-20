@@ -10,6 +10,7 @@ import {
     useClientEditor,
     useClientMerge,
     useNoteComposer,
+    usePeoplePhotos,
     useSubjectForm,
     formatParts,
     useBusinessZone,
@@ -36,6 +37,7 @@ import { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import { api } from "../lib/api";
+import { PersonPhoto } from "./PersonPhoto";
 import { useRole } from "../lib/auth";
 
 const c = theme.colors;
@@ -93,6 +95,7 @@ export function ClientEditorSheet({
     onOpen: (id: string) => void;
     onClose: () => void;
 }) {
+    const photos = usePeoplePhotos();
     const editor = useClientEditor(api, directory, clientId, (id) => {
         if (clientId === null) onOpen(id);
         else onClose();
@@ -139,10 +142,20 @@ export function ClientEditorSheet({
                     ) : null}
                 </View>
             ) : null}
+            {editor.client !== null ? (
+                <PersonPhoto
+                    owner={{ kind: "client", id: editor.client.id }}
+                    name={editor.client.name}
+                />
+            ) : null}
             {dup !== undefined ? (
                 <View accessibilityRole="alert" style={styles.dup}>
                     <View style={styles.dupHead}>
-                        <Avatar name={dup.client.name} size="sm" />
+                        <Avatar
+                            name={dup.client.name}
+                            src={photos.client(dup.client.id)}
+                            size="sm"
+                        />
                         <Text style={styles.dupTitle}>{e.duplicateTitle(dup.client.name)}</Text>
                     </View>
                     <Text style={styles.dupBody}>{e.duplicateBody(dup.reasons.join(e.and))}</Text>

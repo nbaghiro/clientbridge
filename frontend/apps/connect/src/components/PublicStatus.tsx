@@ -28,7 +28,7 @@ export function PublicStatus({
         >
             <div className={loading ? "motion-safe:animate-pulse" : undefined}>
                 {logo ? (
-                    <Avatar src={logo} name="" size="lg" />
+                    <Avatar src={logo} name="" size="lg" variant="mark" />
                 ) : (
                     <Logo className="h-12 w-auto text-accent" />
                 )}

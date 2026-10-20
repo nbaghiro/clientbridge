@@ -11,6 +11,7 @@ import {
     useInbox,
     useMarkThreadRead,
     useNewMessage,
+    usePeoplePhotos,
     useThreadComposer,
     visibleInboxSegments,
     formatParts,
@@ -108,6 +109,7 @@ function Messages({
     onPick: (id: string) => void;
     wide: boolean;
 }) {
+    const photos = usePeoplePhotos();
     const kind = useSubjectKind();
     const [details, setDetails] = useState(false);
     const [composing, setComposing] = useState<string | null>(null);
@@ -219,6 +221,7 @@ function Messages({
                                         <ConversationRow
                                             key={t.id}
                                             name={t.title}
+                                            src={photos.client(t.client_id)}
                                             preview={t.last_body ?? ""}
                                             at={t.ago}
                                             unread={t.unread_count}
@@ -295,6 +298,7 @@ function Thread({
     onDetails: (v: boolean) => void;
     wide: boolean;
 }) {
+    const photos = usePeoplePhotos();
     const conversation = useConversation(api, thread);
     const composer = useThreadComposer(api, thread);
     useMarkThreadRead(api, thread);
@@ -309,7 +313,7 @@ function Thread({
         <>
             <section className="flex min-w-0 flex-1 flex-col bg-bg">
                 <div className="flex items-center gap-3 border-b border-line bg-surface px-5 py-3">
-                    <Avatar name={thread.title} />
+                    <Avatar name={thread.title} src={photos.client(thread.client_id)} />
                     <div className="min-w-0 flex-1">
                         <h2 className="truncate font-display text-base font-bold text-ink">
                             {thread.title}
@@ -447,12 +451,13 @@ function NewThread({
     clientId: string;
     onSent: (sent: { clientId: string; name: string }) => void;
 }) {
+    const photos = usePeoplePhotos();
     const msg = useNewMessage(api, onSent, clientId);
     const name = msg.clients.find((c) => c.key === clientId)?.label ?? "";
     return (
         <section className="flex min-w-0 flex-1 flex-col bg-bg">
             <div className="flex items-center gap-3 border-b border-line bg-surface px-5 py-3">
-                <Avatar name={name} />
+                <Avatar name={name} src={photos.client(clientId)} />
                 <h2 className="min-w-0 flex-1 truncate font-display text-base font-bold text-ink">
                     {name}
                 </h2>

@@ -1,5 +1,5 @@
 import type { SelectOption } from "../ui";
-import { personMedia } from "./files";
+import { personMedia, usePeoplePhotos } from "./files";
 import { isStorageFull } from "./sync";
 import { discardRejectedHours, enqueueHours, strandedKey, type WeekDay } from "@clientbridge/sync";
 import { useBusinessQuery as useQuery } from "../hooks";
@@ -827,6 +827,7 @@ export function useTimeOffForm(
     onDone: () => void,
     initialStaffId: string,
 ): TimeOffForm {
+    const photos = usePeoplePhotos();
     const now = useNow();
     const zone = useBusinessZone();
     const staffRows = useStaff();
@@ -876,7 +877,7 @@ export function useTimeOffForm(
             ...members.map((m) => ({
                 key: m.id,
                 label: staffName(m),
-                media: personMedia(staffName(m), m.color),
+                media: personMedia(staffName(m), m.color, photos.staff(m.id)),
             })),
             ...(manager ? [{ key: "", label: s.wholeBusiness }] : []),
         ],

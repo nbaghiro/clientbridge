@@ -3,6 +3,7 @@ import {
     type AwayLength,
     firstName,
     strings,
+    usePeoplePhotos,
     useTeamWeek,
     useTimeOffForm,
     useWeekEditor,
@@ -39,6 +40,7 @@ const s = strings.hours;
 
 /** One person at a time: their regular week in place, their time off and the business closures. */
 export function Hours() {
+    const photos = usePeoplePhotos();
     const viewer = useViewer();
     const week = useTeamWeek(api, viewer);
     const [picked, setPicked] = useState<string | null>(null);
@@ -82,7 +84,12 @@ export function Hours() {
                         </Notice>
                     ) : null}
                     <View style={styles.who}>
-                        <Avatar name={member.name} color={member.color} size="lg" />
+                        <Avatar
+                            name={member.name}
+                            src={photos.staff(member.id)}
+                            color={member.color}
+                            size="lg"
+                        />
                         <View style={styles.whoText}>
                             <Text style={styles.name}>{member.name}</Text>
                             {member.title !== "" ? (

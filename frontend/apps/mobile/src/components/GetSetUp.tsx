@@ -57,7 +57,7 @@ function BookingPreview({ brand, logo }: { brand: BrandForm; logo: string | null
                 </Text>
             </View>
             <View style={styles.head}>
-                <Avatar name={brand.name} src={logo} color={brand.colour} />
+                <Avatar name={brand.name} src={logo} variant="mark" color={brand.colour} />
                 <View style={styles.grow}>
                     <Text style={styles.name} numberOfLines={1}>
                         {brand.name}
@@ -136,7 +136,13 @@ function BrandSheet({ brand, onClose }: { brand: BrandForm; onClose: () => void 
                     <Text style={styles.small}>{o.brandBody}</Text>
                 </View>
                 <View style={styles.logoRow}>
-                    <Avatar name={brand.name} src={logo} color={brand.colour} size="lg" />
+                    <Avatar
+                        name={brand.name}
+                        src={logo}
+                        variant="mark"
+                        color={brand.colour}
+                        size="lg"
+                    />
                     <View style={[styles.stack, styles.grow]}>
                         <Text style={styles.section}>{o.logo}</Text>
                         <Text style={styles.small}>{o.logoHint}</Text>

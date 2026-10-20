@@ -21,7 +21,7 @@ function Brand({ doc, inverse = false }: { doc: Doc; inverse?: boolean }) {
     const b = doc.business;
     return (
         <View style={styles.brand}>
-            <Avatar name={b.name} src={b.avatarUrl} color={b.brandColor} size="lg" />
+            <Avatar name={b.name} src={b.avatarUrl} variant="mark" color={b.brandColor} size="lg" />
             <View style={styles.flex}>
                 <Text style={[styles.bizName, inverse && styles.inverse]}>{b.name}</Text>
                 <Text style={[styles.small, inverse && styles.inverseSoft]}>{b.tagline}</Text>

@@ -13,6 +13,7 @@ import {
     strings,
     useCatalogItems,
     useCheckoutQueue,
+    usePeoplePhotos,
     useRegisterCatalog,
     useSale,
     useSalesViews,
@@ -90,6 +91,7 @@ function VisitRow({
     onTicket: boolean;
     onCheckOut: () => void;
 }) {
+    const photos = usePeoplePhotos();
     const zone = useBusinessZone();
     const st = VISIT_STATE[v.state];
     return (
@@ -105,7 +107,12 @@ function VisitRow({
             <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold text-ink">{v.clientName}</p>
                 <p className="mt-0.5 flex items-center gap-1.5 truncate text-xs text-muted">
-                    <Avatar name={v.staffName} size="sm" color={v.staffColor} />
+                    <Avatar
+                        name={v.staffName}
+                        src={photos.staff(v.staffId)}
+                        size="sm"
+                        color={v.staffColor}
+                    />
                     <span className="truncate">
                         {formatParts([
                             v.itemName,

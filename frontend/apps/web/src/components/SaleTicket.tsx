@@ -17,6 +17,7 @@ import {
     parseCents,
     formatAmountInput,
     formatCredit,
+    usePeoplePhotos,
 } from "@clientbridge/app-core";
 import {
     Avatar,
@@ -47,6 +48,7 @@ function Heading({ children }: { children: ReactNode }) {
 }
 
 function ClientPicker({ sale }: { sale: SaleTicket }) {
+    const photos = usePeoplePhotos();
     const clients = useClients();
     const [searching, setSearching] = useState(false);
     const [q, setQ] = useState("");
@@ -69,7 +71,7 @@ function ClientPicker({ sale }: { sale: SaleTicket }) {
                         <ListRow
                             key={c.id}
                             density="compact"
-                            leading={<Avatar name={c.name} size="sm" />}
+                            leading={<Avatar name={c.name} src={photos.client(c.id)} size="sm" />}
                             title={c.name}
                             detail={formatPhone(c.phone) || (c.email ?? "")}
                             onPress={() => {
@@ -101,7 +103,7 @@ function ClientPicker({ sale }: { sale: SaleTicket }) {
     }
     return (
         <div className="flex items-center gap-3">
-            <Avatar name={sale.client.name} />
+            <Avatar name={sale.client.name} src={photos.client(sale.client.id)} />
             <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold text-ink">{sale.client.name}</p>
                 <p className="truncate text-xs text-muted">{sale.client.detail}</p>
@@ -599,6 +601,7 @@ function TipChips({ sale }: { sale: SaleTicket }) {
 
 /** Tips B: the tip and how it's shared between the people who served. */
 function TipBlock({ sale }: { sale: SaleTicket }) {
+    const photos = usePeoplePhotos();
     const tip = sale.totals.tipCents;
     return (
         <section className="space-y-3" aria-label={d.tipSection}>
@@ -636,7 +639,12 @@ function TipBlock({ sale }: { sale: SaleTicket }) {
                                     key={sh.staffId}
                                     className="flex items-center gap-2.5 px-3 py-2"
                                 >
-                                    <Avatar name={sh.name} size="sm" color={sh.color} />
+                                    <Avatar
+                                        name={sh.name}
+                                        src={photos.staff(sh.staffId)}
+                                        size="sm"
+                                        color={sh.color}
+                                    />
                                     <span className="min-w-0 flex-1">
                                         <span className="block truncate text-sm font-medium text-ink">
                                             {sh.name}

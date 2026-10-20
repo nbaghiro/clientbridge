@@ -8,6 +8,7 @@ import {
     formatPhone,
     strings,
     useOwnerToday,
+    usePeoplePhotos,
     useSetupProgress,
     useStaffToday,
     useTodayActions,
@@ -415,6 +416,7 @@ function NextClient({
     actions: TodayActions;
     lastVisit: string | null;
 }) {
+    const photos = usePeoplePhotos();
     const openLink = useOpenLink();
     const kind = useSubjectKind();
     const action = visitAction(item, kind);
@@ -439,7 +441,12 @@ function NextClient({
                 />
             </div>
             <div className="flex flex-wrap items-start gap-5 p-5">
-                <Avatar name={item.clientName} size="xl" color={item.color} />
+                <Avatar
+                    name={item.clientName}
+                    src={photos.client(item.clientId)}
+                    size="xl"
+                    color={item.color}
+                />
                 <div className="min-w-0 flex-1">
                     <h3 className="font-display text-xl font-bold text-ink">{item.clientName}</h3>
                     <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-3 text-sm xl:grid-cols-3">

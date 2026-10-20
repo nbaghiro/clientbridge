@@ -10,6 +10,7 @@ import {
     formatPhone,
     strings,
     useClients,
+    usePeoplePhotos,
     useTerminalConnection,
     useDiscountEditor,
     useDiscountSheet,
@@ -150,6 +151,7 @@ export function DiscountForm({
 }
 
 function ClientPicker({ sale }: { sale: SaleTicket }) {
+    const photos = usePeoplePhotos();
     const clients = useClients();
     const [searching, setSearching] = useState(false);
     const [q, setQ] = useState("");
@@ -172,7 +174,7 @@ function ClientPicker({ sale }: { sale: SaleTicket }) {
                         <ListRow
                             key={cl.id}
                             density="compact"
-                            leading={<Avatar name={cl.name} size="sm" />}
+                            leading={<Avatar name={cl.name} src={photos.client(cl.id)} size="sm" />}
                             title={cl.name}
                             detail={formatPhone(cl.phone) || (cl.email ?? "")}
                             onPress={() => {
@@ -190,7 +192,15 @@ function ClientPicker({ sale }: { sale: SaleTicket }) {
             density="compact"
             {...(sale.client === null
                 ? { icon: "user" as const }
-                : { leading: <Avatar name={sale.client.name} size="sm" /> })}
+                : {
+                      leading: (
+                          <Avatar
+                              name={sale.client.name}
+                              src={photos.client(sale.client.id)}
+                              size="sm"
+                          />
+                      ),
+                  })}
             title={sale.client?.name ?? d.walkIn}
             detail={sale.client?.detail ?? d.clientHint}
             meta={sale.client === null ? d.chooseClient : d.changeClient}
@@ -281,6 +291,7 @@ function DiscountSheetBody({ sale, onDone }: { sale: SaleTicket; onDone: () => v
 }
 
 function TipBlock({ sale }: { sale: SaleTicket }) {
+    const photos = usePeoplePhotos();
     const [custom, setCustom] = useState("");
     const tip = sale.totals.tipCents;
     return (
@@ -345,7 +356,14 @@ function TipBlock({ sale }: { sale: SaleTicket }) {
                             <ListRow
                                 key={sh.staffId}
                                 density="compact"
-                                leading={<Avatar name={sh.name} size="sm" color={sh.color} />}
+                                leading={
+                                    <Avatar
+                                        name={sh.name}
+                                        src={photos.staff(sh.staffId)}
+                                        size="sm"
+                                        color={sh.color}
+                                    />
+                                }
                                 title={sh.name}
                                 detail={d.tipShareOf(Math.round((sh.cents / tip) * 100))}
                                 meta={formatMoney(sh.cents, BUSINESS_CURRENCY)}

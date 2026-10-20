@@ -11,6 +11,7 @@ import {
     useContractLibrary,
     useContractDraft,
     useNewContract,
+    usePeoplePhotos,
     useSignatureActions,
     formatParts,
     useBusinessZone,
@@ -138,6 +139,7 @@ function ContractDetail({
     issuer: string;
     onBack: () => void;
 }) {
+    const photos = usePeoplePhotos();
     const zone = useBusinessZone();
     const actions = useSignatureActions(api, bookUrl, shareText);
     const [sending, setSending] = useState(false);
@@ -178,7 +180,13 @@ function ContractDetail({
                     return (
                         <ListRow
                             key={r.id}
-                            leading={<Avatar name={r.client_name ?? ""} size="sm" />}
+                            leading={
+                                <Avatar
+                                    name={r.client_name ?? ""}
+                                    src={photos.client(r.client_id)}
+                                    size="sm"
+                                />
+                            }
                             title={r.client_name ?? ""}
                             detail={signatureActivity(r, zone)}
                             meta={

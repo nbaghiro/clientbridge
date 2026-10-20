@@ -24,6 +24,7 @@ import {
     formatList,
     BUSINESS_CURRENCY,
     useBusinessZone,
+    usePeoplePhotos,
     useSubjectKind,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
@@ -76,6 +77,7 @@ type Sheet =
     | { kind: "tags" };
 
 export function ClientsScreen() {
+    const photos = usePeoplePhotos();
     const zone = useBusinessZone();
     const kind = useSubjectKind();
     const dir = useClientDirectory();
@@ -228,7 +230,7 @@ export function ClientsScreen() {
                                 }}
                             />
                         ) : null}
-                        <Avatar name={cl.name} />
+                        <Avatar name={cl.name} src={photos.client(cl.id)} />
                         <View style={styles.rowMain}>
                             <Text style={styles.rowName} numberOfLines={1}>
                                 {cl.name}
@@ -462,6 +464,7 @@ function RecordSheet({
     onClose: () => void;
     onSheet: (s: Sheet) => void;
 }) {
+    const photos = usePeoplePhotos();
     const zone = useBusinessZone();
     const kind = useSubjectKind();
     const viewer = useViewer();
@@ -503,7 +506,7 @@ function RecordSheet({
                 ),
             ])}
             status={cl.archived ? { status: r.archived, intent: "warning" } : undefined}
-            leading={<Avatar name={cl.name} size="lg" />}
+            leading={<Avatar name={cl.name} src={photos.client(cl.id)} size="lg" />}
             onClose={onClose}
             actions={
                 <View style={styles.actions}>

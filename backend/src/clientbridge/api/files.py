@@ -3,6 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Header
 
 from clientbridge.core.deps import CurrentPrincipal, DbSession, StorageDep
+from clientbridge.models.platform import FileParent
 from clientbridge.schemas.files import FileCreate, FileLink, FileOut, FileUpload
 from clientbridge.services.files import FileService
 
@@ -32,3 +33,15 @@ async def file_link(
     file_id: str, principal: CurrentPrincipal, db: DbSession, storage: StorageDep
 ) -> FileLink:
     return await FileService(db, principal, storage).link(file_id)
+
+
+@router.delete("/photos/{parent_type}/{parent_id}", status_code=204)
+async def clear_photo(
+    parent_type: FileParent,
+    parent_id: str,
+    principal: CurrentPrincipal,
+    db: DbSession,
+    storage: StorageDep,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+) -> None:
+    await FileService(db, principal, storage).clear_photo(parent_type, parent_id, idempotency_key)

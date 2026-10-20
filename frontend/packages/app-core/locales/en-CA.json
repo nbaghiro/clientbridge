@@ -12417,6 +12417,32 @@
     "files.replaceLogo": {
         "message": "Replace logo"
     },
+    "files.photo": {
+        "message": "Photo"
+    },
+    "files.addPhoto": {
+        "message": "Add photo"
+    },
+    "files.changePhoto": {
+        "message": "Change photo"
+    },
+    "files.removePhoto": {
+        "message": "Remove photo"
+    },
+    "files.clientPhotoHint": {
+        "message": "Your team sees it beside this client. The client doesn't.",
+        "description": "Hint under a client's photo in the staff app"
+    },
+    "files.memberPhotoHint": {
+        "message": "Your team sees it, and so do clients if you're on the public profile.",
+        "description": "Hint under a team member's photo"
+    },
+    "files.removePhotoError": {
+        "message": "Couldn't remove the photo. Please try again."
+    },
+    "files.removePhotoOffline": {
+        "message": "Removing a photo needs a connection. Try again when you're back online."
+    },
     "checkout.bankLinkHelp": {
         "message": "Share this private link with the client. They enter their bank details and authorize payments with Stripe. The client must start within 24 hours, then has 10 days to finish bank verification. Creating another link replaces it."
     },

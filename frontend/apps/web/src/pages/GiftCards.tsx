@@ -11,6 +11,7 @@ import {
     formatParts,
     BUSINESS_CURRENCY,
     currencyAffix,
+    usePeoplePhotos,
 } from "@clientbridge/app-core";
 import {
     ActivityTimeline,
@@ -41,6 +42,7 @@ const w = strings.entitlements;
 const g = strings.entitlements.giftCards;
 
 export function GiftCards() {
+    const photos = usePeoplePhotos();
     const wallet = useEntitlementWallet();
     const openLink = useOpenLink();
     const [openId, setOpenId] = useState<string | null>(null);
@@ -122,7 +124,7 @@ export function GiftCards() {
                     {c !== null ? (
                         <section className="flex flex-wrap items-center gap-x-8 gap-y-4 rounded-lg border border-line bg-surface px-5 py-4 shadow-card">
                             <div className="flex min-w-0 items-center gap-3">
-                                <Avatar name={c.name} size="lg" />
+                                <Avatar name={c.name} src={photos.client(c.id)} size="lg" />
                                 <div className="min-w-0">
                                     <h3 className="truncate font-display text-lg font-bold text-ink">
                                         {c.name}

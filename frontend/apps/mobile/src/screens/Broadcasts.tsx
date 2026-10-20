@@ -16,6 +16,7 @@ import {
     formatParts,
     useBusinessZone,
     kindWord,
+    usePeoplePhotos,
     useSubjectKind,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
@@ -85,6 +86,7 @@ export function Broadcasts() {
 }
 
 function Home({ onCompose }: { onCompose: (seed: BroadcastSeed) => void }) {
+    const photos = usePeoplePhotos();
     const zone = useBusinessZone();
     const home = useBroadcastsHome();
     const actions = useBroadcastActions(api, shareCsv);
@@ -197,7 +199,7 @@ function Home({ onCompose }: { onCompose: (seed: BroadcastSeed) => void }) {
                         {home.optOuts.length === 0 ? <Empty message={s.noOptOuts} /> : null}
                         {home.optOuts.map((o) => (
                             <View key={`${o.clientId}-${o.channel}`} style={styles.row}>
-                                <Avatar name={o.name} size="sm" />
+                                <Avatar name={o.name} src={photos.client(o.clientId)} size="sm" />
                                 <View style={styles.flex}>
                                     <Text style={styles.rowName}>{o.name}</Text>
                                     <Text style={styles.meta}>
@@ -216,7 +218,7 @@ function Home({ onCompose }: { onCompose: (seed: BroadcastSeed) => void }) {
                         {home.implied.length === 0 ? <Empty message={s.noImplied} /> : null}
                         {home.implied.map((o) => (
                             <View key={`${o.clientId}-${o.channel}`} style={styles.row}>
-                                <Avatar name={o.name} size="sm" />
+                                <Avatar name={o.name} src={photos.client(o.clientId)} size="sm" />
                                 <View style={styles.flex}>
                                     <Text style={styles.rowName}>{o.name}</Text>
                                     <Text style={styles.meta}>
@@ -467,6 +469,7 @@ function AudiencePicker({ draft }: { draft: BroadcastDraft }) {
 }
 
 function AudienceSummary({ draft }: { draft: BroadcastDraft }) {
+    const photos = usePeoplePhotos();
     const a = draft.audience;
     if (a.matched === 0) return <Empty message={s.noAudience} body={s.noAudienceBody} />;
     return (
@@ -483,7 +486,7 @@ function AudienceSummary({ draft }: { draft: BroadcastDraft }) {
             </Text>
             {a.excluded.slice(0, 8).map((x) => (
                 <View key={x.id} style={styles.row}>
-                    <Avatar name={x.name} size="sm" />
+                    <Avatar name={x.name} src={photos.client(x.id)} size="sm" />
                     <View style={styles.flex}>
                         <Text style={styles.rowName}>{x.name}</Text>
                         <Text style={styles.meta}>

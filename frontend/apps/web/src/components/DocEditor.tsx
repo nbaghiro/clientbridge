@@ -14,6 +14,7 @@ import {
     BUSINESS_CURRENCY,
     currencyAffix,
     personMedia,
+    usePeoplePhotos,
 } from "@clientbridge/app-core";
 import {
     Avatar,
@@ -406,13 +407,14 @@ function ClientPicker({
     error: string | null;
     onChange: (id: string) => void;
 }) {
+    const photos = usePeoplePhotos();
     const chosen = clients.find((x) => x.id === value) ?? null;
     if (editing && chosen !== null) {
         return (
             <section className="space-y-2">
                 <h3 className="text-sm font-semibold text-ink">{s.client}</h3>
                 <div className="flex items-center gap-3 rounded-lg border border-line bg-surface px-4 py-3">
-                    <Avatar name={chosen.name} size="sm" />
+                    <Avatar name={chosen.name} src={photos.client(chosen.id)} size="sm" />
                     <div className="min-w-0">
                         <p className="truncate font-medium text-ink">{chosen.name}</p>
                         {chosen.email !== null ? (
@@ -429,7 +431,11 @@ function ClientPicker({
             value={value}
             error={error}
             placeholder={s.chooseClient}
-            options={clients.map((x) => ({ key: x.id, label: x.name, media: personMedia(x.name) }))}
+            options={clients.map((x) => ({
+                key: x.id,
+                label: x.name,
+                media: personMedia(x.name, null, photos.client(x.id)),
+            }))}
             onChange={onChange}
         />
     );

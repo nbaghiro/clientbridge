@@ -4,6 +4,7 @@ import {
     useControllable,
 } from "@clientbridge/app-core/public";
 
+import { Avatar } from "./Avatar";
 import { moveFocus } from "./keys";
 import { type WebProps, cx } from "./props";
 
@@ -59,14 +60,26 @@ function OptionBody<K extends string>({
     lg: boolean;
 }) {
     if (layout === "segmented") return <>{o.label}</>;
+    const lead =
+        o.media !== undefined ? (
+            <Avatar name={o.media.name} src={o.media.src} color={o.media.color} size="sm" />
+        ) : null;
     if (layout === "cards") {
-        return (
+        const text = (
             <>
                 <span className="font-semibold">{o.label}</span>
                 {o.hint !== undefined ? (
                     <span className="mt-0.5 block text-xs text-muted">{o.hint}</span>
                 ) : null}
             </>
+        );
+        return lead === null ? (
+            text
+        ) : (
+            <span className="flex items-center gap-3">
+                {lead}
+                <span className="min-w-0">{text}</span>
+            </span>
         );
     }
     if (layout === "tiles") {
@@ -91,12 +104,15 @@ function OptionBody<K extends string>({
         );
     }
     return (
-        <>
-            {o.label}
-            {o.hint !== undefined ? (
-                <span className={on ? "opacity-80" : "text-muted"}> {o.hint}</span>
-            ) : null}
-        </>
+        <span className={lead === null ? undefined : "-ms-2 inline-flex items-center gap-2"}>
+            {lead}
+            <span>
+                {o.label}
+                {o.hint !== undefined ? (
+                    <span className={on ? "opacity-80" : "text-muted"}> {o.hint}</span>
+                ) : null}
+            </span>
+        </span>
     );
 }
 

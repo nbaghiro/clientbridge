@@ -10,6 +10,7 @@ import {
     strings,
     useBusinessZone,
     useConversation,
+    usePeoplePhotos,
     useSubjectKind,
 } from "@clientbridge/app-core";
 import { Avatar, Badge, Button, KeyValueList, Money } from "@clientbridge/ui";
@@ -115,6 +116,7 @@ export function ContextPanel({
     conversation: Conversation;
     onOpenRecord?: () => void;
 }) {
+    const photos = usePeoplePhotos();
     const zone = useBusinessZone();
     const kind = useSubjectKind();
     const openLink = useOpenLink();
@@ -123,7 +125,7 @@ export function ContextPanel({
     return (
         <div className="space-y-5">
             <div className="flex items-center gap-3">
-                <Avatar name={thread.title} size="lg" />
+                <Avatar name={thread.title} src={photos.client(client?.id)} size="lg" />
                 <div className="min-w-0">
                     <p className="truncate font-display text-base font-bold text-ink">
                         {thread.title}

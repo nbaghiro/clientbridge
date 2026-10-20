@@ -1,5 +1,5 @@
 import { historyStart } from "@clientbridge/sync";
-import { personMedia } from "./files";
+import { personMedia, usePeoplePhotos } from "./files";
 
 import { useBusinessQuery as useQuery } from "../hooks";
 
@@ -522,6 +522,7 @@ export function useNewMessage(
     onSent: (sent: { clientId: string; name: string }) => void,
     initialClientId = "",
 ): NewMessage {
+    const photos = usePeoplePhotos();
     const clients = useClients();
     const consents = useConsents();
     const [clientId, setClientIdRaw] = useState(initialClientId);
@@ -535,7 +536,7 @@ export function useNewMessage(
         clients: clients.map((c) => ({
             key: c.id,
             label: c.name,
-            media: personMedia(c.name),
+            media: personMedia(c.name, null, photos.client(c.id)),
         })),
         clientId,
         setClientId: (id) => {

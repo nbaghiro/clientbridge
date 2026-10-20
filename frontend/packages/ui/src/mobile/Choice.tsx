@@ -3,6 +3,7 @@ import { SHADOW } from "@clientbridge/tokens";
 import { theme } from "@clientbridge/tokens/native";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
+import { Avatar } from "./Avatar";
 import type { NativeProps } from "./props";
 
 const c = theme.colors;
@@ -80,32 +81,47 @@ export function Choice<K extends string>({
                                       ? styles.segmentOn
                                       : styles.chipOn),
                             o.disabled === true && styles.off,
+                            o.media !== undefined && layout !== "segmented" && styles.withMedia,
+                            o.media !== undefined && layout === "chips" && styles.chipMedia,
                         ]}
                     >
-                        <Text
-                            style={[
-                                styles.text,
-                                layout === "cards" && styles.cardText,
-                                layout === "segmented" && styles.segmentText,
-                                on &&
-                                    (layout === "cards"
-                                        ? styles.cardTextOn
-                                        : layout === "segmented"
-                                          ? styles.segmentTextOn
-                                          : styles.chipTextOn),
-                            ]}
-                            numberOfLines={layout === "cards" ? undefined : 1}
-                        >
-                            {o.label}
-                        </Text>
-                        {o.hint !== undefined ? (
+                        {o.media !== undefined && layout !== "segmented" ? (
+                            <Avatar
+                                name={o.media.name}
+                                src={o.media.src}
+                                color={o.media.color}
+                                size="sm"
+                            />
+                        ) : null}
+                        <View style={styles.labelBox}>
                             <Text
-                                style={[styles.hint, on && layout === "chips" && styles.chipTextOn]}
+                                style={[
+                                    styles.text,
+                                    layout === "cards" && styles.cardText,
+                                    layout === "segmented" && styles.segmentText,
+                                    on &&
+                                        (layout === "cards"
+                                            ? styles.cardTextOn
+                                            : layout === "segmented"
+                                              ? styles.segmentTextOn
+                                              : styles.chipTextOn),
+                                ]}
                                 numberOfLines={layout === "cards" ? undefined : 1}
                             >
-                                {o.hint}
+                                {o.label}
                             </Text>
-                        ) : null}
+                            {o.hint !== undefined ? (
+                                <Text
+                                    style={[
+                                        styles.hint,
+                                        on && layout === "chips" && styles.chipTextOn,
+                                    ]}
+                                    numberOfLines={layout === "cards" ? undefined : 1}
+                                >
+                                    {o.hint}
+                                </Text>
+                            ) : null}
+                        </View>
                     </Pressable>
                 );
             })}
@@ -152,6 +168,9 @@ const styles = StyleSheet.create({
     },
     cardOn: { borderColor: c.accent, backgroundColor: c.accentWeak },
     off: { opacity: 0.5 },
+    withMedia: { flexDirection: "row", alignItems: "center", gap: 8 },
+    chipMedia: { paddingLeft: 4 },
+    labelBox: { flexShrink: 1 },
     text: { color: c.inkSoft, fontSize: 13, fontWeight: "600" },
     chipTextOn: { color: c.accentStrong },
     segmentText: { color: c.muted },

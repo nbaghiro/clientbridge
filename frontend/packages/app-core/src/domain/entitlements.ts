@@ -1,5 +1,5 @@
 import { useBusinessQuery as useQuery } from "../hooks";
-import { personMedia } from "./files";
+import { personMedia, usePeoplePhotos } from "./files";
 
 import { useMemo, useRef, useState } from "react";
 
@@ -658,6 +658,7 @@ export function useEntitlementSaleForm(
         onDone?: (() => void) | undefined;
     } = {},
 ): EntitlementSaleForm {
+    const photos = usePeoplePhotos();
     const catalog = useCatalogItems();
     const clients = useClients();
     const tax = useTaxSetup();
@@ -815,7 +816,7 @@ export function useEntitlementSaleForm(
         clientOptions: clients.map((c) => ({
             key: c.id,
             label: c.name,
-            media: personMedia(c.name),
+            media: personMedia(c.name, null, photos.client(c.id)),
         })),
         methods,
         checkout,

@@ -4248,7 +4248,18 @@ interface Strings {
         readonly pageNotFoundTitle: string;
         readonly pageNotFoundBody: string;
     };
-    readonly files: { readonly uploadLogo: string; readonly replaceLogo: string } & Labels;
+    readonly files: {
+        readonly uploadLogo: string;
+        readonly replaceLogo: string;
+        readonly photo: string;
+        readonly addPhoto: string;
+        readonly changePhoto: string;
+        readonly removePhoto: string;
+        readonly clientPhotoHint: string;
+        readonly memberPhotoHint: string;
+        readonly removePhotoError: string;
+        readonly removePhotoOffline: string;
+    } & Labels;
     readonly checkout: {
         readonly bankLinkHelp: string;
         readonly bankLinkLabel: string;

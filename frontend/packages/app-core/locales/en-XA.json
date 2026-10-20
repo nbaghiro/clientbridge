@@ -11609,6 +11609,30 @@
     "files.replaceLogo": {
         "message": "[Ŕéþļåçé ļöĝö one two]"
     },
+    "files.photo": {
+        "message": "[Þĥöţö one]"
+    },
+    "files.addPhoto": {
+        "message": "[Åðð þĥöţö one]"
+    },
+    "files.changePhoto": {
+        "message": "[Çĥåñĝé þĥöţö one two]"
+    },
+    "files.removePhoto": {
+        "message": "[Ŕéɱöṽé þĥöţö one two]"
+    },
+    "files.clientPhotoHint": {
+        "message": "[Ýöûŕ ţéåɱ šééš îţ ƀéšîðé ţĥîš çļîéñţ. Ţĥé çļîéñţ ðöéšñ'ţ. one two three four]"
+    },
+    "files.memberPhotoHint": {
+        "message": "[Ýöûŕ ţéåɱ šééš îţ, åñð šö ðö çļîéñţš îƒ ýöû'ŕé öñ ţĥé þûƀļîç þŕöƒîļé. one two three four five]"
+    },
+    "files.removePhotoError": {
+        "message": "[Çöûļðñ'ţ ŕéɱöṽé ţĥé þĥöţö. Þļéåšé ţŕý åĝåîñ. one two three]"
+    },
+    "files.removePhotoOffline": {
+        "message": "[Ŕéɱöṽîñĝ å þĥöţö ñééðš å çöññéçţîöñ. Ţŕý åĝåîñ ŵĥéñ ýöû'ŕé ƀåçķ öñļîñé. one two three four five]"
+    },
     "checkout.bankLinkHelp": {
         "message": "[Šĥåŕé ţĥîš þŕîṽåţé ļîñķ ŵîţĥ ţĥé çļîéñţ. Ţĥéý éñţéŕ ţĥéîŕ ƀåñķ ðéţåîļš åñð åûţĥöŕîžé þåýɱéñţš ŵîţĥ Šţŕîþé. Ţĥé çļîéñţ ɱûšţ šţåŕţ ŵîţĥîñ 24 ĥöûŕš, ţĥéñ ĥåš 10 ðåýš ţö ƒîñîšĥ ƀåñķ ṽéŕîƒîçåţîöñ. Çŕéåţîñĝ åñöţĥéŕ ļîñķ ŕéþļåçéš îţ. one two three four five six seven eight nine ten one two three four]"
     },

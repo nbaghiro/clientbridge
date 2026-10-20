@@ -14,6 +14,7 @@ import {
     formatParts,
     BUSINESS_CURRENCY,
     useBusinessZone,
+    usePeoplePhotos,
     useSubjectKind,
 } from "@clientbridge/app-core";
 import {
@@ -63,6 +64,7 @@ export function Clients() {
 }
 
 function ClientList() {
+    const photos = usePeoplePhotos();
     const zone = useBusinessZone();
     const kind = useSubjectKind();
     const dir = useClientDirectory();
@@ -282,7 +284,7 @@ function ClientList() {
                                     />
                                 ) : null}
                                 <div className="flex min-w-0 items-center gap-3">
-                                    <Avatar name={c.name} />
+                                    <Avatar name={c.name} src={photos.client(c.id)} />
                                     <div className="min-w-0">
                                         <div className="truncate font-medium text-ink">
                                             {c.name}
@@ -534,6 +536,7 @@ function viewTitle(view: View, kind: SubjectKind | null): string {
 }
 
 function ClientPage({ clientId, view }: { clientId: string; view: View }) {
+    const photos = usePeoplePhotos();
     const zone = useBusinessZone();
     const kind = useSubjectKind();
     const viewer = useViewer();
@@ -568,7 +571,7 @@ function ClientPage({ clientId, view }: { clientId: string; view: View }) {
             ) : (
                 <>
                     <header className="mt-3 flex flex-wrap items-center gap-4">
-                        <Avatar name={c.name} size="lg" />
+                        <Avatar name={c.name} src={photos.client(c.id)} size="lg" />
                         <div className="min-w-0 flex-1">
                             <h1 className="truncate font-display text-2xl font-bold text-ink">
                                 {c.name}

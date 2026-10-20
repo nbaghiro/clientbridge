@@ -107,7 +107,13 @@ from clientbridge.services.consents import (
     latest_consents,
     set_channel_consent,
 )
-from clientbridge.services.files import confirm_upload, item_images, media_url, mint_upload
+from clientbridge.services.files import (
+    confirm_upload,
+    item_images,
+    media_url,
+    mint_upload,
+    team_photos,
+)
 from clientbridge.services.lines import (
     apply_totals,
     fetch_lines,
@@ -215,12 +221,19 @@ class PublicBookingService:
         tz = await business_tz(self.db, business.id)
         ids = [s.id for s in staff]
         names = await staff_names(self.db, business.id, ids)
+        photos = await team_photos(self.db, business.id)
         return PublicBookingPage(
             business_name=business.name,
             brand=public_brand(business),
             services=[_service_out(i, images.get(i.id), ids) for i in items],
             staff=[
-                PublicStaff(id=s.id, name=names.get(s.id), title=s.title, color=s.color)
+                PublicStaff(
+                    id=s.id,
+                    name=names.get(s.id),
+                    title=s.title,
+                    color=s.color,
+                    photo_url=_photo_url(photos.get(s.id)),
+                )
                 for s in staff
             ],
             addons=addons,
@@ -879,6 +892,7 @@ class PublicManageService:
                 name=(await staff_names(self.db, business.id, [staff.id])).get(staff.id),
                 title=staff.title,
                 color=staff.color,
+                photo_url=_photo_url((await team_photos(self.db, business.id)).get(staff.id)),
             ),
             starts_at=slot.starts_at,
             ends_at=slot.ends_at,
@@ -918,6 +932,10 @@ async def business_or_404(db: AsyncSession, business_id: str, message: str) -> B
     if business is None:
         raise NotFound(message)
     return business
+
+
+def _photo_url(file_id: str | None) -> str | None:
+    return media_url(file_id) if file_id is not None else None
 
 
 def public_brand(business: Business) -> PublicBrand:

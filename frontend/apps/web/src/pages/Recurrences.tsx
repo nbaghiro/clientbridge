@@ -3,6 +3,7 @@ import {
     type SeriesRecord,
     occurrenceRow,
     strings,
+    usePeoplePhotos,
     useSeriesList,
     useSeriesRecord,
     formatParts,
@@ -232,6 +233,7 @@ export function Recurrences() {
 }
 
 function Record({ id }: { id: string }) {
+    const photos = usePeoplePhotos();
     const zone = useBusinessZone();
     const rec = useSeriesRecord(api, id, useViewer());
     const [dialog, setDialog] = useState<"change" | "cancel" | null>(null);
@@ -294,7 +296,7 @@ function Record({ id }: { id: string }) {
                     label={s.with}
                     value={
                         <span className="flex items-center gap-2">
-                            <Avatar name={r.staffName} size="sm" />
+                            <Avatar name={r.staffName} src={photos.staff(r.staffId)} size="sm" />
                             {r.staffName}
                         </span>
                     }
