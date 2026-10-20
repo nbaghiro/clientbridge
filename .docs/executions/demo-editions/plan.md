@@ -12,7 +12,7 @@ One fully seeded demo business for each vertical the product serves, for showing
 | 4 | Home cleaning | new | property | AB | todo |
 | 5 | Hair and beauty salon | new | none | ON | todo |
 | 6 | Personal training and fitness | Ridgeline Strength Studio | none | AB | done |
-| 7 | Tutoring and lessons | new | student | ON | todo |
+| 7 | Tutoring and lessons | Lakeside Learning Studio | student | ON | done |
 | 8 | Massage and wellness | new | none | BC | todo |
 | 9 | Photography | new | none | ON | todo |
 | 10 | Landscaping and lawn care | new | property | AB | todo |

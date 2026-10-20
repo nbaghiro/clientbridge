@@ -24,7 +24,7 @@ from clientbridge.models.catalog import (
 from clientbridge.models.clients import Channel, Client, Consent, Note, NoteParent, Subject
 from clientbridge.models.documents import Contract, Form, FormField, FormResponse, Signature
 from clientbridge.models.messaging import Broadcast, Message, Thread
-from clientbridge.models.payments import Payment, PaymentMethod
+from clientbridge.models.payments import Payment, PaymentMethod, SavedMethod
 from clientbridge.models.platform import Audit, File
 from clientbridge.models.reviews import ReviewRequest
 from clientbridge.models.scheduling import (
@@ -58,7 +58,7 @@ from scripts.demo_finance import (
 )
 from scripts.demo_identity import placeholder_identity
 from scripts.demo_photos import add_photos
-from scripts.demo_spec import BusinessSpec, ContractSpec, Offering, Paid, Settle
+from scripts.demo_spec import BusinessSpec, ContractSpec, Offering, Pacing, Paid, Settle
 from scripts.demo_validate import validate_graph
 
 ASSETS = Path(__file__).parent / "demo_assets"
@@ -633,9 +633,14 @@ class Demo:
         visits: int,
         before: int,
         settle: Settle = "card",
+        subject: str | None = None,
+        price: int | None = None,
+        package_id: str | None = None,
+        canceled: tuple[int, ...] = (),
     ) -> Recurrence:
-        """A weekly series with `before` visits already done; each visit must fit the calendar."""
+        """A weekly series with `before` visits already done; `canceled` visits are called off."""
         item = self.items[item_id]
+        subject = subject or self.subject_id(client_key)
         today = self.local(self.now).date()
         first = today + timedelta(days=(weekday - today.weekday() - 1) % 7 + 1)
         days = expand_occurrences(
@@ -666,7 +671,6 @@ class Demo:
         for index, day in enumerate(days):
             start = datetime.combine(day, at, self.ctx.zone).astimezone(UTC)
             end = start + timedelta(minutes=item.duration_min or 60)
-            subject = self.subject_id(client_key)
             if not self.within_hours(staff, start, end):
                 raise ValueError(f"{recurrence.id}: visit {index} is outside {staff}'s hours")
             if not self.free(
@@ -674,17 +678,23 @@ class Demo:
             ):
                 raise ValueError(f"{recurrence.id}: visit {index} overlaps another visit")
             done = end <= self.now
+            status: BookingStatus = (
+                "canceled" if index in canceled else "completed" if done else "confirmed"
+            )
             booking = self.book(
                 f"{key}_{index}",
                 client_key,
                 item_id,
                 staff,
                 start,
-                "completed" if done else "confirmed",
+                status,
                 recurrence.created_at,
+                subject=subject,
+                price=price,
+                package_id=package_id,
             )
             self.ctx.get(Slot, booking.slot_id).recurrence_id = recurrence.id
-            if done:
+            if status == "completed":
                 self.bill(booking, settle)
         return recurrence
 
@@ -715,8 +725,10 @@ class Demo:
             amount_cents=0,
             currency="CAD",
             method=method,
-            provider="stripe" if method == "card" else "manual",
-            provider_ref=f"pi_demo_{self.code}_{number:04}" if method == "card" else None,
+            provider="stripe" if method in {"card", "bank_eft"} else "manual",
+            provider_ref=f"pi_demo_{self.code}_{number:04}"
+            if method in {"card", "bank_eft"}
+            else None,
             reference=f"CA{number:04}{self.code.upper()}ET"
             if method == "etransfer"
             else f"Cheque {self.spec.cheque_start + number}"
@@ -1112,24 +1124,35 @@ class Demo:
             )
         )
 
-    def card(self, client_key: str, when: datetime, brand: str, last4: str) -> PaymentMethod:
+    def card(
+        self,
+        client_key: str,
+        when: datetime,
+        brand: str,
+        last4: str,
+        *,
+        saved: SavedMethod = "card",
+    ) -> PaymentMethod:
+        """A saved card, or with `saved="bank_eft"` a bank account under a pre-authorized debit."""
         method_id = f"pm_{self.code}_{client_key}"
         found = next((m for m in self.ctx.all(PaymentMethod) if m.id == method_id), None)
         if found is not None:
             return found
+        card = saved == "card"
         method = PaymentMethod(
             id=method_id,
             business_id=self.spec.id,
             client_id=self.client_id(client_key),
-            method="card",
+            method=saved,
             brand=brand,
             last4=last4,
-            exp_month=1 + len(client_key) % 12,
-            exp_year=2028 + len(client_key) % 3,
+            exp_month=1 + len(client_key) % 12 if card else None,
+            exp_year=2028 + len(client_key) % 3 if card else None,
             holder_name=self.ctx.get(Client, self.client_id(client_key)).name,
+            bank_name=None if card else brand,
             provider_ref=f"pm_demo_{self.code}_{client_key}",
             preferred=True,
-            mandate_status="none",
+            mandate_status="none" if card else "active",
             created_at=when,
             updated_at=when,
         )
@@ -1147,12 +1170,14 @@ class Demo:
         *,
         status: SubscriptionStatus = "active",
         ended: datetime | None = None,
+        bank: tuple[str, str] | None = None,
     ) -> Subscription:
-        """A plan billed by card each period; past due leaves its latest renewal unpaid."""
+        """A plan charged by card, or by debit from `bank`; past due leaves its renewal unpaid."""
         offering = self.offerings[item_id]
         ref = self.ref(offering)
-        brand, last4 = CARDS[len(client_key) % len(CARDS)]
-        method = self.card(client_key, start - timedelta(minutes=30), brand, last4)
+        brand, last4 = bank or CARDS[len(client_key) % len(CARDS)]
+        saved: SavedMethod = "card" if bank is None else "bank_eft"
+        method = self.card(client_key, start - timedelta(minutes=30), brand, last4, saved=saved)
         if offering.contract is not None:
             self.sign(
                 f"{client_key}_{ref}",
@@ -1191,7 +1216,7 @@ class Demo:
                 f"{offering.name}, {day.isoformat()} to {following.isoformat()}.",
             )
             self.line(invoice.id, item_id, issued)
-            self.payment(client_key, issued + timedelta(minutes=2), "card", invoice_id=invoice.id)
+            self.payment(client_key, issued + timedelta(minutes=2), saved, invoice_id=invoice.id)
             period += 1
         end = period_start(period)
         subscription = Subscription(
@@ -1445,9 +1470,9 @@ class Demo:
         self.ctx.add(response)
         return response
 
-    def fill(self, clients: list[str]) -> list[Booking]:
-        """The routine visits behind the storyline, paced by the spec's weekly volume and season."""
-        pacing = self.spec.pacing
+    def fill(self, clients: list[str], pacing: Pacing | None = None) -> list[Booking]:
+        """The routine visits behind the storyline, paced by the spec's (or `pacing`'s) volume."""
+        pacing = pacing or self.spec.pacing
         if pacing is None:
             return []
         made: list[Booking] = []

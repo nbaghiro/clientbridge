@@ -22,7 +22,7 @@ from clientbridge.core import clock
 from clientbridge.models.billing import Invoice, Order
 from clientbridge.models.catalog import Item, Package, Subscription
 from clientbridge.models.ledger import Account, Entry
-from clientbridge.models.payments import Payment
+from clientbridge.models.payments import Payment, PaymentMethod
 from clientbridge.models.scheduling import Booking, Slot
 from clientbridge.services import ledger
 
@@ -211,6 +211,8 @@ CLIENTS = (
     "regular_c",
     "late",
     "lapsed",
+    "debit",
+    "term",
 )
 
 
@@ -237,6 +239,33 @@ class Probe(Demo):
             visits=6,
             before=3,
         )
+        term = self.package("term", "it_pb_maintenance", self.at(-30, 12))
+        self.series(
+            "term",
+            "term",
+            "it_pb_survey",
+            "st_pb_owner",
+            weekday=3,
+            at=time(15),
+            every=1,
+            visits=4,
+            before=2,
+            package_id=term.id,
+            canceled=(1,),
+        )
+        self.series(
+            "debit",
+            "debit",
+            "it_pb_survey",
+            "st_pb_owner",
+            weekday=4,
+            at=time(15),
+            every=1,
+            visits=3,
+            before=1,
+            price=0,
+        )
+        self.subscribe("debit", "it_pb_remote_viewing", self.at(-70, 11), bank=("RBC", "6677"))
         self.time_off("kai_away", "st_pb_kai", self.at(9, 8), self.at(9, 17), "Training day")
         self.estimate(
             "quote",
@@ -374,6 +403,39 @@ def test_a_lapsed_plan_stops_billing_and_a_past_due_plan_leaves_its_renewal_unpa
     assert late.status == "past_due"
     assert late.current_period_end is not None and late.current_period_end > demo.now
     assert demo.ctx.get(Subscription, "sub_pb_plan_lapsed").status == "canceled"
+
+
+def test_series_and_plans_take_packages_cancellations_and_debit() -> None:
+    demo = build_edition(Probe, clock.now())
+    ctx = demo.ctx
+    term = [b for b in ctx.all(Booking) if b.id.startswith("bk_pb_term_")]
+    assert [b.status for b in sorted(term, key=lambda b: b.starts_at)][:2] == [
+        "completed",
+        "canceled",
+    ]
+    assert all(b.package_id == "pkg_pb_three_term" and b.invoice_id is None for b in term)
+    debit = [b for b in ctx.all(Booking) if b.id.startswith("bk_pb_debit_")]
+    assert all(b.price_cents == 0 and b.invoice_id is None for b in debit)
+    method = ctx.get(PaymentMethod, "pm_pb_debit")
+    assert (method.method, method.mandate_status) == ("bank_eft", "active")
+    charges = [p for p in ctx.all(Payment) if p.client_id == "cl_pb_debit"]
+    assert charges and all(p.method == "bank_eft" and p.provider == "stripe" for p in charges)
+
+
+def test_fill_takes_a_pacing_per_call() -> None:
+    class Paced(Probe):
+        spec = replace(SPEC, pacing=None)
+
+        def story(self) -> None:
+            super().story()
+            self.fill(
+                ["regular_a", "regular_b"],
+                Pacing({"st_pb_kai": 2}, ("it_pb_survey",), weeks=3, ahead_weeks=1),
+            )
+
+    demo = build_edition(Paced, clock.now())
+    filled = [b for b in demo.ctx.all(Booking) if b.id.startswith("bk_pb_fill_")]
+    assert filled and all(b.staff_id == "st_pb_kai" for b in filled)
 
 
 def test_a_missing_storyline_stage_is_reported() -> None:

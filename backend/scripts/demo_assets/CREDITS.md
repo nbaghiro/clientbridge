@@ -1,6 +1,6 @@
 # Demo catalog imagery
 
-These are illustrative images for the fictional Birchbark, Northlight Security and Brightwater Home Cleaning demo businesses. People and pets in stock photographs are not staff or customers of any of them.
+These are illustrative images for the fictional demo businesses. People and pets in stock photographs are not staff or customers of any of them.
 
 | Asset                                                                                                                                                                             | Source / creator                                                                                                                                                                                                             |
 | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -124,6 +124,63 @@ To refresh only the existing local demo catalog from the current assets, run fro
 This requires the existing Birchbark catalog and the normal local development database/storage. It uploads the files before committing their metadata and updates only travel-shampoo catalog details and its opening stock unit cost. It preserves all other demo records and keeps previous image files available for existing references. Running it again does not create duplicate image rows.
 
 The read-only browser regression covers loaded shop/booking photos and the travel price at desktop and narrow viewport sizes. Run `DEMO_E2E=1 pnpm exec playwright test e2e/demo-media.e2e.ts --workers=1` from `frontend/apps/connect/`. Local API requests explicitly use IPv4 to reach Clientbridge when another development process occupies IPv6 port 8701.
+
+## Lakeside Learning Studio
+
+Lakeside's catalog photos are stock photos, one per catalog item: 17 from Pexels and 3 from Unsplash, cropped to 4:3 and saved as 1024 × 768 JPEGs, about 1.5 MB for the 20 images. Some show a close relative of the item: the French tutoring photo is a ring of blank flashcards, the workbooks are blank exercise books and notebooks, the piano method book is sheet music on an upright piano, the guitar strings are on a classical guitar's tuning posts, and the clip-on tuner is a mechanical metronome, because every tuner and string packet found showed a brand.
+
+| Asset                       | Source / creator                                                                                                                                                     |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ls_it_assessment.jpg`      | [Crop woman teaching girl to write in notebook at home (Gustavo Fring)](https://www.pexels.com/photo/crop-woman-teaching-girl-to-write-in-notebook-at-home-4173333/) |
+| `ls_it_math.jpg`            | [Crop person solving equations on paper (Monstera Production)](https://www.pexels.com/photo/crop-person-solving-equations-on-paper-6238030/)                         |
+| `ls_it_english.jpg`         | [A Person Flipping Pages of a Book (Kindel Media)](https://www.pexels.com/photo/a-person-flipping-pages-of-a-book-7054512/)                                          |
+| `ls_it_french.jpg`          | [Blank Notes with Hook (PNW Production)](https://www.pexels.com/photo/blank-notes-with-hook-8250913/)                                                                |
+| `ls_it_science.jpg`         | [Red and White Plastic Tools (Tara Winstead)](https://www.pexels.com/photo/red-and-white-plastic-tools-7723538/)                                                     |
+| `ls_it_piano.jpg`           | [Close-up of a Person Teaching a Boy Piano (Yan Krukau)](https://www.pexels.com/photo/close-up-of-a-person-teaching-a-boy-piano-8520479/)                            |
+| `ls_it_piano_long.jpg`      | [Notes on Piano (cottonbro studio)](https://www.pexels.com/photo/notes-on-piano-10251769/)                                                                           |
+| `ls_it_guitar.jpg`          | [Hand Playing Acoustic Guitar (Pavel Danilyuk)](https://www.pexels.com/photo/hand-playing-acoustic-guitar-7520961/)                                                  |
+| `ls_it_sat.jpg`             | [Crop pupils writing in copybook on desk (Katerina Holmes)](https://www.pexels.com/photo/crop-pupils-writing-in-copybook-on-desk-5905959/)                           |
+| `ls_it_review.jpg`          | [Photo Of Person Teaching On White Board (Vanessa Garcia)](https://www.pexels.com/photo/photo-of-person-teaching-on-white-board-6325953/)                            |
+| `ls_it_term10.jpg`          | [Stack of Notebooks on Table (Jessika Arraes)](https://www.pexels.com/photo/stack-of-notebooks-on-table-14270284/)                                                   |
+| `ls_it_term12.jpg`          | [Close-up of Vintage Piano Keys in Soft Light (Erik Mclean)](https://www.pexels.com/photo/close-up-of-vintage-piano-keys-in-soft-light-38744247/)                    |
+| `ls_it_sat_course.jpg`      | [Test Papers and Pencil on the Desk (Andy Barbour)](https://www.pexels.com/photo/test-papers-and-pencil-on-the-desk-6683394/)                                        |
+| `ls_it_plan.jpg`            | [An open planner with a pen on a wooden desk (Cabri Caldwell)](https://unsplash.com/photos/an-open-planner-with-a-pen-on-a-wooden-desk-7ja5zM7PBu8)                  |
+| `ls_it_gift.jpg`            | [Close-up of Invitation Card (freestocks.org)](https://www.pexels.com/photo/close-up-of-invitation-card-320269/)                                                     |
+| `ls_it_workbook_math.jpg`   | [A Notebook on a Blue Surface (KATRIN BOLOVTSOVA)](https://www.pexels.com/photo/a-notebook-on-a-blue-surface-6192754/)                                               |
+| `ls_it_workbook_french.jpg` | [Stacks of Notebooks on Brown Wooden Surface (Jessica Lewis thepaintedsquare)](https://www.pexels.com/photo/stacks-of-notebooks-on-brown-wooden-surface-10024578/)   |
+| `ls_it_piano_book.jpg`      | [musical notes on brown upright piano (Isaac Martin)](https://unsplash.com/photos/musical-notes-on-brown-upright-piano-yQrRFZwltRI)                                  |
+| `ls_it_guitar_strings.jpg`  | [Close up of Guitar Cords (Avishek Sengupta)](https://www.pexels.com/photo/close-up-of-guitar-cords-17646298/)                                                       |
+| `ls_it_tuner.jpg`           | [White printer paper on brown wooden table (Rachel Loughman)](https://unsplash.com/photos/white-printer-paper-on-brown-wooden-table-EjmcT09e3Jg)                     |
+
+`ls_logo.png` is a placeholder mark drawn with a short script: a 512-pixel transparent PNG with an open navy book, an amber sun and two blue waves for the lake, made for the white logo tile in the header.
+
+Lakeside's team and 19 of its parents have stock portraits: 19 from Pexels and 4 from Unsplash, none of them Unsplash+, each cropped square around the face and saved as a 512 × 512 JPEG, about 0.9 MB for the 23. Only parents are shown, never children, and only clients without a negative storyline have one.
+
+| Asset                       | Stands in for     | Source / creator                                                                                                                                                                                      |
+| --------------------------- | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `face_us_ls_owner.jpg`      | Nadia Haddad      | [A Woman Smiling (Kampus Production)](https://www.pexels.com/photo/a-woman-smiling-8171180/), Pexels                                                                                                  |
+| `face_us_ls_julien.jpg`     | Julien Lavoie     | [Close-Up Shot of a Man in Gray Polo Shirt Smiling (Luciana Mesquita)](https://www.pexels.com/photo/close-up-shot-of-a-man-in-gray-polo-shirt-smiling-13026081/), Pexels                              |
+| `face_us_ls_samuel.jpg`     | Samuel Osei       | [man in black dress shirt wearing black framed eyeglasses (Olawale Munna)](https://unsplash.com/photos/man-in-black-dress-shirt-wearing-black-framed-eyeglasses-_ObjhzjnMmc), Unsplash                |
+| `face_us_ls_sofia.jpg`      | Sofia Martins     | [Professional Portrait of Smiling Woman in Studio (Tony Zohari)](https://www.pexels.com/photo/professional-portrait-of-smiling-woman-in-studio-38197025/), Pexels                                     |
+| `face_cl_ls_nwosu.jpg`      | Amara Nwosu       | [Confident Businesswoman Smiling Portrait (NORBAINE GLORY TAMAR)](https://www.pexels.com/photo/confident-businesswoman-smiling-portrait-40083446/), Pexels                                            |
+| `face_cl_ls_tran.jpg`       | Thu Tran          | [woman in black shirt smiling (panitan punpuang)](https://unsplash.com/photos/woman-in-black-shirt-smiling-OuxJHYeUYpk), Unsplash                                                                     |
+| `face_cl_ls_fontaine.jpg`   | Isabelle Fontaine | [Portrait of a Happy Adult Woman Smiling (Paulo Oliveira)](https://www.pexels.com/photo/portrait-of-a-happy-adult-woman-smiling-16116130/), Pexels                                                    |
+| `face_cl_ls_ahmed.jpg`      | Yusuf Ahmed       | [A Bearded Man Smiling (Artem Podrez)](https://www.pexels.com/photo/a-bearded-man-smiling-4728851/), Pexels                                                                                           |
+| `face_cl_ls_kowalski.jpg`   | Marta Kowalski    | [Close-up of a Beautiful Woman with Short Hair (Darina Belonogova)](https://www.pexels.com/photo/close-up-of-a-beautiful-woman-with-short-hair-8373939/), Pexels                                      |
+| `face_cl_ls_mensah.jpg`     | Kwame Mensah      | [A Man in Striped Shirt Smiling (August de Richelieu)](https://www.pexels.com/photo/a-man-in-striped-shirt-smiling-7432863/), Pexels                                                                  |
+| `face_cl_ls_bianchi.jpg`    | Laura Bianchi     | [A Woman in Floral Top Smiling while Leaning on a Wooden Wall (Los Muertos Crew)](https://www.pexels.com/photo/a-woman-in-floral-top-smiling-while-leaning-on-a-wooden-wall-8459999/), Pexels         |
+| `face_cl_ls_desrosiers.jpg` | Nadège Desrosiers | [Smiling Woman In Black Long Sleeve Shirt (Ms Kelly)](https://www.pexels.com/photo/smiling-woman-in-black-long-sleeve-shirt-3983564/), Pexels                                                         |
+| `face_cl_ls_abdi.jpg`       | Hodan Abdi        | [A woman in a headscarf smiles for the camera (Abdulkadir Hirabe)](https://unsplash.com/photos/a-woman-in-a-headscarf-smiles-for-the-camera-ICI9aYlnW2I), Unsplash                                    |
+| `face_cl_ls_chen.jpg`       | Wei Chen          | [Portrait of a Man Wearing Glasses in Studio (Hao Peng)](https://www.pexels.com/photo/portrait-of-a-man-wearing-glasses-in-studio-30976000/), Pexels                                                  |
+| `face_cl_ls_moreau.jpg`     | Sophie Moreau     | [Charming woman against golden trees in park (Marina Abrosimova)](https://www.pexels.com/photo/charming-woman-against-golden-trees-in-park-5922276/), Pexels                                          |
+| `face_cl_ls_khoury.jpg`     | Rania Khoury      | [Cheerful Woman with Sunglasses on a Cobblestone Street (Serdar Göksu)](https://www.pexels.com/photo/cheerful-woman-with-sunglasses-on-a-cobblestone-street-29352207/), Pexels                        |
+| `face_cl_ls_okafor.jpg`     | Chinedu Okafor    | [Crop content black executive with crossed arms on orange background (Ono Kosuki)](https://www.pexels.com/photo/crop-content-black-executive-with-crossed-arms-on-orange-background-5648096/), Pexels |
+| `face_cl_ls_patel.jpg`      | Nisha Patel       | [smiling woman photo (Samrat Khadka)](https://unsplash.com/photos/smiling-woman-photo-Rtu6mAZXw6g), Unsplash                                                                                          |
+| `face_cl_ls_zhang.jpg`      | Li Zhang          | [A Woman with Short Hair (Ej Agumbay)](https://www.pexels.com/photo/a-woman-with-short-hair-6613340/), Pexels                                                                                         |
+| `face_cl_ls_roy.jpg`        | Geneviève Roy     | [Woman in White Button Up Shirt (Анастасия Триббиани)](https://www.pexels.com/photo/woman-in-white-button-up-shirt-9385076/), Pexels                                                                  |
+| `face_cl_ls_sharma.jpg`     | Vikram Sharma     | [Man in Gray Button Up Shirt Smiling (RDNE Stock project)](https://www.pexels.com/photo/man-in-gray-button-up-shirt-smiling-7580937/), Pexels                                                         |
+| `face_cl_ls_ibrahim.jpg`    | Amina Ibrahim     | [Smiling Woman in Blue Hijab and Dress Outdoors (Harrun Muhammad)](https://www.pexels.com/photo/smiling-woman-in-blue-hijab-and-dress-outdoors-35168456/), Pexels                                     |
+| `face_cl_ls_wong.jpg`       | Karen Wong        | [A Smiling Woman in a Black Sweater (Thanh Xuan Nguyen Ly)](https://www.pexels.com/photo/a-smiling-woman-in-a-black-sweater-20051635/), Pexels                                                        |
 
 ## People
 

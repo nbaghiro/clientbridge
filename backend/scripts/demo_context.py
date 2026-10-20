@@ -152,6 +152,19 @@ DEMO_BUSINESSES = (
         timezone="America/Edmonton",
         edition="scripts.demo_ridgeline",
     ),
+    DemoBusiness(
+        id="bz_lakeside",
+        name="Lakeside Learning Studio",
+        email="hello@lakeside.example",
+        first_name="Nadia",
+        last_name="Haddad",
+        product_description="Tutoring and music lessons",
+        primary_color="#24506B",
+        legal=LegalAddress("512", "Preston Street", "Ottawa", "ON", "K1R 7P8", "+16135550198"),
+        owner_login="owner@lakeside.example",
+        timezone="America/Toronto",
+        edition="scripts.demo_lakeside",
+    ),
 )
 DEMO_IDS = tuple(business.id for business in DEMO_BUSINESSES)
 # the business the web, Connect and end-to-end fixtures target unless told otherwise

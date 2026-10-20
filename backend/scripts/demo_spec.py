@@ -15,7 +15,7 @@ type DocField = tuple[str, FieldInput, str, str | None, bool, tuple[str, ...]]
 # weekday (Monday is 0) -> opening and closing time
 type Weekly = Mapping[int, tuple[time, time]]
 type Settle = Literal["card", "etransfer", "cheque", "cash", "open", "overdue"]
-type Paid = Literal["card", "etransfer", "cheque", "cash"]
+type Paid = Literal["card", "bank_eft", "etransfer", "cheque", "cash"]
 
 
 @dataclass(frozen=True)
