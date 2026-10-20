@@ -5,9 +5,6 @@
 # backend suite needs the local Postgres from `make up`. Browser, device and sync e2e run in CI.
 set -e
 
-# this machine's ~/.cache/uv can be root-owned, which breaks `uv` inside a hook
-export UV_CACHE_DIR="${UV_CACHE_DIR:-/tmp/uv-cache}"
-
 root=$(git rev-parse --show-toplevel)
 tree=$(mktemp -d "${TMPDIR:-/tmp}/clientbridge-precommit.XXXXXX")
 cleanup() {

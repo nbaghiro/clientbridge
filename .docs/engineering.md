@@ -96,8 +96,8 @@ changes to a temporary worktree at `HEAD`, installs dependencies there from the 
 `make precommit`, so unstaged edits never decide a commit. It includes the backend and frontend tests, so
 the local Postgres from `make up` must be running. The browser,
 device and real-service suites (`test-web`, `test-connect`, `test-mobile`, `test-sync`, `test-site`)
-run in CI. The hook sets a writable `UV_CACHE_DIR=/tmp/uv-cache` to work around a
-root-owned `~/.cache/uv`.
+run in CI. The hook uses uv's default cache in `~/.cache/uv`; a cache under `/tmp` loses files to
+macOS's periodic cleanup and then fails installs.
 
 ---
 
