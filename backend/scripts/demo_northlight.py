@@ -43,6 +43,7 @@ from scripts.demo_finance import (
     seed_payouts,
 )
 from scripts.demo_identity import placeholder_identity
+from scripts.demo_photos import add_people_photos
 from scripts.demo_validate import validate_graph
 
 NORTHLIGHT = "bz_northlight"
@@ -1310,6 +1311,7 @@ class Northlight:
             )
         )
         self.ctx.get(Subject, "sj_nl_islandstorage").name = "Langford facility"
+        add_people_photos(self.ctx, NORTHLIGHT)
 
     def client(self, home: Household, *, tags: list[str]) -> None:
         name = home.address.split(",")[0]

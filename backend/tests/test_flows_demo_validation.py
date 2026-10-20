@@ -6,8 +6,10 @@ from scripts.demo_validate import validate_database, validate_graph
 from scripts.seed_demo import build_demo, validate_seed_target
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.core.config import get_settings
 from clientbridge.models.clients import Consent
+from clientbridge.models.platform import File, FileParent
 from clientbridge.models.scheduling import Booking, Slot
 from tests.conftest import BIZ
 
@@ -39,6 +41,44 @@ async def test_demo_preflight_rejects_cross_business_consent(db: AsyncSession) -
     errors = report["errors"]
     assert isinstance(errors, list)
     assert "consents/cns_test_cross_demo: cross-business parent" in errors
+
+
+async def test_demo_preflight_rejects_photos_that_break_the_portrait_rules(
+    db: AsyncSession,
+) -> None:
+    def photo(file_id: str, parent_type: FileParent, parent_id: str) -> File:
+        return File(
+            id=file_id,
+            business_id=BIZ,
+            parent_type=parent_type,
+            parent_id=parent_id,
+            purpose="photo",
+            s3_key=f"{BIZ}/{file_id}",
+            uploaded_at=clock.now(),
+        )
+
+    db.add_all(
+        [
+            photo("fl_test_no_show", "client", "cl_grace"),
+            photo("fl_test_second", "user", "us_diego"),
+            photo("fl_test_outsider", "user", "us_nl_liam"),
+            File(
+                id="fl_test_pending",
+                business_id=BIZ,
+                parent_type="client",
+                parent_id="cl_amelie",
+                purpose="photo",
+                s3_key=f"{BIZ}/fl_test_pending",
+            ),
+        ]
+    )
+    await db.flush()
+    errors = (await validate_database(db))["errors"]
+    assert isinstance(errors, list)
+    assert "photo_on_negative_storyline: cl_grace" in errors
+    assert "one_photo_per_person: us_diego" in errors
+    assert "people_photo_parent: fl_test_outsider" in errors
+    assert "people_photo_parent: fl_test_pending" in errors
 
 
 async def test_seed_reset_preserves_unrelated_accounts(owner_db: AsyncSession) -> None:

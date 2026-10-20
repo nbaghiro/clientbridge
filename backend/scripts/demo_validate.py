@@ -237,6 +237,37 @@ SQL_CHECKS = {
     ),
     "broadcast_content": "SELECT id FROM broadcasts WHERE body IS NULL OR length(trim(body))=0",
     "future_overdue_notice": "SELECT id FROM invoices WHERE overdue_notified_at > :as_of",
+    "people_photo_parent": (
+        "SELECT f.id FROM files f WHERE (f.parent_type IN ('client', 'user') AND f.uploaded_at "
+        "IS NULL) OR (f.parent_type='client' AND NOT EXISTS (SELECT 1 FROM "
+        "clients c WHERE c.id=f.parent_id AND c.deleted_at IS NULL)) OR (f.parent_type='user' "
+        "AND NOT EXISTS (SELECT 1 FROM staff s WHERE s.user_id=f.parent_id AND "
+        "s.business_id=f.business_id))"
+    ),
+    "one_photo_per_person": (
+        "SELECT parent_id FROM files WHERE parent_type IN ('client', 'user') AND purpose='photo' "
+        "GROUP BY business_id, parent_type, parent_id HAVING count(*) > 1"
+    ),
+    # stock portraits may not show their people in a bad light
+    "photo_on_negative_storyline": (
+        "SELECT f.parent_id FROM files f WHERE f.parent_type='client' AND ("
+        "EXISTS (SELECT 1 FROM bookings b WHERE b.client_id=f.parent_id AND (b.status IN "
+        "('no_show', 'waitlisted') OR b.deposit_status='forfeited')) "
+        "OR EXISTS (SELECT 1 FROM estimates e WHERE e.client_id=f.parent_id AND "
+        "e.status='declined') "
+        "OR EXISTS (SELECT 1 FROM signatures g WHERE g.client_id=f.parent_id AND g.status IN "
+        "('declined', 'expired')) "
+        "OR EXISTS (SELECT 1 FROM payments p WHERE p.client_id=f.parent_id AND (p.status='failed' "
+        "OR p.dispute_status IS NOT NULL)) "
+        "OR EXISTS (SELECT 1 FROM subscriptions u WHERE u.client_id=f.parent_id AND "
+        "u.status='past_due') "
+        "OR EXISTS (SELECT 1 FROM invoices i WHERE i.client_id=f.parent_id AND "
+        "(i.overdue_notified_at IS NOT NULL OR (i.status='sent' AND i.total_cents > coalesce(("
+        "SELECT sum(p.amount_cents) FROM payments p WHERE p.invoice_id=i.id AND "
+        "p.status='succeeded' AND p.kind != 'refund'), 0)))) "
+        "OR EXISTS (SELECT 1 FROM responses r WHERE r.client_id=f.parent_id AND "
+        "(r.answers->>'rating')::int <= 3))"
+    ),
     "incomplete_signatures": (
         "SELECT id FROM signatures WHERE status='signed' AND (signed_body IS NULL OR "
         "signer_name IS NULL OR signed_at IS NULL OR method IS NULL)"

@@ -47,13 +47,14 @@ from scripts.demo_chronology import align_chronology, chronology_errors
 from scripts.demo_context import DEMO_VERSION, LEGAL_ADDRESSES, DemoContext
 from scripts.demo_engagement import build_engagement
 from scripts.demo_finance import add_finance_scenarios, prepare_finance, seed_finance
-from scripts.demo_identity import build_identity, placeholder_identity
+from scripts.demo_identity import SECOND, build_identity, placeholder_identity
 from scripts.demo_northlight import (
     NORTHLIGHT,
     NORTHLIGHT_OWNER,
     build_northlight,
     seed_northlight_finance,
 )
+from scripts.demo_photos import add_people_photos
 from scripts.demo_scenarios import add_scenarios
 from scripts.demo_schedule import add_class_timetable, add_repeat_visits, finish_schedule
 from scripts.demo_validate import validate_database, validate_graph
@@ -2146,6 +2147,8 @@ def build_demo(as_of: datetime | None = None) -> DemoContext:
     finish_schedule(ctx)
     prepare_finance(ctx)
     build_identity(ctx)
+    add_people_photos(ctx, BIZ)
+    add_people_photos(ctx, SECOND)
     build_engagement(ctx)
     align_chronology(ctx)
 
