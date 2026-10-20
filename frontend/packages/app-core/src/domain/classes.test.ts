@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { rosterStatus } from "./classes";
+import { rosterStatus, sessionCounts } from "./classes";
 
 type RosterRow = Parameters<typeof rosterStatus>[0];
 
@@ -27,5 +27,22 @@ describe("rosterStatus", () => {
         expect(rosterStatus(seat("completed", "2026-10-07T17:00:00Z"))).toBe("checked_in");
         expect(rosterStatus(seat("confirmed"))).toBe("confirmed");
         expect(rosterStatus(seat("pending"))).toBe("confirmed");
+    });
+});
+
+describe("sessionCounts", () => {
+    it("counts arrivals on a session that has ended as well as one under way", () => {
+        const at = "2026-10-07T17:00:00Z";
+        expect(
+            sessionCounts([
+                seat("completed", at),
+                seat("confirmed", at),
+                seat("completed"),
+                seat("no_show"),
+                seat("waitlisted"),
+                seat("waitlisted", at),
+            ]),
+        ).toEqual({ booked: 4, waitlist: 2, checkedIn: 2 });
+        expect(sessionCounts([])).toEqual({ booked: 0, waitlist: 0, checkedIn: 0 });
     });
 });

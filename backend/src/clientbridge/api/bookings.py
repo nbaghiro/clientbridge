@@ -44,6 +44,7 @@ from clientbridge.services.bookings import (
     OnlineBookingService,
     RecurrenceService,
     TimeOffService,
+    seat_scope,
 )
 from clientbridge.services.deliveries import dispatch_scope
 from clientbridge.services.notifications import Notifier
@@ -80,6 +81,8 @@ async def patch_booking(
     push: PushDep,
 ) -> BookingOut:
     result, notice = await BookingService(db, principal, gateway).patch(booking_id, body)
+    if result.status in ("canceled", "no_show"):
+        await dispatch_scope(db, seat_scope(result.slot_id), email, sms, push)
     notifier = Notifier(email, sms, push)
     if notice == "canceled":
         await notifier.on_booking_canceled(db, result.id)
@@ -245,8 +248,15 @@ async def add_to_class(
     principal: CurrentPrincipal,
     db: DbSession,
     gateway: GatewayDep,
+    email: EmailDep,
+    sms: SmsDep,
+    push: PushDep,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> RosterEntry:
-    return await ClassService(db, principal, gateway).add(slot_id, body)
+    result = await ClassService(db, principal, gateway).add(slot_id, body, idempotency_key)
+    if body.notify:
+        await dispatch_scope(db, f"booking:{result.booking_id}", email, sms, push)
+    return result
 
 
 @classes_router.patch("/{slot_id}/roster/{booking_id}", response_model=RosterEntry)
@@ -262,8 +272,7 @@ async def update_class_roster(
     push: PushDep,
 ) -> RosterEntry:
     result = await ClassService(db, principal, gateway).act(slot_id, booking_id, body)
-    if body.action == "promote":
-        await Notifier(email, sms, push).on_booking_confirmed(db, result.booking_id)
+    await dispatch_scope(db, seat_scope(slot_id), email, sms, push)
     return result
 
 

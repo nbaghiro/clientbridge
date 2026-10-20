@@ -73,7 +73,9 @@ export function PublicManage() {
                                 </div>
                                 <div className="min-w-0 flex-1">
                                     <p className="text-xs font-semibold uppercase tracking-wide opacity-75">
-                                        {v.status === "canceled" ? s.canceledTitle : s.title}
+                                        {v.status === "canceled"
+                                            ? mg.labels.canceledTitle
+                                            : mg.labels.title}
                                     </p>
                                     <h1 className="mt-1 font-display text-2xl font-bold leading-tight tracking-tight sm:text-3xl">
                                         {v.service.name}
@@ -104,6 +106,22 @@ export function PublicManage() {
                     </article>
                     {v.status === "canceled" ? (
                         <Notice tone="info">{mg.refundMessage ?? s.canceledAlready}</Notice>
+                    ) : null}
+                    {mg.waitlistLine !== null ? (
+                        <div className="space-y-3 rounded-2xl border border-line bg-surface p-5 shadow-card">
+                            <p className="text-sm text-ink-soft">{mg.waitlistLine}</p>
+                            {mg.canCancel ? (
+                                <Button
+                                    variant="outline"
+                                    icon="x"
+                                    onPress={() => {
+                                        mg.setMode("cancel");
+                                    }}
+                                >
+                                    {mg.labels.cancel}
+                                </Button>
+                            ) : null}
+                        </div>
                     ) : null}
                     {mg.live ? (
                         <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
@@ -472,7 +490,7 @@ function CancelConfirm({ mg }: { mg: ManageBookingFlow }) {
     return (
         <div className="space-y-4">
             <div>
-                <h2 className="font-display text-xl font-bold text-ink">{s.cancelTitle}</h2>
+                <h2 className="font-display text-xl font-bold text-ink">{mg.labels.cancelTitle}</h2>
                 <p className="mt-1 text-sm text-ink-soft">{mg.whenTitle}</p>
             </div>
             <Notice tone="info" banner>
@@ -481,7 +499,7 @@ function CancelConfirm({ mg }: { mg: ManageBookingFlow }) {
             {mg.error !== null ? <Notice tone="danger">{mg.error}</Notice> : null}
             <div className="flex flex-col gap-2 sm:flex-row-reverse">
                 <Button variant="danger" grow busy={mg.busy} onPress={mg.confirmCancel}>
-                    {mg.busy ? s.canceling : s.cancelConfirm}
+                    {mg.busy ? s.canceling : mg.labels.cancelConfirm}
                 </Button>
                 <Button
                     variant="outline"
@@ -504,7 +522,7 @@ function ManageDone({ mg }: { mg: ManageBookingFlow }) {
         <div className="text-center">
             <Icon name={moved ? "check" : "x"} size={32} className="mx-auto block text-ink-soft" />
             <h1 className="mt-4 font-display text-2xl font-bold text-ink">
-                {moved ? s.movedTitle : s.canceledTitle}
+                {moved ? s.movedTitle : mg.labels.canceledTitle}
             </h1>
             <p className="mx-auto mt-2 max-w-sm text-sm text-muted">
                 {moved

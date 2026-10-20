@@ -1465,7 +1465,7 @@ Done when: Every launch story is done, this pass is clean, no bug that blocks la
 Not tracked yet. These are pulled in by demand once the launch stages are done.
 
 - **Growth and commerce:** multiple locations per business (needs a location model), loyalty and rewards,
-  waitlists with auto-promote, online gift card purchase and balance check.
+  online gift card purchase and balance check.
 - **Buy now, pay later:** Affirm, Afterpay and Klarna as Stripe payment methods on each connected
   account, offered in the same Payment Element as cards and Link on our direct-charge PaymentIntents,
   once a business turns them on and Stripe activates the capabilities. Confirm current Canadian

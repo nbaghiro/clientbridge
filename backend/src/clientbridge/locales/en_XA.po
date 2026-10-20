@@ -680,6 +680,18 @@ msgstr "[Ţĥåñķ ýöû ƒöŕ ṽîšîţîñĝ {business}. Ýöûŕ ŕéç�
 msgid "sale_receipt.subject"
 msgstr "[Ýöûŕ ŕéçéîþţ ƒŕöɱ {business}~~~~~~~]"
 
+msgid "seat_opened.body"
+msgstr "[Å šéåţ öþéñéð ûþ îñ {name} ŵîţĥ {business} öñ {when}, šö ýöû'ŕé ƀööķéð.~~~~~~~~~~~~~~~~~~]"
+
+msgid "seat_opened.body_link"
+msgstr "[Å šéåţ öþéñéð ûþ îñ {name} ŵîţĥ {business} öñ {when}, šö ýöû'ŕé ƀööķéð. Çĥåñĝé öŕ çåñçéļ: {link}~~~~~~~~~~~~~~~~~~~~~~~~]"
+
+msgid "seat_opened.heading"
+msgstr "[Ýöû ĥåṽé å šéåţ~~~~~~]"
+
+msgid "seat_opened.subject"
+msgstr "[Å šéåţ öþéñéð ûþ îñ {name}~~~~~~~]"
+
 msgid "series.separator"
 msgstr "[; ~]"
 
@@ -858,4 +870,28 @@ msgstr "[Ýöû'ŕé åļŕéåðý öñ ţĥé ļîšţ.~~~~~~~~~~]"
 
 msgid "waitlist_again.subject"
 msgstr "[Ýöû'ŕé åļŕéåðý öñ ţĥé Çļîéñţƀŕîðĝé ŵåîţļîšţ~~~~~~~~~~~~~~~~]"
+
+msgid "waitlist_closed.body"
+msgstr "[{name} ŵîţĥ {business} öñ {when} ƒîļļéð ûþ ƀéƒöŕé å šéåţ öþéñéð ƒöŕ ýöû, šö ýöûŕ þļåçé öñ ţĥé ŵåîţļîšţ ĥåš çļöšéð. Ýöû'ŕé ŵéļçöɱé ţö ƀööķ åñöţĥéŕ šéššîöñ.~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]"
+
+msgid "waitlist_closed.heading"
+msgstr "[Ţĥé çļåšš ƒîļļéð ûþ~~~~~~~]"
+
+msgid "waitlist_closed.subject"
+msgstr "[{name} ƒîļļéð ûþ~~~~]"
+
+msgid "waitlist_joined.action"
+msgstr "[Šéé öŕ ļéåṽé ţĥé ŵåîţļîšţ~~~~~~~~~]"
+
+msgid "waitlist_joined.body"
+msgstr "[{name} ŵîţĥ {business} öñ {when} îš ƒûļļ, šö ýöû'ŕé öñ ţĥé ŵåîţļîšţ. Îƒ å šéåţ öþéñš ûþ ƀéƒöŕé îţ šţåŕţš, ýöû'ļļ ƀé ƀööķéð îñţö îţ åñð ĝéţ å ɱéššåĝé.~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]"
+
+msgid "waitlist_joined.body_link"
+msgstr "[{name} ŵîţĥ {business} öñ {when} îš ƒûļļ, šö ýöû'ŕé öñ ţĥé ŵåîţļîšţ. Îƒ å šéåţ öþéñš ûþ ƀéƒöŕé îţ šţåŕţš, ýöû'ļļ ƀé ƀööķéð îñţö îţ åñð ĝéţ å ɱéššåĝé. Šéé öŕ ļéåṽé ţĥé ŵåîţļîšţ: {link}~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]"
+
+msgid "waitlist_joined.heading"
+msgstr "[Ýöû'ŕé öñ ţĥé ŵåîţļîšţ~~~~~~~~]"
+
+msgid "waitlist_joined.subject"
+msgstr "[Ýöû'ŕé öñ ţĥé ŵåîţļîšţ ƒöŕ {name}~~~~~~~~~~]"
 

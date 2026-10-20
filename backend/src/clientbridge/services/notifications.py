@@ -40,7 +40,7 @@ from clientbridge.integrations.resend import Email, EmailSender
 from clientbridge.integrations.twilio import Sms, SmsSender
 from clientbridge.models.billing import Estimate, Invoice, Order
 from clientbridge.models.business import Business, Staff, User
-from clientbridge.models.catalog import GiftCard, Subscription
+from clientbridge.models.catalog import GiftCard, Item, Subscription
 from clientbridge.models.clients import Client, Subject
 from clientbridge.models.documents import Contract, FormResponse, Signature
 from clientbridge.models.messaging import Message, Thread
@@ -883,6 +883,50 @@ def booking_released_message(locale: str, business_name: str, when: str) -> Noti
     )
 
 
+def seat_opened_message(
+    locale: str, business_name: str, class_name: str, when: str, link: str | None
+) -> Notice:
+    names = {"business": business_name, "name": class_name, "when": when}
+    lead = message(locale, "seat_opened.body", **names)
+    body = message(locale, "seat_opened.body_link", **names, link=link) if link else lead
+    return _visit(
+        locale,
+        message(locale, "seat_opened.subject", **names),
+        body,
+        message(locale, "seat_opened.heading"),
+        lead,
+        link,
+    )
+
+
+def waitlist_joined_message(
+    locale: str, business_name: str, class_name: str, when: str, link: str | None
+) -> Notice:
+    names = {"business": business_name, "name": class_name, "when": when}
+    lead = message(locale, "waitlist_joined.body", **names)
+    body = message(locale, "waitlist_joined.body_link", **names, link=link) if link else lead
+    return Notice(
+        message(locale, "waitlist_joined.subject", **names),
+        body,
+        _view(
+            message(locale, "email.kind.booking"),
+            message(locale, "waitlist_joined.heading"),
+            lead,
+            action=_action(message(locale, "waitlist_joined.action"), link),
+        ),
+    )
+
+
+def waitlist_closed_message(locale: str, business_name: str, class_name: str, when: str) -> Notice:
+    names = {"business": business_name, "name": class_name, "when": when}
+    return _visit_plain(
+        locale,
+        message(locale, "waitlist_closed.subject", **names),
+        message(locale, "waitlist_closed.body", **names),
+        message(locale, "waitlist_closed.heading"),
+    )
+
+
 def series_booked_message(locale: str, business_name: str, whens: str) -> Notice:
     return _visit_plain(
         locale,
@@ -1416,6 +1460,42 @@ class Notifier:
 
     async def on_booking_released(self, db: AsyncSession, booking_id: str) -> None:
         await self._visit_notice(db, booking_id, booking_released_message)
+
+    async def on_seat_opened(self, db: AsyncSession, booking_id: str) -> None:
+        await self._class_notice(db, booking_id, seat_opened_message)
+
+    async def on_waitlist_joined(self, db: AsyncSession, booking_id: str) -> None:
+        await self._class_notice(db, booking_id, waitlist_joined_message)
+
+    async def on_waitlist_closed(self, db: AsyncSession, booking_id: str) -> None:
+        await self._class_notice(
+            db,
+            booking_id,
+            lambda locale, business, name, when, _: waitlist_closed_message(
+                locale, business, name, when
+            ),
+        )
+
+    async def _class_notice(
+        self,
+        db: AsyncSession,
+        booking_id: str,
+        build: Callable[[str, str, str, str, str | None], Notice],
+    ) -> None:
+        """A notice naming the class and its session, with the manage link when there is one."""
+        booking = await db.get(Booking, booking_id)
+        if booking is None:
+            return
+        slot = await db.get(Slot, booking.slot_id)
+        business = await db.get(Business, booking.business_id)
+        item = await db.get(Item, slot.item_id) if slot is not None else None
+        if slot is None or business is None or item is None:
+            return
+        locale = locale_for(business=business)
+        when = _when(locale, business, slot)
+        notice = build(locale, business.name, item.name, when, _manage_link(business, booking))
+        notice = await at_the_visit(db, business, booking, notice)
+        await self._to_client(db, booking.client_id, notice)
 
     async def _visit_notice(
         self, db: AsyncSession, booking_id: str, build: Callable[[str, str, str], Notice]

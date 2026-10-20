@@ -111,9 +111,11 @@ export function PublicBooking() {
         flow.step === "details"
             ? flow.busy
                 ? s.booking
-                : flow.totals.depositCents > 0
-                  ? s.confirmAndPay(flow.totals.deposit)
-                  : s.confirm
+                : flow.waitlist
+                  ? s.joinWaitlist
+                  : flow.totals.depositCents > 0
+                    ? s.confirmAndPay(flow.totals.deposit)
+                    : s.confirm
             : s.continue;
     const showNav = flow.step !== "pay";
     const next = {
@@ -482,9 +484,11 @@ function GuidedBooking({
                             onPress={flow.next}
                         >
                             {flow.step === "details"
-                                ? flow.totals.depositCents > 0
-                                    ? s.confirmAndPay(flow.totals.deposit)
-                                    : s.confirm
+                                ? flow.waitlist
+                                    ? s.joinWaitlist
+                                    : flow.totals.depositCents > 0
+                                      ? s.confirmAndPay(flow.totals.deposit)
+                                      : s.confirm
                                 : s.continue}
                         </Button>
                     </div>

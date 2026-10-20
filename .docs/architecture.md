@@ -285,7 +285,7 @@ by line and reason; `items.stock_on_hand` is the running total).
 
 **scheduling (6)** — `slots` (the calendar event: capacity-bearing block; appointment = capacity 1, class
 = capacity N; seats taken are counted from its live bookings; `recurrence_id`), `bookings` _(soft-del)_ (client↔slot via `slot_id`; denormalized
-`staff_id`; status pending→confirmed→completed/canceled/no_show, or waitlisted on a full class until a seat is given; `source`; deposit terms (the deposit's
+`staff_id`; status pending→confirmed→completed/canceled/no_show, or waitlisted on a full class (a seat freed before the session starts goes to the earliest sign-up waiting, and the overnight job closes what is left once the class ends); `source`; deposit terms (the deposit's
 state is derived from the ledger, and a deposit is due when `deposit_amount_cents > 0`); `reminded_at`;
 `departed_at`, set once by `POST /v1/bookings/{id}/depart` ("On my way", which texts the client), and
 `checked_in_at`, the client arriving or, for a property or site business, the member arriving),

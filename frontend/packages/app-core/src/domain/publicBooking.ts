@@ -115,11 +115,13 @@ interface OpenSlot {
     starts_at: string;
     ends_at: string;
     staff_id: string | null;
+    waitlist: boolean;
 }
 
 interface DayOpenings {
     date: string;
     count: number;
+    waitlist: number;
     closed: boolean;
     reason: string | null;
 }
@@ -131,6 +133,7 @@ interface PublicBookingResult {
     deposit_cents: number;
     deposit_client_secret: string | null;
     stripe_account_id: string | null;
+    waitlist_position: number | null;
 }
 
 interface BookingInput {
@@ -169,6 +172,26 @@ interface PublicBookingClient {
         input: BookingInput,
         idempotencyKey: string,
     ) => Promise<PublicBookingResult>;
+    joinWaitlist: (
+        slug: string,
+        input: BookingInput,
+        idempotencyKey: string,
+    ) => Promise<PublicBookingResult>;
+}
+
+function bookingBody(input: BookingInput): string {
+    return JSON.stringify({
+        item_id: input.itemId,
+        staff_id: input.staffId,
+        starts_at: input.startsAt,
+        client: input.client,
+        subject_name: input.subjectName || null,
+        subject_address: input.subjectAddress || null,
+        returning_token: input.returningToken ?? null,
+        subject_id: input.subjectId ?? null,
+        note: input.note || null,
+        addons: input.addons.map((x) => ({ item_id: x.itemId, quantity: x.quantity })),
+    });
 }
 
 export function createPublicBookingClient(baseUrl: string): PublicBookingClient {
@@ -194,18 +217,13 @@ export function createPublicBookingClient(baseUrl: string): PublicBookingClient 
             request<PublicBookingResult>(at(slug), {
                 method: "POST",
                 headers: { "Content-Type": "application/json", "Idempotency-Key": idempotencyKey },
-                body: JSON.stringify({
-                    item_id: input.itemId,
-                    staff_id: input.staffId,
-                    starts_at: input.startsAt,
-                    client: input.client,
-                    subject_name: input.subjectName || null,
-                    subject_address: input.subjectAddress || null,
-                    returning_token: input.returningToken ?? null,
-                    subject_id: input.subjectId ?? null,
-                    note: input.note || null,
-                    addons: input.addons.map((x) => ({ item_id: x.itemId, quantity: x.quantity })),
-                }),
+                body: bookingBody(input),
+            }),
+        joinWaitlist: (slug, input, idempotencyKey) =>
+            request<PublicBookingResult>(`${at(slug)}/waitlist`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "Idempotency-Key": idempotencyKey },
+                body: bookingBody(input),
             }),
     };
 }
@@ -278,7 +296,11 @@ export function groupSlots(
                 .map((x) => ({
                     key: x.starts_at,
                     label: formatTime(parseTimestamp(x.starts_at), zone),
-                    ...(staffName && x.staff_id !== null ? { hint: staffName(x.staff_id) } : {}),
+                    ...(x.waitlist
+                        ? { hint: s.waitlistHint }
+                        : staffName && x.staff_id !== null
+                          ? { hint: staffName(x.staff_id) }
+                          : {}),
                 })),
         }))
         .filter((g) => g.slots.length > 0);
@@ -310,7 +332,7 @@ export function toStrip(
             day: formatDayNumber(date, zone),
             busy: o === undefined || o.count === 0 ? 0 : o.count < 4 ? 1 : o.count < 10 ? 2 : 3,
             closed: o?.closed === true,
-            disabled: key < today || (o?.count === 0 && !o.closed),
+            disabled: key < today || (o?.count === 0 && o.waitlist === 0 && !o.closed),
             isToday: key === today,
         };
     });
@@ -524,7 +546,10 @@ export function usePublicBookingFlow(
     }, [slug]);
 
     const from = weekFrom ?? today;
-    const day = date ?? days?.find((d) => d.count > 0)?.date ?? (days === null ? null : from);
+    const day =
+        date ??
+        days?.find((d) => d.count > 0 || d.waitlist > 0)?.date ??
+        (days === null ? null : from);
     const service = page?.services.find((x) => x.id === itemId) ?? null;
     const staffFor =
         page?.staff.filter((x) => service === null || service.staff_ids.includes(x.id)) ?? [];
@@ -608,10 +633,12 @@ export function usePublicBookingFlow(
             cents: x.price_cents * (addons[x.id] ?? 0),
         }));
     const addonsCents = addonLines.reduce((sum, l) => sum + l.cents, 0);
-    const depositCents = service?.deposit_required === true ? service.deposit_amount_cents : 0;
+    const slot = slots?.find((x) => x.starts_at === startsAt) ?? null;
+    const waitlist = slot?.waitlist === true;
+    const depositCents =
+        service?.deposit_required === true && !waitlist ? service.deposit_amount_cents : 0;
     const serviceCents = service?.price_cents ?? 0;
     const currency = service?.currency ?? BUSINESS_CURRENCY;
-    const slot = slots?.find((x) => x.starts_at === startsAt) ?? null;
 
     const errors = detailErrors(
         { name, phone, email, subjectName, subjectAddress },
@@ -622,7 +649,7 @@ export function usePublicBookingFlow(
     const order: BookingStep[] = [
         "service",
         "time",
-        ...(offered.length > 0 ? (["extras"] as const) : []),
+        ...(offered.length > 0 && !waitlist ? (["extras"] as const) : []),
         "details",
         ...(depositCents > 0 ? (["pay"] as const) : []),
     ];
@@ -671,15 +698,19 @@ export function usePublicBookingFlow(
             returningToken,
             subjectId: kind === null ? null : subjectId,
             note: note.trim(),
-            addons: addonLines.map((l) => ({
-                itemId: l.addon.id,
-                quantity: l.quantity,
-            })),
+            addons: waitlist
+                ? []
+                : addonLines.map((l) => ({
+                      itemId: l.addon.id,
+                      quantity: l.quantity,
+                  })),
         };
         run(
             async () => {
                 const r = await sendAttempt(key, input, (attempt) =>
-                    client.book(slug, input, attempt),
+                    waitlist
+                        ? client.joinWaitlist(slug, input, attempt)
+                        : client.book(slug, input, attempt),
                 );
                 setResult(r);
                 setStep(r.deposit_client_secret !== null ? "pay" : "done");
@@ -701,7 +732,8 @@ export function usePublicBookingFlow(
 
     const lastDay = horizonDay(today, page?.policy?.horizon_days, zone);
     const laterWeek = lastDay === null || shiftKey(from, 7, zone) <= lastDay;
-    const firstOpen = days?.find((d) => d.count > 0 && day !== null && d.date > day) ?? null;
+    const firstOpen =
+        days?.find((d) => (d.count > 0 || d.waitlist > 0) && day !== null && d.date > day) ?? null;
     const closure = days?.find((d) => d.date === day && d.closed) ?? null;
     const slotStaff = slot?.staff_id
         ? (page?.staff.find((x) => x.id === slot.staff_id) ?? null)
@@ -835,6 +867,8 @@ export function usePublicBookingFlow(
         },
         slot,
         slotStaff,
+        waitlist,
+        waitlistNotice: waitlist ? s.waitlistNotice : null,
         offered,
         addons,
         toggleAddon: (id: string) => {
@@ -919,6 +953,13 @@ export function usePublicBookingFlow(
             ? formatTimeRange(parseTimestamp(slot.starts_at), parseTimestamp(slot.ends_at), zone)
             : null,
         result,
+        waitlistBody:
+            result?.status === "waitlisted" && slot
+                ? s.waitlistBody(
+                      result.waitlist_position ?? 1,
+                      whenLabel(slot.starts_at, today, zone).replace(/\.$/, ""),
+                  )
+                : null,
         calendar:
             slot && service && page && result
                 ? {
@@ -974,6 +1015,7 @@ interface ManagedBooking {
     can_cancel: boolean;
     blocked: ManageBlock | null;
     blocked_hours: number | null;
+    waitlist_position: number | null;
 }
 
 type ManageBlock =
@@ -1074,6 +1116,8 @@ export function useManageBooking(client: ManageBookingClient, token: string) {
     const start = data ? parseTimestamp(data.starts_at) : now;
     const hoursAway = Math.floor((start.getTime() - now.getTime()) / 3_600_000);
     const live = data !== null && (data.status === "confirmed" || data.status === "pending");
+    const [left, setLeft] = useState(false);
+    const waiting = data?.status === "waitlisted";
     const weekFrom = from ?? (data ? visitWeekFrom(start, today, zone) : today);
     const day = date ?? (data ? dateKey(start, zone) : today);
     const lastDay = horizonDay(today, data?.policy.horizon_days, zone);
@@ -1169,7 +1213,25 @@ export function useManageBooking(client: ManageBookingClient, token: string) {
                 : m.inDays(Math.round(hoursAway / 24)),
         ),
         live,
-        canCancel: live && data.can_cancel,
+        waiting,
+        waitlistLine: waiting ? m.waitlistLine(data.waitlist_position ?? 1) : null,
+        labels:
+            waiting || left
+                ? {
+                      title: m.waitlistLabel,
+                      cancel: m.leaveWaitlist,
+                      cancelTitle: m.leaveTitle,
+                      cancelConfirm: m.leaveConfirm,
+                      canceledTitle: m.leftTitle,
+                  }
+                : {
+                      title: m.title,
+                      cancel: m.cancel,
+                      cancelTitle: m.cancelTitle,
+                      cancelConfirm: m.cancelConfirm,
+                      canceledTitle: m.canceledTitle,
+                  },
+        canCancel: (live || waiting) && data.can_cancel,
         canMove: live && data.can_move,
         blocked: live ? blockedReason(data.blocked, data.blocked_hours) : null,
         dateTile: {
@@ -1269,6 +1331,7 @@ export function useManageBooking(client: ManageBookingClient, token: string) {
             run(
                 async () => {
                     const r = await client.cancel(token, attempt);
+                    setLeft(waiting);
                     setRefund(r.deposit === "refunded" ? r.refund_cents : null);
                     if (data)
                         setData({

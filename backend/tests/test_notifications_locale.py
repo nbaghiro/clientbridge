@@ -40,7 +40,7 @@ ADDRESS = "12 Main St, Victoria, BC"
 CONTACT = "hi@birchbark.example"
 INPUTS = [
     *(LINK, NAME, "123456", "CODE", "Intake", "Waiver", "Too far", "REF-1", "pay@x.ca"),
-    *("CN-1", "GC-1", "GST", "Shampoo", "Sale", "STOP", ADDRESS, CONTACT),
+    *("CN-1", "GC-1", "GST", "Shampoo", "Sale", "STOP", "Agility", ADDRESS, CONTACT),
 ]
 MOMENT = datetime(2026, 10, 9, 21, 30, tzinfo=UTC)
 
@@ -152,6 +152,15 @@ def _builders() -> dict[str, Render]:
         ),
         "booking_requested_message": lambda c: n.booking_requested_message(c, NAME, when(c)),
         "booking_released_message": lambda c: n.booking_released_message(c, NAME, when(c)),
+        "seat_opened_message": lambda c: (
+            n.seat_opened_message(c, NAME, "Agility", when(c), LINK),
+            n.seat_opened_message(c, NAME, "Agility", when(c), None),
+        ),
+        "waitlist_joined_message": lambda c: (
+            n.waitlist_joined_message(c, NAME, "Agility", when(c), LINK),
+            n.waitlist_joined_message(c, NAME, "Agility", when(c), None),
+        ),
+        "waitlist_closed_message": lambda c: n.waitlist_closed_message(c, NAME, "Agility", when(c)),
         "series_booked_message": lambda c: n.series_booked_message(c, NAME, whens(c)),
         "series_moved_message": lambda c: n.series_moved_message(c, NAME, whens(c)),
         "series_canceled_message": lambda c: n.series_canceled_message(c, NAME, whens(c)),

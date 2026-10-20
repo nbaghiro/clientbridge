@@ -20,6 +20,7 @@ import {
     Icon,
     IconButton,
     ItemImage,
+    Notice,
     Skeleton,
     TextField,
     SlotChips,
@@ -172,6 +173,9 @@ export function WhenPicker({ flow }: { flow: PublicBookingFlow }) {
                         />
                     )}
                 </div>
+                {flow.waitlistNotice !== null ? (
+                    <Notice tone="info">{flow.waitlistNotice}</Notice>
+                ) : null}
             </div>
         </div>
     );
@@ -358,7 +362,7 @@ export function DoneCard({
 }) {
     const subject = flow.kind === null ? "" : flow.fields.subjectName.trim();
     const when = (flow.when ?? "").replace(/\.$/, "");
-    const pending = flow.result?.status === "pending";
+    const pending = flow.result?.status === "pending" || flow.waitlistBody !== null;
     return (
         <div className="text-center">
             <Icon
@@ -367,14 +371,19 @@ export function DoneCard({
                 className="mx-auto block text-ink-soft"
             />
             <h1 className="mt-4 font-display text-2xl font-bold text-ink">
-                {pending ? s.pendingTitle : s.doneTitle}
+                {flow.waitlistBody !== null
+                    ? s.waitlistTitle
+                    : pending
+                      ? s.pendingTitle
+                      : s.doneTitle}
             </h1>
             <p className="mx-auto mt-2 max-w-sm text-sm text-muted first-letter:uppercase">
-                {pending
-                    ? s.pendingBody(when)
-                    : subject
-                      ? s.doneBody(subject, when)
-                      : s.doneNoSubject(when)}
+                {flow.waitlistBody ??
+                    (pending
+                        ? s.pendingBody(when)
+                        : subject
+                          ? s.doneBody(subject, when)
+                          : s.doneNoSubject(when))}
             </p>
             <div className="mx-auto mt-5 max-w-sm rounded-lg border border-line bg-bg p-4 text-left">
                 <FactList facts={visitFacts(flow)} label={s.summary} />
@@ -386,15 +395,17 @@ export function DoneCard({
                 ) : null}
             </div>
             <div className="mt-5 flex flex-wrap justify-center gap-2">
-                <Button
-                    variant="outline"
-                    icon="calendar"
-                    onPress={() => {
-                        addToCalendar(flow.calendar);
-                    }}
-                >
-                    {s.addToCalendar}
-                </Button>
+                {flow.waitlistBody === null ? (
+                    <Button
+                        variant="outline"
+                        icon="calendar"
+                        onPress={() => {
+                            addToCalendar(flow.calendar);
+                        }}
+                    >
+                        {s.addToCalendar}
+                    </Button>
+                ) : null}
                 {onManage !== null ? (
                     <Button variant="outline" icon="edit" onPress={onManage}>
                         {s.manage}

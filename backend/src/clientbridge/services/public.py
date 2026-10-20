@@ -85,9 +85,12 @@ from clientbridge.schemas.public_profiles import PublicNextOpenings, PublicServi
 from clientbridge.services import ledger
 from clientbridge.services.billing import estimate_status
 from clientbridge.services.bookings import (
+    ALREADY_IN_CLASS,
     OVERLAP,
     Availability,
+    client_has_seat,
     create_booking_core,
+    fill_freed_seats,
     load_availability,
     local_day,
     lock_bookings,
@@ -96,7 +99,9 @@ from clientbridge.services.bookings import (
     open_slots,
     policy_of,
     release_slot,
+    seats_closed,
     slot_problem,
+    waitlist_position,
 )
 from clientbridge.services.business import business_tz, local_today, staff_names
 from clientbridge.services.catalog import deposit_cents
@@ -124,7 +129,7 @@ from clientbridge.services.lines import (
     replace_lines,
 )
 from clientbridge.services.messaging import open_thread
-from clientbridge.services.notifications import Notifier
+from clientbridge.services.notifications import Notifier, queued_notifier
 from clientbridge.services.orders import next_order_number, pickup_setting, pickup_windows
 from clientbridge.services.payments import (
     assert_payable,
@@ -187,6 +192,7 @@ def _policy_out(policy: BookingPolicy) -> PublicPolicy:
 
 _ANY = "any"
 _BOOK_SCOPE = "book.create"
+_WAITLIST_SCOPE = "book.waitlist"
 _UNOFFERED = "that time isn't open for booking; pick another"
 _MAX_DAYS = 14
 
@@ -304,31 +310,9 @@ class PublicBookingService:
             policy = policy_of(business)
             _assert_bookable_window(policy, data.starts_at)
             staff_id = await self._staff_for(business, item, data.staff_id, data.starts_at)
-            addons = await offered_addons(
-                self.db,
-                business.id,
-                item.id,
-                [PublicShopLine(item_id=a.item_id, quantity=a.quantity) for a in data.addons],
-            )
-            _assert_subject_fields(business, data)
-            returning = ReturningService(self.db)
-            # A client-only business ignores the subject a returning client last booked with.
-            chosen = data.subject_id if business.subject is not None else None
-            if chosen is not None and data.returning_token is None:
-                raise Unauthorized("verify your email before choosing an existing subject")
-            client = (
-                await returning.resolve(business.id, data.returning_token)
-                if data.returning_token is not None
-                else await self._find_or_create_client(business.id, data.client)
-            )
+            addons = await self._addons(business, item, data)
+            client, subject_id = await self._booker(business, data)
             first_visit = not await _has_booked(self.db, business.id, client.id)
-            subject_id = (
-                await returning.subject(client, chosen)
-                if chosen is not None
-                else await _subject(
-                    self.db, business, client.id, data.subject_name, data.subject_address
-                )
-            )
             booking, _ = await create_booking_core(
                 self.db,
                 business.id,
@@ -343,29 +327,7 @@ class PublicBookingService:
             if policy.approve_new_clients and first_visit:
                 booking.status = "pending"
                 booking.confirmed_at = None
-            if data.note is not None and data.note.strip() != "":
-                self.db.add(
-                    Note(
-                        id=new_id("note"),
-                        business_id=business.id,
-                        parent_type="booking",
-                        parent_id=booking.id,
-                        body=data.note.strip(),
-                    )
-                )
-            for product, qty in addons:
-                self.db.add(
-                    Addon(
-                        id=new_id("addon"),
-                        business_id=business.id,
-                        booking_id=booking.id,
-                        staff_id=booking.staff_id,
-                        item_id=product.id,
-                        description=product.name,
-                        quantity=qty,
-                        unit_amount_cents=product.price_cents,
-                    )
-                )
+            self._extras(business, booking, data, addons)
             secret = await self._open_deposit(business, booking, client)
             result = PublicBookingResult(
                 booking_id=booking.id,
@@ -387,6 +349,146 @@ class PublicBookingService:
             idempotency_key=idempotency_key,
             request=data,
         )
+
+    async def join_waitlist(
+        self, slug: str, data: PublicBookingCreate, idempotency_key: str | None = None
+    ) -> PublicBookingResult:
+        """Put the client on a full class session's waitlist; they're seated in turn."""
+        business = await self._business(slug)
+
+        async def run(cmd: Command) -> PublicBookingResult:
+            assert_serving(business, clock.now())
+            item = await self._bookable_item(business.id, data.item_id)
+            if item.kind != "class" or item.capacity is None or item.capacity <= 1:
+                raise Unprocessable("only a class session has a waitlist", code="no_waitlist")
+            _assert_bookable_window(policy_of(business), data.starts_at)
+            staff = [s.id for s in await self._who(business.id, data.staff_id)]
+            slot = await self.db.scalar(
+                scoped(Slot, business.id)
+                .where(
+                    Slot.item_id == item.id,
+                    Slot.staff_id.in_(staff),
+                    Slot.starts_at == data.starts_at,
+                    Slot.status == "scheduled",
+                )
+                .order_by(Slot.id)
+                .limit(1)
+            )
+            if slot is None:
+                raise Conflict(_UNOFFERED, code="slot_unavailable")
+            await lock_staff(self.db, business.id, slot.staff_id)
+            if not await seats_closed(self.db, slot.id):
+                raise Conflict("that class has a seat open; book it instead", code="class_open")
+            addons = await self._addons(business, item, data)
+            client, subject_id = await self._booker(business, data)
+            if await client_has_seat(self.db, business.id, slot.id, client.id):
+                raise Conflict(ALREADY_IN_CLASS)
+            deposit = deposit_cents(item) if item.deposit_type != "none" else 0
+            booking = Booking(
+                id=new_id("booking"),
+                business_id=business.id,
+                slot_id=slot.id,
+                starts_at=slot.starts_at,
+                staff_id=slot.staff_id,
+                client_id=client.id,
+                subject_id=subject_id,
+                status="waitlisted",
+                source="online",
+                price_cents=item.price_cents,
+                deposit_amount_cents=deposit,
+                deposit_status="pending" if deposit > 0 else "none",
+                manage_token=secrets.token_urlsafe(18),
+            )
+            self.db.add(booking)
+            await self.db.flush()
+            self._extras(business, booking, data, addons)
+            await self.db.flush()
+            cmd.record(_WAITLIST_SCOPE, entity_type="booking", entity_id=booking.id)
+            await queued_notifier(self.db, f"booking:{booking.id}", business.id).on_waitlist_joined(
+                self.db, booking.id
+            )
+            return PublicBookingResult(
+                booking_id=booking.id,
+                status=booking.status,
+                manage_token=booking.manage_token,
+                deposit_cents=0,
+                waitlist_position=await waitlist_position(self.db, booking),
+            )
+
+        return await run_command(
+            self.db,
+            PublicPrincipal(business.id),
+            action=_WAITLIST_SCOPE,
+            run=run,
+            response_model=PublicBookingResult,
+            idempotency_key=idempotency_key,
+            request=data,
+        )
+
+    async def _addons(
+        self, business: Business, item: Item, data: PublicBookingCreate
+    ) -> list[tuple[Item, int]]:
+        return await offered_addons(
+            self.db,
+            business.id,
+            item.id,
+            [PublicShopLine(item_id=a.item_id, quantity=a.quantity) for a in data.addons],
+        )
+
+    async def _booker(
+        self, business: Business, data: PublicBookingCreate
+    ) -> tuple[Client, str | None]:
+        """The client booking, found or filed, and the subject the visit is for."""
+        _assert_subject_fields(business, data)
+        returning = ReturningService(self.db)
+        # A client-only business ignores the subject a returning client last booked with.
+        chosen = data.subject_id if business.subject is not None else None
+        if chosen is not None and data.returning_token is None:
+            raise Unauthorized("verify your email before choosing an existing subject")
+        client = (
+            await returning.resolve(business.id, data.returning_token)
+            if data.returning_token is not None
+            else await self._find_or_create_client(business.id, data.client)
+        )
+        subject_id = (
+            await returning.subject(client, chosen)
+            if chosen is not None
+            else await _subject(
+                self.db, business, client.id, data.subject_name, data.subject_address
+            )
+        )
+        return client, subject_id
+
+    def _extras(
+        self,
+        business: Business,
+        booking: Booking,
+        data: PublicBookingCreate,
+        addons: list[tuple[Item, int]],
+    ) -> None:
+        if data.note is not None and data.note.strip() != "":
+            self.db.add(
+                Note(
+                    id=new_id("note"),
+                    business_id=business.id,
+                    parent_type="booking",
+                    parent_id=booking.id,
+                    body=data.note.strip(),
+                )
+            )
+        for product, qty in addons:
+            self.db.add(
+                Addon(
+                    id=new_id("addon"),
+                    business_id=business.id,
+                    booking_id=booking.id,
+                    staff_id=booking.staff_id,
+                    item_id=product.id,
+                    description=product.name,
+                    quantity=qty,
+                    unit_amount_cents=product.price_cents,
+                )
+            )
 
     async def _staff_for(
         self, business: Business, item: Item, staff_id: str, starts_at: datetime
@@ -478,10 +580,44 @@ def _open(
         for start in found.open_starts(item, member.id, on_date, policy.step_min):
             if earliest <= start <= latest and start not in seen:
                 seen[start] = member.id
+    full = {
+        start: member
+        for start, member in _waitlists(found, item, staff, on_date, earliest, latest).items()
+        if start not in seen
+    }
     return [
-        PublicSlot(starts_at=start, ends_at=start + delta, staff_id=seen[start])
-        for start in sorted(seen)
+        PublicSlot(
+            starts_at=start,
+            ends_at=start + delta,
+            staff_id=seen.get(start) or full[start],
+            waitlist=start in full,
+        )
+        for start in sorted(seen.keys() | full.keys())
     ]
+
+
+def _waitlists(
+    found: Availability,
+    item: Item,
+    staff: list[Staff],
+    on_date: date,
+    earliest: datetime,
+    latest: datetime,
+) -> dict[datetime, str]:
+    """The full sessions of a class on the date, by start, that a client can wait for a seat in."""
+    if item.kind != "class" or item.capacity is None or item.capacity <= 1:
+        return {}
+    starts: dict[datetime, str] = {}
+    for member in staff:
+        for busy in found.busy.get(member.id, []):
+            if (
+                busy.item_id == item.id
+                and busy.full
+                and earliest <= busy.starts_at <= latest
+                and busy.starts_at.astimezone(found.tz).date() == on_date
+            ):
+                starts.setdefault(busy.starts_at, member.id)
+    return starts
 
 
 async def _offered(
@@ -536,15 +672,18 @@ async def open_days(
             (w for w in found.closures if w.starts_at <= opens and w.ends_at >= closes), None
         )
         starts: set[datetime] = set()
+        full: set[datetime] = set()
         if closure is None and closes > earliest and opens <= latest:
             for member in staff:
                 for s in found.open_starts(item, member.id, day, policy.step_min):
                     if earliest <= s <= latest:
                         starts.add(s)
+            full = set(_waitlists(found, item, staff, day, earliest, latest)) - starts
         out.append(
             PublicDay(
                 date=day,
                 count=len(starts),
+                waitlist=len(full),
                 closed=closure is not None,
                 reason=closure.reason if closure is not None else None,
             )
@@ -765,9 +904,12 @@ class PublicManageService:
             elif booking.deposit_status == "pending":
                 await cancel_open_deposits(self.db, self.gateway, booking)
                 booking.deposit_status = "none"
+            held_seat = booking.status in ("pending", "confirmed")
             booking.status = "canceled"
             booking.canceled_at = clock.now()
             await release_slot(self.db, slot)
+            if held_seat:
+                await fill_freed_seats(self.db, slot)
             result = ManageCancelResult(
                 deposit=(await booking_refund_status(self.db, booking))
                 or ("refunded" if refunded > 0 else "none"),
@@ -791,10 +933,13 @@ class PublicManageService:
     ) -> tuple[ManageBlock, int | None] | None:
         """Why the client can't make this change online, and the cutoff hours when that is why."""
         policy = policy_of(business)
-        if booking.status not in ("pending", "confirmed"):
+        waiting = booking.status == "waitlisted" and change == "cancel"
+        if booking.status not in ("pending", "confirmed") and not waiting:
             return "status", None
         if not policy.self_service:
             return "by_phone", None
+        if waiting:
+            return None
         hours_away = (slot.starts_at - clock.now()).total_seconds() / 3600
         if change == "cancel":
             if hours_away < policy.cancel_cutoff_hours:
@@ -913,6 +1058,7 @@ class PublicManageService:
             can_cancel=cancel is None,
             blocked=blocked,
             blocked_hours=blocked_hours,
+            waitlist_position=await waitlist_position(self.db, booking),
         )
 
 

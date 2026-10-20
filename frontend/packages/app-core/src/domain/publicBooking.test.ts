@@ -35,10 +35,11 @@ const ZONE = "America/Vancouver";
 const s = strings.publicBooking;
 
 const at = (day: number, h: number, m = 0): Date => zonedDate(2026, 10, day, h, m, ZONE);
-const slot = (d: Date, staff: string | null = null) => ({
+const slot = (d: Date, staff: string | null = null, waitlist = false) => ({
     starts_at: d.toISOString(),
     ends_at: new Date(d.getTime() + 3_600_000).toISOString(),
     staff_id: staff,
+    waitlist,
 });
 
 describe("open times", () => {
@@ -70,15 +71,24 @@ describe("open times", () => {
         expect(afternoon?.slots.map((x) => x.hint)).toEqual(["Amy", undefined]);
     });
 
+    it("marks a full class time as a waitlist to join, in place of who it's with", () => {
+        const [morning] = groupSlots(
+            [slot(at(7, 9), "st_amy"), slot(at(7, 10), "st_amy", true)],
+            ZONE,
+            () => "Amy",
+        );
+        expect(morning?.slots.map((x) => x.hint)).toEqual(["Amy", s.waitlistHint]);
+    });
+
     it("builds a week strip with busy levels, closures and days before today disabled", () => {
         const strip = toStrip(
             [
-                { date: "2026-10-05", count: 5, closed: false, reason: null },
-                { date: "2026-10-06", count: 0, closed: false, reason: null },
-                { date: "2026-10-07", count: 3, closed: false, reason: null },
-                { date: "2026-10-08", count: 4, closed: false, reason: null },
-                { date: "2026-10-09", count: 10, closed: false, reason: null },
-                { date: "2026-10-10", count: 0, closed: true, reason: "Holiday" },
+                { date: "2026-10-05", count: 5, waitlist: 0, closed: false, reason: null },
+                { date: "2026-10-06", count: 0, waitlist: 0, closed: false, reason: null },
+                { date: "2026-10-07", count: 3, waitlist: 0, closed: false, reason: null },
+                { date: "2026-10-08", count: 0, waitlist: 1, closed: false, reason: null },
+                { date: "2026-10-09", count: 10, waitlist: 0, closed: false, reason: null },
+                { date: "2026-10-10", count: 0, waitlist: 0, closed: true, reason: "Holiday" },
             ],
             "2026-10-05",
             "2026-10-06",
@@ -88,7 +98,7 @@ describe("open times", () => {
             ["2026-10-05", 2, false, true, false],
             ["2026-10-06", 0, false, true, true],
             ["2026-10-07", 1, false, false, false],
-            ["2026-10-08", 2, false, false, false],
+            ["2026-10-08", 0, false, false, false],
             ["2026-10-09", 3, false, false, false],
             ["2026-10-10", 0, true, false, false],
             ["2026-10-11", 0, false, false, false],
@@ -266,6 +276,7 @@ it("shows a failed availability load and retries without presenting it as an emp
         getDays: vi.fn().mockRejectedValueOnce(new Error("offline")).mockResolvedValue([]),
         getSlots: vi.fn().mockResolvedValue([]),
         book: vi.fn(),
+        joinWaitlist: vi.fn(),
     };
     const { result } = renderHook(() =>
         usePublicBookingFlow(client, "demo", { itemId: "service" }),

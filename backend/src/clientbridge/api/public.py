@@ -50,6 +50,7 @@ from clientbridge.schemas.public import (
     PublicSlots,
 )
 from clientbridge.schemas.public_profiles import PublicNextOpenings, PublicProfile
+from clientbridge.services.deliveries import dispatch_scope
 from clientbridge.services.files import public_media_location
 from clientbridge.services.notifications import Notifier
 from clientbridge.services.payments import PublicPaymentSetupService
@@ -299,6 +300,23 @@ async def public_book(
         await notifier.on_booking_requested(db, result.booking_id)
     else:
         await notifier.on_booking_confirmed(db, result.booking_id)
+    return result
+
+
+@booking_router.post("/{slug}/waitlist", response_model=PublicBookingResult)
+async def public_join_waitlist(
+    slug: str,
+    body: PublicBookingCreate,
+    db: DbSession,
+    gateway: GatewayDep,
+    email: EmailDep,
+    sms: SmsDep,
+    push: PushDep,
+    _: BookingRateLimited,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key", min_length=8)] = None,
+) -> PublicBookingResult:
+    result = await PublicBookingService(db, gateway).join_waitlist(slug, body, idempotency_key)
+    await dispatch_scope(db, f"booking:{result.booking_id}", email, sms, push)
     return result
 
 

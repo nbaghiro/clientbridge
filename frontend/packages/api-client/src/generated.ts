@@ -552,6 +552,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/book/{slug}/waitlist": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Public Join Waitlist */
+        post: operations["public_join_waitlist_book__slug__waitlist_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/book/{slug}/shop": {
         parameters: {
             query?: never;
@@ -5792,6 +5809,11 @@ export interface components {
              * @description The policy cutoff in hours, when the reason is the cutoff
              */
             blocked_hours?: number | null;
+            /**
+             * Waitlist Position
+             * @description Where a waitlisted client stands; 1 is seated first
+             */
+            waitlist_position?: number | null;
         };
         /** MeOut */
         MeOut: {
@@ -6621,6 +6643,11 @@ export interface components {
              * @description Connected account for the deposit charge, once onboarded
              */
             stripe_account_id?: string | null;
+            /**
+             * Waitlist Position
+             * @description Where a waitlisted client stands; 1 is seated first
+             */
+            waitlist_position?: number | null;
         };
         /**
          * PublicBrand
@@ -6730,6 +6757,12 @@ export interface components {
              * @description Open start times that day
              */
             count: number;
+            /**
+             * Waitlist
+             * @description Full class sessions with a waitlist to join
+             * @default 0
+             */
+            waitlist: number;
             /**
              * Closed
              * @description The business is closed all day
@@ -7477,6 +7510,12 @@ export interface components {
              * @description Who the time is with
              */
             staff_id?: string | null;
+            /**
+             * Waitlist
+             * @description A full class session the client can join the waitlist for
+             * @default false
+             */
+            waitlist: boolean;
         };
         /** PublicSlots */
         PublicSlots: {
@@ -8047,6 +8086,12 @@ export interface components {
             client_id: string;
             /** Subject Id */
             subject_id?: string | null;
+            /**
+             * Notify
+             * @description Send the client a confirmation
+             * @default true
+             */
+            notify: boolean;
         };
         /** RosterEntry */
         RosterEntry: {
@@ -9556,6 +9601,43 @@ export interface operations {
         };
     };
     public_book_book__slug__post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublicBookingCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicBookingResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    public_join_waitlist_book__slug__waitlist_post: {
         parameters: {
             query?: never;
             header?: {
@@ -11504,6 +11586,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
+                "Idempotency-Key"?: string | null;
                 "x-business-id"?: string;
                 "x-expected-user"?: string;
                 "x-session-token"?: string;

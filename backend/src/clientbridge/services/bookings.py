@@ -111,7 +111,7 @@ _PAST = "that time has already passed"
 _CLASS_MOVE = "a class session moves as a whole; change its time from the class"
 _WAITLIST_SEAT = "give a waitlisted client a seat from the class roster"
 _MIN_VISIT = timedelta(minutes=5)
-_ALREADY_IN_CLASS = "you already have a booking for this class"
+ALREADY_IN_CLASS = "you already have a booking for this class"
 _TERMINAL = frozenset({"completed", "canceled", "no_show"})
 _AFTER_START = frozenset({"completed", "no_show"})
 _NOT_STARTED = "a visit can be completed or marked a no-show only once it has started"
@@ -159,6 +159,95 @@ async def booked_count(db: AsyncSession, slot_id: str) -> int:
     return int(count.scalar_one())
 
 
+def seats_closed_expr() -> ColumnElement[bool]:
+    """A slot takes no new booking: every seat is taken, or someone is waiting for the next one."""
+    waiting = (
+        select(Booking.id)
+        .where(
+            Booking.slot_id == Slot.id,
+            Booking.status == "waitlisted",
+            Booking.deleted_at.is_(None),
+        )
+        .exists()
+    )
+    return or_(booked_count_expr() >= Slot.capacity, waiting)
+
+
+async def seats_closed(db: AsyncSession, slot_id: str) -> bool:
+    return bool(await db.scalar(select(seats_closed_expr()).where(Slot.id == slot_id)))
+
+
+def seat_scope(slot_id: str, booking_id: str | None = None) -> str:
+    """The delivery scope of the seat notices a class session sends, or of one of them."""
+    return f"seat:{slot_id}" if booking_id is None else f"seat:{slot_id}:{booking_id}"
+
+
+async def waitlist_position(db: AsyncSession, booking: Booking) -> int | None:
+    """Where a waiting booking stands in line for the next seat; 1 is seated first."""
+    if booking.status != "waitlisted":
+        return None
+    ahead = await db.scalar(
+        scoped(Booking, booking.business_id, soft_delete=True)
+        .with_only_columns(func.count(Booking.id))
+        .where(
+            Booking.slot_id == booking.slot_id,
+            Booking.status == "waitlisted",
+            tuple_(Booking.created_at, Booking.id)
+            < tuple_(literal(booking.created_at), literal(booking.id)),
+        )
+    )
+    return int(ahead or 0) + 1
+
+
+def seat_booking(booking: Booking) -> None:
+    """Give a class booking its seat: confirmed, with its manage link and any deposit due."""
+    booking.status = "confirmed"
+    booking.confirmed_at = clock.now()
+    booking.manage_token = booking.manage_token or secrets.token_urlsafe(18)
+    booking.deposit_status = "pending" if booking.deposit_amount_cents > 0 else "none"
+
+
+async def fill_freed_seats(
+    db: AsyncSession, slot: Slot, *, performed_by: str | None = None
+) -> list[str]:
+    """Seat the people waiting, earliest first, while a class that hasn't started has room."""
+    if slot.capacity <= 1 or slot.status == "canceled" or slot.starts_at <= clock.now():
+        return []
+    await db.flush()
+    # callers hold the member's lock; the slot row lock makes the count and the pick one step
+    await db.execute(select(Slot.id).where(Slot.id == slot.id).with_for_update())
+    seated: list[str] = []
+    while await booked_count(db, slot.id) < slot.capacity:
+        first = await db.scalar(
+            scoped(Booking, slot.business_id, soft_delete=True)
+            .where(Booking.slot_id == slot.id, Booking.status == "waitlisted")
+            .order_by(Booking.created_at, Booking.id)
+            .limit(1)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+        if first is None:
+            break
+        seat_booking(first)
+        db.add(
+            Audit(
+                id=new_id("audit"),
+                business_id=slot.business_id,
+                performed_by=performed_by,
+                action="class.seat_opened",
+                entity_type="booking",
+                entity_id=first.id,
+                changes={},
+            )
+        )
+        await db.flush()
+        await queued_notifier(db, seat_scope(slot.id, first.id), slot.business_id).on_seat_opened(
+            db, first.id
+        )
+        seated.append(first.id)
+    return seated
+
+
 async def conflicting_slot(
     db: AsyncSession,
     business_id: str,
@@ -180,7 +269,7 @@ async def conflicting_slot(
             Slot.starts_at - func.make_interval(0, 0, 0, 0, 0, Item.buffer_before_min) < new_end,
             Slot.ends_at + func.make_interval(0, 0, 0, 0, 0, Item.buffer_after_min) > new_start,
             or_(
-                booked_count_expr() >= Slot.capacity,
+                seats_closed_expr(),
                 Slot.item_id != item.id,
                 Slot.starts_at != starts_at,
                 Slot.ends_at != ends_at,
@@ -217,9 +306,7 @@ async def open_class_slot(
     return (await db.execute(q)).scalars().first()
 
 
-async def _client_has_seat(
-    db: AsyncSession, business_id: str, slot_id: str, client_id: str
-) -> bool:
+async def client_has_seat(db: AsyncSession, business_id: str, slot_id: str, client_id: str) -> bool:
     """Whether this client already has a live booking on the slot."""
     q = (
         scoped(Booking, business_id, soft_delete=True)
@@ -304,10 +391,10 @@ async def create_booking_core(
     if is_class:
         slot = await open_class_slot(db, business_id, item.id, staff_id, starts_at)
         if slot is not None:
-            if dedupe_client and await _client_has_seat(db, business_id, slot.id, client_id):
-                raise Conflict(_ALREADY_IN_CLASS)
-            if await booked_count(db, slot.id) >= slot.capacity:
-                raise Conflict(_CLASS_FULL)
+            if dedupe_client and await client_has_seat(db, business_id, slot.id, client_id):
+                raise Conflict(ALREADY_IN_CLASS)
+            if await seats_closed(db, slot.id):
+                raise Conflict(_CLASS_FULL, code="class_full")
     if slot is None:
         await assert_free(db, business_id, item, staff_id, starts_at, ends_at)
         slot = Slot(
@@ -606,6 +693,7 @@ class BookingService:
 
         async def run(cmd: Command) -> BookingOut:
             if target is None and data.status is not None and data.status != booking.status:
+                await lock_staff(self.db, self.biz, slot.staff_id)
                 await lock_bookings(self.db, self.biz, [booking.id])
                 if booking.status in _TERMINAL and data.status != booking.status:
                     raise Conflict(f"a {booking.status} booking can't be modified")
@@ -643,6 +731,7 @@ class BookingService:
                     raise Conflict(OVERLAP) from exc
                 cmd.record("booking.reschedule", entity_type="booking", entity_id=booking.id)
             if data.status is not None and data.status != booking.status:
+                held_seat = booking.status in ("pending", "confirmed")
                 booking.status = data.status
                 if data.status == "confirmed":
                     booking.confirmed_at = booking.confirmed_at or clock.now()
@@ -659,6 +748,8 @@ class BookingService:
                 elif data.status == "no_show":
                     await self.forfeit_deposit(cmd, booking)
                 cmd.record(f"booking.{data.status}", entity_type="booking", entity_id=booking.id)
+                if held_seat and data.status in ("canceled", "no_show"):
+                    await fill_freed_seats(self.db, slot, performed_by=self.principal.user_id)
             await self.db.flush()
             return await booking_out(self.db, booking, slot)
 
@@ -1212,7 +1303,7 @@ async def load_availability(
             Slot.ends_at,
             Item.buffer_before_min,
             Item.buffer_after_min,
-            booked_count_expr() >= Slot.capacity,
+            seats_closed_expr(),
         )
         .where(
             Slot.staff_id.in_(staff_ids),
@@ -1524,6 +1615,7 @@ class RecurrenceService:
             refunded = 0
             canceled: list[str] = []
             now = clock.now()
+            await lock_staff(self.db, self.biz, *{slot.staff_id for _, slot in visits})
             for booking, slot in await self._lock_visits(visits):
                 if booking.deposit_status == "collected":
                     refunded += await refund_deposit(self.db, gateway, booking)
@@ -1533,6 +1625,7 @@ class RecurrenceService:
                 booking.status = "canceled"
                 booking.canceled_at = now
                 await release_slot(self.db, slot)
+                await fill_freed_seats(self.db, slot, performed_by=self.principal.user_id)
                 canceled.append(booking.id)
             remaining = await self._upcoming(recurrence.id, "all", None, tz, strict=False)
             if remaining:
@@ -1680,7 +1773,9 @@ class ClassService:
         self.biz = principal.business_id
         self.gateway = gateway
 
-    async def add(self, slot_id: str, data: RosterAdd) -> RosterEntry:
+    async def add(
+        self, slot_id: str, data: RosterAdd, idempotency_key: str | None = None
+    ) -> RosterEntry:
         slot = await self._session(slot_id)
         assert_can_act_as(self.principal, slot.staff_id)
         await load_client(self.db, self.biz, data.client_id)
@@ -1692,9 +1787,9 @@ class ClassService:
 
         async def run(cmd: Command) -> RosterEntry:
             await lock_staff(self.db, self.biz, slot.staff_id)
-            if await _client_has_seat(self.db, self.biz, slot.id, data.client_id):
-                raise Conflict(_ALREADY_IN_CLASS)
-            full = await booked_count(self.db, slot.id) >= slot.capacity
+            if await client_has_seat(self.db, self.biz, slot.id, data.client_id):
+                raise Conflict(ALREADY_IN_CLASS)
+            full = await seats_closed(self.db, slot.id)
             deposit = deposit_cents(item) if item.deposit_type != "none" else 0
             booking = Booking(
                 id=new_id("booking"),
@@ -1704,21 +1799,35 @@ class ClassService:
                 staff_id=slot.staff_id,
                 client_id=data.client_id,
                 subject_id=data.subject_id,
-                status="waitlisted" if full else "confirmed",
+                status="waitlisted",
                 source="manual",
                 price_cents=item.price_cents,
                 deposit_amount_cents=deposit,
                 deposit_status="pending" if deposit > 0 else "none",
-                confirmed_at=None if full else clock.now(),
+                manage_token=secrets.token_urlsafe(18),
             )
+            if not full:
+                seat_booking(booking)
             self.db.add(booking)
             await self.db.flush()
             action = "class.waitlist" if full else "class.add"
             cmd.record(action, entity_type="booking", entity_id=booking.id)
+            if data.notify:
+                notifier = queued_notifier(self.db, f"booking:{booking.id}", self.biz)
+                if full:
+                    await notifier.on_waitlist_joined(self.db, booking.id)
+                else:
+                    await notifier.on_booking_confirmed(self.db, booking.id)
             return await self._entry(booking)
 
         return await run_command(
-            self.db, self.principal, action="class.add", run=run, response_model=RosterEntry
+            self.db,
+            self.principal,
+            action="class.add",
+            run=run,
+            response_model=RosterEntry,
+            idempotency_key=idempotency_key,
+            request={"slot_id": slot_id, **data.model_dump(mode="json")},
         )
 
     async def act(self, slot_id: str, booking_id: str, data: RosterAction) -> RosterEntry:
@@ -1737,8 +1846,8 @@ class ClassService:
             _assert_started(slot.starts_at)
 
         async def run(cmd: Command) -> RosterEntry:
-            if data.action != "promote":
-                await lock_bookings(self.db, self.biz, [booking.id])
+            await lock_staff(self.db, self.biz, slot.staff_id)
+            await lock_bookings(self.db, self.biz, [booking.id])
             if data.action == "check_in":
                 if booking.status != "confirmed":
                     raise Conflict(f"a {booking.status} booking can't be checked in")
@@ -1753,14 +1862,17 @@ class ClassService:
                 await BookingService(self.db, self.principal, self.gateway).forfeit_deposit(
                     cmd, booking
                 )
+                await fill_freed_seats(self.db, slot, performed_by=self.principal.user_id)
             else:
-                await lock_staff(self.db, self.biz, slot.staff_id)
                 if booking.status != "waitlisted":
                     raise Conflict("only someone on the waitlist can be given a seat")
                 if await booked_count(self.db, slot.id) >= slot.capacity:
-                    raise Conflict(_CLASS_FULL)
-                booking.status = "confirmed"
-                booking.confirmed_at = clock.now()
+                    raise Conflict(_CLASS_FULL, code="class_full")
+                seat_booking(booking)
+                await self.db.flush()
+                await queued_notifier(
+                    self.db, seat_scope(slot.id, booking.id), self.biz
+                ).on_seat_opened(self.db, booking.id)
             await self.db.flush()
             cmd.record(f"class.{data.action}", entity_type="booking", entity_id=booking.id)
             return await self._entry(booking)
@@ -1849,17 +1961,6 @@ class ClassService:
         await assert_subject(self.db, self.biz, subject_id, client_id)
 
     async def _entry(self, booking: Booking) -> RosterEntry:
-        position = None
-        if booking.status == "waitlisted":
-            ahead = await self.db.execute(
-                select(func.count(Booking.id)).where(
-                    Booking.slot_id == booking.slot_id,
-                    Booking.status == "waitlisted",
-                    Booking.deleted_at.is_(None),
-                    Booking.id < booking.id,
-                )
-            )
-            position = int(ahead.scalar_one()) + 1
         return RosterEntry(
             booking_id=booking.id,
             slot_id=booking.slot_id,
@@ -1867,7 +1968,7 @@ class ClassService:
             subject_id=booking.subject_id,
             status=booking.status,
             checked_in_at=booking.checked_in_at,
-            waitlist_position=position,
+            waitlist_position=await waitlist_position(self.db, booking),
         )
 
 
@@ -2168,21 +2269,32 @@ async def run_reap_unpaid_bookings(
         q = select(Payment.id).where(Payment.booking_id == Booking.id, Payment.kind == "deposit")
         return (q.where(Payment.status.in_(statuses)) if statuses else q).exists()
 
+    due = (
+        Booking.deleted_at.is_(None),
+        Booking.source == "online",
+        Booking.deposit_amount_cents > 0,
+        Booking.status.not_in(_CLOSED_OR_WAITING),
+        Booking.created_at < now - _UNPAID_TTL,
+        Slot.starts_at > now,
+        deposits(),
+        ~deposits("succeeded"),
+    )
+    members = await db.execute(
+        select(Booking.business_id, Slot.staff_id)
+        .join(Slot, Slot.id == Booking.slot_id)
+        .where(*due)
+        .distinct()
+        .order_by(Booking.business_id, Slot.staff_id)
+    )
+    for business_id, staff_id in members.tuples():
+        await lock_staff(db, business_id, staff_id)
     rows = (
         await db.execute(
             select(Booking, Slot)
             .join(Slot, Slot.id == Booking.slot_id)
-            .where(
-                Booking.deleted_at.is_(None),
-                Booking.source == "online",
-                Booking.deposit_amount_cents > 0,
-                Booking.status.not_in(_CLOSED_OR_WAITING),
-                Booking.created_at < now - _UNPAID_TTL,
-                Slot.starts_at > now,
-                deposits(),
-                ~deposits("succeeded"),
-            )
+            .where(*due)
             .with_for_update(of=Booking, skip_locked=True)
+            .execution_options(populate_existing=True)
         )
     ).all()
     released: list[str] = []
@@ -2194,6 +2306,7 @@ async def run_reap_unpaid_bookings(
         if booking.deposit_status == "pending":
             booking.deposit_status = "none"
         await release_slot(db, slot)
+        await fill_freed_seats(db, slot)
         released.append(booking.id)
     await db.commit()
     for booking_id in released:
@@ -2204,13 +2317,13 @@ async def run_reap_unpaid_bookings(
 async def run_complete_past_bookings(
     db: AsyncSession, gateway: PaymentGateway, now: datetime
 ) -> int:
-    """Close the visits still open after their business's local midnight, one business at a time."""
+    """Close the visits and waitlists still open after their business's local midnight."""
     open_past = (
         select(Booking.business_id)
         .join(Slot, Slot.id == Booking.slot_id)
         .where(
             Booking.deleted_at.is_(None),
-            Booking.status.in_(("pending", "confirmed")),
+            Booking.status.in_(("pending", "confirmed", "waitlisted")),
             Slot.ends_at <= now,
         )
         .distinct()
@@ -2224,10 +2337,46 @@ async def run_complete_past_bookings(
     ).all()
     closed = 0
     for business_id, timezone, policy in businesses:
-        if not BookingPolicy.model_validate(policy or {}).auto_complete:
-            continue
-        closed += await _close_past_visits(db, gateway, business_id, zone(timezone), now)
+        closed += await _close_past_waitlists(db, business_id, zone(timezone), now)
+        if BookingPolicy.model_validate(policy or {}).auto_complete:
+            closed += await _close_past_visits(db, gateway, business_id, zone(timezone), now)
         await db.commit()
+    return closed
+
+
+async def _close_past_waitlists(
+    db: AsyncSession, business_id: str, tz: ZoneInfo, now: datetime
+) -> int:
+    """Take the people still waiting off a class that has ended, and tell them it filled up."""
+    midnight, _ = local_day(now.astimezone(tz).date(), tz)
+    rows = await db.scalars(
+        scoped(Booking, business_id, soft_delete=True)
+        .join(Slot, Slot.id == Booking.slot_id)
+        .where(Booking.status == "waitlisted", Slot.ends_at <= midnight)
+        .order_by(Booking.id)
+        .with_for_update(of=Booking, skip_locked=True)
+        .execution_options(populate_existing=True)
+    )
+    closed = 0
+    for booking in rows.all():
+        booking.status, booking.canceled_at = "canceled", now
+        if booking.deposit_status == "pending":
+            booking.deposit_status = "none"
+        db.add(
+            Audit(
+                id=new_id("audit"),
+                business_id=business_id,
+                action="booking.waitlist_closed",
+                entity_type="booking",
+                entity_id=booking.id,
+                changes={"reason": "class_full"},
+            )
+        )
+        await db.flush()
+        await queued_notifier(db, f"waitlist:{booking.id}", business_id).on_waitlist_closed(
+            db, booking.id
+        )
+        closed += 1
     return closed
 
 

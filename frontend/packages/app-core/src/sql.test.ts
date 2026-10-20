@@ -2202,6 +2202,45 @@ describe("app-core SQL against the replica schema", () => {
         expect(visits.filter((v) => v.status === "completed")).toHaveLength(1);
     });
 
+    it("tells a waitlist the job closed apart from other canceled class bookings", () => {
+        scoped("slots", [
+            {
+                id: "ss_w",
+                item_id: "it_cut",
+                staff_id: "st_owner",
+                starts_at: "2026-09-01T18:00:00Z",
+                ends_at: "2026-09-01T19:00:00Z",
+                capacity: 2,
+                status: "completed",
+            },
+        ]);
+        const booking = (id: string, extra: Row): Row => ({
+            id,
+            slot_id: "ss_w",
+            starts_at: "2026-09-01T18:00:00Z",
+            client_id: "cl_ann",
+            status: "canceled",
+            deleted_at: null,
+            ...extra,
+        });
+        scoped("bookings", [
+            booking("bk_w_closed", { canceled_at: "2026-09-02T07:02:00Z" }),
+            booking("bk_w_left", { canceled_at: "2026-08-30T12:00:00Z" }),
+            booking("bk_w_seat", {
+                confirmed_at: "2026-08-20T12:00:00Z",
+                canceled_at: "2026-09-02T07:02:00Z",
+            }),
+        ]);
+        const closed = run("CLIENT_VISITS_SQL", ["cl_ann"]).filter((r) =>
+            String(r.id).startsWith("bk_w_"),
+        );
+        expect(pick(closed, "id", "waitlist_closed")).toEqual([
+            { id: "bk_w_closed", waitlist_closed: 1 },
+            { id: "bk_w_left", waitlist_closed: 0 },
+            { id: "bk_w_seat", waitlist_closed: 0 },
+        ]);
+    });
+
     it("reads class rosters, reminders and add-on offers", () => {
         scheduleRows();
         expect(

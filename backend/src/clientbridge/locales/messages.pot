@@ -671,6 +671,18 @@ msgstr ""
 msgid "sale_receipt.subject"
 msgstr ""
 
+msgid "seat_opened.body"
+msgstr ""
+
+msgid "seat_opened.body_link"
+msgstr ""
+
+msgid "seat_opened.heading"
+msgstr ""
+
+msgid "seat_opened.subject"
+msgstr ""
+
 msgid "series.separator"
 msgstr ""
 
@@ -844,5 +856,29 @@ msgid "waitlist_again.heading"
 msgstr ""
 
 msgid "waitlist_again.subject"
+msgstr ""
+
+msgid "waitlist_closed.body"
+msgstr ""
+
+msgid "waitlist_closed.heading"
+msgstr ""
+
+msgid "waitlist_closed.subject"
+msgstr ""
+
+msgid "waitlist_joined.action"
+msgstr ""
+
+msgid "waitlist_joined.body"
+msgstr ""
+
+msgid "waitlist_joined.body_link"
+msgstr ""
+
+msgid "waitlist_joined.heading"
+msgstr ""
+
+msgid "waitlist_joined.subject"
 msgstr ""
 

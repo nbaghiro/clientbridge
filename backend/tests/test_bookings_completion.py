@@ -146,10 +146,10 @@ async def test_a_class_completes_once_its_last_open_booking_closes(db: AsyncSess
     slot.capacity = 4
     second = await _visit(db, slot=slot, client_id="cl_marcus", status="pending")
     waiting = await _visit(db, slot=slot, client_id="cl_yuki", status="waitlisted")
-    assert await _run(db) == 2
+    assert await _run(db) == 3
     assert (await _fresh(db, first))[0].status == "completed"
     assert (await _fresh(db, second))[0].status == "canceled"
-    assert (await _fresh(db, waiting))[0].status == "waitlisted"
+    assert (await _fresh(db, waiting))[0].status == "canceled"
     assert (await _fresh(db, first))[1].status == "completed"
 
 

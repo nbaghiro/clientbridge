@@ -2939,6 +2939,9 @@
     "recurrences.filterEnding": {
         "message": "[Éñðîñĝ šööñ one two]"
     },
+    "recurrences.filterStopped": {
+        "message": "[Éñðéð one]"
+    },
     "recurrences.emptyListTitle": {
         "message": "[Ñö ŕéþéåţ ṽîšîţš ýéţ one two]"
     },
@@ -3140,6 +3143,9 @@
     "recurrences.endingSoon": {
         "message": "[Ļåšţ ṽîšîţ one two]"
     },
+    "recurrences.stoppedBadge": {
+        "message": "[{status,select,canceled{Çåñçéļéð} other{Éñðéð}} one two]"
+    },
     "recurrences.changeSeries": {
         "message": "[Çĥåñĝé šéŕîéš one two]"
     },
@@ -3211,6 +3217,9 @@
     },
     "recurrences.canceledNote": {
         "message": "[Šéŕîéš çåñçéļéð. Ţĥé ûþçöɱîñĝ ṽîšîţš åŕé öƒƒ ţĥé šçĥéðûļé. one two three four]"
+    },
+    "recurrences.stoppedNote": {
+        "message": "[{status,select,canceled{Ţĥîš šéŕîéš ŵåš çåñçéļéð.} other{Ţĥîš šéŕîéš ĥåš éñðéð.}} Îţš ṽîšîţš šţåý ĥéŕé ƒöŕ ŕéƒéŕéñçé. one two three four five six]"
     },
     "recurrences.cancelError": {
         "message": "[Çöûļðñ'ţ çåñçéļ ţĥé šéŕîéš. Þļéåšé ţŕý åĝåîñ. one two three]"
@@ -4699,6 +4708,9 @@
     },
     "clients.history.noShow": {
         "message": "[Ñö-šĥöŵ one]"
+    },
+    "clients.history.waitlistClosed": {
+        "message": "[Ŵåîţļîšţ çļöšéð, ñö šéåţ öþéñéð one two three]"
     },
     "clients.history.invoiceDrafted": {
         "message": "[Îñṽöîçé #{n} ðŕåƒţéð one two]"
@@ -10097,6 +10109,12 @@
     "publicBooking.openTimes": {
         "message": "[Öþéñ ţîɱéš one two]"
     },
+    "publicBooking.waitlistHint": {
+        "message": "[Ŵåîţļîšţ one]"
+    },
+    "publicBooking.waitlistNotice": {
+        "message": "[Ţĥîš çļåšš îš ƒûļļ. Ĵöîñ ţĥé ŵåîţļîšţ åñð ýöû'ļļ ƀé ƀööķéð îñţö ţĥé ƒîŕšţ šéåţ ţĥåţ öþéñš ƀéƒöŕé îţ šţåŕţš. one two three four five six seven]"
+    },
     "publicBooking.morning": {
         "message": "[Ṁöŕñîñĝ one]"
     },
@@ -10226,6 +10244,9 @@
     "publicBooking.confirm": {
         "message": "[Çöñƒîŕɱ ƀööķîñĝ one two]"
     },
+    "publicBooking.joinWaitlist": {
+        "message": "[Ĵöîñ ţĥé ŵåîţļîšţ one two]"
+    },
     "publicBooking.confirmAndPay": {
         "message": "[Çöñţîñûé ţö {amount} ðéþöšîţ one two]"
     },
@@ -10270,6 +10291,12 @@
     },
     "publicBooking.pendingBody": {
         "message": "[Ţĥé šţûðîö çöñƒîŕɱš ñéŵ çļîéñţš ƒîŕšţ. Ýöû'ļļ ĥéåŕ ƀåçķ åƀöûţ {when}. one two three four]"
+    },
+    "publicBooking.waitlistTitle": {
+        "message": "[Ýöû'ŕé öñ ţĥé ŵåîţļîšţ one two]"
+    },
+    "publicBooking.waitlistBody": {
+        "message": "[{position,plural,other{Ýöû'ŕé ñûɱƀéŕ # îñ ļîñé ƒöŕ {when}.} =1{Ýöû'ŕé ƒîŕšţ îñ ļîñé ƒöŕ {when}.}} Îƒ å šéåţ öþéñš ûþ ƀéƒöŕé ţĥé çļåšš, ýöû'ļļ ƀé ƀööķéð îñţö îţ åñð ĝéţ å ɱéššåĝé. one two three four five six seven eight]"
     },
     "publicBooking.doneBody": {
         "message": "[{name} îš ƀööķéð ƒöŕ {when}. Å çöñƒîŕɱåţîöñ îš öñ îţš ŵåý. one two three]"
@@ -11014,6 +11041,24 @@
     },
     "publicManage.canceledTitle": {
         "message": "[Ɓööķîñĝ çåñçéļļéð one two]"
+    },
+    "publicManage.waitlistLabel": {
+        "message": "[Öñ ţĥé ŵåîţļîšţ one two]"
+    },
+    "publicManage.waitlistLine": {
+        "message": "[{position,plural,other{Ýöû'ŕé ñûɱƀéŕ # îñ ļîñé.} =1{Ýöû'ŕé ƒîŕšţ îñ ļîñé.}} Îƒ å šéåţ öþéñš ûþ ƀéƒöŕé ţĥé çļåšš, ýöû'ļļ ƀé ƀööķéð îñţö îţ åñð ĝéţ å ɱéššåĝé. one two three four five six seven]"
+    },
+    "publicManage.leaveWaitlist": {
+        "message": "[Ļéåṽé ţĥé ŵåîţļîšţ one two]"
+    },
+    "publicManage.leaveTitle": {
+        "message": "[Ļéåṽé ţĥé ŵåîţļîšţ? one two]"
+    },
+    "publicManage.leaveConfirm": {
+        "message": "[Ýéš, ļéåṽé îţ one two]"
+    },
+    "publicManage.leftTitle": {
+        "message": "[Ýöû ļéƒţ ţĥé ŵåîţļîšţ one two]"
     },
     "publicManage.refundPending": {
         "message": "[Ýöûŕ ƀööķîñĝ îš çåñçéļļéð. Ýöûŕ ðéþöšîţ ŕéƒûñð îš šţîļļ þŕöçéššîñĝ. Çĥéçķ ţĥîš ļîñķ åĝåîñ ƒöŕ åñ ûþðåţé. one two three four five six seven]"

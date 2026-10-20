@@ -44,6 +44,7 @@ describe("visitPill", () => {
         staffName: null,
         depositCents: 0,
         depositStatus: "none",
+        waitlistClosed: false,
         ...extra,
     });
 

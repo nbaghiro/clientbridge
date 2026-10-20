@@ -257,7 +257,9 @@ const cleanTag = (t: string): string => t.trim().toLowerCase().replace(/\s+/g, "
 export const CLIENT_VISITS_SQL = `
 SELECT b.id, b.status, b.subject_id, b.staff_id, b.deposit_amount_cents, b.deposit_status,
        s.starts_at, s.ends_at, i.name AS item_name, i.color AS item_color,
-       ${staffNameSql("st")} AS staff_name
+       ${staffNameSql("st")} AS staff_name,
+       (b.status = 'canceled' AND b.confirmed_at IS NULL AND s.capacity > 1
+          AND ${utcSql("b.canceled_at")} >= ${utcSql("s.ends_at")}) AS waitlist_closed
 FROM bookings b
 JOIN slots s ON s.id = b.slot_id
 LEFT JOIN items i ON i.id = s.item_id
@@ -277,6 +279,7 @@ export interface VisitRow {
     item_name: string | null;
     item_color: string | null;
     staff_name: string | null;
+    waitlist_closed: number | null;
 }
 
 export interface ClientVisit {
@@ -290,6 +293,7 @@ export interface ClientVisit {
     staffName: string | null;
     depositCents: number;
     depositStatus: string;
+    waitlistClosed: boolean;
 }
 
 export function toVisit(r: VisitRow): ClientVisit {
@@ -304,6 +308,7 @@ export function toVisit(r: VisitRow): ClientVisit {
         staffName: r.staff_name,
         depositCents: r.deposit_amount_cents ?? 0,
         depositStatus: r.deposit_status ?? "none",
+        waitlistClosed: r.waitlist_closed === 1,
     };
 }
 
@@ -1021,12 +1026,13 @@ export function useClientHistory(clientId: string, viewerStaffId: string | null)
                 continue;
             }
             if (v.start > now) continue;
-            const off =
-                v.status === "canceled"
-                    ? s.history.canceled
-                    : v.status === "no_show"
-                      ? s.history.noShow
-                      : null;
+            const off = v.waitlistClosed
+                ? s.history.waitlistClosed
+                : v.status === "canceled"
+                  ? s.history.canceled
+                  : v.status === "no_show"
+                    ? s.history.noShow
+                    : null;
             out.push(
                 entry("visit", {
                     key: v.id,

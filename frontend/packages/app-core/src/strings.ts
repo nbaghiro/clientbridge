@@ -1041,6 +1041,7 @@ interface Strings {
         readonly filterAll: string;
         readonly filterAttention: string;
         readonly filterEnding: string;
+        readonly filterStopped: string;
         readonly emptyListTitle: string;
         readonly emptyList: string;
         readonly emptySearch: string;
@@ -1108,6 +1109,7 @@ interface Strings {
         readonly next: string;
         readonly needsDecision: (n: number) => string;
         readonly endingSoon: string;
+        readonly stoppedBadge: (status: string) => string;
         readonly changeSeries: string;
         readonly cancelSeries: string;
         readonly upcoming: string;
@@ -1138,6 +1140,7 @@ interface Strings {
         readonly keepSeries: string;
         readonly confirmCancel: string;
         readonly canceledNote: string;
+        readonly stoppedNote: (status: string) => string;
         readonly cancelError: string;
         readonly backToList: string;
         readonly cancel: string;
@@ -1550,6 +1553,7 @@ interface Strings {
             readonly visit: (service: string, name: string) => string;
             readonly canceled: string;
             readonly noShow: string;
+            readonly waitlistClosed: string;
             readonly invoiceDrafted: (n: string) => string;
             readonly invoiceSent: (n: string) => string;
             readonly invoiceVoid: (n: string) => string;
@@ -3705,6 +3709,8 @@ interface Strings {
         readonly prevWeek: string;
         readonly nextWeek: string;
         readonly openTimes: string;
+        readonly waitlistHint: string;
+        readonly waitlistNotice: string;
         readonly morning: string;
         readonly afternoon: string;
         readonly evening: string;
@@ -3748,6 +3754,7 @@ interface Strings {
         readonly continue: string;
         readonly back: string;
         readonly confirm: string;
+        readonly joinWaitlist: string;
         readonly confirmAndPay: (amount: string) => string;
         readonly booking: string;
         readonly bookError: string;
@@ -3763,6 +3770,8 @@ interface Strings {
         readonly doneTitle: string;
         readonly pendingTitle: string;
         readonly pendingBody: (when: string) => string;
+        readonly waitlistTitle: string;
+        readonly waitlistBody: (position: number, when: string) => string;
         readonly doneBody: (name: string, when: string) => string;
         readonly doneNoSubject: (when: string) => string;
         readonly addToCalendar: string;
@@ -4031,6 +4040,12 @@ interface Strings {
         readonly cancelConfirm: string;
         readonly canceling: string;
         readonly canceledTitle: string;
+        readonly waitlistLabel: string;
+        readonly waitlistLine: (position: number) => string;
+        readonly leaveWaitlist: string;
+        readonly leaveTitle: string;
+        readonly leaveConfirm: string;
+        readonly leftTitle: string;
         readonly refundPending: string;
         readonly refundFailed: string;
         readonly canceledBody: (amount: string) => string;

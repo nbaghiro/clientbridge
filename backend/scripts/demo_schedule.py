@@ -96,9 +96,9 @@ NAIL_DOGS = [
 SENIOR_DOGS = [_household(i) for i in (5, 6, 12, 13, 19, 20, 26, 27, 33, 34, 47, 48)]
 
 # signups per session in date order, past then ahead; a tuple adds that many waiting
-PAST_FILL: dict[str, list[int]] = {
+PAST_FILL: dict[str, list[int | tuple[int, int]]] = {
     "it_puppy": [5, 6, 6, 5, 4, 5, 6, 5],
-    "it_play_group": [6, 7, 5, 8, 3, 6, 7, 8],
+    "it_play_group": [6, 7, 5, (8, 2), 3, 6, 7, 8],
     "it_nail_clinic": [5, 7, 4, 6, 8, 5, 6, 7],
     "it_senior_groom": [4, 5, 3, 5],
 }
@@ -116,6 +116,7 @@ TIMETABLE = (
     ("it_senior_groom", "st_owner", 3, time(13), 2),
 )
 CANCELED_SESSION = ("it_play_group", 4)
+CLOSED = "_closed"  # a seat on a full class's waitlist that never opened
 
 # id, client, pet, item, member, weekday, start, every n weeks, visits, visits before today
 SERIES = (
@@ -340,7 +341,7 @@ def add_class_timetable(ctx: DemoContext) -> None:
                 online = seat % 2 == 0
                 status = (
                     "canceled"
-                    if canceled
+                    if canceled or (done and seat >= seats)
                     else "waitlisted"
                     if seat >= seats
                     else "no_show"
@@ -349,8 +350,9 @@ def add_class_timetable(ctx: DemoContext) -> None:
                     if done
                     else "confirmed"
                 )
+                closed = done and seat >= seats
                 booking = Booking(
-                    id=f"bk_{slot_id.removeprefix('ses_')}_{seat}",
+                    id=f"bk_{slot_id.removeprefix('ses_')}_{seat}{CLOSED if closed else ''}",
                     business_id=ctx.business_id,
                     slot_id=slot_id,
                     starts_at=start,
@@ -509,6 +511,12 @@ def finish_schedule(ctx: DemoContext) -> None:
             continue
         if booking.status == "completed":
             booking.checked_in_at = slot.starts_at - timedelta(minutes=5)
+        if booking.id.endswith(CLOSED):
+            # the overnight job took them off the waitlist once the class was over
+            day = slot.ends_at.astimezone(BUSINESS_TIMEZONE).date() + timedelta(days=1)
+            closed_at = _local(day, time(0, 2))
+            booking.confirmed_at = None
+            booking.canceled_at = booking.updated_at = closed_at
     for slot in slots.values():
         if slot.capacity <= 1 or slot.ends_at < ctx.now:
             continue

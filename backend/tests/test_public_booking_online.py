@@ -104,6 +104,7 @@ async def test_days_count_openings_and_name_closures(
     assert days[1] == {
         "date": "2026-12-02",
         "count": 0,
+        "waitlist": 0,
         "closed": True,
         "reason": "Staff training",
     }

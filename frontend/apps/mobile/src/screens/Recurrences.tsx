@@ -3,6 +3,7 @@ import {
     type SeriesEnd,
     type SeriesFrequency,
     type SeriesRecord,
+    isStopped,
     occurrenceRow,
     strings,
     useSeriesComposer,
@@ -109,6 +110,10 @@ export function RecurrencesScreen() {
                                 key: "ending",
                                 label: formatParts([s.filterEnding, String(list.counts.ending)]),
                             },
+                            {
+                                key: "stopped",
+                                label: formatParts([s.filterStopped, String(list.counts.stopped)]),
+                            },
                         ]}
                         value={list.filter}
                         onChange={list.setFilter}
@@ -150,7 +155,9 @@ export function RecurrencesScreen() {
                             title={formatParts([r.subjectName, r.clientName])}
                             detail={[r.pattern, r.nextLabel].join("\n")}
                             meta={
-                                r.attention > 0 ? (
+                                isStopped(r) ? (
+                                    <Badge label={s.stoppedBadge(r.status)} />
+                                ) : r.attention > 0 ? (
                                     <Badge label={s.needsDecision(r.attention)} intent="danger" />
                                 ) : r.ending ? (
                                     <Badge label={s.endingSoon} intent="warning" />
@@ -231,27 +238,30 @@ function Record({ id, onBack }: { id: string; onBack: () => void }) {
                 <Text style={styles.value}>{r.progress}</Text>
                 <Text style={styles.muted}>{r.endsLabel}</Text>
             </View>
-            <View style={styles.actions}>
-                <Button
-                    grow
-                    variant="outline"
-                    disabled={rec.canceled || upcoming.length === 0}
-                    onPress={() => {
-                        setDialog("cancel");
-                    }}
-                >
-                    {s.cancelSeries}
-                </Button>
-                <Button
-                    grow
-                    disabled={rec.canceled || upcoming.length === 0}
-                    onPress={() => {
-                        setDialog("change");
-                    }}
-                >
-                    {s.changeSeries}
-                </Button>
-            </View>
+            {rec.stoppedNote !== null ? <Notice tone="info">{rec.stoppedNote}</Notice> : null}
+            {rec.readOnly ? null : (
+                <View style={styles.actions}>
+                    <Button
+                        grow
+                        variant="outline"
+                        disabled={upcoming.length === 0}
+                        onPress={() => {
+                            setDialog("cancel");
+                        }}
+                    >
+                        {s.cancelSeries}
+                    </Button>
+                    <Button
+                        grow
+                        disabled={upcoming.length === 0}
+                        onPress={() => {
+                            setDialog("change");
+                        }}
+                    >
+                        {s.changeSeries}
+                    </Button>
+                </View>
+            )}
             <Text style={styles.section}>{s.upcoming}</Text>
             <View style={styles.list}>
                 {upcoming.length === 0 ? (

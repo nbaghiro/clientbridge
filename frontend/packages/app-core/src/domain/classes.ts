@@ -62,7 +62,7 @@ FROM bookings b JOIN slots s ON s.id = b.slot_id JOIN clients c ON c.id = b.clie
 LEFT JOIN subjects sj ON sj.id = b.subject_id
 WHERE s.capacity > 1 AND b.status != 'canceled' AND b.deleted_at IS NULL
   AND ${slotOverlapSql("?1", "?2")}
-ORDER BY b.created_at`;
+ORDER BY b.created_at, b.id`;
 
 export const CLASS_CLIENTS_SQL = `
 SELECT c.id, c.name,
@@ -158,6 +158,23 @@ export function rosterStatus(r: RosterRow): RosterStatus {
     return r.checked_in_at !== null ? "checked_in" : "confirmed";
 }
 
+/** One session's seats taken, people waiting and arrivals, ended sessions included. */
+export function sessionCounts(rows: readonly RosterRow[]): {
+    booked: number;
+    waitlist: number;
+    checkedIn: number;
+} {
+    const waitlist = rows.filter((b) => b.status === "waitlisted").length;
+    return {
+        booked: rows.length - waitlist,
+        waitlist,
+        checkedIn: rows.filter(
+            (b) =>
+                (b.status === "confirmed" || b.status === "completed") && b.checked_in_at !== null,
+        ).length,
+    };
+}
+
 interface ClassBoard {
     sessions: ClassSession[];
     summary: readonly { label: string; value: string }[];
@@ -194,9 +211,9 @@ export function useClassBoard(api: ApiLike): ClassBoard {
     const roster = rosterQ.data;
 
     const sessions: ClassSession[] = sessionsQ.data.map((r) => {
-        const mine = roster.filter((b) => b.slot_id === r.slot_id);
-        const booked = mine.filter((b) => b.status !== "waitlisted").length;
-        const waitlist = mine.filter((b) => b.status === "waitlisted").length;
+        const { booked, waitlist, checkedIn } = sessionCounts(
+            roster.filter((b) => b.slot_id === r.slot_id),
+        );
         const full = booked >= r.capacity;
         const start = parseTimestamp(r.starts_at);
         const end = parseTimestamp(r.ends_at);
@@ -214,8 +231,7 @@ export function useClassBoard(api: ApiLike): ClassBoard {
             capacity: r.capacity,
             booked,
             waitlist,
-            checkedIn: mine.filter((b) => b.status === "confirmed" && b.checked_in_at !== null)
-                .length,
+            checkedIn,
             full,
             seatsLabel: full
                 ? waitlist > 0

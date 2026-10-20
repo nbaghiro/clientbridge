@@ -72,6 +72,8 @@ def validate_graph(ctx: DemoContext) -> list[str]:
             errors.append(f"{booking.id}: completion chronology")
         if booking.status in {"pending", "confirmed"} and slot.ends_at < ctx.now:
             errors.append(f"{booking.id}: stale upcoming booking; reseed the isolated demo")
+        if booking.status == "waitlisted" and slot.ends_at < ctx.now:
+            errors.append(f"{booking.id}: still waitlisted after the class ended")
     active = [s for s in slots.values() if s.status != "canceled"]
     for index, slot in enumerate(active):
         local, end = slot.starts_at.astimezone(zone), slot.ends_at.astimezone(zone)
@@ -96,13 +98,14 @@ def validate_graph(ctx: DemoContext) -> list[str]:
             for h in windows
         ):
             errors.append(f"{slot.id}: outside working hours")
-        if (
-            sum(
-                b.status not in {"canceled", "waitlisted"} for b in bookings if b.slot_id == slot.id
-            )
-            > slot.capacity
-        ):
+        seated = sum(
+            b.status not in {"canceled", "waitlisted"} for b in bookings if b.slot_id == slot.id
+        )
+        if seated > slot.capacity:
             errors.append(f"{slot.id}: over capacity")
+        waiting = any(b.status == "waitlisted" for b in bookings if b.slot_id == slot.id)
+        if waiting and seated < slot.capacity and slot.starts_at > ctx.now:
+            errors.append(f"{slot.id}: a seat is open while someone waits for one")
         for other in active[index + 1 :]:
             if slot.staff_id != other.staff_id and not slot_pets[slot.id] & slot_pets[other.id]:
                 continue

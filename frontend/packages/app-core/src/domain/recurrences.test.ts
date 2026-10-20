@@ -6,6 +6,8 @@ import { type CalendarEvent, buildAvailability } from "./bookings";
 import {
     buildOccurrences,
     datesOf,
+    inFilter,
+    isStopped,
     movedStart,
     patternLabel,
     problemAt,
@@ -326,5 +328,34 @@ describe("a booked series", () => {
             progress: s.progress(0, 0),
             attention: 0,
         });
+    });
+
+    it("files canceled and finished series under ended, and keeps them out of the live filters", () => {
+        const summary = (status: string, dates: Parameters<typeof summarize>[1]) =>
+            summarize({ ...row, status }, dates, new Map(), now, "", ZONE);
+        const live = summary("active", datesOf(row, visits, ctx([], now)));
+        const done = summary(
+            "active",
+            datesOf(row, [seriesVisit("a", at(30, 10, 0, 8), "completed")], ctx([], now)),
+        );
+        const canceled = summary("canceled", datesOf(row, visits, ctx([], now)));
+        const endingEarly = summary("ended", datesOf(row, visits, ctx([], now)));
+        expect([live, done, canceled, endingEarly].map(isStopped)).toEqual([
+            false,
+            true,
+            true,
+            false,
+        ]);
+        expect(done.last).toEqual(at(30, 10, 0, 8));
+        for (const stopped of [done, canceled]) {
+            expect(inFilter(stopped, "stopped")).toBe(true);
+            expect(["all", "attention", "ending"].some((f) => inFilter(stopped, f as "all"))).toBe(
+                false,
+            );
+        }
+        expect(inFilter(live, "all")).toBe(true);
+        expect(inFilter(live, "attention")).toBe(true);
+        expect(inFilter(live, "stopped")).toBe(false);
+        expect(inFilter(endingEarly, "all")).toBe(true);
     });
 });

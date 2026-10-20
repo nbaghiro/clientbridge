@@ -243,6 +243,7 @@ class RecurrenceOut(Mirror):
 class RosterAdd(BaseModel):
     client_id: str
     subject_id: str | None = None
+    notify: bool = Field(default=True, description="Send the client a confirmation")
 
 
 class RosterAction(BaseModel):

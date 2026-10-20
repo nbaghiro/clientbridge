@@ -1,6 +1,7 @@
 import {
     type ChangeScope,
     type SeriesRecord,
+    isStopped,
     occurrenceRow,
     strings,
     usePeoplePhotos,
@@ -141,6 +142,13 @@ export function Recurrences() {
                                                 String(list.counts.ending),
                                             ]),
                                         },
+                                        {
+                                            key: "stopped",
+                                            label: formatParts([
+                                                s.filterStopped,
+                                                String(list.counts.stopped),
+                                            ]),
+                                        },
                                     ]}
                                     value={list.filter}
                                     onChange={list.setFilter}
@@ -177,7 +185,9 @@ export function Recurrences() {
                                                 title={formatParts([r.subjectName, r.clientName])}
                                                 detail={formatParts([r.pattern, r.nextLabel])}
                                                 meta={
-                                                    r.attention > 0 ? (
+                                                    isStopped(r) ? (
+                                                        <Badge label={s.stoppedBadge(r.status)} />
+                                                    ) : r.attention > 0 ? (
                                                         <Badge
                                                             label={s.needsDecision(r.attention)}
                                                             intent="danger"
@@ -255,26 +265,29 @@ function Record({ id }: { id: string }) {
                         {r.pattern}
                     </p>
                 </div>
-                <div className="flex gap-2">
-                    <Button
-                        variant="outline"
-                        disabled={rec.canceled || upcoming.length === 0}
-                        onPress={() => {
-                            setDialog("cancel");
-                        }}
-                    >
-                        {s.cancelSeries}
-                    </Button>
-                    <Button
-                        disabled={rec.canceled || upcoming.length === 0}
-                        onPress={() => {
-                            setDialog("change");
-                        }}
-                    >
-                        {s.changeSeries}
-                    </Button>
-                </div>
+                {rec.readOnly ? null : (
+                    <div className="flex gap-2">
+                        <Button
+                            variant="outline"
+                            disabled={upcoming.length === 0}
+                            onPress={() => {
+                                setDialog("cancel");
+                            }}
+                        >
+                            {s.cancelSeries}
+                        </Button>
+                        <Button
+                            disabled={upcoming.length === 0}
+                            onPress={() => {
+                                setDialog("change");
+                            }}
+                        >
+                            {s.changeSeries}
+                        </Button>
+                    </div>
+                )}
             </div>
+            {rec.stoppedNote !== null ? <Notice tone="info">{rec.stoppedNote}</Notice> : null}
 
             {rec.canceled ? (
                 <Notice tone="success" banner>

@@ -18,7 +18,7 @@ from tests.conftest import (
     FakePushSender,
     FakeSmsSender,
 )
-from tests.helpers import begin
+from tests.helpers import begin, queued_subjects
 
 CLIENTS = ["cl_amelie", "cl_marcus", "cl_yuki", "cl_liam"]
 
@@ -85,21 +85,27 @@ async def test_check_in_undo_and_no_show(as_owner: httpx.AsyncClient, db: AsyncS
     assert nothing.status_code == 409
 
 
-async def test_promote_gives_a_freed_seat_and_tells_the_client(
-    as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
+async def test_promote_gives_an_open_seat_and_tells_the_client(
+    as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     sid = await _class(db)
-    first = (await _add(as_owner, sid, CLIENTS[0]))["booking_id"]
+    await _add(as_owner, sid, CLIENTS[0])
     await _add(as_owner, sid, CLIENTS[1])
     waiting = (await _add(as_owner, sid, CLIENTS[2]))["booking_id"]
     full = await as_owner.patch(f"/v1/classes/{sid}/roster/{waiting}", json={"action": "promote"})
-    assert full.status_code == 409
-    await as_owner.patch(f"/v1/bookings/{first}", json={"status": "canceled"})
-    sent = len(email.sent)
+    assert full.status_code == 409 and full.json()["error"] == "class_full"
+    slot = await db.get(Slot, sid)
+    assert slot is not None
+    slot.capacity = 3
+    await db.flush()
     res = await as_owner.patch(f"/v1/classes/{sid}/roster/{waiting}", json={"action": "promote"})
     assert res.status_code == 200, res.text
     assert res.json()["status"] == "confirmed"
-    assert len(email.sent) == sent + 1
+    assert await queued_subjects(db, f"seat:{sid}:{waiting}") == [
+        "A seat opened up in Puppy Socialization (group)"
+    ]
+    booking = await db.get(Booking, str(waiting), populate_existing=True)
+    assert booking is not None and booking.manage_token is not None
 
 
 async def test_waitlisted_clients_get_no_reminder(

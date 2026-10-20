@@ -3185,6 +3185,10 @@
     "recurrences.filterEnding": {
         "message": "Ending soon"
     },
+    "recurrences.filterStopped": {
+        "message": "Ended",
+        "description": "Filter for series that ended or were canceled."
+    },
     "recurrences.emptyListTitle": {
         "message": "No repeat visits yet"
     },
@@ -3409,6 +3413,10 @@
     "recurrences.endingSoon": {
         "message": "Last visit"
     },
+    "recurrences.stoppedBadge": {
+        "message": "{status, select, canceled {Canceled} other {Ended}}",
+        "args": ["status"]
+    },
     "recurrences.changeSeries": {
         "message": "Change series"
     },
@@ -3483,6 +3491,10 @@
     },
     "recurrences.canceledNote": {
         "message": "Series canceled. The upcoming visits are off the schedule."
+    },
+    "recurrences.stoppedNote": {
+        "message": "{status, select, canceled {This series was canceled.} other {This series has ended.}} Its visits stay here for reference.",
+        "args": ["status"]
     },
     "recurrences.cancelError": {
         "message": "Couldn't cancel the series. Please try again."
@@ -5098,6 +5110,10 @@
     },
     "clients.history.noShow": {
         "message": "No-show"
+    },
+    "clients.history.waitlistClosed": {
+        "message": "Waitlist closed, no seat opened",
+        "description": "A class booking that stayed on the waitlist until the class was over."
     },
     "clients.history.invoiceDrafted": {
         "message": "Invoice #{n} drafted",
@@ -10818,6 +10834,13 @@
     "publicBooking.openTimes": {
         "message": "Open times"
     },
+    "publicBooking.waitlistHint": {
+        "message": "Waitlist",
+        "description": "Under a full class time that a client can join the waitlist for."
+    },
+    "publicBooking.waitlistNotice": {
+        "message": "This class is full. Join the waitlist and you'll be booked into the first seat that opens before it starts."
+    },
     "publicBooking.morning": {
         "message": "Morning"
     },
@@ -10963,6 +10986,9 @@
     "publicBooking.confirm": {
         "message": "Confirm booking"
     },
+    "publicBooking.joinWaitlist": {
+        "message": "Join the waitlist"
+    },
     "publicBooking.confirmAndPay": {
         "message": "Continue to {amount} deposit",
         "args": ["amount"]
@@ -11012,6 +11038,13 @@
     "publicBooking.pendingBody": {
         "message": "The studio confirms new clients first. You'll hear back about {when}.",
         "args": ["when"]
+    },
+    "publicBooking.waitlistTitle": {
+        "message": "You're on the waitlist"
+    },
+    "publicBooking.waitlistBody": {
+        "message": "{position, plural, =1 {You're first in line for {when}.} other {You're number # in line for {when}.}} If a seat opens up before the class, you'll be booked into it and get a message.",
+        "args": ["position", "when"]
     },
     "publicBooking.doneBody": {
         "message": "{name} is booked for {when}. A confirmation is on its way.",
@@ -11795,6 +11828,25 @@
     },
     "publicManage.canceledTitle": {
         "message": "Booking cancelled"
+    },
+    "publicManage.waitlistLabel": {
+        "message": "On the waitlist"
+    },
+    "publicManage.waitlistLine": {
+        "message": "{position, plural, =1 {You're first in line.} other {You're number # in line.}} If a seat opens up before the class, you'll be booked into it and get a message.",
+        "args": ["position"]
+    },
+    "publicManage.leaveWaitlist": {
+        "message": "Leave the waitlist"
+    },
+    "publicManage.leaveTitle": {
+        "message": "Leave the waitlist?"
+    },
+    "publicManage.leaveConfirm": {
+        "message": "Yes, leave it"
+    },
+    "publicManage.leftTitle": {
+        "message": "You left the waitlist"
     },
     "publicManage.refundPending": {
         "message": "Your booking is cancelled. Your deposit refund is still processing. Check this link again for an update."

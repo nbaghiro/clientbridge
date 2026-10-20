@@ -29,6 +29,7 @@ from clientbridge.models.platform import Audit, Webhook
 from clientbridge.models.scheduling import Booking, Slot
 from clientbridge.schemas.billing import InvoiceOut
 from clientbridge.schemas.bookings import BookingOut
+from clientbridge.schemas.deliveries import DELIVERY_PAYLOAD, EmailDelivery
 from clientbridge.schemas.orders import OrderOut
 from clientbridge.services import ledger
 from clientbridge.services.billing import invoice_out
@@ -417,3 +418,14 @@ async def delete_bookings(session: AsyncSession, booking_ids: list[str]) -> None
     await session.execute(delete(Audit).where(Audit.entity_id.in_(booking_ids)))
     await session.execute(delete(Booking).where(Booking.id.in_(booking_ids)))
     await session.execute(delete(Slot).where(Slot.id.in_(slots)))
+
+
+async def queued_subjects(db: AsyncSession, scope: str) -> list[str]:
+    """The subjects of the emails queued under a delivery scope, oldest first."""
+    rows = await db.scalars(
+        select(Delivery)
+        .where(Delivery.key.startswith(f"{scope}:"))
+        .order_by(Delivery.created_at, Delivery.id)
+    )
+    payloads = [DELIVERY_PAYLOAD.validate_python(d.payload) for d in rows.all()]
+    return [p.message.subject for p in payloads if isinstance(p, EmailDelivery)]

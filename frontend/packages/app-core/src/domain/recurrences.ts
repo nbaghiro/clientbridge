@@ -539,6 +539,7 @@ interface SeriesSummary {
     ratio: number | null;
     next: Date | null;
     nextLabel: string;
+    last: Date | null;
     endsLabel: string;
     attention: number;
     ending: boolean;
@@ -621,6 +622,7 @@ export function summarize(
                 ? s.todayAt(formatTime(next.start, zone))
                 : formatDayTime(next.start, zone)
             : s.noneLeft,
+        last: last?.start ?? null,
         endsLabel: last ? s.endsOn(formatDate(last.start, zone), remaining) : s.noneLeft,
         attention: dates.filter((d) => d.status === "conflict").length,
         ending: remaining === 1,
@@ -628,7 +630,20 @@ export function summarize(
     };
 }
 
-type SeriesFilter = "all" | "attention" | "ending";
+type SeriesFilter = "all" | "attention" | "ending" | "stopped";
+
+/** A series that books nothing more: canceled, or ended with no visit left ahead. */
+export function isStopped(summary: Pick<SeriesSummary, "status" | "next">): boolean {
+    return summary.status === "canceled" || summary.next === null;
+}
+
+/** Whether a series shows under a filter; the live filters leave stopped series out. */
+export function inFilter(summary: SeriesSummary, filter: SeriesFilter): boolean {
+    if (filter === "stopped") return isStopped(summary);
+    if (isStopped(summary)) return false;
+    if (filter === "attention") return summary.attention > 0;
+    return filter === "ending" ? summary.ending : true;
+}
 
 interface SeriesList {
     rows: SeriesSummary[];
@@ -636,7 +651,7 @@ interface SeriesList {
     setQ: (q: string) => void;
     filter: SeriesFilter;
     setFilter: (f: SeriesFilter) => void;
-    counts: { all: number; attention: number; ending: number };
+    counts: { all: number; attention: number; ending: number; stopped: number };
     load: Load;
 }
 
@@ -664,28 +679,24 @@ function useSeriesData(): {
     };
 }
 
-/** Every series with its progress and next visit, filtered to the ones needing a decision or ending. */
+/** Every series with its progress and next visit, by what needs a decision, ending or stopped. */
 export function useSeriesList(): SeriesList {
     const { series, visits, ctx, sources } = useSeriesData();
     const [q, setQ] = useState("");
     const [filter, setFilter] = useState<SeriesFilter>("all");
-    const all = series
-        .filter((r) => r.status !== "canceled")
-        .map((r) => {
-            const dates = datesOf(r, visits, ctx);
-            const subject =
-                visits.find((v) => v.recurrence_id === r.id && v.subject_name !== null)
-                    ?.subject_name ?? "";
-            return summarize(r, dates, ctx.staff, ctx.now, subject, ctx.avail.zone);
-        })
-        .filter((r) => r.next !== null);
+    const all = series.map((r) => {
+        const dates = datesOf(r, visits, ctx);
+        const subject =
+            visits.find((v) => v.recurrence_id === r.id && v.subject_name !== null)?.subject_name ??
+            "";
+        return summarize(r, dates, ctx.staff, ctx.now, subject, ctx.avail.zone);
+    });
     const t = q.trim().toLowerCase();
     const load = useReplicaLoad(sources, all.length === 0);
+    const count = (f: SeriesFilter): number => all.filter((r) => inFilter(r, f)).length;
     return {
         rows: all
-            .filter((r) =>
-                filter === "attention" ? r.attention > 0 : filter === "ending" ? r.ending : true,
-            )
+            .filter((r) => inFilter(r, filter))
             .filter(
                 (r) =>
                     t === "" ||
@@ -693,15 +704,20 @@ export function useSeriesList(): SeriesList {
                         v.toLowerCase().includes(t),
                     ),
             )
-            .sort((a, b) => +(a.next ?? 0) - +(b.next ?? 0)),
+            .sort((a, b) =>
+                filter === "stopped"
+                    ? +(b.last ?? 0) - +(a.last ?? 0)
+                    : +(a.next ?? 0) - +(b.next ?? 0),
+            ),
         q,
         setQ,
         filter,
         setFilter,
         counts: {
-            all: all.length,
-            attention: all.filter((r) => r.attention > 0).length,
-            ending: all.filter((r) => r.ending).length,
+            all: count("all"),
+            attention: count("attention"),
+            ending: count("ending"),
+            stopped: count("stopped"),
         },
         load,
     };
@@ -732,6 +748,8 @@ export interface SeriesRecord {
     cancelSummary: string;
     cancelSeries: () => void;
     canceled: boolean;
+    readOnly: boolean;
+    stoppedNote: string | null;
     saved: string | null;
     busy: boolean;
     error: string | null;
@@ -794,8 +812,10 @@ export function useSeriesRecord(
     const fromKey = upcoming[0] ? dateKey(upcoming[0].start, zone) : null;
     const weekdayIndex = (Number(wd) + 6) % 7;
 
+    const summary = summarize(row, dates, ctx.staff, ctx.now, subject, zone);
+    const stopped = isStopped(summary);
     return {
-        summary: summarize(row, dates, ctx.staff, ctx.now, subject, zone),
+        summary,
         dates: canceled
             ? dates.map((d) => (d.past ? d : { ...d, status: "canceled" as const }))
             : dates,
@@ -864,6 +884,8 @@ export function useSeriesRecord(
             );
         },
         canceled,
+        readOnly: canceled || stopped,
+        stoppedNote: stopped && !canceled ? s.stoppedNote(row.status) : null,
         saved,
         busy,
         error,

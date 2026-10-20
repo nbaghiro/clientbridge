@@ -108,6 +108,9 @@ class PublicSlot(BaseModel):
     starts_at: datetime
     ends_at: datetime
     staff_id: str | None = Field(default=None, description="Who the time is with")
+    waitlist: bool = Field(
+        default=False, description="A full class session the client can join the waitlist for"
+    )
 
 
 class PublicSlots(BaseModel):
@@ -117,6 +120,7 @@ class PublicSlots(BaseModel):
 class PublicDay(BaseModel):
     date: date
     count: int = Field(description="Open start times that day")
+    waitlist: int = Field(default=0, description="Full class sessions with a waitlist to join")
     closed: bool = Field(description="The business is closed all day")
     reason: str | None = None
 
@@ -175,6 +179,9 @@ class ManagedBooking(Mirror):
     blocked_hours: int | None = Field(
         default=None, description="The policy cutoff in hours, when the reason is the cutoff"
     )
+    waitlist_position: int | None = Field(
+        default=None, description="Where a waitlisted client stands; 1 is seated first"
+    )
 
 
 class ManageReschedule(BaseModel):
@@ -225,6 +232,9 @@ class PublicBookingResult(Mirror):
     deposit_client_secret: str | None = None
     stripe_account_id: str | None = Field(
         default=None, description="Connected account for the deposit charge, once onboarded"
+    )
+    waitlist_position: int | None = Field(
+        default=None, description="Where a waitlisted client stands; 1 is seated first"
     )
 
 

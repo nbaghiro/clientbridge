@@ -662,6 +662,18 @@ msgstr "Thank you for visiting {business}. Your receipt for sale S-{number} is r
 msgid "sale_receipt.subject"
 msgstr "Your receipt from {business}"
 
+msgid "seat_opened.body"
+msgstr "A seat opened up in {name} with {business} on {when}, so you're booked."
+
+msgid "seat_opened.body_link"
+msgstr "A seat opened up in {name} with {business} on {when}, so you're booked. Change or cancel: {link}"
+
+msgid "seat_opened.heading"
+msgstr "You have a seat"
+
+msgid "seat_opened.subject"
+msgstr "A seat opened up in {name}"
+
 msgid "series.separator"
 msgstr "; "
 
@@ -840,6 +852,30 @@ msgstr "You're already on the list."
 
 msgid "waitlist_again.subject"
 msgstr "You're already on the Clientbridge waitlist"
+
+msgid "waitlist_closed.body"
+msgstr "{name} with {business} on {when} filled up before a seat opened for you, so your place on the waitlist has closed. You're welcome to book another session."
+
+msgid "waitlist_closed.heading"
+msgstr "The class filled up"
+
+msgid "waitlist_closed.subject"
+msgstr "{name} filled up"
+
+msgid "waitlist_joined.action"
+msgstr "See or leave the waitlist"
+
+msgid "waitlist_joined.body"
+msgstr "{name} with {business} on {when} is full, so you're on the waitlist. If a seat opens up before it starts, you'll be booked into it and get a message."
+
+msgid "waitlist_joined.body_link"
+msgstr "{name} with {business} on {when} is full, so you're on the waitlist. If a seat opens up before it starts, you'll be booked into it and get a message. See or leave the waitlist: {link}"
+
+msgid "waitlist_joined.heading"
+msgstr "You're on the waitlist"
+
+msgid "waitlist_joined.subject"
+msgstr "You're on the waitlist for {name}"
 
 msgid "admin_demo.business"
 msgstr "Birchbark Pet Studio"

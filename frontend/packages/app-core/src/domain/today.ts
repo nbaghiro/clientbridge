@@ -135,7 +135,9 @@ export function buildAgenda(rows: AgendaRow[], now: Date, zone: string): AgendaI
     for (const group of bySlot.values()) {
         const first = group[0];
         if (first === undefined) continue;
-        const seats = group.filter((r) => r.booking_id !== null);
+        const seats = group.filter(
+            (r) => r.booking_id !== null && r.booking_status !== "waitlisted",
+        );
         const asItem = (r: AgendaRow, isClass: boolean): Omit<AgendaItem, "state"> => {
             const start = parseTimestamp(r.starts_at);
             const end = parseTimestamp(r.ends_at);
