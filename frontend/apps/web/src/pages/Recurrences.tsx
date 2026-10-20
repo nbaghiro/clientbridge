@@ -88,9 +88,7 @@ export function Recurrences() {
                 </Button>
             }
         >
-            <div
-                className="relative flex flex-col overflow-hidden rounded-lg border border-line bg-surface shadow-card"
-            >
+            <div className="relative flex flex-col overflow-hidden rounded-lg border border-line bg-surface shadow-card">
                 {list.load.state === "loading" ? (
                     <div className="min-h-0 flex-1 p-5">
                         <Skeleton variant="row" count={5} label={s.loading} />

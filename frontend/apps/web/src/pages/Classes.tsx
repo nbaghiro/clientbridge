@@ -57,9 +57,7 @@ export function Classes() {
                 </Button>
             }
         >
-            <div
-                className="relative flex flex-col overflow-hidden rounded-lg border border-line bg-surface shadow-card"
-            >
+            <div className="relative flex flex-col overflow-hidden rounded-lg border border-line bg-surface shadow-card">
                 {board.load.hasData && board.sessions.length === 0 ? null : (
                     <SummaryStrip items={board.summary} />
                 )}
