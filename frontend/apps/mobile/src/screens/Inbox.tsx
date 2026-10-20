@@ -299,13 +299,13 @@ function ThreadView({ thread, onBack }: { thread: InboxThread; onBack: () => voi
                     <View style={styles.earlier}>
                         <View style={styles.earlierAction}>
                             <Button
-                            size="sm"
-                            variant="quiet"
-                            busy={conversation.earlier.busy}
-                            onPress={conversation.earlier.load}
-                        >
-                            {s.thread.showEarlier}
-                        </Button>
+                                size="sm"
+                                variant="quiet"
+                                busy={conversation.earlier.busy}
+                                onPress={conversation.earlier.load}
+                            >
+                                {s.thread.showEarlier}
+                            </Button>
                         </View>
                         {conversation.earlier.error !== null ? (
                             <Notice tone="danger">{conversation.earlier.error}</Notice>
