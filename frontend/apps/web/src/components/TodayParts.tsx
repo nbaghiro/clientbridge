@@ -89,6 +89,13 @@ function StateTag({ item }: { item: AgendaItem }) {
     return null;
 }
 
+function OwedTag({ item, actions }: { item: AgendaItem; actions: TodayActions }) {
+    const owed = item.bookingId === null ? 0 : (actions.owed[item.bookingId] ?? 0);
+    if (owed === 0 || item.checkedIn || item.state === "done" || item.state === "no_show")
+        return null;
+    return <StatusPill status={t.toDo(owed)} intent="warning" />;
+}
+
 function VisitButton({ item, actions }: { item: AgendaItem; actions: TodayActions }) {
     const openLink = useOpenLink();
     const kind = useSubjectKind();
@@ -183,6 +190,7 @@ function AgendaRow({
             </div>
             <div className="hidden shrink-0 sm:block">
                 <StateTag item={item} />
+                <OwedTag item={item} actions={actions} />
             </div>
             <div className="w-[92px] shrink-0 text-right">
                 <VisitButton item={item} actions={actions} />

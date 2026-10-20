@@ -579,8 +579,14 @@ export function useNewMessage(
     };
 }
 
+const SHARED_PHOTOS_SQL = `
+SELECT COUNT(*) AS n FROM files
+WHERE parent_type = 'booking' AND parent_id = ? AND uploaded_at IS NOT NULL
+  AND shared_at IS NOT NULL`;
+
 interface VisitNote {
     body: string;
+    sharedPhotos: number;
     setBody: (v: string) => void;
     busy: boolean;
     error: string | null;
@@ -595,12 +601,15 @@ export function useVisitNote(
     bookingId: string | null,
 ): VisitNote {
     const consents = useConsents();
+    const sharedPhotos =
+        useQuery<{ n: number }>(SHARED_PHOTOS_SQL, [bookingId ?? ""]).data[0]?.n ?? 0;
     const [body, setBody] = useState("");
     const [sent, setSent] = useState(false);
     const { busy, error, setError, run } = useAsyncAction();
     const attempt = useRef<Attempt | null>(null);
     return {
         body,
+        sharedPhotos,
         setBody: (v) => {
             setError(null);
             setSent(false);

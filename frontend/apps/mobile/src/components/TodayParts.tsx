@@ -349,8 +349,16 @@ export function NextActions({ item, actions }: { item: AgendaItem; actions: Toda
     const kind = useSubjectKind();
     const action = visitAction(item, kind);
     const id = item.bookingId;
+    const owed = id === null || item.checkedIn ? 0 : (actions.owed[id] ?? 0);
     return (
         <View style={styles.nextActions}>
+            {owed > 0 ? (
+                <StatusPill
+                    style={{ alignSelf: "center" }}
+                    status={t.toDo(owed)}
+                    intent="warning"
+                />
+            ) : null}
             {action === null || id === null ? null : (
                 <Button
                     grow

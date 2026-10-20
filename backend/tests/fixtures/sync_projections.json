@@ -172,6 +172,7 @@
       "content_type",
       "size",
       "uploaded_at",
+      "shared_at",
       "id",
       "business_id",
       "created_at",

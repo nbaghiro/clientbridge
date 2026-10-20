@@ -4,7 +4,7 @@ from fastapi import APIRouter, Header
 
 from clientbridge.core.deps import CurrentPrincipal, DbSession, StorageDep
 from clientbridge.models.platform import FileParent
-from clientbridge.schemas.files import FileCreate, FileLink, FileOut, FileUpload
+from clientbridge.schemas.files import FileCreate, FileLink, FileOut, FileShare, FileUpload
 from clientbridge.services.files import FileService
 
 router = APIRouter(prefix="/files", tags=["files"])
@@ -26,6 +26,13 @@ async def complete_file(
     file_id: str, principal: CurrentPrincipal, db: DbSession, storage: StorageDep
 ) -> FileOut:
     return await FileService(db, principal, storage).complete(file_id)
+
+
+@router.post("/{file_id}/share", response_model=FileOut)
+async def share_file(
+    file_id: str, body: FileShare, principal: CurrentPrincipal, db: DbSession, storage: StorageDep
+) -> FileOut:
+    return await FileService(db, principal, storage).share(file_id, body)
 
 
 @router.get("/{file_id}/link", response_model=FileLink)

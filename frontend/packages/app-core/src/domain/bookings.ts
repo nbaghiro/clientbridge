@@ -2386,13 +2386,16 @@ export function useBookingAddons(
 }
 
 export const BOOKING_PHOTOS_SQL = `
-SELECT id FROM files
+SELECT id, shared_at FROM files
 WHERE parent_type = 'booking' AND parent_id = ? AND uploaded_at IS NOT NULL
 ORDER BY created_at, id`;
 
 export interface BookingPhotos {
-    photos: Photo[];
+    // shared photos show on the client's visit page; the rest stay inside the business
+    photos: (Photo & { shared: boolean })[];
     canAdd: boolean;
+    sharing: string | null;
+    share: (fileId: string, shared: boolean) => void;
     busy: boolean;
     error: string | null;
     add: (body: Blob, contentType: string, sizeBytes?: number) => void;
@@ -2405,7 +2408,11 @@ export function useBookingPhotos(
     viewer: Viewer | null,
 ): BookingPhotos {
     const bookingId = event.bookingId ?? "";
-    const rows = useQuery<{ id: string }>(BOOKING_PHOTOS_SQL, [bookingId]).data;
+    const rows = useQuery<{ id: string; shared_at: string | null }>(BOOKING_PHOTOS_SQL, [
+        bookingId,
+    ]).data;
+    const sharing = useAsyncAction();
+    const [sharingId, setSharingId] = useState<string | null>(null);
     const links = useFileLinks(
         api,
         rows.map((r) => r.id),
@@ -2416,10 +2423,22 @@ export function useBookingPhotos(
         viewer !== null &&
         (canManagePayments(viewer.role) || viewer.staffId === event.staffId);
     return {
-        photos: rows.map((r) => ({ id: r.id, src: links[r.id] ?? null })),
+        photos: rows.map((r) => ({
+            id: r.id,
+            src: links[r.id] ?? null,
+            shared: r.shared_at !== null,
+        })),
         canAdd,
+        sharing: sharing.busy ? sharingId : null,
+        share: (fileId, shared) => {
+            if (!canAdd) return;
+            setSharingId(fileId);
+            sharing.run(() => api.post(`/v1/files/${fileId}/share`, { shared }), {
+                errorMessage: (e) => failureMessage(e, s.photoShareError),
+            });
+        },
         busy: upload.busy,
-        error: upload.error,
+        error: upload.error ?? sharing.error,
         add: (body, contentType, sizeBytes) => {
             if (!canAdd) return;
             upload.upload(body, bookingPhotoTarget(bookingId), contentType, sizeBytes);

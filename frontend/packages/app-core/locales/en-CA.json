@@ -1570,11 +1570,15 @@
     "pos.desk.visitNotePlaceholder": {
         "message": "How the visit went, what was used, care until next time"
     },
+    "pos.desk.visitNotePhotos": {
+        "message": "{n, plural, =0 {No photos are shared yet. Share them from the visit's booking.} one {The client will see # shared photo.} other {The client will see # shared photos.}}",
+        "args": ["n"]
+    },
     "pos.desk.visitNoteSend": {
         "message": "Send note"
     },
     "pos.desk.visitNoteSent": {
-        "message": "Note sent, with a link to the visit and its photos."
+        "message": "Note sent with a link to the visit."
     },
     "pos.desk.backToToday": {
         "message": "Back to Today"
@@ -2769,8 +2773,17 @@
     "bookings.detailPhotos": {
         "message": "Photos"
     },
+    "bookings.photoShare": {
+        "message": "Share with client"
+    },
+    "bookings.photoUnshare": {
+        "message": "Stop sharing"
+    },
+    "bookings.photoShareError": {
+        "message": "The photo couldn’t be updated. Try again."
+    },
     "bookings.photosHint": {
-        "message": "Before and after photos of the job. They also show on the client's record."
+        "message": "Before and after photos of the job. They also show on the client's record, and the client sees only the ones you share."
     },
     "bookings.photosNone": {
         "message": "No photos yet."
@@ -9280,12 +9293,42 @@
     "today.arriveBody": {
         "message": "Mark yourself on site when you get there."
     },
+    "today.checkInNeeds": {
+        "message": "Still to do"
+    },
+    "today.needForm": {
+        "message": "{name} to fill in",
+        "args": ["name"]
+    },
+    "today.needSignature": {
+        "message": "{name} to sign",
+        "args": ["name"]
+    },
+    "today.needDeposit": {
+        "message": "{amount} deposit to collect",
+        "args": ["amount"]
+    },
+    "today.needSend": {
+        "message": "Send link"
+    },
+    "today.needResend": {
+        "message": "Send again"
+    },
+    "today.needOpen": {
+        "message": "Open here"
+    },
+    "today.needSendError": {
+        "message": "The link couldn’t be sent. Try again."
+    },
+    "today.undoCheckIn": {
+        "message": "Undo"
+    },
+    "today.toDo": {
+        "message": "{n, number} to do",
+        "args": ["n"]
+    },
     "today.checkInWatch": {
         "message": "Watch for"
-    },
-    "today.checkInDeposit": {
-        "message": "The {amount} deposit hasn’t been paid yet.",
-        "args": ["amount"]
     },
     "today.depart": {
         "message": "On my way"
@@ -11888,6 +11931,18 @@
     "publicManage.hello": {
         "message": "Hi {name}",
         "args": ["name"]
+    },
+    "publicManage.toDoTitle": {
+        "message": "Before your visit"
+    },
+    "publicManage.toDoFill": {
+        "message": "Fill in"
+    },
+    "publicManage.toDoSign": {
+        "message": "Sign"
+    },
+    "publicManage.toDoAtDesk": {
+        "message": "We’ll go through this with you when you arrive."
     },
     "publicManage.photos": {
         "message": "Photos from your visit"

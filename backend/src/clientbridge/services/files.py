@@ -19,7 +19,14 @@ from clientbridge.models.clients import Client
 from clientbridge.models.platform import File, FileParent
 from clientbridge.models.scheduling import Booking
 from clientbridge.schemas.business import BrandInput
-from clientbridge.schemas.files import FileCreate, FileLink, FileOut, FilePhotoCleared, FileUpload
+from clientbridge.schemas.files import (
+    FileCreate,
+    FileLink,
+    FileOut,
+    FilePhotoCleared,
+    FileShare,
+    FileUpload,
+)
 
 _DEFAULT_CONTENT_TYPE = "application/octet-stream"
 # an upload whose bytes never arrived is removed after this long
@@ -191,6 +198,36 @@ class FileService:
         if parent_id != self.principal.user_id and not is_manager(self.principal.role):
             raise Forbidden("only an owner or admin can set another member's photo")
 
+    async def share(self, file_id: str, data: FileShare) -> FileOut:
+        """Show a booking photo to the client on their visit page, or stop showing it."""
+        file = (
+            await self.db.execute(
+                scoped(File, self.biz).where(
+                    File.id == file_id,
+                    File.parent_type == "booking",
+                    File.purpose == "photo",
+                    File.uploaded_at.is_not(None),
+                )
+            )
+        ).scalar_one_or_none()
+        if file is None:
+            raise NotFound("photo not found")
+        await self._visible_booking(file.parent_id)
+
+        async def run(cmd: Command) -> FileOut:
+            file.shared_at = (file.shared_at or clock.now()) if data.shared else None
+            await self.db.flush()
+            cmd.record(
+                "file.share" if data.shared else "file.unshare",
+                entity_type="file",
+                entity_id=file.id,
+            )
+            return _file_out(file)
+
+        return await run_command(
+            self.db, self.principal, action="file.share", run=run, response_model=FileOut
+        )
+
     async def _visible_booking(self, booking_id: str) -> None:
         booking = (
             await self.db.execute(
@@ -281,6 +318,7 @@ def _file_out(file: File) -> FileOut:
         content_type=file.content_type,
         size=file.size,
         uploaded_at=file.uploaded_at,
+        shared_at=file.shared_at,
     )
 
 

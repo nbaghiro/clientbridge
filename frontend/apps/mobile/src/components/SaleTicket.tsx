@@ -488,6 +488,7 @@ function VisitNoteBlock({ clientId, bookingId }: { clientId: string; bookingId: 
                 onChange={note.setBody}
                 placeholder={d.visitNotePlaceholder}
             />
+            <Text style={styles.note}>{d.visitNotePhotos(note.sharedPhotos)}</Text>
             {note.error !== null ? <Notice tone="danger">{note.error}</Notice> : null}
             {note.sent ? <Notice tone="success">{d.visitNoteSent}</Notice> : null}
             <Button

@@ -26,7 +26,7 @@ streams:
       - SELECT name, require_signature, active, send_on, id, business_id, created_at, updated_at FROM forms WHERE business_id IN member
       - SELECT form_id, input, name, label, help, required, options, position, id, business_id, created_at, updated_at FROM fields WHERE business_id IN member
       - SELECT name, body, version, active, id, business_id, created_at, updated_at FROM contracts WHERE business_id IN member
-      - SELECT parent_type, parent_id, purpose, content_type, size, uploaded_at, id, business_id, created_at, updated_at FROM files WHERE business_id IN member
+      - SELECT parent_type, parent_id, purpose, content_type, size, uploaded_at, shared_at, id, business_id, created_at, updated_at FROM files WHERE business_id IN member
       - SELECT client_id, channel, status, id, business_id, created_at, updated_at FROM threads WHERE business_id IN member
 
   # Staff and contractors read the business without tax numbers or billing email, the team without pay,

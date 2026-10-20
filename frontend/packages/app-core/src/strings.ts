@@ -522,6 +522,7 @@ interface Strings {
             readonly bookNextOn: (date: string) => string;
             readonly visitNote: string;
             readonly visitNotePlaceholder: string;
+            readonly visitNotePhotos: (n: number) => string;
             readonly visitNoteSend: string;
             readonly visitNoteSent: string;
             readonly backToToday: string;
@@ -912,6 +913,9 @@ interface Strings {
         readonly detailWith: string;
         readonly detailNotes: string;
         readonly detailPhotos: string;
+        readonly photoShare: string;
+        readonly photoUnshare: string;
+        readonly photoShareError: string;
         readonly photosHint: string;
         readonly photosNone: string;
         readonly photoTake: string;
@@ -3160,8 +3164,17 @@ interface Strings {
         readonly checkInTemperament: (label: string) => string;
         readonly checkInBody: string;
         readonly arriveBody: string;
+        readonly checkInNeeds: string;
+        readonly needForm: (name: string) => string;
+        readonly needSignature: (name: string) => string;
+        readonly needDeposit: (amount: string) => string;
+        readonly needSend: string;
+        readonly needResend: string;
+        readonly needOpen: string;
+        readonly needSendError: string;
+        readonly undoCheckIn: string;
+        readonly toDo: (n: number) => string;
         readonly checkInWatch: string;
-        readonly checkInDeposit: (amount: string) => string;
         readonly depart: string;
         readonly onTheWay: string;
         readonly inMinutes: (hours: number, minutes: number) => string;
@@ -4064,6 +4077,10 @@ interface Strings {
         readonly moveDeadline: (when: string) => string;
         readonly title: string;
         readonly hello: (name: string) => string;
+        readonly toDoTitle: string;
+        readonly toDoFill: string;
+        readonly toDoSign: string;
+        readonly toDoAtDesk: string;
         readonly photos: string;
         readonly photoAlt: string;
         readonly extras: string;

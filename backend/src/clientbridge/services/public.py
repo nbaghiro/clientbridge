@@ -58,6 +58,7 @@ from clientbridge.schemas.public import (
     ManageCancelResult,
     ManagedAddon,
     ManagedBooking,
+    ManagedToDo,
     ManageMessage,
     ManageMessageResult,
     ManageReschedule,
@@ -101,6 +102,7 @@ from clientbridge.services.bookings import (
     release_slot,
     seats_closed,
     slot_problem,
+    visit_needs,
     waitlist_position,
 )
 from clientbridge.services.business import business_tz, local_today, staff_names
@@ -784,6 +786,7 @@ class PublicManageService:
                     File.parent_id == booking.id,
                     File.purpose == "photo",
                     File.uploaded_at.is_not(None),
+                    File.shared_at.is_not(None),
                 )
             )
         ).scalar_one_or_none()
@@ -1056,6 +1059,7 @@ class PublicManageService:
                 File.parent_id == booking.id,
                 File.purpose == "photo",
                 File.uploaded_at.is_not(None),
+                File.shared_at.is_not(None),
             )
             .order_by(File.created_at, File.id)
         )
@@ -1110,6 +1114,17 @@ class PublicManageService:
                     name=a.description, quantity=a.quantity, unit_cents=a.unit_amount_cents
                 )
                 for a in addons
+            ],
+            to_do=[
+                ManagedToDo(
+                    kind="form" if n.kind == "form" else "signature",
+                    label=n.label,
+                    path=None
+                    if n.token is None
+                    else f"/{'form' if n.kind == 'form' else 'contract'}/{n.token}",
+                )
+                for n in (await visit_needs(self.db, business.id, [booking]))[0].needs
+                if n.kind != "deposit"
             ],
             photo_urls=[
                 manage_photo_url(booking.manage_token or "", file_id)

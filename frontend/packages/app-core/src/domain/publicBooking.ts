@@ -991,6 +991,7 @@ export type PublicBookingFlow = ReturnType<typeof usePublicBookingFlow>;
 interface ManagedBooking {
     address?: string | null;
     photo_urls?: string[];
+    to_do?: { kind: "form" | "signature"; label: string; path: string | null }[];
     at_place?: boolean;
     booking_id: string;
     business_name: string;

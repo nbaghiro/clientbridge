@@ -7,6 +7,7 @@ import { type ApiLike, failureMessage } from "../api";
 import {
     addDays,
     combineDayAndTime,
+    dateKey,
     daysUntil,
     formatClock,
     formatFullDate,
@@ -676,12 +677,16 @@ export interface TodayActions {
     sent: ReadonlySet<string>;
     busyKey: string | null;
     error: string | null;
+    // forms and signatures each of today's visits still waits on, by booking
+    owed: Readonly<Record<string, number>>;
     // The visit whose check-in sheet is open, and the line shown briefly once it's checked in.
     checkingIn: string | null;
     notice: string | null;
     openCheckIn: (bookingId: string) => void;
     closeCheckIn: () => void;
     checkedIn: (message: string) => void;
+    // takes back the check-in the notice is about, while the notice shows
+    undoCheckIn: (() => void) | null;
     depart: (bookingId: string) => void;
     // Sends the reminder an attention item offers (an overdue invoice is sent again).
     send: (item: AttentionItem) => void;
@@ -692,7 +697,31 @@ export function useTodayActions(api: ApiLike): TodayActions {
     const [busyKey, setBusyKey] = useState<string | null>(null);
     const [checkingIn, setCheckingIn] = useState<string | null>(null);
     const [notice, setNotice] = useState<string | null>(null);
-    const [showing, flash] = useFlash(4000);
+    const [undoId, setUndoId] = useState<string | null>(null);
+    const [showing, flash] = useFlash(6000);
+    const undo = useUndoCheckIn(api);
+    const zone = useBusinessZone();
+    const today = dateKey(new Date(), zone);
+    const day = useRemote(
+        () =>
+            api.get<{ booking_id: string; needs: VisitNeedOut[] }[]>(
+                `/v1/bookings/needs?day=${today}`,
+            ),
+        today,
+    );
+    const owed = useMemo(
+        () =>
+            Object.fromEntries(
+                (day.data ?? []).map((v) => [
+                    v.booking_id,
+                    v.needs.filter((n) => n.kind !== "deposit").length,
+                ]),
+            ),
+        [day.data],
+    );
+    const refreshDay = (): void => {
+        day.refresh().catch(() => undefined);
+    };
     const { busy, error, run } = useAsyncAction();
     const go = (key: string, call: () => Promise<unknown>, done?: () => void): void => {
         setBusyKey(key);
@@ -704,18 +733,31 @@ export function useTodayActions(api: ApiLike): TodayActions {
     return {
         sent,
         busyKey: busy ? busyKey : null,
-        error,
+        error: error ?? undo.error,
+        owed,
         checkingIn,
         notice: showing ? notice : null,
         openCheckIn: setCheckingIn,
         closeCheckIn: () => {
             setCheckingIn(null);
+            refreshDay();
         },
         checkedIn: (message) => {
+            refreshDay();
+            setUndoId(checkingIn);
             setCheckingIn(null);
             setNotice(message);
             flash();
         },
+        undoCheckIn:
+            showing && undoId !== null
+                ? () => {
+                      undo.undo(undoId, () => {
+                          setUndoId(null);
+                          setNotice(null);
+                      });
+                  }
+                : null,
         depart: (bookingId) => {
             go(bookingId, () => api.post(`/v1/bookings/${bookingId}/depart`, {}));
         },
@@ -781,8 +823,27 @@ export function canCheckIn(
     );
 }
 
+/** Takes back a check-in made by mistake. */
+export function useUndoCheckIn(api: ApiLike): {
+    busy: boolean;
+    error: string | null;
+    undo: (bookingId: string, onDone: () => void) => void;
+} {
+    const { busy, error, run } = useAsyncAction();
+    return {
+        busy,
+        error,
+        undo: (bookingId, onDone) => {
+            run(() => api.delete(`/v1/bookings/${bookingId}/check-in`), {
+                onSuccess: onDone,
+                errorMessage: (e) => failureMessage(e, strings.today.actionError),
+            });
+        },
+    };
+}
+
 const CHECK_IN_SQL = `
-SELECT b.status, b.deposit_status, b.deposit_amount_cents, s.starts_at, s.ends_at,
+SELECT b.status, b.client_id, b.deposit_status, b.deposit_amount_cents, s.starts_at, s.ends_at,
        c.name AS client_name, sub.name AS subject_name, sub.attributes AS subject_attributes,
        i.name AS item_name, ${staffNameSql("st")} AS staff_name
 FROM bookings b
@@ -795,6 +856,7 @@ WHERE b.id = ? AND b.deleted_at IS NULL`;
 
 interface CheckInRow {
     status: string;
+    client_id: string;
     deposit_status: string;
     deposit_amount_cents: number;
     starts_at: string;
@@ -814,12 +876,31 @@ interface CheckInVisit {
     staffName: string | null;
     temperament: string | null;
     alerts: SubjectAlert[];
-    depositDue: string | null;
+}
+
+interface VisitNeedOut {
+    kind: "form" | "signature" | "deposit";
+    ref_id: string;
+    label: string;
+    token: string | null;
+    amount_cents: number | null;
+}
+
+interface CheckInNeed {
+    key: string;
+    label: string;
+    // where the client fills or signs it on the booking site, once a link was sent
+    openPath: string | null;
+    canSend: boolean;
+    sending: boolean;
+    send: () => void;
 }
 
 interface CheckIn {
     load: Load;
     visit: CheckInVisit | null;
+    needs: CheckInNeed[];
+    refreshNeeds: () => void;
     title: string;
     busy: boolean;
     error: string | null;
@@ -831,12 +912,57 @@ export function useCheckIn(
     api: ApiLike,
     bookingId: string,
     kind: SubjectKind | null,
+    viewer: Viewer | null,
     onDone: (message: string) => void,
 ): CheckIn {
     const zone = useBusinessZone();
     const rows = useQuery<CheckInRow>(CHECK_IN_SQL, [bookingId]);
     const { busy, error, run } = useAsyncAction();
+    const sending = useAsyncAction();
+    const [sendingKey, setSendingKey] = useState<string | null>(null);
+    const remote = useRemote(
+        () => api.get<{ needs: VisitNeedOut[] }>(`/v1/bookings/${bookingId}/needs`),
+        bookingId,
+    );
     const row = rows.data[0];
+    const manager = viewer !== null && canManagePayments(viewer.role);
+    const refreshNeeds = (): void => {
+        remote.refresh().catch(() => undefined);
+    };
+    const needs = (remote.data?.needs ?? []).map((n): CheckInNeed => {
+        const key = `${n.kind}:${n.ref_id}`;
+        const clientId = row?.client_id ?? "";
+        const request =
+            n.kind === "form"
+                ? () => api.post("/v1/forms/send", { form_id: n.ref_id, client_id: clientId })
+                : n.token !== null
+                  ? () => api.post(`/v1/signatures/${n.ref_id}/resend`, {})
+                  : () =>
+                        api.post("/v1/contracts/send", {
+                            contract_id: n.ref_id,
+                            client_id: clientId,
+                        });
+        return {
+            key,
+            label:
+                n.kind === "deposit"
+                    ? strings.today.needDeposit(formatMoney(n.amount_cents ?? 0, BUSINESS_CURRENCY))
+                    : n.kind === "form"
+                      ? strings.today.needForm(n.label)
+                      : strings.today.needSignature(n.label),
+            openPath:
+                n.token === null ? null : `/${n.kind === "form" ? "form" : "contract"}/${n.token}`,
+            canSend: manager && n.kind !== "deposit" && row !== undefined,
+            sending: sending.busy && sendingKey === key,
+            send: () => {
+                setSendingKey(key);
+                sending.run(request, {
+                    onSuccess: refreshNeeds,
+                    errorMessage: (e) => failureMessage(e, strings.today.needSendError),
+                });
+            },
+        };
+    });
     const visit = useMemo((): CheckInVisit | null => {
         if (row === undefined) return null;
         const attributes = parseAttributes(row.subject_attributes);
@@ -850,19 +976,17 @@ export function useCheckIn(
             temperament: temperament === null || temperament.nervous ? null : temperament.label,
             alerts:
                 row.subject_name === null ? [] : subjectAlerts(kind, attributes, new Date(), zone),
-            depositDue:
-                row.deposit_status === "pending" && row.deposit_amount_cents > 0
-                    ? formatMoney(row.deposit_amount_cents, BUSINESS_CURRENCY)
-                    : null,
         };
     }, [row, kind, zone]);
     const words = arrivalWords(kind);
     return {
         load: useReplicaLoad([rows], visit === null),
         visit,
+        needs,
+        refreshNeeds,
         title: words.action,
         busy,
-        error,
+        error: error ?? sending.error,
         submit: () => {
             if (visit === null) return;
             const name = visit.clientName;

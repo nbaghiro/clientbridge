@@ -127,6 +127,22 @@ class VisitOut(Mirror):
     staff_name: str | None
 
 
+VisitNeedKind = Literal["form", "signature", "deposit"]
+
+
+class VisitNeed(BaseModel):
+    kind: VisitNeedKind
+    ref_id: str = Field(description="The form, the contract or signature request, or the booking")
+    label: str = Field(default="", description="The form or contract's name")
+    token: str | None = Field(default=None, description="The client's open link, once one is sent")
+    amount_cents: int | None = Field(default=None, description="A deposit still to collect")
+
+
+class VisitNeeds(BaseModel):
+    booking_id: str
+    needs: list[VisitNeed]
+
+
 class VisitPage(BaseModel):
     visits: list[VisitOut]
     more: bool

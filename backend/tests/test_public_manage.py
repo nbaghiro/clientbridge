@@ -12,6 +12,7 @@ from clientbridge.core.errors import Conflict
 from clientbridge.core.ids import new_id
 from clientbridge.models.business import Business
 from clientbridge.models.clients import Client
+from clientbridge.models.documents import Form, FormResponse
 from clientbridge.models.platform import Device, File
 from clientbridge.models.scheduling import Booking, Slot
 from clientbridge.schemas.public import (
@@ -518,7 +519,9 @@ async def test_a_lapsed_business_takes_no_rescheduled_visits(
     assert res.status_code == 409 and res.json()["error"] == "business_unavailable"
 
 
-async def _photo(db: AsyncSession, booking_id: str, *, uploaded: bool = True) -> str:
+async def _photo(
+    db: AsyncSession, booking_id: str, *, uploaded: bool = True, shared: bool = True
+) -> str:
     file = File(
         id=new_id("file"),
         business_id=BIZ,
@@ -528,24 +531,50 @@ async def _photo(db: AsyncSession, booking_id: str, *, uploaded: bool = True) ->
         s3_key=f"photos/{booking_id}/{new_id('file')}.jpg",
         content_type="image/jpeg",
         uploaded_at=clock.now() if uploaded else None,
+        shared_at=clock.now() if shared else None,
     )
     db.add(file)
     await db.flush()
     return file.id
 
 
-async def test_the_manage_link_shows_only_the_visits_finished_photos(
+async def test_the_manage_link_shows_only_the_visits_shared_photos(
     api: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     token = await _book(api)
     booking = (await db.execute(select(Booking).where(Booking.manage_token == token))).scalar_one()
     shown = await _photo(db, booking.id)
     pending = await _photo(db, booking.id, uploaded=False)
+    private = await _photo(db, booking.id, shared=False)
     other = await _photo(db, (await db.execute(select(Booking.id).limit(1))).scalar_one())
     view = (await api.get(f"/manage/{token}")).json()
     assert [url.rsplit("/", 1)[-1] for url in view["photo_urls"]] == [shown]
     found = await api.get(f"/manage/{token}/photos/{shown}")
     assert found.status_code == 302 and found.headers["location"].startswith("https://files.test/")
-    for missing in (pending, other):
+    for missing in (pending, private, other):
         assert (await api.get(f"/manage/{token}/photos/{missing}")).status_code == 404
     assert (await api.get(f"/manage/not-a-token/photos/{shown}")).status_code == 404
+
+
+async def test_the_manage_link_lists_what_the_client_still_owes(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    token = await _book(api)
+    booking = (await db.execute(select(Booking).where(Booking.manage_token == token))).scalar_one()
+    form = Form(id=new_id("form"), business_id=BIZ, name="Pet intake", send_on="booking")
+    db.add(form)
+    await db.flush()
+    db.add(
+        FormResponse(
+            id=new_id("form_response"),
+            business_id=BIZ,
+            form_id=form.id,
+            client_id=booking.client_id,
+            status="draft",
+            token="tok_pet_intake",
+            definition={},
+        )
+    )
+    await db.flush()
+    view = (await api.get(f"/manage/{token}")).json()
+    assert {"kind": "form", "label": "Pet intake", "path": "/form/tok_pet_intake"} in view["to_do"]

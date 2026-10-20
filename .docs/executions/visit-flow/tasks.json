@@ -1,6 +1,6 @@
 {
   "title": "Visit flow: check-in and checkout",
-  "status": "planned",
+  "status": "in_progress",
   "plan": "plan.md",
   "tasks": [
     {
@@ -8,7 +8,7 @@
       "part": "checkout",
       "title": "Accrue service commission on visits paid at the register",
       "depends_on": [],
-      "status": "pending",
+      "status": "complete",
       "acceptance": "Test first; payee service rate accrues through _split once per booking on a paid sale and reverses on refund."
     },
     {
@@ -16,7 +16,7 @@
       "part": "checkout",
       "title": "Complete a started visit when its sale is paid",
       "depends_on": [],
-      "status": "pending",
+      "status": "complete",
       "acceptance": "Paid after start completes; paid ahead stays open; refund keeps it completed; replay changes nothing."
     },
     {
@@ -26,7 +26,7 @@
       "depends_on": [
         "A2"
       ],
-      "status": "pending",
+      "status": "complete",
       "acceptance": "POST /v1/bookings/{id}/package sets package_id, completes the visit and posts one consumption; four-part matrix; register shows sessions left."
     },
     {
@@ -34,7 +34,7 @@
       "part": "checkout",
       "title": "Gift card credit on a sale",
       "depends_on": [],
-      "status": "pending",
+      "status": "complete",
       "acceptance": "POST /v1/orders/{id}/gift-card redeems up to the amount due sourced to the sale; amount due counts it; refund reverses; four-part matrix."
     },
     {
@@ -44,7 +44,7 @@
       "depends_on": [
         "A2"
       ],
-      "status": "pending",
+      "status": "complete",
       "acceptance": "POST /v1/orders/{id}/invoice keeps lines and booking_ids, sends the invoice and voids the ticket; owner or admin only."
     },
     {
@@ -52,7 +52,7 @@
       "part": "checkout",
       "title": "Book next visit from the paid screen",
       "depends_on": [],
-      "status": "pending",
+      "status": "complete",
       "acceptance": "useNextVisit derives the interval from history or series; composer opens prefilled with the same staff member; vitest."
     },
     {
@@ -60,7 +60,7 @@
       "part": "checkout",
       "title": "Visit note sent as a message",
       "depends_on": [],
-      "status": "pending",
+      "status": "complete",
       "acceptance": "Note posts through the send-message command with the manage link; manage page shows booking photos."
     },
     {
@@ -68,7 +68,7 @@
       "part": "check-in",
       "title": "Undo check-in",
       "depends_on": [],
-      "status": "pending",
+      "status": "complete",
       "acceptance": "DELETE /v1/bookings/{id}/check-in with the four-part matrix; Undo on web and mobile."
     },
     {
@@ -76,7 +76,7 @@
       "part": "check-in",
       "title": "What a visit or a day still needs",
       "depends_on": [],
-      "status": "pending",
+      "status": "complete",
       "acceptance": "GET needs for a booking and a date: outstanding on-booking forms, contracts at current version, pet alerts, pending deposit; staff limited to own bookings."
     },
     {
@@ -86,7 +86,7 @@
       "depends_on": [
         "B1"
       ],
-      "status": "pending",
+      "status": "complete",
       "acceptance": "Audit entry lists outstanding items; nothing new refused."
     },
     {
@@ -96,7 +96,7 @@
       "depends_on": [
         "B1"
       ],
-      "status": "pending",
+      "status": "complete",
       "acceptance": "Resend link, Open here and Collect deposit on web and mobile."
     },
     {
@@ -106,7 +106,7 @@
       "depends_on": [
         "B1"
       ],
-      "status": "pending",
+      "status": "complete",
       "acceptance": "Ready or N to do from the day read."
     },
     {
@@ -116,7 +116,7 @@
       "depends_on": [
         "B3"
       ],
-      "status": "pending",
+      "status": "complete",
       "acceptance": "Iframe in Modal on web, in-app browser on mobile; closing refetches needs."
     },
     {
@@ -126,7 +126,7 @@
       "depends_on": [
         "B1"
       ],
-      "status": "pending",
+      "status": "complete",
       "acceptance": "Reminder lists client items (gen-messages); manage page shows the list or You're all set."
     },
     {
@@ -140,7 +140,7 @@
         "C2",
         "B2"
       ],
-      "status": "pending",
+      "status": "complete",
       "acceptance": "test_flows_visits.py covers needs, audit, package, gift card and card payment, completion, commission and review eligibility."
     },
     {
@@ -176,7 +176,7 @@
         "D2",
         "D3"
       ],
-      "status": "pending",
+      "status": "complete",
       "acceptance": "CLAUDE.md audit plus file-map placement; findings fixed."
     },
     {

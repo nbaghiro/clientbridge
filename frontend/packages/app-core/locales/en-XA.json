@@ -1436,11 +1436,14 @@
     "pos.desk.visitNotePlaceholder": {
         "message": "[Ĥöŵ ţĥé ṽîšîţ ŵéñţ, ŵĥåţ ŵåš ûšéð, çåŕé ûñţîļ ñéẋţ ţîɱé one two three four]"
     },
+    "pos.desk.visitNotePhotos": {
+        "message": "[{n,plural,one{Ţĥé çļîéñţ ŵîļļ šéé # šĥåŕéð þĥöţö.} other{Ţĥé çļîéñţ ŵîļļ šéé # šĥåŕéð þĥöţöš.} =0{Ñö þĥöţöš åŕé šĥåŕéð ýéţ. Šĥåŕé ţĥéɱ ƒŕöɱ ţĥé ṽîšîţ'š ƀööķîñĝ.}} one two three four five six seven eight]"
+    },
     "pos.desk.visitNoteSend": {
         "message": "[Šéñð ñöţé one]"
     },
     "pos.desk.visitNoteSent": {
-        "message": "[Ñöţé šéñţ, ŵîţĥ å ļîñķ ţö ţĥé ṽîšîţ åñð îţš þĥöţöš. one two three four]"
+        "message": "[Ñöţé šéñţ ŵîţĥ å ļîñķ ţö ţĥé ṽîšîţ. one two three]"
     },
     "pos.desk.backToToday": {
         "message": "[Ɓåçķ ţö Ţöðåý one two]"
@@ -2558,8 +2561,17 @@
     "bookings.detailPhotos": {
         "message": "[Þĥöţöš one]"
     },
+    "bookings.photoShare": {
+        "message": "[Šĥåŕé ŵîţĥ çļîéñţ one two]"
+    },
+    "bookings.photoUnshare": {
+        "message": "[Šţöþ šĥåŕîñĝ one two]"
+    },
+    "bookings.photoShareError": {
+        "message": "[Ţĥé þĥöţö çöûļðñ’ţ ƀé ûþðåţéð. Ţŕý åĝåîñ. one two three]"
+    },
     "bookings.photosHint": {
-        "message": "[Ɓéƒöŕé åñð åƒţéŕ þĥöţöš öƒ ţĥé ĵöƀ. Ţĥéý åļšö šĥöŵ öñ ţĥé çļîéñţ'š ŕéçöŕð. one two three four five]"
+        "message": "[Ɓéƒöŕé åñð åƒţéŕ þĥöţöš öƒ ţĥé ĵöƀ. Ţĥéý åļšö šĥöŵ öñ ţĥé çļîéñţ'š ŕéçöŕð, åñð ţĥé çļîéñţ šééš öñļý ţĥé öñéš ýöû šĥåŕé. one two three four five six seven]"
     },
     "bookings.photosNone": {
         "message": "[Ñö þĥöţöš ýéţ. one two]"
@@ -8645,11 +8657,38 @@
     "today.arriveBody": {
         "message": "[Ṁåŕķ ýöûŕšéļƒ öñ šîţé ŵĥéñ ýöû ĝéţ ţĥéŕé. one two three]"
     },
+    "today.checkInNeeds": {
+        "message": "[Šţîļļ ţö ðö one two]"
+    },
+    "today.needForm": {
+        "message": "[{name} ţö ƒîļļ îñ one]"
+    },
+    "today.needSignature": {
+        "message": "[{name} ţö šîĝñ one]"
+    },
+    "today.needDeposit": {
+        "message": "[{amount} ðéþöšîţ ţö çöļļéçţ one two]"
+    },
+    "today.needSend": {
+        "message": "[Šéñð ļîñķ one]"
+    },
+    "today.needResend": {
+        "message": "[Šéñð åĝåîñ one two]"
+    },
+    "today.needOpen": {
+        "message": "[Öþéñ ĥéŕé one]"
+    },
+    "today.needSendError": {
+        "message": "[Ţĥé ļîñķ çöûļðñ’ţ ƀé šéñţ. Ţŕý åĝåîñ. one two three]"
+    },
+    "today.undoCheckIn": {
+        "message": "[Ûñðö one]"
+    },
+    "today.toDo": {
+        "message": "[{n, number} ţö ðö one]"
+    },
     "today.checkInWatch": {
         "message": "[Ŵåţçĥ ƒöŕ one]"
-    },
-    "today.checkInDeposit": {
-        "message": "[Ţĥé {amount} ðéþöšîţ ĥåšñ’ţ ƀééñ þåîð ýéţ. one two three]"
     },
     "today.depart": {
         "message": "[Öñ ɱý ŵåý one]"
@@ -11098,6 +11137,18 @@
     },
     "publicManage.hello": {
         "message": "[Ĥî {name} one]"
+    },
+    "publicManage.toDoTitle": {
+        "message": "[Ɓéƒöŕé ýöûŕ ṽîšîţ one two]"
+    },
+    "publicManage.toDoFill": {
+        "message": "[Ƒîļļ îñ one]"
+    },
+    "publicManage.toDoSign": {
+        "message": "[Šîĝñ one]"
+    },
+    "publicManage.toDoAtDesk": {
+        "message": "[Ŵé’ļļ ĝö ţĥŕöûĝĥ ţĥîš ŵîţĥ ýöû ŵĥéñ ýöû åŕŕîṽé. one two three]"
     },
     "publicManage.photos": {
         "message": "[Þĥöţöš ƒŕöɱ ýöûŕ ṽîšîţ one two]"

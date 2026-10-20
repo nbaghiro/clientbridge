@@ -42,6 +42,8 @@ class File(PKMixin, BusinessScoped, TimestampMixin, Base):
     size: Mapped[int | None] = mapped_column(BigInteger)
     # set once the bytes are confirmed in storage; until then the row is a pending upload
     uploaded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # when staff shared a booking photo with the client; until then it stays inside the business
+    shared_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class Audit(PKMixin, BusinessScoped, Base):

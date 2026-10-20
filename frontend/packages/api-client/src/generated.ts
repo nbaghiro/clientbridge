@@ -1269,6 +1269,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/bookings/needs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Visit Needs On */
+        get: operations["visit_needs_on_v1_bookings_needs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/bookings/{booking_id}/needs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Booking Needs */
+        get: operations["booking_needs_v1_bookings__booking_id__needs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/bookings/visits": {
         parameters: {
             query?: never;
@@ -1314,7 +1348,8 @@ export interface paths {
         put?: never;
         /** Check In Booking */
         post: operations["check_in_booking_v1_bookings__booking_id__check_in_post"];
-        delete?: never;
+        /** Undo Booking Check In */
+        delete: operations["undo_booking_check_in_v1_bookings__booking_id__check_in_delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -3142,6 +3177,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/files/{file_id}/share": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Share File */
+        post: operations["share_file_v1_files__file_id__share_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/files/{file_id}/link": {
         parameters: {
             query?: never;
@@ -4962,6 +5014,16 @@ export interface components {
             size: number | null;
             /** Uploaded At */
             uploaded_at: string | null;
+            /** Shared At */
+            shared_at?: string | null;
+        };
+        /** FileShare */
+        FileShare: {
+            /**
+             * Shared
+             * @description Show the booking photo to the client on their visit page
+             */
+            shared: boolean;
         };
         /** FileUpload */
         FileUpload: {
@@ -6179,6 +6241,11 @@ export interface components {
             /** Addons */
             addons: components["schemas"]["ManagedAddon"][];
             /**
+             * To Do
+             * @description Forms and signatures the client still owes
+             */
+            to_do?: components["schemas"]["ManagedToDo"][];
+            /**
              * Photo Urls
              * @description Photos staff took on the visit, oldest first
              */
@@ -6215,6 +6282,21 @@ export interface components {
              * @description Where a waitlisted client stands; 1 is seated first
              */
             waitlist_position?: number | null;
+        };
+        /** ManagedToDo */
+        ManagedToDo: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "form" | "signature";
+            /** Label */
+            label: string;
+            /**
+             * Path
+             * @description Where on the booking site to finish it
+             */
+            path?: string | null;
         };
         /** MeOut */
         MeOut: {
@@ -8930,6 +9012,42 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
+        };
+        /** VisitNeed */
+        VisitNeed: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "form" | "signature" | "deposit";
+            /**
+             * Ref Id
+             * @description The form, the contract or signature request, or the booking
+             */
+            ref_id: string;
+            /**
+             * Label
+             * @description The form or contract's name
+             * @default
+             */
+            label: string;
+            /**
+             * Token
+             * @description The client's open link, once one is sent
+             */
+            token?: string | null;
+            /**
+             * Amount Cents
+             * @description A deposit still to collect
+             */
+            amount_cents?: number | null;
+        };
+        /** VisitNeeds */
+        VisitNeeds: {
+            /** Booking Id */
+            booking_id: string;
+            /** Needs */
+            needs: components["schemas"]["VisitNeed"][];
         };
         /** VisitOut */
         VisitOut: {
@@ -11659,6 +11777,76 @@ export interface operations {
             };
         };
     };
+    visit_needs_on_v1_bookings_needs_get: {
+        parameters: {
+            query: {
+                day: string;
+            };
+            header?: {
+                "x-business-id"?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisitNeeds"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    booking_needs_v1_bookings__booking_id__needs_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
+            };
+            path: {
+                booking_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisitNeeds"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     client_visits_v1_bookings_visits_get: {
         parameters: {
             query: {
@@ -11733,6 +11921,41 @@ export interface operations {
         };
     };
     check_in_booking_v1_bookings__booking_id__check_in_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
+            };
+            path: {
+                booking_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookingOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    undo_booking_check_in_v1_bookings__booking_id__check_in_delete: {
         parameters: {
             query?: never;
             header?: {
@@ -15792,6 +16015,45 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FileOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    share_file_v1_files__file_id__share_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
+            };
+            path: {
+                file_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FileShare"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

@@ -32,6 +32,7 @@ from clientbridge.models.billing import Estimate, Invoice, Line
 from clientbridge.models.business import Business, Staff
 from clientbridge.models.catalog import Item
 from clientbridge.models.clients import Channel, Client, Note, Subject
+from clientbridge.models.documents import Contract, Form, FormResponse, Signature
 from clientbridge.models.messaging import Message
 from clientbridge.models.payments import Payment
 from clientbridge.models.platform import Audit
@@ -76,6 +77,8 @@ from clientbridge.schemas.bookings import (
     RosterEntry,
     TimeOffCreate,
     TimeOffOut,
+    VisitNeed,
+    VisitNeeds,
     VisitOut,
     VisitPage,
 )
@@ -905,18 +908,56 @@ class BookingService:
         if booking.status in _TERMINAL:
             raise Conflict(f"a {booking.status} booking can't be checked in")
         slot = await self._slot(booking.slot_id)
+        [owed] = await visit_needs(self.db, self.biz, [booking])
 
         async def run(cmd: Command) -> BookingOut:
             if booking.checked_in_at is None:
                 booking.checked_in_at = clock.now()
                 await self.db.flush()
-                cmd.record("booking.check_in", entity_type="booking", entity_id=booking.id)
+                cmd.record(
+                    "booking.check_in",
+                    entity_type="booking",
+                    entity_id=booking.id,
+                    changes={
+                        "outstanding": [
+                            n.model_dump(include={"kind", "ref_id"}) for n in owed.needs
+                        ]
+                    }
+                    if owed.needs
+                    else None,
+                )
             return await booking_out(self.db, booking, slot)
 
         return await run_command(
             self.db,
             self.principal,
             action="booking.check_in",
+            run=run,
+            response_model=BookingOut,
+        )
+
+    async def undo_check_in(self, booking_id: str) -> BookingOut:
+        """Take back a check-in made by mistake, while the visit is still open and unpaid."""
+        booking = await self._booking(booking_id)
+        self._assert_can_act_as(booking.staff_id)
+        slot = await self._slot(booking.slot_id)
+
+        async def run(cmd: Command) -> BookingOut:
+            if booking.status in _TERMINAL:
+                raise Conflict(f"a {booking.status} visit's check-in can't be undone")
+            if booking.checked_in_at is None:
+                raise Conflict("this visit isn't checked in")
+            if booking.charged_at is not None:
+                raise Conflict("a paid visit's check-in can't be undone")
+            booking.checked_in_at = None
+            await self.db.flush()
+            cmd.record("booking.check_in_undo", entity_type="booking", entity_id=booking.id)
+            return await booking_out(self.db, booking, slot)
+
+        return await run_command(
+            self.db,
+            self.principal,
+            action="booking.check_in_undo",
             run=run,
             response_model=BookingOut,
         )
@@ -1132,6 +1173,30 @@ class BookingService:
             response_model=BookingOut,
         )
 
+    async def needs(self, booking_id: str) -> VisitNeeds:
+        """What the client still owes before this visit: forms, signatures and a deposit."""
+        booking = await self._booking(booking_id)
+        self._assert_can_act_as(booking.staff_id)
+        return (await visit_needs(self.db, self.biz, [booking]))[0]
+
+    async def needs_on(self, day: date) -> list[VisitNeeds]:
+        """The same for each open visit on a day, staff seeing only their own."""
+        opens, closes = local_day(day, await business_tz(self.db, self.biz))
+        query = (
+            scoped(Booking, self.biz, soft_delete=True)
+            .join(Slot, Slot.id == Booking.slot_id)
+            .where(
+                Slot.starts_at >= opens,
+                Slot.starts_at < closes,
+                Booking.status.in_(("pending", "confirmed")),
+            )
+            .order_by(Slot.starts_at, Booking.id)
+        )
+        if not is_manager(self.principal.role):
+            query = query.where(Booking.staff_id == self.principal.staff_id)
+        bookings = list((await self.db.execute(query)).scalars().all())
+        return await visit_needs(self.db, self.biz, bookings)
+
     def _assert_can_act_as(self, staff_id: str | None) -> None:
         assert_can_act_as(self.principal, staff_id)
 
@@ -1323,6 +1388,104 @@ async def load_availability(
             )
         )
     return Availability(tz=tz, closures=closures, hours=hours, time_off=time_off, busy=busy)
+
+
+async def visit_needs(
+    db: AsyncSession, business_id: str, bookings: list[Booking]
+) -> list[VisitNeeds]:
+    clients = {b.client_id for b in bookings}
+    forms = (
+        await db.execute(
+            scoped(Form, business_id)
+            .with_only_columns(Form.id, Form.name)
+            .where(Form.active, Form.send_on == "booking")
+            .order_by(Form.name, Form.id)
+        )
+    ).all()
+    responses = (
+        await db.execute(
+            scoped(FormResponse, business_id)
+            .with_only_columns(
+                FormResponse.form_id,
+                FormResponse.client_id,
+                FormResponse.status,
+                FormResponse.token,
+            )
+            .where(FormResponse.client_id.in_(clients))
+            .order_by(FormResponse.created_at)
+        )
+    ).all()
+    submitted = {(r.form_id, r.client_id) for r in responses if r.status == "submitted"}
+    drafts = {(r.form_id, r.client_id): r.token for r in responses if r.status == "draft"}
+    contracts = {
+        row.id: row
+        for row in (
+            await db.execute(
+                scoped(Contract, business_id)
+                .with_only_columns(Contract.id, Contract.name, Contract.version)
+                .where(Contract.active)
+            )
+        ).all()
+    }
+    asked: dict[tuple[str, str], list[tuple[str, str, int, str | None]]] = {}
+    signatures = await db.execute(
+        scoped(Signature, business_id)
+        .with_only_columns(
+            Signature.client_id,
+            Signature.contract_id,
+            Signature.id,
+            Signature.status,
+            func.coalesce(Signature.contract_version, 0),
+            Signature.token,
+        )
+        .where(Signature.client_id.in_(clients))
+        .order_by(Signature.created_at)
+    )
+    for client_id, contract_id, sig_id, status, version, token in signatures.tuples().all():
+        asked.setdefault((client_id, contract_id), []).append((sig_id, status, version, token))
+    owed: dict[str, list[VisitNeed]] = {client_id: [] for client_id in clients}
+    for client_id in clients:
+        for form in forms:
+            if (form.id, client_id) not in submitted:
+                owed[client_id].append(
+                    VisitNeed(
+                        kind="form",
+                        ref_id=form.id,
+                        label=form.name,
+                        token=drafts.get((form.id, client_id)),
+                    )
+                )
+    for (client_id, contract_id), requests in asked.items():
+        contract = contracts.get(contract_id)
+        if contract is None:
+            continue
+        signed = max((v for _, status, v, _ in requests if status == "signed"), default=0)
+        if signed >= contract.version:
+            continue
+        pending = next((r for r in reversed(requests) if r[1] == "pending"), None)
+        if pending is not None:
+            need = VisitNeed(
+                kind="signature", ref_id=pending[0], label=contract.name, token=pending[3]
+            )
+        elif signed > 0:
+            need = VisitNeed(kind="signature", ref_id=contract_id, label=contract.name)
+        else:
+            continue
+        owed[client_id].append(need)
+    return [
+        VisitNeeds(
+            booking_id=b.id,
+            needs=[
+                *owed[b.client_id],
+                *(
+                    [VisitNeed(kind="deposit", ref_id=b.id, amount_cents=b.deposit_amount_cents)]
+                    if b.deposit_status == "pending" and b.deposit_amount_cents > 0
+                    else []
+                ),
+            ],
+        )
+        for b in bookings
+    ]
 
 
 def local_day(on_date: date, tz: ZoneInfo) -> tuple[datetime, datetime]:

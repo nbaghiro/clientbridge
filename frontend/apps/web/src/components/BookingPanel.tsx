@@ -22,6 +22,7 @@ import {
     useBusinessZone,
     arrivalWords,
     canCheckIn,
+    useUndoCheckIn,
 } from "@clientbridge/app-core";
 import {
     ActivityTimeline,
@@ -262,7 +263,11 @@ function BookingPhotos({ event }: { event: ScheduleEvent }) {
             {photos.photos.length === 0 ? (
                 <p className="text-sm text-muted">{s.photosNone}</p>
             ) : (
-                <PhotoGrid photos={photos.photos} />
+                <PhotoGrid
+                    photos={photos.photos}
+                    sharing={photos.sharing}
+                    {...(photos.canAdd ? { onShare: photos.share } : {})}
+                />
             )}
             <p className="mt-1.5 text-xs text-muted">{s.photosHint}</p>
             {photos.error !== null ? <Notice tone="danger">{photos.error}</Notice> : null}
@@ -272,20 +277,43 @@ function BookingPhotos({ event }: { event: ScheduleEvent }) {
 }
 
 /** Thumbnails that open the full photo; a photo whose link is still loading shows a blank tile. */
-export function PhotoGrid({ photos }: { photos: readonly { id: string; src: string | null }[] }) {
+export function PhotoGrid({
+    photos,
+    sharing = null,
+    onShare,
+}: {
+    photos: readonly { id: string; src: string | null; shared?: boolean }[];
+    sharing?: string | null;
+    onShare?: (fileId: string, shared: boolean) => void;
+}) {
     return (
         <ul className="grid grid-cols-3 gap-2">
             {photos.map((p, i) => (
-                <li key={p.id} className="aspect-square overflow-hidden rounded-md bg-bg">
-                    {p.src !== null ? (
-                        <a href={p.src} target="_blank" rel="noreferrer">
-                            <img
-                                src={p.src}
-                                alt={s.photoAlt(i + 1)}
-                                className="h-full w-full object-cover"
-                            />
-                        </a>
-                    ) : null}
+                <li key={p.id} className="space-y-1">
+                    <div className="aspect-square overflow-hidden rounded-md bg-bg">
+                        {p.src !== null ? (
+                            <a href={p.src} target="_blank" rel="noreferrer">
+                                <img
+                                    src={p.src}
+                                    alt={s.photoAlt(i + 1)}
+                                    className="h-full w-full object-cover"
+                                />
+                            </a>
+                        ) : null}
+                    </div>
+                    {onShare === undefined ? null : (
+                        <Button
+                            size="sm"
+                            variant={p.shared === true ? "outline" : "quiet"}
+                            full
+                            busy={sharing === p.id}
+                            onPress={() => {
+                                onShare(p.id, p.shared !== true);
+                            }}
+                        >
+                            {p.shared === true ? s.photoUnshare : s.photoShare}
+                        </Button>
+                    )}
                 </li>
             ))}
         </ul>
@@ -517,12 +545,29 @@ function CheckInCard({ event }: { event: ScheduleEvent }) {
     const zone = useBusinessZone();
     const [open, setOpen] = useState(false);
     const [done, setDone] = useState<string | null>(null);
-    if (done !== null)
+    const undo = useUndoCheckIn(api);
+    if (done !== null && event.bookingId !== null) {
+        const id = event.bookingId;
         return (
             <Notice tone="success" banner>
-                {done}
+                <span className="flex items-center justify-between gap-3">
+                    {done}
+                    <Button
+                        size="sm"
+                        variant="outline"
+                        busy={undo.busy}
+                        onPress={() => {
+                            undo.undo(id, () => {
+                                setDone(null);
+                            });
+                        }}
+                    >
+                        {strings.today.undoCheckIn}
+                    </Button>
+                </span>
             </Notice>
         );
+    }
     if (event.bookingId === null || !canCheckIn(event, viewer, kind, zone)) return null;
     const bookingId = event.bookingId;
     const words = arrivalWords(kind);
@@ -636,7 +681,7 @@ export function BookingBody({
                 <BookingFacts detail={detail} layout={narrow ? "stack" : "inline"} />
             </div>
             <Departure event={detail.event} />
-            <CheckInCard event={detail.event} />
+            <CheckInCard key={detail.event.id} event={detail.event} />
             <DepositDue event={detail.event} />
             <BookingClient detail={detail} />
             <BookingRoster detail={detail} />

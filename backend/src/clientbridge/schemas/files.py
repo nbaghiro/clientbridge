@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from clientbridge.core.mirrors import Mirror
 from clientbridge.models.platform import File, FileParent, FilePurpose
@@ -28,11 +28,16 @@ class FileOut(Mirror):
     content_type: str | None
     size: int | None
     uploaded_at: datetime | None
+    shared_at: datetime | None = None
 
 
 class FileUpload(BaseModel):
     file: FileOut
     upload_url: str
+
+
+class FileShare(BaseModel):
+    shared: bool = Field(description="Show the booking photo to the client on their visit page")
 
 
 class FileLink(BaseModel):

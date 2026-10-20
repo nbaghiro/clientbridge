@@ -355,6 +355,43 @@ export function PublicManage() {
     );
 }
 
+function ToDo({ mg }: { mg: ManageBookingFlow }) {
+    const navigate = useNavigate();
+    const items = mg.booking?.to_do ?? [];
+    if (items.length === 0) return null;
+    return (
+        <div className="space-y-2 rounded-md border border-line bg-surface px-4 py-3">
+            <p className="text-sm font-semibold text-ink">{s.toDoTitle}</p>
+            <ul className="space-y-2">
+                {items.map((item, i) => (
+                    <li
+                        key={`${item.kind}:${String(i)}`}
+                        className="flex items-center justify-between gap-3"
+                    >
+                        <span className="min-w-0 flex-1 text-sm text-ink-soft">{item.label}</span>
+                        {item.path === null ? (
+                            <span className="text-xs text-muted">{s.toDoAtDesk}</span>
+                        ) : (
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                onPress={() => {
+                                    const path = item.path;
+                                    if (path === null) return;
+                                    const done = navigate(path);
+                                    if (done) done.catch(() => undefined);
+                                }}
+                            >
+                                {item.kind === "form" ? s.toDoFill : s.toDoSign}
+                            </Button>
+                        )}
+                    </li>
+                ))}
+            </ul>
+        </div>
+    );
+}
+
 function BookingFacts({ mg }: { mg: ManageBookingFlow }) {
     const v = mg.booking;
     if (v === null) return null;
@@ -387,6 +424,7 @@ function BookingFacts({ mg }: { mg: ManageBookingFlow }) {
     return (
         <div className="space-y-4">
             <FactList facts={facts} label={s.title} />
+            <ToDo mg={mg} />
             {v.addons.length > 0 || mg.hasDeposit || mg.depositDue ? (
                 <dl className="space-y-1 border-t border-line-soft pt-3 text-sm">
                     {v.addons.map((a) => (

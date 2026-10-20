@@ -1,6 +1,6 @@
 # Visit flow schema
 
-Status: no schema change in this execution. Every need below is met by tables we already have, or worked out when it's read. The site sign-off, which would need one CHECK change, is out of scope and listed at the end for later.
+Status: one approved column, `files.shared_at` (approved 2026-10-20, migration `cb0027`). Every other need below is met by tables we already have, or worked out when it's read. The site sign-off, which would need one CHECK change, is out of scope and listed at the end for later.
 
 ## How each need is met without new storage
 
@@ -16,6 +16,15 @@ Status: no schema change in this execution. Every need below is met by tables we
 | Visit note for the client    | Sent as a message in the client's existing thread, so it's stored in `messages` with everything else they've been sent. It links to the manage page, which shows the booking's photos (files already attach to bookings). |
 | Package covering a visit     | `bookings.package_id` and the existing session use.                                                                                                                                                                       |
 | Gift card credit             | The ledger's redemption journal, posted with the sale as its source.                                                                                                                                                      |
+
+## Approved: `files.shared_at`
+
+A nullable `timestamptz` on `files`: when staff shared a booking photo with the client. While it's null, the photo stays inside the business. Only booking photos (`parent_type = 'booking'`, `purpose = 'photo'`) use it.
+
+- **Behaviour:** the client's manage page shows only shared photos. `POST /v1/files/{id}/share` sets or clears the column, for an owner, an admin or the visit's staff member, and the change is audited.
+- **Sync:** the column is on the members' `files` stream, and `sync_projections.json` was updated.
+- **Data impact:** existing photos start unshared. Main never showed booking photos to clients, so nothing that was visible becomes hidden.
+- **Rollback:** the downgrade drops the column, and the manage page then shows no photos.
 
 ## What this gives up
 

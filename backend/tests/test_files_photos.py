@@ -180,3 +180,48 @@ async def test_creating_the_same_photo_twice_with_one_key_returns_one_file(
     assert first.json()["file"]["id"] == again.json()["file"]["id"]
     rows = await db.scalars(select(File.id).where(File.parent_id == bid))
     assert len(rows.all()) == 1
+
+
+async def _stored_photo(db: AsyncSession, booking_id: str) -> str:
+    file = File(
+        id=new_id("file"),
+        business_id=BIZ,
+        parent_type="booking",
+        parent_id=booking_id,
+        purpose="photo",
+        s3_key=f"photos/{booking_id}/{new_id('file')}.jpg",
+        content_type="image/jpeg",
+        uploaded_at=clock.now(),
+    )
+    db.add(file)
+    await db.flush()
+    return file.id
+
+
+async def _shared_at(db: AsyncSession, file_id: str) -> datetime | None:
+    row = await db.get(File, file_id, populate_existing=True)
+    assert row is not None
+    return row.shared_at
+
+
+async def test_staff_share_a_photo_of_their_own_visit_and_take_it_back(
+    as_staff: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    photo = await _stored_photo(db, await _booking(db, "st_diego"))
+    shared = await as_staff.post(f"/v1/files/{photo}/share", json={"shared": True})
+    assert shared.status_code == 200, shared.text
+    assert shared.json()["shared_at"] is not None and await _shared_at(db, photo) is not None
+    hidden = await as_staff.post(f"/v1/files/{photo}/share", json={"shared": False})
+    assert hidden.status_code == 200 and await _shared_at(db, photo) is None
+
+
+async def test_sharing_is_limited_to_your_own_visits_and_booking_photos(
+    as_staff: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    theirs = await _stored_photo(db, await _booking(db, "st_owner"))
+    assert (
+        await as_staff.post(f"/v1/files/{theirs}/share", json={"shared": True})
+    ).status_code == 403
+    assert await _shared_at(db, theirs) is None
+    missing = await as_staff.post("/v1/files/fil_missing/share", json={"shared": True})
+    assert missing.status_code == 404

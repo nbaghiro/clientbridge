@@ -266,6 +266,7 @@ const files = new Table(
         content_type: column.text,
         size: column.integer,
         uploaded_at: column.text,
+        shared_at: column.text,
         business_id: column.text,
         created_at: column.text,
         updated_at: column.text,

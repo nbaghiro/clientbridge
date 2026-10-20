@@ -8,8 +8,11 @@ import {
 import { theme } from "@clientbridge/tokens/native";
 import { StyleSheet, Text, View } from "react-native";
 import { Button, Modal, Notice, Skeleton, StatusPill } from "@clientbridge/ui";
+import * as WebBrowser from "expo-web-browser";
 
 import { api } from "../lib/api";
+import { useViewer } from "../lib/auth";
+import { bookUrl } from "../lib/config";
 
 const c = theme.colors;
 const t = strings.today;
@@ -23,6 +26,11 @@ export function CheckInLayer({ actions }: { actions: TodayActions }) {
                     <Notice tone="success" banner>
                         {actions.notice}
                     </Notice>
+                    {actions.undoCheckIn === null ? null : (
+                        <Button size="sm" variant="outline" onPress={actions.undoCheckIn}>
+                            {t.undoCheckIn}
+                        </Button>
+                    )}
                 </View>
             ) : null}
             {actions.checkingIn !== null ? (
@@ -46,7 +54,7 @@ export function CheckInSheet({
     onDone: (message: string) => void;
 }) {
     const kind = useSubjectKind();
-    const ci = useCheckIn(api, bookingId, kind, onDone);
+    const ci = useCheckIn(api, bookingId, kind, useViewer(), onDone);
     const v = ci.visit;
     return (
         <Modal size="lg" onClose={onClose}>
@@ -87,11 +95,43 @@ export function CheckInSheet({
                                 </View>
                             </View>
                         ) : null}
-                        {v.depositDue === null ? null : (
-                            <Notice tone="info" banner>
-                                {t.checkInDeposit(v.depositDue)}
-                            </Notice>
-                        )}
+                        {ci.needs.length > 0 ? (
+                            <View style={styles.who}>
+                                <Text style={styles.label}>{t.checkInNeeds}</Text>
+                                {ci.needs.map((n) => (
+                                    <View key={n.key} style={styles.need}>
+                                        <Text style={styles.needLabel} numberOfLines={2}>
+                                            {n.label}
+                                        </Text>
+                                        {n.openPath === null ? null : (
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                onPress={() => {
+                                                    const path = n.openPath;
+                                                    if (path === null) return;
+                                                    WebBrowser.openBrowserAsync(`${bookUrl}${path}`)
+                                                        .then(ci.refreshNeeds)
+                                                        .catch(() => undefined);
+                                                }}
+                                            >
+                                                {t.needOpen}
+                                            </Button>
+                                        )}
+                                        {n.canSend ? (
+                                            <Button
+                                                size="sm"
+                                                variant="quiet"
+                                                busy={n.sending}
+                                                onPress={n.send}
+                                            >
+                                                {n.openPath === null ? t.needSend : t.needResend}
+                                            </Button>
+                                        ) : null}
+                                    </View>
+                                ))}
+                            </View>
+                        ) : null}
                     </>
                 )}
                 {ci.error !== null ? <Notice tone="danger">{ci.error}</Notice> : null}
@@ -104,7 +144,7 @@ export function CheckInSheet({
 }
 
 const styles = StyleSheet.create({
-    notice: { marginBottom: 12 },
+    notice: { marginBottom: 12, gap: 8 },
     body: { gap: 16 },
     title: { color: c.ink, fontSize: 20, fontWeight: "700" },
     who: { gap: 4 },
@@ -112,4 +152,6 @@ const styles = StyleSheet.create({
     sub: { color: c.muted, fontSize: 14, lineHeight: 20 },
     label: { color: c.muted, fontSize: 12, fontWeight: "600" },
     alerts: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+    need: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 4 },
+    needLabel: { flex: 1, color: c.ink, fontSize: 14 },
 });

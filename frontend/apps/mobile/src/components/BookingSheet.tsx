@@ -30,6 +30,7 @@ import {
     kindWord,
     arrivalWords,
     canCheckIn,
+    useUndoCheckIn,
     itemMedia,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
@@ -94,14 +95,29 @@ function CheckInCard({ event }: { event: ScheduleEvent }) {
     const zone = useBusinessZone();
     const [open, setOpen] = useState(false);
     const [done, setDone] = useState<string | null>(null);
-    if (done !== null)
+    const undo = useUndoCheckIn(api);
+    if (done !== null && event.bookingId !== null) {
+        const id = event.bookingId;
         return (
             <View style={styles.checkIn}>
                 <Notice tone="success" banner>
                     {done}
                 </Notice>
+                <Button
+                    size="sm"
+                    variant="outline"
+                    busy={undo.busy}
+                    onPress={() => {
+                        undo.undo(id, () => {
+                            setDone(null);
+                        });
+                    }}
+                >
+                    {strings.today.undoCheckIn}
+                </Button>
             </View>
         );
+    }
     if (event.bookingId === null || !canCheckIn(event, viewer, kind, zone)) return null;
     const bookingId = event.bookingId;
     return (
@@ -193,18 +209,41 @@ function DepositDue({ event }: { event: ScheduleEvent }) {
 }
 
 /** Job photo thumbnails; a photo whose link is still loading shows a blank tile. */
-export function PhotoGrid({ photos }: { photos: readonly Photo[] }) {
+export function PhotoGrid({
+    photos,
+    sharing = null,
+    onShare,
+}: {
+    photos: readonly (Photo & { shared?: boolean })[];
+    sharing?: string | null;
+    onShare?: (fileId: string, shared: boolean) => void;
+}) {
     return (
         <View style={styles.photos}>
             {photos.map((p, i) => (
-                <View key={p.id} style={styles.photo}>
-                    {p.src !== null ? (
-                        <Image
-                            source={{ uri: p.src }}
-                            style={styles.photoImage}
-                            accessibilityLabel={s.photoAlt(i + 1)}
-                        />
-                    ) : null}
+                <View key={p.id} style={styles.photoCell}>
+                    <View style={styles.photo}>
+                        {p.src !== null ? (
+                            <Image
+                                source={{ uri: p.src }}
+                                style={styles.photoImage}
+                                accessibilityLabel={s.photoAlt(i + 1)}
+                            />
+                        ) : null}
+                    </View>
+                    {onShare === undefined ? null : (
+                        <Button
+                            size="sm"
+                            variant={p.shared === true ? "outline" : "quiet"}
+                            full
+                            busy={sharing === p.id}
+                            onPress={() => {
+                                onShare(p.id, p.shared !== true);
+                            }}
+                        >
+                            {p.shared === true ? s.photoUnshare : s.photoShare}
+                        </Button>
+                    )}
                 </View>
             ))}
         </View>
@@ -239,7 +278,11 @@ function Photos({ event }: { event: ScheduleEvent }) {
             {photos.photos.length === 0 ? (
                 <Text style={styles.hint}>{s.photosNone}</Text>
             ) : (
-                <PhotoGrid photos={photos.photos} />
+                <PhotoGrid
+                    photos={photos.photos}
+                    sharing={photos.sharing}
+                    {...(photos.canAdd ? { onShare: photos.share } : {})}
+                />
             )}
             <Text style={styles.hint}>{s.photosHint}</Text>
             {photos.canAdd ? (
@@ -369,7 +412,7 @@ export function BookingBody({ detail }: { detail: BookingDetail }) {
                 />
             </View>
             <Departure event={e} />
-            <CheckInCard event={e} />
+            <CheckInCard key={e.id} event={e} />
             <DepositDue event={e} />
             {client ? (
                 <DetailSection
@@ -925,7 +968,7 @@ export function BookingComposerSheet({
 
 const styles = StyleSheet.create({
     body: { gap: 4 },
-    checkIn: { marginBottom: 8 },
+    checkIn: { marginBottom: 8, gap: 8 },
     photos: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
     depart: {
         gap: 4,
@@ -936,8 +979,9 @@ const styles = StyleSheet.create({
         borderColor: c.border,
         backgroundColor: c.surface,
     },
+    photoCell: { width: "31%", gap: 4 },
     photo: {
-        width: "31%",
+        width: "100%",
         aspectRatio: 1,
         borderRadius: theme.radius,
         overflow: "hidden",

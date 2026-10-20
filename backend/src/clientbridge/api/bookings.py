@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Header, Query
@@ -36,6 +36,7 @@ from clientbridge.schemas.bookings import (
     RosterEntry,
     TimeOffCreate,
     TimeOffOut,
+    VisitNeeds,
     VisitPage,
 )
 from clientbridge.services.bookings import (
@@ -104,6 +105,20 @@ async def check_booking_move(
     return await BookingService(db, principal, gateway).check(booking_id, body)
 
 
+@router.get("/needs", response_model=list[VisitNeeds])
+async def visit_needs_on(
+    day: date, principal: CurrentPrincipal, db: DbSession, gateway: GatewayDep
+) -> list[VisitNeeds]:
+    return await BookingService(db, principal, gateway).needs_on(day)
+
+
+@router.get("/{booking_id}/needs", response_model=VisitNeeds)
+async def booking_needs(
+    booking_id: str, principal: CurrentPrincipal, db: DbSession, gateway: GatewayDep
+) -> VisitNeeds:
+    return await BookingService(db, principal, gateway).needs(booking_id)
+
+
 @router.get("/visits", response_model=VisitPage)
 async def client_visits(
     client_id: str,
@@ -129,6 +144,13 @@ async def check_in_booking(
     booking_id: str, principal: CurrentPrincipal, db: DbSession, gateway: GatewayDep
 ) -> BookingOut:
     return await BookingService(db, principal, gateway).check_in(booking_id)
+
+
+@router.delete("/{booking_id}/check-in", response_model=BookingOut)
+async def undo_booking_check_in(
+    booking_id: str, principal: CurrentPrincipal, db: DbSession, gateway: GatewayDep
+) -> BookingOut:
+    return await BookingService(db, principal, gateway).undo_check_in(booking_id)
 
 
 @router.post("/{booking_id}/depart", response_model=BookingOut)

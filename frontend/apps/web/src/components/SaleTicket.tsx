@@ -834,6 +834,7 @@ function VisitNoteBlock({ clientId, bookingId }: { clientId: string; bookingId: 
                 placeholder={d.visitNotePlaceholder}
                 surface="surface"
             />
+            <p className="text-xs text-muted">{d.visitNotePhotos(note.sharedPhotos)}</p>
             {note.error !== null ? <Notice tone="danger">{note.error}</Notice> : null}
             {note.sent ? <Notice tone="success">{d.visitNoteSent}</Notice> : null}
             <Button
