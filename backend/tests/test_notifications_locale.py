@@ -139,6 +139,7 @@ def _builders() -> dict[str, Render]:
         "booking_confirmed_message": lambda c: (
             n.booking_confirmed_message(c, NAME, when(c), LINK),
             n.booking_confirmed_message(c, NAME, when(c), None),
+            n.booking_confirmed_message(c, NAME, when(c), LINK, amount(c)),
         ),
         "booking_rescheduled_message": lambda c: n.booking_rescheduled_message(c, NAME, when(c)),
         "booking_canceled_message": lambda c: n.booking_canceled_message(c, NAME, when(c)),

@@ -739,6 +739,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/manage/{token}/deposit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Manage Pay Deposit */
+        post: operations["manage_pay_deposit_manage__token__deposit_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/manage/{token}/message": {
         parameters: {
             query?: never;
@@ -5780,6 +5797,16 @@ export interface components {
              * @enum {string}
              */
             deposit_status: "none" | "pending" | "collected" | "applied" | "forfeited" | "refunded";
+            /**
+             * Deposit Due
+             * @description The visit is booked and its deposit is still unpaid
+             */
+            deposit_due: boolean;
+            /**
+             * Accepts Card
+             * @description The business takes card payments online
+             */
+            accepts_card: boolean;
             /** Addons */
             addons: components["schemas"]["ManagedAddon"][];
             /** Reschedules Used */
@@ -9998,6 +10025,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ManageCancelResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    manage_pay_deposit_manage__token__deposit_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicCardIntent"];
                 };
             };
             /** @description Validation Error */

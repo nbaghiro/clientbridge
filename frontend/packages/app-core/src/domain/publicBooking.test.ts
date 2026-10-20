@@ -295,58 +295,69 @@ it("shows a failed availability load and retries without presenting it as an emp
     });
 });
 
-it.each(["days", "slots"])("shows and retries a failed manage %s request", async (failed) => {
-    const client: Parameters<typeof useManageBooking>[0] = {
-        getBooking: vi.fn().mockResolvedValue({
-            booking_id: "booking",
-            business_name: "Demo",
-            brand: { logo_url: null, primary: null, tagline: null },
-            slug: "demo",
-            client_name: "Pat",
-            subject: null,
-            subject_name: null,
-            service: {
-                id: "service",
-                name: "Visit",
-                description: null,
-                duration_min: 60,
-                price_cents: 1000,
-                currency: "CAD",
-                deposit_required: false,
-                deposit_amount_cents: 0,
-                image_url: null,
-                kind: "service",
-                category: null,
-                color: null,
-                staff_ids: [],
-            },
-            staff: { id: "staff", name: "Pat", title: null, color: null },
-            starts_at: "2026-10-15T17:00:00Z",
-            ends_at: "2026-10-15T18:00:00Z",
-            status: "confirmed",
-            deposit_cents: 0,
-            deposit_status: "none",
-            addons: [],
-            reschedules_used: 0,
-            policy: {
-                self_service: true,
-                cancel_cutoff_hours: 24,
-                reschedule_cutoff_hours: 24,
-                max_reschedules: 3,
-            },
-            now: "2026-10-13T17:00:00Z",
-            timezone: ZONE,
-            can_move: true,
-            can_cancel: true,
-            blocked: null,
-            blocked_hours: null,
-        }),
+const managed = (extra: Record<string, unknown> = {}) => ({
+    booking_id: "booking",
+    business_name: "Demo",
+    brand: { logo_url: null, primary: null, tagline: null },
+    slug: "demo",
+    client_name: "Pat",
+    subject: null,
+    subject_name: null,
+    service: {
+        id: "service",
+        name: "Visit",
+        description: null,
+        duration_min: 60,
+        price_cents: 1000,
+        currency: "CAD",
+        deposit_required: false,
+        deposit_amount_cents: 0,
+        image_url: null,
+        kind: "service",
+        category: null,
+        color: null,
+        staff_ids: [],
+    },
+    staff: { id: "staff", name: "Pat", title: null, color: null },
+    starts_at: "2026-10-15T17:00:00Z",
+    ends_at: "2026-10-15T18:00:00Z",
+    status: "confirmed",
+    deposit_cents: 0,
+    deposit_status: "none",
+    addons: [],
+    reschedules_used: 0,
+    policy: {
+        self_service: true,
+        cancel_cutoff_hours: 24,
+        reschedule_cutoff_hours: 24,
+        max_reschedules: 3,
+    },
+    now: "2026-10-13T17:00:00Z",
+    timezone: ZONE,
+    can_move: true,
+    can_cancel: true,
+    blocked: null,
+    blocked_hours: null,
+    waitlist_position: null,
+    deposit_due: false,
+    accepts_card: true,
+    ...extra,
+});
+
+function manageClient(extra: Record<string, unknown> = {}): Parameters<typeof useManageBooking>[0] {
+    return {
+        getBooking: vi.fn().mockResolvedValue(managed(extra)),
         getDays: vi.fn().mockResolvedValue([]),
         getSlots: vi.fn().mockResolvedValue([]),
         message: vi.fn(),
         reschedule: vi.fn(),
         cancel: vi.fn(),
+        payDeposit: vi.fn(),
     };
+}
+
+it.each(["days", "slots"])("shows and retries a failed manage %s request", async (failed) => {
+    const client = manageClient();
     const request = failed === "days" ? client.getDays : client.getSlots;
     vi.mocked(request).mockRejectedValueOnce(new Error("offline"));
     const { result } = renderHook(() => useManageBooking(client, "token"));
@@ -367,6 +378,94 @@ it.each(["days", "slots"])("shows and retries a failed manage %s request", async
     });
     await waitFor(() => {
         expect(result.current.slotsError).toBe(false);
+    });
+});
+
+describe("a deposit due on the manage link", () => {
+    const m = strings.publicManage;
+    const due = { deposit_cents: 2000, deposit_status: "pending", deposit_due: true };
+
+    it("opens the card payment and shows the deposit paid once it goes through", async () => {
+        const client = manageClient(due);
+        const intent = { client_secret: "pi_1_secret", stripe_account_id: "acct_1" };
+        vi.mocked(client.payDeposit).mockResolvedValue(intent);
+        const { result } = renderHook(() => useManageBooking(client, "token"));
+        await waitFor(() => {
+            expect(result.current.booking).not.toBeNull();
+        });
+        expect(result.current.canPayDeposit).toBe(true);
+        expect(result.current.depositLine).toBe(m.depositDueBody(result.current.deposit));
+        act(() => {
+            result.current.payDeposit(true);
+        });
+        await waitFor(() => {
+            expect(result.current.depositCard).toEqual(intent);
+        });
+        act(() => {
+            result.current.depositPaid();
+        });
+        expect(result.current.depositCard).toBeNull();
+        expect(result.current.hasDeposit).toBe(true);
+        expect(result.current.canPayDeposit).toBe(false);
+        expect(result.current.depositThanks).toBe(m.depositThanks(result.current.deposit));
+    });
+
+    it("offers nothing to pay when the business takes no cards online", async () => {
+        const client = manageClient({ ...due, accepts_card: false });
+        const { result } = renderHook(() => useManageBooking(client, "token"));
+        await waitFor(() => {
+            expect(result.current.booking).not.toBeNull();
+        });
+        expect(result.current.depositDue).toBe(true);
+        expect(result.current.canPayDeposit).toBe(false);
+        expect(result.current.depositLine).toBe(m.depositOffline(result.current.deposit, "Demo"));
+    });
+
+    it("offers nothing to pay on a cancelled visit", async () => {
+        const client = manageClient({ ...due, status: "canceled" });
+        const { result } = renderHook(() => useManageBooking(client, "token"));
+        await waitFor(() => {
+            expect(result.current.booking).not.toBeNull();
+        });
+        expect(result.current.depositDue).toBe(false);
+        expect(result.current.canPayDeposit).toBe(false);
+    });
+
+    it("words a refusal from its code and reloads the visit", async () => {
+        const client = manageClient(due);
+        vi.mocked(client.payDeposit).mockRejectedValue(
+            Object.assign(new Error("refused"), { status: 409, code: "deposit_not_due" }),
+        );
+        const { result } = renderHook(() => useManageBooking(client, "token"));
+        await waitFor(() => {
+            expect(result.current.booking).not.toBeNull();
+        });
+        vi.mocked(client.getBooking).mockResolvedValue(
+            managed({ deposit_cents: 2000, deposit_status: "collected" }),
+        );
+        act(() => {
+            result.current.payDeposit(true);
+        });
+        await waitFor(() => {
+            expect(result.current.depositError).toBe(strings.api.depositNotDue);
+        });
+        await waitFor(() => {
+            expect(result.current.hasDeposit).toBe(true);
+        });
+        expect(result.current.depositCard).toBeNull();
+    });
+
+    it("explains a page without a card key instead of opening a payment", async () => {
+        const client = manageClient(due);
+        const { result } = renderHook(() => useManageBooking(client, "token"));
+        await waitFor(() => {
+            expect(result.current.booking).not.toBeNull();
+        });
+        act(() => {
+            result.current.payDeposit(false);
+        });
+        expect(result.current.depositError).toBe(strings.publicPay.cardNotConfigured);
+        expect(client.payDeposit).not.toHaveBeenCalled();
     });
 });
 

@@ -928,6 +928,32 @@ class PublicManageService:
             request=request,
         )
 
+    async def pay_deposit(self, token: str) -> PublicCardIntent:
+        """Open the card payment for a visit's unpaid deposit, superseding any earlier attempt."""
+        booking, _, business = await self._locked(token)
+        if not _deposit_due(booking):
+            raise Conflict("this visit has no deposit to pay", code="deposit_not_due")
+        account_id = _account(business)
+        if account_id is None:
+            raise Conflict(
+                "this business can't take card payments yet", code="card_payments_unavailable"
+            )
+        client = await self.db.get(Client, booking.client_id)
+        if client is None:
+            raise NotFound(_GONE)
+        _, client_secret = await open_booking_deposit(
+            self.db,
+            self.gateway,
+            account_id=account_id,
+            business_id=business.id,
+            booking=booking,
+            client=client,
+            amount=booking.deposit_amount_cents,
+            supersede=True,
+        )
+        await self.db.commit()
+        return PublicCardIntent(client_secret=client_secret, stripe_account_id=account_id)
+
     def _blocked(
         self, booking: Booking, slot: Slot, business: Business, staff: Staff, change: str
     ) -> tuple[ManageBlock, int | None] | None:
@@ -1044,6 +1070,8 @@ class PublicManageService:
             status=booking.status,
             deposit_cents=booking.deposit_amount_cents,
             deposit_status=booking.deposit_status,
+            deposit_due=_deposit_due(booking),
+            accepts_card=_account(business) is not None,
             addons=[
                 ManagedAddon(
                     name=a.description, quantity=a.quantity, unit_cents=a.unit_amount_cents
@@ -1060,6 +1088,14 @@ class PublicManageService:
             blocked_hours=blocked_hours,
             waitlist_position=await waitlist_position(self.db, booking),
         )
+
+
+def _deposit_due(booking: Booking) -> bool:
+    return (
+        booking.status in ("pending", "confirmed")
+        and booking.deposit_status == "pending"
+        and booking.deposit_amount_cents > 0
+    )
 
 
 async def resolve_by_token[M: Base](

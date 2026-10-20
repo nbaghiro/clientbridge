@@ -67,6 +67,9 @@ interface Strings {
         readonly concurrentChange: string;
         readonly visitNotStarted: string;
         readonly estimateBooked: string;
+        readonly depositNotDue: string;
+        readonly depositInProgress: string;
+        readonly cardPaymentsUnavailable: string;
         readonly staffHasFutureWork: string;
         readonly broadcastAddressMissing: string;
         readonly broadcastContactMissing: string;
@@ -4025,6 +4028,11 @@ interface Strings {
         readonly extras: string;
         readonly deposit: string;
         readonly depositPaid: (amount: string) => string;
+        readonly depositDue: (amount: string) => string;
+        readonly depositDueBody: (amount: string) => string;
+        readonly depositOffline: (amount: string, business: string) => string;
+        readonly payDeposit: string;
+        readonly depositThanks: (amount: string) => string;
         readonly reschedule: string;
         readonly cancel: string;
         readonly keep: string;

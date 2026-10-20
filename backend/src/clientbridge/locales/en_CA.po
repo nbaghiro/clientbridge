@@ -7,6 +7,9 @@ msgstr ""
 msgid "booking.action"
 msgstr "Change or cancel"
 
+msgid "booking.pay_deposit"
+msgstr "Pay deposit"
+
 msgid "booking_canceled.body"
 msgstr "Your appointment with {business} on {when} was canceled."
 
@@ -19,8 +22,14 @@ msgstr "Appointment canceled — {business}"
 msgid "booking_confirmed.body"
 msgstr "You're booked with {business} on {when}."
 
+msgid "booking_confirmed.body_deposit"
+msgstr "You're booked with {business} on {when}. Please pay the {amount} deposit, which comes off your bill at the visit: {link}"
+
 msgid "booking_confirmed.body_link"
 msgstr "You're booked with {business} on {when}. Change or cancel: {link}"
+
+msgid "booking_confirmed.deposit_due"
+msgstr "Please pay the {amount} deposit, which comes off your bill at the visit."
 
 msgid "booking_confirmed.heading"
 msgstr "You're booked"

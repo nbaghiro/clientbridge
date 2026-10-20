@@ -692,7 +692,13 @@ clients) and the cancellation policy live in `businesses.booking_policy`, read a
 `/v1/online-booking`; members are hidden from the page with `staff.bookable_online`. Every booking gets a
 `manage_token`, and the confirmation and reminder carry `/m/<token>` on Connect, where the client can move
 or cancel within the cut-offs (`/manage/{token}`). The server enforces the cut-offs and the move limit and
-refunds a paid deposit on an allowed cancel.
+refunds a paid deposit on an allowed cancel. A booked visit whose deposit is still pending can be paid
+from the same page (`POST /manage/{token}/deposit`): it opens the deposit PaymentIntent the booking page
+uses, replays a live attempt, cancels a failed or older one first, and refuses with 409 when the business
+can't take cards (`card_payments_unavailable`), nothing is due (`deposit_not_due`) or an earlier attempt is
+already going through (`deposit_in_progress`). The webhook settles it as any deposit. A confirmation for a
+staff-made booking with a pending deposit carries the link with a line asking for it, when the business
+takes cards.
 
 ### Messaging
 

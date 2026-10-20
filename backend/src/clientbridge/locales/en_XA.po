@@ -22,6 +22,9 @@ msgstr "[Ñåîļ ĝŕîñð~~~~]"
 msgid "booking.action"
 msgstr "[Çĥåñĝé öŕ çåñçéļ~~~~~~]"
 
+msgid "booking.pay_deposit"
+msgstr "[Þåý ðéþöšîţ~~~~]"
+
 msgid "booking_canceled.body"
 msgstr "[Ýöûŕ åþþöîñţɱéñţ ŵîţĥ {business} öñ {when} ŵåš çåñçéļéð.~~~~~~~~~~~~~~]"
 
@@ -34,8 +37,14 @@ msgstr "[Åþþöîñţɱéñţ çåñçéļéð — {business}~~~~~~~~~]"
 msgid "booking_confirmed.body"
 msgstr "[Ýöû'ŕé ƀööķéð ŵîţĥ {business} öñ {when}.~~~~~~~~~]"
 
+msgid "booking_confirmed.body_deposit"
+msgstr "[Ýöû'ŕé ƀööķéð ŵîţĥ {business} öñ {when}. Þļéåšé þåý ţĥé {amount} ðéþöšîţ, ŵĥîçĥ çöɱéš öƒƒ ýöûŕ ƀîļļ åţ ţĥé ṽîšîţ: {link}~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]"
+
 msgid "booking_confirmed.body_link"
 msgstr "[Ýöû'ŕé ƀööķéð ŵîţĥ {business} öñ {when}. Çĥåñĝé öŕ çåñçéļ: {link}~~~~~~~~~~~~~~~~]"
+
+msgid "booking_confirmed.deposit_due"
+msgstr "[Þļéåšé þåý ţĥé {amount} ðéþöšîţ, ŵĥîçĥ çöɱéš öƒƒ ýöûŕ ƀîļļ åţ ţĥé ṽîšîţ.~~~~~~~~~~~~~~~~~~~~~~~]"
 
 msgid "booking_confirmed.heading"
 msgstr "[Ýöû'ŕé ƀööķéð~~~~~]"

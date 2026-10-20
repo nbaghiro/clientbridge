@@ -52,6 +52,9 @@ describe("refused requests", () => {
             ["idempotency_key_reused", strings.api.idempotencyKeyReused],
             ["visit_not_started", strings.api.visitNotStarted],
             ["estimate_booked", strings.api.estimateBooked],
+            ["deposit_not_due", strings.api.depositNotDue],
+            ["deposit_in_progress", strings.api.depositInProgress],
+            ["card_payments_unavailable", strings.api.cardPaymentsUnavailable],
         ];
         for (const [code, message] of cases)
             expect(failureMessage(refused(409, code), "fallback")).toBe(message);

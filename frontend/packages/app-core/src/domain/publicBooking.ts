@@ -1005,6 +1005,8 @@ interface ManagedBooking {
     status: string;
     deposit_cents: number;
     deposit_status: string;
+    deposit_due: boolean;
+    accepts_card: boolean;
     refund_status?: string | null;
     addons: { name: string; quantity: number; unit_cents: number }[];
     reschedules_used: number;
@@ -1047,8 +1049,14 @@ interface ManageCancelResult {
     refund_cents: number;
 }
 
+interface DepositIntent {
+    client_secret: string;
+    stripe_account_id: string;
+}
+
 interface ManageBookingClient {
     message: (token: string, body: string, key: string) => Promise<{ id: string }>;
+    payDeposit: (token: string) => Promise<DepositIntent>;
     getBooking: (token: string) => Promise<ManagedBooking>;
     getDays: (token: string, q: { from: string; days: number }) => Promise<DayOpenings[]>;
     getSlots: (token: string, q: { date: string }) => Promise<OpenSlot[]>;
@@ -1085,6 +1093,7 @@ export function createManageBookingClient(baseUrl: string): ManageBookingClient 
         reschedule: (token, startsAt, key) =>
             post<ManagedBooking>(`${at(token)}/reschedule`, key, { starts_at: startsAt }),
         cancel: (token, key) => post<ManageCancelResult>(`${at(token)}/cancel`, key, {}),
+        payDeposit: (token) => request<DepositIntent>(`${at(token)}/deposit`, { method: "POST" }),
     };
 }
 
@@ -1106,8 +1115,11 @@ export function useManageBooking(client: ManageBookingClient, token: string) {
     const [reload, setReload] = useState(0);
     const [pick, setPick] = useState("");
     const [refund, setRefund] = useState<number | null>(null);
+    const [depositCard, setDepositCard] = useState<DepositIntent | null>(null);
+    const [depositThanks, setDepositThanks] = useState(false);
     const key = useRef<Attempt | null>(null);
     const { busy, error, run } = useAsyncAction();
+    const depositAction = useAsyncAction();
 
     const now = data ? parseTimestamp(data.now) : new Date();
     // Until the booking loads nothing is shown, so the visitor's own zone stands in.
@@ -1164,6 +1176,7 @@ export function useManageBooking(client: ManageBookingClient, token: string) {
     const deposit = data ? formatMoney(data.deposit_cents, currency) : "";
     const hasDeposit =
         data !== null && data.deposit_status === "collected" && data.deposit_cents > 0;
+    const depositDue = live && data.deposit_due;
     const policy = data?.policy;
     return {
         status,
@@ -1281,6 +1294,48 @@ export function useManageBooking(client: ManageBookingClient, token: string) {
         cancelOutcome: hasDeposit ? m.cancelRefund(deposit) : m.cancelNoDeposit,
         deposit,
         hasDeposit,
+        depositDue,
+        canPayDeposit: depositDue && data.accepts_card,
+        depositLine: hasDeposit
+            ? m.depositPaid(deposit)
+            : depositDue
+              ? data.accepts_card
+                  ? m.depositDueBody(deposit)
+                  : m.depositOffline(deposit, data.business_name)
+              : m.cancelNoDeposit,
+        depositThanks: depositThanks ? m.depositThanks(deposit) : null,
+        depositCard,
+        depositBusy: depositAction.busy,
+        depositError: depositAction.error,
+        payDeposit: (configured: boolean) => {
+            if (!configured) {
+                depositAction.setError(strings.publicPay.cardNotConfigured);
+                return;
+            }
+            depositAction.run(
+                async () => {
+                    setDepositCard(await client.payDeposit(token));
+                },
+                {
+                    errorMessage: (e) => {
+                        if (failedStatus(e) === 409)
+                            client
+                                .getBooking(token)
+                                .then(setData)
+                                .catch(() => undefined);
+                        return failureMessage(e, strings.publicPay.cardStartError);
+                    },
+                },
+            );
+        },
+        cancelDepositCard: () => {
+            setDepositCard(null);
+        },
+        depositPaid: () => {
+            setDepositCard(null);
+            setDepositThanks(true);
+            if (data) setData({ ...data, deposit_status: "collected", deposit_due: false });
+        },
         strip: toStrip(days, weekFrom, today, zone),
         canPrevWeek: weekFrom > today,
         prevWeek: () => {

@@ -166,6 +166,8 @@ class ManagedBooking(Mirror):
     status: BookingStatus
     deposit_cents: int
     deposit_status: DepositStatus
+    deposit_due: bool = Field(description="The visit is booked and its deposit is still unpaid")
+    accepts_card: bool = Field(description="The business takes card payments online")
     addons: list[ManagedAddon]
     reschedules_used: int
     policy: PublicPolicy

@@ -14,6 +14,7 @@ import {
     ActionTile,
     Modal,
     Button,
+    CardForm,
     DayRail,
     Empty,
     FactList,
@@ -31,6 +32,7 @@ import { PublicStatus } from "../components/PublicStatus";
 import { config } from "../config";
 
 const manage = createManageBookingClient(config.apiUrl);
+const PUBLISHABLE_KEY = config.stripePublishableKey;
 const s = strings.publicManage;
 const b = strings.publicBooking;
 
@@ -269,12 +271,39 @@ export function PublicManage() {
                             </>
                         ) : null}
                     </section>
-                    <section className="rounded-2xl border border-line bg-surface p-5 shadow-card">
-                        <h2 className="mb-3 font-display text-lg font-bold">{s.payment}</h2>
-                        <p className="text-sm text-ink-soft">
-                            {mg.hasDeposit ? s.depositPaid(mg.deposit) : s.cancelNoDeposit}
-                        </p>
-                        <p className="mt-3 text-xs text-muted">{mg.policyLine}</p>
+                    <section className="space-y-3 rounded-2xl border border-line bg-surface p-5 shadow-card">
+                        <h2 className="font-display text-lg font-bold">{s.payment}</h2>
+                        {mg.depositThanks !== null ? (
+                            <Notice tone="success">{mg.depositThanks}</Notice>
+                        ) : null}
+                        <p className="text-sm text-ink-soft">{mg.depositLine}</p>
+                        {mg.canPayDeposit ? (
+                            mg.depositCard !== null ? (
+                                <CardForm
+                                    clientSecret={mg.depositCard.client_secret}
+                                    stripeAccount={mg.depositCard.stripe_account_id}
+                                    submitLabel={b.pay(mg.deposit)}
+                                    busyLabel={b.paying}
+                                    onDone={mg.depositPaid}
+                                    onCancel={mg.cancelDepositCard}
+                                />
+                            ) : (
+                                <Button
+                                    full
+                                    icon="card"
+                                    busy={mg.depositBusy}
+                                    onPress={() => {
+                                        mg.payDeposit(Boolean(PUBLISHABLE_KEY));
+                                    }}
+                                >
+                                    {s.payDeposit}
+                                </Button>
+                            )
+                        ) : null}
+                        {mg.depositError !== null ? (
+                            <Notice tone="danger">{mg.depositError}</Notice>
+                        ) : null}
+                        <p className="text-xs text-muted">{mg.policyLine}</p>
                     </section>
                 </aside>
             </div>
@@ -358,7 +387,7 @@ function BookingFacts({ mg }: { mg: ManageBookingFlow }) {
     return (
         <div className="space-y-4">
             <FactList facts={facts} label={s.title} />
-            {v.addons.length > 0 || mg.hasDeposit ? (
+            {v.addons.length > 0 || mg.hasDeposit || mg.depositDue ? (
                 <dl className="space-y-1 border-t border-line-soft pt-3 text-sm">
                     {v.addons.map((a) => (
                         <div key={a.name} className="flex justify-between gap-3">
@@ -375,6 +404,12 @@ function BookingFacts({ mg }: { mg: ManageBookingFlow }) {
                                 <Icon name="check" size={13} />
                                 {s.depositPaid(mg.deposit)}
                             </dd>
+                        </div>
+                    ) : null}
+                    {mg.depositDue ? (
+                        <div className="flex justify-between gap-3">
+                            <dt className="text-ink-soft">{s.deposit}</dt>
+                            <dd className="text-warn-fg">{s.depositDue(mg.deposit)}</dd>
                         </div>
                     ) : null}
                 </dl>

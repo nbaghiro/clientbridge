@@ -19,6 +19,9 @@ msgstr ""
 msgid "booking.action"
 msgstr ""
 
+msgid "booking.pay_deposit"
+msgstr ""
+
 msgid "booking_canceled.body"
 msgstr ""
 
@@ -31,7 +34,13 @@ msgstr ""
 msgid "booking_confirmed.body"
 msgstr ""
 
+msgid "booking_confirmed.body_deposit"
+msgstr ""
+
 msgid "booking_confirmed.body_link"
+msgstr ""
+
+msgid "booking_confirmed.deposit_due"
 msgstr ""
 
 msgid "booking_confirmed.heading"

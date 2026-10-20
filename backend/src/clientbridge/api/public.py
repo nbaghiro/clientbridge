@@ -408,6 +408,13 @@ async def manage_cancel(
     return result
 
 
+@manage_router.post("/{token}/deposit", response_model=PublicCardIntent)
+async def manage_pay_deposit(
+    token: str, db: DbSession, gateway: GatewayDep, _: BookingRateLimited
+) -> PublicCardIntent:
+    return await PublicManageService(db, gateway).pay_deposit(token)
+
+
 media_router = APIRouter(prefix="/media", tags=["media"])
 
 

@@ -155,6 +155,15 @@
     "api.estimateBooked": {
         "message": "[Ţĥîš éšţîɱåţé åļŕéåðý ĥåš å ƀööķéð ṽîšîţ. Çåñçéļ ţĥåţ ṽîšîţ ţö ƀööķ ţĥé éšţîɱåţé åĝåîñ. one two three four five six]"
     },
+    "api.depositNotDue": {
+        "message": "[Ţĥîš ðéþöšîţ îš åļŕéåðý þåîð öŕ ñö ļöñĝéŕ ðûé. one two three]"
+    },
+    "api.depositInProgress": {
+        "message": "[Å þåýɱéñţ ƒöŕ ţĥîš ðéþöšîţ îš åļŕéåðý ĝöîñĝ ţĥŕöûĝĥ. Çĥéçķ ƀåçķ îñ å ƒéŵ ɱîñûţéš. one two three four five]"
+    },
+    "api.cardPaymentsUnavailable": {
+        "message": "[Ţĥîš ƀûšîñéšš çåñ'ţ ţåķé çåŕð þåýɱéñţš öñļîñé ýéţ. one two three four]"
+    },
     "api.staffHasFutureWork": {
         "message": "[Ţĥîš ɱéɱƀéŕ šţîļļ ĥåš ûþçöɱîñĝ ṽîšîţš. Çĥööšé ŵĥéţĥéŕ ţö ɱöṽé öŕ çåñçéļ ţĥéɱ. one two three four five]"
     },
@@ -10996,6 +11005,21 @@
     },
     "publicManage.depositPaid": {
         "message": "[{amount} þåîð one]"
+    },
+    "publicManage.depositDue": {
+        "message": "[{amount} ðûé one]"
+    },
+    "publicManage.depositDueBody": {
+        "message": "[Å {amount} ðéþöšîţ îš ðûé ƒöŕ ţĥîš ṽîšîţ. Îţ çöɱéš öƒƒ ýöûŕ ƀîļļ åţ ţĥé ṽîšîţ. one two three four five]"
+    },
+    "publicManage.depositOffline": {
+        "message": "[Å {amount} ðéþöšîţ îš ðûé ƒöŕ ţĥîš ṽîšîţ. {business} çåñ'ţ ţåķé çåŕð þåýɱéñţš öñļîñé ýéţ, šö þļéåšé çöñţåçţ ţĥéɱ ţö åŕŕåñĝé îţ. one two three four five six seven]"
+    },
+    "publicManage.payDeposit": {
+        "message": "[Þåý ðéþöšîţ one two]"
+    },
+    "publicManage.depositThanks": {
+        "message": "[Ţĥåñķš, ýöûŕ {amount} ðéþöšîţ îš þåîð. one two three]"
     },
     "publicManage.reschedule": {
         "message": "[Ŕéšçĥéðûļé one two]"

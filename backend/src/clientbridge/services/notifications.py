@@ -777,9 +777,22 @@ def booking_reminder_message(
 
 
 def booking_confirmed_message(
-    locale: str, business_name: str, when: str, link: str | None
+    locale: str, business_name: str, when: str, link: str | None, deposit: str | None = None
 ) -> Notice:
     lead = message(locale, "booking_confirmed.body", business=business_name, when=when)
+    if deposit is not None and link:
+        values = {"business": business_name, "when": when, "amount": deposit, "link": link}
+        return Notice(
+            message(locale, "booking_confirmed.subject", business=business_name),
+            message(locale, "booking_confirmed.body_deposit", **values),
+            _view(
+                message(locale, "email.kind.booking"),
+                message(locale, "booking_confirmed.heading"),
+                lead,
+                message(locale, "booking_confirmed.deposit_due", amount=deposit),
+                action=Action(message(locale, "booking.pay_deposit"), link),
+            ),
+        )
     body = (
         message(locale, "booking_confirmed.body_link", business=business_name, when=when, link=link)
         if link
@@ -1070,6 +1083,22 @@ async def reminder_message(db: AsyncSession, booking: Booking) -> Notice | None:
     locale = locale_for(business=business)
     when = _when(locale, business, slot)
     return booking_reminder_message(locale, business.name, when, _manage_link(business, booking))
+
+
+def _deposit_request(locale: str, business: Business, booking: Booking) -> tuple[str, str] | None:
+    """A staff-made booking's unpaid deposit and the manage link that takes it, when cards work."""
+    if (
+        booking.source != "manual"
+        or booking.status not in ("pending", "confirmed")
+        or booking.deposit_status != "pending"
+        or booking.deposit_amount_cents <= 0
+        or booking.manage_token is None
+        or not business.stripe_charges_enabled
+        or business.stripe_account_id is None
+    ):
+        return None
+    amount = format_money(locale, booking.deposit_amount_cents, currency_for(business))
+    return amount, f"{get_settings().connect_base_url}/m/{booking.manage_token}"
 
 
 def _manage_link(business: Business, booking: Booking) -> str | None:
@@ -1426,8 +1455,13 @@ class Notifier:
             return
         locale = locale_for(business=business)
         when = _when(locale, business, slot)
-        notice = booking_confirmed_message(
-            locale, business.name, when, _manage_link(business, booking)
+        deposit = _deposit_request(locale, business, booking)
+        notice = (
+            booking_confirmed_message(locale, business.name, when, deposit[1], deposit[0])
+            if deposit is not None
+            else booking_confirmed_message(
+                locale, business.name, when, _manage_link(business, booking)
+            )
         )
         notice = await at_the_visit(db, business, booking, notice)
         await self._to_client(db, booking.client_id, notice)

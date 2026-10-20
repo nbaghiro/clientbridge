@@ -180,6 +180,15 @@
     "api.estimateBooked": {
         "message": "This estimate already has a booked visit. Cancel that visit to book the estimate again."
     },
+    "api.depositNotDue": {
+        "message": "This deposit is already paid or no longer due."
+    },
+    "api.depositInProgress": {
+        "message": "A payment for this deposit is already going through. Check back in a few minutes."
+    },
+    "api.cardPaymentsUnavailable": {
+        "message": "This business can't take card payments online yet."
+    },
     "api.staffHasFutureWork": {
         "message": "This member still has upcoming visits. Choose whether to move or cancel them."
     },
@@ -11777,6 +11786,25 @@
     },
     "publicManage.depositPaid": {
         "message": "{amount} paid",
+        "args": ["amount"]
+    },
+    "publicManage.depositDue": {
+        "message": "{amount} due",
+        "args": ["amount"]
+    },
+    "publicManage.depositDueBody": {
+        "message": "A {amount} deposit is due for this visit. It comes off your bill at the visit.",
+        "args": ["amount"]
+    },
+    "publicManage.depositOffline": {
+        "message": "A {amount} deposit is due for this visit. {business} can't take card payments online yet, so please contact them to arrange it.",
+        "args": ["amount", "business"]
+    },
+    "publicManage.payDeposit": {
+        "message": "Pay deposit"
+    },
+    "publicManage.depositThanks": {
+        "message": "Thanks, your {amount} deposit is paid.",
         "args": ["amount"]
     },
     "publicManage.reschedule": {

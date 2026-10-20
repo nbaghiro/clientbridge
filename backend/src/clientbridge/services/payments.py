@@ -1204,12 +1204,16 @@ async def open_booking_deposit(
     amount: int,
     payment_method: str | None = None,
     idempotency_key: str | None = None,
+    supersede: bool = False,
 ) -> tuple[Payment, str]:
     """Open a deposit PaymentIntent and pending Payment for a booking; the caller commits."""
     customer_id = await ensure_customer(db, gateway, account_id, client)
     fee = await charge_fee_cents(
         db, gateway, account_id, business_id, amount, "CAD", payment_method
     )
+    attempt = idempotency_key or str(amount)
+    if supersede and (closed := await _closed_deposit_attempts(db, business_id, booking.id)):
+        attempt = f"{amount}_{closed}"
     intent = await gateway.create_payment_intent(
         account_id,
         amount_cents=amount,
@@ -1217,7 +1221,7 @@ async def open_booking_deposit(
         customer_id=customer_id,
         application_fee_cents=fee,
         metadata={"booking_id": booking.id, "business_id": business_id},
-        idempotency_key=f"deposit_{booking.id}_{idempotency_key or amount}",
+        idempotency_key=f"deposit_{booking.id}_{attempt}",
         payment_method=payment_method,
     )
     existing = (
@@ -1225,6 +1229,9 @@ async def open_booking_deposit(
     ).scalar_one_or_none()
     if existing is not None:  # a retry hit the same intent — don't mint a second pending row
         return existing, intent.client_secret
+    if supersede and not await cancel_open_deposits(db, gateway, booking):
+        await gateway.cancel_payment_intent(account_id, payment_intent_id=intent.id)
+        raise Conflict("this deposit is already being paid", code="deposit_in_progress")
     payment = Payment(
         id=new_id("payment"),
         business_id=business_id,
@@ -1244,6 +1251,19 @@ async def open_booking_deposit(
     except IntegrityError as exc:
         raise Conflict("deposit is being set up — please retry") from exc
     return payment, intent.client_secret
+
+
+async def _closed_deposit_attempts(db: AsyncSession, business_id: str, booking_id: str) -> int:
+    rows = await db.execute(
+        scoped(Payment, business_id)
+        .where(
+            Payment.booking_id == booking_id,
+            Payment.kind == "deposit",
+            Payment.status.in_(("failed", "canceled")),
+        )
+        .with_only_columns(func.count())
+    )
+    return int(rows.scalar_one())
 
 
 async def open_entitlement_payment(
