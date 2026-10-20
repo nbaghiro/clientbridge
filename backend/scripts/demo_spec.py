@@ -71,6 +71,9 @@ class Offering:
     covers: str | None = None
     validity_days: int | None = None
     ref: str | None = None
+    # a membership's included visits a period and its members' retail discount
+    visits_per_period: int | None = None
+    member_discount_bps: int | None = None
     # a contract the client signs before the first charge of this subscription
     contract: str | None = None
 

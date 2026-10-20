@@ -20,7 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
 from clientbridge.models.billing import Invoice, Order
-from clientbridge.models.catalog import Package
+from clientbridge.models.catalog import Item, Package, Subscription
 from clientbridge.models.ledger import Account, Entry
 from clientbridge.models.payments import Payment
 from clientbridge.models.scheduling import Booking, Slot
@@ -136,6 +136,8 @@ SPEC = BusinessSpec(
             frequency="month",
             ref="plan",
             contract="con_pb_plan",
+            visits_per_period=8,
+            member_discount_bps=1000,
         ),
         Offering(
             "it_pb_maintenance",
@@ -207,6 +209,8 @@ CLIENTS = (
     "regular_a",
     "regular_b",
     "regular_c",
+    "late",
+    "lapsed",
 )
 
 
@@ -315,6 +319,15 @@ class Probe(Demo):
                 slot=upcoming,
             )
         self.subscribe("plan", "it_pb_remote_viewing", self.at(-80, 11))
+        self.subscribe("late", "it_pb_remote_viewing", self.at(-80, 11), status="past_due")
+        self.subscribe(
+            "lapsed",
+            "it_pb_remote_viewing",
+            self.at(-100, 11),
+            status="canceled",
+            ended=self.at(-40, 9),
+        )
+        self.package("pack", "it_pb_maintenance", self.at(-20, 12), key="pack_2")
         self.sign("terms_old", "regular_c", "con_pb_terms", self.at(-90, 11), None)
         self.sign("terms_new", "away", "con_pb_terms", self.at(-20, 11), None)
         self.response(
@@ -342,6 +355,25 @@ def test_every_engine_block_builds_a_valid_graph() -> None:
     statuses = {b.status for b in demo.ctx.all(Booking)}
     assert {"completed", "confirmed", "canceled", "no_show"} <= statuses
     assert any(s.capacity > 1 for s in demo.ctx.all(Slot))
+    plan = demo.ctx.get(Item, "it_pb_remote_viewing")
+    assert (plan.visits_per_period, plan.member_discount_bps) == (8, 1000)
+    assert demo.ctx.get(Package, "pkg_pb_three_pack_2").client_id == "cl_pb_pack"
+
+
+def test_a_lapsed_plan_stops_billing_and_a_past_due_plan_leaves_its_renewal_unpaid() -> None:
+    demo = build_edition(Probe, clock.now())
+    renewals = {
+        key: [i for i in demo.ctx.all(Invoice) if i.id.startswith(f"inv_pb_plan_{key}_")]
+        for key in ("plan", "late", "lapsed")
+    }
+    assert len(renewals["late"]) == len(renewals["plan"]) - 1
+    assert all(
+        i.issued_at is not None and i.issued_at < demo.at(-40, 9) for i in renewals["lapsed"]
+    )
+    late = demo.ctx.get(Subscription, "sub_pb_plan_late")
+    assert late.status == "past_due"
+    assert late.current_period_end is not None and late.current_period_end > demo.now
+    assert demo.ctx.get(Subscription, "sub_pb_plan_lapsed").status == "canceled"
 
 
 def test_a_missing_storyline_stage_is_reported() -> None:

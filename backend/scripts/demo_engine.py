@@ -13,7 +13,14 @@ from clientbridge.core import clock
 from clientbridge.models.base import TimestampMixin
 from clientbridge.models.billing import Estimate, Invoice, Line, Order
 from clientbridge.models.business import Business, Staff, User
-from clientbridge.models.catalog import GiftCard, Item, Package, StockMovement, Subscription
+from clientbridge.models.catalog import (
+    GiftCard,
+    Item,
+    Package,
+    StockMovement,
+    Subscription,
+    SubscriptionStatus,
+)
 from clientbridge.models.clients import Channel, Client, Consent, Note, NoteParent, Subject
 from clientbridge.models.documents import Contract, Form, FormField, FormResponse, Signature
 from clientbridge.models.messaging import Broadcast, Message, Thread
@@ -284,6 +291,8 @@ class Demo:
                 session_count=offering.sessions,
                 validity_days=offering.validity_days,
                 covers_item_id=offering.covers,
+                visits_per_period=offering.visits_per_period,
+                member_discount_bps=offering.member_discount_bps,
                 sku=offering.sku,
                 cost_cents=offering.cost_cents,
                 track_stock=stock is not None,
@@ -1130,8 +1139,16 @@ class Demo:
     def ref(self, offering: Offering) -> str:
         return offering.ref or offering.id.removeprefix(f"it_{self.code}_")
 
-    def subscribe(self, client_key: str, item_id: str, start: datetime) -> Subscription:
-        """A plan billed by card on each period, recorded as a paid invoice the way renewals are."""
+    def subscribe(
+        self,
+        client_key: str,
+        item_id: str,
+        start: datetime,
+        *,
+        status: SubscriptionStatus = "active",
+        ended: datetime | None = None,
+    ) -> Subscription:
+        """A plan billed by card each period; past due leaves its latest renewal unpaid."""
         offering = self.offerings[item_id]
         ref = self.ref(offering)
         brand, last4 = CARDS[len(client_key) % len(CARDS)]
@@ -1156,7 +1173,11 @@ class Demo:
         while True:
             day = period_start(period)
             issued = datetime.combine(day, time(10, 0), self.ctx.zone).astimezone(UTC)
-            if issued >= self.now - timedelta(hours=1):
+            if issued >= self.now - timedelta(hours=1) or (ended is not None and issued >= ended):
+                break
+            renewal = datetime.combine(period_start(period + 1), time(10, 0), self.ctx.zone)
+            if status == "past_due" and period > 0 and renewal >= self.now - timedelta(hours=1):
+                period += 1
                 break
             if period == 0 and issued < start:
                 issued = start + timedelta(minutes=5)
@@ -1178,23 +1199,25 @@ class Demo:
             business_id=self.spec.id,
             client_id=self.client_id(client_key),
             item_id=item_id,
-            status="active",
+            status=status,
             current_period_end=datetime.combine(end, time(10, 0), self.ctx.zone).astimezone(UTC),
             payment_method_id=method.id,
             provider_ref=f"sub_demo_{self.code}_{ref}_{client_key}",
             created_at=start,
-            updated_at=start,
+            updated_at=ended or start,
         )
         self.ctx.add(subscription)
         return subscription
 
-    def package(self, client_key: str, item_id: str, bought: datetime) -> Package:
-        """A prepaid bundle bought by card; book its visits with `visit(..., package_id=...)`."""
+    def package(
+        self, client_key: str, item_id: str, bought: datetime, *, key: str | None = None
+    ) -> Package:
+        """A prepaid bundle bought by card; `key` names a client's second or later one."""
         offering = self.offerings[item_id]
         if offering.sessions is None or offering.covers is None:
             raise ValueError(f"{item_id} is not a package")
         package = Package(
-            id=f"pkg_{self.code}_{self.ref(offering)}_{client_key}",
+            id=f"pkg_{self.code}_{self.ref(offering)}_{key or client_key}",
             business_id=self.spec.id,
             client_id=self.client_id(client_key),
             item_id=item_id,
