@@ -57,7 +57,7 @@ async def test_demo_preflight_rejects_cross_business_consent(db: AsyncSession) -
     consent = Consent(
         id="cns_test_cross_demo",
         business_id=BIZ,
-        client_id="cl_second_private",
+        client_id="cl_cc_morgan",
         channel="email",
         status="granted",
         source="in_person",

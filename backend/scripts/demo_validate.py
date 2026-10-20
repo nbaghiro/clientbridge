@@ -23,6 +23,7 @@ from clientbridge.models.documents import Contract, FormResponse, Signature
 from clientbridge.models.scheduling import Booking, Hours, Recurrence, Slot, Weekday
 from clientbridge.schemas.forms import FormDefinition
 from clientbridge.schemas.subjects import ATTRIBUTES
+from clientbridge.services.bookings import within_hours
 from clientbridge.services.public import validate_answers
 from clientbridge.services.remittances import RemittanceService
 from scripts.demo_context import DEMO_BUSINESSES, DEMO_IDS, DemoContext
@@ -71,27 +72,9 @@ def validate_graph(ctx: DemoContext) -> list[str]:
             errors.append(f"{booking.id}: still waitlisted after the class ended")
     active = [s for s in slots.values() if s.status != "canceled"]
     for index, slot in enumerate(active):
-        local, end = slot.starts_at.astimezone(zone), slot.ends_at.astimezone(zone)
-        dated = [
-            h
-            for h in hours
-            if h.staff_id == slot.staff_id and h.basis == "date" and h.date == local.date()
-        ]
-        windows = dated or [
-            h
-            for h in hours
-            if h.staff_id == slot.staff_id
-            and h.basis == "recurring"
-            and h.weekday == local.weekday()
-        ]
-        if not any(
-            h.available
-            and h.start_time
-            and h.end_time
-            and h.start_time <= local.time()
-            and end.time() <= h.end_time
-            for h in windows
-        ):
+        # the product's rule: inside the member's hours that day, or a day with none set
+        member = [h for h in hours if h.staff_id == slot.staff_id]
+        if not within_hours(member, zone, slot.starts_at, slot.ends_at):
             errors.append(f"{slot.id}: outside working hours")
         seated = sum(
             b.status not in {"canceled", "waitlisted"} for b in bookings if b.slot_id == slot.id

@@ -109,10 +109,26 @@ DEMO_BUSINESSES = (
         email="owner@cedarcoast.example.test",
         first_name="Rowan",
         last_name="Ellis",
-        product_description="Dog walking and drop-in pet care",
+        product_description="Dog walking and pet sitting",
         primary_color="#35576B",
         legal=LegalAddress("455", "Granville Street", "Vancouver", "BC", "V6C 1T1", "+16045550120"),
         owner_login="owner@cedarcoast.example.test",
+        edition="scripts.demo_cedar",
+        rules=(
+            SubjectRule(
+                (
+                    "it_cc_walk_30",
+                    "it_cc_walk_60",
+                    "it_cc_group_30",
+                    "it_cc_group_60",
+                    "it_cc_puppy",
+                ),
+                "species",
+                equals="dog",
+            ),
+            SubjectRule(("it_cc_dropin",), "species", equals="cat"),
+            SubjectRule(("it_cc_group_30",), "weight_kg", at_most=10),
+        ),
     ),
     DemoBusiness(
         id="bz_northlight",

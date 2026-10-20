@@ -13,13 +13,14 @@ from scripts.demo_spec import (
     Stage,
     Stock,
 )
-from scripts.demo_validate import validate_database
+from scripts.demo_validate import validate_database, validate_graph
 from scripts.seed_demo import INSERT_ORDER
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
 from clientbridge.models.billing import Invoice, Order
+from clientbridge.models.business import Business
 from clientbridge.models.catalog import Item, Package, Subscription
 from clientbridge.models.ledger import Account, Entry
 from clientbridge.models.payments import Payment, PaymentMethod
@@ -492,6 +493,29 @@ def test_a_missing_storyline_stage_is_reported() -> None:
     demo = Gap(clock.now())
     demo.build()
     assert "Lost: cl_pb_nobody is missing" in demo.errors()
+
+
+def test_a_business_on_trial_ends_its_trial_from_today() -> None:
+    class Trial(Probe):
+        spec = replace(SPEC, trial_days=14)
+
+    demo = build_edition(Trial, clock.now())
+    business = demo.ctx.get(Business, PROBE)
+    assert business.plan_status == "trialing"
+    assert business.trial_ends_at == demo.now + timedelta(days=14)
+
+
+def test_a_visit_past_midnight_fits_only_a_day_without_hours() -> None:
+    demo = build_edition(Probe, clock.now())
+    sunday = 6 - demo.local(demo.now).weekday() + 7
+    for key, day, hour in (("overnight", sunday, 20), ("late", sunday + 1, 16)):
+        booking = demo.book(
+            key, "away", "it_pb_survey", "st_pb_kai", demo.at(day, hour), "confirmed", demo.now
+        )
+        demo.ctx.get(Slot, booking.slot_id).ends_at = demo.at(day + 1, 8)
+    errors = validate_graph(demo.ctx)
+    assert "ses_pb_overnight: outside working hours" not in errors
+    assert "ses_pb_late: outside working hours" in errors
 
 
 async def test_engine_rows_post_through_the_ledger_and_validate(owner_db: AsyncSession) -> None:

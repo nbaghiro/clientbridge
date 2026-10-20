@@ -181,8 +181,10 @@ class Demo:
                 },
                 status="active",
                 plan=spec.plan,
-                plan_status="active",
-                trial_ends_at=founded + timedelta(days=14),
+                plan_status="active" if spec.trial_days is None else "trialing",
+                trial_ends_at=founded + timedelta(days=14)
+                if spec.trial_days is None
+                else self.now + timedelta(days=spec.trial_days),
                 subject=spec.subject,
                 created_at=founded,
                 updated_at=founded,

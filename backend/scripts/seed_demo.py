@@ -48,7 +48,7 @@ from scripts.demo_context import DEMO_PASSWORD, DEMO_VERSION, DemoContext, demo_
 from scripts.demo_engagement import build_engagement
 from scripts.demo_engine import Demo, build_edition, editions, seed_ledger
 from scripts.demo_finance import add_finance_scenarios, prepare_finance, seed_finance
-from scripts.demo_identity import SECOND, build_identity, placeholder_identity
+from scripts.demo_identity import build_identity, placeholder_identity
 from scripts.demo_photos import add_people_photos
 from scripts.demo_scenarios import add_scenarios
 from scripts.demo_schedule import add_class_timetable, add_repeat_visits, finish_schedule
@@ -2144,7 +2144,6 @@ def build_demo(as_of: datetime | None = None) -> DemoContext:
     prepare_finance(ctx)
     build_identity(ctx)
     add_people_photos(ctx, BIZ)
-    add_people_photos(ctx, SECOND)
     build_engagement(ctx)
     align_chronology(ctx)
 

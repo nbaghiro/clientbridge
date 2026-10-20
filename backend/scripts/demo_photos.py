@@ -10,7 +10,6 @@ ASSETS = Path(__file__).parent / "demo_assets"
 
 TEAMS: dict[str, tuple[str, ...]] = {
     "bz_birchbark": ("us_dev", "us_admin", "us_diego", "us_priya"),
-    "bz_demo_second": ("us_second_owner",),
 }
 
 # about a third of each book, all clients without a negative storyline (demo_validate checks)
@@ -50,7 +49,6 @@ CLIENTS: dict[str, tuple[str, ...]] = {
         "cl_regular_69",
         "cl_regular_73",
     ),
-    "bz_demo_second": ("cl_second_private",),
 }
 
 
