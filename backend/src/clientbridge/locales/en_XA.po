@@ -837,6 +837,12 @@ msgstr "[Ṽéŕîƒîçåţîöñ ŕéǫûéšţ~~~~~~~]"
 msgid "verification_unknown.subject"
 msgstr "[Çļîéñţƀŕîðĝé ṽéŕîƒîçåţîöñ ŕéǫûéšţ~~~~~~~~~~~~]"
 
+msgid "visit_note.body"
+msgstr ""
+"[{note}\n"
+"\n"
+"Þĥöţöš åñð ðéţåîļš ƒŕöɱ ýöûŕ ṽîšîţ: {link}~~~~~~~~~~~~~~]"
+
 msgid "visits_reassigned.body"
 msgstr "[Ţĥéšé ṽîšîţš ŵîţĥ {business} åŕé ñöŵ ŵîţĥ {member}: {whens}.~~~~~~~~~~~~~]"
 

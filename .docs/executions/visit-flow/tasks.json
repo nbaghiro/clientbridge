@@ -1,0 +1,203 @@
+{
+  "title": "Visit flow: check-in and checkout",
+  "status": "planned",
+  "plan": "plan.md",
+  "tasks": [
+    {
+      "id": "A1",
+      "part": "checkout",
+      "title": "Accrue service commission on visits paid at the register",
+      "depends_on": [],
+      "status": "pending",
+      "acceptance": "Test first; payee service rate accrues through _split once per booking on a paid sale and reverses on refund."
+    },
+    {
+      "id": "A2",
+      "part": "checkout",
+      "title": "Complete a started visit when its sale is paid",
+      "depends_on": [],
+      "status": "pending",
+      "acceptance": "Paid after start completes; paid ahead stays open; refund keeps it completed; replay changes nothing."
+    },
+    {
+      "id": "C1",
+      "part": "checkout",
+      "title": "Package covers a visit",
+      "depends_on": [
+        "A2"
+      ],
+      "status": "pending",
+      "acceptance": "POST /v1/bookings/{id}/package sets package_id, completes the visit and posts one consumption; four-part matrix; register shows sessions left."
+    },
+    {
+      "id": "C2",
+      "part": "checkout",
+      "title": "Gift card credit on a sale",
+      "depends_on": [],
+      "status": "pending",
+      "acceptance": "POST /v1/orders/{id}/gift-card redeems up to the amount due sourced to the sale; amount due counts it; refund reverses; four-part matrix."
+    },
+    {
+      "id": "C3",
+      "part": "checkout",
+      "title": "Send the ticket as an invoice",
+      "depends_on": [
+        "A2"
+      ],
+      "status": "pending",
+      "acceptance": "POST /v1/orders/{id}/invoice keeps lines and booking_ids, sends the invoice and voids the ticket; owner or admin only."
+    },
+    {
+      "id": "C4",
+      "part": "checkout",
+      "title": "Book next visit from the paid screen",
+      "depends_on": [],
+      "status": "pending",
+      "acceptance": "useNextVisit derives the interval from history or series; composer opens prefilled with the same staff member; vitest."
+    },
+    {
+      "id": "C5",
+      "part": "checkout",
+      "title": "Visit note sent as a message",
+      "depends_on": [],
+      "status": "pending",
+      "acceptance": "Note posts through the send-message command with the manage link; manage page shows booking photos."
+    },
+    {
+      "id": "A3",
+      "part": "check-in",
+      "title": "Undo check-in",
+      "depends_on": [],
+      "status": "pending",
+      "acceptance": "DELETE /v1/bookings/{id}/check-in with the four-part matrix; Undo on web and mobile."
+    },
+    {
+      "id": "B1",
+      "part": "check-in",
+      "title": "What a visit or a day still needs",
+      "depends_on": [],
+      "status": "pending",
+      "acceptance": "GET needs for a booking and a date: outstanding on-booking forms, contracts at current version, pet alerts, pending deposit; staff limited to own bookings."
+    },
+    {
+      "id": "B2",
+      "part": "check-in",
+      "title": "Audit skipped items on check-in",
+      "depends_on": [
+        "B1"
+      ],
+      "status": "pending",
+      "acceptance": "Audit entry lists outstanding items; nothing new refused."
+    },
+    {
+      "id": "B3",
+      "part": "check-in",
+      "title": "Checklist in the check-in sheet",
+      "depends_on": [
+        "B1"
+      ],
+      "status": "pending",
+      "acceptance": "Resend link, Open here and Collect deposit on web and mobile."
+    },
+    {
+      "id": "B4",
+      "part": "check-in",
+      "title": "Readiness on Today and the schedule",
+      "depends_on": [
+        "B1"
+      ],
+      "status": "pending",
+      "acceptance": "Ready or N to do from the day read."
+    },
+    {
+      "id": "B5",
+      "part": "check-in",
+      "title": "Hand-over on the staff device",
+      "depends_on": [
+        "B3"
+      ],
+      "status": "pending",
+      "acceptance": "Iframe in Modal on web, in-app browser on mobile; closing refetches needs."
+    },
+    {
+      "id": "B6",
+      "part": "check-in",
+      "title": "Outstanding items before the visit",
+      "depends_on": [
+        "B1"
+      ],
+      "status": "pending",
+      "acceptance": "Reminder lists client items (gen-messages); manage page shows the list or You're all set."
+    },
+    {
+      "id": "D1",
+      "part": "together",
+      "title": "Flow test for whole visits",
+      "depends_on": [
+        "A1",
+        "A2",
+        "C1",
+        "C2",
+        "B2"
+      ],
+      "status": "pending",
+      "acceptance": "test_flows_visits.py covers needs, audit, package, gift card and card payment, completion, commission and review eligibility."
+    },
+    {
+      "id": "D2",
+      "part": "together",
+      "title": "Web e2e for check-in and checkout",
+      "depends_on": [
+        "B3",
+        "C4",
+        "C5"
+      ],
+      "status": "pending",
+      "acceptance": "web.e2e.ts path from Today through checklist, checkout and paid screen."
+    },
+    {
+      "id": "D3",
+      "part": "together",
+      "title": "Mobile e2e for check-in and checkout",
+      "depends_on": [
+        "B3",
+        "C4",
+        "C5"
+      ],
+      "status": "pending",
+      "acceptance": "01-workday.yaml path on iOS."
+    },
+    {
+      "id": "D4",
+      "part": "together",
+      "title": "Milestone audit",
+      "depends_on": [
+        "D1",
+        "D2",
+        "D3"
+      ],
+      "status": "pending",
+      "acceptance": "CLAUDE.md audit plus file-map placement; findings fixed."
+    },
+    {
+      "id": "D5",
+      "part": "together",
+      "title": "QA pass",
+      "depends_on": [
+        "D4"
+      ],
+      "status": "pending",
+      "acceptance": "qa.md items checked on web and iOS and recorded in progress.md."
+    },
+    {
+      "id": "D6",
+      "part": "together",
+      "title": "Land as two commits and clean up docs",
+      "depends_on": [
+        "D5"
+      ],
+      "status": "pending",
+      "acceptance": "Rebased; checkout and check-in commits split at the checkout-done tag; durable notes in architecture.md; folders removed."
+    }
+  ]
+}

@@ -294,6 +294,10 @@ def media_url(file_id: str) -> str:
     return f"{get_settings().api_base_url}/media/{file_id}"
 
 
+def manage_photo_url(token: str, file_id: str) -> str:
+    return f"{get_settings().api_base_url}/manage/{token}/photos/{file_id}"
+
+
 async def public_media_location(db: AsyncSession, storage: FileStorage, file_id: str) -> str:
     file = await db.get(File, file_id)
     if file is None or file.uploaded_at is None:

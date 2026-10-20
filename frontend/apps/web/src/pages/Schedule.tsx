@@ -87,21 +87,26 @@ export function Schedule() {
     });
 
     const slotAt = (min: number): Date => minutesInto(day.date, startHour * 60 + min, zone);
-    const openSlot = (staffId: string, min: number, estimateId?: string): void => {
+    const openSlot = (
+        staffId: string,
+        min: number,
+        from: { estimateId?: string | undefined; rebookId?: string | undefined } = {},
+    ): void => {
         board.select(null);
-        setComposer({ staffId, start: slotAt(min), estimateId });
+        setComposer({ staffId, start: slotAt(min), ...from });
     };
-    const openNew = (estimateId?: string): void => {
+    const openNew = (
+        from: { estimateId?: string | undefined; rebookId?: string | undefined } = {},
+    ): void => {
         const first = day.lanes.find((l) => l.hours) ?? day.lanes[0];
-        openSlot(
-            first?.id ?? viewer?.staffId ?? "",
-            Math.max(0, (10 - startHour) * 60),
-            estimateId,
-        );
+        openSlot(first?.id ?? viewer?.staffId ?? "", Math.max(0, (10 - startHour) * 60), from);
     };
     const params = useLinkIntent({
         onCreate: () => {
-            openNew(params.get("estimate") ?? undefined);
+            openNew({
+                estimateId: params.get("estimate") ?? undefined,
+                rebookId: params.get("rebook") ?? undefined,
+            });
         },
         onOpen: setLinked,
     });

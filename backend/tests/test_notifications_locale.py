@@ -170,6 +170,7 @@ def _builders() -> dict[str, Render]:
         "review_requested_message": lambda c: n.review_requested_message(c, NAME, LINK, LINK),
         "inbound_message_alert_text": lambda c: n.inbound_message_alert_text(c, NAME, "Sale"),
         "message_notice": lambda c: n.message_notice(c, NAME, "Sale"),
+        "visit_note_body": lambda c: n.visit_note_body(c, "Sale", LINK),
         "broadcast_notice": lambda c: n.broadcast_notice(
             c, NAME, "Sale", "Sale", LINK, ADDRESS, CONTACT
         ),

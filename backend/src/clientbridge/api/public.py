@@ -349,6 +349,21 @@ async def manage_view(
     return await PublicManageService(db, gateway).view(token)
 
 
+@manage_router.get("/{token}/photos/{file_id}", response_class=RedirectResponse, status_code=302)
+async def manage_photo(
+    token: str,
+    file_id: str,
+    db: DbSession,
+    gateway: GatewayDep,
+    storage: StorageDep,
+    _: BookingRateLimited,
+) -> RedirectResponse:
+    location = await PublicManageService(db, gateway).photo(token, file_id, storage)
+    return RedirectResponse(
+        location, status_code=302, headers={"Cache-Control": "private, max-age=300"}
+    )
+
+
 @manage_router.get("/{token}/days", response_model=PublicDays)
 async def manage_days(
     token: str,

@@ -12,7 +12,7 @@ from clientbridge.core.errors import Conflict, NotFound, Unprocessable
 from clientbridge.core.ids import new_id
 from clientbridge.core.locale import locale_for, message
 from clientbridge.core.scoping import scoped
-from clientbridge.models.billing import Estimate, EstimateStatus, Invoice, Line
+from clientbridge.models.billing import Estimate, EstimateStatus, Invoice, Line, Order
 from clientbridge.models.business import Business
 from clientbridge.models.catalog import Item, TaxClass
 from clientbridge.models.clients import Client
@@ -45,7 +45,7 @@ from clientbridge.services.lines import (
     set_discount,
 )
 from clientbridge.services.notifications import Notifier, Outcome
-from clientbridge.services.payments import sync_invoice
+from clientbridge.services.payments import close_settled_visit, sync_invoice
 from clientbridge.services.tax import tax_for_lines
 
 _DUE_DAYS = 30
@@ -158,6 +158,15 @@ class BillingService:
             raise Conflict("that number was just assigned — please retry") from exc
         await ledger.post_invoice(self.db, invoice, tax)
         await self._apply_deposits(invoice)
+        for booking in await self._bookings(invoice):
+            if booking.order_id is not None:
+                sale = await self.db.get(Order, booking.order_id)
+                if sale is not None and sale.status != "void":
+                    raise Conflict("this visit is already on a sale")
+            booking.invoice_id = booking.invoice_id or invoice.id
+            await close_settled_visit(
+                self.db, booking, "booking.complete_on_invoice", invoice_id=invoice.id
+            )
         cmd.record("invoice.send", entity_type="invoice", entity_id=invoice.id)
 
     async def void_invoice(self, invoice_id: str) -> InvoiceOut:

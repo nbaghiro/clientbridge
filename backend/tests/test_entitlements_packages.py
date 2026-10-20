@@ -1,14 +1,18 @@
 """Package purchase (charge now, grant on settlement) + session consumption, vs the seeded DB."""
 
+from datetime import timedelta
+
 import httpx
 import pytest
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.core.ids import new_id
 from clientbridge.models.business import Business
 from clientbridge.models.catalog import Item, Package
 from clientbridge.models.payments import Payment
+from clientbridge.models.scheduling import Booking, Slot
 from clientbridge.services import ledger
 from tests.conftest import BIZ, Factory, FakePaymentGateway
 from tests.helpers import client_id, enable_payments, key, provider_ref, settle, stripe_event
@@ -373,3 +377,123 @@ async def test_settlement_books_the_tax_charged_even_after_registration_changed(
         db, BIZ, owner_type="business", owner_id=BIZ, category="tax", code="GST"
     )
     assert abs(after - before) == PKG_TAXED - 20000
+
+
+async def _bath_visit(db: AsyncSession, *, starts_in: timedelta = timedelta(days=-400)) -> Booking:
+    start = clock.now() + starts_in
+    slot = Slot(
+        id=new_id("slot"),
+        business_id=BIZ,
+        item_id="it_bath",
+        staff_id="st_owner",
+        starts_at=start,
+        ends_at=start + timedelta(hours=1),
+        capacity=1,
+        status="scheduled",
+    )
+    db.add(slot)
+    await db.flush()
+    booking = Booking(
+        id=new_id("booking"),
+        business_id=BIZ,
+        slot_id=slot.id,
+        starts_at=start,
+        staff_id="st_owner",
+        client_id=CARD_CLIENT,
+        status="confirmed",
+        source="manual",
+    )
+    db.add(booking)
+    await db.flush()
+    return booking
+
+
+async def _cover(api: httpx.AsyncClient, pkg: Package, booking: Booking) -> httpx.Response:
+    return await api.post(
+        f"/v1/packages/{pkg.id}/cover", json={"booking_id": booking.id}, headers=retry_key()
+    )
+
+
+async def test_a_package_covers_a_started_visit_and_completes_it(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    pkg = await _active_package(db, total=5, used=4)
+    booking = await _bath_visit(db)
+    res = await _cover(as_owner, pkg, booking)
+    assert res.status_code == 200, res.text
+    assert (res.json()["sessions_used"], res.json()["status"]) == (5, "used")
+    row = await db.get(Booking, booking.id, populate_existing=True)
+    slot = await db.get(Slot, booking.slot_id, populate_existing=True)
+    assert row is not None and slot is not None
+    assert (row.status, row.package_id, slot.status) == ("completed", pkg.id, "completed")
+
+
+async def test_covering_replays_and_refuses_a_second_use(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    pkg = await _active_package(db)
+    booking = await _bath_visit(db)
+    headers = retry_key()
+    path = f"/v1/packages/{pkg.id}/cover"
+    first = await as_owner.post(path, json={"booking_id": booking.id}, headers=headers)
+    again = await as_owner.post(path, json={"booking_id": booking.id}, headers=headers)
+    assert first.status_code == again.status_code == 200
+    assert again.json()["sessions_used"] == 1
+    assert (await _cover(as_owner, pkg, booking)).status_code == 409
+
+
+@pytest.mark.parametrize("case", ["ahead", "used_up", "other_client", "other_service"])
+async def test_covering_refuses_a_visit_the_package_cannot_settle(
+    as_owner: httpx.AsyncClient, db: AsyncSession, case: str
+) -> None:
+    pkg = await _active_package(db, used=5 if case == "used_up" else 0)
+    booking = await _bath_visit(
+        db, starts_in=timedelta(days=400) if case == "ahead" else timedelta(days=-400)
+    )
+    if case == "other_client":
+        booking.client_id = await client_id(db)
+        assert booking.client_id != CARD_CLIENT
+    if case == "other_service":
+        slot = await db.get(Slot, booking.slot_id)
+        assert slot is not None
+        slot.item_id = "it_groom_lg"
+    await db.flush()
+    assert (await _cover(as_owner, pkg, booking)).status_code == 409
+
+
+async def test_staff_cover_only_their_own_visits(
+    as_staff: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    pkg = await _active_package(db)
+    booking = await _bath_visit(db)
+    assert (await _cover(as_staff, pkg, booking)).status_code == 403
+
+
+async def test_a_package_from_another_business_is_not_found(
+    as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory
+) -> None:
+    other = await factory.business(name="Elsewhere")
+    pkg = await _active_package(db)
+    pkg.business_id = other.id
+    await db.flush()
+    assert (await _cover(as_owner, pkg, await _bath_visit(db))).status_code == 404
+
+
+async def test_a_package_cannot_cover_a_billed_visit_or_one_with_a_paid_deposit(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    pkg_id = (await _active_package(db)).id
+    billed_id = (await _bath_visit(db)).id
+    held_id = (await _bath_visit(db, starts_in=timedelta(days=-401))).id
+    await db.execute(
+        update(Booking).where(Booking.id == held_id).values(deposit_status="collected")
+    )
+    await db.flush()
+    line = {"description": "Bath", "unit_amount_cents": 4500, "booking_id": billed_id}
+    body = {"client_id": CARD_CLIENT, "lines": [line], "send": True}
+    assert (await as_owner.post("/v1/invoices", json=body)).status_code == 201
+    for booking_id in (billed_id, held_id):
+        res = await as_owner.post(
+            f"/v1/packages/{pkg_id}/cover", json={"booking_id": booking_id}, headers=retry_key()
+        )
+        assert res.status_code == 409, res.text

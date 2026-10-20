@@ -414,6 +414,22 @@ function BookingFacts({ mg }: { mg: ManageBookingFlow }) {
                     ) : null}
                 </dl>
             ) : null}
+            {(v.photo_urls ?? []).length > 0 ? (
+                <div className="space-y-2 border-t border-line-soft pt-3">
+                    <p className="text-sm font-semibold text-ink">{s.photos}</p>
+                    <div className="grid grid-cols-3 gap-2">
+                        {(v.photo_urls ?? []).map((url) => (
+                            <a key={url} href={url} target="_blank" rel="noreferrer">
+                                <img
+                                    src={url}
+                                    alt={s.photoAlt}
+                                    className="aspect-square w-full rounded-md object-cover"
+                                />
+                            </a>
+                        ))}
+                    </div>
+                </div>
+            ) : null}
         </div>
     );
 }

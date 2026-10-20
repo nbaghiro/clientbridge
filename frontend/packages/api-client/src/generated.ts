@@ -671,6 +671,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/manage/{token}/photos/{file_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Manage Photo */
+        get: operations["manage_photo_manage__token__photos__file_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/manage/{token}/days": {
         parameters: {
             query?: never;
@@ -2053,6 +2070,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/orders/{order_id}/gift-card": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Apply Order Gift Card */
+        post: operations["apply_order_gift_card_v1_orders__order_id__gift_card_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/orders/{order_id}/receipt": {
         parameters: {
             query?: never;
@@ -2200,6 +2234,23 @@ export interface paths {
         put?: never;
         /** Consume Session */
         post: operations["consume_session_v1_packages__package_id__consume_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/packages/{package_id}/cover": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cover Visit */
+        post: operations["cover_visit_v1_packages__package_id__cover_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -6127,6 +6178,11 @@ export interface components {
             accepts_card: boolean;
             /** Addons */
             addons: components["schemas"]["ManagedAddon"][];
+            /**
+             * Photo Urls
+             * @description Photos staff took on the visit, oldest first
+             */
+            photo_urls?: string[];
             /** Reschedules Used */
             reschedules_used: number;
             policy: components["schemas"]["PublicPolicy"];
@@ -6208,6 +6264,11 @@ export interface components {
             channel: "sms" | "email";
             /** Body */
             body: string;
+            /**
+             * Booking Id
+             * @description A visit the note is about; its page link is added to the body
+             */
+            booking_id?: string | null;
         };
         /** MonthNet */
         MonthNet: {
@@ -6472,6 +6533,11 @@ export interface components {
             /** Receipt Phone */
             receipt_phone?: string | null;
         };
+        /** OrderGiftCardIn */
+        OrderGiftCardIn: {
+            /** Code */
+            code: string;
+        };
         /** OrderOut */
         OrderOut: {
             /** Id */
@@ -6530,6 +6596,12 @@ export interface components {
              * @default 0
              */
             deposit_cents: number;
+            /**
+             * Gift Card Cents
+             * @description Gift card balance redeemed on the sale
+             * @default 0
+             */
+            gift_card_cents: number;
             /**
              * Due Cents
              * @description What is left to charge, before any tip
@@ -6605,6 +6677,11 @@ export interface components {
             receipt_email?: string | null;
             /** Receipt Phone */
             receipt_phone?: string | null;
+        };
+        /** PackageCover */
+        PackageCover: {
+            /** Booking Id */
+            booking_id: string;
         };
         /** PackageOut */
         PackageOut: {
@@ -10219,6 +10296,36 @@ export interface operations {
             };
         };
     };
+    manage_photo_manage__token__photos__file_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+                file_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            302: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     manage_days_manage__token__days_get: {
         parameters: {
             query: {
@@ -13359,6 +13466,46 @@ export interface operations {
             };
         };
     };
+    apply_order_gift_card_v1_orders__order_id__gift_card_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "x-business-id"?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
+            };
+            path: {
+                order_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrderGiftCardIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     send_order_receipt_v1_orders__order_id__receipt_post: {
         parameters: {
             query?: never;
@@ -13674,6 +13821,46 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PackageOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cover_visit_v1_packages__package_id__cover_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "x-business-id"?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
+            };
+            path: {
+                package_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PackageCover"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

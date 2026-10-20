@@ -78,21 +78,24 @@ export function ScheduleScreen() {
     const [moving, setMoving] = useState(false);
     const hours = hourMarks(startHour, endHour);
     const waiting = board.load.state === "loading" || board.load.state === "error";
-    const openNew = (estimateId?: string): void => {
+    const openNew = (
+        from: { estimateId?: string | undefined; rebookId?: string | undefined } = {},
+    ): void => {
         const first = day.lanes.find((l) => l.hours) ?? day.lanes[0];
         setComposer({
             staffId: first?.id ?? viewer?.staffId ?? "",
             start: minutesInto(day.date, 10 * 60, board.zone),
-            estimateId,
+            ...from,
         });
     };
     const create = route.params?.create;
     const estimate = route.params?.estimate;
+    const rebook = route.params?.rebook;
     const open = route.params?.open ?? null;
     const openStart = useBookingStart(open);
     const { setAnchor, select } = board;
     useEffect(() => {
-        if (create !== undefined) openNew(estimate);
+        if (create !== undefined) openNew({ estimateId: estimate, rebookId: rebook });
     }, [create]);
     useEffect(() => {
         if (open === null || openStart === null) return;

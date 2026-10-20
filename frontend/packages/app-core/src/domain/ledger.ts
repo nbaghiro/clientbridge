@@ -60,7 +60,9 @@ export function orderStatusSql(alias: string): string {
     const covered = `(${paid} + COALESCE((SELECT SUM(le.amount_cents) FROM entries le
         JOIN accounts la ON la.id = le.account_id JOIN payments lp ON lp.id = le.source_id
         WHERE la.category = 'deposit' AND le.event = 'payment' AND le.source_type = 'payment'
-          AND lp.order_id = ${alias}.id), 0))`;
+          AND lp.order_id = ${alias}.id), 0) + COALESCE((SELECT SUM(le.amount_cents) FROM entries le
+        JOIN accounts la ON la.id = le.account_id
+        WHERE la.category = 'gift_card' AND le.source_type = 'order' AND le.source_id = ${alias}.id), 0))`;
     const refunded = refundedSql("order", `${alias}.id`);
     return `CASE
         WHEN ${alias}.status = 'void' THEN 'void'

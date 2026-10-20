@@ -55,6 +55,10 @@ class OrderCashIn(TipIn):
     tendered_cents: int = Field(ge=0, description="Cash handed over")
 
 
+class OrderGiftCardIn(BaseModel):
+    code: str = Field(min_length=1)
+
+
 class OrderCashOut(Mirror):
     mirrors = Payment
 
@@ -100,6 +104,7 @@ class OrderOut(Mirror):
     discount: DiscountIn | None = None
     discount_cents: int = 0
     deposit_cents: int = Field(default=0, description="Visit deposits applied or still to apply")
+    gift_card_cents: int = Field(default=0, description="Gift card balance redeemed on the sale")
     due_cents: int = Field(default=0, description="What is left to charge, before any tip")
     tip_cents: int = 0
     receipt_channel: Channel | None = None

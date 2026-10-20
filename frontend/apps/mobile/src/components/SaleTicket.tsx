@@ -19,6 +19,10 @@ import {
     currencyAffix,
     parseCents,
     formatAmountInput,
+    formatMonthDay,
+    useBusinessZone,
+    useNextVisit,
+    useVisitNote,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import { type ReactNode, useEffect, useState } from "react";
@@ -471,6 +475,57 @@ function ReceiptChooser({ sale }: { sale: SaleTicket }) {
     );
 }
 
+function VisitNoteBlock({ clientId, bookingId }: { clientId: string; bookingId: string }) {
+    const note = useVisitNote(api, clientId, bookingId);
+    return (
+        <View style={styles.stack}>
+            <Heading>{d.visitNote}</Heading>
+            <TextField
+                label={d.visitNote}
+                multiline
+                rows={3}
+                value={note.body}
+                onChange={note.setBody}
+                placeholder={d.visitNotePlaceholder}
+            />
+            {note.error !== null ? <Notice tone="danger">{note.error}</Notice> : null}
+            {note.sent ? <Notice tone="success">{d.visitNoteSent}</Notice> : null}
+            <Button
+                variant="outline"
+                full
+                icon="send"
+                busy={note.busy}
+                disabled={note.body.trim() === ""}
+                onPress={note.submit}
+            >
+                {d.visitNoteSend}
+            </Button>
+        </View>
+    );
+}
+
+function GiftCardEntry({ sale }: { sale: SaleTicket }) {
+    const g = sale.giftCard;
+    return (
+        <View style={styles.stack}>
+            <View style={styles.row}>
+                <View style={styles.grow}>
+                    <TextField label={d.giftCardCode} value={g.code} onChange={g.setCode} />
+                </View>
+                <Button
+                    variant="outline"
+                    busy={g.busy}
+                    disabled={g.code.trim() === "" || sale.busy}
+                    onPress={g.apply}
+                >
+                    {d.giftCardApply}
+                </Button>
+            </View>
+            {g.error !== null ? <Notice tone="danger">{g.error}</Notice> : null}
+        </View>
+    );
+}
+
 const METHOD_LABEL: Record<SalePayMethod, string> = {
     get tap() {
         return d.methodTap;
@@ -532,10 +587,13 @@ function PaidSummary({
     onNew: () => void;
     onBookNext: () => void;
 }) {
-    const method =
-        sale.method === "saved" && sale.savedCardLabel !== null
-            ? sale.savedCardLabel
-            : METHOD_LABEL[sale.method];
+    const nextStart = useNextVisit(sale.visitId)?.start ?? null;
+    const zone = useBusinessZone();
+    const method = sale.paidByGiftCard
+        ? d.paidByGiftCard
+        : sale.method === "saved" && sale.savedCardLabel !== null
+          ? sale.savedCardLabel
+          : METHOD_LABEL[sale.method];
     return (
         <View style={styles.stack}>
             <Text style={styles.title}>{d.paidTitle}</Text>
@@ -549,9 +607,14 @@ function PaidSummary({
             ) : null}
             <Heading>{d.receiptTitle}</Heading>
             <ReceiptChooser sale={sale} />
+            {sale.client !== null && sale.visitId !== null ? (
+                <VisitNoteBlock clientId={sale.client.id} bookingId={sale.visitId} />
+            ) : null}
             {sale.client !== null ? (
                 <Button variant="outline" full icon="calendar" onPress={onBookNext}>
-                    {d.bookNext}
+                    {nextStart === null
+                        ? d.bookNext
+                        : d.bookNextOn(formatMonthDay(nextStart, zone))}
                 </Button>
             ) : null}
             <Button size="lg" full onPress={onNew}>
@@ -598,7 +661,13 @@ function PayBody({
                     {d.depositCredit(formatMoney(sale.totals.depositCents, BUSINESS_CURRENCY))}
                 </Text>
             ) : null}
+            {sale.totals.giftCardCents > 0 ? (
+                <Text style={styles.note}>
+                    {d.giftCardCredit(formatMoney(sale.totals.giftCardCents, BUSINESS_CURRENCY))}
+                </Text>
+            ) : null}
             <TipBlock sale={sale} />
+            <GiftCardEntry sale={sale} />
             <Heading>{d.howPaying}</Heading>
             <Choice
                 layout="tiles"
@@ -628,6 +697,17 @@ function PayBody({
                       ? d.collect(formatMoney(due, BUSINESS_CURRENCY))
                       : d.charge(formatMoney(due, BUSINESS_CURRENCY))}
             </Button>
+            {sale.canInvoice ? (
+                <Button
+                    variant="outline"
+                    full
+                    icon="send"
+                    disabled={sale.busy}
+                    onPress={sale.sendAsInvoice}
+                >
+                    {d.sendAsInvoice}
+                </Button>
+            ) : null}
             <Button variant="quiet" full onPress={onBack} disabled={sale.busy}>
                 {d.backToTicket}
             </Button>
@@ -652,6 +732,9 @@ export function TicketSheet({
     const [step, setStep] = useState<SheetStep>("ticket");
     const [selected, setSelected] = useState<string | null>(null);
     const { tokenProvider, locationId } = useTerminalConnection(api);
+    useEffect(() => {
+        if (sale.invoiced !== null) setStep("ticket");
+    }, [sale.invoiced]);
     const close = (): void => {
         if (sale.busy) return;
         setStep("ticket");
@@ -701,6 +784,7 @@ export function TicketSheet({
                 </View>
                 <ClientPicker sale={sale} />
                 {sale.held !== null ? <Notice tone="success">{sale.held}</Notice> : null}
+                {sale.invoiced !== null ? <Notice tone="success">{sale.invoiced}</Notice> : null}
                 {sale.views.map((v) => (
                     <View key={v.key}>
                         <LineItem

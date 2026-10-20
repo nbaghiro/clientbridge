@@ -23,6 +23,7 @@ from tests.conftest import (
     FakeSmsSender,
 )
 from tests.google_business import configure_google_review_profile
+from tests.helpers import enable_payments, key, ok, settle
 
 ST_OWNER = "st_owner"
 CLIENT = "cl_amelie"
@@ -240,3 +241,98 @@ async def test_an_unapproved_visit_keeps_a_paid_deposit_for_staff(db: AsyncSessi
 
 
 pytestmark = pytest.mark.usefixtures("google_review_provider")
+
+
+async def _sell(api: httpx.AsyncClient, booking: Booking) -> str:
+    line = {"description": "Visit", "unit_amount_cents": 5000, "booking_id": booking.id}
+    sale = ok(
+        await api.post("/v1/orders", json={"client_id": booking.client_id, "lines": [line]}), 201
+    ).json()
+    order_id: str = sale["id"]
+    return order_id
+
+
+async def _cash(api: httpx.AsyncClient, order_id: str) -> None:
+    ok(await api.post(f"/v1/orders/{order_id}/cash", json={"tendered_cents": 10000}, headers=key()))
+
+
+async def test_paying_for_a_started_visit_completes_it(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    booking = await _visit(db)
+    await _cash(as_owner, await _sell(as_owner, booking))
+    row, slot = await _fresh(db, booking)
+    assert (row.status, slot.status) == ("completed", "completed")
+    assert row.completed_at is not None and row.charged_at is not None
+    assert [a.action for a in await _audits(db, booking.id)] == ["booking.complete_on_payment"]
+
+
+async def test_paying_ahead_leaves_the_visit_open(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    booking = await _visit(db, starts_at=AHEAD)
+    await _cash(as_owner, await _sell(as_owner, booking))
+    row, slot = await _fresh(db, booking)
+    assert (row.status, slot.status) == ("confirmed", "scheduled")
+    assert row.charged_at is not None and row.completed_at is None
+
+
+async def test_an_unapproved_visit_stays_pending_when_paid(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    booking = await _visit(db, status="pending")
+    await _cash(as_owner, await _sell(as_owner, booking))
+    row, _ = await _fresh(db, booking)
+    assert row.status == "pending"
+
+
+async def test_a_refund_keeps_the_paid_visit_completed_and_a_replay_changes_nothing(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await enable_payments(db)
+    booking = await _visit(db)
+    order_id = await _sell(as_owner, booking)
+    pay = ok(await as_owner.post(f"/v1/orders/{order_id}/pay", json={})).json()
+    await settle(as_owner, db, pay["payment_id"], "evt_paid_visit")
+    await settle(as_owner, db, pay["payment_id"], "evt_paid_visit")
+    assert len(await _audits(db, booking.id)) == 1
+    ok(await as_owner.post(f"/v1/payments/{pay['payment_id']}/refund", json={}, headers=key()))
+    row, _ = await _fresh(db, booking)
+    assert row.status == "completed" and row.charged_at is None
+
+
+async def _invoice(api: httpx.AsyncClient, booking: Booking) -> str:
+    line = {"description": "Visit", "unit_amount_cents": 5000, "booking_id": booking.id}
+    body = {"client_id": booking.client_id, "lines": [line], "send": True}
+    invoice_id: str = ok(await api.post("/v1/invoices", json=body), 201).json()["id"]
+    return invoice_id
+
+
+async def test_sending_an_invoice_for_a_started_visit_completes_and_links_it(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    started, ahead = await _visit(db), await _visit(db, starts_at=AHEAD)
+    invoice_id = await _invoice(as_owner, started)
+    await _invoice(as_owner, ahead)
+    row, slot = await _fresh(db, started)
+    assert (row.status, row.invoice_id, slot.status) == ("completed", invoice_id, "completed")
+    assert [a.action for a in await _audits(db, started.id)] == ["booking.complete_on_invoice"]
+    later, _ = await _fresh(db, ahead)
+    assert later.status == "confirmed" and later.invoice_id is not None
+
+
+async def test_a_visit_is_billed_on_a_sale_or_an_invoice_not_both(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    on_sale = await _visit(db)
+    await _sell(as_owner, on_sale)
+    line = {"description": "Visit", "unit_amount_cents": 5000, "booking_id": on_sale.id}
+    body = {"client_id": on_sale.client_id, "lines": [line], "send": True}
+    assert (await as_owner.post("/v1/invoices", json=body)).status_code == 409
+    invoiced = await _visit(db, starts_at=VISIT + timedelta(hours=3))
+    await _invoice(as_owner, invoiced)
+    line = {"description": "Visit", "unit_amount_cents": 5000, "booking_id": invoiced.id}
+    sale = await as_owner.post(
+        "/v1/orders", json={"client_id": invoiced.client_id, "lines": [line]}
+    )
+    assert sale.status_code == 409

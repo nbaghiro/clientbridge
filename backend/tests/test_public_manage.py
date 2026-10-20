@@ -9,9 +9,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from clientbridge.core import clock
 from clientbridge.core.db import SessionLocal
 from clientbridge.core.errors import Conflict
+from clientbridge.core.ids import new_id
 from clientbridge.models.business import Business
 from clientbridge.models.clients import Client
-from clientbridge.models.platform import Device
+from clientbridge.models.platform import Device, File
 from clientbridge.models.scheduling import Booking, Slot
 from clientbridge.schemas.public import (
     ManageReschedule,
@@ -515,3 +516,36 @@ async def test_a_lapsed_business_takes_no_rescheduled_visits(
     target = slots["slots"][0]["starts_at"]
     res = await api.post(f"/manage/{token}/reschedule", json={"starts_at": target}, headers=key())
     assert res.status_code == 409 and res.json()["error"] == "business_unavailable"
+
+
+async def _photo(db: AsyncSession, booking_id: str, *, uploaded: bool = True) -> str:
+    file = File(
+        id=new_id("file"),
+        business_id=BIZ,
+        parent_type="booking",
+        parent_id=booking_id,
+        purpose="photo",
+        s3_key=f"photos/{booking_id}/{new_id('file')}.jpg",
+        content_type="image/jpeg",
+        uploaded_at=clock.now() if uploaded else None,
+    )
+    db.add(file)
+    await db.flush()
+    return file.id
+
+
+async def test_the_manage_link_shows_only_the_visits_finished_photos(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    token = await _book(api)
+    booking = (await db.execute(select(Booking).where(Booking.manage_token == token))).scalar_one()
+    shown = await _photo(db, booking.id)
+    pending = await _photo(db, booking.id, uploaded=False)
+    other = await _photo(db, (await db.execute(select(Booking.id).limit(1))).scalar_one())
+    view = (await api.get(f"/manage/{token}")).json()
+    assert [url.rsplit("/", 1)[-1] for url in view["photo_urls"]] == [shown]
+    found = await api.get(f"/manage/{token}/photos/{shown}")
+    assert found.status_code == 302 and found.headers["location"].startswith("https://files.test/")
+    for missing in (pending, other):
+        assert (await api.get(f"/manage/{token}/photos/{missing}")).status_code == 404
+    assert (await api.get(f"/manage/not-a-token/photos/{shown}")).status_code == 404

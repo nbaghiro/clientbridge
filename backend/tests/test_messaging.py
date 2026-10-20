@@ -9,6 +9,7 @@ from clientbridge.core import clock
 from clientbridge.core.ids import new_id
 from clientbridge.models.clients import Client
 from clientbridge.models.messaging import Broadcast, Message, Thread
+from clientbridge.models.scheduling import Booking
 from clientbridge.services.consents import record_consent
 from clientbridge.services.messaging import run_due_broadcasts, unread_count
 from tests.conftest import Factory, FakeEmailSender, FakeSmsSender
@@ -424,3 +425,49 @@ async def test_a_text_goes_to_the_e164_number_of_a_phone_stored_as_typed(
     )
     assert ok.status_code == 200, ok.text
     assert [m.to for m in sms.sent] == ["+15145551234"]
+
+
+async def _visit_for(db: AsyncSession, cid: str, token: str | None) -> str:
+    slot = (await db.execute(select(Booking.slot_id).limit(1))).scalar_one()
+    booking = Booking(
+        id=new_id("booking"),
+        business_id=BIZ,
+        slot_id=slot,
+        starts_at=clock.now(),
+        client_id=cid,
+        status="completed",
+        source="manual",
+        manage_token=token,
+    )
+    db.add(booking)
+    await db.flush()
+    return booking.id
+
+
+async def test_a_visit_note_carries_the_visit_link(
+    as_owner: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender
+) -> None:
+    cid = await _client_with_contact(db, phone="+15145551234")
+    visit = await _visit_for(db, cid, "tok_visit_note")
+    res = await as_owner.post(
+        "/v1/messages",
+        json={"client_id": cid, "channel": "sms", "body": "Bella was great", "booking_id": visit},
+    )
+    assert res.status_code == 200, res.text
+    [sent] = sms.sent
+    assert sent.body.startswith("Bella was great") and sent.body.endswith("/m/tok_visit_note")
+    stored = await db.get(Message, res.json()["id"])
+    assert stored is not None and stored.body == sent.body
+
+
+async def test_a_visit_note_for_another_clients_visit_is_refused(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    cid = await _client_with_contact(db, phone="+15145551234")
+    other = await _client_with_contact(db, phone="+15145559876")
+    visit = await _visit_for(db, other, "tok_other")
+    res = await as_owner.post(
+        "/v1/messages",
+        json={"client_id": cid, "channel": "sms", "body": "Note", "booking_id": visit},
+    )
+    assert res.status_code == 404

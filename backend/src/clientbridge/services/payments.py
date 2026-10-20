@@ -59,7 +59,7 @@ from clientbridge.models.payments import (
     PaymentStatus,
 )
 from clientbridge.models.platform import Audit, Webhook
-from clientbridge.models.scheduling import Booking
+from clientbridge.models.scheduling import Booking, Slot
 from clientbridge.schemas.payments import (
     ConnectSessionOut,
     ConnectStatus,
@@ -2163,8 +2163,13 @@ async def sync_order(db: AsyncSession, order_id: str) -> None:
     await sync_parent_stock(db, order.business_id, "order", order.id, status)
     if status == "paid":
         await ensure_order_earning(db, order)
+        await ensure_earnings(db, order, occurred_at=paid_at)
     else:
         await reverse_order_earning(db, order)
+        if order.paid_at is not None:
+            await reverse_earnings(db, order)
+        if status in ("refunded", "void"):
+            await ledger.reverse_order_redemptions(db, order)
     await _sync_visits(db, order, status, paid_at)
     order.paid_at = (order.paid_at or paid_at) if paid_at else None
     if order.source == "online":
@@ -2175,13 +2180,58 @@ async def sync_order(db: AsyncSession, order_id: str) -> None:
         await db.flush()
 
 
+async def complete_when_done(db: AsyncSession, slot: Slot) -> None:
+    """Mark the slot completed once none of its bookings is still pending or confirmed."""
+    await db.flush()
+    left = await db.scalar(
+        select(func.count(Booking.id)).where(
+            Booking.slot_id == slot.id,
+            Booking.status.in_(("pending", "confirmed")),
+            Booking.deleted_at.is_(None),
+        )
+    )
+    if not left:
+        slot.status = "completed"
+
+
+async def close_settled_visit(
+    db: AsyncSession, booking: Booking, action: str, **changes: str
+) -> None:
+    """A confirmed visit that has started and is now paid or billed is done."""
+    await db.execute(
+        select(Booking)
+        .where(Booking.id == booking.id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    slot = await db.get(Slot, booking.slot_id)
+    if booking.status != "confirmed" or slot is None or slot.starts_at > clock.now():
+        return
+    booking.status, booking.completed_at = "completed", clock.now()
+    if booking.deposit_status == "pending":
+        booking.deposit_status = "none"
+    db.add(
+        Audit(
+            id=new_id("audit"),
+            business_id=booking.business_id,
+            action=action,
+            entity_type="booking",
+            entity_id=booking.id,
+            changes=dict(changes),
+        )
+    )
+    await complete_when_done(db, slot)
+
+
 async def _sync_visits(
     db: AsyncSession, order: Order, status: str, paid_at: datetime | None
 ) -> None:
-    """Visits on a paid sale read as charged (staff devices have no ledger to tell them)."""
+    """Visits on a paid sale read as charged, and a confirmed one that has started is done."""
     rows = await db.execute(scoped(Booking, order.business_id).where(Booking.order_id == order.id))
     for booking in rows.scalars().all():
         booking.charged_at = (paid_at or clock.now()) if status == "paid" else None
+        if status == "paid":
+            await close_settled_visit(db, booking, "booking.complete_on_payment", order_id=order.id)
         if (
             status == "paid"
             and booking.deposit_status == "collected"

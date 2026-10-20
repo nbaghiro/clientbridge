@@ -95,6 +95,7 @@ from clientbridge.services.notifications import (
 )
 from clientbridge.services.payments import (
     cancel_open_deposits,
+    complete_when_done,
     default_method_ref,
     open_booking_deposit,
     refund_deposit,
@@ -501,20 +502,6 @@ async def release_slot(db: AsyncSession, slot: Slot) -> None:
     await db.flush()
 
 
-async def _complete_when_done(db: AsyncSession, slot: Slot) -> None:
-    """Mark the slot completed once none of its bookings is still pending or confirmed."""
-    await db.flush()
-    left = await db.scalar(
-        select(func.count(Booking.id)).where(
-            Booking.slot_id == slot.id,
-            Booking.status.in_(("pending", "confirmed")),
-            Booking.deleted_at.is_(None),
-        )
-    )
-    if not left:
-        slot.status = "completed"
-
-
 def _assert_started(starts_at: datetime) -> None:
     if starts_at > clock.now():
         raise Conflict(_NOT_STARTED, code="visit_not_started")
@@ -764,7 +751,7 @@ class BookingService:
                     await release_slot(self.db, slot)  # a class keeps its slot for the rest
                 elif data.status == "completed":
                     booking.completed_at = clock.now()
-                    await _complete_when_done(self.db, slot)
+                    await complete_when_done(self.db, slot)
                 elif data.status == "no_show":
                     await self.forfeit_deposit(cmd, booking)
                 cmd.record(f"booking.{data.status}", entity_type="booking", entity_id=booking.id)
@@ -2446,7 +2433,7 @@ async def _close_past_visits(
     for slot in slots.values():
         await release_slot(db, slot)
         if slot.status != "canceled":
-            await _complete_when_done(db, slot)
+            await complete_when_done(db, slot)
     await db.flush()
     return changed
 

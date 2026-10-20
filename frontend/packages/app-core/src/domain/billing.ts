@@ -439,7 +439,7 @@ function dueLabel(row: InvoiceRow, status: InvoiceStatus, now: Date, zone: strin
         : s.dueOn(shortDate(row.due_at, zone));
 }
 
-function invoiceLabel(number: number | null): string {
+export function invoiceLabel(number: number | null): string {
     return number === null ? s.draftInvoice : s.invoiceNo(number);
 }
 

@@ -435,11 +435,29 @@ async def order_deposit_applied(db: AsyncSession, order: Order) -> int:
     return int((await db.execute(select(_deposit_applied_expr(order.id)))).scalar_one())
 
 
+def _gift_card_applied_expr(order_id: _Id) -> ColumnElement[int]:
+    """Gift card balance redeemed against a sale, net of the reversal a refund or void posts."""
+    return (
+        select(func.coalesce(func.sum(Entry.amount_cents), 0))
+        .join(Account, Account.id == Entry.account_id)
+        .where(
+            Entry.source_type == "order",
+            Entry.source_id == order_id,
+            Account.category == "gift_card",
+        )
+        .scalar_subquery()
+    )
+
+
+async def order_gift_card_applied(db: AsyncSession, order: Order) -> int:
+    return int((await db.execute(select(_gift_card_applied_expr(order.id)))).scalar_one())
+
+
 def order_status_expr() -> ColumnElement[str]:
     """An order stores only open/void; whether it is paid or refunded comes from the ledger."""
     return _order_status(
         _collected_expr("order", Order.id),
-        _deposit_applied_expr(Order.id),
+        _deposit_applied_expr(Order.id) + _gift_card_applied_expr(Order.id),
         _refunded_expr("order", Order.id),
     )
 
@@ -488,15 +506,26 @@ def held_orders(business_id: str) -> Select[tuple[Order]]:
         .group_by(Payment.order_id)
         .subquery()
     )
+    gift_cards = (
+        scoped(Entry, business_id)
+        .join(Account, Account.id == Entry.account_id)
+        .with_only_columns(
+            Entry.source_id.label("order_id"), func.sum(Entry.amount_cents).label("applied")
+        )
+        .where(Entry.source_type == "order", Account.category == "gift_card")
+        .group_by(Entry.source_id)
+        .subquery()
+    )
     status = _order_status(
         func.coalesce(cash.c.paid, 0),
-        func.coalesce(deposits.c.applied, 0),
+        func.coalesce(deposits.c.applied, 0) + func.coalesce(gift_cards.c.applied, 0),
         func.coalesce(cash.c.refunded, False),
     )
     return (
         scoped(Order, business_id)
         .outerjoin(cash, cash.c.order_id == Order.id)
         .outerjoin(deposits, deposits.c.order_id == Order.id)
+        .outerjoin(gift_cards, gift_cards.c.order_id == Order.id)
         .where(Order.source == "pos", Order.status == "open", status == "open")
         .order_by(Order.created_at)
     )
@@ -507,9 +536,18 @@ def order_paid_at_expr() -> ColumnElement[datetime | None]:
         select(func.max(Entry.occurred_at))
         .join(Account, Account.id == Entry.account_id)
         .where(
-            _subject_legs("order", Order.id),
-            Account.category.in_(_CASH_CATEGORIES),
-            Entry.event == "payment",
+            or_(
+                and_(
+                    _subject_legs("order", Order.id),
+                    Account.category.in_(_CASH_CATEGORIES),
+                    Entry.event == "payment",
+                ),
+                and_(
+                    Entry.source_type == "order",
+                    Entry.source_id == Order.id,
+                    Entry.event == "redemption",
+                ),
+            )
         )
         .scalar_subquery()
     )
@@ -1061,13 +1099,17 @@ def gift_card_status(card: GiftCard, balance_cents: int) -> str:
     return "redeemed" if card.status == "active" and balance_cents == 0 else card.status
 
 
-async def post_redemption(db: AsyncSession, card: GiftCard, amount: int) -> None:
+async def post_redemption(
+    db: AsyncSession, card: GiftCard, amount: int, *, source: tuple[str, str] | None = None
+) -> None:
     remaining = await gift_card_balance(db, card)
     await post(
         db,
         card.business_id,
         event="redemption",
-        ref=f"redemption:{card.id}:{remaining}",
+        ref=f"redemption:{card.id}:{source[1]}:{new_id('journal')}"
+        if source
+        else f"redemption:{card.id}:{remaining}",
         legs=[
             Leg("gift_card", card.id, "gift_card", amount),
             Leg("business", card.business_id, "revenue", -amount),
@@ -1076,7 +1118,30 @@ async def post_redemption(db: AsyncSession, card: GiftCard, amount: int) -> None
             db, card.business_id, category="gift_card", subject_type="gift_card", subject_id=card.id
         ),
         subject=("gift_card", card.id),
+        source=source,
     )
+
+
+async def reverse_order_redemptions(db: AsyncSession, order: Order) -> None:
+    """Give back the gift card balance a refunded or voided sale had used, once per redemption."""
+    journals = await db.scalars(
+        scoped(Entry, order.business_id)
+        .with_only_columns(Entry.journal_id)
+        .where(
+            Entry.source_type == "order",
+            Entry.source_id == order.id,
+            Entry.event == "redemption",
+        )
+        .distinct()
+    )
+    for journal in journals.all():
+        await reverse(
+            db,
+            order.business_id,
+            journal,
+            ref=f"redemption:{journal}:reversal",
+            source=("order", order.id),
+        )
 
 
 async def _owned(

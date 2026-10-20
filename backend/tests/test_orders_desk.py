@@ -141,7 +141,9 @@ async def test_the_receipt_lists_the_applied_deposit_without_a_method(
 async def test_voiding_a_sale_frees_its_visit(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    booking = (await db.execute(select(Booking).limit(1))).scalar_one()
+    booking = (
+        await db.execute(select(Booking).where(Booking.invoice_id.is_(None)).limit(1))
+    ).scalar_one()
     line = {"description": "Visit", "unit_amount_cents": 4000, "booking_id": booking.id}
     sale = ok(await as_owner.post("/v1/orders", json={"lines": [line]}), 201).json()
     ok(await as_owner.post(f"/v1/orders/{sale['id']}/void"))
@@ -341,7 +343,13 @@ async def test_a_visit_on_one_sale_cannot_join_another_409(
 ) -> None:
     booking = (
         await db.execute(
-            select(Booking).where(Booking.charged_at.is_(None), Booking.order_id.is_(None)).limit(1)
+            select(Booking)
+            .where(
+                Booking.charged_at.is_(None),
+                Booking.order_id.is_(None),
+                Booking.invoice_id.is_(None),
+            )
+            .limit(1)
         )
     ).scalar_one()
     visit = booking.id

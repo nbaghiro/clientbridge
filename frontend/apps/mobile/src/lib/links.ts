@@ -136,6 +136,21 @@ export function useOpenLink(): (target: ShellTarget, refId?: string | null) => v
     );
 }
 
+/** Opens the schedule's new-booking sheet to book a just-paid visit again. */
+export function useBookAgain(): (bookingId: string) => void {
+    const nav = useNavigation<Nav>();
+    return useCallback(
+        (bookingId) => {
+            const tabs: RootStackParamList["Tabs"] = {
+                screen: "Schedule",
+                params: { create: Date.now(), rebook: bookingId },
+            };
+            nav.dispatch(StackActions.popTo("Tabs", tabs));
+        },
+        [nav],
+    );
+}
+
 /** Opens the schedule's new-booking sheet for an accepted estimate, with its client and products. */
 export function useBookEstimate(): (estimateId: string) => void {
     const nav = useNavigation<Nav>();

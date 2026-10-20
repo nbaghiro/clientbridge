@@ -8,6 +8,7 @@ from clientbridge.schemas.entitlements import (
     GiftCardPurchase,
     GiftCardPurchaseOut,
     GiftCardRedeem,
+    PackageCover,
     PackageOut,
     PackagePurchase,
     PackagePurchaseOut,
@@ -64,6 +65,20 @@ async def consume_session(
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> PackageOut:
     return await PackageService(db, principal, gateway).consume_session(package_id, idempotency_key)
+
+
+@packages_router.post("/{package_id}/cover", response_model=PackageOut)
+async def cover_visit(
+    package_id: str,
+    body: PackageCover,
+    principal: CurrentPrincipal,
+    db: DbSession,
+    gateway: GatewayDep,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+) -> PackageOut:
+    return await PackageService(db, principal, gateway).cover_visit(
+        package_id, body, idempotency_key
+    )
 
 
 subscriptions_router = APIRouter(prefix="/subscriptions", tags=["subscriptions"])

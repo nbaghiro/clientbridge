@@ -22,6 +22,9 @@ class MessageSend(Mirror):
     client_id: str
     channel: Channel
     body: str
+    booking_id: str | None = Field(
+        default=None, description="A visit the note is about; its page link is added to the body"
+    )
 
 
 class MessageOut(Mirror):

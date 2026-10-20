@@ -7,20 +7,23 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
 from clientbridge.core.command import Command, run_command
-from clientbridge.core.deps import Principal, assert_role
+from clientbridge.core.deps import Principal, assert_can_act_as, assert_role
 from clientbridge.core.errors import AppError, Conflict, NotFound, Unprocessable
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
 from clientbridge.integrations.stripe import PaymentGateway
+from clientbridge.models.billing import Invoice
 from clientbridge.models.business import Business
 from clientbridge.models.catalog import GiftCard, Item, Package, Subscription
 from clientbridge.models.clients import Client
 from clientbridge.models.payments import Payment, PaymentMethod
+from clientbridge.models.scheduling import Booking, Slot
 from clientbridge.schemas.entitlements import (
     GiftCardOut,
     GiftCardPurchase,
     GiftCardPurchaseOut,
     GiftCardRedeem,
+    PackageCover,
     PackageOut,
     PackagePurchase,
     PackagePurchaseOut,
@@ -30,6 +33,8 @@ from clientbridge.schemas.entitlements import (
 from clientbridge.services import ledger
 from clientbridge.services.business import merchant_account
 from clientbridge.services.payments import (
+    cancel_open_deposits,
+    complete_when_done,
     ensure_customer,
     ensure_subscription_price,
     map_subscription_status,
@@ -396,6 +401,75 @@ class PackageService:
             response_model=PackageOut,
             idempotency_key=idempotency_key,
             request={"package_id": package_id},
+        )
+
+    async def cover_visit(
+        self, package_id: str, data: PackageCover, idempotency_key: str | None = None
+    ) -> PackageOut:
+        """Settle a started visit with one of the client's package sessions, completing it."""
+        package = await self._package(package_id, lock=True)
+        booking = (
+            await self.db.execute(
+                scoped(Booking, self.biz, soft_delete=True)
+                .where(Booking.id == data.booking_id)
+                .with_for_update()
+            )
+        ).scalar_one_or_none()
+        if booking is None:
+            raise NotFound("booking not found")
+        assert_can_act_as(self.principal, booking.staff_id)
+        slot = await self.db.get(Slot, booking.slot_id)
+        assert slot is not None
+
+        async def run(cmd: Command) -> PackageOut:
+            now = clock.now()
+            billed = booking.invoice_id is not None and (
+                (invoice := await self.db.get(Invoice, booking.invoice_id)) is not None
+                and invoice.status != "void"
+            )
+            if (
+                booking.status != "confirmed"
+                or booking.order_id is not None
+                or booking.charged_at is not None
+                or billed
+            ):
+                raise Conflict("only an open visit that isn't billed can use a package")
+            if booking.deposit_status == "collected":
+                raise Conflict("refund or apply this visit's deposit before using a package")
+            if slot.starts_at > now:
+                raise Conflict("a package covers a visit once it has started")
+            covers = (await self._item(package.item_id)).covers_item_id
+            if package.client_id != booking.client_id or covers not in (None, slot.item_id):
+                raise Conflict("this package is for another client or service")
+            if package.status != "active" or (
+                package.expires_at is not None and package.expires_at <= now
+            ):
+                raise Conflict("only an active package can cover a visit")
+            used = await ledger.sessions_used(self.db, package)
+            if used >= package.sessions_total:
+                raise Conflict("no sessions left on this package")
+            if booking.deposit_status == "pending":
+                if not await cancel_open_deposits(self.db, self.gateway, booking):
+                    raise Conflict("this visit's deposit has just been paid")
+                booking.deposit_status = "none"
+            booking.package_id = package.id
+            booking.status, booking.completed_at = "completed", now
+            await complete_when_done(self.db, slot)
+            await ledger.post_consumption(self.db, package, booking_id=booking.id)
+            if used + 1 >= package.sessions_total:
+                package.status = "used"
+            await self.db.flush()
+            cmd.record("package.cover", entity_type="booking", entity_id=booking.id)
+            return await _package_out(self.db, package)
+
+        return await run_command(
+            self.db,
+            self.principal,
+            action="package.cover",
+            run=run,
+            response_model=PackageOut,
+            idempotency_key=idempotency_key,
+            request={"package_id": package_id, **data.model_dump()},
         )
 
     def _assert_admin(self) -> None:

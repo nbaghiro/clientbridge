@@ -115,6 +115,7 @@ from clientbridge.services.consents import (
 from clientbridge.services.files import (
     confirm_upload,
     item_images,
+    manage_photo_url,
     media_url,
     mint_upload,
     team_photos,
@@ -772,6 +773,24 @@ class PublicManageService:
         booking, slot, business = await self._resolve(token)
         return await self._view(booking, slot, business)
 
+    async def photo(self, token: str, file_id: str, storage: FileStorage) -> str:
+        """Where one of the visit's photos can be downloaded; the manage link is the credential."""
+        booking, _, _ = await self._resolve(token)
+        file = (
+            await self.db.execute(
+                scoped(File, booking.business_id).where(
+                    File.id == file_id,
+                    File.parent_type == "booking",
+                    File.parent_id == booking.id,
+                    File.purpose == "photo",
+                    File.uploaded_at.is_not(None),
+                )
+            )
+        ).scalar_one_or_none()
+        if file is None:
+            raise NotFound("not found")
+        return storage.presign_download(file.s3_key)
+
     async def days(self, token: str, start: date, count: int) -> PublicDays:
         booking, slot, business = await self._resolve(token)
         item, staff = await self._movable(booking, slot, business)
@@ -1028,6 +1047,20 @@ class PublicManageService:
             )
         return item, staff
 
+    async def _photo_ids(self, booking: Booking) -> list[str]:
+        rows = await self.db.scalars(
+            scoped(File, booking.business_id)
+            .with_only_columns(File.id)
+            .where(
+                File.parent_type == "booking",
+                File.parent_id == booking.id,
+                File.purpose == "photo",
+                File.uploaded_at.is_not(None),
+            )
+            .order_by(File.created_at, File.id)
+        )
+        return list(rows.all())
+
     async def _view(self, booking: Booking, slot: Slot, business: Business) -> ManagedBooking:
         item, staff = await self._visit(booking, slot, business)
         client = await self.db.get(Client, booking.client_id)
@@ -1077,6 +1110,10 @@ class PublicManageService:
                     name=a.description, quantity=a.quantity, unit_cents=a.unit_amount_cents
                 )
                 for a in addons
+            ],
+            photo_urls=[
+                manage_photo_url(booking.manage_token or "", file_id)
+                for file_id in await self._photo_ids(booking)
             ],
             reschedules_used=booking.reschedule_count,
             policy=_policy_out(policy_of(business)),

@@ -1522,6 +1522,60 @@
     "pos.desk.todaysVisits": {
         "message": "Today's visits"
     },
+    "pos.desk.usePackage": {
+        "message": "Use package"
+    },
+    "pos.desk.coverError": {
+        "message": "Couldn’t use the package. Try again."
+    },
+    "pos.desk.giftCardPaid": {
+        "message": "Gift card"
+    },
+    "pos.desk.giftCardCredit": {
+        "message": "{money} from a gift card",
+        "args": ["money"]
+    },
+    "pos.desk.giftCardBeforeTip": {
+        "message": "Apply the gift card before choosing a tip."
+    },
+    "pos.desk.giftCardCode": {
+        "message": "Gift card code"
+    },
+    "pos.desk.giftCardApply": {
+        "message": "Apply"
+    },
+    "pos.desk.giftCardError": {
+        "message": "That gift card couldn’t be used. Check the code and try again."
+    },
+    "pos.desk.paidByGiftCard": {
+        "message": "gift card"
+    },
+    "pos.desk.sendAsInvoice": {
+        "message": "Send as invoice"
+    },
+    "pos.desk.invoicedNotice": {
+        "message": "{invoice} sent to {name}",
+        "args": ["invoice", "name"]
+    },
+    "pos.desk.invoiceError": {
+        "message": "The invoice couldn’t be sent. Try again."
+    },
+    "pos.desk.bookNextOn": {
+        "message": "Book again for {date}",
+        "args": ["date"]
+    },
+    "pos.desk.visitNote": {
+        "message": "Note for the client"
+    },
+    "pos.desk.visitNotePlaceholder": {
+        "message": "How the visit went, what was used, care until next time"
+    },
+    "pos.desk.visitNoteSend": {
+        "message": "Send note"
+    },
+    "pos.desk.visitNoteSent": {
+        "message": "Note sent, with a link to the visit and its photos."
+    },
     "pos.desk.backToToday": {
         "message": "Back to Today"
     },
@@ -11834,6 +11888,12 @@
     "publicManage.hello": {
         "message": "Hi {name}",
         "args": ["name"]
+    },
+    "publicManage.photos": {
+        "message": "Photos from your visit"
+    },
+    "publicManage.photoAlt": {
+        "message": "A photo from your visit"
     },
     "publicManage.extras": {
         "message": "Extras"

@@ -25,6 +25,7 @@ from clientbridge.models.business import Business, Staff
 from clientbridge.models.clients import Channel, Client
 from clientbridge.models.messaging import Broadcast, Delivery, Message, Thread
 from clientbridge.models.platform import Webhook, WebhookStatus
+from clientbridge.models.scheduling import Booking
 from clientbridge.schemas.messaging import (
     BroadcastOut,
     BroadcastSend,
@@ -58,6 +59,8 @@ from clientbridge.services.notifications import (
     business_brand,
     client_email,
     message_notice,
+    visit_link,
+    visit_note_body,
 )
 from clientbridge.services.plans import serving
 
@@ -432,9 +435,22 @@ class MessageService:
         business = await self.db.get(Business, self.biz)
         if business is None:
             raise NotFound("business not found")
-        notice = message_notice(
-            locale_for(business=business, client=client), business.name, data.body
-        )
+        locale = locale_for(business=business, client=client)
+        body = data.body
+        if data.booking_id is not None:
+            booking = (
+                await self.db.execute(
+                    scoped(Booking, self.biz, soft_delete=True).where(
+                        Booking.id == data.booking_id, Booking.client_id == client.id
+                    )
+                )
+            ).scalar_one_or_none()
+            if booking is None:
+                raise NotFound("booking not found")
+            link = visit_link(booking)
+            if link is not None:
+                body = visit_note_body(locale, data.body, link)
+        notice = message_notice(locale, business.name, body)
         brand = await business_brand(self.db, business)
 
         async def run(cmd: Command) -> MessageOut:
@@ -446,7 +462,7 @@ class MessageService:
                 direction="out",
                 channel=data.channel,
                 sent_by=self.principal.user_id,
-                body=data.body,
+                body=body,
                 status="queued",
             )
             self.db.add(message)

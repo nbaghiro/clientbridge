@@ -5,7 +5,7 @@ import { useBusinessQuery as useQuery } from "../hooks";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { type ApiLike, type Attempt, attemptKey } from "../api";
+import { type ApiLike, type Attempt, attemptKey, failureMessage } from "../api";
 import {
     formatDate,
     formatDateTime,
@@ -434,7 +434,7 @@ export function useMarkThreadRead(
 
 function sendMessage(
     api: ApiLike,
-    input: { client_id: string; channel: Channel; body: string },
+    input: { client_id: string; channel: Channel; body: string; booking_id?: string },
     attempt: { current: Attempt | null },
 ): Promise<unknown> {
     return api.post("/v1/messages", input, { idempotencyKey: attemptKey(attempt, input) });
@@ -573,6 +573,61 @@ export function useNewMessage(
                         onSent({ clientId, name });
                     },
                     errorMessage: m.sendError,
+                },
+            );
+        },
+    };
+}
+
+interface VisitNote {
+    body: string;
+    setBody: (v: string) => void;
+    busy: boolean;
+    error: string | null;
+    sent: boolean;
+    submit: () => void;
+}
+
+/** A short note to the client on how a visit went, sent with the link to its page and photos. */
+export function useVisitNote(
+    api: ApiLike,
+    clientId: string | null,
+    bookingId: string | null,
+): VisitNote {
+    const consents = useConsents();
+    const [body, setBody] = useState("");
+    const [sent, setSent] = useState(false);
+    const { busy, error, setError, run } = useAsyncAction();
+    const attempt = useRef<Attempt | null>(null);
+    return {
+        body,
+        setBody: (v) => {
+            setError(null);
+            setSent(false);
+            setBody(v);
+        },
+        busy,
+        error,
+        sent,
+        submit: () => {
+            if (clientId === null || bookingId === null || body.trim() === "") return;
+            const channel: Channel = stopped(consentFor(consents.map, clientId, "sms"))
+                ? "email"
+                : "sms";
+            run(
+                () =>
+                    sendMessage(
+                        api,
+                        { client_id: clientId, channel, body: body.trim(), booking_id: bookingId },
+                        attempt,
+                    ),
+                {
+                    onSuccess: () => {
+                        attempt.current = null;
+                        setBody("");
+                        setSent(true);
+                    },
+                    errorMessage: (e) => failureMessage(e, m.sendError),
                 },
             );
         },

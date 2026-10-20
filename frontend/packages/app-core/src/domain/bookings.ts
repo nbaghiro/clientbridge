@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type ApiLike, type Attempt, attemptKey, failureMessage } from "../api";
 import {
     addDays,
+    addMonths,
     clockKey,
     combineDayAndTime,
     dateKey,
@@ -1687,6 +1688,81 @@ export interface ComposerSlot {
     start: Date;
     // an accepted estimate to book: its client is picked and its products join as add-ons
     estimateId?: string | undefined;
+    // a visit just checked out: its client, service and member are picked at the usual interval
+    rebookId?: string | undefined;
+}
+
+const NEXT_VISIT_SQL = `
+SELECT b.client_id, b.subject_id, s.item_id, s.staff_id, s.starts_at, r.frequency, r.interval,
+       (SELECT ps.starts_at FROM bookings pb JOIN slots ps ON ps.id = pb.slot_id
+        WHERE pb.client_id = b.client_id AND ps.item_id = s.item_id AND pb.id != b.id
+          AND pb.status = 'completed' AND pb.deleted_at IS NULL
+          AND ${utcSql("ps.starts_at")} < ${utcSql("s.starts_at")}
+        ORDER BY ${utcSql("ps.starts_at")} DESC LIMIT 1) AS previous_at
+FROM bookings b JOIN slots s ON s.id = b.slot_id
+LEFT JOIN recurrences r ON r.id = s.recurrence_id
+WHERE b.id = ?`;
+
+interface NextVisitRow {
+    client_id: string;
+    subject_id: string | null;
+    item_id: string;
+    staff_id: string;
+    starts_at: string;
+    frequency: string | null;
+    interval: number | null;
+    previous_at: string | null;
+}
+
+/** The next visit at the series' interval, or the client's own gap between their last two. */
+export function nextVisitStart(
+    start: Date,
+    previous: Date | null,
+    series: { frequency: string; interval: number } | null,
+    zone: string,
+): Date | null {
+    const at = (day: Date): Date =>
+        combineDayAndTime(dateKey(day, zone), clockKey(start, zone), zone);
+    if (series !== null) {
+        if (series.frequency === "month") return at(addMonths(start, series.interval, zone));
+        return at(addDays(start, series.interval * (series.frequency === "week" ? 7 : 1), zone));
+    }
+    if (previous === null) return null;
+    const days = Math.round((+start - +previous) / (24 * 60 * MIN));
+    return days >= 1 ? at(addDays(start, days, zone)) : null;
+}
+
+interface NextVisit {
+    clientId: string;
+    subjectId: string | null;
+    itemId: string;
+    staffId: string;
+    start: Date | null;
+}
+
+/** What booking again after this visit looks like: same client, service and member. */
+export function useNextVisit(bookingId: string | null): NextVisit | null {
+    const zone = useBusinessZone();
+    const row = useQuery<NextVisitRow>(NEXT_VISIT_SQL, [bookingId ?? ""]).data[0];
+    return useMemo(() => {
+        if (row === undefined) return null;
+        const series =
+            row.frequency === null || row.interval === null
+                ? null
+                : { frequency: row.frequency, interval: row.interval };
+        return {
+            clientId: row.client_id,
+            subjectId: row.subject_id,
+            itemId: row.item_id,
+            staffId: row.staff_id,
+            start: nextVisitStart(
+                parseTimestamp(row.starts_at),
+                row.previous_at === null ? null : parseTimestamp(row.previous_at),
+                series,
+                zone,
+            ),
+        };
+    }, [row, zone]);
 }
 
 export const ESTIMATE_BOOKING_SQL = `
@@ -1922,6 +1998,20 @@ export function useBookingComposer(
                   null,
                   target,
               );
+    const next = useNextVisit(slot.rebookId ?? null);
+    const rebooked = useRef(false);
+    useEffect(() => {
+        if (rebooked.current || next === null || services.length === 0) return;
+        rebooked.current = true;
+        setClientId(next.clientId);
+        setSubjectId(next.subjectId ?? "");
+        if (services.some((i) => i.id === next.itemId)) setItemId(next.itemId);
+        if (board.actors.some((a) => a.id === next.staffId)) setStaffId(next.staffId);
+        if (next.start !== null) {
+            setDay(dateKey(next.start, zone));
+            setTime(clockKey(next.start, zone));
+        }
+    }, [next, zone, services, board.actors]);
     const prefilled = useRef(false);
     useEffect(() => {
         if (prefilled.current || estimate === null) return;

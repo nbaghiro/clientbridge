@@ -169,6 +169,9 @@ class ManagedBooking(Mirror):
     deposit_due: bool = Field(description="The visit is booked and its deposit is still unpaid")
     accepts_card: bool = Field(description="The business takes card payments online")
     addons: list[ManagedAddon]
+    photo_urls: list[str] = Field(
+        default_factory=list, description="Photos staff took on the visit, oldest first"
+    )
     reschedules_used: int
     policy: PublicPolicy
     now: datetime

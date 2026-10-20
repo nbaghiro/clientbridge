@@ -305,6 +305,17 @@ function seed(): void {
             source: "pos",
         },
         {
+            id: "ord_gift",
+            client_id: "cl_ann",
+            staff_id: "st_owner",
+            status: "open",
+            currency: "CAD",
+            subtotal_cents: 3000,
+            tax_total_cents: 0,
+            total_cents: 3000,
+            source: "pos",
+        },
+        {
             id: "ord_web",
             client_id: "cl_ben",
             staff_id: "st_owner",
@@ -692,6 +703,16 @@ function seed(): void {
             ["a_rev", -100],
         ],
         on("order", "ord_gone", "pay_gone"),
+    );
+    journal(
+        "j_gift",
+        "redemption",
+        "redemption:gc_1:ord_gift:3000",
+        [
+            ["a_gc1", 3000],
+            ["a_rev", -3000],
+        ],
+        { ...on("gift_card", "gc_1"), source_type: "order", source_id: "ord_gift" },
     );
     journal(
         "j_web",
@@ -1500,9 +1521,23 @@ describe("app-core SQL against the replica schema", () => {
         expect(run("SALE_CLIENT_NAMES_SQL").length).toBe(2);
         const day = ["2026-06-26T00:00:00.000Z", "2026-06-27T00:00:00.000Z"];
         expect(
-            pick(run("CHECKOUT_QUEUE_SQL", day), "booking_id", "item_name", "deposit_status"),
-        ).toEqual([{ booking_id: "bk_1", item_name: "Cut", deposit_status: "collected" }]);
+            pick(
+                run("CHECKOUT_QUEUE_SQL", day),
+                "booking_id",
+                "item_name",
+                "deposit_status",
+                "cover_package_id",
+            ),
+        ).toEqual([
+            {
+                booking_id: "bk_1",
+                item_name: "Cut",
+                deposit_status: "collected",
+                cover_package_id: null,
+            },
+        ]);
         const sales = pick(run("SALES_SQL"), "id", "status", "method", "summary");
+        expect(sales.find((r) => r.id === "ord_gift")).toMatchObject({ status: "paid" });
         expect(sales.find((r) => r.id === "ord_web")).toMatchObject({
             status: "paid",
             method: "card",

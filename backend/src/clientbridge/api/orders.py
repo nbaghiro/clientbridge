@@ -16,6 +16,7 @@ from clientbridge.schemas.orders import (
     OrderCashOut,
     OrderCheckoutIn,
     OrderCreate,
+    OrderGiftCardIn,
     OrderOut,
     OrderPayIn,
     OrderPickupIn,
@@ -84,6 +85,20 @@ async def pay_order_cash(
     result = await OrderService(db, principal, gateway).pay_cash(order_id, data, idempotency_key)
     await Notifier(email, sms, push).on_payment_succeeded(db, result.payment_id)
     return result
+
+
+@router.post("/{order_id}/gift-card", response_model=OrderOut)
+async def apply_order_gift_card(
+    order_id: str,
+    data: OrderGiftCardIn,
+    principal: CurrentPrincipal,
+    db: DbSession,
+    gateway: GatewayDep,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+) -> OrderOut:
+    return await OrderService(db, principal, gateway).apply_gift_card(
+        order_id, data, idempotency_key
+    )
 
 
 @router.post("/{order_id}/receipt", response_model=OrderOut)

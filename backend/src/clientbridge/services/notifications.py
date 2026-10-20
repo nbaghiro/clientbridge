@@ -1022,6 +1022,17 @@ def message_notice(locale: str, business_name: str, body: str) -> Notice:
     )
 
 
+def visit_note_body(locale: str, note: str, link: str) -> str:
+    """A note on how a visit went, with the client's link to the visit and its photos."""
+    return message(locale, "visit_note.body", note=note, link=link)
+
+
+def visit_link(booking: Booking) -> str | None:
+    if booking.manage_token is None:
+        return None
+    return f"{get_settings().connect_base_url}/m/{booking.manage_token}"
+
+
 def broadcast_text(
     locale: str,
     business_name: str,

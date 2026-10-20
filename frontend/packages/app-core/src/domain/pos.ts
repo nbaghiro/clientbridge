@@ -27,7 +27,7 @@ import {
 } from "../format";
 import { type Load, useAsyncAction, useLoad, useRemote } from "../hooks";
 import { strings } from "../strings";
-import { type ApiLike, type Attempt, attemptKey } from "../api";
+import { type ApiLike, type Attempt, attemptKey, failureMessage } from "../api";
 import type { ConfirmOptions, DocTotalLine, Intent, PrintedDocTax } from "../ui";
 import {
     type DiscountKind,
@@ -37,6 +37,7 @@ import {
     docRates,
     issuedTaxes,
     priceDoc,
+    invoiceLabel,
 } from "./billing";
 import { utcBeforeSql, utcFromSql, utcSql } from "../datetime";
 import { type ItemRow, ITEMS_SQL, sellableItems, stockState } from "./catalog";
@@ -391,6 +392,7 @@ interface SaleTotals {
     tipCents: number;
     totalCents: number;
     depositCents: number;
+    giftCardCents: number;
     dueCents: number;
 }
 
@@ -422,6 +424,7 @@ export function priceSale(
     registered: boolean,
     tip: TipChoice,
     depositCents = 0,
+    giftCardCents = 0,
 ): PricedSale {
     const gross = lines.map((l) => Math.round(l.unitAmountCents * l.quantity));
     const lineOff = lines.map((l, i) => discountCents(gross[i] ?? 0, l.discount));
@@ -452,6 +455,7 @@ export function priceSale(
     const tipCents = tipCentsFor(tip, doc.subtotalCents);
     const totalCents = doc.totalCents + tipCents;
     const deposit = Math.min(depositCents, doc.totalCents);
+    const gift = Math.min(giftCardCents, totalCents - deposit);
     return {
         lines: priced,
         totals: {
@@ -465,7 +469,8 @@ export function priceSale(
             tipCents,
             totalCents,
             depositCents: deposit,
-            dueCents: Math.max(0, totalCents - deposit),
+            giftCardCents: gift,
+            dueCents: Math.max(0, totalCents - deposit - gift),
         },
     };
 }
@@ -504,6 +509,7 @@ export function issuedSale(
             taxCents: issued.taxCents,
             totalCents,
             depositCents: 0,
+            giftCardCents: 0,
             dueCents: totalCents,
         },
     };
@@ -548,12 +554,14 @@ export function saleTotalLines(
         key: "total",
         label: d.total,
         cents: t.totalCents,
-        kind: t.depositCents > 0 ? "total" : "balance",
+        kind: t.depositCents > 0 || t.giftCardCents > 0 ? "total" : "balance",
     });
-    if (t.depositCents > 0) {
+    if (t.depositCents > 0)
         rows.push({ key: "deposit", label: d.depositPaid, cents: t.depositCents, kind: "credit" });
+    if (t.giftCardCents > 0)
+        rows.push({ key: "gift", label: d.giftCardPaid, cents: t.giftCardCents, kind: "credit" });
+    if (t.depositCents > 0 || t.giftCardCents > 0)
         rows.push({ key: "due", label: d.dueNow, cents: t.dueCents, kind: "balance" });
-    }
     return rows;
 }
 
@@ -728,6 +736,7 @@ export interface OrderOut {
     subtotal_cents: number;
     tax_total_cents: number;
     deposit_cents: number;
+    gift_card_cents: number;
     due_cents: number;
     discount_cents: number;
     note: string | null;
@@ -867,6 +876,15 @@ export interface SaleTicket {
     busy: boolean;
     error: string | null;
     receipt: SaleReceiptForm;
+    giftCard: SaleGiftCard;
+    // the first visit on the ticket, which Book next starts from
+    visitId: string | null;
+    // a manager can bill a named client's ticket as an invoice instead of taking payment now
+    canInvoice: boolean;
+    sendAsInvoice: () => void;
+    invoiced: string | null;
+    // the whole sale was settled by gift card, so no other method took money
+    paidByGiftCard: boolean;
     paidCents: number;
     changeGiven: number | null;
     hold: (note?: string) => void;
@@ -904,6 +922,14 @@ function saleLineView(l: SalePricedLine, staff: string | null): SaleLineView {
         quantity: l.kind === "product" && l.bookingId === null ? l.quantity : null,
         grossCents: l.grossCents,
     };
+}
+
+interface SaleGiftCard {
+    code: string;
+    setCode: (v: string) => void;
+    apply: () => void;
+    busy: boolean;
+    error: string | null;
 }
 
 interface SaleReceiptForm {
@@ -955,7 +981,7 @@ WHERE client_id = ? AND method = 'card' ORDER BY preferred DESC, created_at DESC
 /** The register: lines, discounts, tip, payment and receipt in one view-model for web and mobile. */
 export function useSale(
     api: ApiLike,
-    opts: { viewerStaffId?: string | null; platform: "web" | "mobile" },
+    opts: { viewerStaffId?: string | null; platform: "web" | "mobile"; role?: string | null },
 ): SaleTicket {
     const { rates, registered, ready: ratesReady } = useTaxSetup();
     const staffRows = useQuery<SaleStaffRow>(SALE_STAFF_SQL).data;
@@ -977,6 +1003,13 @@ export function useSale(
     const [changeGiven, setChangeGiven] = useState<number | null>(null);
     const [held, setHeld] = useState<string | null>(null);
     const [sent, setSent] = useState<ReceiptChannel | null>(null);
+    const [giftCode, setGiftCode] = useState("");
+    const [invoiced, setInvoiced] = useState<string | null>(null);
+    const invoiceAttempt = useRef<Attempt | null>(null);
+    const [giftCents, setGiftCents] = useState(0);
+    const [giftPaid, setGiftPaid] = useState(false);
+    const giftAttempt = useRef<Attempt | null>(null);
+    const giftAction = useAsyncAction();
     const client = useQuery<SaleClientRow>(SALE_CLIENT_SQL, [clientId ?? ""]).data[0] ?? null;
     const cards = useQuery<SavedCardRow>(SALE_CARDS_SQL, [clientId ?? ""]).data;
     const [email, setEmail] = useState("");
@@ -989,8 +1022,8 @@ export function useSale(
 
     const depositCents = Object.values(deposits).reduce((a, b) => a + b, 0);
     const priced = useMemo(
-        () => priceSale(lines, saleDiscount, rates, registered, tip, depositCents),
-        [lines, saleDiscount, rates, registered, tip, depositCents],
+        () => priceSale(lines, saleDiscount, rates, registered, tip, depositCents, giftCents),
+        [lines, saleDiscount, rates, registered, tip, depositCents, giftCents],
     );
     const t = priced.totals;
     const saved = cards[0] ?? null;
@@ -1012,6 +1045,7 @@ export function useSale(
     const edit = (fn: (ls: SaleLine[]) => SaleLine[]): void => {
         keyRef.current = null;
         setError(null);
+        setInvoiced(null);
         setLines(fn);
     };
 
@@ -1024,6 +1058,12 @@ export function useSale(
         setSaleDiscountState(null);
         setTipState({ kind: "none" });
         setDeposits({});
+        setGiftCode("");
+        setGiftCents(0);
+        setGiftPaid(false);
+        setInvoiced(null);
+        giftAttempt.current = null;
+        giftAction.setError(null);
         setPhaseState("cart");
         setChosen(null);
         setCashGivenState("");
@@ -1051,6 +1091,7 @@ export function useSale(
         );
         savedAttempt.current = { body: fingerprint, order: out };
         setOrder(out);
+        setGiftCents(out.gift_card_cents);
         return out;
     };
 
@@ -1147,6 +1188,7 @@ export function useSale(
         clientId,
         setClientId: (id) => {
             keyRef.current = null;
+            setInvoiced(null);
             setClientIdState(id);
             setChosen(null);
         },
@@ -1274,10 +1316,79 @@ export function useSale(
         checkout,
         terminal,
         markPaid,
-        busy: busy || checkout.busy,
+        busy: busy || checkout.busy || giftAction.busy,
         error: error ?? checkout.error,
         paidCents,
         changeGiven,
+        visitId: lines.find((l) => l.bookingId !== null)?.bookingId ?? null,
+        paidByGiftCard: phase === "paid" && giftPaid,
+        canInvoice:
+            canManagePayments(opts.role ?? null) &&
+            clientId !== null &&
+            lines.length > 0 &&
+            giftCents === 0,
+        sendAsInvoice: () => {
+            if (clientId === null || lines.length === 0) return;
+            const body = { ...saleBody({ clientId, lines, saleDiscount }), send: true };
+            run(
+                async () => {
+                    if (order !== null) {
+                        await api.post(`/v1/orders/${order.id}/void`, {});
+                        setOrder(null);
+                        savedAttempt.current = null;
+                        keyRef.current = null;
+                    }
+                    const out = await api.post<{ number: number | null }>("/v1/invoices", body, {
+                        idempotencyKey: attemptKey(invoiceAttempt, body),
+                    });
+                    const name = client?.name ?? "";
+                    reset();
+                    invoiceAttempt.current = null;
+                    setInvoiced(d.invoicedNotice(invoiceLabel(out.number), name));
+                },
+                { errorMessage: (e) => failureMessage(e, d.invoiceError) },
+            );
+        },
+        invoiced,
+        giftCard: {
+            code: giftCode,
+            setCode: (v) => {
+                giftAction.setError(null);
+                setGiftCode(v);
+            },
+            apply: () => {
+                const code = giftCode.trim();
+                if (code === "" || lines.length === 0 || busy || checkout.busy) return;
+                if (t.tipCents > 0) {
+                    giftAction.setError(d.giftCardBeforeTip);
+                    return;
+                }
+                giftAction.run(
+                    async () => {
+                        const saved_ = await save();
+                        const out = await api.post<OrderOut>(
+                            `/v1/orders/${saved_.id}/gift-card`,
+                            { code },
+                            { idempotencyKey: attemptKey(giftAttempt, [saved_.id, code]) },
+                        );
+                        if (savedAttempt.current !== null)
+                            savedAttempt.current = { ...savedAttempt.current, order: out };
+                        setOrder(out);
+                        setGiftCents(out.gift_card_cents);
+                        setGiftCode("");
+                        if (out.status === "paid") {
+                            setGiftPaid(true);
+                            setPaidCents(out.gift_card_cents);
+                            setChosen(null);
+                            markPaid();
+                        }
+                    },
+                    { errorMessage: (e) => failureMessage(e, d.giftCardError) },
+                );
+            },
+            busy: giftAction.busy,
+            error: giftAction.error,
+        },
         receipt: {
             email: email === "" ? (client?.email ?? "") : email,
             setEmail,
@@ -1355,6 +1466,7 @@ export function useSale(
                 }),
             );
             if (out.deposit_cents > 0) setDeposits({ [out.id]: out.deposit_cents });
+            setGiftCents(out.gift_card_cents);
             setPhaseState("pay");
         },
         newSale: () => {
@@ -1409,7 +1521,12 @@ SELECT b.id AS booking_id, b.client_id, c.name AS client_name, b.staff_id, ${sta
        st.title AS staff_title, st.role AS staff_role, st.color AS staff_color, s.starts_at, s.ends_at,
        b.price_cents, b.deposit_status, b.deposit_amount_cents, b.order_id, b.charged_at,
        s.item_id, i.name AS item_name, i.kind AS item_kind, i.tax_class, i.color AS item_color,
-       i.price_cents AS item_price_cents
+       i.price_cents AS item_price_cents, b.package_id,
+       (SELECT p.id FROM packages p JOIN items pi ON pi.id = p.item_id
+        WHERE p.client_id = b.client_id AND p.status = 'active' AND b.status = 'confirmed'
+          AND (pi.covers_item_id IS NULL OR pi.covers_item_id = s.item_id)
+          AND (p.expires_at IS NULL OR ${utcSql("p.expires_at")} > datetime('now'))
+        ORDER BY p.created_at LIMIT 1) AS cover_package_id
 FROM bookings b JOIN slots s ON s.id = b.slot_id
 LEFT JOIN clients c ON c.id = b.client_id LEFT JOIN items i ON i.id = s.item_id
 LEFT JOIN staff st ON st.id = b.staff_id
@@ -1440,6 +1557,8 @@ interface QueueRow {
     tax_class: string | null;
     item_color: string | null;
     item_price_cents: number | null;
+    package_id: string | null;
+    cover_package_id: string | null;
 }
 
 export interface CheckoutVisit {
@@ -1455,6 +1574,8 @@ export interface CheckoutVisit {
     end: Date;
     state: VisitState;
     depositCents: number;
+    // the client's active package for this service, which can settle the visit instead of a sale
+    packageId: string | null;
     line: SaleLine;
 }
 
@@ -1462,7 +1583,7 @@ function checkoutVisit(row: QueueRow, now: Date): CheckoutVisit {
     const start = parseTimestamp(row.starts_at);
     const end = parseTimestamp(row.ends_at);
     const state: VisitState =
-        row.charged_at !== null
+        row.charged_at !== null || row.package_id !== null
             ? "paid"
             : row.order_id !== null
               ? "onTicket"
@@ -1488,6 +1609,7 @@ function checkoutVisit(row: QueueRow, now: Date): CheckoutVisit {
         end,
         state,
         depositCents: row.deposit_status === "collected" ? (row.deposit_amount_cents ?? 0) : 0,
+        packageId: row.cover_package_id,
         line: {
             key: nextKey(),
             itemId: row.item_id,
@@ -1554,6 +1676,40 @@ export function useLinkedVisit(
         taken.current = visit.bookingId;
         if (visit.state !== "paid") addVisit(visit);
     }, [visit, addVisit]);
+}
+
+interface PackageCover {
+    busy: string | null;
+    error: string | null;
+    cover: (visit: CheckoutVisit, onDone: () => void) => void;
+}
+
+/** Settles a started visit with the client's package instead of ringing it up. */
+export function usePackageCover(api: ApiLike): PackageCover {
+    const [busy, setBusy] = useState<string | null>(null);
+    const attempt = useRef<Attempt | null>(null);
+    const action = useAsyncAction();
+    return {
+        busy: action.busy ? busy : null,
+        error: action.error,
+        cover: (visit, onDone) => {
+            const packageId = visit.packageId;
+            if (packageId === null) return;
+            setBusy(visit.bookingId);
+            action.run(
+                () =>
+                    api.post(
+                        `/v1/packages/${packageId}/cover`,
+                        { booking_id: visit.bookingId },
+                        { idempotencyKey: attemptKey(attempt, visit.bookingId) },
+                    ),
+                {
+                    onSuccess: onDone,
+                    errorMessage: (e) => failureMessage(e, d.coverError),
+                },
+            );
+        },
+    };
 }
 
 export type BoardColumn = "open" | "prepare" | "ready";

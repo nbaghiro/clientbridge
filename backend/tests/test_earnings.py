@@ -19,7 +19,7 @@ from clientbridge.services import ledger
 from clientbridge.services.earnings import ensure_earnings, load_earning
 from clientbridge.services.ledger import Leg
 from tests.conftest import Factory, book_invoice
-from tests.helpers import card_pay
+from tests.helpers import card_pay, settle
 from tests.helpers import key as retry_key
 
 BIZ = "bz_birchbark"
@@ -36,8 +36,7 @@ async def _seed_id(db: AsyncSession, model: type[Client] | type[Item]) -> str:
     return row
 
 
-async def _paid_booking(
-    as_owner: httpx.AsyncClient,
+async def _diego_visit(
     db: AsyncSession,
     *,
     rate_type: str = "percent",
@@ -45,8 +44,7 @@ async def _paid_booking(
     payee: bool = True,
     end_hour: int = 16,
     end_min: int = 0,
-) -> tuple[str, str, str]:
-    """Pay + settle a $100 booking line for Diego; return (booking_id, invoice_id, payment_id)."""
+) -> Booking:
     await db.execute(
         update(Business)
         .where(Business.id == BIZ)
@@ -89,6 +87,24 @@ async def _paid_booking(
     )
     db.add(booking)
     await db.flush()
+    return booking
+
+
+async def _paid_booking(
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    *,
+    rate_type: str = "percent",
+    rate: float = 60.0,
+    payee: bool = True,
+    end_hour: int = 16,
+    end_min: int = 0,
+) -> tuple[str, str, str]:
+    """Pay + settle a $100 booking line for Diego; return (booking_id, invoice_id, payment_id)."""
+    booking = await _diego_visit(
+        db, rate_type=rate_type, rate=rate, payee=payee, end_hour=end_hour, end_min=end_min
+    )
+    cid = booking.client_id
     inv = Invoice(
         id=new_id("invoice"),
         business_id=BIZ,
@@ -197,6 +213,45 @@ async def test_fixed_payee_accrues(as_owner: httpx.AsyncClient, db: AsyncSession
 async def test_non_payee_accrues_nothing(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
     booking_id, _, _ = await _paid_booking(as_owner, db, payee=False)
     assert await _journals(db, booking_id) == []
+
+
+async def _visit_sale(api: httpx.AsyncClient, db: AsyncSession, booking: Booking) -> str:
+    line = {"description": "Visit", "unit_amount_cents": 10000, "booking_id": booking.id}
+    created = await api.post("/v1/orders", json={"client_id": booking.client_id, "lines": [line]})
+    assert created.status_code == 201, created.text
+    sale: str = created.json()["id"]
+    return sale
+
+
+async def test_visit_paid_at_the_register_accrues_service_commission(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    booking = await _diego_visit(db)
+    sale = await _visit_sale(as_owner, db, booking)
+    paid = await as_owner.post(
+        f"/v1/orders/{sale}/cash", json={"tendered_cents": 20000}, headers=retry_key()
+    )
+    assert paid.status_code == 200, paid.text
+    [journal] = await _journals(db, booking.id)
+    earning = await load_earning(db, BIZ, journal)
+    assert earning is not None
+    assert (earning.staff_id, earning.amount_cents, earning.status) == ("st_diego", 6000, "pending")
+
+
+async def test_refunded_register_sale_reverses_the_service_commission(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    booking = await _diego_visit(db, rate_type="fixed", rate=15.0)
+    sale = await _visit_sale(as_owner, db, booking)
+    pay = await as_owner.post(f"/v1/orders/{sale}/pay", json={})
+    assert pay.status_code == 200, pay.text
+    await settle(as_owner, db, pay.json()["payment_id"])
+    assert len(await _journals(db, booking.id)) == 1
+    refunded = await as_owner.post(
+        f"/v1/payments/{pay.json()['payment_id']}/refund", json={}, headers=retry_key()
+    )
+    assert refunded.status_code == 200, refunded.text
+    assert await _payable(db, "st_diego", "pending") == 0
 
 
 async def test_approve_then_pay_moves_payable_to_bank(

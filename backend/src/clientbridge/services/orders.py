@@ -11,9 +11,9 @@ from clientbridge.core.errors import AppError, Conflict, NotFound, Unprocessable
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
 from clientbridge.integrations.stripe import PaymentGateway
-from clientbridge.models.billing import Line, Order
+from clientbridge.models.billing import Invoice, Line, Order
 from clientbridge.models.business import Business, Staff
-from clientbridge.models.catalog import Item
+from clientbridge.models.catalog import GiftCard, Item
 from clientbridge.models.clients import Client
 from clientbridge.models.payments import Payment
 from clientbridge.models.platform import Audit
@@ -25,6 +25,7 @@ from clientbridge.schemas.orders import (
     OrderCashOut,
     OrderCheckoutIn,
     OrderCreate,
+    OrderGiftCardIn,
     OrderOut,
     OrderPayIn,
     OrderPickupIn,
@@ -120,6 +121,11 @@ class OrderService:
             await self._client(data.client_id)
 
         async def run(cmd: Command) -> OrderOut:
+            await self.db.execute(select(Order.id).where(Order.id == order_id).with_for_update())
+            if await self._has_active_payment(order_id):
+                raise Conflict("can't edit an order after checkout has started")
+            if data.lines is not None or "discount" in data.model_fields_set:
+                await ledger.reverse_order_redemptions(self.db, order)
             if "discount" in data.model_fields_set:
                 set_discount(order, data.discount)
             for key in ("client_id", "receipt_email", "receipt_phone", "note"):
@@ -150,6 +156,7 @@ class OrderService:
             if await self._has_active_payment(order.id):
                 raise Conflict("can't void an order after checkout has started")
             order.status = "void"
+            await ledger.reverse_order_redemptions(self.db, order)
             await self._link_visits(order, [])
             await self.db.flush()
             cmd.record("order.void", entity_type="order", entity_id=order.id)
@@ -164,11 +171,13 @@ class OrderService:
         self, order_id: str, data: OrderCheckoutIn | None, idempotency_key: str | None
     ) -> CheckoutOut:
         """Open a Tap to Pay (Terminal) charge for what is due, plus any tip."""
-        order, due = await self._chargeable(order_id)
+        order, _ = await self._chargeable(order_id)
         account_id = await self._account()
         tip = await self._tip(order, data)
 
         async def run(cmd: Command) -> CheckoutOut:
+            await self.db.execute(select(Order.id).where(Order.id == order_id).with_for_update())
+            _, due = await self._chargeable(order_id)
             payment, client_secret = await open_terminal_payment(
                 self.db,
                 self.gateway,
@@ -199,7 +208,7 @@ class OrderService:
         self, order_id: str, data: OrderPayIn, idempotency_key: str | None
     ) -> CheckoutOut:
         """Pay an open sale by saved card, or by a new card on the card form."""
-        order, due = await self._chargeable(order_id)
+        order, _ = await self._chargeable(order_id)
         account_id = await self._account()
         client = await self._client(order.client_id) if order.client_id else None
         if data.payment_method_id is not None and client is None:
@@ -212,6 +221,8 @@ class OrderService:
         tip = await self._tip(order, data)
 
         async def run(cmd: Command) -> CheckoutOut:
+            await self.db.execute(select(Order.id).where(Order.id == order_id).with_for_update())
+            _, due = await self._chargeable(order_id)
             payment, client_secret = await open_order_card_payment(
                 self.db,
                 self.gateway,
@@ -290,6 +301,49 @@ class OrderService:
             action="order.cash",
             run=run,
             response_model=OrderCashOut,
+            idempotency_key=idempotency_key,
+            request={"order_id": order_id, "data": data},
+        )
+
+    async def apply_gift_card(
+        self, order_id: str, data: OrderGiftCardIn, idempotency_key: str | None
+    ) -> OrderOut:
+        """Redeem a gift card against what an open sale still owes, up to its balance."""
+        await self._order(order_id)
+
+        async def run(cmd: Command) -> OrderOut:
+            await self.db.execute(select(Order.id).where(Order.id == order_id).with_for_update())
+            order, due = await self._chargeable(order_id)
+            if await self._has_active_payment(order.id):
+                raise Conflict("this sale already has a payment")
+            card = (
+                await self.db.execute(
+                    scoped(GiftCard, self.biz)
+                    .where(GiftCard.code == data.code.strip())
+                    .with_for_update()
+                )
+            ).scalar_one_or_none()
+            if card is None:
+                raise NotFound("gift card not found")
+            balance = await ledger.gift_card_balance(self.db, card)
+            expired = card.expires_at is not None and card.expires_at <= clock.now()
+            if ledger.gift_card_status(card, balance) != "active" or expired:
+                raise Conflict("only an active gift card can be used")
+            amount = min(balance, due)
+            if amount <= 0:
+                raise Conflict("nothing is left to pay on this sale")
+            await ledger.post_redemption(self.db, card, amount, source=("order", order.id))
+            await sync_order(self.db, order.id)
+            cmd.record("order.gift_card", entity_type="order", entity_id=order.id)
+            lines = await fetch_lines(self.db, self.biz, "order", order.id)
+            return await order_out(self.db, order, lines)
+
+        return await run_command(
+            self.db,
+            self.principal,
+            action="order.gift_card",
+            run=run,
+            response_model=OrderOut,
             idempotency_key=idempotency_key,
             request={"order_id": order_id, "data": data},
         )
@@ -409,7 +463,10 @@ class OrderService:
         lines = await fetch_lines(self.db, self.biz, "order", order.id)
         if not lines:
             raise Conflict("add something to the sale first")
-        return order, order.total_cents - await visit_deposits(self.db, order)
+        credits = await visit_deposits(self.db, order) + await ledger.order_gift_card_applied(
+            self.db, order
+        )
+        return order, order.total_cents - credits
 
     async def _tip(self, order: Order, data: TipIn | None) -> TipTerms:
         if data is None:
@@ -435,8 +492,12 @@ class OrderService:
             if booking.id not in wanted:
                 booking.order_id = None
                 continue
-            if booking.charged_at is not None:
+            if booking.charged_at is not None or booking.package_id is not None:
                 raise Conflict("this visit has already been paid for")
+            if booking.invoice_id is not None:
+                invoice = await self.db.get(Invoice, booking.invoice_id)
+                if invoice is not None and invoice.status != "void":
+                    raise Conflict("this visit is already billed on an invoice")
             if booking.order_id not in (None, order.id):
                 other = await self.db.get(Order, booking.order_id)
                 if other is not None and other.status != "void":
@@ -526,7 +587,8 @@ async def order_out(db: AsyncSession, order: Order, lines: list[Line]) -> OrderO
     tip = int(tips.scalar_one())
     applied = await ledger.order_deposit_applied(db, order)
     deposit = applied if status != "open" else await visit_deposits(db, order)
-    due = order.total_cents - deposit - (paid - tip) if status == "open" else 0
+    gift = await ledger.order_gift_card_applied(db, order)
+    due = order.total_cents - deposit - gift - (paid - tip) if status == "open" else 0
     return OrderOut(
         id=order.id,
         business_id=order.business_id,
@@ -551,6 +613,7 @@ async def order_out(db: AsyncSession, order: Order, lines: list[Line]) -> OrderO
         discount=discount_of(order),
         discount_cents=discount_total(lines),
         deposit_cents=deposit,
+        gift_card_cents=gift,
         due_cents=max(0, due),
         tip_cents=tip,
         receipt_channel=order.receipt_channel,

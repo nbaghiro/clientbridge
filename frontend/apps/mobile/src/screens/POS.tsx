@@ -14,6 +14,7 @@ import {
     useCatalogItems,
     useCheckoutQueue,
     useLinkedVisit,
+    usePackageCover,
     useRegisterCatalog,
     useSale,
     useSalesViews,
@@ -31,6 +32,7 @@ import {
     ItemTile,
     LoadFailed,
     Modal,
+    Notice,
     SearchField,
     Skeleton,
     StatusPill,
@@ -42,7 +44,7 @@ import { SalesBoard, SalesHistory } from "../components/SaleOrders";
 import { TicketSheet } from "../components/SaleTicket";
 import { api, apiBaseUrl } from "../lib/api";
 import { useViewer } from "../lib/auth";
-import { useOpenLink } from "../lib/links";
+import { useBookAgain, useOpenLink } from "../lib/links";
 
 const d = strings.pos.desk;
 const c = theme.colors;
@@ -54,6 +56,7 @@ export function POS({ linked }: { linked?: string | undefined }) {
     const sale = useSale(api, {
         viewerStaffId: viewer?.staffId ?? null,
         platform: "mobile",
+        role,
     });
     const items = useCatalogItems();
     const views = useSalesViews(role);
@@ -91,10 +94,14 @@ function VisitCard({
     v,
     onTicket,
     onCheckOut,
+    onCover,
+    covering,
 }: {
     v: CheckoutVisit;
     onTicket: boolean;
     onCheckOut: () => void;
+    onCover: (() => void) | null;
+    covering: boolean;
 }) {
     const zone = useBusinessZone();
     const st = VISIT_STATE[v.state];
@@ -122,6 +129,17 @@ function VisitCard({
                     ])}
                 </Text>
             </View>
+            {onCover === null ? null : (
+                <Button
+                    style={{ alignSelf: "center" }}
+                    size="sm"
+                    variant="outline"
+                    busy={covering}
+                    onPress={onCover}
+                >
+                    {d.usePackage}
+                </Button>
+            )}
             {onTicket ? (
                 <Text style={styles.accent}>{d.onTicket}</Text>
             ) : v.state === "upcoming" ? (
@@ -171,12 +189,15 @@ function Register({
     setTicketOpen: (open: boolean) => void;
 }) {
     const queue = useCheckoutQueue();
+    const cover = usePackageCover(api);
     useLinkedVisit(linked, queue, (visit) => {
         sale.addVisit(visit);
         setTicketOpen(true);
     });
     const catalog = useRegisterCatalog();
     const openLink = useOpenLink();
+    const bookAgain = useBookAgain();
+    const visitId = sale.visitId;
     const [selling, setSelling] = useState<WalletKind | null>(null);
     const onTicket = (id: string): number =>
         sale.lines.filter((l) => l.itemId === id).reduce((n, l) => n + l.quantity, 0);
@@ -206,6 +227,7 @@ function Register({
                 ) : waiting.length > 0 ? (
                     <>
                         <Text style={styles.heading}>{d.todaysVisits}</Text>
+                        {cover.error !== null ? <Notice tone="danger">{cover.error}</Notice> : null}
                         <View style={styles.visits}>
                             {waiting.map((v) => (
                                 <VisitCard
@@ -215,6 +237,21 @@ function Register({
                                     onCheckOut={() => {
                                         sale.addVisit(v);
                                     }}
+                                    covering={cover.busy === v.bookingId}
+                                    onCover={
+                                        v.packageId !== null &&
+                                        (v.state === "ready" || v.state === "inProgress")
+                                            ? () => {
+                                                  cover.cover(v, () => {
+                                                      const line = sale.lines.find(
+                                                          (l) => l.bookingId === v.bookingId,
+                                                      );
+                                                      if (line !== undefined)
+                                                          sale.removeLine(line.key);
+                                                  });
+                                              }
+                                            : null
+                                    }
                                 />
                             ))}
                         </View>
@@ -310,7 +347,8 @@ function Register({
                     setTicketOpen(false);
                 }}
                 onBookNext={() => {
-                    openLink("booking");
+                    if (visitId === null) openLink("booking");
+                    else bookAgain(visitId);
                 }}
             />
             <Modal

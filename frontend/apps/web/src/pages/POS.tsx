@@ -14,6 +14,7 @@ import {
     useCatalogItems,
     useCheckoutQueue,
     useLinkedVisit,
+    usePackageCover,
     usePeoplePhotos,
     useRegisterCatalog,
     useSale,
@@ -31,20 +32,21 @@ import {
     ItemTile,
     LoadFailed,
     Modal,
+    Notice,
     SearchField,
     Skeleton,
     StatusPill,
     Tabs,
 } from "@clientbridge/ui";
 import { useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { SellEntitlement } from "../components/EntitlementSales";
 import { SalesBoard, SalesHistory } from "../components/SaleOrders";
 import { PaySheet, TicketPanel } from "../components/SaleTicket";
 import { api, apiBaseUrl } from "../lib/api";
 import { useViewer } from "../lib/auth";
-import { useOpenLink } from "../lib/links";
+import { linkPath, useOpenLink } from "../lib/links";
 
 const d = strings.pos.desk;
 
@@ -55,6 +57,7 @@ export function POS() {
     const sale = useSale(api, {
         viewerStaffId: viewer?.staffId ?? null,
         platform: "web",
+        role,
     });
     const items = useCatalogItems();
     const views = useSalesViews(role);
@@ -87,10 +90,14 @@ function VisitRow({
     v,
     onTicket,
     onCheckOut,
+    onCover,
+    covering,
 }: {
     v: CheckoutVisit;
     onTicket: boolean;
     onCheckOut: () => void;
+    onCover: (() => void) | null;
+    covering: boolean;
 }) {
     const photos = usePeoplePhotos();
     const zone = useBusinessZone();
@@ -126,6 +133,11 @@ function VisitRow({
                 </p>
             </div>
             <StatusPill status={st.label} intent={st.intent} />
+            {onCover === null ? null : (
+                <Button size="sm" variant="outline" busy={covering} onPress={onCover}>
+                    {d.usePackage}
+                </Button>
+            )}
             <div className="w-24 shrink-0 text-right">
                 {v.state === "paid" ? null : onTicket ? (
                     <span className="inline-flex items-center gap-1 text-sm font-medium text-accent">
@@ -172,6 +184,9 @@ const PLAN_KINDS: { key: WalletKind; label: string; icon: "tag" | "box" | "repea
 
 function Register({ sale, linked }: { sale: SaleTicket; linked: string | null }) {
     const queue = useCheckoutQueue();
+    const cover = usePackageCover(api);
+    const navigate = useNavigate();
+    const visitId = sale.visitId;
     useLinkedVisit(linked, queue, sale.addVisit);
     const catalog = useRegisterCatalog();
     const openLink = useOpenLink();
@@ -217,6 +232,7 @@ function Register({ sale, linked }: { sale: SaleTicket; linked: string | null })
                     <LoadFailed message={d.visitsError} body={d.catalogErrorBody} />
                 ) : waiting.length > 0 ? (
                     <section className="space-y-2">
+                        {cover.error !== null ? <Notice tone="danger">{cover.error}</Notice> : null}
                         <div className="flex items-baseline justify-between gap-3 px-1">
                             <h2 className="text-sm font-semibold text-ink">{d.todaysVisits}</h2>
                             <p className="text-xs text-muted">{d.todaysVisitsHint}</p>
@@ -230,6 +246,21 @@ function Register({ sale, linked }: { sale: SaleTicket; linked: string | null })
                                     onCheckOut={() => {
                                         sale.addVisit(v);
                                     }}
+                                    covering={cover.busy === v.bookingId}
+                                    onCover={
+                                        v.packageId !== null &&
+                                        (v.state === "ready" || v.state === "inProgress")
+                                            ? () => {
+                                                  cover.cover(v, () => {
+                                                      const line = sale.lines.find(
+                                                          (l) => l.bookingId === v.bookingId,
+                                                      );
+                                                      if (line !== undefined)
+                                                          sale.removeLine(line.key);
+                                                  });
+                                              }
+                                            : null
+                                    }
                                 />
                             ))}
                         </div>
@@ -322,7 +353,11 @@ function Register({ sale, linked }: { sale: SaleTicket; linked: string | null })
                     }}
                     onBookNext={() => {
                         setPaying(false);
-                        openLink("booking");
+                        if (visitId === null) openLink("booking");
+                        else
+                            navigate(
+                                `${linkPath("booking")}&rebook=${encodeURIComponent(visitId)}`,
+                            )?.catch(() => undefined);
                     }}
                 />
             ) : null}

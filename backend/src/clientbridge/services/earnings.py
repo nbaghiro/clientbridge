@@ -229,10 +229,11 @@ async def _split(
     return None
 
 
-async def _booking_lines(db: AsyncSession, invoice: Invoice) -> list[Line]:
+async def _booking_lines(db: AsyncSession, document: Invoice | Order) -> list[Line]:
+    owner = Line.invoice_id if isinstance(document, Invoice) else Line.order_id
     rows = await db.execute(
-        scoped(Line, invoice.business_id).where(
-            Line.invoice_id == invoice.id,
+        scoped(Line, document.business_id).where(
+            owner == document.id,
             Line.booking_id.isnot(None),
         )
     )
@@ -240,11 +241,11 @@ async def _booking_lines(db: AsyncSession, invoice: Invoice) -> list[Line]:
 
 
 async def ensure_earnings(
-    db: AsyncSession, invoice: Invoice, *, occurred_at: datetime | None = None
+    db: AsyncSession, document: Invoice | Order, *, occurred_at: datetime | None = None
 ) -> None:
-    """Accrue a pending earning per payee on a fully paid invoice's bookings, once each."""
-    biz = invoice.business_id
-    for line in await _booking_lines(db, invoice):
+    """Accrue a pending earning per payee on each booking of a paid invoice or sale, once."""
+    biz = document.business_id
+    for line in await _booking_lines(db, document):
         assert line.booking_id is not None
         journals = await _booking_earnings(db, biz, line.booking_id)
         if journals and await _status(db, biz, journals[-1]) != "reversed":
@@ -275,10 +276,10 @@ async def ensure_earnings(
         )
 
 
-async def reverse_earnings(db: AsyncSession, invoice: Invoice) -> None:
-    """Unwind pending earnings when an invoice drops below fully paid; approved ones stand."""
-    biz = invoice.business_id
-    for line in await _booking_lines(db, invoice):
+async def reverse_earnings(db: AsyncSession, document: Invoice | Order) -> None:
+    """Unwind pending earnings when an invoice or sale stops being paid; approved ones stand."""
+    biz = document.business_id
+    for line in await _booking_lines(db, document):
         assert line.booking_id is not None
         await _lock_booking(db, line.booking_id)
         journals = await _booking_earnings(db, biz, line.booking_id)

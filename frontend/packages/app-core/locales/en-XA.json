@@ -1391,6 +1391,57 @@
     "pos.desk.todaysVisits": {
         "message": "[Ţöðåý'š ṽîšîţš one two]"
     },
+    "pos.desk.usePackage": {
+        "message": "[Ûšé þåçķåĝé one two]"
+    },
+    "pos.desk.coverError": {
+        "message": "[Çöûļðñ’ţ ûšé ţĥé þåçķåĝé. Ţŕý åĝåîñ. one two three]"
+    },
+    "pos.desk.giftCardPaid": {
+        "message": "[Ĝîƒţ çåŕð one]"
+    },
+    "pos.desk.giftCardCredit": {
+        "message": "[{money} ƒŕöɱ å ĝîƒţ çåŕð one two]"
+    },
+    "pos.desk.giftCardBeforeTip": {
+        "message": "[Åþþļý ţĥé ĝîƒţ çåŕð ƀéƒöŕé çĥööšîñĝ å ţîþ. one two three]"
+    },
+    "pos.desk.giftCardCode": {
+        "message": "[Ĝîƒţ çåŕð çöðé one two]"
+    },
+    "pos.desk.giftCardApply": {
+        "message": "[Åþþļý one]"
+    },
+    "pos.desk.giftCardError": {
+        "message": "[Ţĥåţ ĝîƒţ çåŕð çöûļðñ’ţ ƀé ûšéð. Çĥéçķ ţĥé çöðé åñð ţŕý åĝåîñ. one two three four]"
+    },
+    "pos.desk.paidByGiftCard": {
+        "message": "[ĝîƒţ çåŕð one]"
+    },
+    "pos.desk.sendAsInvoice": {
+        "message": "[Šéñð åš îñṽöîçé one two]"
+    },
+    "pos.desk.invoicedNotice": {
+        "message": "[{invoice} šéñţ ţö {name} one]"
+    },
+    "pos.desk.invoiceError": {
+        "message": "[Ţĥé îñṽöîçé çöûļðñ’ţ ƀé šéñţ. Ţŕý åĝåîñ. one two three]"
+    },
+    "pos.desk.bookNextOn": {
+        "message": "[Ɓööķ åĝåîñ ƒöŕ {date} one two]"
+    },
+    "pos.desk.visitNote": {
+        "message": "[Ñöţé ƒöŕ ţĥé çļîéñţ one two]"
+    },
+    "pos.desk.visitNotePlaceholder": {
+        "message": "[Ĥöŵ ţĥé ṽîšîţ ŵéñţ, ŵĥåţ ŵåš ûšéð, çåŕé ûñţîļ ñéẋţ ţîɱé one two three four]"
+    },
+    "pos.desk.visitNoteSend": {
+        "message": "[Šéñð ñöţé one]"
+    },
+    "pos.desk.visitNoteSent": {
+        "message": "[Ñöţé šéñţ, ŵîţĥ å ļîñķ ţö ţĥé ṽîšîţ åñð îţš þĥöţöš. one two three four]"
+    },
     "pos.desk.backToToday": {
         "message": "[Ɓåçķ ţö Ţöðåý one two]"
     },
@@ -11047,6 +11098,12 @@
     },
     "publicManage.hello": {
         "message": "[Ĥî {name} one]"
+    },
+    "publicManage.photos": {
+        "message": "[Þĥöţöš ƒŕöɱ ýöûŕ ṽîšîţ one two]"
+    },
+    "publicManage.photoAlt": {
+        "message": "[Å þĥöţö ƒŕöɱ ýöûŕ ṽîšîţ one two]"
     },
     "publicManage.extras": {
         "message": "[Éẋţŕåš one]"

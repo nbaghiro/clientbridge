@@ -18,6 +18,10 @@ import {
     formatAmountInput,
     formatCredit,
     usePeoplePhotos,
+    formatMonthDay,
+    useBusinessZone,
+    useNextVisit,
+    useVisitNote,
 } from "@clientbridge/app-core";
 import {
     Avatar,
@@ -35,7 +39,9 @@ import {
     SearchField,
     TextField,
 } from "@clientbridge/ui";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
+
+import { api } from "../lib/api";
 
 const d = strings.pos.desk;
 
@@ -444,6 +450,11 @@ export function TicketPanel({ sale, onCharge }: { sale: SaleTicket; onCharge: ()
                         <Notice tone="success">{sale.held}</Notice>
                     </div>
                 ) : null}
+                {sale.invoiced !== null ? (
+                    <div className="pt-3">
+                        <Notice tone="success">{sale.invoiced}</Notice>
+                    </div>
+                ) : null}
                 {sale.isEmpty ? (
                     <div className="flex flex-col items-center gap-2 px-6 py-12 text-center">
                         <Icon name="receipt" size={22} />
@@ -809,6 +820,62 @@ function ReceiptChooser({ sale }: { sale: SaleTicket }) {
     );
 }
 
+function VisitNoteBlock({ clientId, bookingId }: { clientId: string; bookingId: string }) {
+    const note = useVisitNote(api, clientId, bookingId);
+    return (
+        <div className="space-y-2">
+            <Heading>{d.visitNote}</Heading>
+            <TextField
+                label={d.visitNote}
+                multiline
+                rows={3}
+                value={note.body}
+                onChange={note.setBody}
+                placeholder={d.visitNotePlaceholder}
+                surface="surface"
+            />
+            {note.error !== null ? <Notice tone="danger">{note.error}</Notice> : null}
+            {note.sent ? <Notice tone="success">{d.visitNoteSent}</Notice> : null}
+            <Button
+                variant="outline"
+                icon="send"
+                busy={note.busy}
+                disabled={note.body.trim() === ""}
+                onPress={note.submit}
+            >
+                {d.visitNoteSend}
+            </Button>
+        </div>
+    );
+}
+
+function GiftCardEntry({ sale }: { sale: SaleTicket }) {
+    const g = sale.giftCard;
+    return (
+        <div className="space-y-2">
+            <div className="flex items-end gap-2">
+                <div className="min-w-0 flex-1">
+                    <TextField
+                        label={d.giftCardCode}
+                        value={g.code}
+                        onChange={g.setCode}
+                        surface="surface"
+                    />
+                </div>
+                <Button
+                    variant="outline"
+                    busy={g.busy}
+                    disabled={g.code.trim() === "" || sale.busy}
+                    onPress={g.apply}
+                >
+                    {d.giftCardApply}
+                </Button>
+            </div>
+            {g.error !== null ? <Notice tone="danger">{g.error}</Notice> : null}
+        </div>
+    );
+}
+
 const METHOD_LABEL: Record<SalePayMethod, string> = {
     get tap() {
         return d.methodTap;
@@ -833,10 +900,13 @@ function PaidSummary({
     onNew: () => void;
     onBookNext: () => void;
 }) {
-    const method =
-        sale.method === "saved" && sale.savedCardLabel !== null
-            ? sale.savedCardLabel
-            : METHOD_LABEL[sale.method];
+    const nextStart = useNextVisit(sale.visitId)?.start ?? null;
+    const zone = useBusinessZone();
+    const method = sale.paidByGiftCard
+        ? d.paidByGiftCard
+        : sale.method === "saved" && sale.savedCardLabel !== null
+          ? sale.savedCardLabel
+          : METHOD_LABEL[sale.method];
     return (
         <div className="space-y-5">
             <div className="flex flex-col items-center pt-2 text-center">
@@ -855,10 +925,15 @@ function PaidSummary({
                 <Heading>{d.receiptTitle}</Heading>
                 <ReceiptChooser sale={sale} />
             </div>
+            {sale.client !== null && sale.visitId !== null ? (
+                <VisitNoteBlock clientId={sale.client.id} bookingId={sale.visitId} />
+            ) : null}
             <div className="flex gap-2 border-t border-line pt-4">
                 {sale.client !== null ? (
                     <Button variant="outline" grow icon="calendar" onPress={onBookNext}>
-                        {d.bookNext}
+                        {nextStart === null
+                            ? d.bookNext
+                            : d.bookNextOn(formatMonthDay(nextStart, zone))}
                     </Button>
                 ) : null}
                 <Button grow onPress={onNew}>
@@ -880,6 +955,9 @@ export function PaySheet({
     onBookNext: () => void;
 }) {
     const close = sale.busy ? () => undefined : onClose;
+    useEffect(() => {
+        if (sale.invoiced !== null) onClose();
+    }, [sale.invoiced, onClose]);
     if (sale.phase === "paid") {
         return (
             <Modal open onClose={close} size="lg">
@@ -934,9 +1012,17 @@ export function PaySheet({
                                 )}
                             </p>
                         ) : null}
+                        {sale.totals.giftCardCents > 0 ? (
+                            <p className="text-xs text-muted">
+                                {d.giftCardCredit(
+                                    formatMoney(sale.totals.giftCardCents, BUSINESS_CURRENCY),
+                                )}
+                            </p>
+                        ) : null}
                     </div>
                 </div>
                 <TipBlock sale={sale} />
+                <GiftCardEntry sale={sale} />
                 <div>
                     <Heading>{d.howPaying}</Heading>
                     <Choice
@@ -955,9 +1041,21 @@ export function PaySheet({
                     </Notice>
                 ) : null}
                 <div className="flex items-center justify-between gap-3 border-t border-line pt-4">
-                    <Button variant="quiet" onPress={onClose} disabled={sale.busy}>
-                        {d.backToTicket}
-                    </Button>
+                    <div className="flex gap-2">
+                        <Button variant="quiet" onPress={onClose} disabled={sale.busy}>
+                            {d.backToTicket}
+                        </Button>
+                        {sale.canInvoice ? (
+                            <Button
+                                variant="outline"
+                                icon="send"
+                                disabled={sale.busy}
+                                onPress={sale.sendAsInvoice}
+                            >
+                                {d.sendAsInvoice}
+                            </Button>
+                        ) : null}
+                    </div>
                     <Button
                         size="lg"
                         onPress={() => {

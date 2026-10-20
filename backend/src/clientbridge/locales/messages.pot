@@ -828,6 +828,9 @@ msgstr ""
 msgid "verification_unknown.subject"
 msgstr ""
 
+msgid "visit_note.body"
+msgstr ""
+
 msgid "visits_reassigned.body"
 msgstr ""
 

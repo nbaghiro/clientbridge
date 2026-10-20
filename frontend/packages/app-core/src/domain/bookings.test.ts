@@ -22,6 +22,7 @@ import {
     minuteTop,
     moveFailure,
     needsClosing,
+    nextVisitStart,
     offHourSpans,
     openStarts,
     placeEvents,
@@ -722,5 +723,17 @@ describe("canCheckIn", () => {
         expect(canCheckIn(visit, staff, "site", ZONE, at(9))).toBe(false);
         const left = event("f", at(10), at(11), { departedAt: at(9) });
         expect(canCheckIn(left, staff, "site", ZONE, at(9, 30))).toBe(true);
+    });
+});
+
+describe("nextVisitStart", () => {
+    it("follows the series, else the client's own gap, else suggests nothing", () => {
+        const start = at(10);
+        expect(nextVisitStart(start, null, { frequency: "week", interval: 6 }, ZONE)).toEqual(
+            at(10, 0, 42),
+        );
+        expect(nextVisitStart(start, at(10, 0, -28), null, ZONE)).toEqual(at(10, 0, 28));
+        expect(nextVisitStart(start, null, null, ZONE)).toBeNull();
+        expect(nextVisitStart(start, at(9), null, ZONE)).toBeNull();
     });
 });

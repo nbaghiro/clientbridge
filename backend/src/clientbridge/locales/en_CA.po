@@ -819,6 +819,9 @@ msgstr "Verification request"
 msgid "verification_unknown.subject"
 msgstr "Clientbridge verification request"
 
+msgid "visit_note.body"
+msgstr "{note}\n\nPhotos and details from your visit: {link}"
+
 msgid "visits_reassigned.body"
 msgstr "These visits with {business} are now with {member}: {whens}."
 

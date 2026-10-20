@@ -35,6 +35,10 @@ class GiftCardRedeem(BaseModel):
     amount_cents: int
 
 
+class PackageCover(BaseModel):
+    booking_id: str = Field(min_length=1)
+
+
 class GiftCardOut(Mirror):
     mirrors = GiftCard
     derived = frozenset({"status"})

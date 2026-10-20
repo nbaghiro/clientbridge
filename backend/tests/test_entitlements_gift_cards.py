@@ -450,3 +450,129 @@ async def test_redeem_replays_on_the_same_key(
 async def test_writes_need_a_session_401(unauth: httpx.AsyncClient, path: str) -> None:
     body = {"code": "WHATEVER1234", "amount_cents": 100, "purchaser_client_id": PURCHASER}
     assert (await unauth.post(path, json=body)).status_code == 401
+
+
+BRUSH = {"description": "Brush", "unit_amount_cents": 2900, "tax_class": "standard"}
+
+
+async def _sale(api: httpx.AsyncClient) -> dict[str, object]:
+    created = await api.post("/v1/orders", json={"lines": [BRUSH]})
+    assert created.status_code == 201, created.text
+    sale: dict[str, object] = created.json()
+    return sale
+
+
+async def _apply(
+    api: httpx.AsyncClient, order_id: object, code: str, headers: dict[str, str] | None = None
+) -> httpx.Response:
+    return await api.post(
+        f"/v1/orders/{order_id}/gift-card", json={"code": code}, headers=headers or key()
+    )
+
+
+async def _balance(db: AsyncSession, card: GiftCard) -> int:
+    return await ledger.gift_card_balance(db, card)
+
+
+async def test_a_gift_card_pays_part_of_a_sale_and_cash_pays_the_rest(
+    as_staff: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    card = await _active_card(db, code="GIFTPART", balance=1000)
+    sale = await _sale(as_staff)
+    applied = await _apply(as_staff, sale["id"], "GIFTPART")
+    assert applied.status_code == 200, applied.text
+    out = applied.json()
+    assert (out["gift_card_cents"], out["status"]) == (1000, "open")
+    assert out["due_cents"] == out["total_cents"] - 1000
+    assert await _balance(db, card) == 0
+    paid = await as_staff.post(
+        f"/v1/orders/{sale['id']}/cash", json={"tendered_cents": 5000}, headers=key()
+    )
+    assert paid.status_code == 200, paid.text
+    assert paid.json()["amount_cents"] == out["due_cents"]
+
+
+async def test_a_gift_card_with_enough_balance_settles_the_sale(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    card = await _active_card(db, code="GIFTFULL", balance=10000)
+    sale = await _sale(as_owner)
+    out = (await _apply(as_owner, sale["id"], "GIFTFULL")).json()
+    assert (out["status"], out["gift_card_cents"]) == ("paid", sale["total_cents"])
+    assert out["paid_at"] is not None
+    assert await _balance(db, card) == 10000 - int(str(sale["total_cents"]))
+
+
+async def test_refunding_the_rest_gives_the_gift_card_balance_back(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await enable_payments(db)
+    card = await _active_card(db, code="GIFTBACK", balance=1000)
+    sale = await _sale(as_owner)
+    await _apply(as_owner, sale["id"], "GIFTBACK")
+    pay = await as_owner.post(f"/v1/orders/{sale['id']}/pay", json={})
+    assert pay.status_code == 200, pay.text
+    await settle(as_owner, db, pay.json()["payment_id"])
+    refunded = await as_owner.post(
+        f"/v1/payments/{pay.json()['payment_id']}/refund", json={}, headers=retry_key()
+    )
+    assert refunded.status_code == 200, refunded.text
+    assert await _balance(db, card) == 1000
+
+
+async def test_voiding_the_sale_gives_the_gift_card_balance_back(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    card = await _active_card(db, code="GIFTVOID", balance=1000)
+    sale = await _sale(as_owner)
+    await _apply(as_owner, sale["id"], "GIFTVOID")
+    voided = await as_owner.post(f"/v1/orders/{sale['id']}/void")
+    assert voided.status_code == 200, voided.text
+    assert await _balance(db, card) == 1000
+
+
+async def test_applying_a_gift_card_replays_without_charging_twice(
+    as_staff: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    card = await _active_card(db, code="GIFTONCE", balance=1000)
+    sale = await _sale(as_staff)
+    headers = key()
+    first = await _apply(as_staff, sale["id"], "GIFTONCE", headers)
+    again = await _apply(as_staff, sale["id"], "GIFTONCE", headers)
+    assert first.status_code == again.status_code == 200
+    assert again.json()["gift_card_cents"] == 1000
+    assert await _balance(db, card) == 0
+
+
+async def test_a_gift_card_is_refused_when_it_cannot_pay(
+    as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory
+) -> None:
+    sale = await _sale(as_owner)
+    assert (await _apply(as_owner, sale["id"], "NOSUCHCARD")).status_code == 404
+    spent = await _active_card(db, code="GIFTSPENT", balance=1000)
+    await ledger.post_redemption(db, spent, 1000)
+    assert (await _apply(as_owner, sale["id"], "GIFTSPENT")).status_code == 409
+    other = await _active_card(db, code="GIFTOTHER")
+    other.business_id = (await factory.business(name="Elsewhere")).id
+    await db.flush()
+    assert (await _apply(as_owner, sale["id"], "GIFTOTHER")).status_code == 404
+    await _active_card(db, code="GIFTPAID", balance=10000)
+    assert (await _apply(as_owner, sale["id"], "GIFTPAID")).status_code == 200
+    assert (await _apply(as_owner, sale["id"], "GIFTPAID")).status_code == 409
+
+
+async def test_editing_a_sale_gives_its_gift_card_credit_back(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    card = await _active_card(db, code="GIFTEDIT", balance=1000)
+    sale = await _sale(as_owner)
+    await _apply(as_owner, sale["id"], "GIFTEDIT")
+    cheaper = {**BRUSH, "unit_amount_cents": 500}
+    edited = await as_owner.patch(f"/v1/orders/{sale['id']}", json={"lines": [cheaper]})
+    assert edited.status_code == 200, edited.text
+    assert (edited.json()["gift_card_cents"], edited.json()["status"]) == (0, "open")
+    assert await _balance(db, card) == 1000
+    again = await _apply(as_owner, sale["id"], "GIFTEDIT")
+    assert again.status_code == 200, again.text
+    assert again.json()["status"] == "paid"
+    assert await _balance(db, card) == 1000 - again.json()["total_cents"]
