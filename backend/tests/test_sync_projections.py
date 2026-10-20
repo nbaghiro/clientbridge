@@ -76,7 +76,13 @@ SNAPSHOT = Path(__file__).parent / "fixtures" / "sync_projections.json"
 OWNER_ONLY = {
     "gift_cards": {"code"},
     "staff": {"payee", "rate_type", "rate_bps", "rate_cents", "retail_rate_bps"},
-    "businesses": {"gst_hst_number", "qst_number", "pst_number", "billing_email"},
+    "businesses": {
+        "gst_hst_number",
+        "qst_number",
+        "pst_number",
+        "billing_email",
+        "review_requests_enabled",
+    },
 }
 LIMITED_STREAMS = (
     "business_shared",

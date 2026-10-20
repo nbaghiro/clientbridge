@@ -143,6 +143,24 @@ async def test_business_update_no_longer_sets_the_review_link(
     assert business.google_review_url is None
 
 
+async def test_managers_turn_automatic_requests_off_and_manual_ones_still_send(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await _configure(db)
+    off = await as_owner.patch("/v1/business", json={"review_requests_enabled": False})
+    assert off.status_code == 200, off.text
+    assert off.json()["review_requests_enabled"] is False
+    kept = await as_owner.patch("/v1/business", json={"review_requests_enabled": None})
+    assert kept.json()["review_requests_enabled"] is False
+    sent = await as_owner.post("/v1/reviews/request", json={"client_id": await new_client(db)})
+    assert sent.status_code == 201, sent.text
+
+
+async def test_staff_cannot_change_automatic_requests(as_staff: httpx.AsyncClient) -> None:
+    denied = await as_staff.patch("/v1/business", json={"review_requests_enabled": False})
+    assert denied.status_code == 403
+
+
 async def test_request_needs_google_link(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
     await _configure(db, None)
     result = await as_owner.post("/v1/reviews/request", json={"client_id": await client_id(db)})

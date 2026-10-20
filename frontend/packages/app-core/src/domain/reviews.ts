@@ -26,6 +26,39 @@ WHERE b.status = 'completed' AND b.completed_at >= ? AND c.status = 'active'
 ORDER BY b.completed_at DESC, b.id DESC
 LIMIT 8`;
 
+const REVIEW_AUTOMATION_SQL = `SELECT review_requests_enabled FROM businesses LIMIT 1`;
+
+/** Whether the morning job asks clients for a review after a completed visit. */
+export function useReviewAutomation(api: ApiLike) {
+    const query = useQuery<{ review_requests_enabled: number }>(REVIEW_AUTOMATION_SQL);
+    const [pending, setPending] = useState<boolean | null>(null);
+    const { busy, error, run } = useAsyncAction();
+    const stored = (query.data[0]?.review_requests_enabled ?? 1) === 1;
+    // the saved choice shows until the replica catches up with it
+    useEffect(() => {
+        if (pending === stored) setPending(null);
+    }, [pending, stored]);
+    return {
+        enabled: pending ?? stored,
+        busy,
+        error,
+        setEnabled: (enabled: boolean) => {
+            run(
+                async () => {
+                    setPending(enabled);
+                    try {
+                        await api.patch("/v1/business", { review_requests_enabled: enabled });
+                    } catch (failure) {
+                        setPending(null);
+                        throw failure;
+                    }
+                },
+                { errorMessage: strings.reviews.automationError },
+            );
+        },
+    };
+}
+
 interface ReviewRequestRow {
     id: string;
     client_id: string;

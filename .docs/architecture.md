@@ -338,8 +338,9 @@ and request timestamp. Invitations link directly to `businesses.google_review_ur
 a link are skipped. The link is not editable through the API; the Google integration will supply it.
 Booking requests serialize on the booking row and reject repeated invitations. A client gets at most
 one request in 30 days, whether an owner asks or the morning job sends it, and the job skips archived
-clients. A client who unsubscribed from email gets the invitation only by text, and the email carries
-the same unsubscribe link as broadcasts.
+clients and businesses that turned off `review_requests_enabled` (owner/admin setting, synced to
+managers only; manual requests still work). A client who unsubscribed from email gets the
+invitation only by text, and the email carries the same unsubscribe link as broadcasts.
 No internal feedback, public review form, ratings, publication controls or local replies exist.
 Google Business Profile API reads and replies are planned separately.
 

@@ -12632,6 +12632,15 @@
     "publicForm.signatureRequired": {
         "message": "[Éñţéŕ ýöûŕ ƒûļļ ñåɱé åñð åĝŕéé ţö šîĝñ ţĥîš ƒöŕɱ. one two three four]"
     },
+    "reviews.automation": {
+        "message": "[Åšķ åƒţéŕ éåçĥ ṽîšîţ one two]"
+    },
+    "reviews.automationHint": {
+        "message": "[Ţĥé ɱöŕñîñĝ åƒţéŕ å çöɱþļéţéð ṽîšîţ, çļîéñţš ĝéţ öñé ŕéṽîéŵ ŕéǫûéšţ. Ñöƀöðý îš åšķéð ɱöŕé ţĥåñ öñçé îñ 30 ðåýš. one two three four five six seven]"
+    },
+    "reviews.automationError": {
+        "message": "[Ţĥé šéţţîñĝ çöûļðñ'ţ ƀé šåṽéð. Þļéåšé ţŕý åĝåîñ. one two three four]"
+    },
     "reviews.retry": {
         "message": "[Ţŕý åĝåîñ one]"
     },

@@ -120,7 +120,11 @@ class ReviewService:
 async def run_review_requests(db: AsyncSession, notifier: Notifier, now: datetime) -> int:
     requests = []
     for business in await businesses_at_hour(db, now, 8):
-        if plan_access(business, now) == "lapsed" or not business.google_review_url:
+        if (
+            plan_access(business, now) == "lapsed"
+            or not business.google_review_url
+            or not business.review_requests_enabled
+        ):
             continue
         requested = (
             scoped(ReviewRequest, business.id)

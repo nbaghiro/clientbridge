@@ -67,6 +67,7 @@ class BusinessOut(Mirror):
     filing_frequency: FilingFrequency
     setup_dismissed_at: datetime | None
     google_review_url: str | None
+    review_requests_enabled: bool
     unit: str | None
     street_number: str | None
     street_name: str | None
@@ -157,6 +158,9 @@ class BusinessSettingsUpdate(Mirror):
     )
     setup_dismissed: bool | None = Field(
         default=None, description="Hide (true) or show (false) the Get set up list"
+    )
+    review_requests_enabled: bool | None = Field(
+        default=None, description="Ask clients for a review the morning after a completed visit"
     )
     province: ProvinceCode | None = Field(
         default=None,

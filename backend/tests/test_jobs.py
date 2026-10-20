@@ -307,6 +307,19 @@ async def test_review_requests_ask_each_client_once(
     assert await run_review_requests(db, notifier, REVIEWS_AT + timedelta(days=1)) == 0
 
 
+async def test_review_requests_skip_businesses_that_turned_them_off(
+    db: AsyncSession, email: FakeEmailSender, sms: FakeSmsSender, push: FakePushSender
+) -> None:
+    business = await db.get(Business, BIZ)
+    assert business is not None
+    business.google_review_url = "https://g.page/r/example/review"
+    business.review_requests_enabled = False
+    await db.flush()
+    await _completed_booking(db, await new_client(db), completed_at=NOW)
+    assert await run_review_requests(db, _notifier(email, sms, push), REVIEWS_AT) == 0
+    assert not email.sent
+
+
 async def test_review_requests_skip_archived_clients(
     db: AsyncSession, email: FakeEmailSender, sms: FakeSmsSender, push: FakePushSender
 ) -> None:

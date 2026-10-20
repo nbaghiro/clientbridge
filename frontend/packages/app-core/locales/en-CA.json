@@ -13490,6 +13490,16 @@
     "publicForm.signatureRequired": {
         "message": "Enter your full name and agree to sign this form."
     },
+    "reviews.automation": {
+        "message": "Ask after each visit",
+        "description": "Toggle label for sending review requests automatically"
+    },
+    "reviews.automationHint": {
+        "message": "The morning after a completed visit, clients get one review request. Nobody is asked more than once in 30 days."
+    },
+    "reviews.automationError": {
+        "message": "The setting couldn't be saved. Please try again."
+    },
     "reviews.retry": {
         "message": "Try again"
     },

@@ -84,4 +84,4 @@ Shipped without schema changes, ahead of the settings in [schema](schema.md):
 - Invitation emails carry the broadcast unsubscribe link, and a client whose latest email consent is withdrawn gets the invitation only by text.
 - `PATCH /v1/business` no longer accepts `google_review_url`, so an account cannot send clients an arbitrary link. The column stays until the connection slice replaces it.
 
-Still pending approval: `businesses.review_requests_enabled` and the other invitation settings.
+- Approved and added on 2026-10-19: `businesses.review_requests_enabled` boolean, not null, default true (cb0024). The morning job skips a business that turns it off; manual requests still send. Owners and admins change it from the Reviews screen. The send hour, delay and configurable cooldown in [schema](schema.md) remain proposals.
