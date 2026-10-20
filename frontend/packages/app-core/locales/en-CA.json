@@ -189,6 +189,9 @@
     "api.broadcastContactMissing": {
         "message": "Add a business email, phone number or website in Business settings before sending a broadcast."
     },
+    "api.reviewRecentlyRequested": {
+        "message": "You asked this client for a review in the last 30 days, so they won't get another one yet."
+    },
     "api.provinceLocked": {
         "message": "The province can't change after a document that charged tax has been issued."
     },
@@ -13486,6 +13489,16 @@
     },
     "publicForm.signatureRequired": {
         "message": "Enter your full name and agree to sign this form."
+    },
+    "reviews.automation": {
+        "message": "Ask after each visit",
+        "description": "Toggle label for sending review requests automatically"
+    },
+    "reviews.automationHint": {
+        "message": "The morning after a completed visit, clients get one review request. Nobody is asked more than once in 30 days."
+    },
+    "reviews.automationError": {
+        "message": "The setting couldn't be saved. Please try again."
     },
     "reviews.retry": {
         "message": "Try again"

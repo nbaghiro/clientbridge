@@ -4082,6 +4082,8 @@ export interface components {
             setup_dismissed_at: string | null;
             /** Google Review Url */
             google_review_url: string | null;
+            /** Review Requests Enabled */
+            review_requests_enabled: boolean;
             /** Unit */
             unit: string | null;
             /** Street Number */
@@ -4128,10 +4130,10 @@ export interface components {
              */
             setup_dismissed?: boolean | null;
             /**
-             * Google Review Url
-             * @description The Google review link sent in invitations; empty clears
+             * Review Requests Enabled
+             * @description Ask clients for a review the morning after a completed visit
              */
-            google_review_url?: string | null;
+            review_requests_enabled?: boolean | null;
             /**
              * Province
              * @description Sets the sales tax for new prices; issued documents keep the tax they charged

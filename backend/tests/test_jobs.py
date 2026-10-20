@@ -14,6 +14,7 @@ from clientbridge.core.ids import new_id
 from clientbridge.models.billing import Estimate, Invoice
 from clientbridge.models.business import Business
 from clientbridge.models.catalog import GiftCard, Item, Package
+from clientbridge.models.clients import Client
 from clientbridge.models.platform import Device
 from clientbridge.models.reviews import ReviewRequest
 from clientbridge.models.scheduling import Booking, Slot
@@ -32,7 +33,7 @@ from tests.conftest import (
     FakePushSender,
     FakeSmsSender,
 )
-from tests.helpers import client_id, sent_invoice
+from tests.helpers import client_id, new_client, sent_invoice
 
 BIZ = "bz_birchbark"
 ST_OWNER = "st_owner"
@@ -286,6 +287,54 @@ async def test_review_requests_skips_non_completed_and_stale(
     await _completed_booking(db, cid, completed_at=NOW, status="confirmed")  # not completed
     await _completed_booking(db, cid, completed_at=NOW - timedelta(days=30))  # outside 7d window
     assert await run_review_requests(db, _notifier(email, sms, push), REVIEWS_AT) == 0
+
+
+async def test_review_requests_ask_each_client_once(
+    db: AsyncSession, email: FakeEmailSender, sms: FakeSmsSender, push: FakePushSender
+) -> None:
+    business = await db.get(Business, BIZ)
+    assert business is not None
+    business.google_review_url = "https://g.page/r/example/review"
+    await db.flush()
+    cid = await new_client(db, email="regular@example.ca")
+    await _completed_booking(db, cid, completed_at=NOW - timedelta(days=2))
+    latest = await _completed_booking(db, cid, completed_at=NOW)
+    notifier = _notifier(email, sms, push)
+    assert await run_review_requests(db, notifier, REVIEWS_AT) == 1
+    asked = (await db.scalars(select(ReviewRequest).where(ReviewRequest.client_id == cid))).all()
+    assert [r.booking_id for r in asked] == [latest]
+    assert sum(m.to == "regular@example.ca" for m in email.sent) == 1
+    assert await run_review_requests(db, notifier, REVIEWS_AT + timedelta(days=1)) == 0
+
+
+async def test_review_requests_skip_businesses_that_turned_them_off(
+    db: AsyncSession, email: FakeEmailSender, sms: FakeSmsSender, push: FakePushSender
+) -> None:
+    business = await db.get(Business, BIZ)
+    assert business is not None
+    business.google_review_url = "https://g.page/r/example/review"
+    business.review_requests_enabled = False
+    await db.flush()
+    await _completed_booking(db, await new_client(db), completed_at=NOW)
+    assert await run_review_requests(db, _notifier(email, sms, push), REVIEWS_AT) == 0
+    assert not email.sent
+
+
+async def test_review_requests_skip_archived_clients(
+    db: AsyncSession, email: FakeEmailSender, sms: FakeSmsSender, push: FakePushSender
+) -> None:
+    business = await db.get(Business, BIZ)
+    assert business is not None
+    business.google_review_url = "https://g.page/r/example/review"
+    await db.flush()
+    cid = await new_client(db, email="archived@example.ca")
+    await _completed_booking(db, cid, completed_at=NOW)
+    client = await db.get(Client, cid)
+    assert client is not None
+    client.deleted_at = NOW
+    await db.flush()
+    assert await run_review_requests(db, _notifier(email, sms, push), REVIEWS_AT) == 0
+    assert not email.sent
 
 
 async def test_expiry_sweeps_lapse_only_past_rows(db: AsyncSession) -> None:

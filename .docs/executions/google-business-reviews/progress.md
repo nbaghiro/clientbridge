@@ -75,3 +75,13 @@ Merged `origin/main` through `cfc44acf`, preserving the Google-first screens and
 ## CI walkthrough repair
 
 Run 39177895198 tested GitHub's merge with main `b1eeb3e7`, whose demo seed changed after the previous merge. Updated staff-pay navigation to a seeded payee, mobile payout setup to the ready state, and Cedar Coast booking navigation to its populated catalog. The booking/manage walkthrough now uses a no-deposit service, so it creates and cancels a real booking without requiring Stripe credentials that CI does not provide. The deposit/slot-conflict boundary test remains in place. Merged the same main commit locally to validate the actual CI tree.
+
+## Review request guards (2026-10-19)
+
+Shipped without schema changes, ahead of the settings in [schema](schema.md):
+
+- A client gets at most one review request in 30 days, from the morning job or an owner's request (`review_recently_requested`). The job asks for the latest completed visit only and skips archived clients.
+- Invitation emails carry the broadcast unsubscribe link, and a client whose latest email consent is withdrawn gets the invitation only by text.
+- `PATCH /v1/business` no longer accepts `google_review_url`, so an account cannot send clients an arbitrary link. The column stays until the connection slice replaces it.
+
+- Approved and added on 2026-10-19: `businesses.review_requests_enabled` boolean, not null, default true (cb0024). The morning job skips a business that turns it off; manual requests still send. Owners and admins change it from the Reviews screen. The send hour, delay and configurable cooldown in [schema](schema.md) remain proposals.

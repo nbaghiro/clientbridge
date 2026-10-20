@@ -13,6 +13,7 @@ from clientbridge.core.config import get_settings
 from clientbridge.core.errors import TooManyRequests
 from clientbridge.core.ratelimit import RateLimiter, public_prefs_rate_limit
 from clientbridge.main import app
+from clientbridge.models.business import Business
 from clientbridge.models.clients import Client, Consent
 from clientbridge.services.consents import prefs_token, record_consent
 from clientbridge.services.messaging import broadcast_recipients
@@ -184,10 +185,10 @@ async def test_ordinary_replies_leave_consent_alone(
 async def test_stopped_client_gets_no_reminder_texts(
     as_owner: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender
 ) -> None:
-    ok(
-        await as_owner.patch(
-            "/v1/business", json={"google_review_url": "https://g.page/r/example/review"}
-        )
+    await db.execute(
+        update(Business)
+        .where(Business.id == BIZ)
+        .values(google_review_url="https://g.page/r/example/review")
     )
     cid = await _client(db)
     await _text_in(as_owner, "STOP", "SM_stop_2")

@@ -21,6 +21,22 @@ from clientbridge.services.business import businesses_at_hour
 from clientbridge.services.notifications import Notifier
 from clientbridge.services.plans import plan_access
 
+# a client with several visits gets at most one request in this span, asked for or sent by the job
+REQUEST_COOLDOWN = timedelta(days=30)
+
+
+async def recently_asked(db: AsyncSession, business_id: str, now: datetime) -> set[str]:
+    return set(
+        await db.scalars(
+            scoped(ReviewRequest, business_id)
+            .with_only_columns(ReviewRequest.client_id)
+            .where(
+                ReviewRequest.requested_at > now - REQUEST_COOLDOWN,
+                ReviewRequest.requested_at <= now,
+            )
+        )
+    )
+
 
 def build_review_request(
     business_id: str, client_id: str, booking_id: str | None, now: datetime
@@ -77,7 +93,13 @@ class ReviewService:
                 )
                 if existing is not None:
                     raise Conflict("a review was already requested for that booking")
-            request = build_review_request(self.biz, data.client_id, data.booking_id, clock.now())
+            now = clock.now()
+            if data.client_id in await recently_asked(self.db, self.biz, now):
+                raise Conflict(
+                    "a review was requested from this client in the last 30 days",
+                    code="review_recently_requested",
+                )
+            request = build_review_request(self.biz, data.client_id, data.booking_id, now)
             self.db.add(request)
             await self.db.flush()
             cmd.record("review.request", entity_type="review_request", entity_id=request.id)
@@ -98,13 +120,18 @@ class ReviewService:
 async def run_review_requests(db: AsyncSession, notifier: Notifier, now: datetime) -> int:
     requests = []
     for business in await businesses_at_hour(db, now, 8):
-        if plan_access(business, now) == "lapsed" or not business.google_review_url:
+        if (
+            plan_access(business, now) == "lapsed"
+            or not business.google_review_url
+            or not business.review_requests_enabled
+        ):
             continue
         requested = (
             scoped(ReviewRequest, business.id)
             .with_only_columns(ReviewRequest.booking_id)
             .where(ReviewRequest.booking_id.is_not(None))
         )
+        active = scoped(Client, business.id, soft_delete=True).with_only_columns(Client.id)
         bookings = await db.scalars(
             scoped(Booking, business.id, soft_delete=True)
             .where(
@@ -112,10 +139,16 @@ async def run_review_requests(db: AsyncSession, notifier: Notifier, now: datetim
                 Booking.completed_at >= now - timedelta(days=7),
                 Booking.completed_at <= now,
                 Booking.id.not_in(requested),
+                Booking.client_id.in_(active),
             )
+            .order_by(Booking.completed_at.desc(), Booking.id)
             .with_for_update(skip_locked=True)
         )
+        asked = await recently_asked(db, business.id, now)
         for booking in bookings:
+            if booking.client_id in asked:
+                continue
+            asked.add(booking.client_id)
             request = build_review_request(business.id, booking.client_id, booking.id, now)
             db.add(request)
             requests.append(request)

@@ -312,6 +312,7 @@ const businesses = new Table(
         pst_number: column.text,
         setup_dismissed_at: column.text,
         google_review_url: column.text,
+        review_requests_enabled: column.integer,
         brand: column.text,
         billing_email: column.text,
         stripe_account_id: column.text,

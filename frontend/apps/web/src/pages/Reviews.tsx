@@ -4,6 +4,7 @@ import {
     parseTimestamp,
     strings,
     useRequestReview,
+    useReviewAutomation,
     useReviewQueue,
     useGoogleReviews,
     useBusinessZone,
@@ -19,6 +20,7 @@ import {
     SearchSelect,
     Stars,
     TextField,
+    Toggle,
 } from "@clientbridge/ui";
 import { useState } from "react";
 import { Loaded } from "../components/Loaded";
@@ -29,6 +31,7 @@ const dateOf = (value: string, zone: string): string => formatDate(parseTimestam
 export function Reviews() {
     const google = useGoogleReviews(api);
     const queue = useReviewQueue(google.canRequest);
+    const automation = useReviewAutomation(api);
     const [asking, setAsking] = useState(false);
     const connect = () => {
         const popup = window.open("about:blank", "google-business", "width=600,height=760");
@@ -214,6 +217,16 @@ export function Reviews() {
                         </Button>
                     ) : null}
                     <Loaded load={queue.load} loading={s.requestsLoading} failed={s.loadError}>
+                        <Toggle
+                            label={s.automation}
+                            hint={s.automationHint}
+                            value={automation.enabled}
+                            disabled={automation.busy}
+                            onChange={automation.setEnabled}
+                        />
+                        {automation.error !== null ? (
+                            <Notice tone="danger">{automation.error}</Notice>
+                        ) : null}
                         <Button
                             icon="send"
                             disabled={!google.canRequest}

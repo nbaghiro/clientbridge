@@ -164,6 +164,9 @@
     "api.broadcastContactMissing": {
         "message": "[Åðð å ƀûšîñéšš éɱåîļ, þĥöñé ñûɱƀéŕ öŕ ŵéƀšîţé îñ Ɓûšîñéšš šéţţîñĝš ƀéƒöŕé šéñðîñĝ å ƀŕöåðçåšţ. one two three four five six seven]"
     },
+    "api.reviewRecentlyRequested": {
+        "message": "[Ýöû åšķéð ţĥîš çļîéñţ ƒöŕ å ŕéṽîéŵ îñ ţĥé ļåšţ 30 ðåýš, šö ţĥéý ŵöñ'ţ ĝéţ åñöţĥéŕ öñé ýéţ. one two three four five six]"
+    },
     "api.provinceLocked": {
         "message": "[Ţĥé þŕöṽîñçé çåñ'ţ çĥåñĝé åƒţéŕ å ðöçûɱéñţ ţĥåţ çĥåŕĝéð ţåẋ ĥåš ƀééñ îššûéð. one two three four five]"
     },
@@ -12628,6 +12631,15 @@
     },
     "publicForm.signatureRequired": {
         "message": "[Éñţéŕ ýöûŕ ƒûļļ ñåɱé åñð åĝŕéé ţö šîĝñ ţĥîš ƒöŕɱ. one two three four]"
+    },
+    "reviews.automation": {
+        "message": "[Åšķ åƒţéŕ éåçĥ ṽîšîţ one two]"
+    },
+    "reviews.automationHint": {
+        "message": "[Ţĥé ɱöŕñîñĝ åƒţéŕ å çöɱþļéţéð ṽîšîţ, çļîéñţš ĝéţ öñé ŕéṽîéŵ ŕéǫûéšţ. Ñöƀöðý îš åšķéð ɱöŕé ţĥåñ öñçé îñ 30 ðåýš. one two three four five six seven]"
+    },
+    "reviews.automationError": {
+        "message": "[Ţĥé šéţţîñĝ çöûļðñ'ţ ƀé šåṽéð. Þļéåšé ţŕý åĝåîñ. one two three four]"
     },
     "reviews.retry": {
         "message": "[Ţŕý åĝåîñ one]"

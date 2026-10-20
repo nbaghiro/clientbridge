@@ -5,7 +5,13 @@ import { afterEach, expect, it, vi } from "vitest";
 import type { ApiLike } from "../api";
 import { BusinessZoneContext } from "../datetime";
 import { strings } from "../strings";
-import { useGoogleReviews, useRequestReview } from "./reviews";
+import { useGoogleReviews, useRequestReview, useReviewAutomation } from "./reviews";
+
+const replica = vi.hoisted(() => ({ rows: [] as unknown[] }));
+vi.mock("../hooks", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("../hooks")>()),
+    useBusinessQuery: () => ({ data: replica.rows }),
+}));
 
 afterEach(cleanup);
 const wrapper = ({ children }: { children: ReactNode }) =>
@@ -13,8 +19,9 @@ const wrapper = ({ children }: { children: ReactNode }) =>
 function boundary() {
     const get = vi.fn();
     const post = vi.fn().mockResolvedValue({});
-    const api: ApiLike = { get, post, getText: vi.fn(), patch: vi.fn(), delete: vi.fn() };
-    return { api, get, post };
+    const patch = vi.fn();
+    const api: ApiLike = { get, post, getText: vi.fn(), patch, delete: vi.fn() };
+    return { api, get, post, patch };
 }
 const active = {
     state: "active",
@@ -317,4 +324,37 @@ it("disconnects without deleting Google reviews", async () => {
     expect(result.current.reviews).toEqual([]);
     expect(result.current.canRequest).toBe(false);
     expect(post.mock.lastCall?.[0]).toBe("/v1/reviews/google/disconnect");
+});
+
+it("saves the automatic request setting and shows it until the replica catches up", async () => {
+    replica.rows = [{ review_requests_enabled: 1 }];
+    const { api, patch } = boundary();
+    patch.mockResolvedValue({});
+    const { result, rerender } = renderHook(() => useReviewAutomation(api), { wrapper });
+    expect(result.current.enabled).toBe(true);
+    act(() => {
+        result.current.setEnabled(false);
+    });
+    await waitFor(() => {
+        expect(result.current.busy).toBe(false);
+    });
+    expect(patch).toHaveBeenCalledWith("/v1/business", { review_requests_enabled: false });
+    expect(result.current.enabled).toBe(false);
+    replica.rows = [{ review_requests_enabled: 0 }];
+    rerender();
+    expect(result.current.enabled).toBe(false);
+});
+
+it("reverts the automatic request setting when saving fails", async () => {
+    replica.rows = [{ review_requests_enabled: 1 }];
+    const { api, patch } = boundary();
+    patch.mockRejectedValue(new Error("offline"));
+    const { result } = renderHook(() => useReviewAutomation(api), { wrapper });
+    act(() => {
+        result.current.setEnabled(false);
+    });
+    await waitFor(() => {
+        expect(result.current.error).toBe(strings.reviews.automationError);
+    });
+    expect(result.current.enabled).toBe(true);
 });

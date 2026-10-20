@@ -29,6 +29,7 @@ _KEPT_ON_NULL = (
     "province",
     "filing_frequency",
     "tax_registered",
+    "review_requests_enabled",
 )
 # Canada Post assigns each postal code's first letter to one province or territory
 _POSTAL_PROVINCES: dict[str, tuple[ProvinceCode, ...]] = {

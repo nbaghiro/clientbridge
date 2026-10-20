@@ -70,6 +70,7 @@ interface Strings {
         readonly staffHasFutureWork: string;
         readonly broadcastAddressMissing: string;
         readonly broadcastContactMissing: string;
+        readonly reviewRecentlyRequested: string;
         readonly provinceLocked: string;
         readonly postalCodeProvinceMismatch: string;
         readonly businessAddressIncomplete: string;
@@ -2005,6 +2006,9 @@ interface Strings {
         readonly requestedOn: (date: string) => string;
         readonly clientFallback: string;
         readonly sendRequestError: string;
+        readonly automation: string;
+        readonly automationHint: string;
+        readonly automationError: string;
         readonly retry: string;
         readonly unavailable: string;
         readonly connectTitle: string;

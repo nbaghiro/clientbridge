@@ -1,8 +1,10 @@
 """Client engagement flows: forms, contracts, reviews, messages and broadcasts."""
 
 import httpx
+from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.models.business import Business
 from clientbridge.services.messaging import run_due_broadcasts
 from tests.conftest import FakeEmailSender, FakeSmsSender
 from tests.helpers import local_hour, ok, text_in, unread
@@ -68,10 +70,12 @@ async def test_contract_is_sent_and_signed(
 
 
 async def test_review_invitation_links_directly_to_google(
-    as_owner: httpx.AsyncClient, email: FakeEmailSender
+    as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
 ) -> None:
     url = "https://g.page/r/example/review"
-    ok(await as_owner.patch("/v1/business", json={"google_review_url": url}))
+    await db.execute(
+        update(Business).where(Business.id == "bz_birchbark").values(google_review_url=url)
+    )
     cid = await _client(as_owner, email="review-flow@example.ca")
     request = ok(await as_owner.post("/v1/reviews/request", json={"client_id": cid}), 201).json()
     assert request["requested_at"]
