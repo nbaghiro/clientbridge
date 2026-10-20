@@ -28,7 +28,6 @@ import {
 import { INTENT_COLORS, cssVar } from "@clientbridge/tokens";
 import { useState } from "react";
 
-import { FILL } from "../components/PageFrame";
 import { ScheduleFrame } from "../components/ScheduleViews";
 import { SummaryStrip } from "../components/SummaryStrip";
 import { api } from "../lib/api";
@@ -59,7 +58,7 @@ export function Classes() {
             }
         >
             <div
-                className={`relative flex ${FILL} flex-col overflow-hidden rounded-lg border border-line bg-surface shadow-card`}
+                className="relative flex flex-col overflow-hidden rounded-lg border border-line bg-surface shadow-card"
             >
                 {board.load.hasData && board.sessions.length === 0 ? null : (
                     <SummaryStrip items={board.summary} />
@@ -82,8 +81,8 @@ export function Classes() {
                         />
                     </div>
                 ) : board.sessions.length === 0 ? (
-                    <div className="flex min-h-0 flex-1 items-start justify-center bg-bg/40 pt-24">
-                        <div className="w-[360px] rounded-lg bg-surface shadow-card">
+                    <div className="flex justify-center px-5 py-12">
+                        <div className="w-[360px]">
                             <Empty
                                 variant="card"
                                 icon="users"

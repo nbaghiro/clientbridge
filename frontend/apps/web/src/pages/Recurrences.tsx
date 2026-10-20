@@ -31,7 +31,6 @@ import {
 } from "@clientbridge/ui";
 import { type ReactNode, useState } from "react";
 
-import { FILL } from "../components/PageFrame";
 import { ScheduleFrame } from "../components/ScheduleViews";
 import { SeriesComposer } from "../components/SeriesComposer";
 import { api } from "../lib/api";
@@ -90,7 +89,7 @@ export function Recurrences() {
             }
         >
             <div
-                className={`relative flex ${FILL} flex-col overflow-hidden rounded-lg border border-line bg-surface shadow-card`}
+                className="relative flex flex-col overflow-hidden rounded-lg border border-line bg-surface shadow-card"
             >
                 {list.load.state === "loading" ? (
                     <div className="min-h-0 flex-1 p-5">
@@ -105,8 +104,8 @@ export function Recurrences() {
                         />
                     </div>
                 ) : none ? (
-                    <div className="flex min-h-0 flex-1 items-start justify-center bg-bg/40 pt-24">
-                        <div className="w-[360px] rounded-lg bg-surface shadow-card">
+                    <div className="flex justify-center px-5 py-12">
+                        <div className="w-[360px]">
                             <Empty
                                 variant="card"
                                 icon="repeat"
