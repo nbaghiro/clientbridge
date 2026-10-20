@@ -135,6 +135,8 @@ async def main(biz: str) -> None:
                     Booking.source == "online",
                     Booking.status == "confirmed",
                     Booking.deleted_at.is_(None),
+                    # a class seat can't be moved from its manage page
+                    Slot.capacity <= 1,
                     Slot.starts_at > now,
                 )
                 .order_by(Slot.starts_at.desc(), Booking.id),
