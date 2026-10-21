@@ -9,11 +9,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
 from clientbridge.core.config import get_settings
+from clientbridge.core.ids import new_id
 from clientbridge.models.billing import Estimate, Invoice
+from clientbridge.models.business import Business
 from clientbridge.models.clients import Consent
 from clientbridge.models.platform import File, FileParent
 from clientbridge.models.scheduling import Booking, Slot
-from tests.conftest import BIZ
+from tests.conftest import BIZ, Factory
 
 
 def test_demo_preflight_rejects_corrupted_booking_timestamps() -> None:
@@ -107,6 +109,42 @@ async def test_demo_preflight_rejects_photos_that_break_the_portrait_rules(
     assert "one_photo_per_person: us_diego" in errors
     assert "people_photo_parent: fl_test_outsider" in errors
     assert "people_photo_parent: fl_test_pending" in errors
+
+
+async def test_a_portrait_may_sit_on_a_bill_that_is_not_yet_due(
+    db: AsyncSession, factory: Factory
+) -> None:
+    business = await db.get(Business, BIZ)
+    assert business is not None
+    client = await factory.client(business=business, name="Portrait Client")
+    now = clock.now()
+    bill = Invoice(
+        id=new_id("invoice"),
+        business_id=BIZ,
+        client_id=client.id,
+        number=9901,
+        status="sent",
+        currency="CAD",
+        total_cents=5000,
+        issued_at=now - timedelta(hours=1),
+        due_at=now + timedelta(days=14),
+    )
+    photo = File(
+        id=new_id("file"),
+        business_id=BIZ,
+        parent_type="client",
+        parent_id=client.id,
+        purpose="photo",
+        s3_key=f"{BIZ}/portrait",
+        uploaded_at=now,
+    )
+    db.add_all([bill, photo])
+    await db.flush()
+    flagged = f"photo_on_negative_storyline: {client.id}"
+    assert flagged not in (await validate_database(db))["errors"]
+    bill.due_at = now - timedelta(days=1)
+    await db.flush()
+    assert flagged in (await validate_database(db))["errors"]
 
 
 async def test_seed_reset_preserves_unrelated_accounts(owner_db: AsyncSession) -> None:
