@@ -8,11 +8,10 @@ import {
 } from "@clientbridge/app-core";
 import {
     Button,
-    Checkbox,
     Choice,
-    LoadFailed,
     MessageBubble,
     Notice,
+    PageHeader,
     Panel,
     Skeleton,
     Stat,
@@ -20,6 +19,7 @@ import {
 import { useState } from "react";
 
 import { api } from "../lib/api";
+import { Loaded } from "../components/Loaded";
 
 const s = strings.reminders;
 
@@ -28,116 +28,91 @@ export function Reminders() {
     const r = useReminderSettings(api);
     const [channel, setChannel] = useState<"sms" | "email">("sms");
 
-    if (r.load.state === "loading") {
-        return (
-            <Panel flush>
-                <div className="p-5">
-                    <Skeleton variant="row" count={5} label={s.loading} />
-                </div>
-            </Panel>
-        );
-    }
-    if (r.load.state === "error") {
-        return (
-            <LoadFailed
-                variant="card"
-                message={s.loadError}
-                onRetry={r.load.retry}
-                retrying={r.load.retrying}
-            />
-        );
-    }
-
     return (
         <div className="space-y-6">
-            <p className="text-sm text-muted">{s.subtitle}</p>
-            <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
-                <div className="space-y-6">
-                    <Panel title={s.remindersTitle} subtitle={s.remindersHint}>
-                        <div className="rounded-md border border-line px-3 py-2.5">
-                            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-                                <span className="text-sm font-semibold text-ink">{s.ruleLead}</span>
-                                <Checkbox label={s.channelSms} value disabled />
-                                <Checkbox label={s.channelEmail} value disabled />
-                            </div>
-                            <p className="mt-1 text-xs text-muted">{s.channelsHint}</p>
-                        </div>
-                        <Notice tone="info" banner>
-                            {s.rulesFixed}
-                        </Notice>
-                        <div className="border-t border-line-soft pt-3">
-                            <p className="text-sm font-medium text-ink">{s.includeLink}</p>
-                            <p className="text-xs text-muted">{s.includeLinkHint}</p>
-                        </div>
-                    </Panel>
-                    <Panel title={s.endOfDayTitle} subtitle={s.endOfDayHint}>
-                        <Notice tone="info" banner>
-                            {s.autoCloseLater}
-                        </Notice>
-                        <p className="text-sm font-semibold text-ink">
-                            {s.openToday(r.openToday.length)}
-                        </p>
-                        <OpenVisits visits={r.openToday} r={r} />
-                        {r.openEarlier.length > 0 ? (
-                            <div className="border-t border-line-soft pt-4">
-                                <p className="text-sm font-semibold text-ink">{s.openEarlier}</p>
-                                <OpenVisits visits={r.openEarlier} r={r} />
-                            </div>
-                        ) : r.openToday.length === 0 ? (
-                            <p className="text-sm text-muted">{s.noneOpen}</p>
-                        ) : null}
-                        {r.error !== null ? <Notice tone="danger">{r.error}</Notice> : null}
-                    </Panel>
-                </div>
-                <div className="space-y-6 xl:sticky xl:top-6">
-                    <Panel
-                        title={s.preview}
-                        subtitle={r.preview !== null ? s.previewVisit(r.preview.who) : undefined}
-                        actions={
-                            <Choice
-                                layout="segmented"
-                                label={s.preview}
-                                options={[
-                                    { key: "sms" as const, label: s.channelSms },
-                                    { key: "email" as const, label: s.channelEmail },
-                                ]}
-                                value={channel}
-                                onChange={setChannel}
-                            />
-                        }
-                    >
-                        {r.previewLoading ? (
-                            <Skeleton variant="line" count={3} label={s.loading} />
-                        ) : r.preview === null ? (
-                            <p className="text-sm text-muted">{s.previewNone}</p>
-                        ) : channel === "sms" ? (
-                            <div className="rounded-lg bg-bg p-4">
-                                <MessageBubble
-                                    direction="in"
-                                    width="full"
-                                    body={r.preview.body}
-                                    meta={r.preview.sendsAt}
+            <PageHeader title={strings.navigation.setupSections.reminders} subtitle={s.subtitle} />
+            <Loaded load={r.load} loading={s.loading} failed={s.loadError} rows={5}>
+                <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
+                    <div className="space-y-6">
+                        <Panel title={s.remindersTitle} subtitle={s.remindersHint}>
+                            <p className="text-sm text-ink-soft">{s.rule}</p>
+                            {r.manageLink ? (
+                                <p className="text-sm text-ink-soft">{s.includeLink}</p>
+                            ) : null}
+                        </Panel>
+                        <Panel
+                            title={s.endOfDayTitle}
+                            subtitle={r.autoComplete ? s.endOfDayAuto : s.endOfDayHint}
+                        >
+                            <p className="text-sm font-semibold text-ink">
+                                {s.openToday(r.openToday.length)}
+                            </p>
+                            <OpenVisits visits={r.openToday} r={r} />
+                            {r.openEarlier.length > 0 ? (
+                                <div className="border-t border-line-soft pt-4">
+                                    <p className="text-sm font-semibold text-ink">
+                                        {s.openEarlier}
+                                    </p>
+                                    <OpenVisits visits={r.openEarlier} r={r} />
+                                </div>
+                            ) : r.openToday.length === 0 ? (
+                                <p className="text-sm text-muted">{s.noneOpen}</p>
+                            ) : null}
+                            {r.error !== null ? <Notice tone="danger">{r.error}</Notice> : null}
+                        </Panel>
+                    </div>
+                    <div className="space-y-6 xl:sticky xl:top-6">
+                        <Panel
+                            title={s.preview}
+                            subtitle={
+                                r.preview !== null ? s.previewVisit(r.preview.who) : undefined
+                            }
+                            actions={
+                                <Choice
+                                    layout="segmented"
+                                    label={s.preview}
+                                    options={[
+                                        { key: "sms" as const, label: s.channelSms },
+                                        { key: "email" as const, label: s.channelEmail },
+                                    ]}
+                                    value={channel}
+                                    onChange={setChannel}
                                 />
-                            </div>
-                        ) : (
-                            <div className="overflow-hidden rounded-lg border border-line">
-                                <p className="border-b border-line bg-head px-4 py-2.5 text-sm font-semibold text-ink">
-                                    {r.preview.subject}
-                                </p>
-                                <p className="px-4 py-4 text-sm leading-relaxed text-ink-soft">
-                                    {r.preview.body}
-                                </p>
-                                <p className="border-t border-line px-4 py-2 text-xs text-muted">
-                                    {r.preview.sendsAt}
-                                </p>
-                            </div>
-                        )}
-                    </Panel>
-                    <Panel title={s.deliveryTitle}>
-                        <Stat label={s.sent} value={s.sentCount(r.sentWeek)} />
-                    </Panel>
+                            }
+                        >
+                            {r.previewLoading ? (
+                                <Skeleton variant="line" count={3} label={s.loading} />
+                            ) : r.preview === null ? (
+                                <p className="text-sm text-muted">{s.previewNone}</p>
+                            ) : channel === "sms" ? (
+                                <div className="rounded-lg bg-bg p-4">
+                                    <MessageBubble
+                                        direction="in"
+                                        width="full"
+                                        body={r.preview.body}
+                                        meta={r.preview.sendsAt}
+                                    />
+                                </div>
+                            ) : (
+                                <div className="overflow-hidden rounded-lg border border-line">
+                                    <p className="border-b border-line bg-head px-4 py-2.5 text-sm font-semibold text-ink">
+                                        {r.preview.subject}
+                                    </p>
+                                    <p className="px-4 py-4 text-sm leading-relaxed text-ink-soft">
+                                        {r.preview.body}
+                                    </p>
+                                    <p className="border-t border-line px-4 py-2 text-xs text-muted">
+                                        {r.preview.sendsAt}
+                                    </p>
+                                </div>
+                            )}
+                        </Panel>
+                        <Panel title={s.deliveryTitle}>
+                            <Stat label={s.sent} value={s.sentCount(r.sentWeek)} />
+                        </Panel>
+                    </div>
                 </div>
-            </div>
+            </Loaded>
         </div>
     );
 }

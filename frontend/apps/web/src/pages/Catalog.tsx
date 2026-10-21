@@ -1,6 +1,7 @@
 import {
     type ItemRow,
     KIND_LABEL,
+    PICKUP_FIELDS,
     type ProductFilter,
     formatMoney,
     itemMeta,
@@ -12,6 +13,7 @@ import {
     strings,
     useCatalogView,
     useKindPicker,
+    useBrandForm,
     useProductsView,
     BUSINESS_CURRENCY,
 } from "@clientbridge/app-core";
@@ -25,15 +27,20 @@ import {
     ListPage,
     Meter,
     Modal,
+    Notice,
+    PageHeader,
+    Panel,
     SearchField,
     StatusPill,
     Tabs,
+    TextField,
 } from "@clientbridge/ui";
 import { useState } from "react";
 
 import { ItemEditor } from "../components/ItemEditor";
-import { Inventory, Loaded, Toolbar } from "../components/Stock";
-import { apiBaseUrl } from "../lib/api";
+import { Loaded } from "../components/Loaded";
+import { Inventory, Toolbar } from "../components/Stock";
+import { api, apiBaseUrl } from "../lib/api";
 
 const s = strings.catalog;
 
@@ -69,7 +76,9 @@ export function Catalog() {
     const [view, setView] = useState<View>("catalog");
     return (
         <div className="space-y-5">
-            <Tabs items={VIEWS} active={view} onSelect={setView} label={s.viewsLabel} />
+            <PageHeader title={strings.navigation.setupSections.services}>
+                <Tabs items={VIEWS} active={view} onSelect={setView} label={s.viewsLabel} />
+            </PageHeader>
             {view === "catalog" ? <CatalogList /> : null}
             {view === "products" ? <ProductTable /> : null}
             {view === "inventory" ? <Inventory /> : null}
@@ -120,7 +129,7 @@ function CatalogRow({ item }: { item: ItemRow }) {
 function KindPicker({ onClose, onPick }: { onClose: () => void; onPick: (kind: string) => void }) {
     const picker = useKindPicker();
     return (
-        <Modal variant="drawer" open size="lg" onClose={onClose}>
+        <Modal open size="lg" onClose={onClose}>
             <div className="space-y-4">
                 <div>
                     <h2 className="font-display text-lg font-bold text-ink">{s.whatAdding}</h2>
@@ -180,7 +189,12 @@ function CatalogList() {
                         actions={add}
                     />
                 ) : (
-                    <Loaded load={view.load} label={s.loadingCatalog} error={s.loadErrorCatalog}>
+                    <Loaded
+                        load={view.load}
+                        loading={s.loadingCatalog}
+                        failed={s.loadErrorCatalog}
+                        rows={5}
+                    >
                         <div className="flex flex-wrap items-center justify-between gap-3">
                             <Choice
                                 layout="segmented"
@@ -203,7 +217,7 @@ function CatalogList() {
                                     <Empty message={view.empty} />
                                 </div>
                             ) : null}
-                            {view.sections.map((sec) => (
+                            {view.sections.map((sec, index) => (
                                 <section key={sec.key}>
                                     <div className="flex items-baseline justify-between px-1 pb-2">
                                         <h3 className="font-display text-base font-bold text-ink">
@@ -215,12 +229,14 @@ function CatalogList() {
                                     </div>
                                     <ListPage
                                         head={
-                                            <div className={CATALOG_GRID}>
-                                                <span>{s.colItem}</span>
-                                                <span>{s.colType}</span>
-                                                <span>{s.colOnline}</span>
-                                                <span className="text-right">{s.colPrice}</span>
-                                            </div>
+                                            index === 0 ? (
+                                                <div className={CATALOG_GRID}>
+                                                    <span>{s.colItem}</span>
+                                                    <span>{s.colType}</span>
+                                                    <span>{s.colOnline}</span>
+                                                    <span className="text-right">{s.colPrice}</span>
+                                                </div>
+                                            ) : undefined
                                         }
                                         rows={sec.items}
                                         rowKey={(i) => i.id}
@@ -292,7 +308,12 @@ function ProductTable() {
                         actions={add}
                     />
                 ) : (
-                    <Loaded load={view.load} label={s.loadingProducts} error={s.loadErrorProducts}>
+                    <Loaded
+                        load={view.load}
+                        loading={s.loadingProducts}
+                        failed={s.loadErrorProducts}
+                        rows={5}
+                    >
                         <ListPage<(typeof view.rows)[number], ProductFilter>
                             segments={{
                                 items: view.filters,
@@ -405,6 +426,7 @@ function ProductTable() {
                     </Loaded>
                 )}
             </div>
+            <PickupSettings />
             {open !== null ? (
                 <ItemEditor
                     key={open.item?.id ?? "new"}
@@ -417,5 +439,42 @@ function ProductTable() {
                 />
             ) : null}
         </div>
+    );
+}
+
+/** How paid online shop orders are prepared and held for pickup, saved to the business brand. */
+function PickupSettings() {
+    const brand = useBrandForm(api);
+    if (!brand.ready) return null;
+    return (
+        <Panel
+            className="mt-6"
+            title={s.pickupTitle}
+            subtitle={s.pickupHint}
+            footer={
+                <>
+                    {brand.error !== null ? <Notice tone="danger">{brand.error}</Notice> : null}
+                    {brand.saved ? <Notice tone="success">{strings.common.saved}</Notice> : null}
+                    <Button onPress={brand.submit} busy={brand.busy}>
+                        {brand.busy ? strings.common.saving : strings.common.save}
+                    </Button>
+                </>
+            }
+        >
+            <div className="grid gap-4 sm:grid-cols-3">
+                {PICKUP_FIELDS.map((field) => (
+                    <TextField
+                        key={field.key}
+                        label={field.label}
+                        type="number"
+                        min="0"
+                        value={brand.profile[field.key]}
+                        onChange={(value) => {
+                            brand.setProfile(field.key, value);
+                        }}
+                    />
+                ))}
+            </div>
+        </Panel>
     );
 }

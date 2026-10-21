@@ -1228,13 +1228,10 @@ interface Strings {
         readonly subtitle: string;
         readonly remindersTitle: string;
         readonly remindersHint: string;
-        readonly ruleLead: string;
         readonly channelSms: string;
         readonly channelEmail: string;
-        readonly channelsHint: string;
-        readonly rulesFixed: string;
+        readonly rule: string;
         readonly includeLink: string;
-        readonly includeLinkHint: string;
         readonly preview: string;
         readonly previewVisit: (who: string) => string;
         readonly previewNone: string;
@@ -1245,7 +1242,7 @@ interface Strings {
         readonly sentCount: (n: number) => string;
         readonly endOfDayTitle: string;
         readonly endOfDayHint: string;
-        readonly autoCloseLater: string;
+        readonly endOfDayAuto: string;
         readonly openToday: (n: number) => string;
         readonly openEarlier: string;
         readonly noneOpen: string;
@@ -2093,6 +2090,7 @@ interface Strings {
         readonly chooseBusiness: string;
         readonly switchError: string;
         readonly subtitle: string;
+        readonly profileTitle: string;
         readonly getSetUp: {
             readonly title: string;
             readonly body: string;
@@ -2107,8 +2105,6 @@ interface Strings {
             readonly shareBody: string;
             readonly notLive: string;
             readonly live: string;
-            readonly copyLink: string;
-            readonly copied: string;
             readonly share: string;
             readonly tasks: {
                 readonly business: { readonly label: string; readonly action: string } & Labels;
@@ -2144,8 +2140,8 @@ interface Strings {
             readonly profileTitle: string;
             readonly profileHint: string;
             readonly publicTeamHint: string;
+            readonly publicTeam: string;
             readonly profile: {
-                readonly cover_url: string;
                 readonly about: string;
                 readonly address: string;
                 readonly phone: string;
@@ -2469,6 +2465,8 @@ interface Strings {
             readonly lastActive: string;
             readonly changeRole: string;
             readonly saveRole: string;
+            readonly saveProfile: string;
+            readonly savePay: string;
             readonly saving: string;
             readonly profile: string;
             readonly title: string;
@@ -2528,10 +2526,11 @@ interface Strings {
         readonly searchPlaceholder: string;
         readonly filterAll: string;
         readonly filterServices: string;
-        readonly filterProducts: string;
         readonly filterPlans: string;
         readonly filterLowStock: string;
         readonly filterArchived: string;
+        readonly pickupTitle: string;
+        readonly pickupHint: string;
         readonly filterNotOnline: string;
         readonly filterCount: (label: string, n: number) => string;
         readonly noMatch: string;

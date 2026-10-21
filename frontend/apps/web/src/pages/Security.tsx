@@ -1,5 +1,5 @@
 import { strings, useSecuritySettings } from "@clientbridge/app-core";
-import { Button, Loading, Notice, Panel, TextField } from "@clientbridge/ui";
+import { Button, Field, Loading, Notice, PageHeader, Panel, TextField } from "@clientbridge/ui";
 
 import { PersonPhoto } from "../components/PersonPhoto";
 import { api, identity } from "../lib/api";
@@ -21,10 +21,18 @@ export function Security() {
         },
     });
 
-    if (!s.ready && s.error === null) return <Loading label={a.securityTitle} />;
+    const header = <PageHeader title={strings.navigation.setupSections.security} />;
+    if (!s.ready && s.error === null)
+        return (
+            <div className="max-w-3xl space-y-6">
+                {header}
+                <Loading label={a.securityTitle} />
+            </div>
+        );
 
     return (
-        <div className="max-w-2xl space-y-6">
+        <div className="max-w-3xl space-y-6">
+            {header}
             {s.notice !== null ? (
                 <Notice tone="success" banner>
                     {s.notice}
@@ -64,7 +72,18 @@ export function Security() {
                 </Panel>
             ) : null}
 
-            <Panel title={a.securityAccount} subtitle={a.securityEmailHint}>
+            <Panel
+                title={a.securityAccount}
+                subtitle={a.securityEmailHint}
+                footer={
+                    <Button variant="outline" busy={s.busy} onPress={s.saveProfile}>
+                        {a.securitySaveProfile}
+                    </Button>
+                }
+            >
+                {userId !== null ? (
+                    <PersonPhoto owner={{ kind: "user", id: userId }} name={s.name} />
+                ) : null}
                 <div className="grid gap-3 sm:grid-cols-2">
                     <TextField
                         label={a.name}
@@ -80,31 +99,26 @@ export function Security() {
                         autoComplete="email"
                     />
                 </div>
-                <div>
-                    <Button variant="outline" busy={s.busy} onPress={s.saveProfile}>
-                        {a.securitySaveProfile}
-                    </Button>
-                </div>
-                {userId !== null ? (
-                    <PersonPhoto owner={{ kind: "user", id: userId }} name={s.name} />
-                ) : null}
             </Panel>
 
             <Panel title={a.securityPassword}>
-                <div className="flex items-end gap-3">
-                    <TextField
-                        label={a.securityNewPassword}
-                        type="password"
-                        value={s.newPassword}
-                        onChange={s.setNewPassword}
-                        onSubmit={s.savePassword}
-                        autoComplete="new-password"
-                        hint={a.passwordHint}
-                    />
-                    <Button variant="outline" busy={s.busy} onPress={s.savePassword}>
-                        {a.securityChangePassword}
-                    </Button>
-                </div>
+                <Field label={a.securityNewPassword} hint={a.passwordHint}>
+                    <div className="flex items-center gap-3">
+                        <div className="min-w-0 flex-1">
+                            <TextField
+                                name={a.securityNewPassword}
+                                type="password"
+                                value={s.newPassword}
+                                onChange={s.setNewPassword}
+                                onSubmit={s.savePassword}
+                                autoComplete="new-password"
+                            />
+                        </div>
+                        <Button variant="outline" busy={s.busy} onPress={s.savePassword}>
+                            {a.securityChangePassword}
+                        </Button>
+                    </div>
+                </Field>
             </Panel>
 
             <Panel title={a.securityTotp}>

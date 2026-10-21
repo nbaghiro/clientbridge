@@ -11,6 +11,7 @@ export function Panel({
     subtitle,
     actions,
     flush = false,
+    footer,
     children,
     style,
 }: NativeProps<PanelProps>) {
@@ -29,6 +30,9 @@ export function Panel({
                 </View>
             ) : null}
             {children}
+            {footer !== undefined ? (
+                <View style={[styles.footer, !flush && styles.paddedFooter]}>{footer}</View>
+            ) : null}
         </View>
     );
 }
@@ -54,4 +58,17 @@ const styles = StyleSheet.create({
     title: { color: c.ink, fontSize: 16, fontWeight: "700" },
     subtitle: { color: c.muted, fontSize: 13, marginTop: 2 },
     actions: { flexDirection: "row", alignItems: "center", gap: 8 },
+    footer: {
+        flexDirection: "row",
+        flexWrap: "wrap",
+        alignItems: "center",
+        justifyContent: "flex-end",
+        gap: 12,
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        backgroundColor: c.bg,
+        borderTopColor: c.border,
+        borderTopWidth: StyleSheet.hairlineWidth,
+    },
+    paddedFooter: { marginHorizontal: -16, marginBottom: -16, marginTop: 12 },
 });

@@ -32,7 +32,13 @@ export const REMINDERS_SENT_SQL = `
 SELECT COUNT(*) AS sent FROM bookings
 WHERE reminded_at IS NOT NULL AND ${utcSql("reminded_at")} > datetime(?)`;
 
+interface PolicyOut {
+    policy: { self_service: boolean; auto_complete: boolean };
+}
+
 interface ReminderSettings {
+    manageLink: boolean;
+    autoComplete: boolean;
     preview: { subject: string; body: string; sendsAt: string; who: string } | null;
     previewLoading: boolean;
     sentWeek: number;
@@ -72,12 +78,15 @@ export function useReminderSettings(api: ApiLike): ReminderSettings {
                 : Promise.resolve(null),
         next?.bookingId ?? "",
     );
+    const policy = useRemote(() => api.get<PolicyOut>("/v1/online-booking"));
     const closer = useAsyncAction();
     const [closing, setClosing] = useState<string | null>(null);
     const open = needsClosing(events);
     const load = useReplicaLoad([{ isLoading, error }, sent], false);
     const data = remote.data;
     return {
+        manageLink: policy.data?.policy.self_service ?? false,
+        autoComplete: policy.data?.policy.auto_complete ?? false,
         preview:
             data && next
                 ? {

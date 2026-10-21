@@ -28,9 +28,9 @@ import {
     Empty,
     Field,
     Icon,
-    LoadFailed,
     Money,
     Notice,
+    PageHeader,
     Panel,
     Select,
     Skeleton,
@@ -40,6 +40,7 @@ import {
 
 import { api } from "../lib/api";
 import { useOpenLink } from "../lib/links";
+import { Loaded } from "../components/Loaded";
 
 const s = strings.taxes;
 const provinceName = (code: string): string => PROVINCES.find((p) => p.code === code)?.name ?? code;
@@ -270,38 +271,43 @@ export function Taxes() {
     const items = useItemTaxClasses(api);
     const registered = form.registration === "registered";
 
+    const taxLines = (
+        <span className="flex gap-1.5">
+            {form.taxLines.map((l) => (
+                <Badge key={l.label} label={l.label} intent="neutral" />
+            ))}
+        </span>
+    );
+
     return (
-        <div>
-            <p className="mt-1 text-sm text-muted">{s.subtitle}</p>
-            {form.load.state === "error" ? (
-                <div className="mt-6">
-                    <Panel flush>
-                        <LoadFailed
-                            message={s.loadError}
-                            onRetry={form.load.retry}
-                            retrying={form.load.retrying}
-                        />
-                    </Panel>
-                </div>
-            ) : form.load.state === "loading" ? (
-                <div className="mt-6 space-y-6">
-                    <Panel flush>
-                        <Skeleton variant="line" count={5} label={s.loading} />
-                    </Panel>
-                </div>
-            ) : (
-                <>
-                    <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)]">
-                        <div className="self-start">
-                            <Panel>
-                                <form
-                                    noValidate
-                                    onSubmit={(e) => {
-                                        e.preventDefault();
-                                        form.submit();
-                                    }}
-                                    className="space-y-4"
-                                >
+        <div className="space-y-6">
+            <PageHeader title={strings.navigation.setupSections.taxes} subtitle={s.subtitle} />
+            <Loaded load={form.load} loading={s.loading} failed={s.loadError} rows={5}>
+                <div className="space-y-8">
+                    <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)]">
+                        <form
+                            noValidate
+                            onSubmit={(e) => {
+                                e.preventDefault();
+                                form.submit();
+                            }}
+                        >
+                            <Panel
+                                footer={
+                                    <>
+                                        {form.error !== null ? (
+                                            <Notice tone="danger">{form.error}</Notice>
+                                        ) : null}
+                                        {form.saved ? (
+                                            <Notice tone="success">{s.saved}</Notice>
+                                        ) : null}
+                                        <Button submit busy={form.busy} disabled={!form.dirty}>
+                                            {form.busy ? s.saving : s.save}
+                                        </Button>
+                                    </>
+                                }
+                            >
+                                <div className="space-y-4">
                                     <Field label={s.registeredQ}>
                                         <Choice
                                             layout="cards"
@@ -327,43 +333,48 @@ export function Taxes() {
                                             {s.offNotice}
                                         </Notice>
                                     )}
-                                    <div className="space-y-3 rounded-md border border-line bg-bg px-3 py-2.5">
-                                        <div className="flex gap-1.5">
-                                            {form.taxLines.map((l) => (
-                                                <Badge
-                                                    key={l.label}
-                                                    label={l.label}
-                                                    intent="neutral"
-                                                />
-                                            ))}
-                                        </div>
-                                        <Select<ProvinceCode>
-                                            label={s.province}
-                                            hint={
-                                                form.provinceLocked
-                                                    ? s.provinceLocked
-                                                    : s.provinceHint
-                                            }
-                                            value={form.nextProvince ?? form.province ?? undefined}
-                                            options={PROVINCE_OPTIONS()}
-                                            onChange={form.setNextProvince}
-                                            disabled={form.provinceBusy || form.provinceLocked}
-                                        />
-                                        {form.provinceError !== null ? (
-                                            <Notice tone="danger">{form.provinceError}</Notice>
-                                        ) : null}
-                                        <Button
-                                            size="sm"
-                                            variant="outline"
-                                            busy={form.provinceBusy}
-                                            disabled={!form.provinceChanged}
-                                            onPress={() => {
-                                                confirmProvince(form);
-                                            }}
-                                        >
-                                            {s.provinceChange}
-                                        </Button>
-                                    </div>
+                                    {form.provinceLocked ? (
+                                        <Field label={s.province} hint={s.provinceLocked}>
+                                            <div className="flex flex-wrap items-center gap-3">
+                                                <span className="text-sm font-medium text-ink">
+                                                    {provinceName(form.province ?? "")}
+                                                </span>
+                                                {taxLines}
+                                            </div>
+                                        </Field>
+                                    ) : (
+                                        <Field label={s.province} hint={s.provinceHint}>
+                                            <div className="flex flex-wrap items-center gap-3">
+                                                <div className="min-w-0 flex-1">
+                                                    <Select<ProvinceCode>
+                                                        name={s.province}
+                                                        value={
+                                                            form.nextProvince ??
+                                                            form.province ??
+                                                            undefined
+                                                        }
+                                                        options={PROVINCE_OPTIONS()}
+                                                        onChange={form.setNextProvince}
+                                                        disabled={form.provinceBusy}
+                                                    />
+                                                </div>
+                                                <Button
+                                                    variant="outline"
+                                                    busy={form.provinceBusy}
+                                                    disabled={!form.provinceChanged}
+                                                    onPress={() => {
+                                                        confirmProvince(form);
+                                                    }}
+                                                >
+                                                    {s.provinceChange}
+                                                </Button>
+                                            </div>
+                                            {taxLines}
+                                            {form.provinceError !== null ? (
+                                                <Notice tone="danger">{form.provinceError}</Notice>
+                                            ) : null}
+                                        </Field>
+                                    )}
                                     <TextField
                                         label={s.gst}
                                         hint={s.gstHint}
@@ -392,30 +403,17 @@ export function Taxes() {
                                             label: s.freq[k],
                                         }))}
                                     />
-                                    {form.error !== null ? (
-                                        <Notice tone="danger">{form.error}</Notice>
-                                    ) : null}
-                                    <div className="flex items-center gap-3">
-                                        <Button submit busy={form.busy} disabled={!form.dirty}>
-                                            {form.busy ? s.saving : s.save}
-                                        </Button>
-                                        {form.saved ? (
-                                            <Notice tone="success">{s.saved}</Notice>
-                                        ) : null}
-                                    </div>
-                                </form>
+                                </div>
                             </Panel>
-                        </div>
+                        </form>
                         <div className="space-y-6">
                             {registered ? <FilingCard form={form} /> : null}
                             <WorkedExample form={form} />
                         </div>
                     </div>
-                    <div className="mt-8">
-                        <ItemClasses items={items} province={form.province} />
-                    </div>
-                </>
-            )}
+                    <ItemClasses items={items} province={form.province} />
+                </div>
+            </Loaded>
         </div>
     );
 }

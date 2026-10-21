@@ -17,12 +17,10 @@ import {
     Icon,
     ItemImage,
     KeyValueList,
-    LoadFailed,
     Notice,
     Panel,
     PayCode,
     Select,
-    Skeleton,
     Stat,
     Toggle,
 } from "@clientbridge/ui";
@@ -31,35 +29,11 @@ import { useRef } from "react";
 
 import { config } from "../config";
 import { api } from "../lib/api";
+import { Loaded } from "./Loaded";
 
 const s = strings.onlineBooking;
 const p = s.policy;
 const a = s.addons;
-
-function PageLoad({
-    state,
-    retry,
-    retrying,
-    error,
-}: {
-    state: string;
-    retry: () => void;
-    retrying: boolean;
-    error: string;
-}) {
-    if (state === "loading") {
-        return (
-            <Panel flush>
-                <div className="p-5">
-                    <Skeleton variant="row" count={4} label={s.loading} />
-                </div>
-            </Panel>
-        );
-    }
-    if (state === "error")
-        return <LoadFailed variant="card" message={error} onRetry={retry} retrying={retrying} />;
-    return null;
-}
 
 // Saves the QR code as an SVG file.
 function downloadQr(container: HTMLElement | null, name: string): void {
@@ -89,12 +63,9 @@ export function BookingPageSettings() {
     const qr = useRef<HTMLDivElement>(null);
     if (!st.ready) {
         return (
-            <PageLoad
-                state={st.load.state}
-                retry={st.load.retry}
-                retrying={st.load.retrying}
-                error={s.loadError}
-            />
+            <Loaded load={st.load} loading={s.loading} failed={s.loadError}>
+                {null}
+            </Loaded>
         );
     }
     const policy = st.policy;
@@ -311,6 +282,7 @@ function Preview({ st }: { st: Settings }) {
                 <Avatar
                     name={st.businessName}
                     size="sm"
+                    variant="mark"
                     src={
                         st.businessLogoFileId
                             ? mediaUrl(config.apiUrl, st.businessLogoFileId)
@@ -409,12 +381,9 @@ export function AddonOffers() {
     const o = useAddonOffers(api);
     if (o.load.state === "loading" || o.load.state === "error") {
         return (
-            <PageLoad
-                state={o.load.state}
-                retry={o.load.retry}
-                retrying={o.load.retrying}
-                error={s.loadError}
-            />
+            <Loaded load={o.load} loading={s.loading} failed={s.loadError}>
+                {null}
+            </Loaded>
         );
     }
     return (
@@ -479,7 +448,7 @@ export function AddonOffers() {
                                     ) : (
                                         <Badge label={a.notOffered} intent="neutral" />
                                     )}
-                                    <div className="w-36 shrink-0">
+                                    <div className="shrink-0 whitespace-nowrap">
                                         <Toggle
                                             label={a.offer}
                                             value={x.addon}
@@ -530,19 +499,15 @@ export function BookingPolicySettings() {
     const d = pol.policy;
     if (d === null) {
         return (
-            <PageLoad
-                state={pol.load.state}
-                retry={pol.load.retry}
-                retrying={pol.load.retrying}
-                error={s.loadError}
-            />
+            <Loaded load={pol.load} loading={s.loading} failed={s.loadError}>
+                {null}
+            </Loaded>
         );
     }
     return (
         <div>
-            <p className="text-sm text-muted">{p.subtitle}</p>
-            <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
-                <Panel>
+            <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+                <Panel title={p.title} subtitle={p.subtitle}>
                     <div className="space-y-5">
                         <Toggle
                             label={p.selfService}

@@ -266,15 +266,13 @@ export function stockScale(onHand: number, lowAt: number | null): number {
     return Math.max(1, (lowAt ?? Math.max(onHand, 1)) * 2);
 }
 
-type CatalogFilter = "all" | "services" | "products" | "plans" | "lowStock" | "archived";
+type CatalogFilter = "all" | "services" | "plans" | "archived";
 
 export function matchesFilter(i: ItemRow, f: CatalogFilter): boolean {
     if (f === "archived") return !isActive(i);
     if (!isActive(i)) return false;
     if (f === "services") return BOOKABLE_KINDS.includes(i.kind);
-    if (f === "products") return i.kind === "product";
     if (f === "plans") return (ENTITLEMENT_KINDS as readonly string[]).includes(i.kind);
-    if (f === "lowStock") return isLow(i);
     return true;
 }
 
@@ -338,9 +336,7 @@ export function useCatalogView(initial: CatalogFilter = "all"): CatalogView {
     const labels: [CatalogFilter, string][] = [
         ["all", s.filterAll],
         ["services", s.filterServices],
-        ["products", s.filterProducts],
         ["plans", s.filterPlans],
-        ["lowStock", s.filterLowStock],
         ["archived", s.filterArchived],
     ];
     return {

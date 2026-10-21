@@ -6,6 +6,7 @@ import {
     KeyValueList,
     LoadFailed,
     Notice,
+    PageHeader,
     Panel,
     Skeleton,
     StatusPill,
@@ -78,9 +79,9 @@ function Tiers({ plan }: { plan: PlanView }) {
 export function Plans() {
     const plan = usePlan(api, leave);
     return (
-        <div>
-            <p className="mt-1 text-sm text-muted">{p.subtitle}</p>
-            <div className="mt-6 space-y-6">
+        <div className="space-y-6">
+            <PageHeader title={strings.navigation.setupSections.plan} subtitle={p.subtitle} />
+            <div className="space-y-6">
                 {plan.phase === "loading" ? (
                     <Panel flush>
                         <Skeleton variant="line" count={3} label={p.loading} />
@@ -95,14 +96,11 @@ export function Plans() {
                     </Panel>
                 ) : (
                     <>
-                        <Panel>
+                        <Panel
+                            title={plan.title}
+                            actions={<StatusPill status={plan.status} intent={plan.intent} />}
+                        >
                             <div className="space-y-3">
-                                <div className="flex flex-wrap items-center gap-3">
-                                    <h3 className="font-display text-lg font-bold text-ink">
-                                        {plan.title}
-                                    </h3>
-                                    <StatusPill status={plan.status} intent={plan.intent} />
-                                </div>
                                 <p className="max-w-xl text-sm text-ink-soft">{plan.detail}</p>
                                 <KeyValueList rows={plan.facts} />
                                 {plan.managed ? (

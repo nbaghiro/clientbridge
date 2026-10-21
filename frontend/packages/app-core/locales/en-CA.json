@@ -3761,10 +3761,7 @@
         "message": "Reminders"
     },
     "reminders.remindersHint": {
-        "message": "Sent before every visit, booked online or by staff."
-    },
-    "reminders.ruleLead": {
-        "message": "1 day before"
+        "message": "Every visit gets one reminder a day before, whether it was booked online or by staff."
     },
     "reminders.channelSms": {
         "message": "Text"
@@ -3772,17 +3769,11 @@
     "reminders.channelEmail": {
         "message": "Email"
     },
-    "reminders.channelsHint": {
-        "message": "By text when the client has a mobile, and by email when they have an email."
-    },
-    "reminders.rulesFixed": {
-        "message": "Reminder times and channels can't be changed yet. Every visit gets this one reminder."
+    "reminders.rule": {
+        "message": "It goes by text when the client has a mobile number, and by email when they have an email address."
     },
     "reminders.includeLink": {
-        "message": "Includes a link to change or cancel"
-    },
-    "reminders.includeLinkHint": {
-        "message": "Within your cancellation rules in Online booking."
+        "message": "It includes a link to change or cancel the visit, within your cancellation rules in Online booking."
     },
     "reminders.preview": {
         "message": "Preview"
@@ -3816,10 +3807,10 @@
         "message": "End of day"
     },
     "reminders.endOfDayHint": {
-        "message": "Visits nobody marked stay open until someone closes them."
+        "message": "Visits nobody marked stay open until someone closes them. You can close them here or on the schedule."
     },
-    "reminders.autoCloseLater": {
-        "message": "Closing open visits automatically at night isn't available yet. Close them here or on the schedule."
+    "reminders.endOfDayAuto": {
+        "message": "Visits still open at midnight are marked completed. You can close them sooner here or on the schedule."
     },
     "reminders.openToday": {
         "message": "{n, plural, =0 {No visits are left open today.} one {# visit today has ended and is still open.} other {# visits today have ended and are still open.}}",
@@ -6150,7 +6141,10 @@
         "message": "Could not switch businesses. Try again."
     },
     "business.subtitle": {
-        "message": "Your business profile. Sales tax numbers are in Sales tax."
+        "message": "Your business name, contact details and legal address."
+    },
+    "business.profileTitle": {
+        "message": "Profile"
     },
     "business.getSetUp.title": {
         "message": "Get set up"
@@ -6192,12 +6186,6 @@
     },
     "business.getSetUp.live": {
         "message": "Live"
-    },
-    "business.getSetUp.copyLink": {
-        "message": "Copy link"
-    },
-    "business.getSetUp.copied": {
-        "message": "Copied"
     },
     "business.getSetUp.share": {
         "message": "Share link"
@@ -6307,8 +6295,8 @@
     "business.getSetUp.publicTeamHint": {
         "message": "Choose team members who have agreed to appear publicly."
     },
-    "business.getSetUp.profile.cover_url": {
-        "message": "Cover image URL"
+    "business.getSetUp.publicTeam": {
+        "message": "Team on your page"
     },
     "business.getSetUp.profile.about": {
         "message": "About your business"
@@ -6362,7 +6350,7 @@
         "message": "Calm, careful work, close to home."
     },
     "business.getSetUp.save": {
-        "message": "Save brand"
+        "message": "Save changes"
     },
     "business.getSetUp.saving": {
         "message": "Saving…"
@@ -6445,7 +6433,7 @@
         "message": "Legal address and phone"
     },
     "business.legalAddress.hint": {
-        "message": "Used for your plan, sales tax, card payments and the mailing address every broadcast must carry. Your public address is part of your profile in Get set up."
+        "message": "Used for your plan, sales tax, card payments and the mailing address every broadcast must include. Clients only see the address you add to your public business page."
     },
     "business.legalAddress.unit": {
         "message": "Unit or suite"
@@ -7250,6 +7238,12 @@
     "staff.team.saveRole": {
         "message": "Save role"
     },
+    "staff.team.saveProfile": {
+        "message": "Save profile"
+    },
+    "staff.team.savePay": {
+        "message": "Save pay"
+    },
     "staff.team.saving": {
         "message": "Saving…"
     },
@@ -7423,17 +7417,20 @@
     "catalog.filterServices": {
         "message": "Services"
     },
-    "catalog.filterProducts": {
-        "message": "Products"
-    },
     "catalog.filterPlans": {
-        "message": "Plans"
+        "message": "Packages & memberships"
     },
     "catalog.filterLowStock": {
         "message": "Low stock"
     },
     "catalog.filterArchived": {
         "message": "Archived"
+    },
+    "catalog.pickupTitle": {
+        "message": "Pickup orders"
+    },
+    "catalog.pickupHint": {
+        "message": "How long you need to prepare a paid online order, how long a ready order is held, and how many orders fit in each pickup window."
     },
     "catalog.filterNotOnline": {
         "message": "Not in shop"

@@ -7,6 +7,7 @@ export function Panel({
     subtitle,
     actions,
     flush = false,
+    footer,
     children,
     className,
 }: WebProps<PanelProps>) {
@@ -42,6 +43,13 @@ export function Panel({
                 </div>
             ) : null}
             <div className={flush ? "" : "space-y-3"}>{children}</div>
+            {footer !== undefined ? (
+                <div
+                    className={`flex flex-wrap items-center justify-end gap-3 border-t border-line bg-bg/50 py-3 ${flush ? "px-4" : "-mx-5 -mb-5 mt-5 px-5"}`}
+                >
+                    {footer}
+                </div>
+            ) : null}
         </section>
     );
 }

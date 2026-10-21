@@ -765,7 +765,7 @@ test("owner: setup sections and their dialogs", async ({ page }) => {
                 await expect(
                     main.getByRole("heading", {
                         name: (await active.innerText()).trim(),
-                        level: 2,
+                        level: 1,
                     }),
                 ).toBeVisible();
             });
