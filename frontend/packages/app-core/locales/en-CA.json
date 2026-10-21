@@ -374,6 +374,9 @@
         "message": "#{n, number, ::group-off}",
         "args": ["n"]
     },
+    "billing.docKind": {
+        "message": "Invoice or estimate"
+    },
     "billing.newInvoice": {
         "message": "New invoice"
     },

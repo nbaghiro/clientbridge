@@ -332,6 +332,9 @@
     "billing.number": {
         "message": "#{n, number, ::group-off}"
     },
+    "billing.docKind": {
+        "message": "[Îñṽöîçé öŕ éšţîɱåţé one two]"
+    },
     "billing.newInvoice": {
         "message": "[Ñéŵ îñṽöîçé one two]"
     },

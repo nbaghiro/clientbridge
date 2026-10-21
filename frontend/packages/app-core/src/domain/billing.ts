@@ -1559,7 +1559,9 @@ export function useDocComposer(
     const [message, setMessage] = useState(draft?.notes ?? "");
     const [docDiscount, setDocDiscountState] = useState<SaleDiscount | null>(null);
     const [docDiscountTouched, setDocDiscountTouched] = useState(false);
-    const [terms, setTerms] = useState<DocTerms>(kind === "estimate" ? "d14" : "d14");
+    const [chosenTerms, setTerms] = useState<DocTerms>("d14");
+    // an invoice switched to an estimate can't keep the pay-now term, which only invoices offer
+    const terms = kind === "estimate" && chosenTerms === "receipt" ? "d14" : chosenTerms;
     const [attempted, setAttempted] = useState(false);
     const [dirty, setDirty] = useState(false);
     const [saved, setSaved] = useState<string | null>(null);

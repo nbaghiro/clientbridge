@@ -159,10 +159,10 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
                     title={strings.navigation.createMenu}
                     layout="radial"
                     anchor={anchor}
-                    items={nav.create}
+                    items={nav.quickCreate}
                     onSelect={(key) => {
                         close();
-                        const action = nav.create.find((a) => a.key === key);
+                        const action = nav.quickCreate.find((a) => a.key === key);
                         if (action === undefined) return;
                         openLink(action.target);
                     }}

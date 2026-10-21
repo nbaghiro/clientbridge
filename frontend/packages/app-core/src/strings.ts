@@ -125,6 +125,7 @@ interface Strings {
         readonly draftInvoice: string;
         readonly draftEstimate: string;
         readonly number: (n: number) => string;
+        readonly docKind: string;
         readonly newInvoice: string;
         readonly newEstimate: string;
         readonly dash: string;

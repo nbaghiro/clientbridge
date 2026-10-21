@@ -383,6 +383,9 @@ const CREATE_ACTIONS: (CreateAction & { managersOnly: boolean })[] = [
     },
 ];
 
+// The phone fan keeps the everyday few; Clients and Inbox have their own add.
+const QUICK_CREATE: readonly CreateKey[] = ["booking", "sale", "invoice", "timeOff"];
+
 /** The Create menu for a role: staff can't invoice or quote, as on the server. */
 export function createActionsFor(role: string | null): CreateAction[] {
     return CREATE_ACTIONS.filter((a) => !a.managersOnly || canManagePayments(role));
@@ -415,6 +418,7 @@ interface ShellNav {
     roleLabel: string;
     badges: Partial<Record<DestinationKey, number>>;
     create: CreateAction[];
+    quickCreate: CreateAction[];
     setup: SetupProgress;
     // Staff don't see setup progress: most steps are the owner's.
     showSetup: boolean;
@@ -440,6 +444,7 @@ export function useShellNav(viewer: Viewer | null): ShellNav {
         roleLabel: roleLabel(role),
         badges: { inbox: unread, ...(manager ? { payments: overdue } : {}) },
         create: createActionsFor(role),
+        quickCreate: createActionsFor(role).filter((a) => QUICK_CREATE.includes(a.key)),
         setup,
         showSetup: manager && !setup.complete && !setup.dismissed,
     };

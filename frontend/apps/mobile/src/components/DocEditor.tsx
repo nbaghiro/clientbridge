@@ -50,7 +50,8 @@ export function DocEditor({ kind, draft, onClose }: DocEditorProps) {
     const items = useCatalogItems();
     const catalog = useMemo(() => sellableItems(items), [items]);
     const letterhead = useLetterhead(apiBaseUrl);
-    const form = useDocComposer(api, kind, draft);
+    const [current, setCurrent] = useState(kind);
+    const form = useDocComposer(api, current, draft);
     const [preview, setPreview] = useState(false);
     const [discounting, setDiscounting] = useState<string | null>(null);
     const client = clients.find((x) => x.id === form.clientId) ?? null;
@@ -89,6 +90,18 @@ export function DocEditor({ kind, draft, onClose }: DocEditorProps) {
                 </Button>
             </View>
 
+            {draft === undefined && form.sent === null && !preview ? (
+                <Choice
+                    label={s.docKind}
+                    layout="segmented"
+                    options={[
+                        { key: "invoice", label: s.doc.kinds.invoice },
+                        { key: "estimate", label: s.doc.kinds.estimate },
+                    ]}
+                    value={current}
+                    onChange={setCurrent}
+                />
+            ) : null}
             {form.sent !== null ? (
                 <Empty
                     variant="card"
