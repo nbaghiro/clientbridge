@@ -51,7 +51,7 @@ def build_identity(ctx: DemoContext) -> None:
         estimate.view_token = f"demo_estimate_{estimate.id}"
     ctx.get(Client, "cl_sophie").created_at = ctx.at(-30)
     ctx.get(Client, "cl_fatima").created_at = ctx.at(-30)
-    ctx.rows[:] = [row for row in ctx.rows if not isinstance(row, Webhook)]
+    ctx.discard(Webhook)
     for audit in ctx.all(Audit):
         if audit.entity_type == "client":
             client = ctx.get(Client, audit.entity_id)

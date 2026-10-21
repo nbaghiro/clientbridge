@@ -29,6 +29,33 @@ from clientbridge.services.remittances import RemittanceService
 from scripts.demo_context import DEMO_BUSINESSES, DEMO_IDS, DemoContext
 
 
+def _conflicts(
+    active: list[Slot], subjects: dict[str, set[str]], items: dict[str, Item]
+) -> list[tuple[int, int]]:
+    """Pairs of slots, by position, that share a member or a subject and overlap with buffers."""
+    padded = [
+        (
+            slot.starts_at - timedelta(minutes=items[slot.item_id].buffer_before_min or 0),
+            slot.ends_at + timedelta(minutes=items[slot.item_id].buffer_after_min or 0),
+        )
+        for slot in active
+    ]
+    groups: dict[str, list[int]] = {}
+    for index, slot in enumerate(active):
+        groups.setdefault(f"staff:{slot.staff_id}", []).append(index)
+        for subject in subjects[slot.id]:
+            groups.setdefault(f"subject:{subject}", []).append(index)
+    pairs: set[tuple[int, int]] = set()
+    for members in groups.values():
+        members.sort(key=lambda index: padded[index][0])
+        for position, index in enumerate(members):
+            for other in members[position + 1 :]:
+                if padded[other][0] >= padded[index][1]:
+                    break
+                pairs.add((min(index, other), max(index, other)))
+    return sorted(pairs)
+
+
 def validate_graph(ctx: DemoContext) -> list[str]:
     errors: list[str] = []
     items = {r.id: r for r in ctx.all(Item)}
@@ -71,33 +98,31 @@ def validate_graph(ctx: DemoContext) -> list[str]:
         if booking.status == "waitlisted" and slot.ends_at < ctx.now:
             errors.append(f"{booking.id}: still waitlisted after the class ended")
     active = [s for s in slots.values() if s.status != "canceled"]
-    for index, slot in enumerate(active):
+    seated: dict[str, list[Booking]] = {}
+    for booking in bookings:
+        seated.setdefault(booking.slot_id, []).append(booking)
+    for slot in active:
         # the product's rule: inside the member's hours that day, or a day with none set
         member = [h for h in hours if h.staff_id == slot.staff_id]
         if not within_hours(member, zone, slot.starts_at, slot.ends_at):
             errors.append(f"{slot.id}: outside working hours")
-        seated = sum(
-            b.status not in {"canceled", "waitlisted"} for b in bookings if b.slot_id == slot.id
-        )
-        if seated > slot.capacity:
+        seats = seated.get(slot.id, [])
+        taken = sum(b.status not in {"canceled", "waitlisted"} for b in seats)
+        if taken > slot.capacity:
             errors.append(f"{slot.id}: over capacity")
-        waiting = any(b.status == "waitlisted" for b in bookings if b.slot_id == slot.id)
-        if waiting and seated < slot.capacity and slot.starts_at > ctx.now:
+        waiting = any(b.status == "waitlisted" for b in seats)
+        if waiting and taken < slot.capacity and slot.starts_at > ctx.now:
             errors.append(f"{slot.id}: a seat is open while someone waits for one")
-        for other in active[index + 1 :]:
-            if slot.staff_id != other.staff_id and not slot_pets[slot.id] & slot_pets[other.id]:
-                continue
-            left, right = items[slot.item_id], items[other.item_id]
-            if slot.starts_at - timedelta(
-                minutes=left.buffer_before_min or 0
-            ) < other.ends_at + timedelta(
-                minutes=right.buffer_after_min or 0
-            ) and other.starts_at - timedelta(
-                minutes=right.buffer_before_min or 0
-            ) < slot.ends_at + timedelta(minutes=left.buffer_after_min or 0):
-                errors.append(f"{slot.id}/{other.id}: staff or pet conflict")
+    errors.extend(
+        f"{active[left].id}/{active[right].id}: staff or pet conflict"
+        for left, right in _conflicts(active, slot_pets, items)
+    )
+    series: dict[str, list[Slot]] = {}
+    for slot in slots.values():
+        if slot.recurrence_id is not None:
+            series.setdefault(slot.recurrence_id, []).append(slot)
     for recurrence in ctx.all(Recurrence):
-        occurrences = [s for s in slots.values() if s.recurrence_id == recurrence.id]
+        occurrences = series.get(recurrence.id, [])
         if recurrence.count and len(occurrences) != recurrence.count:
             errors.append(f"{recurrence.id}: occurrence count mismatch")
         if any(
@@ -135,13 +160,16 @@ def validate_graph(ctx: DemoContext) -> list[str]:
         if count > 1:
             errors.append(f"{estimate_id}: booked {count} times")
     documents: list[Invoice | Estimate] = [*ctx.all(Invoice), *ctx.all(Estimate)]
+    selected: dict[tuple[str, str], list[Line]] = {}
+    for line in ctx.all(Line):
+        if not line.optional or line.selected:
+            for field in ("invoice_id", "estimate_id"):
+                parent_id = getattr(line, field)
+                if parent_id is not None:
+                    selected.setdefault((field, parent_id), []).append(line)
     for doc in documents:
         field = "invoice_id" if isinstance(doc, Invoice) else "estimate_id"
-        lines = [
-            r
-            for r in ctx.all(Line)
-            if getattr(r, field) == doc.id and (not r.optional or r.selected)
-        ]
+        lines = selected.get((field, doc.id), [])
         if (
             not lines
             or sum(r.amount_cents for r in lines) != doc.subtotal_cents
@@ -175,12 +203,11 @@ def validate_graph(ctx: DemoContext) -> list[str]:
     for card in ctx.all(GiftCard):
         if card.payment_id and card.expires_at:
             errors.append(f"{card.id}: purchased cash gift card expires")
+    stocked = Counter[str]()
+    for movement in ctx.all(StockMovement):
+        stocked[movement.item_id] += movement.quantity
     for item in items.values():
-        if (
-            item.track_stock
-            and sum(m.quantity for m in ctx.all(StockMovement) if m.item_id == item.id)
-            != item.stock_on_hand
-        ):
+        if item.track_stock and stocked[item.id] != item.stock_on_hand:
             errors.append(f"{item.id}: stock cache mismatch")
     return errors
 

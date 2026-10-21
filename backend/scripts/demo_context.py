@@ -261,26 +261,66 @@ def demo_business(business_id: str) -> DemoBusiness:
 
 @dataclass
 class DemoContext:
+    """The rows being built, indexed by type and id for lookups; rows keep their id and business."""
+
     now: datetime
     business_id: str
     owner_id: str
     rows: list[Base] = field(default_factory=list)
     zone: ZoneInfo = BUSINESS_TIMEZONE
+    _kinds: dict[type[Base], list[Base]] = field(
+        default_factory=dict[type[Base], list[Base]], init=False, repr=False, compare=False
+    )
+    _ids: dict[tuple[type[Base], object], Base] = field(
+        default_factory=dict[tuple[type[Base], object], Base], init=False, repr=False, compare=False
+    )
+    _indexed: int = field(default=0, init=False, repr=False, compare=False)
+    _last: Base | None = field(default=None, init=False, repr=False, compare=False)
 
     def at(self, days: float, hour: int = 9, minute: int = 0) -> datetime:
         local = self.now.astimezone(self.zone) + timedelta(days=days)
         return local.replace(hour=hour, minute=minute, second=0, microsecond=0).astimezone(UTC)
 
     def all[T: Base](self, model: type[T]) -> list[T]:
-        return [
-            row
-            for row in self.rows
-            if isinstance(row, model)
-            and getattr(row, "business_id", None) in {None, self.business_id}
-        ]
+        kinds = self._matching(model)
+        if not kinds:
+            return []
+        if len(kinds) == 1:
+            return [row for row in self._kinds[kinds[0]] if isinstance(row, model)]
+        return [row for row in self.rows if isinstance(row, model) and self._ours(row)]
 
     def get[T: Base](self, model: type[T], row_id: str) -> T:
+        if self._matching(model) == [model]:
+            found = self._ids.get((model, row_id))
+            if isinstance(found, model) and getattr(found, "id", None) == row_id:
+                return found
         return next(row for row in self.all(model) if getattr(row, "id", None) == row_id)
 
     def add(self, *rows: Base) -> None:
         self.rows.extend(rows)
+
+    def discard(self, model: type[Base]) -> None:
+        self.rows[:] = [row for row in self.rows if not isinstance(row, model)]
+        self._indexed = 0
+
+    def _matching(self, model: type[Base]) -> list[type[Base]]:
+        return [kind for kind in self._index() if issubclass(kind, model)]
+
+    def _ours(self, row: Base) -> bool:
+        return getattr(row, "business_id", None) in {None, self.business_id}
+
+    def _index(self) -> dict[type[Base], list[Base]]:
+        """Index this business's rows appended since the last lookup; other changes rebuild it."""
+        seen = self._indexed
+        if seen > len(self.rows) or (seen and self.rows[seen - 1] is not self._last):
+            seen = 0
+        if seen == 0:
+            self._kinds, self._ids = {}, {}
+        for row in self.rows[seen:]:
+            if not self._ours(row):
+                continue
+            self._kinds.setdefault(type(row), []).append(row)
+            self._ids.setdefault((type(row), getattr(row, "id", None)), row)
+        self._indexed = len(self.rows)
+        self._last = self.rows[-1] if self.rows else None
+        return self._kinds
