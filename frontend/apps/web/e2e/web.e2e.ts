@@ -884,6 +884,10 @@ test("owner: key pages and records pass axe, show keyboard focus and keep hovere
     const { main } = walk;
     const found: Record<string, string[]> = {};
     const record = async (where: string, scope: string): Promise<void> => {
+        // a control still fading in from disabled reads as low contrast
+        await page.waitForFunction(() =>
+            document.getAnimations().every((a) => a.effect?.getTiming().iterations === Infinity),
+        );
         const problems = [
             ...(await axeIssues(page)),
             ...(await unmarkedFocus(page, scope)).map((name) => `no focus indicator: ${name}`),
