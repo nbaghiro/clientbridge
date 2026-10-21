@@ -1,13 +1,15 @@
 import { useParams } from "react-router-dom";
 import {
     formatNumber,
+    adminEditionOptions,
     adminLabel,
     strings,
+    useAdminEditionForm,
     useAdminFilters,
     useAdminResource,
     type AdminSchemas,
 } from "@clientbridge/app-core/public";
-import { Panel, Stat } from "@clientbridge/ui";
+import { Button, Notice, Panel, Select, Stat } from "@clientbridge/ui";
 import { config } from "../config";
 import {
     RecordStatus,
@@ -69,6 +71,35 @@ export function BusinessRecords({ items }: { items: AdminSchemas["AdminBusiness"
         />
     );
 }
+function EditionPanel({ business }: { business: AdminSchemas["AdminBusiness"] }) {
+    const form = useAdminEditionForm(config.apiUrl, business);
+    return (
+        <Panel>
+            <Facts items={[[strings.admin.edition, strings.admin.editionOption(form.current)]]} />
+            <div className="flex flex-wrap items-end gap-3">
+                <div className="min-w-60 flex-1">
+                    <Select
+                        label={strings.admin.changeEdition}
+                        hint={strings.admin.editionHint}
+                        value={form.value}
+                        options={adminEditionOptions()}
+                        onChange={form.setValue}
+                        disabled={form.busy}
+                    />
+                </div>
+                <Button disabled={!form.changed} busy={form.busy} onPress={form.save}>
+                    {strings.admin.saveEdition}
+                </Button>
+            </div>
+            {form.outcome === "saved" ? (
+                <Notice tone="success">{strings.admin.editionSaved}</Notice>
+            ) : form.outcome === "failed" ? (
+                <Notice tone="danger">{strings.admin.editionError}</Notice>
+            ) : null}
+        </Panel>
+    );
+}
+
 export function BusinessDetail() {
     const { id = "" } = useParams();
     const state = useAdminResource(
@@ -104,6 +135,7 @@ export function BusinessDetail() {
                             ]}
                         />
                     </Panel>
+                    <EditionPanel business={b} />
                     <div className="grid gap-4 sm:grid-cols-2">
                         <Stat label={strings.admin.clients} value={formatNumber(clients)} />
                         <Stat label={strings.admin.payments} value={formatNumber(payments)} />

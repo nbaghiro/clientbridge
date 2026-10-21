@@ -1714,14 +1714,6 @@ interface Strings {
         readonly firstName: (kind: string) => string;
         readonly firstNamePlaceholder: (kind: string) => string;
         readonly firstDetailPlaceholder: (kind: string) => string;
-        readonly choiceLabel: string;
-        readonly choiceHelp: string;
-        readonly choice: (kind: string) => string;
-        readonly choiceHint: (kind: string) => string;
-        readonly choiceRequired: string;
-        readonly changeTitle: string;
-        readonly changeBody: (from: string, to: string, count: number) => string;
-        readonly changeConfirm: string;
         readonly age: (years: number) => string;
         readonly weight: (kg: number) => string;
         readonly rooms: (rooms: number) => string;
@@ -2238,6 +2230,11 @@ interface Strings {
             readonly slugPlaceholder: string;
             readonly province: string;
             readonly provincePlaceholder: string;
+            readonly industry: (industry: string) => string;
+            readonly industryLabel: string;
+            readonly industryPlaceholder: string;
+            readonly industryHint: string;
+            readonly industryRequired: string;
             readonly taxTitle: (province: string) => string;
             readonly taxNone: string;
             readonly creating: string;
@@ -4615,6 +4612,13 @@ interface Strings {
         readonly stripe: string;
         readonly charges: string;
         readonly payouts: string;
+        readonly edition: string;
+        readonly editionOption: (subject: string) => string;
+        readonly editionHint: string;
+        readonly changeEdition: string;
+        readonly saveEdition: string;
+        readonly editionSaved: string;
+        readonly editionError: string;
         readonly yes: string;
         readonly no: string;
         readonly none: string;
@@ -4692,7 +4696,7 @@ interface Strings {
         readonly valueSmtp: string;
         readonly valueResend: string;
         readonly searchBusiness: string;
-    } & Labels;
+    };
 }
 
 export const strings = catalog(

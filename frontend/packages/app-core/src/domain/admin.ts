@@ -1,6 +1,6 @@
 import { attemptKey, type Attempt } from "../api";
 import { strings } from "../strings";
-import type { Intent } from "../ui";
+import type { Intent, SelectOption } from "../ui";
 import { useEffect, useRef, useState } from "react";
 
 export type AdminAccess = "loading" | "allowed" | "denied" | "signedOut" | "unavailable";
@@ -193,6 +193,59 @@ export function useAdminEmailForm(base: string) {
             .catch(() => undefined);
     };
     return { recipient, setRecipient, confirmed, setConfirmed, busy, outcome, send };
+}
+
+const EDITIONS = ["pet", "student", "property", "site", "none"] as const;
+
+/** A business's edition as a select value; "none" is a business that books only the client. */
+type AdminEditionChoice = (typeof EDITIONS)[number];
+
+export function adminEditionOptions(): SelectOption<AdminEditionChoice>[] {
+    return EDITIONS.map((key) => ({ key, label: strings.admin.editionOption(key) }));
+}
+
+function editionChoice(subject: string | null): AdminEditionChoice {
+    return EDITIONS.find((key) => key === subject) ?? "none";
+}
+
+export function useAdminEditionForm(base: string, business: AdminSchemas["AdminBusiness"]) {
+    const [current, setCurrent] = useState(editionChoice(business.subject));
+    const [value, setValue] = useState(current);
+    const [busy, setBusy] = useState(false);
+    const [outcome, setOutcome] = useState<"saved" | "failed" | null>(null);
+    const save = () => {
+        if (busy) return;
+        setBusy(true);
+        setOutcome(null);
+        adminRequest(base, `businesses/${encodeURIComponent(business.id)}/edition`, {
+            subject: value === "none" ? null : value,
+        })
+            .then(
+                (data) => {
+                    setCurrent(editionChoice((data as AdminSchemas["AdminBusiness"]).subject));
+                    setOutcome("saved");
+                },
+                () => {
+                    setOutcome("failed");
+                },
+            )
+            .finally(() => {
+                setBusy(false);
+            })
+            .catch(() => undefined);
+    };
+    return {
+        current,
+        value,
+        setValue: (choice: AdminEditionChoice) => {
+            setValue(choice);
+            setOutcome(null);
+        },
+        changed: value !== current,
+        busy,
+        outcome,
+        save,
+    };
 }
 
 export function adminLabel(value: string): string {

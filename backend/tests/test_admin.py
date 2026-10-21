@@ -313,6 +313,52 @@ async def test_sms_assignment_is_normalized_audited_and_cannot_cross_businesses(
     ).status_code == 422
 
 
+async def test_admin_sets_the_edition_and_audits_each_change(
+    api: httpx.AsyncClient, admin_headers: dict[str, str], db: AsyncSession, factory: Factory
+) -> None:
+    other = await factory.business()
+    path = "/admin/v1/businesses/bz_birchbark/edition"
+    result = await api.post(path, json={"subject": "student"}, headers=admin_headers)
+    assert result.status_code == 200, result.text
+    assert result.json()["subject"] == "student"
+    assert (await api.post(path, json={"subject": "student"}, headers=admin_headers)).json()[
+        "subject"
+    ] == "student"
+    cleared = await api.post(path, json={"subject": None}, headers=admin_headers)
+    assert cleared.status_code == 200
+    assert cleared.json()["subject"] is None
+    audits = list(await db.scalars(select(Audit).where(Audit.action == "business.edition")))
+    assert {(row.changes["old"], row.changes["new"]) for row in audits} == {
+        ("pet", "student"),
+        ("student", None),
+    }
+    assert all(row.business_id == "bz_birchbark" and row.changes["identity_id"] for row in audits)
+    await db.refresh(other)
+    assert other.subject == "pet"
+
+
+@pytest.mark.parametrize(
+    "business_id,body,code",
+    [("missing", {"subject": "pet"}, 404), ("bz_birchbark", {"subject": "vehicle"}, 422)],
+)
+async def test_admin_edition_rejects_unknown_business_and_kind(
+    api: httpx.AsyncClient, admin_headers: dict[str, str], business_id: str, body: object, code: int
+) -> None:
+    path = f"/admin/v1/businesses/{business_id}/edition"
+    assert (await api.post(path, json=body, headers=admin_headers)).status_code == code
+
+
+async def test_only_a_platform_admin_sets_the_edition(
+    api: httpx.AsyncClient, as_owner: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(get_settings(), "platform_admin_identity_ids", "")
+    monkeypatch.setattr(get_settings(), "dev_platform_admin_identity_ids", "")
+    path = "/admin/v1/businesses/bz_birchbark/edition"
+    anonymous = await api.post(path, json={"subject": None}, headers={"X-Session-Token": ""})
+    assert anonymous.status_code == 401
+    assert (await as_owner.post(path, json={"subject": None})).status_code == 403
+
+
 async def test_client_activity_includes_related_records_and_keeps_business_scope(
     api: httpx.AsyncClient, db: AsyncSession, admin_headers: dict[str, str]
 ) -> None:

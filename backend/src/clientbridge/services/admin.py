@@ -36,6 +36,7 @@ from clientbridge.schemas.admin import (
     AdminDelivery,
     AdminDriftAcknowledgement,
     AdminDriftResult,
+    AdminEdition,
     AdminEmailConfig,
     AdminEmailPreview,
     AdminEmailResult,
@@ -531,6 +532,37 @@ class AdminService:
             self.db,
             PublicPrincipal(business_id),
             action="business.sms_assignment",
+            run=run,
+            response_model=AdminBusiness,
+        )
+
+    async def set_edition(self, business_id: str, body: AdminEdition) -> AdminBusiness:
+        async def run(cmd: Command) -> AdminBusiness:
+            business = await self.db.scalar(
+                select(Business)
+                .where(Business.id == business_id)
+                .with_for_update(key_share=True)
+                .execution_options(populate_existing=True)
+            )
+            if business is None:
+                raise NotFound("business not found")
+            if business.subject == body.subject:
+                return AdminBusiness.model_validate(business)
+            previous = business.subject
+            business.subject = body.subject
+            cmd.record(
+                "business.edition",
+                entity_type="business",
+                entity_id=business_id,
+                changes={"old": previous, "new": body.subject, "identity_id": self.identity.id},
+            )
+            await self.db.flush()
+            return AdminBusiness.model_validate(business)
+
+        return await run_command(
+            self.db,
+            PublicPrincipal(business_id),
+            action="business.edition",
             run=run,
             response_model=AdminBusiness,
         )

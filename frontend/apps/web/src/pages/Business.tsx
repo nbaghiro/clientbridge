@@ -2,42 +2,16 @@ import {
     BUSINESS_ADDRESS_FIELDS,
     BUSINESS_TEXT_FIELDS,
     strings,
-    subjectChoices,
     timeZoneOptions,
     useBusinessForm,
 } from "@clientbridge/app-core";
 
-import {
-    Button,
-    Choice,
-    confirm,
-    Field,
-    Loading,
-    Notice,
-    Panel,
-    Select,
-    TextField,
-} from "@clientbridge/ui";
+import { Button, Loading, Notice, Panel, Select, TextField } from "@clientbridge/ui";
 import { api } from "../lib/api";
 
 export function Business() {
     const form = useBusinessForm(api);
     const fields = form.fields;
-    const save = (): void => {
-        if (form.subjectChange === null) {
-            form.submit();
-            return;
-        }
-        confirm({
-            title: strings.subjects.changeTitle,
-            message: form.subjectChange,
-            confirmLabel: strings.subjects.changeConfirm,
-        })
-            .then((ok) => {
-                if (ok) form.submit();
-            })
-            .catch(() => undefined);
-    };
 
     return (
         <div>
@@ -53,7 +27,7 @@ export function Business() {
                         className="space-y-6"
                         onSubmit={(e) => {
                             e.preventDefault();
-                            save();
+                            form.submit();
                         }}
                     >
                         <Panel>
@@ -78,18 +52,6 @@ export function Business() {
                                 }}
                                 size="lg"
                             />
-                            <Field
-                                label={strings.subjects.choiceLabel}
-                                hint={strings.subjects.choiceHelp}
-                            >
-                                <Choice
-                                    label={strings.subjects.choiceLabel}
-                                    layout="cards"
-                                    options={subjectChoices()}
-                                    value={form.subject}
-                                    onChange={form.setSubject}
-                                />
-                            </Field>
                         </Panel>
                         <Panel
                             title={strings.business.legalAddress.title}

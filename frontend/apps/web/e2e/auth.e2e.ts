@@ -145,7 +145,11 @@ async function openBusiness(page: Page, name: string): Promise<void> {
         .getByRole("listbox", { name: o.province })
         .getByRole("option", { name: o.provinceBC, exact: true })
         .click();
-    await page.getByRole("button", { name: strings.subjects.choice("none") }).click();
+    await page.getByRole("combobox", { name: o.industryLabel }).click();
+    await page
+        .getByRole("listbox", { name: o.industryLabel })
+        .getByRole("option", { name: o.industry("beauty"), exact: true })
+        .click();
     await page.getByRole("button", { name: o.createBusiness, exact: true }).click();
     await expect(
         page

@@ -294,11 +294,12 @@ Size: M · Area: Clients
 
 **Surfaces:** Backend, web, iPhone, Android and Connect
 
-**Flow:** The owner chooses at onboarding what clients book for: pets, students, properties, or only the
-client. Staff record each client's subjects with that kind's details, and the subject shows on its
-bookings. An owner or admin can change the kind later in business settings; existing subjects and their
-details are kept, and the app asks for confirmation with a count first. A business that books only the
-client shows no subject fields anywhere.
+**Flow:** The owner chooses their industry at onboarding, and Clientbridge maps it to what clients book
+for: pets, students, properties, sites, or only the client. The industry itself is not stored. Staff
+record each client's subjects with that kind's details, and the subject shows on its bookings. Owners
+cannot change the kind afterwards; a platform admin can change it from the business's page in the admin
+app, and existing subjects and their details are kept. A business that books only the client shows no
+subject fields anywhere.
 
 **Built:** `businesses.subject` (pet, student, property, site or NULL) synced to devices; per-kind details
 validated on the server (pet: species, breed, weight, birthday, sex, temperament, coat, allergies, vet,
@@ -316,12 +317,12 @@ asks for the address of a new one and matches it to the client's existing place 
 
 1. Add a dog with breed, weight and temperament to a client.
 2. Book the dog; the groomer sees the dog on the booking on their phone.
-3. Onboard a property business; add a property with an address and access notes; book it online from
+3. Onboard a home cleaning business; add a property with an address and access notes; book it online from
    Connect with a new property name and address, and check the property and address on the client record.
-4. Onboard a student business; add a student with a grade and school; check the booking composer offers
+4. Onboard a tutoring business; add a student with a grade and school; check the booking composer offers
    the student.
-5. Change the pet business to properties; confirm the count, and check the existing pets still show
-   with their details kept.
+5. In the admin app, change the pet business's edition to properties, and check the existing pets still
+   show with their details kept.
 6. Onboard a business that books only the client; check that no subject fields show on the client
    record, the booking composer or Connect.
 

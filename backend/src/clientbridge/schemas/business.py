@@ -174,9 +174,6 @@ class BusinessSettingsUpdate(Mirror):
         default=None, description="The business's legal contact phone; empty clears"
     )
     brand: BrandInput | None = None
-    subject: SubjectKind | None = Field(
-        default=None, description="What bookings are for besides the client; null books only them"
-    )
 
     @field_validator("unit", "street_number", "street_name", "city")
     @classmethod

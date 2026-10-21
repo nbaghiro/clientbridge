@@ -1,8 +1,8 @@
 import {
     PROVINCES,
     bookingHost,
+    industryOptions,
     strings,
-    subjectChoices,
     useOnboardingForm,
     useVerificationForm,
 } from "@clientbridge/app-core";
@@ -11,7 +11,7 @@ import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Button, Choice, Field, Lockup, Logo, Notice, TextField } from "@clientbridge/ui";
+import { Button, Choice, Field, Lockup, Logo, Notice, Select, TextField } from "@clientbridge/ui";
 
 import { api, identity } from "../lib/api";
 import { bookUrl } from "../lib/config";
@@ -122,15 +122,16 @@ export function OnboardingScreen({ onSignOut }: { onSignOut: () => void }) {
                             </Text>
                         </View>
                     ) : null}
-                    <Field label={strings.subjects.choiceLabel} hint={strings.subjects.choiceHelp}>
-                        <Choice
-                            label={strings.subjects.choiceLabel}
-                            layout="cards"
-                            options={subjectChoices()}
-                            value={form.subject}
-                            onChange={form.setSubject}
-                        />
-                    </Field>
+                    <Select
+                        label={strings.business.onboarding.industryLabel}
+                        hint={strings.business.onboarding.industryHint}
+                        value={form.industry ?? undefined}
+                        placeholder={strings.business.onboarding.industryPlaceholder}
+                        options={industryOptions()}
+                        onChange={form.setIndustry}
+                        size="lg"
+                        surface="surface"
+                    />
 
                     {form.error ? <Notice tone="danger">{form.error}</Notice> : null}
                     {form.needsVerification ? <VerifyEmail /> : null}

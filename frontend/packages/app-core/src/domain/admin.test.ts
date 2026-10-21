@@ -2,7 +2,15 @@
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 
-import { type AdminAccess, useAdminAccess, useAdminResource, useAdminEmailForm } from "./admin";
+import {
+    type AdminAccess,
+    type AdminSchemas,
+    adminEditionOptions,
+    useAdminAccess,
+    useAdminEditionForm,
+    useAdminEmailForm,
+    useAdminResource,
+} from "./admin";
 
 afterEach(() => {
     cleanup();
@@ -191,4 +199,60 @@ it("does not report queued mail as accepted", async () => {
     await waitFor(() => {
         expect(result.current.outcome).toBe("queued");
     });
+});
+
+it("saves a business's edition and shows what the server stored", async () => {
+    const business = { id: "bz_one", subject: "pet" } as AdminSchemas["AdminBusiness"];
+    const requests: { url: string; body: string }[] = [];
+    vi.stubGlobal(
+        "fetch",
+        vi.fn((url: string, init: RequestInit) => {
+            requests.push({ url, body: typeof init.body === "string" ? init.body : "" });
+            return Promise.resolve(new Response(JSON.stringify({ ...business, subject: null })));
+        }),
+    );
+    const { result } = renderHook(() => useAdminEditionForm("http://api.test", business));
+    expect(result.current.current).toBe("pet");
+    expect(result.current.changed).toBe(false);
+    act(() => {
+        result.current.setValue("none");
+    });
+    expect(result.current.changed).toBe(true);
+    act(() => {
+        result.current.save();
+    });
+    await waitFor(() => {
+        expect(result.current.outcome).toBe("saved");
+    });
+    expect(requests).toEqual([
+        {
+            url: "http://api.test/admin/v1/businesses/bz_one/edition",
+            body: JSON.stringify({ subject: null }),
+        },
+    ]);
+    expect(result.current.current).toBe("none");
+    expect(result.current.changed).toBe(false);
+    expect(adminEditionOptions().map((option) => option.label)).toEqual([
+        "Pets",
+        "Students",
+        "Properties",
+        "Sites",
+        "Client only",
+    ]);
+});
+
+it("reports a failed edition save", async () => {
+    const business = { id: "bz_one", subject: null } as AdminSchemas["AdminBusiness"];
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status: 500 })));
+    const { result } = renderHook(() => useAdminEditionForm("http://api.test", business));
+    act(() => {
+        result.current.setValue("site");
+    });
+    act(() => {
+        result.current.save();
+    });
+    await waitFor(() => {
+        expect(result.current.outcome).toBe("failed");
+    });
+    expect(result.current.current).toBe("none");
 });

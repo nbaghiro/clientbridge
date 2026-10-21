@@ -2,9 +2,10 @@
 
 import httpx
 import pytest
-from sqlalchemy import text
+from sqlalchemy import text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.models.business import Business, SubjectKind
 from tests.conftest import Factory
 
 
@@ -84,9 +85,8 @@ async def test_foreign_subject_404_by_scoping(
     assert (await as_owner.delete("/v1/subjects/sj_foreign")).status_code == 404
 
 
-async def _kind(owner: httpx.AsyncClient, kind: str | None) -> None:
-    res = await owner.patch("/v1/business", json={"subject": kind})
-    assert res.status_code == 200, res.text
+async def _kind(db: AsyncSession, kind: SubjectKind | None) -> None:
+    await db.execute(update(Business).where(Business.id == "bz_birchbark").values(subject=kind))
 
 
 @pytest.mark.parametrize(
@@ -118,9 +118,9 @@ async def _kind(owner: httpx.AsyncClient, kind: str | None) -> None:
     ],
 )
 async def test_each_kind_stores_its_own_details(
-    as_owner: httpx.AsyncClient, kind: str, attributes: dict[str, object]
+    as_owner: httpx.AsyncClient, db: AsyncSession, kind: SubjectKind, attributes: dict[str, object]
 ) -> None:
-    await _kind(as_owner, kind)
+    await _kind(db, kind)
     cid = await _client(as_owner)
     res = await as_owner.post(
         "/v1/subjects", json={"client_id": cid, "name": "Main", "attributes": attributes}
@@ -144,9 +144,9 @@ async def test_each_kind_stores_its_own_details(
     ],
 )
 async def test_invalid_details_for_the_kind_422(
-    as_owner: httpx.AsyncClient, kind: str, attributes: dict[str, object]
+    as_owner: httpx.AsyncClient, db: AsyncSession, kind: SubjectKind, attributes: dict[str, object]
 ) -> None:
-    await _kind(as_owner, kind)
+    await _kind(db, kind)
     cid = await _client(as_owner)
     res = await as_owner.post(
         "/v1/subjects", json={"client_id": cid, "name": "X", "attributes": attributes}
@@ -158,7 +158,7 @@ async def test_invalid_details_for_the_kind_422(
 async def test_a_business_without_subjects_cannot_add_one_409(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    await _kind(as_owner, None)
+    await _kind(db, None)
     cid = await _client(as_owner)
     res = await as_owner.post("/v1/subjects", json={"client_id": cid, "name": "Rex"})
     assert res.status_code == 409
@@ -180,7 +180,7 @@ async def test_changing_the_kind_keeps_existing_subjects_and_details(
             json={"client_id": cid, "name": "Luna", "attributes": {"breed": "Collie"}},
         )
     ).json()
-    await _kind(as_owner, "property")
+    await _kind(db, "property")
     res = await as_owner.patch(
         f"/v1/subjects/{pet['id']}",
         json={"attributes": {"breed": "Collie", "address": "4 Elm Rd", "rooms": None}},
@@ -188,7 +188,7 @@ async def test_changing_the_kind_keeps_existing_subjects_and_details(
     assert res.status_code == 200, res.text
     assert res.json()["attributes"] == {"breed": "Collie", "address": "4 Elm Rd"}
 
-    await _kind(as_owner, None)
+    await _kind(db, None)
     res = await as_owner.patch(
         f"/v1/subjects/{pet['id']}", json={"name": "Cottage", "attributes": {"rooms": 9000}}
     )

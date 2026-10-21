@@ -12,6 +12,7 @@ from clientbridge.models.business import (
     PlanStatus,
     StaffRole,
     StaffStatus,
+    SubjectKind,
     User,
 )
 from clientbridge.models.clients import Client, ClientStatus
@@ -47,6 +48,7 @@ class AdminBusiness(Mirror):
     stripe_account_id: str | None
     stripe_charges_enabled: bool
     stripe_payouts_enabled: bool
+    subject: SubjectKind | None
     created_at: datetime
 
 
@@ -238,6 +240,12 @@ class AdminDelivery(Mirror):
 
 class AdminSmsAssignment(BaseModel):
     number: Phone = Field(max_length=32)
+
+
+class AdminEdition(BaseModel):
+    subject: SubjectKind | None = Field(
+        description="The edition: what bookings are for besides the client; null books only them"
+    )
 
 
 class AdminDriftAcknowledgement(BaseModel):
