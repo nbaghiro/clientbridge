@@ -570,7 +570,8 @@ jobs:
           set -o pipefail
           frontend/apps/mobile/scripts/ci-emulator.sh start
           adb install app-release.apk
-          timeout 300 sh -c 'until curl -sf 127.0.0.1:8701/health; do sleep 2; done'
+          timeout 720 sh -c 'until curl -sf 127.0.0.1:8701/health; do sleep 2; done'
+          (cd backend && uv run python -m scripts.sync_caught_up)
           cd frontend/apps/mobile
           # a fixed driver port outside the ephemeral range, where Maestro's random pick can collide with an emulator socket
           timeout 20m "$HOME/.maestro/bin/maestro" test shard --driver-host-port 7001 \

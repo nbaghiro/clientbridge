@@ -505,7 +505,7 @@ test("owner: clients, records, notes, subjects, wallet and merge", async ({ page
     });
 
     await walk.step("wallet: method actions", async () => {
-        await navigate(page, "/clients?open=cl_amelie");
+        await navigate(page, "/clients?open=cl_amelie", "/clients");
         await main.getByRole("button", { name: r.manageWallet }).click();
         await main
             .getByRole("button", { name: prefixOf(strings.clients.wallet.more) })
@@ -1027,7 +1027,7 @@ test("staff: today, schedule and clients", async ({ page }) => {
         await expect(page.getByRole("heading", { name: "Amélie Tremblay" })).toBeVisible();
         await navigate(page, "/clients/cl_amelie/subjects");
         await openAndClose(page, strings.subjects.add("pet"));
-        await navigate(page, "/clients?open=cl_amelie");
+        await navigate(page, "/clients?open=cl_amelie", "/clients");
         await expect(
             main.getByRole("button", { name: strings.clients.record.manageWallet }),
         ).toHaveCount(0);

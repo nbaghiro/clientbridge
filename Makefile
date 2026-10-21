@@ -130,7 +130,7 @@ test-site:
 	cd frontend && pnpm --filter site build && pnpm --filter site e2e
 
 test-web:
-	cd backend && uv run python -m scripts.web_fixtures
+	cd backend && uv run python -m scripts.web_fixtures && uv run python -m scripts.sync_caught_up
 	cd frontend && pnpm --filter web e2e
 
 test-connect:
