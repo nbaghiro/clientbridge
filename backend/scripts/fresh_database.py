@@ -45,7 +45,7 @@ def main(command: list[str]) -> int:
         run([*python, "scripts.db_access", "roles"], env)
         run([*python, "alembic", "upgrade", "head"], env)
         run([*python, "scripts.db_access", "grants"], env)
-        run([*python, "scripts.seed_demo", "--as-of", FROZEN.isoformat()], env)
+        run([*python, "scripts.seed_demo", "--core", "--as-of", FROZEN.isoformat()], env)
         return subprocess.run(command, env=env, check=False).returncode
     finally:
         asyncio.run(admin(f"DROP DATABASE IF EXISTS {quote(database)} WITH (FORCE)"))

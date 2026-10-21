@@ -11,7 +11,7 @@ from clientbridge.models.scheduling import Booking, Hours, Recurrence, Slot
 
 @pytest.mark.parametrize("anchor", ["2026-10-08T16:00:00-04:00", "2027-01-03T09:00:00+00:00"])
 def test_demo_calendar_is_consistent_at_different_seed_dates(anchor: str) -> None:
-    ctx = build_demo(datetime.fromisoformat(anchor))
+    ctx = build_demo(datetime.fromisoformat(anchor), core=True)
     items = {r.id: r for r in ctx.all(Item)}
     pets = {r.id: r for r in ctx.all(Subject)}
     slots = {r.id: r for r in ctx.all(Slot)}

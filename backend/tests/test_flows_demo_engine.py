@@ -1,8 +1,9 @@
 from dataclasses import replace
 from datetime import time, timedelta
 
-from scripts.demo_context import DemoBusiness, LegalAddress
-from scripts.demo_engine import Demo, Quote, build_edition, seed_ledger
+import pytest
+from scripts.demo_context import DEMO_BUSINESSES, DemoBusiness, LegalAddress
+from scripts.demo_engine import Demo, Quote, build_edition, editions, seed_ledger
 from scripts.demo_spec import (
     BusinessSpec,
     ContractSpec,
@@ -29,6 +30,8 @@ from clientbridge.models.scheduling import Booking, Slot
 from clientbridge.services import ledger
 
 PROBE = "bz_engine_probe"
+# the database seed for tests holds only the core businesses, so the rest are checked in memory
+OUTSIDE_CORE = [b.id for b in DEMO_BUSINESSES if b.edition is not None and not b.core]
 WEEK = {day: (time(8), time(17)) for day in range(6)}
 
 SPEC = BusinessSpec(
@@ -647,3 +650,10 @@ def test_pacing_gives_a_member_their_own_services_and_clients() -> None:
         "cl_pb_kais_too",
     }
     assert {client for staff, _, client in visits if staff == "st_pb_owner"} == {"cl_pb_owners"}
+
+
+@pytest.mark.parametrize("business_id", OUTSIDE_CORE)
+def test_an_edition_outside_the_core_seed_builds_a_valid_graph(business_id: str) -> None:
+    edition = next(e for e in editions() if e.spec.listing.id == business_id)
+    demo = build_edition(edition, clock.now())
+    assert validate_graph(demo.ctx) == []

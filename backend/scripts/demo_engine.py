@@ -1689,8 +1689,12 @@ class Demo:
         return validate_graph(self.ctx) + chronology_errors(self.ctx) + stages
 
 
-def editions() -> list[type[Demo]]:
-    return [_edition(listing) for listing in DEMO_BUSINESSES if listing.edition is not None]
+def editions(*, core: bool = False) -> list[type[Demo]]:
+    return [
+        _edition(listing)
+        for listing in DEMO_BUSINESSES
+        if listing.edition is not None and (listing.core or not core)
+    ]
 
 
 def _edition(listing: DemoBusiness) -> type[Demo]:

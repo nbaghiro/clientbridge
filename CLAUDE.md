@@ -117,6 +117,8 @@ Polyglot monorepo: `backend/` (Python · uv · FastAPI) · `frontend/` (pnpm + t
   external clock such as the auth service, PowerSync tokens or webhook signatures). Pytest and vitest start at
   `FROZEN` (2026-10-13T17:00Z) over a database seeded at that instant; e2e suites stay at real time with
   dates derived from today.
+- Tests and CI seed only the core demo businesses (`core=True` in `DEMO_BUSINESSES`, `make seed-core`);
+  `make seed` and staging seed all of them, and the other editions are checked in memory.
 - CI gate: `pytest --cov=clientbridge --cov-branch --cov-fail-under=90`.
 
 ## Tooling — run the gate before "done"

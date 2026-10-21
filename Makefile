@@ -1,4 +1,4 @@
-.PHONY: infra-bootstrap infra-providers infra-mobile help up down images up-app logs-sync logs-auth install stripe-listen stripe-setup dev-api worker dev-web dev-connect dev-site dev-mobile build build-apps build-site test-site test-web test-connect test-mobile lighthouse-site migrate revision seed gen-api gen-sync-schema gen-themes gen-messages gen-strings gen-zones gen-taxes codegen-check test test-backend test-frontend test-contract test-auth auth-standalone test-e2e stripe-mock lint lint-backend lint-frontend lint-infra test-infra typecheck format format-check format-check-backend format-check-frontend format-check-infra precommit hooks check gen-waitlist-email preview-emails configure-demo-admin dev-admin
+.PHONY: infra-bootstrap infra-providers infra-mobile help up down images up-app logs-sync logs-auth install stripe-listen stripe-setup dev-api worker dev-web dev-connect dev-site dev-mobile build build-apps build-site test-site test-web test-connect test-mobile lighthouse-site migrate revision seed seed-core gen-api gen-sync-schema gen-themes gen-messages gen-strings gen-zones gen-taxes codegen-check test test-backend test-frontend test-contract test-auth auth-standalone test-e2e stripe-mock lint lint-backend lint-frontend lint-infra test-infra typecheck format format-check format-check-backend format-check-frontend format-check-infra precommit hooks check gen-waitlist-email preview-emails configure-demo-admin dev-admin
 .DEFAULT_GOAL := help
 
 help:
@@ -34,6 +34,7 @@ help:
 	@echo "migrate          alembic upgrade head"
 	@echo "revision         alembic autogenerate (name=...)"
 	@echo "seed             replace the demo businesses' rows; other tenants are kept"
+	@echo "seed-core        the same with only the core businesses that tests and CI run against"
 	@echo "gen-api          regenerate the frontend api-client from the backend OpenAPI"
 	@echo "gen-sync-schema  regenerate the PowerSync client schema from models + sync streams"
 	@echo "gen-themes       regenerate the theme tokens from .docs/design/app-explorer.html"
@@ -158,6 +159,9 @@ revision:
 
 seed:
 	cd backend && uv run python -m scripts.seed_demo
+
+seed-core:
+	cd backend && uv run python -m scripts.seed_demo --core
 
 gen-api:
 	cd backend && uv run python -m scripts.export_openapi > ../frontend/packages/api-client/openapi.json

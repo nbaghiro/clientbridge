@@ -17,7 +17,7 @@ from tests.conftest import BIZ
 
 
 def test_demo_preflight_rejects_corrupted_booking_timestamps() -> None:
-    ctx = build_demo(datetime(2026, 10, 8, 16, tzinfo=UTC))
+    ctx = build_demo(datetime(2026, 10, 8, 16, tzinfo=UTC), core=True)
     booking = next(row for row in ctx.all(Booking) if row.status == "completed")
     slot = ctx.get(Slot, booking.slot_id)
     booking.completed_at = slot.starts_at
@@ -125,7 +125,7 @@ async def test_seed_reset_preserves_unrelated_accounts(owner_db: AsyncSession) -
     )
     db.add_all([outsider, user])
     await db.flush()
-    await replace_demo_rows(db, build_demo())
+    await replace_demo_rows(db, build_demo(core=True))
     assert await db.scalar(select(Business.id).where(Business.id == outsider.id)) == outsider.id
     assert await db.scalar(select(User.id).where(User.id == user.id)) == user.id
     assert await db.scalar(select(Business.id).where(Business.id == BIZ)) is None
@@ -137,7 +137,7 @@ async def test_a_reseed_replaces_a_demo_user_whose_id_changed(owner_db: AsyncSes
 
     from clientbridge.models.business import Business, Staff, User
 
-    ctx = build_demo()
+    ctx = build_demo(core=True)
     seeded = {user.email: user for user in ctx.all(User)}
     owner, other = seeded["owner@cedarcoast.example.test"], seeded["owner@northlight.example"]
     await replace_demo_rows(db, ctx)

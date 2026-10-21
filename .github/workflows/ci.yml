@@ -290,7 +290,7 @@ jobs:
           PYTHON
       - run: make migrate
       - run: make auth-standalone
-      - run: make seed
+      - run: make seed-core
       - run: uv run uvicorn clientbridge.main:app --port 8701 > /tmp/api.log 2>&1 &
         working-directory: backend
       - uses: pnpm/action-setup@v6
@@ -385,7 +385,7 @@ jobs:
         working-directory: frontend
       - run: pnpm --filter web exec playwright install --with-deps chromium
         working-directory: frontend
-      - run: make up migrate seed
+      - run: make up migrate seed-core
       - run: uv run uvicorn clientbridge.main:app --host 0.0.0.0 --port 8701 > /tmp/api.log 2>&1 &  # 0.0.0.0: the compose auth service posts email here
         working-directory: backend
       - run: until curl -sf 127.0.0.1:8701/health; do sleep 1; done
@@ -515,7 +515,7 @@ jobs:
         working-directory: backend
       - name: start the stack and the API
         run: |
-          ( make up migrate seed && cd backend \
+          ( make up migrate seed-core && cd backend \
             && exec uv run uvicorn clientbridge.main:app --host 0.0.0.0 --port 8701 ) > /tmp/api.log 2>&1 &  # 0.0.0.0: the compose auth service posts email here
       - name: enable KVM for the emulator
         run: |

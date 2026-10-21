@@ -328,7 +328,7 @@ def test_seed_daily_money_and_completed_visit_chronology(hour: int) -> None:
     from clientbridge.models.scheduling import Slot
 
     zone = ZoneInfo("America/Vancouver")
-    ctx = build_demo(datetime(2026, 10, 8, hour, tzinfo=zone))
+    ctx = build_demo(datetime(2026, 10, 8, hour, tzinfo=zone), core=True)
     refund = ctx.get(Payment, "pay_demo_partial_refund")
     original = ctx.get(Payment, refund.parent_payment_id or "")
     assert original.paid_at is not None and refund.paid_at is not None

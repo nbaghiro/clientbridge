@@ -68,6 +68,8 @@ class DemoBusiness:
     edition: str | None = None
     rules: tuple[SubjectRule, ...] = ()
     showcase: Showcase | None = None
+    # tests and CI seed only the core businesses; `make seed` and staging seed every one
+    core: bool = False
 
     @property
     def zone(self) -> ZoneInfo:
@@ -88,6 +90,7 @@ DEMO_BUSINESSES = (
             "1207", "Government Street", "Victoria", "BC", "V8W 1Y9", "+12505550110"
         ),
         owner_login="hannah@birchbark.example",
+        core=True,
         rules=(
             SubjectRule(("it_cat",), "species", equals="cat"),
             SubjectRule(("it_groom_sm", "it_groom_lg"), "species", differs="cat"),
@@ -113,6 +116,7 @@ DEMO_BUSINESSES = (
         primary_color="#35576B",
         legal=LegalAddress("455", "Granville Street", "Vancouver", "BC", "V6C 1T1", "+16045550120"),
         owner_login="owner@cedarcoast.example.test",
+        core=True,
         edition="scripts.demo_cedar",
         rules=(
             SubjectRule(
@@ -140,6 +144,7 @@ DEMO_BUSINESSES = (
         primary_color="#1F2F4A",
         legal=LegalAddress("2860", "Quadra Street", "Victoria", "BC", "V8T 4E7", "+12505550198"),
         owner_login="owner@northlight.example",
+        core=True,
         edition="scripts.demo_northlight",
     ),
     DemoBusiness(
@@ -251,6 +256,7 @@ DEMO_BUSINESSES = (
     ),
 )
 DEMO_IDS = tuple(business.id for business in DEMO_BUSINESSES)
+CORE_IDS = tuple(business.id for business in DEMO_BUSINESSES if business.core)
 # the business the web, Connect and end-to-end fixtures target unless told otherwise
 FIXTURE_BUSINESS = "bz_birchbark"
 

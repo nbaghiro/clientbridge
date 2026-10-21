@@ -44,7 +44,7 @@ from clientbridge.services.forms import form_definition
 from scripts.demo_calendar import build_calendar
 from scripts.demo_catalog import add_catalog_images
 from scripts.demo_chronology import align_chronology, chronology_errors
-from scripts.demo_context import DEMO_PASSWORD, DEMO_VERSION, DemoContext, demo_business
+from scripts.demo_context import DEMO_IDS, DEMO_PASSWORD, DEMO_VERSION, DemoContext, demo_business
 from scripts.demo_engagement import build_engagement
 from scripts.demo_engine import Demo, build_edition, editions, seed_ledger
 from scripts.demo_finance import add_finance_scenarios, prepare_finance, seed_finance
@@ -2106,7 +2106,7 @@ def seed_dispute() -> None:
     payment.dispute_respond_by = at(6, 17)
 
 
-def build_demo(as_of: datetime | None = None) -> DemoContext:
+def build_demo(as_of: datetime | None = None, *, core: bool = False) -> DemoContext:
     global now, rows, built
     if as_of is not None:
         if as_of.tzinfo is None:
@@ -2174,7 +2174,7 @@ def build_demo(as_of: datetime | None = None) -> DemoContext:
     errors = validate_graph(ctx) + chronology_errors(ctx)
     if errors:
         raise ValueError("Invalid demo graph: " + "; ".join(errors[:20]))
-    for edition in editions():
+    for edition in editions(core=core):
         demo = build_edition(edition, now)
         built.append(demo)
         rows.extend(demo.ctx.rows)
@@ -2198,8 +2198,9 @@ def validate_seed_target() -> None:
 
 
 async def replace_demo_rows(session: AsyncSession, ctx: DemoContext) -> None:
-    """Purge the demo businesses and every user who belongs only to them or has a seeded email."""
-    business_ids = [row.id for row in ctx.all(Business)]
+    """Purge every demo business and every user who belongs only to them or has a seeded email."""
+    # a core seed also clears the other businesses, so a database never mixes two seed runs
+    business_ids = list(DEMO_IDS)
     seeded = ctx.all(User)
     members = select(Staff.user_id).where(Staff.user_id.isnot(None))
     inside = members.where(Staff.business_id.in_(business_ids))
@@ -2290,9 +2291,9 @@ async def link_identities(ctx: DemoContext) -> None:
         ) from exc
 
 
-async def main(*, as_of: datetime | None = None) -> None:
+async def main(*, as_of: datetime | None = None, core: bool = False) -> None:
     validate_seed_target()
-    ctx = build_demo(as_of)
+    ctx = build_demo(as_of, core=core)
     await link_identities(ctx)
     upload_demo_assets()
     # replacing demo rows pauses the ledger's append-only trigger, which only the owner may do
@@ -2308,8 +2309,9 @@ async def main(*, as_of: datetime | None = None) -> None:
         for demo in built:
             await seed_ledger(session, demo)
         await session.flush()
-        await date_seed_writes(session, [row.id for row in ctx.all(Business)], ctx.now)
-        report = await validate_database(session, as_of=ctx.now)
+        seeded = [row.id for row in ctx.all(Business)]
+        await date_seed_writes(session, seeded, ctx.now)
+        report = await validate_database(session, as_of=ctx.now, business_ids=seeded)
         if not report["ok"]:
             raise ValueError(f"Demo validation failed: {report['errors']}")
         await session.commit()
@@ -2352,5 +2354,8 @@ def upload_demo_assets() -> None:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--as-of", type=datetime.fromisoformat)
+    parser.add_argument(
+        "--core", action="store_true", help="seed only the core businesses that tests run against"
+    )
     args = parser.parse_args()
-    asyncio.run(main(as_of=args.as_of))
+    asyncio.run(main(as_of=args.as_of, core=args.core))
