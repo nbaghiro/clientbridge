@@ -111,7 +111,7 @@ async def test_demo_preflight_rejects_photos_that_break_the_portrait_rules(
 
 async def test_seed_reset_preserves_unrelated_accounts(owner_db: AsyncSession) -> None:
     db = owner_db
-    from scripts.seed_demo import replace_demo_rows
+    from scripts.seed_demo import build_graph, replace_business
     from sqlalchemy import select
 
     from clientbridge.models.business import Business, User
@@ -125,7 +125,8 @@ async def test_seed_reset_preserves_unrelated_accounts(owner_db: AsyncSession) -
     )
     db.add_all([outsider, user])
     await db.flush()
-    await replace_demo_rows(db, build_demo(core=True))
+    graph = build_graph(BIZ, clock.now())
+    await replace_business(db, BIZ, graph.ctx.all(User))
     assert await db.scalar(select(Business.id).where(Business.id == outsider.id)) == outsider.id
     assert await db.scalar(select(User.id).where(User.id == user.id)) == user.id
     assert await db.scalar(select(Business.id).where(Business.id == BIZ)) is None
@@ -133,14 +134,16 @@ async def test_seed_reset_preserves_unrelated_accounts(owner_db: AsyncSession) -
 
 async def test_a_reseed_replaces_a_demo_user_whose_id_changed(owner_db: AsyncSession) -> None:
     db = owner_db
-    from scripts.seed_demo import replace_demo_rows
+    from scripts.seed_demo import build_graph, replace_business
 
     from clientbridge.models.business import Business, Staff, User
 
-    ctx = build_demo(core=True)
-    seeded = {user.email: user for user in ctx.all(User)}
-    owner, other = seeded["owner@cedarcoast.example.test"], seeded["owner@northlight.example"]
-    await replace_demo_rows(db, ctx)
+    graphs = [build_graph(b, clock.now()) for b in ("bz_demo_second", "bz_northlight")]
+    seeded = {graph.business_id: graph.ctx.all(User) for graph in graphs}
+    emails = {user.email: user for users in seeded.values() for user in users}
+    owner, other = emails["owner@cedarcoast.example.test"], emails["owner@northlight.example"]
+    for business_id, users in seeded.items():
+        await replace_business(db, business_id, users)
     cedar = Business(id="bz_demo_second", name="Cedar Coast Pet Care", slug="cedar-before")
     earlier = User(
         id="us_second_owner", identity_id=owner.identity_id, email=owner.email, name=owner.name
@@ -155,7 +158,7 @@ async def test_a_reseed_replaces_a_demo_user_whose_id_changed(owner_db: AsyncSes
         ]
     )
     await db.flush()
-    await replace_demo_rows(db, ctx)
+    await replace_business(db, "bz_demo_second", seeded["bz_demo_second"])
     db.add(User(id=owner.id, identity_id=owner.identity_id, email=owner.email, name=owner.name))
     await db.flush()
     assert (await db.scalars(select(User.id).where(User.email == owner.email))).all() == [owner.id]
@@ -167,7 +170,7 @@ async def test_a_reseed_replaces_a_demo_user_whose_id_changed(owner_db: AsyncSes
     db.add(Staff(id="st_moved", business_id=outsider.id, user_id=moved.id, role="owner"))
     await db.flush()
     with pytest.raises(ValueError, match="belong to another business"):
-        await replace_demo_rows(db, ctx)
+        await replace_business(db, "bz_northlight", seeded["bz_northlight"])
 
 
 @pytest.mark.parametrize(

@@ -257,7 +257,15 @@ async def test_previous_completed_visit_is_available_only_after_proof(
     client = await _client(db)
     slots = (await db.execute(select(Slot).where(Slot.id == "ses_groom_mon"))).scalars().all()
     if not slots:
-        slots = (await db.execute(select(Slot).limit(1))).scalars().all()
+        slots = (
+            (
+                await db.execute(
+                    select(Slot).where(Slot.business_id == BIZ).order_by(Slot.id).limit(1)
+                )
+            )
+            .scalars()
+            .all()
+        )
     slot = slots[0]
     booking = Booking(
         id=new_id("booking"),

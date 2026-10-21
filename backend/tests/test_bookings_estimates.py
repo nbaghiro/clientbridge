@@ -16,7 +16,10 @@ ST_OWNER = "st_owner"
 
 async def _service(db: AsyncSession) -> str:
     item = await db.scalar(
-        select(Item.id).where(Item.kind == "service", Item.duration_min.isnot(None)).limit(1)
+        select(Item.id)
+        .where(Item.business_id == BIZ, Item.kind == "service", Item.duration_min.isnot(None))
+        .order_by(Item.id)
+        .limit(1)
     )
     assert item is not None
     return item
@@ -250,7 +253,9 @@ async def test_another_business_estimate_404_and_its_bookings_do_not_count(
     )
     assert res.status_code == 404
     eid = await _accepted(as_owner, cid)
-    slot = await db.scalar(select(Booking.slot_id).where(Booking.business_id == BIZ).limit(1))
+    slot = await db.scalar(
+        select(Booking.slot_id).where(Booking.business_id == BIZ).order_by(Booking.id).limit(1)
+    )
     assert slot is not None
     db.add(
         Booking(

@@ -1,7 +1,9 @@
 """The ledger core: balanced, idempotent, append-only journals with cached account balances."""
 
+from collections.abc import Awaitable, Callable
+
 import pytest
-from sqlalchemy import func, select, text
+from sqlalchemy import event, func, select, text
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -190,3 +192,57 @@ async def test_database_rejects_an_unbalanced_journal(db: AsyncSession) -> None:
                 ),
                 {"b": BIZ, "a": account},
             )
+
+
+async def _locks(db: AsyncSession, work: Callable[[], Awaitable[object]]) -> int:
+    """How many account lock queries the work runs on the session's connection."""
+    conn = (await db.connection()).sync_connection
+    seen: list[str] = []
+
+    def record(_conn: object, _cursor: object, statement: str, *_: object) -> None:
+        if "FROM accounts" in statement and "FOR UPDATE" in statement:
+            seen.append(statement)
+
+    event.listen(conn, "before_cursor_execute", record)
+    try:
+        await work()
+    finally:
+        event.remove(conn, "before_cursor_execute", record)
+    return len(seen)
+
+
+async def test_accounts_locked_earlier_in_the_transaction_are_not_locked_again(
+    db: AsyncSession,
+) -> None:
+    await ledger.post(db, BIZ, event="invoice", ref="t:lock1", legs=_sale(100))
+
+    async def again() -> None:
+        await ledger.post(db, BIZ, event="invoice", ref="t:lock2", legs=_sale(200))
+
+    assert await _locks(db, again) == 0
+    assert await _receivable(db) == 300
+
+
+async def test_a_new_transaction_locks_its_accounts_again(db: AsyncSession) -> None:
+    await ledger.post(db, BIZ, event="invoice", ref="t:lock1", legs=_sale(100))
+    await db.commit()
+
+    async def again() -> None:
+        await ledger.post(db, BIZ, event="invoice", ref="t:lock2", legs=_sale(200))
+
+    assert await _locks(db, again) == 1
+
+
+async def test_a_rolled_back_savepoint_forgets_the_accounts_it_created(db: AsyncSession) -> None:
+    await ledger.post(db, BIZ, event="invoice", ref="t:lock1", legs=_sale(100))
+    nested = await db.begin_nested()
+    await ledger.post(db, BIZ, event="invoice", ref="t:lock2", legs=_sale(200, "cl_y"))
+    await nested.rollback()
+    assert await db.scalar(select(Account.id).where(Account.owner_id == "cl_y")) is None
+
+    async def again() -> None:
+        await ledger.post(db, BIZ, event="invoice", ref="t:lock3", legs=_sale(300, "cl_y"))
+
+    assert await _locks(db, again) == 1
+    assert await _receivable(db, "cl_y") == 300
+    assert await _receivable(db) == 100

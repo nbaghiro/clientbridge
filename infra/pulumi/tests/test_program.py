@@ -1054,7 +1054,8 @@ def test_stagings_seed_has_room_for_every_demo_business(stacks: dict[str, Built]
     (seed,) = jobs(stacks["staging"], "seed")
     spec = dig(seed.inputs, "spec", "template", "spec")
     (container,) = listed(dig(spec, "containers"))
-    assert dig(container, "resources", "requests") == {"cpu": "1", "memory": "1536Mi"}
+    assert dig(container, "resources", "requests") == {"cpu": "2", "memory": "2Gi"}
+    assert "scripts.seed_demo --jobs 4 " in str(dig(container, "command"))
     assert dig(seed.inputs, "spec", "activeDeadlineSeconds") == 1800
 
 

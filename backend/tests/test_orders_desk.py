@@ -80,7 +80,12 @@ async def test_a_visit_on_the_sale_carries_its_deposit_and_reads_charged(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     booking = (
-        await db.execute(select(Booking).where(Booking.deposit_status == "collected").limit(1))
+        await db.execute(
+            select(Booking)
+            .where(Booking.business_id == BIZ, Booking.deposit_status == "collected")
+            .order_by(Booking.id)
+            .limit(1)
+        )
     ).scalar_one()
     held = await ledger.deposit_held(db, booking)
     assert held > 0
@@ -116,7 +121,12 @@ async def test_the_receipt_lists_the_applied_deposit_without_a_method(
     as_owner: httpx.AsyncClient, unauth: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     booking = (
-        await db.execute(select(Booking).where(Booking.deposit_status == "collected").limit(1))
+        await db.execute(
+            select(Booking)
+            .where(Booking.business_id == BIZ, Booking.deposit_status == "collected")
+            .order_by(Booking.id)
+            .limit(1)
+        )
     ).scalar_one()
     held = await ledger.deposit_held(db, booking)
     line = {"description": "Visit", "unit_amount_cents": 5000, "booking_id": booking.id}
@@ -142,7 +152,12 @@ async def test_voiding_a_sale_frees_its_visit(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     booking = (
-        await db.execute(select(Booking).where(Booking.invoice_id.is_(None)).limit(1))
+        await db.execute(
+            select(Booking)
+            .where(Booking.business_id == BIZ, Booking.invoice_id.is_(None))
+            .order_by(Booking.id)
+            .limit(1)
+        )
     ).scalar_one()
     line = {"description": "Visit", "unit_amount_cents": 4000, "booking_id": booking.id}
     sale = ok(await as_owner.post("/v1/orders", json={"lines": [line]}), 201).json()
@@ -345,10 +360,12 @@ async def test_a_visit_on_one_sale_cannot_join_another_409(
         await db.execute(
             select(Booking)
             .where(
+                Booking.business_id == BIZ,
                 Booking.charged_at.is_(None),
                 Booking.order_id.is_(None),
                 Booking.invoice_id.is_(None),
             )
+            .order_by(Booking.id)
             .limit(1)
         )
     ).scalar_one()

@@ -333,6 +333,31 @@ async def tax_errors(
     return errors
 
 
+async def cross_business_errors(db: AsyncSession, business_ids: Sequence[str]) -> list[str]:
+    """Rows of these businesses whose parent row belongs to another business."""
+    errors: list[str] = []
+    for table in Base.metadata.tables.values():
+        if "business_id" not in table.c:
+            continue
+        for column in table.c:
+            for fk in column.foreign_keys:
+                parent = fk.column.table
+                if "business_id" in parent.c and table is not parent:
+                    query = (
+                        select(table.c.id)
+                        .join(parent, column == fk.column)
+                        .where(
+                            table.c.business_id.in_(business_ids),
+                            table.c.business_id != parent.c.business_id,
+                        )
+                    )
+                    errors.extend(
+                        f"{table.name}/{row_id}: cross-business parent"
+                        for row_id in (await db.scalars(query)).all()
+                    )
+    return errors
+
+
 async def validate_database(
     db: AsyncSession, *, as_of: datetime | None = None, business_ids: Sequence[str] = DEMO_IDS
 ) -> dict[str, object]:
@@ -372,25 +397,7 @@ async def validate_database(
             )
             ctx.rows.extend((await db.scalars(select(model).where(condition))).all())
     errors = [error for ctx in contexts if ctx.all(Business) for error in validate_graph(ctx)]
-    for table in Base.metadata.tables.values():
-        if "business_id" not in table.c:
-            continue
-        for column in table.c:
-            for fk in column.foreign_keys:
-                parent = fk.column.table
-                if "business_id" in parent.c and table is not parent:
-                    query = (
-                        select(table.c.id)
-                        .join(parent, column == fk.column)
-                        .where(
-                            table.c.business_id.in_(business_ids),
-                            table.c.business_id != parent.c.business_id,
-                        )
-                    )
-                    errors.extend(
-                        f"{table.name}/{row_id}: cross-business parent"
-                        for row_id in (await db.scalars(query)).all()
-                    )
+    errors.extend(await cross_business_errors(db, business_ids))
     scope = ", ".join(
         f"{table.name} AS (SELECT * FROM public.{table.name} "
         f"WHERE business_id IN ({', '.join(repr(b) for b in business_ids)}))"

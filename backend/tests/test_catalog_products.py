@@ -154,7 +154,14 @@ async def test_entitlements_cannot_be_order_lines_422(
 async def test_entitlements_cannot_be_invoice_lines_422(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    client_id = (await db.execute(select(Invoice.client_id).limit(1))).scalar_one()
+    client_id = (
+        await db.execute(
+            select(Invoice.client_id)
+            .where(Invoice.business_id == BIZ)
+            .order_by(Invoice.id)
+            .limit(1)
+        )
+    ).scalar_one()
     res = await as_owner.post(
         "/v1/invoices",
         json={"client_id": client_id, "lines": [await _line("it_pkg5", 20000)]},

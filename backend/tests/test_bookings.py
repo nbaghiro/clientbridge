@@ -38,12 +38,23 @@ ST_PRIYA = "st_priya"  # seeded staff with no hours rows → unconfigured
 
 
 async def _client_and_item(db: AsyncSession) -> tuple[str, str]:
-    client_id = (await db.execute(select(Client.id).limit(1))).scalars().first()
+    client_id = (
+        (
+            await db.execute(
+                select(Client.id).where(Client.business_id == BIZ).order_by(Client.id).limit(1)
+            )
+        )
+        .scalars()
+        .first()
+    )
     item_id = (
         (
             await db.execute(
                 select(Item.id)
-                .where(Item.kind == "service", Item.duration_min.isnot(None))
+                .where(
+                    Item.business_id == BIZ, Item.kind == "service", Item.duration_min.isnot(None)
+                )
+                .order_by(Item.id)
                 .limit(1)
             )
         )

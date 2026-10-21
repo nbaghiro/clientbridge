@@ -7,11 +7,14 @@ from kubernetes import migrate, settings, sidecar
 
 NAME = "seed"
 DEADLINE_SECONDS = 1800
+# a round trip through the Cloud SQL proxy costs milliseconds, so businesses are written in parallel
+JOBS = 4
 # the seed restores fixture Stripe ids and the address the Terminal location needs; the link follows
 COMMAND = (
     "/bin/sh",
     "-c",
-    "python -m scripts.seed_demo && python -m scripts.stripe_setup --link-only --apply",
+    f"python -m scripts.seed_demo --jobs {JOBS}"
+    " && python -m scripts.stripe_setup --link-only --apply",
 )
 
 

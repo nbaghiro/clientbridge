@@ -124,8 +124,8 @@ def build(prod_domain: str, staging_domain: str) -> tuple[Environment, Environme
         web=Workload(Size("100m", "256Mi"), spot=True),
         redis=Workload(Size("50m", "128Mi"), spot=True),
         migrate_retries=2,
-        # the full seed holds every demo business in memory and posts its ledger, about 500 MB
-        demo=Workload(Size("1", "1536Mi"), spot=True),
+        # the seed holds every business's graph (about 300 MB) and four writers of one each (200 MB)
+        demo=Workload(Size("2", "2Gi"), spot=True),
         # a separate app, so testers keep it beside the store one
         mobile=Mobile(
             bundle_id="ca.clientbridge.app.staging",

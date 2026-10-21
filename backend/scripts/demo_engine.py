@@ -47,7 +47,7 @@ from clientbridge.services.forms import form_definition
 from clientbridge.services.tax import TaxResult
 from scripts.demo_catalog import add_catalog_images
 from scripts.demo_chronology import align_timestamps, chronology_errors
-from scripts.demo_context import DEMO_BUSINESSES, DemoBusiness, DemoContext
+from scripts.demo_context import DEMO_BUSINESSES, DemoBusiness, DemoContext, demo_business
 from scripts.demo_finance import (
     apply_deposit_at,
     charge_tax,
@@ -1695,6 +1695,10 @@ def editions(*, core: bool = False) -> list[type[Demo]]:
         for listing in DEMO_BUSINESSES
         if listing.edition is not None and (listing.core or not core)
     ]
+
+
+def edition_of(business_id: str) -> type[Demo]:
+    return _edition(demo_business(business_id))
 
 
 def _edition(listing: DemoBusiness) -> type[Demo]:

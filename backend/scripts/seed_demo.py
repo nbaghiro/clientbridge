@@ -4,18 +4,28 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import os
 import random
-from dataclasses import asdict
+from collections.abc import Sequence
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+from dataclasses import asdict, dataclass
 from datetime import UTC, date, datetime, time, timedelta
 from pathlib import Path
+from time import monotonic
 from zoneinfo import ZoneInfo
 
 import boto3
 from botocore.config import Config as BotoConfig
 from botocore.exceptions import BotoCoreError, ClientError
-from sqlalchemy import ColumnElement, and_, delete, func, or_, select, text, update
+from sqlalchemy import ColumnElement, and_, delete, event, func, or_, select, text, update
 from sqlalchemy.engine import make_url
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
+from sqlalchemy.orm import Session
 
 from clientbridge.core import clock
 from clientbridge.core.config import get_settings
@@ -29,6 +39,7 @@ from clientbridge.models.business import Business, Staff, User
 from clientbridge.models.catalog import GiftCard, Item, Package, StockMovement, Subscription
 from clientbridge.models.clients import Client, Consent, Note, Subject
 from clientbridge.models.documents import Contract, Form, FormField, FormResponse, Signature
+from clientbridge.models.ledger import Entry
 from clientbridge.models.messaging import Broadcast, Message, Thread
 from clientbridge.models.payments import Payment, PaymentMethod
 from clientbridge.models.platform import Audit, File, Webhook
@@ -44,22 +55,30 @@ from clientbridge.services.forms import form_definition
 from scripts.demo_calendar import build_calendar
 from scripts.demo_catalog import add_catalog_images
 from scripts.demo_chronology import align_chronology, chronology_errors
-from scripts.demo_context import DEMO_IDS, DEMO_PASSWORD, DEMO_VERSION, DemoContext, demo_business
+from scripts.demo_context import (
+    DEMO_BUSINESSES,
+    DEMO_IDS,
+    DEMO_PASSWORD,
+    DEMO_VERSION,
+    DemoContext,
+    demo_business,
+)
 from scripts.demo_engagement import build_engagement
-from scripts.demo_engine import Demo, build_edition, editions, seed_ledger
+from scripts.demo_engine import Demo, build_edition, edition_of, editions, seed_ledger
 from scripts.demo_finance import add_finance_scenarios, prepare_finance, seed_finance
 from scripts.demo_identity import build_identity, placeholder_identity
 from scripts.demo_photos import add_people_photos
 from scripts.demo_scenarios import add_scenarios
 from scripts.demo_schedule import add_class_timetable, add_repeat_visits, finish_schedule
-from scripts.demo_validate import validate_database, validate_graph
+from scripts.demo_validate import cross_business_errors, validate_database, validate_graph
 
 VANCOUVER = ZoneInfo("America/Vancouver")
 now = clock.now().astimezone(VANCOUVER)
 BIZ = "bz_birchbark"
 STAGING_DATABASE = "staging_clientbridge"
 rows: list[Base] = []
-built: list[Demo] = []
+UPLOADS = 16
+MAX_JOBS = 8
 PACKAGE_USED = {"pkg_marcus": 2, "pkg_grace": 5, "pkg_sophie": 4}
 
 
@@ -134,6 +153,7 @@ def seed_identity() -> tuple[str, str]:
             status="active",
             plan="team",
             plan_status="active",
+            trial_ends_at=now + timedelta(days=14),
             subject="pet",
         )
     )
@@ -2106,15 +2126,14 @@ def seed_dispute() -> None:
     payment.dispute_respond_by = at(6, 17)
 
 
-def build_demo(as_of: datetime | None = None, *, core: bool = False) -> DemoContext:
-    global now, rows, built
+def build_birchbark(as_of: datetime | None = None) -> DemoContext:
+    global now, rows
     if as_of is not None:
         if as_of.tzinfo is None:
             raise ValueError("--as-of must include a timezone offset")
         clock.travel(as_of)
     now = (clock.now() if as_of is None else as_of).astimezone(VANCOUVER)
     rows = []
-    built = []
     INV_SEQ[0] = 1000
     owner, _ = seed_identity()
     seed_items(owner)
@@ -2174,10 +2193,14 @@ def build_demo(as_of: datetime | None = None, *, core: bool = False) -> DemoCont
     errors = validate_graph(ctx) + chronology_errors(ctx)
     if errors:
         raise ValueError("Invalid demo graph: " + "; ".join(errors[:20]))
+    return ctx
+
+
+def build_demo(as_of: datetime | None = None, *, core: bool = False) -> DemoContext:
+    """Birchbark's context, holding every edition's rows too, for checks of the whole demo."""
+    ctx = build_birchbark(as_of)
     for edition in editions(core=core):
-        demo = build_edition(edition, now)
-        built.append(demo)
-        rows.extend(demo.ctx.rows)
+        rows.extend(build_edition(edition, now).ctx.rows)
     return ctx
 
 
@@ -2197,21 +2220,49 @@ def validate_seed_target() -> None:
         )
 
 
-async def replace_demo_rows(session: AsyncSession, ctx: DemoContext) -> None:
-    """Purge every demo business and every user who belongs only to them or has a seeded email."""
-    # a core seed also clears the other businesses, so a database never mixes two seed runs
-    business_ids = list(DEMO_IDS)
-    seeded = ctx.all(User)
+@dataclass
+class Graph:
+    """One demo business's rows, built and validated in memory, with the posting of its ledger."""
+
+    business_id: str
+    ctx: DemoContext
+    demo: Demo | None = None
+
+    async def post_ledger(self, db: AsyncSession) -> None:
+        if self.demo is None:
+            await seed_finance(db, self.ctx)
+        else:
+            await seed_ledger(db, self.demo)
+
+
+@dataclass(frozen=True)
+class Outcome:
+    business_id: str
+    rows: int
+    seconds: float
+    error: str | None = None
+
+
+def build_graph(business_id: str, as_of: datetime) -> Graph:
+    if business_id == BIZ:
+        return Graph(BIZ, build_birchbark(as_of))
+    clock.travel(as_of)
+    demo = build_edition(edition_of(business_id), as_of.astimezone(VANCOUVER))
+    return Graph(business_id, demo.ctx, demo)
+
+
+async def replace_business(session: AsyncSession, business_id: str, seeded: Sequence[User]) -> None:
+    """Purge one business and every user who belongs only to it or has one of its seeded emails."""
     members = select(Staff.user_id).where(Staff.user_id.isnot(None))
-    inside = members.where(Staff.business_id.in_(business_ids))
-    outside = members.where(Staff.business_id.not_in(business_ids))
+    inside = members.where(Staff.business_id == business_id)
+    outside = members.where(Staff.business_id != business_id)
     named = or_(User.id.in_([u.id for u in seeded]), User.email.in_([u.email for u in seeded]))
     if await session.scalar(select(User.id).where(named, User.id.in_(outside)).limit(1)):
         raise ValueError("Seeded users belong to another business; refusing to replace them")
     stale = await session.scalars(
         select(User.id).where(or_(named, and_(User.id.in_(inside), User.id.not_in(outside))))
     )
-    await purge_businesses(session, business_ids, list(stale))
+    await purge_businesses(session, [business_id], list(stale))
 
 
 async def purge_businesses(
@@ -2221,8 +2272,9 @@ async def purge_businesses(
     await session.execute(
         update(Payment).where(Payment.business_id.in_(business_ids)).values(booking_id=None)
     )
-    # The table lock and trigger change last only through this local seed transaction.
-    await session.execute(text("ALTER TABLE entries DISABLE TRIGGER entries_append_only"))
+    ledgered = await session.scalar(
+        select(Entry.id).where(Entry.business_id.in_(business_ids)).limit(1)
+    )
     for table in reversed(Base.metadata.sorted_tables):
         if "business_id" in table.c:
             condition = table.c.business_id.in_(business_ids)
@@ -2232,17 +2284,29 @@ async def purge_businesses(
             condition = table.c.id.in_(user_ids)
         else:
             continue
-        await session.execute(delete(table).where(condition))
-    await session.execute(text("ALTER TABLE entries ENABLE TRIGGER entries_append_only"))
+        if table.name != "entries":
+            await session.execute(delete(table).where(condition))
+        elif ledgered is not None:
+            # the trigger change and its table lock last until this seed transaction ends
+            await session.execute(text("ALTER TABLE entries DISABLE TRIGGER entries_append_only"))
+            await session.execute(delete(table).where(condition))
+            await session.execute(text("ALTER TABLE entries ENABLE TRIGGER entries_append_only"))
 
 
-async def date_seed_writes(session: AsyncSession, business_ids: list[str], as_of: datetime) -> None:
+def stamp_entries(session: Session, context: object, instances: object) -> None:
+    """A seeded entry is recorded when it occurred, not when the seed ran."""
+    for entry in session.new:
+        if isinstance(entry, Entry):
+            entry.created_at = entry.occurred_at
+
+
+async def date_seed_writes(session: AsyncSession, business_id: str, as_of: datetime) -> None:
     """Rows the database stamped while seeding take the scenario's times, not the wall clock."""
     accounts, entries = Base.metadata.tables["accounts"], Base.metadata.tables["entries"]
     span = select(entries.c.occurred_at).where(entries.c.account_id == accounts.c.id)
     await session.execute(
         update(accounts)
-        .where(accounts.c.business_id.in_(business_ids))
+        .where(accounts.c.business_id == business_id)
         .values(
             created_at=func.coalesce(
                 span.with_only_columns(func.min(entries.c.occurred_at)).scalar_subquery(), as_of
@@ -2252,23 +2316,14 @@ async def date_seed_writes(session: AsyncSession, business_ids: list[str], as_of
             ),
         )
     )
-    # the balance check is deferred, and a table with pending trigger events cannot be altered
-    await session.execute(text("SET CONSTRAINTS ALL IMMEDIATE"))
-    await session.execute(text("ALTER TABLE entries DISABLE TRIGGER entries_append_only"))
-    await session.execute(
-        update(entries)
-        .where(entries.c.business_id.in_(business_ids))
-        .values(created_at=entries.c.occurred_at)
-    )
-    await session.execute(text("ALTER TABLE entries ENABLE TRIGGER entries_append_only"))
     for table in Base.metadata.sorted_tables:
         if table.name in {"accounts", "entries"}:
             continue
         scope: ColumnElement[bool]
         if "business_id" in table.c:
-            scope = table.c.business_id.in_(business_ids)
+            scope = table.c.business_id == business_id
         elif table.name == "businesses":
-            scope = table.c.id.in_(business_ids)
+            scope = table.c.id == business_id
         else:
             continue
         for column in ("created_at", "updated_at"):
@@ -2277,11 +2332,68 @@ async def date_seed_writes(session: AsyncSession, business_ids: list[str], as_of
                 await session.execute(update(table).where(scope, stamped).values({column: as_of}))
 
 
-async def link_identities(ctx: DemoContext) -> None:
+async def write_business(graph: Graph) -> None:
+    """Write one purged business, post its ledger and validate it, all in one transaction."""
+    owner = create_async_engine(get_settings().migration_database_url)
+    try:
+        async with async_sessionmaker(owner, expire_on_commit=False)() as session:
+            event.listen(session.sync_session, "before_flush", stamp_entries)
+            for cls in INSERT_ORDER:
+                batch = [r for r in graph.ctx.rows if type(r) is cls]
+                if batch:
+                    session.add_all(batch)
+                    await session.flush()
+            await graph.post_ledger(session)
+            await session.flush()
+            await date_seed_writes(session, graph.business_id, graph.ctx.now)
+            report = await validate_database(
+                session, as_of=graph.ctx.now, business_ids=[graph.business_id]
+            )
+            if not report["ok"]:
+                raise ValueError(f"validation failed: {report['errors']}")
+            await session.commit()
+    finally:
+        await owner.dispose()
+        await engine.dispose()
+
+
+def written(graph: Graph, as_of: datetime) -> Outcome:
+    clock.travel(as_of)
+    started = monotonic()
+    try:
+        asyncio.run(write_business(graph))
+    except Exception as exc:
+        error = f"{type(exc).__name__}: {exc}"
+        return Outcome(graph.business_id, len(graph.ctx.rows), monotonic() - started, error)
+    return Outcome(graph.business_id, len(graph.ctx.rows), monotonic() - started)
+
+
+async def purge_demo(owner: AsyncEngine, graphs: Sequence[Graph]) -> None:
+    """Clear every demo business, registered or not, one short transaction each."""
+    async with async_sessionmaker(owner)() as session:
+        earlier = await session.scalars(
+            select(Audit.business_id).where(Audit.action == "demo.seed").distinct()
+        )
+        seeded = {graph.business_id: graph.ctx.all(User) for graph in graphs}
+        others = sorted({*DEMO_IDS, *(b for b in earlier.all() if b)} - set(seeded))
+    # purged before any write starts, since a purge locks the ledger until it commits
+    for business_id, users in [*seeded.items(), *((b, []) for b in others)]:
+        async with async_sessionmaker(owner)() as session:
+            await replace_business(session, business_id, users)
+            await session.commit()
+
+
+async def cross_business_check(owner: AsyncEngine, seeded: list[str]) -> list[str]:
+    async with async_sessionmaker(owner)() as session:
+        await session.execute(text("SET TRANSACTION READ ONLY"))
+        return await cross_business_errors(session, seeded)
+
+
+async def link_identities(users: Sequence[User]) -> None:
     """Every demo user signs in with the demo password and a verified email."""
     identities = get_identity_provider()
     try:
-        for user in ctx.all(User):
+        for user in users:
             user.identity_id = await identities.find_identity(
                 user.email
             ) or await identities.create_identity(user.email, user.name or "", DEMO_PASSWORD)
@@ -2291,36 +2403,49 @@ async def link_identities(ctx: DemoContext) -> None:
         ) from exc
 
 
-async def main(*, as_of: datetime | None = None, core: bool = False) -> None:
+def default_jobs() -> int:
+    return max(1, min(os.cpu_count() or 1, MAX_JOBS))
+
+
+async def main(*, as_of: datetime | None = None, core: bool = False, jobs: int = 1) -> None:
     validate_seed_target()
-    ctx = build_demo(as_of, core=core)
-    await link_identities(ctx)
-    upload_demo_assets()
-    # replacing demo rows pauses the ledger's append-only trigger, which only the owner may do
+    if as_of is not None and as_of.tzinfo is None:
+        raise ValueError("--as-of must include a timezone offset")
+    anchor = as_of or clock.now()
+    business_ids = [b.id for b in DEMO_BUSINESSES if b.core or not core]
+    loop = asyncio.get_running_loop()
     owner = create_async_engine(get_settings().migration_database_url)
-    async with async_sessionmaker(owner, expire_on_commit=False)() as session:
-        await replace_demo_rows(session, ctx)
-        for cls in INSERT_ORDER:
-            batch = [r for r in rows if type(r) is cls]
-            if batch:
-                session.add_all(batch)
-                await session.flush()
-        await seed_finance(session, ctx)
-        for demo in built:
-            await seed_ledger(session, demo)
-        await session.flush()
-        seeded = [row.id for row in ctx.all(Business)]
-        await date_seed_writes(session, seeded, ctx.now)
-        report = await validate_database(session, as_of=ctx.now, business_ids=seeded)
-        if not report["ok"]:
-            raise ValueError(f"Demo validation failed: {report['errors']}")
-        await session.commit()
+    # a fresh process per task: the clock and each engine belong to one business
+    with ProcessPoolExecutor(min(jobs, len(business_ids)), max_tasks_per_child=1) as pool:
+        graphs = list(
+            await asyncio.gather(
+                *(loop.run_in_executor(pool, build_graph, b, anchor) for b in business_ids)
+            )
+        )
+        await link_identities([user for graph in graphs for user in graph.ctx.all(User)])
+        upload_demo_assets([file for graph in graphs for file in graph.ctx.all(File)])
+        await purge_demo(owner, graphs)
+        # the largest business first, so the longest ledger is not left for last
+        graphs.sort(key=lambda graph: len(graph.ctx.rows), reverse=True)
+        outcomes = await asyncio.gather(
+            *(loop.run_in_executor(pool, written, graph, anchor) for graph in graphs)
+        )
+    for outcome in outcomes:
+        state = outcome.error or "ok"
+        print(f"{outcome.business_id}: {outcome.rows} rows in {outcome.seconds:.1f}s, {state}")
+    failed = [outcome.business_id for outcome in outcomes if outcome.error]
+    if failed:
+        await owner.dispose()
+        raise SystemExit(f"Demo seed failed for {', '.join(failed)}; the rest were written.")
+    errors = await cross_business_check(owner, business_ids)
     await owner.dispose()
-    await engine.dispose()
-    print(f"Seeded {len(ctx.rows)} rows; demo {DEMO_VERSION}, as of {now.isoformat()}.")
+    if errors:
+        raise SystemExit(f"Demo validation failed across businesses: {errors[:20]}")
+    total = sum(outcome.rows for outcome in outcomes)
+    print(f"Seeded {total} rows; demo {DEMO_VERSION}, as of {anchor.isoformat()}.")
 
 
-def upload_demo_assets() -> None:
+def upload_demo_assets(files: Sequence[File]) -> None:
     """Upload and verify every demo asset before replacing any database rows."""
     s = get_settings()
     client = boto3.client(
@@ -2329,24 +2454,31 @@ def upload_demo_assets() -> None:
         aws_access_key_id=s.s3_access_key,
         aws_secret_access_key=s.s3_secret_key,
         region_name=s.s3_region,
-        config=S3_CONFIG.merge(BotoConfig(connect_timeout=2, retries={"max_attempts": 1})),
+        config=S3_CONFIG.merge(
+            BotoConfig(
+                connect_timeout=2,
+                retries={"max_attempts": 1},
+                max_pool_connections=UPLOADS,
+            )
+        ),
     )
+
+    def upload(asset: File) -> None:
+        path = ASSETS / Path(asset.s3_key).name
+        if not path.is_file() or path.stat().st_size != asset.size:
+            raise ValueError(f"Missing or mismatched demo asset: {asset.id}")
+        client.upload_file(
+            str(path), s.s3_bucket, asset.s3_key, ExtraArgs={"ContentType": asset.content_type}
+        )
+
     try:
         # local MinIO starts empty; a deployed bucket comes from infra, and its key cannot list
         if s.env == "dev" and s.s3_bucket not in {
             b["Name"] for b in client.list_buckets().get("Buckets", [])
         }:
             client.create_bucket(Bucket=s.s3_bucket)
-        for asset in (r for r in rows if isinstance(r, File)):
-            path = ASSETS / Path(asset.s3_key).name
-            if not path.is_file() or path.stat().st_size != asset.size:
-                raise ValueError(f"Missing or mismatched demo asset: {asset.id}")
-            client.upload_file(
-                str(path),
-                s.s3_bucket,
-                asset.s3_key,
-                ExtraArgs={"ContentType": asset.content_type},
-            )
+        with ThreadPoolExecutor(UPLOADS) as uploads:
+            list(uploads.map(upload, files))
     except (BotoCoreError, ClientError) as exc:
         raise RuntimeError("Demo asset upload failed; database was not reset") from exc
 
@@ -2357,5 +2489,11 @@ if __name__ == "__main__":
     parser.add_argument(
         "--core", action="store_true", help="seed only the core businesses that tests run against"
     )
+    parser.add_argument(
+        "--jobs", type=int, default=default_jobs(), help="businesses written at the same time"
+    )
     args = parser.parse_args()
-    asyncio.run(main(as_of=args.as_of, core=args.core))
+    # run from the imported module, so the worker processes find what they are sent by name
+    from scripts import seed_demo
+
+    asyncio.run(seed_demo.main(as_of=args.as_of, core=args.core, jobs=args.jobs))

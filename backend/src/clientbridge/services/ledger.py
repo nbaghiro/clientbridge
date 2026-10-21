@@ -2,10 +2,10 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
 
-from sqlalchemy import ColumnElement, Select, and_, case, func, or_, select, tuple_
+from sqlalchemy import ColumnElement, Select, and_, case, event, func, or_, select, tuple_
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import InstrumentedAttribute, aliased
+from sqlalchemy.orm import InstrumentedAttribute, Session, SessionTransaction, aliased
 
 from clientbridge.core import clock
 from clientbridge.core.errors import UnsupportedCurrency
@@ -209,7 +209,33 @@ async def subject_balance(
     return int(value)
 
 
+_LOCKED = "ledger_locked_accounts"
+
+
+def _forget_locked(session: Session, transaction: SessionTransaction) -> None:
+    # a savepoint's end can release locks and drop accounts it created, so forget them all then
+    if transaction.parent is None or transaction.nested:
+        session.info.pop(_LOCKED, None)
+
+
+event.listen(Session, "after_transaction_end", _forget_locked)
+
+
 async def _lock_accounts(
+    db: AsyncSession, business_id: str, currency: str, keys: set[AccountKey]
+) -> dict[AccountKey, Account]:
+    # a row lock lasts until the transaction ends, so an account locked earlier in it stays locked
+    held: dict[tuple[str, str, AccountKey], Account] = db.info.setdefault(_LOCKED, {})
+    found = {key: held.get((business_id, currency, key)) for key in keys}
+    if all(found.values()):
+        return {key: account for key, account in found.items() if account is not None}
+    locked = await _lock_new(db, business_id, currency, keys)
+    for key, account in locked.items():
+        held[(business_id, currency, key)] = account
+    return locked
+
+
+async def _lock_new(
     db: AsyncSession, business_id: str, currency: str, keys: set[AccountKey]
 ) -> dict[AccountKey, Account]:
     ordered = sorted(keys)
