@@ -7,9 +7,7 @@ const routes = [
     "/schedule/classes",
     "/schedule/series",
     "/clients",
-    ...["history", "subjects", "wallet", "payment-methods"].map(
-        (tab) => `/clients/cl_amelie/${tab}`,
-    ),
+    ...["history", "subjects"].map((tab) => `/clients/cl_amelie/${tab}`),
     ...["invoices", "sales", "gift-cards", "refunds", "staff-pay", "tax", "payouts", "reports"].map(
         (tab) => `/payments/${tab}`,
     ),

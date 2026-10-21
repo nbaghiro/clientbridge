@@ -1445,6 +1445,7 @@ interface Strings {
             readonly manageWallet: string;
             readonly noCards: string;
             readonly renews: (when: string) => string;
+            readonly backToRecord: string;
             readonly book: string;
             readonly message: string;
             readonly invoice: string;

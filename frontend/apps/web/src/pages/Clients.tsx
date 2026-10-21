@@ -43,7 +43,6 @@ import {
 } from "../components/ClientRecord";
 import { ClientHistory } from "../components/ClientHistory";
 import { ClientSubjects } from "../components/ClientSubjects";
-import { ClientWallet } from "../components/ClientWallet";
 import { useWide } from "../components/ScheduleGrid";
 import { api } from "../lib/api";
 import { useRole, useViewer } from "../lib/auth";
@@ -53,7 +52,7 @@ import { PageFrame } from "../components/PageFrame";
 const r = strings.clients.record;
 const t = strings.clients.tidy;
 
-const VIEWS = ["history", "subjects", "payment-methods"] as const;
+const VIEWS = ["history", "subjects"] as const;
 type View = (typeof VIEWS)[number];
 
 export function Clients() {
@@ -530,9 +529,9 @@ function TagPopover({ sel, onDone }: { sel: ClientSelection; onDone: () => void 
 }
 
 function viewTitle(view: View, kind: SubjectKind | null): string {
-    if (view === "history") return strings.clients.history.title;
-    if (view === "subjects") return strings.subjects.many(kindWord(kind));
-    return strings.clients.wallet.title;
+    return view === "history"
+        ? strings.clients.history.title
+        : strings.subjects.many(kindWord(kind));
 }
 
 function ClientPage({ clientId, view }: { clientId: string; view: View }) {
@@ -615,15 +614,6 @@ function ClientPage({ clientId, view }: { clientId: string; view: View }) {
                         ) : null}
                         {view === "subjects" && kind !== null ? (
                             <ClientSubjects clientId={clientId} kind={kind} />
-                        ) : null}
-                        {view === "payment-methods" ? (
-                            manager ? (
-                                <ClientWallet clientId={clientId} />
-                            ) : (
-                                <p className="text-sm text-muted">
-                                    {strings.clients.wallet.onlyManagers}
-                                </p>
-                            )
                         ) : null}
                     </div>
                 </>

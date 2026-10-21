@@ -44,6 +44,7 @@ import { useNavigate } from "react-router-dom";
 import { ClientEditorDialog } from "./ClientEditor";
 import { NoteDialog } from "./ClientHistory";
 import { ClientMergeDialog } from "./ClientMerge";
+import { ClientWallet } from "./ClientWallet";
 import { SubjectDialog } from "./ClientSubjects";
 import { api } from "../lib/api";
 import { useViewer } from "../lib/auth";
@@ -299,6 +300,7 @@ export function ClientRecordView({
     const kind = useSubjectKind();
     const viewer = useViewer();
     const { load, record } = useClientRecord(api, clientId, viewer?.staffId ?? null);
+    const [pane, setPane] = useState<"record" | "wallet">("record");
     const navigate = useNavigate();
     const go = (path: string): void => {
         const done = navigate(path);
@@ -328,6 +330,31 @@ export function ClientRecordView({
     }
     const c = record.client;
     const now = new Date();
+    if (pane === "wallet")
+        return (
+            <DetailView
+                open={visible}
+                variant={variant}
+                title={c.name}
+                subtitle={strings.clients.wallet.title}
+                leading={<Avatar name={c.name} src={photos.client(c.id)} size="lg" />}
+                onClose={onClose}
+            >
+                <div>
+                    <Button
+                        size="sm"
+                        variant="link"
+                        icon="chevronLeft"
+                        onPress={() => {
+                            setPane("record");
+                        }}
+                    >
+                        {r.backToRecord}
+                    </Button>
+                </div>
+                <ClientWallet clientId={c.id} />
+            </DetailView>
+        );
     return (
         <DetailView
             open={visible}
@@ -509,7 +536,7 @@ export function ClientRecordView({
                             size="sm"
                             variant="link"
                             onPress={() => {
-                                go(`/clients/${c.id}/payment-methods`);
+                                setPane("wallet");
                             }}
                         >
                             {r.manageWallet}

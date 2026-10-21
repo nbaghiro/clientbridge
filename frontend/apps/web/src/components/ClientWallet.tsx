@@ -28,12 +28,11 @@ import {
     BrandMark,
     Button,
     confirm,
-    Empty,
-    Icon,
+    DetailSection,
     IconButton,
     LoadFailed,
+    Modal,
     Notice,
-    Panel,
     PaymentMethodForm,
     Skeleton,
     StatusPill,
@@ -217,10 +216,9 @@ function Plans({ clientId }: { clientId: string }) {
     };
     return (
         <>
-            <Panel
+            <DetailSection
                 title={strings.clients.subscriptions}
-                flush
-                actions={
+                action={
                     <Button
                         size="sm"
                         variant="link"
@@ -233,21 +231,18 @@ function Plans({ clientId }: { clientId: string }) {
                 }
             >
                 {subs.length === 0 ? (
-                    <p className="px-4 py-3 text-sm text-muted">
-                        {strings.clients.noSubscriptions}
-                    </p>
+                    <p className="text-sm text-muted">{strings.clients.noSubscriptions}</p>
                 ) : (
-                    <ul className="divide-y divide-line-soft">
+                    <ul className="divide-y divide-line-soft rounded-md border border-line">
                         {subs.map((sub) => (
                             <SubscriptionLine key={sub.id} sub={sub} />
                         ))}
                     </ul>
                 )}
-            </Panel>
-            <Panel
+            </DetailSection>
+            <DetailSection
                 title={strings.clients.packages}
-                flush
-                actions={
+                action={
                     <Button
                         size="sm"
                         variant="link"
@@ -260,78 +255,66 @@ function Plans({ clientId }: { clientId: string }) {
                 }
             >
                 {packages.length === 0 ? (
-                    <p className="px-4 py-3 text-sm text-muted">{strings.clients.noPackages}</p>
+                    <p className="text-sm text-muted">{strings.clients.noPackages}</p>
                 ) : (
-                    <ul className="divide-y divide-line-soft">
+                    <ul className="divide-y divide-line-soft rounded-md border border-line">
                         {packages.map((pkg) => (
                             <PackageLine key={pkg.id} pkg={pkg} />
                         ))}
                     </ul>
                 )}
-            </Panel>
-            {selling === "package" ? <SellPackage clientId={clientId} onClose={close} /> : null}
-            {selling === "subscription" ? (
-                <StartSubscription clientId={clientId} onClose={close} />
+            </DetailSection>
+            {selling !== null ? (
+                <Modal size="lg" onClose={close}>
+                    {selling === "package" ? (
+                        <SellPackage clientId={clientId} onClose={close} />
+                    ) : (
+                        <StartSubscription clientId={clientId} onClose={close} />
+                    )}
+                </Modal>
             ) : null}
         </>
     );
 }
 
-/** A client's saved cards and bank accounts, with expiry, mandate state and the plans each pays. */
+/** A client's saved cards and bank accounts, then their plans, inside the client's record panel. */
 export function ClientWallet({ clientId }: { clientId: string }) {
     const wallet = useClientWallet(api, clientId);
     const add = useAddPaymentMethod(api, clientId, () => undefined);
 
+    if (wallet.load.state === "loading")
+        return <Skeleton variant="row" count={3} label={s.loading} />;
+    if (wallet.load.state === "error")
+        return (
+            <LoadFailed
+                message={s.loadError}
+                onRetry={wallet.load.retry}
+                retrying={wallet.load.retrying}
+            />
+        );
     return (
-        <div className="space-y-5">
-            {wallet.load.state === "loading" ? (
-                <Panel flush>
-                    <Skeleton variant="row" count={3} label={s.loading} />
-                </Panel>
+        <>
+            {wallet.expiring !== null ? (
+                <Notice tone="info" banner>
+                    {s.expiringBanner(wallet.expiring.label)}
+                </Notice>
             ) : null}
-            {wallet.load.state === "error" ? (
-                <Panel flush>
-                    <LoadFailed
-                        message={s.loadError}
-                        onRetry={wallet.load.retry}
-                        retrying={wallet.load.retrying}
-                    />
-                </Panel>
-            ) : null}
-            {wallet.load.hasData ? (
-                <>
-                    {wallet.expiring !== null ? (
-                        <div
-                            role="status"
-                            className="flex items-start gap-2.5 rounded-md bg-warn-bg px-4 py-3 text-sm text-warn-fg"
-                        >
-                            <Icon name="alert" size={17} />
-                            <span>{s.expiringBanner(wallet.expiring.label)}</span>
-                        </div>
-                    ) : null}
-                    <Panel title={s.title} subtitle={s.subtitle} flush>
-                        {wallet.methods.length === 0 ? (
-                            <Empty icon="card" message={s.emptyTitle} body={s.empty} />
-                        ) : (
-                            <ul className="divide-y divide-line-soft">
-                                {wallet.methods.map((m) => (
-                                    <MethodRow key={m.row.id} m={m} wallet={wallet} />
-                                ))}
-                            </ul>
-                        )}
-                        <div className="border-t border-line bg-bg px-4 pb-4 pt-1">
-                            <PaymentMethodForm flow={add} allowBank />
-                            <p className="mt-3 text-xs text-muted">{s.defaultHint}</p>
-                        </div>
-                    </Panel>
-                    {wallet.error !== null ? (
-                        <Notice tone="danger" banner>
-                            {wallet.error}
-                        </Notice>
-                    ) : null}
-                    <Plans clientId={clientId} />
-                </>
-            ) : null}
-        </div>
+            <DetailSection title={s.title}>
+                <p className="text-xs text-muted">{s.subtitle}</p>
+                {wallet.methods.length === 0 ? (
+                    <p className="text-sm text-muted">{s.empty}</p>
+                ) : (
+                    <ul className="divide-y divide-line-soft rounded-md border border-line">
+                        {wallet.methods.map((m) => (
+                            <MethodRow key={m.row.id} m={m} wallet={wallet} />
+                        ))}
+                    </ul>
+                )}
+                <PaymentMethodForm flow={add} allowBank />
+                <p className="text-xs text-muted">{s.defaultHint}</p>
+                {wallet.error !== null ? <Notice tone="danger">{wallet.error}</Notice> : null}
+            </DetailSection>
+            <Plans clientId={clientId} />
+        </>
     );
 }

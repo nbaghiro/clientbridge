@@ -483,7 +483,7 @@ test("owner: clients, records, notes, subjects, wallet and merge", async ({ page
     });
 
     await walk.step("record pages", async () => {
-        for (const view of ["history", "subjects", "payment-methods"]) {
+        for (const view of ["history", "subjects"]) {
             await navigate(page, `/clients/cl_amelie/${view}`);
             await expect(page.getByRole("heading", { name: "Amélie Tremblay" })).toBeVisible();
         }
@@ -505,7 +505,8 @@ test("owner: clients, records, notes, subjects, wallet and merge", async ({ page
     });
 
     await walk.step("wallet: method actions", async () => {
-        await navigate(page, "/clients/cl_amelie/payment-methods");
+        await navigate(page, "/clients?open=cl_amelie");
+        await main.getByRole("button", { name: r.manageWallet }).click();
         await main
             .getByRole("button", { name: prefixOf(strings.clients.wallet.more) })
             .first()
@@ -1026,10 +1027,9 @@ test("staff: today, schedule and clients", async ({ page }) => {
         await expect(page.getByRole("heading", { name: "Amélie Tremblay" })).toBeVisible();
         await navigate(page, "/clients/cl_amelie/subjects");
         await openAndClose(page, strings.subjects.add("pet"));
-        await navigate(page, "/clients/cl_amelie/payment-methods");
-        await expect(main.getByText(strings.clients.wallet.onlyManagers)).toBeVisible();
+        await navigate(page, "/clients?open=cl_amelie");
         await expect(
-            main.getByRole("button", { name: prefixOf(strings.clients.wallet.more) }),
+            main.getByRole("button", { name: strings.clients.record.manageWallet }),
         ).toHaveCount(0);
     });
 
@@ -1316,12 +1316,10 @@ test("Google Reviews distinguishes unavailable, unlinked and empty profiles", as
             await page.evaluate(() => document.documentElement.scrollWidth - innerWidth),
         ).toBeLessThanOrEqual(0);
         expect(await axeIssues(page)).toEqual([]);
-        await test
-            .info()
-            .attach(`reviews-connect-${width}`, {
-                body: await page.screenshot(),
-                contentType: "image/png",
-            });
+        await test.info().attach(`reviews-connect-${width}`, {
+            body: await page.screenshot(),
+            contentType: "image/png",
+        });
     }
     state = "active";
     await navigate(page, "/inbox?segment=forms");
