@@ -3,7 +3,13 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { ApiLike } from "../api";
-import { bookingPageUrl, setupTasks, useBusinessForm, useOnboardingForm } from "./business";
+import {
+    bookingPageUrl,
+    industryOptions,
+    setupTasks,
+    useBusinessForm,
+    useOnboardingForm,
+} from "./business";
 
 const replica = vi.hoisted(() => ({ rows: [] as unknown[] }));
 vi.mock("../hooks", async (importOriginal) => ({
@@ -92,7 +98,6 @@ const ROW = {
     postal_code: "V8W 1Y9",
     legal_phone: null,
     brand: null,
-    subject: "pet",
 };
 
 function recordingApi(reply: object): { api: ApiLike; bodies: Record<string, unknown>[] } {
@@ -126,7 +131,6 @@ describe("useBusinessForm", () => {
                 name: "Birch & Co",
                 timezone: "America/Vancouver",
                 billing_email: "",
-                subject: "pet",
             },
         ]);
     });
@@ -153,21 +157,24 @@ describe("useBusinessForm", () => {
 });
 
 describe("useOnboardingForm", () => {
-    it("starts with no province and will not create a business until one is chosen", async () => {
+    function recordingPost(): { api: ApiLike; posted: unknown[] } {
         const posted: unknown[] = [];
-        const api = {
-            post: (_path: string, body: unknown) => {
-                posted.push(body);
-                return Promise.resolve({ id: "bz_new" });
-            },
-        } as unknown as ApiLike;
+        const post = (_path: string, body: unknown) => {
+            posted.push(body);
+            return Promise.resolve({ id: "bz_new" });
+        };
+        return { api: { post } as unknown as ApiLike, posted };
+    }
+
+    it("starts with no province and will not create a business until one is chosen", async () => {
+        const { api, posted } = recordingPost();
         const created = vi.fn();
         const { result } = renderHook(() => useOnboardingForm(api, created));
         expect(result.current.province).toBeNull();
         expect(result.current.taxSummary).toBeNull();
         act(() => {
             result.current.setName("Birch Studio");
-            result.current.setSubject("pet");
+            result.current.setIndustry("petCare");
         });
         act(() => {
             result.current.submit();
@@ -193,5 +200,38 @@ describe("useOnboardingForm", () => {
                 timezone: null,
             },
         ]);
+    });
+
+    it("requires an industry and sends the subject kind it maps to", async () => {
+        const { api, posted } = recordingPost();
+        const created = vi.fn();
+        const { result } = renderHook(() => useOnboardingForm(api, created));
+        act(() => {
+            result.current.setName("Fern Hair");
+            result.current.setProvince("ON");
+        });
+        act(() => {
+            result.current.submit();
+        });
+        expect(result.current.error).toBe("Choose your industry.");
+        expect(posted).toEqual([]);
+        act(() => {
+            result.current.setIndustry("beauty");
+        });
+        expect(result.current.error).toBeNull();
+        act(() => {
+            result.current.submit();
+        });
+        await waitFor(() => {
+            expect(created).toHaveBeenCalled();
+        });
+        expect(posted).toMatchObject([{ subject: null }]);
+    });
+
+    it("lists each industry with its catalog label", () => {
+        const options = industryOptions();
+        expect(options).toHaveLength(12);
+        expect(options[0]).toEqual({ key: "petGrooming", label: "Pet grooming and daycare" });
+        expect(options.at(-1)).toEqual({ key: "other", label: "Something else" });
     });
 });

@@ -15,7 +15,7 @@ from clientbridge.services.business import (
     quiet_hours,
     reply_address,
 )
-from tests.conftest import Factory, FakePaymentGateway
+from tests.conftest import FakePaymentGateway
 
 BIZ = "bz_birchbark"
 
@@ -253,29 +253,14 @@ async def test_a_new_address_drops_the_terminal_location_made_for_the_old_one(
     assert business.stripe_terminal_location_id is None
 
 
-async def test_owner_sets_and_clears_the_subject_kind_of_their_business_only(
-    as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory
+async def test_owner_cannot_change_the_edition_through_settings(
+    as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    other = await factory.business()
-    res = await as_owner.patch("/v1/business", json={"subject": "student"})
+    res = await as_owner.patch("/v1/business", json={"subject": "student", "name": "Birchbark"})
     assert res.status_code == 200, res.text
-    assert res.json()["subject"] == "student"
-    res = await as_owner.patch("/v1/business", json={"name": "Birchbark"})
-    assert res.json()["subject"] == "student"
-    res = await as_owner.patch("/v1/business", json={"subject": None})
-    assert res.json()["subject"] is None
-    await db.refresh(other)
-    assert other.subject == "pet"
-
-
-async def test_an_unknown_subject_kind_is_422(as_owner: httpx.AsyncClient) -> None:
-    res = await as_owner.patch("/v1/business", json={"subject": "vehicle"})
-    assert res.status_code == 422
-
-
-async def test_staff_cannot_change_the_subject_kind_403(as_staff: httpx.AsyncClient) -> None:
-    res = await as_staff.patch("/v1/business", json={"subject": "property"})
-    assert res.status_code == 403
+    assert res.json()["subject"] == "pet"
+    business = await db.get(Business, BIZ)
+    assert business is not None and business.subject == "pet"
 
 
 async def test_owner_sets_and_clears_the_legal_address_and_phone(

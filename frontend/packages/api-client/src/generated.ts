@@ -3554,6 +3554,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/v1/businesses/{business_id}/edition": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Set Edition */
+        post: operations["set_edition_admin_v1_businesses__business_id__edition_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/v1/businesses/{business_id}/drift/{finding_id}/acknowledge": {
         parameters: {
             query?: never;
@@ -3675,6 +3692,8 @@ export interface components {
             stripe_charges_enabled: boolean;
             /** Stripe Payouts Enabled */
             stripe_payouts_enabled: boolean;
+            /** Subject */
+            subject: ("pet" | "student" | "property" | "site") | null;
             /**
              * Created At
              * Format: date-time
@@ -3752,6 +3771,14 @@ export interface components {
         AdminDriftResult: {
             /** Finding Id */
             finding_id: string;
+        };
+        /** AdminEdition */
+        AdminEdition: {
+            /**
+             * Subject
+             * @description The edition: what bookings are for besides the client; null books only them
+             */
+            subject: ("pet" | "student" | "property" | "site") | null;
         };
         /** AdminEmail */
         AdminEmail: {
@@ -4497,11 +4524,6 @@ export interface components {
              */
             legal_phone?: string | null;
             brand?: components["schemas"]["BrandInput"] | null;
-            /**
-             * Subject
-             * @description What bookings are for besides the client; null books only them
-             */
-            subject?: ("pet" | "student" | "property" | "site") | null;
         };
         /** CheckoutOut */
         CheckoutOut: {
@@ -16744,6 +16766,43 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["AdminSmsAssignment"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminBusiness"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_edition_admin_v1_businesses__business_id__edition_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-session-token"?: string;
+            };
+            path: {
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminEdition"];
             };
         };
         responses: {

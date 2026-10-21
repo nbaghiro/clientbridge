@@ -5,7 +5,7 @@ import { dateKey, formatDate, readDate } from "../datetime";
 import { formatParts, parseNumber } from "../format";
 import { useAsyncAction, useBusinessQuery as useQuery } from "../hooks";
 import { strings } from "../strings";
-import type { ChoiceOption, Intent } from "../ui";
+import type { Intent } from "../ui";
 import { type Photo, useFileLinks } from "./files";
 
 const s = strings.subjects;
@@ -13,11 +13,11 @@ const s = strings.subjects;
 export type SubjectKind = "pet" | "student" | "property" | "site";
 
 /** A business's answer to what it books: one of the kinds, or "none" for only the client. */
-export type SubjectChoice = SubjectKind | "none";
+type SubjectChoice = SubjectKind | "none";
 
 const KINDS: readonly SubjectKind[] = ["pet", "student", "property", "site"];
 
-export function asSubjectKind(value: string | null | undefined): SubjectKind | null {
+function asSubjectKind(value: string | null | undefined): SubjectKind | null {
     return KINDS.find((k) => k === value) ?? null;
 }
 
@@ -25,21 +25,6 @@ export function asSubjectKind(value: string | null | undefined): SubjectKind | n
 export function kindWord(kind: SubjectKind | null): SubjectChoice {
     return kind ?? "none";
 }
-
-export function kindOf(choice: SubjectChoice): SubjectKind | null {
-    return choice === "none" ? null : choice;
-}
-
-/** The answers to what clients book for, each with the trades it suits. */
-export function subjectChoices(): ChoiceOption<SubjectChoice>[] {
-    return (["pet", "student", "property", "site", "none"] as const).map((key) => ({
-        key,
-        label: s.choice(key),
-        hint: s.choiceHint(key),
-    }));
-}
-
-export const SUBJECT_COUNT_SQL = "SELECT COUNT(*) AS n FROM subjects WHERE deleted_at IS NULL";
 
 export const SUBJECT_KIND_SQL = "SELECT subject FROM businesses LIMIT 1";
 

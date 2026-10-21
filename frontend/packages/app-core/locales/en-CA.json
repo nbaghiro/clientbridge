@@ -4824,36 +4824,6 @@
         "args": ["kind"],
         "description": "kind is what the business books besides the client: pet, student, property, site, site, or none"
     },
-    "subjects.choiceLabel": {
-        "message": "What do clients book for?"
-    },
-    "subjects.choiceHelp": {
-        "message": "Bookings and client records ask for this. You can change it later in business settings."
-    },
-    "subjects.choice": {
-        "message": "{kind, select, pet {Pets} student {Students} property {Properties} site {Sites} other {Only the client}}",
-        "args": ["kind"],
-        "description": "kind is what the business books besides the client: pet, student, property, site, site, or none"
-    },
-    "subjects.choiceHint": {
-        "message": "{kind, select, pet {Grooming, daycare and boarding} student {Tutoring and lessons} property {Cleaning and home services} site {Security, alarm and AV installs} other {Salons, fitness, wellness and photography}}",
-        "args": ["kind"],
-        "description": "kind is what the business books besides the client: pet, student, property, site, site, or none"
-    },
-    "subjects.choiceRequired": {
-        "message": "Choose what clients book for."
-    },
-    "subjects.changeTitle": {
-        "message": "Change what clients book for?"
-    },
-    "subjects.changeBody": {
-        "message": "{from, select, pet {{count, plural, one {# pet} other {# pets}}} student {{count, plural, one {# student} other {# students}}} property {{count, plural, one {# property} other {# properties}}} site {{count, plural, one {# site} other {# sites}}} other {{count, plural, one {# saved name} other {# saved names}}}} on client records {to, select, pet {will be shown as pets} student {will be shown as students} property {will be shown as properties} site {will be shown as sites} other {will be hidden from bookings and records}}. Their details are kept.",
-        "args": ["from", "to", "count"],
-        "description": "from and to are the old and new kind: pet, student, property, site, site, or none"
-    },
-    "subjects.changeConfirm": {
-        "message": "Change"
-    },
     "subjects.age": {
         "message": "{years, plural, =0 {Under 1 yr} other {# yr}}",
         "args": ["years"]
@@ -6586,6 +6556,23 @@
     },
     "business.onboarding.provincePlaceholder": {
         "message": "Choose a province or territory"
+    },
+    "business.onboarding.industry": {
+        "message": "{industry, select, petGrooming {Pet grooming and daycare} petCare {Dog walking and pet sitting} tutoring {Tutoring and lessons} cleaning {Home cleaning} landscaping {Landscaping and lawn care} security {Security, alarm and AV installs} beauty {Hair and beauty} fitness {Fitness and personal training} wellness {Massage and wellness} photography {Photography} tattoo {Tattoo and piercing} other {Something else}}",
+        "args": ["industry"],
+        "description": "The owner's line of work, chosen at signup from a list"
+    },
+    "business.onboarding.industryLabel": {
+        "message": "Industry"
+    },
+    "business.onboarding.industryPlaceholder": {
+        "message": "Choose your industry"
+    },
+    "business.onboarding.industryHint": {
+        "message": "We use this to set up Clientbridge for the way you work."
+    },
+    "business.onboarding.industryRequired": {
+        "message": "Choose your industry."
     },
     "business.onboarding.taxTitle": {
         "message": "Sales tax in {province}",
@@ -13496,6 +13483,29 @@
     },
     "admin.payouts": {
         "message": "Payouts enabled"
+    },
+    "admin.edition": {
+        "message": "Edition"
+    },
+    "admin.editionOption": {
+        "message": "{subject, select, pet {Pets} student {Students} property {Properties} site {Sites} other {Client only}}",
+        "args": ["subject"],
+        "description": "What the business books besides the client: pet, student, property, site, or none"
+    },
+    "admin.editionHint": {
+        "message": "Sets the labels and features the business sees for what clients book."
+    },
+    "admin.changeEdition": {
+        "message": "Change edition"
+    },
+    "admin.saveEdition": {
+        "message": "Save edition"
+    },
+    "admin.editionSaved": {
+        "message": "Edition saved."
+    },
+    "admin.editionError": {
+        "message": "The edition could not be saved. Please try again."
     },
     "admin.yes": {
         "message": "Yes"

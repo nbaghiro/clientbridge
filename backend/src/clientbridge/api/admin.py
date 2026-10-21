@@ -15,6 +15,7 @@ from clientbridge.schemas.admin import (
     AdminDelivery,
     AdminDriftAcknowledgement,
     AdminDriftResult,
+    AdminEdition,
     AdminEmail,
     AdminEmailConfig,
     AdminEmailPreview,
@@ -164,6 +165,11 @@ async def deliveries(
 @router.post("/businesses/{business_id}/sms")
 async def assign_sms(admin: Service, business_id: str, body: AdminSmsAssignment) -> AdminBusiness:
     return await admin.assign_sms(business_id, body)
+
+
+@router.post("/businesses/{business_id}/edition")
+async def set_edition(admin: Service, business_id: str, body: AdminEdition) -> AdminBusiness:
+    return await admin.set_edition(business_id, body)
 
 
 @router.post("/businesses/{business_id}/drift/{finding_id}/acknowledge")
