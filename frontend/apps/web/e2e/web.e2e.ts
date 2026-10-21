@@ -13,11 +13,11 @@ const DEPOSIT_BOOKING = "bk_015";
 const PAYMENTS_TABS = {
     invoices: strings.billing.newInvoice,
     sales: strings.pos.desk.ticket,
-    "gift-cards": strings.entitlements.walletTitle,
-    refunds: strings.refunds.paymentsTitle,
-    "staff-pay": strings.earnings.selectAll,
+    "gift-cards": strings.entitlements.colItem,
+    refunds: strings.refunds.colMethod,
+    "staff-pay": strings.earnings.colMember,
     tax: strings.remittances.recordFiled,
-    payouts: strings.payouts.chargesTitle,
+    payouts: strings.payouts.colRef,
     reports: strings.reports.monthlyNet,
 };
 const SETUP_SECTIONS = [
@@ -618,24 +618,30 @@ test("owner: payments desk, records and their dialogs", async ({ page }) => {
             .getByRole("button", { name: /Invoice #|Sale S-/ })
             .first()
             .click();
-        await expect(main.getByText(strings.refunds.reverses)).toBeVisible();
+        const refund = page.getByRole("dialog");
+        await expect(refund.getByText(strings.refunds.reverses)).toBeVisible();
         await cancelConfirm(
             page,
-            main.getByRole("button", { name: prefixOf(strings.refunds.refundButton) }),
+            refund.getByRole("button", { name: prefixOf(strings.refunds.refundButton) }),
             /\?$/,
         );
+        await escapeDialog(page);
         await main.getByRole("tab", { name: strings.refunds.tabs.notes }).click();
         await main.getByRole("tab", { name: startsWith(strings.refunds.tabs.disputes) }).click();
+        await main.locator("button.block").first().click();
         await expect(
-            main.getByRole("heading", { name: prefixOf(strings.refunds.disputeTitle) }),
+            page
+                .getByRole("dialog")
+                .getByRole("heading", { name: prefixOf(strings.refunds.disputeTitle) }),
         ).toBeVisible();
+        await escapeDialog(page);
     });
 
     await walk.step("gift cards: sell, redeem and a card's history", async () => {
         await navigate(page, "/payments/gift-cards");
         await openAndClose(page, strings.entitlements.sellNew);
         await openAndClose(page, strings.entitlements.redeemGift);
-        await openAndClose(page, strings.entitlements.history);
+        await openFirstRow(page);
     });
 
     const d = strings.pos.desk;
@@ -678,7 +684,7 @@ test("owner: payments desk, records and their dialogs", async ({ page }) => {
     await walk.step("reports and tax returns", async () => {
         await navigate(page, "/payments/reports");
         await expect(main.getByText(strings.reports.monthlyNet).first()).toBeVisible();
-        await main.getByRole("button", { name: new RegExp(strings.reports.gstHst) }).click();
+        await main.getByRole("tab", { name: strings.reports.library.gstHst }).click();
         await expect(main.getByText(strings.reports.taxableSales)).toBeVisible();
         await openAndClose(page, strings.reports.bookkeeperPack);
         await navigate(page, "/payments/tax");
@@ -687,15 +693,18 @@ test("owner: payments desk, records and their dialogs", async ({ page }) => {
 
     await walk.step("payouts and staff pay", async () => {
         await navigate(page, "/payments/payouts");
-        await expect(main.getByText(strings.payouts.chargesTitle, { exact: true })).toBeVisible();
         await expect(main.getByText(strings.payouts.noPayouts, { exact: true })).toBeVisible();
+        await main.getByRole("tab", { name: strings.payouts.tabCharges }).click();
+        await expect(main.getByText(strings.payouts.colNet, { exact: true })).toBeVisible();
         await navigate(page, "/payments/staff-pay");
-        await expect(main.getByText(strings.earnings.selectAll)).toBeVisible();
         await main
             .getByRole("button", { name: /Diego Ramirez/ })
             .first()
             .click();
-        await expect(main.getByRole("heading", { name: "Diego Ramirez" })).toBeVisible();
+        const payee = page.getByRole("dialog");
+        await expect(payee.getByRole("heading", { name: "Diego Ramirez" })).toBeVisible();
+        await expect(payee.getByText(strings.earnings.selectAll)).toBeVisible();
+        await escapeDialog(page);
     });
 
     walk.expectNoErrors();

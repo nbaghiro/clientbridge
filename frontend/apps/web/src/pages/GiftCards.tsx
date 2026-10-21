@@ -1,12 +1,13 @@
 import {
     ENTITLEMENT_ICON,
     type EntitlementActionKey,
+    type EntitlementDeskRow,
     type EntitlementDetail,
+    type EntitlementSegment,
     type EntitlementSummary,
-    formatMoney,
     strings,
     useEntitlementDetail,
-    useEntitlementWallet,
+    useEntitlementDesk,
     useGiftCardRedeemForm,
     formatParts,
     BUSINESS_CURRENCY,
@@ -17,23 +18,21 @@ import {
     ActivityTimeline,
     Avatar,
     Button,
-    Choice,
     DetailSection,
-    DetailView,
-    Empty,
     Icon,
     KeyValueList,
-    LoadFailed,
+    ListPage,
     Meter,
     Modal,
     Notice,
-    Skeleton,
+    Stat,
     StatusPill,
     TextField,
     confirm,
 } from "@clientbridge/ui";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
+import { DeskBar, DeskPanel } from "../components/Desk";
 import { SellEntitlement } from "../components/EntitlementSales";
 import { api } from "../lib/api";
 import { useOpenLink } from "../lib/links";
@@ -41,154 +40,158 @@ import { useOpenLink } from "../lib/links";
 const w = strings.entitlements;
 const g = strings.entitlements.giftCards;
 
+const GRID =
+    "grid grid-cols-[minmax(0,1.6fr)_minmax(0,1.3fr)_8rem_minmax(0,1fr)] items-center gap-4";
+
 export function GiftCards() {
     const photos = usePeoplePhotos();
-    const wallet = useEntitlementWallet();
+    const desk = useEntitlementDesk();
     const openLink = useOpenLink();
     const [openId, setOpenId] = useState<string | null>(null);
     const [mode, setMode] = useState<"sell" | "redeem" | null>(null);
-    const open = wallet.summaries.find((x) => x.row.id === openId) ?? null;
+    const open = desk.rows.find((x) => x.row.id === openId) ?? null;
     const detail = useEntitlementDetail(api, open, (paymentId) => {
         openLink("refunds", paymentId);
     });
-    const c = wallet.client;
-    const [pending, setPending] = useState<EntitlementActionKey | null>(null);
-    useEffect(() => {
-        if (pending === null || detail === null) return;
-        detail.run(pending);
-        setPending(null);
-    }, [pending, detail]);
+    const nothingYet = desk.load.state === "empty";
+    const ready = desk.load.state === "ready";
+    const figure = (cents: number): { cents: number | null; currency: string } => ({
+        cents: ready ? cents : null,
+        currency: BUSINESS_CURRENCY,
+    });
 
     return (
-        <div className="space-y-6">
-            <div className="flex flex-wrap items-start justify-between gap-4">
-                <div>
-                    <h2 className="font-display text-xl font-bold text-ink">{w.walletTitle}</h2>
-                    <p className="mt-0.5 text-sm text-muted">{w.subtitle}</p>
+        <div className="@container space-y-6">
+            <DeskBar
+                action={
+                    nothingYet ? null : (
+                        <>
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                onPress={() => {
+                                    setMode("redeem");
+                                }}
+                            >
+                                {w.redeemGift}
+                            </Button>
+                            <Button
+                                size="sm"
+                                icon="plus"
+                                onPress={() => {
+                                    setMode("sell");
+                                }}
+                            >
+                                {w.sellNew}
+                            </Button>
+                        </>
+                    )
+                }
+            />
+            {nothingYet || desk.load.state === "error" ? null : (
+                <div className="grid grid-cols-1 gap-3 @2xl:grid-cols-3">
+                    <Stat label={w.giftLiability} {...figure(desk.totals.giftCents)} />
+                    <Stat label={w.deferred} {...figure(desk.totals.deferredCents)} />
+                    <Stat label={w.walletMonthly} {...figure(desk.totals.monthlyCents)} />
                 </div>
-                {wallet.load.state === "empty" ? null : (
-                    <div className="flex gap-2">
-                        <Button
-                            size="sm"
-                            variant="outline"
-                            onPress={() => {
-                                setMode("redeem");
-                            }}
-                        >
-                            {w.redeemGift}
-                        </Button>
-                        <Button
-                            size="sm"
-                            onPress={() => {
-                                setMode("sell");
-                            }}
-                        >
-                            {w.sellNew}
-                        </Button>
+            )}
+            <ListPage<EntitlementDeskRow, EntitlementSegment>
+                segments={
+                    nothingYet
+                        ? undefined
+                        : { items: desk.segments, active: desk.segment, onSelect: desk.setSegment }
+                }
+                search={
+                    nothingYet
+                        ? undefined
+                        : { value: desk.q, onChange: desk.setQ, placeholder: w.search }
+                }
+                head={
+                    nothingYet ? undefined : (
+                        <div className={GRID}>
+                            <span>{w.colItem}</span>
+                            <span>{w.colClient}</span>
+                            <span>{w.colStatus}</span>
+                            <span className="text-right">{w.colLeft}</span>
+                        </div>
+                    )
+                }
+                rows={desk.rows}
+                rowKey={(x) => x.row.id}
+                selectedKey={openId ?? undefined}
+                onRowPress={(x) => {
+                    setOpenId(x.row.id);
+                }}
+                state={
+                    desk.load.state === "loading"
+                        ? "loading"
+                        : desk.load.state === "error"
+                          ? "error"
+                          : undefined
+                }
+                onRetry={desk.load.retry}
+                empty={
+                    nothingYet
+                        ? {
+                              message: w.emptyTitle,
+                              body: w.empty,
+                              icon: "box",
+                              variant: "card",
+                              actions: (
+                                  <Button
+                                      icon="plus"
+                                      onPress={() => {
+                                          setMode("sell");
+                                      }}
+                                  >
+                                      {w.sellNew}
+                                  </Button>
+                              ),
+                          }
+                        : desk.emptyMessage
+                }
+                renderRow={(x) => (
+                    <div className={GRID}>
+                        <span className="flex min-w-0 items-center gap-3">
+                            <KindTile summary={x} />
+                            <span className="min-w-0">
+                                <span
+                                    className={`block truncate font-medium text-ink ${x.row.kind === "gift_card" ? "font-mono text-[13px] tracking-wide" : ""}`}
+                                >
+                                    {x.title}
+                                </span>
+                                <span className="block truncate text-xs text-muted">
+                                    {formatParts([x.kindLabel, x.note])}
+                                </span>
+                            </span>
+                        </span>
+                        <span className="flex min-w-0 items-center gap-3">
+                            {x.clientName !== "" ? (
+                                <>
+                                    <Avatar
+                                        name={x.clientName}
+                                        src={photos.client(x.row.client_id)}
+                                        size="sm"
+                                    />
+                                    <span className="truncate text-ink">{x.clientName}</span>
+                                </>
+                            ) : (
+                                <span className="text-muted">{w.walkIn}</span>
+                            )}
+                        </span>
+                        <span>
+                            <StatusPill status={x.statusLabel} intent={x.intent} />
+                        </span>
+                        <span className="truncate text-right font-medium tabular-nums text-ink">
+                            {x.balanceLabel}
+                        </span>
                     </div>
                 )}
-            </div>
-            {wallet.load.state === "loading" ? (
-                <Skeleton variant="row" count={3} label={w.walletTitle} />
-            ) : wallet.load.state === "error" ? (
-                <LoadFailed
-                    variant="card"
-                    message={w.loadError}
-                    onRetry={wallet.load.retry}
-                    retrying={wallet.load.retrying}
-                />
-            ) : wallet.load.state === "empty" ? (
-                <Empty
-                    variant="card"
-                    icon="box"
-                    message={w.emptyTitle}
-                    body={w.empty}
-                    actions={
-                        <Button
-                            onPress={() => {
-                                setMode("sell");
-                            }}
-                        >
-                            {w.sellNew}
-                        </Button>
-                    }
-                />
-            ) : (
-                <>
-                    <Choice
-                        label={w.clientPicker}
-                        options={wallet.holders}
-                        value={wallet.clientId}
-                        onChange={wallet.setClientId}
-                    />
-                    {c !== null ? (
-                        <section className="flex flex-wrap items-center gap-x-8 gap-y-4 rounded-lg border border-line bg-surface px-5 py-4 shadow-card">
-                            <div className="flex min-w-0 items-center gap-3">
-                                <Avatar name={c.name} src={photos.client(c.id)} size="lg" />
-                                <div className="min-w-0">
-                                    <h3 className="truncate font-display text-lg font-bold text-ink">
-                                        {c.name}
-                                    </h3>
-                                    <p className="truncate text-sm text-muted">{wallet.contact}</p>
-                                </div>
-                            </div>
-                            <div className="ml-auto">
-                                <KeyValueList
-                                    layout="stack"
-                                    columns={3}
-                                    rows={[
-                                        {
-                                            label: w.deferred,
-                                            value: formatMoney(
-                                                wallet.totals.deferredCents,
-                                                BUSINESS_CURRENCY,
-                                            ),
-                                        },
-                                        {
-                                            label: w.giftLiability,
-                                            value: formatMoney(
-                                                wallet.totals.giftCents,
-                                                BUSINESS_CURRENCY,
-                                            ),
-                                        },
-                                        {
-                                            label: w.walletMonthly,
-                                            value: formatMoney(
-                                                wallet.totals.monthlyCents,
-                                                BUSINESS_CURRENCY,
-                                            ),
-                                        },
-                                    ]}
-                                />
-                            </div>
-                        </section>
-                    ) : null}
-                    {wallet.summaries.length === 0 ? (
-                        <Empty variant="card" message={w.emptyClient(c?.name ?? "")} />
-                    ) : (
-                        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                            {wallet.summaries.map((sum) => (
-                                <WalletCard
-                                    key={sum.row.id}
-                                    summary={sum}
-                                    onOpen={() => {
-                                        setOpenId(sum.row.id);
-                                    }}
-                                    onUse={() => {
-                                        setOpenId(sum.row.id);
-                                        setPending("use");
-                                    }}
-                                />
-                            ))}
-                        </div>
-                    )}
-                </>
-            )}
+            />
             {detail !== null ? (
-                <DetailView
-                    open
+                <DeskPanel
                     title={detail.summary.title}
-                    subtitle={formatParts([detail.summary.kindLabel, c?.name ?? ""])}
+                    subtitle={formatParts([detail.summary.kindLabel, open?.clientName ?? ""])}
                     leading={<KindTile summary={detail.summary} />}
                     status={{ status: detail.summary.statusLabel, intent: detail.summary.intent }}
                     onClose={() => {
@@ -197,7 +200,7 @@ export function GiftCards() {
                     actions={<DetailActions detail={detail} />}
                 >
                     <DetailBody detail={detail} />
-                </DetailView>
+                </DeskPanel>
             ) : null}
             <Modal
                 variant="drawer"
@@ -256,67 +259,6 @@ function WalletMeter({ summary }: { summary: EntitlementSummary }) {
             detail={summary.meter.detail}
             intent={summary.intent === "success" ? "accent" : summary.intent}
         />
-    );
-}
-
-function WalletCard({
-    summary,
-    onOpen,
-    onUse,
-}: {
-    summary: EntitlementSummary;
-    onOpen: () => void;
-    onUse: () => void;
-}) {
-    const alert = summary.status === "past_due";
-    const usable =
-        summary.row.kind === "package" &&
-        summary.status === "active" &&
-        (summary.meter?.value ?? 0) > 0;
-    return (
-        <article
-            className={`flex flex-col rounded-lg border bg-surface p-4 shadow-card ${alert ? "border-danger/40" : "border-line"}`}
-        >
-            <div className="flex items-start gap-3">
-                <KindTile summary={summary} />
-                <div className="min-w-0 flex-1">
-                    <p className="text-xs font-medium text-muted">{summary.kindLabel}</p>
-                    <h3
-                        className={`truncate font-semibold text-ink ${summary.row.kind === "gift_card" ? "font-mono text-[15px] tracking-wide" : "text-base"}`}
-                    >
-                        {summary.title}
-                    </h3>
-                </div>
-                <StatusPill status={summary.statusLabel} intent={summary.intent} />
-            </div>
-            <div className="mt-4 flex-1">
-                {summary.meter !== null ? (
-                    <WalletMeter summary={summary} />
-                ) : (
-                    <div>
-                        <p className="text-sm font-semibold text-ink">{summary.balanceLabel}</p>
-                        <p className="mt-0.5 font-display text-2xl font-bold tabular-nums text-ink">
-                            {formatMoney(summary.valueCents, BUSINESS_CURRENCY)}
-                        </p>
-                    </div>
-                )}
-                {summary.note !== null ? (
-                    <p className={`mt-2 text-xs ${alert ? "text-danger" : "text-muted"}`}>
-                        {summary.note}
-                    </p>
-                ) : null}
-            </div>
-            <div className="mt-4 flex items-center gap-2 border-t border-line-soft pt-3">
-                {usable ? (
-                    <Button size="sm" onPress={onUse}>
-                        {w.action.use}
-                    </Button>
-                ) : null}
-                <Button size="sm" variant="quiet" onPress={onOpen}>
-                    {w.history}
-                </Button>
-            </div>
-        </article>
     );
 }
 

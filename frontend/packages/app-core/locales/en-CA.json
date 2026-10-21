@@ -2162,6 +2162,12 @@
     "earnings.subtitle": {
         "message": "Staff earn a share of what they do, and tips. Approve them, then pay them."
     },
+    "earnings.colMember": {
+        "message": "Team member"
+    },
+    "earnings.colPay": {
+        "message": "Pay"
+    },
     "earnings.toApprove": {
         "message": "To approve"
     },
@@ -2258,9 +2264,6 @@
     "earnings.openTeam": {
         "message": "Open Team"
     },
-    "earnings.choosePayee": {
-        "message": "Choose a person to see their earnings."
-    },
     "earnings.paidVia": {
         "message": "Pay them by e-Transfer or direct deposit, then mark it paid here."
     },
@@ -2269,6 +2272,47 @@
     },
     "earnings.loading": {
         "message": "Loading staff pay…"
+    },
+    "entitlements.segments.all": {
+        "message": "All"
+    },
+    "entitlements.segments.gift_card": {
+        "message": "Gift cards"
+    },
+    "entitlements.segments.package": {
+        "message": "Packages"
+    },
+    "entitlements.segments.membership": {
+        "message": "Plans"
+    },
+    "entitlements.segmentCount": {
+        "message": "{label} {count, number}",
+        "description": "a filter chip with how many it holds, like Gift cards 4",
+        "args": ["label", "count"]
+    },
+    "entitlements.search": {
+        "message": "Search client, item or code"
+    },
+    "entitlements.colItem": {
+        "message": "Item"
+    },
+    "entitlements.colClient": {
+        "message": "Client"
+    },
+    "entitlements.colStatus": {
+        "message": "Status"
+    },
+    "entitlements.colLeft": {
+        "message": "Left"
+    },
+    "entitlements.walkIn": {
+        "message": "No client on file"
+    },
+    "entitlements.noMatch": {
+        "message": "Nothing matches that search."
+    },
+    "entitlements.emptySegment": {
+        "message": "Nothing here yet."
     },
     "entitlements.walletTitle": {
         "message": "Prepaid and plans"
@@ -8268,9 +8312,6 @@
     "refunds.title": {
         "message": "Refunds"
     },
-    "refunds.subtitle": {
-        "message": "Refund all or part of a payment. Each refund is a credit note that reverses its share of revenue and tax."
-    },
     "refunds.tabs.payments": {
         "message": "Payments"
     },
@@ -8280,8 +8321,8 @@
     "refunds.tabs.disputes": {
         "message": "Disputes"
     },
-    "refunds.paymentsTitle": {
-        "message": "Recent payments"
+    "refunds.subtitle": {
+        "message": "Refund all or part of a payment. Each refund is a credit note that reverses its share of revenue and tax."
     },
     "refunds.searchPlaceholder": {
         "message": "Search client, invoice or card"
@@ -8294,9 +8335,6 @@
     },
     "refunds.noMatch": {
         "message": "Nothing matches that search."
-    },
-    "refunds.selectPayment": {
-        "message": "Choose a payment to refund."
     },
     "refunds.statusLabel.paid": {
         "message": "Paid"
@@ -8497,6 +8535,12 @@
     "refunds.colReason": {
         "message": "Reason"
     },
+    "refunds.colMethod": {
+        "message": "Paid by"
+    },
+    "refunds.colStatus": {
+        "message": "Status"
+    },
     "refunds.colAmount": {
         "message": "Amount"
     },
@@ -8509,12 +8553,6 @@
     },
     "refunds.noDisputes": {
         "message": "No disputes. When a client disputes a card charge it shows here with the bank's deadline."
-    },
-    "refunds.openGroup": {
-        "message": "Open"
-    },
-    "refunds.closedGroup": {
-        "message": "Closed"
     },
     "refunds.disputeStatus.needs_response": {
         "message": "Needs response"
@@ -10097,6 +10135,25 @@
     },
     "payouts.chargesHint": {
         "message": "Last 30 days, with the processing and Clientbridge fees for each"
+    },
+    "payouts.tabPayouts": {
+        "message": "Payouts"
+    },
+    "payouts.tabCharges": {
+        "message": "Card charges"
+    },
+    "payouts.colDate": {
+        "message": "Arrives"
+    },
+    "payouts.colStatus": {
+        "message": "Status"
+    },
+    "payouts.colRef": {
+        "message": "Reference"
+    },
+    "payouts.dash": {
+        "message": "—",
+        "description": "shown when a payout has no bank reference yet"
     },
     "payouts.colCharge": {
         "message": "Charge"
@@ -14018,6 +14075,10 @@
         "message": "Fees {amount}",
         "args": ["amount"]
     },
-    "payouts.historyNext": { "message": "Older payouts" },
-    "payouts.historyPrevious": { "message": "Newer payouts" }
+    "payouts.historyNext": {
+        "message": "Older payouts"
+    },
+    "payouts.historyPrevious": {
+        "message": "Newer payouts"
+    }
 }

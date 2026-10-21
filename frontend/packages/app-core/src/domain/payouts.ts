@@ -77,7 +77,7 @@ interface PayoutView {
     when: string;
 }
 
-export interface ChargeView {
+interface ChargeView {
     id: string;
     client: string;
     description: string;

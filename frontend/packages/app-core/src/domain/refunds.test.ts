@@ -13,6 +13,7 @@ type DisputeRow = Parameters<typeof disputeView>[0];
 
 const payment = (amount: number, refunded: number): PaymentRow => ({
     id: "pay_1",
+    client_id: "cl_1",
     client_name: "Ann",
     kind: "payment",
     method: "card",

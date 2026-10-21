@@ -12,24 +12,23 @@ import {
     formatParts,
     BUSINESS_CURRENCY,
     currencyAffix,
+    usePeoplePhotos,
 } from "@clientbridge/app-core";
 import {
     ActivityTimeline,
+    Avatar,
     Button,
     PaymentAccount,
     Choice,
     DetailSection,
     DocTotals,
-    Empty,
     Field,
     Icon,
     KeyValueList,
     ListPage,
-    ListRow,
     LoadFailed,
     Money,
     Notice,
-    Panel,
     SearchField,
     Select,
     Skeleton,
@@ -41,6 +40,7 @@ import {
 } from "@clientbridge/ui";
 import { useState } from "react";
 
+import { DeskBar, DeskPanel } from "../components/Desk";
 import { api } from "../lib/api";
 import { useLinkIntent } from "../lib/links";
 
@@ -49,9 +49,15 @@ type Tab = "payments" | "notes" | "disputes";
 const NOTE_GRID =
     "grid grid-cols-[7.5rem_minmax(0,1.3fr)_minmax(0,1.4fr)_6.5rem_minmax(0,1.4fr)_6rem] items-center gap-4";
 
+const PAY_GRID =
+    "grid grid-cols-[minmax(0,1.6fr)_minmax(0,1.4fr)_minmax(0,1fr)_7rem_8rem_6.5rem] items-center gap-4";
+const DISPUTE_GRID =
+    "grid grid-cols-[minmax(0,1.5fr)_minmax(0,1.4fr)_minmax(0,1.3fr)_8rem_6.5rem] items-center gap-4";
+
 export function Refunds() {
     const [tab, setTab] = useState<Tab>("payments");
     const desk = useRefundDesk();
+    const notes = useCreditNotes(desk.refunds);
     useLinkIntent({
         onOpen: (id) => {
             setTab("payments");
@@ -65,103 +71,148 @@ export function Refunds() {
 
     return (
         <div className="space-y-6">
-            <p className="text-sm text-muted">{s.subtitle}</p>
-            <Tabs
-                variant="pill"
-                label={s.title}
-                items={[
-                    { key: "payments", label: s.tabs.payments },
-                    { key: "notes", label: s.tabs.notes },
-                    {
-                        key: "disputes",
-                        label: formatParts([s.tabs.disputes, disputes.summary]),
-                    },
-                ]}
-                active={tab}
-                onSelect={setTab}
+            <DeskBar
+                switcher={
+                    <Tabs
+                        variant="pill"
+                        label={s.title}
+                        items={[
+                            { key: "payments", label: s.tabs.payments },
+                            { key: "notes", label: s.tabs.notes },
+                            {
+                                key: "disputes",
+                                label: formatParts([s.tabs.disputes, disputes.summary]),
+                            },
+                        ]}
+                        active={tab}
+                        onSelect={setTab}
+                    />
+                }
+                summary={tab === "notes" ? notes.summary : undefined}
+                action={
+                    tab === "payments" && desk.load.state === "ready" ? (
+                        <div className="w-72">
+                            <SearchField
+                                value={desk.q}
+                                onChange={desk.setQ}
+                                placeholder={s.searchPlaceholder}
+                            />
+                        </div>
+                    ) : tab === "disputes" ? (
+                        <Button
+                            size="sm"
+                            disabled={!account.ready}
+                            icon="shield"
+                            variant="outline"
+                            onPress={() => {
+                                account.open("payments");
+                            }}
+                        >
+                            {strings.paymentAccount.manageDisputes}
+                        </Button>
+                    ) : null
+                }
             />
             {tab === "payments" ? <PaymentsDesk desk={desk} /> : null}
-            {tab === "notes" ? <CreditNotes refunds={desk.refunds} /> : null}
-            {tab === "disputes" ? (
-                <>
-                    <Button
-                        disabled={!account.ready}
-                        icon="shield"
-                        variant="outline"
-                        onPress={() => {
-                            account.open("payments");
-                        }}
-                    >
-                        {strings.paymentAccount.manageDisputes}
-                    </Button>
-                    <Disputes desk={disputes} />
-                </>
-            ) : null}
+            {tab === "notes" ? <CreditNotes notes={notes} /> : null}
+            {tab === "disputes" ? <Disputes desk={disputes} /> : null}
         </div>
     );
 }
 
 function PaymentsDesk({ desk }: { desk: ReturnType<typeof useRefundDesk> }) {
-    if (desk.load.state === "loading") return <Skeleton variant="row" count={6} label={s.title} />;
-    if (desk.load.state === "error")
-        return (
-            <LoadFailed variant="card" onRetry={desk.load.retry} retrying={desk.load.retrying} />
-        );
-    if (desk.load.state === "empty")
-        return <Empty variant="card" icon="card" message={s.emptyTitle} body={s.emptyBody} />;
+    const photos = usePeoplePhotos();
+    const empty = desk.load.state === "empty";
     return (
-        <div className="grid items-start gap-6 lg:grid-cols-[300px_minmax(0,1fr)] xl:grid-cols-[360px_minmax(0,1fr)]">
-            <Panel title={s.paymentsTitle} flush>
-                <div className="border-b border-line-soft p-3">
-                    <SearchField
-                        value={desk.q}
-                        onChange={desk.setQ}
-                        placeholder={s.searchPlaceholder}
-                    />
-                </div>
-                {desk.rows.length === 0 ? <Empty message={s.noMatch} /> : null}
-                <div className="max-h-[70vh] divide-y divide-line-soft overflow-y-auto">
-                    {desk.rows.map((r) => (
-                        <ListRow
-                            key={r.payment.id}
-                            selected={r.payment.id === desk.selectedId}
-                            title={r.payment.client_name ?? r.subject}
-                            detail={formatParts([r.subject, r.when])}
-                            meta={
-                                <span className="flex flex-col items-end gap-1">
-                                    <Money
-                                        currency={BUSINESS_CURRENCY}
-                                        cents={r.payment.amount_cents}
-                                        strong
-                                    />
-                                    {r.state !== "paid" ? (
-                                        <StatusPill status={r.stateLabel} intent={r.intent} />
-                                    ) : null}
-                                </span>
-                            }
-                            onPress={() => {
-                                desk.select(r.payment.id);
-                            }}
-                        />
-                    ))}
-                </div>
-            </Panel>
+        <>
+            <ListPage
+                head={
+                    empty ? undefined : (
+                        <div className={PAY_GRID}>
+                            <span>{s.colClient}</span>
+                            <span>{s.colFor}</span>
+                            <span>{s.colMethod}</span>
+                            <span>{s.colDate}</span>
+                            <span>{s.colStatus}</span>
+                            <span className="text-right">{s.colAmount}</span>
+                        </div>
+                    )
+                }
+                rows={desk.rows}
+                rowKey={(r) => r.payment.id}
+                selectedKey={desk.selectedId ?? undefined}
+                onRowPress={(r) => {
+                    desk.select(r.payment.id);
+                }}
+                state={
+                    desk.load.state === "loading"
+                        ? "loading"
+                        : desk.load.state === "error"
+                          ? "error"
+                          : undefined
+                }
+                onRetry={desk.load.retry}
+                empty={
+                    empty
+                        ? {
+                              message: s.emptyTitle,
+                              body: s.emptyBody,
+                              icon: "card",
+                              variant: "card",
+                          }
+                        : s.noMatch
+                }
+                renderRow={(r) => (
+                    <div className={PAY_GRID}>
+                        <span className="flex min-w-0 items-center gap-3">
+                            <Avatar
+                                name={r.payment.client_name ?? r.subject}
+                                src={photos.client(r.payment.client_id)}
+                                size="sm"
+                            />
+                            <span className="truncate font-medium text-ink">
+                                {r.payment.client_name ?? r.subject}
+                            </span>
+                        </span>
+                        <span className="truncate text-ink-soft">{r.subject}</span>
+                        <span className="truncate text-ink-soft">{r.method}</span>
+                        <span className="text-ink-soft">{r.when}</span>
+                        <span>
+                            <StatusPill status={r.stateLabel} intent={r.intent} />
+                        </span>
+                        <span className="text-right">
+                            <Money
+                                currency={BUSINESS_CURRENCY}
+                                cents={r.payment.amount_cents}
+                                strong
+                            />
+                        </span>
+                    </div>
+                )}
+            />
             {desk.selected !== null ? (
-                <Composer
+                <RefundPanel
                     key={`${desk.selected.payment.id}:${String(desk.selected.payment.refunded_cents)}`}
                     summary={desk.selected}
                     refunds={desk.refunds}
+                    onClose={() => {
+                        desk.select(null);
+                    }}
                 />
-            ) : (
-                <Panel>
-                    <Empty message={s.selectPayment} />
-                </Panel>
-            )}
-        </div>
+            ) : null}
+        </>
     );
 }
 
-function Composer({ summary, refunds }: { summary: RefundSummary; refunds: readonly RefundRow[] }) {
+function RefundPanel({
+    summary,
+    refunds,
+    onClose,
+}: {
+    summary: RefundSummary;
+    refunds: readonly RefundRow[];
+    onClose: () => void;
+}) {
     const form = useRefundComposer(api, summary, refunds);
     const p = summary.payment;
     const ask = (): void => {
@@ -178,23 +229,17 @@ function Composer({ summary, refunds }: { summary: RefundSummary; refunds: reado
     };
 
     return (
-        <div className="space-y-5">
-            <Panel>
-                <div className="flex items-start justify-between gap-4">
-                    <div className="min-w-0">
-                        <h2 className="truncate font-display text-xl font-bold text-ink">
-                            {p.client_name ?? summary.subject}
-                        </h2>
-                        <p className="mt-0.5 text-sm text-muted">
-                            {formatParts([summary.subject, summary.method, summary.when])}
-                        </p>
-                    </div>
-                    <StatusPill status={summary.stateLabel} intent={summary.intent} />
-                </div>
-                <div className="mt-4 rounded-md border border-line bg-bg px-4 py-3">
+        <DeskPanel
+            title={p.client_name ?? summary.subject}
+            subtitle={formatParts([summary.subject, summary.method, summary.when])}
+            status={{ status: summary.stateLabel, intent: summary.intent }}
+            onClose={onClose}
+        >
+            <div className="space-y-6">
+                <div className="rounded-md border border-line bg-bg px-4 py-3">
                     <KeyValueList
                         layout="stack"
-                        columns={4}
+                        columns={2}
                         rows={[
                             {
                                 label: s.paid,
@@ -216,16 +261,14 @@ function Composer({ summary, refunds }: { summary: RefundSummary; refunds: reado
                         ]}
                     />
                 </div>
-            </Panel>
-            <Panel title={s.creditNote}>
-                <RefundForm form={form} onSubmit={ask} />
-            </Panel>
-            <Panel>
+                <DetailSection title={s.creditNote}>
+                    <RefundForm form={form} onSubmit={ask} />
+                </DetailSection>
                 <DetailSection title={s.history}>
                     <ActivityTimeline entries={form.history} />
                 </DetailSection>
-            </Panel>
-        </div>
+            </div>
+        </DeskPanel>
     );
 }
 
@@ -328,11 +371,9 @@ function RefundForm({
     );
 }
 
-function CreditNotes({ refunds }: { refunds: readonly RefundRow[] }) {
-    const notes = useCreditNotes(refunds);
+function CreditNotes({ notes }: { notes: ReturnType<typeof useCreditNotes> }) {
     return (
         <ListPage
-            summary={notes.summary}
             head={
                 <div className={NOTE_GRID}>
                     <span>{s.colNote}</span>
@@ -363,72 +404,61 @@ function CreditNotes({ refunds }: { refunds: readonly RefundRow[] }) {
 }
 
 function Disputes({ desk }: { desk: DisputeDesk }) {
-    if (desk.load.state === "loading") return <Skeleton variant="row" count={3} label={s.title} />;
-    if (desk.load.state === "error")
-        return (
-            <LoadFailed variant="card" onRetry={desk.load.retry} retrying={desk.load.retrying} />
-        );
-    if (desk.load.state === "empty")
-        return <Empty variant="card" icon="shield" message={s.noDisputes} />;
-    const sel = desk.selected ?? desk.open[0] ?? desk.closed[0] ?? null;
+    const rows = [...desk.open, ...desk.closed];
+    const sel = desk.selected;
     return (
-        <div className="grid items-start gap-6 lg:grid-cols-[300px_minmax(0,1fr)] xl:grid-cols-[360px_minmax(0,1fr)]">
-            <Panel flush>
-                {[
-                    { title: s.openGroup, rows: desk.open },
-                    { title: s.closedGroup, rows: desk.closed },
-                ].map((g) =>
-                    g.rows.length === 0 ? null : (
-                        <div key={g.title}>
-                            <h3 className="border-b border-line-soft bg-bg px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted">
-                                {g.title}
-                            </h3>
-                            <div className="divide-y divide-line-soft">
-                                {g.rows.map((d) => (
-                                    <ListRow
-                                        key={d.row.id}
-                                        selected={d.row.id === sel?.row.id}
-                                        title={d.row.client_name ?? d.subject}
-                                        detail={formatParts([d.reason, d.subject])}
-                                        meta={
-                                            <span className="flex flex-col items-end gap-1">
-                                                <Money
-                                                    currency={BUSINESS_CURRENCY}
-                                                    cents={d.row.amount_cents}
-                                                    strong
-                                                />
-                                                <StatusPill
-                                                    status={d.statusLabel}
-                                                    intent={d.intent}
-                                                />
-                                            </span>
-                                        }
-                                        onPress={() => {
-                                            desk.select(d.row.id);
-                                        }}
-                                    />
-                                ))}
-                            </div>
-                        </div>
-                    ),
+        <>
+            <ListPage
+                head={
+                    <div className={DISPUTE_GRID}>
+                        <span>{s.colClient}</span>
+                        <span>{s.colFor}</span>
+                        <span>{s.colReason}</span>
+                        <span>{s.colStatus}</span>
+                        <span className="text-right">{s.colAmount}</span>
+                    </div>
+                }
+                rows={rows}
+                rowKey={(d) => d.row.id}
+                selectedKey={sel?.row.id}
+                onRowPress={(d) => {
+                    desk.select(d.row.id);
+                }}
+                state={
+                    desk.load.state === "loading"
+                        ? "loading"
+                        : desk.load.state === "error"
+                          ? "error"
+                          : undefined
+                }
+                onRetry={desk.load.retry}
+                empty={{ message: s.noDisputes, icon: "shield", variant: "card" }}
+                renderRow={(d) => (
+                    <div className={DISPUTE_GRID}>
+                        <span className="truncate font-medium text-ink">
+                            {d.row.client_name ?? d.subject}
+                        </span>
+                        <span className="truncate text-ink-soft">{d.subject}</span>
+                        <span className="truncate text-ink-soft">{d.reason}</span>
+                        <span>
+                            <StatusPill status={d.statusLabel} intent={d.intent} />
+                        </span>
+                        <span className="text-right">
+                            <Money currency={BUSINESS_CURRENCY} cents={d.row.amount_cents} strong />
+                        </span>
+                    </div>
                 )}
-            </Panel>
+            />
             {sel !== null ? (
-                <Panel>
+                <DeskPanel
+                    title={s.disputeTitle(formatMoney(sel.row.amount_cents, BUSINESS_CURRENCY))}
+                    subtitle={formatParts([sel.row.client_name ?? "", sel.subject])}
+                    status={{ status: sel.statusLabel, intent: sel.intent }}
+                    onClose={() => {
+                        desk.select(null);
+                    }}
+                >
                     <div className="space-y-5">
-                        <div className="flex items-start justify-between gap-4">
-                            <div className="min-w-0">
-                                <h2 className="font-display text-xl font-bold text-ink">
-                                    {s.disputeTitle(
-                                        formatMoney(sel.row.amount_cents, BUSINESS_CURRENCY),
-                                    )}
-                                </h2>
-                                <p className="mt-0.5 text-sm text-muted">
-                                    {formatParts([sel.row.client_name ?? "", sel.subject])}
-                                </p>
-                            </div>
-                            <StatusPill status={sel.statusLabel} intent={sel.intent} />
-                        </div>
                         <Notice
                             tone={
                                 sel.row.dispute_status === "needs_response"
@@ -441,22 +471,20 @@ function Disputes({ desk }: { desk: DisputeDesk }) {
                         >
                             {sel.deadline}
                         </Notice>
-                        <div className="grid gap-5 xl:grid-cols-2">
-                            <KeyValueList rows={sel.facts} />
-                            <div className="rounded-md border border-line bg-bg px-4 py-3">
-                                <DocTotals
-                                    currency={BUSINESS_CURRENCY}
-                                    lines={sel.held}
-                                    density="compact"
-                                />
-                            </div>
+                        <KeyValueList rows={sel.facts} />
+                        <div className="rounded-md border border-line bg-bg px-4 py-3">
+                            <DocTotals
+                                currency={BUSINESS_CURRENCY}
+                                lines={sel.held}
+                                density="compact"
+                            />
                         </div>
                         {sel.open ? (
                             <Notice tone="info">{strings.paymentAccount.disputeHelp}</Notice>
                         ) : null}
                     </div>
-                </Panel>
+                </DeskPanel>
             ) : null}
-        </div>
+        </>
     );
 }

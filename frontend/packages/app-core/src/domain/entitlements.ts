@@ -233,8 +233,9 @@ ORDER BY c.name COLLATE NOCASE`;
 export const WALLET_CLIENT_SQL = `
 SELECT c.id, c.name, c.email, c.phone FROM clients c WHERE c.id = ?`;
 
-export const WALLET_SQL = `
-SELECT 'package' AS kind, p.id, i.name AS item_name, p.status, p.sessions_total,
+// Packages, plans and gift cards in one shape; each part takes its own owner filter.
+const walletRows = (pkg: string, sub: string, gift: string): string => `
+SELECT 'package' AS kind, p.id, p.client_id, i.name AS item_name, p.status, p.sessions_total,
        ${sessionsUsedSql("p.id")} AS sessions_used, p.expires_at, NULL AS code,
        NULL AS recipient, i.price_cents AS price_cents,
        ${ownedLiabilitySql("package", "deferred", "p.id")} AS balance_cents,
@@ -242,24 +243,37 @@ SELECT 'package' AS kind, p.id, i.name AS item_name, p.status, p.sessions_total,
        pay.amount_cents AS paid_cents, p.created_at AS created_at
 FROM packages p LEFT JOIN items i ON i.id = p.item_id
 LEFT JOIN payments pay ON pay.id = p.payment_id
-WHERE p.client_id = ?1
+WHERE ${pkg}
 UNION ALL
-SELECT 'membership', s.id, i.name, s.status, NULL, NULL, NULL, NULL, NULL, i.price_cents, NULL,
-       s.current_period_end, pm.brand, pm.last4, NULL, NULL, s.created_at
+SELECT 'membership', s.id, s.client_id, i.name, s.status, NULL, NULL, NULL, NULL, NULL,
+       i.price_cents, NULL, s.current_period_end, pm.brand, pm.last4, NULL, NULL, s.created_at
 FROM subscriptions s LEFT JOIN items i ON i.id = s.item_id
 LEFT JOIN payment_methods pm ON pm.id = s.payment_method_id
-WHERE s.client_id = ?1
+WHERE ${sub}
 UNION ALL
-SELECT 'gift_card', g.id, NULL, g.status, NULL, NULL, g.expires_at, g.code, g.recipient,
-       g.initial_cents, ${ownedLiabilitySql("gift_card", "gift_card", "g.id")}, NULL, NULL, NULL,
+SELECT 'gift_card', g.id, g.purchaser_client_id, NULL, g.status, NULL, NULL, g.expires_at,
+       g.code, g.recipient, g.initial_cents,
+       ${ownedLiabilitySql("gift_card", "gift_card", "g.id")}, NULL, NULL, NULL,
        g.payment_id, pay.amount_cents, g.created_at
 FROM gift_cards g LEFT JOIN payments pay ON pay.id = g.payment_id
-WHERE g.purchaser_client_id = ?1
+WHERE ${gift}`;
+
+export const WALLET_SQL = `${walletRows(
+    "p.client_id = ?1",
+    "s.client_id = ?1",
+    "g.purchaser_client_id = ?1",
+)}
 ORDER BY created_at DESC`;
+
+export const ENTITLEMENTS_SQL = `
+SELECT w.*, c.name AS client_name FROM (${walletRows("1 = 1", "1 = 1", "1 = 1")}) w
+LEFT JOIN clients c ON c.id = w.client_id
+ORDER BY w.created_at DESC`;
 
 interface WalletRow {
     kind: WalletKind;
     id: string;
+    client_id: string | null;
     item_name: string | null;
     status: string;
     sessions_total: number | null;
@@ -834,5 +848,76 @@ export function useEntitlementSaleForm(
             setSold(null);
             checkout.cancel();
         },
+    };
+}
+
+export type EntitlementSegment = "all" | WalletKind;
+const SEGMENTS: EntitlementSegment[] = ["all", "gift_card", "package", "membership"];
+
+export interface EntitlementDeskRow extends EntitlementSummary {
+    clientName: string;
+}
+
+interface EntitlementDesk {
+    load: Load;
+    segment: EntitlementSegment;
+    setSegment: (key: EntitlementSegment) => void;
+    segments: { key: EntitlementSegment; label: string }[];
+    q: string;
+    setQ: (q: string) => void;
+    rows: EntitlementDeskRow[];
+    totals: { deferredCents: number; giftCents: number; monthlyCents: number };
+    emptyMessage: string;
+}
+
+/** Every client's packages, plans and gift cards in one list, with what the business still owes. */
+export function useEntitlementDesk(): EntitlementDesk {
+    const query = useQuery<WalletRow & { client_name: string | null }>(ENTITLEMENTS_SQL);
+    const load = useReplicaLoad([query], query.data.length === 0);
+    const zone = useBusinessZone();
+    const [segment, setSegment] = useState<EntitlementSegment>("all");
+    const [q, setQ] = useState("");
+    const all = useMemo(
+        () =>
+            query.data.map((r) => ({
+                ...summarizeEntitlement(r, zone),
+                clientName: r.client_name ?? "",
+            })),
+        [query.data, zone],
+    );
+    const needle = q.trim().toLowerCase();
+    const live = (x: EntitlementSummary): boolean =>
+        x.status === "active" || x.status === "past_due";
+    return {
+        load,
+        segment,
+        setSegment,
+        segments: SEGMENTS.map((key) => {
+            const n = key === "all" ? all.length : all.filter((x) => x.row.kind === key).length;
+            const label = w.segments[key];
+            return { key, label: key !== "all" && n > 0 ? w.segmentCount(label, n) : label };
+        }),
+        q,
+        setQ,
+        rows: all.filter(
+            (x) =>
+                (segment === "all" || x.row.kind === segment) &&
+                (needle === "" ||
+                    [x.title, x.clientName, x.row.recipient ?? ""].some((v) =>
+                        v.toLowerCase().includes(needle),
+                    )),
+        ),
+        totals: {
+            deferredCents: all
+                .filter((x) => x.row.kind === "package")
+                .reduce((sum, x) => sum + x.valueCents, 0),
+            giftCents: all
+                .filter((x) => x.row.kind === "gift_card" && x.status === "active")
+                .reduce((sum, x) => sum + x.valueCents, 0),
+            monthlyCents: all
+                .filter((x) => x.row.kind === "membership" && live(x))
+                .reduce((sum, x) => sum + x.valueCents, 0),
+        },
+        emptyMessage: needle !== "" ? w.noMatch : w.emptySegment,
     };
 }

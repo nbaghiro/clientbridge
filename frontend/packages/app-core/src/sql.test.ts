@@ -1489,6 +1489,17 @@ describe("app-core SQL against the replica schema", () => {
         );
     });
 
+    it("lists every client's packages, plans and gift cards with the client's name", () => {
+        const rows = run("ENTITLEMENTS_SQL");
+        expect(rows.map((r) => r.id).sort()).toEqual(["gc_1", "gc_2", "pk_1", "sub_1"]);
+        expect(
+            pick(
+                rows.filter((r) => r.client_id === "cl_ann"),
+                "client_name",
+            ),
+        ).toEqual([{ client_name: "Ann" }, { client_name: "Ann" }, { client_name: "Ann" }]);
+    });
+
     it("lists refundable payments, credit notes and disputes", () => {
         expect(
             pick(run("REFUNDABLE_PAYMENTS_SQL"), "id", "refunded_cents", "invoice_number"),

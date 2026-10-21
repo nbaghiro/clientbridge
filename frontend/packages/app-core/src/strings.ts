@@ -707,6 +707,8 @@ interface Strings {
     };
     readonly earnings: {
         readonly subtitle: string;
+        readonly colMember: string;
+        readonly colPay: string;
         readonly toApprove: string;
         readonly toPay: string;
         readonly paidYtd: string;
@@ -738,12 +740,26 @@ interface Strings {
         readonly noStaff: string;
         readonly noStaffBody: string;
         readonly openTeam: string;
-        readonly choosePayee: string;
         readonly paidVia: string;
         readonly updateError: string;
         readonly loading: string;
     };
     readonly entitlements: {
+        readonly segments: {
+            readonly all: string;
+            readonly gift_card: string;
+            readonly package: string;
+            readonly membership: string;
+        } & Labels;
+        readonly segmentCount: (label: string, count: number) => string;
+        readonly search: string;
+        readonly colItem: string;
+        readonly colClient: string;
+        readonly colStatus: string;
+        readonly colLeft: string;
+        readonly walkIn: string;
+        readonly noMatch: string;
+        readonly emptySegment: string;
         readonly walletTitle: string;
         readonly subtitle: string;
         readonly sellNew: string;
@@ -2807,18 +2823,16 @@ interface Strings {
     };
     readonly refunds: {
         readonly title: string;
-        readonly subtitle: string;
         readonly tabs: {
             readonly payments: string;
             readonly notes: string;
             readonly disputes: string;
         } & Labels;
-        readonly paymentsTitle: string;
+        readonly subtitle: string;
         readonly searchPlaceholder: string;
         readonly emptyTitle: string;
         readonly emptyBody: string;
         readonly noMatch: string;
-        readonly selectPayment: string;
         readonly statusLabel: {
             readonly paid: string;
             readonly partly_refunded: string;
@@ -2888,12 +2902,12 @@ interface Strings {
         readonly colFor: string;
         readonly colDate: string;
         readonly colReason: string;
+        readonly colMethod: string;
+        readonly colStatus: string;
         readonly colAmount: string;
         readonly noReason: string;
         readonly disputesSummary: (open: number) => string;
         readonly noDisputes: string;
-        readonly openGroup: string;
-        readonly closedGroup: string;
         readonly disputeStatus: {
             readonly needs_response: string;
             readonly under_review: string;
@@ -3444,6 +3458,12 @@ interface Strings {
         readonly returnedNotice: string;
         readonly chargesTitle: string;
         readonly chargesHint: string;
+        readonly tabPayouts: string;
+        readonly tabCharges: string;
+        readonly colDate: string;
+        readonly colStatus: string;
+        readonly colRef: string;
+        readonly dash: string;
         readonly colCharge: string;
         readonly colAmount: string;
         readonly colFees: string;

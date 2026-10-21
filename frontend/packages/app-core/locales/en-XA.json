@@ -1991,6 +1991,12 @@
     "earnings.subtitle": {
         "message": "[Šţåƒƒ éåŕñ å šĥåŕé öƒ ŵĥåţ ţĥéý ðö, åñð ţîþš. Åþþŕöṽé ţĥéɱ, ţĥéñ þåý ţĥéɱ. one two three four five]"
     },
+    "earnings.colMember": {
+        "message": "[Ţéåɱ ɱéɱƀéŕ one two]"
+    },
+    "earnings.colPay": {
+        "message": "[Þåý one]"
+    },
     "earnings.toApprove": {
         "message": "[Ţö åþþŕöṽé one two]"
     },
@@ -2078,9 +2084,6 @@
     "earnings.openTeam": {
         "message": "[Öþéñ Ţéåɱ one]"
     },
-    "earnings.choosePayee": {
-        "message": "[Çĥööšé å þéŕšöñ ţö šéé ţĥéîŕ éåŕñîñĝš. one two three]"
-    },
     "earnings.paidVia": {
         "message": "[Þåý ţĥéɱ ƀý é-Ţŕåñšƒéŕ öŕ ðîŕéçţ ðéþöšîţ, ţĥéñ ɱåŕķ îţ þåîð ĥéŕé. one two three four]"
     },
@@ -2089,6 +2092,45 @@
     },
     "earnings.loading": {
         "message": "[Ļöåðîñĝ šţåƒƒ þåý… one two]"
+    },
+    "entitlements.segments.all": {
+        "message": "[Åļļ one]"
+    },
+    "entitlements.segments.gift_card": {
+        "message": "[Ĝîƒţ çåŕðš one two]"
+    },
+    "entitlements.segments.package": {
+        "message": "[Þåçķåĝéš one]"
+    },
+    "entitlements.segments.membership": {
+        "message": "[Þļåñš one]"
+    },
+    "entitlements.segmentCount": {
+        "message": "{label} {count, number}"
+    },
+    "entitlements.search": {
+        "message": "[Šéåŕçĥ çļîéñţ, îţéɱ öŕ çöðé one two three]"
+    },
+    "entitlements.colItem": {
+        "message": "[Îţéɱ one]"
+    },
+    "entitlements.colClient": {
+        "message": "[Çļîéñţ one]"
+    },
+    "entitlements.colStatus": {
+        "message": "[Šţåţûš one]"
+    },
+    "entitlements.colLeft": {
+        "message": "[Ļéƒţ one]"
+    },
+    "entitlements.walkIn": {
+        "message": "[Ñö çļîéñţ öñ ƒîļé one two]"
+    },
+    "entitlements.noMatch": {
+        "message": "[Ñöţĥîñĝ ɱåţçĥéš ţĥåţ šéåŕçĥ. one two three]"
+    },
+    "entitlements.emptySegment": {
+        "message": "[Ñöţĥîñĝ ĥéŕé ýéţ. one two]"
     },
     "entitlements.walletTitle": {
         "message": "[Þŕéþåîð åñð þļåñš one two]"
@@ -7685,9 +7727,6 @@
     "refunds.title": {
         "message": "[Ŕéƒûñðš one]"
     },
-    "refunds.subtitle": {
-        "message": "[Ŕéƒûñð åļļ öŕ þåŕţ öƒ å þåýɱéñţ. Éåçĥ ŕéƒûñð îš å çŕéðîţ ñöţé ţĥåţ ŕéṽéŕšéš îţš šĥåŕé öƒ ŕéṽéñûé åñð ţåẋ. one two three four five six seven]"
-    },
     "refunds.tabs.payments": {
         "message": "[Þåýɱéñţš one]"
     },
@@ -7697,8 +7736,8 @@
     "refunds.tabs.disputes": {
         "message": "[Đîšþûţéš one]"
     },
-    "refunds.paymentsTitle": {
-        "message": "[Ŕéçéñţ þåýɱéñţš one two]"
+    "refunds.subtitle": {
+        "message": "[Ŕéƒûñð åļļ öŕ þåŕţ öƒ å þåýɱéñţ. Éåçĥ ŕéƒûñð îš å çŕéðîţ ñöţé ţĥåţ ŕéṽéŕšéš îţš šĥåŕé öƒ ŕéṽéñûé åñð ţåẋ. one two three four five six seven]"
     },
     "refunds.searchPlaceholder": {
         "message": "[Šéåŕçĥ çļîéñţ, îñṽöîçé öŕ çåŕð one two three]"
@@ -7711,9 +7750,6 @@
     },
     "refunds.noMatch": {
         "message": "[Ñöţĥîñĝ ɱåţçĥéš ţĥåţ šéåŕçĥ. one two three]"
-    },
-    "refunds.selectPayment": {
-        "message": "[Çĥööšé å þåýɱéñţ ţö ŕéƒûñð. one two three]"
     },
     "refunds.statusLabel.paid": {
         "message": "[Þåîð one]"
@@ -7898,6 +7934,12 @@
     "refunds.colReason": {
         "message": "[Ŕéåšöñ one]"
     },
+    "refunds.colMethod": {
+        "message": "[Þåîð ƀý one]"
+    },
+    "refunds.colStatus": {
+        "message": "[Šţåţûš one]"
+    },
     "refunds.colAmount": {
         "message": "[Åɱöûñţ one]"
     },
@@ -7909,12 +7951,6 @@
     },
     "refunds.noDisputes": {
         "message": "[Ñö ðîšþûţéš. Ŵĥéñ å çļîéñţ ðîšþûţéš å çåŕð çĥåŕĝé îţ šĥöŵš ĥéŕé ŵîţĥ ţĥé ƀåñķ'š ðéåðļîñé. one two three four five six]"
-    },
-    "refunds.openGroup": {
-        "message": "[Öþéñ one]"
-    },
-    "refunds.closedGroup": {
-        "message": "[Çļöšéð one]"
     },
     "refunds.disputeStatus.needs_response": {
         "message": "[Ñééðš ŕéšþöñšé one two]"
@@ -9403,6 +9439,24 @@
     },
     "payouts.chargesHint": {
         "message": "[Ļåšţ 30 ðåýš, ŵîţĥ ţĥé þŕöçéššîñĝ åñð Çļîéñţƀŕîðĝé ƒééš ƒöŕ éåçĥ one two three four]"
+    },
+    "payouts.tabPayouts": {
+        "message": "[Þåýöûţš one]"
+    },
+    "payouts.tabCharges": {
+        "message": "[Çåŕð çĥåŕĝéš one two]"
+    },
+    "payouts.colDate": {
+        "message": "[Åŕŕîṽéš one]"
+    },
+    "payouts.colStatus": {
+        "message": "[Šţåţûš one]"
+    },
+    "payouts.colRef": {
+        "message": "[Ŕéƒéŕéñçé one two]"
+    },
+    "payouts.dash": {
+        "message": "—"
     },
     "payouts.colCharge": {
         "message": "[Çĥåŕĝé one]"

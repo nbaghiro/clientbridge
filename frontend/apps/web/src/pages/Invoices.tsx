@@ -52,6 +52,7 @@ import { cssVar } from "@clientbridge/tokens";
 import { type ReactNode, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+import { DeskBar } from "../components/Desk";
 import { DocEditor } from "../components/DocEditor";
 import { DocumentPreview, type PreviewDoc } from "../components/DocumentPreview";
 import { RecordPayment } from "../components/RecordPayment";
@@ -155,27 +156,6 @@ function Composer({
             : estimates.find((r) => r.id === composing.id);
     if (row === undefined) return null;
     return <DocEditor kind={composing.kind} draft={docDraft(row, lines)} onClose={onClose} />;
-}
-
-// The tab's one row of controls: which documents, how many, and the way to start a new one.
-function DeskBar({
-    switcher,
-    summary,
-    action,
-}: {
-    switcher: ReactNode;
-    summary: string | undefined;
-    action: ReactNode;
-}) {
-    return (
-        <div className="flex flex-wrap items-center justify-between gap-3">
-            {switcher}
-            <div className="flex items-center gap-4">
-                {summary !== undefined ? <p className="text-sm text-muted">{summary}</p> : null}
-                {action}
-            </div>
-        </div>
-    );
 }
 
 function InvoiceDeskView({

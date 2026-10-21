@@ -14,6 +14,7 @@ const s = strings.refunds;
 const FEE_CATEGORIES = "('processing_fee', 'platform_fee')";
 
 interface RefundablePaymentRow {
+    client_id: string | null;
     id: string;
     client_name: string | null;
     kind: string;
@@ -32,7 +33,7 @@ interface RefundablePaymentRow {
 }
 
 export const REFUNDABLE_PAYMENTS_SQL = `
-SELECT p.id, c.name AS client_name, p.kind, p.method, p.provider, p.amount_cents, p.paid_at,
+SELECT p.id, p.client_id, c.name AS client_name, p.kind, p.method, p.provider, p.amount_cents, p.paid_at,
        p.created_at, i.number AS invoice_number, o.number AS order_number, p.booking_id,
        g.code AS gift_code, pi.name AS package_name,
        COALESCE((SELECT SUM(r.amount_cents) FROM payments r

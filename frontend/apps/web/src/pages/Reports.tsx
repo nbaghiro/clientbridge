@@ -1,6 +1,5 @@
 import {
     type ExportKind,
-    type IconName,
     type PackRequest,
     REPORT_PERIODS,
     type ReportKey,
@@ -24,27 +23,21 @@ import {
     Choice,
     DocTotals,
     Empty,
-    ListRow,
     LoadFailed,
     Meter,
     Modal,
     Notice,
     Panel,
     Skeleton,
+    Tabs,
 } from "@clientbridge/ui";
 import { useState } from "react";
 
+import { DeskBar } from "../components/Desk";
 import { api } from "../lib/api";
 
 const s = strings.reports;
 const REPORTS: ReportKey[] = ["income", "salesByItem", "gstHst", "pst", "t4a"];
-const ICONS: Record<ReportKey, IconName> = {
-    income: "dollar",
-    salesByItem: "tag",
-    gstHst: "building",
-    pst: "percent",
-    t4a: "user",
-};
 
 function saveFile(blob: Blob, filename: string): void {
     const url = URL.createObjectURL(blob);
@@ -79,11 +72,25 @@ export function Reports() {
         open === "pst" && v?.provincial ? s.pstTitle(v.provincial.label) : s.library[open];
 
     return (
-        <div>
-            <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                    <p className="text-sm text-muted">{s.subtitle}</p>
-                    <div className="mt-3">
+        <div className="space-y-6">
+            <DeskBar
+                switcher={
+                    <Tabs<ReportKey>
+                        variant="pill"
+                        label={s.title}
+                        items={REPORTS.map((key) => ({
+                            key,
+                            label:
+                                key === "pst" && v?.provincial
+                                    ? v.provincial.label
+                                    : s.library[key],
+                        }))}
+                        active={open}
+                        onSelect={setOpen}
+                    />
+                }
+                action={
+                    <>
                         <Choice<ReportPeriodKey>
                             layout="segmented"
                             label={s.periodLabel}
@@ -94,45 +101,21 @@ export function Reports() {
                             value={r.period}
                             onChange={r.setPeriod}
                         />
-                    </div>
-                </div>
-                <Button
-                    variant="outline"
-                    icon="mail"
-                    disabled={!ready}
-                    onPress={() => {
-                        setPacking(true);
-                    }}
-                >
-                    {s.bookkeeperPack}
-                </Button>
-            </div>
-
-            <div className="mt-6 grid gap-6 lg:grid-cols-[240px_1fr]">
-                <div className="self-start">
-                    <Panel flush>
-                        <nav aria-label={s.title} className="divide-y divide-line-soft">
-                            {REPORTS.map((key) => (
-                                <ListRow
-                                    key={key}
-                                    icon={ICONS[key]}
-                                    intent={key === open ? "accent" : "neutral"}
-                                    selected={key === open}
-                                    title={
-                                        key === "pst" && v?.provincial
-                                            ? v.provincial.label
-                                            : s.library[key]
-                                    }
-                                    detail={s.libraryHint[key]}
-                                    onPress={() => {
-                                        setOpen(key);
-                                    }}
-                                />
-                            ))}
-                        </nav>
-                    </Panel>
-                </div>
-
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            icon="mail"
+                            disabled={!ready}
+                            onPress={() => {
+                                setPacking(true);
+                            }}
+                        >
+                            {s.bookkeeperPack}
+                        </Button>
+                    </>
+                }
+            />
+            <div>
                 <div className="print-area">
                     <Panel
                         title={title}
