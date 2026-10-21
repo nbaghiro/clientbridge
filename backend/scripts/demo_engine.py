@@ -44,11 +44,13 @@ from clientbridge.services.bookings import expand_occurrences
 from clientbridge.services.catalog import deposit_cents
 from clientbridge.services.consents import allows_marketing
 from clientbridge.services.forms import form_definition
+from clientbridge.services.tax import TaxResult
 from scripts.demo_catalog import add_catalog_images
 from scripts.demo_chronology import align_timestamps, chronology_errors
 from scripts.demo_context import DEMO_BUSINESSES, DemoBusiness, DemoContext
 from scripts.demo_finance import (
     apply_deposit_at,
+    charge_tax,
     post_invoices,
     post_payments,
     price_documents,
@@ -111,6 +113,7 @@ class Demo:
         self.purchases: list[tuple[Payment, Package | GiftCard]] = []
         self.redemptions: list[tuple[str, int, datetime]] = []
         self.items: dict[str, Item] = {}
+        self.renewals: dict[str, TaxResult] = {}
         self.offerings = {offering.id: offering for offering in spec.items}
         self.hours = {person.staff_id: person.hours for person in spec.people}
         self.assets = spec.assets or spec.code
@@ -853,9 +856,11 @@ class Demo:
         *,
         booking: Booking | None = None,
         quantity: int = 1,
+        price: int | None = None,
     ) -> None:
         item = self.items[item_id]
-        price = booking.price_cents if booking is not None else item.price_cents
+        if price is None:
+            price = booking.price_cents if booking is not None else item.price_cents
         self.ctx.add(
             Line(
                 id=f"ln_{invoice_id}_{position}",
@@ -1198,6 +1203,8 @@ class Demo:
             )
         months = 12 if offering.frequency == "year" else 1
         first = self.local(start).date()
+        # the Stripe price is the item's price with tax at signup; each renewal backs its tax out
+        charged = charge_tax(self.ctx, offering.price_cents, offering.tax_class, first).total_cents
 
         def period_start(n: int) -> date:
             if offering.frequency == "week":
@@ -1225,7 +1232,9 @@ class Demo:
                 issued,
                 f"{offering.name}, {day.isoformat()} to {following.isoformat()}.",
             )
-            self.line(invoice.id, item_id, issued)
+            renewal = charge_tax(self.ctx, charged, offering.tax_class, day, included=True)
+            self.renewals[invoice.id] = renewal
+            self.line(invoice.id, item_id, issued, price=renewal.subtotal_cents)
             self.payment(client_key, issued + timedelta(minutes=2), saved, invoice_id=invoice.id)
             period += 1
         end = period_start(period)
@@ -1539,14 +1548,21 @@ class Demo:
     def finish(self) -> None:
         ctx = self.ctx
         price_documents(ctx)
+        for invoice_id, renewal in self.renewals.items():
+            invoice = ctx.get(Invoice, invoice_id)
+            ctx.get(Line, f"ln_{invoice_id}_0").tax_amount_cents = renewal.tax_total_cents
+            invoice.subtotal_cents, invoice.tax_total_cents, invoice.total_cents = (
+                renewal.subtotal_cents,
+                renewal.tax_total_cents,
+                renewal.total_cents,
+            )
         parents: dict[str, Invoice | Order] = {
             **{i.id: i for i in ctx.all(Invoice)},
             **{o.id: o for o in ctx.all(Order)},
         }
-        bookings = ctx.all(Booking)
         purchased = {payment.id: target for payment, target in self.purchases}
         deposits: dict[str, int] = {}
-        for booking in bookings:
+        for booking in ctx.all(Booking):
             if booking.deposit_status not in {"collected", "applied"}:
                 continue
             for parent_id in {booking.invoice_id, booking.order_id} - {None}:

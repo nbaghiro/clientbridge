@@ -486,6 +486,21 @@ def test_fill_books_the_services_of_each_month() -> None:
     )
 
 
+def test_a_renewal_backs_its_tax_out_of_the_amount_charged() -> None:
+    demo = build_edition(Probe, clock.now())
+    plan = demo.items["it_pb_remote_viewing"]
+    assert demo.renewals
+    for invoice_id, renewal in demo.renewals.items():
+        invoice = demo.ctx.get(Invoice, invoice_id)
+        paid = [p.amount_cents for p in demo.ctx.all(Payment) if p.invoice_id == invoice_id]
+        assert paid == [invoice.total_cents]
+        assert (invoice.subtotal_cents, invoice.tax_total_cents) == (
+            renewal.subtotal_cents,
+            renewal.tax_total_cents,
+        )
+        assert invoice.subtotal_cents == plan.price_cents
+
+
 def test_a_missing_storyline_stage_is_reported() -> None:
     class Gap(Probe):
         spec = replace(SPEC, storyline=(Stage("Lost", "nobody"),))

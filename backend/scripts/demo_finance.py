@@ -24,8 +24,8 @@ from clientbridge.services.tax import (
     TaxLine,
     TaxResult,
     compute_tax,
+    issued_tax,
     rates_on,
-    tax_for_lines,
 )
 from scripts.demo_context import DemoContext
 
@@ -80,17 +80,34 @@ def add_finance_scenarios(ctx: DemoContext) -> None:
 
 
 def tax_on(ctx: DemoContext, lines: list[Line]) -> TaxResult:
-    business = ctx.get(Business, ctx.business_id)
-    if business.province is None:
-        raise ValueError(f"{business.id} needs a province for its demo taxes")
-    result = compute_tax(
-        [TaxLine(line.amount_cents, tax_class=line.tax_class) for line in lines],
-        [TaxComponent(r.jurisdiction, r.rate) for r in rates_on(business.province, ctx.now.date())],
-        registered=business.tax_registered,
-    )
+    result = _taxed(ctx, [TaxLine(line.amount_cents, tax_class=line.tax_class) for line in lines])
     for line, part in zip(lines, result.lines, strict=True):
         line.tax_amount_cents = part.tax_cents
     return result
+
+
+def charge_tax(
+    ctx: DemoContext, cents: int, tax_class: str, on: date, *, included: bool = False
+) -> TaxResult:
+    """Tax on one amount at the rates of `on`, added to it or, when `included`, contained in it."""
+    return _taxed(ctx, [TaxLine(cents, tax_class=tax_class)], on, included=included)
+
+
+def _taxed(
+    ctx: DemoContext, lines: list[TaxLine], on: date | None = None, *, included: bool = False
+) -> TaxResult:
+    business = ctx.get(Business, ctx.business_id)
+    if business.province is None:
+        raise ValueError(f"{business.id} needs a province for its demo taxes")
+    return compute_tax(
+        lines,
+        [
+            TaxComponent(r.jurisdiction, r.rate)
+            for r in rates_on(business.province, on or ctx.now.date())
+        ],
+        registered=business.tax_registered,
+        prices_include_tax=included,
+    )
 
 
 def _line(
@@ -758,9 +775,8 @@ async def post_invoices(db: AsyncSession, ctx: DemoContext) -> None:
     for invoice in sorted(ctx.all(Invoice), key=lambda i: i.issued_at or ctx.now):
         if invoice.status in {"draft", "void"}:
             continue
-        tax = await tax_for_lines(
-            db, ctx.business_id, await fetch_lines(db, ctx.business_id, "invoice", invoice.id)
-        )
+        lines = await fetch_lines(db, ctx.business_id, "invoice", invoice.id)
+        tax = await issued_tax(db, ctx.business_id, lines, invoice.issued_at or ctx.now)
         if tax.total_cents != invoice.total_cents:
             raise ValueError(f"{invoice.id}: header differs from its tax snapshot")
         await ledger.post_invoice(db, invoice, tax)
