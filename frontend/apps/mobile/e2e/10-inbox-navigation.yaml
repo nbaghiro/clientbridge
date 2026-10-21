@@ -52,8 +52,8 @@ name: Inbox tabs and payment access
 - tapOn:
       id: tab-inbox
 - assertVisible: "Read and reply to Google reviews.*"
-- tapOn: "Create"
-- tapOn: "Message"
+- tapOn: "Messages"
+- tapOn: "New"
 - assertVisible: "New message"
 - tapOn: "Cancel"
 - assertVisible: "Search name, pet or message"

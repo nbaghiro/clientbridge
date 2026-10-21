@@ -141,10 +141,12 @@ async def test_a_portrait_may_sit_on_a_bill_that_is_not_yet_due(
     db.add_all([bill, photo])
     await db.flush()
     flagged = f"photo_on_negative_storyline: {client.id}"
-    assert flagged not in (await validate_database(db))["errors"]
+    within_terms = (await validate_database(db))["errors"]
+    assert isinstance(within_terms, list) and flagged not in within_terms
     bill.due_at = now - timedelta(days=1)
     await db.flush()
-    assert flagged in (await validate_database(db))["errors"]
+    overdue = (await validate_database(db))["errors"]
+    assert isinstance(overdue, list) and flagged in overdue
 
 
 async def test_seed_reset_preserves_unrelated_accounts(owner_db: AsyncSession) -> None:

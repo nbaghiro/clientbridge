@@ -40,9 +40,10 @@ test("payment account entrypoints preserve navigation when payment tools are off
     ).toBeVisible();
 
     await page.goto("/payments/payouts");
-    await expect(page.getByText(strings.payouts.chargesTitle, { exact: true })).toBeVisible();
-    await expect(page.getByText(strings.payouts.subtitle, { exact: true })).toBeVisible();
-    await expect(page.getByText(strings.payouts.loadError, { exact: true })).toBeVisible();
+    await expect(
+        page.getByRole("tab", { name: strings.payouts.tabCharges, exact: true }),
+    ).toBeVisible();
+    await expect(page.getByText(strings.ui.listError, { exact: true })).toBeVisible();
     await page
         .getByRole("button", { name: strings.paymentAccount.viewPayouts, exact: true })
         .click();
@@ -116,9 +117,8 @@ test("payout contents paginate and clear when switching to a manual payout", asy
         .fill("hannah@birchbark.example");
     await page.getByLabel(strings.auth.password, { exact: true }).fill("demo1234");
     await page.getByRole("button", { name: strings.auth.signIn, exact: true }).click();
-    await expect(page.getByText(strings.payouts.contentsTitle, { exact: true })).toBeVisible({
-        timeout: 60_000,
-    });
+    await page.getByRole("button", { name: /12[.]00/ }).click({ timeout: 60_000 });
+    await expect(page.getByText(strings.payouts.contentsTitle, { exact: true })).toBeVisible();
     await expect(page.getByText(strings.payouts.transactionCharge, { exact: true })).toBeVisible();
     await page.getByRole("button", { name: strings.payouts.contentsNext, exact: true }).click();
     await expect(page.getByText(strings.payouts.transactionRefund, { exact: true })).toBeVisible();
@@ -127,6 +127,8 @@ test("payout contents paginate and clear when switching to a manual payout", asy
     ).not.toBeVisible();
     await page.getByRole("button", { name: strings.payouts.contentsPrevious, exact: true }).click();
     await expect(page.getByText(strings.payouts.transactionCharge, { exact: true })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog")).toBeHidden();
     await page.getByRole("button", { name: /34[.]00/ }).click();
     await expect(
         page.getByText(strings.payouts.contentsUnavailable, { exact: true }),
