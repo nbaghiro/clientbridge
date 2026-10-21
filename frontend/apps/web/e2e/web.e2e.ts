@@ -687,9 +687,9 @@ test("owner: inbox messages, reviews, broadcasts, forms and contracts", async ({
         const details = main.getByRole("complementary", { name: m.details });
         await expect(details).toBeVisible();
         await details.getByRole("button", { name: m.openRecord }).click();
-        await expect(page).toHaveURL(/\/clients/);
+        const record = main.getByRole("complementary", { name: strings.clients.record.pane });
         await expect(
-            main.getByRole("complementary", { name: strings.clients.record.pane }),
+            record.getByRole("button", { name: strings.clients.record.addNote }),
         ).toBeVisible();
     });
 
@@ -1250,6 +1250,7 @@ test.describe("in another time zone than the business", () => {
 test("Google Reviews distinguishes unavailable, unlinked and empty profiles", async ({ page }) => {
     let state: "unavailable" | "disconnected" | "active" = "unavailable";
     let errorCode: string | null = null;
+    let populated = false;
     await page.route("**/v1/reviews/google", (route) =>
         route.fulfill({
             json: {
@@ -1267,18 +1268,43 @@ test("Google Reviews distinguishes unavailable, unlinked and empty profiles", as
     );
     await page.route("**/v1/reviews/google/reviews", (route) =>
         route.fulfill({
-            json: { reviews: [], average_rating: null, total_count: 0, next_page_token: null },
+            json: {
+                reviews: populated
+                    ? [
+                          {
+                              review_id: "review_1",
+                              reviewer: { display_name: "Alex Chen", anonymous: false },
+                              star_rating: "FIVE",
+                              comment: "A wonderful visit. Thank you!",
+                              create_time: "2026-10-01T12:00:00Z",
+                              update_time: "2026-10-01T12:00:00Z",
+                              reply: {
+                                  comment: "Thank you for visiting us, Alex!",
+                                  update_time: "2026-10-02T12:00:00Z",
+                              },
+                          },
+                      ]
+                    : [],
+                average_rating: populated ? 5 : null,
+                total_count: populated ? 1 : 0,
+                next_page_token: null,
+            },
         }),
     );
     const walk = await signIn(page, OWNER);
     await navigate(page, "/inbox?segment=reviews");
-    await expect(page.getByRole("heading", { name: strings.reviews.connectTitle })).toBeVisible();
+    await expect(
+        page.getByRole("heading", { name: strings.reviews.unavailableTitle }),
+    ).toBeVisible();
     await expect(page.getByText(strings.reviews.unavailable, { exact: true })).toBeVisible();
     await expect(
         page.getByRole("button", { name: strings.reviews.connect, exact: true }),
     ).toHaveCount(0);
+    await test
+        .info()
+        .attach("reviews-unavailable", { body: await page.screenshot(), contentType: "image/png" });
     state = "disconnected";
-    await navigate(page, "/today");
+    await navigate(page, "/inbox?segment=forms");
     await navigate(page, "/inbox?segment=reviews");
     await expect(
         page.getByRole("button", { name: strings.reviews.connect, exact: true }),
@@ -1290,16 +1316,38 @@ test("Google Reviews distinguishes unavailable, unlinked and empty profiles", as
             await page.evaluate(() => document.documentElement.scrollWidth - innerWidth),
         ).toBeLessThanOrEqual(0);
         expect(await axeIssues(page)).toEqual([]);
+        await test
+            .info()
+            .attach(`reviews-connect-${width}`, {
+                body: await page.screenshot(),
+                contentType: "image/png",
+            });
     }
     state = "active";
-    await navigate(page, "/today");
+    await navigate(page, "/inbox?segment=forms");
     await navigate(page, "/inbox?segment=reviews");
     await expect(
         page.getByRole("button", { name: strings.reviews.connect, exact: true }),
     ).toHaveCount(0);
     await expect(page.getByText(strings.reviews.googleError, { exact: true })).toHaveCount(0);
+    await expect(
+        page.getByRole("heading", { name: strings.reviews.noGoogleReviewsTitle }),
+    ).toBeVisible();
+    populated = true;
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.getByRole("button", { name: strings.reviews.refresh, exact: true }).click();
+    await expect(page.getByText("A wonderful visit. Thank you!", { exact: true })).toBeVisible();
+    await expect(page.getByText("Thank you for visiting us, Alex!", { exact: true })).toBeVisible();
+    await test
+        .info()
+        .attach("reviews-connected", { body: await page.screenshot(), contentType: "image/png" });
+    await page.getByRole("button", { name: strings.reviews.editReply, exact: true }).click();
+    await expect(page.getByRole("textbox", { name: strings.reviews.replyText })).toHaveValue(
+        "Thank you for visiting us, Alex!",
+    );
+    await page.getByRole("button", { name: strings.reviews.cancel, exact: true }).click();
     errorCode = "google_access_denied";
-    await navigate(page, "/today");
+    await navigate(page, "/inbox?segment=forms");
     await navigate(page, "/inbox?segment=reviews");
     await expect(page.getByText(strings.reviews.accessDenied, { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: strings.reviews.changeAccount })).toBeEnabled();
