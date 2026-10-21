@@ -12977,14 +12977,26 @@
     "reviews.retry": {
         "message": "[Ţŕý åĝåîñ one]"
     },
+    "reviews.unavailableTitle": {
+        "message": "[Ĝööĝļé ŕéṽîéŵš åŕé çöɱîñĝ šööñ one two three]"
+    },
+    "reviews.reconnectTitle": {
+        "message": "[Ŕéçöññéçţ ýöûŕ Ĝööĝļé Ɓûšîñéšš Þŕöƒîļé one two three]"
+    },
+    "reviews.noGoogleReviewsTitle": {
+        "message": "[Ñö Ĝööĝļé ŕéṽîéŵš ýéţ one two]"
+    },
+    "reviews.invitationsTitle": {
+        "message": "[Ŕéṽîéŵ îñṽîţåţîöñš one two]"
+    },
     "reviews.unavailable": {
-        "message": "[Ĝööĝļé Ɓûšîñéšš Þŕöƒîļé çöññéçţîöñš åŕé ñöţ éñåƀļéð ƒöŕ Çļîéñţƀŕîðĝé ýéţ. Öñçé åṽåîļåƀļé, ýöû çåñ çöññéçţ ýöûŕ þŕöƒîļé ĥéŕé. one two three four five six seven eight]"
+        "message": "[Ŵé’ŕé šéţţîñĝ ûþ Ĝööĝļé Ɓûšîñéšš Þŕöƒîļé çöññéçţîöñš. Öñçé ŕéåðý, ýöû’ļļ ƀé åƀļé ţö çöññéçţ ýöûŕ þŕöƒîļé, ŕéþļý ţö ŕéṽîéŵš, åñð îñṽîţé çļîéñţš ĥéŕé. one two three four five six seven eight nine]"
     },
     "reviews.connectTitle": {
         "message": "[Çöññéçţ ýöûŕ Ĝööĝļé Ɓûšîñéšš Þŕöƒîļé one two three]"
     },
     "reviews.connectBody": {
-        "message": "[Ŕéåð åñð ŕéþļý ţö Ĝööĝļé ŕéṽîéŵš, åñð îñṽîţé çļîéñţš ţö ŕéṽîéŵ ýöûŕ ƀûšîñéšš åƒţéŕ åþþöîñţɱéñţš. Ûšé å Ĝööĝļé åççöûñţ ţĥåţ ɱåñåĝéš ýöûŕ ƀûšîñéšš. Ýöû’ļļ çĥööšé ţĥé ļöçåţîöñ ñéẋţ. one two three four five six seven eight nine ten one]"
+        "message": "[Šîĝñ îñ ŵîţĥ ţĥé Ĝööĝļé åççöûñţ ýöû ûšé ţö ɱåñåĝé ýöûŕ ƀûšîñéšš, ţĥéñ çĥööšé ýöûŕ ļöçåţîöñ. Ýöû çöñţŕöļ åççéšš åñð çåñ ðîšçöññéçţ åţ åñý ţîɱé. one two three four five six seven eight nine]"
     },
     "reviews.managerOnly": {
         "message": "[Åñ öŵñéŕ öŕ åðɱîñîšţŕåţöŕ çåñ çöññéçţ Ĝööĝļé Ɓûšîñéšš Þŕöƒîļé åñð ɱåñåĝé ŕéṽîéŵš. one two three four five six]"

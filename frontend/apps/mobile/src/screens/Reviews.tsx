@@ -16,6 +16,7 @@ import {
     Avatar,
     Badge,
     Button,
+    Empty,
     Modal,
     Notice,
     Panel,
@@ -67,20 +68,25 @@ export function Reviews() {
                 ) : null}
                 {google.connection?.state === "unavailable" ? (
                     <Panel>
-                        <Text style={styles.sheetTitle}>{s.connectTitle}</Text>
-                        <Text style={styles.meta}>{s.connectBody}</Text>
-                        <Notice tone="info">{s.unavailable}</Notice>
+                        <Empty icon="star" message={s.unavailableTitle} body={s.unavailable} />
                     </Panel>
                 ) : null}
                 {google.connection?.state === "disconnected" ||
                 google.connection?.state === "reconnect_required" ? (
                     <Panel>
-                        <Text style={styles.sheetTitle}>{s.connectTitle}</Text>
-                        <Text style={styles.meta}>
-                            {google.connection.state === "reconnect_required"
-                                ? s.reconnectBody
-                                : s.connectBody}
-                        </Text>
+                        <Empty
+                            icon="star"
+                            message={
+                                google.connection.state === "reconnect_required"
+                                    ? s.reconnectTitle
+                                    : s.connectTitle
+                            }
+                            body={
+                                google.connection.state === "reconnect_required"
+                                    ? s.reconnectBody
+                                    : s.connectBody
+                            }
+                        />
                         <Button busy={google.busy === "connect"} onPress={connect}>
                             {google.connection.state === "reconnect_required"
                                 ? s.reconnect
@@ -192,7 +198,13 @@ export function Reviews() {
                             </Button>
                         </View>
                         {google.reviews.length === 0 ? (
-                            <Notice tone="info">{s.noGoogleReviews}</Notice>
+                            <Panel>
+                                <Empty
+                                    icon="star"
+                                    message={s.noGoogleReviewsTitle}
+                                    body={s.noGoogleReviews}
+                                />
+                            </Panel>
                         ) : null}
                         {google.reviews.map((review) => (
                             <View key={review.review_id} style={styles.card}>

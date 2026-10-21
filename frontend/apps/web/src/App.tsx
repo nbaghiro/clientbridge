@@ -230,7 +230,7 @@ function AppRoutes({
 function Splash() {
     return (
         <div role="status" className="flex min-h-screen flex-col items-center justify-center bg-bg">
-            <Logo className="h-8 w-auto animate-pulse text-accent motion-reduce:animate-none" />
+            <Logo className="loading-logo h-16 w-auto text-accent" />
             <span className="sr-only">{strings.common.loading}</span>
         </div>
     );

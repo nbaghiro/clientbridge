@@ -14,6 +14,8 @@ import {
     Avatar,
     Badge,
     Button,
+    Empty,
+    ListPage,
     Modal,
     Notice,
     Panel,
@@ -48,7 +50,7 @@ export function Reviews() {
         );
     };
     return (
-        <div className="space-y-5">
+        <div className="space-y-6">
             <p className="text-sm text-muted">{s.subtitle}</p>
             {google.loading ? <Notice tone="info">{s.loading}</Notice> : null}
             {google.error !== null ? <Notice tone="danger">{google.error}</Notice> : null}
@@ -56,38 +58,47 @@ export function Reviews() {
                 <Button onPress={google.refresh}>{s.retry}</Button>
             ) : null}
             {google.connection?.state === "unavailable" ? (
-                <Panel>
-                    <div className="space-y-3">
-                        <h2 className="text-lg font-semibold text-ink">{s.connectTitle}</h2>
-                        <p className="text-sm text-muted">{s.connectBody}</p>
-                        <Notice tone="info">{s.unavailable}</Notice>
-                    </div>
+                <Panel flush>
+                    <Empty icon="star" message={s.unavailableTitle} body={s.unavailable} />
                 </Panel>
             ) : null}
             {google.connection?.state === "disconnected" ||
             google.connection?.state === "reconnect_required" ? (
-                <Panel>
-                    <div className="space-y-3">
-                        <h2 className="text-lg font-semibold text-ink">{s.connectTitle}</h2>
-                        <p className="text-sm text-muted">
-                            {google.connection.state === "reconnect_required"
+                <Panel flush>
+                    <Empty
+                        icon="star"
+                        message={
+                            google.connection.state === "reconnect_required"
+                                ? s.reconnectTitle
+                                : s.connectTitle
+                        }
+                        body={
+                            google.connection.state === "reconnect_required"
                                 ? s.reconnectBody
-                                : s.connectBody}
-                        </p>
-                        <Button busy={google.busy === "connect"} onPress={connect}>
-                            {google.connection.state === "reconnect_required"
-                                ? s.reconnect
-                                : s.connect}
-                        </Button>
-                        <a
-                            className="block text-sm text-muted underline"
-                            href="https://www.google.com/business/"
-                            target="_blank"
-                            rel="noreferrer"
-                        >
-                            {s.profileHelp}
-                        </a>
-                    </div>
+                                : s.connectBody
+                        }
+                        actions={
+                            <div className="flex flex-col items-center gap-4">
+                                <Button
+                                    size="sm"
+                                    busy={google.busy === "connect"}
+                                    onPress={connect}
+                                >
+                                    {google.connection.state === "reconnect_required"
+                                        ? s.reconnect
+                                        : s.connect}
+                                </Button>
+                                <a
+                                    className="text-sm text-muted underline underline-offset-4 hover:text-ink"
+                                    href="https://www.google.com/business/"
+                                    target="_blank"
+                                    rel="noreferrer"
+                                >
+                                    {s.profileHelp}
+                                </a>
+                            </div>
+                        }
+                    />
                 </Panel>
             ) : null}
             {google.connection?.state === "active" && google.error !== null ? (
@@ -104,10 +115,8 @@ export function Reviews() {
                 </Panel>
             ) : null}
             {google.connection?.state === "selecting" ? (
-                <Panel>
-                    <div className="space-y-4">
-                        <h2 className="text-lg font-semibold text-ink">{s.chooseProfile}</h2>
-                        <p className="text-sm text-muted">{s.chooseProfileBody}</p>
+                <Panel title={s.chooseProfile} subtitle={s.chooseProfileBody}>
+                    <div className="max-w-lg space-y-4">
                         <Select
                             label={s.googleAccount}
                             value={google.account}
@@ -156,44 +165,59 @@ export function Reviews() {
                                 {s.moreLocations}
                             </Button>
                         ) : null}
-                        <Button
-                            disabled={google.location === "" || google.busy !== null}
-                            busy={google.busy === "select"}
-                            onPress={google.selectLocation}
-                        >
-                            {s.useLocation}
-                        </Button>
-                        <Button variant="outline" disabled={google.busy !== null} onPress={connect}>
-                            {s.changeAccount}
-                        </Button>
+                        <div className="flex flex-wrap gap-2">
+                            <Button
+                                disabled={google.location === "" || google.busy !== null}
+                                busy={google.busy === "select"}
+                                onPress={google.selectLocation}
+                            >
+                                {s.useLocation}
+                            </Button>
+                            <Button
+                                variant="outline"
+                                disabled={google.busy !== null}
+                                onPress={connect}
+                            >
+                                {s.changeAccount}
+                            </Button>
+                        </div>
                     </div>
                 </Panel>
             ) : null}
             {google.connected ? (
                 <>
-                    <Panel>
-                        <div className="flex flex-wrap items-center justify-between gap-3">
-                            <div>
-                                <h2 className="text-lg font-semibold text-ink">
-                                    {google.connection?.location?.title}
-                                </h2>
-                                <p className="text-sm text-muted">{google.summary}</p>
-                                <p className="text-xs text-muted">{s.attribution}</p>
+                    <ListPage
+                        rows={google.reviews}
+                        rowKey={(review) => review.review_id}
+                        head={
+                            <div className="flex flex-wrap items-center justify-between gap-3 normal-case tracking-normal">
+                                <div className="min-w-0">
+                                    <h2 className="break-words text-base font-semibold text-ink">
+                                        {google.connection?.location?.title}
+                                    </h2>
+                                    <p className="mt-1 text-sm font-normal text-muted">
+                                        {google.summary}
+                                    </p>
+                                    <p className="mt-1 text-xs font-normal text-muted">
+                                        {s.attribution}
+                                    </p>
+                                </div>
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    disabled={google.busy !== null}
+                                    onPress={google.refresh}
+                                >
+                                    {s.refresh}
+                                </Button>
                             </div>
-                            <Button
-                                variant="outline"
-                                disabled={google.busy !== null}
-                                onPress={google.refresh}
-                            >
-                                {s.refresh}
-                            </Button>
-                        </div>
-                    </Panel>
-                    {google.reviews.length === 0 ? (
-                        <Notice tone="info">{s.noGoogleReviews}</Notice>
-                    ) : null}
-                    {google.reviews.map((review) => (
-                        <Panel key={review.review_id}>
+                        }
+                        empty={{
+                            icon: "star",
+                            message: s.noGoogleReviewsTitle,
+                            body: s.noGoogleReviews,
+                        }}
+                        renderRow={(review) => (
                             <div className="space-y-3">
                                 <div className="flex flex-wrap items-center justify-between gap-2">
                                     <h3 className="font-semibold text-ink">{review.author}</h3>
@@ -228,8 +252,8 @@ export function Reviews() {
                                     {review.reply ? s.editReply : s.reply}
                                 </Button>
                             </div>
-                        </Panel>
-                    ))}
+                        )}
+                    />
                     {google.moreReviews ? (
                         <Button
                             variant="outline"
@@ -239,33 +263,37 @@ export function Reviews() {
                             {s.moreReviews}
                         </Button>
                     ) : null}
-                    <Loaded load={queue.load} loading={s.requestsLoading} failed={s.loadError}>
-                        <Toggle
-                            label={s.automation}
-                            hint={s.automationHint}
-                            value={automation.enabled}
-                            disabled={automation.busy}
-                            onChange={automation.setEnabled}
-                        />
-                        {automation.error !== null ? (
-                            <Notice tone="danger">{automation.error}</Notice>
-                        ) : null}
-                        <Button
-                            icon="send"
-                            disabled={!google.canRequest}
-                            onPress={() => {
-                                setAsking(true);
-                            }}
-                        >
-                            {s.requestReview}
-                        </Button>
-                        {!google.canRequest ? (
-                            <Notice tone="info">{s.invitationUnavailable}</Notice>
-                        ) : null}
-                        <Panel>
-                            <AskPanel queue={queue} />
-                        </Panel>
-                    </Loaded>
+                    <Panel title={s.invitationsTitle}>
+                        <Loaded load={queue.load} loading={s.requestsLoading} failed={s.loadError}>
+                            <div className="space-y-5">
+                                <Toggle
+                                    label={s.automation}
+                                    hint={s.automationHint}
+                                    value={automation.enabled}
+                                    disabled={automation.busy}
+                                    onChange={automation.setEnabled}
+                                />
+                                {automation.error !== null ? (
+                                    <Notice tone="danger">{automation.error}</Notice>
+                                ) : null}
+                                <Button
+                                    icon="send"
+                                    disabled={!google.canRequest}
+                                    onPress={() => {
+                                        setAsking(true);
+                                    }}
+                                >
+                                    {s.requestReview}
+                                </Button>
+                                {!google.canRequest ? (
+                                    <Notice tone="info">{s.invitationUnavailable}</Notice>
+                                ) : null}
+                                <div className="border-t border-line pt-5">
+                                    <AskPanel queue={queue} />
+                                </div>
+                            </div>
+                        </Loaded>
+                    </Panel>
                 </>
             ) : null}
             {google.connection !== null &&

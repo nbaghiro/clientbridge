@@ -2052,6 +2052,10 @@ interface Strings {
         readonly automationHint: string;
         readonly automationError: string;
         readonly retry: string;
+        readonly unavailableTitle: string;
+        readonly reconnectTitle: string;
+        readonly noGoogleReviewsTitle: string;
+        readonly invitationsTitle: string;
         readonly unavailable: string;
         readonly connectTitle: string;
         readonly connectBody: string;

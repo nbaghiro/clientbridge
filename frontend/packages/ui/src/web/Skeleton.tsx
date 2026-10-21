@@ -22,7 +22,11 @@ export function Skeleton({
             role="status"
             aria-label={label}
             aria-busy="true"
-            className={cx(columns ? COLS[columns] : undefined, className)}
+            className={cx(
+                variant === "line" ? "space-y-2 px-4 py-3" : undefined,
+                columns ? COLS[columns] : undefined,
+                className,
+            )}
         >
             {Array.from({ length: count }, (_, i) =>
                 variant === "row" ? (
@@ -64,7 +68,7 @@ export function Skeleton({
                 ) : (
                     <span
                         key={i}
-                        className={`my-2 block h-3 ${bar}`}
+                        className={`block h-3 ${bar}`}
                         style={{ width: `${String(90 - ((i * 17) % 40))}%` }}
                     />
                 ),
