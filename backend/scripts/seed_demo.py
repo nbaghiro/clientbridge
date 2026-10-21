@@ -13,7 +13,7 @@ from zoneinfo import ZoneInfo
 import boto3
 from botocore.config import Config as BotoConfig
 from botocore.exceptions import BotoCoreError, ClientError
-from sqlalchemy import ColumnElement, delete, func, select, text, update
+from sqlalchemy import ColumnElement, and_, delete, func, or_, select, text, update
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
@@ -2198,14 +2198,19 @@ def validate_seed_target() -> None:
 
 
 async def replace_demo_rows(session: AsyncSession, ctx: DemoContext) -> None:
+    """Purge the demo businesses and every user who belongs only to them or has a seeded email."""
     business_ids = [row.id for row in ctx.all(Business)]
-    user_ids = [row.id for row in ctx.all(User)]
-    shared_users = await session.scalar(
-        select(Staff.id).where(Staff.user_id.in_(user_ids), Staff.business_id.not_in(business_ids))
-    )
-    if shared_users is not None:
+    seeded = ctx.all(User)
+    members = select(Staff.user_id).where(Staff.user_id.isnot(None))
+    inside = members.where(Staff.business_id.in_(business_ids))
+    outside = members.where(Staff.business_id.not_in(business_ids))
+    named = or_(User.id.in_([u.id for u in seeded]), User.email.in_([u.email for u in seeded]))
+    if await session.scalar(select(User.id).where(named, User.id.in_(outside)).limit(1)):
         raise ValueError("Seeded users belong to another business; refusing to replace them")
-    await purge_businesses(session, business_ids, user_ids)
+    stale = await session.scalars(
+        select(User.id).where(or_(named, and_(User.id.in_(inside), User.id.not_in(outside))))
+    )
+    await purge_businesses(session, business_ids, list(stale))
 
 
 async def purge_businesses(

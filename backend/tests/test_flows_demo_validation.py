@@ -131,6 +131,45 @@ async def test_seed_reset_preserves_unrelated_accounts(owner_db: AsyncSession) -
     assert await db.scalar(select(Business.id).where(Business.id == BIZ)) is None
 
 
+async def test_a_reseed_replaces_a_demo_user_whose_id_changed(owner_db: AsyncSession) -> None:
+    db = owner_db
+    from scripts.seed_demo import replace_demo_rows
+
+    from clientbridge.models.business import Business, Staff, User
+
+    ctx = build_demo()
+    seeded = {user.email: user for user in ctx.all(User)}
+    owner, other = seeded["owner@cedarcoast.example.test"], seeded["owner@northlight.example"]
+    await replace_demo_rows(db, ctx)
+    cedar = Business(id="bz_demo_second", name="Cedar Coast Pet Care", slug="cedar-before")
+    earlier = User(
+        id="us_second_owner", identity_id=owner.identity_id, email=owner.email, name=owner.name
+    )
+    gone = User(id="us_gone", identity_id=str(uuid4()), email="gone@example.test", name="Gone")
+    db.add_all([cedar, earlier, gone])
+    await db.flush()
+    db.add_all(
+        [
+            Staff(id="st_second_owner", business_id=cedar.id, user_id=earlier.id, role="owner"),
+            Staff(id="st_gone", business_id=cedar.id, user_id=gone.id, role="staff"),
+        ]
+    )
+    await db.flush()
+    await replace_demo_rows(db, ctx)
+    db.add(User(id=owner.id, identity_id=owner.identity_id, email=owner.email, name=owner.name))
+    await db.flush()
+    assert (await db.scalars(select(User.id).where(User.email == owner.email))).all() == [owner.id]
+    assert await db.scalar(select(User.id).where(User.id == gone.id)) is None
+    outsider = Business(id="bz_outsider_seed", name="Outsider", slug="outsider-seed")
+    moved = User(id="us_moved", identity_id=str(uuid4()), email=other.email, name=other.name)
+    db.add_all([outsider, moved])
+    await db.flush()
+    db.add(Staff(id="st_moved", business_id=outsider.id, user_id=moved.id, role="owner"))
+    await db.flush()
+    with pytest.raises(ValueError, match="belong to another business"):
+        await replace_demo_rows(db, ctx)
+
+
 @pytest.mark.parametrize(
     ("env", "url", "allowed"),
     [
