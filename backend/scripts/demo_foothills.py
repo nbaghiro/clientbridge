@@ -537,7 +537,7 @@ NAMED = (
     ),
     Yard(
         "jun",
-        "Jun Park",
+        "Jun Choi",
         "5807 Dalhousie Drive NW, Calgary, AB T3A 1B4",
         6100,
         "Gate on the right side of the garage, latch sticks a little.",
@@ -577,7 +577,7 @@ NAMED = (
     ),
     Yard(
         "kwame",
-        "Kwame Mensah",
+        "Kwame Asante",
         "6115 Silver Springs Road NW, Calgary, AB T3B 2X1",
         6800,
         "Gate code 3370.",
@@ -607,7 +607,7 @@ NAMED = (
     ),
     Yard(
         "mariana",
-        "Mariana Costa",
+        "Mariana Pereira",
         "2931 Cambrian Drive NW, Calgary, AB T2K 1R4",
         5400,
         "Side gate, no lock.",
@@ -677,7 +677,7 @@ NAMED = (
     ),
     Yard(
         "yusuf",
-        "Yusuf Demir",
+        "Yusuf Aydin",
         "6208 Dalhousie Drive NW, Calgary, AB T3A 1C1",
         5200,
         "Gate code 4108.",
@@ -737,7 +737,7 @@ NAMED = (
     ),
     Yard(
         "marco",
-        "Marco Bianchi",
+        "Marco Esposito",
         "5715 Britannia Drive SW, Calgary, AB T2V 2B5",
         6900,
         "Side gate, no lock.",
@@ -778,8 +778,8 @@ CONDO = Yard(
 )
 PEOPLE = (
     ("Sandeep", "Brar"),
-    ("Maria", "Santos"),
-    ("Wei", "Zhang"),
+    ("Maria", "Oliveira"),
+    ("Wei", "Huang"),
     ("Thanh", "Pham"),
     ("Omar", "Khalil"),
     ("Chinedu", "Eze"),
@@ -802,7 +802,7 @@ PEOPLE = (
     ("Natalia", "Shevchenko"),
     ("Ian", "Robertson"),
     ("Simran", "Toor"),
-    ("Paolo", "Mendoza"),
+    ("Paolo", "Navarro"),
     ("Alice", "Wong"),
     ("Minh", "Le"),
     ("Hassan", "Ibrahim"),

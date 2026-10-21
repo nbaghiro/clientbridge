@@ -574,17 +574,17 @@ FEEDBACK_FIELDS: tuple[DocField, ...] = (
 
 # key, name, preferred channel, days since they first came in (None: dated by their bookings)
 CLIENTS: tuple[tuple[str, str, str, int | None], ...] = (
-    ("farah", "Farah Siddiqui", "email", None),
+    ("farah", "Farah Ansari", "email", None),
     ("grace", "Grace Liu", "sms", -940),
-    ("olivia", "Olivia Bennett", "sms", -610),
+    ("olivia", "Olivia Lambert", "sms", -610),
     ("tamara", "Tamara Brown", "sms", -380),
     ("sofia", "Sofia Romano", "email", None),
     ("elena", "Elena Papadakis", "sms", -1020),
     ("david", "David Okonkwo", "sms", -500),
-    ("priyanka", "Priyanka Nair", "email", None),
+    ("priyanka", "Priyanka Menon", "email", None),
     ("amira", "Amira Yusuf", "sms", -720),
     ("robert", "Robert Kowalczyk", "email", -860),
-    ("chloe", "Chloé Tremblay", "sms", None),
+    ("chloe", "Chloé Bouchard", "sms", None),
     ("mariana", "Mariana Costa", "sms", -980),
     ("nkechi", "Nkechi Adeyemi", "sms", -650),
     ("hannah", "Hannah Goldberg", "email", -540),
@@ -594,9 +594,9 @@ CLIENTS: tuple[tuple[str, str, str, int | None], ...] = (
     ("kavya", "Kavya Raman", "sms", -260),
     ("maria", "Maria Fernandes", "sms", -1000),
     ("yasmin", "Yasmin Farahani", "email", -760),
-    ("carmen", "Carmen Reyes", "sms", -420),
+    ("carmen", "Carmen Vargas", "sms", -420),
     ("aaliyah", "Aaliyah Grant", "sms", -330),
-    ("natasha", "Natasha Ivanova", "sms", -690),
+    ("natasha", "Natasha Volkova", "sms", -690),
     ("lauren", "Lauren Mitchell", "email", -560),
     ("meera", "Meera Shah", "sms", -900),
     ("jessica", "Jessica Tran", "sms", -280),
@@ -626,7 +626,7 @@ CLIENTS: tuple[tuple[str, str, str, int | None], ...] = (
     ("hiba", "Hiba Mansour", "sms", -290),
     ("rosa", "Rosa Bianchi", "sms", -1080),
     ("adwoa", "Adwoa Mensah", "sms", -400),
-    ("megan", "Megan Doyle", "sms", -240),
+    ("megan", "Megan Walsh", "sms", -240),
     ("lucia", "Lucía Herrera", "email", -530),
     ("jiwoo", "Ji-woo Han", "sms", -320),
     ("claire", "Claire Fitzgerald", "email", -670),
@@ -642,7 +642,7 @@ CLIENTS: tuple[tuple[str, str, str, int | None], ...] = (
     ("andre", "André Baptiste", "sms", -680),
     ("daniel", "Daniel Ferreira", "sms", -430),
     ("omar", "Omar Haidari", "sms", -370),
-    ("ethan", "Ethan Wright", "sms", -300),
+    ("ethan", "Ethan Clarke", "sms", -300),
     ("brandon", "Brandon Walsh", "sms", -450),
     ("marco", "Marco DeLuca", "sms", -920),
     ("madison", "Madison Hughes", "email", None),
@@ -1471,7 +1471,7 @@ class MapleMain(Demo):
 
     def gift(self) -> None:
         bought = self.at(-45, 14, 20)
-        card = self.gift_card("david", "david", GIFT, 15000, bought, recipient="Priyanka Nair")
+        card = self.gift_card("david", "david", GIFT, 15000, bought, recipient="Priyanka Menon")
         visit = self.visit(
             "priyanka_gift",
             "priyanka",

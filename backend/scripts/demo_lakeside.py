@@ -615,7 +615,7 @@ FAMILIES: tuple[Family, ...] = (
     ),
     Family(
         "mensah",
-        "Kwame Mensah",
+        "Yaw Mensah",
         (Kid("Ama Mensah", 9, NEPEAN, note="Strong in biology, wants support with chemistry."),),
         tags=("monthly plan",),
     ),
@@ -641,13 +641,13 @@ FAMILIES: tuple[Family, ...] = (
     ),
     Family("park", "Daniel Park", (Kid("Jason Park", 12, GLEBE),), since=-200, channel="sms"),
     Family("sullivan", "Brendan Sullivan", (Kid("Fiona Sullivan", 5, HOPEWELL),)),
-    Family("gill", "Harpreet Gill", (Kid("Arjun Gill", 10, NEPEAN),), since=-250),
+    Family("gill", "Navdeep Gill", (Kid("Arjun Gill", 10, NEPEAN),), since=-250),
     Family("leblanc", "Marc Leblanc", (Kid("Chloé Leblanc", 11, IMMACULATA),)),
     Family("abdi", "Hodan Abdi", (Kid("Ayaan Abdi", 6, CAMBRIDGE),)),
     Family("nguyen", "Lan Nguyen", (Kid("Bao Nguyen", 9, GLEBE),), since=-500),
     Family(
         "chen",
-        "Wei Chen",
+        "Hui Chen",
         (
             Kid("Olivia Chen", 7, FISHER, note="French immersion since SK."),
             Kid("Ethan Chen", 4, HOPEWELL),
@@ -1752,7 +1752,7 @@ class Lakeside(Demo):
         thread = self.thread("gill", "email", when)
         self.say(
             thread,
-            "Hi Harpreet, thank you for the feedback. You're right that Arjun's time moved "
+            "Hi Navdeep, thank you for the feedback. You're right that Arjun's time moved "
             "twice this month, and that's on us: we were covering a tutor's absence. From next "
             "week he has the same time every week, and if we ever need to move it we'll ask "
             "you first.",
@@ -1808,7 +1808,7 @@ class Lakeside(Demo):
         thread = self.thread("mensah", "email", when)
         self.say(
             thread,
-            "Hi Kwame, Ama's monthly plan is set up. Four science lessons a month with Samuel "
+            "Hi Yaw, Ama's monthly plan is set up. Four science lessons a month with Samuel "
             "at the same time each week, $260 a month by pre-authorized debit from your RBC "
             "account ending in 4417. You'll get a receipt by email after each debit.",
             when,
