@@ -270,7 +270,7 @@ test("booking drafts restore contact details and remain scoped to their business
     await page.reload();
     await expect(page.getByRole("heading", { name: strings.publicBooking.stepTime })).toBeVisible();
     await page.goto("/b/cedar-coast-demo/book");
-    await expect(page.getByRole("button", { name: /^Dog Walk/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: /^Dog Walk, 30 minutes/ })).toBeVisible();
     await expect(
         page
             .getByRole("navigation", { name: strings.publicLanding.navigation })
