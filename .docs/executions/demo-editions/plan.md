@@ -9,7 +9,7 @@ One fully seeded demo business for each vertical the product serves, for showing
 | 1   | Pet grooming and daycare      | Birchbark Pet Studio             | pet          | BC       | done   |
 | 2   | Home services and trades      | Northlight Security              | site         | BC       | done   |
 | 3   | Dog walking and pet sitting   | Cedar Coast Pet Care             | pet          | BC       | done   |
-| 4   | Home cleaning                 | new                              | property     | AB       | todo   |
+| 4   | Home cleaning                 | Brightwater Home Cleaning        | property     | AB       | done   |
 | 5   | Hair and beauty salon         | Maple and Main Hair Studio       | none         | ON       | done   |
 | 6   | Personal training and fitness | Ridgeline Strength Studio        | none         | AB       | done   |
 | 7   | Tutoring and lessons          | Lakeside Learning Studio         | student      | ON       | done   |
