@@ -1,5 +1,6 @@
 import type { LineIconName } from "../art/LineIcon";
 import type { GlyphName } from "../art/TradeGlyph";
+import type { DemoSlug } from "../config";
 import type { BrandKey } from "./brands";
 import type { PhotoName } from "./photos";
 import { strings } from "../strings";
@@ -64,6 +65,7 @@ export interface ClientRecord {
 
 export interface Trade {
     slug: BrandKey;
+    demo: DemoSlug;
     name: string;
     glyph: GlyphName;
     who: string;
@@ -100,6 +102,7 @@ const ev = (
 export const TRADES: readonly Trade[] = [
     {
         slug: "pet-grooming",
+        demo: "birchbark",
         name: s["pet-grooming"].name,
         glyph: "paw",
         who: s["pet-grooming"].who,
@@ -244,6 +247,7 @@ export const TRADES: readonly Trade[] = [
     },
     {
         slug: "salons",
+        demo: "maplemain",
         name: s.salons.name,
         glyph: "scissors",
         who: s.salons.who,
@@ -385,6 +389,7 @@ export const TRADES: readonly Trade[] = [
     },
     {
         slug: "fitness",
+        demo: "ridgeline",
         name: s.fitness.name,
         glyph: "dumbbell",
         who: s.fitness.who,
@@ -520,6 +525,7 @@ export const TRADES: readonly Trade[] = [
     },
     {
         slug: "cleaning",
+        demo: "brightwater",
         name: s.cleaning.name,
         glyph: "spray",
         who: s.cleaning.who,
@@ -658,6 +664,7 @@ export const TRADES: readonly Trade[] = [
     },
     {
         slug: "tutoring",
+        demo: "lakeside",
         name: s.tutoring.name,
         glyph: "book",
         who: s.tutoring.who,
@@ -800,6 +807,7 @@ export const TRADES: readonly Trade[] = [
     },
     {
         slug: "wellness",
+        demo: "harbourside",
         name: s.wellness.name,
         glyph: "stones",
         who: s.wellness.who,
@@ -937,6 +945,7 @@ export const TRADES: readonly Trade[] = [
     },
     {
         slug: "photography",
+        demo: "fieldnote",
         name: s.photography.name,
         glyph: "camera",
         who: s.photography.who,
@@ -1072,6 +1081,7 @@ export const TRADES: readonly Trade[] = [
     },
     {
         slug: "trades",
+        demo: "northlight",
         name: s.trades.name,
         glyph: "wrench",
         who: s.trades.who,

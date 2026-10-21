@@ -530,6 +530,24 @@ Which signing secret each Stripe event uses, the pinned API version and the stag
 
 `uv run python -m scripts.payment_accounts` (needs `STRIPE_SECRET_KEY`, test mode) audits one connected account's display name, support email, business URL and statement descriptor through Accounts v2, writing missing fields only with `--apply`. Integration tests use normal dependency-injected recording adapters and per-test rollback; CI databases use the `clientbridge_test*` prefix.
 
+### Demo businesses by vertical
+
+There is one seeded demo business for each vertical the product serves, so a prospective customer sees their own trade and each trade can be tested from its own point of view. Provinces are mixed so the demos show GST, PST and HST. A marketing site trade page's demo link opens its business, and a vertical without a trade page is reached from the login table. Auto detailing has no demo, because it needs a `vehicle` subject kind.
+
+| Vertical                      | Business                         | Booking page          | Subject kind | Province | Site trade page           |
+| ----------------------------- | -------------------------------- | --------------------- | ------------ | -------- | ------------------------- |
+| Pet grooming and daycare      | Birchbark Pet Studio             | `/b/birchbark`        | pet          | BC       | `/solutions/pet-grooming` |
+| Dog walking and pet sitting   | Cedar Coast Pet Care             | `/b/cedar-coast-demo` | pet          | BC       | none                      |
+| Home services and trades      | Northlight Security              | `/b/northlight`       | site         | BC       | `/solutions/trades`       |
+| Home cleaning                 | Brightwater Home Cleaning        | `/b/brightwater`      | property     | AB       | `/solutions/cleaning`     |
+| Hair and beauty salon         | Maple and Main Hair Studio       | `/b/maplemain`        | none         | ON       | `/solutions/salons`       |
+| Personal training and fitness | Ridgeline Strength Studio        | `/b/ridgeline`        | none         | AB       | `/solutions/fitness`      |
+| Tutoring and lessons          | Lakeside Learning Studio         | `/b/lakeside`         | student      | ON       | `/solutions/tutoring`     |
+| Massage and wellness          | Harbourside Massage and Wellness | `/b/harbourside`      | none         | BC       | `/solutions/wellness`     |
+| Photography                   | Fieldnote Photography            | `/b/fieldnote`        | none         | ON       | `/solutions/photography`  |
+| Landscaping and lawn care     | Foothills Lawn and Garden        | `/b/foothills`        | property     | AB       | none                      |
+| Tattoo studio                 | Inkwell Tattoo Collective        | `/b/inkwell`          | none         | BC       | none                      |
+
 ### Northlight Security walkthrough
 
 Northlight shows the `site` subject kind end to end for a camera sales and installation business: a client books a survey on Connect, the owner quotes equipment and labour, the client accepts and signs, an installer runs the visit from the mobile app, and the handover form is signed on site. Products carry GST and PST and labour GST only. Each stage has a seeded client, with ids following `bk_nl_<key>`, `est_nl_<key>` and `cl_nl_<key>`:

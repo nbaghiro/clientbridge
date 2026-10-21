@@ -28,6 +28,10 @@ describe("trades", () => {
         }
     });
 
+    it("each point to a demo business of their own", () => {
+        expect(new Set(TRADES.map((t) => t.demo)).size).toBe(TRADES.length);
+    });
+
     it("only use line icons that exist", () => {
         for (const t of TRADES) {
             for (const c of t.capabilities) expect(LINE_ICON_NAMES, t.slug).toContain(c.icon);

@@ -2,7 +2,7 @@ import { BUSINESS_CURRENCY, formatMoney } from "@clientbridge/app-core/public";
 
 import { ArcDivider, ContourField } from "../art/Art";
 import { TradeGlyph } from "../art/TradeGlyph";
-import { links } from "../config";
+import { demoBusinessLink, links } from "../config";
 import { Icon } from "../art/Icon";
 import { Photo } from "../components/Photo";
 import { BRANDS } from "../content/brands";
@@ -18,6 +18,7 @@ import { Closing } from "../sections/Closing";
 export function TradePage({ trade }: { trade: Trade }) {
     const brand = BRANDS[trade.slug];
     const others = TRADES.filter((o) => o.slug !== trade.slug);
+    const demo = demoBusinessLink(trade.demo);
     const booking = {
         tag: tradePage.bookingTag(trade.booking.tag, brand.city),
         items: trade.booking.items.map((i) => ({
@@ -52,8 +53,8 @@ export function TradePage({ trade }: { trade: Trade }) {
                             <a className="btn btn-primary btn-lg" href={links.startFree}>
                                 {tradePage.primary}
                             </a>
-                            {links.demoBusiness === null ? null : (
-                                <a className="btn btn-ghost btn-lg" href={links.demoBusiness}>
+                            {demo === null ? null : (
+                                <a className="btn btn-ghost btn-lg" href={demo}>
                                     {tradePage.secondary}
                                 </a>
                             )}
@@ -178,7 +179,7 @@ export function TradePage({ trade }: { trade: Trade }) {
                 </div>
             </section>
 
-            <Closing copy={tradePage.closing} />
+            <Closing copy={tradePage.closing} demo={demo} />
         </>
     );
 }

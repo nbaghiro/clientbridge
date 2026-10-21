@@ -11,8 +11,22 @@ export const config = {
     waitlist: env.VITE_WAITLIST === "1",
 };
 
+// the seeded demo business that shows each trade, by its booking page slug
+export type DemoSlug =
+    | "birchbark"
+    | "maplemain"
+    | "ridgeline"
+    | "brightwater"
+    | "lakeside"
+    | "harbourside"
+    | "fieldnote"
+    | "northlight";
+
+export const demoBusinessLink = (slug: DemoSlug): string | null =>
+    config.waitlist ? null : `${config.bookUrl}/b/${slug}`;
+
 export const links = {
     signIn: config.waitlist ? null : `${config.appUrl}/`,
     startFree: config.waitlist ? "/waitlist" : `${config.appUrl}/`,
-    demoBusiness: config.waitlist ? null : `${config.bookUrl}/b/birchbark`,
+    demoBusiness: demoBusinessLink("birchbark"),
 };
