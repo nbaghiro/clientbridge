@@ -663,8 +663,8 @@ export interface CalendarEventCardProps {
     // compact: one line for short visits; regular: headline over time and detail; full: three lines.
     density?: "compact" | "regular" | "full" | undefined;
     flags?: readonly CalendarEventFlag[] | undefined;
-    // dragging lifts the card, refused marks a drop the server would reject, faded is done or filtered.
-    state?: "idle" | "selected" | "dragging" | "refused" | "faded" | undefined;
+    // dragging lifts it, refused won't work, faded is done or filtered, draft is being booked.
+    state?: "idle" | "selected" | "dragging" | "refused" | "faded" | "draft" | undefined;
     label: string;
     onPress?: (() => void) | undefined;
 }

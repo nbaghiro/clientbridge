@@ -1,11 +1,9 @@
 import {
-    type ComposerSlot,
-    type ScheduleBoard,
+    type BookingComposer as BookingComposerForm,
     type ScheduleEvent,
     formatMoney,
     formatPhone,
     strings,
-    useBookingComposer,
     usePeoplePhotos,
     useReschedule,
     formatList,
@@ -42,26 +40,18 @@ import { useViewer } from "../lib/auth";
 
 const s = strings.bookings;
 
-/** The new-booking form, prefilled from the open time that was clicked. Sits in a rail or a modal. */
+/** The new-booking form beside the calendar, whose draft card it moves with. Sits in a rail or a modal. */
 export function BookingComposer({
-    slot,
-    board,
+    form,
     onDone,
     onCancel,
 }: {
-    slot: ComposerSlot;
-    board: ScheduleBoard;
+    form: BookingComposerForm;
     onDone: () => void;
     onCancel: () => void;
 }) {
     const photos = usePeoplePhotos();
     const zone = useBusinessZone();
-    const form = useBookingComposer(
-        api,
-        slot,
-        { actors: board.actors, window: board.window },
-        onDone,
-    );
     const submit = (e: SubmitEvent): void => {
         e.preventDefault();
         form.submit();
@@ -193,7 +183,9 @@ export function BookingComposer({
                         onChange={form.setTime}
                     />
                 </div>
-                {form.item ? <p className="-mt-3 text-xs text-muted">{form.endsLabel}</p> : null}
+                <p className="-mt-3 text-xs text-muted">
+                    {formatParts([form.item ? form.endsLabel : null, s.draftHint])}
+                </p>
                 {form.problem !== null ? (
                     <Notice tone="danger" banner>
                         {form.problem}

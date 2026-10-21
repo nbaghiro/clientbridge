@@ -1843,6 +1843,22 @@ export interface BookingComposer {
     // The chosen member's week and open starts for the service length, for a phone's slot picker.
     days: WeekStripDay[];
     slotGroups: { label: string; slots: { key: string; label: string; disabled?: boolean }[] }[];
+    // the visit being booked, drawn on the calendar until it's booked or closed
+    draft: BookingDraft | null;
+    // moves the draft to a member and start, snapped to the quarter hour the time menu offers
+    place: (staffId: string, at: Date) => void;
+}
+
+export interface BookingDraft {
+    staffId: string;
+    start: Date;
+    end: Date;
+    headline: string;
+    detail: string | undefined;
+    timeLabel: string;
+    startLabel: string;
+    problem: string | null;
+    label: string;
 }
 
 interface VisibleWindow {
@@ -1922,11 +1938,38 @@ export function depositOf(item: ItemRow | null): number {
         : Math.round(((item.price_cents ?? 0) * item.deposit_value) / 100);
 }
 
-/** The new-booking form, prefilled from the open time that was clicked; checks the slot as it changes. */
+/** After the form's day or the board's day changes, which one catches up: the board, the form, or neither. */
+export function draftFollows(
+    was: { focus: string; day: string } | null,
+    day: string,
+    focus: string,
+): "board" | "form" | null {
+    if (day === focus) return null;
+    if (day !== was?.day) return "board";
+    return focus !== was.focus ? "form" : null;
+}
+
+/** Where New booking first puts the visit: the next quarter hour on today, otherwise ten in the morning. */
+export function suggestedStart(day: Date, now: Date, zone: string): Date {
+    if (!sameDay(day, now, zone)) return minutesInto(day, 10 * 60, zone);
+    return new Date(Math.ceil(+now / (15 * MIN)) * 15 * MIN);
+}
+
+/** The nearest quarter hour, the steps the composer's time menu offers. */
+export function toQuarterHour(at: Date): Date {
+    return new Date(Math.round(+at / (15 * MIN)) * 15 * MIN);
+}
+
+/** The new-booking form for the open slot, reset when another opens; its day and the board's move together. */
 export function useBookingComposer(
     api: ApiLike,
-    slot: ComposerSlot,
-    board: { actors: StaffRow[]; window: VisibleWindow },
+    slot: ComposerSlot | null,
+    board: {
+        actors: StaffRow[];
+        window: VisibleWindow;
+        focus: { key: string };
+        setAnchor: (day: Date) => void;
+    },
     onCreated: () => void,
 ): BookingComposer {
     const photos = usePeoplePhotos();
@@ -1937,7 +1980,7 @@ export function useBookingComposer(
     const [query, setQuery] = useState("");
     const [clientId, setClientId] = useState<string | null>(null);
     const [subjectId, setSubjectId] = useState("");
-    const estimateId = slot.estimateId ?? "";
+    const estimateId = slot?.estimateId ?? "";
     const estimate =
         useQuery<{ client_id: string; number: number | null }>(ESTIMATE_BOOKING_SQL, [estimateId])
             .data[0] ?? null;
@@ -1947,9 +1990,9 @@ export function useBookingComposer(
     ).data;
     const [itemId, setItemId] = useState("");
     const zone = useBusinessZone();
-    const [staffId, setStaffId] = useState(slot.staffId);
-    const [day, setDay] = useState(dateKey(slot.start, zone));
-    const [time, setTime] = useState(clockKey(slot.start, zone));
+    const [staffId, setStaffId] = useState(slot?.staffId ?? "");
+    const [day, setDay] = useState(dateKey(slot?.start ?? new Date(), zone));
+    const [time, setTime] = useState(clockKey(slot?.start ?? new Date(), zone));
     const [repeat, setRepeat] = useState(false);
     const [every, setEvery] = useState(4);
     const [count, setCount] = useState(6);
@@ -1998,21 +2041,61 @@ export function useBookingComposer(
                   null,
                   target,
               );
-    const next = useNextVisit(slot.rebookId ?? null);
+    const next = useNextVisit(slot?.rebookId ?? null);
     const rebooked = useRef(false);
+    const prefilled = useRef(false);
+    const opened = useRef(slot);
+    // a member the form suggested rather than one picked, so it may follow the hours once they load
+    const auto = useRef(false);
+    const picked = useRef(false);
+    useEffect(() => {
+        if (opened.current === slot) return;
+        opened.current = slot;
+        if (slot === null) return;
+        auto.current = false;
+        picked.current = false;
+        rebooked.current = false;
+        prefilled.current = false;
+        key.current = null;
+        setStaffId(slot.staffId);
+        setDay(dateKey(slot.start, zone));
+        setTime(clockKey(slot.start, zone));
+        setQuery("");
+        setClientId(null);
+        setSubjectId("");
+        setItemId("");
+        setRepeat(false);
+        setNote("");
+        setNotify(true);
+        setNotice(null);
+        setError(null);
+    }, [slot, zone, setError]);
+    const { key: focusKey } = board.focus;
+    const { setAnchor } = board;
+    const synced = useRef<{ focus: string; day: string } | null>(null);
+    useEffect(() => {
+        const was = synced.current;
+        synced.current = slot === null ? null : { focus: focusKey, day };
+        if (slot === null) return;
+        const follow = draftFollows(was, day, focusKey);
+        if (follow === "board") setAnchor(combineDayAndTime(day, "12:00", zone));
+        else if (follow === "form") setDay(focusKey);
+    }, [slot, day, focusKey, setAnchor, zone]);
     useEffect(() => {
         if (rebooked.current || next === null || services.length === 0) return;
         rebooked.current = true;
         setClientId(next.clientId);
         setSubjectId(next.subjectId ?? "");
         if (services.some((i) => i.id === next.itemId)) setItemId(next.itemId);
-        if (board.actors.some((a) => a.id === next.staffId)) setStaffId(next.staffId);
+        if (board.actors.some((a) => a.id === next.staffId)) {
+            picked.current = true;
+            setStaffId(next.staffId);
+        }
         if (next.start !== null) {
             setDay(dateKey(next.start, zone));
             setTime(clockKey(next.start, zone));
         }
     }, [next, zone, services, board.actors]);
-    const prefilled = useRef(false);
     useEffect(() => {
         if (prefilled.current || estimate === null) return;
         prefilled.current = true;
@@ -2023,10 +2106,25 @@ export function useBookingComposer(
                 : (allSubjects.find((p) => p.client_id === estimate.client_id)?.id ?? ""),
         );
     }, [estimate, kind, allSubjects]);
+    const fallback = (
+        board.actors.find((a) => avail.hours(a.id, start) !== null) ?? board.actors[0]
+    )?.id;
+    const known = board.actors.some((a) => a.id === staffId);
+    useEffect(() => {
+        if (slot === null || fallback === undefined || picked.current) return;
+        if (!known || auto.current) {
+            auto.current = true;
+            setStaffId(fallback);
+        }
+    }, [slot, known, fallback]);
     const booking = estimate !== null && client?.id === estimate.client_id;
     const verdict = check(staffId);
     const problem = item !== null && verdict.problem !== null ? verdict.message : null;
     const deposit = depositOf(item);
+    const member = staff.get(staffId);
+    const subjectName = allSubjects.find((p) => p.id === subjectId)?.name ?? null;
+    const timeLabel = formatTimeRange(start, end, zone);
+    const draftProblem = verdict.problem === null ? null : verdict.message;
 
     return {
         query,
@@ -2046,7 +2144,10 @@ export function useBookingComposer(
         item,
         setItemId,
         staffId,
-        setStaffId,
+        setStaffId: (id) => {
+            picked.current = true;
+            setStaffId(id);
+        },
         staffOptions: board.actors.map((x) => ({
             id: x.id,
             name: staffName(x),
@@ -2154,6 +2255,34 @@ export function useBookingComposer(
                 })),
             zone,
         ),
+        draft:
+            slot === null
+                ? null
+                : {
+                      staffId,
+                      start,
+                      end,
+                      headline:
+                          client === null ? s.newBooking : formatParts([subjectName, client.name]),
+                      detail: item?.name,
+                      timeLabel,
+                      startLabel: formatTime(start, zone),
+                      problem: draftProblem,
+                      label: s.draftLabel(
+                          timeLabel,
+                          member === undefined ? "" : staffName(member),
+                          draftProblem ?? "",
+                      ),
+                  },
+        place: (who, at) => {
+            const snapped = toQuarterHour(at);
+            if (board.actors.some((a) => a.id === who)) {
+                picked.current = true;
+                setStaffId(who);
+            }
+            setDay(dateKey(snapped, zone));
+            setTime(clockKey(snapped, zone));
+        },
     };
 }
 

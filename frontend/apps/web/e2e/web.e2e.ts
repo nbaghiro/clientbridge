@@ -288,6 +288,31 @@ test("owner: schedule, booking panel, classes and repeat visits", async ({ page 
         await expect(page).toHaveURL(/\/schedule$/);
     });
 
+    await walk.step("new booking draft", async () => {
+        await main.getByRole("button", { name: b.newBooking }).click();
+        const composer = page.getByRole("form", { name: b.newBooking });
+        await expect(composer).toBeVisible();
+        const draft = main.getByTestId("draft");
+        await expect(draft).toBeVisible();
+        await expect(draft).toContainText(b.newBooking);
+        const card = draft.getByRole("button");
+        const before = (await card.getAttribute("aria-label")) ?? "";
+        const box = await draft.boundingBox();
+        expect(box).not.toBeNull();
+        if (box !== null) {
+            await page.mouse.move(box.x + box.width / 2, box.y + 8);
+            await page.mouse.down();
+            await page.mouse.move(box.x + box.width / 2, box.y + 8 + box.height * 2, { steps: 8 });
+            await page.mouse.up();
+        }
+        await expect(card).not.toHaveAttribute("aria-label", before);
+        await main.getByRole("button", { name: b.next }).first().click();
+        await expect(draft).toBeVisible();
+        await composer.getByRole("button", { name: strings.common.close }).click();
+        await expect(draft).toHaveCount(0);
+        await main.getByRole("button", { name: b.today, exact: true }).click();
+    });
+
     await walk.step("new booking composer", async () => {
         await main.getByRole("button", { name: b.newBooking }).click();
         const composer = page.getByRole("form", { name: b.newBooking });

@@ -1,6 +1,9 @@
 import {
+    type BookingDraft,
     type ComposerSlot,
     addDays,
+    dateKey,
+    suggestedStart,
     arrivalLabel,
     blockSpan,
     eventFlags,
@@ -14,6 +17,7 @@ import {
     placeEvents,
     strings,
     useBookingActions,
+    useBookingComposer,
     useBookingDetail,
     useBookingStart,
     usePeoplePhotos,
@@ -42,8 +46,8 @@ import {
 } from "@clientbridge/ui";
 import { type RouteProp, useNavigation, useRoute } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { useEffect, useState } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { PanResponder, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import {
@@ -75,6 +79,17 @@ export function ScheduleScreen() {
     const detail = useBookingDetail(board.selected, board.now);
     const actions = useBookingActions(api, detail?.event ?? null, board.now);
     const [composer, setComposer] = useState<ComposerSlot | null>(null);
+    const [expanded, setExpanded] = useState(true);
+    const [dragging, setDragging] = useState(false);
+    const [lanesWidth, setLanesWidth] = useState(0);
+    const scroll = useRef<ScrollView>(null);
+    const form = useBookingComposer(api, composer, board, () => {
+        setComposer(null);
+    });
+    const draft = form.draft;
+    const draftLane = draft === null ? -1 : day.lanes.findIndex((l) => l.id === draft.staffId);
+    const showDraft = draft !== null && draftLane >= 0 && dateKey(draft.start, zone) === day.key;
+    const draftTop = draft === null ? 0 : minuteTop(draft.start, startHour, PX, zone);
     const [moving, setMoving] = useState(false);
     const hours = hourMarks(startHour, endHour);
     const waiting = board.load.state === "loading" || board.load.state === "error";
@@ -82,11 +97,26 @@ export function ScheduleScreen() {
         from: { estimateId?: string | undefined; rebookId?: string | undefined } = {},
     ): void => {
         const first = day.lanes.find((l) => l.hours) ?? day.lanes[0];
+        setExpanded(true);
         setComposer({
             staffId: first?.id ?? viewer?.staffId ?? "",
-            start: minutesInto(day.date, 10 * 60, board.zone),
+            start: suggestedStart(day.date, board.now, zone),
             ...from,
         });
+    };
+    const tapLane = (staffId: string, y: number): void => {
+        const at = minutesInto(day.date, startHour * 60 + Math.floor(y / PX / 15) * 15, zone);
+        if (composer) {
+            form.place(staffId, at);
+            return;
+        }
+        board.select(null);
+        setExpanded(true);
+        setComposer({ staffId, start: at });
+    };
+    const showCalendar = (): void => {
+        setExpanded(false);
+        scroll.current?.scrollTo({ y: Math.max(0, draftTop - 96), animated: true });
     };
     const create = route.params?.create;
     const estimate = route.params?.estimate;
@@ -203,12 +233,19 @@ export function ScheduleScreen() {
                     />
                 </View>
             ) : (
-                <ScrollView contentContainerStyle={styles.gridWrap}>
+                <ScrollView
+                    ref={scroll}
+                    scrollEnabled={!dragging}
+                    contentContainerStyle={[
+                        styles.gridWrap,
+                        composer ? { paddingBottom: expanded ? 560 : 200 } : null,
+                    ]}
+                >
                     {day.closedNote !== null ? (
                         <Notice tone="info" banner style={styles.closedNote}>
                             {day.closedNote}
                         </Notice>
-                    ) : day.events.length === 0 ? (
+                    ) : day.events.length === 0 && !showDraft ? (
                         <View style={styles.emptyBox}>
                             {day.lanes.some((l) => l.hours !== null || l.unset) ? (
                                 <Empty
@@ -235,104 +272,144 @@ export function ScheduleScreen() {
                                 </Text>
                             ))}
                         </View>
-                        {day.lanes.map((lane) => (
-                            <View key={lane.id} style={styles.lane}>
-                                {offHourSpans(lane, startHour, endHour, zone).map((sp) => (
-                                    <View
-                                        key={sp.from}
-                                        style={[
-                                            styles.off,
-                                            { top: sp.from * PX, height: (sp.to - sp.from) * PX },
-                                        ]}
+                        <View
+                            style={styles.lanes}
+                            onLayout={(e) => {
+                                setLanesWidth(e.nativeEvent.layout.width);
+                            }}
+                        >
+                            {day.lanes.map((lane) => (
+                                <View key={lane.id} style={styles.lane}>
+                                    <Pressable
+                                        style={StyleSheet.absoluteFill}
+                                        accessibilityLabel={formatParts([s.newBooking, lane.short])}
+                                        onPress={(e) => {
+                                            tapLane(lane.id, e.nativeEvent.locationY);
+                                        }}
                                     />
-                                ))}
-                                {hours.map((h, i) => (
-                                    <View key={h} style={[styles.line, { top: i * HOUR }]} />
-                                ))}
-                                {lane.blocks.map((b) => {
-                                    const span = blockSpan(
-                                        b,
-                                        day.date,
-                                        startHour,
-                                        endHour,
-                                        PX,
-                                        zone,
-                                    );
-                                    return span === null ? null : (
+                                    {offHourSpans(lane, startHour, endHour, zone).map((sp) => (
                                         <View
-                                            key={b.id}
+                                            key={sp.from}
+                                            pointerEvents="none"
                                             style={[
-                                                styles.block,
+                                                styles.off,
                                                 {
-                                                    top: span.top,
-                                                    height: Math.max(20, span.height - 2),
+                                                    top: sp.from * PX,
+                                                    height: (sp.to - sp.from) * PX,
                                                 },
                                             ]}
-                                        >
-                                            <Icon
-                                                name={b.kind === "break" ? "clock" : "moon"}
-                                                size={11}
-                                                color={c.muted}
-                                            />
-                                            <Text style={styles.blockText} numberOfLines={1}>
-                                                {b.label}
-                                            </Text>
-                                        </View>
-                                    );
-                                })}
-                                {placeEvents(lane.events, day.date, startHour, PX, zone).map(
-                                    (p) => (
+                                        />
+                                    ))}
+                                    {hours.map((h, i) => (
                                         <View
-                                            key={p.event.id}
-                                            style={[
-                                                styles.event,
-                                                {
-                                                    top: p.top,
-                                                    height: p.height,
-                                                    left: `${p.leftPct}%`,
-                                                    width: `${p.widthPct}%`,
-                                                },
-                                            ]}
-                                        >
-                                            <CalendarEventCard
-                                                headline={p.event.subjectName ?? p.event.headline}
-                                                detail={
-                                                    p.event.kind === "class"
-                                                        ? s.classSeats(
-                                                              p.event.bookedCount,
-                                                              p.event.capacity,
-                                                          )
-                                                        : formatParts([
-                                                              p.event.serviceName,
-                                                              arrivalLabel(p.event, kind),
-                                                          ])
-                                                }
-                                                time={formatTime(p.event.start, zone)}
-                                                intent={p.event.intent}
-                                                color={p.event.color}
-                                                density={
-                                                    p.height < 30
-                                                        ? "compact"
-                                                        : p.height < 58
-                                                          ? "regular"
-                                                          : "full"
-                                                }
-                                                flags={eventFlags(p.event).slice(0, 2)}
-                                                state={
-                                                    board.selectedId === p.event.id
-                                                        ? "selected"
-                                                        : "idle"
-                                                }
-                                                label={eventLabelFor(p.event)}
-                                                onPress={() => {
-                                                    board.select(p.event.id);
-                                                }}
-                                            />
-                                        </View>
-                                    ),
-                                )}
-                            </View>
-                        ))}
+                                            key={h}
+                                            pointerEvents="none"
+                                            style={[styles.line, { top: i * HOUR }]}
+                                        />
+                                    ))}
+                                    {lane.blocks.map((b) => {
+                                        const span = blockSpan(
+                                            b,
+                                            day.date,
+                                            startHour,
+                                            endHour,
+                                            PX,
+                                            zone,
+                                        );
+                                        return span === null ? null : (
+                                            <View
+                                                key={b.id}
+                                                pointerEvents="none"
+                                                style={[
+                                                    styles.block,
+                                                    {
+                                                        top: span.top,
+                                                        height: Math.max(20, span.height - 2),
+                                                    },
+                                                ]}
+                                            >
+                                                <Icon
+                                                    name={b.kind === "break" ? "clock" : "moon"}
+                                                    size={11}
+                                                    color={c.muted}
+                                                />
+                                                <Text style={styles.blockText} numberOfLines={1}>
+                                                    {b.label}
+                                                </Text>
+                                            </View>
+                                        );
+                                    })}
+                                    {placeEvents(lane.events, day.date, startHour, PX, zone).map(
+                                        (p) => (
+                                            <View
+                                                key={p.event.id}
+                                                style={[
+                                                    styles.event,
+                                                    {
+                                                        top: p.top,
+                                                        height: p.height,
+                                                        left: `${p.leftPct}%`,
+                                                        width: `${p.widthPct}%`,
+                                                    },
+                                                ]}
+                                            >
+                                                <CalendarEventCard
+                                                    headline={
+                                                        p.event.subjectName ?? p.event.headline
+                                                    }
+                                                    detail={
+                                                        p.event.kind === "class"
+                                                            ? s.classSeats(
+                                                                  p.event.bookedCount,
+                                                                  p.event.capacity,
+                                                              )
+                                                            : formatParts([
+                                                                  p.event.serviceName,
+                                                                  arrivalLabel(p.event, kind),
+                                                              ])
+                                                    }
+                                                    time={formatTime(p.event.start, zone)}
+                                                    intent={p.event.intent}
+                                                    color={p.event.color}
+                                                    density={
+                                                        p.height < 30
+                                                            ? "compact"
+                                                            : p.height < 58
+                                                              ? "regular"
+                                                              : "full"
+                                                    }
+                                                    flags={eventFlags(p.event).slice(0, 2)}
+                                                    state={
+                                                        board.selectedId === p.event.id
+                                                            ? "selected"
+                                                            : "idle"
+                                                    }
+                                                    label={eventLabelFor(p.event)}
+                                                    onPress={() => {
+                                                        board.select(p.event.id);
+                                                    }}
+                                                />
+                                            </View>
+                                        ),
+                                    )}
+                                </View>
+                            ))}
+                            {showDraft ? (
+                                <DraftCard
+                                    draft={draft}
+                                    lane={draftLane}
+                                    lanes={day.lanes.length}
+                                    top={draftTop}
+                                    height={((+draft.end - +draft.start) / 60_000) * PX}
+                                    laneWidth={lanesWidth / Math.max(1, day.lanes.length)}
+                                    onPlace={(lane, start) => {
+                                        const id = day.lanes[lane]?.id;
+                                        if (id !== undefined) form.place(id, start);
+                                    }}
+                                    onDragging={setDragging}
+                                />
+                            ) : null}
+                        </View>
                         {day.isToday ? (
                             <View
                                 pointerEvents="none"
@@ -393,14 +470,104 @@ export function ScheduleScreen() {
             </Modal>
             {composer ? (
                 <BookingComposerSheet
-                    slot={composer}
-                    board={board}
+                    form={form}
+                    expanded={expanded}
+                    onExpand={() => {
+                        setExpanded(true);
+                    }}
+                    onCollapse={showCalendar}
                     onClose={() => {
                         setComposer(null);
                     }}
                 />
             ) : null}
         </SafeAreaView>
+    );
+}
+
+/** The visit being booked, drawn where it would land; drag it to another member or time. */
+function DraftCard({
+    draft,
+    lane,
+    lanes,
+    top,
+    height,
+    laneWidth,
+    onPlace,
+    onDragging,
+}: {
+    draft: BookingDraft;
+    lane: number;
+    lanes: number;
+    top: number;
+    height: number;
+    laneWidth: number;
+    onPlace: (lane: number, start: Date) => void;
+    onDragging: (on: boolean) => void;
+}) {
+    const latest = useRef({ draft, lane, lanes, laneWidth, onPlace, onDragging });
+    latest.current = { draft, lane, lanes, laneWidth, onPlace, onDragging };
+    const origin = useRef<{ lane: number; start: Date; last: string } | null>(null);
+    const end = (): void => {
+        origin.current = null;
+        latest.current.onDragging(false);
+    };
+    const pan = useRef(
+        PanResponder.create({
+            onStartShouldSetPanResponderCapture: () => true,
+            onPanResponderTerminationRequest: () => false,
+            onPanResponderGrant: () => {
+                const l = latest.current;
+                origin.current = { lane: l.lane, start: l.draft.start, last: "0|0" };
+                l.onDragging(true);
+            },
+            onPanResponderMove: (_e, g) => {
+                const o = origin.current;
+                const l = latest.current;
+                if (o === null) return;
+                const shift = l.laneWidth === 0 ? 0 : Math.round(g.dx / l.laneWidth);
+                const target = Math.max(0, Math.min(l.lanes - 1, o.lane + shift));
+                const minutes = Math.round(g.dy / PX / 15) * 15;
+                const key = `${String(target)}|${String(minutes)}`;
+                if (key === o.last) return;
+                o.last = key;
+                l.onPlace(target, new Date(+o.start + minutes * 60_000));
+            },
+            onPanResponderRelease: end,
+            onPanResponderTerminate: end,
+        }),
+    ).current;
+    return (
+        <View
+            {...pan.panHandlers}
+            testID="draft"
+            style={[
+                styles.draft,
+                {
+                    top,
+                    height,
+                    left: `${(lane * 100) / lanes}%`,
+                    width: `${100 / lanes}%`,
+                },
+            ]}
+        >
+            <CalendarEventCard
+                headline={draft.headline}
+                detail={draft.detail}
+                time={draft.startLabel}
+                intent="accent"
+                density={height < 30 ? "compact" : height < 58 ? "regular" : "full"}
+                state={draft.problem === null ? "draft" : "refused"}
+                label={draft.label}
+            />
+            {draft.problem !== null ? (
+                <View pointerEvents="none" style={styles.draftProblem}>
+                    <Text style={styles.draftProblemText} numberOfLines={1}>
+                        {draft.problem}
+                    </Text>
+                </View>
+            ) : null}
+        </View>
     );
 }
 
@@ -447,7 +614,19 @@ const styles = StyleSheet.create({
     gridWrap: { paddingBottom: 24, paddingTop: 8 },
     grid: { flexDirection: "row" },
     hour: { position: "absolute", right: 6, fontSize: 10, color: c.muted },
+    lanes: { flex: 1, flexDirection: "row" },
     lane: { flex: 1, borderLeftWidth: 1, borderLeftColor: c.border },
+    draft: { position: "absolute", zIndex: 5, paddingHorizontal: 2, paddingBottom: 2 },
+    draftProblem: {
+        position: "absolute",
+        top: -24,
+        left: 2,
+        borderRadius: 6,
+        paddingHorizontal: 6,
+        paddingVertical: 3,
+        backgroundColor: c.danFg,
+    },
+    draftProblemText: { color: c.surface, fontSize: 11, fontWeight: "700" },
     off: { position: "absolute", left: 0, right: 0, backgroundColor: c.bg },
     line: { position: "absolute", left: 0, right: 0, height: 1, backgroundColor: c.borderSoft },
     block: {

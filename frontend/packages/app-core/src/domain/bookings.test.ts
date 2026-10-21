@@ -32,6 +32,9 @@ import {
     slotProblem,
     upNext,
     visibleWindow,
+    draftFollows,
+    suggestedStart,
+    toQuarterHour,
 } from "./bookings";
 import type { ItemRow } from "./catalog";
 import type { StaffRow } from "./staff";
@@ -735,5 +738,56 @@ describe("nextVisitStart", () => {
         expect(nextVisitStart(start, at(10, 0, -28), null, ZONE)).toEqual(at(10, 0, 28));
         expect(nextVisitStart(start, null, null, ZONE)).toBeNull();
         expect(nextVisitStart(start, at(9), null, ZONE)).toBeNull();
+    });
+});
+
+describe("draftFollows", () => {
+    it("moves nothing while the form and the board show the same day", () => {
+        expect(draftFollows(null, "2026-10-23", "2026-10-23")).toBeNull();
+        expect(
+            draftFollows({ focus: "2026-10-23", day: "2026-10-23" }, "2026-10-23", "2026-10-23"),
+        ).toBeNull();
+    });
+
+    it("takes the board to a booking that opens on another day, as a rebook does", () => {
+        expect(draftFollows(null, "2026-11-20", "2026-10-23")).toBe("board");
+    });
+
+    it("takes the board to the day picked in the form", () => {
+        expect(
+            draftFollows({ focus: "2026-10-23", day: "2026-10-23" }, "2026-10-24", "2026-10-23"),
+        ).toBe("board");
+    });
+
+    it("carries the draft to the day the board pages to", () => {
+        expect(
+            draftFollows({ focus: "2026-10-23", day: "2026-10-23" }, "2026-10-23", "2026-10-24"),
+        ).toBe("form");
+    });
+});
+
+describe("toQuarterHour", () => {
+    it("rounds to the nearest quarter hour", () => {
+        expect(toQuarterHour(new Date("2026-10-23T17:07:00Z")).toISOString()).toBe(
+            "2026-10-23T17:00:00.000Z",
+        );
+        expect(toQuarterHour(new Date("2026-10-23T17:08:00Z")).toISOString()).toBe(
+            "2026-10-23T17:15:00.000Z",
+        );
+    });
+});
+
+describe("suggestedStart", () => {
+    const zone = "America/Vancouver";
+    const now = new Date("2026-10-21T17:02:00Z");
+
+    it("offers the next quarter hour on today", () => {
+        expect(suggestedStart(now, now, zone).toISOString()).toBe("2026-10-21T17:15:00.000Z");
+    });
+
+    it("offers ten in the morning on another day", () => {
+        expect(suggestedStart(addDays(now, 1, zone), now, zone).toISOString()).toBe(
+            "2026-10-22T17:00:00.000Z",
+        );
     });
 });

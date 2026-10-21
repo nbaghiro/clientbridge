@@ -28,6 +28,10 @@ name: Owner workday surfaces
 - assertVisible: "New booking"
 - assertVisible: "Client"
 - takeScreenshot: booking-composer
+- tapOn: "Calendar"
+- assertVisible:
+      id: "draft"
+- takeScreenshot: booking-draft
 - runFlow: helpers/close-sheet.yaml
 - tapOn: "Clients"
 - assertVisible: "Search name, phone, email or pet"
