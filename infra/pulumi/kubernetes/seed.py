@@ -8,7 +8,7 @@ from kubernetes import migrate, settings, sidecar
 NAME = "seed"
 DEADLINE_SECONDS = 1800
 # one writer per core of the pod, the seed's and its scratch Postgres's together
-JOBS = 4
+JOBS = 2
 # a round trip through the Cloud SQL proxy costs milliseconds, so the seed writes locally first
 COMMAND = (
     "/bin/sh",

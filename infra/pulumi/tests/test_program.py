@@ -1055,18 +1055,18 @@ def test_stagings_seed_has_room_for_every_demo_business(stacks: dict[str, Built]
     (seed,) = jobs(stacks["staging"], "seed")
     spec = dig(seed.inputs, "spec", "template", "spec")
     (container,) = listed(dig(spec, "containers"))
-    assert dig(container, "resources", "requests") == {"cpu": "2", "memory": "2Gi"}
+    assert dig(container, "resources", "requests") == {"cpu": "1", "memory": "2Gi"}
     command = str(dig(container, "command"))
     scratch_url = "postgresql://postgres@127.0.0.1:5433/scratch"
-    assert f"scripts.seed_demo --jobs 4 --scratch {scratch_url} " in command
+    assert f"scripts.seed_demo --jobs 2 --scratch {scratch_url} " in command
     assert dig(seed.inputs, "spec", "activeDeadlineSeconds") == 1800
     proxy, scratch = listed(dig(spec, "initContainers"))
     assert dig(proxy, "name") == "cloud-sql-proxy"
-    assert dig(scratch, "resources", "requests") == {"cpu": "2", "memory": "2Gi"}
+    assert dig(scratch, "resources", "requests") == {"cpu": "1", "memory": "2Gi"}
     cores = sum(
         int(str(dig(each, "resources", "requests", "cpu"))) for each in (container, scratch)
     )
-    assert cores == 4  # one writer per core of the pod
+    assert cores == 2  # one writer per core of the pod
 
 
 def test_stagings_seed_writes_into_a_loopback_postgres_of_cloud_sqls_version(

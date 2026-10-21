@@ -79,8 +79,8 @@ SERVED_PORTS = (API_PORT, WEB_PORT, AUTH_PUBLIC_PORT, POWERSYNC_PORT)
 PROXY = Size(
     "50m", "128Mi"
 )  # the Cloud SQL Auth Proxy sidecar in every pod that reaches the database
-# the demo seed's own Postgres, which four writers kept above one core in a local run
-SCRATCH = Size("2", "2Gi")
+# the demo seed's own Postgres; one core keeps the seed pod inside one existing node
+SCRATCH = Size("1", "2Gi")
 
 
 def build(prod_domain: str, staging_domain: str) -> tuple[Environment, Environment]:
@@ -126,8 +126,8 @@ def build(prod_domain: str, staging_domain: str) -> tuple[Environment, Environme
         web=Workload(Size("100m", "256Mi"), spot=True),
         redis=Workload(Size("50m", "128Mi"), spot=True),
         migrate_retries=2,
-        # the seed holds every business's graph (about 300 MB) and four writers of one each (200 MB)
-        demo=Workload(Size("2", "2Gi"), spot=True),
+        # the seed holds every business's graph (about 300 MB) and two writers of one each (200 MB)
+        demo=Workload(Size("1", "2Gi"), spot=True),
         # a separate app, so testers keep it beside the store one
         mobile=Mobile(
             bundle_id="ca.clientbridge.app.staging",
