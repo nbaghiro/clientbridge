@@ -1,9 +1,9 @@
 from dataclasses import replace
-from datetime import time, timedelta
+from datetime import UTC, datetime, time, timedelta
 
 import pytest
 from scripts.demo_context import DEMO_BUSINESSES, DemoBusiness, LegalAddress
-from scripts.demo_engine import Demo, Quote, build_edition, editions, seed_ledger
+from scripts.demo_engine import Demo, Quote, build_edition, edition_of, editions, seed_ledger
 from scripts.demo_spec import (
     BusinessSpec,
     ContractSpec,
@@ -656,4 +656,11 @@ def test_pacing_gives_a_member_their_own_services_and_clients() -> None:
 def test_an_edition_outside_the_core_seed_builds_a_valid_graph(business_id: str) -> None:
     edition = next(e for e in editions() if e.spec.listing.id == business_id)
     demo = build_edition(edition, clock.now())
+    assert validate_graph(demo.ctx) == []
+
+
+def test_a_short_treatment_in_progress_today_is_still_running() -> None:
+    # 16:16 on a Wednesday left a 30-minute visit that began at 15:30 ended yet upcoming
+    late = datetime(2026, 10, 21, 23, 16, tzinfo=UTC)
+    demo = build_edition(edition_of("bz_harbourside"), late)
     assert validate_graph(demo.ctx) == []

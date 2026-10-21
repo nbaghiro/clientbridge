@@ -857,8 +857,21 @@ class Harbourside(Demo):
         for staff, key, item_id in TODAY:
             start: datetime | None = None
             arrived = False
-            current = (floor - timedelta(minutes=30)).astimezone(UTC)
-            if not checked_in and self.fits(staff, item_id, current):
+            length = timedelta(minutes=self.items[item_id].duration_min or 60)
+            # the visit in progress must still be running now, so a short treatment starts later
+            current = next(
+                (
+                    candidate
+                    for candidate in (
+                        (floor - timedelta(minutes=30)).astimezone(UTC),
+                        floor.astimezone(UTC),
+                    )
+                    if candidate <= self.now
+                    and candidate + length > self.now + timedelta(minutes=5)
+                ),
+                None,
+            )
+            if not checked_in and current is not None and self.fits(staff, item_id, current):
                 start, arrived = current, True
             else:
                 for step in range(1, 20):
