@@ -56,6 +56,7 @@ export function CalendarEventCard({
                 state === "selected" && styles.selected,
                 state === "dragging" && styles.dragging,
                 state === "refused" && styles.refused,
+                state === "draft" && styles.draft,
                 style,
             ]}
         >
@@ -127,6 +128,7 @@ const styles = StyleSheet.create({
         borderColor: c.accent,
     },
     refused: { borderWidth: 2, borderColor: c.danFg },
+    draft: { borderWidth: 2, borderStyle: "dashed", borderColor: c.accent, borderLeftWidth: 3 },
     row: { flexDirection: "row", alignItems: "center", gap: 3, minWidth: 0 },
     head: { flex: 1, fontSize: 12, fontWeight: "700" },
     line: { flexShrink: 1, fontSize: 11 },

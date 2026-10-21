@@ -857,6 +857,11 @@ interface Strings {
         readonly prev: string;
         readonly next: string;
         readonly newBooking: string;
+        readonly draftLabel: (time: string, staff: string, problem: string) => string;
+        readonly draftHint: string;
+        readonly draftHintMobile: string;
+        readonly draftShowForm: string;
+        readonly draftShowCalendar: string;
         readonly newShort: string;
         readonly viewLabel: string;
         readonly viewBoard: string;

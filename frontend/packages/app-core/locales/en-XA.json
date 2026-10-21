@@ -2393,6 +2393,21 @@
     "bookings.newBooking": {
         "message": "[Ñéŵ ƀööķîñĝ one two]"
     },
+    "bookings.draftLabel": {
+        "message": "[Ñéŵ ƀööķîñĝ, {time}, ŵîţĥ {staff}. {problem} one two]"
+    },
+    "bookings.draftHint": {
+        "message": "[Đŕåĝ ţĥé ñéŵ ƀööķîñĝ, öŕ çļîçķ åñ öþéñ ţîɱé, ţö ɱöṽé îţ one two three four]"
+    },
+    "bookings.draftHintMobile": {
+        "message": "[Ţåþ åñ öþéñ ţîɱé, öŕ ðŕåĝ ţĥé ñéŵ ƀööķîñĝ, ţö ɱöṽé îţ one two three four]"
+    },
+    "bookings.draftShowForm": {
+        "message": "[Đéţåîļš one]"
+    },
+    "bookings.draftShowCalendar": {
+        "message": "[Çåļéñðåŕ one]"
+    },
     "bookings.newShort": {
         "message": "[Ñéŵ one]"
     },

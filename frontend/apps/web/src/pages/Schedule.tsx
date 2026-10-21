@@ -8,6 +8,7 @@ import {
     placeEvents,
     strings,
     useBookingActions,
+    useBookingComposer,
     useBookingDetail,
     useBookingStart,
     useMoveEvent,
@@ -16,6 +17,8 @@ import {
     formatParts,
     useBusinessZone,
     minutesInto,
+    dateKey,
+    suggestedStart,
 } from "@clientbridge/app-core";
 import {
     Avatar,
@@ -36,6 +39,7 @@ import {
     BlockCard,
     CalendarToolbar,
     DaySummaryBar,
+    DraftCard,
     GUTTER_PX,
     GridEvent,
     HourLines,
@@ -76,6 +80,12 @@ export function Schedule() {
     const detail = useBookingDetail(board.selected, board.now);
     const actions = useBookingActions(api, detail?.event ?? null, board.now);
     const linkedStart = useBookingStart(linked);
+    const form = useBookingComposer(api, composer, board, () => {
+        setComposer(null);
+    });
+    const draft = form.draft;
+    const draftLane = draft === null ? -1 : day.lanes.findIndex((l) => l.id === draft.staffId);
+    const showDraft = draft !== null && draftLane >= 0 && dateKey(draft.start, zone) === day.key;
     const laneWidth = (): number =>
         (lanesRef.current?.clientWidth ?? 0) / Math.max(1, day.lanes.length);
     const grid = useGridDrag({
@@ -99,7 +109,12 @@ export function Schedule() {
         from: { estimateId?: string | undefined; rebookId?: string | undefined } = {},
     ): void => {
         const first = day.lanes.find((l) => l.hours) ?? day.lanes[0];
-        openSlot(first?.id ?? viewer?.staffId ?? "", Math.max(0, (10 - startHour) * 60), from);
+        board.select(null);
+        setComposer({
+            staffId: first?.id ?? viewer?.staffId ?? "",
+            start: suggestedStart(day.date, board.now, zone),
+            ...from,
+        });
     };
     const params = useLinkIntent({
         onCreate: () => {
@@ -137,8 +152,7 @@ export function Schedule() {
     };
     const rail = composer ? (
         <BookingComposer
-            slot={composer}
-            board={board}
+            form={form}
             onDone={() => {
                 setComposer(null);
             }}
@@ -239,9 +253,7 @@ export function Schedule() {
                                             zone,
                                         );
                                         const hovering =
-                                            hover?.lane === lane.id &&
-                                            composer === null &&
-                                            grid.drag === null;
+                                            hover?.lane === lane.id && grid.drag === null;
                                         return (
                                             <div
                                                 key={lane.id}
@@ -252,8 +264,11 @@ export function Schedule() {
                                                     setHover(null);
                                                 }}
                                                 onClick={(e) => {
-                                                    if (e.target === e.currentTarget && hover)
-                                                        openSlot(lane.id, hover.min);
+                                                    if (e.target !== e.currentTarget || !hover)
+                                                        return;
+                                                    if (composer)
+                                                        form.place(lane.id, slotAt(hover.min));
+                                                    else openSlot(lane.id, hover.min);
                                                 }}
                                             >
                                                 <OffHours
@@ -304,13 +319,30 @@ export function Schedule() {
                                             </div>
                                         );
                                     })}
+                                    {showDraft ? (
+                                        <DraftCard
+                                            draft={draft}
+                                            lane={draftLane}
+                                            lanes={day.lanes.length}
+                                            top={minuteTop(draft.start, startHour, pxPerMin, zone)}
+                                            height={
+                                                ((+draft.end - +draft.start) / 60_000) * pxPerMin
+                                            }
+                                            pxPerMin={pxPerMin}
+                                            laneWidth={laneWidth}
+                                            onPlace={(lane, start) => {
+                                                const id = day.lanes[lane]?.id;
+                                                if (id !== undefined) form.place(id, start);
+                                            }}
+                                        />
+                                    ) : null}
                                     {day.isToday ? (
                                         <NowLine
                                             top={minuteTop(board.now, startHour, pxPerMin, zone)}
                                             label={formatTime(board.now, zone)}
                                         />
                                     ) : null}
-                                    {day.events.length === 0 && !day.closure ? (
+                                    {day.events.length === 0 && !day.closure && !showDraft ? (
                                         <div className="pointer-events-none absolute inset-x-0 top-24 z-10 flex justify-center">
                                             <div className="pointer-events-auto w-[360px] rounded-lg bg-surface shadow-card">
                                                 {day.lanes.some(
@@ -413,8 +445,7 @@ export function Schedule() {
                 >
                     <div className="h-full overflow-hidden bg-surface">
                         <BookingComposer
-                            slot={composer}
-                            board={board}
+                            form={form}
                             onDone={() => {
                                 setComposer(null);
                             }}

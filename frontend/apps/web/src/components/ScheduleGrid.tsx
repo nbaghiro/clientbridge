@@ -1,4 +1,5 @@
 import {
+    type BookingDraft,
     type DaySummary,
     type MoveEvent,
     type MovePlan,
@@ -547,6 +548,91 @@ export function GridEvent({
                 </div>
             ) : null}
         </>
+    );
+}
+
+/** The visit being booked, drawn where it would land: drag it to another member or time. */
+export function DraftCard({
+    draft,
+    lane,
+    lanes,
+    top,
+    height,
+    pxPerMin,
+    laneWidth,
+    onPlace,
+}: {
+    draft: BookingDraft;
+    lane: number;
+    lanes: number;
+    top: number;
+    height: number;
+    pxPerMin: number;
+    laneWidth: () => number;
+    onPlace: (lane: number, start: Date) => void;
+}) {
+    const origin = useRef<{ x: number; y: number; lane: number; start: Date; last: string } | null>(
+        null,
+    );
+    const at = (e: ReactPointerEvent<HTMLElement>): void => {
+        const o = origin.current;
+        if (!o) return;
+        const w = laneWidth();
+        const shift = w === 0 ? 0 : Math.round((e.clientX - o.x) / w);
+        const target = Math.max(0, Math.min(lanes - 1, o.lane + shift));
+        const minutes = Math.round((e.clientY - o.y) / pxPerMin / 15) * 15;
+        const key = `${String(target)}|${String(minutes)}`;
+        if (key === o.last) return;
+        o.last = key;
+        onPlace(target, new Date(+o.start + minutes * 60_000));
+    };
+    return (
+        <div
+            data-testid="draft"
+            className="absolute z-20 cursor-grab touch-none select-none px-[3px] active:cursor-grabbing"
+            style={{
+                top,
+                height,
+                left: `${String((lane * 100) / lanes)}%`,
+                width: `${String(100 / lanes)}%`,
+            }}
+            onPointerDown={(e) => {
+                if (e.button !== 0) return;
+                e.currentTarget.setPointerCapture(e.pointerId);
+                origin.current = {
+                    x: e.clientX,
+                    y: e.clientY,
+                    lane,
+                    start: draft.start,
+                    last: "0|0",
+                };
+            }}
+            onPointerMove={at}
+            onPointerUp={() => {
+                origin.current = null;
+            }}
+            onPointerCancel={() => {
+                origin.current = null;
+            }}
+        >
+            <CalendarEventCard
+                headline={draft.headline}
+                detail={draft.detail}
+                time={height < 58 ? draft.startLabel : draft.timeLabel}
+                intent="accent"
+                density={height < 30 ? "compact" : height < 58 ? "regular" : "full"}
+                state={draft.problem === null ? "draft" : "refused"}
+                label={draft.label}
+            />
+            {draft.problem !== null ? (
+                <span
+                    role="status"
+                    className="pointer-events-none absolute -top-7 left-0 whitespace-nowrap rounded-md bg-danger px-2 py-1 text-xs font-semibold text-surface shadow-card"
+                >
+                    {draft.problem}
+                </span>
+            ) : null}
+        </div>
     );
 }
 

@@ -2589,6 +2589,23 @@
     "bookings.newBooking": {
         "message": "New booking"
     },
+    "bookings.draftLabel": {
+        "message": "New booking, {time}, with {staff}. {problem}",
+        "description": "accessible name of the placeholder card for a visit being booked; problem is empty or why the time doesn't work",
+        "args": ["time", "staff", "problem"]
+    },
+    "bookings.draftHint": {
+        "message": "Drag the new booking, or click an open time, to move it"
+    },
+    "bookings.draftHintMobile": {
+        "message": "Tap an open time, or drag the new booking, to move it"
+    },
+    "bookings.draftShowForm": {
+        "message": "Details"
+    },
+    "bookings.draftShowCalendar": {
+        "message": "Calendar"
+    },
     "bookings.newShort": {
         "message": "New"
     },

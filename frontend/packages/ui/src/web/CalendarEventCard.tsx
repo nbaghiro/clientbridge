@@ -26,6 +26,7 @@ const STATE = {
     dragging: "z-30 scale-[1.02] shadow-lg ring-2 ring-accent",
     refused: "z-30 shadow-lg ring-2 ring-danger",
     faded: "",
+    draft: "z-20 shadow-card outline-2 -outline-offset-2 outline-dashed outline-accent",
 } as const;
 
 export function CalendarEventCard({
