@@ -3,8 +3,6 @@ import {
     type Conversation,
     type InboxThread,
     BUSINESS_CURRENCY,
-    canManagePayments,
-    useClientDirectory,
     consentDetail,
     consentLabel,
     strings,
@@ -14,31 +12,23 @@ import {
     useSubjectKind,
 } from "@clientbridge/app-core";
 import { Avatar, Badge, Button, KeyValueList, Money } from "@clientbridge/ui";
-import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 import { api } from "../lib/api";
-import { useRole } from "../lib/auth";
 import { useOpenLink } from "../lib/links";
-import { type ClientDialog, ClientDialogs, ClientRecordView } from "./ClientRecord";
 
 const s = strings.messaging;
 const CHANNELS: Channel[] = ["sms", "email"];
 
-/** The open conversation's client beside the thread; Open record swaps in the full record. */
+/** The open conversation's client beside the thread; Open record goes to their full record. */
 export function ThreadDetails({ thread }: { thread: InboxThread }) {
-    const [record, setRecord] = useState(false);
-    return record ? (
-        <RailRecord
-            clientId={thread.client_id}
-            onClose={() => {
-                setRecord(false);
-            }}
-        />
-    ) : (
+    const navigate = useNavigate();
+    return (
         <ClientRail
             thread={thread}
             onOpenRecord={() => {
-                setRecord(true);
+                const done = navigate(`/clients?open=${encodeURIComponent(thread.client_id)}`);
+                if (done) done.catch(() => undefined);
             }}
         />
     );
@@ -52,44 +42,6 @@ function ClientRail({ thread, onOpenRecord }: { thread: InboxThread; onOpenRecor
             className="w-[300px] shrink-0 overflow-y-auto border-l border-line bg-surface p-5"
         >
             <ContextPanel thread={thread} conversation={conversation} onOpenRecord={onOpenRecord} />
-        </aside>
-    );
-}
-
-// The client's record in place of the rail, so the conversation stays on screen.
-function RailRecord({ clientId, onClose }: { clientId: string; onClose: () => void }) {
-    const manager = canManagePayments(useRole());
-    const directory = useClientDirectory();
-    const [dialog, setDialog] = useState<ClientDialog | null>(null);
-    return (
-        <aside
-            aria-label={strings.clients.record.pane}
-            className="flex w-[340px] shrink-0 flex-col border-l border-line bg-surface"
-        >
-            <div className="min-h-0 flex-1">
-                <ClientRecordView
-                    visible
-                    variant="inline"
-                    density="brief"
-                    clientId={clientId}
-                    manager={manager}
-                    onClose={onClose}
-                    onDialog={setDialog}
-                />
-            </div>
-            <ClientDialogs
-                dialog={dialog}
-                directory={directory.all}
-                onOpenClient={() => {
-                    setDialog(null);
-                }}
-                onMerged={() => {
-                    setDialog(null);
-                }}
-                onClose={() => {
-                    setDialog(null);
-                }}
-            />
         </aside>
     );
 }

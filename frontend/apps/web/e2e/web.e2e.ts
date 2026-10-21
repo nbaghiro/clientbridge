@@ -687,11 +687,6 @@ test("owner: inbox messages, reviews, broadcasts, forms and contracts", async ({
         const details = main.getByRole("complementary", { name: m.details });
         await expect(details).toBeVisible();
         await details.getByRole("button", { name: m.openRecord }).click();
-        const record = main.getByRole("complementary", { name: strings.clients.record.pane });
-        await expect(
-            record.getByRole("button", { name: strings.clients.record.addNote }),
-        ).toBeVisible();
-        await record.getByRole("button", { name: strings.clients.record.fullRecord }).click();
         await expect(page).toHaveURL(/\/clients/);
         await expect(
             main.getByRole("complementary", { name: strings.clients.record.pane }),

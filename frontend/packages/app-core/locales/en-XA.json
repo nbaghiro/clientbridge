@@ -4067,9 +4067,6 @@
     "clients.record.renews": {
         "message": "[Ŕéñéŵš {when} one]"
     },
-    "clients.record.fullRecord": {
-        "message": "[Ƒûļļ ŕéçöŕð one two]"
-    },
     "clients.record.book": {
         "message": "[Ɓööķ one]"
     },
