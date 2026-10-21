@@ -1,6 +1,5 @@
 import {
     type ItemRow,
-    type Load,
     type StockRowView,
     formatMoney,
     mediaUrl,
@@ -21,53 +20,20 @@ import {
     IconButton,
     ItemImage,
     ListRow,
-    LoadFailed,
     Meter,
     Modal,
     Notice,
     Panel,
     SearchField,
-    Skeleton,
     Stat,
     TextField,
 } from "@clientbridge/ui";
 import { type ReactNode, useState } from "react";
 
 import { api, apiBaseUrl } from "../lib/api";
+import { Loaded } from "./Loaded";
 
 const s = strings.catalog;
-
-/** Loading draws placeholder rows, a failed load the shared retry card, anything else the content. */
-export function Loaded({
-    load,
-    label,
-    error,
-    children,
-}: {
-    load: Load;
-    label: string;
-    error: string;
-    children: ReactNode;
-}) {
-    if (load.state === "loading") {
-        return (
-            <div className="rounded-lg border border-line bg-surface">
-                <Skeleton variant="row" count={5} label={label} />
-            </div>
-        );
-    }
-    if (load.state === "error") {
-        return (
-            <LoadFailed
-                variant="card"
-                message={error}
-                onRetry={load.retry}
-                retrying={load.retrying}
-            />
-        );
-    }
-    return <>{children}</>;
-}
 
 /** The line under the Setup tabs: what the view holds, and its main action. */
 export function Toolbar({
@@ -275,7 +241,12 @@ export function Inventory() {
                         body={s.emptyStockBody}
                     />
                 ) : (
-                    <Loaded load={inv.load} label={s.loadingStock} error={s.loadErrorStock}>
+                    <Loaded
+                        load={inv.load}
+                        loading={s.loadingStock}
+                        failed={s.loadErrorStock}
+                        rows={5}
+                    >
                         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
                             <Stat label={s.statTracked} value={String(inv.stats.tracked)} />
                             <Stat
@@ -375,7 +346,12 @@ function ReceiveDelivery({
                         body={s.emptyDeliveryBody}
                     />
                 ) : (
-                    <Loaded load={d.load} label={s.loadingProducts} error={s.loadErrorProducts}>
+                    <Loaded
+                        load={d.load}
+                        loading={s.loadingProducts}
+                        failed={s.loadErrorProducts}
+                        rows={5}
+                    >
                         <div className="space-y-6">
                             <div className="min-w-0 space-y-5">
                                 <Panel>

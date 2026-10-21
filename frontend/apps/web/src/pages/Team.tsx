@@ -38,13 +38,12 @@ import {
     Icon,
     KeyValueList,
     ListPage,
-    LoadFailed,
     Modal,
     Notice,
     OccurrenceList,
+    PageHeader,
     Panel,
     Select,
-    Skeleton,
     StatusPill,
     SwatchPicker,
     TextField,
@@ -54,6 +53,7 @@ import { useState } from "react";
 
 import { api } from "../lib/api";
 import { useViewer } from "../lib/auth";
+import { Loaded } from "../components/Loaded";
 import { PersonPhoto } from "../components/PersonPhoto";
 
 const t = strings.staff.team;
@@ -75,12 +75,12 @@ function InviteDialog({
 }) {
     const first = form.sent[0];
     return (
-        <Modal variant="drawer" onClose={onClose} size="lg">
+        <Modal onClose={onClose} size="lg">
             {first !== undefined ? (
                 <div className="space-y-4">
                     <Icon name="check" size={32} className="block text-ink-soft" />
                     <div>
-                        <h2 className="font-display text-xl font-bold text-ink">
+                        <h2 className="font-display text-lg font-bold text-ink">
                             {t.sentTitle(form.sent.length)}
                         </h2>
                         <p className="mt-1 text-sm text-muted">{t.sentBody}</p>
@@ -127,7 +127,7 @@ function InviteDialog({
                     }}
                     className="space-y-4"
                 >
-                    <h2 className="font-display text-xl font-bold text-ink">{t.inviteMember}</h2>
+                    <h2 className="font-display text-lg font-bold text-ink">{t.inviteMember}</h2>
                     <TextField
                         label={t.emails}
                         hint={t.emailsHint}
@@ -166,6 +166,27 @@ function InviteDialog({
     );
 }
 
+// Role, profile and pay are separate commands with their own checks, so each section saves itself.
+function SectionSave({
+    label,
+    busy,
+    disabled = false,
+    onPress,
+}: {
+    label: string;
+    busy: boolean;
+    disabled?: boolean;
+    onPress: () => void;
+}) {
+    return (
+        <div className="flex justify-end">
+            <Button variant="outline" size="sm" onPress={onPress} busy={busy} disabled={disabled}>
+                {label}
+            </Button>
+        </div>
+    );
+}
+
 function PaySection({ row }: { row: StaffPayRow }) {
     const form = useStaffPayForm(api, row, () => undefined);
     return (
@@ -200,11 +221,11 @@ function PaySection({ row }: { row: StaffPayRow }) {
                     </>
                 ) : null}
                 {form.error !== null ? <Notice tone="danger">{form.error}</Notice> : null}
-                <div>
-                    <Button variant="outline" size="sm" onPress={form.submit} busy={form.busy}>
-                        {form.busy ? strings.common.saving : strings.common.save}
-                    </Button>
-                </div>
+                <SectionSave
+                    busy={form.busy}
+                    label={form.busy ? strings.common.saving : t.savePay}
+                    onPress={form.submit}
+                />
             </div>
         </DetailSection>
     );
@@ -233,17 +254,12 @@ function ProfileSection({ member }: { member: TeamMember }) {
                     />
                 </Field>
                 {form.error !== null ? <Notice tone="danger">{form.error}</Notice> : null}
-                <div>
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onPress={form.submit}
-                        busy={form.busy}
-                        disabled={!form.dirty}
-                    >
-                        {form.busy ? strings.common.saving : strings.common.save}
-                    </Button>
-                </div>
+                <SectionSave
+                    busy={form.busy}
+                    disabled={!form.dirty}
+                    label={form.busy ? strings.common.saving : t.saveProfile}
+                    onPress={form.submit}
+                />
             </div>
         </DetailSection>
     );
@@ -268,10 +284,10 @@ function RemoveDialog({
     const outcome = removal.outcome;
     if (outcome !== null) {
         return (
-            <Modal variant="drawer" onClose={finish} size="lg">
+            <Modal onClose={finish} size="lg">
                 <div className="space-y-4">
                     <div>
-                        <h2 className="font-display text-xl font-bold text-ink">
+                        <h2 className="font-display text-lg font-bold text-ink">
                             {t.removedTitle(member.name)}
                         </h2>
                         <p className="mt-1 text-sm text-muted">{outcome.body}</p>
@@ -290,10 +306,10 @@ function RemoveDialog({
         );
     }
     return (
-        <Modal variant="drawer" onClose={onClose} size="lg">
+        <Modal onClose={onClose} size="lg">
             <div className="space-y-4">
                 <div>
-                    <h2 className="font-display text-xl font-bold text-ink">
+                    <h2 className="font-display text-lg font-bold text-ink">
                         {t.removeTitle(member.name)}
                     </h2>
                     <p className="mt-1 text-sm text-muted">
@@ -379,19 +395,6 @@ function MemberDetail({
                 />
             }
             onClose={onClose}
-            actions={
-                editable ? (
-                    <Button
-                        onPress={() => {
-                            team.changeRole(member.id, role);
-                        }}
-                        busy={busy}
-                        disabled={role === member.role}
-                    >
-                        {busy ? t.saving : t.saveRole}
-                    </Button>
-                ) : undefined
-            }
         >
             {team.canManage ? (
                 <DetailSection>
@@ -414,13 +417,23 @@ function MemberDetail({
                 {owner ? (
                     <p className="text-sm text-muted">{t.ownerNote}</p>
                 ) : editable ? (
-                    <Choice<MemberRole>
-                        layout="cards"
-                        label={t.changeRole}
-                        value={role}
-                        onChange={setRole}
-                        options={roleOptions()}
-                    />
+                    <div className="flex flex-col gap-3">
+                        <Choice<MemberRole>
+                            layout="cards"
+                            label={t.changeRole}
+                            value={role}
+                            onChange={setRole}
+                            options={roleOptions()}
+                        />
+                        <SectionSave
+                            busy={busy}
+                            disabled={role === member.role}
+                            label={busy ? t.saving : t.saveRole}
+                            onPress={() => {
+                                team.changeRole(member.id, role);
+                            }}
+                        />
+                    </div>
                 ) : (
                     <p className="text-sm text-ink-soft">
                         {member.isYou && team.canManage
@@ -571,47 +584,34 @@ export function Team() {
     const open = team.members.find((m) => m.id === openId);
 
     return (
-        <div>
-            <div className="flex items-start justify-between gap-4">
-                <p className="mt-1 text-sm text-muted">{t.subtitle}</p>
-                {team.canManage && team.load.hasData ? (
-                    <Button
-                        icon="plus"
-                        onPress={() => {
-                            setInviting(true);
-                        }}
-                    >
-                        {t.inviteMember}
-                    </Button>
-                ) : null}
-            </div>
+        <div className="space-y-6">
+            <PageHeader
+                title={strings.navigation.setupSections.team}
+                subtitle={t.subtitle}
+                actions={
+                    team.canManage && team.load.hasData ? (
+                        <Button
+                            icon="plus"
+                            onPress={() => {
+                                setInviting(true);
+                            }}
+                        >
+                            {t.inviteMember}
+                        </Button>
+                    ) : undefined
+                }
+            />
             {!team.canManage && team.load.hasData ? (
-                <div className="mt-4 space-y-4">
+                <div className="space-y-4">
                     <Notice tone="info" banner>
                         {team.ownerName === null ? t.readOnlyNoName : t.readOnly(team.ownerName)}
                     </Notice>
                     <RoleAccess team={team} />
                 </div>
             ) : null}
-            {team.load.state === "loading" ? (
-                <div className="mt-6">
-                    <Panel flush>
-                        <Skeleton variant="row" count={4} label={t.loading} />
-                    </Panel>
-                </div>
-            ) : team.load.state === "error" ? (
-                <div className="mt-6">
-                    <Panel flush>
-                        <LoadFailed
-                            message={t.loadError}
-                            onRetry={team.load.retry}
-                            retrying={team.load.retrying}
-                        />
-                    </Panel>
-                </div>
-            ) : (
-                <>
-                    <div className="mt-6">
+            <Loaded load={team.load} loading={t.loading} failed={t.loadError}>
+                <div className="space-y-6">
+                    <div>
                         <ListPage
                             head={
                                 <div className={grid}>
@@ -668,7 +668,7 @@ export function Team() {
                         />
                     </div>
                     {team.canManage ? (
-                        <div className="mt-6">
+                        <div>
                             <Panel flush title={strings.staff.pending}>
                                 {team.invites.length === 0 ? (
                                     <p className="px-4 py-6 text-center text-sm text-muted">
@@ -685,12 +685,10 @@ export function Team() {
                         </div>
                     ) : null}
                     {team.error !== null && open === undefined ? (
-                        <div className="mt-4">
-                            <Notice tone="danger">{team.error}</Notice>
-                        </div>
+                        <Notice tone="danger">{team.error}</Notice>
                     ) : null}
                     {team.alone && team.canManage ? (
-                        <div className="mt-6">
+                        <div>
                             <Empty
                                 variant="card"
                                 icon="users"
@@ -710,8 +708,8 @@ export function Team() {
                             />
                         </div>
                     ) : null}
-                </>
-            )}
+                </div>
+            </Loaded>
             {open !== undefined ? (
                 <MemberDetail
                     key={open.id}

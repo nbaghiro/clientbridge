@@ -96,13 +96,24 @@ const EMPTY_PROFILE: ProfileFields = {
     pickup_capacity: "10",
 };
 
-export const PUBLIC_PROFILE_FIELDS = PROFILE_KEYS.map((key) => ({
+// The cover has its own upload control, and pickup settings live with the products.
+export const PUBLIC_PROFILE_FIELDS = (
+    ["about", "address", "phone", "email", "website", "neighbourhood", "gallery_urls"] as const
+).map((key) => ({
     key,
     get label() {
         return strings.business.getSetUp.profile[key];
     },
     multiline: key === "about" || key === "gallery_urls",
-    numeric: key.startsWith("pickup_"),
+}));
+
+export const PICKUP_FIELDS = (
+    ["pickup_prep_minutes", "pickup_hold_days", "pickup_capacity"] as const
+).map((key) => ({
+    key,
+    get label() {
+        return strings.business.getSetUp.profile[key];
+    },
 }));
 
 interface Brand {
@@ -758,7 +769,7 @@ export function setupTasks(c: SetupCounts): SetupTask[] {
             key: "brand",
             ...o.tasks.brand,
             done: brand.primary !== "" || brand.logo_file_id !== "",
-            target: "setup",
+            target: "business",
         },
         {
             key: "stripe",

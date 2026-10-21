@@ -71,10 +71,10 @@ export function Setup() {
 
     return (
         <PageFrame className="flex gap-8">
-            <nav className="w-52 shrink-0">
-                <h1 className="mb-3 px-3 font-display text-lg font-bold text-ink">
+            <nav aria-label={strings.navigation.setup} className="w-52 shrink-0">
+                <p className="mb-3 px-3 font-display text-lg font-bold text-ink">
                     {strings.navigation.setup}
-                </h1>
+                </p>
                 <div className="space-y-0.5">
                     {sections.map((s) => (
                         <NavLink
@@ -93,10 +93,7 @@ export function Setup() {
                     ))}
                 </div>
             </nav>
-            <div className="min-w-0 flex-1">
-                <h2 className="mb-1 font-display text-2xl font-bold text-ink">{current.label}</h2>
-                {sectionBody(current.key)}
-            </div>
+            <div className="min-w-0 flex-1">{sectionBody(current.key)}</div>
         </PageFrame>
     );
 }

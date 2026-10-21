@@ -9,7 +9,6 @@ import {
 import { theme } from "@clientbridge/tokens/native";
 import {
     Button,
-    Checkbox,
     Choice,
     LoadFailed,
     MessageBubble,
@@ -45,17 +44,8 @@ export function RemindersScreen() {
                     <View style={styles.card}>
                         <Text style={styles.cardTitle}>{s.remindersTitle}</Text>
                         <Text style={styles.muted}>{s.remindersHint}</Text>
-                        <Text style={styles.value}>{s.ruleLead}</Text>
-                        <View style={styles.rowGap}>
-                            <Checkbox label={s.channelSms} value disabled />
-                            <Checkbox label={s.channelEmail} value disabled />
-                        </View>
-                        <Text style={styles.muted}>{s.channelsHint}</Text>
-                        <Notice tone="info" banner>
-                            {s.rulesFixed}
-                        </Notice>
-                        <Text style={styles.value}>{s.includeLink}</Text>
-                        <Text style={styles.muted}>{s.includeLinkHint}</Text>
+                        <Text style={styles.soft}>{s.rule}</Text>
+                        {r.manageLink ? <Text style={styles.soft}>{s.includeLink}</Text> : null}
                     </View>
                     <View style={styles.card}>
                         <View style={styles.headRow}>
@@ -103,10 +93,9 @@ export function RemindersScreen() {
                     </View>
                     <View style={styles.card}>
                         <Text style={styles.cardTitle}>{s.endOfDayTitle}</Text>
-                        <Text style={styles.muted}>{s.endOfDayHint}</Text>
-                        <Notice tone="info" banner>
-                            {s.autoCloseLater}
-                        </Notice>
+                        <Text style={styles.muted}>
+                            {r.autoComplete ? s.endOfDayAuto : s.endOfDayHint}
+                        </Text>
                         <Text style={styles.value}>{s.openToday(r.openToday.length)}</Text>
                         <OpenVisits visits={r.openToday} r={r} />
                         {r.openEarlier.length > 0 ? (

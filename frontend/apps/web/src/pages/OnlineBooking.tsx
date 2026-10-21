@@ -1,5 +1,5 @@
 import { canManagePayments, strings } from "@clientbridge/app-core";
-import { Tabs } from "@clientbridge/ui";
+import { PageHeader, Tabs } from "@clientbridge/ui";
 import { useState } from "react";
 
 import {
@@ -18,24 +18,27 @@ export function OnlineBooking() {
 
     if (!canManagePayments(role)) {
         return (
-            <div className="max-w-3xl">
-                <p className="mt-1 text-sm text-muted">{o.ownerAdminOnly}</p>
-            </div>
+            <PageHeader
+                title={strings.navigation.setupSections.onlineBooking}
+                subtitle={o.ownerAdminOnly}
+            />
         );
     }
 
     return (
         <div className="space-y-6">
-            <Tabs
-                label={o.title}
-                items={[
-                    { key: "page", label: o.tabPage },
-                    { key: "addons", label: o.tabAddons },
-                    { key: "policy", label: o.tabPolicy },
-                ]}
-                active={tab}
-                onSelect={setTab}
-            />
+            <PageHeader title={strings.navigation.setupSections.onlineBooking}>
+                <Tabs
+                    label={o.title}
+                    items={[
+                        { key: "page", label: o.tabPage },
+                        { key: "addons", label: o.tabAddons },
+                        { key: "policy", label: o.tabPolicy },
+                    ]}
+                    active={tab}
+                    onSelect={setTab}
+                />
+            </PageHeader>
             {tab === "page" ? <BookingPageSettings /> : null}
             {tab === "addons" ? <AddonOffers /> : null}
             {tab === "policy" ? <BookingPolicySettings /> : null}

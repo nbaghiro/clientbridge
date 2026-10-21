@@ -14,6 +14,7 @@ import {
     KeyValueList,
     LoadFailed,
     Money,
+    PageHeader,
     Panel,
     PaymentNotices,
     Skeleton,
@@ -31,47 +32,38 @@ function Hero({ paid }: { paid: GettingPaidView }) {
     const warn = paid.phase !== "enabled";
     const act = paid.phase === "restricted" || paid.phase === "in_progress";
     return (
-        <section
-            className={`rounded-lg border p-5 ${warn ? "border-warn-fg/25 bg-warn-bg" : "border-line bg-surface shadow-card"}`}
-        >
-            <div className="flex items-start gap-4">
+        <Panel
+            title={paid.title}
+            subtitle={paid.message}
+            actions={
                 <Icon
                     name={warn ? "alert" : "checkCircle"}
                     size={22}
-                    className="mt-0.5 text-ink-soft"
+                    className={warn ? "text-warn-fg" : "text-ok-fg"}
                 />
-                <div className="min-w-0 flex-1">
-                    <h2 className="font-display text-lg font-bold text-ink">{paid.title}</h2>
-                    <p className="mt-1 max-w-xl text-sm leading-relaxed text-ink-soft">
-                        {paid.message}
-                    </p>
-                    <div className="mt-4 flex flex-wrap gap-2">
-                        <Button
-                            variant="outline"
-                            icon="bank"
-                            disabled={!paid.account.ready}
-                            onPress={() => {
-                                paid.account.open("account");
-                            }}
-                        >
-                            {strings.paymentAccount.manage}
-                        </Button>
-                        {act ? (
-                            <Button
-                                disabled={!paid.account.ready}
-                                onPress={paid.finish}
-                                icon="card"
-                            >
-                                {g.finish}
-                            </Button>
-                        ) : null}
-                        <Button variant="outline" onPress={paid.refresh} busy={paid.refreshing}>
-                            {paid.refreshing ? g.checking : g.refresh}
-                        </Button>
-                    </div>
-                </div>
+            }
+        >
+            <div className="flex flex-wrap gap-2">
+                <Button
+                    variant="outline"
+                    icon="bank"
+                    disabled={!paid.account.ready}
+                    onPress={() => {
+                        paid.account.open("account");
+                    }}
+                >
+                    {strings.paymentAccount.manage}
+                </Button>
+                {act ? (
+                    <Button disabled={!paid.account.ready} onPress={paid.finish} icon="card">
+                        {g.finish}
+                    </Button>
+                ) : null}
+                <Button variant="outline" onPress={paid.refresh} busy={paid.refreshing}>
+                    {paid.refreshing ? g.checking : g.refresh}
+                </Button>
             </div>
-        </section>
+        </Panel>
     );
 }
 
@@ -84,8 +76,8 @@ function Body({ paid }: { paid: GettingPaidView }) {
                 <PaymentNotices {...paid.notices} onReview={paid.refresh} />
             ) : null}
             <Hero paid={paid} />
-            <div className="grid gap-6 xl:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]">
-                <div className="self-start">
+            <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]">
+                <div>
                     <Panel flush title={g.whatsNeeded}>
                         {paid.requirements.length === 0 ? (
                             <p className="px-4 py-4 text-sm text-muted">{g.nothingNeeded}</p>
@@ -219,9 +211,12 @@ export function GettingPaid() {
     if (paid.account.props !== null) return <PaymentAccount {...paid.account.props} />;
 
     return (
-        <div>
-            <p className="mt-1 text-sm text-muted">{g.subtitle}</p>
-            <div className="mt-6">
+        <div className="space-y-6">
+            <PageHeader
+                title={strings.navigation.setupSections.gettingPaid}
+                subtitle={g.subtitle}
+            />
+            <div>
                 {paid.phase === "loading" ? (
                     <div className="space-y-6">
                         <Panel flush>

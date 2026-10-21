@@ -1,5 +1,6 @@
 import {
     BRAND_COLOURS,
+    PICKUP_FIELDS,
     PUBLIC_PROFILE_FIELDS,
     type BrandForm,
     bookingPageUrl,
@@ -240,29 +241,28 @@ function BrandSheet({ brand, onClose }: { brand: BrandForm; onClose: () => void 
                 <View style={styles.profileSection}>
                     <Text style={styles.sheetTitle}>{o.profileTitle}</Text>
                     <Text style={styles.small}>{o.profileHint}</Text>
-                    {PUBLIC_PROFILE_FIELDS.map((field) =>
-                        field.multiline ? (
-                            <TextField
-                                multiline
-                                key={field.key}
-                                label={field.label}
-                                value={brand.profile[field.key]}
-                                onChange={(value) => {
-                                    brand.setProfile(field.key, value);
-                                }}
-                            />
-                        ) : (
-                            <TextField
-                                key={field.key}
-                                label={field.label}
-                                type={field.numeric ? "number" : "text"}
-                                value={brand.profile[field.key]}
-                                onChange={(value) => {
-                                    brand.setProfile(field.key, value);
-                                }}
-                            />
-                        ),
-                    )}
+                    {PUBLIC_PROFILE_FIELDS.map((field) => (
+                        <TextField
+                            key={field.key}
+                            multiline={field.multiline}
+                            label={field.label}
+                            value={brand.profile[field.key]}
+                            onChange={(value) => {
+                                brand.setProfile(field.key, value);
+                            }}
+                        />
+                    ))}
+                    {PICKUP_FIELDS.map((field) => (
+                        <TextField
+                            key={field.key}
+                            label={field.label}
+                            type="number"
+                            value={brand.profile[field.key]}
+                            onChange={(value) => {
+                                brand.setProfile(field.key, value);
+                            }}
+                        />
+                    ))}
                     <Text style={styles.small}>{o.publicTeamHint}</Text>
                     {brand.publicTeam.map((person) => (
                         <Checkbox

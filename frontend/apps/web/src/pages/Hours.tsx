@@ -50,59 +50,53 @@ export function Hours() {
 
     return (
         <div className="space-y-6">
-            <div className="flex flex-wrap items-end justify-between gap-3">
-                <div>
-                    <h2 className="font-display text-lg font-semibold text-ink">{s.title}</h2>
-                    <p className="mt-1 text-sm text-muted">
-                        {week.canClose ? s.subtitle : s.ownOnly}
-                    </p>
-                </div>
-                <div className="flex gap-2">
-                    {week.canClose ? (
-                        <Button
-                            variant="outline"
-                            onPress={() => {
-                                setAdding("closure");
-                            }}
-                        >
-                            {s.addClosure}
-                        </Button>
-                    ) : null}
-                    <Button
-                        onPress={() => {
-                            setAdding("time_off");
-                        }}
-                    >
-                        {s.addTimeOff}
-                    </Button>
-                </div>
-            </div>
-
             <Panel
                 flush
-                title={s.teamHoursTitle}
+                title={s.title}
+                subtitle={week.canClose ? s.subtitle : s.ownOnly}
                 actions={
-                    <div className="flex items-center gap-1">
-                        <IconButton
-                            icon="chevronLeft"
-                            label={s.prevWeek}
+                    <>
+                        <div className="flex items-center gap-1">
+                            <IconButton
+                                icon="chevronLeft"
+                                label={s.prevWeek}
+                                size="sm"
+                                onPress={() => {
+                                    week.shift(-1);
+                                }}
+                            />
+                            <span className="min-w-[150px] text-center text-sm font-medium text-ink-soft">
+                                {week.label}
+                            </span>
+                            <IconButton
+                                icon="chevronRight"
+                                label={s.nextWeek}
+                                size="sm"
+                                onPress={() => {
+                                    week.shift(1);
+                                }}
+                            />
+                        </div>
+                        {week.canClose ? (
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                onPress={() => {
+                                    setAdding("closure");
+                                }}
+                            >
+                                {s.addClosure}
+                            </Button>
+                        ) : null}
+                        <Button
                             size="sm"
                             onPress={() => {
-                                week.shift(-1);
+                                setAdding("time_off");
                             }}
-                        />
-                        <span className="min-w-[150px] text-center text-sm font-medium text-ink-soft">
-                            {week.label}
-                        </span>
-                        <IconButton
-                            icon="chevronRight"
-                            label={s.nextWeek}
-                            size="sm"
-                            onPress={() => {
-                                week.shift(1);
-                            }}
-                        />
-                    </div>
+                        >
+                            {s.addTimeOff}
+                        </Button>
+                    </>
                 }
             >
                 {week.load.state === "loading" ? (
@@ -365,7 +359,7 @@ function HoursModal({ member, onClose }: { member: TeamHoursMember; onClose: () 
     const photos = usePeoplePhotos();
     const editor = useWeekEditor(api, member.id);
     return (
-        <Modal variant="drawer" onClose={onClose} size="lg">
+        <Modal onClose={onClose} size="lg">
             <div className="space-y-4">
                 <div className="flex items-center gap-3">
                     <Avatar name={member.name} src={photos.staff(member.id)} color={member.color} />
@@ -463,7 +457,7 @@ function TimeOffModal({ staffId, onClose }: { staffId: string; onClose: () => vo
         form.submit();
     };
     return (
-        <Modal variant="drawer" onClose={onClose} size="lg">
+        <Modal onClose={onClose} size="lg">
             <form
                 className="space-y-4"
                 onSubmit={submit}

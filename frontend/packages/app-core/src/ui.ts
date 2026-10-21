@@ -341,6 +341,8 @@ export interface PanelProps {
     actions?: ReactNode | undefined;
     // true drops the padding so a list or table runs edge to edge.
     flush?: boolean | undefined;
+    // A shaded row under the content for the card's save button or totals.
+    footer?: ReactNode | undefined;
     children: ReactNode;
 }
 

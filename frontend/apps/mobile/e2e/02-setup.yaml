@@ -10,7 +10,7 @@ name: Owner setup surfaces
 - takeScreenshot: get-set-up
 - tapOn: "Back|Go back|Navigate up"
 - tapOn: "Business"
-- assertVisible: "Your business profile. Sales tax numbers are in Sales tax."
+- assertVisible: "Your business name, contact details and legal address."
 - takeScreenshot: business
 - tapOn: "Back|Go back|Navigate up"
 - tapOn: "Services & products"

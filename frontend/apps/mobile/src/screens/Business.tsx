@@ -17,6 +17,9 @@ const c = theme.colors;
 export function Business({ footer }: { footer?: ReactNode }) {
     const form = useBusinessForm(api);
     const fields = form.fields;
+    const save = (): void => {
+        form.submit();
+    };
 
     if (fields === null) {
         return <Loading />;
@@ -94,7 +97,7 @@ export function Business({ footer }: { footer?: ReactNode }) {
                 {form.saved ? <Notice tone="success">{strings.common.saved}</Notice> : null}
 
                 <View style={styles.submitGap}>
-                    <Button size="lg" full onPress={form.submit} busy={form.busy}>
+                    <Button size="lg" full onPress={save} busy={form.busy}>
                         {strings.common.save}
                     </Button>
                 </View>

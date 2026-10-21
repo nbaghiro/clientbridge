@@ -93,7 +93,7 @@ describe("stock", () => {
         expect(stockState({ ...base, track_stock: 0 })).toBe("untracked");
     });
 
-    it("filters low stock and archived items", () => {
+    it("filters archived items and kinds", () => {
         const rows = [
             base,
             { ...base, id: "low", stock_on_hand: 1 },
@@ -101,11 +101,10 @@ describe("stock", () => {
         ];
         const ids = (f: Parameters<typeof matchesFilter>[1]): string[] =>
             rows.filter((r) => matchesFilter(r, f)).map((r) => r.id);
-        expect(ids("lowStock")).toEqual(["low"]);
         expect(ids("archived")).toEqual(["old"]);
         expect(ids("all")).toEqual(["it_1", "low"]);
-        expect(ids("products")).toEqual(["it_1", "low"]);
         expect(ids("services")).toEqual([]);
+        expect(ids("plans")).toEqual([]);
     });
 
     it("scales the meter so the low line sits at the middle", () => {
