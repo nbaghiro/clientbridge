@@ -5,6 +5,7 @@ from datetime import UTC, datetime, timedelta
 from types import FunctionType
 from typing import cast
 
+import pytest
 from arq.cron import CronJob
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -33,6 +34,7 @@ from tests.conftest import (
     FakePushSender,
     FakeSmsSender,
 )
+from tests.google_business import configure_google_review_profile, review_emails
 from tests.helpers import client_id, new_client, sent_invoice
 
 BIZ = "bz_birchbark"
@@ -236,7 +238,7 @@ async def test_review_requests_for_recently_completed(
 ) -> None:
     business = await db.get(Business, BIZ)
     assert business is not None
-    business.google_review_url = "https://g.page/r/example/review"
+    await configure_google_review_profile(db)
     await db.flush()
     cid = await client_id(db, email="rev-job@example.ca")
     bid = await _completed_booking(db, cid, completed_at=NOW)
@@ -247,7 +249,7 @@ async def test_review_requests_for_recently_completed(
         await db.execute(select(ReviewRequest).where(ReviewRequest.booking_id == bid))
     ).scalar_one()
     assert req.requested_at == REVIEWS_AT
-    assert any(m.to == "rev-job@example.ca" for m in email.sent)
+    assert any(m.to == "rev-job@example.ca" for m in await review_emails(db))
     assert await run_review_requests(db, notifier, REVIEWS_AT) == 0  # any existing request dedups
 
 
@@ -256,7 +258,7 @@ async def test_review_requests_skips_business_without_google_link(
 ) -> None:
     business = await db.get(Business, BIZ)
     assert business is not None
-    business.google_review_url = None
+    await configure_google_review_profile(db, False)
     await _completed_booking(db, await client_id(db), completed_at=NOW)
     assert await run_review_requests(db, _notifier(email, sms, push), REVIEWS_AT) == 0
     assert not email.sent
@@ -267,7 +269,7 @@ async def test_review_requests_skips_already_requested(
 ) -> None:
     business = await db.get(Business, BIZ)
     assert business is not None
-    business.google_review_url = "https://g.page/r/example/review"
+    await configure_google_review_profile(db)
     await db.flush()
     cid = await client_id(db)
     bid = await _completed_booking(db, cid, completed_at=NOW)
@@ -281,7 +283,7 @@ async def test_review_requests_skips_non_completed_and_stale(
 ) -> None:
     business = await db.get(Business, BIZ)
     assert business is not None
-    business.google_review_url = "https://g.page/r/example/review"
+    await configure_google_review_profile(db)
     await db.flush()
     cid = await client_id(db)
     await _completed_booking(db, cid, completed_at=NOW, status="confirmed")  # not completed
@@ -294,7 +296,7 @@ async def test_review_requests_ask_each_client_once(
 ) -> None:
     business = await db.get(Business, BIZ)
     assert business is not None
-    business.google_review_url = "https://g.page/r/example/review"
+    await configure_google_review_profile(db)
     await db.flush()
     cid = await new_client(db, email="regular@example.ca")
     await _completed_booking(db, cid, completed_at=NOW - timedelta(days=2))
@@ -303,7 +305,7 @@ async def test_review_requests_ask_each_client_once(
     assert await run_review_requests(db, notifier, REVIEWS_AT) == 1
     asked = (await db.scalars(select(ReviewRequest).where(ReviewRequest.client_id == cid))).all()
     assert [r.booking_id for r in asked] == [latest]
-    assert sum(m.to == "regular@example.ca" for m in email.sent) == 1
+    assert sum(m.to == "regular@example.ca" for m in await review_emails(db)) == 1
     assert await run_review_requests(db, notifier, REVIEWS_AT + timedelta(days=1)) == 0
 
 
@@ -312,7 +314,7 @@ async def test_review_requests_skip_businesses_that_turned_them_off(
 ) -> None:
     business = await db.get(Business, BIZ)
     assert business is not None
-    business.google_review_url = "https://g.page/r/example/review"
+    await configure_google_review_profile(db)
     business.review_requests_enabled = False
     await db.flush()
     await _completed_booking(db, await new_client(db), completed_at=NOW)
@@ -325,7 +327,7 @@ async def test_review_requests_skip_archived_clients(
 ) -> None:
     business = await db.get(Business, BIZ)
     assert business is not None
-    business.google_review_url = "https://g.page/r/example/review"
+    await configure_google_review_profile(db)
     await db.flush()
     cid = await new_client(db, email="archived@example.ca")
     await _completed_booking(db, cid, completed_at=NOW)
@@ -449,3 +451,57 @@ def test_stripe_recovery_is_not_scheduled() -> None:
         names.add(job.name.removeprefix("cron:"))
     assert "recover_payments" not in names
     assert "reconcile_ledger" in names
+
+
+pytestmark = pytest.mark.usefixtures("google_review_provider")
+
+
+@pytest.mark.usefixtures("db")
+async def test_review_job_releases_previous_business_lock_before_next_provider_call(
+    monkeypatch: pytest.MonkeyPatch,
+    email: FakeEmailSender,
+    sms: FakeSmsSender,
+    push: FakePushSender,
+) -> None:
+    from scripts.seed_demo import purge_businesses
+    from sqlalchemy import text
+
+    from clientbridge.core.db import SessionLocal
+    from clientbridge.services import reviews
+
+    async with SessionLocal() as setup:
+        factory = Factory(setup)
+        first = await factory.business()
+        second = await factory.business()
+        await setup.commit()
+
+    async def businesses(db: AsyncSession, now: datetime, hour: int) -> list[Business]:
+        return [first, second]
+
+    async def link(db: AsyncSession, business_id: str) -> str | None:
+        if business_id == second.id:
+            async with SessionLocal() as probe:
+                assert (
+                    await probe.scalar(
+                        text("SELECT pg_try_advisory_xact_lock(hashtextextended(:key, 0))"),
+                        {"key": f"google:{first.id}"},
+                    )
+                    is True
+                )
+        return None
+
+    monkeypatch.setattr(reviews, "businesses_at_hour", businesses)
+    monkeypatch.setattr(reviews, "google_invitation_url", link)
+    try:
+        async with SessionLocal() as job:
+            assert await run_review_requests(job, _notifier(email, sms, push), REVIEWS_AT) == 0
+    finally:
+        from sqlalchemy.ext.asyncio import create_async_engine
+
+        from clientbridge.core.config import get_settings
+
+        owner = create_async_engine(get_settings().migration_database_url)
+        async with AsyncSession(owner) as cleanup:
+            await purge_businesses(cleanup, [first.id, second.id], [])
+            await cleanup.commit()
+        await owner.dispose()

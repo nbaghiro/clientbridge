@@ -902,3 +902,22 @@ class Factory:
 @pytest.fixture
 def factory(db: AsyncSession) -> Factory:
     return Factory(db)
+
+
+@pytest.fixture
+async def google_review_provider(monkeypatch: pytest.MonkeyPatch) -> None:
+    from clientbridge.services import reviews
+    from tests.google_business import FakeGoogle, FakeVault
+
+    settings = get_settings()
+    for name, value in {
+        "google_business_enabled": True,
+        "google_business_client_id": "id",
+        "google_business_client_secret": "secret",
+        "google_business_kms_key": "key",
+        "google_business_redirect_uri": "http://test/callback",
+    }.items():
+        monkeypatch.setattr(settings, name, value)
+    gateway, vault = FakeGoogle(), FakeVault()
+    monkeypatch.setattr(reviews, "get_google_business_gateway", lambda: gateway)
+    monkeypatch.setattr(reviews, "get_google_secret_store", lambda: vault)

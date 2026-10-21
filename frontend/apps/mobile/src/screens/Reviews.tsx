@@ -10,6 +10,7 @@ import {
     useGoogleReviews,
     useBusinessZone,
 } from "@clientbridge/app-core";
+import { Linking } from "react-native";
 import { theme } from "@clientbridge/tokens/native";
 import {
     Avatar,
@@ -17,6 +18,7 @@ import {
     Button,
     Modal,
     Notice,
+    Panel,
     Select,
     SearchSelect,
     Stars,
@@ -64,11 +66,15 @@ export function Reviews() {
                     <Button onPress={google.refresh}>{s.retry}</Button>
                 ) : null}
                 {google.connection?.state === "unavailable" ? (
-                    <Notice tone="info">{s.unavailable}</Notice>
+                    <Panel>
+                        <Text style={styles.sheetTitle}>{s.connectTitle}</Text>
+                        <Text style={styles.meta}>{s.connectBody}</Text>
+                        <Notice tone="info">{s.unavailable}</Notice>
+                    </Panel>
                 ) : null}
                 {google.connection?.state === "disconnected" ||
                 google.connection?.state === "reconnect_required" ? (
-                    <View style={styles.card}>
+                    <Panel>
                         <Text style={styles.sheetTitle}>{s.connectTitle}</Text>
                         <Text style={styles.meta}>
                             {google.connection.state === "reconnect_required"
@@ -80,7 +86,22 @@ export function Reviews() {
                                 ? s.reconnect
                                 : s.connect}
                         </Button>
-                    </View>
+                        <Button
+                            variant="outline"
+                            onPress={() => {
+                                Linking.openURL("https://www.google.com/business/").catch(
+                                    () => undefined,
+                                );
+                            }}
+                        >
+                            {s.profileHelp}
+                        </Button>
+                    </Panel>
+                ) : null}
+                {google.connection?.state === "active" && google.error !== null ? (
+                    <Button variant="outline" disabled={google.busy !== null} onPress={connect}>
+                        {s.changeAccount}
+                    </Button>
                 ) : null}
                 {google.busy === "connect" ? (
                     <View style={styles.card}>
@@ -148,6 +169,9 @@ export function Reviews() {
                             onPress={google.selectLocation}
                         >
                             {s.useLocation}
+                        </Button>
+                        <Button variant="outline" disabled={google.busy !== null} onPress={connect}>
+                            {s.changeAccount}
                         </Button>
                     </View>
                 ) : null}

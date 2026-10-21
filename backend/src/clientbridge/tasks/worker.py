@@ -11,6 +11,11 @@ from clientbridge.core.config import get_settings
 from clientbridge.core.db import SessionLocal
 from clientbridge.core.logs import configure_logging
 from clientbridge.integrations.expo import get_push_sender
+from clientbridge.integrations.google_business import (
+    get_google_business_gateway,
+    get_google_flow_store,
+    get_google_secret_store,
+)
 from clientbridge.integrations.http import close_http_client, start_http_client
 from clientbridge.integrations.resend import get_email_sender
 from clientbridge.integrations.s3 import get_file_storage
@@ -32,7 +37,7 @@ from clientbridge.services.orders import run_pickup_reminders, run_reap_unpaid_o
 from clientbridge.services.payments import run_reconcile_payments
 from clientbridge.services.plans import run_sync_seats, run_trial_reminders
 from clientbridge.services.receipts import run_prune_receipts
-from clientbridge.services.reviews import run_review_requests
+from clientbridge.services.reviews import run_google_operations, run_review_requests
 
 Context = dict[str, object]
 
@@ -79,6 +84,13 @@ async def prune_devices(ctx: Context) -> int:
 async def reconcile_ledger(ctx: Context) -> int:
     async with SessionLocal() as db:
         return await run_reconcile_payments(db, get_payment_gateway())
+
+
+async def process_google_operations(ctx: Context) -> int:
+    async with SessionLocal() as db:
+        return await run_google_operations(
+            db, get_google_business_gateway(), get_google_secret_store(), get_google_flow_store()
+        )
 
 
 async def send_review_requests(ctx: Context) -> int:
@@ -147,6 +159,7 @@ class WorkerSettings:
     functions: ClassVar[list[object]] = []
     cron_jobs: ClassVar[list[object]] = [
         cron(send_deliveries, second=15),
+        cron(process_google_operations, second={5, 20, 35, 50}),
         cron(send_booking_reminders, minute={0, 15, 30, 45}),
         cron(reap_unpaid_bookings, minute={5, 20, 35, 50}),
         cron(complete_past_bookings, minute={2, 17, 32, 47}),

@@ -1286,3 +1286,34 @@ def test_site_contact_posts_reach_the_api(stacks: dict[str, Built]) -> None:
         ]
         assert dig(contact, "backendRefs") == [{"name": "api", "port": 8701}]
         assert dig(rest, "backendRefs") == [{"name": "web", "port": 8080}]
+
+
+def test_google_business_resources_are_gated_and_use_a_separate_key() -> None:
+    disabled = build_cloud()
+    assert not any("google-business" in item.name for item in disabled.resources)
+    enabled = build_cloud({"clientbridge:googleBusinessEnabled": "true"})
+    keys = [
+        item
+        for item in enabled.resources
+        if item.type == "gcp:kms/cryptoKey:CryptoKey" and "google-business" in item.name
+    ]
+    assert keys
+    assert all(item.inputs["rotationPeriod"] == "7776000s" for item in keys)
+    grants = [
+        item
+        for item in enabled.resources
+        if item.type == "gcp:kms/cryptoKeyIAMBinding:CryptoKeyIAMBinding"
+        and "google-business" in item.name
+    ]
+    assert len(grants) == len(keys)
+    assert all(
+        item.inputs["role"] == "roles/cloudkms.cryptoKeyEncrypterDecrypter" for item in grants
+    )
+    enabled_apis = {
+        item.inputs["service"]
+        for item in enabled.resources
+        if item.type == "gcp:projects/service:Service"
+    }
+    assert "mybusiness.googleapis.com" in enabled_apis
+    assert "mybusinessaccountmanagement.googleapis.com" in enabled_apis
+    assert "mybusinessbusinessinformation.googleapis.com" in enabled_apis

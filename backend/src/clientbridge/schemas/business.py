@@ -66,7 +66,6 @@ class BusinessOut(Mirror):
     tax_registered: bool
     filing_frequency: FilingFrequency
     setup_dismissed_at: datetime | None
-    google_review_url: str | None
     review_requests_enabled: bool
     unit: str | None
     street_number: str | None

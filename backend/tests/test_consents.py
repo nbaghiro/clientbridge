@@ -13,11 +13,11 @@ from clientbridge.core.config import get_settings
 from clientbridge.core.errors import TooManyRequests
 from clientbridge.core.ratelimit import RateLimiter, public_prefs_rate_limit
 from clientbridge.main import app
-from clientbridge.models.business import Business
 from clientbridge.models.clients import Client, Consent
 from clientbridge.services.consents import prefs_token, record_consent
 from clientbridge.services.messaging import broadcast_recipients
 from tests.conftest import Factory, FakeSmsSender
+from tests.google_business import configure_google_review_profile
 from tests.helpers import new_client, ok, text_in, texted
 
 BIZ = "bz_birchbark"
@@ -185,11 +185,7 @@ async def test_ordinary_replies_leave_consent_alone(
 async def test_stopped_client_gets_no_reminder_texts(
     as_owner: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender
 ) -> None:
-    await db.execute(
-        update(Business)
-        .where(Business.id == BIZ)
-        .values(google_review_url="https://g.page/r/example/review")
-    )
+    await configure_google_review_profile(db)
     cid = await _client(db)
     await _text_in(as_owner, "STOP", "SM_stop_2")
     ok(await as_owner.post("/v1/reviews/request", json={"client_id": cid}), 201)
@@ -278,3 +274,6 @@ async def test_the_preferences_page_cannot_lift_a_stop(
     assert await _consents(db, cid, "sms") == [("withdrawn", "reply")]
     await _text_in(api, "START", "SM_sticky_4")
     assert (await _consents(db, cid, "sms"))[-1] == ("granted", "reply")
+
+
+pytestmark = pytest.mark.usefixtures("google_review_provider")

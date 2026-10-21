@@ -51,6 +51,8 @@ TABLE_POLICIES: Mapping[str, TablePolicy] = MappingProxyType(
         "responses": TablePolicy("tenant", "business_id", "documents"),
         "returning_challenges": TablePolicy("tenant", "business_id", "returning"),
         "review_requests": TablePolicy("tenant", "business_id", "reviews"),
+        "google_business_connections": TablePolicy("tenant", "business_id", "reviews"),
+        "google_business_operations": TablePolicy("tenant", "business_id", "reviews"),
         "signatures": TablePolicy("tenant", "business_id", "documents"),
         "slots": TablePolicy("tenant", "business_id", "scheduling"),
         "staff": TablePolicy("tenant", "business_id", "business"),

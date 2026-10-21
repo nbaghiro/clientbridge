@@ -1,6 +1,6 @@
 {
   "title": "Google Business Profile reviews",
-  "status": "planned",
+  "status": "in_progress",
   "plan": "plan.md",
   "tasks": [
     {
@@ -14,9 +14,7 @@
     {
       "id": "G1",
       "title": "Confirm Google project access and OAuth requirements",
-      "depends_on": [
-        "G0"
-      ],
+      "depends_on": ["G0"],
       "status": "pending",
       "owner": "Operator",
       "acceptance": "Record project number, GBP approval/quota, dedicated clients, consent state and callback configuration; no secrets in evidence."
@@ -24,120 +22,105 @@
     {
       "id": "G2",
       "title": "Finalize and approve concrete schema",
-      "depends_on": [
-        "G0"
-      ],
-      "status": "pending",
+      "depends_on": ["G0"],
+      "status": "complete",
       "owner": "Owner and implementer",
-      "acceptance": "Approve exact fields/constraints, request defaults, duplicate-handling plan, retention and rollback before editing models."
+      "acceptance": "User approved the final two-table schema and removal of the manual URL in this conversation on 2026-10-20."
     },
     {
       "id": "G3",
       "title": "Implement gateway contract and recording fakes",
-      "depends_on": [
-        "G0"
-      ],
-      "status": "pending",
+      "depends_on": ["G0"],
+      "status": "complete",
       "owner": "Backend",
-      "acceptance": "Typed account/location/review/reply/token/notification operations; byte limits, pagination and redacted error cases covered."
+      "acceptance": "Typed account/location/review/reply/token/notification operations; byte limits, pagination and redacted error cases covered.",
+      "evidence": "Adapter and connection boundary tests pass; production gateway and encrypted credential/flow stores implemented. Pub/Sub operations are deferred with G9."
     },
     {
       "id": "G4",
       "title": "Provision gated cloud resources and runtime configuration",
-      "depends_on": [
-        "G1"
-      ],
-      "status": "pending",
+      "depends_on": ["G1"],
+      "status": "in_progress",
       "owner": "Infrastructure",
-      "acceptance": "Pulumi mocks, IAM/disabled-mode tests, reviewed staging preview, secret population and feature-off deployment succeed."
+      "acceptance": "Pulumi mocks, IAM/disabled-mode tests, reviewed staging preview, secret population and feature-off deployment succeed.",
+      "evidence": "Gated APIs, per-environment KMS and workload configuration implemented; 103 infrastructure tests pass. Actual cloud preview is blocked by Google invalid_grant/invalid_rapt reauthentication. No resources applied."
     },
     {
       "id": "G5",
       "title": "Implement approved operational schema",
-      "depends_on": [
-        "G2"
-      ],
-      "status": "pending",
+      "depends_on": ["G2"],
+      "status": "complete",
       "owner": "Backend",
-      "acceptance": "Migration/grants/tenancy/concurrency/restore tests pass; no Google content or credentials in client projections."
+      "acceptance": "Migration/grants/tenancy/concurrency/restore tests pass; no Google content or credentials in client projections.",
+      "evidence": "Approved cb0026 migration applies to a disposable database; tenancy registry and sync exclusion checks pass in make check. No live migration applied."
     },
     {
       "id": "G6",
       "title": "Implement OAuth and location lifecycle",
-      "depends_on": [
-        "G3",
-        "G4",
-        "G5"
-      ],
-      "status": "pending",
+      "depends_on": ["G3", "G4", "G5"],
+      "status": "in_progress",
       "owner": "Backend and clients",
-      "acceptance": "Connect/select/refresh/reconnect/disconnect work with actor and tenant binding on web and mobile; ciphertext and token rotation verified."
+      "acceptance": "Connect/select/refresh/reconnect/disconnect work with actor and tenant binding on web and mobile; ciphertext and token rotation verified.",
+      "evidence": "Session-bound OAuth, location selection, refresh and disconnect implemented; automated lifecycle/security tests pass. Real Google OAuth and native-device walkthrough remain pending."
     },
     {
       "id": "G7",
       "title": "Implement bounded online Google review reads",
-      "depends_on": [
-        "G6"
-      ],
-      "status": "pending",
+      "depends_on": ["G6"],
+      "status": "in_progress",
       "owner": "Backend and clients",
-      "acceptance": "Pagination and supplied totals work; cache eviction/expiry/logout/disconnect leave no persisted client content."
+      "acceptance": "Pagination and supplied totals work; cache eviction/expiry/logout/disconnect leave no persisted client content.",
+      "evidence": "Online review reads and shared UI implemented; browser unavailable/unlinked/empty-profile regression passes. Real-profile pagination remains pending."
     },
     {
       "id": "G8",
       "title": "Implement explicit reply commands and reconciliation",
-      "depends_on": [
-        "G7"
-      ],
-      "status": "pending",
+      "depends_on": ["G7"],
+      "status": "in_progress",
       "owner": "Backend and clients",
-      "acceptance": "Create/edit/delete succeed with byte validation, stale-state handling, independent-session concurrency and ambiguous-outcome readback."
+      "acceptance": "Create/edit/delete succeed with byte validation, stale-state handling, independent-session concurrency and ambiguous-outcome readback.",
+      "evidence": "Durable reply commands, stale-revision checks and ambiguous-outcome reconciliation implemented; independent-session concurrency test passes. No live reply issued."
     },
     {
       "id": "G9",
       "title": "Implement account-aware notifications and polling",
-      "depends_on": [
-        "G6",
-        "G7"
-      ],
-      "status": "pending",
+      "depends_on": ["G6", "G7"],
+      "status": "deferred",
       "owner": "Backend and infrastructure",
-      "acceptance": "Authenticated push, durable dedup, DLQ, existing-topic conflict, shared-account lifecycle and polling fallback pass."
+      "acceptance": "Pub/Sub is outside the approved first release; use fetch-on-open and manual refresh."
     },
     {
       "id": "G10",
-      "title": "Add reliable invitation delivery and scheduling controls",
-      "depends_on": [
-        "G2",
-        "G5"
-      ],
-      "status": "pending",
+      "title": "Connect reliable invitations to Google profile eligibility",
+      "depends_on": ["G2", "G5"],
+      "status": "complete",
       "owner": "Backend and clients",
-      "acceptance": "Direct Google invitations, transactional per-channel delivery, booking dedup/resend and scheduling settings pass. Internal feedback collection remains removed."
+      "acceptance": "Preserve existing scheduling/cooldown settings; serialize requests and enqueue delivery transactionally; no extra scheduling schema.",
+      "evidence": "Existing scheduling and cooldown preserved; Google profile eligibility and transactional notification queue wired. Invitation regressions pass in make check."
     },
     {
       "id": "G11",
       "title": "Complete release gates and controlled live pilot",
-      "depends_on": [
-        "G1",
-        "G4",
-        "G8",
-        "G9",
-        "G10"
-      ],
-      "status": "pending",
+      "depends_on": ["G1", "G4", "G8", "G10"],
+      "status": "in_progress",
       "owner": "Owner and implementer",
-      "acceptance": "make check and browser/mobile gates pass; authorized real-profile smoke, token expiry, cache purge, rollback and monitoring drills recorded."
+      "acceptance": "make check and browser/mobile gates pass; authorized real-profile smoke, token expiry, cache purge, rollback and monitoring drills recorded.",
+      "evidence": "Final make check passes: 2331 backend tests, 93.28% coverage, frontend package/timezone suites and 103 infrastructure tests. Browser regression passes at desktop and phone widths with accessibility checks. Native-device and consenting live pilot remain pending."
     },
     {
       "id": "G12",
       "title": "Roll out and publish durable operating guidance",
-      "depends_on": [
-        "G11"
-      ],
-      "status": "pending",
+      "depends_on": ["G11"],
+      "status": "deferred",
       "owner": "Operator",
-      "acceptance": "Read then write allowlist rollout, alert ownership and support instructions verified; archive execution after durable docs updated."
+      "acceptance": "Production rollout is outside this execution; provide operating guidance and validated uncommitted branch changes."
     }
-  ]
+  ],
+  "execution": {
+    "branch": "feat/google-business-reviews-complete",
+    "base": "5e0bad49",
+    "commits": "Commit, push, PR and merge authorized in the follow-up; PR #45.",
+    "live_changes": "Localhost setup requested; no production rollout. Google access still requires reauthentication.",
+    "validation": "Local application gates passed; Google cloud preview and live readiness remain blocked on external prerequisites."
+  }
 }

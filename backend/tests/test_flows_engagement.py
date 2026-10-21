@@ -1,12 +1,12 @@
 """Client engagement flows: forms, contracts, reviews, messages and broadcasts."""
 
 import httpx
-from sqlalchemy import update
+import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from clientbridge.models.business import Business
 from clientbridge.services.messaging import run_due_broadcasts
 from tests.conftest import FakeEmailSender, FakeSmsSender
+from tests.google_business import configure_google_review_profile, review_emails
 from tests.helpers import local_hour, ok, text_in, unread
 
 
@@ -72,15 +72,13 @@ async def test_contract_is_sent_and_signed(
 async def test_review_invitation_links_directly_to_google(
     as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
 ) -> None:
-    url = "https://g.page/r/example/review"
-    await db.execute(
-        update(Business).where(Business.id == "bz_birchbark").values(google_review_url=url)
-    )
+    url = "https://g.page/r/1/review"
+    await configure_google_review_profile(db)
     cid = await _client(as_owner, email="review-flow@example.ca")
     request = ok(await as_owner.post("/v1/reviews/request", json={"client_id": cid}), 201).json()
     assert request["requested_at"]
     assert "token" not in request and "rating" not in request
-    assert any(url in m.body for m in email.sent)
+    assert any(url in m.body for m in await review_emails(db))
 
 
 async def test_messages_and_broadcasts(
@@ -116,3 +114,6 @@ async def test_messages_and_broadcasts(
     assert (blast["status"], blast["recipient_count"]) == ("sending", 1)
     await run_due_broadcasts(db, sms, FakeEmailSender(), now)
     assert sms.sent[-1].body == "Birchbark Pet Studio: Sale Reply STOP to opt out."
+
+
+pytestmark = pytest.mark.usefixtures("google_review_provider")

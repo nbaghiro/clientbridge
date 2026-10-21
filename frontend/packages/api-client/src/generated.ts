@@ -2649,6 +2649,142 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/reviews/google/authorization": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Google Authorization */
+        post: operations["google_authorization_v1_reviews_google_authorization_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/reviews/google/callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Google Callback */
+        get: operations["google_callback_v1_reviews_google_callback_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/reviews/google/authorization/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Google Authorization Complete */
+        post: operations["google_authorization_complete_v1_reviews_google_authorization_complete_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/reviews/google/accounts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Google Accounts */
+        get: operations["google_accounts_v1_reviews_google_accounts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/reviews/google/locations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Google Locations */
+        get: operations["google_locations_v1_reviews_google_locations_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/reviews/google/location": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Google Select */
+        post: operations["google_select_v1_reviews_google_location_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/reviews/google/disconnect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Google Disconnect */
+        post: operations["google_disconnect_v1_reviews_google_disconnect_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/reviews/google/reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Google Reviews */
+        get: operations["google_reviews_v1_reviews_google_reviews_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/reviews/google": {
         parameters: {
             query?: never;
@@ -2658,6 +2794,57 @@ export interface paths {
         };
         /** Google Status */
         get: operations["google_status_v1_reviews_google_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/reviews/google/replies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Google Reply */
+        post: operations["google_reply_v1_reviews_google_replies_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/reviews/google/replies/delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Google Reply Delete */
+        post: operations["google_reply_delete_v1_reviews_google_replies_delete_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/reviews/google/operations/{operation_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Google Operation */
+        get: operations["google_operation_v1_reviews_google_operations__operation_id__get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -4131,8 +4318,6 @@ export interface components {
             filing_frequency: "monthly" | "quarterly" | "annual";
             /** Setup Dismissed At */
             setup_dismissed_at: string | null;
-            /** Google Review Url */
-            google_review_url: string | null;
             /** Review Requests Enabled */
             review_requests_enabled: boolean;
             /** Unit */
@@ -4984,28 +5169,161 @@ export interface components {
             /** Amount Cents */
             amount_cents: number;
         };
+        /** GoogleAuthorizationComplete */
+        GoogleAuthorizationComplete: {
+            /** Flow Token */
+            flow_token: string;
+        };
+        /** GoogleAuthorizationOut */
+        GoogleAuthorizationOut: {
+            /** Authorization Url */
+            authorization_url: string;
+            /** Flow Token */
+            flow_token: string;
+        };
+        /** GoogleAuthorizationResult */
+        GoogleAuthorizationResult: {
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "pending" | "complete" | "failed";
+        };
+        /** GoogleAuthorizationStart */
+        GoogleAuthorizationStart: {
+            /**
+             * Platform
+             * @enum {string}
+             */
+            platform: "web" | "native";
+        };
+        /** GoogleChoices */
+        GoogleChoices: {
+            /** Choices */
+            choices: components["schemas"]["GoogleLocationChoice"][];
+            /** Next Page Token */
+            next_page_token?: string | null;
+        };
+        /** GoogleDisconnect */
+        GoogleDisconnect: {
+            /** Generation */
+            generation: number;
+        };
+        /** GoogleLocationChoice */
+        GoogleLocationChoice: {
+            /** Name */
+            name: string;
+            /** Title */
+            title: string;
+        };
+        /** GoogleLocationSelect */
+        GoogleLocationSelect: {
+            /** Account Name */
+            account_name: string;
+            /** Location Name */
+            location_name: string;
+            /** Generation */
+            generation: number;
+        };
+        /** GoogleOperationOut */
+        GoogleOperationOut: {
+            /** Error Code */
+            error_code?: string | null;
+            /** Id */
+            id: string;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "queued" | "running" | "confirmed" | "failed" | "unknown" | "canceled";
+        };
+        /** GoogleReply */
+        GoogleReply: {
+            /** Comment */
+            comment: string;
+            /** Updatetime */
+            updateTime?: string | null;
+        };
+        /** GoogleReplyCreate */
+        GoogleReplyCreate: {
+            /** Review Id */
+            review_id: string;
+            /** Comment */
+            comment?: string | null;
+            /** Expected Reply Revision */
+            expected_reply_revision?: string | null;
+        };
+        /** GoogleReview */
+        GoogleReview: {
+            /** Reviewid */
+            reviewId: string;
+            reviewer?: components["schemas"]["GoogleReviewer"];
+            /**
+             * Starrating
+             * @enum {string}
+             */
+            starRating: "ONE" | "TWO" | "THREE" | "FOUR" | "FIVE";
+            /** Comment */
+            comment?: string | null;
+            /**
+             * Createtime
+             * Format: date-time
+             */
+            createTime: string;
+            /**
+             * Updatetime
+             * Format: date-time
+             */
+            updateTime: string;
+            reviewReply?: components["schemas"]["GoogleReply"] | null;
+        };
         /** GoogleReviewAvailability */
         GoogleReviewAvailability: {
             /**
              * State
              * @default unavailable
-             * @constant
+             * @enum {string}
              */
-            state: "unavailable";
+            state: "unavailable" | "disconnected" | "selecting" | "active" | "reconnect_required";
             /** Connection Id */
-            connection_id?: null;
+            connection_id?: string | null;
             /**
              * Generation
              * @default 0
              */
             generation: number;
-            /** Location */
-            location?: null;
+            location?: components["schemas"]["GoogleLocationChoice"] | null;
             /**
              * Can Request
              * @default false
              */
             can_request: boolean;
+            /** Error Code */
+            error_code?: string | null;
+        };
+        /** GoogleReviewer */
+        GoogleReviewer: {
+            /** Displayname */
+            displayName?: string | null;
+            /**
+             * Isanonymous
+             * @default false
+             */
+            isAnonymous: boolean;
+        };
+        /** GoogleReviews */
+        GoogleReviews: {
+            /** Reviews */
+            reviews?: components["schemas"]["GoogleReview"][];
+            /** Averagerating */
+            averageRating?: number | null;
+            /**
+             * Totalreviewcount
+             * @default 0
+             */
+            totalReviewCount: number;
+            /** Nextpagetoken */
+            nextPageToken?: string | null;
         };
         /** GstHstReport */
         GstHstReport: {
@@ -14354,6 +14672,291 @@ export interface operations {
             };
         };
     };
+    google_authorization_v1_reviews_google_authorization_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-session-token"?: string;
+                "x-business-id"?: string;
+                "x-expected-user"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GoogleAuthorizationStart"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoogleAuthorizationOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    google_callback_v1_reviews_google_callback_get: {
+        parameters: {
+            query: {
+                state: string;
+                code?: string | null;
+                error?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            307: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    google_authorization_complete_v1_reviews_google_authorization_complete_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-session-token"?: string;
+                "x-business-id"?: string;
+                "x-expected-user"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GoogleAuthorizationComplete"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoogleAuthorizationResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    google_accounts_v1_reviews_google_accounts_get: {
+        parameters: {
+            query?: {
+                page_token?: string | null;
+            };
+            header?: {
+                "x-business-id"?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoogleChoices"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    google_locations_v1_reviews_google_locations_get: {
+        parameters: {
+            query: {
+                account_name: string;
+                page_token?: string | null;
+            };
+            header?: {
+                "x-business-id"?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoogleChoices"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    google_select_v1_reviews_google_location_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GoogleLocationSelect"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoogleReviewAvailability"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    google_disconnect_v1_reviews_google_disconnect_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GoogleDisconnect"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoogleReviewAvailability"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    google_reviews_v1_reviews_google_reviews_get: {
+        parameters: {
+            query?: {
+                page_token?: string | null;
+            };
+            header?: {
+                "x-business-id"?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoogleReviews"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     google_status_v1_reviews_google_get: {
         parameters: {
             query?: never;
@@ -14374,6 +14977,117 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GoogleReviewAvailability"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    google_reply_v1_reviews_google_replies_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "x-business-id"?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GoogleReplyCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoogleOperationOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    google_reply_delete_v1_reviews_google_replies_delete_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "x-business-id"?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GoogleReplyCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoogleOperationOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    google_operation_v1_reviews_google_operations__operation_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
+            };
+            path: {
+                operation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoogleOperationOut"];
                 };
             };
             /** @description Validation Error */

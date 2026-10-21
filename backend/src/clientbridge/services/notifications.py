@@ -1603,14 +1603,21 @@ class Notifier:
             else:
                 await self.on_series_booked(db, [b.id for b, _ in rows], "canceled")
 
-    async def on_review_requested(self, db: AsyncSession, review_id: str) -> None:
+    async def on_review_requested(
+        self, db: AsyncSession, review_id: str, link: str | None = None
+    ) -> None:
         review = await db.get(ReviewRequest, review_id)
         if review is None:
             return
         business = await db.get(Business, review.business_id)
-        if business is None or not business.google_review_url:
+        if business is None:
             return
-        link = business.google_review_url
+        if link is None:
+            from clientbridge.services.reviews import google_invitation_url
+
+            link = await google_invitation_url(db, business.id)
+        if link is None:
+            return
         prefs_link = f"{prefs_url(review.client_id)}?unsubscribe=email"
         notice = review_requested_message(
             locale_for(business=business), business.name, link, prefs_link

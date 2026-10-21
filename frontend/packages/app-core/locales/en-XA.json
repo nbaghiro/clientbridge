@@ -12783,13 +12783,25 @@
         "message": "[Ţŕý åĝåîñ one]"
     },
     "reviews.unavailable": {
-        "message": "[Ĝööĝļé Ɓûšîñéšš Þŕöƒîļé çöññéçţîöñš åŕé ñöţ åṽåîļåƀļé ýéţ. Þļéåšé ţŕý åĝåîñ ļåţéŕ. one two three four five six]"
+        "message": "[Ĝööĝļé Ɓûšîñéšš Þŕöƒîļé çöññéçţîöñš åŕé ñöţ éñåƀļéð ƒöŕ Çļîéñţƀŕîðĝé ýéţ. Öñçé åṽåîļåƀļé, ýöû çåñ çöññéçţ ýöûŕ þŕöƒîļé ĥéŕé. one two three four five six seven eight]"
     },
     "reviews.connectTitle": {
         "message": "[Çöññéçţ ýöûŕ Ĝööĝļé Ɓûšîñéšš Þŕöƒîļé one two three]"
     },
     "reviews.connectBody": {
-        "message": "[Šîĝñ îñ ŵîţĥ ţĥé Ĝööĝļé åççöûñţ ţĥåţ ɱåñåĝéš ýöûŕ ƀûšîñéšš, ţĥéñ çĥööšé å ļöçåţîöñ ţö ŕéåð ŕéṽîéŵš, ŕéþļý þûƀļîçļý, åñð ŕéǫûéšţ ñéŵ ŕéṽîéŵš. one two three four five six seven eight nine]"
+        "message": "[Ŕéåð åñð ŕéþļý ţö Ĝööĝļé ŕéṽîéŵš, åñð îñṽîţé çļîéñţš ţö ŕéṽîéŵ ýöûŕ ƀûšîñéšš åƒţéŕ åþþöîñţɱéñţš. Ûšé å Ĝööĝļé åççöûñţ ţĥåţ ɱåñåĝéš ýöûŕ ƀûšîñéšš. Ýöû’ļļ çĥööšé ţĥé ļöçåţîöñ ñéẋţ. one two three four five six seven eight nine ten one]"
+    },
+    "reviews.managerOnly": {
+        "message": "[Åñ öŵñéŕ öŕ åðɱîñîšţŕåţöŕ çåñ çöññéçţ Ĝööĝļé Ɓûšîñéšš Þŕöƒîļé åñð ɱåñåĝé ŕéṽîéŵš. one two three four five six]"
+    },
+    "reviews.changeAccount": {
+        "message": "[Ûšé åñöţĥéŕ Ĝööĝļé åççöûñţ one two three]"
+    },
+    "reviews.locationInUse": {
+        "message": "[Ţĥîš Ĝööĝļé ļöçåţîöñ îš åļŕéåðý ļîñķéð ţö åñöţĥéŕ ƀûšîñéšš îñ Çļîéñţƀŕîðĝé. one two three four five]"
+    },
+    "reviews.profileHelp": {
+        "message": "[Đöñ’ţ ĥåṽé å Ĝööĝļé Ɓûšîñéšš Þŕöƒîļé? one two three]"
     },
     "reviews.reconnectBody": {
         "message": "[Ýöûŕ Ĝööĝļé çöññéçţîöñ ñééðš åţţéñţîöñ. Šîĝñ îñ åĝåîñ ţö åççéšš ŕéṽîéŵš åñð šéñð îñṽîţåţîöñš. one two three four five six seven]"
@@ -12910,6 +12922,9 @@
     },
     "reviews.replyInvalid": {
         "message": "[Éñţéŕ å ŕéþļý öƒ ñö ɱöŕé ţĥåñ 4,096 ÛŢƑ-8 ƀýţéš. one two three]"
+    },
+    "reviews.replyRejected": {
+        "message": "[Ĝööĝļé ŕéĵéçţéð ţĥîš ŕéþļý. Éðîţ ýöûŕ ðŕåƒţ åñð ţŕý åĝåîñ. one two three four]"
     },
     "reviews.replyFailed": {
         "message": "[Ĝööĝļé çöûļð ñöţ þûƀļîšĥ ţĥîš çĥåñĝé. Ýöûŕ ðŕåƒţ îš šţîļļ ĥéŕé. one two three four]"

@@ -56,7 +56,13 @@ export function Reviews() {
                 <Button onPress={google.refresh}>{s.retry}</Button>
             ) : null}
             {google.connection?.state === "unavailable" ? (
-                <Notice tone="info">{s.unavailable}</Notice>
+                <Panel>
+                    <div className="space-y-3">
+                        <h2 className="text-lg font-semibold text-ink">{s.connectTitle}</h2>
+                        <p className="text-sm text-muted">{s.connectBody}</p>
+                        <Notice tone="info">{s.unavailable}</Notice>
+                    </div>
+                </Panel>
             ) : null}
             {google.connection?.state === "disconnected" ||
             google.connection?.state === "reconnect_required" ? (
@@ -73,8 +79,21 @@ export function Reviews() {
                                 ? s.reconnect
                                 : s.connect}
                         </Button>
+                        <a
+                            className="block text-sm text-muted underline"
+                            href="https://www.google.com/business/"
+                            target="_blank"
+                            rel="noreferrer"
+                        >
+                            {s.profileHelp}
+                        </a>
                     </div>
                 </Panel>
+            ) : null}
+            {google.connection?.state === "active" && google.error !== null ? (
+                <Button variant="outline" disabled={google.busy !== null} onPress={connect}>
+                    {s.changeAccount}
+                </Button>
             ) : null}
             {google.busy === "connect" ? (
                 <Panel>
@@ -143,6 +162,9 @@ export function Reviews() {
                             onPress={google.selectLocation}
                         >
                             {s.useLocation}
+                        </Button>
+                        <Button variant="outline" disabled={google.busy !== null} onPress={connect}>
+                            {s.changeAccount}
                         </Button>
                     </div>
                 </Panel>

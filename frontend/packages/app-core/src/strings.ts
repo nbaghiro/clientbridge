@@ -2023,6 +2023,10 @@ interface Strings {
         readonly unavailable: string;
         readonly connectTitle: string;
         readonly connectBody: string;
+        readonly managerOnly: string;
+        readonly changeAccount: string;
+        readonly locationInUse: string;
+        readonly profileHelp: string;
         readonly reconnectBody: string;
         readonly connect: string;
         readonly reconnect: string;
@@ -2063,6 +2067,7 @@ interface Strings {
         readonly staleReply: string;
         readonly googleError: string;
         readonly replyInvalid: string;
+        readonly replyRejected: string;
         readonly replyFailed: string;
         readonly replyUncertain: string;
         readonly authorizationExpired: string;
