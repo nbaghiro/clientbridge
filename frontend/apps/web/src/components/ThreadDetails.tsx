@@ -15,7 +15,6 @@ import {
 } from "@clientbridge/app-core";
 import { Avatar, Badge, Button, KeyValueList, Money } from "@clientbridge/ui";
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
 
 import { api } from "../lib/api";
 import { useRole } from "../lib/auth";
@@ -59,7 +58,6 @@ function ClientRail({ thread, onOpenRecord }: { thread: InboxThread; onOpenRecor
 
 // The client's record in place of the rail, so the conversation stays on screen.
 function RailRecord({ clientId, onClose }: { clientId: string; onClose: () => void }) {
-    const navigate = useNavigate();
     const manager = canManagePayments(useRole());
     const directory = useClientDirectory();
     const [dialog, setDialog] = useState<ClientDialog | null>(null);
@@ -68,22 +66,11 @@ function RailRecord({ clientId, onClose }: { clientId: string; onClose: () => vo
             aria-label={strings.clients.record.pane}
             className="flex w-[340px] shrink-0 flex-col border-l border-line bg-surface"
         >
-            <div className="flex justify-end border-b border-line-soft px-4 py-2">
-                <Button
-                    size="sm"
-                    variant="link"
-                    onPress={() => {
-                        const done = navigate(`/clients?open=${encodeURIComponent(clientId)}`);
-                        if (done) done.catch(() => undefined);
-                    }}
-                >
-                    {s.rail.allClients}
-                </Button>
-            </div>
             <div className="min-h-0 flex-1">
                 <ClientRecordView
                     visible
                     variant="inline"
+                    density="brief"
                     clientId={clientId}
                     manager={manager}
                     onClose={onClose}

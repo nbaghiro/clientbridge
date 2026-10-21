@@ -691,7 +691,7 @@ test("owner: inbox messages, reviews, broadcasts, forms and contracts", async ({
         await expect(
             record.getByRole("button", { name: strings.clients.record.addNote }),
         ).toBeVisible();
-        await record.getByRole("button", { name: m.rail.allClients }).click();
+        await record.getByRole("button", { name: strings.clients.record.fullRecord }).click();
         await expect(page).toHaveURL(/\/clients/);
         await expect(
             main.getByRole("complementary", { name: strings.clients.record.pane }),

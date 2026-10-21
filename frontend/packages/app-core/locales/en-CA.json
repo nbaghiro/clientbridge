@@ -4390,6 +4390,9 @@
         "message": "Renews {when}",
         "args": ["when"]
     },
+    "clients.record.fullRecord": {
+        "message": "Full record"
+    },
     "clients.record.book": {
         "message": "Book"
     },
@@ -5640,9 +5643,6 @@
     },
     "messaging.back": {
         "message": "Inbox"
-    },
-    "messaging.rail.allClients": {
-        "message": "All clients"
     },
     "messaging.cancel": {
         "message": "Cancel"

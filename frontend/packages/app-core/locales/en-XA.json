@@ -4067,6 +4067,9 @@
     "clients.record.renews": {
         "message": "[Ŕéñéŵš {when} one]"
     },
+    "clients.record.fullRecord": {
+        "message": "[Ƒûļļ ŕéçöŕð one two]"
+    },
     "clients.record.book": {
         "message": "[Ɓööķ one]"
     },
@@ -5197,9 +5200,6 @@
     },
     "messaging.back": {
         "message": "[Îñƀöẋ one]"
-    },
-    "messaging.rail.allClients": {
-        "message": "[Åļļ çļîéñţš one two]"
     },
     "messaging.cancel": {
         "message": "[Çåñçéļ one]"

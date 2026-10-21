@@ -282,6 +282,7 @@ function NoteItem({ note, manager }: { note: ClientNote; manager: boolean }) {
 export function ClientRecordView({
     visible,
     variant = "drawer",
+    density = "full",
     clientId,
     manager,
     onClose,
@@ -289,6 +290,8 @@ export function ClientRecordView({
 }: {
     visible: boolean;
     variant?: "drawer" | "inline";
+    // "brief" keeps a side rail to who they are, what's next and the latest note
+    density?: "full" | "brief";
     clientId: string;
     manager: boolean;
     onClose: () => void;
@@ -299,6 +302,7 @@ export function ClientRecordView({
     const kind = useSubjectKind();
     const viewer = useViewer();
     const { load, record } = useClientRecord(api, clientId, viewer?.staffId ?? null);
+    const open = useOpenLink();
     const navigate = useNavigate();
     const go = (path: string): void => {
         const done = navigate(path);
@@ -344,13 +348,35 @@ export function ClientRecordView({
             leading={<Avatar name={c.name} src={photos.client(c.id)} size="lg" />}
             onClose={onClose}
             actions={
-                <RecordActions
-                    record={record}
-                    manager={manager}
-                    onEdit={() => {
-                        onDialog({ kind: "client", id: c.id });
-                    }}
-                />
+                density === "brief" ? (
+                    <div className="flex flex-1 gap-2">
+                        <Button
+                            size="sm"
+                            onPress={() => {
+                                open("booking");
+                            }}
+                        >
+                            {r.book}
+                        </Button>
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            onPress={() => {
+                                go(`/clients?open=${encodeURIComponent(c.id)}`);
+                            }}
+                        >
+                            {r.fullRecord}
+                        </Button>
+                    </div>
+                ) : (
+                    <RecordActions
+                        record={record}
+                        manager={manager}
+                        onEdit={() => {
+                            onDialog({ kind: "client", id: c.id });
+                        }}
+                    />
+                )
             }
         >
             {c.tags.length > 0 || c.email !== null ? (
@@ -366,10 +392,12 @@ export function ClientRecordView({
                     {record.textsStopped}
                 </Notice>
             ) : null}
-            <div className="rounded-md border border-line bg-bg px-4 py-3">
-                <RecordFacts record={record} manager={manager} />
-            </div>
-            {kind !== null ? (
+            {density === "full" ? (
+                <div className="rounded-md border border-line bg-bg px-4 py-3">
+                    <RecordFacts record={record} manager={manager} />
+                </div>
+            ) : null}
+            {kind !== null && density === "full" ? (
                 <DetailSection
                     title={strings.subjects.many(kind)}
                     action={
@@ -439,7 +467,7 @@ export function ClientRecordView({
                     <p className="text-sm text-muted">{r.noUpcoming}</p>
                 ) : (
                     <ul className="divide-y divide-line-soft rounded-md border border-line">
-                        {record.upcoming.slice(0, 3).map((v) => {
+                        {record.upcoming.slice(0, density === "brief" ? 1 : 3).map((v) => {
                             const pill = visitPill(v, now);
                             return (
                                 <li key={v.id} className="flex items-center gap-3 px-3 py-2.5">
@@ -463,8 +491,16 @@ export function ClientRecordView({
                                                 v.staffName,
                                             ])}
                                         </div>
+                                        {pill !== null && density === "brief" ? (
+                                            <div className="mt-1.5">
+                                                <StatusPill
+                                                    status={pill.label}
+                                                    intent={pill.intent}
+                                                />
+                                            </div>
+                                        ) : null}
                                     </div>
-                                    {pill !== null ? (
+                                    {pill !== null && density === "full" ? (
                                         <StatusPill status={pill.label} intent={pill.intent} />
                                     ) : null}
                                 </li>
@@ -496,12 +532,12 @@ export function ClientRecordView({
                     <p className="text-sm text-muted">{r.noNotes}</p>
                 ) : null}
                 <ul className="space-y-2">
-                    {record.notes.map((n) => (
+                    {record.notes.slice(0, density === "brief" ? 1 : undefined).map((n) => (
                         <NoteItem key={n.id} note={n} manager={manager} />
                     ))}
                 </ul>
             </DetailSection>
-            {manager ? (
+            {manager && density === "full" ? (
                 <DetailSection
                     title={r.wallet}
                     action={
