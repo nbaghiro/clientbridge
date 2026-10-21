@@ -1293,9 +1293,7 @@ test("Google Reviews distinguishes unavailable, unlinked and empty profiles", as
     );
     const walk = await signIn(page, OWNER);
     await navigate(page, "/inbox?segment=reviews");
-    await expect(
-        page.getByRole("heading", { name: strings.reviews.unavailableTitle }),
-    ).toBeVisible();
+    await expect(page.getByRole("heading", { name: strings.reviews.connectTitle })).toBeVisible();
     await expect(page.getByText(strings.reviews.unavailable, { exact: true })).toBeVisible();
     await expect(
         page.getByRole("button", { name: strings.reviews.connect, exact: true }),
@@ -1328,9 +1326,7 @@ test("Google Reviews distinguishes unavailable, unlinked and empty profiles", as
         page.getByRole("button", { name: strings.reviews.connect, exact: true }),
     ).toHaveCount(0);
     await expect(page.getByText(strings.reviews.googleError, { exact: true })).toHaveCount(0);
-    await expect(
-        page.getByRole("heading", { name: strings.reviews.noGoogleReviewsTitle }),
-    ).toBeVisible();
+    await expect(page.getByText(strings.reviews.noGoogleReviews, { exact: true })).toBeVisible();
     populated = true;
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.getByRole("button", { name: strings.reviews.refresh, exact: true }).click();
