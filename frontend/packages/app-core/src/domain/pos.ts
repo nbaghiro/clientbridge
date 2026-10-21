@@ -2446,7 +2446,7 @@ export function useRegisterCatalog(): RegisterCatalog {
         filter,
         setFilter,
         filters: [
-            { key: "retail", label: strings.common.labelCount(d.catRetail, count("retail")) },
+            { key: "retail", label: strings.common.labelCount(d.catProducts, count("retail")) },
             {
                 key: "services",
                 label: strings.common.labelCount(d.catServices, count("services")),

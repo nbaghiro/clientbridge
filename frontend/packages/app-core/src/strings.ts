@@ -475,7 +475,7 @@ interface Strings {
             readonly searchShort: string;
             readonly catAll: string;
             readonly catServices: string;
-            readonly catRetail: string;
+            readonly catProducts: string;
             readonly notTracked: string;
             readonly outOfStock: string;
             readonly inStock: (n: number) => string;
@@ -2676,7 +2676,7 @@ interface Strings {
         readonly statLow: string;
         readonly statOut: string;
         readonly statValue: string;
-        readonly statRetail: (money: string) => string;
+        readonly statProducts: (money: string) => string;
         readonly needsRestock: string;
         readonly needsRestockHint: string;
         readonly allTracked: string;

@@ -249,13 +249,13 @@
         "message": "[Ţåķé å çåŕð åţ ţĥé çöûñţéŕ ŵîţĥ ţĥé þĥöñé ýöû åļŕéåðý ĥåṽé. one two three four]"
     },
     "home.features.2.body": {
-        "message": "[Ţåþ ţö Þåý ţûŕñš åñ îÞĥöñé öŕ Åñðŕöîð þĥöñé îñţö å çåŕð ŕéåðéŕ, šö ýöû çåñ çĥåŕĝé ƒöŕ å ṽîšîţ öŕ šéļļ å ŕéţåîļ îţéɱ ŵîţĥöûţ éẋţŕå ĥåŕðŵåŕé. Ţĥé šåļé îš ŕéçöŕðéð åĝåîñšţ ţĥé çļîéñţ åñð ţĥé ţåẋ îš îñçļûðéð. one two three four five six seven eight nine ten one two three]"
+        "message": "[Ţåþ ţö Þåý ţûŕñš åñ îÞĥöñé öŕ Åñðŕöîð þĥöñé îñţö å çåŕð ŕéåðéŕ, šö ýöû çåñ çĥåŕĝé ƒöŕ å ṽîšîţ öŕ šéļļ å þŕöðûçţ ŵîţĥöûţ éẋţŕå ĥåŕðŵåŕé. Ţĥé šåļé îš ŕéçöŕðéð åĝåîñšţ ţĥé çļîéñţ åñð ţĥé ţåẋ îš îñçļûðéð. one two three four five six seven eight nine ten one two]"
     },
     "home.features.2.points.0": {
         "message": "[Ţåþ ţö Þåý öñ îÞĥöñé åñð Åñðŕöîð one two three]"
     },
     "home.features.2.points.1": {
-        "message": "[Ŕéţåîļ îţéɱš, ĝîƒţ çåŕðš åñð þåçķåĝéš åţ çĥéçķöûţ one two three four]"
+        "message": "[Þŕöðûçţš, ĝîƒţ çåŕðš åñð þåçķåĝéš åţ çĥéçķöûţ one two three four]"
     },
     "home.features.2.points.2": {
         "message": "[Šçĥéðûļé åñð çļîéñţ ļîšţ åṽåîļåƀļé öƒƒļîñé one two three]"
@@ -369,7 +369,7 @@
         "message": "[Ŕöļéš ƒöŕ öŵñéŕš åñð šţåƒƒ, éåŕñîñĝš öñ çöɱþļéţéð ŵöŕķ, åñð þåý ŕéçöŕðš. one two three four five]"
     },
     "home.included.items.7.title": {
-        "message": "[Ŕéţåîļ çöɱɱîššîöñ one two]"
+        "message": "[Þŕöðûçţ çöɱɱîššîöñ one two]"
     },
     "home.included.items.7.body": {
         "message": "[Å çöɱɱîššîöñ ŕåţé þéŕ šţåƒƒ ɱéɱƀéŕ, ŕéçöŕðéð öñ éåçĥ šåļé ţĥéý ɱåķé. one two three four five]"
@@ -1593,7 +1593,7 @@
         "message": "[Ĝîƒţ çåŕðš one two]"
     },
     "trades.pet-grooming.capabilities.4.body": {
-        "message": "[Šéļļ ĝîƒţ çåŕðš öñ ýöûŕ ƀööķîñĝ þåĝé öŕ åţ ţĥé çöûñţéŕ, åñð ŕéðééɱ ţĥéɱ åĝåîñšţ åñý ĝŕööɱ, ðåýçåŕé ðåý öŕ ŕéţåîļ îţéɱ. one two three four five six seven]"
+        "message": "[Šéļļ ĝîƒţ çåŕðš öñ ýöûŕ ƀööķîñĝ þåĝé öŕ åţ ţĥé çöûñţéŕ, åñð ŕéðééɱ ţĥéɱ åĝåîñšţ åñý ĝŕööɱ, ðåýçåŕé ðåý öŕ þŕöðûçţ. one two three four five six seven]"
     },
     "trades.pet-grooming.capabilities.5.title": {
         "message": "[Ĝŕööɱéŕš åñð ţĥéîŕ þåý one two]"
@@ -1605,7 +1605,7 @@
         "message": "[Šåļéš ţåẋ ƒöŕ ýöûŕ þŕöṽîñçé one two three]"
     },
     "trades.pet-grooming.capabilities.6.body": {
-        "message": "[ĜŠŢ, ĤŠŢ, ÞŠŢ öŕ ǪŠŢ îš ŵöŕķéð öûţ ƒŕöɱ ýöûŕ þŕöṽîñçé öñ éṽéŕý ļîñé, ŕéţåîļ šĥåɱþöö îñçļûðéð, åñð ţĥé þéŕîöð ţöţåļ îš ŕéåðý ƒöŕ ýöûŕ ŕéţûŕñ. one two three four five six seven eight]"
+        "message": "[ĜŠŢ, ĤŠŢ, ÞŠŢ öŕ ǪŠŢ îš ŵöŕķéð öûţ ƒŕöɱ ýöûŕ þŕöṽîñçé öñ éṽéŕý ļîñé, îñçļûðîñĝ šĥåɱþöö ýöû šéļļ, åñð ţĥé þéŕîöð ţöţåļ îš ŕéåðý ƒöŕ ýöûŕ ŕéţûŕñ. one two three four five six seven eight nine]"
     },
     "trades.pet-grooming.capabilities.7.title": {
         "message": "[Ŕéɱîñðéŕš åñð þîçķûþ ɱéššåĝéš one two three]"
@@ -1626,7 +1626,7 @@
         "message": "[Šåṽé ýöûŕ Ĝööĝļé ŕéṽîéŵ ļîñķ ţö îñṽîţé çļîéñţš åƒţéŕ çöɱþļéţéð åþþöîñţɱéñţš. Çļîéñţš ļéåṽé ţĥéîŕ ŕéṽîéŵš ðîŕéçţļý öñ Ĝööĝļé. one two three four five six seven eight]"
     },
     "trades.pet-grooming.capabilities.10.title": {
-        "message": "[Ŕéţåîļ, šţöçķ åñð åñ öñļîñé šĥöþ one two three]"
+        "message": "[Þŕöðûçţš, šţöçķ åñð åñ öñļîñé šĥöþ one two three]"
     },
     "trades.pet-grooming.capabilities.10.body": {
         "message": "[Šéļļ šĥåɱþöö åñð ƀŕûšĥéš åţ ţĥé çöûñţéŕ öŕ ƒŕöɱ ýöûŕ šĥöþ þåĝé ƒöŕ þîçķûþ. Öŵñéŕš çåñ åðð öñé ŵĥéñ ţĥéý ƀööķ, åñð šţöçķ çöûñţš ðŕöþ åš ýöû šéļļ. one two three four five six seven eight nine]"
@@ -1659,7 +1659,7 @@
         "message": "[ĜŠŢ 5% one]"
     },
     "trades.pet-grooming.bill.taxes.1.0": {
-        "message": "[ÞŠŢ 7% (ŕéţåîļ öñļý) one two]"
+        "message": "[ÞŠŢ 7% (þŕöðûçţš öñļý) one two]"
     },
     "trades.pet-grooming.bill.status.text": {
         "message": "[Þåîð ƀý Ţåþ ţö Þåý one two]"
@@ -1671,13 +1671,13 @@
         "message": "[šåļöñš one]"
     },
     "trades.salons.oneLine": {
-        "message": "[Ɓööķîñĝ ƀý šţýļîšţ, ļöñĝ çöļöûŕ åþþöîñţɱéñţš, åñð ŕéţåîļ öñ ţĥé šåɱé ţîçķéţ. one two three four five]"
+        "message": "[Ɓööķîñĝ ƀý šţýļîšţ, ļöñĝ çöļöûŕ åþþöîñţɱéñţš, åñð þŕöðûçţš öñ ţĥé šåɱé ţîçķéţ. one two three four five]"
     },
     "trades.salons.h1": {
-        "message": "[Šţýļîšţš, çöļöûŕ åþþöîñţɱéñţš åñð ŕéţåîļ, ŕûñ ƒŕöɱ öñé šçĥéðûļé. one two three four five]"
+        "message": "[Šţýļîšţš, çöļöûŕ åþþöîñţɱéñţš åñð þŕöðûçţš, ŕûñ ƒŕöɱ öñé šçĥéðûļé. one two three four five]"
     },
     "trades.salons.lede": {
-        "message": "[Çļîéñţš ƀööķ ŵîţĥ ţĥé šţýļîšţ ţĥéý ŵåñţ, ļöñĝ çöļöûŕ åþþöîñţɱéñţš ĥöļð ţĥé çĥåîŕ ƒöŕ ţĥé ŕîĝĥţ åɱöûñţ öƒ ţîɱé, åñð ŕéţåîļ þŕöðûçţš åŕé ŕûñĝ ûþ öñ ţĥé šåɱé ţîçķéţ åš ţĥé çûţ. one two three four five six seven eight nine ten one]"
+        "message": "[Çļîéñţš ƀööķ ŵîţĥ ţĥé šţýļîšţ ţĥéý ŵåñţ, ļöñĝ çöļöûŕ åþþöîñţɱéñţš ĥöļð ţĥé çĥåîŕ ƒöŕ ţĥé ŕîĝĥţ åɱöûñţ öƒ ţîɱé, åñð þŕöðûçţš åŕé ŕûñĝ ûþ öñ ţĥé šåɱé ţîçķéţ åš ţĥé çûţ. one two three four five six seven eight nine ten]"
     },
     "trades.salons.photo.alt": {
         "message": "[Å šţýļîšţ ţŕîɱɱîñĝ å çļîéñţ'š ĥåîŕ ƀéšîðé å šûñļîţ ŵîñðöŵ one two three four]"
@@ -1836,7 +1836,7 @@
         "message": "[Ŕûñ å ɱöñţĥļý ƀļöŵ-ðŕý ɱéɱƀéŕšĥîþ çĥåŕĝéð ţö å šåṽéð çåŕð, öŕ šéļļ å šéŕîéš öƒ ţŕéåţɱéñţš ţĥåţ çöûñţš ðöŵñ ŵîţĥ éåçĥ ṽîšîţ. one two three four five six seven eight]"
     },
     "trades.salons.capabilities.2.title": {
-        "message": "[Ŕéţåîļ öñ ţĥé šåɱé ţîçķéţ one two three]"
+        "message": "[Þŕöðûçţš öñ ţĥé šåɱé ţîçķéţ one two three]"
     },
     "trades.salons.capabilities.2.body": {
         "message": "[Åðð šĥåɱþöö, šţýļîñĝ þŕöðûçţš öŕ ţööļš ţö ţĥé çļîéñţ'š ţîçķéţ åţ çĥéçķöûţ, ŵîţĥ ţåẋ öñ éṽéŕý ļîñé åñð ţĥé šåļé ŕéçöŕðéð åĝåîñšţ ţĥé çļîéñţ. one two three four five six seven eight nine]"
@@ -1863,7 +1863,7 @@
         "message": "[ĤŠŢ îñ Öñţåŕîö one two]"
     },
     "trades.salons.capabilities.6.body": {
-        "message": "[Šéŕṽîçéš åñð ŕéţåîļ îñ Öñţåŕîö çåŕŕý 13% ĤŠŢ. Îţ îš åððéð ţö éåçĥ ļîñé åñð ţŕåçķéð ƀý þéŕîöð, ŕéåðý ƒöŕ ýöûŕ ŕéţûŕñ. one two three four five six seven]"
+        "message": "[Šéŕṽîçéš åñð þŕöðûçţš îñ Öñţåŕîö çåŕŕý 13% ĤŠŢ. Îţ îš åððéð ţö éåçĥ ļîñé åñð ţŕåçķéð ƀý þéŕîöð, ŕéåðý ƒöŕ ýöûŕ ŕéţûŕñ. one two three four five six seven]"
     },
     "trades.salons.capabilities.7.title": {
         "message": "[Çöñšûļţåţîöñ åñð þåţçĥ-ţéšţ ƒöŕɱš one two three]"
@@ -1884,7 +1884,7 @@
         "message": "[Šåṽé ýöûŕ Ĝööĝļé ŕéṽîéŵ ļîñķ ţö îñṽîţé çļîéñţš åƒţéŕ çöɱþļéţéð åþþöîñţɱéñţš. Çļîéñţš ļéåṽé ţĥéîŕ ŕéṽîéŵš ðîŕéçţļý öñ Ĝööĝļé. one two three four five six seven eight]"
     },
     "trades.salons.capabilities.10.title": {
-        "message": "[Šţöçķ åñð ŕéţåîļ çöɱɱîššîöñ one two three]"
+        "message": "[Šţöçķ åñð þŕöðûçţ çöɱɱîššîöñ one two three]"
     },
     "trades.salons.capabilities.10.body": {
         "message": "[Ţŕåçķ šţöçķ öñ ţĥé þŕöðûçţš ýöû šéļļ, šéé ŵĥåţ îš ŕûññîñĝ ļöŵ åñð ŕéšţöçķ. Éåçĥ šåļé ŕéçöŕðš å çöɱɱîššîöñ ƒöŕ ţĥé šţýļîšţ ŵĥö ɱåðé îţ. one two three four five six seven eight]"
@@ -1899,7 +1899,7 @@
         "message": "[Å çûţ, å ĝļöšš åñð å ƀöţţļé öƒ çöñðîţîöñéŕ öñ öñé ţîçķéţ. one two three four]"
     },
     "trades.salons.pay.body": {
-        "message": "[Šéŕṽîçéš åñð ŕéţåîļ ĝö öñ ţĥé šåɱé îñṽöîçé, åñð Öñţåŕîö ĤŠŢ îš åððéð ţö éṽéŕý ļîñé. Ţĥé çļîéñţ þåýš ƀý çåŕð åţ ţĥé ðéšķ, åñð ţĥé šåļé åñð ţĥé šţýļîšţ'š éåŕñîñĝš åŕé ŕéçöŕðéð ţöĝéţĥéŕ. one two three four five six seven eight nine ten one]"
+        "message": "[Šéŕṽîçéš åñð þŕöðûçţš ĝö öñ ţĥé šåɱé îñṽöîçé, åñð Öñţåŕîö ĤŠŢ îš åððéð ţö éṽéŕý ļîñé. Ţĥé çļîéñţ þåýš ƀý çåŕð åţ ţĥé ðéšķ, åñð ţĥé šåļé åñð ţĥé šţýļîšţ'š éåŕñîñĝš åŕé ŕéçöŕðéð ţöĝéţĥéŕ. one two three four five six seven eight nine ten one]"
     },
     "trades.salons.bill.meta": {
         "message": "[Îñṽöîçé 2208 · Ĥåññåĥ Ļéé one two]"
@@ -3666,7 +3666,7 @@
         "message": "[Ţåþ ţö Þåý åţ ţĥé çöûñţéŕ, öñ ţĥé þĥöñé ýöû åļŕéåðý ĥåṽé. one two three four]"
     },
     "pages.paymentsPage.bands.0.body": {
-        "message": "[Ţåþ ţö Þåý ţûŕñš åñ îÞĥöñé öŕ Åñðŕöîð þĥöñé îñţö å çåŕð ŕéåðéŕ. Çĥåŕĝé ƒöŕ å ṽîšîţ öŕ šéļļ ŕéţåîļ îţéɱš, ĝîƒţ çåŕðš åñð þåçķåĝéš, åñð ţĥé ŕéçéîþţ ĝöéš öûţ ƀý éɱåîļ öŕ ţéẋţ. one two three four five six seven eight nine ten]"
+        "message": "[Ţåþ ţö Þåý ţûŕñš åñ îÞĥöñé öŕ Åñðŕöîð þĥöñé îñţö å çåŕð ŕéåðéŕ. Çĥåŕĝé ƒöŕ å ṽîšîţ öŕ šéļļ þŕöðûçţš, ĝîƒţ çåŕðš åñð þåçķåĝéš, åñð ţĥé ŕéçéîþţ ĝöéš öûţ ƀý éɱåîļ öŕ ţéẋţ. one two three four five six seven eight nine ten]"
     },
     "pages.paymentsPage.bands.0.points.0": {
         "message": "[Ţåþ ţö Þåý öñ îÞĥöñé åñð Åñðŕöîð one two three]"

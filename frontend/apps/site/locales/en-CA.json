@@ -251,13 +251,13 @@
         "message": "Take a card at the counter with the phone you already have."
     },
     "home.features.2.body": {
-        "message": "Tap to Pay turns an iPhone or Android phone into a card reader, so you can charge for a visit or sell a retail item without extra hardware. The sale is recorded against the client and the tax is included."
+        "message": "Tap to Pay turns an iPhone or Android phone into a card reader, so you can charge for a visit or sell a product without extra hardware. The sale is recorded against the client and the tax is included."
     },
     "home.features.2.points.0": {
         "message": "Tap to Pay on iPhone and Android"
     },
     "home.features.2.points.1": {
-        "message": "Retail items, gift cards and packages at checkout"
+        "message": "Products, gift cards and packages at checkout"
     },
     "home.features.2.points.2": {
         "message": "Schedule and client list available offline"
@@ -371,7 +371,7 @@
         "message": "Roles for owners and staff, earnings on completed work, and pay records."
     },
     "home.included.items.7.title": {
-        "message": "Retail commission"
+        "message": "Product commission"
     },
     "home.included.items.7.body": {
         "message": "A commission rate per staff member, recorded on each sale they make."
@@ -1608,7 +1608,7 @@
         "message": "Gift cards"
     },
     "trades.pet-grooming.capabilities.4.body": {
-        "message": "Sell gift cards on your booking page or at the counter, and redeem them against any groom, daycare day or retail item."
+        "message": "Sell gift cards on your booking page or at the counter, and redeem them against any groom, daycare day or product."
     },
     "trades.pet-grooming.capabilities.5.title": {
         "message": "Groomers and their pay"
@@ -1620,7 +1620,7 @@
         "message": "Sales tax for your province"
     },
     "trades.pet-grooming.capabilities.6.body": {
-        "message": "GST, HST, PST or QST is worked out from your province on every line, retail shampoo included, and the period total is ready for your return."
+        "message": "GST, HST, PST or QST is worked out from your province on every line, including shampoo you sell, and the period total is ready for your return."
     },
     "trades.pet-grooming.capabilities.7.title": {
         "message": "Reminders and pickup messages"
@@ -1641,7 +1641,7 @@
         "message": "Save your Google review link to invite clients after completed appointments. Clients leave their reviews directly on Google."
     },
     "trades.pet-grooming.capabilities.10.title": {
-        "message": "Retail, stock and an online shop"
+        "message": "Products, stock and an online shop"
     },
     "trades.pet-grooming.capabilities.10.body": {
         "message": "Sell shampoo and brushes at the counter or from your shop page for pickup. Owners can add one when they book, and stock counts drop as you sell."
@@ -1674,7 +1674,7 @@
         "message": "GST 5%"
     },
     "trades.pet-grooming.bill.taxes.1.0": {
-        "message": "PST 7% (retail only)"
+        "message": "PST 7% (products only)"
     },
     "trades.pet-grooming.bill.status.text": {
         "message": "Paid by Tap to Pay"
@@ -1686,13 +1686,13 @@
         "message": "salons"
     },
     "trades.salons.oneLine": {
-        "message": "Booking by stylist, long colour appointments, and retail on the same ticket."
+        "message": "Booking by stylist, long colour appointments, and products on the same ticket."
     },
     "trades.salons.h1": {
-        "message": "Stylists, colour appointments and retail, run from one schedule."
+        "message": "Stylists, colour appointments and products, run from one schedule."
     },
     "trades.salons.lede": {
-        "message": "Clients book with the stylist they want, long colour appointments hold the chair for the right amount of time, and retail products are rung up on the same ticket as the cut."
+        "message": "Clients book with the stylist they want, long colour appointments hold the chair for the right amount of time, and products are rung up on the same ticket as the cut."
     },
     "trades.salons.photo.alt": {
         "message": "A stylist trimming a client's hair beside a sunlit window"
@@ -1851,7 +1851,7 @@
         "message": "Run a monthly blow-dry membership charged to a saved card, or sell a series of treatments that counts down with each visit."
     },
     "trades.salons.capabilities.2.title": {
-        "message": "Retail on the same ticket"
+        "message": "Products on the same ticket"
     },
     "trades.salons.capabilities.2.body": {
         "message": "Add shampoo, styling products or tools to the client's ticket at checkout, with tax on every line and the sale recorded against the client."
@@ -1878,7 +1878,7 @@
         "message": "HST in Ontario"
     },
     "trades.salons.capabilities.6.body": {
-        "message": "Services and retail in Ontario carry 13% HST. It is added to each line and tracked by period, ready for your return."
+        "message": "Services and products in Ontario carry 13% HST. It is added to each line and tracked by period, ready for your return."
     },
     "trades.salons.capabilities.7.title": {
         "message": "Consultation and patch-test forms"
@@ -1899,7 +1899,7 @@
         "message": "Save your Google review link to invite clients after completed appointments. Clients leave their reviews directly on Google."
     },
     "trades.salons.capabilities.10.title": {
-        "message": "Stock and retail commission"
+        "message": "Stock and product commission"
     },
     "trades.salons.capabilities.10.body": {
         "message": "Track stock on the products you sell, see what is running low and restock. Each sale records a commission for the stylist who made it."
@@ -1914,7 +1914,7 @@
         "message": "A cut, a gloss and a bottle of conditioner on one ticket."
     },
     "trades.salons.pay.body": {
-        "message": "Services and retail go on the same invoice, and Ontario HST is added to every line. The client pays by card at the desk, and the sale and the stylist's earnings are recorded together."
+        "message": "Services and products go on the same invoice, and Ontario HST is added to every line. The client pays by card at the desk, and the sale and the stylist's earnings are recorded together."
     },
     "trades.salons.bill.meta": {
         "message": "Invoice 2208 · Hannah Lee"
@@ -3701,7 +3701,7 @@
         "message": "Tap to Pay at the counter, on the phone you already have."
     },
     "pages.paymentsPage.bands.0.body": {
-        "message": "Tap to Pay turns an iPhone or Android phone into a card reader. Charge for a visit or sell retail items, gift cards and packages, and the receipt goes out by email or text."
+        "message": "Tap to Pay turns an iPhone or Android phone into a card reader. Charge for a visit or sell products, gift cards and packages, and the receipt goes out by email or text."
     },
     "pages.paymentsPage.bands.0.points.0": {
         "message": "Tap to Pay on iPhone and Android"

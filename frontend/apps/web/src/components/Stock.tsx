@@ -292,7 +292,7 @@ export function Inventory() {
                                 currency={BUSINESS_CURRENCY}
                                 label={s.statValue}
                                 cents={inv.stats.costCents}
-                                hint={s.statRetail(
+                                hint={s.statProducts(
                                     formatMoney(inv.stats.retailCents, BUSINESS_CURRENCY),
                                 )}
                             />

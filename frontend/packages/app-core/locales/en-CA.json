@@ -1418,8 +1418,8 @@
     "pos.desk.catServices": {
         "message": "Services"
     },
-    "pos.desk.catRetail": {
-        "message": "Retail"
+    "pos.desk.catProducts": {
+        "message": "Products"
     },
     "pos.desk.notTracked": {
         "message": "Not tracked"
@@ -1526,7 +1526,7 @@
         "message": "Back to Today"
     },
     "pos.desk.todaysVisitsHint": {
-        "message": "Booked services ready to check out. Add retail and add-ons after."
+        "message": "Booked services ready to check out. Add products and add-ons after."
     },
     "pos.desk.visitPaid": {
         "message": "Paid"
@@ -1555,7 +1555,7 @@
         "args": ["money"]
     },
     "pos.desk.addExtras": {
-        "message": "Add-ons and retail"
+        "message": "Add-ons and products"
     },
     "pos.desk.payTitle": {
         "message": "Take payment"
@@ -2135,7 +2135,7 @@
         "args": ["amount"]
     },
     "earnings.retailRate": {
-        "message": "{rate} of retail",
+        "message": "{rate} of products",
         "args": ["rate"]
     },
     "earnings.noRate": {
@@ -2155,7 +2155,7 @@
         "message": "Booking"
     },
     "earnings.sourceSale": {
-        "message": "Retail sale"
+        "message": "Product sale"
     },
     "earnings.sourceTip": {
         "message": "Tip"
@@ -7728,7 +7728,7 @@
         "message": "Which taxes apply to a service depends on your province. Confirm with your accountant."
     },
     "catalog.taxHintProduct": {
-        "message": "Retail usually carries every sales tax in your province. Confirm with your accountant."
+        "message": "Products usually carry every sales tax in your province. Confirm with your accountant."
     },
     "catalog.taxPreview": {
         "message": "{rates}: a client pays {money}",
@@ -7867,8 +7867,8 @@
     "catalog.statValue": {
         "message": "Stock at cost"
     },
-    "catalog.statRetail": {
-        "message": "{money} at retail",
+    "catalog.statProducts": {
+        "message": "{money} at selling price",
         "args": ["money"]
     },
     "catalog.needsRestock": {
@@ -8094,7 +8094,7 @@
         "message": "Visits reset at each renewal and don’t roll over."
     },
     "catalog.memberPerk": {
-        "message": "Member retail discount (%)"
+        "message": "Member discount on products (%)"
     },
     "catalog.memberPerkHint": {
         "message": "Taken off products at checkout."
@@ -9544,7 +9544,7 @@
         "message": "Class"
     },
     "reports.kind.product": {
-        "message": "Retail"
+        "message": "Products"
     },
     "reports.kind.subscription": {
         "message": "Membership"
@@ -11782,7 +11782,7 @@
         "message": "No products to offer yet"
     },
     "onlineBooking.addons.emptyBody": {
-        "message": "Add retail products to the catalog, then choose which ones clients can add while booking."
+        "message": "Add products to the catalog, then choose which ones clients can add while booking."
     },
     "publicManage.gettingThere": {
         "message": "Getting here"
