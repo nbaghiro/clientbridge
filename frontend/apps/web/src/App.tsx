@@ -14,7 +14,7 @@ import { AppShell } from "./components/AppShell";
 import { DebugPanel } from "./components/DebugPanel";
 import { config } from "./config";
 import { AuthError, Login, VerifyEmail } from "./pages/Login";
-import { Button, ConfirmHost, LoadFailed, Loading, Logo, Select } from "@clientbridge/ui";
+import { Button, ConfirmHost, LoadFailed, Logo, Select } from "@clientbridge/ui";
 import { api, identity, onSignedOut, selectBusiness } from "./lib/api";
 import {
     clearUser,
@@ -229,9 +229,9 @@ function AppRoutes({
 
 function Splash() {
     return (
-        <div className="flex min-h-screen flex-col items-center justify-center bg-bg">
-            <Logo className="h-8 w-auto animate-pulse text-accent" />
-            <Loading />
+        <div role="status" className="flex min-h-screen flex-col items-center justify-center bg-bg">
+            <Logo className="h-8 w-auto animate-pulse text-accent motion-reduce:animate-none" />
+            <span className="sr-only">{strings.common.loading}</span>
         </div>
     );
 }
@@ -262,7 +262,7 @@ function BusinessScope({
             ) : business.error ? (
                 <LoadFailed variant="page" onRetry={onRetry} retrying={false} />
             ) : business.needsChoice ? null : (
-                <Loading />
+                <Splash />
             )}
         </>
     );
