@@ -69,7 +69,7 @@ export function Button({
             aria-busy={busy || undefined}
             aria-label={label}
             className={cx(
-                `inline-flex shrink-0 items-center justify-center gap-1.5 transition focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-60 ${VARIANT[tone][variant]} ${FOCUS[tone]} ${sizing} ${full ? "w-full" : ""} ${grow ? "flex-1" : ""}`,
+                `inline-flex shrink-0 items-center justify-center gap-1.5 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-60 ${VARIANT[tone][variant]} ${FOCUS[tone]} ${sizing} ${full ? "w-full" : ""} ${grow ? "flex-1" : ""}`,
                 className,
             )}
         >

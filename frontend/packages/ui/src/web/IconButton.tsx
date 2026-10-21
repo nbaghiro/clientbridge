@@ -50,7 +50,7 @@ export function IconButton({
             aria-pressed={pressed}
             title={label}
             className={cx(
-                `relative inline-flex shrink-0 items-center justify-center rounded-md transition focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-50 ${
+                `relative inline-flex shrink-0 items-center justify-center rounded-md transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-50 ${
                     pressed === true
                         ? `${variant === "outline" ? "border" : ""} ${LOOK[tone].pressed}`
                         : LOOK[tone][variant]
