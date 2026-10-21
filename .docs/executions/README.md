@@ -17,3 +17,5 @@ Use a new folder for a separate execution. Record tested behavior, remaining wor
 - [Google Business Profile reviews](google-business-reviews/plan.md) — researched API and Pulumi integration plan; [schema proposal](google-business-reviews/schema.md), [task queue](google-business-reviews/tasks.json), [progress](google-business-reviews/progress.md).
 
 - [Visit flow](visit-flow/plan.md) — check-in requirements and checkout on `feat/visit-flow`; [schema proposal](visit-flow/schema.md), [task queue](visit-flow/tasks.json), [progress](visit-flow/progress.md).
+
+- [Demo seed simplification](demo-simplification/plan.md) — on hold until the demo businesses have been tested; eleven fingerprint-proven commits that remove about 600 to 700 lines without changing demo data.
