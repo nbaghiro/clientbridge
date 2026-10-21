@@ -52,6 +52,7 @@ from clientbridge.models.scheduling import (
     Slot,
 )
 from clientbridge.services.forms import form_definition
+from scripts import demo_copy
 from scripts.demo_calendar import build_calendar
 from scripts.demo_catalog import add_catalog_images
 from scripts.demo_chronology import align_chronology, chronology_errors
@@ -2332,9 +2333,9 @@ async def date_seed_writes(session: AsyncSession, business_id: str, as_of: datet
                 await session.execute(update(table).where(scope, stamped).values({column: as_of}))
 
 
-async def write_business(graph: Graph) -> None:
+async def write_business(graph: Graph, url: str) -> None:
     """Write one purged business, post its ledger and validate it, all in one transaction."""
-    owner = create_async_engine(get_settings().migration_database_url)
+    owner = create_async_engine(url)
     try:
         async with async_sessionmaker(owner, expire_on_commit=False)() as session:
             event.listen(session.sync_session, "before_flush", stamp_entries)
@@ -2357,30 +2358,65 @@ async def write_business(graph: Graph) -> None:
         await engine.dispose()
 
 
-def written(graph: Graph, as_of: datetime) -> Outcome:
+def written(graph: Graph, as_of: datetime, url: str) -> Outcome:
     clock.travel(as_of)
     started = monotonic()
     try:
-        asyncio.run(write_business(graph))
+        asyncio.run(write_business(graph, url))
     except Exception as exc:
         error = f"{type(exc).__name__}: {exc}"
         return Outcome(graph.business_id, len(graph.ctx.rows), monotonic() - started, error)
     return Outcome(graph.business_id, len(graph.ctx.rows), monotonic() - started)
 
 
-async def purge_demo(owner: AsyncEngine, graphs: Sequence[Graph]) -> None:
-    """Clear every demo business, registered or not, one short transaction each."""
+async def retired_demo(owner: AsyncEngine, graphs: Sequence[Graph]) -> list[str]:
+    """Demo businesses seeded before, or registered, that this run does not write."""
     async with async_sessionmaker(owner)() as session:
         earlier = await session.scalars(
             select(Audit.business_id).where(Audit.action == "demo.seed").distinct()
         )
-        seeded = {graph.business_id: graph.ctx.all(User) for graph in graphs}
-        others = sorted({*DEMO_IDS, *(b for b in earlier.all() if b)} - set(seeded))
+        seeding = {graph.business_id for graph in graphs}
+        return sorted({*DEMO_IDS, *(b for b in earlier.all() if b)} - seeding)
+
+
+async def purge_demo(owner: AsyncEngine, graphs: Sequence[Graph], retired: Sequence[str]) -> None:
+    """Clear every demo business, registered or not, one short transaction each."""
+    seeded = [(graph.business_id, graph.ctx.all(User)) for graph in graphs]
     # purged before any write starts, since a purge locks the ledger until it commits
-    for business_id, users in [*seeded.items(), *((b, []) for b in others)]:
+    for business_id, users in [*seeded, *((b, []) for b in retired)]:
         async with async_sessionmaker(owner)() as session:
             await replace_business(session, business_id, users)
             await session.commit()
+
+
+async def copy_demo(owner: AsyncEngine, scratch_url: str, graphs: Sequence[Graph]) -> list[str]:
+    """Replace each business with its scratch rows in one transaction; a failure keeps the old."""
+    scratch = await demo_copy.connect(scratch_url)
+    try:
+        users = {graph.business_id: graph.ctx.all(User) for graph in graphs}
+        stray = await demo_copy.uncovered(
+            scratch, list(users), [user.id for each in users.values() for user in each]
+        )
+        if stray:
+            raise SystemExit(f"Scratch rows outside the demo would not be copied: {stray}")
+        failed: list[str] = []
+        for business_id, seeded in users.items():
+            started = monotonic()
+            try:
+                async with async_sessionmaker(owner)() as session:
+                    await replace_business(session, business_id, seeded)
+                    rows = await demo_copy.copy_business(
+                        scratch, session, business_id, [user.id for user in seeded]
+                    )
+                    await session.commit()
+            except Exception as exc:
+                print(f"{business_id}: copy failed, {type(exc).__name__}: {exc}")
+                failed.append(business_id)
+                continue
+            print(f"{business_id}: copied {rows} rows in {monotonic() - started:.1f}s")
+        return failed
+    finally:
+        await scratch.close()
 
 
 async def cross_business_check(owner: AsyncEngine, seeded: list[str]) -> list[str]:
@@ -2407,14 +2443,19 @@ def default_jobs() -> int:
     return max(1, min(os.cpu_count() or 1, MAX_JOBS))
 
 
-async def main(*, as_of: datetime | None = None, core: bool = False, jobs: int = 1) -> None:
+async def main(
+    *, as_of: datetime | None = None, core: bool = False, jobs: int = 1, scratch: str | None = None
+) -> None:
+    """Write the demo into the target, or into an empty scratch database to copy from."""
     validate_seed_target()
     if as_of is not None and as_of.tzinfo is None:
         raise ValueError("--as-of must include a timezone offset")
     anchor = as_of or clock.now()
     business_ids = [b.id for b in DEMO_BUSINESSES if b.core or not core]
     loop = asyncio.get_running_loop()
-    owner = create_async_engine(get_settings().migration_database_url)
+    target = get_settings().migration_database_url
+    writes = target if scratch is None else await demo_copy.prepare(scratch, target)
+    owner = create_async_engine(target)
     # a fresh process per task: the clock and each engine belong to one business
     with ProcessPoolExecutor(min(jobs, len(business_ids)), max_tasks_per_child=1) as pool:
         graphs = list(
@@ -2424,11 +2465,13 @@ async def main(*, as_of: datetime | None = None, core: bool = False, jobs: int =
         )
         await link_identities([user for graph in graphs for user in graph.ctx.all(User)])
         upload_demo_assets([file for graph in graphs for file in graph.ctx.all(File)])
-        await purge_demo(owner, graphs)
+        retired = await retired_demo(owner, graphs)
+        if scratch is None:
+            await purge_demo(owner, graphs, retired)
         # the largest business first, so the longest ledger is not left for last
         graphs.sort(key=lambda graph: len(graph.ctx.rows), reverse=True)
         outcomes = await asyncio.gather(
-            *(loop.run_in_executor(pool, written, graph, anchor) for graph in graphs)
+            *(loop.run_in_executor(pool, written, graph, anchor, writes) for graph in graphs)
         )
     for outcome in outcomes:
         state = outcome.error or "ok"
@@ -2436,7 +2479,16 @@ async def main(*, as_of: datetime | None = None, core: bool = False, jobs: int =
     failed = [outcome.business_id for outcome in outcomes if outcome.error]
     if failed:
         await owner.dispose()
-        raise SystemExit(f"Demo seed failed for {', '.join(failed)}; the rest were written.")
+        kept = "the rest were written" if scratch is None else "nothing was copied"
+        raise SystemExit(f"Demo seed failed for {', '.join(failed)}; {kept}.")
+    if scratch is not None:
+        started = monotonic()
+        await purge_demo(owner, [], retired)
+        failed = await copy_demo(owner, writes, graphs)
+        print(f"Copied {len(graphs) - len(failed)} businesses in {monotonic() - started:.1f}s.")
+        if failed:
+            await owner.dispose()
+            raise SystemExit(f"Demo copy failed for {', '.join(failed)}; they keep their old rows.")
     errors = await cross_business_check(owner, business_ids)
     await owner.dispose()
     if errors:
@@ -2492,8 +2544,14 @@ if __name__ == "__main__":
     parser.add_argument(
         "--jobs", type=int, default=default_jobs(), help="businesses written at the same time"
     )
+    parser.add_argument(
+        "--scratch",
+        help="an empty database to seed first, then copy each business from in one transaction",
+    )
     args = parser.parse_args()
     # run from the imported module, so the worker processes find what they are sent by name
     from scripts import seed_demo
 
-    asyncio.run(seed_demo.main(as_of=args.as_of, core=args.core, jobs=args.jobs))
+    asyncio.run(
+        seed_demo.main(as_of=args.as_of, core=args.core, jobs=args.jobs, scratch=args.scratch)
+    )

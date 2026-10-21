@@ -10,7 +10,7 @@ import pulumi_kubernetes as k8s
 import yaml
 from clientbridge.core import deployment as derived
 
-from cloud.database import AUTH_MAX_CONNS
+from cloud.database import AUTH_MAX_CONNS, MAJOR_VERSION
 from environments import (
     API_PORT,
     AUTH_ADMIN_PORT,
@@ -180,6 +180,7 @@ IMAGE_USERS: Mapping[str, tuple[int, int]] = {
     "powersync": (901, 901),
     "redis": (999, 999),  # the image's USER is root, and its entrypoint skips gosu when not root
     "proxy": (65532, 65532),
+    "postgres": (999, 999),
 }
 
 
@@ -190,6 +191,7 @@ def upstream_images(compose: Path) -> dict[str, str]:
         "powersync": "journeyapps/powersync-service",
         "redis": "redis",
         "proxy": "gcr.io/cloud-sql-connectors/cloud-sql-proxy",
+        "postgres": f"postgres:{MAJOR_VERSION}",
     }
     services = yaml.safe_load(compose.read_text())["services"]
     pinned: dict[str, str] = {}

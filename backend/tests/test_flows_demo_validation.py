@@ -4,7 +4,7 @@ from uuid import uuid4
 import pytest
 from scripts.demo_validate import validate_database, validate_graph
 from scripts.seed_demo import build_demo, validate_seed_target
-from sqlalchemy import select
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
@@ -193,3 +193,53 @@ def test_the_demo_seeds_only_a_local_or_staging_database(
     else:
         with pytest.raises(SystemExit):
             validate_seed_target()
+
+
+async def test_a_scratch_business_copies_back_row_for_row(owner_db: AsyncSession) -> None:
+    from scripts import demo_copy
+    from scripts.seed_demo import replace_business
+
+    from clientbridge.core.db import Base
+    from clientbridge.models.business import Staff, User
+    from clientbridge.models.payments import Payment
+
+    members = select(Staff.user_id).where(Staff.business_id == BIZ)
+    user_ids = list((await owner_db.scalars(select(User.id).where(User.id.in_(members)))).all())
+    users = list((await owner_db.scalars(select(User).where(User.id.in_(user_ids)))).all())
+
+    async def counts() -> dict[str, int]:
+        found: dict[str, int] = {}
+        for table in Base.metadata.sorted_tables:
+            scoped = demo_copy.scope(table, [BIZ], user_ids)
+            if scoped is not None:
+                where = scoped[0].replace("$1::text[]", "CAST(:keys AS text[])")
+                query = text(f"SELECT count(*) FROM {table.name} WHERE {where}")
+                found[table.name] = await owner_db.scalar(query, {"keys": scoped[1]}) or 0
+        booked = Payment.business_id == BIZ, Payment.booking_id.isnot(None)
+        found["payments.booking_id"] = (
+            await owner_db.scalar(select(func.count()).where(*booked)) or 0
+        )
+        return found
+
+    before = await counts()
+    assert before["entries"] and before["payments.booking_id"]
+    # the seeded rows are committed, so a second connection reads them as a scratch database would
+    scratch = await demo_copy.connect(get_settings().migration_database_url)
+    try:
+        await replace_business(owner_db, BIZ, users)
+        assert (await counts())["businesses"] == 0
+        copied = await demo_copy.copy_business(scratch, owner_db, BIZ, user_ids)
+    finally:
+        await scratch.close()
+    assert await counts() == before
+    assert copied == sum(rows for name, rows in before.items() if "." not in name)
+
+
+async def test_the_scratch_database_is_neither_the_target_nor_in_use() -> None:
+    from scripts import demo_copy
+
+    url = get_settings().migration_database_url
+    with pytest.raises(SystemExit, match="not be the seed target"):
+        await demo_copy.prepare(url, url)
+    with pytest.raises(SystemExit, match="must start empty"):
+        await demo_copy.prepare(url, url.rsplit("/", 1)[0] + "/elsewhere")

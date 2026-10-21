@@ -1,4 +1,4 @@
-"""Staging's demo Job after migrate: replace the demo businesses' rows, then link Stripe."""
+"""Staging's demo Job after migrate: seed a scratch Postgres, copy it over, then link Stripe."""
 
 import pulumi
 import pulumi_kubernetes as k8s
@@ -7,13 +7,13 @@ from kubernetes import migrate, settings, sidecar
 
 NAME = "seed"
 DEADLINE_SECONDS = 1800
-# a round trip through the Cloud SQL proxy costs milliseconds, so businesses are written in parallel
+# one writer per core of the pod, the seed's and its scratch Postgres's together
 JOBS = 4
-# the seed restores fixture Stripe ids and the address the Terminal location needs; the link follows
+# a round trip through the Cloud SQL proxy costs milliseconds, so the seed writes locally first
 COMMAND = (
     "/bin/sh",
     "-c",
-    f"python -m scripts.seed_demo --jobs {JOBS}"
+    f"python -m scripts.seed_demo --jobs {JOBS} --scratch {sidecar.SCRATCH_URL}"
     " && python -m scripts.stripe_setup --link-only --apply",
 )
 
@@ -33,12 +33,13 @@ def create(ctx: settings.Context, after: list[pulumi.Resource]) -> k8s.batch.v1.
         security_context=settings.security("backend"),
     )
     volume, provider_class = settings.secret_volume(ctx, NAME, settings.readers(migrate.NAME))
+    scratch, scratch_volumes = sidecar.scratch(ctx.upstream["postgres"])
     spec = settings.pod(
         workload,
         migrate.NAME,
         [seed],
-        init_containers=[sidecar.proxy(ctx.upstream["proxy"], ctx.connection_name)],
-        volumes=[volume],
+        init_containers=[sidecar.proxy(ctx.upstream["proxy"], ctx.connection_name), scratch],
+        volumes=[volume, *scratch_volumes],
         restart_policy="Never",
     )
     return k8s.batch.v1.Job(

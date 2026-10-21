@@ -659,6 +659,7 @@ def image_user(image: str) -> tuple[int, int]:
         "journeyapps/powersync-service@": "powersync",
         "redis@": "redis",
         "cloud-sql-proxy@": "proxy",
+        f"postgres:{database.MAJOR_VERSION}@": "postgres",
     }
     (kind,) = [kind for marker, kind in kinds.items() if marker in image]
     return settings.IMAGE_USERS[kind]
@@ -1055,8 +1056,41 @@ def test_stagings_seed_has_room_for_every_demo_business(stacks: dict[str, Built]
     spec = dig(seed.inputs, "spec", "template", "spec")
     (container,) = listed(dig(spec, "containers"))
     assert dig(container, "resources", "requests") == {"cpu": "2", "memory": "2Gi"}
-    assert "scripts.seed_demo --jobs 4 " in str(dig(container, "command"))
+    command = str(dig(container, "command"))
+    scratch_url = "postgresql://postgres@127.0.0.1:5433/scratch"
+    assert f"scripts.seed_demo --jobs 4 --scratch {scratch_url} " in command
     assert dig(seed.inputs, "spec", "activeDeadlineSeconds") == 1800
+    proxy, scratch = listed(dig(spec, "initContainers"))
+    assert dig(proxy, "name") == "cloud-sql-proxy"
+    assert dig(scratch, "resources", "requests") == {"cpu": "2", "memory": "2Gi"}
+    cores = sum(
+        int(str(dig(each, "resources", "requests", "cpu"))) for each in (container, scratch)
+    )
+    assert cores == 4  # one writer per core of the pod
+
+
+def test_stagings_seed_writes_into_a_loopback_postgres_of_cloud_sqls_version(
+    stacks: dict[str, Built],
+) -> None:
+    (seed,) = jobs(stacks["staging"], "seed")
+    spec = dig(seed.inputs, "spec", "template", "spec")
+    (scratch,) = [
+        each
+        for each in listed(dig(spec, "initContainers"))
+        if dig(each, "name") == "scratch-postgres"
+    ]
+    assert dig(scratch, "restartPolicy") == "Always"
+    assert str(dig(scratch, "image")).startswith(f"postgres:{database.MAJOR_VERSION}@sha256:")
+    args = [str(arg) for arg in listed(dig(scratch, "args"))]
+    assert "listen_addresses=127.0.0.1" in args and "port=5433" in args
+    assert env_vars(scratch)["POSTGRES_HOST_AUTH_METHOD"] == "trust"
+    assert dig(scratch, "securityContext", "readOnlyRootFilesystem") is True
+    volumes = {str(dig(each, "name")): each for each in listed(dig(spec, "volumes"))}
+    for mount in listed(dig(scratch, "volumeMounts")):
+        assert dig(volumes[str(dig(mount, "name"))], "emptyDir", "sizeLimit") == "1Gi"
+    assert "5433" not in json.dumps(
+        [each.inputs for each in of_type(stacks["staging"], "kubernetes:core/v1:Service")]
+    )
 
 
 def test_the_project_asks_for_room_beyond_two_autopilot_nodes(cloud: Built) -> None:

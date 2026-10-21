@@ -10,6 +10,8 @@ from environments import Environment
 
 INSTANCE = "clientbridge"
 TIER = "db-g1-small"
+# the demo seed's scratch database runs the same major version; see kubernetes/sidecar.py
+MAJOR_VERSION = 16
 # every pod reaches the instance through its Auth Proxy sidecar on this address
 PROXY_ADDRESS = "127.0.0.1:5432"
 # both environments deploying at once plus Cloud SQL's own; see settings.py peak_connections
@@ -28,7 +30,7 @@ def create(region: str, zone: str, net: network.Network) -> Instance:
         INSTANCE,
         name=INSTANCE,
         region=region,
-        database_version="POSTGRES_16",
+        database_version=f"POSTGRES_{MAJOR_VERSION}",
         deletion_protection=True,
         settings={
             "tier": TIER,

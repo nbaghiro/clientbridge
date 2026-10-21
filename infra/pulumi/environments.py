@@ -79,6 +79,8 @@ SERVED_PORTS = (API_PORT, WEB_PORT, AUTH_PUBLIC_PORT, POWERSYNC_PORT)
 PROXY = Size(
     "50m", "128Mi"
 )  # the Cloud SQL Auth Proxy sidecar in every pod that reaches the database
+# the demo seed's own Postgres, which four writers kept above one core in a local run
+SCRATCH = Size("2", "2Gi")
 
 
 def build(prod_domain: str, staging_domain: str) -> tuple[Environment, Environment]:
