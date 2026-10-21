@@ -6,7 +6,7 @@ import pulumi_kubernetes as k8s
 from kubernetes import migrate, settings, sidecar
 
 NAME = "seed"
-DEADLINE_SECONDS = 900
+DEADLINE_SECONDS = 1800
 # the seed restores fixture Stripe ids and the address the Terminal location needs; the link follows
 COMMAND = (
     "/bin/sh",
@@ -17,7 +17,9 @@ COMMAND = (
 
 def create(ctx: settings.Context, after: list[pulumi.Resource]) -> k8s.batch.v1.Job:
     """Runs as the migrate account, whose secrets hold the owner's database URL and Stripe key."""
-    workload = ctx.env.migrate
+    workload = ctx.env.demo
+    if workload is None:
+        raise ValueError(f"{ctx.env.name} doesn't seed the demo businesses")
     seed = k8s.core.v1.ContainerArgs(
         name=NAME,
         image=ctx.backend_image,

@@ -1050,6 +1050,14 @@ def test_only_staging_seeds_the_demo_after_migrate_and_auth(stacks: dict[str, Bu
     assert "scripts.stripe_setup --link-only --apply" in str(dig(container, "command"))
 
 
+def test_stagings_seed_has_room_for_every_demo_business(stacks: dict[str, Built]) -> None:
+    (seed,) = jobs(stacks["staging"], "seed")
+    spec = dig(seed.inputs, "spec", "template", "spec")
+    (container,) = listed(dig(spec, "containers"))
+    assert dig(container, "resources", "requests") == {"cpu": "1", "memory": "1536Mi"}
+    assert dig(seed.inputs, "spec", "activeDeadlineSeconds") == 1800
+
+
 def test_the_project_asks_for_room_beyond_two_autopilot_nodes(cloud: Built) -> None:
     preferences = {
         str(dig(each.inputs, "quotaId")): each.inputs

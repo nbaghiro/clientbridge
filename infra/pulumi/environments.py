@@ -56,8 +56,8 @@ class Environment:
     redis: Workload
     # staging's migrate pod runs on Spot and its steps are idempotent; a failed prod run stops
     migrate_retries: int
-    # staging seeds the demo businesses and links them to the Stripe sandbox after each migrate
-    demo: bool
+    # the demo seed Job's size where the environment seeds the demo businesses after each migrate
+    demo: Workload | None
     mobile: Mobile
 
     def host(self, host: Host) -> str:
@@ -99,7 +99,7 @@ def build(prod_domain: str, staging_domain: str) -> tuple[Environment, Environme
         web=Workload(Size("100m", "256Mi"), spot=False, replicas=2),
         redis=Workload(Size("50m", "128Mi"), spot=False),
         migrate_retries=0,
-        demo=False,
+        demo=None,
         mobile=Mobile(
             bundle_id="ca.clientbridge.app",
             name="Clientbridge",
@@ -124,7 +124,8 @@ def build(prod_domain: str, staging_domain: str) -> tuple[Environment, Environme
         web=Workload(Size("100m", "256Mi"), spot=True),
         redis=Workload(Size("50m", "128Mi"), spot=True),
         migrate_retries=2,
-        demo=True,
+        # the full seed holds every demo business in memory and posts its ledger, about 500 MB
+        demo=Workload(Size("1", "1536Mi"), spot=True),
         # a separate app, so testers keep it beside the store one
         mobile=Mobile(
             bundle_id="ca.clientbridge.app.staging",
