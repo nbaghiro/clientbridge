@@ -9,7 +9,7 @@ import {
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ActionMenu, Icon, Notice, SyncBanner, confirm } from "@clientbridge/ui";
@@ -43,6 +43,8 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
     const nav = useShellNav(useViewer());
     const openLink = useOpenLink();
     const [menu, setMenu] = useState(false);
+    const [anchor, setAnchor] = useState<{ x: number; y: number } | undefined>(undefined);
+    const fab = useRef<View>(null);
     const { notice, rejectedCount, discardRejected } = useSyncState();
     const plan = usePlanNotice(useViewer()?.role ?? null);
     const close = (): void => {
@@ -133,11 +135,15 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
                             tab,
                             <Pressable
                                 key="fab"
+                                ref={fab}
                                 style={styles.fab}
                                 accessibilityRole="button"
                                 accessibilityLabel={strings.navigation.createMenu}
                                 onPress={() => {
-                                    setMenu(true);
+                                    fab.current?.measureInWindow((x, y, width, height) => {
+                                        setAnchor({ x: x + width / 2, y: y + height / 2 });
+                                        setMenu(true);
+                                    });
                                 }}
                             >
                                 <Icon name="plus" size={26} color={c.surface} />
@@ -151,7 +157,8 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
                     open={menu}
                     onClose={close}
                     title={strings.navigation.createMenu}
-                    layout="grid"
+                    layout="radial"
+                    anchor={anchor}
                     items={nav.create}
                     onSelect={(key) => {
                         close();

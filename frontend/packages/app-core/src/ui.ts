@@ -757,8 +757,10 @@ export interface ActionMenuProps {
     title?: string | undefined;
     items: readonly ActionMenuItem[];
     onSelect: (key: string) => void;
-    // "grid" draws large tiles (two across on web, three on mobile).
-    layout?: "list" | "grid" | undefined;
+    // "grid" draws large tiles (two across on web, three on mobile); "radial" is a mobile fan.
+    layout?: "list" | "grid" | "radial" | undefined;
+    // Mobile only: the window centre of the button a radial menu fans out from.
+    anchor?: { x: number; y: number } | undefined;
     // Extra content under the items, e.g. recent clients to book again.
     footer?: ReactNode | undefined;
     // Web only: the preferred side, flipped when it would leave the window; mobile is a sheet.
