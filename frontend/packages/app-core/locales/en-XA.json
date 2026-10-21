@@ -8501,6 +8501,12 @@
     "today.allClear": {
         "message": "[Ñöţĥîñĝ ñééðš ýöû ŕîĝĥţ ñöŵ. one two three]"
     },
+    "today.activity": {
+        "message": "[Ŕéçéñţ åçţîṽîţý one two]"
+    },
+    "today.activityNone": {
+        "message": "[Ñöţĥîñĝ ñéŵ ţĥîš ŵééķ. one two]"
+    },
     "today.team": {
         "message": "[Ţéåɱ ţöðåý one two]"
     },

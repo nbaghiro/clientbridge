@@ -9126,6 +9126,12 @@
     "today.allClear": {
         "message": "Nothing needs you right now."
     },
+    "today.activity": {
+        "message": "Recent activity"
+    },
+    "today.activityNone": {
+        "message": "Nothing new this week."
+    },
     "today.team": {
         "message": "Team today"
     },

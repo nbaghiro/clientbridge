@@ -18,6 +18,7 @@ import {
     formatMoney,
     BUSINESS_CURRENCY,
     useBusinessZone,
+    useNotifications,
 } from "@clientbridge/app-core";
 import {
     Avatar,
@@ -33,6 +34,7 @@ import {
 } from "@clientbridge/ui";
 import { Fragment } from "react";
 
+import { useViewer } from "../lib/auth";
 import { useOpenLink } from "../lib/links";
 
 const t = strings.today;
@@ -384,6 +386,34 @@ export function TeamPanel({ team }: { team: TeamDay[] }) {
                     </li>
                 ))}
             </ul>
+        </Panel>
+    );
+}
+
+/** The week's latest events from the notification feed, newest first. */
+export function ActivityPanel() {
+    const feed = useNotifications(useViewer());
+    const items = feed.groups.flatMap((g) => g.items).slice(0, 5);
+    return (
+        <Panel title={t.activity} flush>
+            {items.length === 0 ? (
+                <p className="px-4 py-3 text-sm text-muted">{t.activityNone}</p>
+            ) : (
+                <ul className="divide-y divide-line-soft">
+                    {items.map((n) => (
+                        <li key={n.id} className="flex items-start gap-3 px-4 py-3">
+                            <span className="mt-0.5 text-muted">
+                                <Icon name={n.icon} size={16} />
+                            </span>
+                            <div className="min-w-0 flex-1">
+                                <p className="truncate text-sm font-medium text-ink">{n.title}</p>
+                                <p className="truncate text-xs text-muted">{n.body}</p>
+                            </div>
+                            <span className="shrink-0 text-xs text-muted">{n.when}</span>
+                        </li>
+                    ))}
+                </ul>
+            )}
         </Panel>
     );
 }

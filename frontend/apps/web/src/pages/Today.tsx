@@ -36,6 +36,7 @@ import {
 import { Fragment, type ReactNode } from "react";
 
 import {
+    ActivityPanel,
     AttentionPanel,
     FilingCard,
     KpiStrip,
@@ -214,14 +215,14 @@ function OwnerTodayPage() {
                             </div>
                         </div>
                     ) : (
-                        <div className="mt-6 space-y-6">
-                            <SchedulePanel
-                                view={view}
-                                actions={actions}
-                                loading={loading}
-                                bookingLink={bookingLink}
-                            />
-                            <div className="grid grid-cols-2 items-start gap-6">
+                        <div className="mt-6 grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+                            <div className="min-w-0 space-y-6">
+                                <SchedulePanel
+                                    view={view}
+                                    actions={actions}
+                                    loading={loading}
+                                    bookingLink={bookingLink}
+                                />
                                 <AttentionPanel
                                     title={t.needsYou}
                                     items={view.attention}
@@ -229,16 +230,17 @@ function OwnerTodayPage() {
                                     loading={loading}
                                     empty={t.allClear}
                                 />
-                                <div className="space-y-6">
-                                    <TeamPanel team={view.team} />
-                                    {loading || moneyLoad.state !== "ready" ? null : (
-                                        <FilingCard
-                                            setAsideCents={money.setAsideCents}
-                                            filingDue={money.filingDue}
-                                            filingDays={money.filingDays}
-                                        />
-                                    )}
-                                </div>
+                            </div>
+                            <div className="space-y-6">
+                                <TeamPanel team={view.team} />
+                                {loading || moneyLoad.state !== "ready" ? null : (
+                                    <FilingCard
+                                        setAsideCents={money.setAsideCents}
+                                        filingDue={money.filingDue}
+                                        filingDays={money.filingDays}
+                                    />
+                                )}
+                                <ActivityPanel />
                             </div>
                         </div>
                     )}

@@ -3112,6 +3112,8 @@ interface Strings {
         readonly openSchedule: string;
         readonly needsYou: string;
         readonly allClear: string;
+        readonly activity: string;
+        readonly activityNone: string;
         readonly team: string;
         readonly teamOff: string;
         readonly teamCount: (n: number) => string;
