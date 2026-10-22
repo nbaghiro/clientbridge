@@ -28,7 +28,7 @@ import {
 } from "../format";
 import { useAsyncAction, useNow, useRemote } from "../hooks";
 import type { Load } from "../hooks";
-import type { IconName } from "../icons";
+import { type IconName, SUBJECT_ICON } from "../icons";
 import { strings } from "../strings";
 import type { Intent, TimelineEntry } from "../ui";
 import { utcSql } from "../datetime";
@@ -828,7 +828,7 @@ const FILTER_OF: Record<HistoryKind, HistoryEntry["filter"]> = {
 };
 
 const ICON_OF: Record<HistoryKind, IconName> = {
-    visit: "paw",
+    visit: "checkCircle",
     booked: "calendar",
     invoice: "invoices",
     payment: "dollar",
@@ -839,7 +839,10 @@ const ICON_OF: Record<HistoryKind, IconName> = {
 
 function entry(
     kind: HistoryKind,
-    rest: Omit<HistoryEntry, "kind" | "filter" | "icon" | "intent"> & { intent?: Intent },
+    rest: Omit<HistoryEntry, "kind" | "filter" | "icon" | "intent"> & {
+        intent?: Intent;
+        icon?: IconName;
+    },
 ): HistoryEntry {
     return {
         kind,
@@ -983,6 +986,7 @@ function visitLabel(v: ClientVisit, subjects: readonly SubjectRow[]): string {
 /** Every visit, invoice, payment, message, review and note for one client, newest first. */
 export function useClientHistory(clientId: string, viewerStaffId: string | null): ClientHistory {
     const zone = useBusinessZone();
+    const subjectKind = useSubjectKind();
     const visits = useQuery<VisitRow>(CLIENT_VISITS_SQL, [clientId]);
     const subjects = useQuery<SubjectDbRow>(CLIENT_SUBJECTS_SQL, [clientId]);
     const notes = useQuery<NoteDbRow>(CLIENT_NOTES_SQL, [clientId, clientId]);
@@ -1040,6 +1044,7 @@ export function useClientHistory(clientId: string, viewerStaffId: string | null)
                     : null;
             out.push(
                 entry("visit", {
+                    icon: subjectKind === null ? "checkCircle" : SUBJECT_ICON[subjectKind],
                     key: v.id,
                     at: v.start,
                     label,

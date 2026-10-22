@@ -15,7 +15,8 @@ import { BRAND_COLOURS, useStaff, staffName } from "./staff";
 import { useReplicaLoad, useSyncStatus } from "./sync";
 import { SUPPORTED_ZONES, type SupportedZone } from "../zones";
 import { dateKey } from "../datetime";
-import type { SubjectKind } from "./subjects";
+import { SUBJECT_ICON } from "../icons";
+import { type SubjectKind, useSubjectKind } from "./subjects";
 import { taxSummary } from "./taxes";
 
 interface BusinessRow {
@@ -1026,6 +1027,7 @@ function previewDeposit(i: PreviewItem): number {
 /** The booking page's first step from the replica: the bookable services and a pick. */
 export function useBookingPreview(limit: number): BookingPreview {
     const items = useQuery<PreviewItem>(BOOKING_PREVIEW_SQL).data.slice(0, limit);
+    const kind = useSubjectKind();
     const [selected, setSelected] = useState<string | null>(null);
     const chosen = items.find((i) => i.id === selected) ?? null;
     const b = strings.publicBooking;
@@ -1051,7 +1053,7 @@ export function useBookingPreview(limit: number): BookingPreview {
                 : [
                       {
                           key: "service",
-                          icon: "paw",
+                          icon: kind === null ? "tag" : SUBJECT_ICON[kind],
                           title: chosen.name,
                           ...(chosen.duration_min !== null
                               ? { detail: durationLabel(chosen.duration_min) }

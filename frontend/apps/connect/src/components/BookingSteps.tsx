@@ -8,6 +8,7 @@ import {
     strings,
     formatParts,
     formatMoney,
+    SUBJECT_ICON,
 } from "@clientbridge/app-core/public";
 import {
     Button,
@@ -186,7 +187,7 @@ function visitFacts(flow: PublicBookingFlow): Fact[] {
     if (flow.service !== null)
         facts.push({
             key: "service",
-            icon: "paw",
+            icon: flow.kind === null ? "tag" : SUBJECT_ICON[flow.kind],
             title: flow.service.name,
             ...(flow.service.duration_min !== null
                 ? { detail: durationLabel(flow.service.duration_min) }
