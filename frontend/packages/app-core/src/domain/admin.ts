@@ -195,7 +195,7 @@ export function useAdminEmailForm(base: string) {
     return { recipient, setRecipient, confirmed, setConfirmed, busy, outcome, send };
 }
 
-const EDITIONS = ["pet", "student", "property", "site", "none"] as const;
+const EDITIONS = ["pet", "student", "property", "site", "vehicle", "none"] as const;
 
 /** A business's edition as a select value; "none" is a business that books only the client. */
 type AdminEditionChoice = (typeof EDITIONS)[number];

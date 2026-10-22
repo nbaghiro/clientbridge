@@ -87,13 +87,15 @@ export type IconName =
     | "contactless"
     | "printer"
     | "pushpin"
-    | "minus";
+    | "minus"
+    | "car";
 
 export const SUBJECT_ICON: Record<SubjectKind, IconName> = {
     pet: "paw",
     student: "user",
     property: "building",
     site: "shield",
+    vehicle: "car",
 };
 
 export const ICON_SPECS: Record<IconName, IconPrimitive[]> = {
@@ -208,6 +210,14 @@ export const ICON_SPECS: Record<IconName, IconPrimitive[]> = {
     edit: [p("M12 20h9"), p("M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z")],
     send: [p("m22 2-7 20-4-9-9-4Z"), p("M22 2 11 13")],
     tag: [p("M12 2H2v10l9.29 9.29a1 1 0 0 0 1.41 0l8.59-8.59a1 1 0 0 0 0-1.41z"), o(7, 7, 1.5)],
+    car: [
+        p(
+            "M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2",
+        ),
+        o(7, 17, 2),
+        p("M9 17h6"),
+        o(17, 17, 2),
+    ],
     building: [
         r(4, 2, 16, 20),
         p(

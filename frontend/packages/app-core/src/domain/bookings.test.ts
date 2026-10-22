@@ -683,6 +683,7 @@ describe("arrivalLabel", () => {
         const here = event("c", start, end, { departedAt: left, checkedIn: true });
         expect(arrivalLabel(here, "site")).toBe(strings.bookings.arrivedOnSite);
         expect(arrivalLabel(here, "property")).toBe(strings.bookings.arrivedAtPlace);
+        expect(arrivalLabel(here, "vehicle")).toBe(strings.bookings.arrivedAtPlace);
         expect(arrivalLabel(here, "pet")).toBeNull();
     });
 });
@@ -726,6 +727,8 @@ describe("canCheckIn", () => {
         expect(canCheckIn(visit, staff, "site", ZONE, at(9))).toBe(false);
         const left = event("f", at(10), at(11), { departedAt: at(9) });
         expect(canCheckIn(left, staff, "site", ZONE, at(9, 30))).toBe(true);
+        expect(canCheckIn(visit, staff, "vehicle", ZONE, at(9))).toBe(false);
+        expect(canCheckIn(left, staff, "vehicle", ZONE, at(9, 30))).toBe(true);
     });
 });
 

@@ -706,7 +706,9 @@ def _assert_subject_fields(business: Business, data: PublicBookingCreate) -> Non
     if business.subject is None and (named or data.subject_address is not None):
         raise Unprocessable("this business books only the client", code="no_subjects")
     if data.subject_address is not None and business.subject not in PLACE_KINDS:
-        raise Unprocessable("only a property or site business takes an address", code="no_subjects")
+        raise Unprocessable(
+            "only a business that visits a place takes an address", code="no_subjects"
+        )
 
 
 def _same_place(stored: object, given: str) -> bool:

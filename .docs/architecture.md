@@ -263,7 +263,7 @@ shown after it.
 ### Tables by domain
 
 **business (3)** — `businesses` (all Stripe-Connect/KYC mirror fields + Canadian tax fields + `slug` + brand
-JSONB + `subject`, what a booking names besides the client: pet, student, property or site, NULL when the
+JSONB + `subject`, what a booking names besides the client: pet, student, property, site or vehicle, NULL when the
 business books only the client), `users` (one per auth identity via unique `identity_id`; `email` copied from the auth service, `last_seen_at`), `staff` (user↔business, `role`
 owner/admin/staff/contractor, payout config `payee`/`rate_type` with the rate in `rate_bps` (percent) or
 `rate_cents` (fixed or hourly), one membership per user per business, pending invites via
@@ -288,7 +288,7 @@ by line and reason; `items.stock_on_hand` is the running total).
 `staff_id`; status pending→confirmed→completed/canceled/no_show, or waitlisted on a full class (a seat freed before the session starts goes to the earliest sign-up waiting, and the overnight job closes what is left once the class ends); `source`; deposit terms (the deposit's
 state is derived from the ledger, and a deposit is due when `deposit_amount_cents > 0`); `reminded_at`;
 `departed_at`, set once by `POST /v1/bookings/{id}/depart` ("On my way", which texts the client), and
-`checked_in_at`, the client arriving or, for a property or site business, the member arriving),
+`checked_in_at`, the client arriving or, for a property, site or vehicle business, the member arriving),
 `hours` (per-staff working hours: `basis` recurring weekday or one-off date, `available`; `basis`
 exception is time off for one member, or a closure for everyone when `staff_id` is null, with
 `starts_at`/`ends_at` and a `reason`, written only through `/v1/time-off`), `recurrences` (recurrence rule with `frequency` day/week/month, the same words

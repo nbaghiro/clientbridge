@@ -141,6 +141,8 @@ describe("a visit at the client's place", () => {
         expect(ahead && visitAction(ahead, "site")).toBe("depart");
         expect(onTheWay && visitAction(onTheWay, "site")).toBe("checkIn");
         expect(arrived && visitAction(arrived, "site")).toBe("checkout");
+        expect(ahead && visitAction(ahead, "vehicle")).toBe("depart");
+        expect(onTheWay && visitAction(onTheWay, "vehicle")).toBe("checkIn");
         expect(ahead && visitAction(ahead, "pet")).toBe("checkIn");
     });
 
@@ -148,6 +150,7 @@ describe("a visit at the client's place", () => {
         expect(arrivalWords("site").done).toBe(strings.today.onSite);
         expect(visitActionLabel("checkIn", "site")).toBe(strings.today.arrive);
         expect(visitActionLabel("checkIn", "property")).toBe(strings.today.checkIn);
+        expect(visitActionLabel("checkIn", "vehicle")).toBe(strings.today.checkIn);
         expect(visitActionLabel("depart", "site")).toBe(strings.today.depart);
     });
 });

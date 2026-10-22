@@ -1,4 +1,4 @@
-"""cb0016 moves the subject kind onto the business and cb0019 adds sites; both reverse safely."""
+"""cb0016 moves the subject kind onto the business, cb0019 adds sites and cb0028 vehicles."""
 
 import os
 import secrets
@@ -113,6 +113,48 @@ async def test_cb0019_takes_site_businesses_and_refuses_to_downgrade_while_one_e
         async with engine.begin() as conn:
             with pytest.raises(IntegrityError):
                 await conn.execute(text("UPDATE businesses SET subject = 'site'"))
+    finally:
+        await engine.dispose()
+        await admin(f"DROP DATABASE IF EXISTS {quote(database)} WITH (FORCE)")
+
+
+async def test_cb0028_takes_vehicle_businesses_and_refuses_to_downgrade_while_one_exists() -> None:
+    settings = get_settings()
+    database = f"clientbridge_migration_{secrets.token_hex(4)}"
+    url = on(settings.migration_database_url, database)
+    env = os.environ | {
+        "ADMIN_DATABASE_URL": on(ADMIN_URL, database),
+        "MIGRATION_DATABASE_URL": url,
+        "DATABASE_URL": on(settings.database_url, database),
+    }
+    await admin(f"CREATE DATABASE {quote(database)}")
+    engine = create_async_engine(url)
+    try:
+        _run(env, "scripts.db_access", "roles")
+        _run(env, "alembic", "upgrade", "cb0028")
+        async with engine.begin() as conn:
+            await conn.execute(
+                text(
+                    "INSERT INTO businesses (id, name, slug, timezone, tax_registered, brand,"
+                    " stripe_charges_enabled, stripe_payouts_enabled, stripe_requirements,"
+                    " status, trial_ends_at, subject) VALUES ('bz_car', 'C', 'car',"
+                    " 'America/Vancouver', false, '{}', false, false, '{}', 'active', now(),"
+                    " 'vehicle')"
+                )
+            )
+        with pytest.raises(subprocess.CalledProcessError):
+            _run(env, "alembic", "downgrade", "cb0027")
+        async with engine.begin() as conn:
+            kept = await conn.execute(text("SELECT subject FROM businesses WHERE id = 'bz_car'"))
+            assert kept.scalar_one() == "vehicle"
+            await conn.execute(text("UPDATE businesses SET subject = 'site'"))
+        _run(env, "alembic", "downgrade", "cb0027")
+        async with engine.begin() as conn:
+            with pytest.raises(IntegrityError):
+                await conn.execute(text("UPDATE businesses SET subject = 'vehicle'"))
+        _run(env, "alembic", "upgrade", "cb0028")
+        async with engine.begin() as conn:
+            await conn.execute(text("UPDATE businesses SET subject = 'vehicle'"))
     finally:
         await engine.dispose()
         await admin(f"DROP DATABASE IF EXISTS {quote(database)} WITH (FORCE)")

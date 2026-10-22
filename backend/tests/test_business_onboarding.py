@@ -163,7 +163,7 @@ async def test_onboard_unknown_timezone_422_no_partial(
     assert n == 0
 
 
-@pytest.mark.parametrize("kind", ["pet", "student", "property", "site", None])
+@pytest.mark.parametrize("kind", ["pet", "student", "property", "site", "vehicle", None])
 async def test_onboard_stores_the_chosen_subject_kind(
     api: httpx.AsyncClient,
     factory: Factory,
@@ -183,7 +183,7 @@ async def test_onboard_stores_the_chosen_subject_kind(
     assert stored == kind
 
 
-@pytest.mark.parametrize("subject", [{}, {"subject": "vehicle"}])
+@pytest.mark.parametrize("subject", [{}, {"subject": "boat"}])
 async def test_onboard_without_a_known_subject_kind_422(
     api: httpx.AsyncClient,
     factory: Factory,

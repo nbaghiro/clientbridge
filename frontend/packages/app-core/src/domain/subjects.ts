@@ -10,12 +10,12 @@ import { type Photo, useFileLinks } from "./files";
 
 const s = strings.subjects;
 
-export type SubjectKind = "pet" | "student" | "property" | "site";
+export type SubjectKind = "pet" | "student" | "property" | "site" | "vehicle";
 
 /** A business's answer to what it books: one of the kinds, or "none" for only the client. */
 type SubjectChoice = SubjectKind | "none";
 
-const KINDS: readonly SubjectKind[] = ["pet", "student", "property", "site"];
+const KINDS: readonly SubjectKind[] = ["pet", "student", "property", "site", "vehicle"];
 
 function asSubjectKind(value: string | null | undefined): SubjectKind | null {
     return KINDS.find((k) => k === value) ?? null;
@@ -371,12 +371,109 @@ const SITE_FIELDS: readonly SubjectField[] = [
     },
 ];
 
+const VEHICLE_SIZES = ["compact", "sedan", "suv", "truck", "van"] as const;
+
+const VEHICLE_ADDRESS: SubjectField = {
+    key: "address",
+    get label() {
+        return s.fields.vehicle.address;
+    },
+    type: "text",
+    maxLength: 200,
+};
+
+const VEHICLE_FIELDS: readonly SubjectField[] = [
+    {
+        key: "make",
+        get label() {
+            return s.fields.vehicle.make;
+        },
+        type: "text",
+        get placeholder() {
+            return s.fields.vehicle.makePlaceholder;
+        },
+        half: true,
+        maxLength: 40,
+    },
+    {
+        key: "model",
+        get label() {
+            return s.fields.vehicle.model;
+        },
+        type: "text",
+        get placeholder() {
+            return s.fields.vehicle.modelPlaceholder;
+        },
+        half: true,
+        maxLength: 40,
+    },
+    {
+        key: "year",
+        get label() {
+            return s.fields.vehicle.year;
+        },
+        type: "number",
+        half: true,
+    },
+    {
+        key: "colour",
+        get label() {
+            return s.fields.vehicle.colour;
+        },
+        type: "text",
+        half: true,
+        maxLength: 40,
+    },
+    {
+        key: "plate",
+        get label() {
+            return s.fields.vehicle.plate;
+        },
+        type: "text",
+        half: true,
+        maxLength: 12,
+    },
+    {
+        key: "size",
+        get label() {
+            return s.fields.vehicle.size;
+        },
+        type: "choice",
+        options: VEHICLE_SIZES.map((v) => option(v, () => s.fields.vehicle.sizes(v))),
+        half: true,
+    },
+    VEHICLE_ADDRESS,
+    {
+        key: "parking",
+        get label() {
+            return s.fields.vehicle.parking;
+        },
+        type: "text",
+        get placeholder() {
+            return s.fields.vehicle.parkingPlaceholder;
+        },
+        maxLength: 200,
+    },
+    {
+        key: "notes",
+        get label() {
+            return s.fields.vehicle.notes;
+        },
+        type: "longtext",
+        get placeholder() {
+            return s.fields.vehicle.notesPlaceholder;
+        },
+        maxLength: 1000,
+    },
+];
+
 // One schema per kind; the form and the card render from it, so a kind needs no screens of its own.
 const SUBJECT_FIELDS: Record<SubjectKind, readonly SubjectField[]> = {
     pet: PET_FIELDS,
     student: STUDENT_FIELDS,
     property: PROPERTY_FIELDS,
     site: SITE_FIELDS,
+    vehicle: VEHICLE_FIELDS,
 };
 
 const LEAD_FIELD: Record<SubjectKind, SubjectField> = {
@@ -384,6 +481,7 @@ const LEAD_FIELD: Record<SubjectKind, SubjectField> = {
     student: GRADE,
     property: ADDRESS,
     site: ADDRESS,
+    vehicle: VEHICLE_ADDRESS,
 };
 
 /** The one detail asked for beside the name when a new client brings their first subject. */
@@ -624,7 +722,7 @@ function ageYears(birthday: string, now: Date, zone: string): number | null {
     return today.slice(5) < born.slice(5) ? years - 1 : years;
 }
 
-/** One line about a subject: a pet's breed, age and weight, a student's grade and school, an address. */
+/** One line about a subject: a pet's breed and age, a student's grade, an address, a vehicle's make. */
 export function subjectSummary(
     kind: SubjectKind | null,
     attributes: Record<string, unknown>,
@@ -651,6 +749,18 @@ export function subjectSummary(
             text(attributes.address),
             building === "" ? "" : s.fields.site.buildings(building),
             devices > 0 ? s.devices(devices) : "",
+        ]);
+    }
+    if (kind === "vehicle") {
+        const make = text(attributes.make).trim();
+        const model = text(attributes.model).trim();
+        const size = text(attributes.size);
+        return formatParts([
+            make !== "" && model !== "" ? s.makeModel(make, model) : make !== "" ? make : model,
+            text(attributes.year),
+            text(attributes.colour),
+            text(attributes.plate),
+            size === "" ? "" : s.fields.vehicle.sizes(size),
         ]);
     }
     return "";
@@ -765,6 +875,11 @@ export function useSubjectForm(
             if (f.key === "weight_kg") {
                 const kg = parseNumber(v) ?? NaN;
                 if (!(kg > 0 && kg < 200)) e[f.key] = s.fields.pet.weightInvalid;
+            }
+            if (f.key === "year") {
+                const year = parseNumber(v) ?? NaN;
+                if (!(Number.isInteger(year) && year >= 1900 && year <= 2100))
+                    e[f.key] = s.fields.vehicle.yearInvalid;
             }
             if (f.key === "rooms") {
                 const rooms = parseNumber(v) ?? NaN;

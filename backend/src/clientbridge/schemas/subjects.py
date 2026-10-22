@@ -75,12 +75,30 @@ class SiteAttributes(BaseModel):
     equipment: list[Equipment] | None = Field(default=None, max_length=100)
 
 
+VehicleSize = Literal["compact", "sedan", "suv", "truck", "van"]
+
+
+class VehicleAttributes(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    address: str | None = Field(default=None, max_length=200)
+    make: str | None = Field(default=None, max_length=40)
+    model: str | None = Field(default=None, max_length=40)
+    year: int | None = Field(default=None, ge=1900, le=2100)
+    colour: str | None = Field(default=None, max_length=40)
+    plate: str | None = Field(default=None, max_length=12)
+    size: VehicleSize | None = None
+    parking: str | None = Field(default=None, max_length=200)
+    notes: str | None = Field(default=None, max_length=1000)
+
+
 # keys another kind uses are kept unvalidated, so changing the business's kind loses nothing
 ATTRIBUTES: dict[SubjectKind, type[BaseModel]] = {
     "pet": PetAttributes,
     "student": StudentAttributes,
     "property": PropertyAttributes,
     "site": SiteAttributes,
+    "vehicle": VehicleAttributes,
 }
 
 

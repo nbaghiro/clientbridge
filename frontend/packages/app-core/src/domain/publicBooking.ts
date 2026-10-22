@@ -398,9 +398,9 @@ export function bookingFailure(error: unknown, fallback: string): string {
 // the catalog's select word for a business that books only the client
 const NO_SUBJECT: SubjectKind | "none" = "none";
 
-/** Kinds whose subject is a place, so a booking for one goes to its address. */
+/** Kinds whose visits go to the subject's address: a property, a site or a parked vehicle. */
 export function isPlace(kind: SubjectKind | null): boolean {
-    return kind === "property" || kind === "site";
+    return kind === "property" || kind === "site" || kind === "vehicle";
 }
 
 /** A maps search for an address, which opens the maps app on a phone. */
@@ -408,7 +408,7 @@ export function mapsUrl(address: string): string {
     return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
 }
 
-/** Where a visit happens: a property's or site's own address, or else the business's. */
+/** Where a visit happens: the subject's own address for a place kind, or else the business's. */
 export function visitAddress(
     kind: SubjectKind | null,
     attributes: Record<string, unknown> | null,

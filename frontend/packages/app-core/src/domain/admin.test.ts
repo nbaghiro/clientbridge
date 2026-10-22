@@ -237,6 +237,7 @@ it("saves a business's edition and shows what the server stored", async () => {
         "Students",
         "Properties",
         "Sites",
+        "Vehicles",
         "Client only",
     ]);
 });

@@ -1,4 +1,4 @@
-"""Subjects on a client (pets, students, properties, sites): add, edit, remove."""
+"""Subjects on a client (pets, students, properties, sites, vehicles): add, edit, remove."""
 
 import httpx
 import pytest
@@ -115,6 +115,33 @@ async def _kind(db: AsyncSession, kind: SubjectKind | None) -> None:
                 ],
             },
         ),
+        (
+            "vehicle",
+            {
+                "address": "1200 Fort St",
+                "make": "Subaru",
+                "model": "Outback",
+                "year": 2021,
+                "colour": "Crimson",
+                "plate": "CB 4411",
+                "size": "suv",
+                "parking": "Visitor stall 12, underground",
+                "notes": "Dog hair in the back seats",
+            },
+        ),
+        (
+            "vehicle",
+            {
+                "make": "x" * 40,
+                "model": "x" * 40,
+                "year": 1900,
+                "colour": "x" * 40,
+                "plate": "x" * 12,
+                "parking": "x" * 200,
+                "notes": "x" * 1000,
+                "address": "x" * 200,
+            },
+        ),
     ],
 )
 async def test_each_kind_stores_its_own_details(
@@ -141,6 +168,17 @@ async def test_each_kind_stores_its_own_details(
         ("site", {"equipment": [{"model": "x" * 81}]}),
         ("site", {"equipment": [{"model": "Turret"}] * 101}),
         ("site", {"address": "x" * 201}),
+        ("vehicle", {"make": "x" * 41}),
+        ("vehicle", {"model": "x" * 41}),
+        ("vehicle", {"year": 1899}),
+        ("vehicle", {"year": 2101}),
+        ("vehicle", {"year": "soon"}),
+        ("vehicle", {"colour": "x" * 41}),
+        ("vehicle", {"plate": "x" * 13}),
+        ("vehicle", {"size": "bus"}),
+        ("vehicle", {"parking": "x" * 201}),
+        ("vehicle", {"notes": "x" * 1001}),
+        ("vehicle", {"address": "x" * 201}),
         ("student", {"pickups": [{"name": ""}]}),
         ("student", {"pickups": [{"relation": "Aunt"}]}),
         ("student", {"pickups": [{"name": "x" * 81}]}),

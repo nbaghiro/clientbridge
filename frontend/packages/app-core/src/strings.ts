@@ -1801,8 +1801,26 @@ interface Strings {
                 readonly petsPlaceholder: string;
                 readonly accessPlaceholder: string;
             };
+            readonly vehicle: {
+                readonly make: string;
+                readonly makePlaceholder: string;
+                readonly model: string;
+                readonly modelPlaceholder: string;
+                readonly year: string;
+                readonly yearInvalid: string;
+                readonly colour: string;
+                readonly plate: string;
+                readonly size: string;
+                readonly sizes: (size: string) => string;
+                readonly address: string;
+                readonly parking: string;
+                readonly parkingPlaceholder: string;
+                readonly notes: string;
+                readonly notesPlaceholder: string;
+            };
         };
         readonly devices: (count: number) => string;
+        readonly makeModel: (make: string, model: string) => string;
         readonly equipment: {
             readonly title: string;
             readonly hint: string;

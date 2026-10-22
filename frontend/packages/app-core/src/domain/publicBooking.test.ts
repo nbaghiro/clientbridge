@@ -488,6 +488,7 @@ describe("detailErrors", () => {
         const named = { ...filled, subjectName: "Cottage" };
         expect(detailErrors(named, "property", false).address).toBe(s.addressRequired("property"));
         expect(detailErrors(named, "site", false).address).toBe(s.addressRequired("site"));
+        expect(detailErrors(named, "vehicle", false).address).toBe(s.addressRequired("vehicle"));
         expect(detailErrors(named, "property", true).address).toBeNull();
         expect(detailErrors(named, "student", false).address).toBeNull();
         expect(
@@ -504,6 +505,9 @@ describe("visitAddress", () => {
         expect(visitAddress("property", { address: "" }, "1 Main St")).toBe("1 Main St");
         expect(visitAddress("pet", { address: "880 Douglas St" }, "1 Main St")).toBe("1 Main St");
         expect(visitAddress("site", null, null)).toBeNull();
+        expect(visitAddress("vehicle", { address: "1200 Fort St" }, "1 Main St")).toBe(
+            "1200 Fort St",
+        );
         expect(mapsUrl("880 Douglas St, Victoria")).toBe(
             "https://www.google.com/maps/search/?api=1&query=880%20Douglas%20St%2C%20Victoria",
         );

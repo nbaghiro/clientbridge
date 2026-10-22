@@ -19,7 +19,7 @@ async def subject_kind(db: AsyncSession, business_id: str) -> SubjectKind | None
 
 
 def place_address(business: Business, subject: Subject | None) -> str | None:
-    """The address of the place a visit goes to, for property and site businesses."""
+    """The address of the place a visit goes to, for property, site and vehicle businesses."""
     if business.subject not in PLACE_KINDS or subject is None:
         return None
     address = subject.attributes.get("address")

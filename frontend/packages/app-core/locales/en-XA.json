@@ -2880,7 +2880,7 @@
         "message": "[Çļîéñţ one]"
     },
     "bookings.composerClientSearch": {
-        "message": "[{kind,select,other{Šéåŕçĥ çļîéñţš} pet{Šéåŕçĥ çļîéñţš öŕ þéţš} property{Šéåŕçĥ çļîéñţš öŕ þŕöþéŕţîéš} site{Šéåŕçĥ çļîéñţš öŕ šîţéš} student{Šéåŕçĥ çļîéñţš öŕ šţûðéñţš}} one two three four five six seven eight]"
+        "message": "[{kind,select,other{Šéåŕçĥ çļîéñţš} pet{Šéåŕçĥ çļîéñţš öŕ þéţš} property{Šéåŕçĥ çļîéñţš öŕ þŕöþéŕţîéš} site{Šéåŕçĥ çļîéñţš öŕ šîţéš} student{Šéåŕçĥ çļîéñţš öŕ šţûðéñţš} vehicle{Šéåŕçĥ çļîéñţš öŕ ṽéĥîçļéš}} one two three four five six seven eight nine]"
     },
     "bookings.composerService": {
         "message": "[Šéŕṽîçé one]"
@@ -3075,7 +3075,7 @@
         "message": "[Ñéŵ one]"
     },
     "recurrences.search": {
-        "message": "[{kind,select,other{Šéåŕçĥ çļîéñţ öŕ šéŕṽîçé} pet{Šéåŕçĥ çļîéñţ, þéţ öŕ šéŕṽîçé} property{Šéåŕçĥ çļîéñţ, þŕöþéŕţý öŕ šéŕṽîçé} site{Šéåŕçĥ çļîéñţ, šîţé öŕ šéŕṽîçé} student{Šéåŕçĥ çļîéñţ, šţûðéñţ öŕ šéŕṽîçé}} one two three four five six seven eight nine ten]"
+        "message": "[{kind,select,other{Šéåŕçĥ çļîéñţ öŕ šéŕṽîçé} pet{Šéåŕçĥ çļîéñţ, þéţ öŕ šéŕṽîçé} property{Šéåŕçĥ çļîéñţ, þŕöþéŕţý öŕ šéŕṽîçé} site{Šéåŕçĥ çļîéñţ, šîţé öŕ šéŕṽîçé} student{Šéåŕçĥ çļîéñţ, šţûðéñţ öŕ šéŕṽîçé} vehicle{Šéåŕçĥ çļîéñţ, ṽéĥîçļé öŕ šéŕṽîçé}} one two three four five six seven eight nine ten one two]"
     },
     "recurrences.filterAll": {
         "message": "[Åļļ one]"
@@ -3168,7 +3168,7 @@
         "message": "[Îñšţéåð öƒ å ɱéššåĝé þéŕ ṽîšîţ. Ŕéɱîñðéŕš šţîļļ ĝö öûţ ƀéƒöŕé éåçĥ öñé. one two three four five]"
     },
     "recurrences.subject": {
-        "message": "[{kind,select,other{{name}} pet{Þéţ: {name}} property{Þŕöþéŕţý: {name}} site{Šîţé: {name}} student{Šţûðéñţ: {name}}} one two three]"
+        "message": "[{kind,select,other{{name}} pet{Þéţ: {name}} property{Þŕöþéŕţý: {name}} site{Šîţé: {name}} student{Šţûðéñţ: {name}} vehicle{Ṽéĥîçļé: {name}}} one two three]"
     },
     "recurrences.dates": {
         "message": "[Đåţéš one]"
@@ -3477,7 +3477,7 @@
         "message": "[Ñéŕṽöûš åŕöûñð öţĥéŕ ðöĝš one two three]"
     },
     "classes.addPlaceholder": {
-        "message": "[{kind,select,other{Åðð å çļîéñţ} pet{Åðð å çļîéñţ öŕ þéţ} property{Åðð å çļîéñţ öŕ þŕöþéŕţý} site{Åðð å çļîéñţ öŕ šîţé} student{Åðð å çļîéñţ öŕ šţûðéñţ}} one two three four five six seven]"
+        "message": "[{kind,select,other{Åðð å çļîéñţ} pet{Åðð å çļîéñţ öŕ þéţ} property{Åðð å çļîéñţ öŕ þŕöþéŕţý} site{Åðð å çļîéñţ öŕ šîţé} student{Åðð å çļîéñţ öŕ šţûðéñţ} vehicle{Åðð å çļîéñţ öŕ ṽéĥîçļé}} one two three four five six seven eight]"
     },
     "classes.added": {
         "message": "[{name} îš ƀööķéð îñţö ţĥîš çļåšš. one two three]"
@@ -4134,7 +4134,7 @@
         "message": "[Çöñšûɱé one]"
     },
     "clients.record.searchPlaceholder": {
-        "message": "[{kind,select,other{Šéåŕçĥ ñåɱé, þĥöñé öŕ éɱåîļ} pet{Šéåŕçĥ ñåɱé, þĥöñé, éɱåîļ öŕ þéţ} property{Šéåŕçĥ ñåɱé, þĥöñé, éɱåîļ öŕ åððŕéšš} site{Šéåŕçĥ ñåɱé, þĥöñé, éɱåîļ öŕ åððŕéšš} student{Šéåŕçĥ ñåɱé, þĥöñé, éɱåîļ öŕ šţûðéñţ}} one two three four five six seven eight nine ten]"
+        "message": "[{kind,select,other{Šéåŕçĥ ñåɱé, þĥöñé öŕ éɱåîļ} pet{Šéåŕçĥ ñåɱé, þĥöñé, éɱåîļ öŕ þéţ} property{Šéåŕçĥ ñåɱé, þĥöñé, éɱåîļ öŕ åððŕéšš} site{Šéåŕçĥ ñåɱé, þĥöñé, éɱåîļ öŕ åððŕéšš} student{Šéåŕçĥ ñåɱé, þĥöñé, éɱåîļ öŕ šţûðéñţ} vehicle{Šéåŕçĥ ñåɱé, þĥöñé, éɱåîļ öŕ ṽéĥîçļé}} one two three four five six seven eight nine ten one two three]"
     },
     "clients.record.emptyTitle": {
         "message": "[Ñö çļîéñţš ýéţ one two]"
@@ -4410,13 +4410,13 @@
         "message": "[Åŕçĥîṽîñĝ ķééþš éṽéŕý ƀööķîñĝ, îñṽöîçé åñð þåýɱéñţ. one two three four]"
     },
     "subjects.many": {
-        "message": "[{kind,select,other{Đéţåîļš} pet{Þéţš} property{Þŕöþéŕţîéš} site{Šîţéš} student{Šţûðéñţš}} one two three]"
+        "message": "[{kind,select,other{Đéţåîļš} pet{Þéţš} property{Þŕöþéŕţîéš} site{Šîţéš} student{Šţûðéñţš} vehicle{Ṽéĥîçļéš}} one two three four]"
     },
     "subjects.one": {
-        "message": "[{kind,select,other{Đéţåîļ} pet{Þéţ} property{Þŕöþéŕţý} site{Šîţé} student{Šţûðéñţ}} one two three]"
+        "message": "[{kind,select,other{Đéţåîļ} pet{Þéţ} property{Þŕöþéŕţý} site{Šîţé} student{Šţûðéñţ} vehicle{Ṽéĥîçļé}} one two three]"
     },
     "subjects.add": {
-        "message": "[{kind,select,other{Åðð} pet{Åðð þéţ} property{Åðð þŕöþéŕţý} site{Åðð šîţé} student{Åðð šţûðéñţ}} one two three]"
+        "message": "[{kind,select,other{Åðð} pet{Åðð þéţ} property{Åðð þŕöþéŕţý} site{Åðð šîţé} student{Åðð šţûðéñţ} vehicle{Åðð ṽéĥîçļé}} one two three four]"
     },
     "subjects.edit": {
         "message": "[Éðîţ one]"
@@ -4425,31 +4425,31 @@
         "message": "[Éðîţ {name} one]"
     },
     "subjects.remove": {
-        "message": "[{kind,select,other{Ŕéɱöṽé} pet{Ŕéɱöṽé þéţ} property{Ŕéɱöṽé þŕöþéŕţý} site{Ŕéɱöṽé šîţé} student{Ŕéɱöṽé šţûðéñţ}} one two three four five]"
+        "message": "[{kind,select,other{Ŕéɱöṽé} pet{Ŕéɱöṽé þéţ} property{Ŕéɱöṽé þŕöþéŕţý} site{Ŕéɱöṽé šîţé} student{Ŕéɱöṽé šţûðéñţ} vehicle{Ŕéɱöṽé ṽéĥîçļé}} one two three four five]"
     },
     "subjects.removeTitle": {
         "message": "[Ŕéɱöṽé {name}? one]"
     },
     "subjects.removeBody": {
-        "message": "[{kind,select,other{Þåšţ ƀööķîñĝš åñð îñṽöîçéš ķééþ ţĥé ñåɱé. Îţ ŵöñ'ţ ƀé öƒƒéŕéð ƒöŕ ñéŵ ƀööķîñĝš.} pet{Þåšţ ƀööķîñĝš åñð îñṽöîçéš ķééþ ţĥé þéţ'š ñåɱé. Îţ ŵöñ'ţ ƀé öƒƒéŕéð ƒöŕ ñéŵ ƀööķîñĝš.} property{Þåšţ ƀööķîñĝš åñð îñṽöîçéš ķééþ ţĥé þŕöþéŕţý'š ñåɱé. Îţ ŵöñ'ţ ƀé öƒƒéŕéð ƒöŕ ñéŵ ƀööķîñĝš.} site{Þåšţ ƀööķîñĝš åñð îñṽöîçéš ķééþ ţĥé šîţé'š ñåɱé. Îţ ŵöñ'ţ ƀé öƒƒéŕéð ƒöŕ ñéŵ ƀööķîñĝš.} student{Þåšţ ƀööķîñĝš åñð îñṽöîçéš ķééþ ţĥé šţûðéñţ'š ñåɱé. Ţĥéý ŵöñ'ţ ƀé öƒƒéŕéð ƒöŕ ñéŵ ƀööķîñĝš.}} one two three four five six seven eight nine ten one two three four five six seven eight nine ten one two three four five]"
+        "message": "[{kind,select,other{Þåšţ ƀööķîñĝš åñð îñṽöîçéš ķééþ ţĥé ñåɱé. Îţ ŵöñ'ţ ƀé öƒƒéŕéð ƒöŕ ñéŵ ƀööķîñĝš.} pet{Þåšţ ƀööķîñĝš åñð îñṽöîçéš ķééþ ţĥé þéţ'š ñåɱé. Îţ ŵöñ'ţ ƀé öƒƒéŕéð ƒöŕ ñéŵ ƀööķîñĝš.} property{Þåšţ ƀööķîñĝš åñð îñṽöîçéš ķééþ ţĥé þŕöþéŕţý'š ñåɱé. Îţ ŵöñ'ţ ƀé öƒƒéŕéð ƒöŕ ñéŵ ƀööķîñĝš.} site{Þåšţ ƀööķîñĝš åñð îñṽöîçéš ķééþ ţĥé šîţé'š ñåɱé. Îţ ŵöñ'ţ ƀé öƒƒéŕéð ƒöŕ ñéŵ ƀööķîñĝš.} student{Þåšţ ƀööķîñĝš åñð îñṽöîçéš ķééþ ţĥé šţûðéñţ'š ñåɱé. Ţĥéý ŵöñ'ţ ƀé öƒƒéŕéð ƒöŕ ñéŵ ƀööķîñĝš.} vehicle{Þåšţ ƀööķîñĝš åñð îñṽöîçéš ķééþ ţĥé ṽéĥîçļé'š ñåɱé. Îţ ŵöñ'ţ ƀé öƒƒéŕéð ƒöŕ ñéŵ ƀööķîñĝš.}} one two three four five six seven eight nine ten one two three four five six seven eight nine ten one two three four five six seven eight nine ten]"
     },
     "subjects.removeConfirm": {
         "message": "[Ŕéɱöṽé one]"
     },
     "subjects.removeError": {
-        "message": "[{kind,select,other{Çöûļðñ'ţ ŕéɱöṽé ţĥîš. Þļéåšé ţŕý åĝåîñ.} pet{Çöûļðñ'ţ ŕéɱöṽé ţĥîš þéţ. Þļéåšé ţŕý åĝåîñ.} property{Çöûļðñ'ţ ŕéɱöṽé ţĥîš þŕöþéŕţý. Þļéåšé ţŕý åĝåîñ.} site{Çöûļðñ'ţ ŕéɱöṽé ţĥîš šîţé. Þļéåšé ţŕý åĝåîñ.} student{Çöûļðñ'ţ ŕéɱöṽé ţĥîš šţûðéñţ. Þļéåšé ţŕý åĝåîñ.}} one two three four five six seven eight nine ten one two three]"
+        "message": "[{kind,select,other{Çöûļðñ'ţ ŕéɱöṽé ţĥîš. Þļéåšé ţŕý åĝåîñ.} pet{Çöûļðñ'ţ ŕéɱöṽé ţĥîš þéţ. Þļéåšé ţŕý åĝåîñ.} property{Çöûļðñ'ţ ŕéɱöṽé ţĥîš þŕöþéŕţý. Þļéåšé ţŕý åĝåîñ.} site{Çöûļðñ'ţ ŕéɱöṽé ţĥîš šîţé. Þļéåšé ţŕý åĝåîñ.} student{Çöûļðñ'ţ ŕéɱöṽé ţĥîš šţûðéñţ. Þļéåšé ţŕý åĝåîñ.} vehicle{Çöûļðñ'ţ ŕéɱöṽé ţĥîš ṽéĥîçļé. Þļéåšé ţŕý åĝåîñ.}} one two three four five six seven eight nine ten one two three four five six]"
     },
     "subjects.nameLabel": {
         "message": "[Ñåɱé one]"
     },
     "subjects.nameRequired": {
-        "message": "[{kind,select,other{Åðð å ñåɱé.} pet{Ĝîṽé ţĥé þéţ å ñåɱé.} property{Ĝîṽé ţĥé þŕöþéŕţý å ñåɱé, ļîķé Ĥöɱé öŕ Çöţţåĝé.} site{Ĝîṽé ţĥé šîţé å ñåɱé, ļîķé Ĥöɱé öŕ Ṁåîñ öƒƒîçé.} student{Åðð ţĥé šţûðéñţ'š ñåɱé.}} one two three four five six seven eight nine]"
+        "message": "[{kind,select,other{Åðð å ñåɱé.} pet{Ĝîṽé ţĥé þéţ å ñåɱé.} property{Ĝîṽé ţĥé þŕöþéŕţý å ñåɱé, ļîķé Ĥöɱé öŕ Çöţţåĝé.} site{Ĝîṽé ţĥé šîţé å ñåɱé, ļîķé Ĥöɱé öŕ Ṁåîñ öƒƒîçé.} student{Åðð ţĥé šţûðéñţ'š ñåɱé.} vehicle{Ĝîṽé ţĥé ṽéĥîçļé å ñåɱé, ļîķé Öûţƀåçķ öŕ Ŵöŕķ ţŕûçķ.}} one two three four five six seven eight nine ten one two]"
     },
     "subjects.dateInvalid": {
         "message": "[Ûšé ţĥé ƒöŕɱåţ ÝÝÝÝ-ṀṀ-ĐĐ. one two]"
     },
     "subjects.save": {
-        "message": "[{kind,select,other{Šåṽé} pet{Šåṽé þéţ} property{Šåṽé þŕöþéŕţý} site{Šåṽé šîţé} student{Šåṽé šţûðéñţ}} one two three four]"
+        "message": "[{kind,select,other{Šåṽé} pet{Šåṽé þéţ} property{Šåṽé þŕöþéŕţý} site{Šåṽé šîţé} student{Šåṽé šţûðéñţ} vehicle{Šåṽé ṽéĥîçļé}} one two three four five]"
     },
     "subjects.saveShort": {
         "message": "[Šåṽé one]"
@@ -4458,7 +4458,7 @@
         "message": "[Šåṽîñĝ… one]"
     },
     "subjects.saveError": {
-        "message": "[{kind,select,other{Çöûļðñ'ţ šåṽé ţĥîš. Þļéåšé ţŕý åĝåîñ.} pet{Çöûļðñ'ţ šåṽé ţĥîš þéţ. Þļéåšé ţŕý åĝåîñ.} property{Çöûļðñ'ţ šåṽé ţĥîš þŕöþéŕţý. Þļéåšé ţŕý åĝåîñ.} site{Çöûļðñ'ţ šåṽé ţĥîš šîţé. Þļéåšé ţŕý åĝåîñ.} student{Çöûļðñ'ţ šåṽé ţĥîš šţûðéñţ. Þļéåšé ţŕý åĝåîñ.}} one two three four five six seven eight nine ten one two three]"
+        "message": "[{kind,select,other{Çöûļðñ'ţ šåṽé ţĥîš. Þļéåšé ţŕý åĝåîñ.} pet{Çöûļðñ'ţ šåṽé ţĥîš þéţ. Þļéåšé ţŕý åĝåîñ.} property{Çöûļðñ'ţ šåṽé ţĥîš þŕöþéŕţý. Þļéåšé ţŕý åĝåîñ.} site{Çöûļðñ'ţ šåṽé ţĥîš šîţé. Þļéåšé ţŕý åĝåîñ.} student{Çöûļðñ'ţ šåṽé ţĥîš šţûðéñţ. Þļéåšé ţŕý åĝåîñ.} vehicle{Çöûļðñ'ţ šåṽé ţĥîš ṽéĥîçļé. Þļéåšé ţŕý åĝåîñ.}} one two three four five six seven eight nine ten one two three four five]"
     },
     "subjects.visits": {
         "message": "[Ṽîšîţš one]"
@@ -4473,34 +4473,34 @@
         "message": "[Ñöţĥîñĝ ƀööķéð one two]"
     },
     "subjects.noneTitle": {
-        "message": "[{kind,select,other{Ñöţĥîñĝ åððéð ýéţ} pet{Ñö þéţš ýéţ} property{Ñö þŕöþéŕţîéš ýéţ} site{Ñö šîţéš ýéţ} student{Ñö šţûðéñţš ýéţ}} one two three four five]"
+        "message": "[{kind,select,other{Ñöţĥîñĝ åððéð ýéţ} pet{Ñö þéţš ýéţ} property{Ñö þŕöþéŕţîéš ýéţ} site{Ñö šîţéš ýéţ} student{Ñö šţûðéñţš ýéţ} vehicle{Ñö ṽéĥîçļéš ýéţ}} one two three four five six]"
     },
     "subjects.noneBody": {
-        "message": "[{kind,select,other{Åðð öñé šö ƀööķîñĝš åñð îñṽöîçéš ñåɱé îţ.} pet{Åðð öñé šö ƀööķîñĝš åñð îñṽöîçéš ñåɱé ţĥé ŕîĝĥţ åñîɱåļ.} property{Åðð öñé šö ƀööķîñĝš åñð îñṽöîçéš ñåɱé ţĥé ŕîĝĥţ åððŕéšš.} site{Åðð öñé šö ƀööķîñĝš åñð îñṽöîçéš ñåɱé ţĥé ŕîĝĥţ åððŕéšš, åñð šö îţš éǫûîþɱéñţ ĥåš å þļåçé ţö ļîṽé.} student{Åðð öñé šö ƀööķîñĝš åñð îñṽöîçéš ñåɱé ţĥé ŕîĝĥţ šţûðéñţ.}} one two three four five six seven eight nine ten one two three four five six seven eight]"
+        "message": "[{kind,select,other{Åðð öñé šö ƀööķîñĝš åñð îñṽöîçéš ñåɱé îţ.} pet{Åðð öñé šö ƀööķîñĝš åñð îñṽöîçéš ñåɱé ţĥé ŕîĝĥţ åñîɱåļ.} property{Åðð öñé šö ƀööķîñĝš åñð îñṽöîçéš ñåɱé ţĥé ŕîĝĥţ åððŕéšš.} site{Åðð öñé šö ƀööķîñĝš åñð îñṽöîçéš ñåɱé ţĥé ŕîĝĥţ åððŕéšš, åñð šö îţš éǫûîþɱéñţ ĥåš å þļåçé ţö ļîṽé.} student{Åðð öñé šö ƀööķîñĝš åñð îñṽöîçéš ñåɱé ţĥé ŕîĝĥţ šţûðéñţ.} vehicle{Åðð öñé šö ƀööķîñĝš åñð îñṽöîçéš ñåɱé ţĥé ŕîĝĥţ çåŕ, åñð šö ýöû ķñöŵ ŵĥéŕé îţ'š þåŕķéð.}} one two three four five six seven eight nine ten one two three four five six seven eight nine ten one two three]"
     },
     "subjects.none": {
-        "message": "[{kind,select,other{Ñöţĥîñĝ åððéð ýéţ.} pet{Ñö þéţš ýéţ.} property{Ñö þŕöþéŕţîéš ýéţ.} site{Ñö šîţéš ýéţ.} student{Ñö šţûðéñţš ýéţ.}} one two three four five]"
+        "message": "[{kind,select,other{Ñöţĥîñĝ åððéð ýéţ.} pet{Ñö þéţš ýéţ.} property{Ñö þŕöþéŕţîéš ýéţ.} site{Ñö šîţéš ýéţ.} student{Ñö šţûðéñţš ýéţ.} vehicle{Ñö ṽéĥîçļéš ýéţ.}} one two three four five six]"
     },
     "subjects.loading": {
-        "message": "[{kind,select,other{Ļöåðîñĝ} pet{Ļöåðîñĝ þéţš} property{Ļöåðîñĝ þŕöþéŕţîéš} site{Ļöåðîñĝ šîţéš} student{Ļöåðîñĝ šţûðéñţš}} one two three four five]"
+        "message": "[{kind,select,other{Ļöåðîñĝ} pet{Ļöåðîñĝ þéţš} property{Ļöåðîñĝ þŕöþéŕţîéš} site{Ļöåðîñĝ šîţéš} student{Ļöåðîñĝ šţûðéñţš} vehicle{Ļöåðîñĝ ṽéĥîçļéš}} one two three four five six]"
     },
     "subjects.loadError": {
-        "message": "[{kind,select,other{Çöûļðñ'ţ ļöåð} pet{Çöûļðñ'ţ ļöåð þéţš} property{Çöûļðñ'ţ ļöåð þŕöþéŕţîéš} site{Çöûļðñ'ţ ļöåð šîţéš} student{Çöûļðñ'ţ ļöåð šţûðéñţš}} one two three four five six seven]"
+        "message": "[{kind,select,other{Çöûļðñ'ţ ļöåð} pet{Çöûļðñ'ţ ļöåð þéţš} property{Çöûļðñ'ţ ļöåð þŕöþéŕţîéš} site{Çöûļðñ'ţ ļöåð šîţéš} student{Çöûļðñ'ţ ļöåð šţûðéñţš} vehicle{Çöûļðñ'ţ ļöåð ṽéĥîçļéš}} one two three four five six seven eight]"
     },
     "subjects.first": {
-        "message": "[{kind,select,other{Ƒîŕšţ éñţŕý} pet{Ƒîŕšţ þéţ} property{Ƒîŕšţ þŕöþéŕţý} site{Ƒîŕšţ šîţé} student{Ƒîŕšţ šţûðéñţ}} one two three four five]"
+        "message": "[{kind,select,other{Ƒîŕšţ éñţŕý} pet{Ƒîŕšţ þéţ} property{Ƒîŕšţ þŕöþéŕţý} site{Ƒîŕšţ šîţé} student{Ƒîŕšţ šţûðéñţ} vehicle{Ƒîŕšţ ṽéĥîçļé}} one two three four five]"
     },
     "subjects.firstHint": {
-        "message": "[{kind,select,other{Ýöû çåñ åðð ɱöŕé ƒŕöɱ ţĥé ŕéçöŕð.} pet{Ýöû çåñ åðð ɱöŕé þéţš ƒŕöɱ ţĥé ŕéçöŕð.} property{Ýöû çåñ åðð ɱöŕé þŕöþéŕţîéš ƒŕöɱ ţĥé ŕéçöŕð.} site{Ýöû çåñ åðð ɱöŕé šîţéš ƒŕöɱ ţĥé ŕéçöŕð.} student{Ýöû çåñ åðð ɱöŕé šţûðéñţš ƒŕöɱ ţĥé ŕéçöŕð.}} one two three four five six seven eight nine ten one two]"
+        "message": "[{kind,select,other{Ýöû çåñ åðð ɱöŕé ƒŕöɱ ţĥé ŕéçöŕð.} pet{Ýöû çåñ åðð ɱöŕé þéţš ƒŕöɱ ţĥé ŕéçöŕð.} property{Ýöû çåñ åðð ɱöŕé þŕöþéŕţîéš ƒŕöɱ ţĥé ŕéçöŕð.} site{Ýöû çåñ åðð ɱöŕé šîţéš ƒŕöɱ ţĥé ŕéçöŕð.} student{Ýöû çåñ åðð ɱöŕé šţûðéñţš ƒŕöɱ ţĥé ŕéçöŕð.} vehicle{Ýöû çåñ åðð ɱöŕé ṽéĥîçļéš ƒŕöɱ ţĥé ŕéçöŕð.}} one two three four five six seven eight nine ten one two three four]"
     },
     "subjects.firstName": {
-        "message": "[{kind,select,other{Ñåɱé} pet{Þéţ'š ñåɱé} property{Þŕöþéŕţý ñåɱé} site{Šîţé ñåɱé} student{Šţûðéñţ'š ñåɱé}} one two three four]"
+        "message": "[{kind,select,other{Ñåɱé} pet{Þéţ'š ñåɱé} property{Þŕöþéŕţý ñåɱé} site{Šîţé ñåɱé} student{Šţûðéñţ'š ñåɱé} vehicle{Ṽéĥîçļé ñåɱé}} one two three four five]"
     },
     "subjects.firstNamePlaceholder": {
-        "message": "[{kind,select,other{} pet{Ɓéļļå} property{Ĥöɱé} site{Ĥöɱé} student{Ṁåýå}} one two]"
+        "message": "[{kind,select,other{} pet{Ɓéļļå} property{Ĥöɱé} site{Ĥöɱé} student{Ṁåýå} vehicle{Öûţƀåçķ}} one two three]"
     },
     "subjects.firstDetailPlaceholder": {
-        "message": "[{kind,select,other{} pet{Ĝöļðéñðööðļé} property{12 Åŕƀûţûš Ļåñé} site{880 Đöûĝļåš Šţ} student{Ĝŕåðé 4}} one two three]"
+        "message": "[{kind,select,other{} pet{Ĝöļðéñðööðļé} property{12 Åŕƀûţûš Ļåñé} site{880 Đöûĝļåš Šţ} student{Ĝŕåðé 4} vehicle{1200 Ƒöŕţ Šţ}} one two three four]"
     },
     "subjects.age": {
         "message": "[{years,plural,other{# ýŕ} =0{Ûñðéŕ 1 ýŕ}} one two]"
@@ -4667,8 +4667,56 @@
     "subjects.fields.site.accessPlaceholder": {
         "message": "[Ĝåţé çöðé, åļåŕɱ þåñéļ, þåŕķîñĝ, ŵĥö ļéţš ýöû îñ one two three]"
     },
+    "subjects.fields.vehicle.make": {
+        "message": "[Ṁåķé one]"
+    },
+    "subjects.fields.vehicle.makePlaceholder": {
+        "message": "[Šûƀåŕû one]"
+    },
+    "subjects.fields.vehicle.model": {
+        "message": "[Ṁöðéļ one]"
+    },
+    "subjects.fields.vehicle.modelPlaceholder": {
+        "message": "[Öûţƀåçķ one]"
+    },
+    "subjects.fields.vehicle.year": {
+        "message": "[Ýéåŕ one]"
+    },
+    "subjects.fields.vehicle.yearInvalid": {
+        "message": "[Éñţéŕ å ɱöðéļ ýéåŕ, ļîķé 2021. one two]"
+    },
+    "subjects.fields.vehicle.colour": {
+        "message": "[Çöļöûŕ one]"
+    },
+    "subjects.fields.vehicle.plate": {
+        "message": "[Ļîçéñçé þļåţé one two]"
+    },
+    "subjects.fields.vehicle.size": {
+        "message": "[Šîžé one]"
+    },
+    "subjects.fields.vehicle.sizes": {
+        "message": "[{size,select,compact{Çöɱþåçţ} other{{size}} sedan{Šéðåñ} suv{ŠÛṼ} truck{Ţŕûçķ} van{Ṽåñ}} one two three]"
+    },
+    "subjects.fields.vehicle.address": {
+        "message": "[Åððŕéšš ŵĥéŕé îţ'š þåŕķéð one two three]"
+    },
+    "subjects.fields.vehicle.parking": {
+        "message": "[Þåŕķîñĝ šþöţ one two]"
+    },
+    "subjects.fields.vehicle.parkingPlaceholder": {
+        "message": "[Đŕîṽéŵåý, öŕ ṽîšîţöŕ šţåļļ 12 one two three]"
+    },
+    "subjects.fields.vehicle.notes": {
+        "message": "[Ñöţéš one]"
+    },
+    "subjects.fields.vehicle.notesPlaceholder": {
+        "message": "[Þéţ ĥåîŕ, šţåîñš, å ŵåţéŕ öŕ þöŵéŕ öûţļéţ ñéåŕƀý one two three four]"
+    },
     "subjects.devices": {
         "message": "[{count,plural,one{# ðéṽîçé} other{# ðéṽîçéš}} one two]"
+    },
+    "subjects.makeModel": {
+        "message": "{make} {model}"
     },
     "subjects.equipment.title": {
         "message": "[Éǫûîþɱéñţ one two]"
@@ -4791,7 +4839,7 @@
         "message": "{label} {n}"
     },
     "clients.history.notePlaceholder": {
-        "message": "[{kind,select,other{Åðð å ñöţé åƀöûţ ţĥîš çļîéñţ} pet{Åðð å ñöţé åƀöûţ ţĥîš çļîéñţ öŕ å þéţ} property{Åðð å ñöţé åƀöûţ ţĥîš çļîéñţ öŕ å þŕöþéŕţý} site{Åðð å ñöţé åƀöûţ ţĥîš çļîéñţ öŕ å šîţé} student{Åðð å ñöţé åƀöûţ ţĥîš çļîéñţ öŕ å šţûðéñţ}} one two three four five six seven eight nine ten one two]"
+        "message": "[{kind,select,other{Åðð å ñöţé åƀöûţ ţĥîš çļîéñţ} pet{Åðð å ñöţé åƀöûţ ţĥîš çļîéñţ öŕ å þéţ} property{Åðð å ñöţé åƀöûţ ţĥîš çļîéñţ öŕ å þŕöþéŕţý} site{Åðð å ñöţé åƀöûţ ţĥîš çļîéñţ öŕ å šîţé} student{Åðð å ñöţé åƀöûţ ţĥîš çļîéñţ öŕ å šţûðéñţ} vehicle{Åðð å ñöţé åƀöûţ ţĥîš çļîéñţ öŕ å ṽéĥîçļé}} one two three four five six seven eight nine ten one two three four]"
     },
     "clients.history.noteRequired": {
         "message": "[Ŵŕîţé šöɱéţĥîñĝ ƒîŕšţ. one two]"
@@ -5097,7 +5145,7 @@
         "message": "[{n,plural,one{# ƀööķîñĝ} other{# ƀööķîñĝš}} one two]"
     },
     "clients.tidy.moves.subjects": {
-        "message": "[{kind,select,other{Åļšö: {names}} pet{Þéţš: {names}} property{Þŕöþéŕţîéš: {names}} site{Šîţéš: {names}} student{Šţûðéñţš: {names}}} one two three]"
+        "message": "[{kind,select,other{Åļšö: {names}} pet{Þéţš: {names}} property{Þŕöþéŕţîéš: {names}} site{Šîţéš: {names}} student{Šţûðéñţš: {names}} vehicle{Ṽéĥîçļéš: {names}}} one two three four]"
     },
     "clients.tidy.moves.messages": {
         "message": "[{n,plural,one{# ɱéššåĝé} other{# ɱéššåĝéš}} one two]"
@@ -5109,7 +5157,7 @@
         "message": "[{bookings,plural,one{# ƀööķîñĝ} other{# ƀööķîñĝš}} one two]"
     },
     "clients.tidy.footprintWith": {
-        "message": "[{bookings,plural,one{# ƀööķîñĝ} other{# ƀööķîñĝš}} · {kind,select,other{{count,plural,one{# ɱöŕé} other{# ɱöŕé}}} pet{{count,plural,one{# þéţ} other{# þéţš}}} property{{count,plural,one{# þŕöþéŕţý} other{# þŕöþéŕţîéš}}} site{{count,plural,one{# šîţé} other{# šîţéš}}} student{{count,plural,one{# šţûðéñţ} other{# šţûðéñţš}}}} one two three four five six]"
+        "message": "[{bookings,plural,one{# ƀööķîñĝ} other{# ƀööķîñĝš}} · {kind,select,other{{count,plural,one{# ɱöŕé} other{# ɱöŕé}}} pet{{count,plural,one{# þéţ} other{# þéţš}}} property{{count,plural,one{# þŕöþéŕţý} other{# þŕöþéŕţîéš}}} site{{count,plural,one{# šîţé} other{# šîţéš}}} student{{count,plural,one{# šţûðéñţ} other{# šţûðéñţš}}} vehicle{{count,plural,one{# ṽéĥîçļé} other{# ṽéĥîçļéš}}}} one two three four five six seven]"
     },
     "clients.tidy.created": {
         "message": "[Åððéð {when} one]"
@@ -5196,7 +5244,7 @@
         "message": "[Šéñţ ţö {name}. Ţĥéîŕ ŕéþļý ŵîļļ šĥöŵ ûþ ĥéŕé. one two three]"
     },
     "messaging.searchPlaceholder": {
-        "message": "[{kind,select,other{Šéåŕçĥ ñåɱé öŕ ɱéššåĝé} pet{Šéåŕçĥ ñåɱé, þéţ öŕ ɱéššåĝé} property{Šéåŕçĥ ñåɱé, þŕöþéŕţý öŕ ɱéššåĝé} site{Šéåŕçĥ ñåɱé, šîţé öŕ ɱéššåĝé} student{Šéåŕçĥ ñåɱé, šţûðéñţ öŕ ɱéššåĝé}} one two three four five six seven eight nine]"
+        "message": "[{kind,select,other{Šéåŕçĥ ñåɱé öŕ ɱéššåĝé} pet{Šéåŕçĥ ñåɱé, þéţ öŕ ɱéššåĝé} property{Šéåŕçĥ ñåɱé, þŕöþéŕţý öŕ ɱéššåĝé} site{Šéåŕçĥ ñåɱé, šîţé öŕ ɱéššåĝé} student{Šéåŕçĥ ñåɱé, šţûðéñţ öŕ ɱéššåĝé} vehicle{Šéåŕçĥ ñåɱé, ṽéĥîçļé öŕ ɱéššåĝé}} one two three four five six seven eight nine ten one]"
     },
     "messaging.filters.all": {
         "message": "[Åļļ one]"
@@ -5385,7 +5433,7 @@
         "message": "[Öñļý ýöûŕ ţéåɱ šééš ţĥîš. one two]"
     },
     "broadcasts.namePlaceholder": {
-        "message": "[{kind,select,other{Ƒåļļ öþéñîñĝš} pet{Ƒåļļ ðé-šĥéð öƒƒéŕ} property{Šþŕîñĝ çļéåñîñĝ öþéñîñĝš} site{Šþŕîñĝ šýšţéɱ çĥéçķš} student{Šþŕîñĝ ļéššöñ öþéñîñĝš}} one two three four five six seven]"
+        "message": "[{kind,select,other{Ƒåļļ öþéñîñĝš} pet{Ƒåļļ ðé-šĥéð öƒƒéŕ} property{Šþŕîñĝ çļéåñîñĝ öþéñîñĝš} site{Šþŕîñĝ šýšţéɱ çĥéçķš} student{Šþŕîñĝ ļéššöñ öþéñîñĝš} vehicle{Šþŕîñĝ ðéţåîļ öþéñîñĝš}} one two three four five six seven eight]"
     },
     "broadcasts.channelPick": {
         "message": "[Šéñð åš one]"
@@ -5409,7 +5457,7 @@
         "message": "[Ṁéššåĝé one]"
     },
     "broadcasts.messagePlaceholder": {
-        "message": "[{kind,select,other{Ñéŵ ţîɱéš åŕé öþéñ ţĥîš ɱöñţĥ. Ŕéþļý ţö ƀööķ.} pet{Ɓööķ å ðé-šĥéð ţĥîš ŵééķ åñð ŵé'ļļ åðð å ƒŕéé ñåîļ ţŕîɱ.} property{Šþŕîñĝ çļéåñîñĝ ðåţéš åŕé öþéñ. Ŕéþļý ţö ƀööķ å ṽîšîţ.} site{Šþŕîñĝ šýšţéɱ çĥéçķš åŕé öþéñ. Ŕéþļý ţö ƀööķ å ṽîšîţ åñð ŵé'ļļ çĥéçķ éåçĥ çåɱéŕå åñð ţĥé ŕéçöŕðéŕ.} student{Šþŕîñĝ ļéššöñ ţîɱéš åŕé öþéñ. Ŕéþļý ţö ƀööķ å šþöţ.}} one two three four five six seven eight nine ten one two three four five six seven eight]"
+        "message": "[{kind,select,other{Ñéŵ ţîɱéš åŕé öþéñ ţĥîš ɱöñţĥ. Ŕéþļý ţö ƀööķ.} pet{Ɓööķ å ðé-šĥéð ţĥîš ŵééķ åñð ŵé'ļļ åðð å ƒŕéé ñåîļ ţŕîɱ.} property{Šþŕîñĝ çļéåñîñĝ ðåţéš åŕé öþéñ. Ŕéþļý ţö ƀööķ å ṽîšîţ.} site{Šþŕîñĝ šýšţéɱ çĥéçķš åŕé öþéñ. Ŕéþļý ţö ƀööķ å ṽîšîţ åñð ŵé'ļļ çĥéçķ éåçĥ çåɱéŕå åñð ţĥé ŕéçöŕðéŕ.} student{Šþŕîñĝ ļéššöñ ţîɱéš åŕé öþéñ. Ŕéþļý ţö ƀööķ å šþöţ.} vehicle{Šþŕîñĝ ðéţåîļîñĝ ðåţéš åŕé öþéñ. Ŕéþļý ţö ƀööķ åñð ŵé'ļļ çöɱé ţö ŵĥéŕé ýöûŕ çåŕ îš þåŕķéð.}} one two three four five six seven eight nine ten one two three four five six seven eight nine ten one two three]"
     },
     "broadcasts.optOutSms": {
         "message": "[Ŕéþļý ŠŢÖÞ ţö öþţ öûţ. one two]"
@@ -6183,7 +6231,7 @@
         "message": "[Çĥööšé å þŕöṽîñçé öŕ ţéŕŕîţöŕý one two three]"
     },
     "business.onboarding.industry": {
-        "message": "[{industry,select,beauty{Ĥåîŕ åñð ƀéåûţý} cleaning{Ĥöɱé çļéåñîñĝ} fitness{Ƒîţñéšš åñð þéŕšöñåļ ţŕåîñîñĝ} landscaping{Ļåñðšçåþîñĝ åñð ļåŵñ çåŕé} other{Šöɱéţĥîñĝ éļšé} petCare{Đöĝ ŵåļķîñĝ åñð þéţ šîţţîñĝ} petGrooming{Þéţ ĝŕööɱîñĝ åñð ðåýçåŕé} photography{Þĥöţöĝŕåþĥý} security{Šéçûŕîţý, åļåŕɱ åñð ÅṼ îñšţåļļš} tattoo{Ţåţţöö åñð þîéŕçîñĝ} tutoring{Ţûţöŕîñĝ åñð ļéššöñš} wellness{Ṁåššåĝé åñð ŵéļļñéšš}} one two three four five six seven eight nine ten one two three four five six seven]"
+        "message": "[{industry,select,beauty{Ĥåîŕ åñð ƀéåûţý} cleaning{Ĥöɱé çļéåñîñĝ} detailing{Ṁöƀîļé çåŕ ðéţåîļîñĝ} fitness{Ƒîţñéšš åñð þéŕšöñåļ ţŕåîñîñĝ} landscaping{Ļåñðšçåþîñĝ åñð ļåŵñ çåŕé} other{Šöɱéţĥîñĝ éļšé} petCare{Đöĝ ŵåļķîñĝ åñð þéţ šîţţîñĝ} petGrooming{Þéţ ĝŕööɱîñĝ åñð ðåýçåŕé} photography{Þĥöţöĝŕåþĥý} security{Šéçûŕîţý, åļåŕɱ åñð ÅṼ îñšţåļļš} tattoo{Ţåţţöö åñð þîéŕçîñĝ} tutoring{Ţûţöŕîñĝ åñð ļéššöñš} wellness{Ṁåššåĝé åñð ŵéļļñéšš}} one two three four five six seven eight nine ten one two three four five six seven eight]"
     },
     "business.onboarding.industryLabel": {
         "message": "[Îñðûšţŕý one]"
@@ -7266,7 +7314,7 @@
         "message": "[é.ĝ. 60-ɱîñûţé šéššîöñ one two]"
     },
     "catalog.namePlaceholderProduct": {
-        "message": "[{kind,select,other{é.ĝ. Ĝîƒţ ƀöẋ} pet{é.ĝ. Öåţɱéåļ Šĥåɱþöö (500 ɱļ)} property{é.ĝ. Ṁîçŕöƒîƀŕé çļöţĥ þåçķ} site{é.ĝ. 4ṀÞ ţûŕŕéţ çåɱéŕå} student{é.ĝ. Ĝŕåðé 4 ŵöŕķƀööķ}} one two three four five six seven]"
+        "message": "[{kind,select,other{é.ĝ. Ĝîƒţ ƀöẋ} pet{é.ĝ. Öåţɱéåļ Šĥåɱþöö (500 ɱļ)} property{é.ĝ. Ṁîçŕöƒîƀŕé çļöţĥ þåçķ} site{é.ĝ. 4ṀÞ ţûŕŕéţ çåɱéŕå} student{é.ĝ. Ĝŕåðé 4 ŵöŕķƀööķ} vehicle{é.ĝ. Çéŕåɱîç šþŕåý šéåļåñţ (500 ɱļ)}} one two three four five six seven eight]"
     },
     "catalog.description": {
         "message": "[Đéšçŕîþţîöñ one two]"
@@ -10245,7 +10293,7 @@
         "message": "[Ɓééñ ĥéŕé ƀéƒöŕé? one two]"
     },
     "publicReturning.intro": {
-        "message": "[{kind,select,other{Ṽéŕîƒý ýöûŕ éɱåîļ öŕ þĥöñé ţö ƒîñð ýöûŕ ļåšţ ṽîšîţ.} pet{Ṽéŕîƒý ýöûŕ éɱåîļ öŕ þĥöñé ţö ƒîñð ýöûŕ þéţš åñð ļåšţ ṽîšîţ.} property{Ṽéŕîƒý ýöûŕ éɱåîļ öŕ þĥöñé ţö ƒîñð ýöûŕ þŕöþéŕţîéš åñð ļåšţ ṽîšîţ.} site{Ṽéŕîƒý ýöûŕ éɱåîļ öŕ þĥöñé ţö ƒîñð ýöûŕ šîţéš åñð ļåšţ ṽîšîţ.} student{Ṽéŕîƒý ýöûŕ éɱåîļ öŕ þĥöñé ţö ƒîñð ýöûŕ šţûðéñţš åñð ļåšţ ṽîšîţ.}} one two three four five six seven eight nine ten one two three four five six seven eight]"
+        "message": "[{kind,select,other{Ṽéŕîƒý ýöûŕ éɱåîļ öŕ þĥöñé ţö ƒîñð ýöûŕ ļåšţ ṽîšîţ.} pet{Ṽéŕîƒý ýöûŕ éɱåîļ öŕ þĥöñé ţö ƒîñð ýöûŕ þéţš åñð ļåšţ ṽîšîţ.} property{Ṽéŕîƒý ýöûŕ éɱåîļ öŕ þĥöñé ţö ƒîñð ýöûŕ þŕöþéŕţîéš åñð ļåšţ ṽîšîţ.} site{Ṽéŕîƒý ýöûŕ éɱåîļ öŕ þĥöñé ţö ƒîñð ýöûŕ šîţéš åñð ļåšţ ṽîšîţ.} student{Ṽéŕîƒý ýöûŕ éɱåîļ öŕ þĥöñé ţö ƒîñð ýöûŕ šţûðéñţš åñð ļåšţ ṽîšîţ.} vehicle{Ṽéŕîƒý ýöûŕ éɱåîļ öŕ þĥöñé ţö ƒîñð ýöûŕ ṽéĥîçļéš åñð ļåšţ ṽîšîţ.}} one two three four five six seven eight nine ten one two three four five six seven eight nine ten one two]"
     },
     "publicReturning.email": {
         "message": "[Éɱåîļ one]"
@@ -10281,10 +10329,10 @@
         "message": "[Ɓööķ ţĥé ûšûåļ one two]"
     },
     "publicReturning.choose": {
-        "message": "[{kind,select,other{Çĥööšé öñé} pet{Çĥööšé å þéţ} property{Çĥööšé å þŕöþéŕţý} site{Çĥööšé å šîţé} student{Çĥööšé å šţûðéñţ}} one two three four five]"
+        "message": "[{kind,select,other{Çĥööšé öñé} pet{Çĥööšé å þéţ} property{Çĥööšé å þŕöþéŕţý} site{Çĥööšé å šîţé} student{Çĥööšé å šţûðéñţ} vehicle{Çĥööšé å ṽéĥîçļé}} one two three four five six]"
     },
     "publicReturning.newSubject": {
-        "message": "[{kind,select,other{Åðð åñöţĥéŕ} pet{Åðð å ðîƒƒéŕéñţ þéţ} property{Åðð å ðîƒƒéŕéñţ þŕöþéŕţý} site{Åðð å ðîƒƒéŕéñţ šîţé} student{Åðð å ðîƒƒéŕéñţ šţûðéñţ}} one two three four five six seven]"
+        "message": "[{kind,select,other{Åðð åñöţĥéŕ} pet{Åðð å ðîƒƒéŕéñţ þéţ} property{Åðð å ðîƒƒéŕéñţ þŕöþéŕţý} site{Åðð å ðîƒƒéŕéñţ šîţé} student{Åðð å ðîƒƒéŕéñţ šţûðéñţ} vehicle{Åðð å ðîƒƒéŕéñţ ṽéĥîçļé}} one two three four five six seven eight]"
     },
     "publicReturning.contactRequired": {
         "message": "[Éñţéŕ ýöûŕ éɱåîļ åððŕéšš öŕ þĥöñé ñûɱƀéŕ. one two three]"
@@ -10314,7 +10362,7 @@
         "message": "[Î'ṽé ƀééñ ĥéŕé ƀéƒöŕé one two]"
     },
     "publicBooking.guided.returningBody": {
-        "message": "[{kind,select,other{Ṽéŕîƒý ýöûŕ ðéţåîļš ţö ƒîñð ýöûŕ ļåšţ ṽîšîţ.} pet{Ṽéŕîƒý ýöûŕ ðéţåîļš ţö ƒîñð ýöûŕ þéţš åñð ļåšţ ṽîšîţ.} property{Ṽéŕîƒý ýöûŕ ðéţåîļš ţö ƒîñð ýöûŕ þŕöþéŕţîéš åñð ļåšţ ṽîšîţ.} site{Ṽéŕîƒý ýöûŕ ðéţåîļš ţö ƒîñð ýöûŕ šîţéš åñð ļåšţ ṽîšîţ.} student{Ṽéŕîƒý ýöûŕ ðéţåîļš ţö ƒîñð ýöûŕ šţûðéñţš åñð ļåšţ ṽîšîţ.}} one two three four five six seven eight nine ten one two three four five six seven]"
+        "message": "[{kind,select,other{Ṽéŕîƒý ýöûŕ ðéţåîļš ţö ƒîñð ýöûŕ ļåšţ ṽîšîţ.} pet{Ṽéŕîƒý ýöûŕ ðéţåîļš ţö ƒîñð ýöûŕ þéţš åñð ļåšţ ṽîšîţ.} property{Ṽéŕîƒý ýöûŕ ðéţåîļš ţö ƒîñð ýöûŕ þŕöþéŕţîéš åñð ļåšţ ṽîšîţ.} site{Ṽéŕîƒý ýöûŕ ðéţåîļš ţö ƒîñð ýöûŕ šîţéš åñð ļåšţ ṽîšîţ.} student{Ṽéŕîƒý ýöûŕ ðéţåîļš ţö ƒîñð ýöûŕ šţûðéñţš åñð ļåšţ ṽîšîţ.} vehicle{Ṽéŕîƒý ýöûŕ ðéţåîļš ţö ƒîñð ýöûŕ ṽéĥîçļéš åñð ļåšţ ṽîšîţ.}} one two three four five six seven eight nine ten one two three four five six seven eight nine ten]"
     },
     "publicBooking.guided.different": {
         "message": "[Ɓööķ šöɱéţĥîñĝ ðîƒƒéŕéñţ one two three]"
@@ -10452,16 +10500,16 @@
         "message": "[ýöû@éẋåɱþļé.çöɱ one two]"
     },
     "publicBooking.subject": {
-        "message": "[{kind,select,other{Ñåɱé} pet{Þéţ'š ñåɱé} property{Þŕöþéŕţý ñåɱé} site{Šîţé ñåɱé} student{Šţûðéñţ'š ñåɱé}} one two three four]"
+        "message": "[{kind,select,other{Ñåɱé} pet{Þéţ'š ñåɱé} property{Þŕöþéŕţý ñåɱé} site{Šîţé ñåɱé} student{Šţûðéñţ'š ñåɱé} vehicle{Ṽéĥîçļé}} one two three four]"
     },
     "publicBooking.subjectPlaceholder": {
-        "message": "[{kind,select,other{} pet{Ŵĥö'š çöɱîñĝ îñ?} property{Ĥöɱé, çöţţåĝé öŕ öƒƒîçé} site{Ĥöɱé, šĥöþ öŕ öƒƒîçé} student{Ŵĥö'š ţĥé ļéššöñ ƒöŕ?}} one two three four five]"
+        "message": "[{kind,select,other{} pet{Ŵĥö'š çöɱîñĝ îñ?} property{Ĥöɱé, çöţţåĝé öŕ öƒƒîçé} site{Ĥöɱé, šĥöþ öŕ öƒƒîçé} student{Ŵĥö'š ţĥé ļéššöñ ƒöŕ?} vehicle{Ṁåķé åñð ɱöðéļ, ļîķé Šûƀåŕû Öûţƀåçķ}} one two three four five six seven]"
     },
     "publicBooking.note": {
         "message": "[Åñýţĥîñĝ ŵé šĥöûļð ķñöŵ one two]"
     },
     "publicBooking.notePlaceholder": {
-        "message": "[{kind,select,other{Åñýţĥîñĝ ŵé šĥöûļð ķñöŵ ƀéƒöŕé ýöûŕ ṽîšîţ} pet{Ṁåţţîñĝ, ñéŕṽöûš ŵîţĥ ðŕýéŕš, åļļéŕĝîéš} property{Þåŕķîñĝ, þéţš, ŕööɱš ţö ƒöçûš öñ} site{Ĝåţé çöðé, þéţš, ŵĥéŕé ýöû'ð ļîķé çåɱéŕåš} student{Ĝöåļš ƒöŕ ţĥé ļéššöñ, åļļéŕĝîéš}} one two three four five six seven eight nine ten one two]"
+        "message": "[{kind,select,other{Åñýţĥîñĝ ŵé šĥöûļð ķñöŵ ƀéƒöŕé ýöûŕ ṽîšîţ} pet{Ṁåţţîñĝ, ñéŕṽöûš ŵîţĥ ðŕýéŕš, åļļéŕĝîéš} property{Þåŕķîñĝ, þéţš, ŕööɱš ţö ƒöçûš öñ} site{Ĝåţé çöðé, þéţš, ŵĥéŕé ýöû'ð ļîķé çåɱéŕåš} student{Ĝöåļš ƒöŕ ţĥé ļéššöñ, åļļéŕĝîéš} vehicle{Þéţ ĥåîŕ, šţåîñš, ŵĥéŕé îţ'š þåŕķéð}} one two three four five six seven eight nine ten one two three four]"
     },
     "publicBooking.reachHint": {
         "message": "[Ŵé ţéẋţ å ŕéɱîñðéŕ ţĥé ðåý ƀéƒöŕé. Åðð åñ éɱåîļ ƒöŕ ŕéçéîþţš. one two three four]"
@@ -10479,7 +10527,7 @@
         "message": "[Ţĥåţ þĥöñé ñûɱƀéŕ ðöéšñ'ţ ļööķ ŕîĝĥţ. Ûšé 10 ðîĝîţš, öŕ + åñð ţĥé çöûñţŕý çöðé. one two three four five]"
     },
     "publicBooking.subjectRequired": {
-        "message": "[{kind,select,other{Åðð å ñåɱé.} pet{Åðð ýöûŕ þéţ'š ñåɱé.} property{Ĝîṽé ţĥé þŕöþéŕţý å ñåɱé, ļîķé Ĥöɱé.} site{Ĝîṽé ţĥé šîţé å ñåɱé, ļîķé Ĥöɱé.} student{Åðð ţĥé šţûðéñţ'š ñåɱé.}} one two three four five six seven]"
+        "message": "[{kind,select,other{Åðð å ñåɱé.} pet{Åðð ýöûŕ þéţ'š ñåɱé.} property{Ĝîṽé ţĥé þŕöþéŕţý å ñåɱé, ļîķé Ĥöɱé.} site{Ĝîṽé ţĥé šîţé å ñåɱé, ļîķé Ĥöɱé.} student{Åðð ţĥé šţûðéñţ'š ñåɱé.} vehicle{Åðð ýöûŕ ṽéĥîçļé'š ɱåķé åñð ɱöðéļ.}} one two three four five six seven eight nine]"
     },
     "publicBooking.address": {
         "message": "[Åððŕéšš one]"
@@ -10488,7 +10536,7 @@
         "message": "[12 Åŕƀûţûš Ļåñé, Ṽîçţöŕîå one two]"
     },
     "publicBooking.addressRequired": {
-        "message": "[{kind,select,other{Åðð ţĥé þŕöþéŕţý'š åððŕéšš.} site{Åðð ţĥé šîţé'š åððŕéšš.}} one two three four]"
+        "message": "[{kind,select,other{Åðð ţĥé þŕöþéŕţý'š åððŕéšš.} site{Åðð ţĥé šîţé'š åððŕéšš.} vehicle{Åðð ţĥé åððŕéšš ŵĥéŕé ţĥé ṽéĥîçļé îš þåŕķéð.}} one two three four five six]"
     },
     "publicBooking.summary": {
         "message": "[Ýöûŕ ṽîšîţ one two]"
@@ -12738,7 +12786,7 @@
         "message": "[Éðîţîöñ one]"
     },
     "admin.editionOption": {
-        "message": "[{subject,select,other{Çļîéñţ öñļý} pet{Þéţš} property{Þŕöþéŕţîéš} site{Šîţéš} student{Šţûðéñţš}} one two three]"
+        "message": "[{subject,select,other{Çļîéñţ öñļý} pet{Þéţš} property{Þŕöþéŕţîéš} site{Šîţéš} student{Šţûðéñţš} vehicle{Ṽéĥîçļéš}} one two three four]"
     },
     "admin.editionHint": {
         "message": "[Šéţš ţĥé ļåƀéļš åñð ƒéåţûŕéš ţĥé ƀûšîñéšš šééš ƒöŕ ŵĥåţ çļîéñţš ƀööķ. one two three four five]"

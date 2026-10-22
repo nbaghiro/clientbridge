@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.config import get_settings
 from clientbridge.core.ids import new_id
+from clientbridge.models.business import Business
 from clientbridge.models.platform import Audit
 from tests.conftest import Factory, FakeEmailSender, FakeIdentityProvider
 from tests.test_auth import fresh
@@ -337,9 +338,20 @@ async def test_admin_sets_the_edition_and_audits_each_change(
     assert other.subject == "pet"
 
 
+async def test_admin_switches_a_business_to_vehicles(
+    api: httpx.AsyncClient, admin_headers: dict[str, str], db: AsyncSession
+) -> None:
+    path = "/admin/v1/businesses/bz_birchbark/edition"
+    result = await api.post(path, json={"subject": "vehicle"}, headers=admin_headers)
+    assert result.status_code == 200, result.text
+    assert result.json()["subject"] == "vehicle"
+    stored = await db.scalar(select(Business.subject).where(Business.id == "bz_birchbark"))
+    assert stored == "vehicle"
+
+
 @pytest.mark.parametrize(
     "business_id,body,code",
-    [("missing", {"subject": "pet"}, 404), ("bz_birchbark", {"subject": "vehicle"}, 422)],
+    [("missing", {"subject": "pet"}, 404), ("bz_birchbark", {"subject": "boat"}, 422)],
 )
 async def test_admin_edition_rejects_unknown_business_and_kind(
     api: httpx.AsyncClient, admin_headers: dict[str, str], business_id: str, body: object, code: int

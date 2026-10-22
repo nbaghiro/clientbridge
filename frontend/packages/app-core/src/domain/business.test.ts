@@ -228,9 +228,28 @@ describe("useOnboardingForm", () => {
         expect(posted).toMatchObject([{ subject: null }]);
     });
 
+    it("sends vehicle as the subject kind for mobile car detailing", async () => {
+        const { api, posted } = recordingPost();
+        const created = vi.fn();
+        const { result } = renderHook(() => useOnboardingForm(api, created));
+        act(() => {
+            result.current.setName("Shine Mobile");
+            result.current.setProvince("BC");
+            result.current.setIndustry("detailing");
+        });
+        act(() => {
+            result.current.submit();
+        });
+        await waitFor(() => {
+            expect(created).toHaveBeenCalled();
+        });
+        expect(posted).toMatchObject([{ subject: "vehicle" }]);
+    });
+
     it("lists each industry with its catalog label", () => {
         const options = industryOptions();
-        expect(options).toHaveLength(12);
+        expect(options).toHaveLength(13);
+        expect(options).toContainEqual({ key: "detailing", label: "Mobile car detailing" });
         expect(options[0]).toEqual({ key: "petGrooming", label: "Pet grooming and daycare" });
         expect(options.at(-1)).toEqual({ key: "other", label: "Something else" });
     });

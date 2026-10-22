@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { act, renderHook } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { ApiLike } from "../api";
 import { zonedDate } from "../datetime";
@@ -17,9 +17,11 @@ import {
     useSubjectForm,
 } from "./subjects";
 
+const business = vi.hoisted(() => ({ subject: "student" }));
+
 vi.mock("../hooks", async (importOriginal) => ({
     ...(await importOriginal<typeof import("../hooks")>()),
-    useBusinessQuery: () => ({ data: [{ subject: "student" }] }),
+    useBusinessQuery: () => ({ data: [{ subject: business.subject }] }),
 }));
 
 const ZONE = "America/Vancouver";
@@ -48,6 +50,7 @@ describe("subjectSummary", () => {
             formatParts(["12 Pine St", s.rooms(3)]),
         );
         expect(subjectSummary("site", attributes, ZONE, NOW)).toBe("12 Pine St");
+        expect(subjectSummary("vehicle", attributes, ZONE, NOW)).toBe("");
         expect(subjectSummary(null, attributes, ZONE, NOW)).toBe("");
     });
 
@@ -74,6 +77,8 @@ describe("leadField", () => {
         expect(leadField("student").key).toBe("grade");
         expect(leadField("property").key).toBe("address");
         expect(leadField("site").key).toBe("address");
+        expect(leadField("vehicle").key).toBe("address");
+        expect(leadField("vehicle").label).toBe(s.fields.vehicle.address);
     });
 });
 
@@ -107,6 +112,36 @@ describe("a site", () => {
         expect(lines[0]?.detail).toBe("Front door");
         expect(lines[1]?.detail).toContain(s.equipment.serialShort("NV-1"));
         expect(lines[3]?.warranty).toBeNull();
+    });
+});
+
+describe("a vehicle", () => {
+    const car = {
+        address: "1200 Fort St",
+        make: "Subaru",
+        model: "Outback",
+        year: 2021,
+        colour: "Crimson",
+        plate: "CB 4411",
+        size: "suv",
+        parking: "Visitor stall 12",
+    };
+
+    it("sums up its make and model, year, colour, plate and size", () => {
+        expect(subjectSummary("vehicle", car, ZONE, NOW)).toBe(
+            formatParts([
+                s.makeModel("Subaru", "Outback"),
+                "2021",
+                "Crimson",
+                "CB 4411",
+                s.fields.vehicle.sizes("suv"),
+            ]),
+        );
+        expect(subjectSummary("vehicle", { model: "Outback" }, ZONE, NOW)).toBe("Outback");
+    });
+
+    it("raises no alerts of another kind's", () => {
+        expect(subjectAlerts("vehicle", { ...car, allergies: "Nuts" }, NOW, ZONE)).toEqual([]);
     });
 });
 
@@ -279,6 +314,83 @@ describe("the pickup editor", () => {
                         { name: "Ngozi Nwosu", phone: "613-555-0181" },
                     ],
                 },
+            },
+        ]);
+    });
+});
+
+describe("the vehicle form", () => {
+    afterEach(() => {
+        business.subject = "student";
+    });
+
+    it("checks the year and each limit, then sends the typed details", async () => {
+        business.subject = "vehicle";
+        const api = recordingApi();
+        const { result } = renderHook(() => useSubjectForm(api, "cl_ann", null, vi.fn()));
+        expect(result.current.fields.map((f) => f.key)).toEqual([
+            "make",
+            "model",
+            "year",
+            "colour",
+            "plate",
+            "size",
+            "address",
+            "parking",
+            "notes",
+        ]);
+        const steps: ((f: typeof result.current) => void)[] = [
+            (f) => {
+                f.setName("Outback");
+                f.setValue("year", "21");
+            },
+            (f) => {
+                f.setValue("plate", "x".repeat(13));
+            },
+            (f) => {
+                f.setValue("make", "x".repeat(41));
+            },
+            (f) => {
+                f.submit();
+            },
+        ];
+        for (const step of steps)
+            act(() => {
+                step(result.current);
+            });
+        expect(result.current.errors).toEqual({
+            year: s.fields.vehicle.yearInvalid,
+            plate: s.tooLong(12),
+            make: s.tooLong(40),
+        });
+        expect(api.sent).toEqual([]);
+        const fixes: ((f: typeof result.current) => void)[] = [
+            (f) => {
+                f.setValue("year", "2021");
+            },
+            (f) => {
+                f.setValue("plate", "CB 4411");
+            },
+            (f) => {
+                f.setValue("make", "Subaru");
+            },
+            (f) => {
+                f.setValue("size", "suv");
+            },
+        ];
+        for (const step of fixes)
+            act(() => {
+                step(result.current);
+            });
+        await act(async () => {
+            result.current.submit();
+            await Promise.resolve();
+        });
+        expect(api.sent).toEqual([
+            {
+                client_id: "cl_ann",
+                name: "Outback",
+                attributes: { make: "Subaru", year: 2021, plate: "CB 4411", size: "suv" },
             },
         ]);
     });

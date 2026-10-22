@@ -329,7 +329,7 @@ async def _kind(db: AsyncSession, kind: str | None) -> None:
     await db.flush()
 
 
-@pytest.mark.parametrize("kind", ["property", "site"])
+@pytest.mark.parametrize("kind", ["property", "site", "vehicle"])
 async def test_a_place_booking_files_a_new_place_with_its_address(
     api: httpx.AsyncClient, db: AsyncSession, kind: str
 ) -> None:
@@ -360,7 +360,7 @@ async def _booked_subject(api: httpx.AsyncClient, db: AsyncSession, **extra: obj
     return subject
 
 
-@pytest.mark.parametrize("kind", ["property", "site"])
+@pytest.mark.parametrize("kind", ["property", "site", "vehicle"])
 async def test_a_place_visit_points_directions_and_emails_at_the_place(
     api: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender, kind: str
 ) -> None:
@@ -373,7 +373,7 @@ async def test_a_place_visit_points_directions_and_emails_at_the_place(
     assert email.sent and "Visit address: 880 Douglas St" in (email.sent[-1].html or "")
 
 
-@pytest.mark.parametrize("kind", ["pet", "site"])
+@pytest.mark.parametrize("kind", ["pet", "site", "vehicle"])
 async def test_a_visit_without_a_place_address_points_at_the_business(
     api: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender, kind: str
 ) -> None:
@@ -387,7 +387,7 @@ async def test_a_visit_without_a_place_address_points_at_the_business(
     assert all("Visit address" not in (m.html or "") for m in email.sent)
 
 
-@pytest.mark.parametrize("kind", ["property", "site"])
+@pytest.mark.parametrize("kind", ["property", "site", "vehicle"])
 async def test_a_place_is_matched_by_name_and_address(
     api: httpx.AsyncClient, db: AsyncSession, kind: str
 ) -> None:

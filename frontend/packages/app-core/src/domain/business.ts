@@ -564,6 +564,7 @@ const INDUSTRY_SUBJECTS = {
     cleaning: "property",
     landscaping: "property",
     security: "site",
+    detailing: "vehicle",
     beauty: null,
     fitness: null,
     wellness: null,

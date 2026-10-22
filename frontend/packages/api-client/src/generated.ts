@@ -3693,7 +3693,7 @@ export interface components {
             /** Stripe Payouts Enabled */
             stripe_payouts_enabled: boolean;
             /** Subject */
-            subject: ("pet" | "student" | "property" | "site") | null;
+            subject: ("pet" | "student" | "property" | "site" | "vehicle") | null;
             /**
              * Created At
              * Format: date-time
@@ -3778,7 +3778,7 @@ export interface components {
              * Subject
              * @description The edition: what bookings are for besides the client; null books only them
              */
-            subject: ("pet" | "student" | "property" | "site") | null;
+            subject: ("pet" | "student" | "property" | "site" | "vehicle") | null;
         };
         /** AdminEmail */
         AdminEmail: {
@@ -4467,7 +4467,7 @@ export interface components {
                 [key: string]: unknown;
             };
             /** Subject */
-            subject: ("pet" | "student" | "property" | "site") | null;
+            subject: ("pet" | "student" | "property" | "site" | "vehicle") | null;
         };
         /** BusinessSettingsUpdate */
         BusinessSettingsUpdate: {
@@ -6211,7 +6211,7 @@ export interface components {
             address?: string | null;
             /**
              * At Place
-             * @description The address is the client's property or site
+             * @description The address is the client's property, site or vehicle
              * @default false
              */
             at_place: boolean;
@@ -6223,7 +6223,7 @@ export interface components {
             /** Client Name */
             client_name: string;
             /** Subject */
-            subject?: ("pet" | "student" | "property" | "site") | null;
+            subject?: ("pet" | "student" | "property" | "site" | "vehicle") | null;
             /** Subject Name */
             subject_name: string | null;
             service: components["schemas"]["PublicService"];
@@ -6465,7 +6465,7 @@ export interface components {
              * Subject
              * @description What bookings are for besides the client; null books only them
              */
-            subject: ("pet" | "student" | "property" | "site") | null;
+            subject: ("pet" | "student" | "property" | "site" | "vehicle") | null;
         };
         /** OnlineBookingOut */
         OnlineBookingOut: {
@@ -7098,7 +7098,7 @@ export interface components {
             subject_name?: string | null;
             /**
              * Subject Address
-             * @description A new property's or site's address, for property and site businesses
+             * @description A new place's address, for property, site and vehicle businesses
              */
             subject_address?: string | null;
             /** Note */
@@ -7143,7 +7143,7 @@ export interface components {
              * Subject
              * @description What a booking names besides the client; null asks for nothing
              */
-            subject?: ("pet" | "student" | "property" | "site") | null;
+            subject?: ("pet" | "student" | "property" | "site" | "vehicle") | null;
         };
         /** PublicBookingResult */
         PublicBookingResult: {
@@ -7790,7 +7790,7 @@ export interface components {
              * Subject
              * @description What a booking names besides the client; null asks for nothing
              */
-            subject?: ("pet" | "student" | "property" | "site") | null;
+            subject?: ("pet" | "student" | "property" | "site" | "vehicle") | null;
             /** Cover Url */
             cover_url?: string | null;
             /** About */

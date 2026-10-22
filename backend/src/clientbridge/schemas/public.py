@@ -157,7 +157,7 @@ class ManagedBooking(Mirror):
         default=None, description="Where the visit happens: the client's place, else the business"
     )
     at_place: bool = Field(
-        default=False, description="The address is the client's property or site"
+        default=False, description="The address is the client's property, site or vehicle"
     )
     business_name: str
     brand: PublicBrand
@@ -231,7 +231,7 @@ class PublicBookingCreate(BaseModel):
     subject_address: str | None = Field(
         default=None,
         max_length=200,
-        description="A new property's or site's address, for property and site businesses",
+        description="A new place's address, for property, site and vehicle businesses",
     )
     note: str | None = Field(default=None, max_length=1000)
 
