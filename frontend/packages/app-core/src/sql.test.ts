@@ -2309,6 +2309,23 @@ describe("app-core SQL against the replica schema", () => {
         ]);
         expect(roster.filter((r) => r.status === "confirmed")).toHaveLength(1);
         expect(roster.filter((r) => r.status === "waitlisted")).toHaveLength(1);
+        const pickups = JSON.stringify({ pickups: [{ name: "Ngozi Nwosu", relation: "Gran" }] });
+        db.run("UPDATE subjects SET attributes = ? WHERE id = 'sj_rex'", [pickups]);
+        const withPickups = run("CLASS_ROSTER_SQL", [
+            "2027-01-01T00:00:00.000Z",
+            "2027-02-01T00:00:00.000Z",
+        ]);
+        expect(pick(withPickups, "booking_id", "subject_attributes")).toEqual([
+            { booking_id: "bk_k1", subject_attributes: pickups },
+            { booking_id: "bk_k2", subject_attributes: null },
+        ]);
+        expect(
+            pick(
+                run("AGENDA_SQL", ["2027-01-06T00:00:00.000Z", "2027-01-05T00:00:00.000Z"]),
+                "booking_id",
+                "subject_attributes",
+            ),
+        ).toEqual([{ booking_id: "bk_c1", subject_attributes: pickups }]);
         expect(
             run("CLASS_ROSTER_SQL", ["2027-01-07T00:00:00.000Z", "2027-02-01T00:00:00.000Z"]),
         ).toEqual([]);

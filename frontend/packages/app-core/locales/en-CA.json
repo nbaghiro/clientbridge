@@ -2834,6 +2834,12 @@
     "bookings.detailNotes": {
         "message": "Notes"
     },
+    "bookings.noteAdd": {
+        "message": "Add note"
+    },
+    "bookings.notePlaceholder": {
+        "message": "Anything the team should know about this visit"
+    },
     "bookings.detailPhotos": {
         "message": "Photos"
     },
@@ -4906,6 +4912,14 @@
         "message": "Rabies vaccine expires {when}",
         "args": ["when"]
     },
+    "subjects.noPickupAlert": {
+        "message": "Pickup restriction: {what}",
+        "args": ["what"]
+    },
+    "subjects.tooLong": {
+        "message": "Keep this under {max, number} characters.",
+        "args": ["max"]
+    },
     "subjects.fields.birthday": {
         "message": "Birthday"
     },
@@ -4989,6 +5003,12 @@
     },
     "subjects.fields.student.school": {
         "message": "School"
+    },
+    "subjects.fields.student.noPickup": {
+        "message": "Must not pick up"
+    },
+    "subjects.fields.student.noPickupPlaceholder": {
+        "message": "Anyone staff must not release this student to, and who to call if they come"
     },
     "subjects.fields.property.address": {
         "message": "Address"
@@ -5103,6 +5123,51 @@
     "subjects.equipment.warrantyEnded": {
         "message": "Warranty ended {date}",
         "args": ["date"]
+    },
+    "subjects.pickup.title": {
+        "message": "Pickups"
+    },
+    "subjects.pickup.hint": {
+        "message": "People staff may release this student to at the end of a lesson."
+    },
+    "subjects.pickup.add": {
+        "message": "Add person"
+    },
+    "subjects.pickup.remove": {
+        "message": "Remove person"
+    },
+    "subjects.pickup.item": {
+        "message": "Person {n, number}",
+        "args": ["n"]
+    },
+    "subjects.pickup.name": {
+        "message": "Name"
+    },
+    "subjects.pickup.relation": {
+        "message": "Relation"
+    },
+    "subjects.pickup.relationPlaceholder": {
+        "message": "Grandmother"
+    },
+    "subjects.pickup.phone": {
+        "message": "Phone"
+    },
+    "subjects.pickup.note": {
+        "message": "Note"
+    },
+    "subjects.pickup.notePlaceholder": {
+        "message": "Picks up on Tuesdays"
+    },
+    "subjects.pickup.nameRequired": {
+        "message": "Add a name, or remove this person."
+    },
+    "subjects.pickup.phoneInvalid": {
+        "message": "Enter a 10-digit phone number, or + and the country code for a number outside North America."
+    },
+    "subjects.pickup.mayBePickedUpBy": {
+        "message": "May be picked up by {names}",
+        "args": ["names"],
+        "description": "names is a formatted list of people, such as “Ngozi Nwosu and Tobi Adeyemi”."
     },
     "subjects.photos": {
         "message": "Job photos"

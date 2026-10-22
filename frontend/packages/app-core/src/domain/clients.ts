@@ -885,10 +885,10 @@ export interface NoteComposer {
     submit: () => void;
 }
 
-/** Note box: the client or which subject it is about, and whether it is pinned to every booking. */
+/** Note box: the client, which subject or which visit it is about, and whether it is pinned. */
 export function useNoteComposer(
     api: ApiLike,
-    clientId: string,
+    target: { clientId: string } | { bookingId: string },
     onSaved?: () => void,
     initialAbout = "client",
 ): NoteComposer {
@@ -913,12 +913,16 @@ export function useNoteComposer(
                 setError(s.history.noteRequired);
                 return;
             }
-            const subject = about !== "client";
+            const parent =
+                "bookingId" in target
+                    ? { parent_type: "booking", parent_id: target.bookingId }
+                    : about !== "client"
+                      ? { parent_type: "subject", parent_id: about }
+                      : { parent_type: "client", parent_id: target.clientId };
             run(
                 async () => {
                     await api.post("/v1/notes", {
-                        parent_type: subject ? "subject" : "client",
-                        parent_id: subject ? about : clientId,
+                        ...parent,
                         body: body.trim(),
                         pinned,
                     });

@@ -34,8 +34,10 @@ import {
     type SubjectAlert,
     type SubjectKind,
     parseAttributes,
+    pickupLine,
     subjectAlerts,
     subjectTemperament,
+    useSubjectKind,
 } from "./subjects";
 import { utcSql } from "../datetime";
 import { useCatalogItems } from "./catalog";
@@ -77,6 +79,7 @@ interface AgendaRow {
     client_id: string | null;
     client_name: string | null;
     client_phone: string | null;
+    subject_attributes: string | null;
     deposit_amount_cents: number | null;
     deposit_status: string | null;
     departed_at: string | null;
@@ -93,13 +96,14 @@ SELECT s.id AS slot_id, s.starts_at, s.ends_at, s.staff_id, s.capacity,
        i.name AS item_name, i.kind AS item_kind, i.color AS item_color,
        i.price_cents AS item_price_cents,
        b.id AS booking_id, b.status AS booking_status, b.price_cents, b.client_id,
-       c.name AS client_name, c.phone AS client_phone,
+       c.name AS client_name, c.phone AS client_phone, sj.attributes AS subject_attributes,
        b.deposit_amount_cents, b.deposit_status, b.departed_at, b.checked_in_at,
        ${staffNameSql("st")} AS staff_name, st.title AS staff_title, st.role AS staff_role, st.color AS staff_color
 FROM slots s
 JOIN items i ON i.id = s.item_id
 ${slotBookingsJoin("AND x.deleted_at IS NULL AND x.status != 'canceled'")}
 LEFT JOIN clients c ON c.id = b.client_id
+LEFT JOIN subjects sj ON sj.id = b.subject_id AND sj.deleted_at IS NULL
 LEFT JOIN staff st ON st.id = s.staff_id
 WHERE s.status != 'canceled' AND ${slotOverlapSql("?2", "?1")}
 ORDER BY ${utcSql("s.starts_at")}, s.id`;
@@ -132,12 +136,18 @@ export interface AgendaItem {
     checkedIn: boolean;
     minutesAway: number;
     startsIn: string;
+    pickup: string | null;
 }
 
 const isClassRow = (r: AgendaRow): boolean => r.item_kind === "class" || r.capacity > 1;
 
 /** Today's visits in time order with now/next state; a class is one row however many are booked. */
-export function buildAgenda(rows: AgendaRow[], now: Date, zone: string): AgendaItem[] {
+export function buildAgenda(
+    rows: AgendaRow[],
+    now: Date,
+    zone: string,
+    kind: SubjectKind | null = null,
+): AgendaItem[] {
     const bySlot = new Map<string, AgendaRow[]>();
     for (const r of rows) bySlot.set(r.slot_id, [...(bySlot.get(r.slot_id) ?? []), r]);
     const items: Omit<AgendaItem, "state">[] = [];
@@ -182,6 +192,7 @@ export function buildAgenda(rows: AgendaRow[], now: Date, zone: string): AgendaI
                 checkedIn: !isClass && r.checked_in_at !== null,
                 minutesAway: away,
                 startsIn: strings.today.inMinutes(Math.floor(away / 60), away % 60),
+                pickup: isClass ? null : pickupLine(kind, parseAttributes(r.subject_attributes)),
             };
         };
         if (isClassRow(first)) items.push(asItem(first, true));
@@ -514,7 +525,8 @@ function useTodayView(viewer: Viewer | null, now: Date, zone: string) {
     const { result, rows } = useAgendaRows(now, scopeTo, zone);
     const hours = useTodayHours(now, zone);
     const staff = useStaff();
-    const agenda = useMemo(() => buildAgenda(rows, now, zone), [rows, now, zone]);
+    const kind = useSubjectKind();
+    const agenda = useMemo(() => buildAgenda(rows, now, zone, kind), [rows, now, zone, kind]);
     const team = useMemo<TeamDay[]>(
         () =>
             staff.map((s) => ({

@@ -19,7 +19,13 @@ import type { Intent } from "../ui";
 import { slotOverlapSql } from "./bookings";
 import { useNow } from "../hooks";
 import { staffName, useStaff } from "./staff";
-import { parseAttributes, subjectSummary, subjectTemperament, useSubjectKind } from "./subjects";
+import {
+    parseAttributes,
+    pickupLine,
+    subjectSummary,
+    subjectTemperament,
+    useSubjectKind,
+} from "./subjects";
 import { useReplicaLoad } from "./sync";
 
 const s = strings.classes;
@@ -105,6 +111,7 @@ export interface RosterEntry {
     intent: Intent;
     paid: boolean;
     note: string | null;
+    pickup: string | null;
 }
 
 export interface ClassRoster {
@@ -263,6 +270,7 @@ export function useClassBoard(api: ApiLike): ClassBoard {
             intent: STATUS[status].intent,
             paid: r.deposit_status !== "pending",
             note: temperament?.nervous === true ? s.gentleNote : null,
+            pickup: pickupLine(kind, attrs),
         };
     };
     const act = (

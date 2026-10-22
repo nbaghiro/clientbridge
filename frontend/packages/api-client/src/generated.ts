@@ -6400,7 +6400,7 @@ export interface components {
              * Parent Type
              * @enum {string}
              */
-            parent_type: "client" | "subject";
+            parent_type: "client" | "subject" | "booking";
             /** Parent Id */
             parent_id: string;
             /** Body */

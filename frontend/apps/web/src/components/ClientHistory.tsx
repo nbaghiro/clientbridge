@@ -106,7 +106,7 @@ export function NoteDialog({
     subjects: readonly SubjectRow[];
     onClose: () => void;
 }) {
-    const composer = useNoteComposer(api, clientId, onClose);
+    const composer = useNoteComposer(api, { clientId }, onClose);
     return (
         <Modal variant="drawer" onClose={onClose} size="lg">
             <h2 className="mb-4 font-display text-lg font-bold text-ink">
@@ -127,7 +127,7 @@ export function ClientHistory({ clientId, aside }: { clientId: string; aside?: R
     const zone = useBusinessZone();
     const viewer = useViewer();
     const h = useClientHistory(clientId, viewer?.staffId ?? null);
-    const composer = useNoteComposer(api, clientId);
+    const composer = useNoteComposer(api, { clientId });
     const now = new Date();
 
     return (

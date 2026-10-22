@@ -337,6 +337,11 @@ export function NextCard({ item, children }: { item: AgendaItem; children?: Reac
                     <Text style={styles.nextService} numberOfLines={1}>
                         {formatParts([item.serviceName, t.withStaff(item.staffName)])}
                     </Text>
+                    {item.pickup !== null ? (
+                        <Text style={styles.nextService} numberOfLines={2}>
+                            {item.pickup}
+                        </Text>
+                    ) : null}
                 </View>
             </View>
             {children}
@@ -471,6 +476,11 @@ export function AgendaRows({
                                     ? formatParts([item.serviceName, item.staffName])
                                     : item.serviceName}
                             </Text>
+                            {item.pickup !== null ? (
+                                <Text style={styles.agendaSub} numberOfLines={1}>
+                                    {item.pickup}
+                                </Text>
+                            ) : null}
                         </View>
                         {done ? (
                             <Icon name="check" size={17} color={c.success} label={t.stateDone} />

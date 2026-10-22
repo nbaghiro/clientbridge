@@ -4,6 +4,8 @@ import {
     type SubjectForm,
     type SubjectRow,
     EQUIPMENT_FIELDS,
+    PICKUP_PERSON_FIELDS,
+    PICKUP_PEOPLE_MAX,
     EQUIPMENT_MAX,
     canManagePayments,
     strings,
@@ -388,6 +390,7 @@ export function SubjectSheet({
             {form.equipment !== null ? (
                 <EquipmentFields form={form} equipment={form.equipment} />
             ) : null}
+            {form.pickups !== null ? <PickupFields form={form} pickups={form.pickups} /> : null}
             {form.error !== null ? (
                 <Notice tone="danger" banner>
                     {form.error}
@@ -469,6 +472,56 @@ function EquipmentFields({
     );
 }
 
+/** A student's people allowed to collect them, one group of fields per person. */
+function PickupFields({
+    form,
+    pickups,
+}: {
+    form: SubjectForm;
+    pickups: NonNullable<SubjectForm["pickups"]>;
+}) {
+    return (
+        <View style={styles.section}>
+            <Text style={styles.sectionTitle}>{sj.pickup.title}</Text>
+            <Text style={styles.hint}>{sj.pickup.hint}</Text>
+            {pickups.map((person, i) => (
+                <View key={i} style={styles.device}>
+                    <View style={styles.row}>
+                        <Text style={[styles.value, styles.grow]}>{sj.pickup.item(i + 1)}</Text>
+                        <Button
+                            variant="link"
+                            onPress={() => {
+                                form.removePickup(i);
+                            }}
+                        >
+                            {sj.pickup.remove}
+                        </Button>
+                    </View>
+                    {PICKUP_PERSON_FIELDS.map((f) => (
+                        <TextField
+                            key={f.key}
+                            label={f.label}
+                            optional={f.key !== "name"}
+                            type={f.type === "phone" ? "tel" : "text"}
+                            value={person[f.key]}
+                            placeholder={f.placeholder}
+                            onChange={(v) => {
+                                form.setPickup(i, f.key, v);
+                            }}
+                            error={form.errors[`pickups.${String(i)}.${f.key}`]}
+                        />
+                    ))}
+                </View>
+            ))}
+            {pickups.length < PICKUP_PEOPLE_MAX ? (
+                <Button variant="outline" full onPress={form.addPickup}>
+                    {sj.pickup.add}
+                </Button>
+            ) : null}
+        </View>
+    );
+}
+
 /** The note text, which subject it is about and whether it is pinned, in a sheet. */
 export function NoteSheet({
     clientId,
@@ -479,7 +532,7 @@ export function NoteSheet({
     subjects: readonly SubjectRow[];
     onClose: () => void;
 }) {
-    const comp = useNoteComposer(api, clientId, onClose);
+    const comp = useNoteComposer(api, { clientId }, onClose);
     const kind = useSubjectKind();
     const placeholder = h.notePlaceholder(kindWord(kind));
     return (

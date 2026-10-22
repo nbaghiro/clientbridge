@@ -4,7 +4,8 @@ from clientbridge.core.deps import Principal, is_manager
 from clientbridge.core.errors import Forbidden, NotFound
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
-from clientbridge.models.clients import Note, Subject
+from clientbridge.models.clients import Note, NoteParent, Subject
+from clientbridge.models.scheduling import Booking
 from clientbridge.schemas.notes import NoteCreate, NoteUpdate
 from clientbridge.services.clients import load_client
 
@@ -15,17 +16,18 @@ class NoteService:
         self.principal = principal
         self.biz = principal.business_id
 
-    async def _parent(self, parent_type: str, parent_id: str) -> None:
+    async def _parent(self, parent_type: NoteParent, parent_id: str) -> None:
         if parent_type == "client":
             await load_client(self.db, self.biz, parent_id)
             return
+        model = Booking if parent_type == "booking" else Subject
         found = (
             await self.db.execute(
-                scoped(Subject, self.biz, soft_delete=True).where(Subject.id == parent_id)
+                scoped(model, self.biz, soft_delete=True).where(model.id == parent_id)
             )
         ).scalar_one_or_none()
         if found is None:
-            raise NotFound("subject not found")
+            raise NotFound(f"{parent_type} not found")
 
     async def _own(self, note_id: str) -> Note:
         note = (

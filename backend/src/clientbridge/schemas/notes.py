@@ -1,5 +1,4 @@
 from datetime import datetime
-from typing import Literal
 
 from pydantic import ConfigDict, Field
 
@@ -10,7 +9,7 @@ from clientbridge.models.clients import Note, NoteParent
 class NoteCreate(Mirror):
     mirrors = Note
 
-    parent_type: Literal["client", "subject"]
+    parent_type: NoteParent
     parent_id: str
     body: str = Field(min_length=1, max_length=4000)
     pinned: bool = False

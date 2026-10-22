@@ -2,7 +2,7 @@ import { useState } from "react";
 
 import type { ApiLike } from "../api";
 import { dateKey, formatDate, readDate } from "../datetime";
-import { formatParts, parseNumber } from "../format";
+import { formatList, formatParts, normalizePhone, parseNumber } from "../format";
 import { useAsyncAction, useBusinessQuery as useQuery } from "../hooks";
 import { strings } from "../strings";
 import type { Intent } from "../ui";
@@ -104,6 +104,7 @@ export interface SubjectField {
     unit?: string | undefined;
     placeholder?: string | undefined;
     half?: boolean | undefined;
+    maxLength?: number | undefined;
 }
 
 const option = (key: string, label: () => string): { key: string; label: string } => ({
@@ -267,6 +268,17 @@ const STUDENT_FIELDS: readonly SubjectField[] = [
         },
         type: "text",
         half: true,
+    },
+    {
+        key: "no_pickup",
+        get label() {
+            return s.fields.student.noPickup;
+        },
+        type: "longtext",
+        get placeholder() {
+            return s.fields.student.noPickupPlaceholder;
+        },
+        maxLength: 500,
     },
 ];
 
@@ -519,6 +531,90 @@ export function equipmentLines(
     });
 }
 
+const PICKUP_KEYS = ["name", "relation", "phone", "note"] as const;
+
+type PickupKey = (typeof PICKUP_KEYS)[number];
+
+type PickupDraft = Record<PickupKey, string>;
+
+interface PickupField {
+    key: PickupKey;
+    label: string;
+    type: "text" | "phone";
+    placeholder?: string | undefined;
+}
+
+/** The fields of one person who may collect a student, in the order the form asks for them. */
+export const PICKUP_PERSON_FIELDS: readonly PickupField[] = [
+    {
+        key: "name",
+        get label() {
+            return s.pickup.name;
+        },
+        type: "text",
+    },
+    {
+        key: "relation",
+        get label() {
+            return s.pickup.relation;
+        },
+        type: "text",
+        get placeholder() {
+            return s.pickup.relationPlaceholder;
+        },
+    },
+    {
+        key: "phone",
+        get label() {
+            return s.pickup.phone;
+        },
+        type: "phone",
+    },
+    {
+        key: "note",
+        get label() {
+            return s.pickup.note;
+        },
+        type: "text",
+        get placeholder() {
+            return s.pickup.notePlaceholder;
+        },
+    },
+];
+
+/** The most people one student lists for pickup, matching the API's limit. */
+export const PICKUP_PEOPLE_MAX = 10;
+
+const PICKUP_LENGTH: Record<PickupKey, number> = { name: 80, relation: 40, phone: 20, note: 200 };
+
+const blankPickup = (): PickupDraft => ({ name: "", relation: "", phone: "", note: "" });
+
+/** A student's stored pickup list as drafts; entries that are not objects are dropped. */
+function storedPickups(attributes: Record<string, unknown>): PickupDraft[] {
+    const list = attributes.pickups;
+    if (!Array.isArray(list)) return [];
+    return list
+        .filter((e): e is Record<string, unknown> => typeof e === "object" && e !== null)
+        .map((e) => ({
+            name: text(e.name),
+            relation: text(e.relation),
+            phone: text(e.phone),
+            note: text(e.note),
+        }));
+}
+
+/** "May be picked up by …" for a student with a pickup list; null for other kinds or an empty list. */
+export function pickupLine(
+    kind: SubjectKind | null,
+    attributes: Record<string, unknown>,
+): string | null {
+    if (kind !== "student") return null;
+    const names = storedPickups(attributes)
+        .map((p) => p.name.trim())
+        .filter((n) => n !== "");
+    return names.length === 0 ? null : s.pickup.mayBePickedUpBy(formatList(names));
+}
+
 function ageYears(birthday: string, now: Date, zone: string): number | null {
     const b = readDate(birthday, zone);
     if (Number.isNaN(b.getTime())) return null;
@@ -566,7 +662,7 @@ export interface SubjectAlert {
     intent: Intent;
 }
 
-/** What to watch for: allergies for pets and students, a pet's temperament and rabies vaccine. */
+/** What to watch for: allergies, a student's pickup restriction, a pet's temperament and rabies vaccine. */
 export function subjectAlerts(
     kind: SubjectKind | null,
     attributes: Record<string, unknown>,
@@ -584,6 +680,9 @@ export function subjectAlerts(
     const allergies = text(attributes.allergies);
     if (allergies !== "" && (kind === "pet" || kind === "student"))
         out.push({ key: "allergy", label: s.allergy(allergies), intent: "danger" });
+    const noPickup = text(attributes.no_pickup).trim();
+    if (kind === "student" && noPickup !== "")
+        out.push({ key: "noPickup", label: s.noPickupAlert(noPickup), intent: "danger" });
     const rabies = text(attributes.rabies_until);
     if (kind === "pet" && rabies !== "") {
         const days = (readDate(rabies, zone).getTime() - now.getTime()) / 86_400_000;
@@ -611,6 +710,11 @@ export interface SubjectForm {
     addEquipment: () => void;
     setEquipment: (index: number, key: EquipmentKey, v: string) => void;
     removeEquipment: (index: number) => void;
+    /** A student's people allowed to collect them; null for other kinds. */
+    pickups: PickupDraft[] | null;
+    addPickup: () => void;
+    setPickup: (index: number, key: PickupKey, v: string) => void;
+    removePickup: (index: number) => void;
     errors: Record<string, string>;
     busy: boolean;
     error: string | null;
@@ -641,6 +745,9 @@ export function useSubjectForm(
     const [devices, setDevices] = useState<EquipmentDraft[] | null>(null);
     const equipment =
         kind === "site" ? (devices ?? storedEquipment(subject?.attributes ?? {})) : null;
+    const [people, setPeople] = useState<PickupDraft[] | null>(null);
+    const pickups =
+        kind === "student" ? (people ?? storedPickups(subject?.attributes ?? {})) : null;
     // edits sit over the stored values, so a kind that syncs after the first render still fills in
     const values = { ...storedValues(fields, subject), ...edits };
     const [tried, setTried] = useState(false);
@@ -653,6 +760,8 @@ export function useSubjectForm(
             const v = values[f.key] ?? "";
             if (v === "") continue;
             if (f.type === "date" && !/^\d{4}-\d{2}-\d{2}$/.test(v)) e[f.key] = s.dateInvalid;
+            if (f.maxLength !== undefined && v.trim().length > f.maxLength)
+                e[f.key] = s.tooLong(f.maxLength);
             if (f.key === "weight_kg") {
                 const kg = parseNumber(v) ?? NaN;
                 if (!(kg > 0 && kg < 200)) e[f.key] = s.fields.pet.weightInvalid;
@@ -675,6 +784,19 @@ export function useSubjectForm(
                     e[`equipment.${String(i)}.${k}`] = s.dateInvalid;
             }
         });
+        (pickups ?? []).forEach((p, i) => {
+            if (PICKUP_KEYS.every((k) => p[k].trim() === "")) return;
+            const at = (k: PickupKey): string => `pickups.${String(i)}.${k}`;
+            if (p.name.trim() === "") e[at("name")] = s.pickup.nameRequired;
+            for (const k of PICKUP_KEYS)
+                if (p[k].trim().length > PICKUP_LENGTH[k]) e[at(k)] = s.tooLong(PICKUP_LENGTH[k]);
+            if (
+                e[at("phone")] === undefined &&
+                p.phone.trim() !== "" &&
+                normalizePhone(p.phone) === null
+            )
+                e[at("phone")] = s.pickup.phoneInvalid;
+        });
         return e;
     };
 
@@ -683,6 +805,7 @@ export function useSubjectForm(
         if (Object.keys(check()).length > 0) return;
         const known = new Set(fields.map((f) => f.key));
         if (equipment !== null) known.add("equipment");
+        if (pickups !== null) known.add("pickups");
         const kept = Object.fromEntries(
             Object.entries(subject?.attributes ?? {}).filter(([k]) => !known.has(k)),
         );
@@ -701,10 +824,18 @@ export function useSubjectForm(
                 ),
             )
             .filter((d) => Object.keys(d).length > 0);
+        const peopleTyped = (pickups ?? [])
+            .map((p) =>
+                Object.fromEntries(
+                    PICKUP_KEYS.map((k) => [k, p[k].trim()] as const).filter(([, v]) => v !== ""),
+                ),
+            )
+            .filter((p) => Object.keys(p).length > 0);
         const attributes = {
             ...kept,
             ...typed,
             ...(devicesTyped.length > 0 ? { equipment: devicesTyped } : {}),
+            ...(peopleTyped.length > 0 ? { pickups: peopleTyped } : {}),
         };
         run(
             async () => {
@@ -753,6 +884,20 @@ export function useSubjectForm(
         removeEquipment: (index) => {
             if (equipment === null) return;
             setDevices(equipment.filter((_, i) => i !== index));
+        },
+        pickups,
+        addPickup: () => {
+            if (pickups === null || pickups.length >= PICKUP_PEOPLE_MAX) return;
+            setPeople([...pickups, blankPickup()]);
+        },
+        setPickup: (index, key, v) => {
+            if (pickups === null) return;
+            setPeople(pickups.map((p, i) => (i === index ? { ...p, [key]: v } : p)));
+            setError(null);
+        },
+        removePickup: (index) => {
+            if (pickups === null) return;
+            setPeople(pickups.filter((_, i) => i !== index));
         },
         errors: tried ? check() : {},
         busy,

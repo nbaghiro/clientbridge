@@ -345,6 +345,11 @@ function StaffTodayPage() {
                                                                 t.endsAt(a.endTime),
                                                             ])}
                                                         </div>
+                                                        {a.pickup !== null ? (
+                                                            <div className="truncate text-xs text-muted">
+                                                                {a.pickup}
+                                                            </div>
+                                                        ) : null}
                                                     </div>
                                                     {a === next ? (
                                                         <StatusPill

@@ -934,6 +934,8 @@ interface Strings {
         readonly detailWhen: string;
         readonly detailWith: string;
         readonly detailNotes: string;
+        readonly noteAdd: string;
+        readonly notePlaceholder: string;
         readonly detailPhotos: string;
         readonly photoShare: string;
         readonly photoUnshare: string;
@@ -1740,6 +1742,8 @@ interface Strings {
         readonly temperamentAlert: (t: string) => string;
         readonly rabiesExpired: string;
         readonly rabiesSoon: (when: string) => string;
+        readonly noPickupAlert: (what: string) => string;
+        readonly tooLong: (max: number) => string;
         readonly fields: {
             readonly birthday: string;
             readonly allergies: string;
@@ -1774,6 +1778,8 @@ interface Strings {
                 readonly grade: string;
                 readonly gradePlaceholder: string;
                 readonly school: string;
+                readonly noPickup: string;
+                readonly noPickupPlaceholder: string;
             } & Labels;
             readonly property: {
                 readonly address: string;
@@ -1816,6 +1822,22 @@ interface Strings {
             readonly installed: (date: string) => string;
             readonly warrantyEnds: (date: string) => string;
             readonly warrantyEnded: (date: string) => string;
+        };
+        readonly pickup: {
+            readonly title: string;
+            readonly hint: string;
+            readonly add: string;
+            readonly remove: string;
+            readonly item: (n: number) => string;
+            readonly name: string;
+            readonly relation: string;
+            readonly relationPlaceholder: string;
+            readonly phone: string;
+            readonly note: string;
+            readonly notePlaceholder: string;
+            readonly nameRequired: string;
+            readonly phoneInvalid: string;
+            readonly mayBePickedUpBy: (names: string) => string;
         };
         readonly photos: string;
     };

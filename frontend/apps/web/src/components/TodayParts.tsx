@@ -187,6 +187,9 @@ function AgendaRow({
                         </>
                     ) : null}
                 </div>
+                {item.pickup !== null ? (
+                    <div className="mt-0.5 truncate text-xs text-muted">{item.pickup}</div>
+                ) : null}
             </div>
             <div className="hidden shrink-0 sm:block">
                 <StateTag item={item} />

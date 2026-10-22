@@ -6,6 +6,8 @@ import {
     type SubjectRow,
     EQUIPMENT_FIELDS,
     EQUIPMENT_MAX,
+    PICKUP_PERSON_FIELDS,
+    PICKUP_PEOPLE_MAX,
     SUBJECT_ICON,
     formatDate,
     kindWord,
@@ -114,6 +116,11 @@ function SubjectFields({ form }: { form: SubjectForm }) {
                     <EquipmentFields form={form} equipment={form.equipment} />
                 </div>
             ) : null}
+            {form.pickups !== null ? (
+                <div className="sm:col-span-2">
+                    <PickupFields form={form} pickups={form.pickups} />
+                </div>
+            ) : null}
         </div>
     );
 }
@@ -190,6 +197,69 @@ function EquipmentFields({
                     onPress={form.addEquipment}
                 >
                     {s.equipment.add}
+                </Button>
+            ) : null}
+        </section>
+    );
+}
+
+/** A student's people allowed to collect them, one group of fields per person. */
+function PickupFields({
+    form,
+    pickups,
+}: {
+    form: SubjectForm;
+    pickups: NonNullable<SubjectForm["pickups"]>;
+}) {
+    return (
+        <section className="space-y-3 border-t border-line-soft pt-4">
+            <div>
+                <h3 className="font-display text-base font-bold text-ink">{s.pickup.title}</h3>
+                <p className="text-sm text-muted">{s.pickup.hint}</p>
+            </div>
+            {pickups.map((person, i) => (
+                <div key={i} className="rounded-lg border border-line p-3">
+                    <div className="mb-2 flex items-center justify-between">
+                        <span className="text-sm font-semibold text-ink">
+                            {s.pickup.item(i + 1)}
+                        </span>
+                        <Button
+                            size="sm"
+                            variant="quiet"
+                            label={s.pickup.remove}
+                            icon={<Icon name="trash" size={14} />}
+                            onPress={() => {
+                                form.removePickup(i);
+                            }}
+                        >
+                            {s.pickup.remove}
+                        </Button>
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                        {PICKUP_PERSON_FIELDS.map((f) => (
+                            <TextField
+                                key={f.key}
+                                label={f.label}
+                                optional={f.key !== "name"}
+                                type={f.type === "phone" ? "tel" : "text"}
+                                value={person[f.key]}
+                                placeholder={f.placeholder}
+                                onChange={(v) => {
+                                    form.setPickup(i, f.key, v);
+                                }}
+                                error={form.errors[`pickups.${String(i)}.${f.key}`]}
+                            />
+                        ))}
+                    </div>
+                </div>
+            ))}
+            {pickups.length < PICKUP_PEOPLE_MAX ? (
+                <Button
+                    variant="outline"
+                    icon={<Icon name="plus" size={16} />}
+                    onPress={form.addPickup}
+                >
+                    {s.pickup.add}
                 </Button>
             ) : null}
         </section>

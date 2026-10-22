@@ -141,6 +141,15 @@ async def test_each_kind_stores_its_own_details(
         ("site", {"equipment": [{"model": "x" * 81}]}),
         ("site", {"equipment": [{"model": "Turret"}] * 101}),
         ("site", {"address": "x" * 201}),
+        ("student", {"pickups": [{"name": ""}]}),
+        ("student", {"pickups": [{"relation": "Aunt"}]}),
+        ("student", {"pickups": [{"name": "x" * 81}]}),
+        ("student", {"pickups": [{"name": "Rosa", "relation": "x" * 41}]}),
+        ("student", {"pickups": [{"name": "Rosa", "phone": "6" * 21}]}),
+        ("student", {"pickups": [{"name": "Rosa", "phone": "555-01"}]}),
+        ("student", {"pickups": [{"name": "Rosa", "note": "x" * 201}]}),
+        ("student", {"pickups": [{"name": "Rosa"}] * 11}),
+        ("student", {"no_pickup": "x" * 501}),
     ],
 )
 async def test_invalid_details_for_the_kind_422(
@@ -153,6 +162,37 @@ async def test_invalid_details_for_the_kind_422(
     )
     assert res.status_code == 422
     assert res.json()["error"] == "invalid_request"
+
+
+async def test_a_student_keeps_who_may_and_may_not_pick_them_up(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await _kind(db, "student")
+    cid = await _client(as_owner)
+    longest = {
+        "name": "n" * 80,
+        "relation": "r" * 40,
+        "phone": "+1 (613) 555-0181",
+        "note": "x" * 200,
+    }
+    attributes = {
+        "grade": "Grade 4",
+        "pickups": [{"name": "Rosa Lindqvist", "relation": "Aunt"}, *[longest] * 9],
+        "no_pickup": "y" * 500,
+    }
+    res = await as_owner.post(
+        "/v1/subjects", json={"client_id": cid, "name": "Mia", "attributes": attributes}
+    )
+    assert res.status_code == 201, res.text
+    stored = res.json()["attributes"]
+    assert stored["pickups"][0] == {"name": "Rosa Lindqvist", "relation": "Aunt"}
+    assert stored["pickups"][1]["phone"] == "+16135550181"
+    assert len(stored["pickups"]) == 10
+    assert stored["no_pickup"] == "y" * 500
+    res = await as_owner.patch(
+        f"/v1/subjects/{res.json()['id']}", json={"attributes": {"grade": "Grade 4"}}
+    )
+    assert res.json()["attributes"] == {"grade": "Grade 4"}
 
 
 async def test_a_business_without_subjects_cannot_add_one_409(

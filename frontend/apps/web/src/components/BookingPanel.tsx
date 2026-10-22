@@ -23,6 +23,7 @@ import {
     arrivalWords,
     canCheckIn,
     useUndoCheckIn,
+    useNoteComposer,
 } from "@clientbridge/app-core";
 import {
     ActivityTimeline,
@@ -48,6 +49,7 @@ import { CheckInSheet } from "./CheckInSheet";
 
 const s = strings.bookings;
 const c = strings.classes;
+const h = strings.clients.history;
 
 export function BookingHeading({ detail }: { detail: BookingDetail }) {
     const e = detail.event;
@@ -215,7 +217,8 @@ function BookingClient({ detail }: { detail: BookingDetail }) {
 }
 
 function BookingNotes({ detail }: { detail: BookingDetail }) {
-    if (detail.notes.length === 0) return null;
+    const bookingId = detail.event.bookingId;
+    if (bookingId === null && detail.notes.length === 0) return null;
     return (
         <DetailSection title={s.detailNotes}>
             <div className="space-y-2">
@@ -227,8 +230,70 @@ function BookingNotes({ detail }: { detail: BookingDetail }) {
                         {n.body}
                     </p>
                 ))}
+                {bookingId !== null ? (
+                    <BookingNoteBox key={bookingId} bookingId={bookingId} />
+                ) : null}
             </div>
         </DetailSection>
+    );
+}
+
+function BookingNoteBox({ bookingId }: { bookingId: string }) {
+    const [open, setOpen] = useState(false);
+    const composer = useNoteComposer(api, { bookingId }, () => {
+        setOpen(false);
+    });
+    if (!open)
+        return (
+            <Button
+                size="sm"
+                variant="quiet"
+                icon="plus"
+                onPress={() => {
+                    setOpen(true);
+                }}
+            >
+                {s.noteAdd}
+            </Button>
+        );
+    return (
+        <form
+            className="space-y-2"
+            onSubmit={(e) => {
+                e.preventDefault();
+                composer.submit();
+            }}
+        >
+            <TextField
+                multiline
+                rows={3}
+                name={s.notePlaceholder}
+                value={composer.body}
+                onChange={composer.setBody}
+                placeholder={s.notePlaceholder}
+                autoFocus
+            />
+            <div className="flex justify-end gap-2">
+                <Button
+                    size="sm"
+                    variant="quiet"
+                    onPress={() => {
+                        setOpen(false);
+                    }}
+                >
+                    {strings.common.cancel}
+                </Button>
+                <Button
+                    size="sm"
+                    submit
+                    busy={composer.busy}
+                    disabled={composer.body.trim() === ""}
+                >
+                    {composer.busy ? h.savingNote : h.saveNote}
+                </Button>
+            </div>
+            {composer.error !== null ? <Notice tone="danger">{composer.error}</Notice> : null}
+        </form>
     );
 }
 

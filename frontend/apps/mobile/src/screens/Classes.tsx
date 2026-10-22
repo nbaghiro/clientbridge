@@ -293,6 +293,11 @@ function Attendee({ a, roster, first }: { a: RosterEntry; roster: ClassRoster; f
                     {a.note !== null ? <Badge label={a.note} intent="warning" /> : null}
                     {a.paid ? null : <Badge label={s.unpaid} intent="danger" />}
                 </View>
+                {a.pickup !== null ? (
+                    <Text style={styles.muted} numberOfLines={2}>
+                        {a.pickup}
+                    </Text>
+                ) : null}
             </View>
             {a.status === "confirmed" && roster.started ? (
                 <View style={styles.actions}>

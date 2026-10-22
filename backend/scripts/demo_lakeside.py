@@ -8,7 +8,7 @@ from clientbridge.models.catalog import Item
 from clientbridge.models.clients import Client, Subject
 from clientbridge.models.payments import Payment
 from clientbridge.models.scheduling import Booking, BookingStatus, Slot
-from clientbridge.schemas.subjects import StudentAttributes
+from clientbridge.schemas.subjects import Pickup, StudentAttributes
 from scripts.demo_context import demo_business
 from scripts.demo_engine import Demo, Quote
 from scripts.demo_spec import (
@@ -525,6 +525,8 @@ class Kid:
     school: str
     allergies: str | None = None
     note: str | None = None
+    pickups: tuple[Pickup, ...] = ()
+    no_pickup: str | None = None
 
 
 @dataclass(frozen=True)
@@ -567,6 +569,15 @@ FAMILIES: tuple[Family, ...] = (
                 HOPEWELL,
                 note="His teacher says reading comprehension is behind grade level; math is a "
                 "strength. Likes graphic novels.",
+                pickups=(
+                    Pickup(
+                        name="Ngozi Nwosu",
+                        relation="Grandmother",
+                        phone="+16135550181",
+                        note="Picks him up on Tuesdays and Thursdays.",
+                    ),
+                    Pickup(name="Tobi Adeyemi", relation="Family friend", phone="+16135550182"),
+                ),
             ),
         ),
         since=-3,
@@ -602,7 +613,15 @@ FAMILIES: tuple[Family, ...] = (
     Family(
         "ahmed",
         "Yusuf Ahmed",
-        (Kid("Zara Ahmed", 7, BROADVIEW, allergies="Peanuts"),),
+        (
+            Kid(
+                "Zara Ahmed",
+                7,
+                BROADVIEW,
+                allergies="Peanuts",
+                pickups=(Pickup(name="Samira Ahmed", relation="Aunt", phone="+16135550183"),),
+            ),
+        ),
         since=-300,
         channel="sms",
     ),
@@ -664,7 +683,23 @@ FAMILIES: tuple[Family, ...] = (
         tags=("french immersion",),
     ),
     Family("rahimi", "Leila Rahimi", (Kid("Dariush Rahimi", 12, LISGAR),), since=-280),
-    Family("obrien", "Siobhan O'Brien", (Kid("Liam O'Brien", 2, MUTCHMOR),), channel="sms"),
+    Family(
+        "obrien",
+        "Siobhan O'Brien",
+        (
+            Kid(
+                "Liam O'Brien",
+                2,
+                MUTCHMOR,
+                pickups=(
+                    Pickup(name="Eileen O'Brien", relation="Grandmother", phone="+16135550184"),
+                ),
+                no_pickup="Not to be released to Kevin Byrne. Call Siobhan right away if he "
+                "comes to collect Liam.",
+            ),
+        ),
+        channel="sms",
+    ),
     Family(
         "khoury",
         "Rania Khoury",
@@ -1064,6 +1099,8 @@ class Lakeside(Demo):
                     grade=_grade(kid.grade),
                     school=kid.school,
                     allergies=kid.allergies,
+                    pickups=list(kid.pickups) or None,
+                    no_pickup=kid.no_pickup,
                 ).model_dump(mode="json", exclude_none=True)
                 key = family.key if index == 0 else f"{family.key}_{index}"
                 self.subject(key, family.key, kid.name, attributes)

@@ -4,6 +4,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from clientbridge.core.mirrors import Mirror
+from clientbridge.core.phones import Phone
 from clientbridge.models.business import SubjectKind
 from clientbridge.models.clients import Subject
 
@@ -24,6 +25,13 @@ class PetAttributes(BaseModel):
     style: str | None = None
 
 
+class Pickup(BaseModel):
+    name: str = Field(min_length=1, max_length=80)
+    relation: str | None = Field(default=None, max_length=40)
+    phone: Phone = Field(default=None, max_length=20)
+    note: str | None = Field(default=None, max_length=200)
+
+
 class StudentAttributes(BaseModel):
     model_config = ConfigDict(extra="allow")
 
@@ -31,6 +39,8 @@ class StudentAttributes(BaseModel):
     grade: str | None = Field(default=None, max_length=40)
     school: str | None = None
     allergies: str | None = None
+    pickups: list[Pickup] | None = Field(default=None, max_length=10)
+    no_pickup: str | None = Field(default=None, max_length=500)
 
 
 class PropertyAttributes(BaseModel):

@@ -31,6 +31,7 @@ import {
     canCheckIn,
     useUndoCheckIn,
     itemMedia,
+    useNoteComposer,
 } from "@clientbridge/app-core";
 import { SHADOW } from "@clientbridge/tokens";
 import { theme } from "@clientbridge/tokens/native";
@@ -554,13 +555,16 @@ export function BookingBody({ detail }: { detail: BookingDetail }) {
                     </View>
                 </DetailSection>
             ) : null}
-            {detail.notes.length > 0 ? (
+            {detail.notes.length > 0 || e.bookingId !== null ? (
                 <DetailSection title={s.detailNotes}>
                     {detail.notes.map((n) => (
                         <Text key={n.id} style={styles.note}>
                             {n.body}
                         </Text>
                     ))}
+                    {e.bookingId !== null ? (
+                        <BookingNoteBox key={e.bookingId} bookingId={e.bookingId} />
+                    ) : null}
                 </DetailSection>
             ) : null}
             {e.bookingId !== null ? <Photos event={e} /> : null}
@@ -570,6 +574,62 @@ export function BookingBody({ detail }: { detail: BookingDetail }) {
                     <ActivityTimeline entries={detail.history} />
                 </DetailSection>
             ) : null}
+        </View>
+    );
+}
+
+function BookingNoteBox({ bookingId }: { bookingId: string }) {
+    const [open, setOpen] = useState(false);
+    const composer = useNoteComposer(api, { bookingId }, () => {
+        setOpen(false);
+    });
+    if (!open)
+        return (
+            <Button
+                size="sm"
+                variant="outline"
+                onPress={() => {
+                    setOpen(true);
+                }}
+            >
+                {s.noteAdd}
+            </Button>
+        );
+    return (
+        <View style={styles.noteBox}>
+            <TextField
+                multiline
+                rows={3}
+                name={s.notePlaceholder}
+                value={composer.body}
+                onChange={composer.setBody}
+                placeholder={s.notePlaceholder}
+                autoFocus
+            />
+            <View style={styles.photoActions}>
+                <Button
+                    size="sm"
+                    variant="outline"
+                    grow
+                    onPress={() => {
+                        setOpen(false);
+                    }}
+                >
+                    {strings.common.cancel}
+                </Button>
+                <Button
+                    size="sm"
+                    grow
+                    busy={composer.busy}
+                    disabled={composer.body.trim() === ""}
+                    onPress={composer.submit}
+                >
+                    {composer.busy
+                        ? strings.clients.history.savingNote
+                        : strings.clients.history.saveNote}
+                </Button>
+            </View>
+            {composer.error !== null ? <Notice tone="danger">{composer.error}</Notice> : null}
         </View>
     );
 }
@@ -1060,6 +1120,7 @@ const styles = StyleSheet.create({
     },
     photoImage: { width: "100%", height: "100%" },
     photoActions: { flexDirection: "row", gap: 8, marginTop: 8 },
+    noteBox: { gap: 8, marginTop: 4 },
     statusLine: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 10 },
     timing: { color: c.muted, fontSize: 13, fontWeight: "600" },
     facts: {

@@ -2618,6 +2618,12 @@
     "bookings.detailNotes": {
         "message": "[Ñöţéš one]"
     },
+    "bookings.noteAdd": {
+        "message": "[Åðð ñöţé one]"
+    },
+    "bookings.notePlaceholder": {
+        "message": "[Åñýţĥîñĝ ţĥé ţéåɱ šĥöûļð ķñöŵ åƀöûţ ţĥîš ṽîšîţ one two three four]"
+    },
     "bookings.detailPhotos": {
         "message": "[Þĥöţöš one]"
     },
@@ -4517,6 +4523,12 @@
     "subjects.rabiesSoon": {
         "message": "[Ŕåƀîéš ṽåççîñé éẋþîŕéš {when} one two]"
     },
+    "subjects.noPickupAlert": {
+        "message": "[Þîçķûþ ŕéšţŕîçţîöñ: {what} one two]"
+    },
+    "subjects.tooLong": {
+        "message": "[Ķééþ ţĥîš ûñðéŕ {max, number} çĥåŕåçţéŕš. one two three]"
+    },
     "subjects.fields.birthday": {
         "message": "[Ɓîŕţĥðåý one]"
     },
@@ -4600,6 +4612,12 @@
     },
     "subjects.fields.student.school": {
         "message": "[Šçĥööļ one]"
+    },
+    "subjects.fields.student.noPickup": {
+        "message": "[Ṁûšţ ñöţ þîçķ ûþ one two]"
+    },
+    "subjects.fields.student.noPickupPlaceholder": {
+        "message": "[Åñýöñé šţåƒƒ ɱûšţ ñöţ ŕéļéåšé ţĥîš šţûðéñţ ţö, åñð ŵĥö ţö çåļļ îƒ ţĥéý çöɱé one two three four five]"
     },
     "subjects.fields.property.address": {
         "message": "[Åððŕéšš one]"
@@ -4705,6 +4723,48 @@
     },
     "subjects.equipment.warrantyEnded": {
         "message": "[Ŵåŕŕåñţý éñðéð {date} one two]"
+    },
+    "subjects.pickup.title": {
+        "message": "[Þîçķûþš one]"
+    },
+    "subjects.pickup.hint": {
+        "message": "[Þéöþļé šţåƒƒ ɱåý ŕéļéåšé ţĥîš šţûðéñţ ţö åţ ţĥé éñð öƒ å ļéššöñ. one two three four]"
+    },
+    "subjects.pickup.add": {
+        "message": "[Åðð þéŕšöñ one two]"
+    },
+    "subjects.pickup.remove": {
+        "message": "[Ŕéɱöṽé þéŕšöñ one two]"
+    },
+    "subjects.pickup.item": {
+        "message": "[Þéŕšöñ {n, number} one]"
+    },
+    "subjects.pickup.name": {
+        "message": "[Ñåɱé one]"
+    },
+    "subjects.pickup.relation": {
+        "message": "[Ŕéļåţîöñ one]"
+    },
+    "subjects.pickup.relationPlaceholder": {
+        "message": "[Ĝŕåñðɱöţĥéŕ one two]"
+    },
+    "subjects.pickup.phone": {
+        "message": "[Þĥöñé one]"
+    },
+    "subjects.pickup.note": {
+        "message": "[Ñöţé one]"
+    },
+    "subjects.pickup.notePlaceholder": {
+        "message": "[Þîçķš ûþ öñ Ţûéšðåýš one two]"
+    },
+    "subjects.pickup.nameRequired": {
+        "message": "[Åðð å ñåɱé, öŕ ŕéɱöṽé ţĥîš þéŕšöñ. one two three]"
+    },
+    "subjects.pickup.phoneInvalid": {
+        "message": "[Éñţéŕ å 10-ðîĝîţ þĥöñé ñûɱƀéŕ, öŕ + åñð ţĥé çöûñţŕý çöðé ƒöŕ å ñûɱƀéŕ öûţšîðé Ñöŕţĥ Åɱéŕîçå. one two three four five six]"
+    },
+    "subjects.pickup.mayBePickedUpBy": {
+        "message": "[Ṁåý ƀé þîçķéð ûþ ƀý {names} one two]"
     },
     "subjects.photos": {
         "message": "[Ĵöƀ þĥöţöš one two]"

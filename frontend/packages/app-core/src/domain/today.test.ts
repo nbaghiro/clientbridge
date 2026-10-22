@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { formatList } from "../format";
 import { strings } from "../strings";
 import {
     arrivalWords,
@@ -28,6 +29,7 @@ const row = (over: Record<string, unknown>) => ({
     client_id: "cl_ann",
     client_name: "Ann Lee",
     client_phone: null,
+    subject_attributes: null,
     deposit_amount_cents: 2000,
     deposit_status: "collected",
     departed_at: null,
@@ -188,5 +190,32 @@ describe("firstRunLayout", () => {
         expect(firstRunLayout(2, quiet, { complete: false }).guide).toBe(false);
         expect(firstRunLayout(0, quiet, { complete: true }).guide).toBe(false);
         expect(firstRunLayout(0, null, { complete: false }).guide).toBe(false);
+    });
+});
+
+describe("an agenda row's pickups", () => {
+    const now = new Date("2026-10-06T16:30:00Z");
+    const pickups = JSON.stringify({
+        pickups: [{ name: "Ngozi Nwosu" }, { name: "Tobi Adeyemi" }],
+    });
+
+    it("names who may collect a student on a one-to-one visit", () => {
+        const [visit] = buildAgenda([row({ subject_attributes: pickups })], now, ZONE, "student");
+        expect(visit?.pickup).toBe(
+            strings.subjects.pickup.mayBePickedUpBy(formatList(["Ngozi Nwosu", "Tobi Adeyemi"])),
+        );
+    });
+
+    it("stays empty for a class, another kind or a student with no list", () => {
+        const [cls] = buildAgenda(
+            [row({ capacity: 4, item_kind: "class", subject_attributes: pickups })],
+            now,
+            ZONE,
+            "student",
+        );
+        expect(cls?.pickup).toBeNull();
+        const [pet] = buildAgenda([row({ subject_attributes: pickups })], now, ZONE, "pet");
+        expect(pet?.pickup).toBeNull();
+        expect(buildAgenda([row({})], now, ZONE, "student")[0]?.pickup).toBeNull();
     });
 });

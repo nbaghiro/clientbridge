@@ -455,6 +455,9 @@ function Attendee({ a, roster }: { a: RosterEntry; roster: ClassRoster }) {
                     {a.note !== null ? <Badge label={a.note} intent="warning" /> : null}
                     {a.paid ? null : <Badge label={s.unpaid} intent="danger" />}
                 </p>
+                {a.pickup !== null ? (
+                    <p className="mt-0.5 truncate text-xs text-muted">{a.pickup}</p>
+                ) : null}
             </div>
             {a.status === "confirmed" && roster.started ? null : (
                 <StatusPill status={a.statusLabel} intent={a.intent} />
