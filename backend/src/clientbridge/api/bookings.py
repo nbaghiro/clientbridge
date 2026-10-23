@@ -205,8 +205,11 @@ async def remove_booking_addon(
     principal: CurrentPrincipal,
     db: DbSession,
     gateway: GatewayDep,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> BookingOut:
-    return await BookingService(db, principal, gateway).remove_addon(booking_id, addon_id)
+    return await BookingService(db, principal, gateway).remove_addon(
+        booking_id, addon_id, idempotency_key
+    )
 
 
 @router.get("/{booking_id}/crew", response_model=CrewOut)
@@ -230,9 +233,16 @@ async def add_booking_crew(
 
 @router.delete("/{booking_id}/crew/{staff_id}", response_model=CrewOut)
 async def remove_booking_crew(
-    booking_id: str, staff_id: str, principal: CurrentPrincipal, db: DbSession, gateway: GatewayDep
+    booking_id: str,
+    staff_id: str,
+    principal: CurrentPrincipal,
+    db: DbSession,
+    gateway: GatewayDep,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> CrewOut:
-    return await BookingService(db, principal, gateway).remove_crew(booking_id, staff_id)
+    return await BookingService(db, principal, gateway).remove_crew(
+        booking_id, staff_id, idempotency_key
+    )
 
 
 recurrences_router = APIRouter(prefix="/recurrences", tags=["recurrences"])

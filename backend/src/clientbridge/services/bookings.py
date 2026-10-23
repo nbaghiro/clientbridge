@@ -133,6 +133,7 @@ _ESTIMATE_INVOICED = "the estimate was already invoiced, so its products are bil
 _CLOSED_OR_WAITING = ("completed", "canceled", "no_show", "waitlisted")
 _INVOICED = "this visit is already invoiced"
 _CLASS_CREW = "a class session has no crew; add helpers to a one-to-one visit"
+_CREW_STARTED = "the visit has already started; add helpers before it starts"
 BookingNotice = Literal["confirmed", "canceled", "rescheduled"]
 
 
@@ -1371,23 +1372,29 @@ class BookingService:
             request={"booking_id": booking_id, **data.model_dump(mode="json")},
         )
 
-    async def remove_addon(self, booking_id: str, addon_id: str) -> BookingOut:
+    async def remove_addon(
+        self, booking_id: str, addon_id: str, idempotency_key: str | None
+    ) -> BookingOut:
         """Drop an add-on before the visit is invoiced; the visit shortens by its minutes."""
         booking = await self._booking(booking_id)
         self._assert_can_act_as(booking.staff_id)
-        if booking.invoice_id is not None:
-            raise Conflict(_INVOICED)
-        addon = (
-            await self.db.execute(
-                scoped(Addon, self.biz).where(Addon.id == addon_id, Addon.booking_id == booking.id)
-            )
-        ).scalar_one_or_none()
-        if addon is None:
-            raise NotFound("add-on not found")
-        product = await self._item(addon.item_id, require_active=False)
         slot = await self._slot(booking.slot_id)
 
         async def run(cmd: Command) -> BookingOut:
+            await self._lock_visit(booking, slot)
+            if booking.invoice_id is not None:
+                raise Conflict(_INVOICED)
+            addon = (
+                await self.db.execute(
+                    scoped(Addon, self.biz)
+                    .where(Addon.id == addon_id, Addon.booking_id == booking.id)
+                    .with_for_update()
+                    .execution_options(populate_existing=True)
+                )
+            ).scalar_one_or_none()
+            if addon is None:
+                raise NotFound("add-on not found")
+            product = await self._item(addon.item_id, require_active=False)
             await self._lengthen(booking, slot, -(product.duration_min or 0) * addon.quantity)
             await self.db.delete(addon)
             await self.db.flush()
@@ -1400,6 +1407,8 @@ class BookingService:
             action="booking.addon_remove",
             run=run,
             response_model=BookingOut,
+            idempotency_key=idempotency_key,
+            request={"booking_id": booking_id, "addon_id": addon_id},
         )
 
     async def crew(self, booking_id: str) -> CrewOut:
@@ -1429,6 +1438,8 @@ class BookingService:
         async def run(cmd: Command) -> CrewOut:
             await lock_staff(self.db, self.biz, slot.staff_id, helper.id)
             await self._lock_live(booking, slot)
+            if slot.starts_at <= clock.now():
+                raise Conflict(_CREW_STARTED, code="visit_started")
             if helper.id == booking.staff_id or helper.id in await crew_ids(
                 self.db, self.biz, booking.id
             ):
@@ -1470,7 +1481,9 @@ class BookingService:
             request={"booking_id": booking_id, "staff_id": data.staff_id},
         )
 
-    async def remove_crew(self, booking_id: str, staff_id: str) -> CrewOut:
+    async def remove_crew(
+        self, booking_id: str, staff_id: str, idempotency_key: str | None
+    ) -> CrewOut:
         """Take a helper off the visit and free their calendar."""
         booking = await self._booking(booking_id)
         self._assert_can_act_as(booking.staff_id)
@@ -1501,6 +1514,8 @@ class BookingService:
             action="booking.crew_remove",
             run=run,
             response_model=CrewOut,
+            idempotency_key=idempotency_key,
+            request={"booking_id": booking_id, "staff_id": staff_id},
         )
 
     async def _lock_live(self, booking: Booking, slot: Slot) -> None:
@@ -1550,15 +1565,16 @@ class BookingService:
         """Resize a live one-to-one visit by an add-on's minutes, refused when the time is taken."""
         if minutes == 0 or slot.capacity > 1:
             return
-        crew = await crew_ids(self.db, self.biz, booking.id)
-        await lock_staff(self.db, self.biz, slot.staff_id, *crew)
-        await lock_bookings(self.db, self.biz, [booking.id])
-        await self.db.refresh(slot)
+        await self._lock_visit(booking, slot)
         if booking.status not in ("pending", "confirmed"):
             raise Conflict(f"a {booking.status} booking can't be modified")
-        ends_at = max(slot.ends_at + timedelta(minutes=minutes), slot.starts_at + _MIN_VISIT)
+        item = await self._item(slot.item_id, require_active=False)
+        ends_at = slot.ends_at + timedelta(minutes=minutes)
+        if minutes < 0:
+            # an add-on's minutes may have been edited since booking, so never cut into the service
+            service = max(timedelta(minutes=item.duration_min or 0), _MIN_VISIT)
+            ends_at = max(ends_at, min(slot.ends_at, slot.starts_at + service))
         if minutes > 0:
-            item = await self._item(slot.item_id, require_active=False)
             problem = await slot_problem(
                 self.db, self.biz, item, slot.staff_id, slot.starts_at, ends_at, exclude=slot.id
             ) or await crew_problem(
@@ -1577,6 +1593,12 @@ class BookingService:
         except IntegrityError as exc:
             raise Conflict(OVERLAP, code="visit_no_room") from exc
         await carry_crew(self.db, self.biz, booking, slot)
+
+    async def _lock_visit(self, booking: Booking, slot: Slot) -> None:
+        crew = await crew_ids(self.db, self.biz, booking.id)
+        await lock_staff(self.db, self.biz, slot.staff_id, *crew)
+        await lock_bookings(self.db, self.biz, [booking.id])
+        await self.db.refresh(slot)
 
     async def needs(self, booking_id: str) -> VisitNeeds:
         """What the client still owes before this visit: forms, signatures and a deposit."""

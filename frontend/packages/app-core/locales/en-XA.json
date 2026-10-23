@@ -230,6 +230,9 @@
     "api.crewBlock": {
         "message": "[Ţĥîš ţîɱé îš å ṽîšîţ ţĥé ɱéɱƀéŕ ĥéļþš öñ. Ţåķé ţĥéɱ öƒƒ ţĥé ṽîšîţ'š çŕéŵ îñšţéåð. one two three four five]"
     },
+    "api.visitStarted": {
+        "message": "[Ţĥîš ṽîšîţ ĥåš åļŕéåðý šţåŕţéð. Åðð ĥéļþéŕš ţö å ṽîšîţ ƀéƒöŕé îţ šţåŕţš. one two three four five]"
+    },
     "api.visitNotBilled": {
         "message": "[Ţĥîš ṽîšîţ ĥåš ñö îñṽöîçé öŕ šåļé ýéţ, šö ţĥéŕé îš ñö ŕéçéîþţ ţö þŕîñţ. one two three four five]"
     },

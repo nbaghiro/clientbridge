@@ -255,6 +255,9 @@
     "api.crewBlock": {
         "message": "This time is a visit the member helps on. Take them off the visit's crew instead."
     },
+    "api.visitStarted": {
+        "message": "This visit has already started. Add helpers to a visit before it starts."
+    },
     "api.visitNotBilled": {
         "message": "This visit has no invoice or sale yet, so there is no receipt to print."
     },

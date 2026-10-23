@@ -92,6 +92,7 @@ interface Strings {
         readonly crewBusy: string;
         readonly crewMember: string;
         readonly crewBlock: string;
+        readonly visitStarted: string;
         readonly visitNotBilled: string;
         readonly visitUnpaid: string;
         readonly programFull: string;

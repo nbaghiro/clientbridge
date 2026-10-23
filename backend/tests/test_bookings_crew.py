@@ -4,13 +4,16 @@ import httpx
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.core.ids import new_id
 from clientbridge.models.billing import Invoice, Line
 from clientbridge.models.business import Staff
 from clientbridge.models.catalog import Item
+from clientbridge.models.platform import Audit
 from clientbridge.models.scheduling import Booking, Hours, Slot
 from clientbridge.services.earnings import ensure_earnings, load_earning, reverse_earnings
 from clientbridge.services.payments import resolve_tip
+from tests.clock import FROZEN
 from tests.conftest import (
     BIZ,
     OWNER_USER,
@@ -294,7 +297,9 @@ async def test_completion_keeps_the_blocks_and_time_off_cannot_drop_them(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     booking_id = await _visit(as_owner, db, DIEGO, "2026-10-13T16:00:00Z")
+    clock.travel(_at("2026-10-13T15:00:00Z"))
     ok(await _add(as_owner, booking_id), 201)
+    clock.travel(FROZEN)
     ok(await as_owner.patch(f"/v1/bookings/{booking_id}", json={"status": "completed"}))
     assert len(await _blocks(db, booking_id)) == 1
     block = (
@@ -468,3 +473,47 @@ async def test_another_business_s_visit_is_out_of_reach(
     assert (await as_owner.get(f"/v1/bookings/{booking.id}/crew")).status_code == 404
     assert (await _add(as_owner, booking.id)).status_code == 404
     assert (await as_owner.delete(f"/v1/bookings/{booking.id}/crew/{PRIYA}")).status_code == 404
+
+
+async def _audits(db: AsyncSession, booking_id: str, action: str) -> int:
+    rows = await db.scalars(
+        select(Audit.id).where(Audit.entity_id == booking_id, Audit.action == action)
+    )
+    return len(rows.all())
+
+
+async def test_a_key_replays_a_crew_change_once_and_only_for_the_same_member(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    booking_id = await _visit(as_owner, db)
+    url = f"/v1/bookings/{booking_id}/crew"
+    adding = key()
+    first = ok(await as_owner.post(url, json={"staff_id": PRIYA}, headers=adding), 201).json()
+    assert ok(await as_owner.post(url, json={"staff_id": PRIYA}, headers=adding), 201).json() == (
+        first
+    )
+    other = await as_owner.post(url, json={"staff_id": OWNER}, headers=adding)
+    assert other.status_code == 422 and other.json()["error"] == "idempotency_key_reused"
+    assert await _audits(db, booking_id, "booking.crew_add") == 1
+    removing = key()
+    removed = ok(await as_owner.delete(f"{url}/{PRIYA}", headers=removing)).json()
+    assert ok(await as_owner.delete(f"{url}/{PRIYA}", headers=removing)).json() == removed
+    assert removed["members"] == []
+    elsewhere = await as_owner.delete(f"{url}/{OWNER}", headers=removing)
+    assert elsewhere.status_code == 422 and elsewhere.json()["error"] == "idempotency_key_reused"
+    assert (await as_owner.delete(f"{url}/{PRIYA}", headers=key())).status_code == 404
+    assert await _audits(db, booking_id, "booking.crew_remove") == 1
+    assert await _blocks(db, booking_id) == []
+
+
+async def test_a_started_visit_takes_no_new_helper(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    booking_id = await _visit(as_owner, db)
+    ok(await _add(as_owner, booking_id, OWNER), 201)
+    clock.travel(_at(OPENING) + timedelta(minutes=10))
+    late = await _add(as_owner, booking_id)
+    assert late.status_code == 409 and late.json()["error"] == "visit_started"
+    assert [b[0] for b in await _blocks(db, booking_id)] == [OWNER]
+    ok(await as_owner.delete(f"/v1/bookings/{booking_id}/crew/{OWNER}", headers=key()))
+    assert await _blocks(db, booking_id) == []

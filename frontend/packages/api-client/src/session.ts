@@ -34,7 +34,7 @@ export interface Session {
     getText(path: string): Promise<string>;
     post<T>(path: string, body: unknown, opts?: PostOptions): Promise<T>;
     patch<T>(path: string, body: unknown): Promise<T>;
-    delete<T>(path: string): Promise<T>;
+    delete<T>(path: string, opts?: PostOptions): Promise<T>;
     /** Authenticated fetch with the same sign-out-on-401 behavior — used by the PowerSync connector. */
     authFetch: (path: string, init?: RequestInit) => Promise<Response>;
     authFetchFor: (subject: string) => Session["authFetch"];
@@ -181,7 +181,14 @@ export function createSession(opts: SessionOptions): Session {
                 },
                 businessId,
             ),
-        delete: <T>(path: string): Promise<T> => json<T>(path, { method: "DELETE" }, businessId),
+        delete: <T>(path: string, options?: PostOptions): Promise<T> =>
+            json<T>(
+                path,
+                options?.idempotencyKey
+                    ? { method: "DELETE", headers: { "Idempotency-Key": options.idempotencyKey } }
+                    : { method: "DELETE" },
+                businessId,
+            ),
     });
     return bound(null);
 }

@@ -706,7 +706,9 @@ entitlement and its liability are created.
   constraint reads it. Connect asks for extras before the time and passes their minutes as `extra_min` to
   the slots and days reads, so it offers only times that fit. A client's move keeps the stored length.
   Staff add an add-on through the same resize check a move uses, refused with 409 `visit_no_room` when the
-  time after the visit is taken, and removing one shortens the visit by its minutes. A class seat keeps the
+  time after the visit is taken, and removing one shortens the visit by its minutes. An add-on row keeps no
+  minutes of its own, so a removal reads the product's current `duration_min` and never shortens the visit
+  below the service's length. A class seat keeps the
   class's length.
 - **Crew:** a one-to-one visit can have helpers besides its lead. `POST /v1/bookings/{id}/crew`, by a manager or
   the visit's lead, locks the helper, checks their calendar the way a booking is checked (and that they offer
@@ -715,7 +717,8 @@ entitlement and its liability are created.
   The blocks follow the visit: a staff move or resize, an add-on, a client's move and a series change re-time
   them (refused, or skipped in a series, when a helper can't follow, with 409 `crew_busy`), a cancel deletes
   them, a reassigned lead leaves them, and completion keeps them. A member who leaves comes off the crews still
-  ahead, and a block can't be removed as time off (409 `crew_block`). `GET /v1/bookings/{id}/crew` gives the
+  ahead, and a block can't be removed as time off (409 `crew_block`). Helpers join only before the visit
+  starts (409 `visit_started`), and can still be taken off afterwards. `GET /v1/bookings/{id}/crew` gives the
   job to its crew and to managers, since a helper's device syncs only their own bookings. Pay splits at the
   ledger, not on the documents: a booking line done by the lead is shared evenly among the lead and the
   helpers (`lines.worker_shares`), so each earns their share at their own rate and a tip follows the same

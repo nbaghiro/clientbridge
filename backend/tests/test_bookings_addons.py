@@ -1,13 +1,27 @@
-from datetime import datetime, timedelta
+import asyncio
+from datetime import UTC, datetime, timedelta
 
 import httpx
-from sqlalchemy import select, update
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core.db import SessionLocal
+from clientbridge.core.deps import Principal
+from clientbridge.core.errors import NotFound
 from clientbridge.models.catalog import Item
+from clientbridge.models.platform import Audit
 from clientbridge.models.scheduling import Addon, Booking, Slot
-from tests.conftest import BIZ, OWNER_USER, Factory, FakeIdentityProvider, session_token
-from tests.helpers import client_id, key, ok
+from clientbridge.schemas.bookings import AddonAdd, BookingCreate, BookingOut
+from clientbridge.services.bookings import BookingService, lock_staff
+from tests.conftest import (
+    BIZ,
+    OWNER_USER,
+    Factory,
+    FakeIdentityProvider,
+    FakePaymentGateway,
+    session_token,
+)
+from tests.helpers import client_id, delete_bookings, key, ok
 
 SLUG = "birchbark"
 TUESDAY = "2026-12-01"
@@ -333,3 +347,124 @@ async def test_add_on_invoice_lines_carry_the_visit_and_its_member(
         (GROOM, booking_id, None),
         (SHAMPOO, booking_id, "st_diego"),
     ]
+
+
+async def _audits(db: AsyncSession, booking_id: str, action: str) -> int:
+    return int(
+        await db.scalar(
+            select(func.count(Audit.id)).where(
+                Audit.entity_id == booking_id, Audit.action == action
+            )
+        )
+        or 0
+    )
+
+
+async def test_a_key_replays_the_addon_add_and_remove_once(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await _minutes(db, SHAMPOO, 20)
+    booking_id = await _staff_visit(as_owner, db, OPENING, "st_owner")
+    url = f"/v1/bookings/{booking_id}/addons"
+    adding = key()
+    first = ok(await as_owner.post(url, json={"item_id": SHAMPOO}, headers=adding), 201).json()
+    again = await as_owner.post(url, json={"item_id": SHAMPOO}, headers=adding)
+    assert ok(again, 201).json() == first
+    other = await as_owner.post(url, json={"item_id": SHAMPOO, "quantity": 2}, headers=adding)
+    assert other.status_code == 422 and other.json()["error"] == "idempotency_key_reused"
+    assert await _addons(db, booking_id) == [(SHAMPOO, 1)]
+    assert await _audits(db, booking_id, "booking.addon_add") == 1
+    assert await _length(db, booking_id) == 75 + 20
+    [addon_id] = (
+        await db.execute(select(Addon.id).where(Addon.booking_id == booking_id))
+    ).scalars()
+    removing = key()
+    removed = ok(await as_owner.delete(f"{url}/{addon_id}", headers=removing)).json()
+    assert ok(await as_owner.delete(f"{url}/{addon_id}", headers=removing)).json() == removed
+    assert (await as_owner.delete(f"{url}/{addon_id}", headers=key())).status_code == 404
+    assert await _addons(db, booking_id) == []
+    assert await _audits(db, booking_id, "booking.addon_remove") == 1
+    assert await _length(db, booking_id) == 75
+
+
+async def test_removing_an_addon_never_cuts_into_the_service(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await _minutes(db, SHAMPOO, 20)
+    booking_id = await _staff_visit(as_owner, db, OPENING, "st_owner")
+    ok(
+        await as_owner.post(
+            f"/v1/bookings/{booking_id}/addons",
+            json={"item_id": SHAMPOO, "quantity": 2},
+            headers=key(),
+        ),
+        201,
+    )
+    assert await _length(db, booking_id) == 75 + 40
+    await _minutes(db, SHAMPOO, 90)
+    [addon_id] = (
+        await db.execute(select(Addon.id).where(Addon.booking_id == booking_id))
+    ).scalars()
+    ok(await as_owner.delete(f"/v1/bookings/{booking_id}/addons/{addon_id}", headers=key()))
+    assert await _length(db, booking_id) == 75
+
+
+async def test_two_removes_of_one_addon_leave_one_winner_and_one_404(db: AsyncSession) -> None:
+    principal = Principal(user_id=OWNER_USER, business_id=BIZ, staff_id="st_owner", role="owner")
+    product = "it_race_wax"
+    starts_at = datetime(2027, 6, 1, 16, tzinfo=UTC)
+    booking_ids: list[str] = []
+    async with SessionLocal() as setup:
+        setup.add(
+            Item(id=product, business_id=BIZ, kind="product", name="Race wax", duration_min=20)
+        )
+        await setup.commit()
+        service = BookingService(setup, principal, FakePaymentGateway())
+        booked = await service.create(
+            BookingCreate(
+                client_id=await client_id(db),
+                item_id=GROOM,
+                staff_id="st_owner",
+                starts_at=starts_at,
+                notify=False,
+            ),
+            None,
+        )
+        booking_ids.append(booked.id)
+        await service.add_addon(booked.id, AddonAdd(item_id=product), None)
+        addon_id = (
+            await setup.execute(select(Addon.id).where(Addon.booking_id == booked.id))
+        ).scalar_one()
+
+    async def remove() -> BookingOut | NotFound:
+        async with SessionLocal() as session:
+            service = BookingService(session, principal, FakePaymentGateway())
+            try:
+                return await service.remove_addon(booked.id, addon_id, None)
+            except NotFound as exc:
+                return exc
+
+    try:
+        async with SessionLocal() as holder:
+            # holding the member's lock lets both removes read the add-on before either writes
+            await lock_staff(holder, BIZ, "st_owner")
+            racing = asyncio.gather(remove(), remove())
+            await asyncio.sleep(0.3)
+            await holder.commit()
+            results = await racing
+        assert sorted(type(r).__name__ for r in results) == ["BookingOut", "NotFound"]
+        async with SessionLocal() as check:
+            slot = (
+                await check.execute(
+                    select(Slot)
+                    .join(Booking, Booking.slot_id == Slot.id)
+                    .where(Booking.id == booked.id)
+                )
+            ).scalar_one()
+            assert slot.ends_at - slot.starts_at == timedelta(minutes=75)
+    finally:
+        async with SessionLocal() as cleanup:
+            await cleanup.execute(delete(Addon).where(Addon.booking_id.in_(booking_ids)))
+            await delete_bookings(cleanup, booking_ids)
+            await cleanup.execute(delete(Item).where(Item.id == product))
+            await cleanup.commit()

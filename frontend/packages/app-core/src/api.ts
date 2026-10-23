@@ -11,7 +11,7 @@ export interface ApiLike {
     getText(path: string): Promise<string>;
     post<T>(path: string, body: unknown, opts?: PostOptions): Promise<T>;
     patch<T>(path: string, body: unknown, opts?: PostOptions): Promise<T>;
-    delete<T>(path: string): Promise<T>;
+    delete<T>(path: string, opts?: PostOptions): Promise<T>;
 }
 
 const field = (e: unknown, name: "status" | "code"): unknown =>
@@ -86,6 +86,7 @@ const FAILURES: Record<string, () => string> = {
     crew_busy: () => strings.api.crewBusy,
     crew_member: () => strings.api.crewMember,
     crew_block: () => strings.api.crewBlock,
+    visit_started: () => strings.api.visitStarted,
     package_other_subject: () => strings.api.packageOtherSubject,
     visit_unpaid: () => strings.api.visitUnpaid,
     program_full: () => strings.api.programFull,

@@ -2597,6 +2597,7 @@ export function useBookingAddons(
     const { busy, error, run } = useAsyncAction();
     const key = useRef<Attempt | null>(null);
     const adding = useRef<Attempt | null>(null);
+    const removing = useRef<Attempt | null>(null);
     const admin = viewer !== null && canManagePayments(viewer.role);
     const open =
         invoiceId === null && !["canceled", "no_show", "waitlisted"].includes(event.status);
@@ -2632,9 +2633,11 @@ export function useBookingAddons(
             );
         },
         remove: (addonId) => {
-            run(() => api.delete(`/v1/bookings/${bookingId}/addons/${addonId}`), {
-                errorMessage: (e) => failureMessage(e, s.addonRemoveError),
-            });
+            const idempotencyKey = attemptKey(removing, { bookingId, addonId });
+            run(
+                () => api.delete(`/v1/bookings/${bookingId}/addons/${addonId}`, { idempotencyKey }),
+                { errorMessage: (e) => failureMessage(e, s.addonRemoveError) },
+            );
         },
         createInvoice: () => {
             const idempotencyKey = attemptKey(key, bookingId);
@@ -2840,11 +2843,16 @@ export function useBookingCrew(
     const staff = useStaff();
     const { busy, error, run } = useAsyncAction();
     const adding = useRef<Attempt | null>(null);
+    const removing = useRef<Attempt | null>(null);
+    const now = useNow();
     const crew = remote.data;
+    const started = crew !== null && new Date(crew.starts_at) <= now;
     const onCrew = new Set([event.staffId, ...(crew?.members.map((m) => m.staff_id) ?? [])]);
     const names = new Map(staff.map((m) => [m.id, staffName(m)]));
     const open = event.status === "confirmed" || event.status === "pending";
     const done = (): void => {
+        adding.current = null;
+        removing.current = null;
         remote.refresh().catch(() => undefined);
     };
     return {
@@ -2857,6 +2865,7 @@ export function useBookingCrew(
         options: staff
             .filter(
                 (m) =>
+                    !started &&
                     m.status === "active" &&
                     !onCrew.has(m.id) &&
                     offers(event.itemStaffIds ?? [], m.id),
@@ -2875,7 +2884,8 @@ export function useBookingCrew(
             );
         },
         remove: (staffId) => {
-            run(() => api.delete(`/v1/bookings/${bookingId}/crew/${staffId}`), {
+            const idempotencyKey = attemptKey(removing, { bookingId, staffId });
+            run(() => api.delete(`/v1/bookings/${bookingId}/crew/${staffId}`, { idempotencyKey }), {
                 onSuccess: done,
                 errorMessage: (e) => failureMessage(e, s.crewRemoveError),
             });
