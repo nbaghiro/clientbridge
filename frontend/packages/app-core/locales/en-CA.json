@@ -311,6 +311,14 @@
     "ui.copied": {
         "message": "Copied"
     },
+    "ui.remove": {
+        "message": "Remove"
+    },
+    "ui.removeItem": {
+        "message": "Remove {item}",
+        "args": ["item"],
+        "description": "The accessible name of a remove button in a repeating group, such as “Remove Device 2”."
+    },
     "ui.removeTag": {
         "message": "Remove {tag}",
         "args": ["tag"]
@@ -5181,9 +5189,6 @@
     "subjects.equipment.add": {
         "message": "Add device"
     },
-    "subjects.equipment.remove": {
-        "message": "Remove device"
-    },
     "subjects.equipment.item": {
         "message": "Device {n, number}",
         "args": ["n"]
@@ -5212,10 +5217,6 @@
     "subjects.equipment.modelRequired": {
         "message": "Add the model, or remove this device."
     },
-    "subjects.equipment.tooLong": {
-        "message": "Keep this under {max, number} characters.",
-        "args": ["max"]
-    },
     "subjects.equipment.serialShort": {
         "message": "S/N {serial}",
         "args": ["serial"]
@@ -5240,9 +5241,6 @@
     },
     "subjects.pickup.add": {
         "message": "Add person"
-    },
-    "subjects.pickup.remove": {
-        "message": "Remove person"
     },
     "subjects.pickup.item": {
         "message": "Person {n, number}",

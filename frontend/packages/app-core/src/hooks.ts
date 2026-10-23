@@ -280,6 +280,56 @@ export function useMonthGrid(value: string, zone: string, min?: string, max?: st
     };
 }
 
+export type DraftRow<K extends string> = Record<K, string>;
+
+interface DraftList<K extends string> {
+    rows: DraftRow<K>[] | null;
+    add: () => void;
+    set: (index: number, key: K, value: string) => void;
+    remove: (index: number) => void;
+}
+
+// A repeating group of text rows over a stored list; null `stored` means the record keeps none.
+export function useDraftList<K extends string>(
+    keys: readonly K[],
+    stored: readonly DraftRow<K>[] | null,
+    max: number,
+): DraftList<K> {
+    const [edited, setEdited] = useState<DraftRow<K>[] | null>(null);
+    const rows = stored === null ? null : (edited ?? [...stored]);
+    return {
+        rows,
+        add: () => {
+            if (rows === null || rows.length >= max) return;
+            const blank = Object.fromEntries(keys.map((k) => [k, ""])) as DraftRow<K>;
+            setEdited([...rows, blank]);
+        },
+        set: (index, key, value) => {
+            if (rows === null) return;
+            setEdited(rows.map((r, i) => (i === index ? { ...r, [key]: value } : r)));
+        },
+        remove: (index) => {
+            if (rows === null) return;
+            setEdited(rows.filter((_, i) => i !== index));
+        },
+    };
+}
+
+/** The rows to send: each value trimmed, blank values left out and rows left empty dropped. */
+export function typedRows<K extends string>(
+    keys: readonly K[],
+    rows: readonly DraftRow<K>[] | null,
+): Partial<DraftRow<K>>[] {
+    return (rows ?? [])
+        .map(
+            (r) =>
+                Object.fromEntries(
+                    keys.map((k) => [k, r[k].trim()] as const).filter(([, v]) => v !== ""),
+                ) as Partial<DraftRow<K>>,
+        )
+        .filter((r) => Object.keys(r).length > 0);
+}
+
 export function useBusinessQuery<Row = Record<string, unknown>>(
     sql: string,
     parameters: unknown[] = [],

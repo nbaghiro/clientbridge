@@ -239,20 +239,10 @@ function BookingNotes({ detail }: { detail: BookingDetail }) {
 }
 
 function BookingNoteBox({ bookingId }: { bookingId: string }) {
-    const [open, setOpen] = useState(false);
-    const composer = useNoteComposer(api, { bookingId }, () => {
-        setOpen(false);
-    });
-    if (!open)
+    const composer = useNoteComposer(api, { bookingId });
+    if (!composer.open)
         return (
-            <Button
-                size="sm"
-                variant="quiet"
-                icon="plus"
-                onPress={() => {
-                    setOpen(true);
-                }}
-            >
+            <Button size="sm" variant="quiet" icon="plus" onPress={composer.show}>
                 {s.noteAdd}
             </Button>
         );
@@ -274,13 +264,7 @@ function BookingNoteBox({ bookingId }: { bookingId: string }) {
                 autoFocus
             />
             <div className="flex justify-end gap-2">
-                <Button
-                    size="sm"
-                    variant="quiet"
-                    onPress={() => {
-                        setOpen(false);
-                    }}
-                >
+                <Button size="sm" variant="quiet" onPress={composer.cancel}>
                     {strings.common.cancel}
                 </Button>
                 <Button

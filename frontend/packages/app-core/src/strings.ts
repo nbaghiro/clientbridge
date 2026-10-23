@@ -109,6 +109,8 @@ interface Strings {
         readonly clear: string;
         readonly copy: string;
         readonly copied: string;
+        readonly remove: string;
+        readonly removeItem: (item: string) => string;
         readonly removeTag: (tag: string) => string;
         readonly createTag: (text: string) => string;
         readonly previous: string;
@@ -1852,7 +1854,6 @@ interface Strings {
             readonly title: string;
             readonly hint: string;
             readonly add: string;
-            readonly remove: string;
             readonly item: (n: number) => string;
             readonly model: string;
             readonly modelPlaceholder: string;
@@ -1862,7 +1863,6 @@ interface Strings {
             readonly installedOn: string;
             readonly warrantyUntil: string;
             readonly modelRequired: string;
-            readonly tooLong: (max: number) => string;
             readonly serialShort: (serial: string) => string;
             readonly installed: (date: string) => string;
             readonly warrantyEnds: (date: string) => string;
@@ -1872,7 +1872,6 @@ interface Strings {
             readonly title: string;
             readonly hint: string;
             readonly add: string;
-            readonly remove: string;
             readonly item: (n: number) => string;
             readonly name: string;
             readonly relation: string;

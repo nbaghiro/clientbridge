@@ -579,19 +579,10 @@ export function BookingBody({ detail }: { detail: BookingDetail }) {
 }
 
 function BookingNoteBox({ bookingId }: { bookingId: string }) {
-    const [open, setOpen] = useState(false);
-    const composer = useNoteComposer(api, { bookingId }, () => {
-        setOpen(false);
-    });
-    if (!open)
+    const composer = useNoteComposer(api, { bookingId });
+    if (!composer.open)
         return (
-            <Button
-                size="sm"
-                variant="outline"
-                onPress={() => {
-                    setOpen(true);
-                }}
-            >
+            <Button size="sm" variant="outline" onPress={composer.show}>
                 {s.noteAdd}
             </Button>
         );
@@ -607,14 +598,7 @@ function BookingNoteBox({ bookingId }: { bookingId: string }) {
                 autoFocus
             />
             <View style={styles.photoActions}>
-                <Button
-                    size="sm"
-                    variant="outline"
-                    grow
-                    onPress={() => {
-                        setOpen(false);
-                    }}
-                >
+                <Button size="sm" variant="outline" grow onPress={composer.cancel}>
                     {strings.common.cancel}
                 </Button>
                 <Button

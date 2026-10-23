@@ -1,69 +1,35 @@
 # Vertical gaps
 
-Five product gaps keep otherwise well-fitting verticals off Clientbridge: clinics, trades, day camps, driving schools and mobile auto detailing. This plan closes them in an order that builds each piece on the last, so the uncovered verticals can follow as demo businesses and trade pages.
+Five product gaps keep otherwise well-fitting verticals off Clientbridge: clinics, trades, day camps, driving schools and mobile auto detailing. This plan closes them, and the uncovered verticals then follow as demo businesses and trade pages.
 
-The schema stays concise. Each need is first mapped to existing tables, and nothing that can be worked out when it's read is stored. The whole plan adds three columns and widens three CHECKs, with no new table. Every change is listed in one table at the end, and none is made until it is approved, change by change.
+The schema stays concise. An audit of each need against the existing code (2026-10-22) showed that most of it builds on existing tables, so the plan now needs two columns. Each schema change is made only once it is approved, change by change.
 
-## Order
+## Done
 
-| Phase | Gap | Effort | Schema |
+- 87057333: staff can add a note to a booking; pickup permissions on a student.
+- 2a5441af: the `vehicle` subject kind (cb0028).
+
+## Step 1: no schema, built on what exists
+
+1. Cleanup from the phase 0 and 1 review. Pickups and equipment share one repeating-group helper in app-core and one `RepeatingGroup` twin in `@clientbridge/ui`. `useNoteComposer` owns opening and cancelling, and cancelling clears the draft.
+2. Series fix. Changing or cancelling a client's series finds its visits by `recurrence_id` without the client, so on a shared class slot it could act on other clients' seats. It is scoped to the series' client.
+3. Business address on printed documents. `printedDoc` leaves the address and phone empty, although the legal address columns exist and sync. The letterhead reads them.
+4. Insurance receipt. The existing invoice and sale receipts are the source, so a visit paid by invoice or at the desk both work. The receipt adds the practitioner's name and `staff.title`, which holds the credential and registration number ("RMT · Reg. 12345"). Staff open it from the booking, and the client from the manage page. A visit with no invoice or sale is refused with its own error code.
+5. Treatment notes as forms. An admin keeps a SOAP form. Staff fill it on a visit through a new staff command, which submits the response at once, linked to the booking, with no client token and the author in its signature. Submitted responses are already final. The responses sync query leaves out rows with no token, so these notes never reach a device. A read endpoint checks author or manager and records an audit entry through `run_command`. An amendment is a further response on the same visit. Staff get a view of form answers, which they don't have today for intake forms either.
+6. Add-ons that lengthen a visit. An add-on stays a product, and its `duration_min` adds to the visit. Booking stores the longer `slots.ends_at`, because the overlap constraint reads it. Connect asks for extras before the time, and offers only times that fit. Staff gain an "add add-on" action that uses the existing resize path. Add-on invoice lines carry the booking and staff, so they earn.
+7. Crew as time-off blocks. Adding a helper checks their calendar under the staff lock, then writes an `hours` exception for the job's window, with the job as its reason and `booking:<id>` in its note. Availability already respects these blocks. Reschedule, client reschedule, cancel, series change and staff reassignment carry the blocks with the booking. Earnings and their reversal are keyed per staff member, from lines that carry the helper's `staff_id`, and tips already split by line.
+8. Programs. Staff create a class series: empty class slots tagged with a recurrence that has no client. Enrolling books every remaining session or none, under the staff lock, with the price and deposit on the first booking. Seat dedupe moves from client to subject, so siblings can share a session. `items.session_count` is allowed on classes. Connect shows start dates with a seat on every day.
+9. Driving school industry in onboarding, mapped to `student`.
+
+## Step 2: needs schema
+
+| # | Change | Why existing data doesn't cover it | Downgrade |
 | --- | --- | --- | --- |
-| 0 | Fixes with no schema change: staff can add a note to a booking; pickup permissions on a student | S | none |
-| 1 | Mobile auto detailing: a `vehicle` subject kind | S | S1 |
-| 2 | Clinics: insurance receipts and treatment notes | M | S2, S3 |
-| 3 | Lesson and class packs per student | S | S4 |
-| 4 | Trades: service add-ons that lengthen a visit, then a crew on one booking | L | S5, S6 |
-| 5 | Day camps and programs: one enrolment across several days | M | none |
-| 6 | Driving schools: lessons by transmission, the car going with its instructor | S | none |
+| S4 | `packages.subject_id varchar NULL` FK `subjects`; synced | No subject exists anywhere on a purchase. Deriving it from the first covered booking leaves a new pack unassigned and lets the wrong child's visit claim it. | drop |
+| S7 | `items.staff_ids varchar[] NOT NULL DEFAULT '{}'` (empty means everyone) | No link exists between staff and the services they offer. Connect already filters on `PublicService.staff_ids`, but the server fills it with every staff member and never enforces it. This serves driving schools (manual and automatic) and any business where only some staff offer a service. | drop |
 
-Phases 1 to 3 stay out of scheduling and money code. Phase 4 changes availability and staff earnings, and phases 5 and 6 reuse that work.
+Dropped after the audit: `staff.registration_number` (it goes in the title), the `treatment` note parent (forms), service add-ons (products carry a duration), `slots.booking_id` (time-off blocks), and every cars change (the car goes with its instructor).
 
-## Phase 0: no schema change
+## Each step ships with
 
-- Booking notes. `notes.parent_type` already allows `booking`, but the notes API accepts only `client` and `subject`. The API and service accept a booking parent, scoped to the business.
-- Pickup permissions. `StudentAttributes` gains `pickups` (up to 10 people, each with a name, relation, phone and note) and `no_pickup`. Both live in the existing `subjects.attributes`. The student form edits them, and the class roster and Today show "May be picked up by".
-
-## Phase 1: vehicles
-
-A business whose clients book work on a car chooses "Vehicles". Make, model, year, colour, plate, size, parking spot and notes live in `subjects.attributes`, the same way pets and sites keep their details. Vehicles count as a place kind, so Directions, On my way and Connect's address step work as they do for sites. This follows the commit that added `site` (6816592c).
-
-## Phase 2: clinics
-
-- Insurance receipt. The practitioner's credential is the existing `staff.title` ("RMT"), so only the registration number is stored. A paid visit by a practitioner with a number offers an insurance receipt to staff from the booking, and to the client from their manage page. It is rendered when it's asked for, from the visit, its invoice, payments and refunds, with the invoice number as the receipt number, so nothing about the receipt is stored. An unpaid visit, or a practitioner with no number, is refused with its own error code.
-- Treatment notes. A treatment note is a row in `notes` with parent `treatment` and the visit as its parent id. Its SOAP sections are a fixed template in the body. The author and time come from `created_by` and `created_at`, so saving is signing. A treatment note is never edited or deleted. Each amendment is a further treatment note on the same visit, and the order comes from `created_at`. The sync stream leaves out `parent_type = 'treatment'`, so the notes are read only through the API: by the author, owners and admins, and every read writes an audit entry. They show on the client's history. Retention, about ten years under provincial colleges, is documented, and an automated purge is out of scope.
-
-## Phase 3: packs per student
-
-A package can belong to one subject under a client ("Maya: 6 of 10 left"). Covering a visit with it checks that the visit is for that subject. A package with no subject keeps today's meaning: it covers any of the client's subjects.
-
-## Phase 4: trades
-
-- Service add-ons. The existing `addons` table already links an add-on to its booking and staff, and an add-on can now be a service. The visit's length is the service plus its add-ons' `duration_min`, worked out when it's read. Connect offers only times that fit the longer visit, staff adding or removing an add-on re-checks the calendar, and add-on lines earn commission through their staff.
-- Crew. The booking keeps its lead. Each extra member gets a hold slot at the same time, with `slots.booking_id` pointing at the job, so the existing overlap constraint, availability checks and per-staff sync cover them. A hold slot is never offered for booking. Moving, cancelling and completing the booking carries its holds with it. Each member earns at their own rate, on an even share of the visit, and tips split the same way, so there is no share column. Helpers see the hold on their calendar through sync and read the job through the API.
-
-## Phase 5: programs
-
-A program is a class whose slots come from a recurrence that already exists: `recurrences.byday` and `count` give the days and the number of sessions, and `slots.recurrence_id` ties the days together. A class with `session_count` set (today used only by packs) enrols as a whole program of that many sessions. One enrolment books every remaining slot of the recurrence or none, for one price, with the deposit taken on the first day. The enrolment is the client's bookings on that recurrence, so it isn't stored. Each day keeps its own roster and check-in, and Connect shows the start dates that still have a seat on every day.
-
-## Phase 6: driving schools
-
-At a small driving school each instructor teaches in their own dual-control car, so the instructor's calendar is already the car's calendar and the existing overlap constraint keeps a car out of two lessons at once. Manual and automatic lessons are two services, offered by the instructors whose car fits. The car's make and plate go in the instructor's title ("Instructor · Corolla, auto"). A shared pool of fewer cars than instructors isn't covered; it would need its own resource and is left out until a school asks for it.
-
-## Schema changes
-
-Each change only adds, so no existing row changes. A downgrade drops what it added, and refuses to run while rows still use it where noted.
-
-| # | Phase | Change | Downgrade |
-| --- | --- | --- | --- |
-| S1 | 1 | `ck_businesses_subject` adds `vehicle` | refuses while a business uses it |
-| S2 | 2 | `staff.registration_number varchar NULL` | drop |
-| S3 | 2 | `notes.parent_type` CHECK adds `treatment` (parent id is a booking); the notes sync query leaves it out | refuses while treatment notes exist |
-| S4 | 3 | `packages.subject_id varchar NULL` FK `subjects`; synced | drop |
-| S5 | 4 | `ck_items_addon_kind` allows `product` and `service` | refuses while a service add-on exists |
-| S6 | 4 | `slots.booking_id varchar NULL` FK `bookings`, set only on crew holds; synced | refuses while set |
-
-Dropped from the earlier draft because the data already exists or can be worked out: `staff.credential` (it's `title`), a `treatment_notes` table (it's `notes`), a `crew` table and its share column (hold slots and an even split), a slot capacity change (holds are found by `booking_id`), `items.byday` and `bookings.enrolment_id` (recurrences), and a `cars` table with `items.needs_car` and `slots.car_id` (the car goes with its instructor).
-
-## Each phase ships with
-
-The four-part test matrix for every new command, app-core hooks shared by web and mobile, catalog copy, the regenerated API client, sync schema and strings, and a demo update: Harbourside gets registration numbers, treatment notes and an insurance receipt; Northlight gets a service add-on and a two-person install; Lakeside gets a camp week and pickups. Each phase lands on main on its own, through the full gate.
+The four-part test matrix for every new command, app-core hooks shared by web and mobile, catalog copy, regenerated codegen, and demo data: Harbourside gets a SOAP form, notes and a receipt; Northlight gets a lengthening add-on and a two-person install; Lakeside gets a camp week. Each item lands on main on its own, through the full gate.

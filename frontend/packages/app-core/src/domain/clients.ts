@@ -874,6 +874,9 @@ interface HistoryGroup {
 }
 
 export interface NoteComposer {
+    open: boolean;
+    show: () => void;
+    cancel: () => void;
     body: string;
     setBody: (v: string) => void;
     pinned: boolean;
@@ -892,11 +895,22 @@ export function useNoteComposer(
     onSaved?: () => void,
     initialAbout = "client",
 ): NoteComposer {
+    const [open, setOpen] = useState(false);
     const [body, setBody] = useState("");
     const [pinned, setPinned] = useState(false);
     const [about, setAbout] = useState(initialAbout);
     const { busy, error, setError, run } = useAsyncAction();
     return {
+        open,
+        show: () => {
+            setOpen(true);
+        },
+        cancel: () => {
+            setOpen(false);
+            setBody("");
+            setPinned(false);
+            setError(null);
+        },
         body,
         setBody: (v) => {
             setBody(v);
@@ -928,6 +942,7 @@ export function useNoteComposer(
                     });
                     setBody("");
                     setPinned(false);
+                    setOpen(false);
                     onSaved?.();
                 },
                 { errorMessage: s.history.noteError },

@@ -1,7 +1,10 @@
-import { describe, expect, it } from "vitest";
+// @vitest-environment happy-dom
+import { act, renderHook } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 
+import type { ApiLike } from "../api";
 import { strings } from "../strings";
-import { type ClientRow, filterClients, visitPill } from "./clients";
+import { type ClientRow, filterClients, useNoteComposer, visitPill } from "./clients";
 import { zonedDate } from "../datetime";
 
 const ZONE = "America/Vancouver";
@@ -70,5 +73,58 @@ describe("visitPill", () => {
             label: r.depositDue("$18.75"),
             intent: "warning",
         });
+    });
+});
+
+describe("useNoteComposer", () => {
+    const api: ApiLike = {
+        get: <T>() => Promise.resolve({} as T),
+        getText: () => Promise.resolve(""),
+        post: <T>() => Promise.resolve({} as T),
+        patch: <T>() => Promise.resolve({} as T),
+        delete: <T>() => Promise.resolve({} as T),
+    };
+
+    it("opens empty again after a cancel drops the draft and its error", () => {
+        const { result } = renderHook(() => useNoteComposer(api, { bookingId: "bk_1" }));
+        expect(result.current.open).toBe(false);
+        act(() => {
+            result.current.show();
+        });
+        act(() => {
+            result.current.submit();
+        });
+        expect(result.current.error).toBe(strings.clients.history.noteRequired);
+        act(() => {
+            result.current.setBody("Gate code 4417");
+        });
+        act(() => {
+            result.current.setPinned(true);
+        });
+        act(() => {
+            result.current.cancel();
+        });
+        expect(result.current.open).toBe(false);
+        act(() => {
+            result.current.show();
+        });
+        expect(result.current).toMatchObject({ open: true, body: "", pinned: false, error: null });
+    });
+
+    it("closes and clears once the note is saved", async () => {
+        const saved = vi.fn();
+        const { result } = renderHook(() => useNoteComposer(api, { bookingId: "bk_1" }, saved));
+        act(() => {
+            result.current.show();
+        });
+        act(() => {
+            result.current.setBody("Gate code 4417");
+        });
+        await act(async () => {
+            result.current.submit();
+            await Promise.resolve();
+        });
+        expect(saved).toHaveBeenCalledOnce();
+        expect(result.current).toMatchObject({ open: false, body: "" });
     });
 });

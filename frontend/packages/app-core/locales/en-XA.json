@@ -278,6 +278,12 @@
     "ui.copied": {
         "message": "[Çöþîéð one]"
     },
+    "ui.remove": {
+        "message": "[Ŕéɱöṽé one]"
+    },
+    "ui.removeItem": {
+        "message": "[Ŕéɱöṽé {item} one]"
+    },
     "ui.removeTag": {
         "message": "[Ŕéɱöṽé {tag} one]"
     },
@@ -4778,9 +4784,6 @@
     "subjects.equipment.add": {
         "message": "[Åðð ðéṽîçé one two]"
     },
-    "subjects.equipment.remove": {
-        "message": "[Ŕéɱöṽé ðéṽîçé one two]"
-    },
     "subjects.equipment.item": {
         "message": "[Đéṽîçé {n, number} one]"
     },
@@ -4808,9 +4811,6 @@
     "subjects.equipment.modelRequired": {
         "message": "[Åðð ţĥé ɱöðéļ, öŕ ŕéɱöṽé ţĥîš ðéṽîçé. one two three]"
     },
-    "subjects.equipment.tooLong": {
-        "message": "[Ķééþ ţĥîš ûñðéŕ {max, number} çĥåŕåçţéŕš. one two three]"
-    },
     "subjects.equipment.serialShort": {
         "message": "[Š/Ñ {serial} one]"
     },
@@ -4831,9 +4831,6 @@
     },
     "subjects.pickup.add": {
         "message": "[Åðð þéŕšöñ one two]"
-    },
-    "subjects.pickup.remove": {
-        "message": "[Ŕéɱöṽé þéŕšöñ one two]"
     },
     "subjects.pickup.item": {
         "message": "[Þéŕšöñ {n, number} one]"
