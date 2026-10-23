@@ -105,6 +105,10 @@ class Item(PKMixin, BusinessScoped, TimestampMixin, Base):
     addon_for: Mapped[list[str]] = mapped_column(
         ARRAY(String), default=list, server_default="{}", nullable=False
     )
+    # the staff who offer a service or class (empty = every member)
+    staff_ids: Mapped[list[str]] = mapped_column(
+        ARRAY(String), default=list, server_default="{}", nullable=False
+    )
 
 
 class Package(PKMixin, BusinessScoped, TimestampMixin, Base):

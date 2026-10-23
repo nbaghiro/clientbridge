@@ -84,7 +84,7 @@ from clientbridge.schemas.bookings import (
 )
 from clientbridge.services import ledger
 from clientbridge.services.business import business_tz, load_staff, staff_name
-from clientbridge.services.catalog import deposit_cents, load_item
+from clientbridge.services.catalog import assert_offers, deposit_cents, load_item
 from clientbridge.services.clients import load_client
 from clientbridge.services.lines import fetch_lines
 from clientbridge.services.messaging import dispatch_message, open_thread
@@ -384,6 +384,7 @@ async def create_booking_core(
     dedupe_client: bool = False,
 ) -> tuple[Booking, Slot]:
     """Create a confirmed booking under the scheduling invariant (staff and online paths)."""
+    assert_offers(item, staff_id)
     await lock_staff(db, business_id, staff_id)
     ends_at = starts_at + timedelta(minutes=item.duration_min or 0)
     away = await blocking_exception(db, business_id, staff_id, starts_at, ends_at)
@@ -792,6 +793,10 @@ class BookingService:
             staff_id, starts_at, ends_at = await self._target(data, slot)
         except Conflict as exc:
             return _verdict("class" if exc.message == _CLASS_MOVE else "past", exc.message)
+        except Unprocessable as exc:
+            if exc.code != "service_not_offered":
+                raise
+            return _verdict("not_offered", exc.message)
         item = await self._item(slot.item_id, require_active=False)
         problem = await slot_problem(
             self.db,
@@ -819,6 +824,7 @@ class BookingService:
             await self._staff(staff_id)
             if slot.capacity > 1:
                 raise Conflict(_CLASS_MOVE, code="class_move")
+            assert_offers(await self._item(slot.item_id, require_active=False), staff_id)
         starts_at = data.starts_at or slot.starts_at
         ends_at = data.ends_at or starts_at + (slot.ends_at - slot.starts_at)
         if slot.capacity > 1 and (starts_at, ends_at) != (slot.starts_at, slot.ends_at):
@@ -1693,6 +1699,10 @@ class RecurrenceService:
         if data.staff_id is not None:
             assert_can_act_as(self.principal, data.staff_id)
             await load_staff(self.db, self.biz, data.staff_id)
+            series_item = await load_item(
+                self.db, self.biz, recurrence.item_id, require_active=False
+            )
+            assert_offers(series_item, data.staff_id)
         tz = await business_tz(self.db, self.biz)
         visits = await self._upcoming(recurrence, data.scope, data.from_date, tz)
         new_time = time.fromisoformat(data.time) if data.time is not None else None

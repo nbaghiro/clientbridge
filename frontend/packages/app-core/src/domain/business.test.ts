@@ -266,10 +266,29 @@ describe("useOnboardingForm", () => {
         expect(posted).toMatchObject([{ subject: "vehicle" }]);
     });
 
+    it("sends student as the subject kind for a driving school", async () => {
+        const { api, posted } = recordingPost();
+        const created = vi.fn();
+        const { result } = renderHook(() => useOnboardingForm(api, created));
+        act(() => {
+            result.current.setName("Lakeshore Driving");
+            result.current.setProvince("ON");
+            result.current.setIndustry("drivingSchool");
+        });
+        act(() => {
+            result.current.submit();
+        });
+        await waitFor(() => {
+            expect(created).toHaveBeenCalled();
+        });
+        expect(posted).toMatchObject([{ subject: "student" }]);
+    });
+
     it("lists each industry with its catalog label", () => {
         const options = industryOptions();
-        expect(options).toHaveLength(13);
+        expect(options).toHaveLength(14);
         expect(options).toContainEqual({ key: "detailing", label: "Mobile car detailing" });
+        expect(options).toContainEqual({ key: "drivingSchool", label: "Driving school" });
         expect(options[0]).toEqual({ key: "petGrooming", label: "Pet grooming and daycare" });
         expect(options.at(-1)).toEqual({ key: "other", label: "Something else" });
     });

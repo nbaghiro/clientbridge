@@ -289,6 +289,7 @@ class Demo:
                 sell_online=offering.sell_online,
                 addon=bool(offering.addon_for),
                 addon_for=list(offering.addon_for),
+                staff_ids=sorted(offering.staff),
                 buffer_before_min=0,
                 buffer_after_min=offering.buffer_after_min,
                 deposit_type=offering.deposit_type,

@@ -8,12 +8,14 @@ import {
     type ItemRow,
     giftAmounts,
     groupByCategory,
+    idList,
     itemFormError,
     itemMeta,
     itemPayload,
     itemPriceLabel,
     itemStatus,
     matchesFilter,
+    offers,
     sellableItems,
     stockScale,
     stockState,
@@ -53,6 +55,7 @@ const base: ItemRow = {
     visits_per_period: null,
     member_discount_bps: null,
     gift_amounts: null,
+    staff_ids: null,
 };
 
 const values: ItemFormValues = {
@@ -83,6 +86,7 @@ const values: ItemFormValues = {
     visitsPerPeriod: "",
     memberDiscount: "",
     giftAmounts: [],
+    staffIds: [],
 };
 
 describe("stock", () => {
@@ -199,6 +203,24 @@ describe("item editor", () => {
         expect(itemPayload({ ...values, kind: "gift", giftAmounts: [5000] }, true)).toMatchObject({
             gift_amounts: [5000],
         });
+    });
+
+    it("sends who offers a service, and never a product", () => {
+        const body = itemPayload({ ...values, staffIds: ["st_ana"] }, false);
+        expect(body.staff_ids).toEqual(["st_ana"]);
+        expect(itemPayload({ ...values, staffIds: [] }, false).staff_ids).toEqual([]);
+        expect(
+            itemPayload({ ...values, kind: "product", staffIds: ["st_ana"] }, true),
+        ).not.toHaveProperty("staff_ids");
+    });
+
+    it("reads the members a service names, where none named means everyone", () => {
+        expect(idList('["st_ana","st_bo"]')).toEqual(["st_ana", "st_bo"]);
+        expect(idList("{st_ana,st_bo}")).toEqual(["st_ana", "st_bo"]);
+        expect(idList(null)).toEqual([]);
+        expect(offers([], "st_bo")).toBe(true);
+        expect(offers(["st_ana"], "st_ana")).toBe(true);
+        expect(offers(["st_ana"], "st_bo")).toBe(false);
     });
 
     it("sends a fixed deposit in cents and leaves the kind out on edit", () => {

@@ -276,7 +276,8 @@ client's marketing consent on a channel, with its `source`; the newest row holds
 client can only be lifted by the client's own START).
 
 **catalog (5)** — `items` (**one table drives the whole catalog** via `kind` service/class/product/package/
-subscription/gift — duration, capacity, deposit, recurrence, session_count, `stripe_price_id`), `packages`
+subscription/gift — duration, capacity, deposit, recurrence, session_count, `stripe_price_id`, and
+`staff_ids` for who offers a service or class), `packages`
 (client's package: `sessions_total` and status; sessions used is the count of its consumption journals), `subscriptions` (recurring: status, period,
 `provider_ref`; partial-unique one active/paused per client+item), `gift_cards` (`code` unique per business,
 `initial_cents`; the spendable balance is the card's own ledger account, and an active card with nothing
@@ -698,7 +699,13 @@ entitlement and its liability are created.
 
 The rules the public booking page follows (lead time, how far ahead, the start-time step, approval for new
 clients) and the cancellation policy live in `businesses.booking_policy`, read and written through
-`/v1/online-booking`; members are hidden from the page with `staff.bookable_online`. Every booking gets a
+`/v1/online-booking`; members are hidden from the page with `staff.bookable_online`. A service or class
+can name the members who offer it in `items.staff_ids`, where an empty list means everyone. The catalog
+accepts only active members of the business there, and a member removed later stays listed while readers
+skip them. `PublicService.staff_ids` lists the online members who offer it, "any" chooses only among them,
+and every new booking, move to another member, series change and reassignment on removal checks the list,
+refusing with 422 `service_not_offered` (`not_offered` in a move check). A visit that stays with its member
+can still be moved or resized after that member stops offering the service. Every booking gets a
 `manage_token`, and the confirmation and reminder carry `book.D/m/<token>` on Connect, where the client can move
 or cancel within the cut-offs (`/manage/{token}`). The server enforces the cut-offs and the move limit and
 refunds a paid deposit on an allowed cancel. A booked visit whose deposit is still pending can be paid

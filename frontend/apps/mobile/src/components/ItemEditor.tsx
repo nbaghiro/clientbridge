@@ -189,6 +189,18 @@ function ServiceFields({ ed }: { ed: ServiceEditor }) {
                         set("onlineBookable", x);
                     }}
                 />
+                {ed.offeredBy !== null ? (
+                    <>
+                        <Text style={styles.label}>{s.offeredBy}</Text>
+                        <Choice
+                            label={s.offeredBy}
+                            options={ed.offeredBy.options}
+                            value={ed.offeredBy.value}
+                            onChange={ed.offeredBy.pick}
+                        />
+                        <Text style={styles.hint}>{s.offeredByHint}</Text>
+                    </>
+                ) : null}
             </DetailSection>
             <DetailSection title={s.sectionDeposit}>
                 <View style={styles.gap}>

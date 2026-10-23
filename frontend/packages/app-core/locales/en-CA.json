@@ -237,6 +237,9 @@
     "api.businessUnavailable": {
         "message": "This business isn't taking bookings or orders right now."
     },
+    "api.serviceNotOffered": {
+        "message": "That team member doesn't offer this service. Choose someone who does."
+    },
     "api.visitNotBilled": {
         "message": "This visit has no invoice or sale yet, so there is no receipt to print."
     },
@@ -2857,6 +2860,10 @@
     },
     "bookings.problemClass": {
         "message": "A class moves as a whole from its session"
+    },
+    "bookings.problemNotOffered": {
+        "message": "{who} doesn't offer this service",
+        "args": ["who"]
     },
     "bookings.moved": {
         "message": "Moved to {when}. The client gets an updated confirmation.",
@@ -6913,7 +6920,7 @@
         "message": "Choose a province or territory"
     },
     "business.onboarding.industry": {
-        "message": "{industry, select, petGrooming {Pet grooming and daycare} petCare {Dog walking and pet sitting} tutoring {Tutoring and lessons} cleaning {Home cleaning} landscaping {Landscaping and lawn care} security {Security, alarm and AV installs} detailing {Mobile car detailing} beauty {Hair and beauty} fitness {Fitness and personal training} wellness {Massage and wellness} photography {Photography} tattoo {Tattoo and piercing} other {Something else}}",
+        "message": "{industry, select, petGrooming {Pet grooming and daycare} petCare {Dog walking and pet sitting} tutoring {Tutoring and lessons} drivingSchool {Driving school} cleaning {Home cleaning} landscaping {Landscaping and lawn care} security {Security, alarm and AV installs} detailing {Mobile car detailing} beauty {Hair and beauty} fitness {Fitness and personal training} wellness {Massage and wellness} photography {Photography} tattoo {Tattoo and piercing} other {Something else}}",
         "args": ["industry"],
         "description": "The owner's line of work, chosen at signup from a list"
     },
@@ -8117,6 +8124,15 @@
     },
     "catalog.onlineBookableHint": {
         "message": "Shows on your booking page with the times you’re open."
+    },
+    "catalog.offeredBy": {
+        "message": "Who offers this"
+    },
+    "catalog.offeredByEveryone": {
+        "message": "Everyone on the team"
+    },
+    "catalog.offeredByHint": {
+        "message": "Only the people chosen here can be booked for it, online and on the schedule."
     },
     "catalog.depositNone": {
         "message": "None"

@@ -26,7 +26,7 @@ import { useReplicaLoad } from "./sync";
 import { asTaxClass, type DocRate, isFederal, lineTax, useTaxSetup } from "./taxes";
 import { taxName, taxList, taxRateLabel } from "./printing";
 import { bareUrl, shopPageUrl } from "../runtime";
-import { staffNameSql } from "./staff";
+import { staffName, staffNameSql, useStaff } from "./staff";
 
 const s = strings.catalog;
 
@@ -65,6 +65,7 @@ export interface ItemRow {
     visits_per_period: number | null;
     member_discount_bps: number | null;
     gift_amounts: string | null;
+    staff_ids: string | null;
 }
 
 export const KIND_LABEL: Record<string, string> = {
@@ -142,7 +143,7 @@ SELECT i.variant_parent_id, i.variant_label, i.id, i.kind, i.name, i.description
        i.buffer_before_min, i.buffer_after_min, i.deposit_type, i.deposit_value,
        i.session_count, i.validity_days, i.interval, i.frequency, i.tax_class,
        i.sku, i.cost_cents, i.track_stock, i.sell_online, i.stock_on_hand, i.low_stock_at,
-       i.covers_item_id, i.visits_per_period, i.member_discount_bps, i.gift_amounts,
+       i.covers_item_id, i.visits_per_period, i.member_discount_bps, i.gift_amounts, i.staff_ids,
        (SELECT f.id FROM files f
         WHERE f.parent_type = 'item' AND f.parent_id = i.id AND f.purpose = 'image'
           AND f.uploaded_at IS NOT NULL
@@ -224,6 +225,28 @@ export function giftAmounts(item: Pick<ItemRow, "gift_amounts">): number[] {
         .split(",")
         .map((v) => Number(v.trim()))
         .filter((n) => Number.isInteger(n) && n > 0);
+}
+
+/** A list of ids the replica keeps as an array in text. */
+export function idList(raw: string | null): string[] {
+    if (raw === null || raw === "") return [];
+    try {
+        const parsed: unknown = JSON.parse(raw);
+        return Array.isArray(parsed)
+            ? parsed.filter((x): x is string => typeof x === "string")
+            : [];
+    } catch {
+        return raw
+            .replace(/[{}]/g, "")
+            .split(",")
+            .map((x) => x.trim())
+            .filter(Boolean);
+    }
+}
+
+/** Whether a member offers a service or class, given the ids it names; none named means everyone. */
+export function offers(staffIds: readonly string[], staffId: string): boolean {
+    return staffIds.length === 0 || staffIds.includes(staffId);
 }
 
 type StockState = "untracked" | "in" | "low" | "out";
@@ -449,13 +472,29 @@ export interface ItemFormValues {
     visitsPerPeriod: string;
     memberDiscount: string;
     giftAmounts: number[];
+    staffIds: string[];
 }
 
 type ItemField = keyof ItemFormValues;
 
 const KIND_FIELDS: Record<string, ItemField[]> = {
-    service: ["duration", "bufferBefore", "bufferAfter", "onlineBookable", "depositType"],
-    class: ["duration", "bufferBefore", "bufferAfter", "capacity", "onlineBookable", "depositType"],
+    service: [
+        "duration",
+        "bufferBefore",
+        "bufferAfter",
+        "onlineBookable",
+        "depositType",
+        "staffIds",
+    ],
+    class: [
+        "duration",
+        "bufferBefore",
+        "bufferAfter",
+        "capacity",
+        "onlineBookable",
+        "depositType",
+        "staffIds",
+    ],
     product: ["sku", "cost", "trackStock", "lowStockAt", "sellOnline"],
     package: ["sessionCount", "validityDays", "coversItemId"],
     subscription: ["interval", "frequency", "visitsPerPeriod", "memberDiscount"],
@@ -509,6 +548,7 @@ function initialValues(item: ItemRow | null, kind: string): ItemFormValues {
         memberDiscount:
             item?.member_discount_bps == null ? "" : decimal(item.member_discount_bps / 100),
         giftAmounts: item === null ? [] : giftAmounts(item),
+        staffIds: idList(item?.staff_ids ?? null),
     };
 }
 
@@ -587,6 +627,7 @@ export function itemPayload(v: ItemFormValues, creating: boolean): Record<string
         body.member_discount_bps =
             v.memberDiscount.trim() === "" ? null : Math.round(percentOf(v.memberDiscount) * 100);
     if (shown("giftAmounts")) body.gift_amounts = v.giftAmounts;
+    if (shown("staffIds")) body.staff_ids = v.staffIds;
     if (shown("sku")) body.sku = blankToNull(v.sku);
     if (shown("cost")) body.cost_cents = parseCents(v.cost, BUSINESS_CURRENCY);
     if (shown("trackStock")) body.track_stock = v.trackStock;
@@ -786,10 +827,18 @@ function useTaxed(form: ItemForm): Taxed {
     };
 }
 
+interface OfferedBy {
+    options: { key: string; label: string }[];
+    value: "all" | string[];
+    pick: (key: string) => void;
+}
+
 export interface ServiceEditor extends Taxed {
     timing: ItemTiming;
     deposit: string;
     isClass: boolean;
+    // who performs it, picked from the team; null while there is only one member to pick
+    offeredBy: OfferedBy | null;
 }
 
 /** The service and class editor: the item form plus what it blocks on the calendar and the deposit in words. */
@@ -800,11 +849,33 @@ export function useServiceEditor(
     onDone: () => void,
 ): ServiceEditor {
     const form = useItemForm(api, item, kind, onDone);
+    const team = useStaff();
+    const listed = form.values.staffIds;
     return {
         ...useTaxed(form),
         timing: itemTiming(form.values),
         deposit: depositSummary(form.values),
         isClass: form.values.kind === "class",
+        offeredBy:
+            team.length < 2 && listed.length === 0
+                ? null
+                : {
+                      options: [
+                          { key: "all", label: s.offeredByEveryone },
+                          ...team.map((m) => ({ key: m.id, label: staffName(m) })),
+                      ],
+                      value: listed.length === 0 ? "all" : listed,
+                      pick: (key) => {
+                          form.set(
+                              "staffIds",
+                              key === "all"
+                                  ? []
+                                  : listed.includes(key)
+                                    ? listed.filter((x) => x !== key)
+                                    : [...listed, key],
+                          );
+                      },
+                  },
     };
 }
 

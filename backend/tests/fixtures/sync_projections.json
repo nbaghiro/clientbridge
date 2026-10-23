@@ -103,6 +103,7 @@
       "active",
       "addon",
       "addon_for",
+      "staff_ids",
       "id",
       "business_id",
       "created_at",

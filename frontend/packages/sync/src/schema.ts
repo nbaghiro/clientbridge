@@ -149,6 +149,7 @@ const items = new Table(
         active: column.integer,
         addon: column.integer,
         addon_for: column.text,
+        staff_ids: column.text,
         business_id: column.text,
         created_at: column.text,
         updated_at: column.text,

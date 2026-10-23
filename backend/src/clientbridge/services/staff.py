@@ -56,7 +56,7 @@ from clientbridge.services.bookings import (
     slot_problem,
 )
 from clientbridge.services.business import load_staff, staff_names
-from clientbridge.services.catalog import load_item
+from clientbridge.services.catalog import NOT_OFFERED, load_item, offers
 from clientbridge.services.notifications import Notice, business_email, invite_link, staff_invite
 from clientbridge.services.payments import cancel_open_deposits, refund_deposit
 from clientbridge.services.plans import INVITE_TTL
@@ -570,14 +570,18 @@ class StaffService:
         item = await load_item(self.db, biz, slot.item_id, require_active=False)
         first: BookingCheck | None = None
         for candidate in candidates:
-            problem = await slot_problem(
-                self.db,
-                biz,
-                item,
-                candidate.id,
-                slot.starts_at,
-                slot.ends_at,
-                exclude=slot.id,
+            problem = (
+                await slot_problem(
+                    self.db,
+                    biz,
+                    item,
+                    candidate.id,
+                    slot.starts_at,
+                    slot.ends_at,
+                    exclude=slot.id,
+                )
+                if offers(item, candidate.id)
+                else BookingCheck(ok=False, problem="not_offered", message=NOT_OFFERED)
             )
             if problem is None:
                 try:

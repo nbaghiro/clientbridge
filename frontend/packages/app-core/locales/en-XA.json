@@ -212,6 +212,9 @@
     "api.businessUnavailable": {
         "message": "[Ţĥîš ƀûšîñéšš îšñ'ţ ţåķîñĝ ƀööķîñĝš öŕ öŕðéŕš ŕîĝĥţ ñöŵ. one two three four]"
     },
+    "api.serviceNotOffered": {
+        "message": "[Ţĥåţ ţéåɱ ɱéɱƀéŕ ðöéšñ'ţ öƒƒéŕ ţĥîš šéŕṽîçé. Çĥööšé šöɱéöñé ŵĥö ðöéš. one two three four five]"
+    },
     "api.visitNotBilled": {
         "message": "[Ţĥîš ṽîšîţ ĥåš ñö îñṽöîçé öŕ šåļé ýéţ, šö ţĥéŕé îš ñö ŕéçéîþţ ţö þŕîñţ. one two three four five]"
     },
@@ -2632,6 +2635,9 @@
     },
     "bookings.problemClass": {
         "message": "[Å çļåšš ɱöṽéš åš å ŵĥöļé ƒŕöɱ îţš šéššîöñ one two three]"
+    },
+    "bookings.problemNotOffered": {
+        "message": "[{who} ðöéšñ'ţ öƒƒéŕ ţĥîš šéŕṽîçé one two three]"
     },
     "bookings.moved": {
         "message": "[Ṁöṽéð ţö {when}. Ţĥé çļîéñţ ĝéţš åñ ûþðåţéð çöñƒîŕɱåţîöñ. one two three four]"
@@ -6399,7 +6405,7 @@
         "message": "[Çĥööšé å þŕöṽîñçé öŕ ţéŕŕîţöŕý one two three]"
     },
     "business.onboarding.industry": {
-        "message": "[{industry,select,beauty{Ĥåîŕ åñð ƀéåûţý} cleaning{Ĥöɱé çļéåñîñĝ} detailing{Ṁöƀîļé çåŕ ðéţåîļîñĝ} fitness{Ƒîţñéšš åñð þéŕšöñåļ ţŕåîñîñĝ} landscaping{Ļåñðšçåþîñĝ åñð ļåŵñ çåŕé} other{Šöɱéţĥîñĝ éļšé} petCare{Đöĝ ŵåļķîñĝ åñð þéţ šîţţîñĝ} petGrooming{Þéţ ĝŕööɱîñĝ åñð ðåýçåŕé} photography{Þĥöţöĝŕåþĥý} security{Šéçûŕîţý, åļåŕɱ åñð ÅṼ îñšţåļļš} tattoo{Ţåţţöö åñð þîéŕçîñĝ} tutoring{Ţûţöŕîñĝ åñð ļéššöñš} wellness{Ṁåššåĝé åñð ŵéļļñéšš}} one two three four five six seven eight nine ten one two three four five six seven eight]"
+        "message": "[{industry,select,beauty{Ĥåîŕ åñð ƀéåûţý} cleaning{Ĥöɱé çļéåñîñĝ} detailing{Ṁöƀîļé çåŕ ðéţåîļîñĝ} drivingSchool{Đŕîṽîñĝ šçĥööļ} fitness{Ƒîţñéšš åñð þéŕšöñåļ ţŕåîñîñĝ} landscaping{Ļåñðšçåþîñĝ åñð ļåŵñ çåŕé} other{Šöɱéţĥîñĝ éļšé} petCare{Đöĝ ŵåļķîñĝ åñð þéţ šîţţîñĝ} petGrooming{Þéţ ĝŕööɱîñĝ åñð ðåýçåŕé} photography{Þĥöţöĝŕåþĥý} security{Šéçûŕîţý, åļåŕɱ åñð ÅṼ îñšţåļļš} tattoo{Ţåţţöö åñð þîéŕçîñĝ} tutoring{Ţûţöŕîñĝ åñð ļéššöñš} wellness{Ṁåššåĝé åñð ŵéļļñéšš}} one two three four five six seven eight nine ten one two three four five six seven eight]"
     },
     "business.onboarding.industryLabel": {
         "message": "[Îñðûšţŕý one]"
@@ -7540,6 +7546,15 @@
     },
     "catalog.onlineBookableHint": {
         "message": "[Šĥöŵš öñ ýöûŕ ƀööķîñĝ þåĝé ŵîţĥ ţĥé ţîɱéš ýöû’ŕé öþéñ. one two three four]"
+    },
+    "catalog.offeredBy": {
+        "message": "[Ŵĥö öƒƒéŕš ţĥîš one two]"
+    },
+    "catalog.offeredByEveryone": {
+        "message": "[Éṽéŕýöñé öñ ţĥé ţéåɱ one two]"
+    },
+    "catalog.offeredByHint": {
+        "message": "[Öñļý ţĥé þéöþļé çĥöšéñ ĥéŕé çåñ ƀé ƀööķéð ƒöŕ îţ, öñļîñé åñð öñ ţĥé šçĥéðûļé. one two three four five]"
     },
     "catalog.depositNone": {
         "message": "[Ñöñé one]"

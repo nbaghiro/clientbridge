@@ -191,6 +191,18 @@ function ServiceFields({ ed }: { ed: ServiceEditor }) {
                             set("onlineBookable", x);
                         }}
                     />
+                    {ed.offeredBy !== null ? (
+                        <div className="space-y-2">
+                            <p className="text-sm font-medium text-ink">{s.offeredBy}</p>
+                            <Choice
+                                label={s.offeredBy}
+                                options={ed.offeredBy.options}
+                                value={ed.offeredBy.value}
+                                onChange={ed.offeredBy.pick}
+                            />
+                            <p className="text-xs text-muted">{s.offeredByHint}</p>
+                        </div>
+                    ) : null}
                 </div>
             </DetailSection>
             <DetailSection title={s.sectionDeposit}>

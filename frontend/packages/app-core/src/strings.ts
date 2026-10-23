@@ -86,6 +86,7 @@ interface Strings {
         readonly planActive: string;
         readonly planNotManaged: string;
         readonly businessUnavailable: string;
+        readonly serviceNotOffered: string;
         readonly visitNotBilled: string;
         readonly visitUnpaid: string;
     } & Labels;
@@ -947,6 +948,7 @@ interface Strings {
         readonly problemPast: string;
         readonly problemClassFull: string;
         readonly problemClass: string;
+        readonly problemNotOffered: (who: string) => string;
         readonly moved: (when: string) => string;
         readonly undo: string;
         readonly emptyDayTitle: string;
@@ -2771,6 +2773,9 @@ interface Strings {
         readonly capacityHint: string;
         readonly onlineBookable: string;
         readonly onlineBookableHint: string;
+        readonly offeredBy: string;
+        readonly offeredByEveryone: string;
+        readonly offeredByHint: string;
         readonly depositNone: string;
         readonly depositFixed: string;
         readonly depositPercent: string;

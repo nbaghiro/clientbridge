@@ -105,7 +105,7 @@ from clientbridge.services.bookings import (
     waitlist_position,
 )
 from clientbridge.services.business import business_tz, local_today, staff_names
-from clientbridge.services.catalog import deposit_cents
+from clientbridge.services.catalog import assert_offers, deposit_cents, offers
 from clientbridge.services.clients import find_or_create_by_contact
 from clientbridge.services.consents import (
     allows_marketing,
@@ -234,7 +234,9 @@ class PublicBookingService:
         return PublicBookingPage(
             business_name=business.name,
             brand=public_brand(business),
-            services=[_service_out(i, images.get(i.id), ids) for i in items],
+            services=[
+                _service_out(i, images.get(i.id), [x for x in ids if offers(i, x)]) for i in items
+            ],
             staff=[
                 PublicStaff(
                     id=s.id,
@@ -272,8 +274,9 @@ class PublicBookingService:
         services: list[PublicServiceOpening] = []
         for item in items:
             slots: list[PublicSlot] = []
+            members = [s for s in staff if offers(item, s.id)]
             for offset in range(7):
-                slots.extend(_open(business, found, item, staff, today + timedelta(days=offset)))
+                slots.extend(_open(business, found, item, members, today + timedelta(days=offset)))
                 if len(slots) >= 3:
                     break
             services.append(PublicServiceOpening(item_id=item.id, slots=slots[:3]))
@@ -284,7 +287,7 @@ class PublicBookingService:
     async def slots(self, slug: str, item_id: str, staff_id: str, on_date: date) -> PublicSlots:
         business = await self._business(slug)
         item = await self._bookable_item(business.id, item_id)
-        staff = await self._who(business.id, staff_id)
+        staff = await self._who(business.id, staff_id, item)
         tz = await business_tz(self.db, business.id)
         found = await load_availability(
             self.db, business.id, [s.id for s in staff], on_date, on_date, tz, [item]
@@ -297,7 +300,7 @@ class PublicBookingService:
         """How many open times each day has, so the date strip can grey out full days."""
         business = await self._business(slug)
         item = await self._bookable_item(business.id, item_id)
-        staff = await self._who(business.id, staff_id)
+        staff = await self._who(business.id, staff_id, item)
         return PublicDays(days=await open_days(self.db, business, item, staff, start, count))
 
     async def book(
@@ -365,7 +368,7 @@ class PublicBookingService:
             if item.kind != "class" or item.capacity is None or item.capacity <= 1:
                 raise Unprocessable("only a class session has a waitlist", code="no_waitlist")
             _assert_bookable_window(policy_of(business), data.starts_at)
-            staff = [s.id for s in await self._who(business.id, data.staff_id)]
+            staff = [s.id for s in await self._who(business.id, data.staff_id, item)]
             slot = await self.db.scalar(
                 scoped(Slot, business.id)
                 .where(
@@ -497,19 +500,21 @@ class PublicBookingService:
         self, business: Business, item: Item, staff_id: str, starts_at: datetime
     ) -> str:
         """The member a time is booked with: the first one whose open times list it."""
-        staff = await self._who(business.id, staff_id)
+        staff = await self._who(business.id, staff_id, item)
         member = await _offered(self.db, business, item, [s.id for s in staff], starts_at)
         if member is None:
             raise Conflict(_UNOFFERED, code="slot_unavailable")
         return member
 
-    async def _who(self, business_id: str, staff_id: str) -> list[Staff]:
+    async def _who(self, business_id: str, staff_id: str, item: Item) -> list[Staff]:
+        """The online members a time is looked for with: one, or every member offering the item."""
         staff = await self._online_staff(business_id)
         if staff_id == _ANY:
-            return staff
+            return [s for s in staff if offers(item, s.id)]
         chosen = [s for s in staff if s.id == staff_id]
         if not chosen:
             raise NotFound("staff not found")
+        assert_offers(item, staff_id)
         return chosen
 
     async def _online_staff(self, business_id: str) -> list[Staff]:

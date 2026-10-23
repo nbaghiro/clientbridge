@@ -101,6 +101,7 @@ def _service(
     *,
     deposit: int | None = None,
     online: bool = True,
+    staff: tuple[str, ...] = (),
 ) -> Offering:
     return Offering(
         id=item_id,
@@ -116,6 +117,7 @@ def _service(
         buffer_after_min=BUFFER_MIN,
         deposit_type="fixed" if deposit else "none",
         deposit_value=deposit,
+        staff=staff,
     )
 
 
@@ -193,6 +195,7 @@ ITEMS = (
         "#6B4C7A",
         "Colour on up to 3 cm of regrowth for grey coverage or to match your shade, with a "
         "wash and blow-dry. A patch test is needed 48 hours before a first colour.",
+        staff=(LEILA, GABRIELA),
     ),
     _service(
         PARTIAL,
@@ -204,6 +207,7 @@ ITEMS = (
         "Foils around the face and through the top section, toned and finished with a "
         "blow-dry. A $40 deposit is taken when you book and comes off your bill.",
         deposit=4000,
+        staff=(LEILA, GABRIELA),
     ),
     _service(
         FULL,
@@ -215,6 +219,7 @@ ITEMS = (
         "Foils through the whole head, toned and finished with a blow-dry. Allow three hours. "
         "A $50 deposit is taken when you book and comes off your bill.",
         deposit=5000,
+        staff=(GABRIELA,),
     ),
     _service(
         BALAYAGE,
@@ -226,6 +231,7 @@ ITEMS = (
         "Hand-painted lightening for a soft, grown-in look, with a toner, treatment and "
         "blow-dry. Allow three and a half hours. A $75 deposit is taken when you book.",
         deposit=7500,
+        staff=(GABRIELA,),
     ),
     _service(
         CONSULT,
@@ -236,6 +242,7 @@ ITEMS = (
         "#5F7F6E",
         "Thirty minutes with Gabriela to look at your hair, talk through the colour you want "
         "and do a patch test. Recommended before a first highlight or balayage.",
+        staff=(GABRIELA,),
     ),
     _service(
         TRIAL,

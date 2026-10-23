@@ -61,6 +61,8 @@ class Offering:
     sell_online: bool = False
     capacity: int | None = None
     addon_for: tuple[str, ...] = ()
+    # the members who offer a service or class; empty means everyone
+    staff: tuple[str, ...] = ()
     buffer_after_min: int = 0
     deposit_type: DepositType = "none"
     deposit_value: int | None = None

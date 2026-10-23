@@ -51,7 +51,7 @@ class BookingPatch(BookingMove, Mirror):
     )
 
 
-Problem = Literal["past", "closed", "time_off", "off_hours", "overlap", "class"]
+Problem = Literal["past", "closed", "time_off", "off_hours", "overlap", "class", "not_offered"]
 
 
 class BookingCheck(BaseModel):

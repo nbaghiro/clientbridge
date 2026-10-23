@@ -81,6 +81,7 @@ const FAILURES: Record<string, () => string> = {
     slug_reserved: () => strings.api.slugReserved,
     slug_taken: () => strings.api.slugTaken,
     visit_not_billed: () => strings.api.visitNotBilled,
+    service_not_offered: () => strings.api.serviceNotOffered,
     visit_unpaid: () => strings.api.visitUnpaid,
 };
 

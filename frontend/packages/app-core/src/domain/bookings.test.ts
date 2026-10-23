@@ -367,6 +367,25 @@ describe("slotProblem and planMove", () => {
         });
     });
 
+    it("refuses a member the service doesn't name, except to keep a visit where it is", () => {
+        const groom = { id: "it_groom", capacity: 1, bufferBeforeMin: 0, bufferAfterMin: 0 };
+        const named = { item: { ...groom, staffIds: ["st_amy"] } };
+        expect(slotProblem(avail, [], STAFF, "st_bo", at(6), at(7), null, named)).toEqual({
+            problem: "not_offered",
+            message: s.problemNotOffered("Bo"),
+        });
+        expect(slotProblem(avail, [], STAFF, "st_amy", at(9), at(10), null, named).problem).toBe(
+            null,
+        );
+        const visit = event("bk_amy", at(10), at(11), { itemStaffIds: ["st_amy"] });
+        const ctx = { avail, events: [visit], staff: STAFF };
+        expect(planMove(visit, 0, "st_bo", ctx, at(8)).problem).toBe("not_offered");
+        const kept = event("bk_bo", at(6), at(7), { staffId: "st_bo", itemStaffIds: ["st_amy"] });
+        expect(
+            planMove(kept, 15, "st_bo", { ...ctx, events: [kept] }, at(5), "resize").problem,
+        ).toBeNull();
+    });
+
     it("resizes from the end and never below fifteen minutes", () => {
         const visit = event("bk_1", at(10), at(11));
         const ctx = { avail, events: booked, staff: STAFF };

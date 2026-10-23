@@ -4384,7 +4384,7 @@ export interface components {
             /** Ok */
             ok: boolean;
             /** Problem */
-            problem?: ("past" | "closed" | "time_off" | "off_hours" | "overlap" | "class") | null;
+            problem?: ("past" | "closed" | "time_off" | "off_hours" | "overlap" | "class" | "not_offered") | null;
             /**
              * Reason
              * @description The closure or time-off reason
@@ -6190,6 +6190,11 @@ export interface components {
              */
             gift_amounts?: number[] | null;
             /**
+             * Staff Ids
+             * @description Services and classes only: the members who offer it; empty means everyone
+             */
+            staff_ids?: string[];
+            /**
              * Online Bookable
              * @description Defaults by kind: services and classes only
              */
@@ -6306,6 +6311,11 @@ export interface components {
              * @description Gift cards only: suggested amounts in cents
              */
             gift_amounts?: number[] | null;
+            /**
+             * Staff Ids
+             * @description Services and classes only: the members who offer it; empty means everyone
+             */
+            staff_ids?: string[];
             /** Id */
             id: string;
             /** Online Bookable */
@@ -6389,6 +6399,8 @@ export interface components {
             member_discount_bps?: number | null;
             /** Gift Amounts */
             gift_amounts?: number[] | null;
+            /** Staff Ids */
+            staff_ids?: string[] | null;
         };
         /** LeftVisit */
         LeftVisit: {
@@ -6400,7 +6412,7 @@ export interface components {
              */
             starts_at: string;
             /** Problem */
-            problem: ("past" | "closed" | "time_off" | "off_hours" | "overlap" | "class") | null;
+            problem: ("past" | "closed" | "time_off" | "off_hours" | "overlap" | "class" | "not_offered") | null;
             /** Message */
             message: string | null;
         };

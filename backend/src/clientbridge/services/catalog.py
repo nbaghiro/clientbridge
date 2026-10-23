@@ -6,6 +6,7 @@ from clientbridge.core.deps import Principal, assert_role
 from clientbridge.core.errors import Conflict, NotFound, Unprocessable
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
+from clientbridge.models.business import Staff
 from clientbridge.models.catalog import BOOKABLE_KINDS, Item
 from clientbridge.schemas.catalog import (
     ItemCreate,
@@ -107,10 +108,12 @@ class CatalogService:
             visits_per_period=data.visits_per_period,
             member_discount_bps=data.member_discount_bps,
             gift_amounts=_amounts(data.gift_amounts),
+            staff_ids=sorted(set(data.staff_ids)),
         )
         _assert_shape(item)
         await self._assert_covers(item)
         await self._assert_variant(item)
+        await self._assert_staff(item.staff_ids)
         self.db.add(item)
         await self._save(item)
         return item
@@ -119,8 +122,12 @@ class CatalogService:
         self._assert_admin()
         item = await load_item(self.db, self.principal.business_id, item_id, require_active=False)
         changes = data.model_dump(exclude_unset=True)
+        offered_before = set(item.staff_ids)
+        if changes.get("staff_ids", ()) is None:
+            changes["staff_ids"] = []
         for key, value in changes.items():
             setattr(item, key, _amounts(value) if key == "gift_amounts" else value)
+        item.staff_ids = sorted(set(item.staff_ids))
         if "online_bookable" not in changes and item.kind not in BOOKABLE_KINDS:
             item.online_bookable = False
         if item.track_stock and item.stock_on_hand is None:
@@ -128,8 +135,21 @@ class CatalogService:
         _assert_shape(item)
         await self._assert_covers(item)
         await self._assert_variant(item)
+        await self._assert_staff([s for s in item.staff_ids if s not in offered_before])
         await self._save(item)
         return item
+
+    async def _assert_staff(self, staff_ids: list[str]) -> None:
+        """Each newly named member is active in this business; one removed later stays listed."""
+        if not staff_ids:
+            return
+        found = await self.db.scalars(
+            scoped(Staff, self.principal.business_id)
+            .with_only_columns(Staff.id)
+            .where(Staff.id.in_(staff_ids), Staff.status == "active")
+        )
+        if set(found) != set(staff_ids):
+            raise NotFound("staff not found")
 
     async def _assert_variant(self, item: Item) -> None:
         if item.variant_parent_id is not None:
@@ -228,6 +248,21 @@ def _assert_shape(item: Item) -> None:
         raise Unprocessable("only memberships include visits or a member discount")
     if item.gift_amounts is not None and item.kind != "gift":
         raise Unprocessable("only gift cards have suggested amounts")
+    if item.staff_ids and item.kind not in BOOKABLE_KINDS:
+        raise Unprocessable("only services and classes name the staff who offer them")
+
+
+NOT_OFFERED = "that staff member doesn't offer this service"
+
+
+def offers(item: Item, staff_id: str) -> bool:
+    """Whether the member performs this service or class; an empty list means everyone does."""
+    return not item.staff_ids or staff_id in item.staff_ids
+
+
+def assert_offers(item: Item, staff_id: str) -> None:
+    if not offers(item, staff_id):
+        raise Unprocessable(NOT_OFFERED, code="service_not_offered")
 
 
 def _amounts(value: object) -> list[int] | None:

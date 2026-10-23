@@ -45,7 +45,7 @@ import { strings } from "../strings";
 import type { CalendarEventFlag, Intent, OptionMedia, TimelineEntry } from "../ui";
 import type { Viewer } from "./auth";
 import { afterReview, outgoing, review } from "./previews";
-import { type ItemRow, bookableItems, useCatalogItems } from "./catalog";
+import { type ItemRow, bookableItems, idList, offers, useCatalogItems } from "./catalog";
 import { type Checkout, useCheckout } from "./checkout";
 import { type ClientRow, useClients } from "./clients";
 import {
@@ -93,6 +93,8 @@ export interface CalendarEvent {
     // The service's buffers, which the server counts as part of the visit when checking overlaps.
     bufferBeforeMin: number;
     bufferAfterMin: number;
+    // The members the service names as offering it; empty or absent means everyone.
+    itemStaffIds?: readonly string[];
 }
 
 interface PositionedEvent {
@@ -238,6 +240,7 @@ interface EventRow {
     item_price: number;
     buffer_before_min: number;
     buffer_after_min: number;
+    item_staff_ids: string | null;
     booked_count: number;
     booking_id: string | null;
     booking_status: string | null;
@@ -272,7 +275,7 @@ export const EVENTS_SQL = `
 SELECT s.id AS slot_id, s.starts_at, s.ends_at, s.staff_id, s.capacity, s.status AS slot_status,
        s.recurrence_id,
        i.id AS item_id, i.name AS item_name, i.color AS item_color, i.price_cents AS item_price,
-       i.buffer_before_min, i.buffer_after_min,
+       i.buffer_before_min, i.buffer_after_min, i.staff_ids AS item_staff_ids,
        (SELECT COUNT(*) FROM bookings x WHERE x.slot_id = s.id
           AND x.status NOT IN ('canceled', 'waitlisted') AND x.deleted_at IS NULL) AS booked_count,
        b.id AS booking_id, b.status AS booking_status, b.client_id, c.name AS client_name,
@@ -320,6 +323,7 @@ function enrich(r: EventRow, staff: Map<string, StaffRow>, now: Date, zone: stri
         itemId: r.item_id,
         bufferBeforeMin: r.buffer_before_min,
         bufferAfterMin: r.buffer_after_min,
+        itemStaffIds: idList(r.item_staff_ids),
         priceCents: isClass ? r.item_price : (r.booking_price ?? r.item_price),
         serviceName: r.item_name,
         clientName: r.client_name,
@@ -548,7 +552,8 @@ export function buildAvailability(hours: HoursRow[], away: AwayRow[], zone: stri
     };
 }
 
-type MoveProblem = "overlap" | "off_hours" | "time_off" | "closed" | "past" | "full" | null;
+type MoveProblem =
+    "overlap" | "off_hours" | "time_off" | "closed" | "past" | "full" | "not_offered" | null;
 
 /** The service being placed: its buffers widen the overlap check and a class with seats is joined. */
 export interface SlotItem {
@@ -556,6 +561,8 @@ export interface SlotItem {
     capacity: number | null;
     bufferBeforeMin: number;
     bufferAfterMin: number;
+    // checked only when the member is new to the visit, so a kept visit can still be resized
+    staffIds?: readonly string[];
 }
 
 export interface SlotTarget {
@@ -567,6 +574,7 @@ export const slotItemOf = (item: ItemRow): SlotItem => ({
     capacity: item.capacity,
     bufferBeforeMin: item.buffer_before_min,
     bufferAfterMin: item.buffer_after_min,
+    staffIds: idList(item.staff_ids),
 });
 
 const eventItem = (e: CalendarEvent): SlotItem => ({
@@ -599,6 +607,9 @@ export function slotProblem(
     const zone = avail.zone;
     const member = staff.get(staffId);
     const who = member ? firstName(staffName(member)) : "";
+    const item = target.item ?? null;
+    if (item !== null && !offers(item.staffIds ?? [], staffId))
+        return { problem: "not_offered", message: s.problemNotOffered(who) };
     const away = avail.away(staffId, start, end);
     if (away?.staffId === null) return { problem: "closed", message: s.problemClosed(away.label) };
     if (away) return { problem: "time_off", message: s.problemTimeOff(who, away.label) };
@@ -611,7 +622,6 @@ export function slotProblem(
         return { problem: "off_hours", message: s.problemOffHours(who) };
     }
     const live = events.filter((e) => e.id !== ignoreId && e.status !== "canceled");
-    const item = target.item ?? null;
     if (item !== null && (item.capacity ?? 1) > 1) {
         const session = live.find(
             (e) =>
@@ -666,7 +676,10 @@ export function planMove(
         mode === "move" && start < now && start.getTime() !== event.start.getTime()
             ? { problem: "past" as const, message: s.problemPast }
             : slotProblem(ctx.avail, ctx.events, ctx.staff, staffId, start, end, event.id, {
-                  item: eventItem(event),
+                  item: {
+                      ...eventItem(event),
+                      staffIds: staffId === event.staffId ? [] : (event.itemStaffIds ?? []),
+                  },
               });
     const message =
         found.problem !== null
@@ -714,6 +727,8 @@ function verdictMessage(v: ServerVerdict, who: string): string {
             return s.problemPast;
         case "class":
             return s.problemClass;
+        case "not_offered":
+            return s.problemNotOffered(who);
         default:
             return s.dropRefused;
     }
@@ -2157,8 +2172,12 @@ export function useBookingComposer(
                 : (allSubjects.find((p) => p.client_id === estimate.client_id)?.id ?? ""),
         );
     }, [estimate, kind, allSubjects]);
+    const offered = idList(item?.staff_ids ?? null);
+    const offering = board.actors.filter((a) => offers(offered, a.id));
     const fallback = (
-        board.actors.find((a) => avail.hours(a.id, start) !== null) ?? board.actors[0]
+        offering.find((a) => avail.hours(a.id, start) !== null) ??
+        offering[0] ??
+        board.actors[0]
     )?.id;
     const known = board.actors.some((a) => a.id === staffId);
     useEffect(() => {
@@ -2199,12 +2218,14 @@ export function useBookingComposer(
             picked.current = true;
             setStaffId(id);
         },
-        staffOptions: board.actors.map((x) => ({
-            id: x.id,
-            name: staffName(x),
-            free: check(x.id).problem === null,
-            media: personMedia(staffName(x), x.color, photos.staff(x.id)),
-        })),
+        staffOptions: board.actors
+            .filter((x) => x.id === staffId || offers(offered, x.id))
+            .map((x) => ({
+                id: x.id,
+                name: staffName(x),
+                free: check(x.id).problem === null,
+                media: personMedia(staffName(x), x.color, photos.staff(x.id)),
+            })),
         day,
         setDay,
         time,
@@ -2410,11 +2431,13 @@ export function useReschedule(
             setStaffId(id);
             setValue(null);
         },
-        staffOptions: actorsFor(staff.rows, viewer).map((x) => ({
-            key: x.id,
-            label: firstName(staffName(x)),
-            media: personMedia(staffName(x), x.color, photos.staff(x.id)),
-        })),
+        staffOptions: actorsFor(staff.rows, viewer)
+            .filter((x) => x.id === event.staffId || offers(event.itemStaffIds ?? [], x.id))
+            .map((x) => ({
+                key: x.id,
+                label: firstName(staffName(x)),
+                media: personMedia(staffName(x), x.color, photos.staff(x.id)),
+            })),
         groups: groupStarts(slots, zone),
         open: slots.filter((x) => !x.disabled).length,
         loading: week.isLoading || avail.sources.some((x) => x.isLoading),

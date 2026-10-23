@@ -102,6 +102,9 @@ def validate_graph(ctx: DemoContext) -> list[str]:
     for booking in bookings:
         seated.setdefault(booking.slot_id, []).append(booking)
     for slot in active:
+        offered = items[slot.item_id].staff_ids
+        if offered and slot.staff_id not in offered:
+            errors.append(f"{slot.id}: the member does not offer {slot.item_id}")
         # the product's rule: inside the member's hours that day, or a day with none set
         member = [h for h in hours if h.staff_id == slot.staff_id]
         if not within_hours(member, zone, slot.starts_at, slot.ends_at):
