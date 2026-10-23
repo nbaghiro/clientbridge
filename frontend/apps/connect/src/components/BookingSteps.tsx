@@ -30,9 +30,9 @@ import {
 
 const s = strings.publicBooking;
 
-export function addToCalendar(entry: CalendarEntry | null): void {
-    if (entry === null) return;
-    const url = URL.createObjectURL(new Blob([icsFor(entry)], { type: "text/calendar" }));
+export function addToCalendar(entries: readonly CalendarEntry[] | null): void {
+    if (entries === null || entries.length === 0) return;
+    const url = URL.createObjectURL(new Blob([icsFor(entries)], { type: "text/calendar" }));
     const a = document.createElement("a");
     a.href = url;
     a.download = "visit.ics";

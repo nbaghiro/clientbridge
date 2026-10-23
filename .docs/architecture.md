@@ -738,11 +738,17 @@ entitlement and its liability are created.
   `POST /v1/programs/{id}/enrolments` (staff) or a Connect booking of its first day books every session
   still ahead or none, refusing a full day with 409 `program_full`. The first booking carries the price and
   the deposit and the rest are at no charge, so the invoice from that booking, its receipt and the
-  instructor's earning cover the program once, while each day still gets its own reminder and check-in. An
-  enrolment is derived, never stored: the client's (and subject's) live bookings on the schedule.
+  instructor's earning cover the program once, while each day still gets its own reminder and check-in.
+  Enrolling issues that invoice at once, through the same drafting and issuing as
+  `POST /v1/invoices/from-booking/{id}`: one line naming the program and its day count, due on the first
+  day, and a deposit paid online later applies to it the way any visit's deposit applies to its open
+  invoice. Connect's enrolment response lists each day (`days`), and its calendar file holds one event per
+  day. An enrolment is derived, never stored: the client's (and subject's) live bookings on the schedule.
   Cancelling it (`/enrolments/cancel`, or any day's manage link before the first day's cutoff) cancels every
-  day ahead and refunds a paid deposit, and an online deposit left unpaid releases every day with it. An
-  enrolment waiting for approval is approved or declined as a whole; a later day can be canceled on its own, but the priced first day
+  day ahead, voids its invoice and refunds a paid deposit, and an online deposit left unpaid releases every
+  day with it and voids the invoice. Once money was taken on the invoice itself, cancelling and declining
+  are refused with 409 `enrolment_paid` until that payment is refunded. An enrolment waiting for approval is
+  approved or declined as a whole; a later day can be canceled on its own, but the priced first day
   only with the whole enrolment (409 `program_first_day`). A schedule is canceled only once no one
   holds a day still ahead (409 `program_enrolled`), so canceling it never takes a seat or money from anyone. Program days
   have no waitlist: online waitlists refuse them and a freed seat promotes no one. A class seat is held once

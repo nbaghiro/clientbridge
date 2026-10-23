@@ -247,17 +247,6 @@ async def test_enrolling_books_every_day_with_the_price_and_deposit_on_the_first
     assert [e.subject for e in email.sent][-1].startswith("Your visits are booked")
 
 
-async def test_the_first_days_invoice_carries_the_whole_price(
-    as_owner: httpx.AsyncClient, db: AsyncSession
-) -> None:
-    program_id = await program(as_owner, db)
-    made = await enrol(as_owner, program_id, "cl_amelie")
-    first = (await bookings(db, ids(made, "booking_ids")))[0]
-    res = await as_owner.post(f"/v1/invoices/from-booking/{first.id}", headers=key())
-    assert res.status_code == 201, res.text
-    assert res.json()["subtotal_cents"] == 30000
-
-
 async def test_an_enrolment_replays_on_its_idempotency_key(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:

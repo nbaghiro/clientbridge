@@ -297,6 +297,10 @@
     "api.classSchedule": {
         "message": "This is a class schedule. Change or cancel it under Classes."
     },
+    "api.enrolmentPaid": {
+        "message": "A payment was taken on this enrolment's invoice, so it can't be canceled until that payment is refunded.",
+        "description": "Refusing to cancel or decline a program enrolment whose invoice has money paid on it"
+    },
     "api.addonLengthInUse": {
         "message": "{count, plural, one {This add-on's length can't change while a visit carries it. Remove it from # upcoming visit first, or wait until it's done.} other {This add-on's length can't change while visits carry it. Remove it from # upcoming visits first, or wait until they're done.}}",
         "description": "Refusing a change to an add-on product's length: count is how many upcoming, unbilled visits carry it",

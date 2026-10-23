@@ -106,6 +106,7 @@ interface Strings {
         readonly scheduleConflict: string;
         readonly schedulePast: string;
         readonly classSchedule: string;
+        readonly enrolmentPaid: string;
         readonly addonLengthInUse: (count: number) => string;
     };
     readonly previews: {

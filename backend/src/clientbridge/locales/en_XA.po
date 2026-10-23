@@ -337,6 +337,11 @@ msgstr "[Ṁéššåĝé ƒŕöɱ {client}: {body}~~~~~~]"
 msgid "invoice.action"
 msgstr "[Þåý îñṽöîçé~~~~]"
 
+msgid "invoice_line.program"
+msgid_plural "invoice_line.program"
+msgstr[0] "[{program} · {count} ðåý~~~]"
+msgstr[1] "[{program} · {count} ðåýš~~~]"
+
 msgid "invoice_line.visit"
 msgstr "[Ṽîšîţ~~]"
 

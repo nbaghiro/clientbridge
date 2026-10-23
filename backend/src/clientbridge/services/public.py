@@ -62,6 +62,7 @@ from clientbridge.schemas.public import (
     ManageReschedule,
     PublicAddon,
     PublicAddress,
+    PublicBookedDay,
     PublicBookingClient,
     PublicBookingCreate,
     PublicBookingPage,
@@ -479,11 +480,13 @@ class PublicBookingService:
             subject_id=subject_id,
             source="online",
             after=clock.now(),
+            cmd=cmd,
         )
         if policy_of(business).approve_new_clients and first_visit:
             for booking in bookings:
                 booking.status, booking.confirmed_at = "pending", None
         first = bookings[0]
+        ends = {d.id: d.ends_at for d in days}
         self._extras(business, first, data, [])
         secret = await self._open_deposit(business, first, client)
         cmd.record(_BOOK_SCOPE, entity_type="booking", entity_id=first.id)
@@ -495,6 +498,10 @@ class PublicBookingService:
             manage_token=first.manage_token,
             deposit_cents=first.deposit_amount_cents,
             booking_ids=[b.id for b in bookings],
+            days=[
+                PublicBookedDay(booking_id=b.id, starts_at=b.starts_at, ends_at=ends[b.slot_id])
+                for b in bookings
+            ],
         )
 
     async def join_waitlist(
@@ -1139,7 +1146,7 @@ class PublicManageService:
                     for b in await lock_bookings(self.db, business.id, [b.id for b in days])
                     if b.status in ("pending", "confirmed")
                 ]
-                refunded = await withdraw(self.db, self.gateway, live)
+                refunded = await withdraw(self.db, self.gateway, live, cmd)
                 cmd.record(_CANCEL_SCOPE, entity_type="booking", entity_id=booking.id)
                 canceled.extend(b.id for b in live)
                 return ManageCancelResult(

@@ -141,6 +141,12 @@ class PublicProgramDay(BaseModel):
     ends_at: datetime
 
 
+class PublicBookedDay(BaseModel):
+    booking_id: str
+    starts_at: datetime
+    ends_at: datetime
+
+
 class PublicProgram(BaseModel):
     """One run of a program a client can enrol in: every day still has a seat."""
 
@@ -295,6 +301,9 @@ class PublicBookingResult(Mirror):
     )
     booking_ids: list[str] = Field(
         default_factory=list, description="Every day booked, for a program enrolment"
+    )
+    days: list[PublicBookedDay] = Field(
+        default_factory=list, description="When each day of a program enrolment is, in order"
     )
 
 

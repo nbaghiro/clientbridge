@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
 
+from clientbridge.core.locale import SOURCE_LOCALE, plural
 from clientbridge.models.billing import Invoice
 from clientbridge.models.catalog import Item
 from clientbridge.models.clients import Client, Subject
@@ -1454,7 +1455,7 @@ class Lakeside(Demo):
             for n, slot in enumerate(sessions):
                 if n not in away:
                     self.busy.append(("", subject, slot.starts_at, slot.ends_at, 0, 0))
-                self.book(
+                booking = self.book(
                     f"camp_{family}_{child}_{n}",
                     family,
                     CAMP,
@@ -1466,6 +1467,23 @@ class Lakeside(Demo):
                     price=item.price_cents if n == 0 else 0,
                     slot=slot,
                 )
+                if n == 0:
+                    self.enrolment_invoice(booking, family, child, enrolled, paid=order % 2 == 0)
+
+    def enrolment_invoice(
+        self, first: Booking, family: str, child: int, enrolled: datetime, *, paid: bool
+    ) -> None:
+        """The camp's invoice, issued on enrolment and due on its first day; some are paid."""
+        item = self.items[CAMP]
+        invoice = self.invoice(f"camp_{family}_{child}", family, enrolled, enrolled, "")
+        invoice.due_at = first.starts_at
+        first.invoice_id = invoice.id
+        days = plural(
+            SOURCE_LOCALE, "invoice_line.program", item.session_count or 0, program=item.name
+        )
+        self.line(invoice.id, CAMP, enrolled, booking=first, description=days)
+        if paid:
+            self.settle(invoice, family, "etransfer")
 
     def storyline(self) -> None:
         ctx = self.ctx

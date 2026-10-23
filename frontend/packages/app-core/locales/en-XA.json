@@ -272,6 +272,9 @@
     "api.classSchedule": {
         "message": "[Ţĥîš îš å çļåšš šçĥéðûļé. Çĥåñĝé öŕ çåñçéļ îţ ûñðéŕ Çļåššéš. one two three four]"
     },
+    "api.enrolmentPaid": {
+        "message": "[Å þåýɱéñţ ŵåš ţåķéñ öñ ţĥîš éñŕöļɱéñţ'š îñṽöîçé, šö îţ çåñ'ţ ƀé çåñçéļéð ûñţîļ ţĥåţ þåýɱéñţ îš ŕéƒûñðéð. one two three four five six seven]"
+    },
     "api.addonLengthInUse": {
         "message": "[{count,plural,one{Ţĥîš åðð-öñ'š ļéñĝţĥ çåñ'ţ çĥåñĝé ŵĥîļé å ṽîšîţ çåŕŕîéš îţ. Ŕéɱöṽé îţ ƒŕöɱ # ûþçöɱîñĝ ṽîšîţ ƒîŕšţ, öŕ ŵåîţ ûñţîļ îţ'š ðöñé.} other{Ţĥîš åðð-öñ'š ļéñĝţĥ çåñ'ţ çĥåñĝé ŵĥîļé ṽîšîţš çåŕŕý îţ. Ŕéɱöṽé îţ ƒŕöɱ # ûþçöɱîñĝ ṽîšîţš ƒîŕšţ, öŕ ŵåîţ ûñţîļ ţĥéý'ŕé ðöñé.}} one two three four five six seven eight nine ten one two three four]"
     },

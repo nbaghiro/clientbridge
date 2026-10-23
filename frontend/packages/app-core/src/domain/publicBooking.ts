@@ -145,6 +145,8 @@ interface PublicBookingResult {
     deposit_client_secret: string | null;
     stripe_account_id: string | null;
     waitlist_position: number | null;
+    // each day of a program enrolment, in order; empty for one visit
+    days?: { booking_id: string; starts_at: string; ends_at: string }[];
 }
 
 interface BookingInput {
@@ -372,24 +374,49 @@ const icsStamp = (iso: string): string =>
         .replace(/[-:]/g, "")
         .replace(/\.\d{3}/, "");
 
-/** An .ics file for one visit, so "Add to calendar" works in Apple, Google and Outlook. */
-export function icsFor(e: CalendarEntry): string {
+/** An .ics file with one event per visit, so "Add to calendar" works in Apple, Google and Outlook. */
+export function icsFor(entries: readonly CalendarEntry[]): string {
     const esc = (t: string): string =>
         t.replace(/[\\;,]/g, (c) => `\\${c}`).replace(/\r\n|\r|\n/g, "\\n");
+    const stamp = icsStamp(new Date().toISOString());
     return [
         "BEGIN:VCALENDAR",
         "VERSION:2.0",
         "PRODID:-//Clientbridge//Booking//EN",
-        "BEGIN:VEVENT",
-        `UID:${e.uid}@clientbridge.ca`,
-        `DTSTAMP:${icsStamp(new Date().toISOString())}`,
-        `DTSTART:${icsStamp(e.starts_at)}`,
-        `DTEND:${icsStamp(e.ends_at)}`,
-        `SUMMARY:${esc(e.title)}`,
-        `LOCATION:${esc(e.location)}`,
-        "END:VEVENT",
+        ...entries.flatMap((e) => [
+            "BEGIN:VEVENT",
+            `UID:${e.uid}@clientbridge.ca`,
+            `DTSTAMP:${stamp}`,
+            `DTSTART:${icsStamp(e.starts_at)}`,
+            `DTEND:${icsStamp(e.ends_at)}`,
+            `SUMMARY:${esc(e.title)}`,
+            `LOCATION:${esc(e.location)}`,
+            "END:VEVENT",
+        ]),
         "END:VCALENDAR",
     ].join("\r\n");
+}
+
+/** What a confirmation adds to a calendar: every day of a program enrolment, else the one visit. */
+export function bookedEntries(
+    result: {
+        booking_id: string;
+        days?: readonly { booking_id: string; starts_at: string; ends_at: string }[];
+    },
+    slot: { starts_at: string; ends_at: string },
+    visit: { slug: string; title: string; location: string },
+): CalendarEntry[] {
+    const days =
+        result.days === undefined || result.days.length === 0
+            ? [{ booking_id: result.booking_id, starts_at: slot.starts_at, ends_at: slot.ends_at }]
+            : result.days;
+    return days.map((d) => ({
+        uid: `${d.booking_id}.${visit.slug}`,
+        title: visit.title,
+        starts_at: d.starts_at,
+        ends_at: d.ends_at,
+        location: visit.location,
+    }));
 }
 
 /** The business-zone day a saved start falls on, or null when it isn't a time. */
@@ -1076,13 +1103,11 @@ export function usePublicBookingFlow(
                 : null,
         calendar:
             slot && service && page && result
-                ? {
-                      uid: `${result.booking_id}.${page.slug}`,
+                ? bookedEntries(result, slot, {
+                      slug: page.slug,
                       title: s.calendarTitle(service.name, page.business_name),
-                      starts_at: slot.starts_at,
-                      ends_at: slot.ends_at,
                       location: page.business_name,
-                  }
+                  })
                 : null,
         paid: () => {
             setStep("done");
@@ -1332,13 +1357,15 @@ export function useManageBooking(client: ManageBookingClient, token: string) {
         whenTitle: data ? whenTitle(data.starts_at, today, zone) : "",
         timeRange: data ? formatTimeRange(start, parseTimestamp(data.ends_at), zone) : "",
         calendar: data
-            ? {
-                  uid: `${data.booking_id}.${data.slug}`,
-                  title: s.calendarTitle(data.service.name, data.business_name),
-                  starts_at: data.starts_at,
-                  ends_at: data.ends_at,
-                  location: data.business_name,
-              }
+            ? [
+                  {
+                      uid: `${data.booking_id}.${data.slug}`,
+                      title: s.calendarTitle(data.service.name, data.business_name),
+                      starts_at: data.starts_at,
+                      ends_at: data.ends_at,
+                      location: data.business_name,
+                  },
+              ]
             : null,
         countdown: m.countdown(
             hoursAway < 48

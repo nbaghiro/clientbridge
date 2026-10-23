@@ -24,6 +24,7 @@ from clientbridge.schemas.programs import (
     ProgramOut,
     ProgramSession,
 )
+from clientbridge.services.billing import issue_enrolment_invoice, void_enrolment_invoice
 from clientbridge.services.bookings import (
     ALREADY_IN_CLASS,
     MAX_OCCURRENCES,
@@ -56,6 +57,7 @@ _OVER = "this program has no sessions left"
 _FULL = "a day of this program is full"
 _ENROLLED = "there are enrolments; cancel them before the schedule"
 _NOT_ENROLLED = "no enrolment in this program for that client"
+_PAID = "money was taken on this enrolment's invoice; refund it before canceling"
 _LIVE = ("pending", "confirmed")
 
 
@@ -86,8 +88,9 @@ async def enrol(
     subject_id: str | None,
     source: BookingSource,
     after: datetime,
+    cmd: Command,
 ) -> list[Booking]:
-    """Book every session ahead, or none: the first carries the price and the deposit."""
+    """Book every session ahead or none; the first carries the price, deposit and invoice."""
     if program.staff_id is not None:
         await lock_staff(db, business_id, program.staff_id)
     await db.refresh(program)
@@ -128,11 +131,17 @@ async def enrol(
         )
     db.add_all(bookings)
     await db.flush()
+    await issue_enrolment_invoice(db, bookings[0], cmd)
     return bookings
 
 
-async def withdraw(db: AsyncSession, gateway: PaymentGateway, bookings: Sequence[Booking]) -> int:
-    """Cancel an enrolment's days, refunding a paid deposit; the sessions stay for the rest."""
+async def withdraw(
+    db: AsyncSession, gateway: PaymentGateway, bookings: Sequence[Booking], cmd: Command
+) -> int:
+    """Cancel an enrolment's days, voiding its invoice and refunding a paid deposit."""
+    for booking in bookings:
+        if not await void_enrolment_invoice(db, booking, cmd):
+            raise Conflict(_PAID, code="enrolment_paid")
     refunded = 0
     now = clock.now()
     for booking in bookings:
@@ -301,6 +310,7 @@ class ProgramService:
                 subject_id=data.subject_id,
                 source="manual",
                 after=clock.now(),
+                cmd=cmd,
             )
             cmd.record("program.enrol", entity_type="recurrence", entity_id=program.id)
             return EnrolmentOut(
@@ -341,7 +351,7 @@ class ProgramService:
                 for b in await lock_bookings(self.db, self.biz, [b.id for b in ahead])
                 if b.status in _LIVE
             ]
-            refunded = await withdraw(self.db, gateway, live)
+            refunded = await withdraw(self.db, gateway, live, cmd)
             cmd.record("program.withdraw", entity_type="recurrence", entity_id=program.id)
             return EnrolmentCancelOut(
                 program_id=program.id, canceled=[b.id for b in live], refunded_cents=refunded

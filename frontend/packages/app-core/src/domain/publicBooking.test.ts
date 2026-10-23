@@ -22,6 +22,7 @@ import {
     draftDay,
     groupSlots,
     horizonDay,
+    bookedEntries,
     icsFor,
     mapsUrl,
     toStrip,
@@ -133,13 +134,15 @@ describe("open times", () => {
 
 describe("icsFor", () => {
     it("writes one escaped UTC event with CRLF line endings", () => {
-        const ics = icsFor({
-            uid: "bk_01J.birch-studio",
-            title: "Groom, wash; trim\\",
-            starts_at: "2026-10-07 17:00:00+00",
-            ends_at: "2026-10-07T18:30:00Z",
-            location: "Birch Studio, Victoria",
-        });
+        const ics = icsFor([
+            {
+                uid: "bk_01J.birch-studio",
+                title: "Groom, wash; trim\\",
+                starts_at: "2026-10-07 17:00:00+00",
+                ends_at: "2026-10-07T18:30:00Z",
+                location: "Birch Studio, Victoria",
+            },
+        ]);
         const lines = ics.split("\r\n");
         expect(lines).toHaveLength(12);
         expect(lines.slice(0, 4)).toEqual([
@@ -161,13 +164,15 @@ describe("icsFor", () => {
     });
 
     it("escapes line breaks so a multi-line field stays on one content line", () => {
-        const ics = icsFor({
-            uid: "bk_1.birch",
-            title: "Groom",
-            starts_at: "2026-10-07T17:00:00Z",
-            ends_at: "2026-10-07T18:00:00Z",
-            location: "12 Main St\r\nUnit 4\nVictoria, BC",
-        });
+        const ics = icsFor([
+            {
+                uid: "bk_1.birch",
+                title: "Groom",
+                starts_at: "2026-10-07T17:00:00Z",
+                ends_at: "2026-10-07T18:00:00Z",
+                location: "12 Main St\r\nUnit 4\nVictoria, BC",
+            },
+        ]);
         expect(ics.split("\r\n")).toContain("LOCATION:12 Main St\\nUnit 4\\nVictoria\\, BC");
     });
 
@@ -180,10 +185,49 @@ describe("icsFor", () => {
         };
         const uid = (ics: string): string | undefined =>
             ics.split("\r\n").find((l) => l.startsWith("UID:"));
-        const a = uid(icsFor({ ...visit, uid: "bk_1.birch" }));
-        const b = uid(icsFor({ ...visit, uid: "bk_2.birch" }));
-        const c = uid(icsFor({ ...visit, uid: "bk_1.fjord" }));
+        const a = uid(icsFor([{ ...visit, uid: "bk_1.birch" }]));
+        const b = uid(icsFor([{ ...visit, uid: "bk_2.birch" }]));
+        const c = uid(icsFor([{ ...visit, uid: "bk_1.fjord" }]));
         expect(new Set([a, b, c]).size).toBe(3);
+    });
+
+    it("writes one event for each day of a program enrolment", () => {
+        const days = [
+            {
+                booking_id: "bk_1",
+                starts_at: "2027-03-02T18:00:00Z",
+                ends_at: "2027-03-02T19:00:00Z",
+            },
+            {
+                booking_id: "bk_2",
+                starts_at: "2027-03-03T18:00:00Z",
+                ends_at: "2027-03-03T19:00:00Z",
+            },
+            {
+                booking_id: "bk_3",
+                starts_at: "2027-03-04T18:00:00Z",
+                ends_at: "2027-03-04T19:00:00Z",
+            },
+        ];
+        const visit = { slug: "birch", title: "Camp", location: "Birch" };
+        const first = { starts_at: "2027-03-02T18:00:00Z", ends_at: "2027-03-02T19:00:00Z" };
+        const entries = bookedEntries({ booking_id: "bk_1", days }, first, visit);
+        const lines = icsFor(entries).split("\r\n");
+        expect(lines.filter((l) => l === "BEGIN:VEVENT")).toHaveLength(3);
+        expect(lines.filter((l) => l.startsWith("UID:"))).toEqual([
+            "UID:bk_1.birch@clientbridge.ca",
+            "UID:bk_2.birch@clientbridge.ca",
+            "UID:bk_3.birch@clientbridge.ca",
+        ]);
+        expect(lines.filter((l) => l.startsWith("DTSTART:"))).toEqual([
+            "DTSTART:20270302T180000Z",
+            "DTSTART:20270303T180000Z",
+            "DTSTART:20270304T180000Z",
+        ]);
+        const slot = { starts_at: "2026-10-07T17:00:00Z", ends_at: "2026-10-07T18:00:00Z" };
+        expect(bookedEntries({ booking_id: "bk_9" }, slot, visit)).toEqual([
+            { uid: "bk_9.birch", title: "Camp", location: "Birch", ...slot },
+        ]);
     });
 });
 

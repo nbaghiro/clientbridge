@@ -7816,6 +7816,21 @@ export interface components {
             /** Postal Code */
             postal_code?: string | null;
         };
+        /** PublicBookedDay */
+        PublicBookedDay: {
+            /** Booking Id */
+            booking_id: string;
+            /**
+             * Starts At
+             * Format: date-time
+             */
+            starts_at: string;
+            /**
+             * Ends At
+             * Format: date-time
+             */
+            ends_at: string;
+        };
         /** PublicBookingClient */
         PublicBookingClient: {
             /** Name */
@@ -7928,6 +7943,11 @@ export interface components {
              * @description Every day booked, for a program enrolment
              */
             booking_ids?: string[];
+            /**
+             * Days
+             * @description When each day of a program enrolment is, in order
+             */
+            days?: components["schemas"]["PublicBookedDay"][];
         };
         /**
          * PublicBrand

@@ -319,6 +319,11 @@ msgstr "Message from {client}: {body}"
 msgid "invoice.action"
 msgstr "Pay invoice"
 
+msgid "invoice_line.program"
+msgid_plural "invoice_line.program"
+msgstr[0] "{program} · {count} day"
+msgstr[1] "{program} · {count} days"
+
 msgid "invoice_line.visit"
 msgstr "Visit"
 

@@ -893,6 +893,7 @@ class Demo:
         booking: Booking | None = None,
         quantity: int = 1,
         price: int | None = None,
+        description: str | None = None,
     ) -> None:
         item = self.items[item_id]
         if price is None:
@@ -905,7 +906,7 @@ class Demo:
                 item_id=item.id,
                 booking_id=booking.id if booking is not None else None,
                 staff_id=booking.staff_id if booking is not None else None,
-                description=item.name,
+                description=description or item.name,
                 quantity=quantity,
                 unit_amount_cents=price,
                 amount_cents=price * quantity,

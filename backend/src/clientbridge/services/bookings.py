@@ -11,7 +11,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
-from clientbridge.core.command import Command, run_command
+from clientbridge.core.command import Command, PublicPrincipal, run_command
 from clientbridge.core.deps import Principal, assert_can_act_as, assert_role, is_manager
 from clientbridge.core.errors import (
     AppError,
@@ -135,6 +135,7 @@ _INVOICED = "this visit is already invoiced"
 _CLASS_CREW = "a class session has no crew; add helpers to a one-to-one visit"
 _CREW_STARTED = "the visit has already started; add helpers before it starts"
 _CREW_MANAGERS = "only an owner or admin can change a visit's crew"
+_ENROLMENT_PAID = "money was taken on this enrolment's invoice; refund it before declining"
 BookingNotice = Literal["confirmed", "canceled", "rescheduled"]
 
 
@@ -979,7 +980,8 @@ class BookingService:
             self.db, self.biz, slot.recurrence_id, booking.client_id, booking.subject_id
         )
         waiting = [b.id for b in days if b.status == "pending" and b.id != booking.id]
-        for other in await lock_bookings(self.db, self.biz, waiting):
+        others = await lock_bookings(self.db, self.biz, waiting)
+        for other in others:
             other.status = status
             if status == "confirmed":
                 other.confirmed_at = other.confirmed_at or clock.now()
@@ -989,6 +991,12 @@ class BookingService:
                     other.deposit_status = "none"
                 other.canceled_at = clock.now()
             cmd.record(f"booking.{status}", entity_type="booking", entity_id=other.id)
+        if status == "canceled":
+            from clientbridge.services import billing  # deferred: billing imports this module
+
+            for day in (booking, *others):
+                if not await billing.void_enrolment_invoice(self.db, day, cmd):
+                    raise Conflict(_ENROLMENT_PAID, code="enrolment_paid")
 
     def _moves(self, data: BookingMove, slot: Slot) -> bool:
         return (
@@ -2922,6 +2930,7 @@ async def run_reap_unpaid_bookings(
     db: AsyncSession, gateway: PaymentGateway, notifier: Notifier, now: datetime
 ) -> int:
     """Release online bookings whose deposit went unpaid past the window, and tell the client."""
+    from clientbridge.services import billing  # deferred: billing imports this module
 
     def deposits(*statuses: str) -> Exists:
         q = select(Payment.id).where(Payment.booking_id == Booking.id, Payment.kind == "deposit")
@@ -2970,6 +2979,10 @@ async def run_reap_unpaid_bookings(
             )
             for day in await lock_bookings(db, booking.business_id, [d.id for d in days]):
                 day.status, day.canceled_at = "canceled", now
+            cmd = Command(db, PublicPrincipal(booking.business_id))
+            # money taken on the invoice stays for staff to refund, so only an unpaid one is voided
+            await billing.void_enrolment_invoice(db, booking, cmd)
+            db.add_all(cmd.audits)
         await release_slot(db, slot)
         await carry_crew(db, booking.business_id, booking, slot)
         await fill_freed_seats(db, slot)

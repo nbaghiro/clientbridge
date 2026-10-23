@@ -328,6 +328,11 @@ msgstr ""
 msgid "invoice.action"
 msgstr ""
 
+msgid "invoice_line.program"
+msgid_plural "invoice_line.program"
+msgstr[0] ""
+msgstr[1] ""
+
 msgid "invoice_line.visit"
 msgstr ""
 
