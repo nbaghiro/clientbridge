@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 from clientbridge.core.mirrors import Mirror
 from clientbridge.core.phones import Phone
-from clientbridge.models.business import Staff, SubjectKind
+from clientbridge.models.business import Business, ProvinceCode, Staff, SubjectKind
 from clientbridge.models.catalog import Item, ItemKind
 from clientbridge.models.scheduling import Booking, BookingStatus, DepositStatus
 
@@ -24,6 +24,19 @@ class PublicBrand(BaseModel):
     logo_url: str | None = None
     primary: str | None = None
     tagline: str | None = None
+
+
+class PublicAddress(Mirror):
+    """The business's legal street address, as its documents print it; unset parts are None."""
+
+    mirrors = Business
+
+    unit: str | None = None
+    street_number: str | None = None
+    street_name: str | None = None
+    city: str | None = None
+    province: ProvinceCode | None = None
+    postal_code: str | None = None
 
 
 class PublicService(Mirror):
@@ -187,6 +200,9 @@ class ManagedBooking(Mirror):
     timezone: str = Field(description="The business's IANA time zone, which its times are shown in")
     can_move: bool
     can_cancel: bool
+    has_receipt: bool = Field(
+        default=False, description="The visit's invoice or sale is paid, so it has a receipt"
+    )
     blocked: ManageBlock | None = Field(
         default=None, description="Why a change is refused online, as a code Connect words"
     )

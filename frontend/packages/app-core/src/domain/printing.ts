@@ -51,6 +51,18 @@ export function addressLines(a: PostalParts): string[] {
     return [line, place.length === 0 ? "" : formatList(place, "unit")].filter((l) => l !== "");
 }
 
+/** The lines of an address from a public payload, which may leave out the parts not set. */
+export function publicAddressLines(a: Partial<PostalParts> | undefined): string[] {
+    return addressLines({
+        unit: a?.unit ?? null,
+        street_number: a?.street_number ?? null,
+        street_name: a?.street_name ?? null,
+        city: a?.city ?? null,
+        province: a?.province ?? null,
+        postal_code: a?.postal_code ?? null,
+    });
+}
+
 const s = strings.printing;
 
 const PRINT_LABELS: PrintedDocLabels = {

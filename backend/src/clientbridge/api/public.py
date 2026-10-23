@@ -26,7 +26,7 @@ from clientbridge.schemas.consents import (
 from clientbridge.schemas.contracts import PublicContractContext, PublicContractSign
 from clientbridge.schemas.files import PublicFileComplete, PublicFileCreate, PublicFileUpload
 from clientbridge.schemas.forms import PublicFormContext, PublicFormSubmit
-from clientbridge.schemas.orders import PublicReceipt
+from clientbridge.schemas.orders import PublicReceipt, VisitReceipt
 from clientbridge.schemas.payments import (
     PublicCardIntent,
     PublicInvoice,
@@ -347,6 +347,13 @@ async def manage_view(
     token: str, db: DbSession, gateway: GatewayDep, _: BookingRateLimited
 ) -> ManagedBooking:
     return await PublicManageService(db, gateway).view(token)
+
+
+@manage_router.get("/{token}/receipt", response_model=VisitReceipt)
+async def manage_receipt(
+    token: str, db: DbSession, gateway: GatewayDep, _: BookingRateLimited
+) -> VisitReceipt:
+    return await PublicManageService(db, gateway).receipt(token)
 
 
 @manage_router.get("/{token}/photos/{file_id}", response_class=RedirectResponse, status_code=302)

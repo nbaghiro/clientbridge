@@ -45,7 +45,7 @@ from clientbridge.schemas.forms import (
     PublicFormField,
     PublicFormSubmit,
 )
-from clientbridge.schemas.orders import PublicReceipt, PublicReceiptPayment
+from clientbridge.schemas.orders import PublicReceipt, PublicReceiptPayment, VisitReceipt
 from clientbridge.schemas.payments import (
     PublicCardIntent,
     PublicDocLine,
@@ -63,6 +63,7 @@ from clientbridge.schemas.public import (
     ManageMessageResult,
     ManageReschedule,
     PublicAddon,
+    PublicAddress,
     PublicBookingClient,
     PublicBookingCreate,
     PublicBookingPage,
@@ -777,6 +778,11 @@ class PublicManageService:
         booking, slot, business = await self._resolve(token)
         return await self._view(booking, slot, business)
 
+    async def receipt(self, token: str) -> VisitReceipt:
+        """The visit's receipt for the client's insurer; the manage link is the credential."""
+        booking, _, business = await self._resolve(token)
+        return await visit_receipt(self.db, booking, business)
+
     async def photo(self, token: str, file_id: str, storage: FileStorage) -> str:
         """Where one of the visit's photos can be downloaded; the manage link is the credential."""
         booking, _, _ = await self._resolve(token)
@@ -1085,6 +1091,7 @@ class PublicManageService:
         move = self._blocked(booking, slot, business, staff, "move")
         cancel = self._blocked(booking, slot, business, staff, "cancel")
         blocked, blocked_hours = cancel or move or (None, None)
+        document = await visit_document(self.db, booking)
         return ManagedBooking(
             refund_status=await booking_refund_status(self.db, booking),
             address=visit_address(business, subject),
@@ -1138,6 +1145,7 @@ class PublicManageService:
             timezone=business.timezone,
             can_move=move is None,
             can_cancel=cancel is None,
+            has_receipt=document is not None and await receipted(self.db, document),
             blocked=blocked,
             blocked_hours=blocked_hours,
             waitlist_position=await waitlist_position(self.db, booking),
@@ -1507,6 +1515,8 @@ class PublicPayService:
             number=invoice.number,
             business_name=business.name,
             brand=public_brand(business),
+            address=public_address(business),
+            phone=business.legal_phone,
             currency=invoice.currency,
             timezone=business.timezone,
             subtotal_cents=invoice.subtotal_cents,
@@ -1776,57 +1786,134 @@ class PublicReceiptService:
         msg = "receipt not found"
         order = await resolve_by_token(self.db, Order, Order.receipt_token == token, msg)
         business = await business_or_404(self.db, order.business_id, msg)
-        lines = await fetch_lines(self.db, order.business_id, "order", order.id)
-        doc_lines, taxes = await public_doc_lines(self.db, order, lines)
-        client = await self.db.get(Client, order.client_id) if order.client_id else None
-        staff_ids = list(dict.fromkeys(ln.staff_id for ln in lines if ln.staff_id))
-        by_id = await staff_names(self.db, order.business_id, staff_ids)
-        payments = (
-            await self.db.execute(
-                scoped(Payment, order.business_id)
-                .where(Payment.order_id == order.id, Payment.status == "succeeded")
-                .order_by(Payment.paid_at)
-            )
-        ).scalars()
-        status, _ = await ledger.order_state(self.db, order)
-        rows = [
-            PublicReceiptPayment(
-                kind="refund" if p.kind == "refund" else "payment",
-                method=p.method,
-                amount_cents=p.amount_cents,
-                tip_cents=p.tip_cents,
-                at=p.paid_at,
-            )
-            for p in payments
-        ]
-        applied = await ledger.order_deposit_applied(self.db, order)
-        if applied > 0:
-            rows.insert(
-                0,
-                PublicReceiptPayment(kind="deposit", method=None, amount_cents=applied, at=None),
-            )
-        return PublicReceipt(
-            number=order.number,
-            business_name=business.name,
-            brand=public_brand(business),
-            gst_hst_number=business.gst_hst_number,
-            qst_number=business.qst_number,
-            client_name=client.name if client is not None else None,
-            served_by=[n for sid in staff_ids if (n := by_id.get(sid))],
-            status=status,
-            currency=order.currency,
-            timezone=business.timezone,
-            created_at=order.created_at,
-            lines=[line for line, _ in doc_lines],
-            discount_cents=sum(ln.sale_discount_cents for ln in lines),
-            discount_reason=order.discount_reason,
-            subtotal_cents=order.subtotal_cents,
-            taxes=taxes,
-            tax_total_cents=order.tax_total_cents,
-            total_cents=order.total_cents,
-            tip_cents=sum(r.tip_cents for r in rows if r.kind == "payment"),
-            payments=rows,
+        return await document_receipt(self.db, order, business)
+
+
+def public_address(business: Business) -> PublicAddress:
+    return PublicAddress(
+        unit=business.unit,
+        street_number=business.street_number,
+        street_name=business.street_name,
+        city=business.city,
+        province=business.province,
+        postal_code=business.postal_code,
+    )
+
+
+async def document_receipt(
+    db: AsyncSession, document: Invoice | Order, business: Business
+) -> PublicReceipt:
+    """What an invoice or sale prints as a receipt: its lines, tax, tip and each payment."""
+    if isinstance(document, Invoice):
+        lines = await fetch_lines(db, document.business_id, "invoice", document.id)
+        status, _ = await ledger.invoice_state(db, document)
+        paid_by = and_(Payment.invoice_id == document.id, Payment.kind != "deposit")
+        applied = sum(
+            c.amount_cents for c in await invoice_credits(db, document) if c.kind == "deposit"
         )
+    else:
+        lines = await fetch_lines(db, document.business_id, "order", document.id)
+        status, _ = await ledger.order_state(db, document)
+        paid_by = Payment.order_id == document.id
+        applied = await ledger.order_deposit_applied(db, document)
+    doc_lines, taxes = await public_doc_lines(db, document, lines)
+    client = await db.get(Client, document.client_id) if document.client_id else None
+    staff_ids = list(dict.fromkeys(ln.staff_id for ln in lines if ln.staff_id))
+    by_id = await staff_names(db, document.business_id, staff_ids)
+    payments = (
+        await db.execute(
+            scoped(Payment, document.business_id)
+            .where(paid_by, Payment.status == "succeeded")
+            .order_by(Payment.paid_at)
+        )
+    ).scalars()
+    rows = [
+        PublicReceiptPayment(
+            kind="refund" if p.kind == "refund" else "payment",
+            method=p.method,
+            amount_cents=p.amount_cents,
+            tip_cents=p.tip_cents,
+            at=p.paid_at,
+        )
+        for p in payments
+    ]
+    if applied > 0:
+        rows.insert(
+            0,
+            PublicReceiptPayment(kind="deposit", method=None, amount_cents=applied, at=None),
+        )
+    return PublicReceipt(
+        number=document.number,
+        business_name=business.name,
+        brand=public_brand(business),
+        address=public_address(business),
+        phone=business.legal_phone,
+        gst_hst_number=business.gst_hst_number,
+        qst_number=business.qst_number,
+        client_name=client.name if client is not None else None,
+        served_by=[n for sid in staff_ids if (n := by_id.get(sid))],
+        status=status,
+        currency=document.currency,
+        timezone=business.timezone,
+        created_at=issued_at(document),
+        lines=[line for line, _ in doc_lines],
+        discount_cents=sum(ln.sale_discount_cents for ln in lines),
+        discount_reason=document.discount_reason,
+        subtotal_cents=document.subtotal_cents,
+        taxes=taxes,
+        tax_total_cents=document.tax_total_cents,
+        total_cents=document.total_cents,
+        tip_cents=sum(r.tip_cents for r in rows if r.kind == "payment"),
+        payments=rows,
+    )
+
+
+_RECEIPTED = frozenset({"paid", "partial", "refunded"})
+
+
+async def visit_document(db: AsyncSession, booking: Booking) -> Invoice | Order | None:
+    """The invoice or sale a visit was billed on, unless it was voided."""
+    if booking.invoice_id is not None:
+        invoice = await db.get(Invoice, booking.invoice_id)
+        if invoice is not None and invoice.status != "void":
+            return invoice
+    if booking.order_id is not None:
+        order = await db.get(Order, booking.order_id)
+        if order is not None and order.status != "void":
+            return order
+    return None
+
+
+async def receipted(db: AsyncSession, document: Invoice | Order) -> bool:
+    if isinstance(document, Invoice):
+        return (await ledger.invoice_state(db, document))[0] in _RECEIPTED
+    return (await ledger.order_state(db, document))[0] in _RECEIPTED
+
+
+async def visit_receipt(db: AsyncSession, booking: Booking, business: Business) -> VisitReceipt:
+    """A visit's receipt, numbered as its invoice or sale, with who saw the client."""
+    document = await visit_document(db, booking)
+    if document is None:
+        raise Conflict(
+            "this visit has no invoice or sale to print a receipt from", code="visit_not_billed"
+        )
+    if not await receipted(db, document):
+        raise Conflict("nothing has been paid on this visit yet", code="visit_unpaid")
+    slot = await db.get(Slot, booking.slot_id)
+    item = await db.get(Item, slot.item_id) if slot is not None else None
+    if slot is None or item is None:
+        raise NotFound("booking not found")
+    staff = await db.get(Staff, booking.staff_id) if booking.staff_id else None
+    names = await staff_names(db, business.id, [staff.id] if staff is not None else [])
+    receipt = await document_receipt(db, document, business)
+    return VisitReceipt(
+        **receipt.model_dump(),
+        source="invoice" if isinstance(document, Invoice) else "sale",
+        service=item.name,
+        visit_at=slot.starts_at,
+        practitioner=names.get(staff.id) if staff is not None else None,
+        practitioner_title=staff.title if staff is not None else None,
+    )
 
 
 class PublicPreferencesService:

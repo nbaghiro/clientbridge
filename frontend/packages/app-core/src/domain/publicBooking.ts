@@ -1017,6 +1017,7 @@ interface ManagedBooking {
     timezone: string;
     can_move: boolean;
     can_cancel: boolean;
+    has_receipt?: boolean;
     blocked: ManageBlock | null;
     blocked_hours: number | null;
     waitlist_position: number | null;

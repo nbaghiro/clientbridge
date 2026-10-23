@@ -58,6 +58,7 @@ import {
 } from "./files";
 import { canManagePayments } from "./payments";
 import { isPlace, mapsUrl, visitAddress } from "./publicBooking";
+import { type VisitReceipt, type VisitReceiptView, useVisitReceipt } from "./publicReceipt";
 import { type StaffRow, staffName, useStaff } from "./staff";
 import {
     type SubjectKind,
@@ -2513,7 +2514,7 @@ export const ADDONS_SQL = `
 SELECT id, description, quantity, unit_amount_cents FROM addons
 WHERE booking_id = ? ORDER BY created_at`;
 
-export const BOOKING_INVOICE_SQL = "SELECT invoice_id FROM bookings WHERE id = ?";
+export const BOOKING_INVOICE_SQL = "SELECT invoice_id, order_id FROM bookings WHERE id = ?";
 
 interface BookingAddons {
     addons: BookingAddonRow[];
@@ -2561,6 +2562,36 @@ export function useBookingAddons(
         },
         busy,
         error,
+    };
+}
+
+interface BookingReceipt extends VisitReceiptView {
+    available: boolean;
+}
+
+/** An owner or admin prints a billed visit's receipt, numbered as its invoice or sale. */
+export function useBookingReceipt(
+    api: ApiLike,
+    event: CalendarEvent,
+    viewer: Viewer | null,
+    fallbackColor: string,
+): BookingReceipt {
+    const bookingId = event.bookingId ?? "";
+    const billed = useQuery<{ invoice_id: string | null; order_id: string | null }>(
+        BOOKING_INVOICE_SQL,
+        [bookingId],
+    ).data.at(0);
+    const receipt = useVisitReceipt(
+        () => api.get<VisitReceipt>(`/v1/bookings/${bookingId}/receipt`),
+        fallbackColor,
+    );
+    return {
+        ...receipt,
+        available:
+            bookingId !== "" &&
+            viewer !== null &&
+            canManagePayments(viewer.role) &&
+            (billed?.invoice_id != null || billed?.order_id != null),
     };
 }
 

@@ -27,6 +27,7 @@ from clientbridge.schemas.billing import (
     InvoiceUpdate,
     LineInput,
 )
+from clientbridge.schemas.orders import VisitReceipt
 from clientbridge.services import ledger
 from clientbridge.services.bookings import apply_deposit, hold_estimate, unapply_deposit
 from clientbridge.services.business import business_tz, businesses_at_hour
@@ -501,6 +502,17 @@ class BillingService:
             idempotency_key=idempotency_key,
             request={"booking_id": booking_id},
         )
+
+    async def visit_receipt(self, booking_id: str) -> VisitReceipt:
+        assert_role(
+            self.principal, "owner", "admin", message="only an owner or admin can print receipts"
+        )
+        booking = await self._booking(booking_id)
+        business = await self.db.get(Business, self.biz)
+        assert business is not None
+        from clientbridge.services.public import visit_receipt
+
+        return await visit_receipt(self.db, booking, business)
 
     async def _booking(self, booking_id: str) -> Booking:
         row = (

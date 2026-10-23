@@ -234,6 +234,14 @@ CREDENTIALS = {
     JUN: ("Jun Park", "RMT", "13917"),
     WEN: ("Wen Liu", "R.Ac.", "A-2316"),
 }
+
+
+def _registration(staff: str) -> str:
+    """A practitioner's title, which their visit receipts print: "RMT · Reg. 10482"."""
+    _, credential, number = CREDENTIALS[staff]
+    return f"{credential} · Reg. {number}"
+
+
 POLICY_REVISED = 120
 POLICY_V1 = (
     "Please give us 24 hours' notice to move or cancel a massage or acupuncture visit. "
@@ -569,7 +577,7 @@ SPEC = BusinessSpec(
             "Leila Moradi",
             "+17785550191",
             "owner",
-            "Owner, registered massage therapist",
+            _registration(LEILA),
             "#2C5F6E",
             HOURS[LEILA],
         ),
@@ -580,7 +588,7 @@ SPEC = BusinessSpec(
             "Jun Park",
             "+17785550192",
             "staff",
-            "Registered massage therapist",
+            _registration(JUN),
             "#7A5C3E",
             HOURS[JUN],
             payee=True,
@@ -594,7 +602,7 @@ SPEC = BusinessSpec(
             "Wen Liu",
             "+17785550193",
             "staff",
-            "Registered acupuncturist",
+            _registration(WEN),
             "#4F6D8F",
             HOURS[WEN],
             payee=True,

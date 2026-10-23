@@ -39,6 +39,8 @@ from clientbridge.schemas.bookings import (
     VisitNeeds,
     VisitPage,
 )
+from clientbridge.schemas.orders import VisitReceipt
+from clientbridge.services.billing import BillingService
 from clientbridge.services.bookings import (
     BookingService,
     ClassService,
@@ -130,6 +132,13 @@ async def client_visits(
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
 ) -> VisitPage:
     return await BookingService(db, principal, gateway).visits(client_id, before, before_id, limit)
+
+
+@router.get("/{booking_id}/receipt", response_model=VisitReceipt)
+async def booking_receipt(
+    booking_id: str, principal: CurrentPrincipal, db: DbSession
+) -> VisitReceipt:
+    return await BillingService(db, principal).visit_receipt(booking_id)
 
 
 @router.get("/{booking_id}/reminder", response_model=ReminderPreview)

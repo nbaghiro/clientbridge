@@ -80,6 +80,8 @@ const FAILURES: Record<string, () => string> = {
     slug_invalid: () => strings.api.slugInvalid,
     slug_reserved: () => strings.api.slugReserved,
     slug_taken: () => strings.api.slugTaken,
+    visit_not_billed: () => strings.api.visitNotBilled,
+    visit_unpaid: () => strings.api.visitUnpaid,
 };
 
 /** The catalog message for a failure the server named, else the action's own message. */

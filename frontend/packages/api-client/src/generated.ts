@@ -671,6 +671,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/manage/{token}/receipt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Manage Receipt */
+        get: operations["manage_receipt_manage__token__receipt_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/manage/{token}/photos/{file_id}": {
         parameters: {
             query?: never;
@@ -1312,6 +1329,23 @@ export interface paths {
         };
         /** Client Visits */
         get: operations["client_visits_v1_bookings_visits_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/bookings/{booking_id}/receipt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Booking Receipt */
+        get: operations["booking_receipt_v1_bookings__booking_id__receipt_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -6505,6 +6539,12 @@ export interface components {
             /** Can Cancel */
             can_cancel: boolean;
             /**
+             * Has Receipt
+             * @description The visit's invoice or sale is paid, so it has a receipt
+             * @default false
+             */
+            has_receipt: boolean;
+            /**
              * Blocked
              * @description Why a change is refused online, as a code Connect words
              */
@@ -7311,6 +7351,24 @@ export interface components {
              */
             quantity: number;
         };
+        /**
+         * PublicAddress
+         * @description The business's legal street address, as its documents print it; unset parts are None.
+         */
+        PublicAddress: {
+            /** Unit */
+            unit?: string | null;
+            /** Street Number */
+            street_number?: string | null;
+            /** Street Name */
+            street_name?: string | null;
+            /** City */
+            city?: string | null;
+            /** Province */
+            province?: ("AB" | "BC" | "MB" | "NB" | "NL" | "NS" | "NT" | "NU" | "ON" | "PE" | "QC" | "SK" | "YT") | null;
+            /** Postal Code */
+            postal_code?: string | null;
+        };
         /** PublicBookingClient */
         PublicBookingClient: {
             /** Name */
@@ -7754,6 +7812,12 @@ export interface components {
             /** Business Name */
             business_name: string;
             brand: components["schemas"]["PublicBrand"];
+            address?: components["schemas"]["PublicAddress"];
+            /**
+             * Phone
+             * @description The business's legal phone number
+             */
+            phone?: string | null;
             /** Currency */
             currency: string;
             /**
@@ -8070,6 +8134,12 @@ export interface components {
             /** Business Name */
             business_name: string;
             brand: components["schemas"]["PublicBrand"];
+            address?: components["schemas"]["PublicAddress"];
+            /**
+             * Phone
+             * @description The business's legal phone number
+             */
+            phone?: string | null;
             /** Gst Hst Number */
             gst_hst_number?: string | null;
             /** Qst Number */
@@ -9362,6 +9432,90 @@ export interface components {
             completed: number;
             /** Last Completed At */
             last_completed_at: string | null;
+        };
+        /**
+         * VisitReceipt
+         * @description A visit's receipt for an insurer: its invoice or sale, with who treated the client.
+         */
+        VisitReceipt: {
+            /** Number */
+            number: number | null;
+            /** Business Name */
+            business_name: string;
+            brand: components["schemas"]["PublicBrand"];
+            address?: components["schemas"]["PublicAddress"];
+            /**
+             * Phone
+             * @description The business's legal phone number
+             */
+            phone?: string | null;
+            /** Gst Hst Number */
+            gst_hst_number?: string | null;
+            /** Qst Number */
+            qst_number?: string | null;
+            /** Client Name */
+            client_name?: string | null;
+            /** Served By */
+            served_by?: string[];
+            /** Status */
+            status: string;
+            /** Currency */
+            currency: string;
+            /**
+             * Timezone
+             * @description The business's IANA time zone, which its times are shown in
+             */
+            timezone: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Lines */
+            lines: components["schemas"]["PublicDocLine"][];
+            /**
+             * Discount Cents
+             * @default 0
+             */
+            discount_cents: number;
+            /** Discount Reason */
+            discount_reason?: string | null;
+            /** Subtotal Cents */
+            subtotal_cents: number;
+            /** Taxes */
+            taxes: components["schemas"]["PublicDocTax"][];
+            /** Tax Total Cents */
+            tax_total_cents: number;
+            /** Total Cents */
+            total_cents: number;
+            /**
+             * Tip Cents
+             * @default 0
+             */
+            tip_cents: number;
+            /** Payments */
+            payments: components["schemas"]["PublicReceiptPayment"][];
+            /**
+             * Source
+             * @description Which document it prints; the number is that invoice's or sale's
+             * @enum {string}
+             */
+            source: "invoice" | "sale";
+            /** Service */
+            service: string;
+            /**
+             * Visit At
+             * Format: date-time
+             * @description When the visit started
+             */
+            visit_at: string;
+            /** Practitioner */
+            practitioner?: string | null;
+            /**
+             * Practitioner Title
+             * @description The practitioner's title, with any credential and registration
+             */
+            practitioner_title?: string | null;
         };
         /** WeekDay */
         WeekDay: {
@@ -10667,6 +10821,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ManagedBooking"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    manage_receipt_manage__token__receipt_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisitReceipt"];
                 };
             };
             /** @description Validation Error */
@@ -12138,6 +12323,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["VisitPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    booking_receipt_v1_bookings__booking_id__receipt_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
+            };
+            path: {
+                booking_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisitReceipt"];
                 };
             };
             /** @description Validation Error */

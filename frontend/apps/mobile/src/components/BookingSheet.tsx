@@ -32,6 +32,7 @@ import {
     useUndoCheckIn,
     itemMedia,
     useNoteComposer,
+    useBookingReceipt,
 } from "@clientbridge/app-core";
 import { SHADOW } from "@clientbridge/tokens";
 import { theme } from "@clientbridge/tokens/native";
@@ -79,6 +80,7 @@ import {
 import { api } from "../lib/api";
 import { useViewer } from "../lib/auth";
 import { CheckInSheet } from "./CheckInSheet";
+import { DocumentPreview } from "./DocumentPreview";
 
 const c = theme.colors;
 const s = strings.bookings;
@@ -381,6 +383,36 @@ function Addons({ event }: { event: ScheduleEvent }) {
     );
 }
 
+function Documents({ event }: { event: ScheduleEvent }) {
+    const receipt = useBookingReceipt(api, event, useViewer(), c.accent);
+    if (!receipt.available) return null;
+    const doc = receipt.doc;
+    return (
+        <DetailSection title={strings.billing.doc.title}>
+            <View style={styles.invoice}>
+                <Button
+                    size="sm"
+                    variant="outline"
+                    icon="receipt"
+                    busy={receipt.busy}
+                    onPress={receipt.open}
+                >
+                    {receipt.busy ? s.receiptLoading : s.receipt}
+                </Button>
+            </View>
+            {receipt.error !== null ? <Notice tone="danger">{receipt.error}</Notice> : null}
+            {doc !== null ? (
+                <DocumentPreview
+                    initial="receipt"
+                    shareUrl={null}
+                    docs={[{ kind: "receipt", doc, missing: "" }]}
+                    onClose={receipt.close}
+                />
+            ) : null}
+        </DetailSection>
+    );
+}
+
 export function BookingBody({ detail }: { detail: BookingDetail }) {
     const photos = usePeoplePhotos();
     const zone = useBusinessZone();
@@ -569,6 +601,7 @@ export function BookingBody({ detail }: { detail: BookingDetail }) {
             ) : null}
             {e.bookingId !== null ? <Photos event={e} /> : null}
             {e.bookingId !== null ? <Addons event={e} /> : null}
+            {e.bookingId !== null ? <Documents event={e} /> : null}
             {detail.history.length > 0 ? (
                 <DetailSection title={s.detailHistory}>
                     <ActivityTimeline entries={detail.history} />

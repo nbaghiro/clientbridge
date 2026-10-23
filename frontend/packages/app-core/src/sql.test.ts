@@ -1374,7 +1374,9 @@ describe("app-core SQL against the replica schema", () => {
             },
         ]);
         expect(run("ADDONS_SQL", ["bk_1"]).map((r) => r.id)).toEqual(["ba_1"]);
-        expect(run("BOOKING_INVOICE_SQL", ["bk_1"])).toEqual([{ invoice_id: "inv_1" }]);
+        expect(run("BOOKING_INVOICE_SQL", ["bk_1"])).toEqual([
+            { invoice_id: "inv_1", order_id: null },
+        ]);
     });
 
     it("derives each earning's status from its journals, tips included", () => {

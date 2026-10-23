@@ -212,6 +212,12 @@
     "api.businessUnavailable": {
         "message": "[Ţĥîš ƀûšîñéšš îšñ'ţ ţåķîñĝ ƀööķîñĝš öŕ öŕðéŕš ŕîĝĥţ ñöŵ. one two three four]"
     },
+    "api.visitNotBilled": {
+        "message": "[Ţĥîš ṽîšîţ ĥåš ñö îñṽöîçé öŕ šåļé ýéţ, šö ţĥéŕé îš ñö ŕéçéîþţ ţö þŕîñţ. one two three four five]"
+    },
+    "api.visitUnpaid": {
+        "message": "[Ţĥîš ṽîšîţ ĥåšñ'ţ ƀééñ þåîð ýéţ. Îţš ŕéçéîþţ îš ŕéåðý öñçé å þåýɱéñţ îš ŕéçöŕðéð. one two three four five]"
+    },
     "common.amountWithCurrency": {
         "message": "{amount} {currency}"
     },
@@ -1118,6 +1124,12 @@
     "billing.doc.attachedEstimate": {
         "message": "[Éšţîɱåţé éɱåîļ, {when} one two]"
     },
+    "billing.doc.attachedReceipt": {
+        "message": "[Ŕéçéîþţ éɱåîļ, {when} one two]"
+    },
+    "billing.doc.attachedVisit": {
+        "message": "[Ţĥé çļîéñţ'š ṽîšîţ þåĝé one two]"
+    },
     "billing.doc.notSentYet": {
         "message": "[Ñöţ šéñţ ýéţ one two]"
     },
@@ -1162,6 +1174,21 @@
     },
     "printing.estimateNumber": {
         "message": "[Éšţîɱåţé one]"
+    },
+    "printing.forInvoice": {
+        "message": "[Ƒöŕ îñṽöîçé one two]"
+    },
+    "printing.forSale": {
+        "message": "[Ƒöŕ šåļé one]"
+    },
+    "printing.practitioner": {
+        "message": "[Þŕåçţîţîöñéŕ one two]"
+    },
+    "printing.serviceDate": {
+        "message": "[Đåţé öƒ šéŕṽîçé one two]"
+    },
+    "printing.service": {
+        "message": "[Šéŕṽîçé one]"
     },
     "printing.item": {
         "message": "[Îţéɱ one]"
@@ -2671,6 +2698,12 @@
     },
     "bookings.noteAdd": {
         "message": "[Åðð ñöţé one]"
+    },
+    "bookings.receipt": {
+        "message": "[Ŕéçéîþţ one]"
+    },
+    "bookings.receiptLoading": {
+        "message": "[Öþéñîñĝ ŕéçéîþţ one two]"
     },
     "bookings.notePlaceholder": {
         "message": "[Åñýţĥîñĝ ţĥé ţéåɱ šĥöûļð ķñöŵ åƀöûţ ţĥîš ṽîšîţ one two three four]"
@@ -10151,6 +10184,9 @@
     "publicReceipt.print": {
         "message": "[Þŕîñţ öŕ šåṽé åš ÞĐƑ one two]"
     },
+    "publicReceipt.visitError": {
+        "message": "[Ţĥé ŕéçéîþţ çöûļð ñöţ ƀé ļöåðéð. Þļéåšé ţŕý åĝåîñ. one two three four]"
+    },
     "publicReceipt.status.paid": {
         "message": "[Þåîð one]"
     },
@@ -11350,6 +11386,12 @@
     },
     "publicManage.payment": {
         "message": "[Ýöûŕ þåýɱéñţ one two]"
+    },
+    "publicManage.receipt": {
+        "message": "[Đöŵñļöåð ŕéçéîþţ one two]"
+    },
+    "publicManage.receiptBody": {
+        "message": "[Å ŕéçéîþţ ƒöŕ ţĥîš ṽîšîţ ŵîţĥ ýöûŕ þŕåçţîţîöñéŕ'š ñåɱé åñð çŕéðéñţîåļš, ƒöŕ åñ îñšûŕåñçé çļåîɱ. one two three four five six seven]"
     },
     "publicManage.directions": {
         "message": "[Đîŕéçţîöñš one two]"

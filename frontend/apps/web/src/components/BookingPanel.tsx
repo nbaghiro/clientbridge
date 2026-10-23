@@ -24,7 +24,9 @@ import {
     canCheckIn,
     useUndoCheckIn,
     useNoteComposer,
+    useBookingReceipt,
 } from "@clientbridge/app-core";
+import { cssVar } from "@clientbridge/tokens";
 import {
     ActivityTimeline,
     Avatar,
@@ -46,6 +48,7 @@ import { type ChangeEvent, useRef, useState } from "react";
 import { api } from "../lib/api";
 import { useViewer } from "../lib/auth";
 import { CheckInSheet } from "./CheckInSheet";
+import { DocumentPreview } from "./DocumentPreview";
 
 const s = strings.bookings;
 const c = strings.classes;
@@ -422,6 +425,42 @@ function BookingAddons({ event }: { event: ScheduleEvent }) {
     );
 }
 
+function BookingDocuments({ event }: { event: ScheduleEvent }) {
+    const receipt = useBookingReceipt(api, event, useViewer(), cssVar("accent"));
+    if (!receipt.available) return null;
+    const doc = receipt.doc;
+    return (
+        <DetailSection title={strings.billing.doc.title}>
+            <Button
+                size="sm"
+                variant="outline"
+                icon="receipt"
+                busy={receipt.busy}
+                onPress={receipt.open}
+            >
+                {receipt.busy ? s.receiptLoading : s.receipt}
+            </Button>
+            {receipt.error !== null ? <Notice tone="danger">{receipt.error}</Notice> : null}
+            {doc !== null ? (
+                <DocumentPreview
+                    businessName={doc.business.name}
+                    initial="receipt"
+                    docs={[
+                        {
+                            kind: "receipt",
+                            doc,
+                            missing: "",
+                            attached: strings.billing.doc.attachedVisit,
+                            facts: doc.meta.slice(1),
+                        },
+                    ]}
+                    onClose={receipt.close}
+                />
+            ) : null}
+        </DetailSection>
+    );
+}
+
 function BookingRoster({ detail }: { detail: BookingDetail }) {
     if (detail.event.kind !== "class") return null;
     return (
@@ -737,6 +776,7 @@ export function BookingBody({
             <BookingNotes detail={detail} />
             {detail.event.bookingId !== null ? <BookingPhotos event={detail.event} /> : null}
             {detail.event.bookingId !== null ? <BookingAddons event={detail.event} /> : null}
+            {detail.event.bookingId !== null ? <BookingDocuments event={detail.event} /> : null}
             <BookingHistory detail={detail} />
         </>
     );

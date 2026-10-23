@@ -237,6 +237,12 @@
     "api.businessUnavailable": {
         "message": "This business isn't taking bookings or orders right now."
     },
+    "api.visitNotBilled": {
+        "message": "This visit has no invoice or sale yet, so there is no receipt to print."
+    },
+    "api.visitUnpaid": {
+        "message": "This visit hasn't been paid yet. Its receipt is ready once a payment is recorded."
+    },
     "common.amountWithCurrency": {
         "message": "{amount} {currency}",
         "args": ["amount", "currency"],
@@ -1223,6 +1229,14 @@
         "message": "Estimate email, {when}",
         "args": ["when"]
     },
+    "billing.doc.attachedReceipt": {
+        "message": "Receipt email, {when}",
+        "args": ["when"]
+    },
+    "billing.doc.attachedVisit": {
+        "message": "The client's visit page",
+        "description": "Where a visit receipt is also available to the client"
+    },
     "billing.doc.notSentYet": {
         "message": "Not sent yet"
     },
@@ -1267,6 +1281,22 @@
     },
     "printing.estimateNumber": {
         "message": "Estimate"
+    },
+    "printing.forInvoice": {
+        "message": "For invoice"
+    },
+    "printing.forSale": {
+        "message": "For sale"
+    },
+    "printing.practitioner": {
+        "message": "Practitioner",
+        "description": "On a visit receipt: who treated the client, with their credentials and registration number"
+    },
+    "printing.serviceDate": {
+        "message": "Date of service"
+    },
+    "printing.service": {
+        "message": "Service"
     },
     "printing.item": {
         "message": "Item"
@@ -2897,6 +2927,13 @@
     },
     "bookings.noteAdd": {
         "message": "Add note"
+    },
+    "bookings.receipt": {
+        "message": "Receipt",
+        "description": "Opens the visit's receipt, which a client can send to their insurer"
+    },
+    "bookings.receiptLoading": {
+        "message": "Opening receipt"
     },
     "bookings.notePlaceholder": {
         "message": "Anything the team should know about this visit"
@@ -10883,6 +10920,9 @@
     "publicReceipt.print": {
         "message": "Print or save as PDF"
     },
+    "publicReceipt.visitError": {
+        "message": "The receipt could not be loaded. Please try again."
+    },
     "publicReceipt.status.paid": {
         "message": "Paid"
     },
@@ -12161,6 +12201,12 @@
     },
     "publicManage.payment": {
         "message": "Your payment"
+    },
+    "publicManage.receipt": {
+        "message": "Download receipt"
+    },
+    "publicManage.receiptBody": {
+        "message": "A receipt for this visit with your practitioner's name and credentials, for an insurance claim."
     },
     "publicManage.directions": {
         "message": "Directions"

@@ -2,10 +2,12 @@ import {
     type Fact,
     type ManageBookingFlow,
     createManageBookingClient,
+    createPublicReceiptClient,
     durationLabel,
     firstName,
     strings,
     useManageBooking,
+    useVisitReceipt,
     formatParts,
     mapsUrl,
     SUBJECT_ICON,
@@ -24,17 +26,43 @@ import {
     TextField,
     SlotChips,
 } from "@clientbridge/ui";
+import { cssVar } from "@clientbridge/tokens";
 import { useNavigate, useParams } from "react-router-dom";
 
 import { addToCalendar } from "../components/BookingSteps";
+import { PrintModal } from "../components/PublicDocument";
 import { PublicPage } from "../components/PublicPage";
 import { PublicStatus } from "../components/PublicStatus";
 import { config } from "../config";
 
 const manage = createManageBookingClient(config.apiUrl);
+const receipts = createPublicReceiptClient(config.apiUrl);
 const PUBLISHABLE_KEY = config.stripePublishableKey;
 const s = strings.publicManage;
 const b = strings.publicBooking;
+
+/** The visit's receipt, printed from its invoice or sale, for the client's insurer. */
+function VisitReceipt({ token }: { token: string }) {
+    const receipt = useVisitReceipt(() => receipts.getVisitReceipt(token), cssVar("accent"));
+    return (
+        <section className="space-y-3 rounded-2xl border border-line bg-surface p-5 shadow-card">
+            <p className="text-sm text-ink-soft">{s.receiptBody}</p>
+            <Button
+                variant="outline"
+                full
+                icon="printer"
+                busy={receipt.busy}
+                onPress={receipt.open}
+            >
+                {s.receipt}
+            </Button>
+            {receipt.error !== null ? <Notice tone="danger">{receipt.error}</Notice> : null}
+            {receipt.doc !== null ? (
+                <PrintModal doc={receipt.doc} printLabel={s.receipt} onClose={receipt.close} />
+            ) : null}
+        </section>
+    );
+}
 
 /** The link in every confirmation and reminder: see the visit, move it or cancel it within the cut-offs. */
 export function PublicManage() {
@@ -305,6 +333,7 @@ export function PublicManage() {
                         ) : null}
                         <p className="text-xs text-muted">{mg.policyLine}</p>
                     </section>
+                    {v.has_receipt === true ? <VisitReceipt token={token} /> : null}
                 </aside>
             </div>
             <Modal

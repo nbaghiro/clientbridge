@@ -86,6 +86,8 @@ interface Strings {
         readonly planActive: string;
         readonly planNotManaged: string;
         readonly businessUnavailable: string;
+        readonly visitNotBilled: string;
+        readonly visitUnpaid: string;
     } & Labels;
     readonly previews: {
         readonly title: string;
@@ -412,6 +414,8 @@ interface Strings {
             readonly back: string;
             readonly attachedInvoice: (when: string) => string;
             readonly attachedEstimate: (when: string) => string;
+            readonly attachedReceipt: (when: string) => string;
+            readonly attachedVisit: string;
             readonly notSentYet: string;
         };
         readonly refund: string;
@@ -432,6 +436,11 @@ interface Strings {
         readonly validUntil: string;
         readonly invoiceNumber: string;
         readonly estimateNumber: string;
+        readonly forInvoice: string;
+        readonly forSale: string;
+        readonly practitioner: string;
+        readonly serviceDate: string;
+        readonly service: string;
         readonly item: string;
         readonly qty: string;
         readonly price: string;
@@ -960,6 +969,8 @@ interface Strings {
         readonly detailWith: string;
         readonly detailNotes: string;
         readonly noteAdd: string;
+        readonly receipt: string;
+        readonly receiptLoading: string;
         readonly notePlaceholder: string;
         readonly detailPhotos: string;
         readonly photoShare: string;
@@ -3737,6 +3748,7 @@ interface Strings {
         readonly gst: (n: string) => string;
         readonly qst: (n: string) => string;
         readonly print: string;
+        readonly visitError: string;
         readonly status: {
             readonly paid: string;
             readonly refunded: string;
@@ -4171,6 +4183,8 @@ interface Strings {
         readonly gettingThere: string;
         readonly visitPlace: string;
         readonly payment: string;
+        readonly receipt: string;
+        readonly receiptBody: string;
         readonly directions: string;
         readonly message: string;
         readonly messageTitle: string;

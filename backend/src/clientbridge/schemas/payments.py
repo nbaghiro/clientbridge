@@ -5,7 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from clientbridge.core.mirrors import Mirror
 from clientbridge.models.payments import Payment, PaymentMethod, PaymentStatus, PayMethod
-from clientbridge.schemas.public import PublicBrand
+from clientbridge.schemas.public import PublicAddress, PublicBrand
 
 
 class ConnectSessionIn(BaseModel):
@@ -231,6 +231,8 @@ class PublicInvoice(BaseModel):
     number: int | None
     business_name: str
     brand: PublicBrand
+    address: PublicAddress = Field(default_factory=PublicAddress)
+    phone: str | None = Field(default=None, description="The business's legal phone number")
     currency: str
     timezone: str = Field(description="The business's IANA time zone, which its times are shown in")
     subtotal_cents: int = 0

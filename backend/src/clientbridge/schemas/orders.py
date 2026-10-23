@@ -9,7 +9,7 @@ from clientbridge.models.clients import Channel
 from clientbridge.models.payments import Payment, PaymentKind, PayMethod
 from clientbridge.schemas.billing import DiscountIn, LineInput, LineOut
 from clientbridge.schemas.payments import PublicDocLine, PublicDocTax, TipShareIn
-from clientbridge.schemas.public import PublicBrand
+from clientbridge.schemas.public import PublicAddress, PublicBrand
 
 
 class OrderCreate(Mirror):
@@ -126,6 +126,8 @@ class PublicReceipt(BaseModel):
     number: int | None
     business_name: str
     brand: PublicBrand
+    address: PublicAddress = Field(default_factory=PublicAddress)
+    phone: str | None = Field(default=None, description="The business's legal phone number")
     gst_hst_number: str | None = None
     qst_number: str | None = None
     client_name: str | None = None
@@ -143,6 +145,20 @@ class PublicReceipt(BaseModel):
     total_cents: int
     tip_cents: int = 0
     payments: list[PublicReceiptPayment]
+
+
+class VisitReceipt(PublicReceipt):
+    """A visit's receipt for an insurer: its invoice or sale, with who treated the client."""
+
+    source: Literal["invoice", "sale"] = Field(
+        description="Which document it prints; the number is that invoice's or sale's"
+    )
+    service: str
+    visit_at: datetime = Field(description="When the visit started")
+    practitioner: str | None = None
+    practitioner_title: str | None = Field(
+        default=None, description="The practitioner's title, with any credential and registration"
+    )
 
 
 class OrderCheckoutIn(TipIn):
