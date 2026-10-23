@@ -1,5 +1,4 @@
 import {
-    type EstimateRecord,
     type EstimateSegment,
     type InvoiceRecord,
     type InvoiceSegment,
@@ -9,7 +8,6 @@ import {
     formatMoney,
     printedEstimate,
     printedInvoice,
-    printedReceipt,
     strings,
     useEstimateActions,
     useEstimateDesk,
@@ -54,7 +52,7 @@ import { useNavigate } from "react-router-dom";
 
 import { DeskBar } from "../components/Desk";
 import { DocEditor } from "../components/DocEditor";
-import { DocumentPane, DocumentPreview, type PreviewDoc } from "../components/DocumentPreview";
+import { DocumentPane, DocumentPreview } from "../components/DocumentPreview";
 import { RecordPayment } from "../components/RecordPayment";
 import { config } from "../config";
 import { api, apiBaseUrl } from "../lib/api";
@@ -345,12 +343,13 @@ function InvoicePanel({
     const act = useInvoiceActions(api);
     const role = useRole();
     const letterhead = useLetterhead(apiBaseUrl);
-    const estimates = useEstimates();
-    const estimateId = estimates.find((e) => e.converted_invoice_id === id)?.id ?? null;
-    const estimate = useEstimateRecord(estimateId, config.payUrl);
     const [recording, setRecording] = useState(false);
     const [previewing, setPreviewing] = useState(false);
     if (rec === null) return null;
+    const sentAt =
+        rec.row.issued_at === null
+            ? s.doc.notSentYet
+            : s.doc.attachedInvoice(rec.facts[1]?.value ?? "");
 
     const voidIt = (): void => {
         confirm({
@@ -525,8 +524,8 @@ function InvoicePanel({
                     <div className="min-h-0 @max-4xl:hidden">
                         <DocumentPane
                             businessName={letterhead.name}
-                            initial="invoice"
-                            docs={invoicePreviewDocs(rec, estimate, letterhead)}
+                            doc={printedInvoice(rec, letterhead, cssVar("accent"))}
+                            attached={sentAt}
                         />
                     </div>
                 </div>
@@ -542,8 +541,8 @@ function InvoicePanel({
             {previewing ? (
                 <DocumentPreview
                     businessName={letterhead.name}
-                    initial="invoice"
-                    docs={invoicePreviewDocs(rec, estimate, letterhead)}
+                    doc={printedInvoice(rec, letterhead, cssVar("accent"))}
+                    attached={sentAt}
                     onClose={() => {
                         setPreviewing(false);
                     }}
@@ -551,38 +550,6 @@ function InvoicePanel({
             ) : null}
         </Modal>
     );
-}
-
-function invoicePreviewDocs(
-    rec: InvoiceRecord,
-    estimate: EstimateRecord | null,
-    letterhead: ReturnType<typeof useLetterhead>,
-): PreviewDoc[] {
-    const color = cssVar("accent");
-    const d = s.doc;
-    const paid = rec.payments.find((x) => !x.refund && !x.pending);
-    const sentAt =
-        rec.row.issued_at === null ? d.notSentYet : d.attachedInvoice(rec.facts[1]?.value ?? "");
-    return [
-        {
-            kind: "invoice",
-            doc: printedInvoice(rec, letterhead, color),
-            missing: "",
-            attached: sentAt,
-        },
-        {
-            kind: "estimate",
-            doc: estimate === null ? null : printedEstimate(estimate, letterhead, color),
-            missing: d.noEstimate,
-            attached: estimate === null ? "" : d.attachedEstimate(estimate.validLabel),
-        },
-        {
-            kind: "receipt",
-            doc: paid === undefined ? null : printedReceipt(rec, paid.id, letterhead, color),
-            missing: d.noReceipt,
-            attached: paid === undefined ? "" : d.attachedReceipt(paid.detail),
-        },
-    ];
 }
 
 function PaymentsSection({
@@ -792,15 +759,9 @@ function EstimatePanel({
     const [previewing, setPreviewing] = useState(false);
     if (rec === null) return null;
 
-    const estimateDocs: PreviewDoc[] = [
-        {
-            kind: "estimate",
-            doc: printedEstimate(rec, letterhead, cssVar("accent")),
-            missing: "",
-            attached:
-                rec.row.number === null ? s.doc.notSentYet : s.doc.attachedEstimate(rec.validLabel),
-        },
-    ];
+    const estimateDoc = printedEstimate(rec, letterhead, cssVar("accent"));
+    const estimateSent =
+        rec.row.number === null ? s.doc.notSentYet : s.doc.attachedEstimate(rec.validLabel);
     const convert = (): void => {
         confirm({ title: s.convertTitle, message: s.convertBody, confirmLabel: s.convert })
             .then((ok) => {
@@ -1004,8 +965,8 @@ function EstimatePanel({
                     <div className="min-h-0 @max-4xl:hidden">
                         <DocumentPane
                             businessName={letterhead.name}
-                            initial="estimate"
-                            docs={estimateDocs}
+                            doc={estimateDoc}
+                            attached={estimateSent}
                         />
                     </div>
                 </div>
@@ -1013,8 +974,8 @@ function EstimatePanel({
             {previewing ? (
                 <DocumentPreview
                     businessName={letterhead.name}
-                    initial="estimate"
-                    docs={estimateDocs}
+                    doc={estimateDoc}
+                    attached={estimateSent}
                     onClose={() => {
                         setPreviewing(false);
                     }}

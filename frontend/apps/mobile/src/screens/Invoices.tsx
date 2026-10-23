@@ -1,15 +1,12 @@
 import { apiUrl as apiBaseUrl } from "../lib/config";
 import {
     canManagePayments,
-    type EstimateRecord,
     type EstimateSegment,
-    type InvoiceRecord,
     type InvoiceSegment,
     docDraft,
     formatMoney,
     printedEstimate,
     printedInvoice,
-    printedReceipt,
     strings,
     useEstimateActions,
     useEstimateDesk,
@@ -313,9 +310,6 @@ function InvoicePanel({
     const rec = useInvoiceRecord(id, payUrl);
     const act = useInvoiceActions(api);
     const letterhead = useLetterhead(apiBaseUrl);
-    const estimates = useEstimates();
-    const estimateId = estimates.find((e) => e.converted_invoice_id === id)?.id ?? null;
-    const estimate = useEstimateRecord(estimateId, payUrl);
     const [overlay, setOverlay] = useState<Overlay>(null);
     const openLink = useOpenLink();
     const canRefund = canManagePayments(useRole());
@@ -493,39 +487,13 @@ function InvoicePanel({
             {overlay === "record" ? <RecordPayment rec={rec} onClose={closeOverlay} /> : null}
             {overlay === "pdf" ? (
                 <DocumentPreview
-                    initial="invoice"
                     shareUrl={rec.payUrl}
-                    docs={previewDocs(rec, estimate, letterhead)}
+                    doc={printedInvoice(rec, letterhead, c.accent)}
                     onClose={closeOverlay}
                 />
             ) : null}
         </Modal>
     );
-}
-
-function previewDocs(
-    rec: InvoiceRecord,
-    estimate: EstimateRecord | null,
-    letterhead: ReturnType<typeof useLetterhead>,
-): {
-    kind: "invoice" | "estimate" | "receipt";
-    doc: ReturnType<typeof printedReceipt>;
-    missing: string;
-}[] {
-    const paid = rec.payments.find((x) => !x.refund && !x.pending);
-    return [
-        { kind: "invoice", doc: printedInvoice(rec, letterhead, c.accent), missing: "" },
-        {
-            kind: "estimate",
-            doc: estimate === null ? null : printedEstimate(estimate, letterhead, c.accent),
-            missing: s.doc.noEstimate,
-        },
-        {
-            kind: "receipt",
-            doc: paid === undefined ? null : printedReceipt(rec, paid.id, letterhead, c.accent),
-            missing: s.doc.noReceipt,
-        },
-    ];
 }
 
 function EstimateDeskView({
@@ -827,15 +795,8 @@ function EstimatePanel({
             />
             {overlay === "pdf" ? (
                 <DocumentPreview
-                    initial="estimate"
                     shareUrl={rec.acceptUrl}
-                    docs={[
-                        {
-                            kind: "estimate",
-                            doc: printedEstimate(rec, letterhead, c.accent),
-                            missing: "",
-                        },
-                    ]}
+                    doc={printedEstimate(rec, letterhead, c.accent)}
                     onClose={() => {
                         setOverlay(null);
                     }}

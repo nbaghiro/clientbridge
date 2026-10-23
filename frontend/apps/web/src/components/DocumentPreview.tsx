@@ -1,6 +1,5 @@
 import {
     type PrintedDoc,
-    type PrintedKind,
     type ReviewDocument,
     printedEstimate,
     printedInvoice,
@@ -10,20 +9,13 @@ import {
     useLetterhead,
 } from "@clientbridge/app-core";
 import { cssVar } from "@clientbridge/tokens";
-import { Button, Choice, Empty, Icon, IconButton, Modal, PrintedDocument } from "@clientbridge/ui";
-import { type ReactNode, useState } from "react";
+import { Button, Icon, IconButton, Modal, PrintedDocument } from "@clientbridge/ui";
+import type { ReactNode } from "react";
 
 import { config } from "../config";
 import { apiBaseUrl } from "../lib/api";
 
 const d = strings.billing.doc;
-
-export interface PreviewDoc {
-    kind: PrintedKind;
-    doc: PrintedDoc | null;
-    missing: string;
-    attached: string;
-}
 
 /** A document set as paper on a dotted backdrop, with its actions in a bar beneath it. */
 export function PaperPane({ children, bar }: { children: ReactNode; bar?: ReactNode }) {
@@ -54,24 +46,20 @@ export function Paper({ doc }: { doc: PrintedDoc }) {
     );
 }
 
-/** A record's letterhead pages: switch between them, print, or save one as PDF. */
+/** A record's letterhead page: print it, or save it as PDF. */
 export function DocumentPane({
-    docs,
-    initial,
+    doc,
+    attached,
     businessName,
 }: {
-    docs: readonly PreviewDoc[];
-    initial: PrintedKind;
+    doc: PrintedDoc;
+    attached: string;
     businessName: string;
 }) {
-    const [kind, setKind] = useState<PrintedKind>(initial);
-    const current = docs.find((x) => x.kind === kind) ?? docs[0];
-    const doc = current?.doc ?? null;
     const print = (): void => {
-        if (doc === null) return;
         const before = document.title;
         document.title = d
-            .fileName(businessName.replace(/[^A-Za-z0-9]+/g, "-"), d.kinds[kind], doc.number)
+            .fileName(businessName.replace(/[^A-Za-z0-9]+/g, "-"), d.kinds[doc.kind], doc.number)
             .replace(/\.pdf$/, "");
         window.print();
         document.title = before;
@@ -80,57 +68,37 @@ export function DocumentPane({
         <PaperPane
             bar={
                 <>
-                    {docs.length > 1 ? (
-                        <Choice<PrintedKind>
-                            layout="segmented"
-                            label={d.title}
-                            options={docs.map((x) => ({ key: x.kind, label: d.kinds[x.kind] }))}
-                            value={kind}
-                            onChange={setKind}
-                        />
-                    ) : null}
-                    {doc !== null && current?.attached ? (
+                    {attached !== "" ? (
                         <p className="flex min-w-0 items-center gap-2 text-sm text-muted">
                             <Icon name="mail" size={15} />
-                            <span className="truncate">{current.attached}</span>
+                            <span className="truncate">{attached}</span>
                         </p>
                     ) : null}
                     <div className="ml-auto flex items-center gap-2">
-                        <Button
-                            variant="outline"
-                            icon="printer"
-                            disabled={doc === null}
-                            onPress={print}
-                        >
+                        <Button variant="outline" icon="printer" onPress={print}>
                             {d.print}
                         </Button>
-                        <Button icon="receipt" disabled={doc === null} onPress={print}>
+                        <Button icon="receipt" onPress={print}>
                             {d.download}
                         </Button>
                     </div>
                 </>
             }
         >
-            {doc === null ? (
-                <div className="mx-auto max-w-md pt-16">
-                    <Empty variant="card" icon="receipt" message={current?.missing ?? ""} />
-                </div>
-            ) : (
-                <Paper doc={doc} />
-            )}
+            <Paper doc={doc} />
         </PaperPane>
     );
 }
 
-/** The same pages full screen, for a window too narrow to show them beside the record. */
+/** The same page full screen, for a window too narrow to show it beside the record. */
 export function DocumentPreview({
-    docs,
-    initial,
+    doc,
+    attached,
     businessName,
     onClose,
 }: {
-    docs: readonly PreviewDoc[];
-    initial: PrintedKind;
+    doc: PrintedDoc;
+    attached: string;
     businessName: string;
     onClose: () => void;
 }) {
@@ -146,7 +114,7 @@ export function DocumentPreview({
                     </div>
                 </header>
                 <div className="min-h-0 flex-1">
-                    <DocumentPane docs={docs} initial={initial} businessName={businessName} />
+                    <DocumentPane doc={doc} attached={attached} businessName={businessName} />
                 </div>
             </div>
         </Modal>
