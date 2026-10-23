@@ -7,6 +7,7 @@ import { type Load, useAsyncAction, useBusinessQuery as useQuery } from "../hook
 import { strings } from "../strings";
 import type { SelectOption } from "../ui";
 import { personMedia, usePeoplePhotos } from "./files";
+import { afterReview, outgoing } from "./previews";
 import { useClients } from "./clients";
 import { useReplicaLoad } from "./sync";
 
@@ -109,30 +110,41 @@ export function useRequestReview(api: ApiLike) {
     const [sent, setSent] = useState<Set<string>>(new Set());
     const [busyId, setBusyId] = useState<string | null>(null);
     const { error, run } = useAsyncAction();
+    const ask = (identity: string, clientId: string, bookingId: string | null): void => {
+        setBusyId(identity);
+        run(
+            async () => {
+                try {
+                    await api.post(
+                        "/v1/reviews/request",
+                        { client_id: clientId, booking_id: bookingId },
+                        { idempotencyKey: newIdempotencyKey() },
+                    );
+                } finally {
+                    setBusyId(null);
+                }
+            },
+            {
+                onSuccess: () => {
+                    setSent((s) => new Set(s).add(identity));
+                },
+                errorMessage: strings.reviews.sendRequestError,
+            },
+        );
+    };
     return {
         sent,
         busyId,
         error,
         request: (clientId: string, bookingId: string | null = null) => {
-            const identity = bookingId ?? clientId;
-            setBusyId(identity);
-            run(
-                async () => {
-                    try {
-                        await api.post(
-                            "/v1/reviews/request",
-                            { client_id: clientId, booking_id: bookingId },
-                            { idempotencyKey: newIdempotencyKey() },
-                        );
-                    } finally {
-                        setBusyId(null);
-                    }
-                },
+            afterReview(
                 {
-                    onSuccess: () => {
-                        setSent((s) => new Set(s).add(identity));
-                    },
-                    errorMessage: strings.reviews.sendRequestError,
+                    title: strings.previews.title,
+                    confirmLabel: strings.previews.send,
+                    load: outgoing.reviewRequest(api, clientId),
+                },
+                () => {
+                    ask(bookingId ?? clientId, clientId, bookingId);
                 },
             );
         },
@@ -560,7 +572,20 @@ export function useGoogleReviews(api: ApiLike) {
             }
         },
         sendReply: () => {
-            postReply(false);
+            if (comment.trim() === "" || new TextEncoder().encode(comment).length > 4096) {
+                postReply(false);
+                return;
+            }
+            afterReview(
+                {
+                    title: strings.reviews.publishReplyTitle,
+                    message: comment.trim(),
+                    confirmLabel: strings.reviews.publishReply,
+                },
+                () => {
+                    postReply(false);
+                },
+            );
         },
         deleteReply: () => {
             postReply(true);

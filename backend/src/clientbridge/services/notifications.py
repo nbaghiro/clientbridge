@@ -598,6 +598,27 @@ def invoice_overdue_message(
     )
 
 
+def invoice_reminder_message(
+    locale: str, number: int | None, amount: str, business_name: str, link: str
+) -> Notice:
+    values = {"number": str(number), "amount": amount, "business": business_name}
+    body = (
+        message(locale, "invoice_reminder.body_link", link=link, **values)
+        if link
+        else message(locale, "invoice_reminder.body", **values)
+    )
+    return Notice(
+        message(locale, "invoice_reminder.subject", **values),
+        body,
+        _view(
+            message(locale, "email.kind.invoice"),
+            message(locale, "invoice_reminder.heading", **values),
+            message(locale, "invoice_reminder.lead", **values),
+            action=_action(message(locale, "invoice.action"), link),
+        ),
+    )
+
+
 def estimate_sent_message(
     locale: str, number: int | None, amount: str, business_name: str, link: str
 ) -> Notice:
@@ -1260,6 +1281,22 @@ class Notifier:
         notice = invoice_overdue_message(locale, invoice.number, amount, business.name, link)
         return await self._to_client(db, invoice.client_id, notice)
 
+    async def on_invoice_reminder(self, db: AsyncSession, invoice_id: str) -> Outcome:
+        """A nudge sent by hand: the overdue wording once the due date has passed."""
+        invoice = await db.get(Invoice, invoice_id)
+        if invoice is None:
+            return Outcome.SKIPPED
+        business = await db.get(Business, invoice.business_id)
+        if business is None:
+            return Outcome.SKIPPED
+        locale = locale_for(business=business)
+        amount = format_money(locale, await ledger.invoice_balance(db, invoice), invoice.currency)
+        link = pay_link(invoice.pay_token) if invoice.pay_token else ""
+        overdue = invoice.due_at is not None and invoice.due_at < clock.now()
+        build = invoice_overdue_message if overdue else invoice_reminder_message
+        notice = build(locale, invoice.number, amount, business.name, link)
+        return await self._to_client(db, invoice.client_id, notice)
+
     async def on_estimate_sent(self, db: AsyncSession, estimate_id: str) -> None:
         estimate = await db.get(Estimate, estimate_id)
         if estimate is None:
@@ -1629,13 +1666,21 @@ class Notifier:
             link = await google_invitation_url(db, business.id)
         if link is None:
             return
-        prefs_link = f"{prefs_url(review.client_id)}?unsubscribe=email"
+        await self.invite_review(db, business, review.client_id, link)
+
+    async def invite_review(
+        self, db: AsyncSession, business: Business, client_id: str, link: str
+    ) -> Outcome:
+        prefs_link = f"{prefs_url(client_id)}?unsubscribe=email"
         notice = review_requested_message(
             locale_for(business=business), business.name, link, prefs_link
         )
         # an invitation asks the client for something, so an email opt-out leaves only texts
-        opted_out = await emails_withdrawn(db, business.id, review.client_id)
-        await self._to_client(db, review.client_id, notice, channel="sms" if opted_out else None)
+        opted_out = await emails_withdrawn(db, business.id, client_id)
+        return await self._to_client(db, client_id, notice, channel="sms" if opted_out else None)
+
+    async def deliver(self, db: AsyncSession, client_id: str, notice: Notice) -> Outcome:
+        return await self._to_client(db, client_id, notice)
 
     async def on_form_sent(self, db: AsyncSession, form_response_id: str) -> Outcome:
         response = await db.get(FormResponse, form_response_id)

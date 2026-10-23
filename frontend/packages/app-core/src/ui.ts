@@ -1,6 +1,7 @@
 import type { ReactElement, ReactNode } from "react";
 
 import type { AddPaymentMethod, Checkout, CheckoutMethod } from "./domain/checkout";
+import type { ReviewChoice, ReviewDocument, ReviewRequest } from "./domain/previews";
 import type { FormAnswer } from "./domain/publicForm";
 import type { IconName } from "./icons";
 
@@ -384,6 +385,16 @@ export interface StepperProps {
     min?: number | undefined;
     max?: number | undefined;
     label: string;
+}
+
+export interface SendReviewHostProps {
+    // Draws the letterhead page a request names; only the app knows how to load it.
+    document?: ((doc: ReviewDocument) => ReactNode) | undefined;
+}
+
+export interface SendReviewProps extends SendReviewHostProps {
+    request: ReviewRequest;
+    onResolve: (choice: ReviewChoice | null) => void;
 }
 
 export interface ConfirmOptions {

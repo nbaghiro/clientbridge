@@ -12,9 +12,10 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
 import { AppShell } from "./components/AppShell";
 import { DebugPanel } from "./components/DebugPanel";
+import { RecordPaper } from "./components/DocumentPreview";
 import { config } from "./config";
 import { AuthError, Login, VerifyEmail } from "./pages/Login";
-import { Button, ConfirmHost, LoadFailed, Logo, Select } from "@clientbridge/ui";
+import { Button, ConfirmHost, LoadFailed, Logo, Select, SendReviewHost } from "@clientbridge/ui";
 import { api, identity, onSignedOut, selectBusiness } from "./lib/api";
 import {
     clearUser,
@@ -223,6 +224,9 @@ function AppRoutes({
                     <Route path="*" element={<Login onSuccess={onAuthed} />} />
                 )}
             </Routes>
+            {authed && business.ready ? (
+                <SendReviewHost document={(d) => <RecordPaper {...d} />} />
+            ) : null}
         </BusinessZoneContext.Provider>
     );
 }

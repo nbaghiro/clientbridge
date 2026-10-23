@@ -11,6 +11,7 @@ import {
     View,
 } from "react-native";
 
+import { useModalLayer, useOverlay } from "./layers";
 import type { NativeProps } from "./props";
 
 const c = theme.colors;
@@ -29,6 +30,8 @@ export function Modal({
     style,
 }: NativeProps<ModalProps>) {
     const inFlow = useModalFlow();
+    const top = useModalLayer(open && !inFlow);
+    const overlay = useOverlay();
     const content = framed ? (
         <ScrollView
             style={styles.scroll}
@@ -81,6 +84,7 @@ export function Modal({
                     </View>
                 </View>
             </KeyboardAvoidingView>
+            {top ? overlay : null}
         </NativeModal>
     );
 }

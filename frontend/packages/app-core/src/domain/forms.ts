@@ -1,5 +1,6 @@
 import { useBusinessQuery as useQuery } from "../hooks";
 import { personMedia, usePeoplePhotos } from "./files";
+import { afterReview, outgoing } from "./previews";
 
 import { useMemo, useState } from "react";
 
@@ -450,18 +451,31 @@ export function useSendToClient(
                 return;
             }
             const name = clients.find((c) => c.id === clientId)?.name ?? "";
-            run(
-                () =>
-                    api.post(
-                        path,
-                        { ...body, client_id: clientId },
-                        { idempotencyKey: newIdempotencyKey() },
-                    ),
+            const chosen = clientId;
+            afterReview(
                 {
-                    onSuccess: () => {
-                        setSentTo(name);
-                    },
-                    errorMessage: strings.forms.sendFailed,
+                    title: strings.previews.title,
+                    confirmLabel: strings.previews.send,
+                    load:
+                        path === "/v1/forms/send"
+                            ? outgoing.formSend(api, body.form_id ?? "", chosen)
+                            : outgoing.contractSend(api, body.contract_id ?? "", chosen),
+                },
+                () => {
+                    run(
+                        () =>
+                            api.post(
+                                path,
+                                { ...body, client_id: chosen },
+                                { idempotencyKey: newIdempotencyKey() },
+                            ),
+                        {
+                            onSuccess: () => {
+                                setSentTo(name);
+                            },
+                            errorMessage: strings.forms.sendFailed,
+                        },
+                    );
                 },
             );
         },

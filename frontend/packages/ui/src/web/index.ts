@@ -27,6 +27,7 @@ export { Badge } from "./Badge";
 export { Loading } from "./Loading";
 export { Stat } from "./Stat";
 export { ConfirmHost, confirm } from "./Confirm";
+export { SendReview, SendReviewHost } from "./SendReview";
 export { PageHeader } from "./PageHeader";
 export { Stars } from "./Stars";
 export { Stepper } from "./Stepper";

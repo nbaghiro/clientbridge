@@ -218,6 +218,45 @@
     "common.relativeTime.days": {
         "message": "[{n, number}ð one]"
     },
+    "previews.title": {
+        "message": "[Çĥéçķ îţ ƀéƒöŕé îţ ĝöéš öûţ one two three]"
+    },
+    "previews.send": {
+        "message": "[Šéñð one]"
+    },
+    "previews.sendReminder": {
+        "message": "[Šéñð ŕéɱîñðéŕ one two]"
+    },
+    "previews.sendAgain": {
+        "message": "[Šéñð åĝåîñ one two]"
+    },
+    "ui.review.to": {
+        "message": "[Ţö {name} one]"
+    },
+    "ui.review.emailTo": {
+        "message": "[Éɱåîļ ţö {address} one]"
+    },
+    "ui.review.textTo": {
+        "message": "[Ţéẋţ ţö {number} one]"
+    },
+    "ui.review.nothingSent": {
+        "message": "[Ţĥéŕé'š ñö éɱåîļ öŕ ɱöƀîļé ñûɱƀéŕ öñ ƒîļé, šö ñö ɱéššåĝé ĝöéš öûţ. one two three four]"
+    },
+    "ui.review.loading": {
+        "message": "[Ĝéţţîñĝ ţĥé ɱéššåĝé ŕéåðý one two three]"
+    },
+    "ui.review.loadFailed": {
+        "message": "[Ţĥé ɱéššåĝé ðîðñ'ţ ļöåð. Ţŕý åĝåîñ, öŕ ĝö åĥéåð ŵîţĥöûţ šééîñĝ îţ. one two three four]"
+    },
+    "ui.review.retry": {
+        "message": "[Ţŕý åĝåîñ one]"
+    },
+    "ui.review.showDocument": {
+        "message": "[Šĥöŵ ţĥé ðöçûɱéñţ one two]"
+    },
+    "ui.review.hideDocument": {
+        "message": "[Ĥîðé ţĥé ðöçûɱéñţ one two]"
+    },
     "ui.clearSearch": {
         "message": "[Çļéåŕ šéåŕçĥ one two]"
     },
@@ -1019,6 +1058,21 @@
     "billing.rec.nothingOwed": {
         "message": "[Ñöţĥîñĝ ļéƒţ ţö ŕéçöŕð öñ ţĥîš îñṽöîçé. one two three]"
     },
+    "billing.review.acceptTitle": {
+        "message": "[Ṁåŕķ {title} åççéþţéð? one two]"
+    },
+    "billing.review.declineTitle": {
+        "message": "[Ṁåŕķ {title} ðéçļîñéð? one two]"
+    },
+    "billing.review.answerBody": {
+        "message": "[Ûšé ţĥîš ŵĥéñ ţĥé çļîéñţ åñšŵéŕéð åñöţĥéŕ ŵåý, šûçĥ åš ƀý þĥöñé öŕ îñ þéŕšöñ. Ñöţĥîñĝ îš šéñţ ţö ţĥéɱ. one two three four five six seven]"
+    },
+    "billing.review.accept": {
+        "message": "[Ṁåŕķ åççéþţéð one two]"
+    },
+    "billing.review.decline": {
+        "message": "[Ṁåŕķ ðéçļîñéð one two]"
+    },
     "billing.doc.title": {
         "message": "[Đöçûɱéñţš one two]"
     },
@@ -1411,6 +1465,9 @@
     },
     "pos.desk.sendAsInvoice": {
         "message": "[Šéñð åš îñṽöîçé one two]"
+    },
+    "pos.desk.invoiceReviewBody": {
+        "message": "[{client} ĝéţš åñ îñṽöîçé ƒöŕ {amount} ƀý éɱåîļ öŕ ţéẋţ, åñð ţĥîš šåļé çļöšéš. one two three four]"
     },
     "pos.desk.invoicedNotice": {
         "message": "[{invoice} šéñţ ţö {name} one]"
@@ -2051,6 +2108,15 @@
     "earnings.approveSelected": {
         "message": "[{count,plural,one{Åþþŕöṽé # éåŕñîñĝ} other{Åþþŕöṽé # éåŕñîñĝš} =0{Åþþŕöṽé šéļéçţéð}} one two three four]"
     },
+    "earnings.review.payTitle": {
+        "message": "[Ṁåŕķ {amount} åš þåîð? one two]"
+    },
+    "earnings.review.payBody": {
+        "message": "[Đö ţĥîš öñçé ýöû'ṽé þåîð ýöûŕ ţéåɱ. Ñö ɱöñéý ɱöṽéš ƒŕöɱ ĥéŕé. one two three four]"
+    },
+    "earnings.review.markPaid": {
+        "message": "[Ṁåŕķ þåîð one]"
+    },
     "earnings.payApproved": {
         "message": "[Þåý {amount} one]"
     },
@@ -2278,6 +2344,9 @@
     },
     "entitlements.event.dispute": {
         "message": "[Đîšþûţéð one]"
+    },
+    "entitlements.review.useTitle": {
+        "message": "[Ûšé öñé šéššîöñ ƒŕöɱ ţĥîš þåçķåĝé? one two three]"
     },
     "entitlements.action.use": {
         "message": "[Ûšé å šéššîöñ one two]"
@@ -2812,6 +2881,15 @@
     },
     "bookings.completed": {
         "message": "[Çöɱþļéţéð one two]"
+    },
+    "bookings.review.moveTitle": {
+        "message": "[Ţéļļ {client} åƀöûţ ţĥé ñéŵ ţîɱé? one two]"
+    },
+    "bookings.review.moveAndTell": {
+        "message": "[Ṁöṽé åñð ţéļļ ţĥéɱ one two]"
+    },
+    "bookings.review.moveQuietly": {
+        "message": "[Ṁöṽé ŵîţĥöûţ ţéļļîñĝ one two]"
     },
     "bookings.noShowDone": {
         "message": "[Ṁåŕķéð ñö-šĥöŵ one two]"
@@ -3472,6 +3550,9 @@
     },
     "classes.addedWaitlist": {
         "message": "[Ţĥé çļåšš îš ƒûļļ, šö {name} îš öñ ţĥé ŵåîţļîšţ. one two three]"
+    },
+    "classes.review.messageTitle": {
+        "message": "[Ţéẋţ éṽéŕýöñé ƀööķéð îñ ţĥîš çļåšš? one two three]"
     },
     "classes.messageClass": {
         "message": "[Ṁéššåĝé éṽéŕýöñé one two]"
@@ -6559,6 +6640,12 @@
     },
     "hours.partialAway": {
         "message": "{time} {reason}"
+    },
+    "staff.review.resendTitle": {
+        "message": "[Šéñð {email} å ñéŵ îñṽîţé ļîñķ? one two]"
+    },
+    "staff.review.resendBody": {
+        "message": "[Ţĥé ļîñķ ţĥéý åļŕéåðý ĥåṽé šţöþš ŵöŕķîñĝ. one two three]"
     },
     "staff.acceptInviteError": {
         "message": "[Çöûļðñ’ţ åççéþţ ţĥîš îñṽîţé. Çĥéçķ ýöûŕ çöññéçţîöñ åñð ţŕý åĝåîñ. one two three four five]"
@@ -13180,6 +13267,9 @@
     },
     "reviews.disconnect": {
         "message": "[Đîšçöññéçţ Ĝööĝļé one two]"
+    },
+    "reviews.publishReplyTitle": {
+        "message": "[Þûƀļîšĥ ţĥîš ŕéþļý öñ Ĝööĝļé ƒöŕ åñýöñé ţö ŕéåð? one two three four]"
     },
     "reviews.replyTitle": {
         "message": "[Ŕéþļý öñ Ĝööĝļé one two]"

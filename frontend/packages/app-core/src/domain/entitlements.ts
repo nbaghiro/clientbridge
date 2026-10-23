@@ -1,5 +1,6 @@
 import { useBusinessQuery as useQuery } from "../hooks";
 import { personMedia, usePeoplePhotos } from "./files";
+import { afterReview } from "./previews";
 
 import { useMemo, useRef, useState } from "react";
 
@@ -612,13 +613,20 @@ export function useEntitlementDetail(
                 action === "use"
                     ? () => consumeSession(api, r.id, key)
                     : () => cancelSubscription(api, r.id);
-            run(
-                async () => {
-                    await call();
-                    keyRef.current = null;
-                },
-                { errorMessage: w.actionError },
-            );
+            const go = (): void => {
+                run(
+                    async () => {
+                        await call();
+                        keyRef.current = null;
+                    },
+                    { errorMessage: w.actionError },
+                );
+            };
+            if (action !== "use") {
+                go();
+                return;
+            }
+            afterReview({ title: w.review.useTitle, confirmLabel: w.action.use }, go);
         },
     };
 }

@@ -334,6 +334,21 @@ msgstr "{amount} is still owing on this invoice from {business}."
 msgid "invoice_overdue.subject"
 msgstr "Invoice #{number} overdue — {business}"
 
+msgid "invoice_reminder.body"
+msgstr "A reminder from {business}: invoice #{number} has {amount} still to pay"
+
+msgid "invoice_reminder.body_link"
+msgstr "A reminder from {business}: invoice #{number} has {amount} still to pay. Pay at {link}"
+
+msgid "invoice_reminder.heading"
+msgstr "A reminder about invoice #{number}"
+
+msgid "invoice_reminder.lead"
+msgstr "{amount} is still to pay on this invoice from {business}."
+
+msgid "invoice_reminder.subject"
+msgstr "Reminder: invoice #{number} from {business}"
+
 msgid "invoice_sent.body"
 msgstr "Invoice #{number} for {amount} from {business}"
 

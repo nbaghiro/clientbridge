@@ -217,3 +217,39 @@ async def test_line_staff_must_be_on_the_team_404(
         res = await as_owner.post("/v1/invoices", json={"client_id": cid, "lines": [line]})
         assert res.status_code == 404, res.text
         assert res.json()["message"] == "staff member not found"
+
+
+async def test_remind_sends_the_reminder_and_keeps_the_invoice(
+    as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
+) -> None:
+    cid = await client_id(db, email="client@example.ca")
+    inv = (await as_owner.post("/v1/invoices", json={"client_id": cid, "lines": [_line()]})).json()
+    await as_owner.post(f"/v1/invoices/{inv['id']}/send")
+    res = await as_owner.post(f"/v1/invoices/{inv['id']}/remind")
+    assert res.status_code == 200, res.text
+    assert res.json()["status"] == "sent"
+    assert email.sent[-1].subject.startswith("Reminder")
+    assert "$112.00" in email.sent[-1].body
+
+
+async def test_remind_refuses_a_draft_and_a_foreign_invoice(
+    as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory
+) -> None:
+    cid = await client_id(db)
+    inv = (await as_owner.post("/v1/invoices", json={"client_id": cid, "lines": [_line()]})).json()
+    assert (await as_owner.post(f"/v1/invoices/{inv['id']}/remind")).status_code == 409
+    other = await factory.business(name="Rival Co")
+    foreign = Invoice(
+        id=new_id("invoice"),
+        business_id=other.id,
+        client_id=(await factory.client(business=other)).id,
+        status="sent",
+        currency="CAD",
+    )
+    db.add(foreign)
+    await db.flush()
+    assert (await as_owner.post(f"/v1/invoices/{foreign.id}/remind")).status_code == 404
+
+
+async def test_staff_cannot_remind(as_staff: httpx.AsyncClient) -> None:
+    assert (await as_staff.post("/v1/invoices/inv_x/remind")).status_code == 403

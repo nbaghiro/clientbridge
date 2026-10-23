@@ -16,8 +16,16 @@ import { DefaultTheme, NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { AppState, LogBox, StyleSheet, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { Button, ConfirmHost, configureStripe, LoadFailed, Select } from "@clientbridge/ui";
+import {
+    Button,
+    ConfirmHost,
+    configureStripe,
+    LoadFailed,
+    Select,
+    SendReviewHost,
+} from "@clientbridge/ui";
 
+import { RecordPaper } from "./src/components/DocumentPreview";
 import { StripeAppProvider } from "./src/components/Stripe";
 import { Splash, revealApp } from "./src/components/Splash";
 import { TabBar } from "./src/components/TabBar";
@@ -243,117 +251,128 @@ function AuthedApp({ onSignOut }: { onSignOut: () => void }) {
         <BusinessZoneContext.Provider key={zones} value={business.zone}>
             <SignOutContext.Provider value={onSignOut}>
                 <StripeAppProvider>
-                    <NavigationContainer theme={navTheme}>
-                        <RootStack.Navigator screenOptions={{ headerShown: false }}>
-                            <RootStack.Screen name="Tabs" component={Tabs} />
-                            <RootStack.Screen name="Search" component={SearchScreen} />
-                            <RootStack.Screen
-                                name="Notifications"
-                                component={NotificationsScreen}
-                            />
-                            <RootStack.Group
-                                screenOptions={{
-                                    headerShown: true,
-                                    headerStyle: { backgroundColor: theme.colors.surface },
-                                    headerTintColor: theme.colors.ink,
-                                    headerShadowVisible: false,
-                                    headerBackTitle: "Back",
-                                }}
-                            >
+                    <>
+                        <NavigationContainer theme={navTheme}>
+                            <RootStack.Navigator screenOptions={{ headerShown: false }}>
+                                <RootStack.Screen name="Tabs" component={Tabs} />
+                                <RootStack.Screen name="Search" component={SearchScreen} />
                                 <RootStack.Screen
-                                    name="Payments"
-                                    component={PaymentsScreen}
-                                    options={{ title: strings.navigation.payments }}
+                                    name="Notifications"
+                                    component={NotificationsScreen}
                                 />
-                                <RootStack.Screen
-                                    name="Setup"
-                                    component={SetupScreen}
-                                    options={{ title: strings.navigation.setup }}
-                                />
-                                <RootStack.Screen
-                                    name="GetSetUp"
-                                    component={GetSetUpScreen}
-                                    options={{ title: strings.navigation.setupSections.start }}
-                                />
-                                <RootStack.Screen
-                                    name="Taxes"
-                                    component={TaxesScreen}
-                                    options={{ title: strings.navigation.setupSections.taxes }}
-                                />
-                                <RootStack.Screen
-                                    name="Business"
-                                    component={BusinessScreen}
-                                    options={{ title: strings.navigation.setupSections.business }}
-                                />
-                                <RootStack.Screen
-                                    name="Services"
-                                    component={CatalogScreen}
-                                    options={{ title: strings.navigation.setupSections.services }}
-                                />
-                                <RootStack.Screen
-                                    name="Team"
-                                    component={TeamHoursScreen}
-                                    options={{ title: strings.navigation.setupSections.team }}
-                                />
-                                <RootStack.Screen
-                                    name="GettingPaid"
-                                    component={GettingPaidScreen}
-                                    options={{
-                                        title: strings.navigation.setupSections.gettingPaid,
+                                <RootStack.Group
+                                    screenOptions={{
+                                        headerShown: true,
+                                        headerStyle: { backgroundColor: theme.colors.surface },
+                                        headerTintColor: theme.colors.ink,
+                                        headerShadowVisible: false,
+                                        headerBackTitle: "Back",
                                     }}
-                                />
-                                <RootStack.Screen
-                                    name="Plans"
-                                    component={PlansScreen}
-                                    options={{ title: strings.navigation.setupSections.plan }}
-                                />
-                                <RootStack.Screen
-                                    name="ClientHistory"
-                                    component={ClientHistoryScreen}
-                                    options={({ route }) => ({ title: route.params.name })}
-                                />
-                                <RootStack.Screen
-                                    name="ClientSubjects"
-                                    component={ClientSubjectsScreen}
-                                    options={({ route }) => ({
-                                        title: strings.subjects.many(route.params.kind),
-                                    })}
-                                />
-                                <RootStack.Screen
-                                    name="ClientWallet"
-                                    component={ClientWalletScreen}
-                                    options={{ title: strings.clients.wallet.title }}
-                                />
-                                <RootStack.Screen
-                                    name="OnlineBooking"
-                                    component={OnlineBookingScreen}
-                                    options={{
-                                        title: strings.navigation.setupSections.onlineBooking,
-                                    }}
-                                />
-                                <RootStack.Screen
-                                    name="Reminders"
-                                    component={RemindersScreen}
-                                    options={{ title: strings.navigation.setupSections.reminders }}
-                                />
-                                <RootStack.Screen
-                                    name="Security"
-                                    component={SecurityScreen}
-                                    options={{ title: strings.navigation.setupSections.security }}
-                                />
-                                <RootStack.Screen
-                                    name="Classes"
-                                    component={ClassesScreen}
-                                    options={{ title: strings.classes.title }}
-                                />
-                                <RootStack.Screen
-                                    name="Recurrences"
-                                    component={RecurrencesScreen}
-                                    options={{ title: strings.recurrences.listTitle }}
-                                />
-                            </RootStack.Group>
-                        </RootStack.Navigator>
-                    </NavigationContainer>
+                                >
+                                    <RootStack.Screen
+                                        name="Payments"
+                                        component={PaymentsScreen}
+                                        options={{ title: strings.navigation.payments }}
+                                    />
+                                    <RootStack.Screen
+                                        name="Setup"
+                                        component={SetupScreen}
+                                        options={{ title: strings.navigation.setup }}
+                                    />
+                                    <RootStack.Screen
+                                        name="GetSetUp"
+                                        component={GetSetUpScreen}
+                                        options={{ title: strings.navigation.setupSections.start }}
+                                    />
+                                    <RootStack.Screen
+                                        name="Taxes"
+                                        component={TaxesScreen}
+                                        options={{ title: strings.navigation.setupSections.taxes }}
+                                    />
+                                    <RootStack.Screen
+                                        name="Business"
+                                        component={BusinessScreen}
+                                        options={{
+                                            title: strings.navigation.setupSections.business,
+                                        }}
+                                    />
+                                    <RootStack.Screen
+                                        name="Services"
+                                        component={CatalogScreen}
+                                        options={{
+                                            title: strings.navigation.setupSections.services,
+                                        }}
+                                    />
+                                    <RootStack.Screen
+                                        name="Team"
+                                        component={TeamHoursScreen}
+                                        options={{ title: strings.navigation.setupSections.team }}
+                                    />
+                                    <RootStack.Screen
+                                        name="GettingPaid"
+                                        component={GettingPaidScreen}
+                                        options={{
+                                            title: strings.navigation.setupSections.gettingPaid,
+                                        }}
+                                    />
+                                    <RootStack.Screen
+                                        name="Plans"
+                                        component={PlansScreen}
+                                        options={{ title: strings.navigation.setupSections.plan }}
+                                    />
+                                    <RootStack.Screen
+                                        name="ClientHistory"
+                                        component={ClientHistoryScreen}
+                                        options={({ route }) => ({ title: route.params.name })}
+                                    />
+                                    <RootStack.Screen
+                                        name="ClientSubjects"
+                                        component={ClientSubjectsScreen}
+                                        options={({ route }) => ({
+                                            title: strings.subjects.many(route.params.kind),
+                                        })}
+                                    />
+                                    <RootStack.Screen
+                                        name="ClientWallet"
+                                        component={ClientWalletScreen}
+                                        options={{ title: strings.clients.wallet.title }}
+                                    />
+                                    <RootStack.Screen
+                                        name="OnlineBooking"
+                                        component={OnlineBookingScreen}
+                                        options={{
+                                            title: strings.navigation.setupSections.onlineBooking,
+                                        }}
+                                    />
+                                    <RootStack.Screen
+                                        name="Reminders"
+                                        component={RemindersScreen}
+                                        options={{
+                                            title: strings.navigation.setupSections.reminders,
+                                        }}
+                                    />
+                                    <RootStack.Screen
+                                        name="Security"
+                                        component={SecurityScreen}
+                                        options={{
+                                            title: strings.navigation.setupSections.security,
+                                        }}
+                                    />
+                                    <RootStack.Screen
+                                        name="Classes"
+                                        component={ClassesScreen}
+                                        options={{ title: strings.classes.title }}
+                                    />
+                                    <RootStack.Screen
+                                        name="Recurrences"
+                                        component={RecurrencesScreen}
+                                        options={{ title: strings.recurrences.listTitle }}
+                                    />
+                                </RootStack.Group>
+                            </RootStack.Navigator>
+                        </NavigationContainer>
+                        <SendReviewHost document={(d) => <RecordPaper {...d} />} />
+                    </>
                 </StripeAppProvider>
             </SignOutContext.Provider>
         </BusinessZoneContext.Provider>

@@ -108,6 +108,10 @@ def _builders() -> dict[str, Render]:
             n.invoice_overdue_message(c, 1001, amount(c), NAME, LINK),
             n.invoice_overdue_message(c, 1001, amount(c), NAME, ""),
         ),
+        "invoice_reminder_message": lambda c: (
+            n.invoice_reminder_message(c, 1001, amount(c), NAME, LINK),
+            n.invoice_reminder_message(c, 1001, amount(c), NAME, ""),
+        ),
         "estimate_sent_message": lambda c: (
             n.estimate_sent_message(c, 7, amount(c), NAME, LINK),
             n.estimate_sent_message(c, 7, amount(c), NAME, ""),

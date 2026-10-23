@@ -20,6 +20,7 @@ from clientbridge.api import (
     orders,
     payments,
     plans,
+    previews,
     reports,
     reviews,
     staff,
@@ -57,6 +58,7 @@ api_router.include_router(staff.router)
 api_router.include_router(hours.router)
 api_router.include_router(reports.dashboard_router)
 api_router.include_router(notifications.router)
+api_router.include_router(previews.router)
 api_router.include_router(reports.reports_router)
 api_router.include_router(reviews.router)
 api_router.include_router(messaging.router)

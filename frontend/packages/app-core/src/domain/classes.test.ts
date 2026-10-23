@@ -16,6 +16,7 @@ const seat = (status: string, checkedIn: string | null = null): RosterRow => ({
     status,
     checked_in_at: checkedIn,
     deposit_status: "none",
+    deposit_amount_cents: null,
 });
 
 describe("rosterStatus", () => {

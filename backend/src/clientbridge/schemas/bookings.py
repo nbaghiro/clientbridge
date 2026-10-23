@@ -46,6 +46,9 @@ class BookingPatch(BookingMove, Mirror):
     mirrors = Booking
 
     status: Literal["confirmed", "completed", "canceled", "no_show"] | None = None
+    notify: bool = Field(
+        default=True, description="False moves the visit without telling the client"
+    )
 
 
 Problem = Literal["past", "closed", "time_off", "off_hours", "overlap", "class"]

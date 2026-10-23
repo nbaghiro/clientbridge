@@ -39,6 +39,7 @@ import {
     priceDoc,
     invoiceLabel,
 } from "./billing";
+import { afterReview, outgoing } from "./previews";
 import { utcBeforeSql, utcFromSql, utcSql } from "../datetime";
 import { type ItemRow, ITEMS_SQL, sellableItems, stockState } from "./catalog";
 import { type Checkout, NEW_CARD, useCheckout } from "./checkout";
@@ -1330,23 +1331,40 @@ export function useSale(
         sendAsInvoice: () => {
             if (clientId === null || lines.length === 0) return;
             const body = { ...saleBody({ clientId, lines, saleDiscount }), send: true };
-            run(
-                async () => {
-                    if (order !== null) {
-                        await api.post(`/v1/orders/${order.id}/void`, {});
-                        setOrder(null);
-                        savedAttempt.current = null;
-                        keyRef.current = null;
-                    }
-                    const out = await api.post<{ number: number | null }>("/v1/invoices", body, {
-                        idempotencyKey: attemptKey(invoiceAttempt, body),
-                    });
-                    const name = client?.name ?? "";
-                    reset();
-                    invoiceAttempt.current = null;
-                    setInvoiced(d.invoicedNotice(invoiceLabel(out.number), name));
+            const name = client?.name ?? "";
+            const issue = (): void => {
+                run(
+                    async () => {
+                        if (order !== null) {
+                            await api.post(`/v1/orders/${order.id}/void`, {});
+                            setOrder(null);
+                            savedAttempt.current = null;
+                            keyRef.current = null;
+                        }
+                        const out = await api.post<{ number: number | null }>(
+                            "/v1/invoices",
+                            body,
+                            {
+                                idempotencyKey: attemptKey(invoiceAttempt, body),
+                            },
+                        );
+                        reset();
+                        invoiceAttempt.current = null;
+                        setInvoiced(d.invoicedNotice(invoiceLabel(out.number), name));
+                    },
+                    { errorMessage: (e) => failureMessage(e, d.invoiceError) },
+                );
+            };
+            afterReview(
+                {
+                    title: strings.previews.title,
+                    message: d.invoiceReviewBody(
+                        name,
+                        formatMoney(t.totalCents, BUSINESS_CURRENCY),
+                    ),
+                    confirmLabel: strings.billing.sendInvoice,
                 },
-                { errorMessage: (e) => failureMessage(e, d.invoiceError) },
+                issue,
             );
         },
         invoiced,
@@ -2407,36 +2425,56 @@ export function useSaleActions(
                 return;
             }
             if (key === "preparing" || key === "ready" || key === "pickedUp") {
-                go(
-                    key,
-                    () =>
-                        api.post(`/v1/orders/${detail.id}/pickup`, {
-                            status:
-                                key === "preparing"
-                                    ? "preparing"
-                                    : key === "ready"
-                                      ? "ready"
-                                      : "picked_up",
-                        }),
-                    key === "preparing"
-                        ? strings.publicOrder.preparingStarted
-                        : key === "ready"
-                          ? d.markedReady(detail.clientName)
-                          : d.markedPickedUp(detail.clientName),
+                const mark = (): void => {
+                    go(
+                        key,
+                        () =>
+                            api.post(`/v1/orders/${detail.id}/pickup`, {
+                                status:
+                                    key === "preparing"
+                                        ? "preparing"
+                                        : key === "ready"
+                                          ? "ready"
+                                          : "picked_up",
+                            }),
+                        key === "preparing"
+                            ? strings.publicOrder.preparingStarted
+                            : key === "ready"
+                              ? d.markedReady(detail.clientName)
+                              : d.markedPickedUp(detail.clientName),
+                    );
+                };
+                if (key !== "ready") {
+                    mark();
+                    return;
+                }
+                afterReview(
+                    {
+                        title: strings.previews.title,
+                        confirmLabel: strings.previews.send,
+                        load: outgoing.orderReady(api, detail.id),
+                    },
+                    mark,
                 );
                 return;
             }
             if (key === "receipt") {
                 const sms = detail.clientEmail === null && detail.clientPhone !== null;
                 const to = (sms ? detail.clientPhone : detail.clientEmail) ?? "";
-                go(
-                    key,
-                    () =>
-                        api.post(`/v1/orders/${detail.id}/receipt`, {
-                            channel: sms ? "sms" : "email",
-                            to,
-                        }),
-                    d.receiptSent(sms ? formatPhone(to) : to),
+                const channel = sms ? "sms" : "email";
+                afterReview(
+                    {
+                        title: strings.previews.title,
+                        confirmLabel: strings.previews.send,
+                        load: outgoing.orderReceipt(api, detail.id, channel, to),
+                    },
+                    () => {
+                        go(
+                            key,
+                            () => api.post(`/v1/orders/${detail.id}/receipt`, { channel, to }),
+                            d.receiptSent(sms ? formatPhone(to) : to),
+                        );
+                    },
                 );
                 return;
             }

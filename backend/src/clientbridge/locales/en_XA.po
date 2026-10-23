@@ -352,6 +352,21 @@ msgstr "[{amount} îš šţîļļ öŵîñĝ öñ ţĥîš îñṽöîçé ƒŕ�
 msgid "invoice_overdue.subject"
 msgstr "[Îñṽöîçé #{number} öṽéŕðûé — {business}~~~~~~~]"
 
+msgid "invoice_reminder.body"
+msgstr "[Å ŕéɱîñðéŕ ƒŕöɱ {business}: îñṽöîçé #{number} ĥåš {amount} šţîļļ ţö þåý~~~~~~~~~~~~~~~~]"
+
+msgid "invoice_reminder.body_link"
+msgstr "[Å ŕéɱîñðéŕ ƒŕöɱ {business}: îñṽöîçé #{number} ĥåš {amount} šţîļļ ţö þåý. Þåý åţ {link}~~~~~~~~~~~~~~~~~~~]"
+
+msgid "invoice_reminder.heading"
+msgstr "[Å ŕéɱîñðéŕ åƀöûţ îñṽöîçé #{number}~~~~~~~~~~]"
+
+msgid "invoice_reminder.lead"
+msgstr "[{amount} îš šţîļļ ţö þåý öñ ţĥîš îñṽöîçé ƒŕöɱ {business}.~~~~~~~~~~~~~~]"
+
+msgid "invoice_reminder.subject"
+msgstr "[Ŕéɱîñðéŕ: îñṽöîçé #{number} ƒŕöɱ {business}~~~~~~~~~]"
+
 msgid "invoice_sent.body"
 msgstr "[Îñṽöîçé #{number} ƒöŕ {amount} ƒŕöɱ {business}~~~~~~~]"
 

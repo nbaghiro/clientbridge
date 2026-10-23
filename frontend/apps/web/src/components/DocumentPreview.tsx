@@ -1,6 +1,20 @@
-import { type PrintedDoc, type PrintedKind, strings } from "@clientbridge/app-core";
+import {
+    type PrintedDoc,
+    type PrintedKind,
+    type ReviewDocument,
+    printedEstimate,
+    printedInvoice,
+    strings,
+    useEstimateRecord,
+    useInvoiceRecord,
+    useLetterhead,
+} from "@clientbridge/app-core";
+import { cssVar } from "@clientbridge/tokens";
 import { Button, Choice, Empty, Icon, IconButton, Modal, PrintedDocument } from "@clientbridge/ui";
 import { type ReactNode, useState } from "react";
+
+import { config } from "../config";
+import { apiBaseUrl } from "../lib/api";
 
 const d = strings.billing.doc;
 
@@ -132,4 +146,18 @@ export function DocumentPreview({
             </div>
         </Modal>
     );
+}
+
+/** The invoice or estimate a send is about, as the client will see it. */
+export function RecordPaper({ kind, id }: ReviewDocument) {
+    const letterhead = useLetterhead(apiBaseUrl);
+    const invoice = useInvoiceRecord(kind === "invoice" ? id : null, config.payUrl);
+    const estimate = useEstimateRecord(kind === "estimate" ? id : null, config.payUrl);
+    const doc =
+        invoice !== null
+            ? printedInvoice(invoice, letterhead, cssVar("accent"))
+            : estimate !== null
+              ? printedEstimate(estimate, letterhead, cssVar("accent"))
+              : null;
+    return doc === null ? null : <PrintedDocument doc={doc} />;
 }
