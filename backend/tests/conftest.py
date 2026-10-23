@@ -260,6 +260,8 @@ class FakeIdentityProvider:
         self.cached: dict[str, Identity] = {}
         self.step_up: set[str] = set()
         self.deleted: set[str] = set()
+        # the admin API's identities by id, with their emails
+        self.accounts: dict[str, str] = {}
         self.fresh_reads = 0
         self.down = False
 
@@ -290,6 +292,12 @@ class FakeIdentityProvider:
 
     async def create_identity(self, email: str, name: str, password: str) -> str:
         return str(uuid4())
+
+    async def list_identities(self) -> list[tuple[str, str | None]]:
+        return [(i, e) for i, e in self.accounts.items() if i not in self.deleted]
+
+    async def delete_identity(self, identity_id: str) -> None:
+        self.deleted.add(identity_id)
 
     def end_sessions(self, identity_id: str) -> None:
         """What the auth service does after a password reset: every session of the identity ends."""

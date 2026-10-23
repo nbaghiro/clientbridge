@@ -241,6 +241,45 @@ async def test_admin_identity_helpers() -> None:
         await kratos.create_identity("x@test.ca", "X", "pw")
 
 
+async def test_listing_identities_follows_every_page() -> None:
+    pages = {
+        "": ([{"id": "a", "traits": {"email": "a@test.ca"}}, {"id": "b", "traits": {}}], "t2"),
+        "t2": ([{"id": "c", "traits": {"email": "c@demo.example"}}], "t3"),
+        "t3": ([], None),
+    }
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        entries, following = pages[request.url.params.get("page_token", "")]
+        link = f'</admin/identities?page_size=500&page_token={following}>; rel="next"'
+        return httpx.Response(200, json=entries, headers={"Link": link} if following else {})
+
+    kratos, _ = provider(handler)
+    assert await kratos.list_identities() == [
+        ("a", "a@test.ca"),
+        ("b", None),
+        ("c", "c@demo.example"),
+    ]
+    kratos, _ = provider(lambda r: httpx.Response(500, json={}))
+    with pytest.raises(AppError):
+        await kratos.list_identities()
+
+
+async def test_deleting_an_identity_that_is_already_gone_succeeds() -> None:
+    deleted: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        deleted.append(f"{request.method} {request.url.path}")
+        return httpx.Response(204 if request.url.path.endswith("/live") else 404)
+
+    kratos, _ = provider(handler)
+    await kratos.delete_identity("live")
+    await kratos.delete_identity("gone")
+    assert deleted == ["DELETE /admin/identities/live", "DELETE /admin/identities/gone"]
+    kratos, _ = provider(lambda r: httpx.Response(500))
+    with pytest.raises(AppError):
+        await kratos.delete_identity("live")
+
+
 @pytest.mark.kratos
 @pytest.mark.wall_clock
 async def test_contract_against_local_kratos() -> None:

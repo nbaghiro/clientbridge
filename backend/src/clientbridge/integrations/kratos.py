@@ -4,6 +4,7 @@ import logging
 import time
 from datetime import datetime, timedelta
 from functools import lru_cache
+from urllib.parse import parse_qs, urlsplit
 
 import httpx
 
@@ -15,6 +16,7 @@ from clientbridge.integrations.identity import Credential, Identity, IdentityPro
 
 _EXTEND_WITHIN = timedelta(hours=24)
 _CACHE_LIMIT = 10_000
+_PAGE_SIZE = "500"
 log = logging.getLogger(__name__)
 
 
@@ -157,6 +159,30 @@ class KratosIdentityProvider:
         if identity_id is None:
             raise unavailable()
         return identity_id
+
+    async def list_identities(self) -> list[tuple[str, str | None]]:
+        """Every identity's id and email, following the admin API's pages."""
+        found: list[tuple[str, str | None]] = []
+        params = {"page_size": _PAGE_SIZE}
+        while True:
+            response = await self._call("GET", f"{self._admin}/admin/identities", params=params)
+            if response.status_code != 200:
+                raise unavailable()
+            page = response.json()
+            for entry in page if isinstance(page, list) else []:
+                identity = _dict(entry)
+                if identity_id := _str(identity.get("id")):
+                    found.append((identity_id, _str(_dict(identity.get("traits")).get("email"))))
+            following = parse_qs(urlsplit(response.links.get("next", {}).get("url", "")).query)
+            token = following.get("page_token", [""])[0]
+            if not page or not token or token == params.get("page_token"):
+                return found
+            params = {"page_size": _PAGE_SIZE, "page_token": token}
+
+    async def delete_identity(self, identity_id: str) -> None:
+        response = await self._call("DELETE", f"{self._admin}/admin/identities/{identity_id}")
+        if response.status_code not in (204, 404):
+            raise unavailable()
 
     async def _call(
         self,

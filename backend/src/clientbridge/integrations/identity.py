@@ -41,6 +41,10 @@ class IdentityProvider(Protocol):
 
     async def create_identity(self, email: str, name: str, password: str) -> str: ...
 
+    async def list_identities(self) -> list[tuple[str, str | None]]: ...
+
+    async def delete_identity(self, identity_id: str) -> None: ...
+
 
 def unavailable() -> AppError:
     return AppError("identity service unavailable", code="identity_unavailable", status_code=503)

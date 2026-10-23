@@ -68,6 +68,7 @@ from scripts.demo_engagement import build_engagement
 from scripts.demo_engine import Demo, build_edition, edition_of, editions, seed_ledger
 from scripts.demo_finance import add_finance_scenarios, prepare_finance, seed_finance
 from scripts.demo_identity import FOUNDED_DAY, build_identity, placeholder_identity
+from scripts.demo_logins import prune_logins
 from scripts.demo_photos import add_people_photos
 from scripts.demo_scenarios import add_scenarios
 from scripts.demo_schedule import add_class_timetable, add_repeat_visits, finish_schedule
@@ -2443,6 +2444,18 @@ async def link_identities(users: Sequence[User]) -> None:
         ) from exc
 
 
+async def prune_stale_logins(owner: AsyncEngine, seeded: Sequence[str]) -> None:
+    """Delete the auth identities of demo logins whose email changed, once the users are in."""
+    try:
+        async with async_sessionmaker(owner)() as session, session.begin():
+            pruned = await prune_logins(session, get_identity_provider(), seeded)
+    except AppError as exc:
+        raise SystemExit(
+            f"the auth service is not reachable at {get_settings().auth_admin_url}"
+        ) from exc
+    print(f"Pruned {len(pruned)} stale demo logins: {', '.join(pruned) or 'none'}.")
+
+
 def default_jobs() -> int:
     return max(1, min(os.cpu_count() or 1, MAX_JOBS))
 
@@ -2494,9 +2507,13 @@ async def main(
             await owner.dispose()
             raise SystemExit(f"Demo copy failed for {', '.join(failed)}; they keep their old rows.")
     errors = await cross_business_check(owner, business_ids)
-    await owner.dispose()
     if errors:
+        await owner.dispose()
         raise SystemExit(f"Demo validation failed across businesses: {errors[:20]}")
+    if not core:
+        # a core seed leaves out logins other databases on the same auth service still use
+        await prune_stale_logins(owner, [u.email for g in graphs for u in g.ctx.all(User)])
+    await owner.dispose()
     total = sum(outcome.rows for outcome in outcomes)
     print(f"Seeded {total} rows; demo {DEMO_VERSION}, as of {anchor.isoformat()}.")
 
