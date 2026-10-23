@@ -1572,7 +1572,7 @@ class BookingService:
         item = await self._item(slot.item_id, require_active=False)
         ends_at = slot.ends_at + timedelta(minutes=minutes)
         if minutes < 0:
-            # an add-on's minutes may have been edited since booking, so never cut into the service
+            # a staff resize may have shortened the visit, so never cut into the service
             service = max(timedelta(minutes=item.duration_min or 0), _MIN_VISIT)
             ends_at = max(ends_at, min(slot.ends_at, slot.starts_at + service))
         if minutes > 0:

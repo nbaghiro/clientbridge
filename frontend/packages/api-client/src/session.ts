@@ -43,29 +43,36 @@ export interface Session {
 
 const JSON_HEADERS = { "Content-Type": "application/json" };
 
-/** A request the API refused: its status and the stable `error` code of its body, never shown as text. */
+/** A request the API refused: its status, its stable `error` code and that code's `detail`, never its text. */
 export class ApiError extends Error {
     constructor(
         readonly status: number,
         readonly code: string | null,
         request: string,
+        readonly detail: unknown = null,
     ) {
         super(`${request} → ${String(status)}`);
         this.name = "ApiError";
     }
 }
 
-async function errorCode(res: Response): Promise<string | null> {
+async function errorBody(res: Response): Promise<{ error?: unknown; detail?: unknown }> {
     try {
-        const body = (await res.clone().json()) as { error?: unknown };
-        return typeof body.error === "string" ? body.error : null;
+        return (await res.clone().json()) as { error?: unknown; detail?: unknown };
     } catch {
-        return null;
+        return {};
     }
 }
 
+async function errorCode(res: Response): Promise<string | null> {
+    const body = await errorBody(res);
+    return typeof body.error === "string" ? body.error : null;
+}
+
 async function refused(res: Response, request: string): Promise<ApiError> {
-    return new ApiError(res.status, await errorCode(res), request);
+    const body = await errorBody(res);
+    const code = typeof body.error === "string" ? body.error : null;
+    return new ApiError(res.status, code, request, body.detail ?? null);
 }
 
 export function createSession(opts: SessionOptions): Session {

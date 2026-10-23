@@ -14,7 +14,7 @@ export interface ApiLike {
     delete<T>(path: string, opts?: PostOptions): Promise<T>;
 }
 
-const field = (e: unknown, name: "status" | "code"): unknown =>
+const field = (e: unknown, name: "status" | "code" | "detail"): unknown =>
     e !== null && typeof e === "object" && name in e ? (e as Record<string, unknown>)[name] : null;
 
 /** The HTTP status of a refused request; the message shown comes from the catalog. */
@@ -29,25 +29,41 @@ export function failedCode(e: unknown): string | null {
     return typeof code === "string" ? code : null;
 }
 
-/** A refused public request, read the same way as a staff one: status and code, never the text. */
+/** The values a refusal names alongside its code, such as how many visits or which day. */
+type FailureDetail = Readonly<Record<string, unknown>>;
+
+/** The `detail` a refused request carried; empty when it carried none. */
+export function failedDetail(e: unknown): FailureDetail {
+    const detail = field(e, "detail");
+    return detail !== null && typeof detail === "object" && !Array.isArray(detail)
+        ? (detail as FailureDetail)
+        : {};
+}
+
+/** A refused public request, read the same way as a staff one: status, code and detail, never the text. */
 export async function refusal(
     res: Response,
-): Promise<Error & { status: number; code: string | null }> {
+): Promise<Error & { status: number; code: string | null; detail: unknown }> {
     let code: string | null = null;
+    let detail: unknown = null;
     try {
-        const body = (await res.json()) as { error?: unknown };
+        const body = (await res.json()) as { error?: unknown; detail?: unknown };
         if (typeof body.error === "string") code = body.error;
+        detail = body.detail ?? null;
     } catch {
         code = null;
     }
     return Object.assign(new Error(`${res.url} → ${String(res.status)}`), {
         status: res.status,
         code,
+        detail,
     });
 }
 
+const detailCount = (d: FailureDetail): number => (typeof d.count === "number" ? d.count : 0);
+
 // Failures the server names that read the same wherever they happen.
-const FAILURES: Record<string, () => string> = {
+const FAILURES: Record<string, (detail: FailureDetail) => string> = {
     invalid_timezone: () => strings.api.invalidTimezone,
     out_of_stock: () => strings.api.outOfStock,
     pickup_window_taken: () => strings.api.pickupWindowTaken,
@@ -100,13 +116,14 @@ const FAILURES: Record<string, () => string> = {
     schedule_conflict: () => strings.api.scheduleConflict,
     schedule_past: () => strings.api.schedulePast,
     class_schedule: () => strings.api.classSchedule,
+    addon_length_in_use: (d) => strings.api.addonLengthInUse(detailCount(d)),
 };
 
 /** The catalog message for a failure the server named, else the action's own message. */
 export function failureMessage(e: unknown, fallback: string): string {
     const code = failedCode(e);
     const known = code === null ? undefined : FAILURES[code];
-    return known === undefined ? fallback : known();
+    return known === undefined ? fallback : known(failedDetail(e));
 }
 
 /** One key per write attempt, reused across its retries so the server dedups instead of double-charging. */

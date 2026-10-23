@@ -4,6 +4,7 @@ import {
     type Attempt,
     attemptKey,
     failedCode,
+    failedDetail,
     failedStatus,
     failureMessage,
     refusal,
@@ -59,6 +60,18 @@ describe("refused requests", () => {
         ];
         for (const [code, message] of cases)
             expect(failureMessage(refused(409, code), "fallback")).toBe(message);
+    });
+
+    it("reads the values a refusal names, such as how many visits hold an add-on's length", async () => {
+        const res = Response.json(
+            { error: "addon_length_in_use", message: "in use", detail: { count: 3 } },
+            { status: 409 },
+        );
+        const e = await refusal(res);
+        expect(failedDetail(e)).toEqual({ count: 3 });
+        expect(failureMessage(e, "fallback")).toBe(strings.api.addonLengthInUse(3));
+        expect(failedDetail(refused(409, "conflict"))).toEqual({});
+        expect(failedDetail(Object.assign(new Error("x"), { detail: [1] }))).toEqual({});
     });
 
     it("keeps the action's own message for any other failure", () => {

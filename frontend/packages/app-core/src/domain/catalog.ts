@@ -2,7 +2,7 @@ import { useBusinessQuery as useQuery } from "../hooks";
 
 import { useMemo, useRef, useState } from "react";
 
-import { type ApiLike, type Attempt, attemptKey, newIdempotencyKey } from "../api";
+import { type ApiLike, type Attempt, attemptKey, failureMessage, newIdempotencyKey } from "../api";
 import { addDays, parseTimestamp, stampLabel, useBusinessZone } from "../datetime";
 import {
     blankToNull,
@@ -711,7 +711,10 @@ function useItemForm(
                     );
                 }
             },
-            { onSuccess: onDone, errorMessage: editing ? s.saveError : s.addError },
+            {
+                onSuccess: onDone,
+                errorMessage: (e) => failureMessage(e, editing ? s.saveError : s.addError),
+            },
         );
     };
 

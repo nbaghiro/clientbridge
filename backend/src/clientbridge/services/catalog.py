@@ -1,3 +1,4 @@
+from sqlalchemy import distinct, func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -8,6 +9,7 @@ from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
 from clientbridge.models.business import Staff
 from clientbridge.models.catalog import BOOKABLE_KINDS, Item
+from clientbridge.models.scheduling import Addon, Booking
 from clientbridge.schemas.catalog import (
     ItemCreate,
     ItemUpdate,
@@ -122,6 +124,10 @@ class CatalogService:
         self._assert_admin()
         item = await load_item(self.db, self.principal.business_id, item_id, require_active=False)
         changes = data.model_dump(exclude_unset=True)
+        if item.kind == "product" and changes.get("duration_min", item.duration_min) != (
+            item.duration_min
+        ):
+            await self._assert_length_unused(item)
         offered_before = set(item.staff_ids)
         if changes.get("staff_ids", ()) is None:
             changes["staff_ids"] = []
@@ -138,6 +144,26 @@ class CatalogService:
         await self._assert_staff([s for s in item.staff_ids if s not in offered_before])
         await self._save(item)
         return item
+
+    async def _assert_length_unused(self, item: Item) -> None:
+        """An add-on's minutes are part of each visit it is on, so its length holds until then."""
+        visits = await self.db.scalar(
+            scoped(Addon, self.principal.business_id)
+            .with_only_columns(func.count(distinct(Addon.booking_id)))
+            .join(Booking, Booking.id == Addon.booking_id)
+            .where(
+                Addon.item_id == item.id,
+                Booking.deleted_at.is_(None),
+                Booking.status.in_(("pending", "confirmed")),
+                Booking.invoice_id.is_(None),
+            )
+        )
+        if visits:
+            raise Conflict(
+                f"this add-on is on {visits} upcoming visits; its length can't change until then",
+                code="addon_length_in_use",
+                detail={"count": visits},
+            )
 
     async def _assert_staff(self, staff_ids: list[str]) -> None:
         """Each newly named member is active in this business; one removed later stays listed."""

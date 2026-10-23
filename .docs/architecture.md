@@ -708,9 +708,10 @@ entitlement and its liability are created.
   the slots and days reads, so it offers only times that fit. A client's move keeps the stored length.
   Staff add an add-on through the same resize check a move uses, refused with 409 `visit_no_room` when the
   time after the visit is taken, and removing one shortens the visit by its minutes. An add-on row keeps no
-  minutes of its own, so a removal reads the product's current `duration_min` and never shortens the visit
-  below the service's length. A class seat keeps the
-  class's length.
+  minutes of its own, so a removal reads the product's `duration_min`, and the product's length can't change
+  while any pending or confirmed, unbilled visit carries it (409 `addon_length_in_use`, with the number of
+  visits as `detail.count`). A removal still never shortens the visit below the service's length, since a
+  staff resize may have shortened it. A class seat keeps the class's length.
 - **Crew:** a one-to-one visit can have helpers besides its lead, and only an owner or admin adds or removes
   them (403 for anyone else, the lead included). `POST /v1/bookings/{id}/crew` locks the helper, checks
   their calendar the way a booking is checked (and that they offer the service), and writes an `hours`

@@ -401,12 +401,84 @@ async def test_removing_an_addon_never_cuts_into_the_service(
         201,
     )
     assert await _length(db, booking_id) == 75 + 40
-    await _minutes(db, SHAMPOO, 90)
+    ok(await as_owner.patch(f"/v1/bookings/{booking_id}", json={"ends_at": "2026-12-01T17:30:00Z"}))
+    assert await _length(db, booking_id) == 90
     [addon_id] = (
         await db.execute(select(Addon.id).where(Addon.booking_id == booking_id))
     ).scalars()
     ok(await as_owner.delete(f"/v1/bookings/{booking_id}/addons/{addon_id}", headers=key()))
     assert await _length(db, booking_id) == 75
+
+
+async def _wax(api: httpx.AsyncClient) -> str:
+    """A product no seeded visit carries, that adds 20 minutes."""
+    body = {"kind": "product", "name": "Paw wax", "price_cents": 1200, "duration_min": 20}
+    return str(ok(await api.post("/v1/items", json=body), 201).json()["id"])
+
+
+async def _add(api: httpx.AsyncClient, booking_id: str, item_id: str) -> None:
+    ok(
+        await api.post(
+            f"/v1/bookings/{booking_id}/addons", json={"item_id": item_id}, headers=key()
+        ),
+        201,
+    )
+
+
+async def test_an_addon_s_length_holds_while_upcoming_visits_carry_it(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    wax = await _wax(as_owner)
+    first = await _staff_visit(as_owner, db, OPENING, "st_owner")
+    second = await _staff_visit(as_owner, db, "2026-12-02T17:00:00Z", "st_owner")
+    await _add(as_owner, first, wax)
+    await _add(as_owner, first, wax)
+    await _add(as_owner, second, wax)
+    assert ok(await as_owner.patch(f"/v1/items/{wax}", json={"duration_min": 20}))
+    assert ok(await as_owner.patch(f"/v1/items/{wax}", json={"price_cents": 1400}))
+    refused = await as_owner.patch(f"/v1/items/{wax}", json={"duration_min": 30})
+    assert refused.status_code == 409
+    assert refused.json()["error"] == "addon_length_in_use"
+    assert refused.json()["detail"] == {"count": 2}
+    product = await db.get(Item, wax, populate_existing=True)
+    assert product is not None and product.duration_min == 20
+
+
+async def test_an_addon_s_length_changes_once_its_visits_are_billed_or_canceled(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    wax = await _wax(as_owner)
+    billed = await _staff_visit(as_owner, db, OPENING, "st_owner")
+    canceled = await _staff_visit(as_owner, db, "2026-12-02T17:00:00Z", "st_owner")
+    await _add(as_owner, billed, wax)
+    await _add(as_owner, canceled, wax)
+    ok(await as_owner.post(f"/v1/invoices/from-booking/{billed}", headers=key()), 201)
+    ok(await as_owner.patch(f"/v1/bookings/{canceled}", json={"status": "canceled"}))
+    changed = ok(await as_owner.patch(f"/v1/items/{wax}", json={"duration_min": 45}))
+    assert changed.json()["duration_min"] == 45
+    assert await _length(db, billed) == 75 + 20
+    ok(await as_owner.patch(f"/v1/items/{GROOM}", json={"duration_min": 80}))
+
+
+async def test_only_a_manager_changes_an_addon_s_length(
+    as_staff: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    res = await as_staff.patch(f"/v1/items/{SHAMPOO}", json={"duration_min": 30})
+    assert res.status_code == 403
+
+
+async def test_another_business_s_visits_do_not_hold_the_length(
+    as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory
+) -> None:
+    wax = await _wax(as_owner)
+    other = await factory.business()
+    booking_id = await _staff_visit(as_owner, db, OPENING, "st_owner")
+    await _add(as_owner, booking_id, wax)
+    await db.execute(
+        update(Addon).where(Addon.booking_id == booking_id).values(business_id=other.id)
+    )
+    await db.flush()
+    ok(await as_owner.patch(f"/v1/items/{wax}", json={"duration_min": 30}))
 
 
 async def test_two_removes_of_one_addon_leave_one_winner_and_one_404(db: AsyncSession) -> None:
