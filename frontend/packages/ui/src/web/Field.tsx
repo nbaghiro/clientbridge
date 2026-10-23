@@ -150,7 +150,7 @@ export function TextField({
                     onChange={(e) => {
                         setValue(e.target.value);
                     }}
-                    className={`${shared.className} resize-none`}
+                    className={`${shared.className} min-h-16 resize-y`}
                 />
             ) : prefix !== undefined || suffix !== undefined ? (
                 <div
