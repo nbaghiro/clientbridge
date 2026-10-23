@@ -125,7 +125,8 @@ export function PublicLanding() {
             <BusinessCover brand={page.brand}>
                 <div className="mx-auto flex min-h-[420px] max-w-6xl flex-col px-4 py-8 text-ink sm:px-6 md:min-h-[460px] md:py-12">
                     {page.neighbourhood ? (
-                        <p className="text-xs font-medium uppercase tracking-widest">
+                        // a floor: mt-auto below has no slack once the name or tagline wraps
+                        <p className="mb-6 text-xs font-medium uppercase tracking-widest">
                             {page.neighbourhood}
                         </p>
                     ) : null}
