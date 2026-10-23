@@ -1497,6 +1497,7 @@ def local_day(on_date: date, tz: ZoneInfo) -> tuple[datetime, datetime]:
 _WEEKDAY_CODES: dict[Weekday, int] = {"MO": 0, "TU": 1, "WE": 2, "TH": 3, "FR": 4, "SA": 5, "SU": 6}
 _WEEKDAY_NAMES: dict[int, Weekday] = {v: k for k, v in _WEEKDAY_CODES.items()}
 _SKIPPED = "left out when the series was booked"
+_SERVICE_ONLY = "a client's series repeats a service; book a class's sessions one at a time"
 _MAX_OCCURRENCES = 60  # a full year of weekly + headroom; caps runaway/unbounded rules
 _TOO_LONG = f"a series can hold at most {_MAX_OCCURRENCES} visits; end it sooner"
 
@@ -1575,6 +1576,8 @@ class RecurrenceService:
         if data.count is None and data.until is None:
             raise AppError("a recurring schedule needs an end: set count or until", status_code=422)
         item = await load_item(self.db, self.biz, data.item_id)
+        if item.kind != "service":
+            raise Unprocessable(_SERVICE_ONLY, code="series_service_only")
         if item.duration_min is None or item.duration_min <= 0:
             raise AppError("that service has no duration and can't be booked", status_code=422)
         await load_client(self.db, self.biz, data.client_id)
@@ -1691,7 +1694,7 @@ class RecurrenceService:
             assert_can_act_as(self.principal, data.staff_id)
             await load_staff(self.db, self.biz, data.staff_id)
         tz = await business_tz(self.db, self.biz)
-        visits = await self._upcoming(recurrence.id, data.scope, data.from_date, tz)
+        visits = await self._upcoming(recurrence, data.scope, data.from_date, tz)
         new_time = time.fromisoformat(data.time) if data.time is not None else None
 
         async def run(cmd: Command) -> RecurrenceChangeOut:
@@ -1715,6 +1718,8 @@ class RecurrenceService:
                 problem = (
                     _verdict("past", _PAST)
                     if starts_at < clock.now()
+                    else _verdict("class", _CLASS_MOVE)
+                    if slot.capacity > 1
                     else await slot_problem(
                         self.db,
                         self.biz,
@@ -1769,7 +1774,7 @@ class RecurrenceService:
             raise Conflict("this series is already canceled")
         tz = await business_tz(self.db, self.biz)
         scope = "all" if data.from_date is None else "following"
-        visits = await self._upcoming(recurrence.id, scope, data.from_date, tz, strict=False)
+        visits = await self._upcoming(recurrence, scope, data.from_date, tz, strict=False)
 
         async def run(cmd: Command) -> RecurrenceCancelOut:
             refunded = 0
@@ -1787,7 +1792,7 @@ class RecurrenceService:
                 await release_slot(self.db, slot)
                 await fill_freed_seats(self.db, slot, performed_by=self.principal.user_id)
                 canceled.append(booking.id)
-            remaining = await self._upcoming(recurrence.id, "all", None, tz, strict=False)
+            remaining = await self._upcoming(recurrence, "all", None, tz, strict=False)
             if remaining:
                 recurrence.status = "ended"
                 if data.from_date is not None:
@@ -1835,21 +1840,22 @@ class RecurrenceService:
 
     async def _upcoming(
         self,
-        recurrence_id: str,
+        recurrence: Recurrence,
         scope: str,
         from_date: date | None,
         tz: ZoneInfo,
         *,
         strict: bool = True,
     ) -> list[tuple[Booking, Slot]]:
-        """The series' live visits still ahead, narrowed to one date or from a date on."""
+        """The series client's live visits still ahead, narrowed to one date or from a date on."""
         rows = (
             await self.db.execute(
                 scoped(Booking, self.biz, soft_delete=True)
                 .add_columns(Slot)
                 .join(Slot, Slot.id == Booking.slot_id)
                 .where(
-                    Slot.recurrence_id == recurrence_id,
+                    Slot.recurrence_id == recurrence.id,
+                    Booking.client_id == recurrence.client_id,
                     Booking.status.in_(("pending", "confirmed")),
                     Slot.starts_at >= clock.now(),
                 )
