@@ -1,8 +1,20 @@
-import { type PrintedDoc, type PrintedKind, strings } from "@clientbridge/app-core";
+import {
+    type PrintedDoc,
+    type PrintedKind,
+    type ReviewDocument,
+    printedEstimate,
+    printedInvoice,
+    strings,
+    useEstimateRecord,
+    useInvoiceRecord,
+    useLetterhead,
+} from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import { useState } from "react";
 import { ScrollView, Share, StyleSheet, Text, View } from "react-native";
 import { Button, Choice, Empty, Modal, PrintedDocument } from "@clientbridge/ui";
+
+import { apiUrl, payUrl } from "../lib/config";
 
 const c = theme.colors;
 const d = strings.billing.doc;
@@ -72,3 +84,17 @@ const styles = StyleSheet.create({
     page: { marginTop: 12, maxHeight: 520 },
     footer: { flexDirection: "row", gap: 10, paddingTop: 12 },
 });
+
+/** The invoice or estimate a send is about, as the client will see it. */
+export function RecordPaper({ kind, id }: ReviewDocument) {
+    const letterhead = useLetterhead(apiUrl);
+    const invoice = useInvoiceRecord(kind === "invoice" ? id : null, payUrl);
+    const estimate = useEstimateRecord(kind === "estimate" ? id : null, payUrl);
+    const doc =
+        invoice !== null
+            ? printedInvoice(invoice, letterhead, c.accent)
+            : estimate !== null
+              ? printedEstimate(estimate, letterhead, c.accent)
+              : null;
+    return doc === null ? null : <PrintedDocument doc={doc} />;
+}

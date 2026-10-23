@@ -140,6 +140,22 @@ class BillingService:
             self.db, self.principal, action="invoice.send", run=run, response_model=InvoiceOut
         )
 
+    async def remind_invoice(self, invoice_id: str) -> InvoiceOut:
+        self._assert_admin()
+        invoice = await self._invoice(invoice_id)
+        if invoice.status != "sent":
+            raise Conflict(f"a {invoice.status} invoice can't be reminded")
+        if await ledger.invoice_balance(self.db, invoice) <= 0:
+            raise Conflict("this invoice has nothing left to pay")
+
+        async def run(cmd: Command) -> InvoiceOut:
+            cmd.record("invoice.remind", entity_type="invoice", entity_id=invoice.id)
+            return await invoice_out(self.db, invoice, await self._lines("invoice", invoice.id))
+
+        return await run_command(
+            self.db, self.principal, action="invoice.remind", run=run, response_model=InvoiceOut
+        )
+
     async def _issue_invoice(self, invoice: Invoice, cmd: Command) -> None:
         """Number, date and post a draft invoice; its tax is fixed here and matches its journal."""
         now = clock.now()
@@ -528,9 +544,7 @@ class BillingService:
                 )
             )
         )
-        sub = scoped(model, self.biz).subquery()
-        current = (await self.db.execute(select(func.max(sub.c.number)))).scalar_one_or_none()
-        return (current or 0) + 1
+        return await peek_number(self.db, self.biz, model)
 
     async def _client(self, client_id: str) -> Client:
         row = (
@@ -649,3 +663,11 @@ async def run_overdue_sweep(db: AsyncSession, notifier: Notifier, now: datetime)
             await db.commit()
             swept += 1
     return swept
+
+
+async def peek_number(
+    db: AsyncSession, business_id: str, model: type[Invoice] | type[Estimate]
+) -> int:
+    sub = scoped(model, business_id).subquery()
+    current = (await db.execute(select(func.max(sub.c.number)))).scalar_one_or_none()
+    return (current or 0) + 1

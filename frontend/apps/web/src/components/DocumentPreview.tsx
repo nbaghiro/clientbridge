@@ -1,6 +1,20 @@
-import { type PrintedDoc, type PrintedKind, strings } from "@clientbridge/app-core";
+import {
+    type PrintedDoc,
+    type PrintedKind,
+    type ReviewDocument,
+    printedEstimate,
+    printedInvoice,
+    strings,
+    useEstimateRecord,
+    useInvoiceRecord,
+    useLetterhead,
+} from "@clientbridge/app-core";
+import { cssVar } from "@clientbridge/tokens";
 import { Button, Choice, Empty, Icon, IconButton, Modal, PrintedDocument } from "@clientbridge/ui";
 import { type ReactNode, useState } from "react";
+
+import { config } from "../config";
+import { apiBaseUrl } from "../lib/api";
 
 const d = strings.billing.doc;
 
@@ -15,7 +29,12 @@ export interface PreviewDoc {
 export function PaperPane({ children, bar }: { children: ReactNode; bar?: ReactNode }) {
     return (
         <div className="flex h-full min-h-0 flex-col bg-bg">
-            <div className="min-h-0 flex-1 overflow-y-auto bg-[radial-gradient(circle_at_1px_1px,var(--color-line)_1px,transparent_0)] [background-size:18px_18px] px-10 py-8">
+            <div
+                role="region"
+                aria-label={strings.billing.preview}
+                tabIndex={0}
+                className="min-h-0 flex-1 overflow-y-auto bg-[radial-gradient(circle_at_1px_1px,var(--color-line)_1px,transparent_0)] [background-size:18px_18px] px-10 py-8 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent"
+            >
                 {children}
             </div>
             {bar !== undefined ? (
@@ -132,4 +151,18 @@ export function DocumentPreview({
             </div>
         </Modal>
     );
+}
+
+/** The invoice or estimate a send is about, as the client will see it. */
+export function RecordPaper({ kind, id }: ReviewDocument) {
+    const letterhead = useLetterhead(apiBaseUrl);
+    const invoice = useInvoiceRecord(kind === "invoice" ? id : null, config.payUrl);
+    const estimate = useEstimateRecord(kind === "estimate" ? id : null, config.payUrl);
+    const doc =
+        invoice !== null
+            ? printedInvoice(invoice, letterhead, cssVar("accent"))
+            : estimate !== null
+              ? printedEstimate(estimate, letterhead, cssVar("accent"))
+              : null;
+    return doc === null ? null : <PrintedDocument doc={doc} />;
 }

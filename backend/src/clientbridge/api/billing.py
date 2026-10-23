@@ -159,6 +159,20 @@ async def send_invoice(
     return result
 
 
+@invoices_router.post("/{invoice_id}/remind", response_model=InvoiceOut)
+async def remind_invoice(
+    invoice_id: str,
+    principal: CurrentPrincipal,
+    db: DbSession,
+    email: EmailDep,
+    sms: SmsDep,
+    push: PushDep,
+) -> InvoiceOut:
+    result = await BillingService(db, principal).remind_invoice(invoice_id)
+    await Notifier(email, sms, push).on_invoice_reminder(db, result.id)
+    return result
+
+
 @invoices_router.post("/{invoice_id}/void", response_model=InvoiceOut)
 async def void_invoice(invoice_id: str, principal: CurrentPrincipal, db: DbSession) -> InvoiceOut:
     return await BillingService(db, principal).void_invoice(invoice_id)

@@ -27,6 +27,7 @@ import { type Load, type Remote, useAsyncAction, useFlash, useRemote } from "../
 import type { IconName } from "../icons";
 import type { Intent } from "../ui";
 import type { Viewer } from "./auth";
+import { afterReview, outgoing } from "./previews";
 import { useInvoices } from "./billing";
 import { type ScheduleEvent, slotBookingsJoin, slotOverlapSql } from "./bookings";
 import { isPlace } from "./publicBooking";
@@ -771,16 +772,35 @@ export function useTodayActions(api: ApiLike): TodayActions {
                   }
                 : null,
         depart: (bookingId) => {
-            go(bookingId, () => api.post(`/v1/bookings/${bookingId}/depart`, {}));
+            afterReview(
+                {
+                    title: strings.previews.title,
+                    confirmLabel: strings.previews.send,
+                    load: outgoing.bookingDeparted(api, bookingId),
+                },
+                () => {
+                    go(bookingId, () => api.post(`/v1/bookings/${bookingId}/depart`, {}));
+                },
+            );
         },
         send: (item) => {
             if (item.refId === null || sent.has(item.key)) return;
             const id = item.refId;
-            go(
-                item.key,
-                () => api.post(`/v1/invoices/${id}/send`, {}),
+            afterReview(
+                {
+                    title: strings.previews.title,
+                    confirmLabel: strings.previews.sendReminder,
+                    load: outgoing.invoiceRemind(api, id),
+                    document: { kind: "invoice", id },
+                },
                 () => {
-                    setSent((c) => new Set(c).add(item.key));
+                    go(
+                        item.key,
+                        () => api.post(`/v1/invoices/${id}/remind`, {}),
+                        () => {
+                            setSent((c) => new Set(c).add(item.key));
+                        },
+                    );
                 },
             );
         },
@@ -954,6 +974,12 @@ export function useCheckIn(
                             contract_id: n.ref_id,
                             client_id: clientId,
                         });
+        const load =
+            n.kind === "form"
+                ? outgoing.formSend(api, n.ref_id, clientId)
+                : n.token !== null
+                  ? outgoing.signatureResend(api, n.ref_id)
+                  : outgoing.contractSend(api, n.ref_id, clientId);
         return {
             key,
             label:
@@ -967,11 +993,20 @@ export function useCheckIn(
             canSend: manager && n.kind !== "deposit" && row !== undefined,
             sending: sending.busy && sendingKey === key,
             send: () => {
-                setSendingKey(key);
-                sending.run(request, {
-                    onSuccess: refreshNeeds,
-                    errorMessage: (e) => failureMessage(e, strings.today.needSendError),
-                });
+                afterReview(
+                    {
+                        title: strings.previews.title,
+                        confirmLabel: strings.previews.send,
+                        load,
+                    },
+                    () => {
+                        setSendingKey(key);
+                        sending.run(request, {
+                            onSuccess: refreshNeeds,
+                            errorMessage: (e) => failureMessage(e, strings.today.needSendError),
+                        });
+                    },
+                );
             },
         };
     });

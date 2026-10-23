@@ -84,7 +84,24 @@ interface Strings {
         readonly planNotManaged: string;
         readonly businessUnavailable: string;
     } & Labels;
+    readonly previews: {
+        readonly title: string;
+        readonly send: string;
+        readonly sendReminder: string;
+        readonly sendAgain: string;
+    } & Labels;
     readonly ui: {
+        readonly review: {
+            readonly to: (name: string) => string;
+            readonly emailTo: (address: string) => string;
+            readonly textTo: (number: string) => string;
+            readonly nothingSent: string;
+            readonly loading: string;
+            readonly loadFailed: string;
+            readonly retry: string;
+            readonly showDocument: string;
+            readonly hideDocument: string;
+        };
         readonly clearSearch: string;
         readonly clear: string;
         readonly copy: string;
@@ -370,6 +387,13 @@ interface Strings {
             readonly recordAnother: string;
             readonly nothingOwed: string;
         };
+        readonly review: {
+            readonly acceptTitle: (title: string) => string;
+            readonly declineTitle: (title: string) => string;
+            readonly answerBody: string;
+            readonly accept: string;
+            readonly decline: string;
+        };
         readonly doc: {
             readonly title: string;
             readonly kinds: {
@@ -514,6 +538,7 @@ interface Strings {
             readonly giftCardError: string;
             readonly paidByGiftCard: string;
             readonly sendAsInvoice: string;
+            readonly invoiceReviewBody: (client: string, amount: string) => string;
             readonly invoicedNotice: (invoice: string, name: string) => string;
             readonly invoiceError: string;
             readonly bookNextOn: (date: string) => string;
@@ -729,6 +754,11 @@ interface Strings {
         readonly saleTitle: (n: number) => string;
         readonly selectAll: string;
         readonly approveSelected: (count: number) => string;
+        readonly review: {
+            readonly payTitle: (amount: string) => string;
+            readonly payBody: string;
+            readonly markPaid: string;
+        };
         readonly payApproved: (amount: string) => string;
         readonly working: string;
         readonly count: (count: number) => string;
@@ -815,6 +845,7 @@ interface Strings {
             readonly refund: string;
             readonly dispute: string;
         } & Labels;
+        readonly review: { readonly useTitle: string } & Labels;
         readonly action: {
             readonly use: string;
             readonly cancel: string;
@@ -999,6 +1030,11 @@ interface Strings {
         readonly messageCancel: string;
         readonly working: string;
         readonly completed: string;
+        readonly review: {
+            readonly moveTitle: (client: string) => string;
+            readonly moveAndTell: string;
+            readonly moveQuietly: string;
+        };
         readonly noShowDone: string;
         readonly noShowTitle: string;
         readonly noShowKeep: (amount: string) => string;
@@ -1229,6 +1265,7 @@ interface Strings {
         readonly addPlaceholder: (kind: string) => string;
         readonly added: (name: string) => string;
         readonly addedWaitlist: (name: string) => string;
+        readonly review: { readonly messageTitle: string } & Labels;
         readonly messageClass: string;
         readonly messageClassTitle: (name: string, when: string) => string;
         readonly messageClassHint: (n: number) => string;
@@ -2125,6 +2162,7 @@ interface Strings {
         readonly requestsLoading: string;
         readonly invitationUnavailable: string;
         readonly disconnect: string;
+        readonly publishReplyTitle: string;
         readonly replyTitle: string;
         readonly replyPublic: string;
         readonly replyText: string;
@@ -2424,6 +2462,10 @@ interface Strings {
         readonly partialAway: (time: string, reason: string) => string;
     };
     readonly staff: {
+        readonly review: {
+            readonly resendTitle: (email: string) => string;
+            readonly resendBody: string;
+        };
         readonly acceptInviteError: string;
         readonly inviteTitle: string;
         readonly inviteFrom: (business: string) => string;

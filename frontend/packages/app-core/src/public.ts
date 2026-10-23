@@ -27,3 +27,5 @@ export * from "./domain/publicLanding";
 export * from "./domain/publicReturning";
 
 export * from "./domain/admin";
+
+export * from "./domain/previews";

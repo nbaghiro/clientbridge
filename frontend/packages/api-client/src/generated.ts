@@ -1645,6 +1645,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/invoices/{invoice_id}/remind": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Remind Invoice */
+        post: operations["remind_invoice_v1_invoices__invoice_id__remind_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/invoices/{invoice_id}/void": {
         parameters: {
             query?: never;
@@ -2559,6 +2576,193 @@ export interface paths {
         put?: never;
         /** Unregister */
         post: operations["unregister_v1_devices_unregister_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/previews/invoices/{invoice_id}/send": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Invoice Send */
+        get: operations["invoice_send_v1_previews_invoices__invoice_id__send_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/previews/invoices/{invoice_id}/remind": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Invoice Remind */
+        get: operations["invoice_remind_v1_previews_invoices__invoice_id__remind_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/previews/estimates/{estimate_id}/send": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Estimate Send */
+        get: operations["estimate_send_v1_previews_estimates__estimate_id__send_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/previews/orders/{order_id}/receipt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Order Receipt */
+        get: operations["order_receipt_v1_previews_orders__order_id__receipt_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/previews/orders/{order_id}/ready": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Order Ready */
+        get: operations["order_ready_v1_previews_orders__order_id__ready_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/previews/bookings/{booking_id}/departed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Booking Departed */
+        get: operations["booking_departed_v1_previews_bookings__booking_id__departed_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/previews/bookings/{booking_id}/rescheduled": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Booking Rescheduled */
+        get: operations["booking_rescheduled_v1_previews_bookings__booking_id__rescheduled_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/previews/signatures/{signature_id}/resend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Signature Resend */
+        get: operations["signature_resend_v1_previews_signatures__signature_id__resend_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/previews/forms/{form_id}/send": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Form Send */
+        get: operations["form_send_v1_previews_forms__form_id__send_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/previews/contracts/{contract_id}/send": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Contract Send */
+        get: operations["contract_send_v1_previews_contracts__contract_id__send_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/previews/reviews/request": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Review Request */
+        get: operations["review_request_v1_previews_reviews_request_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -4230,6 +4434,12 @@ export interface components {
             staff_id?: string | null;
             /** Status */
             status?: ("confirmed" | "completed" | "canceled" | "no_show") | null;
+            /**
+             * Notify
+             * @description False moves the visit without telling the client
+             * @default true
+             */
+            notify: boolean;
         };
         /**
          * BookingPolicy
@@ -6781,6 +6991,35 @@ export interface components {
             receipt_email?: string | null;
             /** Receipt Phone */
             receipt_phone?: string | null;
+        };
+        /** OutgoingEmail */
+        OutgoingEmail: {
+            /** To */
+            to: string;
+            /** Subject */
+            subject: string;
+            /** Body */
+            body: string;
+        };
+        /**
+         * OutgoingPreview
+         * @description What a send would deliver, word for word, without sending it.
+         */
+        OutgoingPreview: {
+            /**
+             * Recipient
+             * @description The client's name, when it goes to a client
+             */
+            recipient: string | null;
+            email: components["schemas"]["OutgoingEmail"] | null;
+            text: components["schemas"]["OutgoingText"] | null;
+        };
+        /** OutgoingText */
+        OutgoingText: {
+            /** To */
+            to: string;
+            /** Body */
+            body: string;
         };
         /** PackageCover */
         PackageCover: {
@@ -12684,6 +12923,41 @@ export interface operations {
             };
         };
     };
+    remind_invoice_v1_invoices__invoice_id__remind_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
+            };
+            path: {
+                invoice_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     void_invoice_v1_invoices__invoice_id__void_post: {
         parameters: {
             query?: never;
@@ -14729,6 +15003,401 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DeviceOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    invoice_send_v1_previews_invoices__invoice_id__send_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
+            };
+            path: {
+                invoice_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OutgoingPreview"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    invoice_remind_v1_previews_invoices__invoice_id__remind_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
+            };
+            path: {
+                invoice_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OutgoingPreview"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    estimate_send_v1_previews_estimates__estimate_id__send_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
+            };
+            path: {
+                estimate_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OutgoingPreview"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    order_receipt_v1_previews_orders__order_id__receipt_get: {
+        parameters: {
+            query: {
+                channel: "sms" | "email";
+                to: string;
+            };
+            header?: {
+                "x-business-id"?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
+            };
+            path: {
+                order_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OutgoingPreview"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    order_ready_v1_previews_orders__order_id__ready_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
+            };
+            path: {
+                order_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OutgoingPreview"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    booking_departed_v1_previews_bookings__booking_id__departed_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
+            };
+            path: {
+                booking_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OutgoingPreview"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    booking_rescheduled_v1_previews_bookings__booking_id__rescheduled_get: {
+        parameters: {
+            query: {
+                starts_at: string;
+                ends_at: string;
+            };
+            header?: {
+                "x-business-id"?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
+            };
+            path: {
+                booking_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OutgoingPreview"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    signature_resend_v1_previews_signatures__signature_id__resend_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
+            };
+            path: {
+                signature_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OutgoingPreview"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    form_send_v1_previews_forms__form_id__send_get: {
+        parameters: {
+            query: {
+                client_id: string;
+            };
+            header?: {
+                "x-business-id"?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
+            };
+            path: {
+                form_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OutgoingPreview"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    contract_send_v1_previews_contracts__contract_id__send_get: {
+        parameters: {
+            query: {
+                client_id: string;
+            };
+            header?: {
+                "x-business-id"?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
+            };
+            path: {
+                contract_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OutgoingPreview"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    review_request_v1_previews_reviews_request_get: {
+        parameters: {
+            query: {
+                client_id: string;
+            };
+            header?: {
+                "x-business-id"?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OutgoingPreview"];
                 };
             };
             /** @description Validation Error */

@@ -6,6 +6,7 @@ import { formatDate, formatDateTime, parseTimestamp } from "../datetime";
 import { type Load, useAsyncAction } from "../hooks";
 import type { ContractSignature, Intent, SignatureStrokes, TimelineEntry } from "../ui";
 import { useReplicaLoad } from "./sync";
+import { afterReview, outgoing } from "./previews";
 import { useBusinessName } from "./business";
 import { strings } from "../strings";
 import { type ApiLike, newIdempotencyKey } from "../api";
@@ -314,24 +315,33 @@ export function useSignatureActions(
         },
         resent,
         resend: (r) => {
-            setBusyId(r.id);
-            run(
-                async () => {
-                    try {
-                        await api.post(
-                            `/v1/signatures/${r.id}/resend`,
-                            {},
-                            { idempotencyKey: newIdempotencyKey() },
-                        );
-                    } finally {
-                        setBusyId(null);
-                    }
-                },
+            afterReview(
                 {
-                    onSuccess: () => {
-                        setResent((s) => new Set(s).add(r.id));
-                    },
-                    errorMessage: p.actionFailed,
+                    title: strings.previews.title,
+                    confirmLabel: strings.previews.sendAgain,
+                    load: outgoing.signatureResend(api, r.id),
+                },
+                () => {
+                    setBusyId(r.id);
+                    run(
+                        async () => {
+                            try {
+                                await api.post(
+                                    `/v1/signatures/${r.id}/resend`,
+                                    {},
+                                    { idempotencyKey: newIdempotencyKey() },
+                                );
+                            } finally {
+                                setBusyId(null);
+                            }
+                        },
+                        {
+                            onSuccess: () => {
+                                setResent((s) => new Set(s).add(r.id));
+                            },
+                            errorMessage: p.actionFailed,
+                        },
+                    );
                 },
             );
         },

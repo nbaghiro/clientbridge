@@ -28,6 +28,7 @@ export { Loading } from "./Loading";
 export { Stat } from "./Stat";
 export { Panel } from "./Panel";
 export { ConfirmHost, confirm } from "./Confirm";
+export { SendReview, SendReviewHost } from "./SendReview";
 export { PageHeader } from "./PageHeader";
 export { Stars } from "./Stars";
 export { Stepper } from "./Stepper";

@@ -343,6 +343,21 @@ msgstr ""
 msgid "invoice_overdue.subject"
 msgstr ""
 
+msgid "invoice_reminder.body"
+msgstr ""
+
+msgid "invoice_reminder.body_link"
+msgstr ""
+
+msgid "invoice_reminder.heading"
+msgstr ""
+
+msgid "invoice_reminder.lead"
+msgstr ""
+
+msgid "invoice_reminder.subject"
+msgstr ""
+
 msgid "invoice_sent.body"
 msgstr ""
 

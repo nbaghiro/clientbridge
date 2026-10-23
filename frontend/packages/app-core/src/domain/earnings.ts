@@ -9,6 +9,7 @@ import { dateKey, parseTimestamp, useBusinessZone } from "../datetime";
 import type { Intent } from "../ui";
 import { strings } from "../strings";
 import { staffName, staffNameSql } from "./staff";
+import { afterReview } from "./previews";
 import { useReplicaLoad } from "./sync";
 
 interface EarningRow {
@@ -280,7 +281,20 @@ export function useEarningApprovals(api: ApiLike): EarningApprovals {
         payApproved: () => {
             const ids = rows.filter((r) => r.status === "approved").map((r) => r.id);
             if (ids.length === 0) return;
-            advance("pay", ids, () => undefined);
+            const amount = formatMoney(
+                payees.reduce((n, p) => n + p.approvedCents, 0),
+                BUSINESS_CURRENCY,
+            );
+            afterReview(
+                {
+                    title: strings.earnings.review.payTitle(amount),
+                    message: strings.earnings.review.payBody,
+                    confirmLabel: strings.earnings.review.markPaid,
+                },
+                () => {
+                    advance("pay", ids, () => undefined);
+                },
+            );
         },
     };
 }

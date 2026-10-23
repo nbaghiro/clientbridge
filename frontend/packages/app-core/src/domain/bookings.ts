@@ -44,6 +44,7 @@ import { type Load, isConnectionFailure, useAsyncAction, useNow } from "../hooks
 import { strings } from "../strings";
 import type { CalendarEventFlag, Intent, OptionMedia, TimelineEntry } from "../ui";
 import type { Viewer } from "./auth";
+import { afterReview, outgoing, review } from "./previews";
 import { type ItemRow, bookableItems, useCatalogItems } from "./catalog";
 import { type Checkout, useCheckout } from "./checkout";
 import { type ClientRow, useClients } from "./clients";
@@ -771,7 +772,11 @@ export function useMoveEvent(api: ApiLike): MoveEvent {
         null,
     );
     const [pending, setPending] = useState<Record<string, PendingMove>>({});
-    const [last, setLast] = useState<{ plan: MovePlan; event: ScheduleEvent } | null>(null);
+    const [last, setLast] = useState<{
+        plan: MovePlan;
+        event: ScheduleEvent;
+        told: boolean;
+    } | null>(null);
     const [refusal, setRefusal] = useState<string | null>(null);
     const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const asked = useRef<string | null>(null);
@@ -797,25 +802,61 @@ export function useMoveEvent(api: ApiLike): MoveEvent {
         event: ScheduleEvent,
         to: PendingMove,
         onFail: (error: unknown) => void,
-        onSuccess?: () => void,
+        onSuccess?: (told: boolean) => void,
+        quiet = false,
     ): void => {
         const bookingId = event.bookingId;
         if (bookingId === null || moving.current) return;
         moving.current = true;
         setPending((p) => ({ ...p, [event.id]: to }));
-        api.patch(`/v1/bookings/${bookingId}`, {
-            starts_at: to.start.toISOString(),
-            ends_at: to.end.toISOString(),
-            staff_id: to.staffId,
+        const send = (notify: boolean): void => {
+            api.patch(`/v1/bookings/${bookingId}`, {
+                starts_at: to.start.toISOString(),
+                ends_at: to.end.toISOString(),
+                staff_id: to.staffId,
+                notify,
+            })
+                .then(() => {
+                    onSuccess?.(notify);
+                })
+                .catch((error: unknown) => {
+                    setPending((prev) => omitKey(prev, event.id));
+                    onFail(error);
+                })
+                .finally(() => {
+                    moving.current = false;
+                });
+        };
+        // only a new start time tells the client anything, so a resize or a reassign just goes ahead
+        if (quiet) {
+            send(false);
+            return;
+        }
+        if (+to.start === +event.start || event.clientName === null) {
+            send(true);
+            return;
+        }
+        review({
+            title: s.review.moveTitle(event.clientName),
+            confirmLabel: s.review.moveAndTell,
+            alternate: s.review.moveQuietly,
+            load: outgoing.bookingRescheduled(
+                api,
+                bookingId,
+                to.start.toISOString(),
+                to.end.toISOString(),
+            ),
         })
-            .then(() => {
-                onSuccess?.();
+            .then((choice) => {
+                if (choice === null) {
+                    setPending((prev) => omitKey(prev, event.id));
+                    moving.current = false;
+                    return;
+                }
+                send(choice === "confirm");
             })
-            .catch((error: unknown) => {
+            .catch(() => {
                 setPending((prev) => omitKey(prev, event.id));
-                onFail(error);
-            })
-            .finally(() => {
                 moving.current = false;
             });
     };
@@ -864,8 +905,8 @@ export function useMoveEvent(api: ApiLike): MoveEvent {
                 (error) => {
                     setRefusal(moveFailure(error));
                 },
-                () => {
-                    setLast({ plan, event });
+                (told) => {
+                    setLast({ plan, event, told });
                 },
             );
         },
@@ -875,7 +916,7 @@ export function useMoveEvent(api: ApiLike): MoveEvent {
         refusal,
         undo: () => {
             if (!last) return;
-            const { event } = last;
+            const { event, told } = last;
             setLast(null);
             patch(
                 event,
@@ -883,6 +924,8 @@ export function useMoveEvent(api: ApiLike): MoveEvent {
                 (error) => {
                     setRefusal(isConnectionFailure(error) ? s.moveOffline : s.actionError);
                 },
+                undefined,
+                !told,
             );
         },
         dismiss: () => {
@@ -1649,6 +1692,14 @@ export function lifecycleOf(
     };
 }
 
+/** What a no-show does with the deposit, said before the person marks it. */
+export function noShowNote(event: ScheduleEvent): string {
+    const amount = formatMoney(event.depositAmountCents, BUSINESS_CURRENCY);
+    if (event.depositRequired && event.depositStatus === "collected") return s.noShowKeep(amount);
+    if (event.depositRequired && event.depositStatus === "pending") return s.noShowCharge(amount);
+    return s.noShowNoDeposit;
+}
+
 export function useBookingActions(
     api: ApiLike,
     event: ScheduleEvent | null,
@@ -1659,13 +1710,12 @@ export function useBookingActions(
     const [pending, setPending] = useState<LifecycleAction | null>(null);
     const amount = formatMoney(event?.depositAmountCents ?? 0, BUSINESS_CURRENCY);
     const paid = event !== null && event.depositRequired && event.depositStatus === "collected";
-    const due = event !== null && event.depositRequired && event.depositStatus === "pending";
     return {
         ...lifecycleOf(event, now),
         pending: busy ? pending : null,
         busy,
         error,
-        noShowNote: paid ? s.noShowKeep(amount) : due ? s.noShowCharge(amount) : s.noShowNoDeposit,
+        noShowNote: event === null ? s.noShowNoDeposit : noShowNote(event),
         cancelNote: paid ? s.cancelKept(amount) : s.cancelNotify,
         run: (action) => {
             if (event?.bookingId == null) return;
@@ -2616,9 +2666,18 @@ export function useDeparture(
         depart: () => {
             if (!canDepart || event.bookingId === null) return;
             const bookingId = event.bookingId;
-            run(() => api.post(`/v1/bookings/${bookingId}/depart`, {}), {
-                errorMessage: (e) => failureMessage(e, s.departError),
-            });
+            afterReview(
+                {
+                    title: strings.previews.title,
+                    confirmLabel: strings.previews.send,
+                    load: outgoing.bookingDeparted(api, bookingId),
+                },
+                () => {
+                    run(() => api.post(`/v1/bookings/${bookingId}/depart`, {}), {
+                        errorMessage: (e) => failureMessage(e, s.departError),
+                    });
+                },
+            );
         },
     };
 }

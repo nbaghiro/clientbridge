@@ -1,4 +1,4 @@
-import { formatParts } from "../format";
+import { BUSINESS_CURRENCY, formatMoney, formatParts } from "../format";
 import { useBusinessQuery as useQuery } from "../hooks";
 
 import { useState } from "react";
@@ -17,6 +17,7 @@ import { type Load, useAsyncAction } from "../hooks";
 import { strings } from "../strings";
 import type { Intent } from "../ui";
 import { slotOverlapSql } from "./bookings";
+import { afterReview } from "./previews";
 import { useNow } from "../hooks";
 import { staffName, useStaff } from "./staff";
 import {
@@ -52,6 +53,7 @@ interface RosterRow {
     status: string;
     checked_in_at: string | null;
     deposit_status: string;
+    deposit_amount_cents: number | null;
 }
 
 export const CLASS_SESSIONS_SQL = `
@@ -64,7 +66,7 @@ ORDER BY s.starts_at`;
 export const CLASS_ROSTER_SQL = `
 SELECT b.id AS booking_id, b.slot_id, b.client_id, c.name AS client_name, c.phone AS client_phone,
        c.email AS client_email, sj.name AS subject_name, sj.attributes AS subject_attributes, b.status,
-       b.checked_in_at, b.deposit_status
+       b.checked_in_at, b.deposit_status, b.deposit_amount_cents
 FROM bookings b JOIN slots s ON s.id = b.slot_id JOIN clients c ON c.id = b.client_id
 LEFT JOIN subjects sj ON sj.id = b.subject_id
 WHERE s.capacity > 1 AND b.status != 'canceled' AND b.deleted_at IS NULL
@@ -311,14 +313,22 @@ export function useClassBoard(api: ApiLike): ClassBoard {
         load,
         messageClass: (body, onSent) => {
             if (body.trim() === "" || current === null) return;
-            sender.run(
-                async () => {
-                    const out = await api.post<{ sent: number }>(`/v1/classes/${current}/message`, {
-                        body: body.trim(),
-                    });
-                    onSent(out.sent);
+            const slotId = current;
+            const text = body.trim();
+            afterReview(
+                { title: s.review.messageTitle, message: text, confirmLabel: s.messageClassSend },
+                () => {
+                    sender.run(
+                        async () => {
+                            const out = await api.post<{ sent: number }>(
+                                `/v1/classes/${slotId}/message`,
+                                { body: text },
+                            );
+                            onSent(out.sent);
+                        },
+                        { errorMessage: s.rosterError },
+                    );
                 },
-                { errorMessage: s.rosterError },
             );
         },
         messaging: sender.busy,
@@ -335,7 +345,24 @@ export function useClassBoard(api: ApiLike): ClassBoard {
                       act(key, "undo");
                   },
                   noShow: (key) => {
-                      act(key, "no_show");
+                      const r = mine.find((x) => x.booking_id === key);
+                      const amount = formatMoney(r?.deposit_amount_cents ?? 0, BUSINESS_CURRENCY);
+                      afterReview(
+                          {
+                              title: strings.bookings.noShowTitle,
+                              message:
+                                  r?.deposit_status === "pending"
+                                      ? strings.bookings.noShowCharge(amount)
+                                      : r?.deposit_status === "collected"
+                                        ? strings.bookings.noShowKeep(amount)
+                                        : strings.bookings.noShowNoDeposit,
+                              confirmLabel: s.noShow,
+                              destructive: true,
+                          },
+                          () => {
+                              act(key, "no_show");
+                          },
+                      );
                   },
                   promote: (key) => {
                       if (session.full) {

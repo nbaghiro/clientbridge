@@ -1,10 +1,11 @@
 // @vitest-environment happy-dom
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { createElement, type ReactNode } from "react";
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { ApiLike } from "../api";
 import { BusinessZoneContext } from "../datetime";
 import { strings } from "../strings";
+import { registerReviewHost } from "./previews";
 import { useGoogleReviews, useRequestReview, useReviewAutomation } from "./reviews";
 
 const replica = vi.hoisted(() => ({ rows: [] as unknown[] }));
@@ -14,6 +15,7 @@ vi.mock("../hooks", async (importOriginal) => ({
 }));
 
 afterEach(cleanup);
+beforeEach(() => registerReviewHost(() => Promise.resolve("confirm")));
 const wrapper = ({ children }: { children: ReactNode }) =>
     createElement(BusinessZoneContext.Provider, { value: "America/Toronto" }, children);
 function boundary() {
@@ -182,10 +184,10 @@ it("retains an uncertain reply and reuses its idempotency key on retry", async (
         result.current.sendReply();
     });
     await waitFor(() => {
-        expect(result.current.busy).toBeNull();
+        expect(result.current.error).toBe(strings.reviews.replyUncertain);
     });
+    expect(result.current.busy).toBeNull();
     expect(post).toHaveBeenCalledTimes(1);
-    expect(result.current.error).toBe(strings.reviews.replyUncertain);
     expect(result.current.comment).toBe("Thank you!");
     act(() => {
         result.current.sendReply();
@@ -396,9 +398,9 @@ it("shows a definitive reply error and gives a retry a new operation key", async
         result.current.sendReply();
     });
     await waitFor(() => {
-        expect(result.current.busy).toBeNull();
+        expect(result.current.error).toBe(strings.reviews.replyRejected);
     });
-    expect(result.current.error).toBe(strings.reviews.replyRejected);
+    expect(result.current.busy).toBeNull();
     const first = post.mock.calls[0]?.[2] as { idempotencyKey: string };
     act(() => {
         result.current.sendReply();

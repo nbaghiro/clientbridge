@@ -89,7 +89,7 @@ async def patch_booking(
         await notifier.on_booking_canceled(db, result.id)
     elif notice == "confirmed":
         await notifier.on_booking_confirmed(db, result.id)
-    elif notice == "rescheduled":
+    elif notice == "rescheduled" and body.notify:
         await notifier.on_booking_rescheduled(db, result.id)
     return result
 

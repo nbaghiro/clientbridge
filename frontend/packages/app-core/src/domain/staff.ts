@@ -1,5 +1,6 @@
 import { isManager } from "./auth";
 import { personMedia, usePeoplePhotos } from "./files";
+import { afterReview } from "./previews";
 import { useBusinessQuery as useQuery } from "../hooks";
 
 import { useEffect, useRef, useState } from "react";
@@ -207,11 +208,21 @@ export function useTeam(api: ApiLike, viewer: Viewer | null): TeamView {
         resentIds,
         error,
         resend: (id) => {
-            act(
-                id,
-                () => api.post(`/v1/staff/invites/${id}/resend`, {}),
+            const email = invites.find((i) => i.id === id)?.email ?? "";
+            afterReview(
+                {
+                    title: strings.staff.review.resendTitle(email),
+                    message: strings.staff.review.resendBody,
+                    confirmLabel: strings.previews.send,
+                },
                 () => {
-                    setResentIds((r) => [...r, id]);
+                    act(
+                        id,
+                        () => api.post(`/v1/staff/invites/${id}/resend`, {}),
+                        () => {
+                            setResentIds((r) => [...r, id]);
+                        },
+                    );
                 },
             );
         },

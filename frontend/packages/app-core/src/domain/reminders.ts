@@ -14,7 +14,8 @@ import {
 } from "../datetime";
 import { type Load, useAsyncAction, useRemote } from "../hooks";
 import { strings } from "../strings";
-import { type ScheduleEvent, needsClosing, useScheduleEvents } from "./bookings";
+import { type ScheduleEvent, needsClosing, noShowNote, useScheduleEvents } from "./bookings";
+import { afterReview } from "./previews";
 import { useNow } from "../hooks";
 import { utcSql } from "../datetime";
 import { useReplicaLoad } from "./sync";
@@ -105,13 +106,28 @@ export function useReminderSettings(api: ApiLike): ReminderSettings {
         close: (event, status) => {
             if (event.bookingId === null) return;
             const bookingId = event.bookingId;
-            setClosing(event.id);
-            closer.run(() => api.patch(`/v1/bookings/${bookingId}`, { status }), {
-                onSuccess: () => {
-                    setClosing(null);
+            const go = (): void => {
+                setClosing(event.id);
+                closer.run(() => api.patch(`/v1/bookings/${bookingId}`, { status }), {
+                    onSuccess: () => {
+                        setClosing(null);
+                    },
+                    errorMessage: s.actionError,
+                });
+            };
+            if (status !== "no_show") {
+                go();
+                return;
+            }
+            afterReview(
+                {
+                    title: strings.bookings.noShowTitle,
+                    message: noShowNote(event),
+                    confirmLabel: strings.bookings.noShow,
+                    destructive: true,
                 },
-                errorMessage: s.actionError,
-            });
+                go,
+            );
         },
         closing: closer.busy ? closing : null,
         error: closer.error,

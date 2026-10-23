@@ -36,6 +36,7 @@ import type {
     TimelineEntry,
 } from "../ui";
 import { invoiceStatusSql, settledSql, subjectNetSql } from "./ledger";
+import { afterReview, outgoing } from "./previews";
 import { taxOptions } from "./catalog";
 import { mediaUrl } from "./files";
 import { type PaymentRow, invoiceBalanceKey, payLinkUrl, useInvoicePayments } from "./payments";
@@ -873,13 +874,34 @@ export function useInvoiceActions(api: ApiLike): InvoiceActions {
             setError(null);
         },
         send: (rec) => {
-            act(`/v1/invoices/${rec.row.id}/send`, (res) =>
-                s.invoiceSentTo(res.number ?? 0, rec.row.client_name ?? ""),
+            afterReview(
+                {
+                    title: strings.previews.title,
+                    confirmLabel:
+                        rec.row.status === "draft" ? s.sendInvoice : strings.previews.sendAgain,
+                    load: outgoing.invoiceSend(api, rec.row.id),
+                    document: { kind: "invoice", id: rec.row.id },
+                },
+                () => {
+                    act(`/v1/invoices/${rec.row.id}/send`, (res) =>
+                        s.invoiceSentTo(res.number ?? 0, rec.row.client_name ?? ""),
+                    );
+                },
             );
         },
         remind: (rec) => {
-            act(`/v1/invoices/${rec.row.id}/send`, () =>
-                s.reminderSentTo(rec.row.client_name ?? ""),
+            afterReview(
+                {
+                    title: strings.previews.title,
+                    confirmLabel: strings.previews.sendReminder,
+                    load: outgoing.invoiceRemind(api, rec.row.id),
+                    document: { kind: "invoice", id: rec.row.id },
+                },
+                () => {
+                    act(`/v1/invoices/${rec.row.id}/remind`, () =>
+                        s.reminderSentTo(rec.row.client_name ?? ""),
+                    );
+                },
             );
         },
         voidIt: (rec) => {
@@ -1345,21 +1367,54 @@ export function useEstimateActions(api: ApiLike): EstimateActions {
             setError(null);
         },
         send: (rec) => {
-            act(
-                () => api.post<{ number: number | null }>(`/v1/estimates/${rec.row.id}/send`, {}),
-                (res) => s.estimateSentTo(res.number ?? 0, rec.row.client_name ?? ""),
+            afterReview(
+                {
+                    title: strings.previews.title,
+                    confirmLabel:
+                        rec.row.status === "draft" ? s.sendEstimate : strings.previews.sendAgain,
+                    load: outgoing.estimateSend(api, rec.row.id),
+                    document: { kind: "estimate", id: rec.row.id },
+                },
+                () => {
+                    act(
+                        () =>
+                            api.post<{ number: number | null }>(
+                                `/v1/estimates/${rec.row.id}/send`,
+                                {},
+                            ),
+                        (res) => s.estimateSentTo(res.number ?? 0, rec.row.client_name ?? ""),
+                    );
+                },
             );
         },
         accept: (rec) => {
-            act(
-                () => api.post(`/v1/estimates/${rec.row.id}/accept`, {}),
-                () => s.estimateMarkedAccepted(rec.title),
+            afterReview(
+                {
+                    title: s.review.acceptTitle(rec.title),
+                    message: s.review.answerBody,
+                    confirmLabel: s.review.accept,
+                },
+                () => {
+                    act(
+                        () => api.post(`/v1/estimates/${rec.row.id}/accept`, {}),
+                        () => s.estimateMarkedAccepted(rec.title),
+                    );
+                },
             );
         },
         decline: (rec) => {
-            act(
-                () => api.post(`/v1/estimates/${rec.row.id}/decline`, {}),
-                () => s.estimateMarkedDeclined(rec.title),
+            afterReview(
+                {
+                    title: s.review.declineTitle(rec.title),
+                    message: s.review.answerBody,
+                    confirmLabel: s.review.decline,
+                },
+                () => {
+                    act(
+                        () => api.post(`/v1/estimates/${rec.row.id}/decline`, {}),
+                        () => s.estimateMarkedDeclined(rec.title),
+                    );
+                },
             );
         },
         convert: (rec, onDone) => {
@@ -1617,7 +1672,7 @@ export function useDocComposer(
             (l) => !isBlank(l) && (l.description.trim() === "" || l.grossCents <= 0),
         );
 
-    const body = (withSend: boolean): Record<string, unknown> => {
+    const body = (): Record<string, unknown> => {
         const due = addDays(new Date(), TERM_DAYS[terms], zone);
         return {
             ...(draft === undefined && docId === null ? { client_id: clientId } : {}),
@@ -1635,7 +1690,6 @@ export function useDocComposer(
             ...(kind === "invoice"
                 ? { due_at: due.toISOString() }
                 : { valid_until: due.toISOString().slice(0, 10) }),
-            ...(withSend && draft === undefined && docId === null ? { send: true } : {}),
         };
     };
     const path = kind === "invoice" ? "/v1/invoices" : "/v1/estimates";
@@ -1643,13 +1697,13 @@ export function useDocComposer(
     const saveDraft = (): void => {
         setAttempted(true);
         if (!valid) return;
-        const key = attemptKey(keyRef, [path, body(false)]);
+        const key = attemptKey(keyRef, [path, body()]);
         save.run(
             async () => {
                 if (docId !== null) {
-                    await api.patch(`${path}/${docId}`, body(false));
+                    await api.patch(`${path}/${docId}`, body());
                 } else {
-                    const created = await api.post<{ id: string }>(path, body(false), {
+                    const created = await api.post<{ id: string }>(path, body(), {
                         idempotencyKey: key,
                     });
                     setDocId(created.id);
@@ -1664,21 +1718,41 @@ export function useDocComposer(
     const send = (): void => {
         setAttempted(true);
         if (!valid) return;
-        const key = attemptKey(keyRef, [path, body(true)]);
+        const key = attemptKey(keyRef, [path, body()]);
+        const deliver = (id: string): void => {
+            sendAction.run(
+                async () => {
+                    await api.post(`${path}/${id}/send`, {});
+                    setSent(s.sentTitle(s.doc.kinds[kind]));
+                    onDone?.(id);
+                },
+                { errorMessage: s.sendError },
+            );
+        };
         sendAction.run(
             async () => {
                 let id = docId;
                 if (id === null) {
-                    id = (await api.post<{ id: string }>(path, body(true), { idempotencyKey: key }))
-                        .id;
+                    id = (await api.post<{ id: string }>(path, body(), { idempotencyKey: key })).id;
+                    setDocId(id);
                 } else {
-                    await api.patch(`${path}/${id}`, body(false));
-                    await api.post(`${path}/${id}/send`, {});
+                    await api.patch(`${path}/${id}`, body());
                 }
-                setDocId(id);
                 setDirty(false);
-                setSent(s.sentTitle(s.doc.kinds[kind]));
-                onDone?.(id);
+                const saved = id;
+                afterReview(
+                    {
+                        title: strings.previews.title,
+                        confirmLabel: kind === "invoice" ? s.sendInvoice : s.sendEstimate,
+                        load:
+                            kind === "invoice"
+                                ? outgoing.invoiceSend(api, saved)
+                                : outgoing.estimateSend(api, saved),
+                    },
+                    () => {
+                        deliver(saved);
+                    },
+                );
             },
             { errorMessage: s.sendError },
         );

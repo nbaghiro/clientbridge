@@ -248,6 +248,48 @@
         "message": "{n, number}d",
         "args": ["n"]
     },
+    "previews.title": {
+        "message": "Check it before it goes out"
+    },
+    "previews.send": {
+        "message": "Send"
+    },
+    "previews.sendReminder": {
+        "message": "Send reminder"
+    },
+    "previews.sendAgain": {
+        "message": "Send again"
+    },
+    "ui.review.to": {
+        "message": "To {name}",
+        "args": ["name"]
+    },
+    "ui.review.emailTo": {
+        "message": "Email to {address}",
+        "args": ["address"]
+    },
+    "ui.review.textTo": {
+        "message": "Text to {number}",
+        "args": ["number"]
+    },
+    "ui.review.nothingSent": {
+        "message": "There's no email or mobile number on file, so no message goes out."
+    },
+    "ui.review.loading": {
+        "message": "Getting the message ready"
+    },
+    "ui.review.loadFailed": {
+        "message": "The message didn't load. Try again, or go ahead without seeing it."
+    },
+    "ui.review.retry": {
+        "message": "Try again"
+    },
+    "ui.review.showDocument": {
+        "message": "Show the document"
+    },
+    "ui.review.hideDocument": {
+        "message": "Hide the document"
+    },
     "ui.clearSearch": {
         "message": "Clear search"
     },
@@ -1114,6 +1156,23 @@
     "billing.rec.nothingOwed": {
         "message": "Nothing left to record on this invoice."
     },
+    "billing.review.acceptTitle": {
+        "message": "Mark {title} accepted?",
+        "args": ["title"]
+    },
+    "billing.review.declineTitle": {
+        "message": "Mark {title} declined?",
+        "args": ["title"]
+    },
+    "billing.review.answerBody": {
+        "message": "Use this when the client answered another way, such as by phone or in person. Nothing is sent to them."
+    },
+    "billing.review.accept": {
+        "message": "Mark accepted"
+    },
+    "billing.review.decline": {
+        "message": "Mark declined"
+    },
     "billing.doc.title": {
         "message": "Documents"
     },
@@ -1543,6 +1602,10 @@
     },
     "pos.desk.sendAsInvoice": {
         "message": "Send as invoice"
+    },
+    "pos.desk.invoiceReviewBody": {
+        "message": "{client} gets an invoice for {amount} by email or text, and this sale closes.",
+        "args": ["client", "amount"]
     },
     "pos.desk.invoicedNotice": {
         "message": "{invoice} sent to {name}",
@@ -2229,6 +2292,16 @@
         "message": "{count, plural, =0 {Approve selected} one {Approve # earning} other {Approve # earnings}}",
         "args": ["count"]
     },
+    "earnings.review.payTitle": {
+        "message": "Mark {amount} as paid?",
+        "args": ["amount"]
+    },
+    "earnings.review.payBody": {
+        "message": "Do this once you've paid your team. No money moves from here."
+    },
+    "earnings.review.markPaid": {
+        "message": "Mark paid"
+    },
     "earnings.payApproved": {
         "message": "Pay {amount}",
         "args": ["amount"]
@@ -2470,6 +2543,9 @@
     },
     "entitlements.event.dispute": {
         "message": "Disputed"
+    },
+    "entitlements.review.useTitle": {
+        "message": "Use one session from this package?"
     },
     "entitlements.action.use": {
         "message": "Use a session"
@@ -3048,6 +3124,16 @@
     },
     "bookings.completed": {
         "message": "Completed"
+    },
+    "bookings.review.moveTitle": {
+        "message": "Tell {client} about the new time?",
+        "args": ["client"]
+    },
+    "bookings.review.moveAndTell": {
+        "message": "Move and tell them"
+    },
+    "bookings.review.moveQuietly": {
+        "message": "Move without telling"
     },
     "bookings.noShowDone": {
         "message": "Marked no-show"
@@ -3766,6 +3852,9 @@
     "classes.addedWaitlist": {
         "message": "The class is full, so {name} is on the waitlist.",
         "args": ["name"]
+    },
+    "classes.review.messageTitle": {
+        "message": "Text everyone booked in this class?"
     },
     "classes.messageClass": {
         "message": "Message everyone"
@@ -7074,6 +7163,13 @@
         "message": "{time} {reason}",
         "args": ["time", "reason"],
         "description": "A shift cell noting part-day time off: the time it starts and the reason."
+    },
+    "staff.review.resendTitle": {
+        "message": "Send {email} a new invite link?",
+        "args": ["email"]
+    },
+    "staff.review.resendBody": {
+        "message": "The link they already have stops working."
     },
     "staff.acceptInviteError": {
         "message": "Couldn’t accept this invite. Check your connection and try again."
@@ -14077,6 +14173,9 @@
     },
     "reviews.disconnect": {
         "message": "Disconnect Google"
+    },
+    "reviews.publishReplyTitle": {
+        "message": "Publish this reply on Google for anyone to read?"
     },
     "reviews.replyTitle": {
         "message": "Reply on Google"
