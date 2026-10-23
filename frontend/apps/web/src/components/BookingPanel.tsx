@@ -516,7 +516,6 @@ function BookingDocuments({ event }: { event: ScheduleEvent }) {
                             doc,
                             missing: "",
                             attached: strings.billing.doc.attachedVisit,
-                            facts: doc.meta.slice(1),
                         },
                     ]}
                     onClose={receipt.close}
