@@ -1543,8 +1543,9 @@ SELECT b.id AS booking_id, b.client_id, c.name AS client_name, b.staff_id, ${sta
        (SELECT p.id FROM packages p JOIN items pi ON pi.id = p.item_id
         WHERE p.client_id = b.client_id AND p.status = 'active' AND b.status = 'confirmed'
           AND (pi.covers_item_id IS NULL OR pi.covers_item_id = s.item_id)
+          AND (p.subject_id IS NULL OR p.subject_id = b.subject_id)
           AND (p.expires_at IS NULL OR ${utcSql("p.expires_at")} > datetime('now'))
-        ORDER BY p.created_at LIMIT 1) AS cover_package_id
+        ORDER BY p.subject_id IS NULL, p.created_at LIMIT 1) AS cover_package_id
 FROM bookings b JOIN slots s ON s.id = b.slot_id
 LEFT JOIN clients c ON c.id = b.client_id LEFT JOIN items i ON i.id = s.item_id
 LEFT JOIN staff st ON st.id = b.staff_id

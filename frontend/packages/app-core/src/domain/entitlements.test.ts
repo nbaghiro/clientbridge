@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { ApiLike } from "../api";
 
+import { packageBalance } from "./clients";
 import { type PackageRow, canConsume, consumeSession, sessionsRemaining } from "./entitlements";
 
 const pkg = (total: number, used: number, status = "active"): PackageRow => ({
@@ -9,6 +10,7 @@ const pkg = (total: number, used: number, status = "active"): PackageRow => ({
     client_id: "cl_ann",
     item_id: "it_pkg",
     item_name: "Five Cuts",
+    subject_name: null,
     sessions_total: total,
     sessions_used: used,
     status,
@@ -20,6 +22,11 @@ describe("packages", () => {
         expect(sessionsRemaining(pkg(5, 5))).toBe(0);
         expect(sessionsRemaining(pkg(5, 7))).toBe(0);
         expect(sessionsRemaining(pkg(0, 0))).toBe(0);
+    });
+
+    it("leads a package's balance with the student it belongs to", () => {
+        expect(packageBalance("Maya", "6 of 10 left")).toBe("Maya: 6 of 10 left");
+        expect(packageBalance(null, "6 of 10 left")).toBe("6 of 10 left");
     });
 
     it("draws a session only from an active package with one left", () => {

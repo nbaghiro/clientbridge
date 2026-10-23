@@ -86,6 +86,7 @@ interface Strings {
         readonly planActive: string;
         readonly planNotManaged: string;
         readonly businessUnavailable: string;
+        readonly packageOtherSubject: string;
         readonly serviceNotOffered: string;
         readonly visitNotBilled: string;
         readonly visitUnpaid: string;
@@ -818,6 +819,9 @@ interface Strings {
         readonly retrying: string;
         readonly expires: (when: string) => string;
         readonly expired: (when: string) => string;
+        readonly forSubject: (subject: string, balance: string) => string;
+        readonly subjectShared: (kind: string) => string;
+        readonly subjectHint: (kind: string) => string;
         readonly forRecipient: (name: string) => string;
         readonly statusLabel: {
             readonly active: string;

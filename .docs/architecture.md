@@ -278,7 +278,9 @@ client can only be lifted by the client's own START).
 **catalog (5)** — `items` (**one table drives the whole catalog** via `kind` service/class/product/package/
 subscription/gift — duration, capacity, deposit, recurrence, session_count, `stripe_price_id`, and
 `staff_ids` for who offers a service or class), `packages`
-(client's package: `sessions_total` and status; sessions used is the count of its consumption journals), `subscriptions` (recurring: status, period,
+(client's package: `sessions_total` and status, and `subject_id` when it belongs to one of the client's
+subjects, so it covers only that subject's visits, refused with 422 `package_other_subject`; null shares it;
+sessions used is the count of its consumption journals), `subscriptions` (recurring: status, period,
 `provider_ref`; partial-unique one active/paused per client+item), `gift_cards` (`code` unique per business,
 `initial_cents`; the spendable balance is the card's own ledger account, and an active card with nothing
 left reads as redeemed), `inventory` (one signed stock movement per row, `reason` sale/refund/restock, keyed

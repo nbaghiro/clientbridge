@@ -7172,6 +7172,8 @@ export interface components {
             client_id: string;
             /** Item Id */
             item_id: string;
+            /** Subject Id */
+            subject_id: string | null;
             /** Sessions Total */
             sessions_total: number;
             /** Sessions Used */
@@ -7188,6 +7190,11 @@ export interface components {
             client_id: string;
             /** Item Id */
             item_id: string;
+            /**
+             * Subject Id
+             * @description The client's subject it covers; null shares it
+             */
+            subject_id?: string | null;
             /** Payment Method Id */
             payment_method_id?: string | null;
             /**

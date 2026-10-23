@@ -120,6 +120,16 @@ function SaleFields({
                     onChange={form.setClientId}
                 />
             ) : null}
+            {form.subject !== null ? (
+                <Field label={form.subject.label} hint={form.subject.hint}>
+                    <Choice
+                        label={form.subject.label}
+                        options={form.subject.options}
+                        value={form.subject.value}
+                        onChange={form.subject.pick}
+                    />
+                </Field>
+            ) : null}
             {form.needsCard ? <Notice tone="info">{w.membershipNeedsCard}</Notice> : null}
             <div className="rounded-md border border-line bg-bg px-4 py-3">
                 <DocTotals currency={BUSINESS_CURRENCY} lines={form.lines} density="compact" />

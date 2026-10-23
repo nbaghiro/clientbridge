@@ -55,6 +55,9 @@ class PackagePurchase(Mirror):
 
     client_id: str = Field(min_length=1)
     item_id: str = Field(min_length=1)
+    subject_id: str | None = Field(
+        default=None, description="The client's subject it covers; null shares it"
+    )
     payment_method_id: str | None = None
     cash: bool = Field(default=False, description="Paid in cash at the desk; recorded, not charged")
 
@@ -71,6 +74,7 @@ class PackageOut(Mirror):
     id: str
     client_id: str
     item_id: str
+    subject_id: str | None
     sessions_total: int
     sessions_used: int
     status: PackageStatus

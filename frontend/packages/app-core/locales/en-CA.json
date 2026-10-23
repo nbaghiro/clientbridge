@@ -237,6 +237,9 @@
     "api.businessUnavailable": {
         "message": "This business isn't taking bookings or orders right now."
     },
+    "api.packageOtherSubject": {
+        "message": "This package is for a different student, pet, vehicle or place on this client's account. Choose a shared package or the one for this visit."
+    },
     "api.serviceNotOffered": {
         "message": "That team member doesn't offer this service. Choose someone who does."
     },
@@ -2478,6 +2481,21 @@
     "entitlements.expired": {
         "message": "Expired {when}",
         "args": ["when"]
+    },
+    "entitlements.forSubject": {
+        "message": "{subject}: {balance}",
+        "args": ["subject", "balance"],
+        "description": "A package's sessions left, led by the student, pet or other subject it belongs to"
+    },
+    "entitlements.subjectShared": {
+        "message": "{kind, select, pet {Shared by all their pets} student {Shared by all their students} property {Shared by all their properties} site {Shared by all their sites} vehicle {Shared by all their vehicles} other {Shared}}",
+        "args": ["kind"],
+        "description": "kind is what the business books besides the client"
+    },
+    "entitlements.subjectHint": {
+        "message": "{kind, select, pet {A package for one pet covers only that pet's visits. A shared one covers any of them.} student {A package for one student covers only that student's lessons. A shared one covers any of them.} property {A package for one property covers only visits there. A shared one covers any of them.} site {A package for one site covers only visits there. A shared one covers any of them.} vehicle {A package for one vehicle covers only that vehicle's visits. A shared one covers any of them.} other {A shared package covers any visit.}}",
+        "args": ["kind"],
+        "description": "kind is what the business books besides the client"
     },
     "entitlements.forRecipient": {
         "message": "For {name}",

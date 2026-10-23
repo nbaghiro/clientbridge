@@ -419,16 +419,22 @@ interface MethodDbRow extends SavedCardRow {
     pays: string | null;
 }
 
+/** A package's balance, led by the subject it belongs to when it isn't shared. */
+export function packageBalance(subjectName: string | null, balance: string): string {
+    return subjectName === null ? balance : strings.entitlements.forSubject(subjectName, balance);
+}
+
 export const CLIENT_PLANS_SQL = `
 SELECT 'package' AS kind, p.id, i.name AS item_name, p.status, p.sessions_total,
        (SELECT COUNT(DISTINCT le.journal_id) FROM entries le WHERE le.event = 'consumption'
           AND le.subject_type = 'package' AND le.subject_id = p.id) AS sessions_used,
-       NULL AS renews_at
+       NULL AS renews_at, sj.name AS subject_name
 FROM packages p LEFT JOIN items i ON i.id = p.item_id
+LEFT JOIN subjects sj ON sj.id = p.subject_id
 WHERE p.client_id = ? AND p.status IN ('active', 'pending')
 UNION ALL
 SELECT 'subscription' AS kind, sb.id, i.name AS item_name, sb.status, NULL, NULL,
-       sb.current_period_end AS renews_at
+       sb.current_period_end AS renews_at, NULL
 FROM subscriptions sb LEFT JOIN items i ON i.id = sb.item_id
 WHERE sb.client_id = ? AND sb.status IN ('active', 'past_due', 'paused')`;
 
@@ -440,6 +446,7 @@ interface PlanDbRow {
     sessions_total: number | null;
     sessions_used: number | null;
     renews_at: string | null;
+    subject_name: string | null;
 }
 
 interface ClientPlan {
@@ -455,7 +462,10 @@ function toPlan(r: PlanDbRow, zone: string): ClientPlan {
         return {
             id: r.id,
             name,
-            detail: s.sessionsLeftShort(Math.max(0, total - (r.sessions_used ?? 0)), total),
+            detail: packageBalance(
+                r.subject_name,
+                s.sessionsLeftShort(Math.max(0, total - (r.sessions_used ?? 0)), total),
+            ),
         };
     }
     return {

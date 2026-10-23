@@ -17,7 +17,7 @@ from clientbridge.core.deps import Principal
 from clientbridge.core.errors import AppError
 from clientbridge.models.billing import Estimate, Invoice, Line
 from clientbridge.models.business import Business, Staff
-from clientbridge.models.catalog import GiftCard, Item, StockMovement
+from clientbridge.models.catalog import GiftCard, Item, Package, StockMovement
 from clientbridge.models.clients import Subject
 from clientbridge.models.documents import Contract, FormResponse, Signature
 from clientbridge.models.scheduling import Booking, Hours, Recurrence, Slot, Weekday
@@ -61,6 +61,7 @@ def validate_graph(ctx: DemoContext) -> list[str]:
     items = {r.id: r for r in ctx.all(Item)}
     slots = {r.id: r for r in ctx.all(Slot)}
     pets = {r.id: r for r in ctx.all(Subject)}
+    packages = {r.id: r for r in ctx.all(Package)}
     bookings = ctx.all(Booking)
     hours = ctx.all(Hours)
     business = ctx.get(Business, ctx.business_id)
@@ -85,6 +86,9 @@ def validate_graph(ctx: DemoContext) -> list[str]:
             for rule in rules:
                 if slot.item_id in rule.items and not rule.fits(pet.attributes):
                     errors.append(f"{booking.id}: subject {rule.attribute} does not suit the visit")
+        held = packages.get(booking.package_id or "")
+        if held is not None and held.subject_id not in (None, booking.subject_id):
+            errors.append(f"{booking.id}: covered by another subject's package")
         if booking.confirmed_at and booking.confirmed_at > ctx.now:
             errors.append(f"{booking.id}: future confirmation")
         if booking.status == "completed" and (

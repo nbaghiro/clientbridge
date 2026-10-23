@@ -13,6 +13,7 @@ import {
     isCancelable,
     packageStatusIntent,
     parseTimestamp,
+    packageBalance,
     sessionsRemaining,
     entitlementStatusLabel,
     subscriptionStatusIntent,
@@ -560,9 +561,9 @@ function PackageLine({ pkg }: { pkg: PackageRow }) {
             <ListRow
                 density="compact"
                 title={pkg.item_name ?? strings.clients.packageFallback}
-                detail={strings.clients.sessionsLeftShort(
-                    sessionsRemaining(pkg),
-                    pkg.sessions_total,
+                detail={packageBalance(
+                    pkg.subject_name,
+                    strings.clients.sessionsLeftShort(sessionsRemaining(pkg), pkg.sessions_total),
                 )}
                 meta={
                     <StatusPill

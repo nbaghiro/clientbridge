@@ -212,6 +212,9 @@
     "api.businessUnavailable": {
         "message": "[Ţĥîš ƀûšîñéšš îšñ'ţ ţåķîñĝ ƀööķîñĝš öŕ öŕðéŕš ŕîĝĥţ ñöŵ. one two three four]"
     },
+    "api.packageOtherSubject": {
+        "message": "[Ţĥîš þåçķåĝé îš ƒöŕ å ðîƒƒéŕéñţ šţûðéñţ, þéţ, ṽéĥîçļé öŕ þļåçé öñ ţĥîš çļîéñţ'š åççöûñţ. Çĥööšé å šĥåŕéð þåçķåĝé öŕ ţĥé öñé ƒöŕ ţĥîš ṽîšîţ. one two three four five six seven eight]"
+    },
     "api.serviceNotOffered": {
         "message": "[Ţĥåţ ţéåɱ ɱéɱƀéŕ ðöéšñ'ţ öƒƒéŕ ţĥîš šéŕṽîçé. Çĥööšé šöɱéöñé ŵĥö ðöéš. one two three four five]"
     },
@@ -2275,6 +2278,15 @@
     },
     "entitlements.expired": {
         "message": "[Éẋþîŕéð {when} one]"
+    },
+    "entitlements.forSubject": {
+        "message": "{subject}: {balance}"
+    },
+    "entitlements.subjectShared": {
+        "message": "[{kind,select,other{Šĥåŕéð} pet{Šĥåŕéð ƀý åļļ ţĥéîŕ þéţš} property{Šĥåŕéð ƀý åļļ ţĥéîŕ þŕöþéŕţîéš} site{Šĥåŕéð ƀý åļļ ţĥéîŕ šîţéš} student{Šĥåŕéð ƀý åļļ ţĥéîŕ šţûðéñţš} vehicle{Šĥåŕéð ƀý åļļ ţĥéîŕ ṽéĥîçļéš}} one two three four five six seven eight nine]"
+    },
+    "entitlements.subjectHint": {
+        "message": "[{kind,select,other{Å šĥåŕéð þåçķåĝé çöṽéŕš åñý ṽîšîţ.} pet{Å þåçķåĝé ƒöŕ öñé þéţ çöṽéŕš öñļý ţĥåţ þéţ'š ṽîšîţš. Å šĥåŕéð öñé çöṽéŕš åñý öƒ ţĥéɱ.} property{Å þåçķåĝé ƒöŕ öñé þŕöþéŕţý çöṽéŕš öñļý ṽîšîţš ţĥéŕé. Å šĥåŕéð öñé çöṽéŕš åñý öƒ ţĥéɱ.} site{Å þåçķåĝé ƒöŕ öñé šîţé çöṽéŕš öñļý ṽîšîţš ţĥéŕé. Å šĥåŕéð öñé çöṽéŕš åñý öƒ ţĥéɱ.} student{Å þåçķåĝé ƒöŕ öñé šţûðéñţ çöṽéŕš öñļý ţĥåţ šţûðéñţ'š ļéššöñš. Å šĥåŕéð öñé çöṽéŕš åñý öƒ ţĥéɱ.} vehicle{Å þåçķåĝé ƒöŕ öñé ṽéĥîçļé çöṽéŕš öñļý ţĥåţ ṽéĥîçļé'š ṽîšîţš. Å šĥåŕéð öñé çöṽéŕš åñý öƒ ţĥéɱ.}} one two three four five six seven eight nine ten one two three four five six seven eight nine ten one two three four five six seven eight]"
     },
     "entitlements.forRecipient": {
         "message": "[Ƒöŕ {name} one]"

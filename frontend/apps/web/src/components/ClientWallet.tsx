@@ -9,6 +9,7 @@ import {
     isCancelable,
     packageStatusIntent,
     parseTimestamp,
+    packageBalance,
     sessionsRemaining,
     strings,
     entitlementStatusLabel,
@@ -187,7 +188,13 @@ function PackageLine({ pkg }: { pkg: PackageRow }) {
                         {pkg.item_name ?? strings.clients.packageFallback}
                     </div>
                     <div className="text-xs text-muted">
-                        {strings.clients.sessionsLeft(sessionsRemaining(pkg), pkg.sessions_total)}
+                        {packageBalance(
+                            pkg.subject_name,
+                            strings.clients.sessionsLeft(
+                                sessionsRemaining(pkg),
+                                pkg.sessions_total,
+                            ),
+                        )}
                     </div>
                 </div>
                 <div className="ml-auto flex shrink-0 items-center gap-2">

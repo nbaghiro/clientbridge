@@ -120,6 +120,8 @@ class Package(PKMixin, BusinessScoped, TimestampMixin, Base):
 
     client_id: Mapped[str] = mapped_column(ForeignKey("clients.id"), nullable=False)
     item_id: Mapped[str] = mapped_column(ForeignKey("items.id"), nullable=False)
+    # the one subject whose visits it covers; null shares it across the client's subjects
+    subject_id: Mapped[str | None] = mapped_column(ForeignKey("subjects.id"))
     sessions_total: Mapped[int] = mapped_column(Integer, nullable=False)
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     status: Mapped[PackageStatus] = mapped_column(String, default="active", nullable=False)

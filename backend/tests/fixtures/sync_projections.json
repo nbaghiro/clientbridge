@@ -112,6 +112,7 @@
     "packages": [
       "client_id",
       "item_id",
+      "subject_id",
       "sessions_total",
       "expires_at",
       "status",

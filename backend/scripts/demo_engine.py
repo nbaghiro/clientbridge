@@ -1255,7 +1255,13 @@ class Demo:
         return subscription
 
     def package(
-        self, client_key: str, item_id: str, bought: datetime, *, key: str | None = None
+        self,
+        client_key: str,
+        item_id: str,
+        bought: datetime,
+        *,
+        key: str | None = None,
+        subject: str | None = None,
     ) -> Package:
         """A prepaid bundle bought by card; `key` names a client's second or later one."""
         offering = self.offerings[item_id]
@@ -1266,6 +1272,7 @@ class Demo:
             business_id=self.spec.id,
             client_id=self.client_id(client_key),
             item_id=item_id,
+            subject_id=subject,
             sessions_total=offering.sessions,
             expires_at=bought + timedelta(days=offering.validity_days or 365),
             status="active",

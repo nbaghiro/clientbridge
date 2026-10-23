@@ -37,8 +37,9 @@ ASSESSMENT, MATH, ENGLISH, FRENCH, SCIENCE = (
 )
 PIANO, PIANO_LONG, GUITAR = "it_ls_piano", "it_ls_piano_long", "it_ls_guitar"
 SAT, REVIEW = "it_ls_sat", "it_ls_review"
-TERM10, TERM12, SAT_COURSE, PLAN, GIFT = (
+TERM10, TERM10_FR, TERM12, SAT_COURSE, PLAN, GIFT = (
     "it_ls_term10",
+    "it_ls_term10_french",
     "it_ls_term12",
     "it_ls_sat_course",
     "it_ls_plan",
@@ -248,6 +249,20 @@ ITEMS: tuple[Offering, ...] = (
         covers=MATH,
         validity_days=120,
         ref="term10",
+    ),
+    Offering(
+        id=TERM10_FR,
+        kind="package",
+        name="Term package, 10 French lessons",
+        price_cents=65000,
+        category="Packages and plans",
+        description="Ten 60-minute French lessons at the same time each week for the term, "
+        "paid up front at a lower rate than single lessons. Valid for 120 days.",
+        tax_class="exempt",
+        sessions=10,
+        covers=FRENCH,
+        validity_days=120,
+        ref="term10fr",
     ),
     Offering(
         id=TERM12,
@@ -836,7 +851,7 @@ TERM: tuple[Weekly, ...] = (
     Weekly("kowalski", "kowalski", 0, SCIENCE, SAMUEL, 3, time(18, 0)),
     Weekly("park", "park", 0, MATH, NADIA, 4, time(18, 30)),
     Weekly("abdi", "abdi", 0, MATH, NADIA, 3, time(16, 0)),
-    Weekly("chen_olivia", "chen", 0, FRENCH, JULIEN, 1, time(16, 0)),
+    Weekly("chen_olivia", "chen", 0, FRENCH, JULIEN, 1, time(16, 0), package=TERM10_FR),
     Weekly("chen_ethan", "chen", 1, PIANO, SOFIA, 2, time(15, 30), package=TERM12),
     Weekly("moreau", "moreau", 0, FRENCH, JULIEN, 3, time(17, 0)),
     Weekly("khoury", "khoury", 0, SCIENCE, SAMUEL, 2, time(16, 0)),
@@ -1006,6 +1021,15 @@ SPEC = BusinessSpec(
             ("sch_ls_tran_minh", "sch_ls_tran_an"),
         ),
         Stage(
+            "Each child with a term package of their own, plus one shared",
+            "chen",
+            (
+                "pkg_ls_term10fr_chen_olivia",
+                "pkg_ls_term12_chen_ethan",
+                "pkg_ls_term12_chen_shared",
+            ),
+        ),
+        Stage(
             "Partway through a 10-lesson term package",
             "fontaine",
             ("pkg_ls_term10_fontaine", "sch_ls_fontaine"),
@@ -1159,7 +1183,9 @@ class Lakeside(Demo):
         package_id = None
         if lesson.package is not None:
             bought = self.starts(days, time(19, 30))[0] - timedelta(days=4)
-            package_id = self.package(lesson.family, lesson.package, bought).id
+            package_id = self.package(
+                lesson.family, lesson.package, bought, key=lesson.key, subject=subject
+            ).id
         self.series(
             lesson.key,
             lesson.family,
@@ -1438,6 +1464,8 @@ class Lakeside(Demo):
                 self.line(booking.invoice_id, product, booking.created_at, 1)
 
     def plans(self) -> None:
+        # one piano package the Chens keep unassigned, for whichever child takes the lesson
+        self.package("chen", TERM12, self.at(-6, 18), key="chen_shared")
         for key, bank in (("mensah", ("RBC Royal Bank", "4417")), ("campbell", None)):
             first = self.ctx.get(Booking, f"bk_ls_{key}_0")
             self.subscribe(key, PLAN, first.starts_at - timedelta(days=4, hours=4), bank=bank)

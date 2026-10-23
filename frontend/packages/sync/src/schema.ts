@@ -167,6 +167,7 @@ const packages = new Table(
     {
         client_id: column.text,
         item_id: column.text,
+        subject_id: column.text,
         sessions_total: column.integer,
         expires_at: column.text,
         status: column.text,

@@ -1581,6 +1581,43 @@ describe("app-core SQL against the replica schema", () => {
         ]);
     });
 
+    it("covers a visit with its subject's package before a shared one, never another's", () => {
+        db.run(
+            "UPDATE bookings SET status = 'confirmed', subject_id = 'sj_site' WHERE id = 'bk_1'",
+        );
+        scoped("packages", [
+            {
+                id: "pk_own",
+                client_id: "cl_ann",
+                item_id: "it_pkg",
+                subject_id: "sj_site",
+                sessions_total: 5,
+                status: "active",
+                created_at: "2026-07-01T00:00:00Z",
+            },
+            {
+                id: "pk_sibling",
+                client_id: "cl_ann",
+                item_id: "it_pkg",
+                subject_id: "sj_sibling",
+                sessions_total: 5,
+                status: "active",
+                created_at: "2026-01-01T00:00:00Z",
+            },
+        ]);
+        const day = ["2026-06-26T00:00:00.000Z", "2026-06-27T00:00:00.000Z"];
+        const cover = (): Row[] => pick(run("CHECKOUT_QUEUE_SQL", day), "cover_package_id");
+        expect(cover()).toEqual([{ cover_package_id: "pk_own" }]);
+        db.run("UPDATE bookings SET subject_id = NULL WHERE id = 'bk_1'");
+        expect(cover()).toEqual([{ cover_package_id: "pk_1" }]);
+        expect(pick(run("CLIENT_PACKAGES_SQL", ["cl_ann"]), "id", "subject_name")).toContainEqual({
+            id: "pk_1",
+            subject_name: null,
+        });
+        db.run("DELETE FROM packages WHERE id IN ('pk_own', 'pk_sibling')");
+        db.run("UPDATE bookings SET status = 'completed' WHERE id = 'bk_1'");
+    });
+
     it("lists invitation history and Google settings", () => {
         expect(pick(run("REVIEW_REQUESTS_SQL"), "id", "client_name")).toEqual([
             { id: "rrq_1", client_name: "Ann" },
