@@ -347,6 +347,20 @@ function ProductFields({ ed }: { ed: ProductEditor }) {
                     <p className="text-xs text-muted">{s.costHint}</p>
                 </div>
             </DetailSection>
+            {ed.addsToVisit ? (
+                <DetailSection title={s.sectionVisit}>
+                    <div className="w-48">
+                        <Num
+                            label={s.addsToVisit}
+                            hint={s.addsToVisitHint}
+                            value={v.duration}
+                            onChange={(x) => {
+                                set("duration", x);
+                            }}
+                        />
+                    </div>
+                </DetailSection>
+            ) : null}
             <DetailSection title={s.sectionStock}>
                 <div className="space-y-3">
                     <Toggle

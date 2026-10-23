@@ -40,6 +40,7 @@ import {
     Modal,
     Money,
     Notice,
+    Select,
     StatusPill,
     TextField,
 } from "@clientbridge/ui";
@@ -376,34 +377,49 @@ export function PhotoGrid({
 function BookingAddons({ event }: { event: ScheduleEvent }) {
     const viewer = useViewer();
     const addons = useBookingAddons(api, event, viewer);
-    if (addons.addons.length === 0) return null;
+    const canAdd = addons.canEdit && addons.choices.length > 0;
+    if (addons.addons.length === 0 && !canAdd) return null;
     return (
         <DetailSection title={s.detailAddons}>
-            <ul className="divide-y divide-line-soft rounded-md border border-line">
-                {addons.addons.map((a) => (
-                    <li key={a.id} className="flex items-center gap-3 px-3 py-2 text-sm">
-                        <Icon name="bag" size={15} />
-                        <span className="min-w-0 flex-1 truncate text-ink">
-                            {a.quantity} × {a.description}
-                        </span>
-                        <Money
-                            currency={BUSINESS_CURRENCY}
-                            cents={a.quantity * a.unit_amount_cents}
-                        />
-                        {addons.canEdit ? (
-                            <Button
-                                size="sm"
-                                variant="link"
-                                onPress={() => {
-                                    addons.remove(a.id);
-                                }}
-                            >
-                                {s.addonRemove}
-                            </Button>
-                        ) : null}
-                    </li>
-                ))}
-            </ul>
+            {addons.addons.length > 0 ? (
+                <ul className="divide-y divide-line-soft rounded-md border border-line">
+                    {addons.addons.map((a) => (
+                        <li key={a.id} className="flex items-center gap-3 px-3 py-2 text-sm">
+                            <Icon name="bag" size={15} />
+                            <span className="min-w-0 flex-1 truncate text-ink">
+                                {a.quantity} × {a.description}
+                            </span>
+                            <Money
+                                currency={BUSINESS_CURRENCY}
+                                cents={a.quantity * a.unit_amount_cents}
+                            />
+                            {addons.canEdit ? (
+                                <Button
+                                    size="sm"
+                                    variant="link"
+                                    onPress={() => {
+                                        addons.remove(a.id);
+                                    }}
+                                >
+                                    {s.addonRemove}
+                                </Button>
+                            ) : null}
+                        </li>
+                    ))}
+                </ul>
+            ) : null}
+            {canAdd ? (
+                <div className="mt-2">
+                    <Select
+                        label={s.addonAdd}
+                        size="sm"
+                        value=""
+                        placeholder={s.addonPick}
+                        options={addons.choices}
+                        onChange={addons.add}
+                    />
+                </div>
+            ) : null}
             <div className="mt-1.5 flex items-center justify-between gap-2">
                 <p className="text-xs text-muted">
                     {s.addonsTotal(formatMoney(addons.totalCents, BUSINESS_CURRENCY))}

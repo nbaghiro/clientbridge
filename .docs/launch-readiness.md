@@ -671,7 +671,7 @@ Size: S · Area: Online booking and shop
 
 **Flow:** While booking, a client adds products to the visit; they land on the visit's invoice.
 
-**Built:** An optional add-on step on the booking page; add-ons stored on the booking; Create invoice from the booking includes them; staff can remove them before invoicing.
+**Built:** An optional add-on step on the booking page, before the time; add-ons stored on the booking; an add-on with a duration lengthens the visit, and the booking page offers only times long enough; Create invoice from the booking includes them as lines that count toward the member's earning; staff can add and remove them before invoicing, and the visit grows or shrinks with them.
 
 **To do:**
 

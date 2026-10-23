@@ -467,6 +467,8 @@ class BillingService:
                     quantity=a.quantity,
                     unit_amount_cents=a.unit_amount_cents,
                     item_id=a.item_id,
+                    booking_id=booking.id,
+                    staff_id=a.staff_id or booking.staff_id,
                 )
                 for a in addons
             ),

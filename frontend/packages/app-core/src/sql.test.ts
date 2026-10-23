@@ -2435,6 +2435,15 @@ describe("app-core SQL against the replica schema", () => {
         ]);
         expect(run("ONLINE_BOOKINGS_SQL", ["2026-01-01T00:00:00Z"])).toEqual([{ n: 2 }]);
         expect(run("ADDON_SERVICES_SQL").map((r) => r.id)).toEqual(["it_cut"]);
+        expect(run("ADDON_CHOICES_SQL")).toEqual([
+            {
+                id: "it_brush",
+                name: "Brush",
+                price_cents: 1500,
+                duration_min: null,
+                addon_for: '["it_cut"]',
+            },
+        ]);
     });
 
     it("totals a sale with line and sale discounts, a tip and a partial refund", () => {

@@ -9,7 +9,7 @@ The schema stays concise. An audit of each need against the existing code (2026-
 - 87057333: staff can add a note to a booking; pickup permissions on a student.
 - 2a5441af: the `vehicle` subject kind (cb0028).
 - a43cd63e: S7, `items.staff_ids` (cb0029): who offers a service, enforced on every booking path; Maple and Main colour by Leila and Gabriela; the driving school industry (item 9).
-- S4, `packages.subject_id` (cb0030): a package for one subject; Lakeside's Chen family has a package per child and one shared.
+- b289de27: S4, `packages.subject_id` (cb0030): a package for one subject; Lakeside's Chen family has a package per child and one shared.
 
 ## Step 1: no schema, built on what exists
 

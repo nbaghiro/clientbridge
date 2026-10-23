@@ -476,10 +476,11 @@ class Demo:
         past: bool,
         not_before: datetime | None = None,
         forward: bool = False,
+        extra_min: int = 0,
     ) -> datetime | None:
         """The first free half hour in the member's hours, searching from `day` away from today."""
         item = self.items[item_id]
-        minutes = item.duration_min or 60
+        minutes = (item.duration_min or 60) + extra_min
         step = -1 if past and not forward else 1
         for offset in range(60):
             current = day + step * offset
@@ -544,10 +545,11 @@ class Demo:
         price: int | None = None,
         package_id: str | None = None,
         slot: Slot | None = None,
+        extra_min: int = 0,
     ) -> Booking:
-        """A visit in its own slot, or a seat in a class session's `slot`."""
+        """A visit in its own slot, or a seat in a class session's `slot`; add-ons lengthen it."""
         item = self.items[item_id]
-        end = start + timedelta(minutes=item.duration_min or 60)
+        end = start + timedelta(minutes=(item.duration_min or 60) + extra_min)
         subject_id = subject or self.subject_id(client_key)
         if slot is None:
             slot = Slot(
@@ -911,6 +913,10 @@ class Demo:
         self.ctx.add(estimate)
         self.lines("estimate", estimate.id, quote, created, optional=optional)
         return estimate
+
+    def extra_minutes(self, quote: Quote) -> int:
+        """The minutes a quote's products add to the visit they ride on."""
+        return sum((self.items[part].duration_min or 0) * qty for part, qty in quote.parts)
 
     def addons(self, booking: Booking, estimate: Estimate, quote: Quote) -> None:
         """Book the estimate: its products ride on the booking until checkout bills them."""

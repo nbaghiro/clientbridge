@@ -88,6 +88,7 @@ interface Strings {
         readonly businessUnavailable: string;
         readonly packageOtherSubject: string;
         readonly serviceNotOffered: string;
+        readonly visitNoRoom: string;
         readonly visitNotBilled: string;
         readonly visitUnpaid: string;
     } & Labels;
@@ -1116,6 +1117,10 @@ interface Strings {
         readonly collectAmount: (amount: string) => string;
         readonly addonRemove: string;
         readonly addonRemoveError: string;
+        readonly addonAdd: string;
+        readonly addonPick: string;
+        readonly addonAdds: (n: number) => string;
+        readonly addonAddError: string;
         readonly invoiceVisit: string;
         readonly invoiceVisitError: string;
         readonly visitInvoiced: string;
@@ -2814,6 +2819,10 @@ interface Strings {
         readonly skuHint: string;
         readonly cost: string;
         readonly costHint: string;
+        readonly sectionVisit: string;
+        readonly addsToVisit: string;
+        readonly addsToVisitHint: string;
+        readonly addsToVisitInvalid: string;
         readonly margin: string;
         readonly marginSummary: (money: string, pct: number) => string;
         readonly marginUnknown: string;
@@ -3934,6 +3943,7 @@ interface Strings {
         readonly addNamed: (name: string) => string;
         readonly soldOut: string;
         readonly oftenAdded: string;
+        readonly addsTime: (length: string) => string;
         readonly addonsPaidLater: string;
         readonly name: string;
         readonly namePlaceholder: string;

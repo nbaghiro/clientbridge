@@ -1423,6 +1423,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/bookings/{booking_id}/addons": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add Booking Addon */
+        post: operations["add_booking_addon_v1_bookings__booking_id__addons_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/bookings/{booking_id}/addons/{addon_id}": {
         parameters: {
             query?: never;
@@ -3874,6 +3891,19 @@ export interface components {
             business_id: string;
             /** Staff Id */
             staff_id: string;
+        };
+        /** AddonAdd */
+        AddonAdd: {
+            /**
+             * Item Id
+             * @description An active product; its minutes lengthen the visit
+             */
+            item_id: string;
+            /**
+             * Quantity
+             * @default 1
+             */
+            quantity: number;
         };
         /** AddonOffer */
         AddonOffer: {
@@ -7440,6 +7470,11 @@ export interface components {
              * @description Services it is offered with; empty means all
              */
             addon_for?: string[];
+            /**
+             * Duration Min
+             * @description Minutes it adds to a visit, times its quantity
+             */
+            duration_min?: number | null;
         };
         /** PublicAddonIn */
         PublicAddonIn: {
@@ -10665,6 +10700,8 @@ export interface operations {
                 item_id: string;
                 staff_id: string;
                 date: string;
+                /** @description Minutes the chosen add-ons add to the visit */
+                extra_min?: number;
             };
             header?: never;
             path: {
@@ -10701,6 +10738,8 @@ export interface operations {
                 staff_id: string;
                 from: string;
                 days?: number;
+                /** @description Minutes the chosen add-ons add to the visit */
+                extra_min?: number;
             };
             header?: never;
             path: {
@@ -12706,6 +12745,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DepositOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_booking_addon_v1_bookings__booking_id__addons_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "x-business-id"?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
+            };
+            path: {
+                booking_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddonAdd"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookingOut"];
                 };
             };
             /** @description Validation Error */

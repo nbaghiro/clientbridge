@@ -2539,19 +2539,34 @@ WHERE booking_id = ? ORDER BY created_at`;
 
 export const BOOKING_INVOICE_SQL = "SELECT invoice_id, order_id FROM bookings WHERE id = ?";
 
+export const ADDON_CHOICES_SQL = `
+SELECT id, name, price_cents, duration_min, addon_for FROM items
+WHERE kind = 'product' AND active = 1 AND addon = 1 ORDER BY name COLLATE NOCASE`;
+
+interface AddonChoiceRow {
+    id: string;
+    name: string;
+    price_cents: number;
+    duration_min: number | null;
+    addon_for: string | null;
+}
+
 interface BookingAddons {
     addons: BookingAddonRow[];
     totalCents: number;
     invoiceId: string | null;
     canEdit: boolean;
     canInvoice: boolean;
+    // the add-on products offered with this service, to add one to the visit
+    choices: { key: string; label: string; detail: string }[];
+    add: (itemId: string) => void;
     remove: (addonId: string) => void;
     createInvoice: () => void;
     busy: boolean;
     error: string | null;
 }
 
-/** Staff can remove add-ons until the visit is invoiced; an owner or admin invoices them as lines. */
+/** Staff add and remove add-ons until the visit is invoiced; an add-on's minutes resize it. */
 export function useBookingAddons(
     api: ApiLike,
     event: CalendarEvent,
@@ -2559,22 +2574,50 @@ export function useBookingAddons(
 ): BookingAddons {
     const bookingId = event.bookingId ?? "";
     const addons = useQuery<BookingAddonRow>(ADDONS_SQL, [bookingId]).data;
+    const offered = useQuery<AddonChoiceRow>(ADDON_CHOICES_SQL).data;
     const invoiceId =
         useQuery<{ invoice_id: string | null }>(BOOKING_INVOICE_SQL, [bookingId]).data.at(0)
             ?.invoice_id ?? null;
     const { busy, error, run } = useAsyncAction();
     const key = useRef<Attempt | null>(null);
+    const adding = useRef<Attempt | null>(null);
     const admin = viewer !== null && canManagePayments(viewer.role);
-    const open = invoiceId === null && event.status !== "canceled";
+    const open =
+        invoiceId === null && !["canceled", "no_show", "waitlisted"].includes(event.status);
     return {
         addons,
         totalCents: addons.reduce((sum, a) => sum + a.quantity * a.unit_amount_cents, 0),
         invoiceId,
         canEdit: open && (admin || viewer?.staffId === event.staffId),
         canInvoice: open && admin,
+        choices: offered
+            .filter((x) => {
+                const only = idList(x.addon_for);
+                return only.length === 0 || only.includes(event.itemId);
+            })
+            .map((x) => ({
+                key: x.id,
+                label: x.name,
+                detail: formatParts([
+                    formatMoney(x.price_cents, BUSINESS_CURRENCY),
+                    (x.duration_min ?? 0) > 0 ? s.addonAdds(x.duration_min ?? 0) : null,
+                ]),
+            })),
+        add: (itemId) => {
+            const idempotencyKey = attemptKey(adding, { bookingId, itemId, at: addons.length });
+            run(
+                () =>
+                    api.post(
+                        `/v1/bookings/${bookingId}/addons`,
+                        { item_id: itemId, quantity: 1 },
+                        { idempotencyKey },
+                    ),
+                { errorMessage: (e) => failureMessage(e, s.addonAddError) },
+            );
+        },
         remove: (addonId) => {
             run(() => api.delete(`/v1/bookings/${bookingId}/addons/${addonId}`), {
-                errorMessage: s.addonRemoveError,
+                errorMessage: (e) => failureMessage(e, s.addonRemoveError),
             });
         },
         createInvoice: () => {

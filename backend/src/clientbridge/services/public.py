@@ -88,6 +88,7 @@ from clientbridge.services.bookings import (
     ALREADY_IN_CLASS,
     OVERLAP,
     Availability,
+    addon_minutes,
     client_has_seat,
     create_booking_core,
     fill_freed_seats,
@@ -101,6 +102,7 @@ from clientbridge.services.bookings import (
     release_slot,
     seats_closed,
     slot_problem,
+    visit_minutes,
     visit_needs,
     waitlist_position,
 )
@@ -284,7 +286,10 @@ class PublicBookingService:
             services=services, through=(today + timedelta(days=6)).isoformat()
         )
 
-    async def slots(self, slug: str, item_id: str, staff_id: str, on_date: date) -> PublicSlots:
+    async def slots(
+        self, slug: str, item_id: str, staff_id: str, on_date: date, extra_min: int = 0
+    ) -> PublicSlots:
+        """Open times for the service, long enough for the add-ons' minutes when chosen first."""
         business = await self._business(slug)
         item = await self._bookable_item(business.id, item_id)
         staff = await self._who(business.id, staff_id, item)
@@ -292,16 +297,20 @@ class PublicBookingService:
         found = await load_availability(
             self.db, business.id, [s.id for s in staff], on_date, on_date, tz, [item]
         )
-        return PublicSlots(slots=_open(business, found, item, staff, on_date))
+        minutes = visit_minutes(item, extra_min)
+        return PublicSlots(slots=_open(business, found, item, staff, on_date, minutes))
 
     async def days(
-        self, slug: str, item_id: str, staff_id: str, start: date, count: int
+        self, slug: str, item_id: str, staff_id: str, start: date, count: int, extra_min: int = 0
     ) -> PublicDays:
         """How many open times each day has, so the date strip can grey out full days."""
         business = await self._business(slug)
         item = await self._bookable_item(business.id, item_id)
         staff = await self._who(business.id, staff_id, item)
-        return PublicDays(days=await open_days(self.db, business, item, staff, start, count))
+        minutes = visit_minutes(item, extra_min)
+        return PublicDays(
+            days=await open_days(self.db, business, item, staff, start, count, minutes=minutes)
+        )
 
     async def book(
         self, slug: str, data: PublicBookingCreate, idempotency_key: str | None = None
@@ -315,8 +324,11 @@ class PublicBookingService:
                 raise Unprocessable("that service has no duration and can't be booked")
             policy = policy_of(business)
             _assert_bookable_window(policy, data.starts_at)
-            staff_id = await self._staff_for(business, item, data.staff_id, data.starts_at)
             addons = await self._addons(business, item, data)
+            extra = addon_minutes(addons)
+            staff_id = await self._staff_for(
+                business, item, data.staff_id, data.starts_at, visit_minutes(item, extra)
+            )
             client, subject_id = await self._booker(business, data)
             first_visit = not await _has_booked(self.db, business.id, client.id)
             booking, _ = await create_booking_core(
@@ -329,6 +341,7 @@ class PublicBookingService:
                 source="online",
                 subject_id=subject_id,
                 dedupe_client=True,
+                extra_min=extra,
             )
             if policy.approve_new_clients and first_visit:
                 booking.status = "pending"
@@ -497,11 +510,13 @@ class PublicBookingService:
             )
 
     async def _staff_for(
-        self, business: Business, item: Item, staff_id: str, starts_at: datetime
+        self, business: Business, item: Item, staff_id: str, starts_at: datetime, minutes: int
     ) -> str:
         """The member a time is booked with: the first one whose open times list it."""
         staff = await self._who(business.id, staff_id, item)
-        member = await _offered(self.db, business, item, [s.id for s in staff], starts_at)
+        member = await _offered(
+            self.db, business, item, [s.id for s in staff], starts_at, minutes=minutes
+        )
         if member is None:
             raise Conflict(_UNOFFERED, code="slot_unavailable")
         return member
@@ -576,16 +591,21 @@ class PublicBookingService:
 
 
 def _open(
-    business: Business, found: Availability, item: Item, staff: list[Staff], on_date: date
+    business: Business,
+    found: Availability,
+    item: Item,
+    staff: list[Staff],
+    on_date: date,
+    minutes: int | None = None,
 ) -> list[PublicSlot]:
     policy = policy_of(business)
     now = clock.now()
     earliest = now + timedelta(hours=policy.lead_hours)
     latest = now + timedelta(days=policy.horizon_days)
-    delta = timedelta(minutes=item.duration_min or 0)
+    delta = timedelta(minutes=(item.duration_min or 0) if minutes is None else minutes)
     seen: dict[datetime, str] = {}
     for member in staff:
-        for start in found.open_starts(item, member.id, on_date, policy.step_min):
+        for start in found.open_starts(item, member.id, on_date, policy.step_min, minutes=minutes):
             if earliest <= start <= latest and start not in seen:
                 seen[start] = member.id
     full = {
@@ -635,6 +655,8 @@ async def _offered(
     staff_ids: list[str],
     starts_at: datetime,
     exclude: str | None = None,
+    *,
+    minutes: int | None = None,
 ) -> str | None:
     """The first member whose open times on the start's local day list it."""
     tz = await business_tz(db, business.id)
@@ -642,7 +664,8 @@ async def _offered(
     step = policy_of(business).step_min
     found = await load_availability(db, business.id, staff_ids, day, day, tz, [item])
     for staff_id in staff_ids:
-        if starts_at in found.open_starts(item, staff_id, day, step, exclude=exclude):
+        starts = found.open_starts(item, staff_id, day, step, exclude=exclude, minutes=minutes)
+        if starts_at in starts:
             return staff_id
     return None
 
@@ -662,6 +685,8 @@ async def open_days(
     staff: list[Staff],
     start: date,
     count: int,
+    *,
+    minutes: int | None = None,
 ) -> list[PublicDay]:
     """Open start times per day for one service, across the given members."""
     policy = policy_of(business)
@@ -683,7 +708,7 @@ async def open_days(
         full: set[datetime] = set()
         if closure is None and closes > earliest and opens <= latest:
             for member in staff:
-                for s in found.open_starts(item, member.id, day, policy.step_min):
+                for s in found.open_starts(item, member.id, day, policy.step_min, minutes=minutes):
                     if earliest <= s <= latest:
                         starts.add(s)
             full = set(_waitlists(found, item, staff, day, earliest, latest)) - starts
@@ -809,7 +834,16 @@ class PublicManageService:
     async def days(self, token: str, start: date, count: int) -> PublicDays:
         booking, slot, business = await self._resolve(token)
         item, staff = await self._movable(booking, slot, business)
-        return PublicDays(days=await open_days(self.db, business, item, [staff], start, count))
+        days = await open_days(
+            self.db,
+            business,
+            item,
+            [staff],
+            start,
+            count,
+            minutes=_length(slot),
+        )
+        return PublicDays(days=days)
 
     async def slots(self, token: str, on_date: date) -> PublicSlots:
         booking, slot, business = await self._resolve(token)
@@ -820,7 +854,14 @@ class PublicManageService:
         latest = now + timedelta(days=policy.horizon_days)
         delta = slot.ends_at - slot.starts_at
         starts = await open_slots(
-            self.db, business.id, item, staff.id, on_date, policy.step_min, exclude=slot.id
+            self.db,
+            business.id,
+            item,
+            staff.id,
+            on_date,
+            policy.step_min,
+            exclude=slot.id,
+            minutes=_length(slot),
         )
         return PublicSlots(
             slots=[
@@ -853,7 +894,10 @@ class PublicManageService:
             )
             if problem is not None:
                 raise Conflict(problem.message or _UNOFFERED)
-            if await _offered(self.db, business, item, [staff.id], data.starts_at, slot.id) is None:
+            offered = await _offered(
+                self.db, business, item, [staff.id], data.starts_at, slot.id, minutes=_length(slot)
+            )
+            if offered is None:
                 raise Conflict(_UNOFFERED, code="slot_unavailable")
             await move_slot(self.db, business.id, slot, data.starts_at, ends_at)
             booking.reschedule_count += 1
@@ -1154,6 +1198,11 @@ class PublicManageService:
             blocked_hours=blocked_hours,
             waitlist_position=await waitlist_position(self.db, booking),
         )
+
+
+def _length(slot: Slot) -> int:
+    """The visit's stored length in minutes, which a move keeps."""
+    return int((slot.ends_at - slot.starts_at).total_seconds() // 60)
 
 
 def _deposit_due(booking: Booking) -> bool:
@@ -1951,6 +2000,7 @@ async def addon_items(db: AsyncSession, business_id: str) -> list[PublicAddon]:
             description=i.description,
             in_stock=_stock_left(i) != 0,
             addon_for=list(i.addon_for),
+            duration_min=i.duration_min,
         )
         for i in items
     ]

@@ -2,6 +2,7 @@ import {
     type CalendarEntry,
     type Fact,
     type PublicBookingFlow,
+    addsLabel,
     durationLabel,
     icsFor,
     isPlace,
@@ -223,7 +224,10 @@ export function SuggestedExtras({ flow }: { flow: PublicBookingFlow }) {
                             <div className="min-w-0 flex-1">
                                 <p className="truncate text-sm font-semibold text-ink">{a.name}</p>
                                 <p className="text-sm tabular-nums text-ink-soft">
-                                    {formatMoney(a.price_cents, a.currency)}
+                                    {formatParts([
+                                        formatMoney(a.price_cents, a.currency),
+                                        addsLabel(a),
+                                    ])}
                                 </p>
                             </div>
                             {a.in_stock ? (

@@ -243,6 +243,9 @@
     "api.serviceNotOffered": {
         "message": "That team member doesn't offer this service. Choose someone who does."
     },
+    "api.visitNoRoom": {
+        "message": "The visit can't run that much longer, because the time after it is booked or outside working hours."
+    },
     "api.visitNotBilled": {
         "message": "This visit has no invoice or sale yet, so there is no receipt to print."
     },
@@ -3406,6 +3409,19 @@
     },
     "bookings.addonRemoveError": {
         "message": "Couldn't remove this item. Please try again."
+    },
+    "bookings.addonAdd": {
+        "message": "Add to this visit"
+    },
+    "bookings.addonPick": {
+        "message": "Choose an add-on"
+    },
+    "bookings.addonAdds": {
+        "message": "Adds {n, number} min",
+        "args": ["n"]
+    },
+    "bookings.addonAddError": {
+        "message": "Couldn't add this item. Please try again."
     },
     "bookings.invoiceVisit": {
         "message": "Create invoice"
@@ -8245,6 +8261,18 @@
     "catalog.costHint": {
         "message": "What you pay the supplier. Never shown to clients."
     },
+    "catalog.sectionVisit": {
+        "message": "On a visit"
+    },
+    "catalog.addsToVisit": {
+        "message": "Adds to the visit (min)"
+    },
+    "catalog.addsToVisitHint": {
+        "message": "Booking this add-on makes the visit longer by these minutes, for each one added. Leave it blank if it takes no time."
+    },
+    "catalog.addsToVisitInvalid": {
+        "message": "Enter the minutes it adds as a whole number, or leave it blank"
+    },
     "catalog.margin": {
         "message": "Margin"
     },
@@ -11480,6 +11508,11 @@
     },
     "publicBooking.oftenAdded": {
         "message": "Often added"
+    },
+    "publicBooking.addsTime": {
+        "message": "Adds {length}",
+        "description": "Under an add-on that lengthens the visit, e.g. Adds 30 min",
+        "args": ["length"]
     },
     "publicBooking.addonsPaidLater": {
         "message": "Paid at your visit, not now"

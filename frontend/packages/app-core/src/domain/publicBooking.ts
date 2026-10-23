@@ -86,6 +86,8 @@ interface PublicAddon {
     description: string | null;
     in_stock: boolean;
     addon_for: string[];
+    // minutes it adds to the visit, times its quantity
+    duration_min?: number | null;
 }
 
 interface PublicPolicy {
@@ -161,11 +163,11 @@ interface PublicBookingClient {
     getServices: (slug: string) => Promise<PublicBookingPage>;
     getDays: (
         slug: string,
-        q: { itemId: string; staffId: string; from: string; days: number },
+        q: { itemId: string; staffId: string; from: string; days: number; extraMin?: number },
     ) => Promise<DayOpenings[]>;
     getSlots: (
         slug: string,
-        q: { itemId: string; staffId: string; date: string },
+        q: { itemId: string; staffId: string; date: string; extraMin?: number },
     ) => Promise<OpenSlot[]>;
     book: (
         slug: string,
@@ -198,18 +200,20 @@ export function createPublicBookingClient(baseUrl: string): PublicBookingClient 
     const at = (slug: string): string => `${baseUrl}/book/${encodeURIComponent(slug)}`;
     return {
         getServices: (slug) => request<PublicBookingPage>(`${at(slug)}/services`),
-        getDays: async (slug, { itemId, staffId, from, days }) => {
+        getDays: async (slug, { itemId, staffId, from, days, extraMin = 0 }) => {
             const q = new URLSearchParams({
                 item_id: itemId,
                 staff_id: staffId,
                 from,
                 days: String(days),
             });
+            if (extraMin > 0) q.set("extra_min", String(extraMin));
             return (await request<{ days: DayOpenings[] }>(`${at(slug)}/days?${q.toString()}`))
                 .days;
         },
-        getSlots: async (slug, { itemId, staffId, date }) => {
+        getSlots: async (slug, { itemId, staffId, date, extraMin = 0 }) => {
             const q = new URLSearchParams({ item_id: itemId, staff_id: staffId, date });
+            if (extraMin > 0) q.set("extra_min", String(extraMin));
             return (await request<{ slots: OpenSlot[] }>(`${at(slug)}/slots?${q.toString()}`))
                 .slots;
         },
@@ -421,7 +425,30 @@ export function visitAddress(
         : null;
 }
 
-type BookingStep = "service" | "time" | "extras" | "details" | "pay" | "done";
+type BookingStep = "service" | "extras" | "time" | "details" | "pay" | "done";
+
+/** The add-ons offered with a service: those listed for it, or for every service. */
+function offeredWith(addons: readonly PublicAddon[], serviceId: string | null): PublicAddon[] {
+    return addons.filter(
+        (x) => x.addon_for.length === 0 || (serviceId !== null && x.addon_for.includes(serviceId)),
+    );
+}
+
+/** The minutes chosen add-ons add to a visit; a class session keeps its own length. */
+export function extraMinutes(
+    addons: readonly PublicAddon[],
+    chosen: Readonly<Record<string, number>>,
+    kind: string | null,
+): number {
+    if (kind === "class") return 0;
+    return addons.reduce((sum, a) => sum + (a.duration_min ?? 0) * (chosen[a.id] ?? 0), 0);
+}
+
+/** "Adds 30 min" under an add-on that lengthens the visit, else null. */
+export function addsLabel(addon: PublicAddon): string | null {
+    const minutes = addon.duration_min ?? 0;
+    return minutes > 0 ? s.addsTime(durationLabel(minutes)) : null;
+}
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -551,6 +578,10 @@ export function usePublicBookingFlow(
         days?.find((d) => d.count > 0 || d.waitlist > 0)?.date ??
         (days === null ? null : from);
     const service = page?.services.find((x) => x.id === itemId) ?? null;
+    const offered = offeredWith(page?.addons ?? [], service?.id ?? null);
+    const extraMin = extraMinutes(offered, addons, service?.kind ?? null);
+    const firstStep = (id: string): BookingStep =>
+        offeredWith(page?.addons ?? [], id).length > 0 ? "extras" : "time";
     const staffFor =
         page?.staff.filter((x) => service === null || service.staff_ids.includes(x.id)) ?? [];
     const staffFirst = (id: string): string =>
@@ -578,7 +609,7 @@ export function usePublicBookingFlow(
         setDays(null);
         setDaysError(false);
         client
-            .getDays(slug, { itemId, staffId, from, days: 7 })
+            .getDays(slug, { itemId, staffId, from, days: 7, extraMin })
             .then((d) => {
                 if (live) setDays(d);
             })
@@ -588,7 +619,7 @@ export function usePublicBookingFlow(
         return () => {
             live = false;
         };
-    }, [client, slug, itemId, staffId, from, status, reload]);
+    }, [client, slug, itemId, staffId, from, extraMin, status, reload]);
 
     useEffect(() => {
         setStartsAt("");
@@ -597,7 +628,7 @@ export function usePublicBookingFlow(
         setSlots(null);
         setSlotsError(false);
         client
-            .getSlots(slug, { itemId, staffId, date: day })
+            .getSlots(slug, { itemId, staffId, date: day, extraMin })
             .then((x) => {
                 if (live) {
                     setSlots(x);
@@ -620,21 +651,21 @@ export function usePublicBookingFlow(
         return () => {
             live = false;
         };
-    }, [client, slug, itemId, staffId, day, status, reload]);
+    }, [client, slug, itemId, staffId, day, extraMin, status, reload]);
 
-    const offered = (page?.addons ?? []).filter(
-        (x) => x.addon_for.length === 0 || (service !== null && x.addon_for.includes(service.id)),
-    );
-    const addonLines = offered
-        .filter((x) => (addons[x.id] ?? 0) > 0)
-        .map((x) => ({
-            addon: x,
-            quantity: addons[x.id] ?? 0,
-            cents: x.price_cents * (addons[x.id] ?? 0),
-        }));
-    const addonsCents = addonLines.reduce((sum, l) => sum + l.cents, 0);
     const slot = slots?.find((x) => x.starts_at === startsAt) ?? null;
     const waitlist = slot?.waitlist === true;
+    // a waitlist seat books no add-ons, so the totals leave them out
+    const addonLines = waitlist
+        ? []
+        : offered
+              .filter((x) => (addons[x.id] ?? 0) > 0)
+              .map((x) => ({
+                  addon: x,
+                  quantity: addons[x.id] ?? 0,
+                  cents: x.price_cents * (addons[x.id] ?? 0),
+              }));
+    const addonsCents = addonLines.reduce((sum, l) => sum + l.cents, 0);
     const depositCents =
         service?.deposit_required === true && !waitlist ? service.deposit_amount_cents : 0;
     const serviceCents = service?.price_cents ?? 0;
@@ -648,8 +679,8 @@ export function usePublicBookingFlow(
     const detailsOk = Object.values(errors).every((x) => x === null);
     const order: BookingStep[] = [
         "service",
+        ...(offered.length > 0 ? (["extras"] as const) : []),
         "time",
-        ...(offered.length > 0 && !waitlist ? (["extras"] as const) : []),
         "details",
         ...(depositCents > 0 ? (["pay"] as const) : []),
     ];
@@ -698,12 +729,10 @@ export function usePublicBookingFlow(
             returningToken,
             subjectId: kind === null ? null : subjectId,
             note: note.trim(),
-            addons: waitlist
-                ? []
-                : addonLines.map((l) => ({
-                      itemId: l.addon.id,
-                      quantity: l.quantity,
-                  })),
+            addons: addonLines.map((l) => ({
+                itemId: l.addon.id,
+                quantity: l.quantity,
+            })),
         };
         run(
             async () => {
@@ -806,7 +835,7 @@ export function usePublicBookingFlow(
         service,
         setService: (id: string) => {
             setItemId(id);
-            setStep("time");
+            setStep(firstStep(id));
             key.current = null;
             const svc = page?.services.find((x) => x.id === id);
             if (svc && staffId !== ANY_STAFF && !svc.staff_ids.includes(staffId))
@@ -900,7 +929,7 @@ export function usePublicBookingFlow(
             setAddons({});
             key.current = null;
             setError(null);
-            setStep("time");
+            setStep(firstStep(selected.id));
         },
         fields: {
             name,

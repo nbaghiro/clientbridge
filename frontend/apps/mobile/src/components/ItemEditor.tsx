@@ -322,6 +322,18 @@ function ProductFields({ ed }: { ed: ProductEditor }) {
                 ) : null}
                 <Text style={styles.hint}>{s.costHint}</Text>
             </DetailSection>
+            {ed.addsToVisit ? (
+                <DetailSection title={s.sectionVisit}>
+                    <Num
+                        label={s.addsToVisit}
+                        hint={s.addsToVisitHint}
+                        value={v.duration}
+                        onChange={(x) => {
+                            set("duration", x);
+                        }}
+                    />
+                </DetailSection>
+            ) : null}
             <DetailSection title={s.sectionStock}>
                 <Toggle
                     label={s.trackStock}

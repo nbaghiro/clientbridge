@@ -194,7 +194,10 @@ async def _status(db: AsyncSession, business_id: str, journal_id: str) -> str:
     return "pending"
 
 
-async def _booking_earnings(db: AsyncSession, business_id: str, booking_id: str) -> list[str]:
+async def _booking_earnings(
+    db: AsyncSession, business_id: str, booking_id: str, staff_id: str
+) -> list[str]:
+    """One member's earning journals on a booking, oldest first, whatever their ref says."""
     rows = await db.execute(
         scoped(Entry, business_id)
         .with_only_columns(Entry.journal_id)
@@ -202,6 +205,8 @@ async def _booking_earnings(db: AsyncSession, business_id: str, booking_id: str)
             Entry.event == "earning",
             Entry.subject_type == "booking",
             Entry.subject_id == booking_id,
+            Entry.owner_type == "staff",
+            Entry.owner_id == staff_id,
         )
         .distinct()
         .order_by(Entry.journal_id)
@@ -240,23 +245,34 @@ async def _booking_lines(db: AsyncSession, document: Invoice | Order) -> list[Li
     return list(rows.scalars().all())
 
 
+async def _payees(db: AsyncSession, document: Invoice | Order) -> dict[tuple[str, str], list[Line]]:
+    """A paid document's booking lines by (booking, member): the line's worker, else the lead."""
+    groups: dict[tuple[str, str], list[Line]] = {}
+    for line in await _booking_lines(db, document):
+        assert line.booking_id is not None
+        staff_id = line.staff_id
+        if staff_id is None:
+            booking = await db.get(Booking, line.booking_id)
+            staff_id = booking.staff_id if booking is not None else None
+        if staff_id is not None:
+            groups.setdefault((line.booking_id, staff_id), []).append(line)
+    return groups
+
+
 async def ensure_earnings(
     db: AsyncSession, document: Invoice | Order, *, occurred_at: datetime | None = None
 ) -> None:
-    """Accrue a pending earning per payee on each booking of a paid invoice or sale, once."""
+    """Accrue a pending earning per booking and member on a paid invoice or sale, once each."""
     biz = document.business_id
-    for line in await _booking_lines(db, document):
-        assert line.booking_id is not None
-        journals = await _booking_earnings(db, biz, line.booking_id)
+    for (booking_id, staff_id), lines in (await _payees(db, document)).items():
+        journals = await _booking_earnings(db, biz, booking_id, staff_id)
         if journals and await _status(db, biz, journals[-1]) != "reversed":
             continue
-        booking = await db.get(Booking, line.booking_id)
-        if booking is None or booking.staff_id is None:
+        booking = await db.get(Booking, booking_id)
+        staff = await db.get(Staff, staff_id)
+        if booking is None or staff is None or not staff.payee:
             continue
-        staff = await db.get(Staff, booking.staff_id)
-        if staff is None or not staff.payee:
-            continue
-        split = await _split(db, staff, line.amount_cents, booking)
+        split = await _split(db, staff, sum(line.amount_cents for line in lines), booking)
         if split is None or split[1] <= 0:
             continue
         basis, amount = split
@@ -264,12 +280,12 @@ async def ensure_earnings(
             db,
             biz,
             event="earning",
-            ref=f"earning:{booking.id}:{len(journals)}",
+            ref=f"earning:{booking.id}:{staff.id}:{len(journals)}",
             legs=[
                 Leg("business", biz, "staff_cost", amount),
                 Leg("staff", staff.id, "payable", -amount, "pending"),
             ],
-            source=("line", line.id),
+            source=("line", lines[0].id),
             subject=("booking", booking.id),
             occurred_at=occurred_at,
             meta={"basis": basis, "rate": staff.rate_bps or staff.rate_cents},
@@ -279,10 +295,9 @@ async def ensure_earnings(
 async def reverse_earnings(db: AsyncSession, document: Invoice | Order) -> None:
     """Unwind pending earnings when an invoice or sale stops being paid; approved ones stand."""
     biz = document.business_id
-    for line in await _booking_lines(db, document):
-        assert line.booking_id is not None
-        await _lock_booking(db, line.booking_id)
-        journals = await _booking_earnings(db, biz, line.booking_id)
+    for booking_id, staff_id in await _payees(db, document):
+        await _lock_booking(db, booking_id)
+        journals = await _booking_earnings(db, biz, booking_id, staff_id)
         if journals and await _status(db, biz, journals[-1]) == "pending":
             await ledger.reverse(db, biz, journals[-1], ref=f"earning:{journals[-1]}:reversal")
 

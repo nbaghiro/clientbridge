@@ -218,6 +218,9 @@
     "api.serviceNotOffered": {
         "message": "[Ţĥåţ ţéåɱ ɱéɱƀéŕ ðöéšñ'ţ öƒƒéŕ ţĥîš šéŕṽîçé. Çĥööšé šöɱéöñé ŵĥö ðöéš. one two three four five]"
     },
+    "api.visitNoRoom": {
+        "message": "[Ţĥé ṽîšîţ çåñ'ţ ŕûñ ţĥåţ ɱûçĥ ļöñĝéŕ, ƀéçåûšé ţĥé ţîɱé åƒţéŕ îţ îš ƀööķéð öŕ öûţšîðé ŵöŕķîñĝ ĥöûŕš. one two three four five six seven]"
+    },
     "api.visitNotBilled": {
         "message": "[Ţĥîš ṽîšîţ ĥåš ñö îñṽöîçé öŕ šåļé ýéţ, šö ţĥéŕé îš ñö ŕéçéîþţ ţö þŕîñţ. one two three four five]"
     },
@@ -3133,6 +3136,18 @@
     },
     "bookings.addonRemoveError": {
         "message": "[Çöûļðñ'ţ ŕéɱöṽé ţĥîš îţéɱ. Þļéåšé ţŕý åĝåîñ. one two three]"
+    },
+    "bookings.addonAdd": {
+        "message": "[Åðð ţö ţĥîš ṽîšîţ one two]"
+    },
+    "bookings.addonPick": {
+        "message": "[Çĥööšé åñ åðð-öñ one two]"
+    },
+    "bookings.addonAdds": {
+        "message": "[Åððš {n, number} ɱîñ one]"
+    },
+    "bookings.addonAddError": {
+        "message": "[Çöûļðñ'ţ åðð ţĥîš îţéɱ. Þļéåšé ţŕý åĝåîñ. one two three]"
     },
     "bookings.invoiceVisit": {
         "message": "[Çŕéåţé îñṽöîçé one two]"
@@ -7655,6 +7670,18 @@
     "catalog.costHint": {
         "message": "[Ŵĥåţ ýöû þåý ţĥé šûþþļîéŕ. Ñéṽéŕ šĥöŵñ ţö çļîéñţš. one two three four]"
     },
+    "catalog.sectionVisit": {
+        "message": "[Öñ å ṽîšîţ one]"
+    },
+    "catalog.addsToVisit": {
+        "message": "[Åððš ţö ţĥé ṽîšîţ (ɱîñ) one two]"
+    },
+    "catalog.addsToVisitHint": {
+        "message": "[Ɓööķîñĝ ţĥîš åðð-öñ ɱåķéš ţĥé ṽîšîţ ļöñĝéŕ ƀý ţĥéšé ɱîñûţéš, ƒöŕ éåçĥ öñé åððéð. Ļéåṽé îţ ƀļåñķ îƒ îţ ţåķéš ñö ţîɱé. one two three four five six seven]"
+    },
+    "catalog.addsToVisitInvalid": {
+        "message": "[Éñţéŕ ţĥé ɱîñûţéš îţ åððš åš å ŵĥöļé ñûɱƀéŕ, öŕ ļéåṽé îţ ƀļåñķ one two three four]"
+    },
     "catalog.margin": {
         "message": "[Ṁåŕĝîñ one]"
     },
@@ -10699,6 +10726,9 @@
     },
     "publicBooking.oftenAdded": {
         "message": "[Öƒţéñ åððéð one two]"
+    },
+    "publicBooking.addsTime": {
+        "message": "[Åððš {length} one]"
     },
     "publicBooking.addonsPaidLater": {
         "message": "[Þåîð åţ ýöûŕ ṽîšîţ, ñöţ ñöŵ one two three]"

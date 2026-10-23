@@ -58,6 +58,7 @@ import {
     TimeSlotPicker,
     Toggle,
     SearchSelect,
+    Select,
     IconButton,
 } from "@clientbridge/ui";
 import {
@@ -334,34 +335,47 @@ function Photos({ event }: { event: ScheduleEvent }) {
 
 function Addons({ event }: { event: ScheduleEvent }) {
     const addons = useBookingAddons(api, event, useViewer());
-    if (addons.addons.length === 0) return null;
+    const canAdd = addons.canEdit && addons.choices.length > 0;
+    if (addons.addons.length === 0 && !canAdd) return null;
     return (
         <DetailSection title={s.detailAddons}>
-            <View style={styles.card}>
-                {addons.addons.map((a, i) => (
-                    <View key={a.id} style={[styles.cardRow, i > 0 && styles.divider]}>
-                        <Icon name="bag" size={15} color={c.muted} />
-                        <Text style={[styles.flex, styles.addon]} numberOfLines={1}>
-                            {strings.common.quantityOf(a.quantity, a.description)}
-                        </Text>
-                        <Text style={styles.money}>
-                            {formatMoney(a.quantity * a.unit_amount_cents, BUSINESS_CURRENCY)}
-                        </Text>
-                        {addons.canEdit ? (
-                            <Button
-                                style={{ alignSelf: "center" }}
-                                size="sm"
-                                variant="link"
-                                onPress={() => {
-                                    addons.remove(a.id);
-                                }}
-                            >
-                                {s.addonRemove}
-                            </Button>
-                        ) : null}
-                    </View>
-                ))}
-            </View>
+            {addons.addons.length > 0 ? (
+                <View style={styles.card}>
+                    {addons.addons.map((a, i) => (
+                        <View key={a.id} style={[styles.cardRow, i > 0 && styles.divider]}>
+                            <Icon name="bag" size={15} color={c.muted} />
+                            <Text style={[styles.flex, styles.addon]} numberOfLines={1}>
+                                {strings.common.quantityOf(a.quantity, a.description)}
+                            </Text>
+                            <Text style={styles.money}>
+                                {formatMoney(a.quantity * a.unit_amount_cents, BUSINESS_CURRENCY)}
+                            </Text>
+                            {addons.canEdit ? (
+                                <Button
+                                    style={{ alignSelf: "center" }}
+                                    size="sm"
+                                    variant="link"
+                                    onPress={() => {
+                                        addons.remove(a.id);
+                                    }}
+                                >
+                                    {s.addonRemove}
+                                </Button>
+                            ) : null}
+                        </View>
+                    ))}
+                </View>
+            ) : null}
+            {canAdd ? (
+                <Select
+                    label={s.addonAdd}
+                    size="sm"
+                    value=""
+                    placeholder={s.addonPick}
+                    options={addons.choices}
+                    onChange={addons.add}
+                />
+            ) : null}
             <Text style={styles.hint}>
                 {s.addonsTotal(formatMoney(addons.totalCents, BUSINESS_CURRENCY))}
             </Text>

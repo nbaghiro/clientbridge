@@ -255,6 +255,11 @@ async def public_next_openings(
     return await PublicBookingService(db, gateway).next_openings(slug, item_ids)
 
 
+ExtraMinutes = Annotated[
+    int, Query(ge=0, le=720, description="Minutes the chosen add-ons add to the visit")
+]
+
+
 @booking_router.get("/{slug}/slots", response_model=PublicSlots)
 async def public_booking_slots(
     slug: str,
@@ -264,8 +269,9 @@ async def public_booking_slots(
     db: DbSession,
     gateway: GatewayDep,
     _: BookingRateLimited,
+    extra_min: ExtraMinutes = 0,
 ) -> PublicSlots:
-    return await PublicBookingService(db, gateway).slots(slug, item_id, staff_id, date)
+    return await PublicBookingService(db, gateway).slots(slug, item_id, staff_id, date, extra_min)
 
 
 @booking_router.get("/{slug}/days", response_model=PublicDays)
@@ -278,8 +284,11 @@ async def public_booking_days(
     gateway: GatewayDep,
     _: BookingRateLimited,
     days: Annotated[int, Query(ge=1, le=14)] = 7,
+    extra_min: ExtraMinutes = 0,
 ) -> PublicDays:
-    return await PublicBookingService(db, gateway).days(slug, item_id, staff_id, start, days)
+    return await PublicBookingService(db, gateway).days(
+        slug, item_id, staff_id, start, days, extra_min
+    )
 
 
 @booking_router.post("/{slug}", response_model=PublicBookingResult)

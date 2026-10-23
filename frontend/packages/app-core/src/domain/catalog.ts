@@ -66,6 +66,8 @@ export interface ItemRow {
     member_discount_bps: number | null;
     gift_amounts: string | null;
     staff_ids: string | null;
+    // a product offered while booking; its duration then lengthens the visit
+    addon?: number;
 }
 
 export const KIND_LABEL: Record<string, string> = {
@@ -144,6 +146,7 @@ SELECT i.variant_parent_id, i.variant_label, i.id, i.kind, i.name, i.description
        i.session_count, i.validity_days, i.interval, i.frequency, i.tax_class,
        i.sku, i.cost_cents, i.track_stock, i.sell_online, i.stock_on_hand, i.low_stock_at,
        i.covers_item_id, i.visits_per_period, i.member_discount_bps, i.gift_amounts, i.staff_ids,
+       i.addon,
        (SELECT f.id FROM files f
         WHERE f.parent_type = 'item' AND f.parent_id = i.id AND f.purpose = 'image'
           AND f.uploaded_at IS NOT NULL
@@ -473,6 +476,7 @@ export interface ItemFormValues {
     memberDiscount: string;
     giftAmounts: number[];
     staffIds: string[];
+    addon: boolean;
 }
 
 type ItemField = keyof ItemFormValues;
@@ -503,6 +507,11 @@ const KIND_FIELDS: Record<string, ItemField[]> = {
 
 function itemFieldShown(kind: string, field: ItemField): boolean {
     return (KIND_FIELDS[kind] ?? []).includes(field);
+}
+
+/** An add-on product's duration is the time it adds to the visit it is booked with. */
+function addsToVisit(v: ItemFormValues): boolean {
+    return v.kind === "product" && v.addon;
 }
 
 const dollars = (cents: number | null): string =>
@@ -549,6 +558,7 @@ function initialValues(item: ItemRow | null, kind: string): ItemFormValues {
             item?.member_discount_bps == null ? "" : decimal(item.member_discount_bps / 100),
         giftAmounts: item === null ? [] : giftAmounts(item),
         staffIds: idList(item?.staff_ids ?? null),
+        addon: item?.addon === 1,
     };
 }
 
@@ -568,6 +578,8 @@ export function itemFormError(v: ItemFormValues): string | null {
     if (v.price.trim() !== "" && parseCents(v.price, BUSINESS_CURRENCY) === null)
         return s.priceInvalid;
     if (shown("duration") && (toInt(v.duration) ?? 0) <= 0) return s.durationRequired;
+    if (addsToVisit(v) && v.duration.trim() !== "" && (toInt(v.duration) ?? -1) < 0)
+        return s.addsToVisitInvalid;
     if (shown("depositType") && v.depositType !== "none") {
         const value = percentOf(v.depositValue);
         if (v.depositValue.trim() === "" || !Number.isFinite(value) || value <= 0)
@@ -603,7 +615,7 @@ export function itemPayload(v: ItemFormValues, creating: boolean): Record<string
         body.variant_parent_id = blankToNull(v.variantParentId ?? "");
         body.variant_label = v.variantParentId ? blankToNull(v.variantLabel ?? "") : null;
     }
-    if (shown("duration")) body.duration_min = toInt(v.duration);
+    if (shown("duration") || addsToVisit(v)) body.duration_min = toInt(v.duration);
     if (shown("bufferBefore")) body.buffer_before_min = toInt(v.bufferBefore) ?? 0;
     if (shown("bufferAfter")) body.buffer_after_min = toInt(v.bufferAfter) ?? 0;
     if (shown("capacity")) body.capacity = toInt(v.capacity);
@@ -893,6 +905,8 @@ export interface ProductEditor extends Taxed {
     margin: MarginFacts | null;
     photo: ProductPhoto;
     sold30: number;
+    // an add-on's duration field reads as the time it adds to the visit
+    addsToVisit: boolean;
 }
 
 /** The product editor: the item form plus margin, units sold and the photo upload. */
@@ -926,6 +940,7 @@ export function useProductEditor(
         ],
         margin: marginFacts(form.values.price, form.values.cost),
         sold30: item === null ? 0 : (sold.get(item.id) ?? 0),
+        addsToVisit: addsToVisit(form.values),
         photo: {
             fileId,
             canUpload: item !== null,

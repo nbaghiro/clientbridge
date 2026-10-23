@@ -252,8 +252,35 @@ export function PublicBooking() {
                     >
                         <ServicePicker flow={flow} />
                     </StepCard>
+                    {hasExtras ? (
+                        <StepCard
+                            n={2}
+                            title={s.stepExtras}
+                            editLabel={s.change}
+                            summary={formatList(
+                                flow.addonLines.map((line) => line.addon.name),
+                                "unit",
+                            )}
+                            state={
+                                flow.step === "extras"
+                                    ? "open"
+                                    : flow.step === "service"
+                                      ? "todo"
+                                      : "done"
+                            }
+                            onEdit={
+                                flow.step === "pay"
+                                    ? undefined
+                                    : () => {
+                                          flow.goTo("extras");
+                                      }
+                            }
+                        >
+                            <SuggestedExtras flow={flow} />
+                        </StepCard>
+                    ) : null}
                     <StepCard
-                        n={2}
+                        n={hasExtras ? 3 : 2}
                         title={s.stepTime}
                         editLabel={s.change}
                         summary={flow.when}
@@ -268,33 +295,6 @@ export function PublicBooking() {
                     >
                         <WhenPicker flow={flow} />
                     </StepCard>
-                    {hasExtras ? (
-                        <StepCard
-                            n={3}
-                            title={s.stepExtras}
-                            editLabel={s.change}
-                            summary={formatList(
-                                flow.addonLines.map((line) => line.addon.name),
-                                "unit",
-                            )}
-                            state={
-                                flow.step === "extras"
-                                    ? "open"
-                                    : flow.step === "details" || flow.step === "pay"
-                                      ? "done"
-                                      : "todo"
-                            }
-                            onEdit={
-                                flow.step === "pay"
-                                    ? undefined
-                                    : () => {
-                                          flow.goTo("extras");
-                                      }
-                            }
-                        >
-                            <SuggestedExtras flow={flow} />
-                        </StepCard>
-                    ) : null}
                     <StepCard
                         n={hasExtras ? 4 : 3}
                         title={s.stepDetails}

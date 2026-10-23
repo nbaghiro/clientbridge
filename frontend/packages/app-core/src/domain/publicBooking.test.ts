@@ -14,6 +14,8 @@ import {
 import { strings } from "../strings";
 import {
     usePublicBookingFlow,
+    addsLabel,
+    extraMinutes,
     useManageBooking,
     bookingFailure,
     detailErrors,
@@ -293,6 +295,81 @@ it("shows a failed availability load and retries without presenting it as an emp
     await waitFor(() => {
         expect(result.current.slotsError).toBe(false);
     });
+});
+
+it("asks for extras before the time and looks for times long enough for them", async () => {
+    const mount = {
+        id: "mount",
+        name: "Second mount",
+        price_cents: 5000,
+        currency: "CAD",
+        image_url: null,
+        description: null,
+        in_stock: true,
+        addon_for: [],
+        duration_min: 30,
+    };
+    const client: Parameters<typeof usePublicBookingFlow>[0] = {
+        getServices: vi.fn().mockResolvedValue({
+            business_name: "Demo",
+            brand: { logo_url: null, primary: null, tagline: null },
+            services: [
+                {
+                    id: "service",
+                    name: "Install",
+                    description: null,
+                    duration_min: 120,
+                    price_cents: 10000,
+                    currency: "CAD",
+                    deposit_required: false,
+                    deposit_amount_cents: 0,
+                    image_url: null,
+                    kind: "service",
+                    category: null,
+                    color: null,
+                    staff_ids: [],
+                },
+            ],
+            staff: [],
+            addons: [mount],
+            stripe_account_id: null,
+            slug: "demo",
+            now: "2026-10-13T17:00:00Z",
+            timezone: ZONE,
+            policy: null,
+            subject: null,
+        }),
+        getDays: vi.fn().mockResolvedValue([]),
+        getSlots: vi.fn().mockResolvedValue([]),
+        book: vi.fn(),
+        joinWaitlist: vi.fn(),
+    };
+    const { result } = renderHook(() => usePublicBookingFlow(client, "demo"));
+    await waitFor(() => {
+        expect(result.current.page).not.toBeNull();
+    });
+    act(() => {
+        result.current.setService("service");
+    });
+    expect(result.current.step).toBe("extras");
+    expect(result.current.steps.map((x) => x.key)).toEqual([
+        "service",
+        "extras",
+        "time",
+        "details",
+    ]);
+    act(() => {
+        result.current.toggleAddon("mount");
+    });
+    await waitFor(() => {
+        expect(client.getDays).toHaveBeenLastCalledWith(
+            "demo",
+            expect.objectContaining({ extraMin: 30 }),
+        );
+    });
+    expect(addsLabel(mount)).toBe(s.addsTime(s.minutes(30)));
+    expect(extraMinutes([mount], { mount: 2 }, "service")).toBe(60);
+    expect(extraMinutes([mount], { mount: 2 }, "class")).toBe(0);
 });
 
 const managed = (extra: Record<string, unknown> = {}) => ({

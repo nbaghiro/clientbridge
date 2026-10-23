@@ -363,6 +363,11 @@ class OnlineBookingPatch(BaseModel):
     staff: dict[str, bool] | None = Field(default=None, description="Member id: shown online")
 
 
+class AddonAdd(BaseModel):
+    item_id: str = Field(description="An active product; its minutes lengthen the visit")
+    quantity: int = Field(default=1, ge=1, le=99)
+
+
 class AddonOffer(Mirror):
     mirrors = Item
 

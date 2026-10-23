@@ -17,7 +17,7 @@ These are illustrative images for the fictional demo businesses. People and pets
 
 ## Northlight Security
 
-Northlight's catalog photos are stock photos, one per catalog item: 15 from Pexels and the service call from Unsplash. They are cropped to 4:3 and saved as 1024 × 768 JPEGs, about 1.6 MB for the 16 images. The photos stand in for Northlight's fictional products, so some show a close relative of the item: the doorbell is a video intercom panel, the 8-channel recorder is a small network box, the 16-channel recorder is a storage unit and the remote viewing phone has a blank screen.
+Northlight's catalog photos are stock photos, one per catalog item: 16 from Pexels and the service call from Unsplash. They are cropped to 4:3 and saved as 1024 × 768 JPEGs, about 1.6 MB for the 17 images. The second camera mount uses the same photo as the booking's after photo. The photos stand in for Northlight's fictional products, so some show a close relative of the item: the doorbell is a video intercom panel, the 8-channel recorder is a small network box, the 16-channel recorder is a storage unit and the remote viewing phone has a blank screen.
 
 | Asset                          | Source / creator                                                                                                                                                                   |
 | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -37,6 +37,7 @@ Northlight's catalog photos are stock photos, one per catalog item: 15 from Pexe
 | `nl_it_junction_box.jpg`       | [Red Brick Wall with Electric Meter Box in Poland (Daniel Żabiński)](https://www.pexels.com/photo/red-brick-wall-with-electric-meter-box-in-poland-31853765/)                      |
 | `nl_it_remote_viewing.jpg`     | [Home monitoring security. (Jakub Zerdzicki)](https://www.pexels.com/photo/home-monitoring-security-24346971/)                                                                     |
 | `nl_it_maintenance.jpg`        | [Composition of assorted service instruments on black surface (Maddy Freddie)](https://www.pexels.com/photo/composition-of-assorted-service-instruments-on-black-surface-7238606/) |
+| `nl_it_second_mount.jpg`       | [Mounted Surveillance Camera on the Wall (Mateusz Feliksik)](https://www.pexels.com/photo/mounted-surveillance-camera-on-the-wall-13422379/)                                       |
 
 The survey answer photos and the booking's before, after and recorder photos are Pexels stock photos too. The two survey photos are consecutive shots by one photographer and appear to show the front and back of the same townhouse row; the house numbers above the front doors are painted out. The before and after photos show different buildings.
 

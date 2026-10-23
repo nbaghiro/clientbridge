@@ -297,8 +297,9 @@ exception is time off for one member, or a closure for everyone when `staff_id` 
 `starts_at`/`ends_at` and a `reason`, written only through `/v1/time-off`), `recurrences` (recurrence rule with `frequency` day/week/month, the same words
 items use, and `monthly_by` date or weekday → expands to slots/bookings; dates can be skipped or shifted
 when booking, and `PATCH /v1/recurrences/{id}` moves one, the following or all upcoming visits while
-`/cancel` ends the series and refunds paid deposits), `addons` (products a client added to a visit when booking; they join
-the visit's invoice).
+`/cancel` ends the series and refunds paid deposits), `addons` (products added to a visit, by the client when booking or
+by staff through `POST /v1/bookings/{id}/addons`; they join the visit's invoice, and a product's `duration_min` lengthens
+a one-to-one visit by its minutes times the quantity).
 
 **billing (4)** — `invoices` (per-business unique `number`, stored status draft/sent/void, document totals
 subtotal/tax/total fixed at issue, `pay_token`, `overdue_notified_at`; what is owed is the invoice's
@@ -647,6 +648,11 @@ What posts, and where:
 | Deposit applied                         | invoice sent with the booking on a line, or the deposit settling after that (`bookings.apply_deposit`)                   | deposit + / client receivable − ; a void or a refund of the deposit reverses it                                                    |
 | Staff earning accrued / approved / paid | `earnings` (invoice fully paid, `/v1/earnings/approve`, `/v1/earnings/pay`)                                              | staff cost + / payable(pending) − ; pending → approved ; approved → bank                                                           |
 
+An earning accrues once per booking and member: a paid document's booking lines are grouped by the line's
+`staff_id`, or the booking's member when the line names none, and each group earns at that member's rate under
+the ref `earning:<booking>:<staff>:<n>`, where `n` counts that member's earlier journals on the booking. A journal
+is found by its subject and the member's payable leg, so one posted under an older ref still counts.
+
 Derived from the ledger rather than stored: an invoice's and order's balance and amount paid, gift card
 balances, package deferred revenue, client lifetime value, staff earnings and their status, tax payable per code, today's revenue, and Stripe
 payout journal amounts. Current payout status is read from Stripe (see [payouts](payments.md#payouts-and-schedules)). A booking's `deposit_status` (none/pending/collected/applied/forfeited/refunded) is a lifecycle column set
@@ -692,8 +698,15 @@ entitlement and its liability are created.
   card, has `source = online`, and moves through `pickup_status` (unfulfilled, ready, picked up) from Sales.
 - **Booking add-ons:** products the owner offers at booking (`items.addon`, with `addon_for` naming the
   services each goes with) and the client chose on the booking page are stored in `addons` and become lines
-  on the invoice created from the booking (`POST /v1/invoices/from-booking/{id}`); only the deposit is
-  charged at booking time.
+  on the invoice created from the booking (`POST /v1/invoices/from-booking/{id}`), each carrying the booking
+  and the member, so they count toward that member's earning; only the deposit is charged at booking time.
+  An add-on's `duration_min` is the time it adds to the visit: the visit's length is the service plus each
+  add-on's minutes times its quantity, stored in `slots.ends_at` when it is booked, since the overlap
+  constraint reads it. Connect asks for extras before the time and passes their minutes as `extra_min` to
+  the slots and days reads, so it offers only times that fit. A client's move keeps the stored length.
+  Staff add an add-on through the same resize check a move uses, refused with 409 `visit_no_room` when the
+  time after the visit is taken, and removing one shortens the visit by its minutes. A class seat keeps the
+  class's length.
 - **Receipts** list every line with its tax, and walk-in sales can take an email or phone for the receipt.
   Sales by item is a report with a CSV like the others.
 

@@ -87,6 +87,7 @@ const values: ItemFormValues = {
     memberDiscount: "",
     giftAmounts: [],
     staffIds: [],
+    addon: false,
 };
 
 describe("stock", () => {
@@ -212,6 +213,17 @@ describe("item editor", () => {
         expect(
             itemPayload({ ...values, kind: "product", staffIds: ["st_ana"] }, true),
         ).not.toHaveProperty("staff_ids");
+    });
+
+    it("sends an add-on product's minutes, and none for a plain product", () => {
+        const addon = { ...values, kind: "product", addon: true };
+        expect(itemPayload({ ...addon, duration: "30" }, false).duration_min).toBe(30);
+        expect(itemPayload({ ...addon, duration: "" }, false).duration_min).toBeNull();
+        expect(itemPayload({ ...values, kind: "product" }, false)).not.toHaveProperty(
+            "duration_min",
+        );
+        expect(itemFormError({ ...addon, duration: "-5" })).not.toBeNull();
+        expect(itemFormError({ ...addon, duration: "" })).toBeNull();
     });
 
     it("reads the members a service names, where none named means everyone", () => {

@@ -12,6 +12,7 @@ from clientbridge.core.deps import (
     SmsDep,
 )
 from clientbridge.schemas.bookings import (
+    AddonAdd,
     AddonOffersOut,
     AddonOffersPatch,
     BookingCheck,
@@ -181,6 +182,18 @@ async def collect_deposit(
     return await BookingService(db, principal, gateway).collect_deposit(
         booking_id, payment_method_id, idempotency_key
     )
+
+
+@router.post("/{booking_id}/addons", response_model=BookingOut, status_code=201)
+async def add_booking_addon(
+    booking_id: str,
+    body: AddonAdd,
+    principal: CurrentPrincipal,
+    db: DbSession,
+    gateway: GatewayDep,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+) -> BookingOut:
+    return await BookingService(db, principal, gateway).add_addon(booking_id, body, idempotency_key)
 
 
 @router.delete("/{booking_id}/addons/{addon_id}", response_model=BookingOut)

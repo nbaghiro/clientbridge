@@ -47,6 +47,7 @@ from clientbridge.models.scheduling import (
     Weekday,
 )
 from clientbridge.schemas.bookings import (
+    AddonAdd,
     AddonOffer,
     AddonOffersOut,
     AddonOffersPatch,
@@ -122,6 +123,7 @@ _NOT_STARTED = "a visit can be completed or marked a no-show only once it has st
 _ESTIMATE_BOOKED = "the estimate already has a booked visit; cancel it to book the estimate again"
 _ESTIMATE_INVOICED = "the estimate was already invoiced, so its products are billed there"
 _CLOSED_OR_WAITING = ("completed", "canceled", "no_show", "waitlisted")
+_INVOICED = "this visit is already invoiced"
 BookingNotice = Literal["confirmed", "canceled", "rescheduled"]
 
 
@@ -370,6 +372,20 @@ async def slot_problem(
     return None
 
 
+def is_class(item: Item) -> bool:
+    return item.kind == "class" and item.capacity is not None and item.capacity > 1
+
+
+def addon_minutes(products: Sequence[tuple[Item, int]]) -> int:
+    """The minutes a visit's add-ons add to it: each product's duration times its quantity."""
+    return sum((product.duration_min or 0) * quantity for product, quantity in products)
+
+
+def visit_minutes(item: Item, extra_min: int = 0) -> int:
+    """A visit's length with its add-ons; a class session keeps the class's own length."""
+    return (item.duration_min or 0) + (0 if is_class(item) else extra_min)
+
+
 async def create_booking_core(
     db: AsyncSession,
     business_id: str,
@@ -382,19 +398,20 @@ async def create_booking_core(
     subject_id: str | None = None,
     recurrence_id: str | None = None,
     dedupe_client: bool = False,
+    extra_min: int = 0,
 ) -> tuple[Booking, Slot]:
     """Create a confirmed booking under the scheduling invariant (staff and online paths)."""
     assert_offers(item, staff_id)
     await lock_staff(db, business_id, staff_id)
-    ends_at = starts_at + timedelta(minutes=item.duration_min or 0)
+    ends_at = starts_at + timedelta(minutes=visit_minutes(item, extra_min))
     away = await blocking_exception(db, business_id, staff_id, starts_at, ends_at)
     if away is not None:
         raise Conflict(_CLOSED if away.staff_id is None else _AWAY)
     if not await is_within_hours(db, staff_id, business_id, starts_at, ends_at):
         raise Conflict(_OUTSIDE_HOURS)
-    is_class = item.kind == "class" and item.capacity is not None and item.capacity > 1
+    session = is_class(item)
     slot = None
-    if is_class:
+    if session:
         slot = await open_class_slot(db, business_id, item.id, staff_id, starts_at)
         if slot is not None:
             if dedupe_client and await client_has_seat(db, business_id, slot.id, client_id):
@@ -411,7 +428,7 @@ async def create_booking_core(
             recurrence_id=recurrence_id,
             starts_at=starts_at,
             ends_at=ends_at,
-            capacity=item.capacity if is_class and item.capacity is not None else 1,
+            capacity=item.capacity if session and item.capacity is not None else 1,
             status="scheduled",
         )
         db.add(slot)
@@ -635,6 +652,7 @@ class BookingService:
                 client_id=data.client_id,
                 source="manual",
                 subject_id=data.subject_id,
+                extra_min=addon_minutes([(product, qty) for _, product, qty in quoted]),
             )
             booking.estimate_id = data.estimate_id
             if data.note is not None and data.note.strip() != "":
@@ -1150,12 +1168,54 @@ class BookingService:
             raise NotFound("business not found")
         return row
 
+    async def add_addon(
+        self, booking_id: str, data: AddonAdd, idempotency_key: str | None
+    ) -> BookingOut:
+        """Add a product to a visit before it is invoiced; its minutes lengthen the visit."""
+        booking = await self._booking(booking_id)
+        self._assert_can_act_as(booking.staff_id)
+        self._assert_open_for_addons(booking)
+        product = await self._item(data.item_id)
+        if product.kind != "product":
+            raise NotFound("product not found")
+        if product.track_stock and (product.stock_on_hand or 0) < data.quantity:
+            raise Conflict(f"only {max(product.stock_on_hand or 0, 0)} left of {product.name}")
+        slot = await self._slot(booking.slot_id)
+
+        async def run(cmd: Command) -> BookingOut:
+            await self._lengthen(booking, slot, (product.duration_min or 0) * data.quantity)
+            self.db.add(
+                Addon(
+                    id=new_id("addon"),
+                    business_id=self.biz,
+                    booking_id=booking.id,
+                    staff_id=booking.staff_id,
+                    item_id=product.id,
+                    description=product.name,
+                    quantity=data.quantity,
+                    unit_amount_cents=product.price_cents,
+                )
+            )
+            await self.db.flush()
+            cmd.record("booking.addon_add", entity_type="booking", entity_id=booking.id)
+            return await booking_out(self.db, booking, slot)
+
+        return await run_command(
+            self.db,
+            self.principal,
+            action="booking.addon_add",
+            run=run,
+            response_model=BookingOut,
+            idempotency_key=idempotency_key,
+            request={"booking_id": booking_id, **data.model_dump(mode="json")},
+        )
+
     async def remove_addon(self, booking_id: str, addon_id: str) -> BookingOut:
-        """Drop a product the client added online, before the visit is invoiced."""
+        """Drop an add-on before the visit is invoiced; the visit shortens by its minutes."""
         booking = await self._booking(booking_id)
         self._assert_can_act_as(booking.staff_id)
         if booking.invoice_id is not None:
-            raise Conflict("this visit is already invoiced")
+            raise Conflict(_INVOICED)
         addon = (
             await self.db.execute(
                 scoped(Addon, self.biz).where(Addon.id == addon_id, Addon.booking_id == booking.id)
@@ -1163,9 +1223,11 @@ class BookingService:
         ).scalar_one_or_none()
         if addon is None:
             raise NotFound("add-on not found")
+        product = await self._item(addon.item_id, require_active=False)
         slot = await self._slot(booking.slot_id)
 
         async def run(cmd: Command) -> BookingOut:
+            await self._lengthen(booking, slot, -(product.duration_min or 0) * addon.quantity)
             await self.db.delete(addon)
             await self.db.flush()
             cmd.record("booking.addon_remove", entity_type="booking", entity_id=booking.id)
@@ -1178,6 +1240,35 @@ class BookingService:
             run=run,
             response_model=BookingOut,
         )
+
+    def _assert_open_for_addons(self, booking: Booking) -> None:
+        if booking.invoice_id is not None:
+            raise Conflict(_INVOICED)
+        if booking.status in ("canceled", "no_show", "waitlisted"):
+            raise Conflict(f"a {booking.status} booking can't take an add-on")
+
+    async def _lengthen(self, booking: Booking, slot: Slot, minutes: int) -> None:
+        """Resize a live one-to-one visit by an add-on's minutes, refused when the time is taken."""
+        if minutes == 0 or slot.capacity > 1:
+            return
+        await lock_staff(self.db, self.biz, slot.staff_id)
+        await lock_bookings(self.db, self.biz, [booking.id])
+        await self.db.refresh(slot)
+        if booking.status not in ("pending", "confirmed"):
+            return
+        ends_at = max(slot.ends_at + timedelta(minutes=minutes), slot.starts_at + _MIN_VISIT)
+        if minutes > 0:
+            item = await self._item(slot.item_id, require_active=False)
+            problem = await slot_problem(
+                self.db, self.biz, item, slot.staff_id, slot.starts_at, ends_at, exclude=slot.id
+            )
+            if problem is not None:
+                raise Conflict(problem.message or OVERLAP, code="visit_no_room")
+        await move_slot(self.db, self.biz, slot, slot.starts_at, ends_at)
+        try:
+            await self.db.flush()
+        except IntegrityError as exc:
+            raise Conflict(OVERLAP, code="visit_no_room") from exc
 
     async def needs(self, booking_id: str) -> VisitNeeds:
         """What the client still owes before this visit: forms, signatures and a deposit."""
@@ -1243,11 +1334,12 @@ async def open_slots(
     step_min: int | None = None,
     *,
     exclude: str | None = None,
+    minutes: int | None = None,
 ) -> list[datetime]:
     """Bookable start times for the item and staff on a date, in UTC; none until hours are set."""
     tz = await business_tz(db, business_id)
     found = await load_availability(db, business_id, [staff_id], on_date, on_date, tz, [item])
-    return found.open_starts(item, staff_id, on_date, step_min, exclude=exclude)
+    return found.open_starts(item, staff_id, on_date, step_min, exclude=exclude, minutes=minutes)
 
 
 @dataclass(frozen=True)
@@ -1286,9 +1378,10 @@ class Availability:
         step_min: int | None = None,
         *,
         exclude: str | None = None,
+        minutes: int | None = None,
     ) -> list[datetime]:
         """The starts `slot_problem` would accept on the date's step grid, in UTC."""
-        duration = item.duration_min
+        duration = item.duration_min if minutes is None else minutes
         if duration is None or duration <= 0:
             return []
         windows = windows_on(self.hours.get(staff_id, []), on_date)

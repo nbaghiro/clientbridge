@@ -43,6 +43,7 @@ NVR8, NVR16, SWITCH, CABLE, JBOX = (
     "it_nl_cable_run",
     "it_nl_junction_box",
 )
+MOUNT = "it_nl_second_mount"
 REMOTE, MAINTENANCE = "it_nl_remote_viewing", "it_nl_maintenance"
 SURVEY_FORM, HANDOVER_FORM = "frm_nl_site_survey", "frm_nl_handover"
 AGREEMENT, NOTICE = "con_nl_agreement", "con_nl_surveillance"
@@ -179,6 +180,16 @@ ITEMS: tuple[tuple[str, ItemKind, str, int, int | None, str, str], ...] = (
         None,
         "Network",
         "Weatherproof base that hides the cable joint behind a camera.",
+    ),
+    (
+        MOUNT,
+        "product",
+        "Second camera mount",
+        8900,
+        30,
+        "Mounting",
+        "A second bracket and cable run for one camera, so it can be moved between two views. "
+        "Adds about 30 minutes to the install.",
     ),
     (
         REMOTE,
@@ -1438,13 +1449,18 @@ class Northlight(Demo):
             )
         )
         # accepted with a signed agreement and the install booked, deposit paid
-        claire_quote = Quote(HOME, ((TURRET, 4), (BULLET, 1), (NVR8, 1), (CABLE, 5), (JBOX, 4)))
+        claire_quote = Quote(
+            HOME, ((TURRET, 4), (BULLET, 1), (NVR8, 1), (CABLE, 5), (JBOX, 4), (MOUNT, 1))
+        )
         claire_survey = self.survey("claire", "claire", -16)
         assert claire_survey is not None
         estimate, booked = self.quoted("claire", "claire", claire_survey, claire_quote)
-        start = self.place(LIAM, HOME, 6, "sj_nl_claire", past=False)
+        extra = self.extra_minutes(claire_quote)
+        start = self.place(LIAM, HOME, 6, "sj_nl_claire", past=False, extra_min=extra)
         assert start is not None
-        claire = self.book("claire", "claire", HOME, LIAM, start, "confirmed", booked)
+        claire = self.book(
+            "claire", "claire", HOME, LIAM, start, "confirmed", booked, extra_min=extra
+        )
         self.addons(claire, estimate, claire_quote)
         self.deposit(claire, booked + timedelta(minutes=10))
         # accepted and waiting to be booked, for Book the install
@@ -1519,14 +1535,16 @@ class Northlight(Demo):
             note="Draft from yesterday's survey.",
         )
         simon_quote = Quote(
-            HOME, ((TURRET, 3), (BULLET, 1), (DOORBELL, 1), (NVR8, 1), (CABLE, 5), (JBOX, 4))
+            HOME,
+            ((TURRET, 3), (BULLET, 1), (DOORBELL, 1), (NVR8, 1), (CABLE, 5), (JBOX, 4), (MOUNT, 2)),
         )
         simon_survey = self.survey("simon", "simon", -18)
         assert simon_survey is not None
         estimate, booked = self.quoted("simon", "simon", simon_survey, simon_quote)
-        start = self.place(AVA, HOME, 14, "sj_nl_simon", past=False)
+        extra = self.extra_minutes(simon_quote)
+        start = self.place(AVA, HOME, 14, "sj_nl_simon", past=False, extra_min=extra)
         assert start is not None
-        simon = self.book("simon", "simon", HOME, AVA, start, "confirmed", booked)
+        simon = self.book("simon", "simon", HOME, AVA, start, "confirmed", booked, extra_min=extra)
         self.addons(simon, estimate, simon_quote)
         diane = self.survey("diane", "diane", 5, online=True, status="confirmed", lead_days=4)
         assert diane is not None

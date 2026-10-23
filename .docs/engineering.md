@@ -558,6 +558,7 @@ Northlight shows the `site` subject kind end to end for a camera sales and insta
 | Estimate sent with optional lines              | Rajesh (`est_nl_rajesh`)                                              |
 | Accepted estimate ready for Book the install   | Ruth (`est_nl_ruth`)                                                  |
 | Install booked from its estimate, deposit paid | Claire (`bk_nl_claire`)                                               |
+| Add-on that lengthens the install              | Claire and Simon (`bk_nl_simon`): a second camera mount adds 30 min   |
 | Today's installs, on site and on the way       | Owen (`bk_nl_owen`) and Mei Lin (`bk_nl_meilin`)                      |
 | Installed and paid by Tap to Pay               | Sarah (`bk_nl_sarah`): photos, handover form, equipment, plan, review |
 | Commercial client with two sites, overdue      | Island Storage (`cl_nl_islandstorage`)                                |

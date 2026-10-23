@@ -82,6 +82,9 @@ class PublicAddon(Mirror):
     addon_for: list[str] = Field(
         default_factory=list, description="Services it is offered with; empty means all"
     )
+    duration_min: int | None = Field(
+        default=None, description="Minutes it adds to a visit, times its quantity"
+    )
 
 
 class PublicAddonIn(BaseModel):
