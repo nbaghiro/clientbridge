@@ -422,6 +422,7 @@ interface Strings {
             readonly decline: string;
         };
         readonly doc: {
+            readonly title: string;
             readonly kinds: {
                 readonly invoice: string;
                 readonly estimate: string;
@@ -434,7 +435,6 @@ interface Strings {
             readonly back: string;
             readonly attachedInvoice: (when: string) => string;
             readonly attachedEstimate: (when: string) => string;
-            readonly attachedReceipt: (when: string) => string;
             readonly attachedVisit: string;
             readonly notSentYet: string;
         };
@@ -483,6 +483,7 @@ interface Strings {
         readonly gstNo: (n: string) => string;
         readonly qstNo: (n: string) => string;
         readonly scanToPay: string;
+        readonly amountPaid: string;
         readonly paidStamp: string;
         readonly forSubject: (name: string) => string;
         readonly reference: (number: string) => string;

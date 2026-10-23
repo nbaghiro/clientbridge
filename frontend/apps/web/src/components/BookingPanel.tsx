@@ -509,15 +509,8 @@ function BookingDocuments({ event }: { event: ScheduleEvent }) {
             {doc !== null ? (
                 <DocumentPreview
                     businessName={doc.business.name}
-                    initial="receipt"
-                    docs={[
-                        {
-                            kind: "receipt",
-                            doc,
-                            missing: "",
-                            attached: strings.billing.doc.attachedVisit,
-                        },
-                    ]}
+                    doc={doc}
+                    attached={strings.billing.doc.attachedVisit}
                     onClose={receipt.close}
                 />
             ) : null}

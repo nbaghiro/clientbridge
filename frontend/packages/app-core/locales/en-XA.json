@@ -1154,6 +1154,9 @@
     "billing.review.decline": {
         "message": "[Ṁåŕķ ðéçļîñéð one two]"
     },
+    "billing.doc.title": {
+        "message": "[Đöçûɱéñţš one two]"
+    },
     "billing.doc.kinds.invoice": {
         "message": "[Îñṽöîçé one]"
     },
@@ -1183,9 +1186,6 @@
     },
     "billing.doc.attachedEstimate": {
         "message": "[Éšţîɱåţé éɱåîļ, {when} one two]"
-    },
-    "billing.doc.attachedReceipt": {
-        "message": "[Ŕéçéîþţ éɱåîļ, {when} one two]"
     },
     "billing.doc.attachedVisit": {
         "message": "[Ţĥé çļîéñţ'š ṽîšîţ þåĝé one two]"
@@ -1315,6 +1315,9 @@
     },
     "printing.scanToPay": {
         "message": "[Šçåñ ţö þåý one two]"
+    },
+    "printing.amountPaid": {
+        "message": "[Åɱöûñţ þåîð one two]"
     },
     "printing.paidStamp": {
         "message": "[Þåîð one]"

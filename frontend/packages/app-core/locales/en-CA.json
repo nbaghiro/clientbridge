@@ -1259,6 +1259,9 @@
     "billing.review.decline": {
         "message": "Mark declined"
     },
+    "billing.doc.title": {
+        "message": "Documents"
+    },
     "billing.doc.kinds.invoice": {
         "message": "Invoice"
     },
@@ -1290,10 +1293,6 @@
     },
     "billing.doc.attachedEstimate": {
         "message": "Estimate email, {when}",
-        "args": ["when"]
-    },
-    "billing.doc.attachedReceipt": {
-        "message": "Receipt email, {when}",
         "args": ["when"]
     },
     "billing.doc.attachedVisit": {
@@ -1439,6 +1438,9 @@
     },
     "printing.scanToPay": {
         "message": "Scan to pay"
+    },
+    "printing.amountPaid": {
+        "message": "Amount paid"
     },
     "printing.paidStamp": {
         "message": "Paid"
