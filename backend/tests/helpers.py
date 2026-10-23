@@ -148,7 +148,14 @@ async def enable_payments(db: AsyncSession, account: str | None = "acct_test") -
 async def client_id(db: AsyncSession, *, business_id: str = BIZ, email: str | None = None) -> str:
     """A seeded client of the business, optionally given an email."""
     cid = (
-        (await db.execute(select(Client.id).where(Client.business_id == business_id).limit(1)))
+        (
+            await db.execute(
+                select(Client.id)
+                .where(Client.business_id == business_id)
+                .order_by(Client.id)
+                .limit(1)
+            )
+        )
         .scalars()
         .first()
     )
