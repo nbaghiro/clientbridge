@@ -11,7 +11,7 @@ import type {
     PrintedDocTax,
 } from "../ui";
 
-export type PrintedKind = PrintedDoc["kind"];
+type PrintedKind = PrintedDoc["kind"];
 
 /** What a business prints at the top of its documents. */
 export interface Letterhead {

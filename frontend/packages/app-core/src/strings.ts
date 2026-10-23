@@ -395,7 +395,6 @@ interface Strings {
             readonly decline: string;
         };
         readonly doc: {
-            readonly title: string;
             readonly kinds: {
                 readonly invoice: string;
                 readonly estimate: string;
@@ -408,10 +407,7 @@ interface Strings {
             readonly back: string;
             readonly attachedInvoice: (when: string) => string;
             readonly attachedEstimate: (when: string) => string;
-            readonly attachedReceipt: (when: string) => string;
             readonly notSentYet: string;
-            readonly noReceipt: string;
-            readonly noEstimate: string;
         };
         readonly refund: string;
         readonly refundBadge: string;
@@ -429,18 +425,14 @@ interface Strings {
         readonly issued: string;
         readonly due: string;
         readonly validUntil: string;
-        readonly paidOn: string;
         readonly invoiceNumber: string;
         readonly estimateNumber: string;
-        readonly forInvoice: string;
         readonly item: string;
         readonly qty: string;
         readonly price: string;
         readonly tax: string;
         readonly amount: string;
         readonly paymentMethod: string;
-        readonly amountPaid: string;
-        readonly balanceRemaining: string;
         readonly estimateTotal: string;
         readonly taxSummary: string;
         readonly taxBase: (amount: string) => string;
@@ -458,7 +450,6 @@ interface Strings {
         readonly forSubject: (name: string) => string;
         readonly reference: (number: string) => string;
         readonly saleNumber: (n: number) => string;
-        readonly receiptNumber: (invoice: string, n: number) => string;
         readonly heading: (title: string, reference: string) => string;
         readonly deadline: (label: string, date: string) => string;
         readonly draftNumber: string;

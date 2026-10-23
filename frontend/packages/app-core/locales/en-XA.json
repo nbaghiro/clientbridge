@@ -1073,9 +1073,6 @@
     "billing.review.decline": {
         "message": "[Ṁåŕķ ðéçļîñéð one two]"
     },
-    "billing.doc.title": {
-        "message": "[Đöçûɱéñţš one two]"
-    },
     "billing.doc.kinds.invoice": {
         "message": "[Îñṽöîçé one]"
     },
@@ -1106,17 +1103,8 @@
     "billing.doc.attachedEstimate": {
         "message": "[Éšţîɱåţé éɱåîļ, {when} one two]"
     },
-    "billing.doc.attachedReceipt": {
-        "message": "[Ŕéçéîþţ éɱåîļ, {when} one two]"
-    },
     "billing.doc.notSentYet": {
         "message": "[Ñöţ šéñţ ýéţ one two]"
-    },
-    "billing.doc.noReceipt": {
-        "message": "[Ñö þåýɱéñţ öñ ţĥîš îñṽöîçé ýéţ, šö ţĥéŕé'š ñö ŕéçéîþţ. one two three four]"
-    },
-    "billing.doc.noEstimate": {
-        "message": "[Ţĥîš îñṽöîçé ðîðñ'ţ šţåŕţ åš åñ éšţîɱåţé. one two three]"
     },
     "billing.refund": {
         "message": "[Ŕéƒûñð one]"
@@ -1154,17 +1142,11 @@
     "printing.validUntil": {
         "message": "[Ṽåļîð ûñţîļ one two]"
     },
-    "printing.paidOn": {
-        "message": "[Þåîð one]"
-    },
     "printing.invoiceNumber": {
         "message": "[Îñṽöîçé one]"
     },
     "printing.estimateNumber": {
         "message": "[Éšţîɱåţé one]"
-    },
-    "printing.forInvoice": {
-        "message": "[Ƒöŕ îñṽöîçé one two]"
     },
     "printing.item": {
         "message": "[Îţéɱ one]"
@@ -1183,12 +1165,6 @@
     },
     "printing.paymentMethod": {
         "message": "[Þåýɱéñţ ɱéţĥöð one two]"
-    },
-    "printing.amountPaid": {
-        "message": "[Åɱöûñţ þåîð one two]"
-    },
-    "printing.balanceRemaining": {
-        "message": "[Ɓåļåñçé ŕéɱåîñîñĝ one two]"
     },
     "printing.estimateTotal": {
         "message": "[Éšţîɱåţé ţöţåļ one two]"
@@ -1240,9 +1216,6 @@
     },
     "printing.saleNumber": {
         "message": "[Š-{n, number, ::group-off} one]"
-    },
-    "printing.receiptNumber": {
-        "message": "{invoice}-{n, number}"
     },
     "printing.heading": {
         "message": "{title} {reference}"

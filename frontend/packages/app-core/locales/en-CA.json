@@ -1173,9 +1173,6 @@
     "billing.review.decline": {
         "message": "Mark declined"
     },
-    "billing.doc.title": {
-        "message": "Documents"
-    },
     "billing.doc.kinds.invoice": {
         "message": "Invoice"
     },
@@ -1209,18 +1206,8 @@
         "message": "Estimate email, {when}",
         "args": ["when"]
     },
-    "billing.doc.attachedReceipt": {
-        "message": "Receipt email, {when}",
-        "args": ["when"]
-    },
     "billing.doc.notSentYet": {
         "message": "Not sent yet"
-    },
-    "billing.doc.noReceipt": {
-        "message": "No payment on this invoice yet, so there's no receipt."
-    },
-    "billing.doc.noEstimate": {
-        "message": "This invoice didn't start as an estimate."
     },
     "billing.refund": {
         "message": "Refund"
@@ -1258,17 +1245,11 @@
     "printing.validUntil": {
         "message": "Valid until"
     },
-    "printing.paidOn": {
-        "message": "Paid"
-    },
     "printing.invoiceNumber": {
         "message": "Invoice"
     },
     "printing.estimateNumber": {
         "message": "Estimate"
-    },
-    "printing.forInvoice": {
-        "message": "For invoice"
     },
     "printing.item": {
         "message": "Item"
@@ -1287,12 +1268,6 @@
     },
     "printing.paymentMethod": {
         "message": "Payment method"
-    },
-    "printing.amountPaid": {
-        "message": "Amount paid"
-    },
-    "printing.balanceRemaining": {
-        "message": "Balance remaining"
     },
     "printing.estimateTotal": {
         "message": "Estimate total"
@@ -1356,11 +1331,6 @@
     "printing.saleNumber": {
         "message": "S-{n, number, ::group-off}",
         "args": ["n"]
-    },
-    "printing.receiptNumber": {
-        "message": "{invoice}-{n, number}",
-        "args": ["invoice", "n"],
-        "description": "The nth receipt for an invoice number."
     },
     "printing.heading": {
         "message": "{title} {reference}",

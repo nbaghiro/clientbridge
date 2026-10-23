@@ -958,72 +958,6 @@ export function printedInvoice(
     );
 }
 
-export function printedReceipt(
-    rec: InvoiceRecord,
-    paymentId: string,
-    letterhead: Letterhead,
-    fallbackColor: string,
-): PrintedDoc | null {
-    const pay = rec.payments.find((x) => x.id === paymentId && !x.refund);
-    if (pay === undefined) return null;
-    const r = rec.row;
-    const at = pay.payment.paid_at ?? pay.payment.created_at;
-    return printedDoc(
-        {
-            kind: "receipt",
-            currency: rec.currency,
-            number:
-                r.number === null
-                    ? null
-                    : p.receiptNumber(
-                          String(r.number),
-                          rec.payments.filter((x) => !x.refund).indexOf(pay) + 1,
-                      ),
-            partyName: r.client_name ?? "",
-            partyLines: partyLines(r),
-            meta: [
-                { label: p.paidOn, value: longDate(at, rec.zone) },
-                { label: p.forInvoice, value: r.number === null ? s.dash : s.number(r.number) },
-            ],
-            lines: rec.lines,
-            taxes: rec.taxes,
-            totals: [
-                { key: "total", label: p.forInvoice, cents: r.total_cents ?? 0, kind: "subtotal" },
-                ...(pay.payment.tip_cents > 0
-                    ? [
-                          {
-                              key: "tip",
-                              label: s.tip,
-                              cents: pay.payment.tip_cents,
-                              kind: "tax",
-                          } as const,
-                      ]
-                    : []),
-                { key: "paid", label: p.amountPaid, cents: pay.amountCents, kind: "credit" },
-                {
-                    key: "balance",
-                    label: p.balanceRemaining,
-                    cents: rec.balanceCents,
-                    kind: "balance",
-                },
-            ],
-            headline: { label: p.amountPaid, cents: pay.amountCents },
-            payment: {
-                method: pay.label,
-                reference: pay.payment.reference ?? "",
-                at: longDate(at, rec.zone),
-                amountCents: pay.amountCents,
-            },
-            stamp: rec.balanceCents === 0 ? p.paidStamp : null,
-            payUrl: rec.balanceCents > 0 ? rec.payUrl : null,
-            instructions:
-                rec.balanceCents > 0 && rec.payUrl !== null ? [p.payOnline(rec.payUrl)] : [],
-        },
-        letterhead,
-        fallbackColor,
-    );
-}
-
 export type EstimateSegment = "all" | "draft" | "sent" | "accepted" | "closed";
 const ESTIMATE_SEGMENTS: EstimateSegment[] = ["all", "draft", "sent", "accepted", "closed"];
 
@@ -1144,7 +1078,7 @@ interface EstimateLineView extends PrintedDocLine {
     note: string | null;
 }
 
-export interface EstimateRecord {
+interface EstimateRecord {
     row: EstimateRow;
     title: string;
     status: string;
