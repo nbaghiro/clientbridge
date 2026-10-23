@@ -158,6 +158,20 @@ function gridBookings(main: Locator): Locator {
     return main.getByRole("button", { name: /^\d{1,2}:\d{2} [ap]\.m\. – \d/ });
 }
 
+// A confirmed visit names its pet and client; a class names only itself and has no message or reschedule
+async function openVisit(main: Locator, panel: Locator): Promise<void> {
+    const b = strings.bookings;
+    const visits = main.getByRole("button", {
+        name: /^\d{1,2}:\d{2} [ap]\.m\. – [^,]+, [^,]+ · [^,]+, .+, Confirmed$/,
+    });
+    for (let day = 0; day < 14 && (await visits.count()) === 0; day++) {
+        await main.getByRole("button", { name: b.next, exact: true }).click();
+    }
+    await visits.first().click();
+    await expect(panel.getByRole("heading", { level: 2 })).toBeVisible();
+    await expect(panel.getByRole("button", { name: b.message, exact: true })).toBeVisible();
+}
+
 test("owner: shell, today, create menu, search, notifications and account menu", async ({
     page,
 }) => {
@@ -362,11 +376,7 @@ test("owner: schedule, booking panel, classes and repeat visits", async ({ page 
 
     await walk.step("booking panel from the grid", async () => {
         await main.getByRole("button", { name: b.next, exact: true }).click();
-        for (let day = 0; day < 7 && (await gridBookings(main).count()) === 0; day++) {
-            await main.getByRole("button", { name: b.next, exact: true }).click();
-        }
-        await gridBookings(main).first().click();
-        await expect(panel.getByRole("heading", { level: 2 })).toBeVisible();
+        await openVisit(main, panel);
     });
 
     await walk.step("booking panel: message", async () => {
@@ -1264,10 +1274,7 @@ test.describe("in another time zone than the business", () => {
         });
 
         await walk.step("reschedule keeps a day picked when the week changes", async () => {
-            for (let day = 0; day < 7 && (await gridBookings(main).count()) === 0; day++) {
-                await main.getByRole("button", { name: b.next, exact: true }).click();
-            }
-            await gridBookings(main).first().click();
+            await openVisit(main, panel);
             await panel.getByRole("button", { name: b.reschedule }).click();
             const dialog = page.getByRole("dialog");
             const days = dialog.getByRole("group", { name: b.rescheduleDay });
