@@ -246,7 +246,8 @@ ITEMS: tuple[Offering, ...] = (
         category="Camps",
         description="A week of day camp for Grades 4 to 8, Monday to Friday from 9 to 3. "
         "Students build games in Scratch and then Python, and show them to families on "
-        "Friday afternoon. Bring a lunch and a water bottle. Up to 10 students.",
+        "Friday afternoon. Bring a lunch and a water bottle. Up to 10 students. A $100 "
+        "deposit holds a place and comes off the camp invoice.",
         tax_class="exempt",
         minutes=360,
         color="#3B6EA5",
@@ -254,6 +255,8 @@ ITEMS: tuple[Offering, ...] = (
         capacity=10,
         staff=(SAMUEL,),
         sessions=5,
+        deposit_type="fixed",
+        deposit_value=10000,
     ),
     Offering(
         id=TERM10,
@@ -1476,10 +1479,11 @@ class Lakeside(Demo):
                     "canceled" if n in away else "confirmed",
                     enrolled,
                     subject=subject,
-                    price=item.price_cents if n == 0 else 0,
+                    price=None if n == 0 else 0,
                     slot=slot,
                 )
                 if n == 0:
+                    self.deposit(booking, enrolled + timedelta(minutes=5))
                     self.enrolment_invoice(booking, family, child, enrolled, paid=order % 2 == 0)
 
     def enrolment_invoice(

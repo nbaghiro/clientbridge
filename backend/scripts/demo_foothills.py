@@ -864,6 +864,8 @@ SNOW_RENEWALS = (
     ("home_10", 376),
 )
 SNOW_SIGNUPS = (("linda", 23), ("patrick", 11), ("adebayo", 3), ("home_11", 16))
+# the client who missed a consultation and rebooked it
+MISSED = "home_23"
 PHOTO_CLIENTS = (
     "helen",
     "amir",
@@ -1070,6 +1072,11 @@ SPEC = BusinessSpec(
             ("sch_fh_silverridge", "inv_fh_silverridge_hedges"),
         ),
         Stage("Rain-delayed visit moved to the next dry day", "nina", ("bk_fh_nina",)),
+        Stage(
+            "No-show for a consultation, rebooked",
+            MISSED,
+            (f"bk_fh_{MISSED}_missed", f"bk_fh_{MISSED}_consult"),
+        ),
         Stage("Five-star feedback and a review request", "harjit", ("fr_fh_feedback_harjit",)),
         Stage(
             "Three-star feedback about a gate left open, with a reply",
@@ -1496,6 +1503,7 @@ class Foothills(Demo):
         self.fall_quotes()
         self.projects()
         self.rain_delay()
+        self.missed_consult()
         self.tap_to_pay()
         self.refund_story()
         self.spring()
@@ -1811,6 +1819,51 @@ class Foothills(Demo):
             thread,
             f"Thanks, Nina. You're booked for {local:%A, %B} {local.day} at {_clock(local)}.",
             moved + timedelta(minutes=40),
+        )
+
+    def missed_consult(self) -> None:
+        """Nobody was home for Ian's consultation, so Ravi left a card and Ian rebooked."""
+        start = self.place(BOSS, CONSULT, -9, f"sj_fh_{MISSED}", past=True)
+        assert start is not None
+        missed = self.book(
+            f"{MISSED}_missed",
+            MISSED,
+            CONSULT,
+            BOSS,
+            start,
+            "no_show",
+            start - timedelta(days=4),
+            source="online",
+        )
+        waited = start + timedelta(minutes=20)
+        self.note(
+            missed.id,
+            "booking",
+            "Nobody home and the side gate was locked. Waited 15 minutes, called twice and left a "
+            "card in the door.",
+            waited,
+        )
+        rebooked = self.consult(MISSED, 4, status="confirmed")
+        thread = self.thread(MISSED, "sms", waited)
+        self.say(
+            thread,
+            f"Hi Ian, it's Ravi from Foothills. I'm at your place for the "
+            f"{_clock(self.local(start))} consultation but nobody's answering. I've left a card "
+            "in the door.",
+            waited,
+        )
+        self.say(
+            thread,
+            "So sorry, Ravi, I got stuck at work and forgot to cancel. Could we try again next "
+            "week?",
+            waited + timedelta(hours=2),
+            sender=None,
+        )
+        local = self.local(rebooked.starts_at)
+        self.say(
+            thread,
+            f"No problem. You're booked for {local:%A, %B} {local.day} at {_clock(local)}.",
+            waited + timedelta(hours=2, minutes=20),
         )
 
     def tap_to_pay(self) -> None:

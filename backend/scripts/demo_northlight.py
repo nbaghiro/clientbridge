@@ -7,6 +7,7 @@ from clientbridge.models.billing import Estimate, Invoice
 from clientbridge.models.catalog import Item, ItemKind
 from clientbridge.models.clients import Client, Subject
 from clientbridge.models.documents import Signature
+from clientbridge.models.payments import Payment
 from clientbridge.models.platform import File
 from clientbridge.models.scheduling import Booking, BookingStatus, Slot
 from clientbridge.schemas.subjects import Building, Equipment, SiteAttributes
@@ -46,6 +47,7 @@ NVR8, NVR16, SWITCH, CABLE, JBOX = (
 MOUNT = "it_nl_second_mount"
 REMOTE, MAINTENANCE = "it_nl_remote_viewing", "it_nl_maintenance"
 SURVEY_FORM, HANDOVER_FORM = "frm_nl_site_survey", "frm_nl_handover"
+FEEDBACK_FORM = "frm_nl_feedback"
 AGREEMENT, NOTICE = "con_nl_agreement", "con_nl_surveillance"
 PLAN_AGREEMENT = "con_nl_maintenance"
 
@@ -444,6 +446,19 @@ SURVEY_FIELDS: tuple[DocField, ...] = (
     ("goals", "longtext", "Anything else we should know?", None, False, ()),
     ("photo_front", "image", "A photo of the front of the building", None, False, ()),
     ("photo_side", "image", "A photo of the side or back entrance", None, False, ()),
+)
+FEEDBACK_FIELDS: tuple[DocField, ...] = (
+    ("rating", "rating", "How was your install?", None, True, ()),
+    (
+        "highlights",
+        "multiselect",
+        "What went well?",
+        None,
+        False,
+        ("On time", "Tidy cable runs", "Camera placement", "App setup", "Explained the system"),
+    ),
+    ("comments", "longtext", "Anything we could do better?", None, False, ()),
+    ("follow_up", "checkbox", "You can contact me about this", None, False, ()),
 )
 HANDOVER_FIELDS: tuple[DocField, ...] = (
     ("install_date", "date", "Install date", None, True, ()),
@@ -1037,6 +1052,7 @@ SPEC = BusinessSpec(
             HANDOVER_FIELDS,
             require_signature=True,
         ),
+        FormSpec(FEEDBACK_FORM, "Install feedback", "ff_nl_feedback_", FEEDBACK_FIELDS),
     ),
     contracts=(
         ContractSpec(
@@ -1067,6 +1083,12 @@ SPEC = BusinessSpec(
         Stage("Today's install, on the way", "meilin", ("bk_nl_meilin",)),
         Stage("Installed and paid by Tap to Pay", "sarah", ("bk_nl_sarah", "ord_nl_sarah")),
         Stage("Commercial client with two sites, overdue", "islandstorage"),
+        Stage("Unused part refunded after the install", "nora", ("inv_nl_nora",)),
+        Stage(
+            "Five-star and four-star install feedback",
+            "sarah",
+            ("fr_nl_feedback_sarah", "fr_nl_feedback_marco"),
+        ),
         Stage("Warranty call on a camera nearing its end date", "fiona", ("bk_nl_fiona_warranty",)),
         Stage("Declined estimate", "gordon", ("est_nl_gordon",)),
         Stage("Cancelled survey", "natalie", ("bk_nl_natalie_survey",)),
@@ -1134,6 +1156,7 @@ class Northlight(Demo):
         self.households()
         self.storyline()
         self.history()
+        self.refund_story()
         self.upcoming()
         self.plans()
         self.engagement()
@@ -1911,6 +1934,7 @@ class Northlight(Demo):
             self.at(-185, 10),
         )
         self.conversations()
+        self.feedback_stories()
         for key in (
             "sarah",
             "ingrid",
@@ -1929,6 +1953,61 @@ class Northlight(Demo):
             ),
         ):
             self.review(key)
+
+    def refund_story(self) -> None:
+        """Nora's install used one junction box fewer than quoted, so it was refunded."""
+        booking = self.ctx.get(Booking, "bk_nl_nora")
+        payment = next(p for p in self.ctx.all(Payment) if p.invoice_id == booking.invoice_id)
+        assert payment.paid_at is not None
+        when = payment.paid_at + timedelta(days=2, hours=3)
+        self.refund(
+            payment,
+            3248,
+            when,
+            "One junction box unused: the soffit camera's cable runs straight into the attic.",
+        )
+        self.note(
+            self.client_id("nora"),
+            "client",
+            "Refunded one junction box with GST and PST ($32.48). The soffit camera didn't need "
+            "one.",
+            when,
+        )
+
+    def feedback_stories(self) -> None:
+        for key, rating, highlights, comment in (
+            (
+                "sarah",
+                5,
+                ["On time", "Camera placement", "App setup"],
+                "Liam showed us how to find a clip in the app before he left. Very tidy work.",
+            ),
+            ("ingrid", 5, ["Tidy cable runs", "Explained the system"], None),
+            (
+                "marco",
+                4,
+                ["Camera placement", "App setup"],
+                "Happy with the cameras. The cable along the back siding is more visible than we "
+                "expected.",
+            ),
+        ):
+            booking = self.ctx.get(Booking, f"bk_nl_{key}")
+            assert booking.completed_at is not None
+            answers: dict[str, object] = {"rating": rating, "highlights": highlights}
+            if comment:
+                answers["comments"] = comment
+            submitted = min(
+                booking.completed_at + timedelta(hours=26), self.now - timedelta(hours=2)
+            )
+            self.response(
+                "feedback",
+                key,
+                FEEDBACK_FORM,
+                booking,
+                answers,
+                submitted,
+                created=booking.completed_at + timedelta(hours=2),
+            )
 
     def conversations(self) -> None:
         ctx = self.ctx
