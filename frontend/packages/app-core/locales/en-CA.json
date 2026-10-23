@@ -7984,6 +7984,33 @@
         "message": "{count, plural, one {Their repeating series goes with the visits.} other {Their # repeating series go with the visits.}}",
         "args": ["count"]
     },
+    "staff.team.removeSchedules": {
+        "message": "Class schedules",
+        "description": "Heading over the member's class and program schedules when removing them, and the name of one whose class is unknown"
+    },
+    "staff.team.removeScheduleMoves": {
+        "message": "Moves whole",
+        "description": "A class schedule whose sessions ahead all move to the member chosen"
+    },
+    "staff.team.removeScheduleCancels": {
+        "message": "Sessions ahead are canceled"
+    },
+    "staff.team.removeScheduleNote": {
+        "message": "A class schedule moves with every session left. The member you choose needs to teach the class and be free for all of them."
+    },
+    "staff.team.removeScheduleClash": {
+        "message": "The member you chose isn't free for {name} on {day}. Choose someone else, or cancel the sessions.",
+        "description": "Refusing a removal: the member chosen to take a class schedule is busy or off on that day",
+        "args": ["name", "day"]
+    },
+    "staff.team.removeScheduleBusy": {
+        "message": "No member is free for every session of {name}. Choose someone else, or cancel the sessions.",
+        "args": ["name"]
+    },
+    "staff.team.removeScheduleNotTaught": {
+        "message": "The member you chose doesn't teach {name}. Choose someone who does, or cancel the sessions.",
+        "args": ["name"]
+    },
     "staff.team.removeFuture": {
         "message": "Upcoming visits"
     },

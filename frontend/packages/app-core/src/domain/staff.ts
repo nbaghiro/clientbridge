@@ -13,7 +13,14 @@ import type { Fact, Intent, OccurrenceRow, SelectOption } from "../ui";
 import type { Viewer } from "./auth";
 import { useReplicaLoad } from "./sync";
 import { strings } from "../strings";
-import { type ApiLike, type Attempt, failedCode, failureMessage, sendAttempt } from "../api";
+import {
+    type ApiLike,
+    type Attempt,
+    failedCode,
+    failedDetail,
+    failureMessage,
+    sendAttempt,
+} from "../api";
 
 export const BRAND_COLOURS = [
     "#2E4A3F",
@@ -295,7 +302,7 @@ WHERE s.staff_id = ?1 AND s.status = 'scheduled' AND b.deleted_at IS NULL
 ORDER BY s.starts_at, b.id`;
 
 const MEMBER_SERIES_SQL = `
-SELECT r.id, i.name AS item_name, c.name AS client_name
+SELECT r.id, r.client_id, i.name AS item_name, c.name AS client_name
 FROM recurrences r
 LEFT JOIN items i ON i.id = r.item_id
 LEFT JOIN clients c ON c.id = r.client_id
@@ -304,6 +311,8 @@ ORDER BY r.id`;
 
 interface MemberSeriesRow {
     id: string;
+    // none for a class schedule, which moves whole or not at all
+    client_id: string | null;
     item_name: string | null;
     client_name: string | null;
 }
@@ -338,7 +347,7 @@ interface RemovalOutcome {
 /** What the owner is told after a removal; null when nothing needs telling. */
 export function removalOutcome(
     result: Pick<RemovalResult, "series_moved" | "series_ended">,
-    series: readonly MemberSeriesRow[],
+    series: readonly Pick<MemberSeriesRow, "id" | "item_name" | "client_name">[],
     members: readonly Pick<TeamMember, "id" | "name">[],
     left: OccurrenceRow[],
 ): RemovalOutcome | null {
@@ -383,9 +392,29 @@ export function removalOutcome(
     };
 }
 
+/** Why a removal was refused: a class schedule its taker can't teach or isn't free for, by day. */
+export function removalFailure(
+    e: unknown,
+    schedules: readonly Pick<MemberSeriesRow, "id" | "item_name">[],
+    zone: string,
+): string {
+    const t = strings.staff.team;
+    if (failedCode(e) !== "schedule_clash") return failureMessage(e, t.actionError);
+    const d = failedDetail(e);
+    const name = schedules.find((r) => r.id === d.recurrence_id)?.item_name ?? t.removeSchedules;
+    if (d.problem === "not_offered") return t.removeScheduleNotTaught(name);
+    const day = typeof d.starts_at === "string" ? parseTimestamp(d.starts_at) : null;
+    return day === null || Number.isNaN(day.getTime())
+        ? t.removeScheduleBusy(name)
+        : t.removeScheduleClash(name, formatShortDay(day, zone));
+}
+
 interface RemoveMemberView {
     hasWork: boolean;
     visits: OccurrenceRow[];
+    // the member's class schedules, each moving whole to one member or canceled
+    schedules: Fact[];
+    scheduleNote: string | null;
     summary: string;
     choice: RemovalChoice;
     setChoice: (choice: RemovalChoice) => void;
@@ -438,11 +467,19 @@ export function useRemoveMember(
         };
     };
     const state = choice === "cancel" ? t.removeStateCancel : t.removeStateMove;
+    const schedules = series.filter((r) => r.client_id === null);
     return {
         hasWork: rows.length > 0 || series.length > 0,
         visits: rows.map((r, i) =>
             row(r.id, r.starts_at, i + 1, state, choice === "cancel" ? "danger" : "accent", null),
         ),
+        schedules: schedules.map((r) => ({
+            key: r.id,
+            icon: "repeat",
+            title: r.item_name ?? t.removeSchedules,
+            detail: choice === "cancel" ? t.removeScheduleCancels : t.removeScheduleMoves,
+        })),
+        scheduleNote: schedules.length > 0 && choice === "reassign" ? t.removeScheduleNote : null,
         summary:
             rows.length === 0 && series.length === 0
                 ? t.removeNoWork
@@ -497,7 +534,7 @@ export function useRemoveMember(
                     }
                     setOutcome(told);
                 },
-                { errorMessage: (e) => failureMessage(e, t.actionError) },
+                { errorMessage: (e) => removalFailure(e, schedules, zone) },
             );
         },
     };

@@ -2717,6 +2717,13 @@ interface Strings {
             readonly removeNoWork: string;
             readonly removeWork: (count: number) => string;
             readonly removeSeries: (count: number) => string;
+            readonly removeSchedules: string;
+            readonly removeScheduleMoves: string;
+            readonly removeScheduleCancels: string;
+            readonly removeScheduleNote: string;
+            readonly removeScheduleClash: (name: string, day: string) => string;
+            readonly removeScheduleBusy: (name: string) => string;
+            readonly removeScheduleNotTaught: (name: string) => string;
             readonly removeFuture: string;
             readonly removeReassign: string;
             readonly removeReassignHint: string;

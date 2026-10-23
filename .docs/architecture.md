@@ -753,6 +753,13 @@ entitlement and its liability are created.
   holds a day still ahead (409 `program_enrolled`), so canceling it never takes a seat or money from anyone. Program days
   have no waitlist: online waitlists refuse them and a freed seat promotes no one. A class seat is held once
   per subject, or per client when there is none, so siblings can each take a seat in one session.
+  Removing an instructor (`POST /v1/staff/{id}/remove`) settles each of their schedules whole. Moved to a
+  member, a schedule goes to the first candidate who offers the class and is free for every session still
+  ahead, checked under the staff lock; its sessions (empty and booked), the `recurrences.staff_id` and the
+  bookings and add-ons on those sessions move together. When no candidate fits, the removal is refused with
+  409 `schedule_clash`, whose `detail` names the schedule, the first day that clashes and the problem
+  (`not_offered` when the member doesn't teach the class). Canceled instead, the enrolments on it are
+  canceled with their invoices voided, and the sessions ahead are canceled with the schedule.
 - **Receipts** list every line with its tax, and walk-in sales can take an email or phone for the receipt.
   Sales by item is a report with a CSV like the others.
 

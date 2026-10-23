@@ -7400,6 +7400,27 @@
     "staff.team.removeSeries": {
         "message": "[{count,plural,one{Ţĥéîŕ ŕéþéåţîñĝ šéŕîéš ĝöéš ŵîţĥ ţĥé ṽîšîţš.} other{Ţĥéîŕ # ŕéþéåţîñĝ šéŕîéš ĝö ŵîţĥ ţĥé ṽîšîţš.}} one two three four five six]"
     },
+    "staff.team.removeSchedules": {
+        "message": "[Çļåšš šçĥéðûļéš one two]"
+    },
+    "staff.team.removeScheduleMoves": {
+        "message": "[Ṁöṽéš ŵĥöļé one two]"
+    },
+    "staff.team.removeScheduleCancels": {
+        "message": "[Šéššîöñš åĥéåð åŕé çåñçéļéð one two three]"
+    },
+    "staff.team.removeScheduleNote": {
+        "message": "[Å çļåšš šçĥéðûļé ɱöṽéš ŵîţĥ éṽéŕý šéššîöñ ļéƒţ. Ţĥé ɱéɱƀéŕ ýöû çĥööšé ñééðš ţö ţéåçĥ ţĥé çļåšš åñð ƀé ƒŕéé ƒöŕ åļļ öƒ ţĥéɱ. one two three four five six seven eight]"
+    },
+    "staff.team.removeScheduleClash": {
+        "message": "[Ţĥé ɱéɱƀéŕ ýöû çĥöšé îšñ'ţ ƒŕéé ƒöŕ {name} öñ {day}. Çĥööšé šöɱéöñé éļšé, öŕ çåñçéļ ţĥé šéššîöñš. one two three four five six]"
+    },
+    "staff.team.removeScheduleBusy": {
+        "message": "[Ñö ɱéɱƀéŕ îš ƒŕéé ƒöŕ éṽéŕý šéššîöñ öƒ {name}. Çĥööšé šöɱéöñé éļšé, öŕ çåñçéļ ţĥé šéššîöñš. one two three four five six]"
+    },
+    "staff.team.removeScheduleNotTaught": {
+        "message": "[Ţĥé ɱéɱƀéŕ ýöû çĥöšé ðöéšñ'ţ ţéåçĥ {name}. Çĥööšé šöɱéöñé ŵĥö ðöéš, öŕ çåñçéļ ţĥé šéššîöñš. one two three four five six]"
+    },
     "staff.team.removeFuture": {
         "message": "[Ûþçöɱîñĝ ṽîšîţš one two]"
     },

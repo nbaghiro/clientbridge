@@ -340,6 +340,12 @@ function RemoveDialog({
                                 onChange={removal.setTaker}
                             />
                         ) : null}
+                        {removal.scheduleNote !== null ? (
+                            <p className="text-sm text-muted">{removal.scheduleNote}</p>
+                        ) : null}
+                        {removal.schedules.length > 0 ? (
+                            <FactList facts={removal.schedules} label={t.removeSchedules} />
+                        ) : null}
                         {removal.visits.length > 0 ? (
                             <OccurrenceList rows={removal.visits} label={t.removeFuture} />
                         ) : null}
