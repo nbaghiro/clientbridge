@@ -24,7 +24,7 @@ from clientbridge.models.scheduling import Booking, Hours, Recurrence, Slot, Wee
 from clientbridge.schemas.forms import FormDefinition
 from clientbridge.schemas.subjects import ATTRIBUTES
 from clientbridge.services.bookings import within_hours
-from clientbridge.services.public import validate_answers
+from clientbridge.services.forms import validate_answers
 from clientbridge.services.remittances import RemittanceService
 from scripts.demo_context import DEMO_BUSINESSES, DEMO_IDS, DemoContext
 

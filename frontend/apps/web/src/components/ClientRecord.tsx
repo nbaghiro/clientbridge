@@ -47,6 +47,7 @@ import { ClientMergeDialog } from "./ClientMerge";
 import { ClientWallet } from "./ClientWallet";
 import { SubjectDialog } from "./ClientSubjects";
 import { api } from "../lib/api";
+import { ClientFormsSection } from "./TreatmentNotes";
 import { useViewer } from "../lib/auth";
 import { useOpenLink } from "../lib/links";
 
@@ -528,6 +529,7 @@ export function ClientRecordView({
                     ))}
                 </ul>
             </DetailSection>
+            <ClientFormsSection key={c.id} clientId={c.id} manager={manager} />
             {manager ? (
                 <DetailSection
                     title={r.wallet}

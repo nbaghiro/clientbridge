@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field, StringConstraints
 
 from clientbridge.core.mirrors import Mirror
 from clientbridge.models.documents import (
+    DocumentParent,
     FieldInput,
     Form,
     FormField,
@@ -107,3 +108,44 @@ class FormOut(Mirror):
     send_on: SendOn
     active: bool
     fields: list[PublicFormField]
+
+
+class TreatmentNoteCreate(Mirror):
+    mirrors = FormResponse
+
+    form_id: str
+    booking_id: str
+    answers: dict[str, object] = Field(default_factory=dict)
+    amends: str | None = Field(
+        default=None, description="An earlier note on the same visit that this one corrects"
+    )
+
+
+class FormAnswersOut(Mirror):
+    """A submitted response read back with the questions it was answered against."""
+
+    mirrors = FormResponse
+
+    id: str
+    form_id: str
+    form_name: str
+    client_id: str | None
+    parent_type: DocumentParent | None
+    parent_id: str | None
+    submitted_at: datetime | None
+    fields: list[PublicFormField]
+    answers: dict[str, object]
+    author_staff_id: str | None = Field(default=None, description="Who wrote a treatment note")
+    author_name: str | None = None
+    signer_name: str | None = Field(default=None, description="Who signed a client's form")
+    amends: str | None = Field(default=None, description="The note this one corrects")
+
+
+class TreatmentNoteOut(FormAnswersOut):
+    booking_id: str
+    visit_at: datetime
+    service: str
+
+
+class TreatmentNotes(BaseModel):
+    notes: list[TreatmentNoteOut]

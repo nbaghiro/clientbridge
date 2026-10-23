@@ -331,7 +331,9 @@ count, inbound messages not yet `read`, are read from `messages`), `messages` (d
 `broadcast_id`, `attachments`), `broadcasts` (audience JSONB + `scheduled_at`), and server-only `deliveries` (immutable typed payload, stable key, current transport state and fenced worker claim).
 
 **documents (5)** — `forms`, `fields` (`input` is one of 17 field types), `responses` (public-link token,
-`answers`, immutable issued `definition`, and optional submitted `signature` JSONB), `contracts` (template), `signatures` (public-link token; snapshots `signed_body` + captures
+`answers`, immutable issued `definition`, and optional submitted `signature` JSONB; a treatment note is a
+response with no token, written by staff on a booking with a form sent by hand, with its author in
+`signature`; it is final, never syncs, and each read is audited as `treatment.read`), `contracts` (template), `signatures` (public-link token; snapshots `signed_body` + captures
 `ip`; links a signature image file).
 
 **reviews (3)** — `review_requests` preserves invitation history. `google_business_connections`
@@ -545,7 +547,8 @@ Four auto-subscribed streams and three history streams implement the read model 
 - **`staff_self`** (per staff, sliced by `staff_id`) — a member's **own** addons, hours and recurrences,
   plus their own staff `accounts` and `entries` (earnings).
 - **`business_full`** (owner/admin only) — **all** members' addons, hours and recurrences, all financials
-  (including the whole ledger), review requests, broadcasts, form responses and signatures.
+  (including the whole ledger), review requests, broadcasts, form responses that have a client link
+  (treatment notes have none and stay on the server) and signatures.
 - **`history_shared`**, **`history_self`**, **`history_full`**: messages for every member, a member's own
   slots and bookings, and every member's slots and bookings for owner/admin, each limited to the months
   the device subscribes (see the history window above).

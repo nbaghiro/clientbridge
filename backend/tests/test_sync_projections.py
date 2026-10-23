@@ -126,3 +126,9 @@ def test_an_over_broad_rule_change_is_reported() -> None:
         "staff_limited.staff.rate_cents is not in the reviewed snapshot",
         "staff_limited.staff.rate_cents reaches members who are not owner/admin",
     ]
+
+
+def test_treatment_notes_never_reach_a_device() -> None:
+    queries = [line for line in SYNC_STREAMS.read_text().splitlines() if " FROM responses " in line]
+    assert queries
+    assert all(line.rstrip().endswith("AND token IS NOT NULL") for line in queries)

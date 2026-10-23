@@ -1,8 +1,6 @@
-import re
 import secrets
 from collections.abc import Sequence
-from datetime import date, datetime, time, timedelta
-from decimal import Decimal, InvalidOperation
+from datetime import date, datetime, timedelta
 from typing import get_args
 
 from sqlalchemy import ColumnElement, and_, func, select, text
@@ -123,6 +121,7 @@ from clientbridge.services.files import (
     mint_upload,
     team_photos,
 )
+from clientbridge.services.forms import validate_answers
 from clientbridge.services.lines import (
     apply_totals,
     fetch_lines,
@@ -1429,65 +1428,6 @@ class PublicFormService:
             require_signature=definition.require_signature,
             fields=fields,
         )
-
-
-def validate_answers(
-    fields: Sequence[FormField | PublicFormField], answers: dict[str, object]
-) -> None:
-    if answers.keys() - {field.name for field in fields}:
-        raise Unprocessable("answers contain an unknown field")
-    for field in fields:
-        value = answers.get(field.name)
-        missing = value is None or value == [] or (isinstance(value, str) and not value.strip())
-        if missing:
-            if field.required:
-                raise Unprocessable(f"missing required field: {field.name}")
-            continue
-        valid = True
-        if field.input == "checkbox":
-            valid = isinstance(value, bool) and (not field.required or value)
-        elif field.input in ("number", "currency", "rating"):
-            valid = _valid_numeric_answer(field, value)
-        elif field.input == "multiselect":
-            valid = isinstance(value, list) and all(
-                isinstance(option, str) and option in _form_options(field) for option in value
-            )
-        else:
-            valid = isinstance(value, str) and len(value) <= 40000
-            if valid and isinstance(value, str):
-                if field.input == "select":
-                    valid = value in _form_options(field)
-                elif field.input == "email":
-                    valid = re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", value) is not None
-                elif field.input in ("date", "time"):
-                    try:
-                        if field.input == "date":
-                            valid = date.fromisoformat(value).isoformat() == value
-                        else:
-                            valid = time.fromisoformat(value).tzinfo is None
-                    except ValueError:
-                        valid = False
-        if not valid:
-            raise Unprocessable(f"invalid answer for field: {field.name}")
-
-
-def _form_options(field: FormField | PublicFormField) -> set[str]:
-    return {
-        str(option.get("value", "")) if isinstance(option, dict) else str(option)
-        for option in field.options
-    }
-
-
-def _valid_numeric_answer(field: FormField | PublicFormField, value: object) -> bool:
-    if isinstance(value, bool) or not isinstance(value, str | int | float):
-        return False
-    try:
-        number = Decimal(str(value))
-    except InvalidOperation:
-        return False
-    if not number.is_finite():
-        return False
-    return field.input != "rating" or (number == number.to_integral_value() and 1 <= number <= 5)
 
 
 class PublicPayService:

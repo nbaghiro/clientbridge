@@ -1659,9 +1659,22 @@ describe("app-core SQL against the replica schema", () => {
 
     it("reads forms, contracts and weekly hours", () => {
         scoped("responses", [
-            { id: "rs_1", form_id: "frm_a", status: "submitted", submitted_at: TS, answers: "{}" },
-            { id: "rs_2", form_id: "frm_a", status: "draft", answers: "{}" },
+            {
+                id: "rs_1",
+                form_id: "frm_a",
+                client_id: "cl_ann",
+                status: "submitted",
+                submitted_at: TS,
+                answers: "{}",
+            },
+            { id: "rs_2", form_id: "frm_a", client_id: "cl_ann", status: "draft", answers: "{}" },
         ]);
+        expect(pick(run("CLIENT_FORMS_SQL", ["cl_ann"]), "id", "name")).toEqual([
+            { id: "rs_1", name: "Alpha" },
+        ]);
+        db.run("UPDATE forms SET send_on = 'manual' WHERE id IN ('frm_a', 'frm_z')");
+        db.run("UPDATE forms SET send_on = 'booking' WHERE id = 'frm_b'");
+        expect(run("NOTE_FORMS_SQL").map((r) => r.id)).toEqual(["frm_a"]);
         expect(pick(run("FORM_LIBRARY_SQL"), "id", "field_count", "submitted", "waiting")).toEqual([
             { id: "frm_a", field_count: 2, submitted: 1, waiting: 1 },
             { id: "frm_b", field_count: 0, submitted: 0, waiting: 0 },

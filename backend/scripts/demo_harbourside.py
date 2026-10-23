@@ -6,6 +6,7 @@ from datetime import UTC, date, datetime, time, timedelta
 from clientbridge.models.billing import Invoice, Line
 from clientbridge.models.catalog import GiftCard, Item, ItemKind, TaxClass
 from clientbridge.models.clients import Client
+from clientbridge.models.documents import FormResponse
 from clientbridge.models.payments import Payment
 from clientbridge.models.scheduling import Booking, Slot
 from scripts.demo_context import demo_business
@@ -36,7 +37,7 @@ DEEP, PRENATAL, HOTSTONE, COUPLES = (
 ACU_INITIAL, ACU_FOLLOW = "it_hs_acu_initial", "it_hs_acu_follow"
 PACK5, PACK10, GIFT = "it_hs_pack5", "it_hs_pack10", "it_hs_gift"
 OIL, HEAT = "it_hs_oil", "it_hs_heat"
-INTAKE, FEEDBACK = "frm_hs_intake", "frm_hs_feedback"
+INTAKE, FEEDBACK, SOAP = "frm_hs_intake", "frm_hs_feedback", "frm_hs_soap"
 POLICY, ACU_CONSENT = "con_hs_cancellation", "con_hs_acupuncture"
 
 # id, kind, name, price, minutes, category, description, tax class
@@ -391,6 +392,73 @@ FEEDBACK_FIELDS: tuple[DocField, ...] = (
     ),
 )
 
+SOAP_FIELDS: tuple[DocField, ...] = (
+    (
+        "subjective",
+        "longtext",
+        "Subjective",
+        "What the client reports: where it hurts, since when, and what helps.",
+        True,
+        (),
+    ),
+    ("objective", "longtext", "Objective", "Posture, range of motion and palpation.", False, ()),
+    ("assessment", "longtext", "Assessment", None, False, ()),
+    ("plan", "longtext", "Plan", "Treatment given, home care and when to come back.", True, ()),
+    ("pressure", "select", "Pressure used", None, False, ("Light", "Medium", "Firm")),
+)
+# note key, visit key, minutes after the visit ended, answers
+SOAP_NOTES: tuple[tuple[str, str, int, dict[str, object]], ...] = (
+    (
+        "fatemeh",
+        "fatemeh_recent",
+        20,
+        {
+            "subjective": "Tension across both shoulders after a week of long desk days.",
+            "objective": "Right shoulder elevated; upper trapezius hypertonic, more on the right.",
+            "assessment": "Postural muscle tension, no red flags.",
+            "plan": "Full-body treatment with focus on the shoulders. Chin tucks twice a day. "
+            "Rebook in three weeks.",
+            "pressure": "Medium",
+        },
+    ),
+    (
+        "hiroshi",
+        "hiroshi_recent",
+        15,
+        {
+            "subjective": "Left calf tight since a 10 km race on the weekend.",
+            "objective": "Trigger points in the left gastrocnemius; ankle range normal.",
+            "plan": "Deep tissue to both calves. Gentle stretching and a rest day.",
+            "pressure": "Firm",
+        },
+    ),
+    (
+        "hiroshi_amended",
+        "hiroshi_recent",
+        65,
+        {
+            "subjective": "Left calf tight since a 10 km race on the weekend.",
+            "objective": "Trigger points in the left gastrocnemius and soleus; ankle range normal.",
+            "assessment": "Post-race muscle soreness. The soleus was missed in the first note.",
+            "plan": "Deep tissue to both calves. Gentle stretching and a rest day. "
+            "Rebook in two weeks if it hasn't settled.",
+            "pressure": "Firm",
+        },
+    ),
+    (
+        "raj",
+        "raj_recent",
+        25,
+        {
+            "subjective": "Lower back stiffness in the mornings, about a month now.",
+            "objective": "Reduced lumbar flexion; tender quadratus lumborum on both sides.",
+            "plan": "90 minutes with focus on the lower back and hips. Cat-cow stretch daily.",
+            "pressure": "Medium",
+        },
+    ),
+)
+NOTE_AMENDS = {"hiroshi_amended": "hiroshi"}
+
 
 @dataclass(frozen=True)
 class Regular:
@@ -660,6 +728,7 @@ SPEC = BusinessSpec(
             send_on="booking",
         ),
         FormSpec(FEEDBACK, "Visit feedback", "ff_hs_feedback_", FEEDBACK_FIELDS),
+        FormSpec(SOAP, "SOAP treatment note", "ff_hs_soap_", SOAP_FIELDS),
     ),
     contracts=(
         ContractSpec(
@@ -767,6 +836,7 @@ class Harbourside(Demo):
         )
         self.retail()
         self.paperwork()
+        self.treatment_notes()
         self.engagement()
 
     def visit_note(self, item: Item, booking: Booking) -> str:
@@ -1225,6 +1295,39 @@ class Harbourside(Demo):
                 ACU_CONSENT,
                 initial.created_at + timedelta(hours=1),
                 None,
+            )
+
+    def treatment_notes(self) -> None:
+        """SOAP notes the practitioners wrote after some visits, kept off devices with no token."""
+        people = {person.staff_id: person for person in SPEC.people}
+        for key, visit, minutes, answers in SOAP_NOTES:
+            booking = self.ctx.get(Booking, f"bk_hs_{visit}")
+            assert booking.completed_at is not None and booking.staff_id is not None
+            person = people[booking.staff_id]
+            written = booking.completed_at + timedelta(minutes=minutes)
+            amends = NOTE_AMENDS.get(key)
+            self.ctx.add(
+                FormResponse(
+                    id=f"fr_hs_soap_{key}",
+                    business_id=self.spec.id,
+                    form_id=SOAP,
+                    client_id=booking.client_id,
+                    parent_type="booking",
+                    parent_id=booking.id,
+                    status="submitted",
+                    token=None,
+                    answers=answers,
+                    submitted_at=written,
+                    signature={
+                        "user_id": person.user_id,
+                        "staff_id": person.staff_id,
+                        "name": person.name,
+                        "signed_at": written.isoformat(),
+                        "amends": None if amends is None else f"fr_hs_soap_{amends}",
+                    },
+                    created_at=written,
+                    updated_at=written,
+                )
             )
 
     def feedback(self, key: str, booking: Booking, answers: dict[str, object]) -> None:

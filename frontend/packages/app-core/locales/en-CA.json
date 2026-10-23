@@ -4195,7 +4195,7 @@
         "message": "Only when staff send it"
     },
     "forms.sendManualHint": {
-        "message": "Send it from here when a client needs it."
+        "message": "Send it from here when a client needs it. Staff can also fill it in on a visit as a treatment note."
     },
     "forms.requireSignature": {
         "message": "Ask for a signature at the end"
@@ -4249,6 +4249,88 @@
     },
     "forms.done": {
         "message": "Done"
+    },
+    "forms.noAnswer": {
+        "message": "No answer"
+    },
+    "forms.answerYes": {
+        "message": "Yes"
+    },
+    "forms.answerNo": {
+        "message": "No"
+    },
+    "forms.answerAttached": {
+        "message": "File attached"
+    },
+    "forms.writtenAt": {
+        "message": "{date} at {time}",
+        "args": ["date", "time"],
+        "description": "When a treatment note was written, like October 7, 2026 at 3:20 p.m."
+    },
+    "forms.amendment": {
+        "message": "Amendment",
+        "description": "Marks a treatment note that corrects an earlier note on the same visit"
+    },
+    "forms.treatmentNotes": {
+        "message": "Treatment notes"
+    },
+    "forms.treatmentNote": {
+        "message": "Treatment note",
+        "description": "Opens a form staff fill in on a visit, such as a SOAP note"
+    },
+    "forms.writeNote": {
+        "message": "Write a treatment note"
+    },
+    "forms.amendNote": {
+        "message": "Amend"
+    },
+    "forms.amendTitle": {
+        "message": "Amend treatment note"
+    },
+    "forms.amendHint": {
+        "message": "The original note stays as it was. This one is saved after it, marked as an amendment."
+    },
+    "forms.noteForm": {
+        "message": "Form"
+    },
+    "forms.noteFinalHint": {
+        "message": "A treatment note can't be edited or deleted once it's saved. To correct it, add an amendment."
+    },
+    "forms.saveNote": {
+        "message": "Save note"
+    },
+    "forms.savingNote": {
+        "message": "Saving note"
+    },
+    "forms.noteFormMissing": {
+        "message": "Add a form that's sent by hand first, such as a SOAP note, in Forms."
+    },
+    "forms.noteSaveError": {
+        "message": "The note could not be saved. Please try again."
+    },
+    "forms.showNotes": {
+        "message": "Show treatment notes"
+    },
+    "forms.loadingNotes": {
+        "message": "Loading notes"
+    },
+    "forms.noNotes": {
+        "message": "No treatment notes yet."
+    },
+    "forms.notesPrivate": {
+        "message": "Only the practitioner who wrote a note and owners or admins can read it, and each read is recorded."
+    },
+    "forms.notesLoadError": {
+        "message": "The answers could not be loaded. Please try again."
+    },
+    "forms.clientForms": {
+        "message": "Forms and treatment notes"
+    },
+    "forms.noClientForms": {
+        "message": "No submitted forms yet."
+    },
+    "forms.viewAnswers": {
+        "message": "View answers"
     },
     "forms.errors.name-missing": {
         "message": "Give the form a name."

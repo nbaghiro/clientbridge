@@ -49,6 +49,7 @@ import { api } from "../lib/api";
 import { useViewer } from "../lib/auth";
 import { CheckInSheet } from "./CheckInSheet";
 import { DocumentPreview } from "./DocumentPreview";
+import { BookingTreatmentNotes } from "./TreatmentNotes";
 
 const s = strings.bookings;
 const c = strings.classes;
@@ -777,6 +778,9 @@ export function BookingBody({
             {detail.event.bookingId !== null ? <BookingPhotos event={detail.event} /> : null}
             {detail.event.bookingId !== null ? <BookingAddons event={detail.event} /> : null}
             {detail.event.bookingId !== null ? <BookingDocuments event={detail.event} /> : null}
+            {detail.event.bookingId !== null ? (
+                <BookingTreatmentNotes key={detail.event.bookingId} event={detail.event} />
+            ) : null}
             <BookingHistory detail={detail} />
         </>
     );
