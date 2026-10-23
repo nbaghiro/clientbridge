@@ -2827,7 +2827,7 @@ export interface BookingCrew {
     error: string | null;
 }
 
-/** The helpers on a visit; its lead or a manager adds and removes them. */
+/** The helpers on a visit: its lead and managers read them, and only a manager adds or removes them. */
 export function useBookingCrew(
     api: ApiLike,
     event: CalendarEvent,
@@ -2861,7 +2861,7 @@ export function useBookingCrew(
             id: m.staff_id,
             name: m.name ?? names.get(m.staff_id) ?? "",
         })),
-        canEdit: open && crew?.can_edit === true,
+        canEdit: open && viewer !== null && isManager(viewer.role) && crew?.can_edit === true,
         options: staff
             .filter(
                 (m) =>

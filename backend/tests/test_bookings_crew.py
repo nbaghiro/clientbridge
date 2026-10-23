@@ -11,6 +11,7 @@ from clientbridge.models.business import Staff
 from clientbridge.models.catalog import Item
 from clientbridge.models.platform import Audit
 from clientbridge.models.scheduling import Booking, Hours, Slot
+from clientbridge.services.business import staff_names
 from clientbridge.services.earnings import ensure_earnings, load_earning, reverse_earnings
 from clientbridge.services.payments import resolve_tip
 from tests.clock import FROZEN
@@ -121,31 +122,26 @@ async def test_a_helper_is_blocked_for_the_visit_and_labelled_with_the_job(
     assert len(await _blocks(db, booking_id)) == 1
 
 
-async def test_the_lead_manages_their_own_crew_and_no_one_else_s(
+async def test_only_a_manager_changes_the_crew_and_the_lead_reads_it(
     as_staff: httpx.AsyncClient, db: AsyncSession, identities: FakeIdentityProvider
 ) -> None:
     owner = await _as(db, identities, OWNER_USER)
     own = await _visit(as_staff, db)
-    others = ok(
-        await as_staff.post(
-            "/v1/bookings",
-            json={
-                "client_id": await client_id(db),
-                "item_id": GROOM,
-                "staff_id": OWNER,
-                "starts_at": NOON,
-                "notify": False,
-            },
-            headers=owner,
-        ),
-        201,
-    ).json()["id"]
-    assert (await _add(as_staff, own)).status_code == 201
-    assert (await _add(as_staff, others)).status_code == 403
-    assert (await as_staff.delete(f"/v1/bookings/{others}/crew/{PRIYA}")).status_code == 403
-    assert ok(await as_staff.delete(f"/v1/bookings/{own}/crew/{PRIYA}")).json()["members"] == []
+    refused = await _add(as_staff, own)
+    assert refused.status_code == 403 and refused.json()["error"] == "forbidden"
     assert await _blocks(db, own) == []
-    missing = await as_staff.delete(f"/v1/bookings/{own}/crew/{PRIYA}")
+    ok(
+        await as_staff.post(f"/v1/bookings/{own}/crew", json={"staff_id": PRIYA}, headers=owner),
+        201,
+    )
+    read = ok(await as_staff.get(f"/v1/bookings/{own}/crew")).json()
+    assert [m["staff_id"] for m in read["members"]] == [PRIYA] and read["can_edit"] is False
+    assert (await as_staff.delete(f"/v1/bookings/{own}/crew/{PRIYA}")).status_code == 403
+    assert len(await _blocks(db, own)) == 1
+    removed = await as_staff.delete(f"/v1/bookings/{own}/crew/{PRIYA}", headers=owner)
+    assert ok(removed).json()["members"] == []
+    assert await _blocks(db, own) == []
+    missing = await as_staff.delete(f"/v1/bookings/{own}/crew/{PRIYA}", headers=owner)
     assert missing.status_code == 404
 
 
@@ -517,3 +513,43 @@ async def test_a_started_visit_takes_no_new_helper(
     assert [b[0] for b in await _blocks(db, booking_id)] == [OWNER]
     ok(await as_owner.delete(f"/v1/bookings/{booking_id}/crew/{OWNER}", headers=key()))
     assert await _blocks(db, booking_id) == []
+
+
+async def test_documents_name_every_member_of_the_crew(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    names = await staff_names(db, BIZ, [DIEGO, PRIYA])
+    crew = [name for name in (names.get(DIEGO), names.get(PRIYA)) if name is not None]
+    assert len(crew) == 2
+    billed = await _visit(as_owner, db)
+    ok(await _add(as_owner, billed), 201)
+    draft = ok(await as_owner.post(f"/v1/invoices/from-booking/{billed}", headers=key()), 201)
+    invoice = ok(await as_owner.post(f"/v1/invoices/{draft.json()['id']}/send")).json()
+    pay = ok(await as_owner.get(f"/pay/{invoice['pay_token']}")).json()
+    assert pay["tip_for"] == [n.split()[0] for n in crew]
+    ok(
+        await as_owner.post(
+            f"/v1/invoices/{invoice['id']}/payments",
+            json={"method": "cash", "amount_cents": invoice["total_cents"]},
+            headers=key(),
+        ),
+        201,
+    )
+    receipt = ok(await as_owner.get(f"/v1/bookings/{billed}/receipt")).json()
+    assert receipt["served_by"] == crew and receipt["practitioner"] == names[DIEGO]
+    sold = await _visit(as_owner, db, starts=WEDNESDAY)
+    ok(await _add(as_owner, sold), 201)
+    line = {"description": "Groom", "unit_amount_cents": 7500, "booking_id": sold}
+    sale = ok(
+        await as_owner.post("/v1/orders", json={"client_id": await client_id(db), "lines": [line]}),
+        201,
+    ).json()
+    ok(
+        await as_owner.post(
+            f"/v1/orders/{sale['id']}/cash",
+            json={"tendered_cents": sale["due_cents"]},
+            headers=key(),
+        )
+    )
+    desk = ok(await as_owner.get(f"/v1/bookings/{sold}/receipt")).json()
+    assert desk["source"] == "sale" and desk["served_by"] == crew

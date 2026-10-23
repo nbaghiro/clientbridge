@@ -1812,13 +1812,19 @@ async def tip_lines(db: AsyncSession, business_id: str, lines: list[Line]) -> li
     ]
 
 
-async def _tip_names(db: AsyncSession, business_id: str, lines: list[Line]) -> list[str]:
-    """Who a pay-link tip goes to, by first name: the staff on its lines or their bookings."""
+async def _workers(db: AsyncSession, lines: list[Line]) -> list[str]:
+    """Everyone who did the lines, each once: their members, or each visit's lead and crew."""
     ids: list[str] = []
     for line in lines:
         for staff_id, _ in await worker_shares(db, line):
             if staff_id not in ids:
                 ids.append(staff_id)
+    return ids
+
+
+async def _tip_names(db: AsyncSession, business_id: str, lines: list[Line]) -> list[str]:
+    """Who a pay-link tip goes to, by first name: the staff on its lines or their bookings."""
+    ids = await _workers(db, lines)
     if not ids:
         return []
     names = await staff_names(db, business_id, ids)
@@ -2028,7 +2034,7 @@ async def document_receipt(
         applied = await ledger.order_deposit_applied(db, document)
     doc_lines, taxes = await public_doc_lines(db, document, lines)
     client = await db.get(Client, document.client_id) if document.client_id else None
-    staff_ids = list(dict.fromkeys(ln.staff_id for ln in lines if ln.staff_id))
+    staff_ids = await _workers(db, lines)
     by_id = await staff_names(db, document.business_id, staff_ids)
     payments = (
         await db.execute(

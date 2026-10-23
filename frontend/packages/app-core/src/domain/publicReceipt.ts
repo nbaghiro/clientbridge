@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-import { formatParts, formatPhone } from "../format";
+import { formatList, formatParts, formatPhone } from "../format";
 import { useAsyncAction } from "../hooks";
 import { strings } from "../strings";
 import type { DocTotalLine, PrintedDoc, PrintedDocLine } from "../ui";
@@ -86,6 +86,7 @@ function amountPaid(receipt: PublicReceipt): number {
 /** The visit's receipt as a printed page: the document's lines and payments, with the practitioner. */
 export function printedVisitReceipt(receipt: VisitReceipt, fallbackColor: string): PrintedDoc {
     const pr = strings.printing;
+    const helpers = receipt.served_by.filter((name) => name !== receipt.practitioner);
     const number =
         receipt.number === null
             ? null
@@ -108,6 +109,9 @@ export function printedVisitReceipt(receipt: VisitReceipt, fallbackColor: string
                     label: pr.practitioner,
                     value: formatParts([receipt.practitioner, receipt.practitioner_title]),
                 },
+                ...(helpers.length === 0
+                    ? []
+                    : [{ label: pr.assistedBy, value: formatList(helpers, "unit") }]),
                 { label: pr.serviceDate, value: longDate(receipt.visit_at, receipt.timezone) },
                 { label: pr.service, value: receipt.service },
             ],

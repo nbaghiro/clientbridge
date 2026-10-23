@@ -1346,6 +1346,10 @@
         "message": "Practitioner",
         "description": "On a visit receipt: who treated the client, with their credentials and registration number"
     },
+    "printing.assistedBy": {
+        "message": "Assisted by",
+        "description": "On a visit receipt: the other members of the crew who worked on the visit with the practitioner"
+    },
     "printing.serviceDate": {
         "message": "Date of service"
     },

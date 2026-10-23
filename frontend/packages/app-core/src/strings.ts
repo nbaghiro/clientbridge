@@ -457,6 +457,7 @@ interface Strings {
         readonly forInvoice: string;
         readonly forSale: string;
         readonly practitioner: string;
+        readonly assistedBy: string;
         readonly serviceDate: string;
         readonly service: string;
         readonly item: string;

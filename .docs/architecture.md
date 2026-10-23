@@ -711,10 +711,11 @@ entitlement and its liability are created.
   minutes of its own, so a removal reads the product's current `duration_min` and never shortens the visit
   below the service's length. A class seat keeps the
   class's length.
-- **Crew:** a one-to-one visit can have helpers besides its lead. `POST /v1/bookings/{id}/crew`, by a manager or
-  the visit's lead, locks the helper, checks their calendar the way a booking is checked (and that they offer
-  the service), and writes an `hours` exception for the visit's window with the job as its `reason` and
-  `booking:<id>` as its `note`, so availability, sync and the helper's calendar already treat it as time off.
+- **Crew:** a one-to-one visit can have helpers besides its lead, and only an owner or admin adds or removes
+  them (403 for anyone else, the lead included). `POST /v1/bookings/{id}/crew` locks the helper, checks
+  their calendar the way a booking is checked (and that they offer the service), and writes an `hours`
+  exception for the visit's window with the job as its `reason` and `booking:<id>` as its `note`, so
+  availability, sync and the helper's calendar already treat it as time off.
   The blocks follow the visit: a staff move or resize, an add-on, a client's move and a series change re-time
   them (refused, or skipped in a series, when a helper can't follow, with 409 `crew_busy`), a cancel deletes
   them, a reassigned lead leaves them, and completion keeps them. A member who leaves comes off the crews still
@@ -723,7 +724,9 @@ entitlement and its liability are created.
   job to its crew and to managers, since a helper's device syncs only their own bookings. Pay splits at the
   ledger, not on the documents: a booking line done by the lead is shared evenly among the lead and the
   helpers (`lines.worker_shares`), so each earns their share at their own rate and a tip follows the same
-  shares, on an invoice or a desk sale alike.
+  shares, on an invoice or a desk sale alike. The documents keep one line for the visit but name the whole
+  crew from the same split: a receipt's `served_by` (invoice, desk sale and visit receipt), the pay page's
+  `tip_for`, and the visit receipt's practitioner (the lead) followed by the helpers who assisted.
 - **Programs:** staff lay out a class's sessions ahead of any booking with `POST /v1/programs`: a class, its
   instructor, a first start, weekdays and a count or end date. Every session is checked the way a booking is
   (closures, time off and crew blocks, the instructor's hours, other visits, `items.staff_ids`) under the

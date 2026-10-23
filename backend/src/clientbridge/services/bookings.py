@@ -134,6 +134,7 @@ _CLOSED_OR_WAITING = ("completed", "canceled", "no_show", "waitlisted")
 _INVOICED = "this visit is already invoiced"
 _CLASS_CREW = "a class session has no crew; add helpers to a one-to-one visit"
 _CREW_STARTED = "the visit has already started; add helpers before it starts"
+_CREW_MANAGERS = "only an owner or admin can change a visit's crew"
 BookingNotice = Literal["confirmed", "canceled", "rescheduled"]
 
 
@@ -1426,8 +1427,8 @@ class BookingService:
         self, booking_id: str, data: CrewAdd, idempotency_key: str | None
     ) -> CrewOut:
         """Put a helper on the visit: their calendar is blocked for its window under the lock."""
+        assert_role(self.principal, "owner", "admin", message=_CREW_MANAGERS)
         booking = await self._booking(booking_id)
-        self._assert_can_act_as(booking.staff_id)
         slot = await self._slot(booking.slot_id)
         if slot.capacity > 1:
             raise Conflict(_CLASS_CREW, code="class_move")
@@ -1485,8 +1486,8 @@ class BookingService:
         self, booking_id: str, staff_id: str, idempotency_key: str | None
     ) -> CrewOut:
         """Take a helper off the visit and free their calendar."""
+        assert_role(self.principal, "owner", "admin", message=_CREW_MANAGERS)
         booking = await self._booking(booking_id)
-        self._assert_can_act_as(booking.staff_id)
         slot = await self._slot(booking.slot_id)
 
         async def run(cmd: Command) -> CrewOut:
@@ -1552,7 +1553,7 @@ class BookingService:
             members=[CrewMember(staff_id=h, name=names.get(h)) for h in crew],
             can_edit=booking.status in ("pending", "confirmed")
             and slot.capacity <= 1
-            and (is_manager(self.principal.role) or self.principal.staff_id == booking.staff_id),
+            and is_manager(self.principal.role),
         )
 
     def _assert_open_for_addons(self, booking: Booking) -> None:

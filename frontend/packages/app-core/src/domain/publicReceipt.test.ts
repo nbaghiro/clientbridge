@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { formatList } from "../format";
 import { strings } from "../strings";
 import {
     type PublicReceipt,
@@ -90,6 +91,7 @@ function visit(extra: Partial<VisitReceipt> = {}): VisitReceipt {
         visit_at: "2026-10-07T16:00:00Z",
         practitioner: "Amy Chen",
         practitioner_title: "RMT · Reg. 12345",
+        served_by: ["Amy Chen"],
         ...extra,
     };
 }
@@ -110,6 +112,20 @@ describe("printedVisitReceipt", () => {
         expect(doc.business.phone).toBe("(250) 555-0142");
         expect(doc.headline.cents).toBe(2750 + 11791 - 2000 + 1);
         expect(doc.stamp).toBe(p.paidStamp);
+    });
+
+    it("names the rest of the crew after the practitioner", () => {
+        const doc = printedVisitReceipt(
+            visit({ served_by: ["Amy Chen", "Priya Shah", "Diego Ruiz"] }),
+            "#000",
+        );
+        expect(doc.meta[2]).toEqual({
+            label: p.assistedBy,
+            value: formatList(["Priya Shah", "Diego Ruiz"], "unit"),
+        });
+        expect(printedVisitReceipt(visit({ served_by: ["Amy Chen"] }), "#000").meta).toHaveLength(
+            4,
+        );
     });
 
     it("numbers a desk sale's receipt as the sale and leaves out a missing practitioner", () => {
