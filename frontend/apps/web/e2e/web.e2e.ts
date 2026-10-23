@@ -581,8 +581,9 @@ test("owner: payments desk, records and their dialogs", async ({ page }) => {
         await main.locator("button.block").first().click();
         const record = page.getByRole("dialog");
         await record.getByRole("button", { name: s.recordPayment }).click();
-        await expect(page.getByRole("dialog")).toContainText(s.rec.howPaid);
+        await expect(page.getByRole("dialog").last()).toContainText(s.rec.howPaid);
         await page.keyboard.press("Escape");
+        await expect(page.getByRole("dialog")).toHaveCount(1);
         await expect(
             page.getByRole("dialog").getByRole("button", { name: s.doc.download }),
         ).toBeVisible();
