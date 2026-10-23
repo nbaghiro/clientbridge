@@ -1,7 +1,6 @@
 """Brightwater Home Cleaning: a four-person house cleaner in Calgary, built on the demo engine."""
 
 import unicodedata
-from collections import Counter
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
 
@@ -15,7 +14,6 @@ from clientbridge.models.scheduling import Addon, Booking, BookingStatus, Slot
 from clientbridge.schemas.subjects import PropertyAttributes
 from scripts.demo_context import demo_business
 from scripts.demo_engine import ASSETS, Demo, Quote
-from scripts.demo_photos import add_photos
 from scripts.demo_spec import (
     BusinessSpec,
     ContractSpec,
@@ -1111,51 +1109,7 @@ class Brightwater(Demo):
 
     def finish(self) -> None:
         super().finish()
-        negative = self.negative_clients()
-        add_photos(
-            self.ctx,
-            self.spec.id,
-            [p.user_id for p in self.spec.people if p.photo],
-            [
-                self.client_id(key)
-                for key in self.spec.photo_clients
-                if self.client_id(key) not in negative
-            ],
-        )
-
-    def negative_clients(self) -> set[str]:
-        """Clients a stock portrait may not stand in for, by the rules demo_validate checks."""
-        ctx = self.ctx
-        paid: Counter[str] = Counter()
-        for payment in ctx.all(Payment):
-            if payment.invoice_id and payment.status == "succeeded" and payment.kind != "refund":
-                paid[payment.invoice_id] += payment.amount_cents
-        found: set[str | None] = {
-            *(
-                b.client_id
-                for b in ctx.all(Booking)
-                if b.status in {"no_show", "waitlisted"} or b.deposit_status == "forfeited"
-            ),
-            *(e.client_id for e in ctx.all(Estimate) if e.status == "declined"),
-            *(s.client_id for s in ctx.all(Signature) if s.status in {"declined", "expired"}),
-            *(
-                p.client_id
-                for p in ctx.all(Payment)
-                if p.status == "failed" or p.dispute_status is not None
-            ),
-            *(
-                i.client_id
-                for i in ctx.all(Invoice)
-                if i.overdue_notified_at is not None
-                or (i.status == "sent" and i.total_cents > paid[i.id])
-            ),
-            *(
-                r.client_id
-                for r in ctx.all(FormResponse)
-                if int(str(r.answers.get("rating", 5))) <= 3
-            ),
-        }
-        return {client_id for client_id in found if client_id}
+        self.portraits()
 
     def visit_note(self, item: Item, booking: Booking) -> str:
         address = self.ctx.get(Subject, booking.subject_id or "").attributes.get("address", "")

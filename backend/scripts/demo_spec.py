@@ -151,6 +151,7 @@ class BusinessSpec:
     sms_number: str
     gst_hst_number: str | None = None
     pst_number: str | None = None
+    qst_number: str | None = None
     plan: Plan = "team"
     # days left on the business's free trial today; None is a paid plan
     trial_days: int | None = None

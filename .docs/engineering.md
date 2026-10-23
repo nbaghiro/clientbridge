@@ -474,53 +474,57 @@ Production and staging setup of the sending domain, API key and webhook is in [o
 
 Demo accounts are normal tenants in the main local `clientbridge` database, using the standard servers and provider integrations. Every `make seed` replaces the demo businesses' rows with a fresh scenario and keeps unrelated tenants, and it behaves the same way locally and on staging. Tests and CI seed only the core businesses (`make seed-core`, or `seed_demo --core`), which keeps their setup to about a quarter of the rows; this is the one deliberate difference between test data and the demo, and `make seed` and the staging seed job still write every business. `make demo-check` validates their scenario and ledger. There is no demo runtime mode or separate presentation database.
 
-| Login                        | Role                                                                 |
-| ---------------------------- | -------------------------------------------------------------------- |
-| hannah@birchbark.example     | Hannah, owner of Birchbark Pet Studio                                |
-| admin@birchbark.example      | Alex, administrator                                                  |
-| diego@birchbark.example      | Diego, commissioned staff                                            |
-| priya@birchbark.example      | Priya, employee                                                      |
-| owner@cedarcoast.example     | Rowan, owner of Cedar Coast Pet Care, a dog walker on a trial        |
-| amrit@cedarcoast.example     | Amrit, dog walker paid commission                                    |
-| tessa@cedarcoast.example     | Tessa, dog walker paid hourly                                        |
-| leila@cedarcoast.example     | Leila, pet sitter paid commission                                    |
-| owner@northlight.example     | Erik, owner of Northlight Security, a camera installer               |
-| office@northlight.example    | Naomi, office manager and administrator, not bookable                |
-| liam@northlight.example      | Liam, installer paid commission on labour                            |
-| ava@northlight.example       | Ava, installer paid hourly                                           |
-| owner@brightwater.example    | Leah, owner of Brightwater Home Cleaning, a house cleaner            |
-| joy@brightwater.example      | Joy, lead cleaner paid hourly                                        |
-| harpreet@brightwater.example | Harpreet, cleaner paid hourly                                        |
-| tomasz@brightwater.example   | Tomasz, cleaner paid commission on labour                            |
-| owner@ridgeline.example      | Jenna, owner and head coach of Ridgeline Strength Studio             |
-| mateo@ridgeline.example      | Mateo, personal trainer paid commission                              |
-| simran@ridgeline.example     | Simran, coach for mobility and Strong seniors, paid hourly           |
-| owner@lakeside.example       | Nadia, owner of Lakeside Learning Studio, tutoring and music lessons |
-| julien@lakeside.example      | Julien, English and French tutor paid commission                     |
-| samuel@lakeside.example      | Samuel, science and SAT prep tutor paid hourly                       |
-| sofia@lakeside.example       | Sofia, piano and guitar teacher paid commission                      |
-| owner@maplemain.example      | Leila, owner and senior stylist of Maple and Main Hair Studio        |
-| marcus@maplemain.example     | Marcus, senior stylist paid commission on services and retail        |
-| tessa@maplemain.example      | Tessa, stylist paid commission on services and retail                |
-| gabriela@maplemain.example   | Gabriela, colourist paid commission on services and retail           |
-| amara@maplemain.example      | Amara, front desk coordinator and administrator, not bookable        |
-| owner@fieldnote.example      | Amara, owner and lead photographer of Fieldnote Photography          |
-| julian@fieldnote.example     | Julian, associate photographer and second shooter paid commission    |
-| ivy@fieldnote.example        | Ivy, studio manager and photo editor, administrator, not bookable    |
-| owner@foothills.example      | Ravi, owner of Foothills Lawn and Garden, a lawn care crew           |
-| megan@foothills.example      | Megan, crew lead paid hourly                                         |
-| tyler@foothills.example      | Tyler, seasonal crew paid hourly                                     |
-| jonah@foothills.example      | Jonah, seasonal crew on the mowing route, paid hourly                |
-| owner@harbourside.example    | Leila, owner of Harbourside Massage and Wellness and an RMT          |
-| jun@harbourside.example      | Jun, registered massage therapist paid commission                    |
-| wen@harbourside.example      | Wen, registered acupuncturist paid hourly                            |
-| teresa@harbourside.example   | Teresa, front desk administrator, not bookable                       |
-| owner@inkwell.example        | Sasha, owner and tattoo artist of Inkwell Tattoo Collective          |
-| mei@inkwell.example          | Mei, fine-line and piercing artist paid commission                   |
-| kieran@inkwell.example       | Kieran, traditional colour artist paid commission                    |
-| harleen@inkwell.example      | Harleen, front desk coordinator and administrator, not bookable      |
+| Login                        | Role                                                                        |
+| ---------------------------- | --------------------------------------------------------------------------- |
+| hannah@birchbark.example     | Hannah, owner of Birchbark Pet Studio                                       |
+| admin@birchbark.example      | Alex, administrator                                                         |
+| diego@birchbark.example      | Diego, commissioned staff                                                   |
+| priya@birchbark.example      | Priya, employee                                                             |
+| owner@cedarcoast.example     | Rowan, owner of Cedar Coast Pet Care, a dog walker on a trial               |
+| amrit@cedarcoast.example     | Amrit, dog walker paid commission                                           |
+| tessa@cedarcoast.example     | Tessa, dog walker paid hourly                                               |
+| leila@cedarcoast.example     | Leila, pet sitter paid commission                                           |
+| owner@northlight.example     | Erik, owner of Northlight Security, a camera installer                      |
+| office@northlight.example    | Naomi, office manager and administrator, not bookable                       |
+| liam@northlight.example      | Liam, installer paid commission on labour                                   |
+| ava@northlight.example       | Ava, installer paid hourly                                                  |
+| owner@brightwater.example    | Leah, owner of Brightwater Home Cleaning, a house cleaner                   |
+| joy@brightwater.example      | Joy, lead cleaner paid hourly                                               |
+| harpreet@brightwater.example | Harpreet, cleaner paid hourly                                               |
+| tomasz@brightwater.example   | Tomasz, cleaner paid commission on labour                                   |
+| owner@ridgeline.example      | Jenna, owner and head coach of Ridgeline Strength Studio                    |
+| mateo@ridgeline.example      | Mateo, personal trainer paid commission                                     |
+| simran@ridgeline.example     | Simran, coach for mobility and Strong seniors, paid hourly                  |
+| owner@lakeside.example       | Nadia, owner of Lakeside Learning Studio, tutoring and music lessons        |
+| julien@lakeside.example      | Julien, English and French tutor paid commission                            |
+| samuel@lakeside.example      | Samuel, science and SAT prep tutor paid hourly                              |
+| sofia@lakeside.example       | Sofia, piano and guitar teacher paid commission                             |
+| owner@maplemain.example      | Leila, owner and senior stylist of Maple and Main Hair Studio               |
+| marcus@maplemain.example     | Marcus, senior stylist paid commission on services and retail               |
+| tessa@maplemain.example      | Tessa, stylist paid commission on services and retail                       |
+| gabriela@maplemain.example   | Gabriela, colourist paid commission on services and retail                  |
+| amara@maplemain.example      | Amara, front desk coordinator and administrator, not bookable               |
+| owner@fieldnote.example      | Amara, owner and lead photographer of Fieldnote Photography                 |
+| julian@fieldnote.example     | Julian, associate photographer and second shooter paid commission           |
+| ivy@fieldnote.example        | Ivy, studio manager and photo editor, administrator, not bookable           |
+| owner@foothills.example      | Ravi, owner of Foothills Lawn and Garden, a lawn care crew                  |
+| megan@foothills.example      | Megan, crew lead paid hourly                                                |
+| tyler@foothills.example      | Tyler, seasonal crew paid hourly                                            |
+| jonah@foothills.example      | Jonah, seasonal crew on the mowing route, paid hourly                       |
+| owner@harbourside.example    | Leila, owner of Harbourside Massage and Wellness and an RMT                 |
+| jun@harbourside.example      | Jun, registered massage therapist paid commission                           |
+| wen@harbourside.example      | Wen, registered acupuncturist paid hourly                                   |
+| teresa@harbourside.example   | Teresa, front desk administrator, not bookable                              |
+| owner@inkwell.example        | Sasha, owner and tattoo artist of Inkwell Tattoo Collective                 |
+| mei@inkwell.example          | Mei, fine-line and piercing artist paid commission                          |
+| kieran@inkwell.example       | Kieran, traditional colour artist paid commission                           |
+| harleen@inkwell.example      | Harleen, front desk coordinator and administrator, not bookable             |
+| owner@clearcoat.example      | Mathieu, owner of Clearcoat Mobile Detailing, paint correction and coatings |
+| daniela@clearcoat.example    | Daniela, detailer for paint correction and coatings, paid commission        |
+| olivier@clearcoat.example    | Olivier, detailer and fleet lead, paid hourly                               |
+| anh@clearcoat.example        | Anh, interior detailer, paid hourly                                         |
 
-The password is `demo1234`. The same logins work on staging, at `https://app.staging.clientbridge.ca` and in the staging mobile app, after each deploy's seed. The scenario is anchored to the current Vancouver date: `seed_demo.build_demo(as_of)` builds the fixture graph, the seed modules enrich it, and it is validated before it is written. Birchbark is built by hand in `scripts/seed_demo.py` and the modules it calls. The other ten businesses are built on the demo engine: `scripts/demo_engine.py` turns a business's spec (`scripts/demo_spec.py`: its people and hours, catalog, forms, contracts, pacing and storyline stages) into rows, and each business's module, such as `scripts/demo_northlight.py` or `scripts/demo_cedar.py`, holds its spec and storyline. Each business on the engine is listed in `DEMO_BUSINESSES` in `scripts/demo_context.py`, which `demo_validate`, `connect_links`, `web_fixtures`, `stripe_setup` and `demo_snapshot` read; the engine validates the business's graph and checks that every storyline stage has its client and rows before anything is written. Assets in `backend/scripts/demo_assets/` upload to the configured bucket first. The seed creates (or finds) an auth identity for each demo user with that password and a verified email, so `make seed` needs the auth service running. Each run replaces every demo business and its rows, including those a core seed leaves out and any business no longer registered, and refuses when a seeded user also belongs to another business. It builds each business in its own process, then purges every demo business in a short transaction of its own (pausing the ledger's append-only trigger only where entries exist), and then writes, posts the ledger and validates each business in its own process, connection and transaction, largest first, with `--jobs` processes at a time (the CPU count, at most 8). If one business fails, the seed exits non-zero and names it, and that business is left empty while the others hold the new data, so rerun the seed. `--scratch URL` changes where the writes go: the seed creates and migrates that empty database, writes and validates every business there, and only then copies each one into the target in a transaction of its own, which purges the business and streams its rows table by table with binary `COPY`, parents first. Accounts arrive with their balances under the ledger's write mode (`clientbridge.ledger_write`), the entries' balance trigger is paused for that transaction, each journal's balance check runs before it ends, and the copy fails unless every account's balance equals the sum of its entries. The `payments.booking_id` cycle is filled in after bookings. The seed refuses to copy when scratch holds rows outside the demo businesses and their users. If any business fails in scratch, nothing is copied; if a copy fails, that business keeps its old rows. Staging's Job runs this way against a Postgres sidecar in its own pod (the Cloud SQL version, on loopback port 5433, trusting local logins), because each statement through the Cloud SQL proxy costs about 10 ms and the direct seed makes about 197k of them. A local run with 10.5 ms added to each round trip to the target made about 1,200 round trips and copied the 11 businesses in 67 seconds. Ledger rows are dated from the scenario's clock as they are written, and `python -m scripts.demo_fingerprint --compare URL URL` compares two seeded databases table by table, with the ledger's random ids replaced by their refs, to show a change to the seed left its rows unchanged. Auth identities are found by email or created, so an identity whose email the seed no longer uses stays in the auth service until it is deleted there; it still signs in, but to a new user with no business, which opens onboarding. Delete it from the auth service when a demo email changes. Demo contacts use reserved addresses (`.example` and `.test` domains, and 555-0100 to 555-0199 phone numbers), and the delivery job marks any email or SMS to a reserved address `failed` with `reserved_address` instead of handing it to the provider, so the demo's reminders and notices never leave the app. Historical provider references are fixture data, not usable Stripe objects: the fixture account reads as fully onboarded so Getting paid agrees with the seeded payment history, but new card payments and onboarding need the sandbox link below or test-provider credentials as for any account; without them use cash or manual payments. `make seed` refuses anything but a local database with `ENV=dev`; staging's deploy runs the same seed against `staging_clientbridge` with `ENV=staging`, and production is always refused.
+The password is `demo1234`. The same logins work on staging, at `https://app.staging.clientbridge.ca` and in the staging mobile app, after each deploy's seed. The scenario is anchored to the current Vancouver date: `seed_demo.build_demo(as_of)` builds the fixture graph, the seed modules enrich it, and it is validated before it is written. Birchbark is built by hand in `scripts/seed_demo.py` and the modules it calls. The other eleven businesses are built on the demo engine: `scripts/demo_engine.py` turns a business's spec (`scripts/demo_spec.py`: its people and hours, catalog, forms, contracts, pacing and storyline stages) into rows, and each business's module, such as `scripts/demo_northlight.py` or `scripts/demo_cedar.py`, holds its spec and storyline. Each business on the engine is listed in `DEMO_BUSINESSES` in `scripts/demo_context.py`, which `demo_validate`, `connect_links`, `web_fixtures`, `stripe_setup` and `demo_snapshot` read; the engine validates the business's graph and checks that every storyline stage has its client and rows before anything is written. Assets in `backend/scripts/demo_assets/` upload to the configured bucket first. The seed creates (or finds) an auth identity for each demo user with that password and a verified email, so `make seed` needs the auth service running. Each run replaces every demo business and its rows, including those a core seed leaves out and any business no longer registered, and refuses when a seeded user also belongs to another business. It builds each business in its own process, then purges every demo business in a short transaction of its own (pausing the ledger's append-only trigger only where entries exist), and then writes, posts the ledger and validates each business in its own process, connection and transaction, largest first, with `--jobs` processes at a time (the CPU count, at most 8). If one business fails, the seed exits non-zero and names it, and that business is left empty while the others hold the new data, so rerun the seed. `--scratch URL` changes where the writes go: the seed creates and migrates that empty database, writes and validates every business there, and only then copies each one into the target in a transaction of its own, which purges the business and streams its rows table by table with binary `COPY`, parents first. Accounts arrive with their balances under the ledger's write mode (`clientbridge.ledger_write`), the entries' balance trigger is paused for that transaction, each journal's balance check runs before it ends, and the copy fails unless every account's balance equals the sum of its entries. The `payments.booking_id` cycle is filled in after bookings. The seed refuses to copy when scratch holds rows outside the demo businesses and their users. If any business fails in scratch, nothing is copied; if a copy fails, that business keeps its old rows. Staging's Job runs this way against a Postgres sidecar in its own pod (the Cloud SQL version, on loopback port 5433, trusting local logins), because each statement through the Cloud SQL proxy costs about 10 ms and the direct seed makes about 197k of them. A local run with 10.5 ms added to each round trip to the target made about 1,200 round trips and copied the 11 businesses in 67 seconds. Ledger rows are dated from the scenario's clock as they are written, and `python -m scripts.demo_fingerprint --compare URL URL` compares two seeded databases table by table, with the ledger's random ids replaced by their refs, to show a change to the seed left its rows unchanged. Auth identities are found by email or created, so an identity whose email the seed no longer uses stays in the auth service until it is deleted there; it still signs in, but to a new user with no business, which opens onboarding. Delete it from the auth service when a demo email changes. Demo contacts use reserved addresses (`.example` and `.test` domains, and 555-0100 to 555-0199 phone numbers), and the delivery job marks any email or SMS to a reserved address `failed` with `reserved_address` instead of handing it to the provider, so the demo's reminders and notices never leave the app. Historical provider references are fixture data, not usable Stripe objects: the fixture account reads as fully onboarded so Getting paid agrees with the seeded payment history, but new card payments and onboarding need the sandbox link below or test-provider credentials as for any account; without them use cash or manual payments. `make seed` refuses anything but a local database with `ENV=dev`; staging's deploy runs the same seed against `staging_clientbridge` with `ENV=staging`, and production is always refused.
 
 Stripe sandbox provisioning and demo-account linking are documented in
 [Local sandbox setup](payments.md#local-sandbox-setup). That guide covers plan/apply, onboarding,
@@ -532,7 +536,7 @@ Which signing secret each Stripe event uses, the pinned API version and the stag
 
 ### Demo businesses by vertical
 
-There is one seeded demo business for each vertical the product serves, so a prospective customer sees their own trade and each trade can be tested from its own point of view. Provinces are mixed so the demos show GST, PST and HST. A marketing site trade page's demo link opens its business, and a vertical without a trade page is reached from the login table. Auto detailing has no demo yet. The `vehicle` subject kind it needs is in place, and its demo business is the next one planned.
+There is one seeded demo business for each vertical the product serves, so a prospective customer sees their own trade and each trade can be tested from its own point of view. Provinces are mixed so the demos show GST, PST, QST and HST. A marketing site trade page's demo link opens its business, and a vertical without a trade page is reached from the login table. Auto detailing is shown by Clearcoat Mobile Detailing, on the `vehicle` subject kind, and is the one business in Quebec, so it is the demo for GST with QST.
 
 | Vertical                      | Business                         | Business page         | Subject kind | Province | Site trade page           |
 | ----------------------------- | -------------------------------- | --------------------- | ------------ | -------- | ------------------------- |
@@ -547,6 +551,7 @@ There is one seeded demo business for each vertical the product serves, so a pro
 | Photography                   | Fieldnote Photography            | `fieldnote.D`         | none         | ON       | `/solutions/photography`  |
 | Landscaping and lawn care     | Foothills Lawn and Garden        | `foothills.D`         | property     | AB       | none                      |
 | Tattoo studio                 | Inkwell Tattoo Collective        | `inkwell.D`           | none         | BC       | none                      |
+| Mobile car detailing | Clearcoat Mobile Detailing | `clearcoat.D` | vehicle | QC | none |
 
 ### Birchbark Pet Studio walkthrough
 
@@ -799,6 +804,31 @@ Cedar Coast shows the `pet` subject kind for a dog walking and pet sitting team 
 | Stay cut short, one night refunded                     | María José (`bk_cc_maria_stay`)                                    |
 
 The scenario works around what the product does not do yet. A booking can't cross midnight inside a member's hours, so Leila has no hours from Friday to Sunday and every stay starts on one of those evenings; it is one long booking priced per night, and she takes no other visits while it runs. Home access lives in a pinned client note and the intake answers, since pet subjects have no access field. There is no late-cancellation fee, so Ryan's fee is a separate invoice line, and Derek's missed walk is invoiced by hand and left overdue. Reviews are the feedback form's rating and comments plus review requests, because the product stores no star reviews or public replies; Callum's reply is a text message. Plan walks are booked at no charge alongside the monthly subscription, and package and plan walks earn the walker nothing. Today's walks show one walker checked in and one on the way when the seed runs during working hours on a weekday; at other times they move to the next working day without those states.
+
+### Clearcoat Mobile Detailing walkthrough
+
+Clearcoat shows the `vehicle` subject kind for a mobile car detailer in Montreal, built on the demo engine in `scripts/demo_clearcoat.py`. Each vehicle holds its year, make, model, colour, plate, size and the address where it's parked, with parking notes such as a garage level and visitor fob. A new client books a wash or detail online and fills in the vehicle details form, paint correction and ceramic coatings are quoted from photos and held with a deposit, and the four detailers work from the mobile app, filling in a signed walkaround form before larger jobs. Paint correction and coatings are offered only by Mathieu and Daniela. Quebec charges GST at 5% and QST at 9.975%, so every service, add-on and product carries both, and gift cards carry neither. Each stage has a seeded client, with ids following `bk_ct_<key>`, `est_ct_<key>` and `cl_ct_<key>`:
+
+| Stage                                                         | Where to look                                                                                    |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| New client booked online, waiting for approval                | Émilie (`bk_ct_emilie`): pet hair add-on, vehicle form with a photo, agreement not yet signed    |
+| Ceramic coating quote sent with optional lines                | Raj (`est_ct_raj`): paint photo on his vehicle form, correction and engine bay optional          |
+| Paint correction accepted and booked, deposit paid            | Nadia (`est_ct_nadia`, `bk_ct_nadia`), with the engine bay add-on, in her condo garage           |
+| Today's visits: checked in, on the way and later today        | Julie (`bk_ct_julie`), Thomas (`bk_ct_thomas`) and Samira (`bk_ct_samira`)                       |
+| Monthly wash club member                                      | Marie-Claude (`sub_ct_club_marieclaude`); Jean-François (`sub_ct_club_jf`) joined two months ago |
+| Three-wash pack for one of two cars                           | David (`pkg_ct_three_david`): the Forester's pack, two used; Rachel's Mazda paid per visit       |
+| Fleet visit with a crew of two, one invoice overdue           | Plomberie Rosemont (`cl_ct_rosemont`, `av_ct_crew_rosemont_3`, `inv_ct_rosemont_3`)              |
+| Walkaround signed, detailed and paid by Tap to Pay with a tip | Lucas (`fr_ct_walkaround_lucas`, `ord_ct_lucas`): a full detail and a spray detailer             |
+| Cancelled late, with a late cancellation fee                  | Jason (`bk_ct_jason_late`, `inv_ct_jason_late`)                                                  |
+| Rain day, wash moved to the next dry day                      | Isabelle (`bk_ct_isabelle`): note, text thread and a reschedule audit                            |
+| Odour treatment refunded                                      | Simon (`inv_ct_simon`), with the owner's email about the headliner                               |
+| Five-star feedback and a review request                       | Fatou (`fr_ct_feedback_fatou`)                                                                   |
+| Four-star feedback about a late arrival                       | Mei (`fr_ct_feedback_mei`), with the owner's reply                                               |
+| Gift card bought for a father's detail                        | Sophie (`gc_ct_dad`) and her father Gilles (`bk_ct_gilles_gift`)                                 |
+
+Add-ons lengthen the visit they ride on: pet hair removal and the large vehicle charge by 30 minutes, the engine bay and headlight restoration by 45, and the odour treatment by an hour. Each detailer has 30 minutes after a visit to drive to the next one. Plomberie Rosemont's four vans are washed once a month by Olivier with Anh as crew, blocked on Anh's calendar for the whole visit, and the invoice is due in 14 days. `bk_ct_car_21_missed` is a no-show where the car wasn't parked where the client said. Julie's interior detail is checked in, Olivier is on the way to Thomas and Samira's wash is later in the day when the seed runs between about 9:00 and 13:00 Montreal time from Tuesday to Friday; at other times the three visits move to the next working day without those states, and Julie's walkaround isn't seeded.
+
+The scenario works around what the product does not do yet. A booking holds one vehicle, so a fleet visit is booked on Rosemont's first van and names all four in its note. A price can't vary with the vehicle's size, so the large vehicle charge is an add-on the client or detailer picks. Nothing in scheduling knows about weather: the rain day is an ordinary reschedule. Wash club washes are booked at no charge alongside the monthly subscription, nothing counts them against the plan's one wash a month, and they earn the detailer nothing. There is no late cancellation fee in the product, so Jason's fee is an invoice line added by hand. A gift card can pay toward a checkout sale but not toward an invoice, and the demo redeems Gilles's on its own, so his detail is booked at no charge with a note. Star ratings live with external reviews, so the feedback form's rating stands in for them, and the replies are emails.
 
 ### PowerSync signing-key rotation
 

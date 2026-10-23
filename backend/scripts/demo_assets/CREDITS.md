@@ -656,3 +656,63 @@ The team and a third of the clients have Pexels portraits under the Pexels Licen
 | `face_cl_iw_naomi.jpg`    | Naomi Ito         | [A Woman in Brown Cardigan Smiling while Leaning on the Wall (Koma Tang)](https://www.pexels.com/photo/a-woman-in-brown-cardigan-smiling-while-leaning-on-the-wall-12232874/), Pexels                     |
 | `face_cl_iw_ruby.jpg`     | Ruby Arora        | [Brunette Woman in Dress Smiling (ab_h_i s_h_ek_09)](https://www.pexels.com/photo/brunette-woman-in-dress-smiling-20132403/), Pexels                                                                      |
 | `face_cl_iw_theo.jpg`     | Theo Russo        | [Man Wearing White Long Sleeves (Marcelo Verfe)](https://www.pexels.com/photo/man-wearing-white-long-sleeves-13709822/), Pexels                                                                           |
+
+## Clearcoat Mobile Detailing
+
+Clearcoat's catalog photos are stock photos, one per catalog item: 8 from Pexels and 8 from Unsplash, none of them Unsplash+. They are cropped to 4:3 and saved as 1024 × 768 JPEGs. Some show a close relative of the item: the full detail is a microfibre towel resting on a clean hood, the fleet wash is a parked row of white vans seen from above, the odour treatment is a clean air vent and the microfibre towels are draped over a cart rather than stacked.
+
+| Asset                  | Source / creator                                                                                                                                            |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ct_it_wash.jpg`       | [A man washing a car with a sponge (Nik)](https://unsplash.com/photos/a-man-washing-a-car-with-a-sponge-phP5Qa0CauQ)                                        |
+| `ct_it_interior.jpg`   | [A Person Deep Cleaning a Car Seat (Khunkorn Laowisit)](https://www.pexels.com/photo/a-person-deep-cleaning-a-car-seat-5233285/)                            |
+| `ct_it_full.jpg`       | [Gray microfiber cloth on a black car hood (GoGoNano)](https://unsplash.com/photos/gray-microfiber-cloth-on-a-black-car-hood-Df9XCGX9Y2U)                   |
+| `ct_it_correction.jpg` | [A Person Buffing a Car (Khunkorn Laowisit)](https://www.pexels.com/photo/a-person-buffing-a-car-5233261/)                                                  |
+| `ct_it_ceramic.jpg`    | [Water droplets on a metallic gray car hood (Vitalii Abakumov)](https://unsplash.com/photos/water-droplets-on-a-metallic-gray-car-hood-tbHzrVqZzbA)         |
+| `ct_it_fleet.jpg`      | [Aerial View of White Vans in Rows in Parking Lot (abdo alshreef)](https://www.pexels.com/photo/aerial-view-of-white-vans-in-rows-in-parking-lot-33623771/) |
+| `ct_it_pet_hair.jpg`   | [A dog is sitting in the back of a car (Johnny Briggs)](https://unsplash.com/photos/a-dog-is-sitting-in-the-back-of-a-car-zAostWtCZMw)                      |
+| `ct_it_engine.jpg`     | [A detailed view of an open car engine bay (BHARAT VISHAWAKARMA)](https://unsplash.com/photos/a-detailed-view-of-an-open-car-engine-bay-GIPcinVIG7U)        |
+| `ct_it_headlights.jpg` | [A person with a sponge on a car (Vladyslav Lytvyshchenko)](https://unsplash.com/photos/a-person-with-a-sponge-on-a-car-9-muyFk7RC4)                        |
+| `ct_it_odour.jpg`      | [Gray and Black Car Aircon in Close Up Shot (Erik Mclean)](https://www.pexels.com/photo/gray-and-black-car-aircon-in-close-up-shot-13850014/)               |
+| `ct_it_large.jpg`      | [Luxury SUV Covered with Soap at Car Wash (Bulat843 🌙)](https://www.pexels.com/photo/luxury-suv-covered-with-soap-at-car-wash-28995189/)                   |
+| `ct_it_club.jpg`       | [Raindrops dapple a glossy blue car hood (Kristina Tochilko)](https://unsplash.com/photos/raindrops-dapple-a-glossy-blue-car-hood-dQO0GBzCqq4)              |
+| `ct_it_three.jpg`      | [Man Squeezing a Sponge into a Bucket (Srattha Nualsate)](https://www.pexels.com/photo/man-squeezing-a-sponge-into-a-bucket-13005115/)                      |
+| `ct_it_spray.jpg`      | [A Person Holding a Spray Bottle (Towfiqu barbhuiya)](https://www.pexels.com/photo/a-person-holding-a-spray-bottle-8526797/)                                |
+| `ct_it_towels.jpg`     | [Colorful Cloths on Table near Car (WAVYVISUALS)](https://www.pexels.com/photo/colorful-cloths-on-table-near-car-20051443/)                                 |
+| `ct_it_gift.jpg`       | [A blue gift box (Irina Chishkova)](https://unsplash.com/photos/a-blue-gift-box-ckUYLQFe4Ek)                                                                |
+
+The two photos attached to vehicle details forms stand in loosely: Émilie's interior photo shows a dog resting on a back seat rather than a seat covered in hair, and Raj's paint photo shows a dull, scratched dark hood rather than fine swirl marks.
+
+| Asset                   | Source / creator                                                                                                                                     |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ct_photo_interior.jpg` | [Cozy White Dog Resting Inside Car on Road Trip (K (@kelly))](https://www.pexels.com/photo/cozy-white-dog-resting-inside-car-on-road-trip-28844399/) |
+| `ct_photo_paint.jpg`    | [A close up of the hood of a car (Erik Mclean)](https://unsplash.com/photos/a-close-up-of-the-hood-of-a-car-CS2Nul4wgdo)                             |
+
+`ct_logo.png` is a placeholder mark drawn with a short script: a 512-pixel transparent PNG with a white car and a silver sparkle on a blue-grey disc, made for the white logo tile in the header.
+
+Clearcoat's 23 portraits, 4 team members and 19 clients, are 512 × 512 JPEGs cropped square around the face, all from Unsplash and none of them Unsplash+. The seed attaches a client's portrait only while that client has no negative storyline at the seed's date. The people in the photos are not the named staff or clients.
+
+| Asset                        | Stands in for          | Source / creator                                                                                                                                                                            |
+| ---------------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `face_us_ct_owner.jpg`       | Mathieu Roy            | [A man with a beard smiling at the camera (Samuel Yongbo Kwon)](https://unsplash.com/photos/a-man-with-a-beard-smiling-at-the-camera-zjlzx5sFAeI), Unsplash                                 |
+| `face_us_ct_daniela.jpg`     | Daniela Ortiz          | [Smiling woman standing near building (João Paulo de Souza Oliveira)](https://unsplash.com/photos/smiling-woman-standing-near-building-iDn93IJlgpk), Unsplash                               |
+| `face_us_ct_olivier.jpg`     | Olivier Bouchard       | [Man in black crew neck t-shirt (Mostafa KordZangeneh)](https://unsplash.com/photos/man-in-black-crew-neck-t-shirt-_tcJW4nqVtw), Unsplash                                                   |
+| `face_us_ct_anh.jpg`         | Anh Nguyen             | [Man wearing blue white stripe shirt leaning on the wall (JD Chow)](https://unsplash.com/photos/man-wearing-blue-white-stripe-shirt-leaning-on-the-wall-gutlccGLXKI), Unsplash              |
+| `face_cl_ct_emilie.jpg`      | Émilie Lavoie          | [A smiling young woman in a brown sweater outdoors (Brooke Balentine)](https://unsplash.com/photos/a-smiling-young-woman-in-a-brown-sweater-outdoors-LvqLdqgBuME), Unsplash                 |
+| `face_cl_ct_raj.jpg`         | Raj Malhotra           | [Man in blue polo shirt smiling (Speedy Sandy)](https://unsplash.com/photos/man-in-blue-polo-shirt-smiling-iRZX46cp1A0), Unsplash                                                           |
+| `face_cl_ct_nadia.jpg`       | Nadia Benali           | [A young woman with curly hair smiles (Vitaly Gariev)](https://unsplash.com/photos/a-young-woman-with-curly-hair-smiles-GghxeO8dEak), Unsplash                                              |
+| `face_cl_ct_julie.jpg`       | Julie Tremblay         | [Smiling woman with long hair wearing a dark shirt (Md Ishak Rahman)](https://unsplash.com/photos/smiling-woman-with-long-hair-wearing-a-dark-shirt-eBR7JFPr5q8), Unsplash                  |
+| `face_cl_ct_thomas.jpg`      | Thomas Girard          | [A man standing in front of a door holding a pair of skis (Samuel Yongbo Kwon)](https://unsplash.com/photos/a-man-standing-in-front-of-a-door-holding-a-pair-of-skis-cV06MdrJ3Ak), Unsplash |
+| `face_cl_ct_samira.jpg`      | Samira Khoury          | [A smiling woman in a black jacket and white shirt (hosein fayton)](https://unsplash.com/photos/a-smiling-woman-in-a-black-jacket-and-white-shirt-YjYOW9M9jq0), Unsplash                    |
+| `face_cl_ct_marieclaude.jpg` | Marie-Claude Pelletier | [An adult woman with long grey hair in a black t-shirt standing in a colonnade (Daniel Delgado)](https://unsplash.com/photos/woman-in-black-t-shirt-standing-cpGZKrIdYbA), Unsplash         |
+| `face_cl_ct_david.jpg`       | David Cohen            | [Smiling man looks at the camera for a portrait (Kam Star)](https://unsplash.com/photos/smiling-man-looks-at-the-camera-for-a-portrait-Lol1HZqfgiA), Unsplash                               |
+| `face_cl_ct_lucas.jpg`       | Lucas Moreau           | [A smiling young adult man in a black t-shirt against a plain background (abdullah ali)](https://unsplash.com/photos/smiling-young-man-in-black-shirt-TRjQkRS8O7c), Unsplash                |
+| `face_cl_ct_fatou.jpg`       | Fatou Diallo           | [A smiling woman with braids and a black shirt (Jeffrey Okyere)](https://unsplash.com/photos/a-smiling-woman-with-braids-and-a-black-shirt-eJ5l2jepIQA), Unsplash                           |
+| `face_cl_ct_mei.jpg`         | Mei Chen               | [A smiling woman with a black scarf (Vanishing Point Images)](https://unsplash.com/photos/a-smiling-woman-with-a-black-scarf-9bk676_KX40), Unsplash                                         |
+| `face_cl_ct_sophie.jpg`      | Sophie Bergeron        | [Woman in brown scarf and brown scarf (Halil Ibrahim Cetinkaya)](https://unsplash.com/photos/woman-in-brown-scarf-and-brown-scarf-WzGC8xSyqfg), Unsplash                                    |
+| `face_cl_ct_gilles.jpg`      | Gilles Bergeron        | [A man in a pink shirt is sitting at a table (Michael Thomson)](https://unsplash.com/photos/a-man-in-a-pink-shirt-is-sitting-at-a-table-19mOEDdyYeY), Unsplash                              |
+| `face_cl_ct_isabelle.jpg`    | Isabelle Fortin        | [Smiling woman in green top stands on a bridge outdoors (Jeff McLain)](https://unsplash.com/photos/smiling-woman-in-green-top-stands-on-a-bridge-outdoors-AhrtVOMNH8M), Unsplash            |
+| `face_cl_ct_karim.jpg`       | Karim Mansour          | [A smiling man with crossed arms outdoors (Babak Eshaghian)](https://unsplash.com/photos/a-smiling-man-with-crossed-arms-outdoors-o5xiwSPLd8o), Unsplash                                    |
+| `face_cl_ct_patrick.jpg`     | Patrick O'Neill        | [A man smiling in a city street (Sophie Paterson)](https://unsplash.com/photos/a-man-smiling-in-a-city-street-i6GucO5PeSc), Unsplash                                                        |
+| `face_cl_ct_elena.jpg`       | Elena Popescu          | [Woman smiling (Ines cancela)](https://unsplash.com/photos/woman-smiling-vMXEV9j3lbI), Unsplash                                                                                             |
+| `face_cl_ct_jf.jpg`          | Jean-François Côté     | [A smiling adult man with short brown hair and a beard wearing a black t-shirt (Ernest Flowers)](https://unsplash.com/photos/smiling-man-in-black-t-shirt-0pDEAsCT0Oo), Unsplash            |
+| `face_cl_ct_simon.jpg`       | Simon Gauthier         | [Selective-focus photography of man wearing crew-neck shirt (Clint McKoy)](https://unsplash.com/photos/selective-focus-photography-of-man-wearing-crew-neck-shirt-_J2JFRHLijI), Unsplash    |
