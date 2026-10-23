@@ -16,6 +16,7 @@ from clientbridge.models.scheduling import Booking, Slot
 from clientbridge.schemas.earnings import EarningOut, EarningsOut
 from clientbridge.services import ledger
 from clientbridge.services.ledger import Leg
+from clientbridge.services.lines import worker_shares
 
 
 @dataclass(frozen=True)
@@ -245,17 +246,16 @@ async def _booking_lines(db: AsyncSession, document: Invoice | Order) -> list[Li
     return list(rows.scalars().all())
 
 
-async def _payees(db: AsyncSession, document: Invoice | Order) -> dict[tuple[str, str], list[Line]]:
-    """A paid document's booking lines by (booking, member): the line's worker, else the lead."""
-    groups: dict[tuple[str, str], list[Line]] = {}
+async def _payees(
+    db: AsyncSession, document: Invoice | Order
+) -> dict[tuple[str, str], tuple[int, str]]:
+    """A paid document's booking work by (booking, member): its cents and its first line."""
+    groups: dict[tuple[str, str], tuple[int, str]] = {}
     for line in await _booking_lines(db, document):
         assert line.booking_id is not None
-        staff_id = line.staff_id
-        if staff_id is None:
-            booking = await db.get(Booking, line.booking_id)
-            staff_id = booking.staff_id if booking is not None else None
-        if staff_id is not None:
-            groups.setdefault((line.booking_id, staff_id), []).append(line)
+        for staff_id, cents in await worker_shares(db, line):
+            total, first = groups.get((line.booking_id, staff_id), (0, line.id))
+            groups[(line.booking_id, staff_id)] = (total + cents, first)
     return groups
 
 
@@ -264,7 +264,7 @@ async def ensure_earnings(
 ) -> None:
     """Accrue a pending earning per booking and member on a paid invoice or sale, once each."""
     biz = document.business_id
-    for (booking_id, staff_id), lines in (await _payees(db, document)).items():
+    for (booking_id, staff_id), (cents, line_id) in (await _payees(db, document)).items():
         journals = await _booking_earnings(db, biz, booking_id, staff_id)
         if journals and await _status(db, biz, journals[-1]) != "reversed":
             continue
@@ -272,7 +272,7 @@ async def ensure_earnings(
         staff = await db.get(Staff, staff_id)
         if booking is None or staff is None or not staff.payee:
             continue
-        split = await _split(db, staff, sum(line.amount_cents for line in lines), booking)
+        split = await _split(db, staff, cents, booking)
         if split is None or split[1] <= 0:
             continue
         basis, amount = split
@@ -285,7 +285,7 @@ async def ensure_earnings(
                 Leg("business", biz, "staff_cost", amount),
                 Leg("staff", staff.id, "payable", -amount, "pending"),
             ],
-            source=("line", lines[0].id),
+            source=("line", line_id),
             subject=("booking", booking.id),
             occurred_at=occurred_at,
             meta={"basis": basis, "rate": staff.rate_bps or staff.rate_cents},

@@ -10,6 +10,7 @@ import {
     savedCardLabel,
     strings,
     useBookingAddons,
+    useBookingCrew,
     useBookingPhotos,
     useDeparture,
     usePeoplePhotos,
@@ -442,6 +443,53 @@ function BookingAddons({ event }: { event: ScheduleEvent }) {
     );
 }
 
+function BookingCrew({ event }: { event: ScheduleEvent }) {
+    const crew = useBookingCrew(api, event, useViewer());
+    if (!crew.shown) return null;
+    return (
+        <DetailSection title={s.crewTitle}>
+            {crew.members.length > 0 ? (
+                <ul className="divide-y divide-line-soft rounded-md border border-line">
+                    {crew.members.map((m) => (
+                        <li key={m.id} className="flex items-center gap-3 px-3 py-2 text-sm">
+                            <Icon name="user" size={15} />
+                            <span className="min-w-0 flex-1 truncate text-ink">{m.name}</span>
+                            {crew.canEdit ? (
+                                <Button
+                                    size="sm"
+                                    variant="link"
+                                    busy={crew.busy}
+                                    onPress={() => {
+                                        crew.remove(m.id);
+                                    }}
+                                >
+                                    {s.crewRemove}
+                                </Button>
+                            ) : null}
+                        </li>
+                    ))}
+                </ul>
+            ) : (
+                <p className="text-sm text-muted">{s.crewNone}</p>
+            )}
+            {crew.canEdit && crew.options.length > 0 ? (
+                <div className="mt-2">
+                    <Select
+                        label={s.crewAdd}
+                        size="sm"
+                        value=""
+                        placeholder={s.crewPick}
+                        options={crew.options}
+                        onChange={crew.add}
+                    />
+                </div>
+            ) : null}
+            <p className="mt-1.5 text-xs text-muted">{s.crewHint}</p>
+            {crew.error !== null ? <Notice tone="danger">{crew.error}</Notice> : null}
+        </DetailSection>
+    );
+}
+
 function BookingDocuments({ event }: { event: ScheduleEvent }) {
     const receipt = useBookingReceipt(api, event, useViewer(), cssVar("accent"));
     if (!receipt.available) return null;
@@ -793,6 +841,9 @@ export function BookingBody({
             <BookingNotes detail={detail} />
             {detail.event.bookingId !== null ? <BookingPhotos event={detail.event} /> : null}
             {detail.event.bookingId !== null ? <BookingAddons event={detail.event} /> : null}
+            {detail.event.bookingId !== null ? (
+                <BookingCrew key={detail.event.bookingId} event={detail.event} />
+            ) : null}
             {detail.event.bookingId !== null ? <BookingDocuments event={detail.event} /> : null}
             {detail.event.bookingId !== null ? (
                 <BookingTreatmentNotes key={detail.event.bookingId} event={detail.event} />

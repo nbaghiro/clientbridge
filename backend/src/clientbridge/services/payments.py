@@ -96,7 +96,7 @@ from clientbridge.services.earnings import (
 )
 from clientbridge.services.inventory import assert_parent_stock, sync_parent_stock
 from clientbridge.services.ledger import BUSINESS_CURRENCY
-from clientbridge.services.lines import allocate, apply_totals
+from clientbridge.services.lines import allocate, apply_totals, worker_shares
 from clientbridge.services.tax import tax_for_amount, tax_within
 
 if TYPE_CHECKING:
@@ -938,12 +938,9 @@ async def resolve_tip(
         return TipTerms(cents, tuple((share.staff_id, share.cents) for share in split))
     weights: dict[str, int] = {}
     for line in lines:
-        staff_id = line.staff_id
-        if staff_id is None and line.booking_id is not None:
-            booking = await db.get(Booking, line.booking_id)
-            staff_id = booking.staff_id if booking is not None else None
-        if staff_id is not None and line.amount_cents > 0:
-            weights[staff_id] = weights.get(staff_id, 0) + line.amount_cents
+        for staff_id, share in await worker_shares(db, line):
+            if share > 0:
+                weights[staff_id] = weights.get(staff_id, 0) + share
     if not weights:
         return TipTerms(cents, ((fallback_staff_id, cents),))
     parts = allocate(cents, list(weights.values()))

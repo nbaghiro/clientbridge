@@ -247,6 +247,26 @@ describe("layoutDay", () => {
 });
 
 describe("buildAvailability", () => {
+    it("reads a helper's block for a visit as a job tied to that booking", () => {
+        const [job, away] = buildAvailability(
+            HOURS,
+            [
+                {
+                    id: "av_job",
+                    staff_id: "st_amy",
+                    starts_at: at(9).toISOString(),
+                    ends_at: at(11).toISOString(),
+                    reason: "Install · Owen",
+                    note: "booking:bk_1",
+                },
+                { ...AWAY[0], id: "av_own", note: null } as AwayRow,
+            ],
+            ZONE,
+        ).awayRows;
+        expect([job?.kind, job?.bookingId, job?.label]).toEqual(["job", "bk_1", "Install · Owen"]);
+        expect([away?.kind, away?.bookingId]).toEqual(["time_off", null]);
+    });
+
     it("reads split recurring hours, a dated day off and a dated open-ended day", () => {
         expect(avail.windows("st_amy", DAY)).toEqual([
             { start: at(9), end: at(12) },

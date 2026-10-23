@@ -172,6 +172,9 @@ msgstr ""
 msgid "contract_sent.subject"
 msgstr ""
 
+msgid "crew.job"
+msgstr ""
+
 msgid "datetime.day_at_time"
 msgstr ""
 

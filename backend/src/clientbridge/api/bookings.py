@@ -22,6 +22,8 @@ from clientbridge.schemas.bookings import (
     BookingPatch,
     ClassMessage,
     ClassMessageOut,
+    CrewAdd,
+    CrewOut,
     DepositOut,
     OnlineBookingOut,
     OnlineBookingPatch,
@@ -205,6 +207,32 @@ async def remove_booking_addon(
     gateway: GatewayDep,
 ) -> BookingOut:
     return await BookingService(db, principal, gateway).remove_addon(booking_id, addon_id)
+
+
+@router.get("/{booking_id}/crew", response_model=CrewOut)
+async def booking_crew(
+    booking_id: str, principal: CurrentPrincipal, db: DbSession, gateway: GatewayDep
+) -> CrewOut:
+    return await BookingService(db, principal, gateway).crew(booking_id)
+
+
+@router.post("/{booking_id}/crew", response_model=CrewOut, status_code=201)
+async def add_booking_crew(
+    booking_id: str,
+    body: CrewAdd,
+    principal: CurrentPrincipal,
+    db: DbSession,
+    gateway: GatewayDep,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+) -> CrewOut:
+    return await BookingService(db, principal, gateway).add_crew(booking_id, body, idempotency_key)
+
+
+@router.delete("/{booking_id}/crew/{staff_id}", response_model=CrewOut)
+async def remove_booking_crew(
+    booking_id: str, staff_id: str, principal: CurrentPrincipal, db: DbSession, gateway: GatewayDep
+) -> CrewOut:
+    return await BookingService(db, principal, gateway).remove_crew(booking_id, staff_id)
 
 
 recurrences_router = APIRouter(prefix="/recurrences", tags=["recurrences"])

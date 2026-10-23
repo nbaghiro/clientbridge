@@ -21,14 +21,14 @@ from clientbridge.core.errors import (
 )
 from clientbridge.core.ids import new_id
 from clientbridge.core.locale import locale_for
-from clientbridge.core.scoping import scoped, scoped_update
+from clientbridge.core.scoping import scoped, scoped_delete, scoped_update
 from clientbridge.core.security import hash_token
 from clientbridge.integrations.identity import Identity
 from clientbridge.integrations.resend import EmailSender
 from clientbridge.integrations.stripe import PaymentGateway
 from clientbridge.models.business import Business, Staff, User
 from clientbridge.models.platform import Audit
-from clientbridge.models.scheduling import Addon, Booking, Recurrence, Slot
+from clientbridge.models.scheduling import Addon, Booking, Hours, Recurrence, Slot
 from clientbridge.schemas.bookings import BookingCheck
 from clientbridge.schemas.staff import (
     AcceptInviteOut,
@@ -50,6 +50,7 @@ from clientbridge.schemas.staff import (
 from clientbridge.services import plans
 from clientbridge.services.bookings import (
     OVERLAP,
+    carry_crew,
     lock_bookings,
     lock_staff,
     release_slot,
@@ -57,6 +58,7 @@ from clientbridge.services.bookings import (
 )
 from clientbridge.services.business import load_staff, staff_names
 from clientbridge.services.catalog import NOT_OFFERED, load_item, offers
+from clientbridge.services.lines import crew_note
 from clientbridge.services.notifications import Notice, business_email, invite_link, staff_invite
 from clientbridge.services.payments import cancel_open_deposits, refund_deposit
 from clientbridge.services.plans import INVITE_TTL
@@ -472,6 +474,7 @@ class StaffService:
                 if data.future == "cancel":
                     for booking in bookings:
                         await self._cancel(cmd, gateway, booking)
+                        await carry_crew(self.db, biz, booking, slot)
                         out.canceled.append(booking.id)
                     await release_slot(self.db, slot)
                     continue
@@ -498,6 +501,15 @@ class StaffService:
                 if slot.recurrence_id is not None:
                     taken.setdefault(slot.recurrence_id, []).append(taker)
             await self._settle_series(biz, series, data, taken, out)
+            # a member who leaves stops helping on the visits still ahead
+            await self.db.execute(
+                scoped_delete(Hours, biz).where(
+                    Hours.staff_id == member.id,
+                    Hours.basis == "exception",
+                    Hours.note.startswith(crew_note("")),
+                    Hours.starts_at >= clock.now(),
+                )
+            )
             member.status = "removed"
             await self.db.flush()
             cmd.record(

@@ -649,7 +649,8 @@ What posts, and where:
 | Staff earning accrued / approved / paid | `earnings` (invoice fully paid, `/v1/earnings/approve`, `/v1/earnings/pay`)                                              | staff cost + / payable(pending) − ; pending → approved ; approved → bank                                                           |
 
 An earning accrues once per booking and member: a paid document's booking lines are grouped by the line's
-`staff_id`, or the booking's member when the line names none, and each group earns at that member's rate under
+`staff_id`, or the booking's member and its crew in even shares when the line names none or names the lead, and
+each group earns at that member's rate under
 the ref `earning:<booking>:<staff>:<n>`, where `n` counts that member's earlier journals on the booking. A journal
 is found by its subject and the member's payable leg, so one posted under an older ref still counts.
 
@@ -707,6 +708,18 @@ entitlement and its liability are created.
   Staff add an add-on through the same resize check a move uses, refused with 409 `visit_no_room` when the
   time after the visit is taken, and removing one shortens the visit by its minutes. A class seat keeps the
   class's length.
+- **Crew:** a one-to-one visit can have helpers besides its lead. `POST /v1/bookings/{id}/crew`, by a manager or
+  the visit's lead, locks the helper, checks their calendar the way a booking is checked (and that they offer
+  the service), and writes an `hours` exception for the visit's window with the job as its `reason` and
+  `booking:<id>` as its `note`, so availability, sync and the helper's calendar already treat it as time off.
+  The blocks follow the visit: a staff move or resize, an add-on, a client's move and a series change re-time
+  them (refused, or skipped in a series, when a helper can't follow, with 409 `crew_busy`), a cancel deletes
+  them, a reassigned lead leaves them, and completion keeps them. A member who leaves comes off the crews still
+  ahead, and a block can't be removed as time off (409 `crew_block`). `GET /v1/bookings/{id}/crew` gives the
+  job to its crew and to managers, since a helper's device syncs only their own bookings. Pay splits at the
+  ledger, not on the documents: a booking line done by the lead is shared evenly among the lead and the
+  helpers (`lines.worker_shares`), so each earns their share at their own rate and a tip follows the same
+  shares, on an invoice or a desk sale alike.
 - **Receipts** list every line with its tax, and walk-in sales can take an email or phone for the receipt.
   Sales by item is a report with a CSV like the others.
 

@@ -1270,6 +1270,7 @@ class Northlight(Demo):
         spots: tuple[str, ...] = CAMERA_SPOTS,
         handover: bool = True,
         online: bool = False,
+        helper: str | None = None,
     ) -> Booking | None:
         site_id = site or f"sj_nl_{client_key}"
         survey = self.survey(
@@ -1280,7 +1281,13 @@ class Northlight(Demo):
         estimate, booked = self.quoted(key, client_key, survey, quote)
         earliest = booked + timedelta(days=2)
         start = self.place(
-            installer, quote.service, install_day, site_id, past=True, not_before=earliest
+            installer,
+            quote.service,
+            install_day,
+            site_id,
+            past=True,
+            not_before=earliest,
+            helper=helper,
         ) or self.place(
             installer,
             quote.service,
@@ -1289,6 +1296,7 @@ class Northlight(Demo):
             past=True,
             not_before=earliest,
             forward=True,
+            helper=helper,
         )
         if start is None:
             return None
@@ -1296,6 +1304,8 @@ class Northlight(Demo):
             key, client_key, quote.service, installer, start, "completed", booked, subject=site_id
         )
         assert booking.completed_at is not None
+        if helper is not None:
+            assert self.helper_on(booking, helper)
         if booking.deposit_amount_cents:
             self.deposit(booking, booked + timedelta(minutes=10))
         address = self.ctx.get(Subject, site_id).attributes.get("address", "")
@@ -1456,11 +1466,12 @@ class Northlight(Demo):
         assert claire_survey is not None
         estimate, booked = self.quoted("claire", "claire", claire_survey, claire_quote)
         extra = self.extra_minutes(claire_quote)
-        start = self.place(LIAM, HOME, 6, "sj_nl_claire", past=False, extra_min=extra)
+        start = self.place(LIAM, HOME, 6, "sj_nl_claire", past=False, extra_min=extra, helper=AVA)
         assert start is not None
         claire = self.book(
             "claire", "claire", HOME, LIAM, start, "confirmed", booked, extra_min=extra
         )
+        assert self.helper_on(claire, AVA)
         self.addons(claire, estimate, claire_quote)
         self.deposit(claire, booked + timedelta(minutes=10))
         # accepted and waiting to be booked, for Book the install
@@ -1741,6 +1752,7 @@ class Northlight(Demo):
                 settle=settle,
                 site=site,
                 spots=SHOP_SPOTS,
+                helper=LIAM if key == "harbourbikes" else None,
             )
             assert booking is not None
             if key == client_key:

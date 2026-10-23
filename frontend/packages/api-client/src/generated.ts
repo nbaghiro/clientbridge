@@ -1457,6 +1457,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/bookings/{booking_id}/crew": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Booking Crew */
+        get: operations["booking_crew_v1_bookings__booking_id__crew_get"];
+        put?: never;
+        /** Add Booking Crew */
+        post: operations["add_booking_crew_v1_bookings__booking_id__crew_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/bookings/{booking_id}/crew/{staff_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove Booking Crew */
+        delete: operations["remove_booking_crew_v1_bookings__booking_id__crew__staff_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/recurrences": {
         parameters: {
             query?: never;
@@ -4414,7 +4449,7 @@ export interface components {
             /** Ok */
             ok: boolean;
             /** Problem */
-            problem?: ("past" | "closed" | "time_off" | "off_hours" | "overlap" | "class" | "not_offered") | null;
+            problem?: ("past" | "closed" | "time_off" | "off_hours" | "overlap" | "class" | "not_offered" | "crew") | null;
             /**
              * Reason
              * @description The closure or time-off reason
@@ -5130,6 +5165,64 @@ export interface components {
             messages: components["schemas"]["ConversationMessage"][];
             /** More */
             more: boolean;
+        };
+        /** CrewAdd */
+        CrewAdd: {
+            /**
+             * Staff Id
+             * @description A member to help on the visit, blocked for its window
+             */
+            staff_id: string;
+        };
+        /** CrewMember */
+        CrewMember: {
+            /** Staff Id */
+            staff_id: string;
+            /** Name */
+            name: string | null;
+        };
+        /**
+         * CrewOut
+         * @description A visit as its crew sees it: the job, its lead and the helpers on it.
+         */
+        CrewOut: {
+            /** Booking Id */
+            booking_id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "confirmed" | "completed" | "canceled" | "no_show" | "waitlisted";
+            /** Lead Id */
+            lead_id: string | null;
+            /** Lead Name */
+            lead_name: string | null;
+            /** Service */
+            service: string;
+            /** Client Name */
+            client_name: string;
+            /** Address */
+            address: string | null;
+            /**
+             * Starts At
+             * Format: date-time
+             */
+            starts_at: string;
+            /**
+             * Ends At
+             * Format: date-time
+             */
+            ends_at: string;
+            /**
+             * Members
+             * @description The helpers, in the order they were added
+             */
+            members: components["schemas"]["CrewMember"][];
+            /**
+             * Can Edit
+             * @description The viewer can add and remove helpers
+             */
+            can_edit: boolean;
         };
         /** DashboardSummary */
         DashboardSummary: {
@@ -6442,7 +6535,7 @@ export interface components {
              */
             starts_at: string;
             /** Problem */
-            problem: ("past" | "closed" | "time_off" | "off_hours" | "overlap" | "class" | "not_offered") | null;
+            problem: ("past" | "closed" | "time_off" | "off_hours" | "overlap" | "class" | "not_offered" | "crew") | null;
             /** Message */
             message: string | null;
         };
@@ -12821,6 +12914,117 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BookingOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    booking_crew_v1_bookings__booking_id__crew_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
+            };
+            path: {
+                booking_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CrewOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_booking_crew_v1_bookings__booking_id__crew_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "x-business-id"?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
+            };
+            path: {
+                booking_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CrewAdd"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CrewOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_booking_crew_v1_bookings__booking_id__crew__staff_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
+            };
+            path: {
+                booking_id: string;
+                staff_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CrewOut"];
                 };
             };
             /** @description Validation Error */

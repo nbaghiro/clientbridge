@@ -25,6 +25,7 @@ from clientbridge.schemas.forms import FormDefinition
 from clientbridge.schemas.subjects import ATTRIBUTES
 from clientbridge.services.bookings import within_hours
 from clientbridge.services.forms import validate_answers
+from clientbridge.services.lines import crew_note
 from clientbridge.services.remittances import RemittanceService
 from scripts.demo_context import DEMO_BUSINESSES, DEMO_IDS, DemoContext
 
@@ -124,6 +125,25 @@ def validate_graph(ctx: DemoContext) -> list[str]:
         f"{active[left].id}/{active[right].id}: staff or pet conflict"
         for left, right in _conflicts(active, slot_pets, items)
     )
+    by_booking = {b.id: b for b in bookings}
+    prefix = crew_note("")
+    for block in hours:
+        if block.note is None or not block.note.startswith(prefix):
+            continue
+        visit = by_booking.get(block.note.removeprefix(prefix))
+        if visit is None or visit.status == "canceled" or visit.staff_id == block.staff_id:
+            errors.append(f"{block.id}: crew block without a live visit it helps on")
+            continue
+        slot = slots[visit.slot_id]
+        if (block.starts_at, block.ends_at) != (slot.starts_at, slot.ends_at):
+            errors.append(f"{block.id}: crew block off its visit's window")
+        if any(
+            other.staff_id == block.staff_id
+            and other.starts_at < slot.ends_at
+            and other.ends_at > slot.starts_at
+            for other in active
+        ):
+            errors.append(f"{block.id}: helper is booked during the visit")
     series: dict[str, list[Slot]] = {}
     for slot in slots.values():
         if slot.recurrence_id is not None:

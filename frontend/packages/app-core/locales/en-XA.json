@@ -221,6 +221,15 @@
     "api.visitNoRoom": {
         "message": "[Ţĥé ṽîšîţ çåñ'ţ ŕûñ ţĥåţ ɱûçĥ ļöñĝéŕ, ƀéçåûšé ţĥé ţîɱé åƒţéŕ îţ îš ƀööķéð öŕ öûţšîðé ŵöŕķîñĝ ĥöûŕš. one two three four five six seven]"
     },
+    "api.crewBusy": {
+        "message": "[Ţĥåţ ţéåɱ ɱéɱƀéŕ îš ƀûšý ţĥéñ, åŵåý öŕ öûţšîðé ţĥéîŕ ĥöûŕš. Çĥööšé šöɱéöñé éļšé öŕ åñöţĥéŕ ţîɱé. one two three four five six]"
+    },
+    "api.crewMember": {
+        "message": "[Ţĥåţ ţéåɱ ɱéɱƀéŕ îš åļŕéåðý öñ ţĥîš ṽîšîţ. one two three]"
+    },
+    "api.crewBlock": {
+        "message": "[Ţĥîš ţîɱé îš å ṽîšîţ ţĥé ɱéɱƀéŕ ĥéļþš öñ. Ţåķé ţĥéɱ öƒƒ ţĥé ṽîšîţ'š çŕéŵ îñšţéåð. one two three four five]"
+    },
     "api.visitNotBilled": {
         "message": "[Ţĥîš ṽîšîţ ĥåš ñö îñṽöîçé öŕ šåļé ýéţ, šö ţĥéŕé îš ñö ŕéçéîþţ ţö þŕîñţ. one two three four five]"
     },
@@ -3148,6 +3157,51 @@
     },
     "bookings.addonAddError": {
         "message": "[Çöûļðñ'ţ åðð ţĥîš îţéɱ. Þļéåšé ţŕý åĝåîñ. one two three]"
+    },
+    "bookings.crewTitle": {
+        "message": "[Çŕéŵ one]"
+    },
+    "bookings.crewHint": {
+        "message": "[Ĥéļþéŕš öñ ţĥîš ṽîšîţ åŕé ƀļöçķéð öñ ţĥéîŕ çåļéñðåŕš ƒöŕ îţš ţîɱé. one two three four five]"
+    },
+    "bookings.crewAdd": {
+        "message": "[Åðð å ĥéļþéŕ one two]"
+    },
+    "bookings.crewPick": {
+        "message": "[Çĥööšé å ţéåɱ ɱéɱƀéŕ one two]"
+    },
+    "bookings.crewRemove": {
+        "message": "[Ŕéɱöṽé one]"
+    },
+    "bookings.crewNone": {
+        "message": "[Ñö ĥéļþéŕš ýéţ. one two]"
+    },
+    "bookings.crewAddError": {
+        "message": "[Çöûļðñ'ţ åðð ţĥîš ĥéļþéŕ. Þļéåšé ţŕý åĝåîñ. one two three]"
+    },
+    "bookings.crewRemoveError": {
+        "message": "[Çöûļðñ'ţ ŕéɱöṽé ţĥîš ĥéļþéŕ. Þļéåšé ţŕý åĝåîñ. one two three]"
+    },
+    "bookings.crewLoadError": {
+        "message": "[Çöûļðñ'ţ ļöåð ţĥîš ṽîšîţ'š çŕéŵ. Þļéåšé ţŕý åĝåîñ. one two three four]"
+    },
+    "bookings.crewJob": {
+        "message": "[Ĵöƀ ðéţåîļš one two]"
+    },
+    "bookings.crewClient": {
+        "message": "[Çļîéñţ one]"
+    },
+    "bookings.crewWhen": {
+        "message": "[Ŵĥéñ one]"
+    },
+    "bookings.crewWhere": {
+        "message": "[Ŵĥéŕé one]"
+    },
+    "bookings.crewLead": {
+        "message": "[Ļéåð one]"
+    },
+    "bookings.problemCrew": {
+        "message": "[Šöɱéöñé öñ ţĥîš ṽîšîţ'š çŕéŵ îš ƀûšý ţĥéñ one two three]"
     },
     "bookings.invoiceVisit": {
         "message": "[Çŕéåţé îñṽöîçé one two]"

@@ -14,6 +14,7 @@ import {
     type Photo,
     useAsyncAction,
     useBookingAddons,
+    useBookingCrew,
     useBookingPhotos,
     useDeparture,
     usePeoplePhotos,
@@ -398,6 +399,54 @@ function Addons({ event }: { event: ScheduleEvent }) {
     );
 }
 
+function Crew({ event }: { event: ScheduleEvent }) {
+    const crew = useBookingCrew(api, event, useViewer());
+    if (!crew.shown) return null;
+    return (
+        <DetailSection title={s.crewTitle}>
+            {crew.members.length > 0 ? (
+                <View style={styles.card}>
+                    {crew.members.map((m, i) => (
+                        <View key={m.id} style={[styles.cardRow, i > 0 && styles.divider]}>
+                            <Icon name="user" size={15} color={c.muted} />
+                            <Text style={[styles.flex, styles.addon]} numberOfLines={1}>
+                                {m.name}
+                            </Text>
+                            {crew.canEdit ? (
+                                <Button
+                                    style={{ alignSelf: "center" }}
+                                    size="sm"
+                                    variant="link"
+                                    busy={crew.busy}
+                                    onPress={() => {
+                                        crew.remove(m.id);
+                                    }}
+                                >
+                                    {s.crewRemove}
+                                </Button>
+                            ) : null}
+                        </View>
+                    ))}
+                </View>
+            ) : (
+                <Text style={styles.hint}>{s.crewNone}</Text>
+            )}
+            {crew.canEdit && crew.options.length > 0 ? (
+                <Select
+                    label={s.crewAdd}
+                    size="sm"
+                    value=""
+                    placeholder={s.crewPick}
+                    options={crew.options}
+                    onChange={crew.add}
+                />
+            ) : null}
+            <Text style={styles.hint}>{s.crewHint}</Text>
+            {crew.error !== null ? <Notice tone="danger">{crew.error}</Notice> : null}
+        </DetailSection>
+    );
+}
+
 function Documents({ event }: { event: ScheduleEvent }) {
     const receipt = useBookingReceipt(api, event, useViewer(), c.accent);
     if (!receipt.available) return null;
@@ -616,6 +665,7 @@ export function BookingBody({ detail }: { detail: BookingDetail }) {
             ) : null}
             {e.bookingId !== null ? <Photos event={e} /> : null}
             {e.bookingId !== null ? <Addons event={e} /> : null}
+            {e.bookingId !== null ? <Crew key={e.bookingId} event={e} /> : null}
             {e.bookingId !== null ? <Documents event={e} /> : null}
             {e.bookingId !== null ? <BookingTreatmentNotes key={e.bookingId} event={e} /> : null}
             {detail.history.length > 0 ? (

@@ -40,10 +40,10 @@ import {
     initials,
     BUSINESS_CURRENCY,
 } from "../format";
-import { type Load, isConnectionFailure, useAsyncAction, useNow } from "../hooks";
+import { type Load, isConnectionFailure, useAsyncAction, useNow, useRemote } from "../hooks";
 import { strings } from "../strings";
 import type { CalendarEventFlag, Intent, OptionMedia, TimelineEntry } from "../ui";
-import type { Viewer } from "./auth";
+import { type Viewer, isManager } from "./auth";
 import { afterReview, outgoing, review } from "./previews";
 import { type ItemRow, bookableItems, idList, offers, useCatalogItems } from "./catalog";
 import { type Checkout, useCheckout } from "./checkout";
@@ -413,13 +413,14 @@ interface AwayRow {
     starts_at: string;
     ends_at: string;
     reason: string | null;
+    note?: string | null;
 }
 
 export const WORKING_HOURS_SQL =
     "SELECT staff_id, basis, weekday, date, start_time, end_time, available FROM hours WHERE basis IN ('recurring', 'date')";
 
 export const AWAY_SQL = `
-SELECT id, staff_id, starts_at, ends_at, reason FROM hours
+SELECT id, staff_id, starts_at, ends_at, reason, note FROM hours
 WHERE basis = 'exception' AND ${utcBeforeSql("starts_at", "?1")}
   AND ${utcSql("starts_at")} < datetime(?1) AND ${utcSql("ends_at")} > datetime(?2)
 ORDER BY starts_at`;
@@ -429,8 +430,17 @@ export interface ScheduleBlock {
     staffId: string | null;
     start: Date;
     end: Date;
-    kind: "time_off" | "break" | "closure";
+    kind: "time_off" | "break" | "closure" | "job";
     label: string;
+    // the visit a helper's block is for, when it is one
+    bookingId?: string | null;
+}
+
+const CREW_NOTE = "booking:";
+
+/** The visit a helper's hours block stands for, from its note. */
+function crewBooking(note: string | null | undefined): string | null {
+    return note?.startsWith(CREW_NOTE) === true ? note.slice(CREW_NOTE.length) : null;
 }
 
 interface Window {
@@ -466,14 +476,18 @@ export function useAvailability(start: Date, end: Date): Availability & { source
 type LoadSources = { isLoading: boolean; error?: Error | undefined }[];
 
 export function buildAvailability(hours: HoursRow[], away: AwayRow[], zone: string): Availability {
-    const awayRows: ScheduleBlock[] = away.map((a) => ({
-        id: a.id,
-        staffId: a.staff_id,
-        start: parseTimestamp(a.starts_at),
-        end: parseTimestamp(a.ends_at),
-        kind: a.staff_id === null ? "closure" : "time_off",
-        label: a.reason ?? "",
-    }));
+    const awayRows: ScheduleBlock[] = away.map((a) => {
+        const bookingId = crewBooking(a.note);
+        return {
+            id: a.id,
+            staffId: a.staff_id,
+            start: parseTimestamp(a.starts_at),
+            end: parseTimestamp(a.ends_at),
+            kind: a.staff_id === null ? "closure" : bookingId !== null ? "job" : "time_off",
+            label: a.reason ?? "",
+            bookingId,
+        };
+    });
     const windows = (staffId: string, day: Date): Window[] | null => {
         const key = dateKey(day, zone);
         const dated = hours.filter(
@@ -729,6 +743,8 @@ function verdictMessage(v: ServerVerdict, who: string): string {
             return s.problemClass;
         case "not_offered":
             return s.problemNotOffered(who);
+        case "crew":
+            return s.problemCrew;
         default:
             return s.dropRefused;
     }
@@ -2776,5 +2792,148 @@ export function useDeparture(
                 },
             );
         },
+    };
+}
+
+interface CrewRead {
+    booking_id: string;
+    status: string;
+    lead_id: string | null;
+    lead_name: string | null;
+    service: string;
+    client_name: string;
+    address: string | null;
+    starts_at: string;
+    ends_at: string;
+    members: { staff_id: string; name: string | null }[];
+    can_edit: boolean;
+}
+
+const crewRead = (api: ApiLike, bookingId: string) => (): Promise<CrewRead | null> =>
+    bookingId === "" ? Promise.resolve(null) : api.get<CrewRead>(`/v1/bookings/${bookingId}/crew`);
+
+export interface BookingCrew {
+    shown: boolean;
+    members: { id: string; name: string }[];
+    canEdit: boolean;
+    // the members who can still help: active, offering the service and not on the visit
+    options: { key: string; label: string }[];
+    add: (staffId: string) => void;
+    remove: (staffId: string) => void;
+    busy: boolean;
+    error: string | null;
+}
+
+/** The helpers on a visit; its lead or a manager adds and removes them. */
+export function useBookingCrew(
+    api: ApiLike,
+    event: CalendarEvent,
+    viewer: Viewer | null,
+): BookingCrew {
+    const bookingId = event.bookingId ?? "";
+    const mayRead =
+        bookingId !== "" &&
+        event.capacity <= 1 &&
+        viewer !== null &&
+        (isManager(viewer.role) || viewer.staffId === event.staffId);
+    const remote = useRemote(crewRead(api, mayRead ? bookingId : ""), mayRead ? bookingId : "");
+    const staff = useStaff();
+    const { busy, error, run } = useAsyncAction();
+    const adding = useRef<Attempt | null>(null);
+    const crew = remote.data;
+    const onCrew = new Set([event.staffId, ...(crew?.members.map((m) => m.staff_id) ?? [])]);
+    const names = new Map(staff.map((m) => [m.id, staffName(m)]));
+    const open = event.status === "confirmed" || event.status === "pending";
+    const done = (): void => {
+        remote.refresh().catch(() => undefined);
+    };
+    return {
+        shown: mayRead && crew !== null && (crew.members.length > 0 || crew.can_edit),
+        members: (crew?.members ?? []).map((m) => ({
+            id: m.staff_id,
+            name: m.name ?? names.get(m.staff_id) ?? "",
+        })),
+        canEdit: open && crew?.can_edit === true,
+        options: staff
+            .filter(
+                (m) =>
+                    m.status === "active" &&
+                    !onCrew.has(m.id) &&
+                    offers(event.itemStaffIds ?? [], m.id),
+            )
+            .map((m) => ({ key: m.id, label: staffName(m) })),
+        add: (staffId) => {
+            const idempotencyKey = attemptKey(adding, { bookingId, staffId });
+            run(
+                () =>
+                    api.post(
+                        `/v1/bookings/${bookingId}/crew`,
+                        { staff_id: staffId },
+                        { idempotencyKey },
+                    ),
+                { onSuccess: done, errorMessage: (e) => failureMessage(e, s.crewAddError) },
+            );
+        },
+        remove: (staffId) => {
+            run(() => api.delete(`/v1/bookings/${bookingId}/crew/${staffId}`), {
+                onSuccess: done,
+                errorMessage: (e) => failureMessage(e, s.crewRemoveError),
+            });
+        },
+        busy,
+        error: error ?? (remote.error === null ? null : s.crewLoadError),
+    };
+}
+
+interface CrewJob {
+    title: string;
+    facts: { key: string; label: string; value: string }[];
+}
+
+/** What a helper's calendar block is for: the job, when and where, and who leads it. */
+export function useCrewJob(
+    api: ApiLike,
+    bookingId: string | null,
+): {
+    job: CrewJob | null;
+    loading: boolean;
+    error: string | null;
+} {
+    const zone = useBusinessZone();
+    const id = bookingId ?? "";
+    const remote = useRemote(crewRead(api, id), id);
+    const crew = remote.data;
+    return {
+        job:
+            crew === null
+                ? null
+                : {
+                      title: crew.service,
+                      facts: [
+                          { key: "client", label: s.crewClient, value: crew.client_name },
+                          {
+                              key: "when",
+                              label: s.crewWhen,
+                              value: formatTimeRange(
+                                  parseTimestamp(crew.starts_at),
+                                  parseTimestamp(crew.ends_at),
+                                  zone,
+                              ),
+                          },
+                          ...(crew.address !== null
+                              ? [{ key: "where", label: s.crewWhere, value: crew.address }]
+                              : []),
+                          ...(crew.lead_name !== null
+                              ? [{ key: "lead", label: s.crewLead, value: crew.lead_name }]
+                              : []),
+                          {
+                              key: "crew",
+                              label: s.crewTitle,
+                              value: formatList(crew.members.map((m) => m.name ?? "")),
+                          },
+                      ],
+                  },
+        loading: remote.isLoading && id !== "",
+        error: remote.error === null ? null : s.crewLoadError,
     };
 }

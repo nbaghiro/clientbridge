@@ -246,6 +246,15 @@
     "api.visitNoRoom": {
         "message": "The visit can't run that much longer, because the time after it is booked or outside working hours."
     },
+    "api.crewBusy": {
+        "message": "That team member is busy then, away or outside their hours. Choose someone else or another time."
+    },
+    "api.crewMember": {
+        "message": "That team member is already on this visit."
+    },
+    "api.crewBlock": {
+        "message": "This time is a visit the member helps on. Take them off the visit's crew instead."
+    },
     "api.visitNotBilled": {
         "message": "This visit has no invoice or sale yet, so there is no receipt to print."
     },
@@ -3422,6 +3431,51 @@
     },
     "bookings.addonAddError": {
         "message": "Couldn't add this item. Please try again."
+    },
+    "bookings.crewTitle": {
+        "message": "Crew"
+    },
+    "bookings.crewHint": {
+        "message": "Helpers on this visit are blocked on their calendars for its time."
+    },
+    "bookings.crewAdd": {
+        "message": "Add a helper"
+    },
+    "bookings.crewPick": {
+        "message": "Choose a team member"
+    },
+    "bookings.crewRemove": {
+        "message": "Remove"
+    },
+    "bookings.crewNone": {
+        "message": "No helpers yet."
+    },
+    "bookings.crewAddError": {
+        "message": "Couldn't add this helper. Please try again."
+    },
+    "bookings.crewRemoveError": {
+        "message": "Couldn't remove this helper. Please try again."
+    },
+    "bookings.crewLoadError": {
+        "message": "Couldn't load this visit's crew. Please try again."
+    },
+    "bookings.crewJob": {
+        "message": "Job details"
+    },
+    "bookings.crewClient": {
+        "message": "Client"
+    },
+    "bookings.crewWhen": {
+        "message": "When"
+    },
+    "bookings.crewWhere": {
+        "message": "Where"
+    },
+    "bookings.crewLead": {
+        "message": "Lead"
+    },
+    "bookings.problemCrew": {
+        "message": "Someone on this visit's crew is busy then"
     },
     "bookings.invoiceVisit": {
         "message": "Create invoice"

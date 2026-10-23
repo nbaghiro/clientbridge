@@ -24,7 +24,7 @@ from clientbridge.models.documents import Contract, Form, FormField, FormRespons
 from clientbridge.models.messaging import Message
 from clientbridge.models.payments import Payment
 from clientbridge.models.platform import File
-from clientbridge.models.scheduling import Addon, Booking, Slot
+from clientbridge.models.scheduling import Addon, Booking, Hours, Slot
 from clientbridge.schemas.billing import (
     LineInput,
     PublicEstimate,
@@ -89,8 +89,11 @@ from clientbridge.services.bookings import (
     OVERLAP,
     Availability,
     addon_minutes,
+    carry_crew,
     client_has_seat,
     create_booking_core,
+    crew_problem,
+    crew_rows,
     fill_freed_seats,
     load_availability,
     local_day,
@@ -126,12 +129,14 @@ from clientbridge.services.files import (
 from clientbridge.services.forms import validate_answers
 from clientbridge.services.lines import (
     apply_totals,
+    crew_ids,
     fetch_lines,
     included,
     included_totals,
     issued_at,
     price_lines,
     replace_lines,
+    worker_shares,
 )
 from clientbridge.services.messaging import open_thread
 from clientbridge.services.notifications import Notifier, queued_notifier
@@ -657,14 +662,18 @@ async def _offered(
     exclude: str | None = None,
     *,
     minutes: int | None = None,
+    crew: Sequence[Hours] = (),
 ) -> str | None:
     """The first member whose open times on the start's local day list it."""
     tz = await business_tz(db, business.id)
     day = starts_at.astimezone(tz).date()
     step = policy_of(business).step_min
-    found = await load_availability(db, business.id, staff_ids, day, day, tz, [item])
+    members = [*staff_ids, *(r.staff_id for r in crew if r.staff_id is not None)]
+    found = await load_availability(db, business.id, members, day, day, tz, [item])
     for staff_id in staff_ids:
-        starts = found.open_starts(item, staff_id, day, step, exclude=exclude, minutes=minutes)
+        starts = found.open_starts(
+            item, staff_id, day, step, exclude=exclude, minutes=minutes, crew=crew
+        )
         if starts_at in starts:
             return staff_id
     return None
@@ -687,6 +696,7 @@ async def open_days(
     count: int,
     *,
     minutes: int | None = None,
+    crew: Sequence[Hours] = (),
 ) -> list[PublicDay]:
     """Open start times per day for one service, across the given members."""
     policy = policy_of(business)
@@ -695,9 +705,8 @@ async def open_days(
     earliest = now + timedelta(hours=policy.lead_hours)
     latest = now + timedelta(days=policy.horizon_days)
     days = [start + timedelta(days=offset) for offset in range(min(max(count, 1), _MAX_DAYS))]
-    found = await load_availability(
-        db, business.id, [s.id for s in staff], days[0], days[-1], tz, [item]
-    )
+    members = [s.id for s in staff] + [r.staff_id for r in crew if r.staff_id is not None]
+    found = await load_availability(db, business.id, members, days[0], days[-1], tz, [item])
     out: list[PublicDay] = []
     for day in days:
         opens, closes = local_day(day, tz)
@@ -708,7 +717,9 @@ async def open_days(
         full: set[datetime] = set()
         if closure is None and closes > earliest and opens <= latest:
             for member in staff:
-                for s in found.open_starts(item, member.id, day, policy.step_min, minutes=minutes):
+                for s in found.open_starts(
+                    item, member.id, day, policy.step_min, minutes=minutes, crew=crew
+                ):
                     if earliest <= s <= latest:
                         starts.add(s)
             full = set(_waitlists(found, item, staff, day, earliest, latest)) - starts
@@ -842,6 +853,7 @@ class PublicManageService:
             start,
             count,
             minutes=_length(slot),
+            crew=await crew_rows(self.db, business.id, booking.id),
         )
         return PublicDays(days=days)
 
@@ -862,6 +874,7 @@ class PublicManageService:
             policy.step_min,
             exclude=slot.id,
             minutes=_length(slot),
+            crew=await crew_rows(self.db, business.id, booking.id),
         )
         return PublicSlots(
             slots=[
@@ -894,10 +907,20 @@ class PublicManageService:
             )
             if problem is not None:
                 raise Conflict(problem.message or _UNOFFERED)
+            crew = await crew_rows(self.db, business.id, booking.id)
             offered = await _offered(
-                self.db, business, item, [staff.id], data.starts_at, slot.id, minutes=_length(slot)
+                self.db,
+                business,
+                item,
+                [staff.id],
+                data.starts_at,
+                slot.id,
+                minutes=_length(slot),
+                crew=crew,
             )
             if offered is None:
+                raise Conflict(_UNOFFERED, code="slot_unavailable")
+            if await crew_problem(self.db, business.id, item, crew, data.starts_at, ends_at):
                 raise Conflict(_UNOFFERED, code="slot_unavailable")
             await move_slot(self.db, business.id, slot, data.starts_at, ends_at)
             booking.reschedule_count += 1
@@ -905,6 +928,7 @@ class PublicManageService:
                 await self.db.flush()
             except IntegrityError as exc:
                 raise Conflict(OVERLAP) from exc
+            await carry_crew(self.db, business.id, booking, slot)
             out = await self._view(booking, slot, business)
             cmd.record(_MOVE_SCOPE, entity_type="booking", entity_id=booking.id)
             return out
@@ -986,6 +1010,7 @@ class PublicManageService:
             booking.status = "canceled"
             booking.canceled_at = clock.now()
             await release_slot(self.db, slot)
+            await carry_crew(self.db, business.id, booking, slot)
             if held_seat:
                 await fill_freed_seats(self.db, slot)
             result = ManageCancelResult(
@@ -1076,7 +1101,9 @@ class PublicManageService:
         """The booking with its member and row locked, so limits are read after other changes."""
         booking, slot, business = await self._resolve(token)
         member = slot.staff_id
-        await lock_staff(self.db, business.id, member)
+        await lock_staff(
+            self.db, business.id, member, *await crew_ids(self.db, business.id, booking.id)
+        )
         if not await lock_bookings(self.db, business.id, [booking.id]):
             raise NotFound(_GONE)
         await self.db.refresh(slot)
@@ -1597,12 +1624,9 @@ async def _tip_names(db: AsyncSession, business_id: str, lines: list[Line]) -> l
     """Who a pay-link tip goes to, by first name: the staff on its lines or their bookings."""
     ids: list[str] = []
     for line in lines:
-        staff_id = line.staff_id
-        if staff_id is None and line.booking_id is not None:
-            booking = await db.get(Booking, line.booking_id)
-            staff_id = booking.staff_id if booking is not None else None
-        if staff_id is not None and staff_id not in ids:
-            ids.append(staff_id)
+        for staff_id, _ in await worker_shares(db, line):
+            if staff_id not in ids:
+                ids.append(staff_id)
     if not ids:
         return []
     names = await staff_names(db, business_id, ids)

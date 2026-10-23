@@ -11,6 +11,7 @@ from typing import ClassVar, Literal, get_args
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
+from clientbridge.core.locale import SOURCE_LOCALE, message
 from clientbridge.models.base import TimestampMixin
 from clientbridge.models.billing import Estimate, Invoice, Line, Order
 from clientbridge.models.business import Business, Staff, User
@@ -44,6 +45,7 @@ from clientbridge.services.bookings import expand_occurrences
 from clientbridge.services.catalog import deposit_cents
 from clientbridge.services.consents import allows_marketing
 from clientbridge.services.forms import form_definition
+from clientbridge.services.lines import crew_note
 from clientbridge.services.tax import TaxResult
 from scripts.demo_catalog import add_catalog_images
 from scripts.demo_chronology import align_timestamps, chronology_errors
@@ -477,6 +479,7 @@ class Demo:
         not_before: datetime | None = None,
         forward: bool = False,
         extra_min: int = 0,
+        helper: str | None = None,
     ) -> datetime | None:
         """The first free half hour in the member's hours, searching from `day` away from today."""
         item = self.items[item_id]
@@ -508,6 +511,10 @@ class Demo:
                     continue
                 if not past and start <= self.now + timedelta(hours=1):
                     continue
+                if helper is not None and not (
+                    self.within_hours(helper, start, end) and self.free(helper, None, start, end)
+                ):
+                    continue
                 if self.free(
                     staff, subject, start, end, item.buffer_before_min, item.buffer_after_min
                 ):
@@ -529,6 +536,32 @@ class Demo:
             )
         )
         self.busy.append((staff, None, start, end, 0, 0))
+
+    def helper_on(self, booking: Booking, helper: str) -> bool:
+        """Put a helper on a visit as the product does: a block for its window, if they are free."""
+        slot = self.ctx.get(Slot, booking.slot_id)
+        if not self.within_hours(helper, slot.starts_at, slot.ends_at) or not self.free(
+            helper, None, slot.starts_at, slot.ends_at
+        ):
+            return False
+        item = self.items[slot.item_id]
+        client = self.ctx.get(Client, booking.client_id)
+        self.ctx.add(
+            Hours(
+                id=f"av_{self.code}_crew_{booking.id.removeprefix(f'bk_{self.code}_')}",
+                business_id=self.spec.id,
+                staff_id=helper,
+                basis="exception",
+                starts_at=slot.starts_at,
+                ends_at=slot.ends_at,
+                available=False,
+                reason=message(SOURCE_LOCALE, "crew.job", service=item.name, client=client.name),
+                note=crew_note(booking.id),
+                created_at=booking.created_at,
+            )
+        )
+        self.busy.append((helper, None, slot.starts_at, slot.ends_at, 0, 0))
+        return True
 
     def book(
         self,

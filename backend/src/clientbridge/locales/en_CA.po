@@ -163,6 +163,9 @@ msgstr "{business} has asked you to sign the contract \"{contract}\"."
 msgid "contract_sent.subject"
 msgstr "{business}: please sign \"{contract}\""
 
+msgid "crew.job"
+msgstr "{service} · {client}"
+
 msgid "datetime.day_at_time"
 msgstr "{day} at {time}"
 

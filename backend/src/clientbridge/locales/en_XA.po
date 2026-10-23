@@ -181,6 +181,9 @@ msgstr "[{business} ĥåš åšķéð ýöû ţö šîĝñ ţĥé çöñţŕåç
 msgid "contract_sent.subject"
 msgstr "[{business}: þļéåšé šîĝñ \"{contract}\"~~~~~~]"
 
+msgid "crew.job"
+msgstr "[{service} · {client}~~]"
+
 msgid "datetime.day_at_time"
 msgstr "[{day} åţ {time}~~]"
 

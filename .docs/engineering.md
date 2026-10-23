@@ -559,13 +559,14 @@ Northlight shows the `site` subject kind end to end for a camera sales and insta
 | Accepted estimate ready for Book the install   | Ruth (`est_nl_ruth`)                                                  |
 | Install booked from its estimate, deposit paid | Claire (`bk_nl_claire`)                                               |
 | Add-on that lengthens the install              | Claire and Simon (`bk_nl_simon`): a second camera mount adds 30 min   |
+| Two-person install                             | Claire, with Ava helping; Harbourline Bikes (`bk_nl_harbourbikes`)    |
 | Today's installs, on site and on the way       | Owen (`bk_nl_owen`) and Mei Lin (`bk_nl_meilin`)                      |
 | Installed and paid by Tap to Pay               | Sarah (`bk_nl_sarah`): photos, handover form, equipment, plan, review |
 | Commercial client with two sites, overdue      | Island Storage (`cl_nl_islandstorage`)                                |
 | Warranty call on a camera nearing its end date | Fiona (`bk_nl_fiona_warranty`)                                        |
 | Declined estimate, cancelled survey            | Gordon (`est_nl_gordon`), Natalie (`bk_nl_natalie_survey`)            |
 
-The scenario works around what the product does not do yet. A job has one installer, so a two-person or two-day install is shown as separate bookings, and the handover form stands in for a checklist; there is no time tracking. A Tap to Pay job goes through a sale, which pays retail commission only, so the installer earns nothing for Sarah's labour, and the payment reads as an ordinary card sale. The on-my-way text goes through the delivery job and does not appear in the inbox.
+The scenario works around what the product does not do yet. A two-day install is shown as separate bookings, and the handover form stands in for a checklist; there is no time tracking. On a two-person install the helper's calendar shows a block for the job, and Liam's share of the Harbourline Bikes labour is half the line at his own rate. A Tap to Pay job goes through a sale, which pays retail commission only, so the installer earns nothing for Sarah's labour, and the payment reads as an ordinary card sale. The on-my-way text goes through the delivery job and does not appear in the inbox.
 
 ### Brightwater Home Cleaning walkthrough
 

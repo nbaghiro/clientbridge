@@ -27,6 +27,7 @@ import {
     useBusinessZone,
     minutesInto,
     useSubjectKind,
+    useCrewJob,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import {
@@ -39,6 +40,7 @@ import {
     Empty,
     Icon,
     IconButton,
+    KeyValueList,
     LoadFailed,
     Modal,
     Notice,
@@ -316,10 +318,11 @@ export function ScheduleScreen() {
                                             PX,
                                             zone,
                                         );
+                                        const job = b.kind === "job" ? (b.bookingId ?? null) : null;
                                         return span === null ? null : (
                                             <View
                                                 key={b.id}
-                                                pointerEvents="none"
+                                                pointerEvents={job !== null ? "box-none" : "none"}
                                                 style={[
                                                     styles.block,
                                                     {
@@ -329,13 +332,22 @@ export function ScheduleScreen() {
                                                 ]}
                                             >
                                                 <Icon
-                                                    name={b.kind === "break" ? "clock" : "moon"}
+                                                    name={
+                                                        job !== null
+                                                            ? "users"
+                                                            : b.kind === "break"
+                                                              ? "clock"
+                                                              : "moon"
+                                                    }
                                                     size={11}
                                                     color={c.muted}
                                                 />
                                                 <Text style={styles.blockText} numberOfLines={1}>
                                                     {b.label}
                                                 </Text>
+                                                {job !== null ? (
+                                                    <JobDetails bookingId={job} />
+                                                ) : null}
                                             </View>
                                         );
                                     })}
@@ -656,4 +668,53 @@ const styles = StyleSheet.create({
     nowLine: { flex: 1, height: 2, backgroundColor: c.danFg },
     closedNote: { marginHorizontal: 16, marginTop: 0, marginBottom: 8 },
     emptyBox: { marginHorizontal: 16, marginVertical: 8 },
+});
+
+function JobDetails({ bookingId }: { bookingId: string }) {
+    const [open, setOpen] = useState(false);
+    return (
+        <>
+            <IconButton
+                icon="eye"
+                label={strings.bookings.crewJob}
+                size="sm"
+                onPress={() => {
+                    setOpen(true);
+                }}
+            />
+            {open ? (
+                <JobSheet
+                    bookingId={bookingId}
+                    onClose={() => {
+                        setOpen(false);
+                    }}
+                />
+            ) : null}
+        </>
+    );
+}
+
+function JobSheet({ bookingId, onClose }: { bookingId: string; onClose: () => void }) {
+    const { job, loading, error } = useCrewJob(api, bookingId);
+    return (
+        <Modal open onClose={onClose} size="sm">
+            <View style={jobStyles.sheet}>
+                <Text style={jobStyles.title}>{job?.title ?? strings.bookings.crewJob}</Text>
+                {loading ? <Text style={jobStyles.muted}>{strings.common.loading}</Text> : null}
+                {error !== null ? <Notice tone="danger">{error}</Notice> : null}
+                {job !== null ? (
+                    <KeyValueList
+                        layout="stack"
+                        rows={job.facts.map((f) => ({ label: f.label, value: f.value }))}
+                    />
+                ) : null}
+            </View>
+        </Modal>
+    );
+}
+
+const jobStyles = StyleSheet.create({
+    sheet: { gap: 12, padding: 20 },
+    title: { color: c.ink, fontSize: 17, fontWeight: "700" },
+    muted: { color: c.muted, fontSize: 14 },
 });
