@@ -7537,9 +7537,6 @@
     "staff.team.selfNote": {
         "message": "You can't change your own role or remove yourself."
     },
-    "staff.team.noInvites": {
-        "message": "No invites waiting."
-    },
     "staff.team.loading": {
         "message": "Loading your team"
     },

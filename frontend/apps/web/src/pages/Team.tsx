@@ -667,20 +667,14 @@ export function Team() {
                             )}
                         />
                     </div>
-                    {team.canManage ? (
+                    {team.canManage && team.invites.length > 0 ? (
                         <div>
                             <Panel flush title={strings.staff.pending}>
-                                {team.invites.length === 0 ? (
-                                    <p className="px-4 py-6 text-center text-sm text-muted">
-                                        {t.noInvites}
-                                    </p>
-                                ) : (
-                                    <div className="divide-y divide-line-soft">
-                                        {team.invites.map((i) => (
-                                            <InviteRow key={i.id} invite={i} team={team} />
-                                        ))}
-                                    </div>
-                                )}
+                                <div className="divide-y divide-line-soft">
+                                    {team.invites.map((i) => (
+                                        <InviteRow key={i.id} invite={i} team={team} />
+                                    ))}
+                                </div>
                             </Panel>
                         </div>
                     ) : null}

@@ -585,13 +585,10 @@ export function Team({ footer }: { footer?: ReactNode }) {
                                 />
                             ))}
                         </View>
-                        {team.canManage ? (
+                        {team.canManage && team.invites.length > 0 ? (
                             <>
                                 <Text style={styles.section}>{strings.staff.pending}</Text>
                                 <View style={styles.card}>
-                                    {team.invites.length === 0 ? (
-                                        <Text style={styles.empty}>{t.noInvites}</Text>
-                                    ) : null}
                                     {team.invites.map((inv) => (
                                         <InviteLine key={inv.id} invite={inv} team={team} />
                                     ))}
@@ -663,7 +660,6 @@ const styles = StyleSheet.create({
     accessTitle: { color: c.ink, fontSize: 15, fontWeight: "700" },
     accessRow: { flexDirection: "row", alignItems: "center", gap: 8 },
     accessText: { color: c.inkSoft, fontSize: 14 },
-    empty: { color: c.muted, fontSize: 14, paddingVertical: 16, textAlign: "center" },
     sheetTitle: { color: c.ink, fontSize: 20, fontWeight: "700", marginTop: 6 },
     small: { color: c.muted, fontSize: 13, lineHeight: 18, marginTop: 2 },
     label: { color: c.inkSoft, fontSize: 13, fontWeight: "600", marginTop: 16, marginBottom: 8 },

@@ -2567,7 +2567,6 @@ interface Strings {
             readonly removedSeriesEndedState: string;
             readonly ownerNote: string;
             readonly selfNote: string;
-            readonly noInvites: string;
             readonly loading: string;
             readonly loadError: string;
             readonly aloneTitle: string;
