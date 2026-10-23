@@ -542,7 +542,8 @@ Four auto-subscribed streams and three history streams implement the read model 
 - **`business_shared`** (every active member): the catalog and entitlements, the client book, forms,
   fields, contracts, files and threads.
 - **`staff_limited`** (staff and contractors): the business row without its tax numbers and billing
-  email, and the team without pay rates or payee flags. Owner/admin read both from `business_full` with
+  email, but with its legal address and phone so every member's printed documents carry the
+  letterhead, and the team without pay rates or payee flags. Owner/admin read both from `business_full` with
   more columns, so a row never reaches one device with two different column sets. No bucket syncs
   `invite_token` or the Stripe verification fields. Both streams also carry `users.id` and
   `users.name`, and nothing else from `users`, for every user with a staff row in the business,

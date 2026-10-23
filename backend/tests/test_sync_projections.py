@@ -132,3 +132,10 @@ def test_treatment_notes_never_reach_a_device() -> None:
     queries = [line for line in SYNC_STREAMS.read_text().splitlines() if " FROM responses " in line]
     assert queries
     assert all(line.rstrip().endswith("AND token IS NOT NULL") for line in queries)
+
+
+def test_every_member_syncs_the_letterhead_address() -> None:
+    letterhead = {"unit", "street_number", "street_name", "city", "province", "postal_code"}
+    streams = stream_columns()
+    for stream in ("staff_limited", "business_full"):
+        assert letterhead | {"legal_phone"} <= set(streams[stream]["businesses"]), stream

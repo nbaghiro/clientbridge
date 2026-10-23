@@ -36,7 +36,7 @@ streams:
     with:
       limited: SELECT business_id FROM staff WHERE user_id = auth.user_id() AND status = 'active' AND role != 'owner' AND role != 'admin'
     queries:
-      - SELECT id, name, slug, timezone, province, brand, stripe_account_id, stripe_charges_enabled, tax_registered, setup_dismissed_at, plan_status, trial_ends_at, subject FROM businesses WHERE id IN limited
+      - SELECT id, name, slug, timezone, province, unit, street_number, street_name, city, postal_code, legal_phone, brand, stripe_account_id, stripe_charges_enabled, tax_registered, setup_dismissed_at, plan_status, trial_ends_at, subject FROM businesses WHERE id IN limited
       - SELECT id, hours_revision, business_id, user_id, role, title, color, status, invite_email, invited_at, created_at, updated_at FROM staff WHERE business_id IN limited
       - SELECT id, name FROM users WHERE id IN (SELECT user_id FROM staff WHERE business_id IN limited)
       # The pickup queue: paid online orders (pickup_status is set only once paid) and what to pack, without prices.
