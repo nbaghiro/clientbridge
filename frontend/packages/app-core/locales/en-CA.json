@@ -902,9 +902,6 @@
     "billing.sending": {
         "message": "Sending…"
     },
-    "billing.livePreview": {
-        "message": "Live preview"
-    },
     "billing.preview": {
         "message": "Preview"
     },
@@ -1133,9 +1130,6 @@
         "message": "{business}-{kind}-{n}.pdf",
         "args": ["business", "kind", "n"]
     },
-    "billing.doc.pages": {
-        "message": "1 page"
-    },
     "billing.doc.print": {
         "message": "Print"
     },
@@ -1147,9 +1141,6 @@
     },
     "billing.doc.back": {
         "message": "Back"
-    },
-    "billing.doc.attachedTo": {
-        "message": "Sent with"
     },
     "billing.doc.attachedInvoice": {
         "message": "Invoice email, {when}",
@@ -1171,9 +1162,6 @@
     },
     "billing.doc.noEstimate": {
         "message": "This invoice didn't start as an estimate."
-    },
-    "billing.doc.downloadHint": {
-        "message": "Download opens your browser's print dialog; choose Save as PDF."
     },
     "billing.refund": {
         "message": "Refund"

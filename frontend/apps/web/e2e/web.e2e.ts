@@ -583,10 +583,9 @@ test("owner: payments desk, records and their dialogs", async ({ page }) => {
         await record.getByRole("button", { name: s.recordPayment }).click();
         await expect(page.getByRole("dialog")).toContainText(s.rec.howPaid);
         await page.keyboard.press("Escape");
-        await page.getByRole("dialog").getByRole("button", { name: s.pdf }).click();
-        await expect(page.getByRole("dialog")).toContainText(s.doc.download);
-        await page.keyboard.press("Escape");
-        await expect(page.getByRole("dialog")).toContainText(s.lines);
+        await expect(
+            page.getByRole("dialog").getByRole("button", { name: s.doc.download }),
+        ).toBeVisible();
         await cancelConfirm(
             page,
             page.getByRole("dialog").getByRole("button", { name: s.void, exact: true }),

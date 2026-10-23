@@ -20,13 +20,10 @@ import {
     Avatar,
     Button,
     Checkbox,
-    DocTotals,
     Empty,
-    Icon,
     IconButton,
     Modal,
     Notice,
-    PrintedDocument,
     SearchSelect,
     Select,
     StatusPill,
@@ -37,6 +34,7 @@ import { cssVar } from "@clientbridge/tokens";
 import { useMemo, useState } from "react";
 
 import { api, apiBaseUrl } from "../lib/api";
+import { Paper, PaperPane } from "./DocumentPreview";
 import { DiscountForm } from "./SaleTicket";
 
 const s = strings.billing;
@@ -77,54 +75,34 @@ export function DocEditor({ kind, draft, onClose, onSent }: DocEditorProps) {
             .catch(() => undefined);
     };
 
+    const total = c.totals.find((t) => t.kind === "total");
+
     return (
         <Modal variant="drawer" onClose={close} size="xl" framed={false}>
-            <div className="@container flex h-full flex-col overflow-hidden bg-bg">
-                <header className="flex flex-wrap items-center gap-3 border-b border-line bg-surface px-6 py-4">
+            <div className="@container flex h-full flex-col overflow-hidden bg-surface">
+                <header className="flex items-center gap-3 border-b border-line px-6 py-4">
                     <h2 className="font-display text-xl font-bold text-ink">{c.title}</h2>
                     <StatusPill status={s.statusLabel.draft} intent="neutral" />
                     <div className="ml-auto flex items-center gap-2">
-                        <span className="@4xl:hidden">
-                            <Button
-                                variant="quiet"
-                                icon="eye"
-                                onPress={() => {
-                                    setShowPreview((v) => !v);
-                                }}
-                            >
-                                {s.preview}
-                            </Button>
-                        </span>
                         {c.sent === null ? (
-                            <>
+                            <span className="@4xl:hidden">
                                 <Button
-                                    variant="outline"
-                                    busy={c.busy}
-                                    disabled={c.sending}
-                                    onPress={c.saveDraft}
+                                    variant="quiet"
+                                    icon="eye"
+                                    onPress={() => {
+                                        setShowPreview((v) => !v);
+                                    }}
                                 >
-                                    {c.busy ? s.saving : s.saveDraft}
+                                    {s.preview}
                                 </Button>
-                                <Button
-                                    icon="send"
-                                    busy={c.sending}
-                                    disabled={c.busy}
-                                    onPress={c.send}
-                                >
-                                    {c.sending
-                                        ? s.sending
-                                        : kind === "invoice"
-                                          ? s.sendInvoice
-                                          : s.sendEstimate}
-                                </Button>
-                            </>
+                            </span>
                         ) : null}
                         <IconButton icon="x" label={strings.common.close} onPress={close} />
                     </div>
                 </header>
 
                 {c.sent !== null ? (
-                    <div className="flex flex-1 items-center justify-center p-8">
+                    <div className="flex flex-1 items-center justify-center bg-bg p-8">
                         <Empty
                             variant="card"
                             icon="check"
@@ -141,11 +119,11 @@ export function DocEditor({ kind, draft, onClose, onSent }: DocEditorProps) {
                         />
                     </div>
                 ) : (
-                    <div className="grid min-h-0 flex-1 grid-cols-1 @4xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-                        <div
-                            className={`min-h-0 space-y-6 overflow-y-auto px-6 py-6 ${showPreview ? "max-@4xl:hidden" : ""}`}
-                        >
-                            <section className="rounded-lg border border-line bg-surface p-5 shadow-card">
+                    <>
+                        <div className="grid min-h-0 flex-1 grid-cols-1 @4xl:grid-cols-[26rem_minmax(0,1fr)]">
+                            <div
+                                className={`min-h-0 space-y-6 overflow-y-auto px-6 py-6 @4xl:border-r @4xl:border-line ${showPreview ? "@max-4xl:hidden" : ""}`}
+                            >
                                 <ClientPicker
                                     clients={clients}
                                     value={c.clientId}
@@ -153,90 +131,73 @@ export function DocEditor({ kind, draft, onClose, onSent }: DocEditorProps) {
                                     error={c.clientError}
                                     onChange={c.setClientId}
                                 />
-                            </section>
 
-                            <section className="overflow-hidden rounded-lg border border-line bg-surface shadow-card">
-                                <div className="flex items-baseline justify-between gap-4 border-b border-line px-5 py-3">
-                                    <h3 className="text-sm font-semibold text-ink">{s.lines}</h3>
-                                    <p className="text-xs text-muted">{c.rateNote}</p>
-                                </div>
-                                {c.lines.map((l) => (
-                                    <div
-                                        key={l.key}
-                                        className="space-y-3 border-b border-line-soft px-5 py-4"
-                                    >
-                                        <div className="flex items-center gap-3">
-                                            <div className="min-w-0 flex-1">
+                                <section className="space-y-3">
+                                    <div className="flex items-baseline justify-between gap-4">
+                                        <h3 className="text-sm font-semibold text-ink">
+                                            {s.lines}
+                                        </h3>
+                                        <p className="text-xs text-muted">{c.rateNote}</p>
+                                    </div>
+                                    {c.lines.map((l) => (
+                                        <div key={l.key} className="space-y-3 rounded-lg bg-bg p-3">
+                                            <div className="flex items-center gap-2">
+                                                <div className="min-w-0 flex-1">
+                                                    <TextField
+                                                        name={s.description}
+                                                        value={l.description}
+                                                        placeholder={s.descriptionPlaceholder}
+                                                        onChange={(v) => {
+                                                            c.setLine(l.key, {
+                                                                description: v,
+                                                                itemId: null,
+                                                            });
+                                                        }}
+                                                    />
+                                                </div>
+                                                <IconButton
+                                                    icon="trash"
+                                                    label={s.removeLine}
+                                                    onPress={() => {
+                                                        c.removeLine(l.key);
+                                                    }}
+                                                />
+                                            </div>
+                                            <div className="grid grid-cols-[4rem_6rem_minmax(0,1fr)] gap-2">
                                                 <TextField
-                                                    name={s.description}
-                                                    value={l.description}
-                                                    placeholder={s.descriptionPlaceholder}
+                                                    label={s.qty}
+                                                    value={l.quantity}
+                                                    type="number"
+                                                    min="0"
+                                                    step="any"
+                                                    onChange={(v) => {
+                                                        c.setLine(l.key, { quantity: v });
+                                                    }}
+                                                />
+                                                <TextField
+                                                    label={s.price}
+                                                    {...currencyAffix(BUSINESS_CURRENCY)}
+                                                    value={l.unit}
+                                                    placeholder="0.00"
+                                                    onChange={(v) => {
+                                                        c.setLine(l.key, { unit: v });
+                                                    }}
+                                                />
+                                                <Select
+                                                    label={s.taxClass}
+                                                    value={l.taxClass}
+                                                    options={c.taxClassOptions}
                                                     onChange={(v) => {
                                                         c.setLine(l.key, {
-                                                            description: v,
-                                                            itemId: null,
+                                                            taxClass:
+                                                                v === "federal_only" ||
+                                                                v === "exempt"
+                                                                    ? v
+                                                                    : "standard",
                                                         });
                                                     }}
                                                 />
                                             </div>
-                                            <span className="w-24 text-right font-display font-bold tabular-nums text-ink">
-                                                {l.discount !== null ? (
-                                                    <span className="block text-xs font-normal text-muted line-through">
-                                                        {formatMoney(
-                                                            l.grossCents,
-                                                            BUSINESS_CURRENCY,
-                                                        )}
-                                                    </span>
-                                                ) : null}
-                                                {formatMoney(
-                                                    l.grossCents -
-                                                        discountCents(l.grossCents, l.discount),
-                                                    BUSINESS_CURRENCY,
-                                                )}
-                                            </span>
-                                            <IconButton
-                                                icon="trash"
-                                                label={s.removeLine}
-                                                onPress={() => {
-                                                    c.removeLine(l.key);
-                                                }}
-                                            />
-                                        </div>
-                                        <div className="grid grid-cols-[5rem_7rem_minmax(0,1fr)] gap-3">
-                                            <TextField
-                                                label={s.qty}
-                                                value={l.quantity}
-                                                type="number"
-                                                min="0"
-                                                step="any"
-                                                onChange={(v) => {
-                                                    c.setLine(l.key, { quantity: v });
-                                                }}
-                                            />
-                                            <TextField
-                                                label={s.price}
-                                                {...currencyAffix(BUSINESS_CURRENCY)}
-                                                value={l.unit}
-                                                placeholder="0.00"
-                                                onChange={(v) => {
-                                                    c.setLine(l.key, { unit: v });
-                                                }}
-                                            />
-                                            <Select
-                                                label={s.taxClass}
-                                                value={l.taxClass}
-                                                options={c.taxClassOptions}
-                                                onChange={(v) => {
-                                                    c.setLine(l.key, {
-                                                        taxClass:
-                                                            v === "federal_only" || v === "exempt"
-                                                                ? v
-                                                                : "standard",
-                                                    });
-                                                }}
-                                            />
-                                        </div>
-                                        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
                                             {kind === "estimate" ? (
                                                 <div>
                                                     <Checkbox
@@ -269,61 +230,83 @@ export function DocEditor({ kind, draft, onClose, onSent }: DocEditorProps) {
                                                     }}
                                                 />
                                             ) : (
-                                                <Button
-                                                    variant="link"
-                                                    icon="percent"
-                                                    disabled={l.grossCents <= 0}
-                                                    onPress={() => {
-                                                        setDiscounting(l.key);
-                                                    }}
-                                                >
-                                                    {l.discount !== null
-                                                        ? s.discountedBy(discountLabel(l.discount))
-                                                        : s.addDiscount}
-                                                </Button>
+                                                <div className="flex items-center justify-between gap-4">
+                                                    <Button
+                                                        variant="link"
+                                                        size="sm"
+                                                        icon="percent"
+                                                        disabled={l.grossCents <= 0}
+                                                        onPress={() => {
+                                                            setDiscounting(l.key);
+                                                        }}
+                                                    >
+                                                        {l.discount !== null
+                                                            ? s.discountedBy(
+                                                                  discountLabel(l.discount),
+                                                              )
+                                                            : s.addDiscount}
+                                                    </Button>
+                                                    <span className="text-right font-display font-bold tabular-nums text-ink">
+                                                        {l.discount !== null ? (
+                                                            <span className="mr-2 text-xs font-normal text-muted line-through">
+                                                                {formatMoney(
+                                                                    l.grossCents,
+                                                                    BUSINESS_CURRENCY,
+                                                                )}
+                                                            </span>
+                                                        ) : null}
+                                                        {formatMoney(
+                                                            l.grossCents -
+                                                                discountCents(
+                                                                    l.grossCents,
+                                                                    l.discount,
+                                                                ),
+                                                            BUSINESS_CURRENCY,
+                                                        )}
+                                                    </span>
+                                                </div>
                                             )}
+                                            {l.error !== null ? (
+                                                <Notice tone="danger">{l.error}</Notice>
+                                            ) : null}
                                         </div>
-                                        {l.error !== null ? (
-                                            <Notice tone="danger">{l.error}</Notice>
+                                    ))}
+                                    <div className="flex flex-wrap items-end gap-2">
+                                        {catalog.length > 0 ? (
+                                            <div className="min-w-0 flex-1">
+                                                <Select
+                                                    name={s.addFromCatalog}
+                                                    value=""
+                                                    options={[
+                                                        { key: "", label: s.addFromCatalog },
+                                                        ...catalog.map((i) => ({
+                                                            key: i.id,
+                                                            label: formatParts([
+                                                                i.name,
+                                                                formatMoney(
+                                                                    i.price_cents,
+                                                                    BUSINESS_CURRENCY,
+                                                                ),
+                                                            ]),
+                                                        })),
+                                                    ]}
+                                                    onChange={(id) => {
+                                                        const item = catalog.find(
+                                                            (i) => i.id === id,
+                                                        );
+                                                        if (item !== undefined)
+                                                            c.addCatalogItem(item);
+                                                    }}
+                                                />
+                                            </div>
                                         ) : null}
+                                        <Button variant="outline" icon="plus" onPress={c.addLine}>
+                                            {s.addCustomLine}
+                                        </Button>
                                     </div>
-                                ))}
-                                <div className="flex flex-wrap items-end gap-3 px-5 py-4">
-                                    {catalog.length > 0 ? (
-                                        <div className="w-64">
-                                            <Select
-                                                name={s.addFromCatalog}
-                                                value=""
-                                                options={[
-                                                    { key: "", label: s.addFromCatalog },
-                                                    ...catalog.map((i) => ({
-                                                        key: i.id,
-                                                        label: formatParts([
-                                                            i.name,
-                                                            formatMoney(
-                                                                i.price_cents,
-                                                                BUSINESS_CURRENCY,
-                                                            ),
-                                                        ]),
-                                                    })),
-                                                ]}
-                                                onChange={(id) => {
-                                                    const item = catalog.find((i) => i.id === id);
-                                                    if (item !== undefined) c.addCatalogItem(item);
-                                                }}
-                                            />
-                                        </div>
-                                    ) : null}
-                                    <Button variant="outline" icon="plus" onPress={c.addLine}>
-                                        {s.addCustomLine}
-                                    </Button>
-                                </div>
-                                {c.linesError !== null ? (
-                                    <div className="px-5 pb-4">
+                                    {c.linesError !== null ? (
                                         <Notice tone="danger">{c.linesError}</Notice>
-                                    </div>
-                                ) : null}
-                                <div className="space-y-3 border-t border-line bg-bg/50 px-5 py-4">
+                                    ) : null}
                                     {discounting === "doc" ? (
                                         <DiscountForm
                                             title={s.discountTitle}
@@ -338,61 +321,87 @@ export function DocEditor({ kind, draft, onClose, onSent }: DocEditorProps) {
                                             }}
                                         />
                                     ) : (
-                                        <div className="flex justify-end">
-                                            <Button
-                                                variant="link"
-                                                size="sm"
-                                                icon="percent"
-                                                disabled={c.discountBaseCents <= 0}
-                                                onPress={() => {
-                                                    setDiscounting("doc");
-                                                }}
-                                            >
-                                                {c.docDiscount !== null
-                                                    ? s.discountedBy(discountLabel(c.docDiscount))
-                                                    : s.discountTitle}
-                                            </Button>
-                                        </div>
+                                        <Button
+                                            variant="link"
+                                            size="sm"
+                                            icon="percent"
+                                            disabled={c.discountBaseCents <= 0}
+                                            onPress={() => {
+                                                setDiscounting("doc");
+                                            }}
+                                        >
+                                            {c.docDiscount !== null
+                                                ? s.discountedBy(discountLabel(c.docDiscount))
+                                                : s.discountTitle}
+                                        </Button>
                                     )}
-                                    <div className="ml-auto max-w-sm">
-                                        <DocTotals currency={BUSINESS_CURRENCY} lines={c.totals} />
-                                    </div>
-                                </div>
-                            </section>
+                                </section>
 
-                            <section className="space-y-4 rounded-lg border border-line bg-surface p-5 shadow-card">
-                                <div className="max-w-xs">
+                                <section className="space-y-4 border-t border-line pt-6">
                                     <Select<DocTerms>
                                         label={kind === "estimate" ? s.validFor : s.dueTerms}
                                         value={c.terms}
                                         options={c.termOptions}
                                         onChange={c.setTerms}
                                     />
-                                </div>
-                                <TextField
-                                    label={s.messageToClient}
-                                    optional
-                                    multiline
-                                    rows={3}
-                                    value={c.message}
-                                    placeholder={s.messagePlaceholder}
-                                    onChange={c.setMessage}
-                                />
-                            </section>
-                            {c.saved !== null ? <Notice tone="success">{c.saved}</Notice> : null}
-                            {c.error !== null ? <Notice tone="danger">{c.error}</Notice> : null}
+                                    <TextField
+                                        label={s.messageToClient}
+                                        optional
+                                        multiline
+                                        rows={3}
+                                        value={c.message}
+                                        placeholder={s.messagePlaceholder}
+                                        onChange={c.setMessage}
+                                    />
+                                </section>
+                                {c.saved !== null ? (
+                                    <Notice tone="success">{c.saved}</Notice>
+                                ) : null}
+                                {c.error !== null ? <Notice tone="danger">{c.error}</Notice> : null}
+                            </div>
+
+                            <div className={`min-h-0 ${showPreview ? "" : "@max-4xl:hidden"}`}>
+                                <PaperPane>
+                                    <Paper doc={doc} />
+                                </PaperPane>
+                            </div>
                         </div>
 
-                        <aside
-                            className={`min-h-0 overflow-y-auto border-l border-line bg-bg px-6 py-6 ${showPreview ? "" : "max-@4xl:hidden"}`}
-                        >
-                            <p className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted">
-                                <Icon name="eye" size={14} />
-                                {s.livePreview}
-                            </p>
-                            <PrintedDocument doc={doc} />
-                        </aside>
-                    </div>
+                        <footer className="flex flex-wrap items-center gap-x-6 gap-y-3 border-t border-line px-6 py-3.5">
+                            <div className="min-w-0">
+                                <p className="truncate text-sm text-muted">
+                                    {client?.name ?? s.chooseClient}
+                                </p>
+                                {total !== undefined ? (
+                                    <p className="font-display text-xl font-bold tabular-nums text-ink">
+                                        {formatMoney(total.cents, BUSINESS_CURRENCY)}
+                                    </p>
+                                ) : null}
+                            </div>
+                            <div className="ml-auto flex items-center gap-2">
+                                <Button
+                                    variant="outline"
+                                    busy={c.busy}
+                                    disabled={c.sending}
+                                    onPress={c.saveDraft}
+                                >
+                                    {c.busy ? s.saving : s.saveDraft}
+                                </Button>
+                                <Button
+                                    icon="send"
+                                    busy={c.sending}
+                                    disabled={c.busy}
+                                    onPress={c.send}
+                                >
+                                    {c.sending
+                                        ? s.sending
+                                        : kind === "invoice"
+                                          ? s.sendInvoice
+                                          : s.sendEstimate}
+                                </Button>
+                            </div>
+                        </footer>
+                    </>
                 )}
             </div>
         </Modal>

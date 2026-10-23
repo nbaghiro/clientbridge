@@ -302,7 +302,6 @@ interface Strings {
         readonly saveDraft: string;
         readonly saving: string;
         readonly sending: string;
-        readonly livePreview: string;
         readonly preview: string;
         readonly taxNote: (rates: string) => string;
         readonly noTaxNote: string;
@@ -379,19 +378,16 @@ interface Strings {
                 readonly receipt: string;
             } & Labels;
             readonly fileName: (business: string, kind: string, n: string) => string;
-            readonly pages: string;
             readonly print: string;
             readonly download: string;
             readonly share: string;
             readonly back: string;
-            readonly attachedTo: string;
             readonly attachedInvoice: (when: string) => string;
             readonly attachedEstimate: (when: string) => string;
             readonly attachedReceipt: (when: string) => string;
             readonly notSentYet: string;
             readonly noReceipt: string;
             readonly noEstimate: string;
-            readonly downloadHint: string;
         };
         readonly refund: string;
         readonly refundBadge: string;

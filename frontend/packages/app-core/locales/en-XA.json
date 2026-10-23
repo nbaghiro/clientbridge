@@ -821,9 +821,6 @@
     "billing.sending": {
         "message": "[Šéñðîñĝ… one]"
     },
-    "billing.livePreview": {
-        "message": "[Ļîṽé þŕéṽîéŵ one two]"
-    },
     "billing.preview": {
         "message": "[Þŕéṽîéŵ one]"
     },
@@ -1037,9 +1034,6 @@
     "billing.doc.fileName": {
         "message": "[{business}-{kind}-{n}.þðƒ one]"
     },
-    "billing.doc.pages": {
-        "message": "[1 þåĝé one]"
-    },
     "billing.doc.print": {
         "message": "[Þŕîñţ one]"
     },
@@ -1051,9 +1045,6 @@
     },
     "billing.doc.back": {
         "message": "[Ɓåçķ one]"
-    },
-    "billing.doc.attachedTo": {
-        "message": "[Šéñţ ŵîţĥ one]"
     },
     "billing.doc.attachedInvoice": {
         "message": "[Îñṽöîçé éɱåîļ, {when} one two]"
@@ -1072,9 +1063,6 @@
     },
     "billing.doc.noEstimate": {
         "message": "[Ţĥîš îñṽöîçé ðîðñ'ţ šţåŕţ åš åñ éšţîɱåţé. one two three]"
-    },
-    "billing.doc.downloadHint": {
-        "message": "[Đöŵñļöåð öþéñš ýöûŕ ƀŕöŵšéŕ'š þŕîñţ ðîåļöĝ; çĥööšé Šåṽé åš ÞĐƑ. one two three four]"
     },
     "billing.refund": {
         "message": "[Ŕéƒûñð one]"
