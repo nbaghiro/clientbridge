@@ -25,7 +25,9 @@ def public_urls(base_domain: str) -> dict[str, str]:
         "auth_public_url": f"https://api.{base_domain}/auth",
         "web_base_url": f"https://app.{base_domain}",
         "admin_base_url": f"https://admin.{base_domain}",
-        "connect_base_url": f"https://book.{base_domain}",
+        "business_page_url": f"https://{{slug}}.{base_domain}",
+        "book_base_url": f"https://book.{base_domain}",
+        "shop_base_url": f"https://shop.{base_domain}",
         "pay_base_url": f"https://pay.{base_domain}",
         # the marketing site, which also serves the images every email shows
         "cors_allow_origins": ",".join(f"https://{host}" for host in origins),

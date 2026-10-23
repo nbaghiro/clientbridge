@@ -1,6 +1,7 @@
 // The host-page half of the embed protocol in embed.ts, built into public/embed.js with the catalog text.
 
-type Widget = "booking" | "pay" | "form" | "contract";
+type Widget = "booking" | "shop" | "pay" | "form" | "contract";
+type Site = "book" | "shop" | "pay";
 
 export interface EmbedText {
     titles: Record<Widget, string>;
@@ -9,9 +10,9 @@ export interface EmbedText {
 
 interface WidgetType {
     widget: Widget;
+    site: Site;
     path: string;
     attr: string;
-    suffix?: string;
 }
 
 interface Brand {
@@ -32,10 +33,11 @@ interface Entry {
 }
 
 const TYPES: Record<string, WidgetType> = {
-    "connect-booking": { widget: "booking", path: "/b/", attr: "slug", suffix: "/book" },
-    "connect-pay": { widget: "pay", path: "/i/", attr: "token" },
-    "connect-form": { widget: "form", path: "/form/", attr: "token" },
-    "connect-contract": { widget: "contract", path: "/contract/", attr: "token" },
+    "connect-booking": { widget: "booking", site: "book", path: "/", attr: "slug" },
+    "connect-shop": { widget: "shop", site: "shop", path: "/", attr: "slug" },
+    "connect-pay": { widget: "pay", site: "pay", path: "/i/", attr: "token" },
+    "connect-form": { widget: "form", site: "book", path: "/form/", attr: "token" },
+    "connect-contract": { widget: "contract", site: "book", path: "/contract/", attr: "token" },
 };
 
 const DRAWER_STYLE = `
@@ -71,6 +73,17 @@ function originOf(u: string): string {
         return new URL(u).origin;
     } catch {
         return u;
+    }
+}
+
+// embed.js comes from book.<base>, and shop and pay widgets load from their own sibling host
+function siteOrigin(base: string, site: Site): string {
+    try {
+        const url = new URL(base);
+        if (url.hostname.startsWith("book.")) url.hostname = site + url.hostname.slice(4);
+        return url.origin;
+    } catch {
+        return base;
     }
 }
 
@@ -278,7 +291,7 @@ export function loadEmbeds(text: EmbedText): void {
                 connectedCallback(): void {
                     if (this.frame !== null) return;
                     const title = text.titles[cfg.widget];
-                    const base = originOf(attr(this, "base") ?? DEFAULT_BASE);
+                    const base = siteOrigin(originOf(attr(this, "base") ?? DEFAULT_BASE), cfg.site);
                     const id = this.getAttribute(cfg.attr) ?? "";
                     const floating = this.getAttribute("mode") === "drawer";
                     const iframe = document.createElement("iframe");
@@ -286,7 +299,6 @@ export function loadEmbeds(text: EmbedText): void {
                         base +
                         cfg.path +
                         encodeURIComponent(id) +
-                        (cfg.suffix ?? "") +
                         "?embed=1" +
                         (floating ? "&presentation=guided" : "");
                     iframe.title = title;

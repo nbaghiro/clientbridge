@@ -40,9 +40,14 @@ def parent(env: Environment, envs: Sequence[Environment]) -> Environment | None:
 
 
 def hosts(managed: gcp.dns.ManagedZone, env: Environment, address: pulumi.Input[str]) -> None:
-    for name in [*(env.host(host) for host in HOSTS), f"{WWW}.{env.base_domain}"]:
+    named = [*(env.host(host) for host in HOSTS), f"{WWW}.{env.base_domain}"]
+    # a wildcard stops at a delegated zone, so production's does not answer for staging's names
+    for resource, name in [
+        *((name, name) for name in named),
+        (f"pages.{env.base_domain}", env.pages),
+    ]:
         gcp.dns.RecordSet(
-            name,
+            resource,
             managed_zone=managed.name,
             name=f"{name}.",
             type="A",

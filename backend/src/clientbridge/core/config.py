@@ -110,9 +110,11 @@ class Settings(BaseSettings):
     admin_base_url: str = ""
     platform_admin_identity_ids: str = ""
     dev_platform_admin_identity_ids: str = ""
-    connect_base_url: str = "http://localhost:8709"
-    # Every invoice pay link uses this one host (production: https://pay.clientbridge.ca).
-    pay_base_url: str = "http://localhost:8709"
+    # each business's public page is its own subdomain, so the slug fills the template
+    business_page_url: str = "http://{slug}.localhost:8709"
+    book_base_url: str = "http://book.localhost:8709"
+    shop_base_url: str = "http://shop.localhost:8709"
+    pay_base_url: str = "http://pay.localhost:8709"
     cors_allow_origins: str = ""
     # our application fee keeps Stripe's percentage plus ours at or under the ceiling, capped at max
     platform_fee_ceiling_bps: int = 320
@@ -231,8 +233,12 @@ class Settings(BaseSettings):
     def allowed_origins(self) -> list[str]:
         return [o.strip() for o in self.cors_allow_origins.split(",") if o.strip()]
 
-    def allowed_origin_regex(self) -> str | None:
-        return r"http://localhost:\d+" if self.env == "dev" else None
+    def allowed_origin_regex(self) -> str:
+        pages = re.escape(self.business_page_url).replace(re.escape("{slug}"), "[a-z0-9-]+")
+        return rf"http://([a-z0-9-]+\.)?localhost:\d+|{pages}" if self.env == "dev" else pages
+
+    def page_url(self, slug: str) -> str:
+        return self.business_page_url.format(slug=slug)
 
     def public_rate_limit(self) -> int:
         """Requests per minute from one IP on each unauthenticated endpoint group."""

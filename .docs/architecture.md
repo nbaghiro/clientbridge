@@ -133,7 +133,7 @@ with the subclass's HTTP status, and a request that fails validation as `invalid
 | `command.py`    | **The command wrapper.** `run_command(db, principal, *, action, run, response_model, idempotency_key)` — replays a stored response for a repeated key, stages `Command.record(...)` audit rows, then commits mutation + audit + idempotency key as **one atomic unit** (rollback on any error). Money/uniqueness/cross-tenant mutations go through it.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | `scoping.py`    | **The one place the tenant filter lives.** `scoped(Model, business_id, soft_delete=…)` + `scoped_update`/`scoped_delete`. Services **never** hand-write a `business_id` filter.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | `deps.py`       | DI hub — DB session, adapter aliases (`EmailDep`, `GatewayDep`, `IdentityDep`…), the auth chain (`current_identity` asks the auth service who the session is, `current_user` links the local user, `current_principal` re-derives business/role from the DB every request, honoring `X-Business-Id`), and role gates (`assert_role`, `is_manager`).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| `config.py`     | Pydantic-settings and the origin lists: `app_origins()` (only `WEB_BASE_URL`; credentialed CORS and the cookie Origin check) and `CORS_ALLOW_ORIGINS` (Connect's `book.`, `pay.` and `shop.` hosts, without credentials, through `core/cors.py`). `ENV` is `dev`, `staging` or `prod`; `BASE_DOMAIN` (`clientbridge.ca`, `staging.clientbridge.ca`) derives every public URL that is not set: the API at `api.` with the auth service under `/auth`, the web app at `app.`, Connect at `book.`, Pay at `pay.`. **Fails closed outside dev:** refuses to boot without `BASE_DOMAIN`, the database, Redis, storage, Stripe, Twilio, Resend and auth email hook settings, the PowerSync signing key, a separate admin URL or a nonzero `TRUSTED_PROXY_HOPS`, or with a set URL or session cookie name that disagrees with `BASE_DOMAIN`, a reserved base domain (`.invalid`, `.localhost`, `.test`…), Redis, storage or the auth service on `localhost`, or an `EMAIL_FROM` at another domain. A deploy also names the session cookie `__Host-cb_session` and reaches the auth service's public API at `AUTH_INTERNAL_URL` (its in-cluster Service over http; empty means `AUTH_PUBLIC_URL`). |
+| `config.py`     | Pydantic-settings and the origin lists: `app_origins()` (only `WEB_BASE_URL`; credentialed CORS and the cookie Origin check) and `CORS_ALLOW_ORIGINS` (Connect's `book.`, `pay.` and `shop.` hosts, without credentials, through `core/cors.py`), with `allowed_origin_regex()` adding every business page from `BUSINESS_PAGE_URL`. `ENV` is `dev`, `staging` or `prod`; `BASE_DOMAIN` (`clientbridge.ca`, `staging.clientbridge.ca`) derives every public URL that is not set: the API at `api.` with the auth service under `/auth`, the web app at `app.`, business pages at `<slug>.`, booking at `book.`, the shop at `shop.`, Pay at `pay.`. **Fails closed outside dev:** refuses to boot without `BASE_DOMAIN`, the database, Redis, storage, Stripe, Twilio, Resend and auth email hook settings, the PowerSync signing key, a separate admin URL or a nonzero `TRUSTED_PROXY_HOPS`, or with a set URL or session cookie name that disagrees with `BASE_DOMAIN`, a reserved base domain (`.invalid`, `.localhost`, `.test`…), Redis, storage or the auth service on `localhost`, or an `EMAIL_FROM` at another domain. A deploy also names the session cookie `__Host-cb_session` and reaches the auth service's public API at `AUTH_INTERNAL_URL` (its in-cluster Service over http; empty means `AUTH_PUBLIC_URL`). |
 | `deployment.py` | What a deployed environment derives from `BASE_DOMAIN`, with no imports beyond the standard library so the Pulumi program reuses it: `public_urls` (the API settings), `auth_env` (the auth service's environment over `kratos.yml`), `powersync_env` (PowerSync's for `powersync.deployed.yaml`), the session cookie name and the secret variable names each service needs.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | `security.py`   | SHA-256 opaque-token hashing (invites) · the PowerSync token (HS256 or RS256 + a JWKS endpoint for prod).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | `ids.py`        | Prefixed-ULID PKs (`bz_…`, `bk_…`), time-sortable.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
@@ -316,7 +316,7 @@ unique `provider_ref` = one row per Stripe object; a payment can have several re
 refund, each with `parent_payment_id`; a payment targets at most one invoice or one order),
 `payment_methods` (saved card/PAD, `method` card/bank_eft, the same spelling as `payments.method`;
 `preferred` marks the card charged off-session), `payment_setup_links` (a hashed, expiring link a client
-opens on Connect `/payment-method` to authorize a bank account (PAD), with its SetupIntent and mandate).
+opens on `pay.D/setup` to authorize a bank account (PAD), with its SetupIntent and mandate).
 
 **ledger (2)** — `accounts` (one per owner × category × code × currency: owners are a business, client, staff
 member, the platform, a gift card or a package; categories are cash (`stripe`/`bank`/`cash`), `receivable`,
@@ -465,7 +465,7 @@ a non-2xx reply makes it retry.
   sign-out.
 - **Origins** — only the staff web app (`WEB_BASE_URL`) gets credentialed CORS, and cookie-authenticated
   writes must carry its `Origin` (`core/cors.py`, `app_origins()`). The cookie also rides along on
-  same-site requests from `book.`, `pay.` and `shop.`, which get CORS without credentials.
+  same-site requests from `book.`, `pay.`, `shop.` and business pages, which get CORS without credentials.
 - **Provisioning** — the first authenticated request creates the `users` row for the identity
   (`AuthService.provision`), and later ones copy email/name changes and a throttled `last_seen_at`.
 - **Required verification** — signing in does not need a verified email; opening a business and
@@ -682,7 +682,7 @@ entitlement and its liability are created.
   shop refuses an order larger than the stock.
 - **Retail commission:** a paid sale accrues an earning for its staff member at `staff.retail_rate_bps` on the
   product lines before tax, using the same earning journals as bookings.
-- **Online shop:** products marked `sell_online` are listed at `/b/<slug>/shop` on Connect. An order is paid by
+- **Online shop:** products marked `sell_online` are listed at `shop.D/<slug>` on Connect, and staff share that link and its QR code from Products. An order is paid by
   card, has `source = online`, and moves through `pickup_status` (unfulfilled, ready, picked up) from Sales.
 - **Booking add-ons:** products the owner offers at booking (`items.addon`, with `addon_for` naming the
   services each goes with) and the client chose on the booking page are stored in `addons` and become lines
@@ -696,7 +696,7 @@ entitlement and its liability are created.
 The rules the public booking page follows (lead time, how far ahead, the start-time step, approval for new
 clients) and the cancellation policy live in `businesses.booking_policy`, read and written through
 `/v1/online-booking`; members are hidden from the page with `staff.bookable_online`. Every booking gets a
-`manage_token`, and the confirmation and reminder carry `/m/<token>` on Connect, where the client can move
+`manage_token`, and the confirmation and reminder carry `book.D/m/<token>` on Connect, where the client can move
 or cancel within the cut-offs (`/manage/{token}`). The server enforces the cut-offs and the move limit and
 refunds a paid deposit on an allowed cancel. A booked visit whose deposit is still pending can be paid
 from the same page (`POST /manage/{token}/deposit`): it opens the deposit PaymentIntent the booking page
@@ -767,14 +767,17 @@ Everything else — SQL, mutations, validation, status→`Intent` decisions, cop
   app imports.
 - **Runtime URLs:** web and Connect load `/config.js` before their bundle. The web image serves it with
   `window.__CLIENTBRIDGE_CONFIG__ = { baseDomain, stripePublishableKey }`, and `runtimeConfig()`
-  (`runtime.ts`) derives the API (`api.`) and the auth service (`api.<base>/auth`), PowerSync (`sync.`), Pay (`pay.`) and Connect
-  (`book.`) URLs from it, so one image serves staging and production. The dev servers ship an empty
+  (`runtime.ts`) derives the API (`api.`) and the auth service (`api.<base>/auth`), PowerSync (`sync.`) and
+  Connect's four URLs from it: the business page template (`https://{slug}.<base>`), `book.`, `shop.` and
+  `pay.`, so one image serves staging and production. `runtime.ts` also builds every Connect link from them
+  (`businessPageUrl`, `bookingPageUrl`, `shopPageUrl`) and tells Connect which site an origin serves
+  (`connectSite`). The dev servers ship an empty
   `public/config.js`, and each app's `config.ts` then falls back to its `VITE_*` values.
 - **One checkout.** Every sale (deposit, gift card, package, subscription) runs through `useCheckout`
   (saved card or new card, one idempotency key per attempt), and saving a card through
   `useAddPaymentMethod`. Only chargeable saved methods are offered (`checkoutMethods`): cards, and bank
   accounts with an active mandate. Bank (PAD) entry happens in a browser: on the web app, or on Connect
-  `/payment-method` through a link that mobile sends.
+  `pay.D/setup` through a link that mobile sends.
 
 ### Locale and time zones
 
@@ -902,10 +905,31 @@ The public surfaces (book/pay/form/contract + a per-business landing) live in th
 (`apps/connect`, :8709) that imports **only** `@clientbridge/app-core/public` — no PowerSync, no api-client.
 Each `public*` domain is a `createPublicXClient(baseUrl)` factory doing plain `fetch` against token/slug-
 authed endpoints (the URL is the only credential). `apps/connect/public/embed.js` is the host-side iframe
-loader: custom elements (`<connect-booking|pay|…>`) that mount the widget with a `postMessage` resize and
-success protocol. `make gen-strings` builds it from `src/embedLoader.ts` with the `embed.*` catalog messages
+loader: custom elements (`<connect-booking|shop|pay|form|contract>`) that mount the widget from its own
+host, with a `postMessage` resize and success protocol. `make gen-strings` builds it from `src/embedLoader.ts` with the `embed.*` catalog messages
 inlined, so the host page loads neither React nor the catalog. The lean-bundle boundary is **enforced by lint**: `no-restricted-imports` bans `@powersync/*`
 from Connect and `app-core/public`.
+
+Connect reads which site it is from its origin (`connectSite`) and mounts only that site's routes, so each
+page has one address:
+
+| Site       | Pages                                                                                   |
+| ---------- | --------------------------------------------------------------------------------------- |
+| `<slug>.D` | The business's public page: about, services, team, hours and contact                    |
+| `book.D`   | `/<slug>` booking, `/m/<token>` visit, `/form/<token>`, `/contract/<token>`, `/prefs/<token>` |
+| `shop.D`   | `/<slug>` and `/<slug>/checkout`, `/order/<token>`                                      |
+| `pay.D`    | `/i/<token>` invoice, `/e/<token>` estimate, `/r/<token>` receipt, `/setup` bank account |
+
+Links between sites are absolute, built from the runtime URLs, and the business navigation on every page
+links back to the business page. In development every `*.localhost` name reaches the Vite server on its own
+port (`book.localhost:8709`, `birchbark.localhost:8709`), so the same routing runs locally and in e2e.
+
+The slug is the business page's subdomain: 3 to 40 lowercase letters, digits or dashes, starting and ending
+with a letter or digit, and not one of the reserved names in `services/business.py` (environment hosts,
+mail records, Connect's root paths, anything containing `clientbridge`). `assert_public_slug` checks it at
+onboarding and when an owner or admin changes it in Business settings, and the unique index answers a
+taken slug with 409 `slug_taken`. A change is audited (`business.slug`) and updates the Stripe account's
+business website; links already shared stop working.
 
 ### Marketing site (`apps/site`)
 

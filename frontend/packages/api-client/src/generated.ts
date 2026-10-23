@@ -4683,6 +4683,11 @@ export interface components {
         BusinessSettingsUpdate: {
             /** Name */
             name?: string | null;
+            /**
+             * Slug
+             * @description The public page's address; old links stop working
+             */
+            slug?: string | null;
             /** Timezone */
             timezone?: string | null;
             /** Billing Email */

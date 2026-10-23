@@ -195,7 +195,7 @@ def prefs_token(client_id: str) -> str:
 
 
 def prefs_url(client_id: str) -> str:
-    return f"{get_settings().connect_base_url}/prefs/{prefs_token(client_id)}"
+    return f"{get_settings().book_base_url}/prefs/{prefs_token(client_id)}"
 
 
 def client_id_for_prefs(token: str) -> str | None:

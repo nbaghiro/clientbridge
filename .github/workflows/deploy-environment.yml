@@ -1,6 +1,6 @@
 name: deploy-environment
 # One environment's stack: pulumi up with the given digests (the migrate Job runs first and a failure
-# stops the rollout), a smoke test of api., sync. and app., then the deployed digests are tagged
+# stops the rollout), a smoke test of every host, then the deployed digests are tagged
 # <env>-current and <env>-<short sha>. The job's GitHub environment selects the deployer account,
 # which may change only that environment's namespace.
 on:
@@ -133,11 +133,15 @@ jobs:
           # a first deploy waits on the Gateway programming its routes, which can take minutes
           healthy() {
             for url in "https://api.$DOMAIN/health" "https://api.$DOMAIN/ready" \
-                       "https://sync.$DOMAIN/probes/liveness" "https://app.$DOMAIN/"; do
+                       "https://sync.$DOMAIN/probes/liveness" "https://app.$DOMAIN/" \
+                       "https://admin.$DOMAIN/" "https://$DOMAIN/"; do
               curl -fsS --max-time 10 -o /dev/null "$url" || return 1
             done
-            curl -fsS --max-time 10 "https://app.$DOMAIN/config.js" |
-              grep -q "\"baseDomain\":\"$DOMAIN\""
+            # Connect's hosts, and a business page through the wildcard route
+            for host in app book shop pay smoke-check; do
+              curl -fsS --max-time 10 "https://$host.$DOMAIN/config.js" |
+                grep -qF "\"pageUrl\":\"https://{slug}.$DOMAIN\"" || return 1
+            done
           }
           deadline=$((SECONDS + 300))
           delay=5

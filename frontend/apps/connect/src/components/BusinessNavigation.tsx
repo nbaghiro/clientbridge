@@ -8,8 +8,9 @@ import {
 } from "@clientbridge/app-core/public";
 import { Avatar, Button, Icon } from "@clientbridge/ui";
 import { useEffect, useRef } from "react";
-import { Link, NavLink, useLocation, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { config } from "../config";
+import { links as connect, useSlug } from "../site";
 import { isEmbedded } from "../embed";
 
 const profile = createPublicProfileClient(config.apiUrl);
@@ -24,8 +25,9 @@ export function BusinessNavigation({
     cartCount?: number | undefined;
 }) {
     useBusinessFavicon(brand);
-    const { slug } = useParams<{ slug: string }>();
-    const businessSlug = brand?.public_slug === null ? undefined : (brand?.public_slug ?? slug);
+    const slug = useSlug();
+    const businessSlug =
+        brand?.public_slug === null ? undefined : (brand?.public_slug ?? (slug || undefined));
     if (isEmbedded() || !businessSlug) return null;
     return (
         <Navigation key={businessSlug} slug={businessSlug} brand={brand} cartCount={cartCount} />
@@ -59,28 +61,33 @@ function Navigation({
         };
     }, []);
 
-    const home = `/b/${encodeURIComponent(slug)}`;
-    const shopping = pathname === `${home}/shop`;
-    const taskPage = pathname !== home && pathname !== `${home}/book` && !shopping;
+    const own = pathname === `/${encodeURIComponent(slug)}`;
+    const current =
+        config.site?.kind === "page"
+            ? "home"
+            : own && config.site?.kind === "book"
+              ? "booking"
+              : own && config.site?.kind === "shop"
+                ? "shop"
+                : null;
+    const shopping = current === "shop";
+    const taskPage = current === null;
     const links = [
-        { path: home, label: s.home, end: true },
-        ...(available.booking ? [{ path: `${home}/book`, label: s.booking, end: false }] : []),
-        ...(available.shop ? [{ path: `${home}/shop`, label: s.shop, end: false }] : []),
+        { key: "home", href: connect.page(slug), label: s.home },
+        ...(available.booking
+            ? [{ key: "booking", href: connect.booking(slug), label: s.booking }]
+            : []),
+        ...(available.shop ? [{ key: "shop", href: connect.shop(slug), label: s.shop }] : []),
     ];
     const items = links.map((link) => (
-        <NavLink
-            key={link.path}
-            to={link.path}
-            end={link.end}
-            onClick={() => {
-                if (menu.current) menu.current.open = false;
-            }}
-            className={({ isActive }) =>
-                `rounded-md px-3 py-2 text-sm font-semibold ${isActive ? "bg-current/10 underline underline-offset-4" : "hover:underline underline-offset-4"}`
-            }
+        <a
+            key={link.key}
+            href={link.href}
+            aria-current={link.key === current ? "page" : undefined}
+            className={`rounded-md px-3 py-2 text-sm font-semibold ${link.key === current ? "bg-current/10 underline underline-offset-4" : "hover:underline underline-offset-4"}`}
         >
             {link.label}
-        </NavLink>
+        </a>
     ));
     return (
         <nav
@@ -88,7 +95,7 @@ function Navigation({
             className="relative z-30 bg-accent text-[var(--brand-ink,var(--accent-ink))] print:hidden"
         >
             <div className="mx-auto flex min-h-16 max-w-6xl items-center justify-between gap-3 px-4 py-2 sm:px-6">
-                <Link to={home} className="flex min-w-0 items-center gap-2 rounded-md">
+                <a href={connect.page(slug)} className="flex min-w-0 items-center gap-2 rounded-md">
                     <Avatar
                         name={brand?.business_name ?? ""}
                         src={brand?.logo_url}
@@ -99,7 +106,7 @@ function Navigation({
                     <span className="truncate text-sm font-semibold">
                         {brand?.business_name ?? s.home}
                     </span>
-                </Link>
+                </a>
                 <div className="flex shrink-0 items-center gap-1">
                     {!taskPage ? <div className="hidden items-center sm:flex">{items}</div> : null}
                     <details
@@ -122,7 +129,7 @@ function Navigation({
                     </details>
                     {shopping && available.shop ? (
                         <Link
-                            to={`${home}/shop?cart=1`}
+                            to={`/${encodeURIComponent(slug)}?cart=1`}
                             className="flex items-center gap-1.5 rounded-md px-2 py-2 text-sm font-semibold"
                         >
                             <Icon name="bag" size={17} />
@@ -139,8 +146,8 @@ function Navigation({
     );
 }
 
-export function BusinessSections({ brand }: { brand: PublicBrand }) {
-    const { slug = "" } = useParams();
+export function BusinessSections() {
+    const slug = useSlug();
     const available = usePublicBusinessNavigation(profile, shop, slug);
     if (isEmbedded()) return null;
     return (
@@ -154,7 +161,7 @@ export function BusinessSections({ brand }: { brand: PublicBrand }) {
                 ].map((section) => (
                     <Link
                         key={section.key}
-                        to={`/b/${encodeURIComponent(brand.public_slug ?? slug)}#${section.key}`}
+                        to={`/#${section.key}`}
                         className="whitespace-nowrap hover:text-accent"
                     >
                         {section.label}
@@ -166,9 +173,8 @@ export function BusinessSections({ brand }: { brand: PublicBrand }) {
 }
 
 export function BusinessShopAction() {
-    const { slug = "" } = useParams();
+    const slug = useSlug();
     const available = usePublicBusinessNavigation(profile, shop, slug);
-    const navigate = useNavigate();
     if (!available.shop) return null;
     return (
         <Button
@@ -176,10 +182,7 @@ export function BusinessShopAction() {
             variant="outline"
             size="lg"
             onPress={() => {
-                const result = navigate(
-                    `/b/${encodeURIComponent(slug)}/shop${isEmbedded() ? "?embed=1" : ""}`,
-                );
-                if (result) result.catch(() => undefined);
+                window.location.assign(`${connect.shop(slug)}${isEmbedded() ? "?embed=1" : ""}`);
             }}
         >
             {strings.publicBooking.shopLink}

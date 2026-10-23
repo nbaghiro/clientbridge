@@ -44,6 +44,9 @@ describe("app config", () => {
             apiUrl: "https://api.staging.clientbridge.ca",
             authUrl: "https://api.staging.clientbridge.ca/auth",
             powersyncUrl: "https://sync.staging.clientbridge.ca",
+            pageUrl: "https://{slug}.staging.clientbridge.ca",
+            bookUrl: "https://book.staging.clientbridge.ca",
+            shopUrl: "https://shop.staging.clientbridge.ca",
             payUrl: "https://pay.staging.clientbridge.ca",
         });
         expect(config.ios?.entitlements).toEqual({});

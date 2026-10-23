@@ -1,6 +1,14 @@
 import { afterEach, describe, expect, it } from "vitest";
 
-import { runtimeConfig } from "./runtime";
+import {
+    bareUrl,
+    bookingPageUrl,
+    businessPageUrl,
+    connectSite,
+    pageDomain,
+    runtimeConfig,
+    shopPageUrl,
+} from "./runtime";
 
 const served = globalThis as { __CLIENTBRIDGE_CONFIG__?: unknown };
 
@@ -23,8 +31,10 @@ describe("runtimeConfig", () => {
             apiUrl: `https://api.${base}`,
             authUrl: `https://api.${base}/auth`,
             powersyncUrl: `https://sync.${base}`,
-            payUrl: `https://pay.${base}`,
+            pageUrl: `https://{slug}.${base}`,
             bookUrl: `https://book.${base}`,
+            shopUrl: `https://shop.${base}`,
+            payUrl: `https://pay.${base}`,
             stripePublishableKey: "pk_test_1",
         });
     });
@@ -37,8 +47,10 @@ describe("runtimeConfig", () => {
             apiUrl: "http://localhost:8750",
             authUrl: "http://localhost:8713",
             syncUrl: "http://localhost:8704",
-            payUrl: "http://pay.localhost:8751",
+            pageUrl: "http://{slug}.localhost:8751",
             bookUrl: "http://book.localhost:8751",
+            shopUrl: "http://shop.localhost:8751",
+            payUrl: "http://pay.localhost:8751",
             stripePublishableKey: "",
         };
         expect(runtimeConfig()).toEqual({
@@ -47,8 +59,10 @@ describe("runtimeConfig", () => {
             apiUrl: "http://localhost:8750",
             authUrl: "http://localhost:8713",
             powersyncUrl: "http://localhost:8704",
-            payUrl: "http://pay.localhost:8751",
+            pageUrl: "http://{slug}.localhost:8751",
             bookUrl: "http://book.localhost:8751",
+            shopUrl: "http://shop.localhost:8751",
+            payUrl: "http://pay.localhost:8751",
             stripePublishableKey: undefined,
         });
     });
@@ -61,8 +75,10 @@ describe("runtimeConfig", () => {
             apiUrl: "http://api.internal:8080",
             authUrl: "",
             syncUrl: "",
-            payUrl: "",
+            pageUrl: "",
             bookUrl: "",
+            shopUrl: "",
+            payUrl: "",
         };
         expect(runtimeConfig()).toEqual({
             adminUrl: "https://admin.clientbridge.ca",
@@ -70,8 +86,10 @@ describe("runtimeConfig", () => {
             apiUrl: "http://api.internal:8080",
             authUrl: "http://api.internal:8080/auth",
             powersyncUrl: "https://sync.clientbridge.ca",
-            payUrl: "https://pay.clientbridge.ca",
+            pageUrl: "https://{slug}.clientbridge.ca",
             bookUrl: "https://book.clientbridge.ca",
+            shopUrl: "https://shop.clientbridge.ca",
+            payUrl: "https://pay.clientbridge.ca",
             stripePublishableKey: undefined,
         });
     });
@@ -87,5 +105,62 @@ describe("runtimeConfig", () => {
             stripePublishableKey: "",
         };
         expect(runtimeConfig()?.stripePublishableKey).toBeUndefined();
+    });
+});
+
+const urls = {
+    pageUrl: "https://{slug}.clientbridge.ca",
+    bookUrl: "https://book.clientbridge.ca",
+    shopUrl: "https://shop.clientbridge.ca/",
+    payUrl: "https://pay.clientbridge.ca",
+};
+const local = {
+    pageUrl: "http://{slug}.localhost:8709",
+    bookUrl: "http://book.localhost:8709",
+    shopUrl: "http://shop.localhost:8709",
+    payUrl: "http://pay.localhost:8709",
+};
+
+describe("links", () => {
+    it("puts the slug in the page subdomain and at the root of book and shop", () => {
+        expect(businessPageUrl(urls.pageUrl, "birch")).toBe("https://birch.clientbridge.ca");
+        expect(bookingPageUrl(urls.bookUrl, "birch")).toBe("https://book.clientbridge.ca/birch");
+        expect(shopPageUrl(urls.shopUrl, "birch")).toBe("https://shop.clientbridge.ca/birch");
+    });
+
+    it("prints links without the scheme and names the page domain", () => {
+        expect(bareUrl("https://birch.clientbridge.ca")).toBe("birch.clientbridge.ca");
+        expect(pageDomain(urls.pageUrl)).toBe("clientbridge.ca");
+        expect(pageDomain(local.pageUrl)).toBe("localhost:8709");
+    });
+});
+
+describe("connectSite", () => {
+    it.each([
+        ["https://book.clientbridge.ca", { kind: "book" }],
+        ["https://shop.clientbridge.ca", { kind: "shop" }],
+        ["https://pay.clientbridge.ca", { kind: "pay" }],
+        ["https://birch-bark.clientbridge.ca", { kind: "page", slug: "birch-bark" }],
+    ])("serves %s", (origin, site) => {
+        expect(connectSite(origin, urls)).toEqual(site);
+    });
+
+    it.each([
+        "https://clientbridge.ca",
+        "https://a.b.clientbridge.ca",
+        "http://birch.clientbridge.ca",
+        "https://birch.clientbridge.ca.evil.example",
+        "https://birch.staging.clientbridge.ca",
+    ])("serves nothing on %s", (origin) => {
+        expect(connectSite(origin, urls)).toBeNull();
+    });
+
+    it("tells the local hosts apart by subdomain on one port", () => {
+        expect(connectSite("http://shop.localhost:8709", local)).toEqual({ kind: "shop" });
+        expect(connectSite("http://birch.localhost:8709", local)).toEqual({
+            kind: "page",
+            slug: "birch",
+        });
+        expect(connectSite("http://birch.localhost:8723", local)).toBeNull();
     });
 });

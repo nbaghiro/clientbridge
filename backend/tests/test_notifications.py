@@ -214,7 +214,7 @@ async def test_invoice_sent_carries_pay_link(
     assert sent.status_code == 200, sent.text
     token = sent.json()["pay_token"]
     assert token
-    assert any(f"http://localhost:8709/i/{token}" in m.body for m in email.sent)
+    assert any(f"http://pay.localhost:8709/i/{token}" in m.body for m in email.sent)
     assert any(f"/i/{token}" in m.body for m in sms.sent)
 
 
@@ -226,8 +226,10 @@ async def test_client_emails_carry_the_business_design(
     inv = (await as_owner.post("/v1/invoices", json={"client_id": cid, "lines": [line]})).json()
     token = (await as_owner.post(f"/v1/invoices/{inv['id']}/send")).json()["pay_token"]
     mail = next(m for m in email.sent if m.to == "pat@example.ca")
-    assert mail.html is not None and f"http://localhost:8709/i/{token}" in mail.body
-    assert f'<a href="http://localhost:8709/i/{token}"' in mail.html and "Pay invoice" in mail.html
+    assert mail.html is not None and f"http://pay.localhost:8709/i/{token}" in mail.body
+    assert (
+        f'<a href="http://pay.localhost:8709/i/{token}"' in mail.html and "Pay invoice" in mail.html
+    )
     assert "Sent with Clientbridge" in mail.html and "a client of" in mail.html
 
 

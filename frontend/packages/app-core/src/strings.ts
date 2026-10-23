@@ -74,6 +74,9 @@ interface Strings {
         readonly staffHasFutureWork: string;
         readonly broadcastAddressMissing: string;
         readonly broadcastContactMissing: string;
+        readonly slugInvalid: string;
+        readonly slugReserved: string;
+        readonly slugTaken: string;
         readonly reviewRecentlyRequested: string;
         readonly provinceLocked: string;
         readonly postalCodeProvinceMismatch: string;
@@ -2313,7 +2316,7 @@ interface Strings {
             readonly subtitleMobile: string;
             readonly businessName: string;
             readonly webAddress: string;
-            readonly slugPrefix: (host: string) => string;
+            readonly slugSuffix: (domain: string) => string;
             readonly slugPlaceholder: string;
             readonly province: string;
             readonly provincePlaceholder: string;
@@ -2336,6 +2339,7 @@ interface Strings {
             readonly verifyFirst: string;
             readonly verifyEmail: string;
         };
+        readonly slugChanged: string;
     };
     readonly datetime: {
         readonly zoneNames: {
@@ -2623,6 +2627,13 @@ interface Strings {
         readonly filterPlans: string;
         readonly filterLowStock: string;
         readonly filterArchived: string;
+        readonly shopLinkTitle: string;
+        readonly shopLinkHint: string;
+        readonly shopLinkNotLive: string;
+        readonly shopLinkCopy: string;
+        readonly shopLinkShare: string;
+        readonly shopLinkOpen: string;
+        readonly shopQrLabel: string;
         readonly pickupTitle: string;
         readonly pickupHint: string;
         readonly filterNotOnline: string;
@@ -4054,7 +4065,6 @@ interface Strings {
         readonly shareSheet: string;
         readonly embed: string;
         readonly embedCode: string;
-        readonly embedTitle: (business: string) => string;
         readonly embedHint: string;
         readonly qrDownload: string;
         readonly qrLabel: string;
@@ -4577,6 +4587,7 @@ interface Strings {
     readonly embed: {
         readonly titles: {
             readonly booking: string;
+            readonly shop: string;
             readonly pay: string;
             readonly form: string;
             readonly contract: string;

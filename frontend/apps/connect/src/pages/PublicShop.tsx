@@ -25,7 +25,7 @@ import {
     Icon,
 } from "@clientbridge/ui";
 import { useEffect, useState } from "react";
-import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { PublicPage } from "../components/PublicPage";
 import { PublicStatus } from "../components/PublicStatus";
 import {
@@ -36,6 +36,7 @@ import {
     SummaryPanel,
 } from "../components/StepLayout";
 import { config } from "../config";
+import { useSlug } from "../site";
 import { isEmbedded, useEmbedSuccess } from "../embed";
 
 const shopClient = createPublicShopClient(config.apiUrl);
@@ -50,7 +51,7 @@ const cartStorage = (() => {
 })();
 
 export function PublicShop() {
-    const { slug = "" } = useParams<{ slug: string }>();
+    const slug = useSlug();
     return <ShopPage key={slug} slug={slug} />;
 }
 
@@ -103,7 +104,7 @@ function ShopPage({ slug }: { slug: string }) {
         );
         if (result) result.catch(() => undefined);
     };
-    const shopPath = `/b/${encodeURIComponent(slug)}/shop`;
+    const shopPath = `/${encodeURIComponent(slug)}`;
     const checkingOut = checkoutRoute || shop.status === "paying" || shop.status === "paid";
     const total = formatMoney(shop.order?.total_cents ?? shop.subtotalCents, shop.currency);
     const hero = (

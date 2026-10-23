@@ -3,10 +3,11 @@
 (function () {
     "use strict";
     const TYPES = {
-        "connect-booking": { widget: "booking", path: "/b/", attr: "slug", suffix: "/book" },
-        "connect-pay": { widget: "pay", path: "/i/", attr: "token" },
-        "connect-form": { widget: "form", path: "/form/", attr: "token" },
-        "connect-contract": { widget: "contract", path: "/contract/", attr: "token" },
+        "connect-booking": { widget: "booking", site: "book", path: "/", attr: "slug" },
+        "connect-shop": { widget: "shop", site: "shop", path: "/", attr: "slug" },
+        "connect-pay": { widget: "pay", site: "pay", path: "/i/", attr: "token" },
+        "connect-form": { widget: "form", site: "book", path: "/form/", attr: "token" },
+        "connect-contract": { widget: "contract", site: "book", path: "/contract/", attr: "token" },
     };
     const DRAWER_STYLE = `
     :host { --brand:#202b34; --brand-ink:#fff; font:14px system-ui,sans-serif; color:#202b34; }
@@ -38,6 +39,15 @@
             return new URL(u).origin;
         } catch {
             return u;
+        }
+    }
+    function siteOrigin(base, site) {
+        try {
+            const url = new URL(base);
+            if (url.hostname.startsWith("book.")) url.hostname = site + url.hostname.slice(4);
+            return url.origin;
+        } catch {
+            return base;
         }
     }
     function attr(el, name) {
@@ -236,7 +246,10 @@
                     connectedCallback() {
                         if (this.frame !== null) return;
                         const title = text.titles[cfg.widget];
-                        const base = originOf(attr(this, "base") ?? DEFAULT_BASE);
+                        const base = siteOrigin(
+                            originOf(attr(this, "base") ?? DEFAULT_BASE),
+                            cfg.site,
+                        );
                         const id = this.getAttribute(cfg.attr) ?? "";
                         const floating = this.getAttribute("mode") === "drawer";
                         const iframe = document.createElement("iframe");
@@ -244,7 +257,6 @@
                             base +
                             cfg.path +
                             encodeURIComponent(id) +
-                            (cfg.suffix ?? "") +
                             "?embed=1" +
                             (floating ? "&presentation=guided" : "");
                         iframe.title = title;
@@ -315,6 +327,7 @@
     loadEmbeds({
         titles: {
             booking: "Book an appointment",
+            shop: "Shop",
             pay: "Pay",
             form: "Complete form",
             contract: "Review & sign",

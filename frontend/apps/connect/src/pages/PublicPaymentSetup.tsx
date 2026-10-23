@@ -36,7 +36,7 @@ export function PublicPaymentSetup() {
         data.status === "processing" ||
         (data.status === "requires_action" && data.verification_url !== null);
     const unavailable = data.status === "canceled" || data.status === "revoked";
-    const returnUrl = `${window.location.origin}/payment-method#token=${encodeURIComponent(token)}`;
+    const returnUrl = `${window.location.origin}/setup#token=${encodeURIComponent(token)}`;
     return (
         <PublicPage name={data.business_name} brand={data.brand} width="narrow">
             <main className="space-y-5 rounded-xl border border-line bg-surface p-6">

@@ -4,10 +4,12 @@ import {
     BUSINESS_TEXT_FIELDS,
     PUBLIC_PROFILE_FIELDS,
     type BrandForm,
+    bareUrl,
     bookingPageUrl,
     coverTarget,
     logoTarget,
     mediaUrl,
+    pageDomain,
     strings,
     timeZoneOptions,
     useBookingPreview,
@@ -97,6 +99,17 @@ function ProfilePanel() {
                         />
                     ))}
                 </div>
+                <TextField
+                    label={strings.business.onboarding.webAddress}
+                    value={fields.slug}
+                    onChange={(v) => {
+                        form.set("slug", v);
+                    }}
+                    suffix={strings.business.onboarding.slugSuffix(pageDomain(config.pageUrl))}
+                />
+                {form.slugChanged ? (
+                    <Notice tone="info">{strings.business.slugChanged}</Notice>
+                ) : null}
                 <Select
                     label={strings.business.timezoneLabel}
                     value={fields.timezone}
@@ -189,7 +202,7 @@ function BookingPreview({ brand, logo }: { brand: BrandForm; logo: string | null
                 <span className="flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-md bg-bg px-3 py-1 text-muted">
                     <Icon name="lock" size={11} />
                     <span className="truncate font-mono text-[11px]">
-                        {bookingPageUrl(config.bookUrl, brand.slug).replace(/^https?:\/\//, "")}
+                        {bareUrl(bookingPageUrl(config.bookUrl, brand.slug))}
                     </span>
                 </span>
                 <span className="w-[42px]" />

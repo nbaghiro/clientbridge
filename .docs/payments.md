@@ -66,7 +66,7 @@ flowchart LR
   e-Transfer method stored as `etransfer`); cash lands in the till's `cash` account, a cheque or e-Transfer
   in `bank`. There is no e-Transfer request or matching.
 - **PAD/EFT**: pre-authorized debit for recurring. Staff on web or mobile send the client a payment setup link,
-  and the client authorizes the bank account on Connect `/payment-method`.
+  and the client authorizes the bank account on Connect `pay.D/setup`.
 - **Customer ownership.** Each business has one connected account. Client Customers are created with a stable business/client idempotency key and invariant creation parameters; name/email are applied in a separate update so a rolled-back creation can be retried after a rename; known-client Terminal payments attach that same Customer, while walk-ins remain customerless.
 - **Clients stay v1 Customers** on the connected account. Using Accounts v2 as the customers of a connected
   account is a Stripe preview; moving to it later would change `clients.stripe_customer_id` (a schema and

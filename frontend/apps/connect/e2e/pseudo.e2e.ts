@@ -1,6 +1,7 @@
 import { clippedText, englishCopy } from "@clientbridge/config/e2e/pseudo";
 import { expect, test } from "@playwright/test";
 
+import { on } from "./hosts";
 import { links, ownAddress } from "./links";
 
 test.beforeEach(async ({ context }, info) => {
@@ -8,12 +9,12 @@ test.beforeEach(async ({ context }, info) => {
 });
 
 const PAGES = [
-    { name: "business", path: `/b/${links.slug}` },
-    { name: "booking", path: `/b/${links.slug}/book` },
-    { name: "shop", path: `/b/${links.slug}/shop` },
-    { name: "invoice", path: `/i/${links.invoice}` },
-    { name: "estimate", path: `/e/${links.estimate}` },
-    { name: "receipt", path: `/r/${links.receipt}` },
+    { name: "business", path: on(links.slug, "/", "pseudo") },
+    { name: "booking", path: `/${links.slug}` },
+    { name: "shop", path: on("shop", `/${links.slug}`, "pseudo") },
+    { name: "invoice", path: on("pay", `/i/${links.invoice}`, "pseudo") },
+    { name: "estimate", path: on("pay", `/e/${links.estimate}`, "pseudo") },
+    { name: "receipt", path: on("pay", `/r/${links.receipt}`, "pseudo") },
 ];
 
 const strings = (value: unknown): string[] =>

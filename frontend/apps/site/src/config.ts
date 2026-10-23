@@ -6,12 +6,12 @@ const trim = (url: string): string => url.replace(/\/+$/, "");
 export const config = {
     siteUrl: trim(env.VITE_SITE_URL ?? "http://localhost:8710"),
     appUrl: trim(env.VITE_APP_URL ?? "http://localhost:8700"),
-    bookUrl: trim(env.VITE_BOOK_URL ?? "http://localhost:8709"),
+    pageUrl: trim(env.VITE_PAGE_URL ?? "http://{slug}.localhost:8709"),
     // the site deployed before the app: sign-ups join the waitlist and nothing links to the app
     waitlist: env.VITE_WAITLIST === "1",
 };
 
-// the seeded demo business that shows each trade, by its booking page slug
+// the seeded demo business that shows each trade, by its public page slug
 export type DemoSlug =
     | "birchbark"
     | "maplemain"
@@ -23,7 +23,7 @@ export type DemoSlug =
     | "northlight";
 
 export const demoBusinessLink = (slug: DemoSlug): string | null =>
-    config.waitlist ? null : `${config.bookUrl}/b/${slug}`;
+    config.waitlist ? null : config.pageUrl.replace("{slug}", slug);
 
 export const links = {
     signIn: config.waitlist ? null : `${config.appUrl}/`,

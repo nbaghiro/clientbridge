@@ -1541,5 +1541,9 @@ landing page, as a lean PowerSync-free app that can be embedded through `embed.j
   data to another business, so we would start with a single business and add cross-business linking after.
 - **Richer pages and white-label:** a real slot calendar, a multi-item cart, installable PWA, custom
   domains with host-based business lookup.
+- **Business pages that preview and index:** Connect renders in the browser, so a shared `<slug>.D` link
+  previews as Clientbridge in messages and search, and `robots.txt` disallows every Connect host. Serving
+  each business page's title, description, logo and canonical link in its HTML would let link previews and
+  production search show the business.
 - **Public edge hardening:** bot protection on booking and pay requests, Redis-backed rate limiting, token
   expiry, a trustworthy client IP, a per-business `frame-ancestors` policy for embeds.

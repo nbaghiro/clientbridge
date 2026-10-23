@@ -1,12 +1,15 @@
 import logging
+import re
 from collections.abc import Iterable
 from datetime import UTC, date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import ColumnElement, case, func, or_, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
+from clientbridge.core.config import get_settings
 from clientbridge.core.deps import Principal, assert_role
 from clientbridge.core.errors import Conflict, Forbidden, NotFound, Unprocessable
 from clientbridge.core.ids import new_id
@@ -30,6 +33,38 @@ _KEPT_ON_NULL = (
     "filing_frequency",
     "tax_registered",
     "review_requests_enabled",
+    "slug",
+)
+# the slug is the public page's subdomain, so it is a DNS label of 3 to 40 characters
+SLUG = re.compile(r"^[a-z0-9][a-z0-9-]{1,38}[a-z0-9]$")
+# environment hosts and mail records, Connect's root paths and names kept for our own pages
+RESERVED_SLUGS = frozenset(
+    {
+        "admin",
+        "api",
+        "app",
+        "assets",
+        "blog",
+        "book",
+        "contract",
+        "docs",
+        "form",
+        "help",
+        "mail",
+        "order",
+        "pay",
+        "prefs",
+        "resend",
+        "rsend",
+        "send",
+        "setup",
+        "shop",
+        "staging",
+        "status",
+        "support",
+        "sync",
+        "www",
+    }
 )
 # Canada Post assigns each postal code's first letter to one province or territory
 _POSTAL_PROVINCES: dict[str, tuple[ProvinceCode, ...]] = {
@@ -261,6 +296,15 @@ async def has_issued_tax(db: AsyncSession, business_id: str) -> bool:
     return bool(await db.scalar(select(or_(taxed_line, tax_leg))))
 
 
+def assert_public_slug(slug: str) -> None:
+    if SLUG.match(slug) is None:
+        raise Unprocessable(
+            "a slug is 3 to 40 lowercase letters, digits or dashes", code="slug_invalid"
+        )
+    if slug in RESERVED_SLUGS or "clientbridge" in slug:
+        raise Unprocessable("that slug is reserved", code="slug_reserved")
+
+
 class BusinessService:
     def __init__(self, db: AsyncSession, principal: Principal, gateway: PaymentGateway) -> None:
         self.db = db
@@ -281,6 +325,16 @@ class BusinessService:
         except Exception:
             # the settings stay saved; Stripe keeps the old address until the next change
             _log.exception("stripe address update failed for %s", business.id)
+
+    async def _move_page_url(self, business: Business) -> None:
+        if business.stripe_account_id is None:
+            return
+        url = get_settings().page_url(business.slug)
+        try:
+            await self.gateway.update_account_url(business.stripe_account_id, url=url)
+        except Exception:
+            # the slug stays saved; Stripe shows the old page until the next change
+            _log.exception("stripe business url update failed for %s", business.id)
 
     async def _assert_logo(self, file_id: str) -> None:
         logo = (
@@ -308,6 +362,9 @@ class BusinessService:
         if business is None:
             raise NotFound("business not found")
         previous_province = business.province
+        previous_slug = business.slug
+        if data.slug is not None and data.slug != business.slug:
+            assert_public_slug(data.slug)
         fields = data.model_dump(exclude_unset=True, exclude={"brand", "setup_dismissed"})
         located = [getattr(business, key) for key in _ADDRESS]
         if data.timezone is not None:
@@ -351,27 +408,38 @@ class BusinessService:
                 else:
                     merged[key] = value
             business.brand = merged
-        if business.province != previous_province:
+        for action, old, new in (
+            ("business.province", previous_province, business.province),
+            ("business.slug", previous_slug, business.slug),
+        ):
+            if old == new:
+                continue
             self.db.add(
                 Audit(
                     id=new_id("audit"),
                     business_id=business.id,
                     performed_by=self.principal.user_id,
-                    action="business.province",
+                    action=action,
                     entity_type="business",
                     entity_id=business.id,
-                    changes={"old": previous_province, "new": business.province},
+                    changes={"old": old, "new": new},
                 )
             )
         moved = [getattr(business, key) for key in _ADDRESS] != located
         if moved:
             # the Terminal location holds the old address; the next reader session mints one
             business.stripe_terminal_location_id = None
-        await self.db.flush()
+        try:
+            await self.db.flush()
+        except IntegrityError as exc:
+            await self.db.rollback()
+            raise Conflict("another business uses that address", code="slug_taken") from exc
         await self.db.refresh(business)
         await self.db.commit()
         if moved:
             await self._move_plan_account(business)
+        if business.slug != previous_slug:
+            await self._move_page_url(business)
         return business
 
 
@@ -382,12 +450,7 @@ class OnboardingService:
     async def onboard(self, user_id: str, data: OnboardBody, *, email_verified: bool) -> Business:
         if not email_verified:
             raise Forbidden("verify your email address first", code="email_unverified")
-        existing = (
-            await self.db.execute(select(Business).where(Business.slug == data.slug))
-        ).scalar_one_or_none()
-        if existing is not None:
-            raise Conflict("business slug already taken")
-
+        assert_public_slug(data.slug)
         biz = Business(
             id=new_id("business"),
             name=data.name,
@@ -397,7 +460,11 @@ class OnboardingService:
             subject=data.subject,
         )
         self.db.add(biz)
-        await self.db.flush()  # insert the business first so the Staff FK resolves
+        try:
+            await self.db.flush()  # insert the business first so the Staff FK resolves
+        except IntegrityError as exc:
+            await self.db.rollback()
+            raise Conflict("another business uses that address", code="slug_taken") from exc
         self.db.add(
             Staff(
                 id=new_id("staff"),

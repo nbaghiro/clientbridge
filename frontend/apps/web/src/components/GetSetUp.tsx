@@ -10,7 +10,7 @@ const o = strings.business.getSetUp;
 
 /** The Setup home: what is left before bookings and payouts, each step linking to where it's done. */
 export function GetSetUp() {
-    const list = useSetupChecklist(api, config.bookUrl);
+    const list = useSetupChecklist(api, config.pageUrl);
     const open = useOpenLink();
     const pct = Math.round((list.done / list.total) * 100);
 

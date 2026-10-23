@@ -8,7 +8,8 @@ import { formatMoney, formatParts, initials, BUSINESS_CURRENCY } from "../format
 import { useAsyncAction, useLoad, useRemote } from "../hooks";
 import { strings } from "../strings";
 import type { Intent } from "../ui";
-import { bookingPageUrl, useSetupProgress } from "./business";
+import { useSetupProgress } from "./business";
+import { bookingPageUrl } from "../runtime";
 import { useReplicaLoad } from "./sync";
 
 const s = strings.onlineBooking;
@@ -173,7 +174,7 @@ export function useOnlineBookingSettings(api: ApiLike, bookBase: string, links: 
     const link = out ? bookingPageUrl(bookBase, out.slug) : "";
     const base = bookBase.replace(/\/+$/, "");
     const embed = out
-        ? `<iframe src="${link}?embed=1" title="${s.embedTitle(out.business_name)}" style="width:100%;border:0" loading="lazy"></iframe>\n<script src="${base}/embed.js" async></script>`
+        ? `<connect-booking slug="${out.slug}"></connect-booking>\n<script src="${base}/embed.js" async></script>`
         : "";
     const services = (out?.services ?? []).map((x) => ({
         id: x.id,

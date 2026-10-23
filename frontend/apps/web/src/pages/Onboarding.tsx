@@ -1,6 +1,6 @@
 import {
     PROVINCES,
-    bookingHost,
+    pageDomain,
     industryOptions,
     strings,
     useOnboardingForm,
@@ -58,7 +58,7 @@ export function Onboarding({ onSignOut }: { onSignOut: () => void }) {
                     />
                     <TextField
                         label={strings.business.onboarding.webAddress}
-                        prefix={strings.business.onboarding.slugPrefix(bookingHost(config.bookUrl))}
+                        suffix={strings.business.onboarding.slugSuffix(pageDomain(config.pageUrl))}
                         value={form.slug}
                         onChange={form.setSlug}
                         placeholder={strings.business.onboarding.slugPlaceholder}

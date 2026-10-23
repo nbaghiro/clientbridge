@@ -146,6 +146,9 @@ class BusinessSettingsUpdate(Mirror):
     """Partial update of account fields; tax numbers accept an empty string to clear."""
 
     name: str | None = None
+    slug: str | None = Field(
+        default=None, description="The public page's address; old links stop working"
+    )
     timezone: str | None = None
     billing_email: str | None = None
     gst_hst_number: str | None = None

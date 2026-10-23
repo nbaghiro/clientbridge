@@ -5,8 +5,10 @@ const extra = (Constants.expoConfig?.extra ?? {}) as {
     powersyncUrl?: string;
     authUrl?: string;
     publicWebUrl?: string;
-    payUrl?: string;
+    pageUrl?: string;
     bookUrl?: string;
+    shopUrl?: string;
+    payUrl?: string;
     stripePublishableKey?: string;
     stripeMerchantId?: string;
     terminalSimulated?: boolean;
@@ -34,13 +36,24 @@ export const publicWebUrl =
     extra.publicWebUrl ??
     "http://localhost:8700";
 
-/** The one host every invoice pay link uses. */
-export const payUrl =
-    developmentUrl(process.env.EXPO_PUBLIC_PAY_URL) ?? extra.payUrl ?? "http://localhost:8709";
+/** Each business's public page, a subdomain named by its slug (Connect). */
+export const pageUrl =
+    developmentUrl(process.env.EXPO_PUBLIC_PAGE_URL) ??
+    extra.pageUrl ??
+    "http://{slug}.localhost:8709";
 
-/** Where the public booking pages live (Connect). */
 export const bookUrl =
-    developmentUrl(process.env.EXPO_PUBLIC_BOOK_URL) ?? extra.bookUrl ?? "http://localhost:8709";
+    developmentUrl(process.env.EXPO_PUBLIC_BOOK_URL) ??
+    extra.bookUrl ??
+    "http://book.localhost:8709";
+
+export const shopUrl =
+    developmentUrl(process.env.EXPO_PUBLIC_SHOP_URL) ??
+    extra.shopUrl ??
+    "http://shop.localhost:8709";
+
+export const payUrl =
+    developmentUrl(process.env.EXPO_PUBLIC_PAY_URL) ?? extra.payUrl ?? "http://pay.localhost:8709";
 
 /** Blank until configured; the card forms then show a not-configured note. Never a secret key. */
 export const stripePublishableKey = extra.stripePublishableKey ?? "";

@@ -176,6 +176,15 @@
     "api.broadcastContactMissing": {
         "message": "[Åðð å ƀûšîñéšš éɱåîļ, þĥöñé ñûɱƀéŕ öŕ ŵéƀšîţé îñ Ɓûšîñéšš šéţţîñĝš ƀéƒöŕé šéñðîñĝ å ƀŕöåðçåšţ. one two three four five six seven]"
     },
+    "api.slugInvalid": {
+        "message": "[Ûšé 3 ţö 40 ļöŵéŕçåšé ļéţţéŕš, ñûɱƀéŕš öŕ ðåšĥéš, šţåŕţîñĝ åñð éñðîñĝ ŵîţĥ å ļéţţéŕ öŕ ñûɱƀéŕ. one two three four five six]"
+    },
+    "api.slugReserved": {
+        "message": "[Ţĥåţ ŵéƀ åððŕéšš îš ŕéšéŕṽéð. Þļéåšé çĥööšé åñöţĥéŕ. one two three four]"
+    },
+    "api.slugTaken": {
+        "message": "[Åñöţĥéŕ ƀûšîñéšš åļŕéåðý ûšéš ţĥåţ ŵéƀ åððŕéšš. Þļéåšé çĥööšé åñöţĥéŕ. one two three four five]"
+    },
     "api.reviewRecentlyRequested": {
         "message": "[Ýöû åšķéð ţĥîš çļîéñţ ƒöŕ å ŕéṽîéŵ îñ ţĥé ļåšţ 30 ðåýš, šö ţĥéý ŵöñ'ţ ĝéţ åñöţĥéŕ öñé ýéţ. one two three four five six]"
     },
@@ -6260,8 +6269,11 @@
     "business.onboarding.webAddress": {
         "message": "[Ŵéƀ åððŕéšš one two]"
     },
-    "business.onboarding.slugPrefix": {
-        "message": "[{host}/ƀ/ one]"
+    "business.slugChanged": {
+        "message": "[Ýöûŕ þåĝé ɱöṽéš ţö ţĥé ñéŵ åððŕéšš ŵĥéñ ýöû šåṽé. Ļîñķš åñð ǪŔ çöðéš ýöû'ṽé åļŕéåðý šĥåŕéð ŵîļļ šţöþ ŵöŕķîñĝ. one two three four five six seven]"
+    },
+    "business.onboarding.slugSuffix": {
+        "message": ".{domain}"
     },
     "business.onboarding.slugPlaceholder": {
         "message": "[ýöûŕ-ƀûšîñéšš one two]"
@@ -7108,6 +7120,27 @@
     },
     "catalog.filterArchived": {
         "message": "[Åŕçĥîṽéð one]"
+    },
+    "catalog.shopLinkTitle": {
+        "message": "[Öñļîñé šĥöþ ļîñķ one two]"
+    },
+    "catalog.shopLinkHint": {
+        "message": "[Šĥåŕé îţ šö çļîéñţš çåñ öŕðéŕ þŕöðûçţš åñð þîçķ ţĥéɱ ûþ. one two three four]"
+    },
+    "catalog.shopLinkNotLive": {
+        "message": "[Ýöûŕ šĥöþ ĝöéš ļîṽé öñçé å þŕöðûçţ îš šéţ ţö šéļļ öñļîñé. one two three four]"
+    },
+    "catalog.shopLinkCopy": {
+        "message": "[Çöþý one]"
+    },
+    "catalog.shopLinkShare": {
+        "message": "[Šĥåŕé one]"
+    },
+    "catalog.shopLinkOpen": {
+        "message": "[Öþéñ šĥöþ one]"
+    },
+    "catalog.shopQrLabel": {
+        "message": "[ǪŔ çöðé ƒöŕ ýöûŕ öñļîñé šĥöþ one two three]"
     },
     "catalog.pickupTitle": {
         "message": "[Þîçķûþ öŕðéŕš one two]"
@@ -11042,9 +11075,6 @@
     "onlineBooking.embedCode": {
         "message": "[Éɱƀéð çöðé one two]"
     },
-    "onlineBooking.embedTitle": {
-        "message": "[Ɓööķ ŵîţĥ {business} one]"
-    },
     "onlineBooking.embedHint": {
         "message": "[Þåšţé ţĥîš ŵĥéŕé ţĥé ƀööķîñĝ þåĝé šĥöûļð åþþéåŕ. Îţ ŕéšîžéš ţö ƒîţ. one two three four five]"
     },
@@ -12433,6 +12463,9 @@
     },
     "embed.titles.booking": {
         "message": "[Ɓööķ åñ åþþöîñţɱéñţ one two]"
+    },
+    "embed.titles.shop": {
+        "message": "[Šĥöþ one]"
     },
     "embed.titles.pay": {
         "message": "[Þåý one]"
