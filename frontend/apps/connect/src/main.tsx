@@ -15,6 +15,9 @@ if (isEmbedded()) document.documentElement.setAttribute("data-embed", "");
 
 configureStripe(config.stripePublishableKey);
 
+// pages set their own scroll (top, or a #section), which the browser's restore after a back would undo
+window.history.scrollRestoration = "manual";
+
 const render = (): void => {
     document.documentElement.lang = activeLocale();
     ReactDOM.createRoot(root).render(
