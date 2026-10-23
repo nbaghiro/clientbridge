@@ -73,6 +73,7 @@ def _service(
     deposit: int | None = None,
     online: bool = True,
     buffer: int = SHORT_BUFFER,
+    staff: tuple[str, ...] = (),
 ) -> Offering:
     # tattooing and piercing are personal services, which BC's PST doesn't cover: GST only
     return Offering(
@@ -89,6 +90,7 @@ def _service(
         buffer_after_min=buffer,
         deposit_type="fixed" if deposit else "none",
         deposit_value=deposit,
+        staff=staff,
     )
 
 
@@ -212,6 +214,7 @@ ITEMS = (
         "#5E6B8A",
         "A lobe, helix or nostril piercing with an implant-grade titanium stud, which is "
         "included. Downsizing the post after healing is free.",
+        staff=(MEI,),
     ),
     _product(
         BALM,
@@ -946,6 +949,11 @@ SPEC = BusinessSpec(
         Stage("Free touch-up booked", "hana", ("bk_iw_hana_touchup",)),
         Stage("Five-star feedback", "olu", ("fr_iw_feedback_olu",)),
         Stage("Four-star feedback about the wait", "graham", ("fr_iw_feedback_graham",)),
+        Stage(
+            "Balance left to pay after the session, overdue",
+            "mateo",
+            ("bk_iw_mateo_balance", "inv_iw_mateo_balance"),
+        ),
     ),
     pacing=Pacing(
         {SASHA: 2, MEI: 3, KIERAN: 2},
@@ -981,6 +989,7 @@ class Inkwell(Demo):
         self.sessions()
         self.piercings()
         self.fill(list(FILL_POOL))
+        self.balance_owing()
         self.paperwork()
         self.photos()
         self.engagement()
@@ -1032,6 +1041,8 @@ class Inkwell(Demo):
         tip: tuple[str, int] | None = None,
     ) -> Payment | None:
         issued = invoice.issued_at or self.now
+        if settle in {"open", "overdue"}:
+            return super().settle(invoice, client_key, settle)
         transfer = (issued + timedelta(hours=4)).replace(minute=20)
         if settle == "etransfer" and transfer < self.now:
             paid, method = transfer, "etransfer"
@@ -1529,6 +1540,35 @@ class Inkwell(Demo):
             2730,
             payment.paid_at + timedelta(days=1, hours=2),
             "Returned an unopened healing film roll.",
+        )
+
+    def balance_owing(self) -> None:
+        """A session's balance the client said he'd send after payday, now past its due date."""
+        booking = self.sitting(
+            "mateo_balance", "mateo", CUSTOM_2, KIERAN, -30, lead_days=24, settle="overdue"
+        )
+        assert booking is not None and booking.completed_at is not None
+        self.note(
+            booking.id,
+            "booking",
+            "Mateo asked to e-transfer the balance after payday on Friday. Invoice sent.",
+            booking.completed_at + timedelta(minutes=5),
+        )
+        due = self.ctx.get(Invoice, booking.invoice_id or "").due_at
+        assert due is not None
+        thread = self.thread("mateo", "sms", due + timedelta(days=2, hours=2))
+        self.say(
+            thread,
+            "Hi Mateo, it's Harleen at Inkwell. The balance for your session with Kieran is now "
+            "past due. You can pay it by card from the link in your invoice email, or by "
+            "e-transfer to hello@inkwell.example.",
+            due + timedelta(days=2, hours=2),
+        )
+        self.say(
+            thread,
+            "Sorry, I forgot about it. I'll send it this week.",
+            due + timedelta(days=2, hours=5),
+            sender=None,
         )
 
     def gifts(self) -> None:

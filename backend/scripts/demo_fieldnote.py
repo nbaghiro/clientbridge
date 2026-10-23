@@ -4,7 +4,7 @@ import unicodedata
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
 
-from clientbridge.models.billing import Estimate, Invoice, Line
+from clientbridge.models.billing import Estimate, Invoice
 from clientbridge.models.catalog import Item, ItemKind
 from clientbridge.models.clients import Client
 from clientbridge.models.documents import FormResponse
@@ -750,6 +750,7 @@ def _offering(row: tuple[str, ItemKind, str, int, int | None, str, str]) -> Offe
         online_bookable=item_id in {FAMILY, HEADSHOT, NEWBORN, ENGAGEMENT, MINI},
         capacity=1 if kind == "class" else None,
         addon_for=(WEDDING, ORDERING, FAMILY, NEWBORN) if kind == "product" else (),
+        staff=(AMARA,) if item_id == WEDDING else (),
         buffer_after_min=BUFFERS.get(item_id, 0),
         deposit_type="fixed"
         if deposit and deposit[0] == "fixed"
@@ -885,6 +886,8 @@ SPEC = BusinessSpec(
             ("inv_fn_aaliyah", "fr_fn_feedback_aaliyah"),
         ),
         Stage("Headshot session today", "james", ("bk_fn_james_today",)),
+        Stage("Headshot session today, checked in", "hyunwoo", ("bk_fn_hyunwoo_today",)),
+        Stage("No-show who forfeited the deposit", "ryan", ("bk_fn_ryan_noshow",)),
         Stage(
             "Family mini-session day, most slots booked",
             "chloe",
@@ -1132,14 +1135,8 @@ class Fieldnote(Demo):
         if extra:
             self.stretch(booking, minutes)
         self.deposit(booking, booked + timedelta(minutes=10))
-        second: Booking | None = None
-        if any(part == SECOND for part, _ in quote.parts):
-            second_start = start + timedelta(minutes=60 + 60 * extra)
-            if not self.fits(JULIAN, second_start, 360, 60):
-                raise ValueError(f"{key}: Julian can't second shoot")
-            second = self.book(
-                f"{key}_second", key, SECOND, JULIAN, second_start, status, booked, price=0
-            )
+        if any(part == SECOND for part, _ in quote.parts) and not self.helper_on(booking, JULIAN):
+            raise ValueError(f"{key}: Julian can't second shoot")
         client = self.ctx.get(Client, self.client_id(key))
         first = client.name.split(" ")[0]
         self.note(
@@ -1170,11 +1167,6 @@ class Fieldnote(Demo):
         )
         booking.invoice_id = estimate.converted_invoice_id = invoice.id
         self.lines("invoice", invoice.id, quote, booked, booking=booking)
-        if second is not None:
-            position = 1 + [part for part, _ in quote.parts].index(SECOND)
-            line = self.ctx.get(Line, f"ln_{invoice.id}_{position}")
-            line.booking_id, line.staff_id = second.id, JULIAN
-            second.invoice_id = invoice.id
         if wedding.settle == "overdue":
             issued = self.on(day + timedelta(days=2), time(10, 0))
             invoice.issued_at = invoice.updated_at = issued
@@ -1351,6 +1343,36 @@ class Fieldnote(Demo):
             },
             booking.created_at + timedelta(hours=4),
         )
+        self.in_progress()
+
+    def in_progress(self) -> None:
+        """A headshot under way when the seed runs inside someone's hours, else on a later day."""
+        local = self.local(self.now)
+        floor = local.replace(minute=local.minute // 15 * 15, second=0, microsecond=0)
+        current = next(
+            (
+                (staff, start)
+                for staff in (AMARA, JULIAN)
+                for start in (
+                    (floor - timedelta(minutes=minutes)).astimezone(UTC) for minutes in (15, 0)
+                )
+                if start + timedelta(minutes=30) > self.now + timedelta(minutes=5)
+                and self.fits(staff, start, 30, 15)
+            ),
+            None,
+        )
+        if current is None:
+            staff = AMARA
+            found = self.place(staff, HEADSHOT, 1, None, past=False)
+            assert found is not None
+            start = found
+        else:
+            staff, start = current
+        booking = self.book(
+            "hyunwoo_today", "hyunwoo", HEADSHOT, staff, start, "confirmed", self.at(-12, 19)
+        )
+        if current is not None:
+            booking.checked_in_at = start - timedelta(minutes=4)
 
     def portraits(self) -> None:
         ctx = self.ctx
@@ -1455,6 +1477,16 @@ class Fieldnote(Demo):
         for key, staff, day in (("aaliyah", JULIAN, -40), ("gabriela", JULIAN, -27)):
             self.visit(f"{key}_family", key, FAMILY, staff, day, settle="etransfer")
         self.visit("brandon_moved", "brandon", FAMILY, JULIAN, 6)
+        ryan = self.visit("ryan_noshow", "ryan", FAMILY, JULIAN, -33, settle=None, status="no_show")
+        assert ryan is not None
+        self.deposit(ryan, ryan.created_at + timedelta(minutes=10))
+        self.forfeit(ryan)
+        self.note(
+            ryan.id,
+            "booking",
+            "Didn't come and didn't answer the phone or the text, so the $100 deposit is kept.",
+            ryan.starts_at + timedelta(minutes=40),
+        )
 
     def release(
         self,
@@ -1577,7 +1609,6 @@ class Fieldnote(Demo):
                 if b.client_id == self.client_id(key)
                 and b.status == "completed"
                 and (b.completed_at or self.now) < self.now - timedelta(days=2)
-                and not b.id.endswith("_second")
             ),
             key=lambda b: b.starts_at,
         )

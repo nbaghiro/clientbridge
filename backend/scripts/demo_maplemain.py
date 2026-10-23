@@ -5,6 +5,7 @@ from datetime import UTC, date, datetime, time, timedelta
 from clientbridge.models.billing import Invoice
 from clientbridge.models.catalog import Item
 from clientbridge.models.clients import Client
+from clientbridge.models.documents import FormResponse
 from clientbridge.models.payments import Payment
 from clientbridge.models.platform import File
 from clientbridge.models.scheduling import Booking, BookingStatus, Slot
@@ -66,10 +67,11 @@ HEAT, TEXTURE, CREAM, HAIRSPRAY = (
     "it_mm_hairspray",
 )
 BLOWOUTS, GIFT = "it_mm_blowout_pack", "it_mm_gift_card"
-CONSULT_FORM, COLOUR_FORM, FEEDBACK_FORM = (
+CONSULT_FORM, COLOUR_FORM, FEEDBACK_FORM, FORMULA_FORM = (
     "frm_mm_consultation",
     "frm_mm_colour_consent",
     "frm_mm_feedback",
+    "frm_mm_formula",
 )
 POLICIES, BRIDAL_AGREEMENT = "con_mm_policies", "con_mm_bridal"
 BUFFER_MIN = 15
@@ -155,6 +157,7 @@ ITEMS = (
         "#7B3F35",
         "A consultation, wash, cut and blow-dry with Leila or Marcus, who have each cut hair "
         "for over ten years. Includes a fringe trim between visits.",
+        staff=(LEILA, MARCUS),
     ),
     _service(
         CUT,
@@ -165,6 +168,7 @@ ITEMS = (
         "#A0583F",
         "A consultation, wash, cut and blow-dry with Tessa. The same service as the senior "
         "cut, priced for a stylist in her first years behind the chair.",
+        staff=(TESSA,),
     ),
     _service(
         SHORT,
@@ -565,6 +569,83 @@ COLOUR_FIELDS: tuple[DocField, ...] = (
     ),
     ("notes", "longtext", "Anything else your colourist should know", None, False, ()),
 )
+FORMULA_FIELDS: tuple[DocField, ...] = (
+    (
+        "colour",
+        "longtext",
+        "Colour and developer",
+        "Shades, mixing ratio and developer volume, by section.",
+        True,
+        (),
+    ),
+    ("timing", "text", "Processing time", None, True, ()),
+    ("toner", "text", "Toner or gloss", None, False, ()),
+    (
+        "result",
+        "select",
+        "Result",
+        None,
+        False,
+        ("As planned", "Warmer than planned", "Cooler than planned", "Needs a correction"),
+    ),
+    ("next_time", "longtext", "Next time", None, False, ()),
+)
+# formula notes Gabriela wrote after colour visits: note key, visit, minutes after, answers
+FORMULA_NOTES: tuple[tuple[str, str, int, dict[str, object]], ...] = (
+    *(
+        (
+            f"grace_{n}",
+            f"grace_{n}",
+            8 + n,
+            {
+                "colour": "Roots: 5N + 5G (1:1) with 20 volume.",
+                "timing": "35 minutes",
+                **({"toner": "Gloss 7N on the ends, 10 minutes"} if n % 2 else {}),
+                "result": "As planned",
+                "next_time": "Same formula. Grey is coming through a little more at the temples."
+                if n == 4
+                else "Same formula in six weeks.",
+            },
+        )
+        for n in range(5)
+    ),
+    (
+        "olivia_spring",
+        "olivia_spring",
+        12,
+        {
+            "colour": "Lightener with 20 volume, hand painted from mid-length. Soft root left "
+            "natural.",
+            "timing": "40 minutes",
+            "toner": "9V + 9N (1:1), 15 minutes",
+            "result": "As planned",
+            "next_time": "Refresh in the fall with two brighter pieces around the face.",
+        },
+    ),
+    (
+        "amira",
+        "amira",
+        10,
+        {
+            "colour": "Lightener with 20 volume, hand painted, foils at the crown.",
+            "timing": "45 minutes",
+            "toner": "8A + 9V (1:1), 15 minutes",
+            "result": "As planned",
+        },
+    ),
+    (
+        "natasha",
+        "natasha_colour",
+        6,
+        {
+            "colour": "Roots: 6N + 6G (2:1) with 20 volume.",
+            "timing": "30 minutes",
+            "result": "Warmer than planned",
+            "next_time": "Drop the gold: 6N + 6A (1:1), and check the shade on the swatch with "
+            "her first.",
+        },
+    ),
+)
 FEEDBACK_FIELDS: tuple[DocField, ...] = (
     ("rating", "rating", "How was your visit?", None, True, ()),
     (
@@ -952,6 +1033,7 @@ SPEC = BusinessSpec(
             require_signature=True,
         ),
         FormSpec(FEEDBACK_FORM, "Visit feedback", "ff_mm_feedback_", FEEDBACK_FIELDS),
+        FormSpec(FORMULA_FORM, "Colour formula", "ff_mm_formula_", FORMULA_FIELDS),
     ),
     contracts=(
         ContractSpec(
@@ -984,6 +1066,12 @@ SPEC = BusinessSpec(
         Stage("Three-blowout package, two used", "chloe", ("pkg_mm_blowouts_chloe",)),
         Stage("Five-star feedback", "amira", ("fr_mm_feedback_amira",)),
         Stage("Four-star feedback about the wait", "robert", ("fr_mm_feedback_robert",)),
+        Stage(
+            "Colour formula noted on each visit",
+            "grace",
+            ("fr_mm_formula_grace_4", "fr_mm_formula_natasha"),
+        ),
+        Stage("Visit invoice overdue", "roya", ("inv_mm_roya_highlights",)),
     ),
     pacing=Pacing(
         {LEILA: 8, MARCUS: 7, TESSA: 8, GABRIELA: 6},
@@ -1035,6 +1123,7 @@ class MapleMain(Demo):
         self.checkouts()
         self.fill((), by_staff=POOLS)
         self.paperwork()
+        self.formula_notes()
         self.photos()
         self.engagement()
 
@@ -1077,6 +1166,8 @@ class MapleMain(Demo):
         *,
         tip: tuple[str, int] | None = None,
     ) -> Payment | None:
+        if settle in {"open", "overdue"}:
+            return super().settle(invoice, client_key, settle, tip=tip)
         issued = invoice.issued_at or self.now
         transfer = (issued + timedelta(hours=5)).replace(minute=12)
         if settle == "etransfer" and transfer < self.now:
@@ -1272,6 +1363,7 @@ class MapleMain(Demo):
         self.blowouts()
         self.spring_balayage()
         self.feedback_visits()
+        self.unpaid()
 
     def first_timer(self) -> None:
         start = self.place(GABRIELA, CONSULT, 2, None, past=False)
@@ -1542,6 +1634,50 @@ class MapleMain(Demo):
         self.visit("lina_first", "lina", BLOWOUT, MARCUS, -8)
         self.visit("sana_first", "sana", CONSULT, GABRIELA, -18)
         self.visit("sana_partial", "sana", PARTIAL, GABRIELA, 6, settle=None)
+
+    def unpaid(self) -> None:
+        """Full highlights the card reader couldn't take, invoiced by email and still unpaid."""
+        visit = self.visit("roya_highlights", "roya", FULL, GABRIELA, -27, settle=None)
+        assert visit is not None
+        self.deposit(visit, visit.created_at + timedelta(minutes=10))
+        invoice = self.bill(visit, "overdue")
+        assert invoice is not None
+        invoice.notes = (
+            "Full highlights with Gabriela. The card reader was offline at checkout, so the "
+            "balance after your deposit was sent by email."
+        )
+
+    def formula_notes(self) -> None:
+        """Colour formulas the stylist wrote after each visit, kept off devices with no token."""
+        people = {person.staff_id: person for person in SPEC.people}
+        for key, visit, minutes, answers in FORMULA_NOTES:
+            booking = self.ctx.get(Booking, f"bk_mm_{visit}")
+            assert booking.completed_at is not None and booking.staff_id is not None
+            person = people[booking.staff_id]
+            written = booking.completed_at + timedelta(minutes=minutes)
+            self.ctx.add(
+                FormResponse(
+                    id=f"fr_mm_formula_{key}",
+                    business_id=self.spec.id,
+                    form_id=FORMULA_FORM,
+                    client_id=booking.client_id,
+                    parent_type="booking",
+                    parent_id=booking.id,
+                    status="submitted",
+                    token=None,
+                    answers=answers,
+                    submitted_at=written,
+                    signature={
+                        "user_id": person.user_id,
+                        "staff_id": person.staff_id,
+                        "name": person.name,
+                        "signed_at": written.isoformat(),
+                        "amends": None,
+                    },
+                    created_at=written,
+                    updated_at=written,
+                )
+            )
 
     def short_cuts(self) -> None:
         for key, (staff, weeks) in SHORT_CUTS.items():

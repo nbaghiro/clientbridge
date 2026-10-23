@@ -1057,6 +1057,12 @@ SPEC = BusinessSpec(
         Stage("Estimate sent with optional lines", "rajesh", ("est_nl_rajesh",)),
         Stage("Accepted estimate ready for Book the install", "ruth", ("est_nl_ruth",)),
         Stage("Install booked from its estimate, deposit paid", "claire", ("bk_nl_claire",)),
+        Stage("Add-on that lengthens the install", "simon", ("bk_nl_simon", "bka_bk_nl_simon_6")),
+        Stage(
+            "Two-person install",
+            "claire",
+            ("av_nl_crew_claire", "bk_nl_harbourbikes", "av_nl_crew_harbourbikes"),
+        ),
         Stage("Today's install, on site", "owen", ("bk_nl_owen",)),
         Stage("Today's install, on the way", "meilin", ("bk_nl_meilin",)),
         Stage("Installed and paid by Tap to Pay", "sarah", ("bk_nl_sarah", "ord_nl_sarah")),

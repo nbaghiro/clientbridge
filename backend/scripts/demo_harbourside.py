@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
 
 from clientbridge.models.billing import Invoice, Line
-from clientbridge.models.catalog import GiftCard, Item, ItemKind, TaxClass
+from clientbridge.models.catalog import GiftCard, ItemKind, TaxClass
 from clientbridge.models.clients import Client
 from clientbridge.models.documents import FormResponse
 from clientbridge.models.payments import Payment
@@ -229,17 +229,14 @@ HOURS: dict[str, dict[int, tuple[time, time]]] = {
         **{d: (time(14, 0), time(19, 0)) for d in (1, 3)},
     },
 }
-# the name and registration number printed on receipts for extended health claims
-CREDENTIALS = {
-    LEILA: ("Leila Moradi", "RMT", "10482"),
-    JUN: ("Jun Park", "RMT", "13917"),
-    WEN: ("Wen Liu", "R.Ac.", "A-2316"),
-}
+# the credential and registration number printed on receipts for extended health claims
+CREDENTIALS = {LEILA: ("RMT", "10482"), JUN: ("RMT", "13917"), WEN: ("R.Ac.", "A-2316")}
+MASSAGE_STAFF = (LEILA, JUN)
 
 
 def _registration(staff: str) -> str:
     """A practitioner's title, which their visit receipts print: "RMT · Reg. 10482"."""
-    _, credential, number = CREDENTIALS[staff]
+    credential, number = CREDENTIALS[staff]
     return f"{credential} · Reg. {number}"
 
 
@@ -618,6 +615,11 @@ def _offering(row: tuple[str, ItemKind, str, int, int | None, str, str, TaxClass
         online_bookable=kind == "service" and item_id != COUPLES,
         sell_online=kind == "product",
         addon_for=(M30, M60, M90, DEEP, PRENATAL, HOTSTONE) if kind == "product" else (),
+        staff=(WEN,)
+        if item_id in {ACU_INITIAL, ACU_FOLLOW}
+        else MASSAGE_STAFF
+        if kind == "service"
+        else (),
         buffer_after_min=BUFFERS.get(item_id, 15) if kind == "service" else 0,
         deposit_type="fixed" if deposit else "none",
         deposit_value=5000 if deposit else None,
@@ -645,7 +647,7 @@ SPEC = BusinessSpec(
             "Leila Moradi",
             "+17785550191",
             "owner",
-            _registration(LEILA),
+            f"Owner · {_registration(LEILA)}",
             "#2C5F6E",
             HOURS[LEILA],
         ),
@@ -769,6 +771,11 @@ SPEC = BusinessSpec(
             "leah",
             ("bk_hs_couples_leah", "bk_hs_couples_aaron"),
         ),
+        Stage(
+            "Missed visit, fee invoice overdue",
+            "tyler",
+            ("bk_hs_tyler_missed", "inv_hs_tyler_missed"),
+        ),
         Stage("Weekly acupuncture series", "harjit", ("sch_hs_harjit", "bk_hs_harjit_initial")),
         Stage("Five-star feedback", "fatemeh", ("fr_hs_feedback_fatemeh",)),
         Stage("Four-star feedback about the room temperature", "gwen", ("fr_hs_feedback_gwen",)),
@@ -837,14 +844,6 @@ class Harbourside(Demo):
         self.paperwork()
         self.treatment_notes()
         self.engagement()
-
-    def visit_note(self, item: Item, booking: Booking) -> str:
-        name, credential, number = CREDENTIALS[booking.staff_id or LEILA]
-        day = self.local(booking.starts_at)
-        return (
-            f"{item.name} on {day:%B} {day.day}, {day.year} with {name}, {credential}, "
-            f"registration {number}."
-        )
 
     def clock(self, when: datetime) -> str:
         local = self.local(when)
@@ -1111,7 +1110,7 @@ class Harbourside(Demo):
             canceled + timedelta(minutes=40),
         )
         # a missed visit with no word
-        self.visit("tyler_missed", "tyler", M60, JUN, -20, status="no_show", settle=None)
+        missed = self.visit("tyler_missed", "tyler", M60, JUN, -20, status="no_show", settle=None)
         self.visit("tyler_first", "tyler", M30, JUN, -48, settle="card")
         self.note(
             "bk_hs_tyler_missed",
@@ -1119,6 +1118,8 @@ class Harbourside(Demo):
             "No answer by phone or text. Sent the missed-visit fee notice.",
             self.at(-20, 18),
         )
+        assert missed is not None
+        self.missed_fee(missed)
 
     def packages(self) -> None:
         pack = self.package("kenji", PACK10, self.at(-160, 13))
@@ -1159,6 +1160,26 @@ class Harbourside(Demo):
             self.ctx.get(Booking, "bk_hs_lucas_gift").completed_at or self.now,
         )
         self.gift_card("elif_mothers_day", "elif", GIFT, 13000, self.at(-162, 16), "Ayse Yilmaz")
+
+    def missed_fee(self, missed: Booking) -> None:
+        """The full fee for a visit missed with no word, still unpaid after its due date."""
+        issued = self.ctx.get(Slot, missed.slot_id).ends_at + timedelta(hours=3)
+        invoice = self.invoice(
+            "tyler_missed",
+            "tyler",
+            issued,
+            issued,
+            "Missed 60 minute massage with no notice. The full fee is charged under our "
+            "cancellation policy, and extended health plans don't cover it.",
+        )
+        day = self.local(missed.starts_at)
+        self.line(
+            invoice.id,
+            M60,
+            issued,
+            description=f"Missed visit fee, 60 minute massage on {day:%B} {day.day}",
+        )
+        self.settle(invoice, "tyler", "overdue")
 
     def named_visits(self) -> None:
         for index, day in enumerate((-62, -34, -12, 14)):

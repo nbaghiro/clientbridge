@@ -1567,7 +1567,8 @@ class Foothills(Demo):
             note="Fall cleanup with aeration for the 8,200 sq ft lot, plus three yards of "
             "mulch for the beds along the back fence. We'll blow out the sprinklers too.",
         )
-        start = self.place(MEGAN, FALL, 6, "sj_fh_amir", past=False)
+        helper = self.crew(6)
+        start = self.place(MEGAN, FALL, 6, "sj_fh_amir", past=False, helper=helper)
         assert start is not None and estimate.accepted_at is not None
         booking = self.book(
             "amir",
@@ -1578,6 +1579,7 @@ class Foothills(Demo):
             "confirmed",
             estimate.accepted_at + timedelta(minutes=20),
         )
+        assert self.helper_on(booking, helper)
         self.addons(booking, estimate, quote)
 
     def projects(self) -> None:
@@ -1678,6 +1680,7 @@ class Foothills(Demo):
         self.sign(key, key, PROJECT_AGREEMENT, accepted + timedelta(minutes=15), f"sj_fh_{key}")
         booked = accepted + timedelta(minutes=30)
         past = project_day < 0
+        helper = self.crew(project_day)
         start = self.place(
             MEGAN,
             PROJECT,
@@ -1685,11 +1688,13 @@ class Foothills(Demo):
             f"sj_fh_{key}",
             past=past,
             not_before=booked + timedelta(days=5),
+            helper=helper,
         )
         assert start is not None
         booking = self.book(
             key, key, PROJECT, MEGAN, start, "completed" if past else "confirmed", booked
         )
+        assert self.helper_on(booking, helper)
         self.deposit(booking, booked + timedelta(minutes=10))
         if not past:
             self.addons(booking, estimate, quote)
@@ -1832,7 +1837,9 @@ class Foothills(Demo):
         """Spring cleanups for the clients whose stories need a visit before the first mow."""
         for key in ("carol", "harjit"):
             day = (self.this_year(4, 24) - self.local(self.now).date()).days
-            self.visit(f"{key}_spring", key, SPRING, MEGAN, day if day < -1 else -2)
+            booking = self.visit(f"{key}_spring", key, SPRING, MEGAN, day if day < -1 else -2)
+            if booking is not None:
+                self.helper_on(booking, self.crew(self.days_to(booking.starts_at)))
 
     def refund_story(self) -> None:
         booking = self.visit("ken", "ken", FALL, MEGAN, -8)

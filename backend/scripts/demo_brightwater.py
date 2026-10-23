@@ -11,7 +11,7 @@ from clientbridge.models.clients import Client, Subject
 from clientbridge.models.documents import FormResponse, Signature
 from clientbridge.models.payments import Payment
 from clientbridge.models.platform import File
-from clientbridge.models.scheduling import Addon, Booking, Slot
+from clientbridge.models.scheduling import Addon, Booking, BookingStatus, Slot
 from clientbridge.schemas.subjects import PropertyAttributes
 from scripts.demo_context import demo_business
 from scripts.demo_engine import ASSETS, Demo, Quote
@@ -118,7 +118,7 @@ ITEMS: tuple[tuple[str, ItemKind, str, int, int | None, str, str], ...] = (
         "product",
         "Inside the oven",
         4500,
-        None,
+        45,
         "Add-ons",
         "Inside the oven, the racks and the door glass, with a plant-based degreaser. Adds about "
         "45 minutes to the clean.",
@@ -128,29 +128,30 @@ ITEMS: tuple[tuple[str, ItemKind, str, int, int | None, str, str], ...] = (
         "product",
         "Inside the fridge",
         4000,
-        None,
+        30,
         "Add-ons",
         "Shelves and drawers washed and dried. Please clear out food first, or we'll move it to "
-        "the counter while we work.",
+        "the counter while we work. Adds about 30 minutes to the clean.",
     ),
     (
         WINDOWS,
         "product",
         "Inside windows",
         6000,
-        None,
+        60,
         "Add-ons",
         "Inside glass, frames and tracks on up to 10 windows. We don't clean outside glass above "
-        "the ground floor.",
+        "the ground floor. Adds about an hour to the clean.",
     ),
     (
         LAUNDRY,
         "product",
         "Laundry, wash and fold",
         3000,
-        None,
+        20,
         "Add-ons",
-        "One load washed, dried and folded during your clean, using your machines.",
+        "One load washed, dried and folded during your clean, using your machines. Adds about 20 "
+        "minutes a load.",
     ),
     (
         REFILL,
@@ -1272,8 +1273,8 @@ class Brightwater(Demo):
         note: str | None = None,
     ) -> Booking:
         """A past clean with its add-ons and products on one invoice."""
-        booking = self.visit(key, client_key, quote.service, staff, day, settle=None, note=note)
-        assert booking is not None and booking.completed_at is not None
+        booking = self.job(key, client_key, quote, staff, day, note=note)
+        assert booking.completed_at is not None
         item = self.items[quote.service]
         invoice = self.invoice(
             key,
@@ -1285,6 +1286,31 @@ class Brightwater(Demo):
         booking.invoice_id = invoice.id
         self.lines("invoice", invoice.id, quote, booking.created_at, booking=booking)
         self.settle(invoice, client_key, settle, tip=tip)
+        return booking
+
+    def job(
+        self,
+        key: str,
+        client_key: str,
+        quote: Quote,
+        staff: str,
+        day: int,
+        *,
+        note: str | None = None,
+    ) -> Booking:
+        """A clean placed near `day` and lengthened by its add-ons."""
+        extra = self.extra_minutes(quote)
+        past = day < 0
+        subject = self.subject_id(client_key)
+        start = self.place(staff, quote.service, day, subject, past=past, extra_min=extra)
+        assert start is not None
+        created = min(start - timedelta(days=5), self.now - timedelta(hours=5))
+        status: BookingStatus = "completed" if past else "confirmed"
+        booking = self.book(
+            key, client_key, quote.service, staff, start, status, created, extra_min=extra
+        )
+        if note:
+            self.note(booking.id, "booking", note, created)
         return booking
 
     def extras(self, booking: Booking, parts: tuple[tuple[str, int], ...]) -> None:
@@ -1316,11 +1342,20 @@ class Brightwater(Demo):
         self.refund_story()
 
     def lead(self) -> None:
-        start = self.place(JOY, STANDARD, 3, "sj_bw_sofia", past=False)
+        extra = self.extra_minutes(Quote(STANDARD, ((FRIDGE, 1),)))
+        start = self.place(JOY, STANDARD, 3, "sj_bw_sofia", past=False, extra_min=extra)
         assert start is not None
         created = self.now - timedelta(hours=20)
         sofia = self.book(
-            "sofia", "sofia", STANDARD, JOY, start, "pending", created, source="online"
+            "sofia",
+            "sofia",
+            STANDARD,
+            JOY,
+            start,
+            "pending",
+            created,
+            source="online",
+            extra_min=extra,
         )
         self.extras(sofia, ((FRIDGE, 1),))
         submitted = created + timedelta(hours=2)
@@ -1443,10 +1478,16 @@ class Brightwater(Demo):
             "and inside windows included.",
         )
         self.sign("wei", "wei", AGREEMENT, accepted + timedelta(minutes=20), None)
-        start = self.place(HARPREET, MOVE_OUT, 5, "sj_bw_wei", past=False)
+        extra = self.extra_minutes(quote)
+        start = self.place(
+            HARPREET, MOVE_OUT, 5, "sj_bw_wei", past=False, extra_min=extra, helper=TOMASZ
+        )
         assert start is not None
         booked = accepted + timedelta(minutes=40)
-        wei = self.book("wei", "wei", MOVE_OUT, HARPREET, start, "confirmed", booked)
+        wei = self.book(
+            "wei", "wei", MOVE_OUT, HARPREET, start, "confirmed", booked, extra_min=extra
+        )
+        assert self.helper_on(wei, TOMASZ)
         self.addons(wei, estimate, quote)
         self.deposit(wei, booked + timedelta(minutes=10))
         self.note(
@@ -1460,8 +1501,8 @@ class Brightwater(Demo):
 
     def tap_to_pay(self) -> None:
         self.visit("amara_first", "amara", DEEP, BOSS, -64, settle="card")
-        booking = self.visit("amara", "amara", STANDARD, JOY, -2, settle=None)
-        assert booking is not None and booking.completed_at is not None
+        booking = self.job("amara", "amara", Quote(STANDARD, ((OVEN, 1),)), JOY, -2)
+        assert booking.completed_at is not None
         paid = booking.completed_at + timedelta(minutes=8)
         self.sale(
             "amara",
@@ -1779,6 +1820,7 @@ class Brightwater(Demo):
             note="Quoted from your photos. The deposit holds the date and comes off the invoice.",
         )
         self.joined(key, sent - timedelta(days=1))
+        extra = self.extra_minutes(quote)
         start = self.place(
             staff,
             quote.service,
@@ -1786,6 +1828,7 @@ class Brightwater(Demo):
             f"sj_bw_{key}",
             past=True,
             not_before=accepted + timedelta(days=2),
+            extra_min=extra,
         ) or self.place(
             staff,
             quote.service,
@@ -1794,10 +1837,13 @@ class Brightwater(Demo):
             past=True,
             not_before=accepted + timedelta(days=2),
             forward=True,
+            extra_min=extra,
         )
         assert start is not None
         booked = accepted + timedelta(minutes=40)
-        booking = self.book(key, key, quote.service, staff, start, "completed", booked)
+        booking = self.book(
+            key, key, quote.service, staff, start, "completed", booked, extra_min=extra
+        )
         assert booking.completed_at is not None
         self.deposit(booking, booked + timedelta(minutes=10))
         address = self.ctx.get(Subject, f"sj_bw_{key}").attributes.get("address", "")
@@ -1821,8 +1867,7 @@ class Brightwater(Demo):
             ("olivia_laundry", HARPREET, 3, STANDARD, ((LAUNDRY, 2),)),
             ("grace_refill", JOY, 8, STANDARD, ((REFILL, 1), (CLOTHS, 1))),
         ):
-            booking = self.visit(key, key.split("_")[0], item, staff, day)
-            assert booking is not None
+            booking = self.job(key, key.split("_")[0], Quote(item, parts), staff, day)
             self.extras(booking, parts)
         mover = f"home_{GENERATED - 1:02}"
         booking = self.visit(

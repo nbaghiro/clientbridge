@@ -4,13 +4,14 @@ import unicodedata
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
 
+from clientbridge.core.locale import SOURCE_LOCALE, plural
 from clientbridge.models.billing import Invoice
 from clientbridge.models.catalog import Item, ItemKind, Package, Subscription
 from clientbridge.models.clients import Client
 from clientbridge.models.documents import FormResponse
 from clientbridge.models.payments import Payment
 from clientbridge.models.platform import Audit
-from clientbridge.models.scheduling import Booking, BookingStatus, Slot
+from clientbridge.models.scheduling import Booking, BookingStatus, Recurrence, Slot
 from scripts.demo_context import demo_business
 from scripts.demo_engine import Demo, Quote
 from scripts.demo_spec import (
@@ -37,6 +38,7 @@ STRENGTH, MOBILITY, BOOTCAMP, SENIORS = (
     "it_rl_bootcamp",
     "it_rl_seniors",
 )
+FOUNDATIONS = "it_rl_foundations"
 BOTTLE, BANDS, LOOPS = "it_rl_bottle", "it_rl_bands", "it_rl_loops"
 UNLIMITED, EIGHT = "it_rl_unlimited", "it_rl_eight"
 PT10, PASS10, GIFT = "it_rl_pt10", "it_rl_seniors_pass", "it_rl_gift"
@@ -170,6 +172,17 @@ ITEMS: tuple[tuple[str, ItemKind, str, int, int | None, str, str], ...] = (
         "people, so the coach can check everyone's form. Drop-in price.",
     ),
     (
+        FOUNDATIONS,
+        "class",
+        "Strength foundations, 6 weeks",
+        24000,
+        60,
+        "Programs",
+        "Six Thursday evenings with Mateo for people new to barbells: the squat, hinge, press "
+        "and row, how to warm up and how to pick a weight. Up to six people. Enrol in all six "
+        "weeks; a $50 deposit holds the spot and the rest is due on the first evening.",
+    ),
+    (
         BOTTLE,
         "product",
         "Insulated water bottle, 750 ml",
@@ -254,10 +267,17 @@ COLORS = {
     MOBILITY: "#3F7A6B",
     BOOTCAMP: "#C27C2C",
     SENIORS: "#5B6C8F",
+    FOUNDATIONS: "#6B3A2A",
     UNLIMITED: "#9C4221",
     EIGHT: "#B8663D",
 }
-CAPACITY = {STRENGTH: 8, MOBILITY: 10, BOOTCAMP: 12, SENIORS: 8}
+CAPACITY = {STRENGTH: 8, MOBILITY: 10, BOOTCAMP: 12, SENIORS: 8, FOUNDATIONS: 6}
+OFFERED_BY = {SENIORS: (SIMRAN,), FOUNDATIONS: (MATEO,)}
+PROGRAM_WEEKDAY, PROGRAM_AT = 3, time(19, 0)
+# the cohort halfway through its six weeks, and the next one enrolling with balances still due
+RUNNING = ("jake", "yusuf", "amy", "noah", "isaac")
+NEXT = ("brianna", "cody", "kristin", "mariam")
+OWING, PAID_AHEAD = "isaac", "kristin"
 # on hand today, low-stock line, unit cost, SKU; the mini loops sit under their line
 STOCK: dict[str, tuple[int, int, int, str]] = {
     BOTTLE: (14, 5, 1100, "RL-BTL-750"),
@@ -550,12 +570,15 @@ def _offering(row: tuple[str, ItemKind, str, int, int | None, str, str]) -> Offe
         online_bookable=kind in {"service", "class"},
         sell_online=kind == "product",
         capacity=CAPACITY.get(item_id),
+        staff=OFFERED_BY.get(item_id, ()),
+        deposit_type="fixed" if item_id == FOUNDATIONS else "none",
+        deposit_value=5000 if item_id == FOUNDATIONS else None,
         buffer_after_min=15 if kind == "class" else 10 if kind == "service" else 0,
         frequency="month" if kind == "subscription" else None,
         sku=stock[3] if stock else None,
         cost_cents=stock[2] if stock else None,
         stock=Stock(stock[0], stock[1]) if stock else None,
-        sessions=10 if kind == "package" else None,
+        sessions=10 if kind == "package" else 6 if item_id == FOUNDATIONS else None,
         covers={PT10: PT60, PASS10: SENIORS}.get(item_id),
         validity_days=180 if kind == "package" else None,
         ref={UNLIMITED: "unlimited", EIGHT: "eight", PASS10: "seniors"}.get(item_id),
@@ -692,6 +715,21 @@ SPEC = BusinessSpec(
             ("fr_rl_feedback_anita", "th_rl_anita_email"),
         ),
         Stage("Paid by Tap to Pay with a retail add-on", "jordan", ("ord_rl_jordan",)),
+        Stage(
+            "Six-week program halfway through, deposits paid",
+            "jake",
+            ("sch_rl_foundations", "bk_rl_foundations_jake_0", "inv_rl_foundations_jake"),
+        ),
+        Stage(
+            "Program balance overdue after its first evening",
+            OWING,
+            (f"inv_rl_foundations_{OWING}",),
+        ),
+        Stage(
+            "Next program enrolling, invoiced and due on its first evening",
+            "brianna",
+            ("sch_rl_foundations_next", "inv_rl_foundations_next_brianna"),
+        ),
     ),
     pacing=Pacing(
         {MATEO: 5, JENNA: 2, SIMRAN: 1},
@@ -729,6 +767,7 @@ class Ridgeline(Demo):
             "mateo_away", MATEO, self.at(-96, 0), self.at(-89, 23, 59), "Family trip to Manila"
         )
         self.repeats()
+        self.programs()
         self.today()
         self.full_class()
         self.intros()
@@ -772,6 +811,85 @@ class Ridgeline(Demo):
         self.series(
             "kevin", "kevin", PT30, JENNA, weekday=3, at=time(7, 30), every=1, visits=12, before=8
         )
+
+    def programs(self) -> None:
+        today = self.local(self.now).date()
+        coming = today + timedelta(days=(PROGRAM_WEEKDAY - today.weekday() - 1) % 7 + 1)
+        self.program("foundations", coming - timedelta(weeks=3), RUNNING)
+        self.program("foundations_next", coming + timedelta(weeks=3), NEXT)
+
+    def program(self, key: str, first: date, students: tuple[str, ...]) -> None:
+        """Six weekly evenings laid out ahead, each student enrolled in all of them at once."""
+        item = self.items[FOUNDATIONS]
+        starts = [
+            datetime.combine(first + timedelta(weeks=n), PROGRAM_AT, self.ctx.zone).astimezone(UTC)
+            for n in range(item.session_count or 6)
+        ]
+        opened = min(starts[0] - timedelta(days=30), self.now - timedelta(days=6))
+        program = Recurrence(
+            id=f"sch_rl_{key}",
+            business_id=self.spec.id,
+            item_id=FOUNDATIONS,
+            staff_id=MATEO,
+            frequency="week",
+            interval=1,
+            byday=[("MO", "TU", "WE", "TH", "FR", "SA", "SU")[PROGRAM_WEEKDAY]],
+            count=len(starts),
+            status="active",
+            created_at=opened,
+            updated_at=opened,
+        )
+        self.ctx.add(program)
+        sessions: list[Slot] = []
+        for n, start in enumerate(starts):
+            slot = self.session(f"{key}_{n}", FOUNDATIONS, MATEO, start)
+            slot.recurrence_id = program.id
+            slot.created_at = slot.updated_at = opened
+            sessions.append(slot)
+        closes = min(self.now - timedelta(hours=2), starts[0] - timedelta(days=1))
+        span = (closes - opened) / (len(students) + 1)
+        for order, student in enumerate(students):
+            enrolled = opened + span * (order + 1)
+            bookings: list[Booking] = []
+            for n, slot in enumerate(sessions):
+                done = slot.ends_at <= self.now
+                booking = self.book(
+                    f"{key}_{student}_{n}",
+                    student,
+                    FOUNDATIONS,
+                    MATEO,
+                    slot.starts_at,
+                    "completed" if done else "confirmed",
+                    enrolled,
+                    source="online" if order % 2 == 0 else "manual",
+                    price=None if n == 0 else 0,
+                    slot=slot,
+                )
+                if slot.starts_at <= self.now < slot.ends_at:
+                    booking.checked_in_at = slot.starts_at - timedelta(minutes=4 + order)
+                bookings.append(booking)
+            first_booking = bookings[0]
+            self.deposit(first_booking, enrolled + timedelta(minutes=5))
+            invoice = self.invoice(
+                f"{key}_{student}", student, enrolled + timedelta(minutes=10), enrolled, ""
+            )
+            invoice.notes = (
+                f"{item.name}, Thursdays at 7 pm from {first:%B} {first.day}. Your $50 deposit "
+                "is taken off, and the rest is due on the first evening."
+            )
+            invoice.due_at = first_booking.starts_at
+            first_booking.invoice_id = invoice.id
+            days = plural(
+                SOURCE_LOCALE,
+                "invoice_line.program",
+                item.session_count or 0,
+                program=item.name,
+            )
+            self.line(invoice.id, FOUNDATIONS, enrolled, booking=first_booking, description=days)
+            if student == OWING:
+                self.settle(invoice, student, "overdue")
+            elif student in RUNNING or student == PAID_AHEAD:
+                self.settle(invoice, student, "etransfer" if order % 2 else "card")
 
     def fits(self, staff: str, start: datetime, minutes: int) -> bool:
         end = start + timedelta(minutes=minutes)

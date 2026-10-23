@@ -1188,6 +1188,7 @@ class Lakeside(Demo):
         self.camp()
         for lesson in (*TODAY, *TERM):
             self.weekly(lesson)
+        self.arrivals()
         self.storyline()
         self.history()
         self.plans()
@@ -1308,6 +1309,18 @@ class Lakeside(Demo):
                     invoice = self.ctx.get(Invoice, booking.invoice_id)
                     invoice.discount_kind, invoice.discount_value = "percent", SIBLING_DISCOUNT
                     invoice.discount_reason = "Sibling discount"
+
+    def arrivals(self) -> None:
+        """Today's students were checked in as they arrived, for the lessons begun by now."""
+        today = self.local(self.now).date()
+        for booking in self.ctx.all(Booking):
+            if (
+                booking.status in {"confirmed", "completed"}
+                and self.ctx.get(Slot, booking.slot_id).capacity == 1
+                and self.local(booking.starts_at).date() == today
+                and booking.starts_at + timedelta(minutes=2) <= self.now
+            ):
+                booking.checked_in_at = booking.starts_at - timedelta(minutes=3)
 
     def seat(
         self,
