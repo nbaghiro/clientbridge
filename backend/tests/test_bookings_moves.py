@@ -341,8 +341,8 @@ async def test_note_is_kept_and_confirmation_can_be_skipped(
     ).scalar_one()
     assert note.body == "Nervous with dryers"
     assert email.sent == [] and sms.sent == []
-    await _book(as_owner, db, ST_PRIYA, "2027-03-01T22:00:00Z", note="  ")
+    blank = await _book(as_owner, db, ST_PRIYA, "2027-03-01T22:00:00Z", note="  ")
     notes = await db.execute(
-        select(Note.id).where(Note.business_id == BIZ, Note.parent_type == "booking")
+        select(Note.id).where(Note.parent_type == "booking", Note.parent_id.in_([bid, blank]))
     )
     assert len(notes.scalars().all()) == 1

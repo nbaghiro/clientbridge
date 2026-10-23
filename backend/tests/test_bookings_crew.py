@@ -294,7 +294,7 @@ async def test_completion_keeps_the_blocks_and_time_off_cannot_drop_them(
 ) -> None:
     booking_id = await _visit(as_owner, db, DIEGO, "2026-10-13T16:00:00Z")
     clock.travel(_at("2026-10-13T15:00:00Z"))
-    ok(await _add(as_owner, booking_id), 201)
+    ok(await _add(as_owner, booking_id, OWNER), 201)
     clock.travel(FROZEN)
     ok(await as_owner.patch(f"/v1/bookings/{booking_id}", json={"status": "completed"}))
     assert len(await _blocks(db, booking_id)) == 1

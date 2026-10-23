@@ -72,6 +72,7 @@ from scripts.demo_photos import add_people_photos
 from scripts.demo_scenarios import add_scenarios
 from scripts.demo_schedule import add_class_timetable, add_repeat_visits, finish_schedule
 from scripts.demo_validate import cross_business_errors, validate_database, validate_graph
+from scripts.demo_visits import add_visit_day
 
 VANCOUVER = ZoneInfo("America/Vancouver")
 now = clock.now().astimezone(VANCOUVER)
@@ -1003,6 +1004,7 @@ def seed_catalog_instances() -> None:
             id="pkg_marcus",
             business_id=BIZ,
             client_id="cl_marcus",
+            subject_id="sj_rex",
             item_id="it_pkg5",
             sessions_total=5,
             expires_at=at(300, 12),
@@ -2162,6 +2164,7 @@ def build_birchbark(as_of: datetime | None = None) -> DemoContext:
     add_finance_scenarios(ctx)
     build_calendar(ctx)
     finish_schedule(ctx)
+    add_visit_day(ctx)
     prepare_finance(ctx)
     build_identity(ctx)
     add_people_photos(ctx, BIZ)

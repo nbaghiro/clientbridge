@@ -171,12 +171,13 @@ async def test_a_replayed_purchase_keeps_its_subject(
 ) -> None:
     headers = key()
     body = {"client_id": CLIENT, "item_id": PKG_ITEM, "subject_id": REX, "cash": True}
+    seeded = set((await db.scalars(select(Package.id).where(Package.subject_id == REX))).all())
     first = await as_owner.post("/v1/packages", json=body, headers=headers)
     again = await as_owner.post("/v1/packages", json=body, headers=headers)
     assert first.status_code == again.status_code == 201
     assert again.json()["package_id"] == first.json()["package_id"]
-    found = await db.execute(select(Package.id).where(Package.subject_id == REX))
-    assert len(found.all()) == 1
+    found = set((await db.scalars(select(Package.id).where(Package.subject_id == REX))).all())
+    assert found - seeded == {first.json()["package_id"]}
 
 
 async def test_a_deleted_subjects_package_still_covers_its_visits(

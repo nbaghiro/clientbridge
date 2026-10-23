@@ -242,6 +242,7 @@ async def test_refunded_register_sale_reverses_the_service_commission(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     booking = await _diego_visit(db, rate_type="fixed", rate=15.0)
+    before = await _payable(db, "st_diego", "pending")
     sale = await _visit_sale(as_owner, db, booking)
     pay = await as_owner.post(f"/v1/orders/{sale}/pay", json={})
     assert pay.status_code == 200, pay.text
@@ -251,7 +252,7 @@ async def test_refunded_register_sale_reverses_the_service_commission(
         f"/v1/payments/{pay.json()['payment_id']}/refund", json={}, headers=retry_key()
     )
     assert refunded.status_code == 200, refunded.text
-    assert await _payable(db, "st_diego", "pending") == 0
+    assert await _payable(db, "st_diego", "pending") == before
 
 
 async def test_approve_then_pay_moves_payable_to_bank(

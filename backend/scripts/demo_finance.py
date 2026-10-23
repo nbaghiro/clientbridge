@@ -683,6 +683,7 @@ async def seed_earnings(db: AsyncSession, ctx: DemoContext) -> None:
             if (await ledger.order_state(db, order))[0] == "paid":
                 clock.freeze(order.paid_at)
                 await earnings.ensure_order_earning(db, order)
+                await earnings.ensure_earnings(db, order, occurred_at=order.paid_at)
     finally:
         clock.travel(resume)
     rows = (
