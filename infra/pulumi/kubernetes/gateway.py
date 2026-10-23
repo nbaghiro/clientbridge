@@ -199,13 +199,6 @@ def routes(env: Environment, provider: k8s.Provider, depends_on: list[pulumi.Res
                     "backendRefs": [{"name": "auth", "port": AUTH_PUBLIC_PORT}],
                 }
             )
-        if host == "site":
-            rules.append(
-                {
-                    "matches": [{"path": {"type": "Exact", "value": "/contact"}, "method": "POST"}],
-                    "backendRefs": [{"name": "api", "port": API_PORT}],
-                }
-            )
         rules.append({"backendRefs": [{"name": service, "port": port}]})
         k8s.apiextensions.CustomResource(
             f"{env.name}-{host}",

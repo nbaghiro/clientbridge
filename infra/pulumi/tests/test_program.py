@@ -1329,15 +1329,14 @@ def test_each_app_ships_after_its_environment_and_one_run_at_a_time() -> None:
     assert pinned == {"eas-cli@25.0.0"}
 
 
-def test_site_contact_posts_reach_the_api(stacks: dict[str, Built]) -> None:
+def test_no_route_matches_by_method(stacks: dict[str, Built]) -> None:
+    # GKE refuses a method match and then programs no Gateway change; Caddy proxies /contact
     for built in stacks.values():
-        site = named(built, "kubernetes:gateway.networking.k8s.io/v1:HTTPRoute", "site")
-        contact, rest = listed(dig(site.inputs, "spec", "rules"))
-        assert dig(contact, "matches") == [
-            {"path": {"type": "Exact", "value": "/contact"}, "method": "POST"}
-        ]
-        assert dig(contact, "backendRefs") == [{"name": "api", "port": 8701}]
-        assert dig(rest, "backendRefs") == [{"name": "web", "port": 8080}]
+        for route in of_type(built, "kubernetes:gateway.networking.k8s.io/v1:HTTPRoute"):
+            for rule in listed(dig(route.inputs, "spec", "rules")):
+                assert all(
+                    dig(match, "method") is None for match in listed(dig(rule, "matches") or [])
+                )
 
 
 def test_google_business_resources_are_gated_and_use_a_separate_key() -> None:
