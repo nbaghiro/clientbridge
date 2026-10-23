@@ -4,7 +4,7 @@ from zoneinfo import ZoneInfo
 
 from clientbridge.core.db import Base
 
-DEMO_VERSION = "2026-10-23.3"
+DEMO_VERSION = "2026-10-23.4"
 DEMO_PASSWORD = "demo1234"  # every seeded user logs in with this
 BUSINESS_TIMEZONE = ZoneInfo("America/Vancouver")
 
@@ -279,6 +279,22 @@ DEMO_BUSINESSES = (
         url="https://clearcoat.example",
         timezone="America/Toronto",
         edition="scripts.demo_clearcoat",
+    ),
+    DemoBusiness(
+        id="bz_riverbend",
+        name="Riverbend Driving School",
+        email="hello@riverbend.example",
+        first_name="Linda",
+        last_name="Friesen",
+        product_description="Driving lessons, classroom courses and road test packages",
+        primary_color="#2B6E62",
+        legal=LegalAddress(
+            "180", "Provencher Boulevard", "Winnipeg", "MB", "R2H 0G3", "+12045550198"
+        ),
+        owner_login="owner@riverbend.example",
+        url="https://riverbend.example",
+        timezone="America/Winnipeg",
+        edition="scripts.demo_riverbend",
     ),
 )
 DEMO_IDS = tuple(business.id for business in DEMO_BUSINESSES)
