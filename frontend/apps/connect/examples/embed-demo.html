@@ -79,14 +79,18 @@
             </section>
 
             <section>
+                <h2>Shop</h2>
+                <connect-shop slug="birchbark"></connect-shop>
+            </section>
+
+            <section>
                 <h2>Embed a token-based widget</h2>
-                <p>Paste a real token from a seeded pay/form/contract/review link.</p>
+                <p>Paste a real token from a seeded pay, form or contract link.</p>
                 <div style="display: flex; gap: 8px; flex-wrap: wrap">
                     <select id="kind">
                         <option value="pay">pay</option>
                         <option value="form">form</option>
                         <option value="contract">contract</option>
-                        <option value="review">review</option>
                     </select>
                     <input id="token" placeholder="token" style="flex: 1; min-width: 200px" />
                     <button id="embed">Embed</button>
@@ -100,8 +104,8 @@
             </section>
         </main>
 
-        <!-- The Connect origin. Inferred from this script's src, so the widgets need no `base`. -->
-        <script src="http://localhost:8709/embed.js" async></script>
+        <!-- Connect's book. origin, inferred from this script's src; shop and pay widgets use its siblings. -->
+        <script src="http://book.localhost:8709/embed.js" async></script>
         <script>
             document.addEventListener("connect:success", function (e) {
                 var log = document.getElementById("log");

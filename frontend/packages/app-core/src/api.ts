@@ -77,6 +77,9 @@ const FAILURES: Record<string, () => string> = {
     plan_not_managed: () => strings.api.planNotManaged,
     business_unavailable: () => strings.api.businessUnavailable,
     review_recently_requested: () => strings.api.reviewRecentlyRequested,
+    slug_invalid: () => strings.api.slugInvalid,
+    slug_reserved: () => strings.api.slugReserved,
+    slug_taken: () => strings.api.slugTaken,
 };
 
 /** The catalog message for a failure the server named, else the action's own message. */

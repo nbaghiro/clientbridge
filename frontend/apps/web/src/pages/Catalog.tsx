@@ -15,12 +15,14 @@ import {
     useKindPicker,
     useBrandForm,
     useProductsView,
+    useShopLink,
     BUSINESS_CURRENCY,
 } from "@clientbridge/app-core";
 import {
     Badge,
     Button,
     Choice,
+    CopyField,
     Empty,
     Icon,
     ItemImage,
@@ -30,6 +32,7 @@ import {
     Notice,
     PageHeader,
     Panel,
+    PayCode,
     SearchField,
     StatusPill,
     Tabs,
@@ -40,6 +43,7 @@ import { useState } from "react";
 import { ItemEditor } from "../components/ItemEditor";
 import { Loaded } from "../components/Loaded";
 import { Inventory, Toolbar } from "../components/Stock";
+import { config } from "../config";
 import { api, apiBaseUrl } from "../lib/api";
 
 const s = strings.catalog;
@@ -426,6 +430,7 @@ function ProductTable() {
                     </Loaded>
                 )}
             </div>
+            <ShopLinkPanel />
             <PickupSettings />
             {open !== null ? (
                 <ItemEditor
@@ -439,6 +444,41 @@ function ProductTable() {
                 />
             ) : null}
         </div>
+    );
+}
+
+function ShopLinkPanel() {
+    const shop = useShopLink(config.shopUrl);
+    if (shop === null) return null;
+    return (
+        <Panel
+            className="mt-6"
+            title={s.shopLinkTitle}
+            subtitle={shop.live ? s.shopLinkHint : s.shopLinkNotLive}
+            actions={
+                <Button
+                    variant="outline"
+                    size="sm"
+                    icon="external"
+                    onPress={() => {
+                        window.open(shop.link, "_blank", "noopener");
+                    }}
+                >
+                    {s.shopLinkOpen}
+                </Button>
+            }
+        >
+            <div className="flex items-center gap-4">
+                <div className="min-w-0 flex-1">
+                    <CopyField
+                        label={s.shopLinkTitle}
+                        value={shop.link}
+                        copyLabel={s.shopLinkCopy}
+                    />
+                </div>
+                <PayCode value={shop.link} size={72} label={s.shopQrLabel} />
+            </div>
+        </Panel>
     );
 }
 

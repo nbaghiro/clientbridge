@@ -3,8 +3,12 @@ import { createHash } from "node:crypto";
 import { strings } from "@clientbridge/app-core/public";
 import { type Route, expect, test } from "@playwright/test";
 
+import { on } from "./hosts";
+
 const slug = "birchbark";
-const home = `/b/${slug}`;
+const home = on(slug, "/");
+const booking = `/${slug}`;
+const shopPage = on("shop", `/${slug}`);
 const api = process.env.VITE_API_URL ?? "http://127.0.0.1:8701";
 const run = Date.now().toString();
 
@@ -37,7 +41,7 @@ test("business navigation connects the shop, booking, and homepage sections on m
     page,
 }) => {
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.goto(`${home}/shop`);
+    await page.goto(shopPage);
     const nav = page.getByRole("navigation", { name: strings.publicLanding.navigation });
     await expect(nav).toHaveCSS("height", "64px");
     await nav.locator("summary").click();
@@ -56,7 +60,7 @@ test("business navigation connects the shop, booking, and homepage sections on m
         .locator("header")
         .getByRole("button", { name: strings.publicLanding.book, exact: true })
         .click();
-    await expect(page).toHaveURL(`${home}/book`);
+    await expect(page).toHaveURL(on("book", booking));
     await expect(
         page.getByRole("heading", { name: strings.publicBooking.stepService }),
     ).toBeVisible();
@@ -82,8 +86,8 @@ test("product deep links, cart, and checkout contact details survive navigation 
     };
     const product = data.items.find((item) => item.in_stock && !item.variant_parent_id);
     expect(product).toBeDefined();
-    await page.goto(`${home}/shop?product=${product?.id ?? ""}`);
-    await expect(page).toHaveURL(`${home}/shop`);
+    await page.goto(`${shopPage}?product=${product?.id ?? ""}`);
+    await expect(page).toHaveURL(shopPage);
     const card = page.locator(`#product-${product?.id ?? ""}`);
     await expect(card.getByRole("button", { name: /./ }).first()).toBeFocused();
     await card
@@ -91,7 +95,7 @@ test("product deep links, cart, and checkout contact details survive navigation 
         .click();
     const summary = page.locator("aside");
     await summary.getByRole("button", { name: strings.publicShop.checkout, exact: true }).click();
-    await expect(page).toHaveURL(`${home}/shop/checkout`);
+    await expect(page).toHaveURL(`${shopPage}/checkout`);
     await summary.getByRole("button", { name: strings.publicShop.continue, exact: true }).click();
     await page.getByLabel(strings.publicShop.name, { exact: true }).fill("Navigation Test");
     await page
@@ -104,7 +108,7 @@ test("product deep links, cart, and checkout contact details survive navigation 
     await nav
         .getByRole("link", { name: strings.common.withCount(strings.publicLanding.cart, 1) })
         .click();
-    await expect(page).toHaveURL(`${home}/shop`);
+    await expect(page).toHaveURL(shopPage);
     await expect(page.getByRole("heading", { name: strings.publicShop.cart })).toBeFocused();
     await summary.getByRole("button", { name: strings.publicShop.checkout, exact: true }).click();
     await summary.getByRole("button", { name: strings.publicShop.continue, exact: true }).click();
@@ -141,7 +145,7 @@ test("the shop adds from the grid, changes quantities and checks out in steps", 
             },
         });
     });
-    await page.goto(`${home}/shop`);
+    await page.goto(shopPage);
     const summary = page.locator("aside");
     await expect(summary.getByText(shop.cartEmpty)).toBeVisible();
     await expect(summary.getByRole("button", { name: shop.checkout })).toBeDisabled();
@@ -180,7 +184,7 @@ test("the shop adds from the grid, changes quantities and checks out in steps", 
 test("the shop's order panel folds into a bottom bar on a phone", async ({ page }) => {
     const shop = strings.publicShop;
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.goto(`${home}/shop`);
+    await page.goto(shopPage);
     await expect(page.locator("aside")).toBeHidden();
     await page
         .getByRole("group", { name: "Rope Tug Toy", exact: true })
@@ -195,7 +199,7 @@ test("the shop's order panel folds into a bottom bar on a phone", async ({ page 
     expect(
         await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
     ).toBe(true);
-    await page.goto(`${home}/shop?cart=1`);
+    await page.goto(`${shopPage}?cart=1`);
     await expect(bar.getByRole("button", { name: shop.remove })).toBeVisible();
     await page.getByRole("button", { name: shop.checkout, exact: true }).click();
     await expect(page.getByRole("heading", { name: shop.sectionPickup })).toBeVisible();
@@ -235,7 +239,8 @@ test("empty businesses do not advertise unavailable services or products", async
 test("booking drafts restore contact details and remain scoped to their business", async ({
     page,
 }) => {
-    await page.goto(home);
+    // drafts live in book.'s session storage, so they are written on that origin first
+    await page.goto("/nowhere");
     await page.evaluate(() => {
         sessionStorage.setItem(
             "connect-booking:birchbark",
@@ -251,7 +256,7 @@ test("booking drafts restore contact details and remain scoped to their business
             JSON.stringify({ name: "Other Client" }),
         );
     });
-    await page.goto(`${home}/book`);
+    await page.goto(on("book", booking));
     await expect(page.getByRole("heading", { name: strings.publicBooking.stepTime })).toBeVisible();
     const nav = page.getByRole("navigation", { name: strings.publicLanding.navigation });
     await nav.getByRole("link", { name: strings.publicLanding.shop, exact: true }).click();
@@ -269,7 +274,7 @@ test("booking drafts restore contact details and remain scoped to their business
     expect(draft.returningToken).toBeUndefined();
     await page.reload();
     await expect(page.getByRole("heading", { name: strings.publicBooking.stepTime })).toBeVisible();
-    await page.goto("/b/cedar-coast-demo/book");
+    await page.goto("/cedar-coast-demo");
     await expect(page.getByRole("button", { name: /^Dog Walk, 30 minutes/ })).toBeVisible();
     await expect(
         page
@@ -293,7 +298,7 @@ test("a business with nothing bookable online says so", async ({ page }) => {
     await page.route(`${api}/book/${slug}/services`, (route) =>
         rewrite(route, (body) => ({ ...body, services: [] })),
     );
-    await page.goto(`${home}/book`);
+    await page.goto(on("book", booking));
     await expect(page.getByText(strings.publicBooking.nothingBookable)).toBeVisible();
     await expect(
         page.getByRole("heading", { name: strings.publicBooking.stepService }),
@@ -341,11 +346,14 @@ test("bank setup rejects a missing link and removes provider secrets from the UR
     page,
 }) => {
     await page.goto(
-        "/payment-method?setup_intent_client_secret=secret&setup_intent=seti_test&redirect_status=succeeded",
+        on(
+            "pay",
+            "/setup?setup_intent_client_secret=secret&setup_intent=seti_test&redirect_status=succeeded",
+        ),
     );
     await expect(
         page.getByRole("heading", { name: strings.checkout.bankSetupTitle }),
     ).toBeVisible();
     await expect(page.getByText(strings.checkout.bankSetupUnavailable)).toBeVisible();
-    await expect(page).toHaveURL(/\/payment-method$/);
+    await expect(page).toHaveURL(/\/setup$/);
 });

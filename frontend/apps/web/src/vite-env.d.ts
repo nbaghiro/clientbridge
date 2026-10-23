@@ -4,8 +4,10 @@ interface ImportMetaEnv {
     readonly VITE_API_URL?: string;
     readonly VITE_POWERSYNC_URL?: string;
     readonly VITE_AUTH_URL?: string;
-    readonly VITE_PAY_URL?: string;
+    readonly VITE_PAGE_URL?: string;
     readonly VITE_BOOK_URL?: string;
+    readonly VITE_SHOP_URL?: string;
+    readonly VITE_PAY_URL?: string;
     readonly VITE_STRIPE_PUBLISHABLE_KEY?: string;
     readonly VITE_PSEUDO_LOCALE?: string;
 }

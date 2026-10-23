@@ -66,6 +66,11 @@ class Environment:
     def url(self, host: Host) -> str:
         return f"https://{self.host(host)}"
 
+    @property
+    def pages(self) -> str:
+        """Every business's public page, a subdomain named by its slug."""
+        return f"*.{self.base_domain}"
+
 
 # the ports the images listen on: backend/Dockerfile, frontend/Dockerfile and the upstream images
 API_PORT = 8701

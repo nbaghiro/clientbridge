@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from clientbridge.core.zones import SUPPORTED_ZONES
 from clientbridge.integrations.stripe import PostalAddress
 from clientbridge.models.business import Business
+from clientbridge.models.platform import Audit
 from clientbridge.services.business import (
     after_quiet_hours,
     postal_address,
@@ -398,3 +399,77 @@ async def test_each_demo_business_has_a_complete_legal_address(
     address = postal_address(business)
     assert address.province == "BC" and address.postal_code[0] == "V"
     assert business.legal_phone is not None
+
+
+async def test_owner_moves_the_public_page_to_a_new_slug(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await db.execute(update(Business).where(Business.id == BIZ).values(stripe_account_id="acct_1"))
+    await db.flush()
+    res = await as_owner.patch("/v1/business", json={"slug": "birch-bark-pets"})
+    assert res.status_code == 200, res.text
+    assert res.json()["slug"] == "birch-bark-pets"
+    assert gateway.account_urls == [("acct_1", "http://birch-bark-pets.localhost:8709")]
+    audit = await db.scalar(select(Audit).where(Audit.action == "business.slug"))
+    assert audit is not None and audit.changes == {"old": "birchbark", "new": "birch-bark-pets"}
+
+
+async def test_saving_the_same_slug_changes_nothing(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await db.execute(update(Business).where(Business.id == BIZ).values(stripe_account_id="acct_1"))
+    await db.flush()
+    assert (await as_owner.patch("/v1/business", json={"slug": "birchbark"})).status_code == 200
+    assert gateway.account_urls == []
+    assert await db.scalar(select(Audit.id).where(Audit.action == "business.slug")) is None
+
+
+async def test_a_slug_another_business_uses_is_409(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    taken = await db.scalar(select(Business.slug).where(Business.id != BIZ).limit(1))
+    res = await as_owner.patch("/v1/business", json={"slug": taken, "name": "Renamed"})
+    assert res.status_code == 409
+    assert res.json()["error"] == "slug_taken"
+    business = await db.get_one(Business, BIZ)
+    await db.refresh(business)
+    assert (business.slug, business.name) == ("birchbark", "Birchbark Pet Studio")
+
+
+@pytest.mark.parametrize(
+    ("slug", "code"),
+    [
+        ("no", "slug_invalid"),
+        ("Birch", "slug_invalid"),
+        ("birch bark", "slug_invalid"),
+        ("api", "slug_reserved"),
+        ("clientbridge-pets", "slug_reserved"),
+    ],
+)
+async def test_a_slug_that_is_not_a_public_address_is_422(
+    as_owner: httpx.AsyncClient, slug: str, code: str
+) -> None:
+    res = await as_owner.patch("/v1/business", json={"slug": slug})
+    assert res.status_code == 422
+    assert res.json()["error"] == code
+
+
+async def test_staff_cannot_move_the_public_page(as_staff: httpx.AsyncClient) -> None:
+    assert (await as_staff.patch("/v1/business", json={"slug": "staff-pick"})).status_code == 403
+
+
+async def test_a_stripe_failure_leaves_the_new_slug_saved(
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    gateway: FakePaymentGateway,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    await db.execute(update(Business).where(Business.id == BIZ).values(stripe_account_id="acct_1"))
+    await db.flush()
+
+    async def unavailable(account_id: str, *, url: str) -> None:
+        raise RuntimeError("stripe is unavailable")
+
+    monkeypatch.setattr(gateway, "update_account_url", unavailable)
+    assert (await as_owner.patch("/v1/business", json={"slug": "birch-two"})).status_code == 200
+    assert await db.scalar(select(Business.slug).where(Business.id == BIZ)) == "birch-two"

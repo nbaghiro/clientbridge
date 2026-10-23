@@ -26,7 +26,7 @@ ARG VITE_STRIPE_PUBLISHABLE_KEY
 ENV BASE_DOMAIN=base.invalid \
     VITE_SITE_URL=https://base.invalid \
     VITE_APP_URL=https://app.base.invalid \
-    VITE_BOOK_URL=https://book.base.invalid \
+    VITE_PAGE_URL=https://{slug}.base.invalid \
     VITE_API_URL=$VITE_API_URL \
     VITE_AUTH_URL=$VITE_AUTH_URL \
     VITE_POWERSYNC_URL=$VITE_POWERSYNC_URL \
@@ -60,7 +60,11 @@ export SITE_URL="${SITE_URL:-https://$SITE_HOST}"
 export APP_URL="${APP_URL:-https://$APP_HOST}"
 export ADMIN_URL="${ADMIN_URL:-https://$ADMIN_HOST}"
 export BOOK_URL="${BOOK_URL:-https://$BOOK_HOST}"
+export SHOP_URL="${SHOP_URL:-https://$SHOP_HOST}"
 export PAY_URL="${PAY_URL:-https://$PAY_HOST}"
+# the template's own braces would end a ${PAGE_URL:-...} default early, so it is set apart
+[ -n "${PAGE_URL:-}" ] || PAGE_URL="https://{slug}.$BASE_DOMAIN"
+export PAGE_URL
 # Empty means the app derives them from BASE_DOMAIN; the compose app profile sets local ones.
 export API_URL="${API_URL:-}"
 export AUTH_URL="${AUTH_URL:-}"
@@ -69,7 +73,7 @@ MOBILE_APP_ID="${MOBILE_APP_ID:-}"
 APPLE_TEAM_ID="${APPLE_TEAM_ID:-}"
 ANDROID_CERT_FINGERPRINTS="${ANDROID_CERT_FINGERPRINTS:-}"
 # config.js and the association files quote these values as JSON strings
-for value in "$APP_URL" "$ADMIN_URL" "$BASE_DOMAIN" "$API_URL" "$AUTH_URL" "$SYNC_URL" "$PAY_URL" "$BOOK_URL" "$STRIPE_PUBLISHABLE_KEY" \
+for value in "$APP_URL" "$ADMIN_URL" "$BASE_DOMAIN" "$API_URL" "$AUTH_URL" "$SYNC_URL" "$PAY_URL" "$BOOK_URL" "$SHOP_URL" "$PAGE_URL" "$STRIPE_PUBLISHABLE_KEY" \
              "$MOBILE_APP_ID" "$APPLE_TEAM_ID" "$ANDROID_CERT_FINGERPRINTS"; do
     case "$value" in *'"'* | *'\'*) echo "serve: $value holds a quote or a backslash" >&2; exit 1 ;; esac
 done
@@ -88,9 +92,10 @@ else
 fi > /tmp/well-known/assetlinks.json
 # The image filesystem may be read-only, so the site is rewritten into /tmp.
 rm -rf /tmp/site && cp -R /srv/site /tmp/site
+page_url=$(printf '%s' "$PAGE_URL" | sed 's/{slug}/\\1/')
 find /tmp/site -type f \( -name '*.html' -o -name '*.xml' -o -name '*.txt' \) -exec sed -i \
     -e "s#https://app\.base\.invalid#$APP_URL#g" \
-    -e "s#https://book\.base\.invalid#$BOOK_URL#g" \
+    -e "s#https://\([a-z0-9-]*\)\.base\.invalid#$page_url#g" \
     -e "s#https://base\.invalid#$SITE_URL#g" \
     -e "s#base\.invalid#$BASE_DOMAIN#g" {} +
 exec caddy run --config /etc/caddy/Caddyfile --adapter caddyfile

@@ -182,7 +182,7 @@ class PaymentService:
             account_id = await self.gateway.create_connected_account(
                 business_name=business.name,
                 email=business.billing_email,
-                url=f"{get_settings().connect_base_url}/b/{business.slug}",
+                url=get_settings().page_url(business.slug),
                 configurations=("merchant",),
                 idempotency_key=f"connected-account:{business.id}",
             )
@@ -482,7 +482,7 @@ class PaymentService:
             self.db.add(link)
             await self.db.flush()
             cmd.record("payment.pad_link", entity_type="client", entity_id=client.id)
-            url = f"{get_settings().connect_base_url.rstrip('/')}/payment-method#token={token}"
+            url = f"{get_settings().pay_base_url}/setup#token={token}"
             return PaymentSetupLinkOut(id=link.id, url=url, expires_at=link.expires_at)
 
         return await run_command(

@@ -46,11 +46,13 @@
 	@admin host {$ADMIN_HOST}
 	@app host {$APP_HOST}
 	@connect host {$BOOK_HOST} {$PAY_HOST} {$SHOP_HOST}
+	# each business's public page is a subdomain named by its slug; * matches exactly one label
+	@page host *.{$BASE_DOMAIN}
 
 	handle /config.js {
 		header Content-Type "text/javascript; charset=utf-8"
 		header Cache-Control "no-cache"
-		respond `window.__CLIENTBRIDGE_CONFIG__ = {"baseDomain":"{$BASE_DOMAIN}","webUrl":"{$APP_URL}","adminUrl":"{$ADMIN_URL}","apiUrl":"{$API_URL}","authUrl":"{$AUTH_URL}","syncUrl":"{$SYNC_URL}","payUrl":"{$PAY_URL}","bookUrl":"{$BOOK_URL}","stripePublishableKey":"{$STRIPE_PUBLISHABLE_KEY}"};
+		respond `window.__CLIENTBRIDGE_CONFIG__ = {"baseDomain":"{$BASE_DOMAIN}","webUrl":"{$APP_URL}","adminUrl":"{$ADMIN_URL}","apiUrl":"{$API_URL}","authUrl":"{$AUTH_URL}","syncUrl":"{$SYNC_URL}","pageUrl":"{$PAGE_URL}","bookUrl":"{$BOOK_URL}","shopUrl":"{$SHOP_URL}","payUrl":"{$PAY_URL}","stripePublishableKey":"{$STRIPE_PUBLISHABLE_KEY}"};
 `
 	}
 
@@ -115,9 +117,28 @@ Disallow: /
 
 	# Businesses frame the widgets public/embed.js loads; every other Connect page stays unframed.
 	handle @connect {
-		@unembeddable not path /b/* /i/* /form/* /contract/*
+		@root path /
+		redir @root {$SITE_URL}
+		@unembeddable {
+			not {
+				host {$BOOK_HOST}
+				not path /m/* /prefs/*
+			}
+			not {
+				host {$SHOP_HOST}
+				not path /order/*
+			}
+			not {
+				host {$PAY_HOST}
+				path /i/*
+			}
+		}
 		header @unembeddable Content-Security-Policy "frame-ancestors 'none'"
 		header @unembeddable X-Frame-Options DENY
+		import spa connect
+	}
+
+	handle @page {
 		import spa connect
 	}
 

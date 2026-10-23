@@ -1,7 +1,9 @@
 import { defineConfig } from "@playwright/test";
 
-const port = Number(process.env.CONNECT_E2E_PORT ?? "8723");
-const pseudoPort = Number(process.env.CONNECT_PSEUDO_E2E_PORT ?? "8726");
+import { PORTS, on } from "./e2e/hosts";
+
+const port = PORTS.default;
+const pseudoPort = PORTS.pseudo;
 
 // Needs the API on :8701 over a migrated, seeded Postgres: `make up migrate seed dev-api` first.
 export default defineConfig({
@@ -21,12 +23,12 @@ export default defineConfig({
         {
             name: "default",
             testIgnore: "pseudo.e2e.ts",
-            use: { baseURL: `http://localhost:${String(port)}` },
+            use: { baseURL: on("book", "") },
         },
         {
             name: "pseudo",
             testMatch: "pseudo.e2e.ts",
-            use: { baseURL: `http://localhost:${String(pseudoPort)}` },
+            use: { baseURL: on("book", "", "pseudo") },
         },
     ],
     webServer: [

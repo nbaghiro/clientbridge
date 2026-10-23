@@ -10,6 +10,7 @@ import { type ApiLike, failedCode, failureMessage } from "../api";
 import type { ChoiceOption, Fact, SelectOption } from "../ui";
 import { mediaUrl } from "./files";
 import { durationLabel } from "./publicBooking";
+import { bareUrl, businessPageUrl } from "../runtime";
 import type { ShellTarget } from "./navigation";
 import { BRAND_COLOURS, useStaff, staffName } from "./staff";
 import { useReplicaLoad, useSyncStatus } from "./sync";
@@ -22,6 +23,7 @@ import { taxSummary } from "./taxes";
 interface BusinessRow {
     id: string;
     name: string;
+    slug: string;
     timezone: string;
     billing_email: string | null;
     gst_hst_number: string | null;
@@ -61,6 +63,7 @@ function located(row: LocatedRow): Located {
 
 interface BusinessFields extends Record<AddressKey, string> {
     name: string;
+    slug: string;
     timezone: string;
     billing_email: string;
     logo_file_id: string;
@@ -282,6 +285,8 @@ interface BusinessForm {
     /** The logo to preview: the uploaded file's media link, else a logo set by URL before uploads. */
     logoSrc: (apiBase: string) => string | null;
     set: (key: keyof BusinessFields, value: string) => void;
+    /** The slug differs from the saved one, so links and QR codes already shared will stop working. */
+    slugChanged: boolean;
     busy: boolean;
     error: string | null;
     saved: boolean;
@@ -289,7 +294,7 @@ interface BusinessForm {
 }
 
 export const BUSINESS_SQL =
-    "SELECT id, name, timezone, billing_email, gst_hst_number, qst_number, province, unit, street_number, street_name, city, postal_code, legal_phone, brand FROM businesses LIMIT 1";
+    "SELECT id, name, slug, timezone, billing_email, gst_hst_number, qst_number, province, unit, street_number, street_name, city, postal_code, legal_phone, brand FROM businesses LIMIT 1";
 
 /** The saved row flows back through sync, so the form shows the server's values on the next render. */
 export function useBusinessForm(api: ApiLike): BusinessForm {
@@ -307,6 +312,7 @@ export function useBusinessForm(api: ApiLike): BusinessForm {
             loadedAddress.current = located(row);
             setFields({
                 name: row.name,
+                slug: row.slug,
                 timezone: row.timezone,
                 billing_email: row.billing_email ?? "",
                 logo_file_id: brand.logo_file_id,
@@ -319,7 +325,8 @@ export function useBusinessForm(api: ApiLike): BusinessForm {
 
     const set = (key: keyof BusinessFields, value: string): void => {
         setSaved(false);
-        setFields((f) => (f === null ? f : { ...f, [key]: value }));
+        const typed = key === "slug" ? slugDraft(value) : value;
+        setFields((f) => (f === null ? f : { ...f, [key]: typed }));
     };
 
     const submit = (): void => {
@@ -329,6 +336,11 @@ export function useBusinessForm(api: ApiLike): BusinessForm {
             return;
         }
         const { logo_file_id, primary, tagline, name, timezone, billing_email } = fields;
+        const slug = slugify(fields.slug);
+        if (slug.length === 0) {
+            setError(strings.business.onboarding.slugRequired);
+            return;
+        }
         // Send `brand` and address fields only when they changed, so a stale form cannot erase them.
         const b = loadedBrand.current;
         const brandChanged =
@@ -340,6 +352,7 @@ export function useBusinessForm(api: ApiLike): BusinessForm {
             name,
             timezone,
             billing_email,
+            ...(slug !== row?.slug ? { slug } : {}),
             ...Object.fromEntries(moved.map((key) => [key, fields[key]])),
             ...(brandChanged ? { brand } : {}),
         };
@@ -374,6 +387,7 @@ export function useBusinessForm(api: ApiLike): BusinessForm {
         businessId: row?.id ?? null,
         logoSrc,
         set,
+        slugChanged: fields !== null && row !== null && slugify(fields.slug) !== row.slug,
         busy,
         error,
         saved,
@@ -583,14 +597,20 @@ export function industryOptions(): SelectOption<Industry>[] {
     }));
 }
 
-/** Business name → URL-safe slug (lowercase, accent-stripped, hyphen-separated, alnum only). */
-function slugify(name: string): string {
-    return name
+/** Typed text as a slug in progress: a trailing dash stays, so the next word can follow it. */
+function slugDraft(text: string): string {
+    return text
         .toLowerCase()
         .normalize("NFKD")
         .replace(/[\u0300-\u036f]/gu, "")
         .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-+|-+$/g, "");
+        .replace(/^-+/, "")
+        .slice(0, 40);
+}
+
+/** Business name → the public page's subdomain label: lowercase letters, digits and dashes. */
+function slugify(name: string): string {
+    return slugDraft(name).replace(/-+$/, "");
 }
 
 interface OnboardingForm {
@@ -634,7 +654,7 @@ export function useOnboardingForm(
 
     const setSlug = (v: string): void => {
         setSlugEdited(true);
-        setSlugState(slugify(v));
+        setSlugState(slugDraft(v));
     };
 
     const submit = (): void => {
@@ -642,7 +662,7 @@ export function useOnboardingForm(
             setError(strings.business.onboarding.nameRequired);
             return;
         }
-        if (slug.length === 0) {
+        if (slugify(slug).length === 0) {
             setError(strings.business.onboarding.slugRequired);
             return;
         }
@@ -656,12 +676,12 @@ export function useOnboardingForm(
         }
         run(
             async () => {
-                onCreated(await onboard(api, { name, slug, province, industry }));
+                onCreated(await onboard(api, { name, slug: slugify(slug), province, industry }));
             },
             {
                 errorMessage: (e) => {
                     if (failedCode(e) !== "email_unverified")
-                        return strings.business.onboarding.createError;
+                        return failureMessage(e, strings.business.onboarding.createError);
                     setNeedsVerification(true);
                     return strings.business.onboarding.verifyFirst;
                 },
@@ -809,15 +829,6 @@ export interface SetupProgress {
     dismissed: boolean;
 }
 
-/** The public booking page for a business, on the Connect host the app is configured with. */
-export function bookingHost(base: string): string {
-    return base.replace(/^https?:\/\//, "").replace(/\/+$/, "");
-}
-
-export function bookingPageUrl(base: string, slug: string): string {
-    return `${base.replace(/\/+$/, "")}/b/${slug}/book`;
-}
-
 function progressOf(row: SetupCounts | undefined): SetupProgress {
     const counts = row ?? NO_COUNTS;
     const steps = setupTasks(counts);
@@ -858,13 +869,13 @@ const NO_COUNTS: SetupCounts = {
 interface SetupChecklist extends SetupProgress {
     load: Load;
     live: boolean;
-    bookingUrl: string;
+    pageUrl: string;
     setHidden: (hidden: boolean) => void;
     hideError: string | null;
 }
 
 /** The Get set up list, the same steps and count the sidebar and Today show. */
-export function useSetupChecklist(api: ApiLike, bookBase: string): SetupChecklist {
+export function useSetupChecklist(api: ApiLike, pageUrl: string): SetupChecklist {
     const query = useQuery<SetupCounts>(SETUP_PROGRESS_SQL);
     const c = query.data[0] ?? NO_COUNTS;
     const load = useReplicaLoad([query], false);
@@ -873,8 +884,7 @@ export function useSetupChecklist(api: ApiLike, bookBase: string): SetupChecklis
         ...progressOf(query.data[0]),
         load,
         live: c.services > 0 && c.hours > 0,
-        bookingUrl:
-            c.slug === null ? "" : bookingPageUrl(bookBase, c.slug).replace(/^https?:\/\//, ""),
+        pageUrl: c.slug === null ? "" : bareUrl(businessPageUrl(pageUrl, c.slug)),
         setHidden: (hidden) => {
             run(() => api.patch("/v1/business", { setup_dismissed: hidden }), {
                 errorMessage: strings.business.saveError,

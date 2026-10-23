@@ -87,8 +87,27 @@ async def test_onboard_duplicate_slug_409_no_partial(
         "/v1/onboarding", json={"name": "B", "slug": "dup-slug", "province": "AB", "subject": "pet"}
     )
     assert second.status_code == 409
+    assert second.json()["error"] == "slug_taken"
     n = (await db.execute(text("SELECT count(*) FROM businesses WHERE slug = 'dup-slug'"))).scalar()
     assert n == 1
+
+
+@pytest.mark.parametrize(
+    "slug", ["ab", "-acme", "acme-", "Acme", "acme_co", "a" * 41, "shop", "www", "my-clientbridge"]
+)
+async def test_onboard_refuses_a_slug_that_is_not_a_public_address(
+    api: httpx.AsyncClient,
+    factory: Factory,
+    identities: FakeIdentityProvider,
+    db: AsyncSession,
+    slug: str,
+) -> None:
+    user = await factory.user()
+    await _auth(api, factory, identities, user.id)
+    body = {"name": "A", "slug": slug, "province": "AB", "subject": "pet"}
+    assert (await api.post("/v1/onboarding", json=body)).status_code == 422
+    n = await db.scalar(text("SELECT count(*) FROM businesses WHERE slug = :s"), {"s": slug})
+    assert n == 0
 
 
 async def test_unauthenticated_onboard_401(api: httpx.AsyncClient) -> None:
@@ -173,7 +192,7 @@ async def test_onboard_stores_the_chosen_subject_kind(
 ) -> None:
     user = await factory.user()
     await _auth(api, factory, identities, user.id)
-    body = {"name": "K", "slug": f"kind-{kind}", "province": "ON", "subject": kind}
+    body = {"name": "K", "slug": f"kind-{kind or 'none'}", "province": "ON", "subject": kind}
     res = await api.post("/v1/onboarding", json=body)
     assert res.status_code == 201, res.text
     assert res.json()["subject"] == kind

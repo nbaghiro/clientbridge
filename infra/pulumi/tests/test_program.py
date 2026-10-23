@@ -266,7 +266,7 @@ def test_every_host_has_a_route_and_a_record(cloud: Built, stacks: dict[str, Bui
     records = {dig(each.inputs, "name") for each in of_type(cloud, "gcp:dns/recordSet:RecordSet")}
     for name, built in stacks.items():
         base = DOMAINS[name]
-        expected = {base if host == "site" else f"{host}.{base}" for host in HOSTS}
+        expected = {base if host == "site" else f"{host}.{base}" for host in HOSTS} | {f"*.{base}"}
         routes = of_type(built, "kubernetes:gateway.networking.k8s.io/v1:HTTPRoute")
         hostnames = {h for route in routes for h in strings(dig(route.inputs, "spec", "hostnames"))}
         assert hostnames == expected
@@ -1142,6 +1142,15 @@ def test_each_host_takes_routes_only_from_its_own_environment(
             assert dig(listener, "hostname") == env.host(host)
             assert admitted(listener) == {"kubernetes.io/metadata.name": env.namespace}
         assert admitted(every[f"{env.name}-www"]) == {"kubernetes.io/metadata.name": "gateway"}
+        pages = every[f"{env.name}-pages"]
+        assert dig(pages, "hostname") == f"*.{env.base_domain}"
+        assert admitted(pages) == {"kubernetes.io/metadata.name": env.namespace}
+        route = named(
+            stacks[env.name], "kubernetes:gateway.networking.k8s.io/v1:HTTPRoute", "pages"
+        )
+        assert listed(dig(route.inputs, "spec", "parentRefs")) == [
+            {"name": "clientbridge", "namespace": "gateway", "sectionName": f"{env.name}-pages"}
+        ]
         for host in HOSTS:
             route = named(
                 stacks[env.name], "kubernetes:gateway.networking.k8s.io/v1:HTTPRoute", host

@@ -1,6 +1,6 @@
 import {
     PROVINCES,
-    bookingHost,
+    pageDomain,
     industryOptions,
     strings,
     useOnboardingForm,
@@ -14,7 +14,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Button, Choice, Field, Lockup, Logo, Notice, Select, TextField } from "@clientbridge/ui";
 
 import { api, identity } from "../lib/api";
-import { bookUrl } from "../lib/config";
+import { pageUrl } from "../lib/config";
 
 const c = theme.colors;
 const a = strings.auth;
@@ -92,7 +92,7 @@ export function OnboardingScreen({ onSignOut }: { onSignOut: () => void }) {
                     />
                     <TextField
                         label={strings.business.onboarding.webAddress}
-                        prefix={strings.business.onboarding.slugPrefix(bookingHost(bookUrl))}
+                        suffix={strings.business.onboarding.slugSuffix(pageDomain(pageUrl))}
                         type="url"
                         value={form.slug}
                         onChange={form.setSlug}

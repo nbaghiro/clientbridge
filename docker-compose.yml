@@ -27,7 +27,9 @@ x-backend: &backend
     SMTP_URL: smtp://mailpit:1025
     API_BASE_URL: http://localhost:8750
     WEB_BASE_URL: http://localhost:8751
-    CONNECT_BASE_URL: http://book.localhost:8751
+    BUSINESS_PAGE_URL: http://{slug}.localhost:8751
+    BOOK_BASE_URL: http://book.localhost:8751
+    SHOP_BASE_URL: http://shop.localhost:8751
     PAY_BASE_URL: http://pay.localhost:8751
     CORS_ALLOW_ORIGINS: http://book.localhost:8751,http://pay.localhost:8751,http://shop.localhost:8751
     STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
@@ -168,7 +170,9 @@ services:
       SITE_HOST: site.localhost
       SITE_URL: http://site.localhost:8751
       APP_URL: http://localhost:8751
+      PAGE_URL: http://{slug}.localhost:8751
       BOOK_URL: http://book.localhost:8751
+      SHOP_URL: http://shop.localhost:8751
       PAY_URL: http://pay.localhost:8751
       # config.js names these, since the hosts derived from BASE_DOMAIN are https and unrouted here
       API_URL: http://localhost:8750

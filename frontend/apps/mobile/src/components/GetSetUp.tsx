@@ -3,6 +3,7 @@ import {
     PICKUP_FIELDS,
     PUBLIC_PROFILE_FIELDS,
     type BrandForm,
+    bareUrl,
     bookingPageUrl,
     mediaUrl,
     coverTarget,
@@ -39,7 +40,7 @@ import { launchImageLibraryAsync } from "expo-image-picker";
 import { Image, ScrollView, Share, StyleSheet, Text, View } from "react-native";
 
 import { api, apiBaseUrl } from "../lib/api";
-import { bookUrl } from "../lib/config";
+import { bookUrl, pageUrl } from "../lib/config";
 import { useOpenLink } from "../lib/links";
 
 const c = theme.colors;
@@ -54,7 +55,7 @@ function BookingPreview({ brand, logo }: { brand: BrandForm; logo: string | null
             <View style={styles.bar}>
                 <Icon name="lock" size={11} color={c.muted} />
                 <Text style={styles.url} numberOfLines={1}>
-                    {bookingPageUrl(bookUrl, brand.slug).replace(/^https?:\/\//, "")}
+                    {bareUrl(bookingPageUrl(bookUrl, brand.slug))}
                 </Text>
             </View>
             <View style={styles.head}>
@@ -299,7 +300,7 @@ function BrandSheet({ brand, onClose }: { brand: BrandForm; onClose: () => void 
 /** The Setup home on a phone: the checklist, the booking link and the brand sheet. */
 export function GetSetUpScreen() {
     const brand = useBrandForm(api);
-    const list = useSetupChecklist(api, bookUrl);
+    const list = useSetupChecklist(api, pageUrl);
     const open = useOpenLink();
     const [editing, setEditing] = useState(false);
     const pct = list.done / list.total;
@@ -400,11 +401,11 @@ export function GetSetUpScreen() {
                     <Text style={styles.small}>{list.live ? o.shareBody : o.notLive}</Text>
                     <CopyField
                         label={o.shareTitle}
-                        value={list.bookingUrl}
+                        value={list.pageUrl}
                         copied={false}
                         copyLabel={o.share}
                         onCopy={() => {
-                            Share.share({ message: list.bookingUrl }).catch(() => undefined);
+                            Share.share({ message: list.pageUrl }).catch(() => undefined);
                         }}
                     />
                 </View>

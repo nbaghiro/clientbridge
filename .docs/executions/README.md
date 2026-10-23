@@ -21,3 +21,5 @@ Use a new folder for a separate execution. Record tested behavior, remaining wor
 - [Demo seed simplification](demo-simplification/plan.md) — on hold until the demo businesses have been tested; eleven fingerprint-proven commits that remove about 600 to 700 lines without changing demo data.
 
 - [Vertical gaps](vertical-gaps/plan.md): five product gaps for clinics, trades, day camps, driving schools and mobile auto detailing, in phases on `vertical-gaps`, with every schema change listed for approval.
+
+- [Connect hosts](connect-hosts/plan.md): one host per kind of Connect page and a subdomain per business page, on `connect-hosts`; [QA checklist](connect-hosts/qa.md).

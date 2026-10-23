@@ -201,6 +201,15 @@
     "api.broadcastContactMissing": {
         "message": "Add a business email, phone number or website in Business settings before sending a broadcast."
     },
+    "api.slugInvalid": {
+        "message": "Use 3 to 40 lowercase letters, numbers or dashes, starting and ending with a letter or number."
+    },
+    "api.slugReserved": {
+        "message": "That web address is reserved. Please choose another."
+    },
+    "api.slugTaken": {
+        "message": "Another business already uses that web address. Please choose another."
+    },
     "api.reviewRecentlyRequested": {
         "message": "You asked this client for a review in the last 30 days, so they won't get another one yet."
     },
@@ -6758,10 +6767,13 @@
     "business.onboarding.webAddress": {
         "message": "Web address"
     },
-    "business.onboarding.slugPrefix": {
-        "message": "{host}/b/",
-        "description": "Shown before the slug field; host is the booking site, such as book.clientbridge.ca",
-        "args": ["host"]
+    "business.slugChanged": {
+        "message": "Your page moves to the new address when you save. Links and QR codes you've already shared will stop working."
+    },
+    "business.onboarding.slugSuffix": {
+        "message": ".{domain}",
+        "description": "Shown after the slug field, which names the business page's subdomain; domain is such as clientbridge.ca",
+        "args": ["domain"]
     },
     "business.onboarding.slugPlaceholder": {
         "message": "your-business",
@@ -7657,6 +7669,27 @@
     },
     "catalog.filterArchived": {
         "message": "Archived"
+    },
+    "catalog.shopLinkTitle": {
+        "message": "Online shop link"
+    },
+    "catalog.shopLinkHint": {
+        "message": "Share it so clients can order products and pick them up."
+    },
+    "catalog.shopLinkNotLive": {
+        "message": "Your shop goes live once a product is set to sell online."
+    },
+    "catalog.shopLinkCopy": {
+        "message": "Copy"
+    },
+    "catalog.shopLinkShare": {
+        "message": "Share"
+    },
+    "catalog.shopLinkOpen": {
+        "message": "Open shop"
+    },
+    "catalog.shopQrLabel": {
+        "message": "QR code for your online shop"
     },
     "catalog.pickupTitle": {
         "message": "Pickup orders"
@@ -11837,10 +11870,6 @@
     "onlineBooking.embedCode": {
         "message": "Embed code"
     },
-    "onlineBooking.embedTitle": {
-        "message": "Book with {business}",
-        "args": ["business"]
-    },
     "onlineBooking.embedHint": {
         "message": "Paste this where the booking page should appear. It resizes to fit."
     },
@@ -13315,6 +13344,10 @@
     "embed.titles.booking": {
         "message": "Book an appointment",
         "description": "The embed script's launcher, dialog and frame title for online booking on a business's own site."
+    },
+    "embed.titles.shop": {
+        "message": "Shop",
+        "description": "The embed script's frame title for a business's online shop on its own site."
     },
     "embed.titles.pay": {
         "message": "Pay"

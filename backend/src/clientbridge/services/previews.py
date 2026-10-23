@@ -151,7 +151,7 @@ class PreviewService:
             locale_for(business=business),
             business.name,
             form.name,
-            f"{get_settings().connect_base_url}/form/{_UNMINTED}",
+            f"{get_settings().book_base_url}/form/{_UNMINTED}",
         )
         return await self._preview(
             client_id, lambda: self.notifier.deliver(self.db, client_id, notice)
@@ -166,7 +166,7 @@ class PreviewService:
             locale_for(business=business),
             business.name,
             contract.name,
-            f"{get_settings().connect_base_url}/contract/{_UNMINTED}",
+            f"{get_settings().book_base_url}/contract/{_UNMINTED}",
         )
         return await self._preview(
             client_id, lambda: self.notifier.deliver(self.db, client_id, notice)

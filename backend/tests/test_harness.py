@@ -159,7 +159,9 @@ def test_one_base_domain_derives_every_public_url(
     assert settings.api_base_url == f"https://api.{base}"
     assert settings.auth_public_url == f"https://api.{base}/auth"
     assert settings.web_base_url == f"https://app.{base}"
-    assert settings.connect_base_url == f"https://book.{base}"
+    assert settings.book_base_url == f"https://book.{base}"
+    assert settings.shop_base_url == f"https://shop.{base}"
+    assert settings.page_url("birchbark") == f"https://birchbark.{base}"
     assert settings.pay_base_url == f"https://pay.{base}"
     assert settings.allowed_origins() == [
         f"https://book.{base}",
@@ -298,8 +300,9 @@ async def test_a_deploy_gives_each_origin_only_the_cors_it_needs(
         f"https://book.{base}": False,
         f"https://pay.{base}": False,
         f"https://shop.{base}": False,
+        f"https://birchbark.{base}": False,
         f"https://{base}": None,
-        f"https://www.{base}": None,
+        f"https://shop.birchbark.{base}": None,
         f"https://app.{other}": None,
         "http://localhost:8700": None,
         "https://customer-site.example": None,

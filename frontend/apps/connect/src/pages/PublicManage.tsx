@@ -647,9 +647,7 @@ function ManageDone({ mg }: { mg: ManageBookingFlow }) {
                     <Button
                         icon="calendar"
                         onPress={() => {
-                            const done = navigate(
-                                `/b/${encodeURIComponent(mg.booking?.slug ?? "")}/book`,
-                            );
+                            const done = navigate(`/${encodeURIComponent(mg.booking?.slug ?? "")}`);
                             if (done) done.catch(() => undefined);
                         }}
                     >

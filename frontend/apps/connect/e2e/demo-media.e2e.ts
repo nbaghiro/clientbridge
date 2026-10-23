@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 
+import { on } from "./hosts";
+
 test("demo catalog photos load in the shop and booking page", async ({ page }, testInfo) => {
     test.skip(process.env.DEMO_E2E !== "1", "Requires the standard local demo catalog");
     await page.route("http://localhost:8701/**", (route) =>
@@ -7,7 +9,7 @@ test("demo catalog photos load in the shop and booking page", async ({ page }, t
     );
     for (const width of [1280, 390]) {
         await page.setViewportSize({ width, height: 900 });
-        await page.goto("/b/birchbark/shop");
+        await page.goto(on("shop", "/birchbark"));
         for (const name of [
             "Oatmeal Soothe Shampoo (500ml)",
             "Self-Cleaning Slicker Brush",
@@ -29,7 +31,7 @@ test("demo catalog photos load in the shop and booking page", async ({ page }, t
             path: testInfo.outputPath(`shop-${String(width)}.png`),
             fullPage: true,
         });
-        await page.goto("/b/birchbark/book");
+        await page.goto("/birchbark");
         await expect(page.locator('img[src*="fl_img_"]').first()).toBeVisible();
         await expect
             .poll(() =>

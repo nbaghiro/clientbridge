@@ -1,6 +1,7 @@
 import {
     BUSINESS_ADDRESS_FIELDS,
     BUSINESS_TEXT_FIELDS,
+    pageDomain,
     strings,
     timeZoneOptions,
     useBusinessForm,
@@ -11,6 +12,7 @@ import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } fr
 import { Button, Loading, Notice, Panel, Select, TextField } from "@clientbridge/ui";
 
 import { api } from "../lib/api";
+import { pageUrl } from "../lib/config";
 
 const c = theme.colors;
 
@@ -51,6 +53,19 @@ export function Business({ footer }: { footer?: ReactNode }) {
                         surface="surface"
                     />
                 ))}
+                <TextField
+                    label={strings.business.onboarding.webAddress}
+                    value={fields.slug}
+                    onChange={(v) => {
+                        form.set("slug", v);
+                    }}
+                    suffix={strings.business.onboarding.slugSuffix(pageDomain(pageUrl))}
+                    size="lg"
+                    surface="surface"
+                />
+                {form.slugChanged ? (
+                    <Notice tone="info">{strings.business.slugChanged}</Notice>
+                ) : null}
                 <Select
                     label={strings.business.timezoneLabel}
                     value={fields.timezone}

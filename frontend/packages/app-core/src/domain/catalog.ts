@@ -25,6 +25,7 @@ import { invoiceStatusSql, orderStatusSql } from "./ledger";
 import { useReplicaLoad } from "./sync";
 import { asTaxClass, type DocRate, isFederal, lineTax, useTaxSetup } from "./taxes";
 import { taxName, taxList, taxRateLabel } from "./printing";
+import { bareUrl, shopPageUrl } from "../runtime";
 import { staffNameSql } from "./staff";
 
 const s = strings.catalog;
@@ -1034,6 +1035,26 @@ function matchesProductFilter(i: ItemRow, f: ProductFilter): boolean {
 }
 
 /** Products with margin, stock and units sold, filtered, searched and sorted. */
+const SHOP_LINK_SQL = `
+SELECT
+    (SELECT slug FROM businesses LIMIT 1) AS slug,
+    (SELECT COUNT(*) FROM items WHERE active = 1 AND kind = 'product' AND sell_online = 1) AS online`;
+
+interface ShopLink {
+    link: string;
+    linkLabel: string;
+    /** At least one active product sells online, so the shop page lists something. */
+    live: boolean;
+}
+
+/** The online shop's address on the shop host, for staff to share and print. */
+export function useShopLink(shopUrl: string): ShopLink | null {
+    const row = useQuery<{ slug: string | null; online: number }>(SHOP_LINK_SQL).data[0];
+    if (!row?.slug) return null;
+    const link = shopPageUrl(shopUrl, row.slug);
+    return { link, linkLabel: bareUrl(link), live: row.online > 0 };
+}
+
 export function useProductsView(): ProductsView {
     const query = useQuery<ItemRow>(ITEMS_SQL);
     const products = useMemo(() => query.data.filter((i) => i.kind === "product"), [query.data]);

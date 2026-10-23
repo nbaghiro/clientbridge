@@ -8,12 +8,14 @@ import {
     useCatalogView,
     useKindPicker,
     useProductsView,
+    useShopLink,
     BUSINESS_CURRENCY,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import {
     Button,
     Choice,
+    CopyField,
     Empty,
     ItemImage,
     ItemTile,
@@ -24,11 +26,12 @@ import {
     Tabs,
 } from "@clientbridge/ui";
 import { useState } from "react";
-import { FlatList, ScrollView, StyleSheet, Text, View } from "react-native";
+import { FlatList, ScrollView, Share, StyleSheet, Text, View } from "react-native";
 
 import { ItemEditor } from "../components/ItemEditor";
 import { Inventory, Loaded } from "../components/Stock";
 import { apiBaseUrl } from "../lib/api";
+import { shopUrl } from "../lib/config";
 
 const s = strings.catalog;
 const c = theme.colors;
@@ -234,6 +237,7 @@ function CatalogList() {
 
 function ProductGrid() {
     const view = useProductsView();
+    const shop = useShopLink(shopUrl);
     const [open, setOpen] = useState<{ item: ItemRow | null } | null>(null);
     const add = (
         <Button
@@ -253,6 +257,20 @@ function ProductGrid() {
                 </Text>
                 {add}
             </View>
+            {shop !== null ? (
+                <View style={styles.search}>
+                    <CopyField
+                        label={s.shopLinkTitle}
+                        value={shop.linkLabel}
+                        hint={shop.live ? s.shopLinkHint : s.shopLinkNotLive}
+                        copied={false}
+                        copyLabel={s.shopLinkShare}
+                        onCopy={() => {
+                            Share.share({ message: shop.link }).catch(() => undefined);
+                        }}
+                    />
+                </View>
+            ) : null}
             <View style={styles.search}>
                 <SearchField
                     value={view.q}

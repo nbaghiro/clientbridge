@@ -2,6 +2,7 @@ import { formatMoney, strings } from "@clientbridge/app-core/public";
 import { axeIssues, unmarkedFocus, unreadableHover } from "@clientbridge/config/e2e/accessibility";
 import { type ConsoleMessage, expect, type Page, test } from "@playwright/test";
 
+import { on } from "./hosts";
 import { links, ownAddress } from "./links";
 
 test.beforeEach(async ({ context }, info) => {
@@ -38,7 +39,7 @@ async function bookVisit(
     extras: "add an extra" | "no extras",
 ): Promise<void> {
     const b = strings.publicBooking;
-    await page.goto(`/b/${slug}/book`);
+    await page.goto(`/${slug}`);
     await expect(page.getByRole("heading", { name: b.stepService })).toBeVisible();
     const openingsResponse = page.waitForResponse(
         (response) => response.url().includes(`/book/${slug}/days?`) && response.ok(),
@@ -117,7 +118,7 @@ test("anyone books with any member, and a refused or unreachable booking reads a
     page,
 }) => {
     const b = strings.publicBooking;
-    await page.goto(`/b/${links.slug}/book`);
+    await page.goto(`/${links.slug}`);
     const openingsResponse = page.waitForResponse(
         (response) => response.url().includes(`/book/${links.slug}/days?`) && response.ok(),
     );
@@ -218,12 +219,12 @@ test("a client sees a deposit due on the manage link and how to pay it", async (
 test("a client finds the shop from the landing page and fills a cart", async ({ page }) => {
     const errors = watchErrors(page);
     const shop = strings.publicShop;
-    await page.goto(`/b/${links.slug}`);
+    await page.goto(on(links.slug, "/"));
     await expect(
         page.getByRole("button", { name: strings.publicLanding.book }).first(),
     ).toBeVisible();
     await page.getByRole("button", { name: strings.publicBooking.shopLink }).click();
-    await expect(page).toHaveURL(new RegExp(`/b/${links.slug}/shop$`));
+    await expect(page).toHaveURL(on("shop", `/${links.slug}`));
     await expect(page.getByRole("heading", { name: shop.title, level: 1 })).toBeVisible();
     await page
         .getByRole("group", { name: "Self-Cleaning Slicker Brush", exact: true })
@@ -242,7 +243,7 @@ test("a client finds the shop from the landing page and fills a cart", async ({ 
 test("a client opens an invoice and sees how to pay it", async ({ page }) => {
     const errors = watchErrors(page);
     const pay = strings.publicPay;
-    await page.goto(`/i/${links.invoice}`);
+    await page.goto(on("pay", `/i/${links.invoice}`));
     await expect(page.getByRole("heading", { level: 1 })).toContainText("#");
     await expect(
         page.getByRole("heading", { name: new RegExp(`^(${pay.cardLabel}|${pay.offlineTitle})$`) }),
@@ -252,12 +253,12 @@ test("a client opens an invoice and sees how to pay it", async ({ page }) => {
 
 test("a client reads an estimate and a receipt", async ({ page }) => {
     const errors = watchErrors(page);
-    await page.goto(`/e/${links.estimate}`);
+    await page.goto(on("pay", `/e/${links.estimate}`));
     await expect(
         page.getByRole("button", { name: new RegExp(`^${strings.publicEstimate.acceptFor("")}`) }),
     ).toBeVisible();
     await expect(page.getByRole("button", { name: strings.publicEstimate.decline })).toBeVisible();
-    await page.goto(`/r/${links.receipt}`);
+    await page.goto(on("pay", `/r/${links.receipt}`));
     await expect(page.getByRole("button", { name: strings.publicReceipt.print })).toBeVisible();
     expect(errors).toEqual([]);
 });
@@ -287,7 +288,7 @@ test("a client opens their message preferences and an unknown link", async ({ pa
     await expect(page.getByRole("heading", { name: prefs.title })).toBeVisible();
     await page.getByRole("switch").first().click();
     await expect(page.getByRole("button", { name: prefs.save })).toBeEnabled();
-    await page.goto("/nowhere");
+    await page.goto("/nowhere/at-all");
     await expect(
         page.getByRole("heading", { name: strings.publicLanding.pageNotFoundTitle }),
     ).toBeVisible();
@@ -295,16 +296,24 @@ test("a client opens their message preferences and an unknown link", async ({ pa
 });
 
 const PUBLIC_PAGES = [
-    { name: "business", path: `/b/${links.slug}`, landmark: "Birchbark Pet Studio" },
-    { name: "booking", path: `/b/${links.slug}/book`, landmark: strings.publicBooking.title },
+    { name: "business", path: on(links.slug, "/"), landmark: "Birchbark Pet Studio" },
+    { name: "booking", path: `/${links.slug}`, landmark: strings.publicBooking.title },
     { name: "manage", path: `/m/${links.manage}`, landmark: strings.publicManage.title },
-    { name: "invoice", path: `/i/${links.invoice}`, landmark: strings.publicPay.balanceDue },
+    {
+        name: "invoice",
+        path: on("pay", `/i/${links.invoice}`),
+        landmark: strings.publicPay.balanceDue,
+    },
     {
         name: "estimate",
-        path: `/e/${links.estimate}`,
+        path: on("pay", `/e/${links.estimate}`),
         landmark: strings.publicEstimate.estimateTotal,
     },
-    { name: "receipt", path: `/r/${links.receipt}`, landmark: strings.publicReceipt.print },
+    {
+        name: "receipt",
+        path: on("pay", `/r/${links.receipt}`),
+        landmark: strings.publicReceipt.print,
+    },
     { name: "form", path: `/form/${links.form}`, landmark: strings.publicForm.sendAnswers },
     {
         name: "contract",
@@ -316,8 +325,12 @@ const PUBLIC_PAGES = [
         path: `/prefs/${links.prefs}`,
         landmark: strings.publicPreferences.title,
     },
-    { name: "order", path: `/order/${links.order}`, landmark: strings.publicOrder.title },
-    { name: "shop", path: `/b/${links.slug}/shop`, landmark: strings.publicShop.subtitle },
+    {
+        name: "order",
+        path: on("shop", `/order/${links.order}`),
+        landmark: strings.publicOrder.title,
+    },
+    { name: "shop", path: on("shop", `/${links.slug}`), landmark: strings.publicShop.subtitle },
 ];
 
 for (const surface of PUBLIC_PAGES) {
@@ -364,7 +377,7 @@ test("the business cover photo keeps its hovered actions readable", async ({ pag
         profile.brand.cover_url = new URL("/e2e-cover.svg", page.url()).href;
         await route.fulfill({ response, json: profile });
     });
-    await page.goto(`/b/${links.slug}`);
+    await page.goto(on(links.slug, "/"));
     const header = page.locator("header", { has: page.locator('img[src$="/e2e-cover.svg"]') });
     await expect(header.getByRole("button", { name: strings.publicLanding.book })).toBeVisible();
     expect(await unreadableHover(page, "header")).toEqual([]);
@@ -373,14 +386,15 @@ test("the business cover photo keeps its hovered actions readable", async ({ pag
 });
 
 const MISSING_PAGES = [
-    ["/b/missing-business", strings.publicLanding.notFoundTitle],
-    ["/b/missing-business/book", strings.publicBooking.notFoundTitle],
-    ["/b/missing-business/shop", strings.publicShop.notFoundTitle],
+    [on("missing-business", "/"), strings.publicLanding.notFoundTitle],
+    ["/missing-business", strings.publicBooking.notFoundTitle],
+    [on("shop", "/missing-business"), strings.publicShop.notFoundTitle],
     ["/m/missing-token", strings.publicManage.notFoundTitle],
-    ["/i/missing-token", strings.publicPay.notFoundTitle],
-    ["/e/missing-token", strings.publicEstimate.notFoundTitle],
-    ["/r/missing-token", strings.publicReceipt.notFoundTitle],
-    ["/review/retired-token", strings.publicLanding.pageNotFoundTitle],
+    [on("pay", "/i/missing-token"), strings.publicPay.notFoundTitle],
+    [on("pay", "/e/missing-token"), strings.publicEstimate.notFoundTitle],
+    [on("pay", "/r/missing-token"), strings.publicReceipt.notFoundTitle],
+    ["/b/missing-business/book", strings.publicLanding.pageNotFoundTitle],
+    [on("pay", "/m/missing-token"), strings.publicLanding.pageNotFoundTitle],
     ["/form/missing-token", strings.publicForm.notFoundTitle],
     ["/contract/missing-token", strings.publicContract.notFoundTitle],
     ["/prefs/missing-token", strings.publicPreferences.notFoundTitle],

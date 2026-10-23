@@ -3,13 +3,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { ApiLike } from "../api";
-import {
-    bookingPageUrl,
-    industryOptions,
-    setupTasks,
-    useBusinessForm,
-    useOnboardingForm,
-} from "./business";
+import { industryOptions, setupTasks, useBusinessForm, useOnboardingForm } from "./business";
 
 const replica = vi.hoisted(() => ({ rows: [] as unknown[] }));
 vi.mock("../hooks", async (importOriginal) => ({
@@ -75,17 +69,10 @@ describe("setupTasks", () => {
     });
 });
 
-describe("bookingPageUrl", () => {
-    it("joins the Connect host and the slug without a doubled slash", () => {
-        expect(bookingPageUrl("https://book.example.ca/", "birch")).toBe(
-            "https://book.example.ca/b/birch/book",
-        );
-    });
-});
-
 const ROW = {
     id: "bz_1",
     name: "Birch Studio",
+    slug: "birch-studio",
     timezone: "America/Vancouver",
     billing_email: null,
     gst_hst_number: null,
@@ -153,6 +140,39 @@ describe("useBusinessForm", () => {
         });
         expect(bodies[0]).toMatchObject({ postal_code: "v8w1y4" });
         expect(Object.keys(bodies[0] ?? {})).not.toContain("city");
+    });
+
+    it("types a slug as a subdomain and sends it only when it changed", async () => {
+        replica.rows = [ROW];
+        const { api, bodies } = recordingApi(ROW);
+        const { result } = renderHook(() => useBusinessForm(api));
+        await waitFor(() => {
+            expect(result.current.fields).not.toBeNull();
+        });
+        expect(result.current.slugChanged).toBe(false);
+        act(() => {
+            result.current.set("slug", "Birch Bark ");
+        });
+        expect(result.current.fields?.slug).toBe("birch-bark-");
+        expect(result.current.slugChanged).toBe(true);
+        act(() => {
+            result.current.submit();
+        });
+        await waitFor(() => {
+            expect(result.current.saved).toBe(true);
+        });
+        expect(bodies[0]).toMatchObject({ slug: "birch-bark" });
+        act(() => {
+            result.current.set("slug", "birch-studio");
+        });
+        expect(result.current.slugChanged).toBe(false);
+        act(() => {
+            result.current.submit();
+        });
+        await waitFor(() => {
+            expect(bodies).toHaveLength(2);
+        });
+        expect(Object.keys(bodies[1] ?? {})).not.toContain("slug");
     });
 });
 

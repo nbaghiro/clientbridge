@@ -111,8 +111,10 @@ const config: ExpoConfig = {
         powersyncUrl: env.POWERSYNC_URL ?? deployed("sync") ?? "http://127.0.0.1:8704",
         authUrl: env.AUTH_URL ?? deployed("api", "/auth") ?? "http://127.0.0.1:8713",
         publicWebUrl: env.PUBLIC_WEB_URL ?? deployed("app") ?? "http://localhost:8700",
-        payUrl: env.PAY_URL ?? deployed("pay") ?? "http://localhost:8709",
-        bookUrl: env.BOOK_URL ?? deployed("book") ?? "http://localhost:8709",
+        pageUrl: env.PAGE_URL ?? deployed("{slug}") ?? "http://{slug}.localhost:8709",
+        bookUrl: env.BOOK_URL ?? deployed("book") ?? "http://book.localhost:8709",
+        shopUrl: env.SHOP_URL ?? deployed("shop") ?? "http://shop.localhost:8709",
+        payUrl: env.PAY_URL ?? deployed("pay") ?? "http://pay.localhost:8709",
         // Stripe publishable (platform) key — NOT a secret; left blank until configured per env.
         stripePublishableKey: env.STRIPE_PUBLISHABLE_KEY ?? "",
         stripeMerchantId: STRIPE_MERCHANT_ID,

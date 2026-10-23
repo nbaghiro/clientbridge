@@ -416,8 +416,8 @@ def receipt_link(token: str) -> str:
 
 
 def order_link(token: str) -> str:
-    """The client's page for an online order's status, on the same host as pay links."""
-    return f"{get_settings().pay_base_url}/order/{token}"
+    """The client's page for an online order's status, on the shop host it was placed on."""
+    return f"{get_settings().shop_base_url}/order/{token}"
 
 
 def receipt_message(
@@ -1051,7 +1051,7 @@ def visit_note_body(locale: str, note: str, link: str) -> str:
 def visit_link(booking: Booking) -> str | None:
     if booking.manage_token is None:
         return None
-    return f"{get_settings().connect_base_url}/m/{booking.manage_token}"
+    return f"{get_settings().book_base_url}/m/{booking.manage_token}"
 
 
 def broadcast_text(
@@ -1130,14 +1130,14 @@ def _deposit_request(locale: str, business: Business, booking: Booking) -> tuple
     ):
         return None
     amount = format_money(locale, booking.deposit_amount_cents, currency_for(business))
-    return amount, f"{get_settings().connect_base_url}/m/{booking.manage_token}"
+    return amount, f"{get_settings().book_base_url}/m/{booking.manage_token}"
 
 
 def _manage_link(business: Business, booking: Booking) -> str | None:
     """The client's manage link, when the business lets clients change bookings online."""
     if booking.manage_token is None or business.booking_policy.get("self_service") is False:
         return None
-    return f"{get_settings().connect_base_url}/m/{booking.manage_token}"
+    return f"{get_settings().book_base_url}/m/{booking.manage_token}"
 
 
 async def _visits_by_client(
@@ -1689,7 +1689,7 @@ class Notifier:
         business = await db.get(Business, response.business_id)
         if business is None:
             return Outcome.SKIPPED
-        link = f"{get_settings().connect_base_url}/form/{response.token}"
+        link = f"{get_settings().book_base_url}/form/{response.token}"
         notice = form_sent_message(
             locale_for(business=business),
             business.name,
@@ -1706,7 +1706,7 @@ class Notifier:
         business = await db.get(Business, signature.business_id)
         if contract is None or business is None:
             return
-        link = f"{get_settings().connect_base_url}/contract/{signature.token}"
+        link = f"{get_settings().book_base_url}/contract/{signature.token}"
         notice = contract_sent_message(
             locale_for(business=business), business.name, contract.name, link
         )

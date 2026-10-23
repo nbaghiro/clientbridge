@@ -10,20 +10,20 @@ import {
 } from "@clientbridge/app-core/public";
 import { Avatar, ActionTile, Button, ItemImage, OptionCard, Notice } from "@clientbridge/ui";
 import { useEffect } from "react";
-import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 
 import { brandStyle, BusinessCover, PoweredBy } from "../components/PublicPage";
 import { PublicStatus } from "../components/PublicStatus";
 import { isEmbedded } from "../embed";
 import { config } from "../config";
+import { links, useSlug } from "../site";
 
 const client = createPublicProfileClient(config.apiUrl);
 const s = strings.publicLanding;
 
 export function PublicLanding() {
-    const { slug = "" } = useParams<{ slug: string }>();
+    const slug = useSlug();
     const view = usePublicProfile(client, slug);
-    const navigate = useNavigate();
     const page = view.page;
     useBusinessFavicon(page?.brand);
     const { hash } = useLocation();
@@ -36,17 +36,14 @@ export function PublicLanding() {
                 : section;
         document.getElementById(target)?.scrollIntoView();
     }, [page, hash]);
-    const go = (to: string): void => {
-        const result = navigate(to);
-        if (result) result.catch(() => undefined);
-    };
     const book = (service?: string, starts?: string, staff?: string | null): void => {
         const query = new URLSearchParams();
         if (isEmbedded()) query.set("embed", "1");
         if (service) query.set("service", service);
         if (starts) query.set("starts", starts);
         if (staff) query.set("staff", staff);
-        go(`/b/${encodeURIComponent(slug)}/book?${query.toString()}`);
+        const search = query.toString();
+        window.location.assign(`${links.booking(slug)}${search === "" ? "" : `?${search}`}`);
     };
     if (view.status === "loading") return <PublicStatus kind="loading" />;
     if (view.status === "not-found")
@@ -162,7 +159,7 @@ export function PublicLanding() {
                     </div>
                 </div>
             </BusinessCover>
-            <BusinessSections brand={page.brand} />
+            <BusinessSections />
             <div className="mx-auto grid max-w-6xl gap-10 px-4 py-10 sm:px-6 md:grid-cols-[minmax(0,1fr)_330px]">
                 <main className="min-w-0 space-y-12">
                     {page.about ? (

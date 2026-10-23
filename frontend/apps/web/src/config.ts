@@ -8,8 +8,10 @@ export const config = {
     apiUrl: deployed?.apiUrl ?? env.VITE_API_URL ?? "http://localhost:8701",
     authUrl: deployed?.authUrl ?? env.VITE_AUTH_URL ?? "http://localhost:8713",
     powersyncUrl: deployed?.powersyncUrl ?? env.VITE_POWERSYNC_URL ?? "http://localhost:8704",
-    payUrl: deployed?.payUrl ?? env.VITE_PAY_URL ?? "http://localhost:8709",
-    bookUrl: deployed?.bookUrl ?? env.VITE_BOOK_URL ?? "http://localhost:8709",
+    pageUrl: deployed?.pageUrl ?? env.VITE_PAGE_URL ?? "http://{slug}.localhost:8709",
+    bookUrl: deployed?.bookUrl ?? env.VITE_BOOK_URL ?? "http://book.localhost:8709",
+    shopUrl: deployed?.shopUrl ?? env.VITE_SHOP_URL ?? "http://shop.localhost:8709",
+    payUrl: deployed?.payUrl ?? env.VITE_PAY_URL ?? "http://pay.localhost:8709",
     stripePublishableKey: deployed
         ? deployed.stripePublishableKey
         : env.VITE_STRIPE_PUBLISHABLE_KEY,

@@ -21,7 +21,7 @@ import {
     OptionCard,
 } from "@clientbridge/ui";
 import { useState } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 import {
     DetailsForm,
@@ -35,6 +35,7 @@ import { brandStyle, PublicPage } from "../components/PublicPage";
 import { PublicStatus } from "../components/PublicStatus";
 import { StepCard, StepLayout, SummaryBar, SummaryPanel } from "../components/StepLayout";
 import { config } from "../config";
+import { useSlug } from "../site";
 import { useEmbedBrand, useEmbedSuccess } from "../embed";
 
 const booking = createPublicBookingClient(config.apiUrl);
@@ -50,7 +51,7 @@ const draftStorage = (() => {
 })();
 
 export function PublicBooking() {
-    const { slug = "" } = useParams<{ slug: string }>();
+    const slug = useSlug();
     const navigate = useNavigate();
     const [params] = useSearchParams();
     const guided = params.get("presentation") === "guided";

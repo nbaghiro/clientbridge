@@ -69,6 +69,17 @@ def listener(env: Environment, host: Host) -> dict[str, object]:
     }
 
 
+def pages_listener(env: Environment) -> dict[str, object]:
+    """The business pages; an exact hostname and a longer wildcard both take precedence over it."""
+    return {
+        "name": section(env, "pages"),
+        "protocol": "HTTPS",
+        "port": 443,
+        "hostname": env.pages,
+        "allowedRoutes": _only(env.namespace),
+    }
+
+
 def redirect_listener(env: Environment) -> dict[str, object]:
     return {
         "name": section(env, "www"),
@@ -104,6 +115,7 @@ def create(
             "addresses": [{"type": "NamedAddress", "value": ip.name}],
             "listeners": [
                 *(listener(env, host) for env in envs for host in HOSTS),
+                *(pages_listener(env) for env in envs),
                 *(redirect_listener(env) for env in envs),
                 {
                     "name": "http",
@@ -203,6 +215,20 @@ def routes(env: Environment, provider: k8s.Provider, depends_on: list[pulumi.Res
             spec={"parentRefs": parent, "hostnames": [env.host(host)], "rules": rules},
             opts=options,
         )
+    k8s.apiextensions.CustomResource(
+        f"{env.name}-pages",
+        api_version="gateway.networking.k8s.io/v1",
+        kind="HTTPRoute",
+        metadata=k8s.meta.v1.ObjectMetaArgs(name="pages", namespace=env.namespace),
+        spec={
+            "parentRefs": [
+                {"name": NAME, "namespace": NAMESPACE, "sectionName": section(env, "pages")}
+            ],
+            "hostnames": [env.pages],
+            "rules": [{"backendRefs": [{"name": "web", "port": WEB_PORT}]}],
+        },
+        opts=options,
+    )
     for service, (port, path) in HEALTH_CHECKS.items():
         k8s.apiextensions.CustomResource(
             f"{env.name}-{service}-health",

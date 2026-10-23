@@ -15,6 +15,7 @@ import { useParams } from "react-router-dom";
 import { PublicPage } from "../components/PublicPage";
 import { PublicStatus } from "../components/PublicStatus";
 import { config } from "../config";
+import { links } from "../site";
 
 const client = createPublicOrderClient(config.apiUrl);
 const s = strings.publicOrder;
@@ -133,7 +134,7 @@ export function PublicOrder() {
                                         icon="receipt"
                                         onPress={() => {
                                             window.location.assign(
-                                                `/r/${encodeURIComponent(order.receipt_token ?? "")}`,
+                                                links.receipt(order.receipt_token ?? ""),
                                             );
                                         }}
                                     >
@@ -211,7 +212,7 @@ export function PublicOrder() {
                                     full
                                     onPress={() => {
                                         window.location.assign(
-                                            `/r/${encodeURIComponent(order.receipt_token ?? "")}`,
+                                            links.receipt(order.receipt_token ?? ""),
                                         );
                                     }}
                                 >
