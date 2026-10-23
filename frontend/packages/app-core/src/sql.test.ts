@@ -1227,11 +1227,28 @@ describe("app-core SQL against the replica schema", () => {
             { event: "payment", cents: 5000, method: "card" },
         ]);
         expect(run("INVOICE_CREDITS_SQL", ["inv_2"])).toEqual([]);
-        expect(pick(run("LETTERHEAD_SQL"), "name", "billing_email", "gst_hst_number")).toEqual([
+        db.run(
+            "UPDATE businesses SET street_number = '1250', province = 'BC', legal_phone = ? WHERE id = ?",
+            ["+16045550142", BIZ],
+        );
+        expect(
+            pick(
+                run("LETTERHEAD_SQL"),
+                "name",
+                "billing_email",
+                "gst_hst_number",
+                "street_number",
+                "province",
+                "legal_phone",
+            ),
+        ).toEqual([
             {
                 name: "Birch Studio",
                 billing_email: "billing@birch.test",
                 gst_hst_number: "123456789RT0001",
+                street_number: "1250",
+                province: "BC",
+                legal_phone: "+16045550142",
             },
         ]);
         expect(pick(run("INVOICES_SQL"), "id", "client_email", "paid_cents", "paid_at")).toEqual([

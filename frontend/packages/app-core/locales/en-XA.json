@@ -1208,6 +1208,12 @@
     "printing.page": {
         "message": "[Þåĝé {page, number} öƒ {pages, number} one]"
     },
+    "printing.streetLine": {
+        "message": "{number} {street}"
+    },
+    "printing.unitStreetLine": {
+        "message": "{unit}-{number} {street}"
+    },
     "printing.registration": {
         "message": "{first} · {second}"
     },

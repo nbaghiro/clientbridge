@@ -447,6 +447,8 @@ interface Strings {
         readonly acceptBy: (when: string) => string;
         readonly thanks: string;
         readonly page: (page: number, pages: number) => string;
+        readonly streetLine: (number: string, street: string) => string;
+        readonly unitStreetLine: (unit: string, number: string, street: string) => string;
         readonly registration: (first: string, second: string) => string;
         readonly gstNo: (n: string) => string;
         readonly qstNo: (n: string) => string;

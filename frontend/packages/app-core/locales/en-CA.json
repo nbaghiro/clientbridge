@@ -1318,6 +1318,16 @@
         "message": "Page {page, number} of {pages, number}",
         "args": ["page", "pages"]
     },
+    "printing.streetLine": {
+        "message": "{number} {street}",
+        "args": ["number", "street"],
+        "description": "The street line of the business's address on a printed document, like 1250 Main St"
+    },
+    "printing.unitStreetLine": {
+        "message": "{unit}-{number} {street}",
+        "args": ["unit", "number", "street"],
+        "description": "The street line with a unit, written the Canada Post way, like 4-1250 Main St"
+    },
     "printing.registration": {
         "message": "{first} · {second}",
         "args": ["first", "second"]
