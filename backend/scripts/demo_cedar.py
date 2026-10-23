@@ -1316,8 +1316,8 @@ def _offering(row: tuple[str, ItemKind, str, int, int | None, str, str]) -> Offe
 SPEC = BusinessSpec(
     listing=demo_business(CEDAR),
     code="cc",
-    slug="cedar-coast-demo",
-    login_domain="cedarcoast.example.test",
+    slug="cedarcoast",
+    login_domain="cedarcoast.example",
     owner=CEDAR_OWNER,
     people=(
         Person(
@@ -1386,8 +1386,7 @@ SPEC = BusinessSpec(
         ),
         "address": "455 Granville Street, Vancouver, BC V6C 1T1",
         "phone": "+1 604-555-0120",
-        "email": "hello@cedarcoast.example.test",
-        "website": "https://cedarcoast.example.test",
+        "email": "hello@cedarcoast.example",
         "neighbourhood": "Downtown and the West End",
     },
     booking_policy={
@@ -1398,9 +1397,9 @@ SPEC = BusinessSpec(
         "reschedule_cutoff_hours": 24,
     },
     subject="pet",
-    sms_number="+16045550998",
+    sms_number="+16045550199",
     gst_hst_number="726418093RT0001",
-    pst_number="PST-1048-2716",
+    pst_number="PST10482716",
     trial_days=14,
     forms=(
         FormSpec(MEET_FORM, "Meet and greet intake", "ff_cc_meet_", MEET_FIELDS, send_on="booking"),

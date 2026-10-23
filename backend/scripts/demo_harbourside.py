@@ -703,7 +703,6 @@ SPEC = BusinessSpec(
         "address": "1285 West Pender Street, Vancouver, BC V6E 4B1",
         "phone": "+1 778-555-0190",
         "email": "hello@harbourside.example",
-        "website": "https://harbourside.example",
         "neighbourhood": "Coal Harbour",
     },
     booking_policy={

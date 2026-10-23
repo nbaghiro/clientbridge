@@ -181,7 +181,7 @@ async def test_a_reseed_replaces_a_demo_user_whose_id_changed(owner_db: AsyncSes
     graphs = [build_graph(b, clock.now()) for b in ("bz_demo_second", "bz_northlight")]
     seeded = {graph.business_id: graph.ctx.all(User) for graph in graphs}
     emails = {user.email: user for users in seeded.values() for user in users}
-    owner, other = emails["owner@cedarcoast.example.test"], emails["owner@northlight.example"]
+    owner, other = emails["owner@cedarcoast.example"], emails["owner@northlight.example"]
     for business_id, users in seeded.items():
         await replace_business(db, business_id, users)
     cedar = Business(id="bz_demo_second", name="Cedar Coast Pet Care", slug="cedar-before")

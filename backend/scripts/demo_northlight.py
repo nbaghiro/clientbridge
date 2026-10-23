@@ -1016,7 +1016,6 @@ SPEC = BusinessSpec(
         "address": "2860 Quadra Street, Victoria, BC V8T 4E7",
         "phone": "+1 250-555-0198",
         "email": "hello@northlight.example",
-        "website": "https://northlight.example",
         "neighbourhood": "Quadra Village",
     },
     booking_policy={
@@ -1026,7 +1025,7 @@ SPEC = BusinessSpec(
         "reschedule_cutoff_hours": 48,
     },
     subject="site",
-    sms_number="+12505550998",
+    sms_number="+12365550199",
     gst_hst_number="781934625RT0001",
     pst_number="PST10427788",
     forms=(

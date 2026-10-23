@@ -929,7 +929,6 @@ SPEC = BusinessSpec(
         "address": "2087 Danforth Avenue, Toronto, ON M4C 1J9",
         "phone": "+1 416-555-0198",
         "email": "hello@maplemain.example",
-        "website": "https://maplemain.example",
         "neighbourhood": "Danforth East",
     },
     booking_policy={

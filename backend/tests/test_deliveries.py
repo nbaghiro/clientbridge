@@ -22,7 +22,7 @@ def mail(body: str = "Receipt") -> EmailDelivery:
 
 
 def text(to: str) -> SmsDelivery:
-    return SmsDelivery(message=Sms(to=to, body="Reminder", from_number="+12505550999"))
+    return SmsDelivery(message=Sms(to=to, body="Reminder", from_number="+12365550190"))
 
 
 async def test_reserved_recipients_fail_without_reaching_the_provider(

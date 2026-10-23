@@ -252,7 +252,7 @@ test("booking drafts restore contact details and remain scoped to their business
             }),
         );
         sessionStorage.setItem(
-            "connect-booking:cedar-coast-demo",
+            "connect-booking:cedarcoast",
             JSON.stringify({ name: "Other Client" }),
         );
     });
@@ -274,7 +274,7 @@ test("booking drafts restore contact details and remain scoped to their business
     expect(draft.returningToken).toBeUndefined();
     await page.reload();
     await expect(page.getByRole("heading", { name: strings.publicBooking.stepTime })).toBeVisible();
-    await page.goto("/cedar-coast-demo");
+    await page.goto("/cedarcoast");
     await expect(page.getByRole("button", { name: /^Dog Walk, 30 minutes/ })).toBeVisible();
     await expect(
         page
@@ -283,14 +283,15 @@ test("booking drafts restore contact details and remain scoped to their business
     ).toBeVisible();
     const other = await page.evaluate(
         () =>
-            JSON.parse(
-                sessionStorage.getItem("connect-booking:cedar-coast-demo") ?? "{}",
-            ) as Record<string, string>,
+            JSON.parse(sessionStorage.getItem("connect-booking:cedarcoast") ?? "{}") as Record<
+                string,
+                string
+            >,
     );
     expect(other.name).toBe("Other Client");
     expect(other.email).toBeUndefined();
     expect(
-        await page.evaluate(() => sessionStorage.getItem("connect-booking:cedar-coast-demo")),
+        await page.evaluate(() => sessionStorage.getItem("connect-booking:cedarcoast")),
     ).toContain("Other Client");
 });
 

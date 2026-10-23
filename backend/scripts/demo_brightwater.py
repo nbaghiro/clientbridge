@@ -935,7 +935,6 @@ SPEC = BusinessSpec(
         "address": "1324 9 Avenue SE, Calgary, AB T2G 0T2",
         "phone": "+1 403-555-0198",
         "email": "hello@brightwater.example",
-        "website": "https://brightwater.example",
         "neighbourhood": "Inglewood",
     },
     booking_policy={
@@ -947,7 +946,7 @@ SPEC = BusinessSpec(
         "max_reschedules": 2,
     },
     subject="property",
-    sms_number="+14035550998",
+    sms_number="+14035550199",
     gst_hst_number="784512369RT0001",
     forms=(
         FormSpec(HOME_FORM, "Home details", "ff_bw_home_", HOME_FIELDS, send_on="booking"),

@@ -67,7 +67,7 @@ from scripts.demo_context import (
 from scripts.demo_engagement import build_engagement
 from scripts.demo_engine import Demo, build_edition, edition_of, editions, seed_ledger
 from scripts.demo_finance import add_finance_scenarios, prepare_finance, seed_finance
-from scripts.demo_identity import build_identity, placeholder_identity
+from scripts.demo_identity import FOUNDED_DAY, build_identity, placeholder_identity
 from scripts.demo_photos import add_people_photos
 from scripts.demo_scenarios import add_scenarios
 from scripts.demo_schedule import add_class_timetable, add_repeat_visits, finish_schedule
@@ -130,6 +130,7 @@ def seed_identity() -> tuple[str, str]:
             timezone="America/Vancouver",
             **asdict(demo_business(BIZ).legal),
             gst_hst_number="847201539RT0001",
+            pst_number="PST10218845",
             tax_registered=True,
             brand={
                 "logo_file_id": "fl_logo",
@@ -138,7 +139,7 @@ def seed_identity() -> tuple[str, str]:
             },
             booking_policy={"approve_new_clients": True},
             billing_email="hello@birchbark.example",
-            sms_number="+12505550999",
+            sms_number="+12365550190",
             # a fixture account, fully onboarded so its status agrees with the seeded payments
             stripe_account_id="acct_demo_birchbark",
             stripe_charges_enabled=True,
@@ -154,7 +155,7 @@ def seed_identity() -> tuple[str, str]:
             status="active",
             plan="team",
             plan_status="active",
-            trial_ends_at=now + timedelta(days=14),
+            trial_ends_at=at(FOUNDED_DAY) + timedelta(days=14),
             subject="pet",
         )
     )

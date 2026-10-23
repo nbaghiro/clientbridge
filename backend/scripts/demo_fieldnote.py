@@ -827,7 +827,6 @@ SPEC = BusinessSpec(
         "address": "214 James Street North, Hamilton, ON L8R 2L3",
         "phone": "+1 905-555-0198",
         "email": "hello@fieldnote.example",
-        "website": "https://fieldnote.example",
         "neighbourhood": "James Street North",
     },
     booking_policy={

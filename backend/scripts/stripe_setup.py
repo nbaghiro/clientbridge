@@ -509,14 +509,11 @@ def plan_destination(destinations: Sequence[Mapping[str, object]], url: str | No
 def account_body(biz: DemoBusiness) -> dict[str, object]:
     descriptor = payment_descriptor(biz.name) or ""
     legal = biz.legal
-    support: dict[str, object] = {"email": biz.email, "phone": legal.legal_phone}
+    support: dict[str, object] = {"email": biz.email, "phone": legal.legal_phone, "url": biz.url}
     profile: dict[str, object] = {
         "product_description": biz.product_description,
-        "business_url": biz.url or "https://accessible.stripe.com",
+        "business_url": biz.url,
     }
-    if biz.url is not None:
-        support["url"] = biz.url
-        profile["business_url"] = biz.url
     return {
         "display_name": biz.name,
         "contact_email": biz.email,

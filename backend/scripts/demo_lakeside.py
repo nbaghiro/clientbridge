@@ -1070,7 +1070,6 @@ SPEC = BusinessSpec(
         "address": "512 Preston Street, Ottawa, ON K1R 7P8",
         "phone": "+1 613-555-0198",
         "email": "hello@lakeside.example",
-        "website": "https://lakeside.example",
         "neighbourhood": "Dow's Lake",
     },
     booking_policy={

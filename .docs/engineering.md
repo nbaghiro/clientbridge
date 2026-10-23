@@ -480,10 +480,10 @@ Demo accounts are normal tenants in the main local `clientbridge` database, usin
 | admin@birchbark.example       | Alex, administrator                                                  |
 | diego@birchbark.example       | Diego, commissioned staff                                            |
 | priya@birchbark.example       | Priya, employee                                                      |
-| owner@cedarcoast.example.test | Rowan, owner of Cedar Coast Pet Care, a dog walker on a trial        |
-| amrit@cedarcoast.example.test | Amrit, dog walker paid commission                                    |
-| tessa@cedarcoast.example.test | Tessa, dog walker paid hourly                                        |
-| leila@cedarcoast.example.test | Leila, pet sitter paid commission                                    |
+| owner@cedarcoast.example      | Rowan, owner of Cedar Coast Pet Care, a dog walker on a trial        |
+| amrit@cedarcoast.example      | Amrit, dog walker paid commission                                    |
+| tessa@cedarcoast.example      | Tessa, dog walker paid hourly                                        |
+| leila@cedarcoast.example      | Leila, pet sitter paid commission                                    |
 | owner@northlight.example      | Erik, owner of Northlight Security, a camera installer               |
 | office@northlight.example     | Naomi, office manager and administrator, not bookable                |
 | liam@northlight.example       | Liam, installer paid commission on labour                            |
@@ -537,7 +537,7 @@ There is one seeded demo business for each vertical the product serves, so a pro
 | Vertical                      | Business                         | Business page         | Subject kind | Province | Site trade page           |
 | ----------------------------- | -------------------------------- | --------------------- | ------------ | -------- | ------------------------- |
 | Pet grooming and daycare      | Birchbark Pet Studio             | `birchbark.D`         | pet          | BC       | `/solutions/pet-grooming` |
-| Dog walking and pet sitting   | Cedar Coast Pet Care             | `cedar-coast-demo.D`  | pet          | BC       | none                      |
+| Dog walking and pet sitting   | Cedar Coast Pet Care             | `cedarcoast.D`         | pet          | BC       | none                      |
 | Home services and trades      | Northlight Security              | `northlight.D`        | site         | BC       | `/solutions/trades`       |
 | Home cleaning                 | Brightwater Home Cleaning        | `brightwater.D`       | property     | AB       | `/solutions/cleaning`     |
 | Hair and beauty salon         | Maple and Main Hair Studio       | `maplemain.D`         | none         | ON       | `/solutions/salons`       |

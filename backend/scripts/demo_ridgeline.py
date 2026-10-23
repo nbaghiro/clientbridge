@@ -631,7 +631,6 @@ SPEC = BusinessSpec(
         "address": "10418 82 Avenue NW, Edmonton, AB T6E 2A2",
         "phone": "+1 780-555-0198",
         "email": "hello@ridgeline.example",
-        "website": "https://ridgeline.example",
         "neighbourhood": "Old Strathcona",
     },
     booking_policy={

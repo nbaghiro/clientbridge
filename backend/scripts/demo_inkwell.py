@@ -886,7 +886,6 @@ SPEC = BusinessSpec(
         "address": "2418 Main Street, Vancouver, BC V5T 3E2",
         "phone": "+1 672-555-0198",
         "email": "hello@inkwell.example",
-        "website": "https://inkwell.example",
         "neighbourhood": "Mount Pleasant",
     },
     booking_policy={
@@ -901,7 +900,7 @@ SPEC = BusinessSpec(
     subject=None,
     sms_number="+16725550199",
     gst_hst_number="742196385RT0001",
-    pst_number="PST-1093-4471",
+    pst_number="PST10934471",
     forms=(
         FormSpec(
             CONSENT_FORM,

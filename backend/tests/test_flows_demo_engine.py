@@ -45,6 +45,7 @@ SPEC = BusinessSpec(
         primary_color="#3F5E80",
         legal=LegalAddress("10", "Jasper Avenue", "Edmonton", "AB", "T5J 1N8", "+17805550150"),
         owner_login="owner@probe.example",
+        url="https://probe.example",
         timezone="America/Edmonton",
     ),
     code="pb",

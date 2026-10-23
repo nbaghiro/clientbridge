@@ -154,6 +154,7 @@ class Demo:
             {
                 "logo_file_id": logo,
                 "primary": listing.primary_color,
+                "website": listing.url,
                 **spec.brand,
                 "public_staff_ids": [p.staff_id for p in spec.people if p.bookable_online],
             }

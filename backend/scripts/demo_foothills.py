@@ -995,7 +995,6 @@ SPEC = BusinessSpec(
         "address": "2615 42 Avenue NE, Calgary, AB T2E 7T1",
         "phone": "+1 587-555-0198",
         "email": "hello@foothills.example",
-        "website": "https://foothills.example",
         "neighbourhood": "Northwest Calgary",
     },
     booking_policy={

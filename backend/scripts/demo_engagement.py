@@ -19,7 +19,7 @@ from clientbridge.models.reviews import ReviewRequest
 from clientbridge.models.scheduling import Booking, Slot
 from clientbridge.schemas.business import BrandInput
 from clientbridge.services.consents import allows_marketing
-from scripts.demo_context import BUSINESS_TIMEZONE, DemoContext
+from scripts.demo_context import BUSINESS_TIMEZONE, DemoContext, demo_business
 from scripts.demo_documents import (
     CLASS_FIELDS,
     FEEDBACK_FIELDS,
@@ -799,6 +799,7 @@ def _profile(ctx: DemoContext) -> None:
             "address": "1207 Government Street, Victoria, BC V8W 1Y9",
             "phone": "+1 250-555-0110",
             "email": "hello@birchbark.example",
+            "website": demo_business(ctx.business_id).url,
             "neighbourhood": "Downtown Victoria",
             "gallery_urls": [],
             "cover_url": None,

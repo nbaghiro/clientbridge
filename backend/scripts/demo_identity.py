@@ -8,6 +8,8 @@ from clientbridge.models.payments import Payment
 from clientbridge.models.platform import Audit, Webhook
 from scripts.demo_context import DemoContext
 
+FOUNDED_DAY = -450
+
 
 def placeholder_identity(email: str) -> str:
     """Stable until the seed links the real auth identity, so the demo graph builds offline."""
@@ -35,7 +37,7 @@ def build_identity(ctx: DemoContext) -> None:
     )
     for row in ctx.rows:
         if isinstance(row, TimestampMixin):
-            row.created_at = row.created_at or ctx.at(-450)
+            row.created_at = row.created_at or ctx.at(FOUNDED_DAY)
             row.updated_at = row.updated_at or row.created_at
     for invoice in ctx.all(Invoice):
         if invoice.status == "sent":

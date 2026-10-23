@@ -106,7 +106,7 @@ test("a new client's online booking waits for approval and opens the manage link
 
 test("a client books a confirmed visit where new clients need no approval", async ({ page }) => {
     const errors = watchErrors(page);
-    await bookVisit(page, "cedar-coast-demo", /^Dog Walk, 30 minutes/, "no extras");
+    await bookVisit(page, "cedarcoast", /^Dog Walk, 30 minutes/, "no extras");
     await expect(
         page.getByRole("heading", { name: strings.publicBooking.doneTitle }),
     ).toBeVisible();
