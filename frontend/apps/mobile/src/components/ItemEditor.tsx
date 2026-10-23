@@ -181,6 +181,16 @@ function ServiceFields({ ed }: { ed: ServiceEditor }) {
                         }}
                     />
                 ) : null}
+                {ed.isClass ? (
+                    <Num
+                        label={s.programDays}
+                        hint={s.programDaysHint}
+                        value={v.sessionCount}
+                        onChange={(x) => {
+                            set("sessionCount", x);
+                        }}
+                    />
+                ) : null}
                 <Toggle
                     label={s.onlineBookable}
                     hint={s.onlineBookableHint}

@@ -196,6 +196,11 @@ describe("item editor", () => {
             true,
         );
         expect(pkg).toMatchObject({ session_count: 5, covers_item_id: "it_bath" });
+        const camp = itemPayload(
+            { ...values, kind: "class", capacity: "10", sessionCount: "5" },
+            true,
+        );
+        expect(camp).toMatchObject({ capacity: 10, session_count: 5 });
         const club = itemPayload(
             { ...values, kind: "subscription", visitsPerPeriod: "2", memberDiscount: "10" },
             false,
@@ -246,6 +251,10 @@ describe("item editor", () => {
         expect(itemFormError({ ...values, duration: "" })).not.toBeNull();
         expect(itemFormError({ ...values, depositValue: "120" })).not.toBeNull();
         expect(itemFormError({ ...values, kind: "package", sessionCount: "" })).not.toBeNull();
+        expect(itemFormError({ ...values, kind: "class", capacity: "8" })).toBeNull();
+        expect(
+            itemFormError({ ...values, kind: "class", capacity: "8", sessionCount: "0" }),
+        ).not.toBeNull();
         expect(
             itemFormError({ ...values, kind: "package", sessionCount: "3", coversItemId: "" }),
         ).toBe("Choose which service a visit covers");

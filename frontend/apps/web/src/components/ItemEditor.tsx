@@ -183,6 +183,17 @@ function ServiceFields({ ed }: { ed: ServiceEditor }) {
                             />
                         </div>
                     ) : null}
+                    {ed.isClass ? (
+                        <TextField
+                            label={s.programDays}
+                            hint={s.programDaysHint}
+                            type="number"
+                            value={v.sessionCount}
+                            onChange={(x) => {
+                                set("sessionCount", x);
+                            }}
+                        />
+                    ) : null}
                     <Toggle
                         label={s.onlineBookable}
                         hint={s.onlineBookableHint}

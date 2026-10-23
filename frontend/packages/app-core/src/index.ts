@@ -19,6 +19,7 @@ export * from "./domain/bookings";
 export * from "./domain/hours";
 export * from "./domain/recurrences";
 export * from "./domain/classes";
+export * from "./domain/programs";
 export * from "./domain/reminders";
 export * from "./domain/onlineBooking";
 export * from "./domain/navigation";

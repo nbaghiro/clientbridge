@@ -97,88 +97,138 @@ export function WhenPicker({ flow }: { flow: PublicBookingFlow }) {
                     }))}
                 />
             </div>
-            <div className="space-y-4">
-                <p className="text-sm font-medium text-ink-soft first-letter:uppercase">
-                    {flow.dateLabel}
-                </p>
-                {flow.zoneNote !== null ? (
-                    <p className="text-xs text-muted">{flow.zoneNote}</p>
-                ) : null}
-                <DayRail
-                    label={s.date}
-                    days={flow.strip}
-                    value={flow.date}
-                    onChange={flow.setDate}
-                    {...(flow.canPrevWeek ? { onPrev: flow.prevWeek } : {})}
-                    {...(flow.canNextWeek ? { onNext: flow.nextWeek } : {})}
-                    prevLabel={s.prevWeek}
-                    nextLabel={s.nextWeek}
-                />
-                <div className="min-h-[148px]">
-                    {flow.slotsError ? (
-                        <Empty
-                            intent="danger"
-                            icon="cloudOff"
-                            message={s.slotsError}
-                            actions={
-                                <Button
-                                    size="sm"
-                                    variant="outline"
-                                    icon="refresh"
-                                    onPress={flow.retrySlots}
-                                >
-                                    {s.retry}
-                                </Button>
-                            }
-                        />
-                    ) : flow.slots === null ? (
-                        <Skeleton variant="line" count={3} label={s.loadingTimes} />
-                    ) : flow.slots.length === 0 ? (
-                        <Empty
-                            icon={flow.closure !== null ? "lock" : "calendar"}
-                            message={
-                                flow.closure !== null
-                                    ? s.closedDay(flow.closure)
-                                    : s.noTimes(flow.dateLabel)
-                            }
-                            body={flow.firstOpen === null ? s.noTimesWeek : undefined}
-                            actions={
-                                flow.firstOpen !== null ? (
+            {flow.programs !== null ? (
+                <ProgramDates flow={flow} programs={flow.programs} />
+            ) : (
+                <div className="space-y-4">
+                    <p className="text-sm font-medium text-ink-soft first-letter:uppercase">
+                        {flow.dateLabel}
+                    </p>
+                    {flow.zoneNote !== null ? (
+                        <p className="text-xs text-muted">{flow.zoneNote}</p>
+                    ) : null}
+                    <DayRail
+                        label={s.date}
+                        days={flow.strip}
+                        value={flow.date}
+                        onChange={flow.setDate}
+                        {...(flow.canPrevWeek ? { onPrev: flow.prevWeek } : {})}
+                        {...(flow.canNextWeek ? { onNext: flow.nextWeek } : {})}
+                        prevLabel={s.prevWeek}
+                        nextLabel={s.nextWeek}
+                    />
+                    <div className="min-h-[148px]">
+                        {flow.slotsError ? (
+                            <Empty
+                                intent="danger"
+                                icon="cloudOff"
+                                message={s.slotsError}
+                                actions={
                                     <Button
                                         size="sm"
                                         variant="outline"
-                                        onPress={() => {
-                                            if (flow.firstOpen) flow.setDate(flow.firstOpen.key);
-                                        }}
+                                        icon="refresh"
+                                        onPress={flow.retrySlots}
                                     >
-                                        {s.nextOpen(flow.firstOpen.label)}
+                                        {s.retry}
                                     </Button>
-                                ) : flow.canNextWeek ? (
-                                    <Button
-                                        size="sm"
-                                        variant="outline"
-                                        icon="chevronRight"
-                                        onPress={flow.nextWeek}
-                                    >
-                                        {s.nextWeek}
-                                    </Button>
-                                ) : undefined
-                            }
-                        />
-                    ) : (
-                        <SlotChips
-                            label={s.openTimes}
-                            groups={flow.slotGroups}
-                            value={flow.startsAt || null}
-                            onChange={flow.pickSlot}
-                            columns={4}
-                        />
-                    )}
+                                }
+                            />
+                        ) : flow.slots === null ? (
+                            <Skeleton variant="line" count={3} label={s.loadingTimes} />
+                        ) : flow.slots.length === 0 ? (
+                            <Empty
+                                icon={flow.closure !== null ? "lock" : "calendar"}
+                                message={
+                                    flow.closure !== null
+                                        ? s.closedDay(flow.closure)
+                                        : s.noTimes(flow.dateLabel)
+                                }
+                                body={flow.firstOpen === null ? s.noTimesWeek : undefined}
+                                actions={
+                                    flow.firstOpen !== null ? (
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onPress={() => {
+                                                if (flow.firstOpen)
+                                                    flow.setDate(flow.firstOpen.key);
+                                            }}
+                                        >
+                                            {s.nextOpen(flow.firstOpen.label)}
+                                        </Button>
+                                    ) : flow.canNextWeek ? (
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            icon="chevronRight"
+                                            onPress={flow.nextWeek}
+                                        >
+                                            {s.nextWeek}
+                                        </Button>
+                                    ) : undefined
+                                }
+                            />
+                        ) : (
+                            <SlotChips
+                                label={s.openTimes}
+                                groups={flow.slotGroups}
+                                value={flow.startsAt || null}
+                                onChange={flow.pickSlot}
+                                columns={4}
+                            />
+                        )}
+                    </div>
+                    {flow.waitlistNotice !== null ? (
+                        <Notice tone="info">{flow.waitlistNotice}</Notice>
+                    ) : null}
                 </div>
-                {flow.waitlistNotice !== null ? (
-                    <Notice tone="info">{flow.waitlistNotice}</Notice>
-                ) : null}
-            </div>
+            )}
+        </div>
+    );
+}
+
+function ProgramDates({
+    flow,
+    programs,
+}: {
+    flow: PublicBookingFlow;
+    programs: readonly { key: string; label: string; hint: string }[];
+}) {
+    return (
+        <div className="space-y-4">
+            <p className="text-sm font-medium text-ink-soft">{s.programPick}</p>
+            {flow.zoneNote !== null ? <p className="text-xs text-muted">{flow.zoneNote}</p> : null}
+            {flow.slotsError ? (
+                <Empty
+                    intent="danger"
+                    icon="cloudOff"
+                    message={s.slotsError}
+                    actions={
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            icon="refresh"
+                            onPress={flow.retrySlots}
+                        >
+                            {s.retry}
+                        </Button>
+                    }
+                />
+            ) : flow.slots === null ? (
+                <Skeleton variant="line" count={3} label={s.loadingTimes} />
+            ) : programs.length === 0 ? (
+                <Empty icon="calendar" message={s.programNone} />
+            ) : (
+                <Choice
+                    layout="cards"
+                    label={s.programPick}
+                    options={programs}
+                    value={flow.startsAt || null}
+                    onChange={flow.pickSlot}
+                />
+            )}
+            {flow.programNote !== null ? <Notice tone="info">{flow.programNote}</Notice> : null}
         </div>
     );
 }

@@ -58,6 +58,8 @@ interface PublicService {
     category: string | null;
     color: string | null;
     staff_ids: string[];
+    // a program's days, booked together from its start dates
+    session_count?: number | null;
 }
 
 /** Price and length of a service, e.g. "$45.00 · 60 min". */
@@ -120,6 +122,13 @@ interface OpenSlot {
     waitlist: boolean;
 }
 
+interface PublicProgram {
+    starts_at: string;
+    staff_id: string;
+    days: { starts_at: string; ends_at: string }[];
+    seats_left: number;
+}
+
 interface DayOpenings {
     date: string;
     count: number;
@@ -179,6 +188,7 @@ interface PublicBookingClient {
         input: BookingInput,
         idempotencyKey: string,
     ) => Promise<PublicBookingResult>;
+    getPrograms: (slug: string, q: { itemId: string; staffId: string }) => Promise<PublicProgram[]>;
 }
 
 function bookingBody(input: BookingInput): string {
@@ -229,6 +239,12 @@ export function createPublicBookingClient(baseUrl: string): PublicBookingClient 
                 headers: { "Content-Type": "application/json", "Idempotency-Key": idempotencyKey },
                 body: bookingBody(input),
             }),
+        getPrograms: async (slug, { itemId, staffId }) => {
+            const q = new URLSearchParams({ item_id: itemId, staff_id: staffId });
+            return (
+                await request<{ programs: PublicProgram[] }>(`${at(slug)}/programs?${q.toString()}`)
+            ).programs;
+        },
     };
 }
 
@@ -427,6 +443,35 @@ export function visitAddress(
 
 type BookingStep = "service" | "extras" | "time" | "details" | "pay" | "done";
 
+/** A program's start dates as choices: its dates, daily hours, days and seats left. */
+function programChoices(
+    programs: readonly PublicProgram[],
+    zone: string,
+): { key: string; label: string; hint: string }[] {
+    return programs.map((p) => {
+        const first = p.days[0];
+        const last = p.days.at(-1);
+        const start = parseTimestamp(p.starts_at);
+        return {
+            key: p.starts_at,
+            label:
+                first && last
+                    ? s.programDates(
+                          formatFullDate(parseTimestamp(first.starts_at), zone),
+                          formatFullDate(parseTimestamp(last.starts_at), zone),
+                      )
+                    : formatFullDate(start, zone),
+            hint: formatParts([
+                first
+                    ? formatTimeRange(start, parseTimestamp(first.ends_at), zone)
+                    : formatTime(start, zone),
+                s.programDays(p.days.length),
+                s.programSeats(p.seats_left),
+            ]),
+        };
+    });
+}
+
 /** The add-ons offered with a service: those listed for it, or for every service. */
 function offeredWith(addons: readonly PublicAddon[], serviceId: string | null): PublicAddon[] {
     return addons.filter(
@@ -512,6 +557,7 @@ export function usePublicBookingFlow(
     const [daysError, setDaysError] = useState(false);
     const [slots, setSlots] = useState<OpenSlot[] | null>(null);
     const [slotsError, setSlotsError] = useState(false);
+    const [programs, setPrograms] = useState<PublicProgram[] | null>(null);
     const [reload, setReload] = useState(0);
     const [startsAt, setStartsAt] = useState("");
     const [addons, setAddons] = useState<Record<string, number>>({});
@@ -578,10 +624,14 @@ export function usePublicBookingFlow(
         days?.find((d) => d.count > 0 || d.waitlist > 0)?.date ??
         (days === null ? null : from);
     const service = page?.services.find((x) => x.id === itemId) ?? null;
-    const offered = offeredWith(page?.addons ?? [], service?.id ?? null);
+    const program = (service?.session_count ?? null) !== null;
+    const offered = program ? [] : offeredWith(page?.addons ?? [], service?.id ?? null);
     const extraMin = extraMinutes(offered, addons, service?.kind ?? null);
     const firstStep = (id: string): BookingStep =>
-        offeredWith(page?.addons ?? [], id).length > 0 ? "extras" : "time";
+        (page?.services.find((x) => x.id === id)?.session_count ?? null) === null &&
+        offeredWith(page?.addons ?? [], id).length > 0
+            ? "extras"
+            : "time";
     const staffFor =
         page?.staff.filter((x) => service === null || service.staff_ids.includes(x.id)) ?? [];
     const staffFirst = (id: string): string =>
@@ -604,7 +654,34 @@ export function usePublicBookingFlow(
     }, [page, status, selection.itemId, selection.staffId, selection.startsAt, today, zone]);
 
     useEffect(() => {
-        if (itemId === "" || status !== "ready") return;
+        if (itemId === "" || status !== "ready" || !program) return;
+        let live = true;
+        setSlots(null);
+        setSlotsError(false);
+        client
+            .getPrograms(slug, { itemId, staffId })
+            .then((x) => {
+                if (!live) return;
+                setPrograms(x);
+                setSlots(
+                    x.map((p) => ({
+                        starts_at: p.starts_at,
+                        ends_at: p.days[0]?.ends_at ?? p.starts_at,
+                        staff_id: p.staff_id,
+                        waitlist: false,
+                    })),
+                );
+            })
+            .catch(() => {
+                if (live) setSlotsError(true);
+            });
+        return () => {
+            live = false;
+        };
+    }, [client, slug, itemId, staffId, program, status, reload]);
+
+    useEffect(() => {
+        if (itemId === "" || status !== "ready" || program) return;
         let live = true;
         setDays(null);
         setDaysError(false);
@@ -619,9 +696,10 @@ export function usePublicBookingFlow(
         return () => {
             live = false;
         };
-    }, [client, slug, itemId, staffId, from, extraMin, status, reload]);
+    }, [client, slug, itemId, staffId, from, extraMin, program, status, reload]);
 
     useEffect(() => {
+        if (program) return;
         setStartsAt("");
         if (itemId === "" || status !== "ready" || day === null) return;
         let live = true;
@@ -651,7 +729,7 @@ export function usePublicBookingFlow(
         return () => {
             live = false;
         };
-    }, [client, slug, itemId, staffId, day, extraMin, status, reload]);
+    }, [client, slug, itemId, staffId, day, extraMin, program, status, reload]);
 
     const slot = slots?.find((x) => x.starts_at === startsAt) ?? null;
     const waitlist = slot?.waitlist === true;
@@ -976,7 +1054,14 @@ export function usePublicBookingFlow(
         },
         totalLines,
         currency,
-        when: slot ? whenLabel(slot.starts_at, today, zone) : null,
+        programs: program ? programChoices(programs ?? [], zone) : null,
+        programNote: program ? s.programNote : null,
+        when: slot
+            ? program
+                ? (programChoices(programs ?? [], zone).find((x) => x.key === slot.starts_at)
+                      ?.label ?? null)
+                : whenLabel(slot.starts_at, today, zone)
+            : null,
         whenTitle: slot ? whenTitle(slot.starts_at, today, zone) : null,
         timeRange: slot
             ? formatTimeRange(parseTimestamp(slot.starts_at), parseTimestamp(slot.ends_at), zone)
@@ -1050,6 +1135,8 @@ interface ManagedBooking {
     blocked: ManageBlock | null;
     blocked_hours: number | null;
     waitlist_position: number | null;
+    // a program's enrolled days, which a cancel releases together
+    program_days?: number | null;
 }
 
 type ManageBlock =
@@ -1162,6 +1249,7 @@ export function useManageBooking(client: ManageBookingClient, token: string) {
     const live = data !== null && (data.status === "confirmed" || data.status === "pending");
     const [left, setLeft] = useState(false);
     const waiting = data?.status === "waitlisted";
+    const programDays = data?.program_days ?? null;
     const weekFrom = from ?? (data ? visitWeekFrom(start, today, zone) : today);
     const day = date ?? (data ? dateKey(start, zone) : today);
     const lastDay = horizonDay(today, data?.policy.horizon_days, zone);
@@ -1271,8 +1359,9 @@ export function useManageBooking(client: ManageBookingClient, token: string) {
                   }
                 : {
                       title: m.title,
-                      cancel: m.cancel,
-                      cancelTitle: m.cancelTitle,
+                      cancel: programDays === null ? m.cancel : m.cancelProgram,
+                      cancelTitle:
+                          programDays === null ? m.cancelTitle : m.cancelProgramTitle(programDays),
                       cancelConfirm: m.cancelConfirm,
                       canceledTitle: m.canceledTitle,
                   },

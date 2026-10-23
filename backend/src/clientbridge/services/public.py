@@ -1,6 +1,6 @@
 import secrets
 from collections.abc import Sequence
-from datetime import date, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from typing import get_args
 
 from sqlalchemy import ColumnElement, and_, func, select, text
@@ -24,7 +24,7 @@ from clientbridge.models.documents import Contract, Form, FormField, FormRespons
 from clientbridge.models.messaging import Message
 from clientbridge.models.payments import Payment
 from clientbridge.models.platform import File
-from clientbridge.models.scheduling import Addon, Booking, Hours, Slot
+from clientbridge.models.scheduling import Addon, Booking, Hours, Recurrence, Slot
 from clientbridge.schemas.billing import (
     LineInput,
     PublicEstimate,
@@ -71,6 +71,9 @@ from clientbridge.schemas.public import (
     PublicDays,
     PublicPickupDays,
     PublicPolicy,
+    PublicProgram,
+    PublicProgramDay,
+    PublicPrograms,
     PublicService,
     PublicShop,
     PublicShopItem,
@@ -89,12 +92,15 @@ from clientbridge.services.bookings import (
     OVERLAP,
     Availability,
     addon_minutes,
+    booked_count_expr,
     carry_crew,
-    client_has_seat,
     create_booking_core,
     crew_problem,
     crew_rows,
     fill_freed_seats,
+    has_seat,
+    is_program,
+    is_program_day,
     load_availability,
     local_day,
     lock_bookings,
@@ -153,6 +159,7 @@ from clientbridge.services.payments import (
     resolve_tip,
 )
 from clientbridge.services.plans import assert_serving
+from clientbridge.services.programs import enrol, enrolment, sessions_of, withdraw
 from clientbridge.services.returning import ReturningService
 from clientbridge.services.subjects import new_subject, place_address, visit_address
 from clientbridge.services.tax import (
@@ -187,6 +194,7 @@ def _service_out(
         category=item.category,
         color=item.color,
         staff_ids=staff_ids or [],
+        session_count=item.session_count if is_program(item) else None,
     )
 
 
@@ -205,6 +213,7 @@ _BOOK_SCOPE = "book.create"
 _WAITLIST_SCOPE = "book.waitlist"
 _UNOFFERED = "that time isn't open for booking; pick another"
 _MAX_DAYS = 14
+_EVER = datetime.min.replace(tzinfo=UTC)
 
 
 class PublicBookingService:
@@ -317,6 +326,52 @@ class PublicBookingService:
             days=await open_days(self.db, business, item, staff, start, count, minutes=minutes)
         )
 
+    async def programs(self, slug: str, item_id: str, staff_id: str) -> PublicPrograms:
+        """A program's runs that haven't started and still have a seat on every day."""
+        business = await self._business(slug)
+        item = await self._bookable_item(business.id, item_id)
+        if not is_program(item):
+            return PublicPrograms(programs=[])
+        staff = [s.id for s in await self._who(business.id, staff_id, item)]
+        policy = policy_of(business)
+        now = clock.now()
+        earliest = now + timedelta(hours=policy.lead_hours)
+        latest = now + timedelta(days=policy.horizon_days)
+        rows = await self.db.execute(
+            scoped(Slot, business.id)
+            .add_columns(booked_count_expr())
+            .join(Recurrence, Recurrence.id == Slot.recurrence_id)
+            .where(
+                Slot.item_id == item.id,
+                Slot.status != "canceled",
+                Recurrence.client_id.is_(None),
+                Recurrence.status == "active",
+                Recurrence.staff_id.in_(staff),
+            )
+            .order_by(Slot.starts_at, Slot.id)
+        )
+        runs: dict[str, list[tuple[Slot, int]]] = {}
+        for slot, taken in rows.all():
+            if slot.recurrence_id is not None:
+                runs.setdefault(slot.recurrence_id, []).append((slot, int(taken)))
+        programs: list[PublicProgram] = []
+        for days in runs.values():
+            first = days[0][0]
+            seats = min(slot.capacity - taken for slot, taken in days)
+            if seats <= 0 or not earliest <= first.starts_at <= latest:
+                continue
+            programs.append(
+                PublicProgram(
+                    starts_at=first.starts_at,
+                    staff_id=first.staff_id,
+                    days=[
+                        PublicProgramDay(starts_at=d.starts_at, ends_at=d.ends_at) for d, _ in days
+                    ],
+                    seats_left=seats,
+                )
+            )
+        return PublicPrograms(programs=sorted(programs, key=lambda x: x.starts_at))
+
     async def book(
         self, slug: str, data: PublicBookingCreate, idempotency_key: str | None = None
     ) -> PublicBookingResult:
@@ -329,6 +384,8 @@ class PublicBookingService:
                 raise Unprocessable("that service has no duration and can't be booked")
             policy = policy_of(business)
             _assert_bookable_window(policy, data.starts_at)
+            if is_program(item):
+                return await self._enrol(cmd, business, item, data)
             addons = await self._addons(business, item, data)
             extra = addon_minutes(addons)
             staff_id = await self._staff_for(
@@ -374,6 +431,61 @@ class PublicBookingService:
             request=data,
         )
 
+    async def _enrol(
+        self, cmd: Command, business: Business, item: Item, data: PublicBookingCreate
+    ) -> PublicBookingResult:
+        """Enrol in the program run that starts at the chosen time, every day or none."""
+        staff = [s.id for s in await self._who(business.id, data.staff_id, item)]
+        program = await self.db.scalar(
+            scoped(Recurrence, business.id)
+            .join(Slot, Slot.recurrence_id == Recurrence.id)
+            .where(
+                Recurrence.client_id.is_(None),
+                Recurrence.item_id == item.id,
+                Recurrence.status == "active",
+                Slot.staff_id.in_(staff),
+                Slot.starts_at == data.starts_at,
+                Slot.status != "canceled",
+            )
+            .order_by(Recurrence.id)
+            .limit(1)
+        )
+        days = (
+            []
+            if program is None
+            else await sessions_of(self.db, business.id, program.id, after=_EVER)
+        )
+        if program is None or not days or days[0].starts_at != data.starts_at:
+            raise Conflict(_UNOFFERED, code="slot_unavailable")
+        client, subject_id = await self._booker(business, data)
+        first_visit = not await _has_booked(self.db, business.id, client.id)
+        bookings = await enrol(
+            self.db,
+            business.id,
+            program,
+            item,
+            client_id=client.id,
+            subject_id=subject_id,
+            source="online",
+            after=clock.now(),
+        )
+        if policy_of(business).approve_new_clients and first_visit:
+            for booking in bookings:
+                booking.status, booking.confirmed_at = "pending", None
+        first = bookings[0]
+        self._extras(business, first, data, [])
+        secret = await self._open_deposit(business, first, client)
+        cmd.record(_BOOK_SCOPE, entity_type="booking", entity_id=first.id)
+        return PublicBookingResult(
+            booking_id=first.id,
+            deposit_client_secret=secret,
+            stripe_account_id=_account(business),
+            status=first.status,
+            manage_token=first.manage_token,
+            deposit_cents=first.deposit_amount_cents,
+            booking_ids=[b.id for b in bookings],
+        )
+
     async def join_waitlist(
         self, slug: str, data: PublicBookingCreate, idempotency_key: str | None = None
     ) -> PublicBookingResult:
@@ -385,6 +497,8 @@ class PublicBookingService:
             item = await self._bookable_item(business.id, data.item_id)
             if item.kind != "class" or item.capacity is None or item.capacity <= 1:
                 raise Unprocessable("only a class session has a waitlist", code="no_waitlist")
+            if is_program(item):
+                raise Unprocessable("a program's days have no waitlist", code="no_waitlist")
             _assert_bookable_window(policy_of(business), data.starts_at)
             staff = [s.id for s in await self._who(business.id, data.staff_id, item)]
             slot = await self.db.scalar(
@@ -405,7 +519,7 @@ class PublicBookingService:
                 raise Conflict("that class has a seat open; book it instead", code="class_open")
             addons = await self._addons(business, item, data)
             client, subject_id = await self._booker(business, data)
-            if await client_has_seat(self.db, business.id, slot.id, client.id):
+            if await has_seat(self.db, business.id, slot.id, client.id, subject_id):
                 raise Conflict(ALREADY_IN_CLASS)
             deposit = deposit_cents(item) if item.deposit_type != "none" else 0
             booking = Booking(
@@ -603,6 +717,8 @@ def _open(
     on_date: date,
     minutes: int | None = None,
 ) -> list[PublicSlot]:
+    if is_program(item):
+        return []
     policy = policy_of(business)
     now = clock.now()
     earliest = now + timedelta(hours=policy.lead_hours)
@@ -715,7 +831,7 @@ async def open_days(
         )
         starts: set[datetime] = set()
         full: set[datetime] = set()
-        if closure is None and closes > earliest and opens <= latest:
+        if closure is None and closes > earliest and opens <= latest and not is_program(item):
             for member in staff:
                 for s in found.open_starts(
                     item, member.id, day, policy.step_min, minutes=minutes, crew=crew
@@ -989,16 +1105,34 @@ class PublicManageService:
             await notifier.on_inbound_message(self.db, message_id)
         return result
 
-    async def cancel(self, token: str, idempotency_key: str | None) -> ManageCancelResult:
+    async def cancel(
+        self, token: str, idempotency_key: str | None
+    ) -> tuple[ManageCancelResult, list[str]]:
+        """Cancel the visit, or every day of a program enrolment; also names what it canceled."""
         booking, slot, business = await self._locked(token)
         request = {"booking_id": booking.id}
+        days = await self._program_days(booking, slot)
+        canceled: list[str] = []
 
         async def run(cmd: Command) -> ManageCancelResult:
             _, staff = await self._visit(booking, slot, business)
-            blocked = self._blocked(booking, slot, business, staff, "cancel")
+            first = days[0].starts_at if days else None
+            blocked = self._blocked(booking, slot, business, staff, "cancel", first)
             if blocked is not None:
                 raise Conflict(
                     f"this visit can't be canceled online ({blocked[0]})", code="change_blocked"
+                )
+            if days:
+                live = [
+                    b
+                    for b in await lock_bookings(self.db, business.id, [b.id for b in days])
+                    if b.status in ("pending", "confirmed")
+                ]
+                refunded = await withdraw(self.db, self.gateway, live)
+                cmd.record(_CANCEL_SCOPE, entity_type="booking", entity_id=booking.id)
+                canceled.extend(b.id for b in live)
+                return ManageCancelResult(
+                    deposit="refunded" if refunded > 0 else "none", refund_cents=refunded
                 )
             refunded = 0
             if booking.deposit_status == "collected":
@@ -1018,10 +1152,11 @@ class PublicManageService:
                 or ("refunded" if refunded > 0 else "none"),
                 refund_cents=refunded,
             )
+            canceled.append(booking.id)
             cmd.record(_CANCEL_SCOPE, entity_type="booking", entity_id=booking.id)
             return result
 
-        return await run_command(
+        result = await run_command(
             self.db,
             PublicPrincipal(business.id),
             action=_CANCEL_SCOPE,
@@ -1030,6 +1165,7 @@ class PublicManageService:
             idempotency_key=idempotency_key,
             request=request,
         )
+        return result, canceled
 
     async def pay_deposit(self, token: str) -> PublicCardIntent:
         """Open the card payment for a visit's unpaid deposit, superseding any earlier attempt."""
@@ -1058,9 +1194,15 @@ class PublicManageService:
         return PublicCardIntent(client_secret=client_secret, stripe_account_id=account_id)
 
     def _blocked(
-        self, booking: Booking, slot: Slot, business: Business, staff: Staff, change: str
+        self,
+        booking: Booking,
+        slot: Slot,
+        business: Business,
+        staff: Staff,
+        change: str,
+        first: datetime | None = None,
     ) -> tuple[ManageBlock, int | None] | None:
-        """Why the client can't make this change online, and the cutoff hours when that is why."""
+        """Why the client can't make this change online; a program's cutoff is its first day."""
         policy = policy_of(business)
         waiting = booking.status == "waitlisted" and change == "cancel"
         if booking.status not in ("pending", "confirmed") and not waiting:
@@ -1069,7 +1211,7 @@ class PublicManageService:
             return "by_phone", None
         if waiting:
             return None
-        hours_away = (slot.starts_at - clock.now()).total_seconds() / 3600
+        hours_away = ((first or slot.starts_at) - clock.now()).total_seconds() / 3600
         if change == "cancel":
             if hours_away < policy.cancel_cutoff_hours:
                 return "cutoff", policy.cancel_cutoff_hours
@@ -1113,6 +1255,14 @@ class PublicManageService:
                 code="visit_changed",
             )
         return booking, slot, business
+
+    async def _program_days(self, booking: Booking, slot: Slot) -> list[Booking]:
+        """A program enrolment's days, which the client cancels together; empty for any visit."""
+        if slot.recurrence_id is None or not await is_program_day(self.db, slot):
+            return []
+        return await enrolment(
+            self.db, booking.business_id, slot.recurrence_id, booking.client_id, booking.subject_id
+        )
 
     async def _visit(self, booking: Booking, slot: Slot, business: Business) -> tuple[Item, Staff]:
         item = await self.db.get(Item, slot.item_id)
@@ -1163,8 +1313,11 @@ class PublicManageService:
         )
         images = await item_images(self.db, business.id, [item.id])
         tz = await business_tz(self.db, business.id)
+        days = await self._program_days(booking, slot)
         move = self._blocked(booking, slot, business, staff, "move")
-        cancel = self._blocked(booking, slot, business, staff, "cancel")
+        cancel = self._blocked(
+            booking, slot, business, staff, "cancel", days[0].starts_at if days else None
+        )
         blocked, blocked_hours = cancel or move or (None, None)
         document = await visit_document(self.db, booking)
         return ManagedBooking(
@@ -1224,6 +1377,7 @@ class PublicManageService:
             blocked=blocked,
             blocked_hours=blocked_hours,
             waitlist_position=await waitlist_position(self.db, booking),
+            program_days=len(days) if days else None,
         )
 
 

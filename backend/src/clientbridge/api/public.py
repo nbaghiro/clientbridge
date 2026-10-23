@@ -44,6 +44,7 @@ from clientbridge.schemas.public import (
     PublicBookingResult,
     PublicDays,
     PublicPickupDays,
+    PublicPrograms,
     PublicShop,
     PublicShopOrderCreate,
     PublicShopOrderResult,
@@ -291,6 +292,18 @@ async def public_booking_days(
     )
 
 
+@booking_router.get("/{slug}/programs", response_model=PublicPrograms)
+async def public_booking_programs(
+    slug: str,
+    item_id: str,
+    staff_id: str,
+    db: DbSession,
+    gateway: GatewayDep,
+    _: BookingRateLimited,
+) -> PublicPrograms:
+    return await PublicBookingService(db, gateway).programs(slug, item_id, staff_id)
+
+
 @booking_router.post("/{slug}", response_model=PublicBookingResult)
 async def public_book(
     slug: str,
@@ -307,6 +320,8 @@ async def public_book(
     notifier = Notifier(email, sms, push)
     if result.status == "pending":
         await notifier.on_booking_requested(db, result.booking_id)
+    elif len(result.booking_ids) > 1:
+        await notifier.on_series_booked(db, result.booking_ids, "booked")
     else:
         await notifier.on_booking_confirmed(db, result.booking_id)
     return result
@@ -433,9 +448,9 @@ async def manage_cancel(
 ) -> ManageCancelResult:
     service = PublicManageService(db, gateway)
     live = (await service.view(token)).status != "canceled"
-    result = await service.cancel(token, idempotency_key)
-    if live:
-        await Notifier(email, sms, push).on_booking_canceled(db, await service.booking_id(token))
+    result, canceled = await service.cancel(token, idempotency_key)
+    if live and canceled:
+        await Notifier(email, sms, push).on_visits_canceled(db, canceled)
     return result
 
 

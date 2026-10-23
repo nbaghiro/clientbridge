@@ -88,6 +88,17 @@ const FAILURES: Record<string, () => string> = {
     crew_block: () => strings.api.crewBlock,
     package_other_subject: () => strings.api.packageOtherSubject,
     visit_unpaid: () => strings.api.visitUnpaid,
+    program_full: () => strings.api.programFull,
+    already_enrolled: () => strings.api.alreadyEnrolled,
+    program_enrol: () => strings.api.programEnrol,
+    program_first_day: () => strings.api.programFirstDay,
+    program_enrolled: () => strings.api.programEnrolled,
+    program_closed: () => strings.api.programClosed,
+    program_over: () => strings.api.programOver,
+    program_days: () => strings.api.programDays,
+    schedule_conflict: () => strings.api.scheduleConflict,
+    schedule_past: () => strings.api.schedulePast,
+    class_schedule: () => strings.api.classSchedule,
 };
 
 /** The catalog message for a failure the server named, else the action's own message. */

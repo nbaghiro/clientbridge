@@ -55,6 +55,9 @@ class PublicService(Mirror):
     category: str | None = None
     color: str | None = None
     staff_ids: list[str] = Field(default_factory=list, description="Who can be booked for it")
+    session_count: int | None = Field(
+        default=None, description="A program's days, booked together from its start dates"
+    )
 
 
 class PublicStaff(Mirror):
@@ -131,6 +134,24 @@ class PublicSlot(BaseModel):
 
 class PublicSlots(BaseModel):
     slots: list[PublicSlot]
+
+
+class PublicProgramDay(BaseModel):
+    starts_at: datetime
+    ends_at: datetime
+
+
+class PublicProgram(BaseModel):
+    """One run of a program a client can enrol in: every day still has a seat."""
+
+    starts_at: datetime = Field(description="The first day's start, which books the program")
+    staff_id: str
+    days: list[PublicProgramDay]
+    seats_left: int = Field(description="The fewest seats left on any of its days")
+
+
+class PublicPrograms(BaseModel):
+    programs: list[PublicProgram]
 
 
 class PublicDay(BaseModel):
@@ -215,6 +236,9 @@ class ManagedBooking(Mirror):
     waitlist_position: int | None = Field(
         default=None, description="Where a waitlisted client stands; 1 is seated first"
     )
+    program_days: int | None = Field(
+        default=None, description="For a program, the enrolment's days a cancel releases"
+    )
 
 
 class ManageReschedule(BaseModel):
@@ -268,6 +292,9 @@ class PublicBookingResult(Mirror):
     )
     waitlist_position: int | None = Field(
         default=None, description="Where a waitlisted client stands; 1 is seated first"
+    )
+    booking_ids: list[str] = Field(
+        default_factory=list, description="Every day booked, for a program enrolment"
     )
 
 

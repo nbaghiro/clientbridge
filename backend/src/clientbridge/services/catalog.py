@@ -236,8 +236,8 @@ def _assert_shape(item: Item) -> None:
         and item.deposit_value > 100
     ):
         raise Unprocessable("a percentage deposit can't be over 100")
-    if item.session_count is not None and item.kind != "package":
-        raise Unprocessable("only packages have a session count")
+    if item.session_count is not None and item.kind not in ("package", "class"):
+        raise Unprocessable("only packages and classes have a session count")
     if (item.interval is not None or item.frequency is not None) and item.kind != "subscription":
         raise Unprocessable("only subscriptions repeat")
     if item.covers_item_id is not None and item.kind != "package":

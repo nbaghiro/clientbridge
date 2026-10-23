@@ -495,6 +495,7 @@ const KIND_FIELDS: Record<string, ItemField[]> = {
         "bufferBefore",
         "bufferAfter",
         "capacity",
+        "sessionCount",
         "onlineBookable",
         "depositType",
         "staffIds",
@@ -587,7 +588,9 @@ export function itemFormError(v: ItemFormValues): string | null {
         if (v.depositType === "percent" && value > 100) return s.depositPercentMax;
     }
     if (shown("coversItemId") && v.coversItemId === "") return s.coversRequired;
-    if (shown("sessionCount") && (toInt(v.sessionCount) ?? 0) <= 0) return s.sessionsRequired;
+    if (v.kind === "package" && (toInt(v.sessionCount) ?? 0) <= 0) return s.sessionsRequired;
+    if (v.kind === "class" && v.sessionCount.trim() !== "" && (toInt(v.sessionCount) ?? 0) <= 0)
+        return s.programDaysInvalid;
     if (shown("interval") && (toInt(v.interval) ?? 0) <= 0) return s.intervalRequired;
     if (shown("memberDiscount") && v.memberDiscount.trim() !== "") {
         const pct = percentOf(v.memberDiscount);

@@ -279,6 +279,7 @@ it("shows a failed availability load and retries without presenting it as an emp
         getSlots: vi.fn().mockResolvedValue([]),
         book: vi.fn(),
         joinWaitlist: vi.fn(),
+        getPrograms: vi.fn().mockResolvedValue([]),
     };
     const { result } = renderHook(() =>
         usePublicBookingFlow(client, "demo", { itemId: "service" }),
@@ -343,6 +344,7 @@ it("asks for extras before the time and looks for times long enough for them", a
         getSlots: vi.fn().mockResolvedValue([]),
         book: vi.fn(),
         joinWaitlist: vi.fn(),
+        getPrograms: vi.fn().mockResolvedValue([]),
     };
     const { result } = renderHook(() => usePublicBookingFlow(client, "demo"));
     await waitFor(() => {

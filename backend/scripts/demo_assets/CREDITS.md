@@ -128,7 +128,7 @@ The read-only browser regression covers loaded shop/booking photos and the trave
 
 ## Lakeside Learning Studio
 
-Lakeside's catalog photos are stock photos, one per catalog item: 17 from Pexels and 3 from Unsplash, cropped to 4:3 and saved as 1024 × 768 JPEGs, about 1.5 MB for the 20 images. Some show a close relative of the item: the French tutoring photo is a ring of blank flashcards, the workbooks are blank exercise books and notebooks, the piano method book is sheet music on an upright piano, the guitar strings are on a classical guitar's tuning posts, and the clip-on tuner is a mechanical metronome, because every tuner and string packet found showed a brand.
+Lakeside's catalog photos are stock photos, one per catalog item: 18 from Pexels and 3 from Unsplash, cropped to 4:3 and saved as 1024 × 768 JPEGs, about 1.6 MB for the 21 images. Some show a close relative of the item: the French tutoring photo is a ring of blank flashcards, the workbooks are blank exercise books and notebooks, the piano method book is sheet music on an upright piano, the guitar strings are on a classical guitar's tuning posts, and the clip-on tuner is a mechanical metronome, because every tuner and string packet found showed a brand.
 
 | Asset                       | Source / creator                                                                                                                                                     |
 | --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -142,6 +142,7 @@ Lakeside's catalog photos are stock photos, one per catalog item: 17 from Pexels
 | `ls_it_guitar.jpg`          | [Hand Playing Acoustic Guitar (Pavel Danilyuk)](https://www.pexels.com/photo/hand-playing-acoustic-guitar-7520961/)                                                  |
 | `ls_it_sat.jpg`             | [Crop pupils writing in copybook on desk (Katerina Holmes)](https://www.pexels.com/photo/crop-pupils-writing-in-copybook-on-desk-5905959/)                           |
 | `ls_it_review.jpg`          | [Photo Of Person Teaching On White Board (Vanessa Garcia)](https://www.pexels.com/photo/photo-of-person-teaching-on-white-board-6325953/)                            |
+| `ls_it_coding_camp.jpg`     | [Students Busy Using Laptops in the Classroom (Alena Darmel)](https://www.pexels.com/photo/students-busy-using-laptops-in-the-classroom-7742816/)                    |
 | `ls_it_term10.jpg`          | [Stack of Notebooks on Table (Jessika Arraes)](https://www.pexels.com/photo/stack-of-notebooks-on-table-14270284/)                                                   |
 | `ls_it_term12.jpg`          | [Close-up of Vintage Piano Keys in Soft Light (Erik Mclean)](https://www.pexels.com/photo/close-up-of-vintage-piano-keys-in-soft-light-38744247/)                    |
 | `ls_it_sat_course.jpg`      | [Test Papers and Pencil on the Desk (Andy Barbour)](https://www.pexels.com/photo/test-papers-and-pencil-on-the-desk-6683394/)                                        |

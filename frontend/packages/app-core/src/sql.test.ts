@@ -2355,6 +2355,93 @@ describe("app-core SQL against the replica schema", () => {
         ]);
     });
 
+    it("reads programs, their days and who holds a seat, one per sibling", () => {
+        scheduleRows();
+        scoped("items", [
+            {
+                id: "it_camp",
+                kind: "class",
+                name: "Camp",
+                price_cents: 30000,
+                currency: "CAD",
+                capacity: 4,
+                session_count: 2,
+                active: 1,
+            },
+        ]);
+        scoped("subjects", [
+            { id: "sj_luna", client_id: "cl_ann", name: "Luna", attributes: null },
+        ]);
+        scoped("recurrences", [
+            {
+                id: "sch_camp",
+                item_id: "it_camp",
+                staff_id: "st_cara",
+                client_id: null,
+                frequency: "week",
+                interval: 1,
+                count: 2,
+                status: "active",
+            },
+        ]);
+        const day = (id: string, date: string): Row => ({
+            id,
+            item_id: "it_camp",
+            staff_id: "st_cara",
+            recurrence_id: "sch_camp",
+            starts_at: `${date}T14:00:00Z`,
+            ends_at: `${date}T20:00:00Z`,
+            capacity: 4,
+            status: "scheduled",
+        });
+        scoped("slots", [day("ss_camp1", "2027-01-11"), day("ss_camp2", "2027-01-12")]);
+        const seat = (id: string, slot: string, subject: string, price: number): Row => ({
+            id,
+            slot_id: slot,
+            starts_at: slot === "ss_camp1" ? "2027-01-11T14:00:00Z" : "2027-01-12T14:00:00Z",
+            staff_id: "st_cara",
+            client_id: "cl_ann",
+            subject_id: subject,
+            status: "confirmed",
+            source: "manual",
+            price_cents: price,
+            deposit_status: "none",
+            deleted_at: null,
+        });
+        scoped("bookings", [
+            seat("bk_camp_rex1", "ss_camp1", "sj_rex", 30000),
+            seat("bk_camp_rex2", "ss_camp2", "sj_rex", 0),
+            seat("bk_camp_luna1", "ss_camp1", "sj_luna", 30000),
+        ]);
+        expect(pick(run("PROGRAMS_SQL"), "id", "session_count")).toEqual([
+            { id: "sch_camp", session_count: 2 },
+        ]);
+        expect(pick(run("PROGRAM_DAYS_SQL"), "slot_id", "recurrence_id")).toEqual([
+            { slot_id: "ss_camp1", recurrence_id: "sch_camp" },
+            { slot_id: "ss_camp2", recurrence_id: "sch_camp" },
+        ]);
+        expect(pick(run("PROGRAM_SEATS_SQL"), "booking_id", "subject_name")).toEqual([
+            { booking_id: "bk_camp_luna1", subject_name: "Luna" },
+            { booking_id: "bk_camp_rex1", subject_name: "Rex" },
+            { booking_id: "bk_camp_rex2", subject_name: "Rex" },
+        ]);
+        expect(
+            pick(
+                run("CLASS_SESSIONS_SQL", ["2027-01-11T00:00:00.000Z", "2027-01-13T00:00:00.000Z"]),
+                "slot_id",
+                "program_id",
+            ),
+        ).toEqual([
+            { slot_id: "ss_camp1", program_id: "sch_camp" },
+            { slot_id: "ss_camp2", program_id: "sch_camp" },
+        ]);
+        expect(pick(run("CLASS_CLIENTS_SQL"), "id", "subject_name")).toEqual([
+            { id: "cl_ann", subject_name: "Luna" },
+            { id: "cl_ann", subject_name: "Rex" },
+            { id: "cl_ben", subject_name: null },
+        ]);
+    });
+
     it("reads class rosters, reminders and add-on offers", () => {
         scheduleRows();
         expect(

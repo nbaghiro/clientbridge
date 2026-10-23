@@ -535,6 +535,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/book/{slug}/programs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Public Booking Programs */
+        get: operations["public_booking_programs_book__slug__programs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/book/{slug}": {
         parameters: {
             query?: never;
@@ -1622,6 +1639,74 @@ export interface paths {
         put?: never;
         /** Message Class */
         post: operations["message_class_v1_classes__slot_id__message_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/programs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Program */
+        post: operations["create_program_v1_programs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/programs/{program_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel Program */
+        post: operations["cancel_program_v1_programs__program_id__cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/programs/{program_id}/enrolments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Enrol In Program */
+        post: operations["enrol_in_program_v1_programs__program_id__enrolments_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/programs/{program_id}/enrolments/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel Enrolment */
+        post: operations["cancel_enrolment_v1_programs__program_id__enrolments_cancel_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5326,6 +5411,57 @@ export interface components {
             /** Earnings */
             earnings: components["schemas"]["EarningOut"][];
         };
+        /** EnrolmentCancel */
+        EnrolmentCancel: {
+            /** Client Id */
+            client_id: string;
+            /** Subject Id */
+            subject_id?: string | null;
+            /**
+             * Notify
+             * @default true
+             */
+            notify: boolean;
+        };
+        /** EnrolmentCancelOut */
+        EnrolmentCancelOut: {
+            /** Program Id */
+            program_id: string;
+            /** Canceled */
+            canceled: string[];
+            /**
+             * Refunded Cents
+             * @description The deposit refunded with the enrolment
+             */
+            refunded_cents: number;
+        };
+        /** EnrolmentCreate */
+        EnrolmentCreate: {
+            /** Client Id */
+            client_id: string;
+            /** Subject Id */
+            subject_id?: string | null;
+            /**
+             * Notify
+             * @description Send the client one message with every day
+             * @default true
+             */
+            notify: boolean;
+        };
+        /**
+         * EnrolmentOut
+         * @description A client's (and subject's) bookings on a program schedule, the first carrying the price.
+         */
+        EnrolmentOut: {
+            /** Program Id */
+            program_id: string;
+            /** Client Id */
+            client_id: string;
+            /** Subject Id */
+            subject_id: string | null;
+            /** Booking Ids */
+            booking_ids: string[];
+        };
         /** EstimateCreate */
         EstimateCreate: {
             /** @description Off the whole document */
@@ -6775,6 +6911,11 @@ export interface components {
              * @description Where a waitlisted client stands; 1 is seated first
              */
             waitlist_position?: number | null;
+            /**
+             * Program Days
+             * @description For a program, the enrolment's days a cancel releases
+             */
+            program_days?: number | null;
         };
         /** ManagedToDo */
         ManagedToDo: {
@@ -7520,6 +7661,84 @@ export interface components {
             /** Amount Cents */
             amount_cents: number;
         };
+        /** ProgramCancelOut */
+        ProgramCancelOut: {
+            /** Id */
+            id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "active" | "ended" | "canceled";
+            /**
+             * Canceled
+             * @description The sessions called off
+             */
+            canceled: string[];
+        };
+        /**
+         * ProgramCreate
+         * @description A class's sessions laid out ahead of any booking, on set weekdays at one local time.
+         */
+        ProgramCreate: {
+            /** Item Id */
+            item_id: string;
+            /** Staff Id */
+            staff_id: string;
+            /**
+             * Starts At
+             * Format: date-time
+             * @description The first session; its local time repeats
+             */
+            starts_at: string;
+            /** Byday */
+            byday: ("MO" | "TU" | "WE" | "TH" | "FR" | "SA" | "SU")[];
+            /**
+             * Count
+             * @description Sessions in all; set count or until
+             */
+            count?: number | null;
+            /**
+             * Until
+             * @description The last day; set count or until
+             */
+            until?: string | null;
+        };
+        /** ProgramOut */
+        ProgramOut: {
+            /** Id */
+            id: string;
+            /** Business Id */
+            business_id: string;
+            /** Item Id */
+            item_id: string;
+            /** Staff Id */
+            staff_id: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "active" | "ended" | "canceled";
+            /** Sessions */
+            sessions: components["schemas"]["ProgramSession"][];
+        };
+        /** ProgramSession */
+        ProgramSession: {
+            /** Slot Id */
+            slot_id: string;
+            /**
+             * Starts At
+             * Format: date-time
+             */
+            starts_at: string;
+            /**
+             * Ends At
+             * Format: date-time
+             */
+            ends_at: string;
+            /** Capacity */
+            capacity: number;
+        };
         /** ProvincialReport */
         ProvincialReport: {
             /**
@@ -7704,6 +7923,11 @@ export interface components {
              * @description Where a waitlisted client stands; 1 is seated first
              */
             waitlist_position?: number | null;
+            /**
+             * Booking Ids
+             * @description Every day booked, for a program enrolment
+             */
+            booking_ids?: string[];
         };
         /**
          * PublicBrand
@@ -8355,6 +8579,45 @@ export interface components {
             /** End */
             end: string;
         };
+        /**
+         * PublicProgram
+         * @description One run of a program a client can enrol in: every day still has a seat.
+         */
+        PublicProgram: {
+            /**
+             * Starts At
+             * Format: date-time
+             * @description The first day's start, which books the program
+             */
+            starts_at: string;
+            /** Staff Id */
+            staff_id: string;
+            /** Days */
+            days: components["schemas"]["PublicProgramDay"][];
+            /**
+             * Seats Left
+             * @description The fewest seats left on any of its days
+             */
+            seats_left: number;
+        };
+        /** PublicProgramDay */
+        PublicProgramDay: {
+            /**
+             * Starts At
+             * Format: date-time
+             */
+            starts_at: string;
+            /**
+             * Ends At
+             * Format: date-time
+             */
+            ends_at: string;
+        };
+        /** PublicPrograms */
+        PublicPrograms: {
+            /** Programs */
+            programs: components["schemas"]["PublicProgram"][];
+        };
         /** PublicReceipt */
         PublicReceipt: {
             /** Number */
@@ -8469,6 +8732,11 @@ export interface components {
              * @description Who can be booked for it
              */
             staff_ids?: string[];
+            /**
+             * Session Count
+             * @description A program's days, booked together from its start dates
+             */
+            session_count?: number | null;
         };
         /** PublicServiceOpening */
         PublicServiceOpening: {
@@ -10849,6 +11117,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PublicDays"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    public_booking_programs_book__slug__programs_get: {
+        parameters: {
+            query: {
+                item_id: string;
+                staff_id: string;
+            };
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicPrograms"];
                 };
             };
             /** @description Validation Error */
@@ -13333,6 +13635,158 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ClassMessageOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_program_v1_programs_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "x-business-id"?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProgramCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProgramOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cancel_program_v1_programs__program_id__cancel_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
+            };
+            path: {
+                program_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProgramCancelOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    enrol_in_program_v1_programs__program_id__enrolments_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "x-business-id"?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
+            };
+            path: {
+                program_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EnrolmentCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnrolmentOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cancel_enrolment_v1_programs__program_id__enrolments_cancel_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
+            };
+            path: {
+                program_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EnrolmentCancel"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnrolmentCancelOut"];
                 };
             };
             /** @description Validation Error */

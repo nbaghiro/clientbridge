@@ -297,7 +297,7 @@ exception is time off for one member, or a closure for everyone when `staff_id` 
 `starts_at`/`ends_at` and a `reason`, written only through `/v1/time-off`), `recurrences` (recurrence rule with `frequency` day/week/month, the same words
 items use, and `monthly_by` date or weekday → expands to slots/bookings; dates can be skipped or shifted
 when booking, and `PATCH /v1/recurrences/{id}` moves one, the following or all upcoming visits while
-`/cancel` ends the series and refunds paid deposits), `addons` (products added to a visit, by the client when booking or
+`/cancel` ends the series and refunds paid deposits; a recurrence with no client is a class schedule, see Programs), `addons` (products added to a visit, by the client when booking or
 by staff through `POST /v1/bookings/{id}/addons`; they join the visit's invoice, and a product's `duration_min` lengthens
 a one-to-one visit by its minutes times the quantity).
 
@@ -720,6 +720,24 @@ entitlement and its liability are created.
   ledger, not on the documents: a booking line done by the lead is shared evenly among the lead and the
   helpers (`lines.worker_shares`), so each earns their share at their own rate and a tip follows the same
   shares, on an invoice or a desk sale alike.
+- **Programs:** staff lay out a class's sessions ahead of any booking with `POST /v1/programs`: a class, its
+  instructor, a first start, weekdays and a count or end date. Every session is checked the way a booking is
+  (closures, time off and crew blocks, the instructor's hours, other visits, `items.staff_ids`) under the
+  staff lock, and one busy day refuses the whole schedule with 409 `schedule_conflict`. The sessions are
+  empty `slots` tagged with a `recurrences` row that has no client; such a schedule keeps its sessions when
+  bookings come and go, and the client series commands refuse it with 409 `class_schedule`. A class with
+  `items.session_count` is a program: it is never booked one day at a time (409 `program_enrol`), and
+  `POST /v1/programs/{id}/enrolments` (staff) or a Connect booking of its first day books every session
+  still ahead or none, refusing a full day with 409 `program_full`. The first booking carries the price and
+  the deposit and the rest are at no charge, so the invoice from that booking, its receipt and the
+  instructor's earning cover the program once, while each day still gets its own reminder and check-in. An
+  enrolment is derived, never stored: the client's (and subject's) live bookings on the schedule.
+  Cancelling it (`/enrolments/cancel`, or any day's manage link before the first day's cutoff) cancels every
+  day ahead and refunds a paid deposit; a later day can be canceled on its own, but the priced first day
+  only with the whole enrolment (409 `program_first_day`). A schedule is canceled only once no one is
+  enrolled (409 `program_enrolled`), so canceling it never takes a seat or money from anyone. Program days
+  have no waitlist: online waitlists refuse them and a freed seat promotes no one. A class seat is held once
+  per subject, or per client when there is none, so siblings can each take a seat in one session.
 - **Receipts** list every line with its tax, and walk-in sales can take an email or phone for the receipt.
   Sales by item is a report with a CSV like the others.
 

@@ -236,6 +236,39 @@
     "api.visitUnpaid": {
         "message": "[Ţĥîš ṽîšîţ ĥåšñ'ţ ƀééñ þåîð ýéţ. Îţš ŕéçéîþţ îš ŕéåðý öñçé å þåýɱéñţ îš ŕéçöŕðéð. one two three four five]"
     },
+    "api.programFull": {
+        "message": "[Öñé öƒ ţĥé þŕöĝŕåɱ'š ðåýš îš ƒûļļ, šö îţ çåñ'ţ ƀé ƀööķéð. Çĥööšé åñöţĥéŕ šţåŕţ ðåţé. one two three four five]"
+    },
+    "api.alreadyEnrolled": {
+        "message": "[Ţĥéý'ŕé åļŕéåðý éñŕöļļéð îñ ţĥîš þŕöĝŕåɱ. one two three]"
+    },
+    "api.programEnrol": {
+        "message": "[Å þŕöĝŕåɱ îš ƀööķéð åš å ŵĥöļé. Éñŕöļ ţĥéɱ ƒŕöɱ îţš šçĥéðûļé ûñðéŕ Þŕöĝŕåɱš. one two three four five]"
+    },
+    "api.programFirstDay": {
+        "message": "[Å þŕöĝŕåɱ'š ƒîŕšţ ðåý ĥöļðš îţš þŕîçé, šö îţ'š çåñçéļéð ŵîţĥ ţĥé ŵĥöļé éñŕöļɱéñţ. one two three four five]"
+    },
+    "api.programEnrolled": {
+        "message": "[Çļîéñţš åŕé éñŕöļļéð îñ ţĥîš þŕöĝŕåɱ. Çåñçéļ ţĥéîŕ éñŕöļɱéñţš ƒîŕšţ. one two three four five]"
+    },
+    "api.programClosed": {
+        "message": "[Ţĥîš þŕöĝŕåɱ îšñ'ţ ţåķîñĝ éñŕöļɱéñţš åñý ɱöŕé. one two three four]"
+    },
+    "api.programOver": {
+        "message": "[Ţĥîš þŕöĝŕåɱ ĥåš ñö ðåýš ļéƒţ ţö ƀööķ. one two three]"
+    },
+    "api.programDays": {
+        "message": "[Ţĥé ŵééķðåýš åñð ƒîŕšţ ðåý ñééð ţö ĝîṽé ţĥé þŕöĝŕåɱ éẋåçţļý îţš ñûɱƀéŕ öƒ ðåýš. one two three four five]"
+    },
+    "api.scheduleConflict": {
+        "message": "[Ţĥé îñšţŕûçţöŕ îš åŵåý, öûţšîðé ţĥéîŕ ĥöûŕš öŕ åļŕéåðý ƀööķéð öñ öñé öƒ ţĥöšé ðåýš. Çĥööšé öţĥéŕ ðåýš öŕ åñöţĥéŕ ţîɱé. one two three four five six seven eight]"
+    },
+    "api.schedulePast": {
+        "message": "[Çĥööšé å ƒîŕšţ ðåý ţĥåţ'š šţîļļ åĥéåð. one two three]"
+    },
+    "api.classSchedule": {
+        "message": "[Ţĥîš îš å çļåšš šçĥéðûļé. Çĥåñĝé öŕ çåñçéļ îţ ûñðéŕ Çļåššéš. one two three four]"
+    },
     "common.amountWithCurrency": {
         "message": "{amount} {currency}"
     },
@@ -3702,13 +3735,169 @@
         "message": "[Ñö çļåššéš çöɱîñĝ ûþ one two]"
     },
     "classes.emptyClassesBody": {
-        "message": "[Çļåšš šéššîöñš šĥöŵ ĥéŕé öñçé šöɱéöñé ƀööķš öñé, ŵîţĥ ţĥéîŕ ŕöšţéŕ åñð ŵåîţļîšţ. one two three four five six]"
+        "message": "[Çļåšš šéššîöñš šĥöŵ ĥéŕé öñçé šöɱéöñé ƀööķš öñé öŕ å þŕöĝŕåɱ îš šçĥéðûļéð, ŵîţĥ ţĥéîŕ ŕöšţéŕ åñð ŵåîţļîšţ. one two three four five six seven]"
     },
     "classes.rosterError": {
         "message": "[Çöûļðñ'ţ ûþðåţé ţĥé ŕöšţéŕ. Þļéåšé ţŕý åĝåîñ. one two three]"
     },
     "classes.startsLater": {
         "message": "[Çĥéçķ-îñ öþéñš öñ ţĥé ðåý öƒ ţĥé çļåšš. one two three]"
+    },
+    "classes.sessionsTab": {
+        "message": "[Šéššîöñš one]"
+    },
+    "classes.programDay": {
+        "message": "[Ţĥîš ðåý îš þåŕţ öƒ {name}. Éñŕöļ åñð çåñçéļ ƒŕöɱ Þŕöĝŕåɱš. one two three four]"
+    },
+    "programs.tab": {
+        "message": "[Þŕöĝŕåɱš one]"
+    },
+    "programs.newProgram": {
+        "message": "[Šçĥéðûļé å þŕöĝŕåɱ one two]"
+    },
+    "programs.formTitle": {
+        "message": "[Šçĥéðûļé å þŕöĝŕåɱ one two]"
+    },
+    "programs.formSubtitle": {
+        "message": "[Ļåý öûţ éṽéŕý ðåý öƒ å þŕöĝŕåɱ ƀéƒöŕé åñýöñé éñŕöļš. Çļîéñţš ƀööķ åļļ öƒ îţš ðåýš åţ öñçé, ƒöŕ öñé þŕîçé. one two three four five six seven]"
+    },
+    "programs.program": {
+        "message": "[Þŕöĝŕåɱ one]"
+    },
+    "programs.pickProgram": {
+        "message": "[Çĥööšé å þŕöĝŕåɱ one two]"
+    },
+    "programs.programHint": {
+        "message": "[Å çļåšš ŵîţĥ å ñûɱƀéŕ öƒ ðåýš. Šéţ ţĥé ðåýš öñ ţĥé çļåšš îñ ţĥé çåţåļöĝ. one two three four five]"
+    },
+    "programs.noPrograms": {
+        "message": "[Ñö çļåšš ĥåš å ñûɱƀéŕ öƒ ðåýš ýéţ. Šéţ öñé öñ å çļåšš îñ ţĥé çåţåļöĝ ţö šçĥéðûļé îţ åš å þŕöĝŕåɱ. one two three four five six]"
+    },
+    "programs.instructor": {
+        "message": "[Îñšţŕûçţöŕ one two]"
+    },
+    "programs.firstDay": {
+        "message": "[Ƒîŕšţ ðåý one]"
+    },
+    "programs.time": {
+        "message": "[Šţåŕţš åţ one]"
+    },
+    "programs.weekdays": {
+        "message": "[Ŕûñš öñ one]"
+    },
+    "programs.pickDays": {
+        "message": "[{n,plural,one{Çĥööšé å ŵééķðåý åñð ƒîŕšţ ðåý ţĥåţ ĝîṽé ţĥé þŕöĝŕåɱ îţš # ðåý.} other{Çĥööšé ŵééķðåýš åñð å ƒîŕšţ ðåý ţĥåţ ĝîṽé ţĥé þŕöĝŕåɱ îţš # ðåýš.}} one two three four five six seven eight]"
+    },
+    "programs.summary": {
+        "message": "[{n,plural,one{# ðåý, öñ {first}} other{# ðåýš, {first} ţö {last}}} one two]"
+    },
+    "programs.daysCount": {
+        "message": "[{n,plural,one{# ðåý} other{# ðåýš}} one]"
+    },
+    "programs.create": {
+        "message": "[Šçĥéðûļé þŕöĝŕåɱ one two]"
+    },
+    "programs.close": {
+        "message": "[Çåñçéļ one]"
+    },
+    "programs.created": {
+        "message": "[{name} îš šçĥéðûļéð. Çļîéñţš çåñ éñŕöļ ûñţîļ îţš ƒîŕšţ ðåý. one two three four]"
+    },
+    "programs.createError": {
+        "message": "[Çöûļðñ'ţ šçĥéðûļé ţĥé þŕöĝŕåɱ. Þļéåšé ţŕý åĝåîñ. one two three four]"
+    },
+    "programs.dates": {
+        "message": "[{first} ţö {last} one]"
+    },
+    "programs.full": {
+        "message": "[Ƒûļļ one]"
+    },
+    "programs.seatsLeft": {
+        "message": "[{n,plural,one{# šéåţ ļéƒţ} other{# šéåţš ļéƒţ}} one two]"
+    },
+    "programs.enrolledCount": {
+        "message": "[{n,plural,other{# éñŕöļļéð} =0{Ñö öñé éñŕöļļéð}} one two three]"
+    },
+    "programs.emptyTitle": {
+        "message": "[Ñö þŕöĝŕåɱš çöɱîñĝ ûþ one two]"
+    },
+    "programs.emptyBody": {
+        "message": "[Šçĥéðûļé å þŕöĝŕåɱ, šûçĥ åš å ŵééķ öƒ ðåý çåɱþ, åñð çļîéñţš éñŕöļ îñ åļļ öƒ îţš ðåýš åţ öñçé. one two three four five six]"
+    },
+    "programs.loading": {
+        "message": "[Ļöåðîñĝ þŕöĝŕåɱš one two]"
+    },
+    "programs.loadError": {
+        "message": "[Çöûļðñ'ţ ļöåð þŕöĝŕåɱš one two]"
+    },
+    "programs.days": {
+        "message": "[Đåýš one]"
+    },
+    "programs.enrolments": {
+        "message": "[Éñŕöļļéð one]"
+    },
+    "programs.emptyEnrolments": {
+        "message": "[Ñö öñé îš éñŕöļļéð ýéţ. one two]"
+    },
+    "programs.enrolPlaceholder": {
+        "message": "[{kind,select,other{Éñŕöļ å çļîéñţ} pet{Éñŕöļ å çļîéñţ öŕ þéţ} property{Éñŕöļ å çļîéñţ öŕ þŕöþéŕţý} site{Éñŕöļ å çļîéñţ öŕ šîţé} student{Éñŕöļ å çļîéñţ öŕ šţûðéñţ} vehicle{Éñŕöļ å çļîéñţ öŕ ṽéĥîçļé}} one two three four five six seven eight]"
+    },
+    "programs.enrol": {
+        "message": "[Éñŕöļ one]"
+    },
+    "programs.enrolled": {
+        "message": "[{name} îš éñŕöļļéð ƒöŕ éṽéŕý ðåý. one two three]"
+    },
+    "programs.enrolError": {
+        "message": "[Çöûļðñ'ţ éñŕöļ ţĥéɱ. Þļéåšé ţŕý åĝåîñ. one two three]"
+    },
+    "programs.attending": {
+        "message": "[{n, number} öƒ {of, number} ðåýš one]"
+    },
+    "programs.away": {
+        "message": "[Åŵåý {days} one]"
+    },
+    "programs.cancelEnrolment": {
+        "message": "[Çåñçéļ éñŕöļɱéñţ one two]"
+    },
+    "programs.cancelEnrolmentTitle": {
+        "message": "[Çåñçéļ {name}''š éñŕöļɱéñţ? one two]"
+    },
+    "programs.cancelEnrolmentBody": {
+        "message": "[Éṽéŕý ðåý šţîļļ åĥéåð îš ŕéļéåšéð åñð å þåîð ðéþöšîţ îš ŕéƒûñðéð. Ţĥéý ĝéţ öñé ɱéššåĝé ļîšţîñĝ ţĥé ðåýš. one two three four five six seven]"
+    },
+    "programs.keep": {
+        "message": "[Ķééþ one]"
+    },
+    "programs.canceledEnrolment": {
+        "message": "[{name}''š éñŕöļɱéñţ îš çåñçéļéð. one two]"
+    },
+    "programs.cancelError": {
+        "message": "[Çöûļðñ'ţ çåñçéļ. Þļéåšé ţŕý åĝåîñ. one two three]"
+    },
+    "programs.cancelProgram": {
+        "message": "[Çåñçéļ þŕöĝŕåɱ one two]"
+    },
+    "programs.cancelProgramTitle": {
+        "message": "[Çåñçéļ {name}? one]"
+    },
+    "programs.cancelProgramBody": {
+        "message": "[Îţš ðåýš åĥéåð çöɱé öƒƒ ţĥé çåļéñðåŕ. Å þŕöĝŕåɱ ŵîţĥ éñŕöļɱéñţš îš çåñçéļéð öñļý öñçé ţĥéý åŕé. one two three four five six]"
+    },
+    "programs.canceledProgram": {
+        "message": "[{name} îš çåñçéļéð. one two]"
+    },
+    "programs.dayRoster": {
+        "message": "[Ŕöšţéŕ ƒöŕ {day} one two]"
+    },
+    "programs.emptyDay": {
+        "message": "[Ñö öñé îš ƀööķéð öñ ţĥîš ðåý. one two three]"
+    },
+    "programs.rosterError": {
+        "message": "[Çöûļðñ'ţ ûþðåţé ţĥé ŕöšţéŕ. Þļéåšé ţŕý åĝåîñ. one two three]"
+    },
+    "programs.startsLater": {
+        "message": "[Çĥéçķ-îñ öþéñš öñ ţĥé ðåý. one two]"
     },
     "reminders.subtitle": {
         "message": "[Ŵĥåţ çļîéñţš ĥéåŕ ƀéƒöŕé å ṽîšîţ, åñð çļöšîñĝ ṽîšîţš ŵĥéñ ţĥé ðåý îš öṽéŕ. one two three four five]"
@@ -7622,6 +7811,15 @@
     "catalog.capacityHint": {
         "message": "[Ĥöŵ ɱåñý çļîéñţš çåñ ƀööķ öñé çļåšš. one two three]"
     },
+    "catalog.programDays": {
+        "message": "[Đåýš îñ å þŕöĝŕåɱ one two]"
+    },
+    "catalog.programDaysHint": {
+        "message": "[Ļéåṽé éɱþţý ƒöŕ ðŕöþ-îñ šéššîöñš. Ŵîţĥ å ñûɱƀéŕ öƒ ðåýš, çļîéñţš éñŕöļ îñ éṽéŕý ðåý åţ öñçé. one two three four five six]"
+    },
+    "catalog.programDaysInvalid": {
+        "message": "[Šéţ ţĥé þŕöĝŕåɱ'š ðåýš åš å ŵĥöļé ñûɱƀéŕ, öŕ ļéåṽé îţ éɱþţý ƒöŕ ðŕöþ-îñ šéššîöñš. one two three four five]"
+    },
     "catalog.onlineBookable": {
         "message": "[Çļîéñţš çåñ ƀööķ ţĥîš öñļîñé one two three]"
     },
@@ -10733,6 +10931,24 @@
     "publicBooking.waitlistHint": {
         "message": "[Ŵåîţļîšţ one]"
     },
+    "publicBooking.programDates": {
+        "message": "[{first} ţö {last} one]"
+    },
+    "publicBooking.programDays": {
+        "message": "[{n,plural,one{# ðåý} other{# ðåýš}} one]"
+    },
+    "publicBooking.programSeats": {
+        "message": "[{n,plural,one{# šéåţ ļéƒţ} other{# šéåţš ļéƒţ}} one two]"
+    },
+    "publicBooking.programNone": {
+        "message": "[Ñö šţåŕţ ðåţéš åŕé öþéñ ŕîĝĥţ ñöŵ. one two three]"
+    },
+    "publicBooking.programPick": {
+        "message": "[Šţåŕţ ðåţéš one two]"
+    },
+    "publicBooking.programNote": {
+        "message": "[Öñé þŕîçé çöṽéŕš éṽéŕý ðåý, åñð ýöû'ŕé ƀööķéð îñţö åļļ öƒ ţĥéɱ ţöĝéţĥéŕ. one two three four five]"
+    },
     "publicBooking.waitlistNotice": {
         "message": "[Ţĥîš çļåšš îš ƒûļļ. Ĵöîñ ţĥé ŵåîţļîšţ åñð ýöû'ļļ ƀé ƀööķéð îñţö ţĥé ƒîŕšţ šéåţ ţĥåţ öþéñš ƀéƒöŕé îţ šţåŕţš. one two three four five six seven]"
     },
@@ -11683,6 +11899,12 @@
     },
     "publicManage.inDays": {
         "message": "[{d,plural,one{îñ # ðåý} other{îñ # ðåýš}} one two]"
+    },
+    "publicManage.cancelProgram": {
+        "message": "[Çåñçéļ éñŕöļɱéñţ one two]"
+    },
+    "publicManage.cancelProgramTitle": {
+        "message": "[{n,plural,one{Çåñçéļ ţĥîš þŕöĝŕåɱ?} other{Çåñçéļ åļļ # ðåýš öƒ ţĥîš þŕöĝŕåɱ?}} one two three four]"
     },
     "publicManage.cancelTitle": {
         "message": "[Çåñçéļ ţĥîš ṽîšîţ? one two]"

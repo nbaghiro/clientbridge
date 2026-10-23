@@ -47,6 +47,7 @@ it("books a returning client with subjects at a client-only business without a s
                 { starts_at: STARTS, ends_at: "2026-10-15T18:00:00.000Z", staff_id: null },
             ]),
         joinWaitlist: vi.fn(),
+        getPrograms: vi.fn().mockResolvedValue([]),
         book: vi.fn().mockResolvedValue({
             booking_id: "booking",
             status: "confirmed",

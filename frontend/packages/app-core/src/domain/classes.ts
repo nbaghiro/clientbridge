@@ -21,6 +21,7 @@ import { afterReview } from "./previews";
 import { useNow } from "../hooks";
 import { staffName, useStaff } from "./staff";
 import {
+    type SubjectKind,
     parseAttributes,
     pickupLine,
     subjectSummary,
@@ -39,12 +40,14 @@ interface SessionRow {
     staff_id: string;
     item_name: string;
     item_color: string | null;
+    program_id: string | null;
 }
 
-interface RosterRow {
+export interface RosterRow {
     booking_id: string;
     slot_id: string;
     client_id: string;
+    subject_id: string | null;
     client_name: string;
     client_phone: string | null;
     client_email: string | null;
@@ -58,13 +61,16 @@ interface RosterRow {
 
 export const CLASS_SESSIONS_SQL = `
 SELECT s.id AS slot_id, s.starts_at, s.ends_at, s.capacity, s.staff_id,
-       i.name AS item_name, i.color AS item_color
+       i.name AS item_name, i.color AS item_color,
+       (SELECT r.id FROM recurrences r WHERE r.id = s.recurrence_id AND r.client_id IS NULL
+          AND i.session_count IS NOT NULL) AS program_id
 FROM slots s JOIN items i ON i.id = s.item_id
 WHERE s.capacity > 1 AND s.status != 'canceled' AND ${slotOverlapSql("?1", "?2")}
 ORDER BY s.starts_at`;
 
 export const CLASS_ROSTER_SQL = `
-SELECT b.id AS booking_id, b.slot_id, b.client_id, c.name AS client_name, c.phone AS client_phone,
+SELECT b.id AS booking_id, b.slot_id, b.client_id, b.subject_id, c.name AS client_name,
+       c.phone AS client_phone,
        c.email AS client_email, sj.name AS subject_name, sj.attributes AS subject_attributes, b.status,
        b.checked_in_at, b.deposit_status, b.deposit_amount_cents
 FROM bookings b JOIN slots s ON s.id = b.slot_id JOIN clients c ON c.id = b.client_id
@@ -73,13 +79,73 @@ WHERE s.capacity > 1 AND b.status != 'canceled' AND b.deleted_at IS NULL
   AND ${slotOverlapSql("?1", "?2")}
 ORDER BY b.created_at, b.id`;
 
+// One row per client and subject, so siblings can each take a seat.
 export const CLASS_CLIENTS_SQL = `
-SELECT c.id, c.name,
-       (SELECT sj.id FROM subjects sj WHERE sj.client_id = c.id AND sj.deleted_at IS NULL
-          ORDER BY sj.name LIMIT 1) AS subject_id,
-       (SELECT sj.name FROM subjects sj WHERE sj.client_id = c.id AND sj.deleted_at IS NULL
-          ORDER BY sj.name LIMIT 1) AS subject_name
-FROM clients c WHERE c.status = 'active' ORDER BY c.name COLLATE NOCASE`;
+SELECT c.id, c.name, sj.id AS subject_id, sj.name AS subject_name
+FROM clients c LEFT JOIN subjects sj ON sj.client_id = c.id AND sj.deleted_at IS NULL
+WHERE c.status = 'active' ORDER BY c.name COLLATE NOCASE, sj.name COLLATE NOCASE`;
+
+export interface SeatCandidate {
+    id: string;
+    name: string;
+    subject_id: string | null;
+    subject_name: string | null;
+}
+
+export interface SeatMatch {
+    key: string;
+    clientId: string;
+    subjectId: string | null;
+    name: string;
+    subjectName: string;
+}
+
+/** A seat's holder: the subject when the business books one, else the client. */
+export const seatKey = (clientId: string, subjectId: string | null): string =>
+    `${clientId}:${subjectId ?? ""}`;
+
+/** Clients (and each of their subjects) matching a search, leaving out those already seated. */
+export function seatMatches(
+    candidates: readonly SeatCandidate[],
+    query: string,
+    seated: ReadonlySet<string>,
+    booksSubjects: boolean,
+): SeatMatch[] {
+    const t = query.trim().toLowerCase();
+    if (t === "") return [];
+    const seen = new Set<string>();
+    const out: SeatMatch[] = [];
+    for (const c of candidates) {
+        const subjectId = booksSubjects ? c.subject_id : null;
+        const key = seatKey(c.id, subjectId);
+        if (seen.has(key) || seated.has(key)) continue;
+        seen.add(key);
+        const subjectName = booksSubjects ? (c.subject_name ?? "") : "";
+        if (![c.name, subjectName].some((v) => v.toLowerCase().includes(t))) continue;
+        out.push({ key, clientId: c.id, subjectId, name: c.name, subjectName });
+    }
+    return out.slice(0, 4);
+}
+
+/** One person on a session's roster, with their subject's details and pickups. */
+export function rosterEntry(kind: SubjectKind | null, zone: string, r: RosterRow): RosterEntry {
+    const attrs = parseAttributes(r.subject_attributes);
+    const temperament = subjectTemperament(kind, attrs);
+    const status = rosterStatus(r);
+    return {
+        key: r.booking_id,
+        clientId: r.client_id,
+        clientName: r.client_name,
+        subjectName: r.subject_name ?? r.client_name,
+        subjectDetail: formatParts([subjectSummary(kind, attrs, zone), temperament?.label ?? ""]),
+        status,
+        statusLabel: STATUS[status].label,
+        intent: STATUS[status].intent,
+        paid: r.deposit_status !== "pending",
+        note: temperament?.nervous === true ? s.gentleNote : null,
+        pickup: pickupLine(kind, attrs),
+    };
+}
 
 export interface ClassSession {
     slotId: string;
@@ -98,6 +164,8 @@ export interface ClassSession {
     full: boolean;
     seatsLabel: string;
     intent: Intent;
+    // set on a program's day, whose seats are taken and given back by enrolment
+    programId: string | null;
 }
 
 type RosterStatus = "confirmed" | "checked_in" | "no_show" | "waitlist";
@@ -127,8 +195,8 @@ export interface ClassRoster {
     checkInAll: () => void;
     query: string;
     setQuery: (q: string) => void;
-    matches: { clientId: string; name: string; subjectName: string; subjectId: string | null }[];
-    add: (clientId: string) => void;
+    matches: SeatMatch[];
+    add: (key: string) => void;
     notice: string | null;
     started: boolean;
     busy: boolean;
@@ -205,12 +273,7 @@ export function useClassBoard(api: ApiLike): ClassBoard {
     const range = [from.toISOString(), addDays(from, 21, zone).toISOString()];
     const sessionsQ = useQuery<SessionRow>(CLASS_SESSIONS_SQL, range);
     const rosterQ = useQuery<RosterRow>(CLASS_ROSTER_SQL, range);
-    const clients = useQuery<{
-        id: string;
-        name: string;
-        subject_id: string | null;
-        subject_name: string | null;
-    }>(CLASS_CLIENTS_SQL).data;
+    const clients = useQuery<SeatCandidate>(CLASS_CLIENTS_SQL).data;
     const kind = useSubjectKind();
     const staff = useStaff();
     const [selected, setSelected] = useState<string | null>(null);
@@ -249,32 +312,13 @@ export function useClassBoard(api: ApiLike): ClassBoard {
                     : s.full
                 : s.seatsLeft(r.capacity - booked),
             intent: full ? "warning" : booked === 0 ? "neutral" : "accent",
+            programId: r.program_id,
         };
     });
     const current = selected ?? sessions[0]?.slotId ?? null;
     const session = sessions.find((x) => x.slotId === current) ?? null;
     const mine = roster.filter((b) => b.slot_id === current);
-    const entry = (r: RosterRow): RosterEntry => {
-        const attrs = parseAttributes(r.subject_attributes);
-        const temperament = subjectTemperament(kind, attrs);
-        const status = rosterStatus(r);
-        return {
-            key: r.booking_id,
-            clientId: r.client_id,
-            clientName: r.client_name,
-            subjectName: r.subject_name ?? r.client_name,
-            subjectDetail: formatParts([
-                subjectSummary(kind, attrs, zone),
-                temperament?.label ?? "",
-            ]),
-            status,
-            statusLabel: STATUS[status].label,
-            intent: STATUS[status].intent,
-            paid: r.deposit_status !== "pending",
-            note: temperament?.nervous === true ? s.gentleNote : null,
-            pickup: pickupLine(kind, attrs),
-        };
-    };
+    const entry = (r: RosterRow): RosterEntry => rosterEntry(kind, zone, r);
     const act = (
         key: string,
         action: "check_in" | "undo" | "no_show" | "promote",
@@ -286,8 +330,9 @@ export function useClassBoard(api: ApiLike): ClassBoard {
             errorMessage: (e) => failureMessage(e, s.rosterError),
         });
     };
-    const inClass = new Set(mine.map((r) => r.client_id));
-    const t = query.trim().toLowerCase();
+    const seated = new Set(
+        mine.map((r) => seatKey(r.client_id, kind === null ? null : r.subject_id)),
+    );
     const load = useReplicaLoad([sessionsQ, rosterQ], sessions.length === 0);
 
     const seats = sessions.reduce((n, x) => n + x.capacity, 0);
@@ -392,28 +437,16 @@ export function useClassBoard(api: ApiLike): ClassBoard {
                   },
                   query,
                   setQuery,
-                  matches:
-                      t === ""
-                          ? []
-                          : clients
-                                .filter((c) => !inClass.has(c.id))
-                                .map((c) => ({
-                                    clientId: c.id,
-                                    name: c.name,
-                                    subjectName: kind === null ? "" : (c.subject_name ?? ""),
-                                    subjectId: kind === null ? null : c.subject_id,
-                                }))
-                                .filter((m) =>
-                                    [m.name, m.subjectName].some((v) =>
-                                        v.toLowerCase().includes(t),
-                                    ),
-                                )
-                                .slice(0, 4),
-                  add: (clientId) => {
+                  matches: seatMatches(clients, query, seated, kind !== null),
+                  add: (key) => {
                       if (current === null) return;
-                      const c = clients.find((x) => x.id === clientId);
-                      const subjectId = kind === null ? null : (c?.subject_id ?? null);
-                      const label = (subjectId === null ? null : c?.subject_name) ?? c?.name ?? "";
+                      const m = seatMatches(clients, query, seated, kind !== null).find(
+                          (x) => x.key === key,
+                      );
+                      if (m === undefined) return;
+                      const clientId = m.clientId;
+                      const subjectId = m.subjectId;
+                      const label = m.subjectName === "" ? m.name : m.subjectName;
                       setQuery("");
                       run(
                           async () => {

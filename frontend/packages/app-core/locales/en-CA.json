@@ -261,6 +261,39 @@
     "api.visitUnpaid": {
         "message": "This visit hasn't been paid yet. Its receipt is ready once a payment is recorded."
     },
+    "api.programFull": {
+        "message": "One of the program's days is full, so it can't be booked. Choose another start date."
+    },
+    "api.alreadyEnrolled": {
+        "message": "They're already enrolled in this program."
+    },
+    "api.programEnrol": {
+        "message": "A program is booked as a whole. Enrol them from its schedule under Programs."
+    },
+    "api.programFirstDay": {
+        "message": "A program's first day holds its price, so it's canceled with the whole enrolment."
+    },
+    "api.programEnrolled": {
+        "message": "Clients are enrolled in this program. Cancel their enrolments first."
+    },
+    "api.programClosed": {
+        "message": "This program isn't taking enrolments any more."
+    },
+    "api.programOver": {
+        "message": "This program has no days left to book."
+    },
+    "api.programDays": {
+        "message": "The weekdays and first day need to give the program exactly its number of days."
+    },
+    "api.scheduleConflict": {
+        "message": "The instructor is away, outside their hours or already booked on one of those days. Choose other days or another time."
+    },
+    "api.schedulePast": {
+        "message": "Choose a first day that's still ahead."
+    },
+    "api.classSchedule": {
+        "message": "This is a class schedule. Change or cancel it under Classes."
+    },
     "common.amountWithCurrency": {
         "message": "{amount} {currency}",
         "args": ["amount", "currency"],
@@ -4022,13 +4055,187 @@
         "message": "No classes coming up"
     },
     "classes.emptyClassesBody": {
-        "message": "Class sessions show here once someone books one, with their roster and waitlist."
+        "message": "Class sessions show here once someone books one or a program is scheduled, with their roster and waitlist."
     },
     "classes.rosterError": {
         "message": "Couldn't update the roster. Please try again."
     },
     "classes.startsLater": {
         "message": "Check-in opens on the day of the class."
+    },
+    "classes.sessionsTab": {
+        "message": "Sessions"
+    },
+    "classes.programDay": {
+        "message": "This day is part of {name}. Enrol and cancel from Programs.",
+        "args": ["name"]
+    },
+    "programs.tab": {
+        "message": "Programs"
+    },
+    "programs.newProgram": {
+        "message": "Schedule a program"
+    },
+    "programs.formTitle": {
+        "message": "Schedule a program"
+    },
+    "programs.formSubtitle": {
+        "message": "Lay out every day of a program before anyone enrols. Clients book all of its days at once, for one price."
+    },
+    "programs.program": {
+        "message": "Program"
+    },
+    "programs.pickProgram": {
+        "message": "Choose a program"
+    },
+    "programs.programHint": {
+        "message": "A class with a number of days. Set the days on the class in the catalog."
+    },
+    "programs.noPrograms": {
+        "message": "No class has a number of days yet. Set one on a class in the catalog to schedule it as a program."
+    },
+    "programs.instructor": {
+        "message": "Instructor"
+    },
+    "programs.firstDay": {
+        "message": "First day"
+    },
+    "programs.time": {
+        "message": "Starts at"
+    },
+    "programs.weekdays": {
+        "message": "Runs on"
+    },
+    "programs.pickDays": {
+        "message": "{n, plural, one {Choose a weekday and first day that give the program its # day.} other {Choose weekdays and a first day that give the program its # days.}}",
+        "args": ["n"]
+    },
+    "programs.summary": {
+        "message": "{n, plural, one {# day, on {first}} other {# days, {first} to {last}}}",
+        "args": ["n", "first", "last"]
+    },
+    "programs.daysCount": {
+        "message": "{n, plural, one {# day} other {# days}}",
+        "args": ["n"]
+    },
+    "programs.create": {
+        "message": "Schedule program"
+    },
+    "programs.close": {
+        "message": "Cancel"
+    },
+    "programs.created": {
+        "message": "{name} is scheduled. Clients can enrol until its first day.",
+        "args": ["name"]
+    },
+    "programs.createError": {
+        "message": "Couldn't schedule the program. Please try again."
+    },
+    "programs.dates": {
+        "message": "{first} to {last}",
+        "args": ["first", "last"]
+    },
+    "programs.full": {
+        "message": "Full"
+    },
+    "programs.seatsLeft": {
+        "message": "{n, plural, one {# seat left} other {# seats left}}",
+        "args": ["n"]
+    },
+    "programs.enrolledCount": {
+        "message": "{n, plural, =0 {No one enrolled} other {# enrolled}}",
+        "args": ["n"]
+    },
+    "programs.emptyTitle": {
+        "message": "No programs coming up"
+    },
+    "programs.emptyBody": {
+        "message": "Schedule a program, such as a week of day camp, and clients enrol in all of its days at once."
+    },
+    "programs.loading": {
+        "message": "Loading programs"
+    },
+    "programs.loadError": {
+        "message": "Couldn't load programs"
+    },
+    "programs.days": {
+        "message": "Days"
+    },
+    "programs.enrolments": {
+        "message": "Enrolled"
+    },
+    "programs.emptyEnrolments": {
+        "message": "No one is enrolled yet."
+    },
+    "programs.enrolPlaceholder": {
+        "message": "{kind, select, pet {Enrol a client or pet} student {Enrol a client or student} property {Enrol a client or property} site {Enrol a client or site} vehicle {Enrol a client or vehicle} other {Enrol a client}}",
+        "args": ["kind"],
+        "description": "kind is what the business books besides the client: pet, student, property, site, vehicle, or none"
+    },
+    "programs.enrol": {
+        "message": "Enrol"
+    },
+    "programs.enrolled": {
+        "message": "{name} is enrolled for every day.",
+        "args": ["name"]
+    },
+    "programs.enrolError": {
+        "message": "Couldn't enrol them. Please try again."
+    },
+    "programs.attending": {
+        "message": "{n, number} of {of, number} days",
+        "args": ["n", "of"]
+    },
+    "programs.away": {
+        "message": "Away {days}",
+        "args": ["days"]
+    },
+    "programs.cancelEnrolment": {
+        "message": "Cancel enrolment"
+    },
+    "programs.cancelEnrolmentTitle": {
+        "message": "Cancel {name}'s enrolment?",
+        "args": ["name"]
+    },
+    "programs.cancelEnrolmentBody": {
+        "message": "Every day still ahead is released and a paid deposit is refunded. They get one message listing the days."
+    },
+    "programs.keep": {
+        "message": "Keep"
+    },
+    "programs.canceledEnrolment": {
+        "message": "{name}'s enrolment is canceled.",
+        "args": ["name"]
+    },
+    "programs.cancelError": {
+        "message": "Couldn't cancel. Please try again."
+    },
+    "programs.cancelProgram": {
+        "message": "Cancel program"
+    },
+    "programs.cancelProgramTitle": {
+        "message": "Cancel {name}?",
+        "args": ["name"]
+    },
+    "programs.cancelProgramBody": {
+        "message": "Its days ahead come off the calendar. A program with enrolments is canceled only once they are."
+    },
+    "programs.canceledProgram": {
+        "message": "{name} is canceled.",
+        "args": ["name"]
+    },
+    "programs.dayRoster": {
+        "message": "Roster for {day}",
+        "args": ["day"]
+    },
+    "programs.emptyDay": {
+        "message": "No one is booked on this day."
+    },
+    "programs.rosterError": {
+        "message": "Couldn't update the roster. Please try again."
+    },
+    "programs.startsLater": {
+        "message": "Check-in opens on the day."
     },
     "reminders.subtitle": {
         "message": "What clients hear before a visit, and closing visits when the day is over."
@@ -8207,6 +8414,15 @@
     "catalog.capacityHint": {
         "message": "How many clients can book one class."
     },
+    "catalog.programDays": {
+        "message": "Days in a program"
+    },
+    "catalog.programDaysHint": {
+        "message": "Leave empty for drop-in sessions. With a number of days, clients enrol in every day at once."
+    },
+    "catalog.programDaysInvalid": {
+        "message": "Set the program's days as a whole number, or leave it empty for drop-in sessions."
+    },
     "catalog.onlineBookable": {
         "message": "Clients can book this online"
     },
@@ -11509,6 +11725,27 @@
         "message": "Waitlist",
         "description": "Under a full class time that a client can join the waitlist for."
     },
+    "publicBooking.programDates": {
+        "message": "{first} to {last}",
+        "args": ["first", "last"]
+    },
+    "publicBooking.programDays": {
+        "message": "{n, plural, one {# day} other {# days}}",
+        "args": ["n"]
+    },
+    "publicBooking.programSeats": {
+        "message": "{n, plural, one {# seat left} other {# seats left}}",
+        "args": ["n"]
+    },
+    "publicBooking.programNone": {
+        "message": "No start dates are open right now."
+    },
+    "publicBooking.programPick": {
+        "message": "Start dates"
+    },
+    "publicBooking.programNote": {
+        "message": "One price covers every day, and you're booked into all of them together."
+    },
     "publicBooking.waitlistNotice": {
         "message": "This class is full. Join the waitlist and you'll be booked into the first seat that opens before it starts."
     },
@@ -12524,6 +12761,13 @@
     "publicManage.inDays": {
         "message": "{d, plural, one {in # day} other {in # days}}",
         "args": ["d"]
+    },
+    "publicManage.cancelProgram": {
+        "message": "Cancel enrolment"
+    },
+    "publicManage.cancelProgramTitle": {
+        "message": "{n, plural, one {Cancel this program?} other {Cancel all # days of this program?}}",
+        "args": ["n"]
     },
     "publicManage.cancelTitle": {
         "message": "Cancel this visit?"

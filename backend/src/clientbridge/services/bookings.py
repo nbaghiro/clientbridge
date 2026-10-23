@@ -123,6 +123,8 @@ _CLASS_MOVE = "a class session moves as a whole; change its time from the class"
 _WAITLIST_SEAT = "give a waitlisted client a seat from the class roster"
 _MIN_VISIT = timedelta(minutes=5)
 ALREADY_IN_CLASS = "you already have a booking for this class"
+PROGRAM_ENROL = "a program is enrolled in as a whole; enrol from its schedule"
+_PROGRAM_FIRST_DAY = "a program's first day carries its price; cancel the whole enrolment"
 _TERMINAL = frozenset({"completed", "canceled", "no_show"})
 _AFTER_START = frozenset({"completed", "no_show"})
 _NOT_STARTED = "a visit can be completed or marked a no-show only once it has started"
@@ -227,6 +229,8 @@ async def fill_freed_seats(
     """Seat the people waiting, earliest first, while a class that hasn't started has room."""
     if slot.capacity <= 1 or slot.status == "canceled" or slot.starts_at <= clock.now():
         return []
+    if await is_program_day(db, slot):
+        return []
     await db.flush()
     # callers hold the member's lock; the slot row lock makes the count and the pick one step
     await db.execute(select(Slot.id).where(Slot.id == slot.id).with_for_update())
@@ -320,18 +324,36 @@ async def open_class_slot(
     return (await db.execute(q)).scalars().first()
 
 
-async def client_has_seat(db: AsyncSession, business_id: str, slot_id: str, client_id: str) -> bool:
-    """Whether this client already has a live booking on the slot."""
+async def has_seat(
+    db: AsyncSession, business_id: str, slot_id: str, client_id: str, subject_id: str | None
+) -> bool:
+    """Whether the subject, or the client when there is none, already has a seat on the slot."""
     q = (
         scoped(Booking, business_id, soft_delete=True)
-        .where(
-            Booking.slot_id == slot_id,
-            Booking.client_id == client_id,
-            Booking.status != "canceled",
-        )
+        .where(Booking.slot_id == slot_id, Booking.status != "canceled")
         .limit(1)
     )
+    if subject_id is None:
+        q = q.where(Booking.client_id == client_id)
+    else:
+        q = q.where(Booking.subject_id == subject_id)
     return (await db.execute(q)).first() is not None
+
+
+async def schedule_of(db: AsyncSession, slot: Slot) -> Recurrence | None:
+    """The class schedule that laid the session out ahead of any booking, if there is one."""
+    if slot.recurrence_id is None:
+        return None
+    recurrence = await db.get(Recurrence, slot.recurrence_id)
+    return recurrence if recurrence is not None and recurrence.client_id is None else None
+
+
+async def is_program_day(db: AsyncSession, slot: Slot) -> bool:
+    """Whether the session is one day of a program, which is enrolled in as a whole."""
+    if await schedule_of(db, slot) is None:
+        return False
+    item = await db.get(Item, slot.item_id)
+    return item is not None and is_program(item)
 
 
 async def blocking_exception(
@@ -393,6 +415,11 @@ async def slot_problem(
 
 def is_class(item: Item) -> bool:
     return item.kind == "class" and item.capacity is not None and item.capacity > 1
+
+
+def is_program(item: Item) -> bool:
+    """A class run over a set number of days, sold and enrolled in as a whole."""
+    return is_class(item) and item.session_count is not None
 
 
 def addon_minutes(products: Sequence[tuple[Item, int]]) -> int:
@@ -461,6 +488,8 @@ async def create_booking_core(
     extra_min: int = 0,
 ) -> tuple[Booking, Slot]:
     """Create a confirmed booking under the scheduling invariant (staff and online paths)."""
+    if is_program(item):
+        raise Conflict(PROGRAM_ENROL, code="program_enrol")
     assert_offers(item, staff_id)
     await lock_staff(db, business_id, staff_id)
     ends_at = starts_at + timedelta(minutes=visit_minutes(item, extra_min))
@@ -474,7 +503,7 @@ async def create_booking_core(
     if session:
         slot = await open_class_slot(db, business_id, item.id, staff_id, starts_at)
         if slot is not None:
-            if dedupe_client and await client_has_seat(db, business_id, slot.id, client_id):
+            if dedupe_client and await has_seat(db, business_id, slot.id, client_id, subject_id):
                 raise Conflict(ALREADY_IN_CLASS)
             if await seats_closed(db, slot.id):
                 raise Conflict(_CLASS_FULL, code="class_full")
@@ -569,8 +598,10 @@ async def assert_subject(
 
 
 async def release_slot(db: AsyncSession, slot: Slot) -> None:
-    """Cancel the slot once its last live or waiting booking is gone."""
+    """Cancel the slot once its last live or waiting booking is gone; a schedule keeps its own."""
     await db.flush()
+    if await schedule_of(db, slot) is not None:
+        return
     left = await db.execute(
         select(func.count(Booking.id)).where(
             Booking.slot_id == slot.id,
@@ -779,6 +810,13 @@ class BookingService:
         starts_at = target[1] if target is not None else slot.starts_at
         if data.status in _AFTER_START and data.status != before:
             _assert_started(starts_at)
+        if (
+            data.status == "canceled"
+            and before != "canceled"
+            and (booking.price_cents > 0 or booking.deposit_amount_cents > 0)
+            and await is_program_day(self.db, slot)
+        ):
+            raise Conflict(_PROGRAM_FIRST_DAY, code="program_first_day")
 
         async def run(cmd: Command) -> BookingOut:
             if target is None and data.status is not None and data.status != booking.status:
@@ -1853,8 +1891,9 @@ _WEEKDAY_CODES: dict[Weekday, int] = {"MO": 0, "TU": 1, "WE": 2, "TH": 3, "FR": 
 _WEEKDAY_NAMES: dict[int, Weekday] = {v: k for k, v in _WEEKDAY_CODES.items()}
 _SKIPPED = "left out when the series was booked"
 _SERVICE_ONLY = "a client's series repeats a service; book a class's sessions one at a time"
-_MAX_OCCURRENCES = 60  # a full year of weekly + headroom; caps runaway/unbounded rules
-_TOO_LONG = f"a series can hold at most {_MAX_OCCURRENCES} visits; end it sooner"
+MAX_OCCURRENCES = 60  # a full year of weekly + headroom; caps runaway/unbounded rules
+_TOO_LONG = f"a series can hold at most {MAX_OCCURRENCES} visits; end it sooner"
+_SCHEDULE = "a class schedule is changed or canceled from its class"
 
 
 def _add_months(d: date, months: int) -> date:
@@ -1883,7 +1922,7 @@ def expand_occurrences(
     count: int | None,
     until: date | None,
     monthly_by: MonthlyBy = "date",
-    cap: int = _MAX_OCCURRENCES,
+    cap: int = MAX_OCCURRENCES,
 ) -> list[date]:
     """Occurrence dates for a rule, bounded by count, until and a hard cap."""
     interval = max(1, interval)
@@ -1954,9 +1993,9 @@ class RecurrenceService:
             count=data.count,
             until=data.until,
             monthly_by=data.monthly_by,
-            cap=_MAX_OCCURRENCES + 1,
+            cap=MAX_OCCURRENCES + 1,
         )
-        if len(occ_dates) > _MAX_OCCURRENCES:
+        if len(occ_dates) > MAX_OCCURRENCES:
             raise Unprocessable(_TOO_LONG, code="recurrence_too_long")
         handled = {e.date: e for e in data.exceptions}
 
@@ -2207,6 +2246,8 @@ class RecurrenceService:
         ).scalar_one_or_none()
         if row is None:
             raise NotFound("series not found")
+        if row.client_id is None:
+            raise Conflict(_SCHEDULE, code="class_schedule")
         return row
 
     async def _upcoming(
@@ -2320,11 +2361,13 @@ class ClassService:
             await self._subject(data.subject_id, data.client_id)
         if slot.starts_at < clock.now() - timedelta(hours=12):
             raise Conflict("that class has already happened")
+        if await is_program_day(self.db, slot):
+            raise Conflict(PROGRAM_ENROL, code="program_enrol")
         item = await load_item(self.db, self.biz, slot.item_id, require_active=False)
 
         async def run(cmd: Command) -> RosterEntry:
             await lock_staff(self.db, self.biz, slot.staff_id)
-            if await client_has_seat(self.db, self.biz, slot.id, data.client_id):
+            if await has_seat(self.db, self.biz, slot.id, data.client_id, data.subject_id):
                 raise Conflict(ALREADY_IN_CLASS)
             full = await seats_closed(self.db, slot.id)
             deposit = deposit_cents(item) if item.deposit_type != "none" else 0
