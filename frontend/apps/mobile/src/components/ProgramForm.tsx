@@ -65,6 +65,7 @@ export function ProgramForm({
                         <Text style={styles.muted}>{f.preview}</Text>
                     </View>
                 ) : null}
+                {f.blocker !== null ? <Text style={styles.muted}>{f.blocker}</Text> : null}
                 {f.error !== null ? <Notice tone="danger">{f.error}</Notice> : null}
                 <Button full busy={f.busy} disabled={!f.canSubmit} onPress={f.submit}>
                     {s.create}

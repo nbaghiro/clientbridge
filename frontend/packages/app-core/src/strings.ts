@@ -1341,6 +1341,7 @@ interface Strings {
         readonly pickProgram: string;
         readonly programHint: string;
         readonly noPrograms: string;
+        readonly pickInstructor: string;
         readonly instructor: string;
         readonly firstDay: string;
         readonly time: string;

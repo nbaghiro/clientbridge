@@ -511,7 +511,8 @@ class BillingService:
         )
         booking = await self._booking(booking_id)
         business = await self.db.get(Business, self.biz)
-        assert business is not None
+        if business is None:
+            raise NotFound("business not found")
         from clientbridge.services.public import visit_receipt
 
         return await visit_receipt(self.db, booking, business)

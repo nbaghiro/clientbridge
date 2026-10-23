@@ -4,6 +4,7 @@ import httpx
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.core.ids import new_id
 from clientbridge.models.catalog import Item
 from clientbridge.models.scheduling import Booking, Hours, Recurrence, Slot
@@ -595,3 +596,87 @@ async def test_siblings_each_take_a_seat_on_a_class_roster(
     assert await booked_count(db, slot_id) == 2
     again = await as_owner.post(url, json={"client_id": "cl_marcus", "subject_id": "sj_rex"})
     assert again.status_code == 409
+
+
+async def test_a_parent_takes_their_own_seat_beside_their_child(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    program_id = await program(as_owner, db)
+    await enrol(as_owner, program_id, "cl_marcus", "sj_rex")
+    await enrol(as_owner, program_id, "cl_marcus")
+    assert [await booked_count(db, s.id) for s in await days(db, program_id)] == [2, 2, 2]
+
+
+async def test_approving_one_day_of_a_requested_enrolment_approves_every_day(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    program_id = await program(as_owner, db)
+    rows = await bookings(db, ids(await enrol(as_owner, program_id, "cl_amelie"), "booking_ids"))
+    for row in rows:
+        row.status = "pending"
+    await db.flush()
+    res = await as_owner.patch(f"/v1/bookings/{rows[2].id}", json={"status": "confirmed"})
+    assert res.status_code == 200, res.text
+    assert {b.status for b in await bookings(db, [r.id for r in rows])} == {"confirmed"}
+
+
+async def test_declining_a_requested_enrolment_cancels_every_day(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    program_id = await program(as_owner, db)
+    rows = await bookings(db, ids(await enrol(as_owner, program_id, "cl_amelie"), "booking_ids"))
+    for row in rows:
+        row.status = "pending"
+    await db.flush()
+    res = await as_owner.patch(f"/v1/bookings/{rows[0].id}", json={"status": "canceled"})
+    assert res.status_code == 200, res.text
+    assert {b.status for b in await bookings(db, [r.id for r in rows])} == {"canceled"}
+    assert {s.status for s in await days(db, program_id)} == {"scheduled"}
+
+
+async def test_a_second_cancel_of_an_enrolment_finds_nothing_left(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    program_id = await program(as_owner, db)
+    await enrol(as_owner, program_id, "cl_amelie")
+    url = f"/v1/programs/{program_id}/enrolments/cancel"
+    first = await as_owner.post(url, json={"client_id": "cl_amelie"})
+    assert first.status_code == 200, first.text
+    again = await as_owner.post(url, json={"client_id": "cl_amelie"})
+    assert again.status_code == 404
+
+
+async def test_a_canceled_schedule_takes_no_enrolment_or_second_cancel(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    program_id = await program(as_owner, db)
+    ok_cancel = await as_owner.post(f"/v1/programs/{program_id}/cancel")
+    assert ok_cancel.status_code == 200, ok_cancel.text
+    again = await as_owner.post(f"/v1/programs/{program_id}/cancel")
+    assert again.status_code == 409 and again.json()["error"] == "program_closed"
+    res = await as_owner.post(
+        f"/v1/programs/{program_id}/enrolments", json={"client_id": "cl_amelie"}, headers=key()
+    )
+    assert res.status_code == 409 and res.json()["error"] == "program_closed"
+
+
+async def test_a_program_with_no_days_left_takes_no_enrolment(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    program_id = await program(as_owner, db)
+    clock.travel(datetime(2027, 3, 5, tzinfo=UTC))
+    res = await as_owner.post(
+        f"/v1/programs/{program_id}/enrolments", json={"client_id": "cl_amelie"}, headers=key()
+    )
+    assert res.status_code == 409 and res.json()["error"] == "program_over"
+
+
+async def test_a_client_of_another_business_is_not_enrolled(
+    as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory
+) -> None:
+    program_id = await program(as_owner, db)
+    rival = await factory.client(business=await factory.business(name="Rival Co"))
+    res = await as_owner.post(
+        f"/v1/programs/{program_id}/enrolments", json={"client_id": rival.id}, headers=key()
+    )
+    assert res.status_code == 404

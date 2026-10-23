@@ -501,7 +501,6 @@ class StaffService:
                 if slot.recurrence_id is not None:
                     taken.setdefault(slot.recurrence_id, []).append(taker)
             await self._settle_series(biz, series, data, taken, out)
-            # a member who leaves stops helping on the visits still ahead
             await self.db.execute(
                 scoped_delete(Hours, biz).where(
                     Hours.staff_id == member.id,

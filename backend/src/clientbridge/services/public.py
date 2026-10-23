@@ -97,6 +97,7 @@ from clientbridge.services.bookings import (
     create_booking_core,
     crew_problem,
     crew_rows,
+    enrolment,
     fill_freed_seats,
     has_seat,
     is_program,
@@ -159,7 +160,7 @@ from clientbridge.services.payments import (
     resolve_tip,
 )
 from clientbridge.services.plans import assert_serving
-from clientbridge.services.programs import enrol, enrolment, sessions_of, withdraw
+from clientbridge.services.programs import enrol, sessions_of, withdraw
 from clientbridge.services.returning import ReturningService
 from clientbridge.services.subjects import new_subject, place_address, visit_address
 from clientbridge.services.tax import (
@@ -347,6 +348,16 @@ class PublicBookingService:
                 Recurrence.client_id.is_(None),
                 Recurrence.status == "active",
                 Recurrence.staff_id.in_(staff),
+                Recurrence.id.not_in(
+                    scoped(Slot, business.id)
+                    .with_only_columns(Slot.recurrence_id)
+                    .where(
+                        Slot.item_id == item.id,
+                        Slot.status != "canceled",
+                        Slot.starts_at < earliest,
+                        Slot.recurrence_id.is_not(None),
+                    )
+                ),
             )
             .order_by(Slot.starts_at, Slot.id)
         )
@@ -1116,7 +1127,7 @@ class PublicManageService:
 
         async def run(cmd: Command) -> ManageCancelResult:
             _, staff = await self._visit(booking, slot, business)
-            first = days[0].starts_at if days else None
+            first = await self._first_day(booking, slot) if days else None
             blocked = self._blocked(booking, slot, business, staff, "cancel", first)
             if blocked is not None:
                 raise Conflict(
@@ -1264,6 +1275,28 @@ class PublicManageService:
             self.db, booking.business_id, slot.recurrence_id, booking.client_id, booking.subject_id
         )
 
+    async def _first_day(self, booking: Booking, slot: Slot) -> datetime | None:
+        """When the program the client enrolled in began for them, attended days included."""
+        if slot.recurrence_id is None:
+            return None
+        q = (
+            scoped(Booking, booking.business_id, soft_delete=True)
+            .with_only_columns(func.min(Slot.starts_at))
+            .select_from(Booking)
+            .join(Slot, Slot.id == Booking.slot_id)
+            .where(
+                Slot.recurrence_id == slot.recurrence_id,
+                Booking.client_id == booking.client_id,
+                Booking.status != "canceled",
+            )
+        )
+        q = (
+            q.where(Booking.subject_id.is_(None))
+            if booking.subject_id is None
+            else q.where(Booking.subject_id == booking.subject_id)
+        )
+        return await self.db.scalar(q)
+
     async def _visit(self, booking: Booking, slot: Slot, business: Business) -> tuple[Item, Staff]:
         item = await self.db.get(Item, slot.item_id)
         staff = await self.db.get(Staff, slot.staff_id)
@@ -1316,7 +1349,12 @@ class PublicManageService:
         days = await self._program_days(booking, slot)
         move = self._blocked(booking, slot, business, staff, "move")
         cancel = self._blocked(
-            booking, slot, business, staff, "cancel", days[0].starts_at if days else None
+            booking,
+            slot,
+            business,
+            staff,
+            "cancel",
+            await self._first_day(booking, slot) if days else None,
         )
         blocked, blocked_hours = cancel or move or (None, None)
         document = await visit_document(self.db, booking)

@@ -68,6 +68,7 @@ export function ProgramForm({
                         <p className="mt-1 text-xs text-muted">{f.preview}</p>
                     </div>
                 ) : null}
+                {f.blocker !== null ? <p className="text-sm text-muted">{f.blocker}</p> : null}
                 {f.error !== null ? <Notice tone="danger">{f.error}</Notice> : null}
                 <div className="flex justify-end gap-2">
                     <Button variant="quiet" onPress={onClose}>

@@ -237,7 +237,7 @@
         "message": "[Ţĥîš ṽîšîţ ĥåšñ'ţ ƀééñ þåîð ýéţ. Îţš ŕéçéîþţ îš ŕéåðý öñçé å þåýɱéñţ îš ŕéçöŕðéð. one two three four five]"
     },
     "api.programFull": {
-        "message": "[Öñé öƒ ţĥé þŕöĝŕåɱ'š ðåýš îš ƒûļļ, šö îţ çåñ'ţ ƀé ƀööķéð. Çĥööšé åñöţĥéŕ šţåŕţ ðåţé. one two three four five]"
+        "message": "[Öñé öƒ ţĥé þŕöĝŕåɱ'š ðåýš îš ƒûļļ, šö îţ çåñ'ţ ƀé ƀööķéð. one two three four]"
     },
     "api.alreadyEnrolled": {
         "message": "[Ţĥéý'ŕé åļŕéåðý éñŕöļļéð îñ ţĥîš þŕöĝŕåɱ. one two three]"
@@ -3773,6 +3773,9 @@
     "programs.noPrograms": {
         "message": "[Ñö çļåšš ĥåš å ñûɱƀéŕ öƒ ðåýš ýéţ. Šéţ öñé öñ å çļåšš îñ ţĥé çåţåļöĝ ţö šçĥéðûļé îţ åš å þŕöĝŕåɱ. one two three four five six]"
     },
+    "programs.pickInstructor": {
+        "message": "[Ñö åçţîṽé ţéåɱ ɱéɱƀéŕ ţéåçĥéš ţĥîš þŕöĝŕåɱ. Çĥööšé ŵĥö öƒƒéŕš îţ öñ ţĥé çļåšš îñ ţĥé çåţåļöĝ. one two three four five six]"
+    },
     "programs.instructor": {
         "message": "[Îñšţŕûçţöŕ one two]"
     },
@@ -3801,7 +3804,7 @@
         "message": "[Çåñçéļ one]"
     },
     "programs.created": {
-        "message": "[{name} îš šçĥéðûļéð. Çļîéñţš çåñ éñŕöļ ûñţîļ îţš ƒîŕšţ ðåý. one two three four]"
+        "message": "[{name} îš šçĥéðûļéð. Çļîéñţš çåñ éñŕöļ öñļîñé ûñţîļ šĥöŕţļý ƀéƒöŕé îţš ƒîŕšţ ðåý. one two three four five]"
     },
     "programs.createError": {
         "message": "[Çöûļðñ'ţ šçĥéðûļé ţĥé þŕöĝŕåɱ. Þļéåšé ţŕý åĝåîñ. one two three four]"
@@ -3846,13 +3849,13 @@
         "message": "[Éñŕöļ one]"
     },
     "programs.enrolled": {
-        "message": "[{name} îš éñŕöļļéð ƒöŕ éṽéŕý ðåý. one two three]"
+        "message": "[{name} îš éñŕöļļéð ƒöŕ éṽéŕý ðåý šţîļļ åĥéåð. one two three]"
     },
     "programs.enrolError": {
         "message": "[Çöûļðñ'ţ éñŕöļ ţĥéɱ. Þļéåšé ţŕý åĝåîñ. one two three]"
     },
     "programs.attending": {
-        "message": "[{n, number} öƒ {of, number} ðåýš one]"
+        "message": "[{of,plural,one{{n, number} öƒ # ðåý} other{{n, number} öƒ # ðåýš}} one two]"
     },
     "programs.away": {
         "message": "[Åŵåý {days} one]"
@@ -3882,7 +3885,7 @@
         "message": "[Çåñçéļ {name}? one]"
     },
     "programs.cancelProgramBody": {
-        "message": "[Îţš ðåýš åĥéåð çöɱé öƒƒ ţĥé çåļéñðåŕ. Å þŕöĝŕåɱ ŵîţĥ éñŕöļɱéñţš îš çåñçéļéð öñļý öñçé ţĥéý åŕé. one two three four five six]"
+        "message": "[Îţš ðåýš åĥéåð çöɱé öƒƒ ţĥé çåļéñðåŕ. Å þŕöĝŕåɱ îš çåñçéļéð öñļý öñçé ñö öñé ĥöļðš å ðåý šţîļļ åĥéåð. one two three four five six seven]"
     },
     "programs.canceledProgram": {
         "message": "[{name} îš çåñçéļéð. one two]"

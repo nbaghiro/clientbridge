@@ -236,17 +236,8 @@ function ProgramDetail({ board }: { board: Board }) {
                                 <ListRow
                                     key={m.key}
                                     density="compact"
-                                    leading={
-                                        <Avatar
-                                            name={m.subjectName === "" ? m.name : m.subjectName}
-                                            size="sm"
-                                        />
-                                    }
-                                    title={
-                                        m.subjectName === ""
-                                            ? m.name
-                                            : formatParts([m.subjectName, m.name])
-                                    }
+                                    leading={<Avatar name={m.avatar} size="sm" />}
+                                    title={m.title}
                                     meta={s.enrol}
                                     onPress={() => {
                                         board.enrol(m.key);

@@ -295,11 +295,30 @@ async def ensure_earnings(
 async def reverse_earnings(db: AsyncSession, document: Invoice | Order) -> None:
     """Unwind pending earnings when an invoice or sale stops being paid; approved ones stand."""
     biz = document.business_id
-    for booking_id, staff_id in await _payees(db, document):
+    lines = await _booking_lines(db, document)
+    for booking_id in sorted({line.booking_id for line in lines if line.booking_id is not None}):
         await _lock_booking(db, booking_id)
-        journals = await _booking_earnings(db, biz, booking_id, staff_id)
-        if journals and await _status(db, biz, journals[-1]) == "pending":
-            await ledger.reverse(db, biz, journals[-1], ref=f"earning:{journals[-1]}:reversal")
+        # read the payees from the ledger, since a visit's crew may have changed since it was paid
+        for staff_id in await _earners(db, biz, booking_id):
+            journals = await _booking_earnings(db, biz, booking_id, staff_id)
+            if journals and await _status(db, biz, journals[-1]) == "pending":
+                await ledger.reverse(db, biz, journals[-1], ref=f"earning:{journals[-1]}:reversal")
+
+
+async def _earners(db: AsyncSession, business_id: str, booking_id: str) -> list[str]:
+    rows = await db.execute(
+        scoped(Entry, business_id)
+        .with_only_columns(Entry.owner_id)
+        .where(
+            Entry.event == "earning",
+            Entry.subject_type == "booking",
+            Entry.subject_id == booking_id,
+            Entry.owner_type == "staff",
+        )
+        .distinct()
+        .order_by(Entry.owner_id)
+    )
+    return list(rows.scalars().all())
 
 
 async def ensure_order_earning(db: AsyncSession, order: Order) -> None:

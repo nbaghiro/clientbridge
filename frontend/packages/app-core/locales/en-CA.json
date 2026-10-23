@@ -262,7 +262,7 @@
         "message": "This visit hasn't been paid yet. Its receipt is ready once a payment is recorded."
     },
     "api.programFull": {
-        "message": "One of the program's days is full, so it can't be booked. Choose another start date."
+        "message": "One of the program's days is full, so it can't be booked."
     },
     "api.alreadyEnrolled": {
         "message": "They're already enrolled in this program."
@@ -4094,6 +4094,9 @@
     "programs.noPrograms": {
         "message": "No class has a number of days yet. Set one on a class in the catalog to schedule it as a program."
     },
+    "programs.pickInstructor": {
+        "message": "No active team member teaches this program. Choose who offers it on the class in the catalog."
+    },
     "programs.instructor": {
         "message": "Instructor"
     },
@@ -4125,7 +4128,7 @@
         "message": "Cancel"
     },
     "programs.created": {
-        "message": "{name} is scheduled. Clients can enrol until its first day.",
+        "message": "{name} is scheduled. Clients can enrol online until shortly before its first day.",
         "args": ["name"]
     },
     "programs.createError": {
@@ -4176,14 +4179,14 @@
         "message": "Enrol"
     },
     "programs.enrolled": {
-        "message": "{name} is enrolled for every day.",
+        "message": "{name} is enrolled for every day still ahead.",
         "args": ["name"]
     },
     "programs.enrolError": {
         "message": "Couldn't enrol them. Please try again."
     },
     "programs.attending": {
-        "message": "{n, number} of {of, number} days",
+        "message": "{of, plural, one {{n, number} of # day} other {{n, number} of # days}}",
         "args": ["n", "of"]
     },
     "programs.away": {
@@ -4218,7 +4221,7 @@
         "args": ["name"]
     },
     "programs.cancelProgramBody": {
-        "message": "Its days ahead come off the calendar. A program with enrolments is canceled only once they are."
+        "message": "Its days ahead come off the calendar. A program is canceled only once no one holds a day still ahead."
     },
     "programs.canceledProgram": {
         "message": "{name} is canceled.",

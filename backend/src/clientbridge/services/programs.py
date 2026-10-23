@@ -30,6 +30,7 @@ from clientbridge.services.bookings import (
     OVERLAP,
     assert_subject,
     booked_count,
+    enrolment,
     expand_occurrences,
     has_seat,
     is_class,
@@ -70,30 +71,9 @@ async def sessions_of(
             Slot.starts_at > after,
         )
         .order_by(Slot.starts_at, Slot.id)
+        .execution_options(populate_existing=True)
     )
     return list(rows)
-
-
-async def enrolment(
-    db: AsyncSession, business_id: str, program_id: str, client_id: str, subject_id: str | None
-) -> list[Booking]:
-    """An enrolment, derived: the client's live bookings on the schedule for that subject."""
-    q = (
-        scoped(Booking, business_id, soft_delete=True)
-        .join(Slot, Slot.id == Booking.slot_id)
-        .where(
-            Slot.recurrence_id == program_id,
-            Booking.client_id == client_id,
-            Booking.status.in_(_LIVE),
-        )
-        .order_by(Slot.starts_at, Booking.id)
-    )
-    q = (
-        q.where(Booking.subject_id.is_(None))
-        if subject_id is None
-        else q.where(Booking.subject_id == subject_id)
-    )
-    return list(await db.scalars(q))
 
 
 async def enrol(
@@ -108,6 +88,9 @@ async def enrol(
     after: datetime,
 ) -> list[Booking]:
     """Book every session ahead, or none: the first carries the price and the deposit."""
+    if program.staff_id is not None:
+        await lock_staff(db, business_id, program.staff_id)
+    await db.refresh(program)
     if program.status != "active":
         raise Conflict(_ENDED, code="program_closed")
     sessions = await sessions_of(db, business_id, program.id, after=after)
@@ -263,6 +246,11 @@ class ProgramService:
             raise Conflict("this schedule is already canceled", code="program_closed")
 
         async def run(cmd: Command) -> ProgramCancelOut:
+            if program.staff_id is not None:
+                await lock_staff(self.db, self.biz, program.staff_id)
+            await self.db.refresh(program)
+            if program.status == "canceled":
+                raise Conflict("this schedule is already canceled", code="program_closed")
             sessions = await sessions_of(self.db, self.biz, program.id, after=clock.now())
             await lock_staff(self.db, self.biz, *{s.staff_id for s in sessions})
             for slot in sessions:

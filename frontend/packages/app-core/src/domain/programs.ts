@@ -193,15 +193,18 @@ export function useProgramBoard(api: ApiLike): ProgramBoard {
             const end = parseTimestamp(last.ends_at);
             if (end < today) return null;
             const mine = seats.filter((x) => x.recurrence_id === r.id);
+            const ahead = days.filter((d) => parseTimestamp(d.starts_at) > now);
             const left = Math.min(
-                ...days.map(
+                ...(ahead.length > 0 ? ahead : days).map(
                     (d) =>
                         d.capacity -
                         mine.filter((x) => x.slot_id === d.slot_id && x.status !== "waitlisted")
                             .length,
                 ),
             );
-            const enrolled = new Set(mine.map((x) => seatKey(x.client_id, x.subject_id))).size;
+            const enrolled = new Set(
+                mine.map((x) => seatKey(x.client_id, kind === null ? null : x.subject_id)),
+            ).size;
             const member = staff.find((x) => x.id === r.staff_id);
             return {
                 id: r.id,
@@ -252,7 +255,7 @@ export function useProgramBoard(api: ApiLike): ProgramBoard {
 
     const groups = new Map<string, SeatRow[]>();
     for (const row of mine) {
-        const k = seatKey(row.client_id, row.subject_id);
+        const k = seatKey(row.client_id, kind === null ? null : row.subject_id);
         groups.set(k, [...(groups.get(k) ?? []), row]);
     }
     const enrolments: Enrolment[] = [...groups.entries()].map(([k, rows]) => {
@@ -344,6 +347,7 @@ export function useProgramBoard(api: ApiLike): ProgramBoard {
                     await api.post(`/v1/programs/${current.id}/enrolments`, body, {
                         idempotencyKey,
                     });
+                    attempt.current = null;
                     setNotice(s.enrolled(m.subjectName === "" ? m.name : m.subjectName));
                 },
                 { errorMessage: (e) => failureMessage(e, s.enrolError) },
@@ -364,7 +368,7 @@ export function useProgramBoard(api: ApiLike): ProgramBoard {
                 { errorMessage: (err) => failureMessage(err, s.cancelError) },
             );
         },
-        canCancelProgram: current !== null && enrolments.length === 0,
+        canCancelProgram: current !== null && !mine.some((x) => parseTimestamp(x.starts_at) > now),
         cancelProgram: () => {
             if (current === null) return;
             run(
@@ -417,6 +421,8 @@ export interface ProgramForm {
     preview: string;
     summary: string | null;
     canSubmit: boolean;
+    // why the program can't be scheduled yet, once a program is chosen
+    blocker: string | null;
     busy: boolean;
     error: string | null;
     submit: () => void;
@@ -439,7 +445,7 @@ export function useProgramForm(
     const today = startOfDay(new Date(), zone);
     const nextMonday = addDays(today, (8 - wallTime(today, zone).weekday) % 7 || 7, zone);
     const [itemId, setItemId] = useState("");
-    const [staffId, setStaffId] = useState(viewer?.staffId ?? "");
+    const [chosenStaff, setStaffId] = useState(viewer?.staffId ?? "");
     const [firstDay, setFirstDay] = useState(dateKey(nextMonday, zone));
     const [time, setTime] = useState("09:00");
     const [weekdays, setWeekdays] = useState<ProgramWeekday[]>([...WORK_WEEK]);
@@ -449,8 +455,17 @@ export function useProgramForm(
     const offered = item === null ? [] : idList(item.staff_ids);
     const staff = team.filter((x) => offered.length === 0 || offered.includes(x.id));
     const count = item?.session_count ?? 0;
+    const staffId = staff.some((x) => x.id === chosenStaff) ? chosenStaff : (staff[0]?.id ?? "");
     const dates = item === null ? [] : scheduleDays(firstDay, weekdays, count, zone);
-    const ready = item !== null && staff.some((x) => x.id === staffId) && dates.length === count;
+    const blocker =
+        item === null
+            ? s.pickProgram
+            : staffId === ""
+              ? s.pickInstructor
+              : dates.length !== count
+                ? s.pickDays(count)
+                : null;
+    const ready = blocker === null;
     const order = weekOrder().map((n) => CODES[n] ?? "SU");
     const first = dates[0];
     const last = dates.at(-1);
@@ -489,11 +504,12 @@ export function useProgramForm(
                 ? s.summary(dates.length, weekdayDay(first, zone), weekdayDay(last, zone))
                 : null,
         canSubmit: ready,
+        blocker: item === null ? null : blocker,
         busy,
         error,
         submit: () => {
-            if (!ready) {
-                setError(item === null ? s.pickProgram : s.pickDays(count));
+            if (blocker !== null || item === null) {
+                setError(blocker);
                 return;
             }
             const body = {

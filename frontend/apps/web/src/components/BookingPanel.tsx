@@ -388,7 +388,7 @@ function BookingAddons({ event }: { event: ScheduleEvent }) {
                         <li key={a.id} className="flex items-center gap-3 px-3 py-2 text-sm">
                             <Icon name="bag" size={15} />
                             <span className="min-w-0 flex-1 truncate text-ink">
-                                {a.quantity} × {a.description}
+                                {strings.common.quantityOf(a.quantity, a.description)}
                             </span>
                             <Money
                                 currency={BUSINESS_CURRENCY}

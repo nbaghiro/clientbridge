@@ -9,7 +9,7 @@ from clientbridge.models.billing import Invoice, Line
 from clientbridge.models.business import Staff
 from clientbridge.models.catalog import Item
 from clientbridge.models.scheduling import Booking, Hours, Slot
-from clientbridge.services.earnings import ensure_earnings, load_earning
+from clientbridge.services.earnings import ensure_earnings, load_earning, reverse_earnings
 from clientbridge.services.payments import resolve_tip
 from tests.conftest import (
     BIZ,
@@ -403,6 +403,33 @@ async def test_each_crew_member_earns_an_even_share_at_their_own_rate(
     lines = list(await db.scalars(select(Line).where(Line.invoice_id == invoice.id)))
     tip = await resolve_tip(db, BIZ, 1001, None, lines, OWNER)
     assert dict(tip.split) == {DIEGO: 501, PRIYA: 500}
+
+
+async def test_a_helper_s_pending_earning_is_reversed_after_they_leave_the_crew(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await db.execute(
+        update(Staff)
+        .where(Staff.id == PRIYA)
+        .values(payee=True, rate_type="percent", rate_bps=5000, rate_cents=None)
+    )
+    await db.flush()
+    booking_id = await _visit(as_owner, db)
+    ok(await _add(as_owner, booking_id), 201)
+    draft = ok(
+        await as_owner.post(f"/v1/invoices/from-booking/{booking_id}", headers=key()), 201
+    ).json()
+    invoice = await db.get(Invoice, draft["id"])
+    assert invoice is not None
+    await ensure_earnings(db, invoice)
+    ok(await as_owner.delete(f"/v1/bookings/{booking_id}/crew/{PRIYA}"))
+    await reverse_earnings(db, invoice)
+    statuses: dict[str, str] = {}
+    for journal in await earnings(db, "booking", booking_id):
+        earning = await load_earning(db, BIZ, journal)
+        if earning is not None:
+            statuses[earning.staff_id] = earning.status
+    assert statuses == {DIEGO: "reversed", PRIYA: "reversed"}
 
 
 async def test_another_business_s_visit_is_out_of_reach(

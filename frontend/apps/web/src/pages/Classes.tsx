@@ -374,10 +374,8 @@ function RosterPanel({ roster, onMessage }: { roster: ClassRoster; onMessage: ()
             </header>
 
             <div className="flex flex-wrap items-center gap-3 border-b border-line-soft bg-head px-5 py-3">
-                {x.programId !== null ? (
-                    <p className="min-w-[220px] flex-1 text-sm text-muted">
-                        {s.programDay(x.name)}
-                    </p>
+                {roster.programNote !== null ? (
+                    <p className="min-w-[220px] flex-1 text-sm text-muted">{roster.programNote}</p>
                 ) : (
                     <div className="relative min-w-[220px] flex-1">
                         <SearchField
@@ -391,17 +389,8 @@ function RosterPanel({ roster, onMessage }: { roster: ClassRoster; onMessage: ()
                                     <ListRow
                                         key={m.key}
                                         density="compact"
-                                        leading={
-                                            <Avatar
-                                                name={m.subjectName === "" ? m.name : m.subjectName}
-                                                size="sm"
-                                            />
-                                        }
-                                        title={
-                                            m.subjectName === ""
-                                                ? m.name
-                                                : formatParts([m.subjectName, m.name])
-                                        }
+                                        leading={<Avatar name={m.avatar} size="sm" />}
+                                        title={m.title}
                                         meta={x.full ? s.waitlist : s.add}
                                         onPress={() => {
                                             roster.add(m.key);
@@ -451,7 +440,7 @@ function RosterPanel({ roster, onMessage }: { roster: ClassRoster; onMessage: ()
                 </ul>
             )}
 
-            {x.programId !== null ? null : (
+            {roster.programNote !== null ? null : (
                 <div className="mt-2 border-t border-line">
                     <div className="flex items-baseline justify-between px-5 pb-1 pt-4">
                         <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">

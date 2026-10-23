@@ -186,15 +186,8 @@ function ProgramDetail({ board }: { board: Board }) {
                     {board.matches.map((m) => (
                         <ListRow
                             key={m.key}
-                            title={
-                                m.subjectName === "" ? m.name : formatParts([m.subjectName, m.name])
-                            }
-                            leading={
-                                <Avatar
-                                    name={m.subjectName === "" ? m.name : m.subjectName}
-                                    size="sm"
-                                />
-                            }
+                            title={m.title}
+                            leading={<Avatar name={m.avatar} size="sm" />}
                             meta={s.enrol}
                             onPress={() => {
                                 board.enrol(m.key);

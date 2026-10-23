@@ -1,13 +1,23 @@
+from datetime import timedelta
+
 import httpx
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.core.ids import new_id
 from clientbridge.models.business import Business
 from clientbridge.models.scheduling import Booking, Slot
-from clientbridge.services.bookings import booked_count
-from tests.conftest import BIZ, FakeEmailSender
-from tests.helpers import key
+from clientbridge.services.bookings import booked_count, run_reap_unpaid_bookings
+from clientbridge.services.notifications import Notifier
+from tests.conftest import (
+    BIZ,
+    FakeEmailSender,
+    FakePaymentGateway,
+    FakePushSender,
+    FakeSmsSender,
+)
+from tests.helpers import enable_payments, key
 from tests.test_programs import FIRST, days, enrol, program_item, schedule
 
 SLUG = "birchbark"
@@ -189,3 +199,45 @@ async def test_a_program_day_has_no_waitlist(
     item_id = await _program(as_owner, db)
     res = await unauth.post(f"/book/{SLUG}/waitlist", json=_body(item_id), headers=key())
     assert res.status_code == 422 and res.json()["error"] == "no_waitlist"
+
+
+async def test_an_unpaid_online_deposit_releases_every_day(
+    as_owner: httpx.AsyncClient, db: AsyncSession, unauth: httpx.AsyncClient
+) -> None:
+    item_id = await _program(as_owner, db, deposit=True)
+    await _no_approval(db)
+    await enable_payments(db)
+    booked = _ids(await _book(unauth, _body(item_id)))
+    await db.execute(
+        update(Booking)
+        .where(Booking.id.in_(booked))
+        .values(created_at=clock.now() - timedelta(hours=1))
+    )
+    notifier = Notifier(FakeEmailSender(), FakeSmsSender(), FakePushSender())
+    assert await run_reap_unpaid_bookings(db, FakePaymentGateway(), notifier, clock.now()) >= 1
+    rows = list(
+        await db.scalars(
+            select(Booking).where(Booking.id.in_(booked)).execution_options(populate_existing=True)
+        )
+    )
+    assert {b.status for b in rows} == {"canceled"}
+
+
+async def test_the_manage_link_cannot_cancel_inside_the_first_days_cutoff(
+    as_owner: httpx.AsyncClient, db: AsyncSession, unauth: httpx.AsyncClient
+) -> None:
+    item_id = await _program(as_owner, db)
+    await db.execute(
+        update(Business)
+        .where(Business.id == BIZ)
+        .values(booking_policy={"lead_hours": 0, "cancel_cutoff_hours": 24})
+    )
+    await db.flush()
+    booked = _ids(await _book(unauth, _body(item_id)))
+    rows = list(await db.scalars(select(Booking).where(Booking.id.in_(booked))))
+    first = min(rows, key=lambda b: b.starts_at)
+    clock.travel(first.starts_at - timedelta(hours=2))
+    third = max(rows, key=lambda b: b.starts_at)
+    assert third.manage_token is not None
+    res = await unauth.post(f"/manage/{third.manage_token}/cancel", headers=key())
+    assert res.status_code == 409 and res.json()["error"] == "change_blocked"

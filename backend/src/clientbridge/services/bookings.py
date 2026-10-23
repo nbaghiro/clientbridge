@@ -327,14 +327,14 @@ async def open_class_slot(
 async def has_seat(
     db: AsyncSession, business_id: str, slot_id: str, client_id: str, subject_id: str | None
 ) -> bool:
-    """Whether the subject, or the client when there is none, already has a seat on the slot."""
+    """Whether the subject, or the client's own seat when there is none, is already on the slot."""
     q = (
         scoped(Booking, business_id, soft_delete=True)
         .where(Booking.slot_id == slot_id, Booking.status != "canceled")
         .limit(1)
     )
     if subject_id is None:
-        q = q.where(Booking.client_id == client_id)
+        q = q.where(Booking.client_id == client_id, Booking.subject_id.is_(None))
     else:
         q = q.where(Booking.subject_id == subject_id)
     return (await db.execute(q)).first() is not None
@@ -354,6 +354,28 @@ async def is_program_day(db: AsyncSession, slot: Slot) -> bool:
         return False
     item = await db.get(Item, slot.item_id)
     return item is not None and is_program(item)
+
+
+async def enrolment(
+    db: AsyncSession, business_id: str, program_id: str, client_id: str, subject_id: str | None
+) -> list[Booking]:
+    """An enrolment, derived: the client's live bookings on the schedule for that subject."""
+    q = (
+        scoped(Booking, business_id, soft_delete=True)
+        .join(Slot, Slot.id == Booking.slot_id)
+        .where(
+            Slot.recurrence_id == program_id,
+            Booking.client_id == client_id,
+            Booking.status.in_(("pending", "confirmed")),
+        )
+        .order_by(Slot.starts_at, Booking.id)
+    )
+    q = (
+        q.where(Booking.subject_id.is_(None))
+        if subject_id is None
+        else q.where(Booking.subject_id == subject_id)
+    )
+    return list(await db.scalars(q))
 
 
 async def blocking_exception(
@@ -810,11 +832,12 @@ class BookingService:
         starts_at = target[1] if target is not None else slot.starts_at
         if data.status in _AFTER_START and data.status != before:
             _assert_started(starts_at)
+        program_day = await is_program_day(self.db, slot)
         if (
             data.status == "canceled"
-            and before != "canceled"
+            and before not in ("canceled", "pending")
             and (booking.price_cents > 0 or booking.deposit_amount_cents > 0)
-            and await is_program_day(self.db, slot)
+            and program_day
         ):
             raise Conflict(_PROGRAM_FIRST_DAY, code="program_first_day")
 
@@ -887,6 +910,8 @@ class BookingService:
                 cmd.record(f"booking.{data.status}", entity_type="booking", entity_id=booking.id)
                 if held_seat and data.status in ("canceled", "no_show"):
                     await fill_freed_seats(self.db, slot, performed_by=self.principal.user_id)
+                if program_day and before == "pending" and data.status in ("confirmed", "canceled"):
+                    await self._answer_enrolment(cmd, booking, slot, data.status)
             await self.db.flush()
             return await booking_out(self.db, booking, slot)
 
@@ -941,6 +966,27 @@ class BookingService:
             ends_at,
         )
         return problem or BookingCheck(ok=True)
+
+    async def _answer_enrolment(
+        self, cmd: Command, booking: Booking, slot: Slot, status: Literal["confirmed", "canceled"]
+    ) -> None:
+        """An enrolment waiting for approval is approved or declined whole, every day at once."""
+        if slot.recurrence_id is None:
+            return
+        days = await enrolment(
+            self.db, self.biz, slot.recurrence_id, booking.client_id, booking.subject_id
+        )
+        waiting = [b.id for b in days if b.status == "pending" and b.id != booking.id]
+        for other in await lock_bookings(self.db, self.biz, waiting):
+            other.status = status
+            if status == "confirmed":
+                other.confirmed_at = other.confirmed_at or clock.now()
+            else:
+                if other.deposit_status == "pending":
+                    await cancel_open_deposits(self.db, self.gateway, other)
+                    other.deposit_status = "none"
+                other.canceled_at = clock.now()
+            cmd.record(f"booking.{status}", entity_type="booking", entity_id=other.id)
 
     def _moves(self, data: BookingMove, slot: Slot) -> bool:
         return (
@@ -1509,7 +1555,7 @@ class BookingService:
         await lock_bookings(self.db, self.biz, [booking.id])
         await self.db.refresh(slot)
         if booking.status not in ("pending", "confirmed"):
-            return
+            raise Conflict(f"a {booking.status} booking can't be modified")
         ends_at = max(slot.ends_at + timedelta(minutes=minutes), slot.starts_at + _MIN_VISIT)
         if minutes > 0:
             item = await self._item(slot.item_id, require_active=False)
@@ -1804,7 +1850,14 @@ async def visit_needs(
                 FormResponse.status,
                 FormResponse.token,
             )
-            .where(FormResponse.client_id.in_(clients))
+            .where(
+                FormResponse.client_id.in_(clients),
+                # a treatment note is a staff response on a visit, never the client's intake
+                or_(
+                    FormResponse.token.is_not(None),
+                    FormResponse.parent_type.is_distinct_from("booking"),
+                ),
+            )
             .order_by(FormResponse.created_at)
         )
     ).all()
@@ -2887,6 +2940,13 @@ async def run_reap_unpaid_bookings(
         booking.canceled_at = now
         if booking.deposit_status == "pending":
             booking.deposit_status = "none"
+        if slot.recurrence_id is not None and await is_program_day(db, slot):
+            # the deposit holds the whole enrolment, so its other days go with it
+            days = await enrolment(
+                db, booking.business_id, slot.recurrence_id, booking.client_id, booking.subject_id
+            )
+            for day in await lock_bookings(db, booking.business_id, [d.id for d in days]):
+                day.status, day.canceled_at = "canceled", now
         await release_slot(db, slot)
         await carry_crew(db, booking.business_id, booking, slot)
         await fill_freed_seats(db, slot)

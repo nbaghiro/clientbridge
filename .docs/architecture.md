@@ -733,9 +733,10 @@ entitlement and its liability are created.
   instructor's earning cover the program once, while each day still gets its own reminder and check-in. An
   enrolment is derived, never stored: the client's (and subject's) live bookings on the schedule.
   Cancelling it (`/enrolments/cancel`, or any day's manage link before the first day's cutoff) cancels every
-  day ahead and refunds a paid deposit; a later day can be canceled on its own, but the priced first day
-  only with the whole enrolment (409 `program_first_day`). A schedule is canceled only once no one is
-  enrolled (409 `program_enrolled`), so canceling it never takes a seat or money from anyone. Program days
+  day ahead and refunds a paid deposit, and an online deposit left unpaid releases every day with it. An
+  enrolment waiting for approval is approved or declined as a whole; a later day can be canceled on its own, but the priced first day
+  only with the whole enrolment (409 `program_first_day`). A schedule is canceled only once no one
+  holds a day still ahead (409 `program_enrolled`), so canceling it never takes a seat or money from anyone. Program days
   have no waitlist: online waitlists refuse them and a freed seat promotes no one. A class seat is held once
   per subject, or per client when there is none, so siblings can each take a seat in one session.
 - **Receipts** list every line with its tax, and walk-in sales can take an email or phone for the receipt.

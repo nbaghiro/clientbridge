@@ -98,6 +98,9 @@ export interface SeatMatch {
     subjectId: string | null;
     name: string;
     subjectName: string;
+    // the row's title, "Rex · Ann Lee", and the name its avatar shows
+    title: string;
+    avatar: string;
 }
 
 /** A seat's holder: the subject when the business books one, else the client. */
@@ -122,7 +125,15 @@ export function seatMatches(
         seen.add(key);
         const subjectName = booksSubjects ? (c.subject_name ?? "") : "";
         if (![c.name, subjectName].some((v) => v.toLowerCase().includes(t))) continue;
-        out.push({ key, clientId: c.id, subjectId, name: c.name, subjectName });
+        out.push({
+            key,
+            clientId: c.id,
+            subjectId,
+            name: c.name,
+            subjectName,
+            title: subjectName === "" ? c.name : formatParts([subjectName, c.name]),
+            avatar: subjectName === "" ? c.name : subjectName,
+        });
     }
     return out.slice(0, 4);
 }
@@ -197,6 +208,8 @@ export interface ClassRoster {
     setQuery: (q: string) => void;
     matches: SeatMatch[];
     add: (key: string) => void;
+    // set on a program's day, which takes no single seats and has no waitlist
+    programNote: string | null;
     notice: string | null;
     started: boolean;
     busy: boolean;
@@ -438,8 +451,9 @@ export function useClassBoard(api: ApiLike): ClassBoard {
                   query,
                   setQuery,
                   matches: seatMatches(clients, query, seated, kind !== null),
+                  programNote: session.programId === null ? null : s.programDay(session.name),
                   add: (key) => {
-                      if (current === null) return;
+                      if (current === null || session.programId !== null) return;
                       const m = seatMatches(clients, query, seated, kind !== null).find(
                           (x) => x.key === key,
                       );

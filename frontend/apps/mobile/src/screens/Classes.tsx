@@ -224,8 +224,8 @@ function RosterBody({ roster }: { roster: ClassRoster }) {
                     />
                 </View>
             </View>
-            {x.programId !== null ? (
-                <Text style={styles.muted}>{s.programDay(x.name)}</Text>
+            {roster.programNote !== null ? (
+                <Text style={styles.muted}>{roster.programNote}</Text>
             ) : (
                 <SearchField
                     value={roster.query}
@@ -238,15 +238,8 @@ function RosterBody({ roster }: { roster: ClassRoster }) {
                     {roster.matches.map((m) => (
                         <ListRow
                             key={m.key}
-                            title={
-                                m.subjectName === "" ? m.name : formatParts([m.subjectName, m.name])
-                            }
-                            leading={
-                                <Avatar
-                                    name={m.subjectName === "" ? m.name : m.subjectName}
-                                    size="sm"
-                                />
-                            }
+                            title={m.title}
+                            leading={<Avatar name={m.avatar} size="sm" />}
                             meta={x.full ? s.waitlist : s.add}
                             onPress={() => {
                                 roster.add(m.key);
@@ -292,7 +285,7 @@ function RosterBody({ roster }: { roster: ClassRoster }) {
                 ))}
             </View>
 
-            {x.programId !== null ? null : (
+            {roster.programNote !== null ? null : (
                 <>
                     <Text style={styles.section}>{s.waitlist}</Text>
                     <View style={styles.list}>

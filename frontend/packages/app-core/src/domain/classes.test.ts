@@ -77,6 +77,8 @@ describe("seatMatches", () => {
                 subjectId: null,
                 name: "Thu Tran",
                 subjectName: "",
+                title: "Thu Tran",
+                avatar: "Thu Tran",
             },
         ]);
     });

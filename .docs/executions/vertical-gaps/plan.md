@@ -10,6 +10,7 @@ The schema stays concise. An audit of each need against the existing code (2026-
 - 2a5441af: the `vehicle` subject kind (cb0028).
 - a43cd63e: S7, `items.staff_ids` (cb0029): who offers a service, enforced on every booking path; Maple and Main colour by Leila and Gabriela; the driving school industry (item 9).
 - b289de27: S4, `packages.subject_id` (cb0030): a package for one subject; Lakeside's Chen family has a package per child and one shared.
+- a23c27cc: item 8, programs: staff schedule a program's days ahead and enrol a student in all of them; Lakeside has a Fall Coding Camp week.
 
 ## Step 1: no schema, built on what exists
 
@@ -25,10 +26,10 @@ The schema stays concise. An audit of each need against the existing code (2026-
 
 ## Step 2: needs schema
 
-| # | Change | Why existing data doesn't cover it | Downgrade |
-| --- | --- | --- | --- |
-| S4 | `packages.subject_id varchar NULL` FK `subjects`; synced | No subject exists anywhere on a purchase. Deriving it from the first covered booking leaves a new pack unassigned and lets the wrong child's visit claim it. | drop |
-| S7 | `items.staff_ids varchar[] NOT NULL DEFAULT '{}'` (empty means everyone) | No link exists between staff and the services they offer. Connect already filters on `PublicService.staff_ids`, but the server fills it with every staff member and never enforces it. This serves driving schools (manual and automatic) and any business where only some staff offer a service. | drop |
+| #   | Change                                                                   | Why existing data doesn't cover it                                                                                                                                                                                                                                                                | Downgrade |
+| --- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| S4  | `packages.subject_id varchar NULL` FK `subjects`; synced                 | No subject exists anywhere on a purchase. Deriving it from the first covered booking leaves a new pack unassigned and lets the wrong child's visit claim it.                                                                                                                                      | drop      |
+| S7  | `items.staff_ids varchar[] NOT NULL DEFAULT '{}'` (empty means everyone) | No link exists between staff and the services they offer. Connect already filters on `PublicService.staff_ids`, but the server fills it with every staff member and never enforces it. This serves driving schools (manual and automatic) and any business where only some staff offer a service. | drop      |
 
 Dropped after the audit: `staff.registration_number` (it goes in the title), the `treatment` note parent (forms), service add-ons (products carry a duration), `slots.booking_id` (time-off blocks), and every cars change (the car goes with its instructor).
 
