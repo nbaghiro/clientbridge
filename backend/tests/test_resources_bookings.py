@@ -402,3 +402,14 @@ async def test_two_bookings_racing_for_one_room_leave_one_winner(db: AsyncSessio
             await cleanup.execute(delete(Item).where(Item.id == item_id))
             await cleanup.execute(delete(Resource).where(Resource.id == room_id))
             await cleanup.commit()
+
+
+async def test_a_service_whose_rooms_are_all_turned_off_books_nothing_new(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    (room,) = await _rooms(db, "Room 1", active=False)
+    item = await _service(db, [room])
+    refused = await _book(as_owner, db, item, DIEGO, TEN)
+    assert refused.status_code == 409 and refused.json()["error"] == "no_resource"
+    params = {"item_id": item, "staff_id": OWNER, "date": DAY}
+    assert _starts(ok(await as_owner.get(f"/book/{SLUG}/slots", params=params))) == set()

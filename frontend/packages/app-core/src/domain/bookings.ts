@@ -594,8 +594,9 @@ export interface SlotItem {
     bufferAfterMin: number;
     // checked only when the member is new to the visit, so a kept visit can still be resized
     staffIds?: readonly string[];
-    // the pool's rooms still in service; empty or absent when the service needs none
+    // the pool's rooms still in service, and whether the service needs one even when all are off
     resourceIds?: readonly string[];
+    needsResource?: boolean;
 }
 
 export interface SlotTarget {
@@ -611,6 +612,7 @@ export const slotItemOf = (item: ItemRow, rooms?: readonly ResourceRow[]): SlotI
     bufferAfterMin: item.buffer_after_min,
     staffIds: idList(item.staff_ids),
     resourceIds: rooms ? activePool(rooms, idList(item.resource_ids)) : [],
+    needsResource: rooms !== undefined && idList(item.resource_ids).length > 0,
 });
 
 const eventItem = (e: CalendarEvent, rooms?: readonly ResourceRow[]): SlotItem => ({
@@ -619,6 +621,7 @@ const eventItem = (e: CalendarEvent, rooms?: readonly ResourceRow[]): SlotItem =
     bufferBeforeMin: e.bufferBeforeMin,
     bufferAfterMin: e.bufferAfterMin,
     resourceIds: rooms ? activePool(rooms, e.itemResourceIds ?? []) : [],
+    needsResource: rooms !== undefined && (e.itemResourceIds ?? []).length > 0,
 });
 
 /** The rooms free for the window in the order a booking would try them, held room first. */
@@ -719,7 +722,7 @@ export function slotProblem(
     const hold = target.hold ?? null;
     if (
         item !== null &&
-        pool.length > 0 &&
+        (item.needsResource ?? pool.length > 0) &&
         freeResources(events, hold === null ? pool : [hold, ...pool], item, start, end, ignoreId)
             .length === 0
     )
@@ -2394,7 +2397,9 @@ export function useBookingComposer(
                 staff_id: staffId,
                 starts_at: start.toISOString(),
                 ...(booking ? { estimate_id: estimateId } : {}),
-                ...(room !== "" && !repeat ? { resource_id: room } : {}),
+                ...(resourceId !== "" && room === resourceId && !repeat
+                    ? { resource_id: resourceId }
+                    : {}),
             };
             const idempotencyKey = attemptKey(key, { body, repeat, every, count, notify, note });
             let skipped = 0;

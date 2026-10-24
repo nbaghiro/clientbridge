@@ -145,3 +145,17 @@ async def test_a_program_moved_to_another_instructor_keeps_its_room(
     assert (
         await db.scalar(select(func.count(Booking.id)).where(Booking.staff_id == leaving.id)) == 0
     )
+
+
+async def test_a_seat_cant_move_its_session_to_another_room(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    studio = await _studio(db)
+    hall = Resource(id=new_id("resource"), business_id=BIZ, name="Hall")
+    db.add(hall)
+    await db.flush()
+    yoga = await _class(db, [studio, hall.id])
+    seat = ok(await _seat(as_owner, await client_id(db), yoga, OWNER), 201).json()
+    other = hall.id if seat["resource_id"] == studio else studio
+    moved = await as_owner.patch(f"/v1/bookings/{seat['id']}", json={"resource_id": other})
+    assert moved.status_code == 409 and moved.json()["error"] == "class_move"

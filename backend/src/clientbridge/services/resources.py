@@ -115,7 +115,8 @@ async def choose_resource(
         if chosen not in free:
             return ResourceChoice(None, free, Conflict(RESOURCE_BUSY, code="resource_busy"))
         return ResourceChoice(chosen, free)
-    if free or not pool:
+    # a pool whose every resource is turned off still needs one, so it books nothing new
+    if free or not item.resource_ids:
         return ResourceChoice(free[0] if free else None, free)
     return ResourceChoice(None, free, Conflict(NO_RESOURCE, code="no_resource"))
 

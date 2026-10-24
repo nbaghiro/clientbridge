@@ -1059,7 +1059,10 @@ class BookingService:
             assert_offers(await self._item(slot.item_id, require_active=False), staff_id)
         starts_at = data.starts_at or slot.starts_at
         ends_at = data.ends_at or starts_at + (slot.ends_at - slot.starts_at)
-        if slot.capacity > 1 and (starts_at, ends_at) != (slot.starts_at, slot.ends_at):
+        if slot.capacity > 1 and (
+            (starts_at, ends_at) != (slot.starts_at, slot.ends_at)
+            or data.resource_id not in (None, slot.resource_id)
+        ):
             raise Conflict(_CLASS_MOVE, code="class_move")
         if ends_at - starts_at < _MIN_VISIT:
             raise Unprocessable("a visit must end at least five minutes after it starts")
@@ -1796,7 +1799,7 @@ class Availability:
         away = self.closures + self.time_off.get(staff_id, [])
         busy = [b for b in self.busy.get(staff_id, []) if b.id != exclude]
         pool = self.pools.get(item.id, [])
-        needs = [*([hold] if hold is not None else []), *pool] if pool else []
+        needs = [*([hold] if hold is not None else []), *pool] if item.resource_ids else []
         before = timedelta(minutes=item.buffer_before_min)
         after = timedelta(minutes=item.buffer_after_min)
         length = timedelta(minutes=duration)
@@ -1823,7 +1826,7 @@ class Availability:
                     )
                     and all(self.free(item, row, start, end) for row in crew)
                     and (
-                        not needs
+                        not item.resource_ids
                         or self._joins(item, busy, start, end)
                         or self.room(item, needs, start, end, exclude)
                     )

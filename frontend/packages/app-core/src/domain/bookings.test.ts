@@ -436,6 +436,8 @@ describe("slotProblem and planMove", () => {
         expect(check(at(10), at(11), { item: massage }).problem).toBe("resource");
         expect(check(at(10, 15), at(11, 15), { item: massage }).problem).toBeNull();
         expect(check(at(9), at(10), { item: { ...massage, resourceIds: [] } }).problem).toBeNull();
+        const retired = { ...massage, resourceIds: [], needsResource: true };
+        expect(check(at(10, 30), at(11, 30), { item: retired }).problem).toBe("resource");
         expect(
             freeResources(busy, ["rs_2", "rs_3", "rs_1"], massage, at(9), at(10), "bk_two"),
         ).toEqual(["rs_2", "rs_3"]);
