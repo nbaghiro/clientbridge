@@ -1,4 +1,4 @@
-"""Remove the auth identities a demo seed left behind when a demo login's email changed."""
+"""Remove the auth identities the demo seed created for logins it no longer writes."""
 
 from collections.abc import Collection
 
@@ -6,20 +6,9 @@ from sqlalchemy import ColumnElement, and_, delete, exists, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.db import Base
-from clientbridge.core.emails import normalize_email, reserved_email
+from clientbridge.core.emails import normalize_email
 from clientbridge.integrations.identity import IdentityProvider
 from clientbridge.models.business import User
-
-# demo logins sit on a business's own reserved domain, such as owner@birchbark.example
-DEMO_SUFFIXES = (".example", ".example.test")
-
-
-def retired_login(email: str | None, current: Collection[str]) -> bool:
-    """A reserved demo-domain address the seed no longer writes; test and e2e accounts aren't."""
-    if not email or not reserved_email(email):
-        return False
-    address = normalize_email(email)
-    return address not in current and address.rpartition("@")[2].endswith(DEMO_SUFFIXES)
 
 
 def _unreferenced() -> ColumnElement[bool]:
@@ -39,19 +28,25 @@ def _unreferenced() -> ColumnElement[bool]:
 async def prune_logins(
     db: AsyncSession, identities: IdentityProvider, current: Collection[str]
 ) -> list[str]:
-    """Delete the retired demo logins no user signs in as, and return their emails."""
+    """Delete the seed's tagged identities that no current login or user row holds."""
     seeded = {normalize_email(email) for email in current}
+    retired = {
+        login.id: login.email or ""
+        for login in await identities.list_identities()
+        if login.demo and normalize_email(login.email or "") not in seeded
+    }
+    if not retired:
+        return []
     # a sign-in with a retired login provisions an empty user, which would keep its identity
-    empty = (await db.execute(select(User.id, User.email).where(_unreferenced()))).tuples().all()
-    stale = [user_id for user_id, email in empty if retired_login(email, seeded)]
-    if stale:
-        await db.execute(delete(User).where(User.id.in_(stale)))
+    await db.execute(delete(User).where(User.identity_id.in_(list(retired)), _unreferenced()))
     linked = set(
-        (await db.scalars(select(User.identity_id).where(User.identity_id.is_not(None)))).all()
+        (
+            await db.scalars(select(User.identity_id).where(User.identity_id.in_(list(retired))))
+        ).all()
     )
     pruned: list[str] = []
-    for identity_id, email in await identities.list_identities():
-        if identity_id not in linked and retired_login(email, seeded):
+    for identity_id, email in retired.items():
+        if identity_id not in linked:
             await identities.delete_identity(identity_id)
-            pruned.append(email or "")
+            pruned.append(email)
     return sorted(pruned)

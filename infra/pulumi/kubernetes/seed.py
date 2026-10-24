@@ -13,7 +13,7 @@ JOBS = 2
 COMMAND = (
     "/bin/sh",
     "-c",
-    f"python -m scripts.seed_demo --jobs {JOBS} --scratch {sidecar.SCRATCH_URL}"
+    f"python -m scripts.seed_demo --jobs {JOBS} --scratch {sidecar.SCRATCH_URL} --prune-logins"
     " && python -m scripts.stripe_setup --link-only --apply",
 )
 

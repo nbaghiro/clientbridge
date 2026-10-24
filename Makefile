@@ -158,7 +158,7 @@ revision:
 	cd backend && uv run alembic revision --autogenerate -m "$(name)"
 
 seed:
-	cd backend && uv run python -m scripts.seed_demo
+	cd backend && uv run python -m scripts.seed_demo --prune-logins
 
 seed-core:
 	cd backend && uv run python -m scripts.seed_demo --core

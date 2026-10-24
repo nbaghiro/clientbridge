@@ -15,7 +15,7 @@ from clientbridge.core.config import get_settings
 from clientbridge.core.deployment import AUTH_SECRETS, auth_env
 from clientbridge.core.emails import normalize_email
 from clientbridge.core.errors import AppError, Unauthorized
-from clientbridge.integrations.identity import Credential
+from clientbridge.integrations.identity import Credential, Login
 from clientbridge.integrations.kratos import KratosIdentityProvider
 from tests.helpers import service_missing
 
@@ -233,6 +233,9 @@ async def test_admin_identity_helpers() -> None:
     assert await kratos.find_identity("nobody@test.ca") is None
     assert await kratos.create_identity("n@test.ca", "N", "pw-long-enough") == "new-id"
     assert created[0]["traits"] == {"email": "n@test.ca", "name": "N"}
+    assert "metadata_admin" not in created[0]
+    assert await kratos.create_identity("d@test.ca", "D", "pw-long-enough", demo=True) == "new-id"
+    assert created[1]["metadata_admin"] == {"clientbridge_demo": True}
     kratos, _ = provider(lambda r: httpx.Response(500, json={}))
     with pytest.raises(AppError):
         await kratos.find_identity("x@test.ca")
@@ -244,7 +247,18 @@ async def test_admin_identity_helpers() -> None:
 async def test_listing_identities_follows_every_page() -> None:
     pages = {
         "": ([{"id": "a", "traits": {"email": "a@test.ca"}}, {"id": "b", "traits": {}}], "t2"),
-        "t2": ([{"id": "c", "traits": {"email": "c@demo.example"}}], "t3"),
+        "t2": (
+            [
+                {
+                    "id": "c",
+                    "traits": {"email": "c@demo.example"},
+                    "metadata_admin": {"clientbridge_demo": True},
+                },
+                {"id": "d", "traits": {}, "metadata_admin": {"clientbridge_demo": "yes"}},
+                {"traits": {"email": "no-id@test.ca"}},
+            ],
+            "t3",
+        ),
         "t3": ([], None),
     }
 
@@ -255,13 +269,49 @@ async def test_listing_identities_follows_every_page() -> None:
 
     kratos, _ = provider(handler)
     assert await kratos.list_identities() == [
-        ("a", "a@test.ca"),
-        ("b", None),
-        ("c", "c@demo.example"),
+        Login("a", "a@test.ca", False),
+        Login("b", None, False),
+        Login("c", "c@demo.example", True),
+        Login("d", None, False),
     ]
     kratos, _ = provider(lambda r: httpx.Response(500, json={}))
     with pytest.raises(AppError):
         await kratos.list_identities()
+
+
+async def test_tagging_a_demo_identity_keeps_its_other_admin_metadata() -> None:
+    patches: list[object] = []
+    metadata: dict[str, object] = {
+        "plain": {"note": "kept"},
+        "tagged": {"clientbridge_demo": True},
+    }
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "PATCH":
+            patches.append(json.loads(request.content))
+            return httpx.Response(200, json={})
+        found = metadata.get(request.url.path.rsplit("/", 1)[1])
+        return httpx.Response(200, json={"metadata_admin": found})
+
+    kratos, seen = provider(handler)
+    await kratos.tag_demo("plain")
+    await kratos.tag_demo("tagged")
+    await kratos.tag_demo("bare")
+    value = {"note": "kept", "clientbridge_demo": True}
+    assert patches == [
+        [{"op": "add", "path": "/metadata_admin", "value": value}],
+        [{"op": "add", "path": "/metadata_admin", "value": {"clientbridge_demo": True}}],
+    ]
+    assert seen.count("PATCH /admin/identities/plain") == 1
+    assert "PATCH /admin/identities/tagged" not in seen
+    for failing in ("GET", "PATCH"):
+
+        def refused(request: httpx.Request, method: str = failing) -> httpx.Response:
+            return httpx.Response(500 if request.method == method else 200, json={})
+
+        kratos, _ = provider(refused)
+        with pytest.raises(AppError):
+            await kratos.tag_demo("plain")
 
 
 async def test_deleting_an_identity_that_is_already_gone_succeeds() -> None:

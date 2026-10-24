@@ -32,6 +32,17 @@ class Credential:
         return hashlib.sha256(raw.encode()).hexdigest()
 
 
+@dataclass(frozen=True)
+class Login:
+    id: str
+    email: str | None
+    demo: bool
+
+
+# the admin-only metadata key that marks an identity the demo seed created and may delete
+DEMO_TAG = "clientbridge_demo"
+
+
 class IdentityProvider(Protocol):
     async def whoami(self, credential: Credential, *, fresh: bool = False) -> Identity: ...
 
@@ -39,9 +50,13 @@ class IdentityProvider(Protocol):
 
     async def find_identity(self, email: str) -> str | None: ...
 
-    async def create_identity(self, email: str, name: str, password: str) -> str: ...
+    async def create_identity(
+        self, email: str, name: str, password: str, *, demo: bool = False
+    ) -> str: ...
 
-    async def list_identities(self) -> list[tuple[str, str | None]]: ...
+    async def tag_demo(self, identity_id: str) -> None: ...
+
+    async def list_identities(self) -> list[Login]: ...
 
     async def delete_identity(self, identity_id: str) -> None: ...
 

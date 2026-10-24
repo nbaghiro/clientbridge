@@ -32,6 +32,7 @@ from clientbridge.core.config import get_settings
 from clientbridge.core.db import Base, engine
 from clientbridge.core.errors import AppError
 from clientbridge.core.security import hash_token
+from clientbridge.integrations.identity import IdentityProvider
 from clientbridge.integrations.kratos import get_identity_provider
 from clientbridge.integrations.s3 import S3_CONFIG
 from clientbridge.models.billing import Estimate, Invoice, Line, Order
@@ -79,6 +80,8 @@ VANCOUVER = ZoneInfo("America/Vancouver")
 now = clock.now().astimezone(VANCOUVER)
 BIZ = "bz_birchbark"
 STAGING_DATABASE = "staging_clientbridge"
+# the database each environment's API serves, whose users own the auth service's demo logins
+APP_DATABASES = {"dev": "clientbridge", "staging": STAGING_DATABASE}
 rows: list[Base] = []
 UPLOADS = 16
 MAX_JOBS = 8
@@ -2226,6 +2229,19 @@ def validate_seed_target() -> None:
         )
 
 
+def validate_prune_target(*, core: bool) -> None:
+    if core:
+        raise SystemExit("--prune-logins needs a full seed; a core seed leaves out demo logins.")
+    settings = get_settings()
+    target = make_url(settings.migration_database_url).database
+    app = APP_DATABASES.get(settings.env)
+    # every other database on this auth service, test or scratch, holds only some of its users
+    if target is None or target != app or make_url(settings.database_url).database != target:
+        raise SystemExit(
+            f"--prune-logins needs the {app or 'app'} database the API serves, not {target}."
+        )
+
+
 @dataclass
 class Graph:
     """One demo business's rows, built and validated in memory, with the posting of its ledger."""
@@ -2430,25 +2446,44 @@ async def cross_business_check(owner: AsyncEngine, seeded: list[str]) -> list[st
         return await cross_business_errors(session, seeded)
 
 
-async def link_identities(users: Sequence[User]) -> None:
-    """Every demo user signs in with the demo password and a verified email."""
-    identities = get_identity_provider()
+async def link_identities(identities: IdentityProvider, users: Sequence[User]) -> None:
+    """Every demo user signs in with the demo password and a verified email, tagged as demo."""
     try:
         for user in users:
-            user.identity_id = await identities.find_identity(
-                user.email
-            ) or await identities.create_identity(user.email, user.name or "", DEMO_PASSWORD)
+            found = await identities.find_identity(user.email)
+            if found is None:
+                name = user.name or ""
+                found = await identities.create_identity(user.email, name, DEMO_PASSWORD, demo=True)
+            else:
+                await identities.tag_demo(found)
+            user.identity_id = found
     except AppError as exc:
         raise SystemExit(
             f"the auth service is not reachable at {get_settings().auth_admin_url}"
         ) from exc
 
 
-async def prune_stale_logins(owner: AsyncEngine, seeded: Sequence[str]) -> None:
-    """Delete the auth identities of demo logins whose email changed, once the users are in."""
+async def finish(
+    owner: AsyncEngine,
+    business_ids: Sequence[str],
+    seeded: Sequence[str],
+    prune: IdentityProvider | None,
+) -> None:
+    """Check the target across businesses, then prune its retired demo logins when asked."""
+    errors = await cross_business_check(owner, list(business_ids))
+    if errors:
+        raise SystemExit(f"Demo validation failed across businesses: {errors[:20]}")
+    if prune is not None:
+        await prune_stale_logins(owner, prune, seeded)
+
+
+async def prune_stale_logins(
+    owner: AsyncEngine, identities: IdentityProvider, seeded: Sequence[str]
+) -> None:
+    """Delete the seed's identities for demo logins it no longer writes, once the users are in."""
     try:
         async with async_sessionmaker(owner)() as session, session.begin():
-            pruned = await prune_logins(session, get_identity_provider(), seeded)
+            pruned = await prune_logins(session, identities, seeded)
     except AppError as exc:
         raise SystemExit(
             f"the auth service is not reachable at {get_settings().auth_admin_url}"
@@ -2461,10 +2496,17 @@ def default_jobs() -> int:
 
 
 async def main(
-    *, as_of: datetime | None = None, core: bool = False, jobs: int = 1, scratch: str | None = None
+    *,
+    as_of: datetime | None = None,
+    core: bool = False,
+    jobs: int = 1,
+    scratch: str | None = None,
+    prune: bool = False,
 ) -> None:
     """Write the demo into the target, or into an empty scratch database to copy from."""
     validate_seed_target()
+    if prune:
+        validate_prune_target(core=core)
     if as_of is not None and as_of.tzinfo is None:
         raise ValueError("--as-of must include a timezone offset")
     anchor = as_of or clock.now()
@@ -2480,7 +2522,9 @@ async def main(
                 *(loop.run_in_executor(pool, build_graph, b, anchor) for b in business_ids)
             )
         )
-        await link_identities([user for graph in graphs for user in graph.ctx.all(User)])
+        await link_identities(
+            get_identity_provider(), [user for graph in graphs for user in graph.ctx.all(User)]
+        )
         upload_demo_assets([file for graph in graphs for file in graph.ctx.all(File)])
         retired = await retired_demo(owner, graphs)
         if scratch is None:
@@ -2506,14 +2550,12 @@ async def main(
         if failed:
             await owner.dispose()
             raise SystemExit(f"Demo copy failed for {', '.join(failed)}; they keep their old rows.")
-    errors = await cross_business_check(owner, business_ids)
-    if errors:
+    seeded = [user.email for graph in graphs for user in graph.ctx.all(User)]
+    try:
+        # the target, never scratch: its users are the ones that sign in
+        await finish(owner, business_ids, seeded, get_identity_provider() if prune else None)
+    finally:
         await owner.dispose()
-        raise SystemExit(f"Demo validation failed across businesses: {errors[:20]}")
-    if not core:
-        # a core seed leaves out logins other databases on the same auth service still use
-        await prune_stale_logins(owner, [u.email for g in graphs for u in g.ctx.all(User)])
-    await owner.dispose()
     total = sum(outcome.rows for outcome in outcomes)
     print(f"Seeded {total} rows; demo {DEMO_VERSION}, as of {anchor.isoformat()}.")
 
@@ -2556,7 +2598,7 @@ def upload_demo_assets(files: Sequence[File]) -> None:
         raise RuntimeError("Demo asset upload failed; database was not reset") from exc
 
 
-if __name__ == "__main__":
+def arguments(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--as-of", type=datetime.fromisoformat)
     parser.add_argument(
@@ -2569,10 +2611,25 @@ if __name__ == "__main__":
         "--scratch",
         help="an empty database to seed first, then copy each business from in one transaction",
     )
-    args = parser.parse_args()
+    parser.add_argument(
+        "--prune-logins",
+        action="store_true",
+        help="delete the seed's auth identities for retired demo logins; app database only",
+    )
+    return parser.parse_args(argv)
+
+
+if __name__ == "__main__":
     # run from the imported module, so the worker processes find what they are sent by name
     from scripts import seed_demo
 
+    args = seed_demo.arguments()
     asyncio.run(
-        seed_demo.main(as_of=args.as_of, core=args.core, jobs=args.jobs, scratch=args.scratch)
+        seed_demo.main(
+            as_of=args.as_of,
+            core=args.core,
+            jobs=args.jobs,
+            scratch=args.scratch,
+            prune=args.prune_logins,
+        )
     )

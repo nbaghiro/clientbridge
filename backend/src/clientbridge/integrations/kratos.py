@@ -12,7 +12,14 @@ from clientbridge.core import clock
 from clientbridge.core.config import get_settings
 from clientbridge.core.emails import normalize_email
 from clientbridge.core.errors import Unauthorized
-from clientbridge.integrations.identity import Credential, Identity, IdentityProvider, unavailable
+from clientbridge.integrations.identity import (
+    DEMO_TAG,
+    Credential,
+    Identity,
+    IdentityProvider,
+    Login,
+    unavailable,
+)
 
 _EXTEND_WITHIN = timedelta(hours=24)
 _CACHE_LIMIT = 10_000
@@ -26,6 +33,15 @@ def _dict(value: object) -> dict[str, object]:
 
 def _str(value: object) -> str | None:
     return value if isinstance(value, str) and value else None
+
+
+def _login(entry: object) -> Login | None:
+    identity = _dict(entry)
+    identity_id = _str(identity.get("id"))
+    if identity_id is None:
+        return None
+    email = _str(_dict(identity.get("traits")).get("email"))
+    return Login(identity_id, email, _dict(identity.get("metadata_admin")).get(DEMO_TAG) is True)
 
 
 def parse_session(payload: object) -> tuple[Identity, datetime | None, datetime | None]:
@@ -140,19 +156,20 @@ class KratosIdentityProvider:
         found = response.json()
         return _str(_dict(found[0]).get("id")) if isinstance(found, list) and found else None
 
-    async def create_identity(self, email: str, name: str, password: str) -> str:
-        response = await self._call(
-            "POST",
-            f"{self._admin}/admin/identities",
-            json={
-                "schema_id": "default",
-                "traits": {"email": email, "name": name},
-                "credentials": {"password": {"config": {"password": password}}},
-                "verifiable_addresses": [
-                    {"value": email, "via": "email", "verified": True, "status": "completed"}
-                ],
-            },
-        )
+    async def create_identity(
+        self, email: str, name: str, password: str, *, demo: bool = False
+    ) -> str:
+        body: dict[str, object] = {
+            "schema_id": "default",
+            "traits": {"email": email, "name": name},
+            "credentials": {"password": {"config": {"password": password}}},
+            "verifiable_addresses": [
+                {"value": email, "via": "email", "verified": True, "status": "completed"}
+            ],
+        }
+        if demo:
+            body["metadata_admin"] = {DEMO_TAG: True}
+        response = await self._call("POST", f"{self._admin}/admin/identities", json=body)
         identity_id = (
             _str(_dict(response.json()).get("id")) if response.status_code == 201 else None
         )
@@ -160,9 +177,23 @@ class KratosIdentityProvider:
             raise unavailable()
         return identity_id
 
-    async def list_identities(self) -> list[tuple[str, str | None]]:
-        """Every identity's id and email, following the admin API's pages."""
-        found: list[tuple[str, str | None]] = []
+    async def tag_demo(self, identity_id: str) -> None:
+        """Mark an identity as the demo seed's, keeping any other admin metadata it holds."""
+        url = f"{self._admin}/admin/identities/{identity_id}"
+        response = await self._call("GET", url)
+        if response.status_code != 200:
+            raise unavailable()
+        metadata = _dict(_dict(response.json()).get("metadata_admin"))
+        if metadata.get(DEMO_TAG) is True:
+            return
+        value: dict[str, object] = {**metadata, DEMO_TAG: True}
+        patch: list[dict[str, object]] = [{"op": "add", "path": "/metadata_admin", "value": value}]
+        if (await self._call("PATCH", url, json=patch)).status_code != 200:
+            raise unavailable()
+
+    async def list_identities(self) -> list[Login]:
+        """Every identity's id, email and demo tag, following the admin API's pages."""
+        found: list[Login] = []
         params = {"page_size": _PAGE_SIZE}
         while True:
             response = await self._call("GET", f"{self._admin}/admin/identities", params=params)
@@ -170,9 +201,8 @@ class KratosIdentityProvider:
                 raise unavailable()
             page = response.json()
             for entry in page if isinstance(page, list) else []:
-                identity = _dict(entry)
-                if identity_id := _str(identity.get("id")):
-                    found.append((identity_id, _str(_dict(identity.get("traits")).get("email"))))
+                if login := _login(entry):
+                    found.append(login)
             following = parse_qs(urlsplit(response.links.get("next", {}).get("url", "")).query)
             token = following.get("page_token", [""])[0]
             if not page or not token or token == params.get("page_token"):
@@ -191,7 +221,7 @@ class KratosIdentityProvider:
         *,
         headers: dict[str, str] | None = None,
         params: dict[str, str] | None = None,
-        json: dict[str, object] | None = None,
+        json: dict[str, object] | list[dict[str, object]] | None = None,
     ) -> httpx.Response:
         try:
             return await self._http.request(method, url, headers=headers, params=params, json=json)

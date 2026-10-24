@@ -37,7 +37,7 @@ from clientbridge.core.ratelimit import (
     public_prefs_rate_limit,
 )
 from clientbridge.integrations.expo import Push, get_push_sender
-from clientbridge.integrations.identity import Credential, Identity, unavailable
+from clientbridge.integrations.identity import Credential, Identity, Login, unavailable
 from clientbridge.integrations.kratos import get_identity_provider
 from clientbridge.integrations.resend import Email, EmailSender, get_email_sender
 from clientbridge.integrations.s3 import FileStorage, get_file_storage
@@ -260,8 +260,9 @@ class FakeIdentityProvider:
         self.cached: dict[str, Identity] = {}
         self.step_up: set[str] = set()
         self.deleted: set[str] = set()
-        # the admin API's identities by id, with their emails
-        self.accounts: dict[str, str] = {}
+        # the admin API's identities by id, with their emails and demo tags
+        self.accounts: dict[str, Login] = {}
+        self.tagged: list[str] = []
         self.fresh_reads = 0
         self.down = False
 
@@ -288,13 +289,24 @@ class FakeIdentityProvider:
         return identity_id not in self.deleted
 
     async def find_identity(self, email: str) -> str | None:
-        return next((i.id for i in self.sessions.values() if i.email == email), None)
+        listed = (a.id for a in self.accounts.values() if a.email == email)
+        signed_in = (i.id for i in self.sessions.values() if i.email == email)
+        return next(listed, None) or next(signed_in, None)
 
-    async def create_identity(self, email: str, name: str, password: str) -> str:
-        return str(uuid4())
+    async def create_identity(
+        self, email: str, name: str, password: str, *, demo: bool = False
+    ) -> str:
+        identity_id = str(uuid4())
+        self.accounts[identity_id] = Login(identity_id, email, demo)
+        return identity_id
 
-    async def list_identities(self) -> list[tuple[str, str | None]]:
-        return [(i, e) for i, e in self.accounts.items() if i not in self.deleted]
+    async def tag_demo(self, identity_id: str) -> None:
+        self.tagged.append(identity_id)
+        if login := self.accounts.get(identity_id):
+            self.accounts[identity_id] = Login(identity_id, login.email, True)
+
+    async def list_identities(self) -> list[Login]:
+        return [a for i, a in self.accounts.items() if i not in self.deleted]
 
     async def delete_identity(self, identity_id: str) -> None:
         self.deleted.add(identity_id)
