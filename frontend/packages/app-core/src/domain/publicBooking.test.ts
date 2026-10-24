@@ -416,6 +416,12 @@ it("asks for extras before the time and looks for times long enough for them", a
     expect(addsLabel(mount)).toBe(s.addsTime(s.minutes(30)));
     expect(extraMinutes([mount], { mount: 2 }, "service")).toBe(60);
     expect(extraMinutes([mount], { mount: 2 }, "class")).toBe(0);
+    const linked = renderHook(() =>
+        usePublicBookingFlow(client, "demo", { itemId: "service" }),
+    ).result;
+    await waitFor(() => {
+        expect(linked.current.step).toBe("extras");
+    });
 });
 
 const managed = (extra: Record<string, unknown> = {}) => ({

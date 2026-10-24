@@ -677,7 +677,10 @@ export function usePublicBookingFlow(
             setDate(starts);
             setWeekFrom(starts);
         }
-        setStep("time");
+        const extras =
+            (selected.session_count ?? null) === null &&
+            offeredWith(page.addons, selected.id).length > 0;
+        setStep(extras ? "extras" : "time");
     }, [page, status, selection.itemId, selection.staffId, selection.startsAt, today, zone]);
 
     useEffect(() => {
