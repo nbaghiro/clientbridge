@@ -1,4 +1,5 @@
 from collections.abc import Sequence
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 from sqlalchemy import func, text
@@ -8,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from clientbridge.core import clock
 from clientbridge.core.command import Command, run_command
 from clientbridge.core.deps import Principal, assert_role
-from clientbridge.core.errors import Conflict, NotFound, Unprocessable
+from clientbridge.core.errors import AppError, Conflict, NotFound, Unprocessable
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
 from clientbridge.models.catalog import Item
@@ -82,6 +83,43 @@ async def resource_free(
     return [r for r in dict.fromkeys(resource_ids) if r not in busy]
 
 
+@dataclass(frozen=True)
+class ResourceChoice:
+    """What a visit would hold in a window, the free resources it could switch to, or why not."""
+
+    held: str | None
+    free: list[str]
+    refusal: AppError | None = None
+
+
+async def choose_resource(
+    db: AsyncSession,
+    business_id: str,
+    item: Item,
+    starts_at: datetime,
+    ends_at: datetime,
+    *,
+    exclude: str | None = None,
+    hold: str | None = None,
+    chosen: str | None = None,
+) -> ResourceChoice:
+    """The one chosen, else the one the visit holds, else the first free one in the pool."""
+    pool = await pool_of(db, business_id, item)
+    candidates = [*([hold] if hold is not None else []), *pool]
+    free = await resource_free(db, business_id, candidates, item, starts_at, ends_at, exclude)
+    if chosen is not None:
+        if chosen not in candidates:
+            return ResourceChoice(
+                None, free, Unprocessable(NOT_IN_POOL, code="resource_not_in_pool")
+            )
+        if chosen not in free:
+            return ResourceChoice(None, free, Conflict(RESOURCE_BUSY, code="resource_busy"))
+        return ResourceChoice(chosen, free)
+    if free or not pool:
+        return ResourceChoice(free[0] if free else None, free)
+    return ResourceChoice(None, free, Conflict(NO_RESOURCE, code="no_resource"))
+
+
 async def pick_resource(
     db: AsyncSession,
     business_id: str,
@@ -93,21 +131,13 @@ async def pick_resource(
     hold: str | None = None,
     chosen: str | None = None,
 ) -> str | None:
-    """The resource a visit takes: the one chosen, else the one it holds, else the first free."""
-    pool = await pool_of(db, business_id, item)
-    if chosen is not None:
-        if chosen not in pool and chosen != hold:
-            raise Unprocessable(NOT_IN_POOL, code="resource_not_in_pool")
-        if not await resource_free(db, business_id, [chosen], item, starts_at, ends_at, exclude):
-            raise Conflict(RESOURCE_BUSY, code="resource_busy")
-        return chosen
-    candidates = [*([hold] if hold is not None else []), *pool]
-    free = await resource_free(db, business_id, candidates, item, starts_at, ends_at, exclude)
-    if free:
-        return free[0]
-    if not pool:
-        return None
-    raise Conflict(NO_RESOURCE, code="no_resource")
+    """The resource a visit takes, refused when the chosen one or every one is taken."""
+    choice = await choose_resource(
+        db, business_id, item, starts_at, ends_at, exclude=exclude, hold=hold, chosen=chosen
+    )
+    if choice.refusal is not None:
+        raise choice.refusal
+    return choice.held
 
 
 async def keep_resource(
@@ -134,9 +164,11 @@ async def keep_resource(
     )
 
 
-def resource_clash(exc: IntegrityError) -> bool:
-    """Whether a refused write lost a race for a resource, so it answers 409 `resource_busy`."""
-    return "excl_slots_resource_overlap" in str(exc.orig)
+def lost_race(exc: IntegrityError, fallback: AppError) -> AppError:
+    """The refusal for a write the overlap constraints stopped: the resource, else `fallback`."""
+    if "excl_slots_resource_overlap" in str(exc.orig):
+        return Conflict(RESOURCE_BUSY, code="resource_busy")
+    return fallback
 
 
 class ResourceService:

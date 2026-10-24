@@ -112,7 +112,14 @@ async def test_check_answers_without_writing(as_owner: httpx.AsyncClient, db: As
     free = await as_owner.post(
         f"/v1/bookings/{bid}/check", json={"starts_at": "2027-03-01T22:00:00Z"}
     )
-    assert free.json() == {"ok": True, "problem": None, "reason": None, "message": None}
+    assert free.json() == {
+        "ok": True,
+        "problem": None,
+        "reason": None,
+        "message": None,
+        "resource_id": None,
+        "free_resource_ids": [],
+    }
     clash = await as_owner.post(
         f"/v1/bookings/{bid}/check",
         json={"starts_at": "2027-03-01T20:00:00Z", "staff_id": ST_OWNER},

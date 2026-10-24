@@ -162,6 +162,7 @@ from clientbridge.services.payments import (
 )
 from clientbridge.services.plans import assert_serving
 from clientbridge.services.programs import enrol, sessions_of, withdraw
+from clientbridge.services.resources import keep_resource, lost_race
 from clientbridge.services.returning import ReturningService
 from clientbridge.services.subjects import new_subject, place_address, visit_address
 from clientbridge.services.tax import (
@@ -797,16 +798,19 @@ async def _offered(
     *,
     minutes: int | None = None,
     crew: Sequence[Hours] = (),
+    hold: str | None = None,
 ) -> str | None:
     """The first member whose open times on the start's local day list it."""
     tz = await business_tz(db, business.id)
     day = starts_at.astimezone(tz).date()
     step = policy_of(business).step_min
     members = [*staff_ids, *(r.staff_id for r in crew if r.staff_id is not None)]
-    found = await load_availability(db, business.id, members, day, day, tz, [item])
+    found = await load_availability(
+        db, business.id, members, day, day, tz, [item], held=[hold] if hold else ()
+    )
     for staff_id in staff_ids:
         starts = found.open_starts(
-            item, staff_id, day, step, exclude=exclude, minutes=minutes, crew=crew
+            item, staff_id, day, step, exclude=exclude, minutes=minutes, crew=crew, hold=hold
         )
         if starts_at in starts:
             return staff_id
@@ -831,6 +835,8 @@ async def open_days(
     *,
     minutes: int | None = None,
     crew: Sequence[Hours] = (),
+    exclude: str | None = None,
+    hold: str | None = None,
 ) -> list[PublicDay]:
     """Open start times per day for one service, across the given members."""
     policy = policy_of(business)
@@ -840,7 +846,9 @@ async def open_days(
     latest = now + timedelta(days=policy.horizon_days)
     days = [start + timedelta(days=offset) for offset in range(min(max(count, 1), _MAX_DAYS))]
     members = [s.id for s in staff] + [r.staff_id for r in crew if r.staff_id is not None]
-    found = await load_availability(db, business.id, members, days[0], days[-1], tz, [item])
+    found = await load_availability(
+        db, business.id, members, days[0], days[-1], tz, [item], held=[hold] if hold else ()
+    )
     out: list[PublicDay] = []
     for day in days:
         opens, closes = local_day(day, tz)
@@ -852,7 +860,14 @@ async def open_days(
         if closure is None and closes > earliest and opens <= latest and not is_program(item):
             for member in staff:
                 for s in found.open_starts(
-                    item, member.id, day, policy.step_min, minutes=minutes, crew=crew
+                    item,
+                    member.id,
+                    day,
+                    policy.step_min,
+                    exclude=exclude,
+                    minutes=minutes,
+                    crew=crew,
+                    hold=hold,
                 ):
                     if earliest <= s <= latest:
                         starts.add(s)
@@ -988,6 +1003,8 @@ class PublicManageService:
             count,
             minutes=_length(slot),
             crew=await crew_rows(self.db, business.id, booking.id),
+            exclude=slot.id,
+            hold=slot.resource_id,
         )
         return PublicDays(days=days)
 
@@ -1009,6 +1026,7 @@ class PublicManageService:
             exclude=slot.id,
             minutes=_length(slot),
             crew=await crew_rows(self.db, business.id, booking.id),
+            hold=slot.resource_id,
         )
         return PublicSlots(
             slots=[
@@ -1038,9 +1056,12 @@ class PublicManageService:
                 data.starts_at,
                 ends_at,
                 exclude=slot.id,
+                resources=True,
+                hold=slot.resource_id,
             )
             if problem is not None:
-                raise Conflict(problem.message or _UNOFFERED)
+                code = "no_resource" if problem.problem == "resource" else None
+                raise Conflict(problem.message or _UNOFFERED, code=code)
             crew = await crew_rows(self.db, business.id, booking.id)
             offered = await _offered(
                 self.db,
@@ -1051,17 +1072,19 @@ class PublicManageService:
                 slot.id,
                 minutes=_length(slot),
                 crew=crew,
+                hold=slot.resource_id,
             )
             if offered is None:
                 raise Conflict(_UNOFFERED, code="slot_unavailable")
             if await crew_problem(self.db, business.id, item, crew, data.starts_at, ends_at):
                 raise Conflict(_UNOFFERED, code="slot_unavailable")
+            await keep_resource(self.db, item, slot, data.starts_at, ends_at)
             await move_slot(self.db, business.id, slot, data.starts_at, ends_at)
             booking.reschedule_count += 1
             try:
                 await self.db.flush()
             except IntegrityError as exc:
-                raise Conflict(OVERLAP) from exc
+                raise lost_race(exc, Conflict(OVERLAP)) from exc
             await carry_crew(self.db, business.id, booking, slot)
             out = await self._view(booking, slot, business)
             cmd.record(_MOVE_SCOPE, entity_type="booking", entity_id=booking.id)

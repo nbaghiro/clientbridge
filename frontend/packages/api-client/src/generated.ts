@@ -4569,7 +4569,7 @@ export interface components {
             /** Ok */
             ok: boolean;
             /** Problem */
-            problem?: ("past" | "closed" | "time_off" | "off_hours" | "overlap" | "class" | "not_offered" | "crew") | null;
+            problem?: ("past" | "closed" | "time_off" | "off_hours" | "overlap" | "class" | "not_offered" | "crew" | "resource") | null;
             /**
              * Reason
              * @description The closure or time-off reason
@@ -4577,6 +4577,16 @@ export interface components {
             reason?: string | null;
             /** Message */
             message?: string | null;
+            /**
+             * Resource Id
+             * @description The room or equipment the visit would hold there
+             */
+            resource_id?: string | null;
+            /**
+             * Free Resource Ids
+             * @description The rooms or equipment it could switch to there
+             */
+            free_resource_ids?: string[];
         };
         /** BookingCreate */
         BookingCreate: {
@@ -4609,6 +4619,11 @@ export interface components {
              * @description An accepted estimate whose product lines join the visit as add-ons
              */
             estimate_id?: string | null;
+            /**
+             * Resource Id
+             * @description The room or equipment from the service's pool; the first free one if unset
+             */
+            resource_id?: string | null;
         };
         /** BookingMove */
         BookingMove: {
@@ -4624,6 +4639,11 @@ export interface components {
              * @description Moves the visit to another member
              */
             staff_id?: string | null;
+            /**
+             * Resource Id
+             * @description Another free room or equipment from the pool; unset keeps or switches it
+             */
+            resource_id?: string | null;
         };
         /** BookingOut */
         BookingOut: {
@@ -4674,6 +4694,8 @@ export interface components {
              * Format: date-time
              */
             ends_at: string;
+            /** Resource Id */
+            resource_id?: string | null;
         };
         /** BookingPatch */
         BookingPatch: {
@@ -4689,6 +4711,11 @@ export interface components {
              * @description Moves the visit to another member
              */
             staff_id?: string | null;
+            /**
+             * Resource Id
+             * @description Another free room or equipment from the pool; unset keeps or switches it
+             */
+            resource_id?: string | null;
             /** Status */
             status?: ("confirmed" | "completed" | "canceled" | "no_show") | null;
             /**
@@ -6718,7 +6745,7 @@ export interface components {
              */
             starts_at: string;
             /** Problem */
-            problem: ("past" | "closed" | "time_off" | "off_hours" | "overlap" | "class" | "not_offered" | "crew") | null;
+            problem: ("past" | "closed" | "time_off" | "off_hours" | "overlap" | "class" | "not_offered" | "crew" | "resource") | null;
             /** Message */
             message: string | null;
         };

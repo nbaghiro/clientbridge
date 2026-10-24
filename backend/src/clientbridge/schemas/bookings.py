@@ -34,12 +34,20 @@ class BookingCreate(Mirror):
         default=None,
         description="An accepted estimate whose product lines join the visit as add-ons",
     )
+    resource_id: str | None = Field(
+        default=None,
+        description="The room or equipment from the service's pool; the first free one if unset",
+    )
 
 
 class BookingMove(BaseModel):
     starts_at: datetime | None = None
     ends_at: datetime | None = Field(default=None, description="A new end resizes the visit")
     staff_id: str | None = Field(default=None, description="Moves the visit to another member")
+    resource_id: str | None = Field(
+        default=None,
+        description="Another free room or equipment from the pool; unset keeps or switches it",
+    )
 
 
 class BookingPatch(BookingMove, Mirror):
@@ -52,7 +60,7 @@ class BookingPatch(BookingMove, Mirror):
 
 
 Problem = Literal[
-    "past", "closed", "time_off", "off_hours", "overlap", "class", "not_offered", "crew"
+    "past", "closed", "time_off", "off_hours", "overlap", "class", "not_offered", "crew", "resource"
 ]
 
 
@@ -63,6 +71,12 @@ class BookingCheck(BaseModel):
     problem: Problem | None = None
     reason: str | None = Field(default=None, description="The closure or time-off reason")
     message: str | None = None
+    resource_id: str | None = Field(
+        default=None, description="The room or equipment the visit would hold there"
+    )
+    free_resource_ids: list[str] = Field(
+        default_factory=list, description="The rooms or equipment it could switch to there"
+    )
 
 
 class ReminderPreview(BaseModel):
@@ -114,6 +128,7 @@ class BookingOut(Mirror):
     checked_in_at: datetime | None
     starts_at: datetime
     ends_at: datetime
+    resource_id: str | None = None
 
 
 class VisitOut(Mirror):

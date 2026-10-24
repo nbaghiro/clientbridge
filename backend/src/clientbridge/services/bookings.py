@@ -1,7 +1,7 @@
 import calendar
 import secrets
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, time, timedelta
 from typing import Literal
 from zoneinfo import ZoneInfo
@@ -44,6 +44,7 @@ from clientbridge.models.scheduling import (
     MonthlyBy,
     Recurrence,
     RecurrenceFrequency,
+    Resource,
     Slot,
     Weekday,
 )
@@ -110,6 +111,13 @@ from clientbridge.services.payments import (
     resolve_saved_method_ref,
 )
 from clientbridge.services.plans import serving
+from clientbridge.services.resources import (
+    choose_resource,
+    keep_resource,
+    lock_resources,
+    lost_race,
+    pick_resource,
+)
 from clientbridge.services.subjects import visit_address
 
 OVERLAP = "that staff member is already booked at that time"
@@ -157,6 +165,7 @@ async def booking_out(db: AsyncSession, booking: Booking, slot: Slot) -> Booking
         checked_in_at=booking.checked_in_at,
         starts_at=slot.starts_at,
         ends_at=slot.ends_at,
+        resource_id=slot.resource_id,
     )
 
 
@@ -411,7 +420,7 @@ def _verdict(problem: Problem, message: str, reason: str | None = None) -> Booki
 
 
 def _code(problem: BookingCheck) -> str | None:
-    return "crew_busy" if problem.problem == "crew" else None
+    return {"crew": "crew_busy", "resource": "no_resource"}.get(problem.problem or "")
 
 
 async def slot_problem(
@@ -424,6 +433,8 @@ async def slot_problem(
     *,
     exclude: str | None = None,
     skip_hours: str | None = None,
+    resources: bool = False,
+    hold: str | None = None,
 ) -> BookingCheck | None:
     """Why a visit can't take this window, most fundamental reason first; None when it can."""
     away = await blocking_exception(db, business_id, staff_id, starts_at, ends_at, skip_hours)
@@ -435,6 +446,12 @@ async def slot_problem(
         return _verdict("off_hours", _OUTSIDE_HOURS)
     if await conflicting_slot(db, business_id, item, staff_id, starts_at, ends_at, exclude):
         return _verdict("overlap", OVERLAP)
+    if resources:
+        choice = await choose_resource(
+            db, business_id, item, starts_at, ends_at, exclude=exclude, hold=hold
+        )
+        if choice.refusal is not None:
+            return _verdict("resource", choice.refusal.message)
     return None
 
 
@@ -511,6 +528,7 @@ async def create_booking_core(
     recurrence_id: str | None = None,
     dedupe_client: bool = False,
     extra_min: int = 0,
+    resource_id: str | None = None,
 ) -> tuple[Booking, Slot]:
     """Create a confirmed booking under the scheduling invariant (staff and online paths)."""
     if is_program(item):
@@ -534,11 +552,14 @@ async def create_booking_core(
                 raise Conflict(_CLASS_FULL, code="class_full")
     if slot is None:
         await assert_free(db, business_id, item, staff_id, starts_at, ends_at)
+        await lock_resources(db, business_id, resource_id, *item.resource_ids)
+        held = await pick_resource(db, business_id, item, starts_at, ends_at, chosen=resource_id)
         slot = Slot(
             id=new_id("slot"),
             business_id=business_id,
             item_id=item.id,
             staff_id=staff_id,
+            resource_id=held,
             recurrence_id=recurrence_id,
             starts_at=starts_at,
             ends_at=ends_at,
@@ -547,10 +568,10 @@ async def create_booking_core(
         )
         db.add(slot)
         try:
-            # the exclusion constraint backstops a concurrent overlapping insert
+            # the exclusion constraints backstop a concurrent overlapping insert
             await db.flush()
         except IntegrityError as exc:
-            raise Conflict(OVERLAP) from exc
+            raise lost_race(exc, Conflict(OVERLAP)) from exc
     deposit = deposit_cents(item) if item.deposit_type != "none" else 0
     booking = Booking(
         id=new_id("booking"),
@@ -769,6 +790,7 @@ class BookingService:
                 source="manual",
                 subject_id=data.subject_id,
                 extra_min=addon_minutes([(product, qty) for _, product, qty in quoted]),
+                resource_id=data.resource_id,
             )
             booking.estimate_id = data.estimate_id
             if data.note is not None and data.note.strip() != "":
@@ -877,6 +899,7 @@ class BookingService:
                 )
                 if problem is not None:
                     raise Conflict(problem.message or OVERLAP, code=_code(problem))
+                await keep_resource(self.db, item, slot, starts_at, ends_at, data.resource_id)
                 await move_slot(self.db, self.biz, slot, starts_at, ends_at)
                 slot.staff_id = staff_id
                 if booking.staff_id != staff_id:
@@ -889,7 +912,7 @@ class BookingService:
                 try:
                     await self.db.flush()
                 except IntegrityError as exc:
-                    raise Conflict(OVERLAP) from exc
+                    raise lost_race(exc, Conflict(OVERLAP)) from exc
                 await carry_crew(self.db, self.biz, booking, slot)
                 cmd.record("booking.reschedule", entity_type="booking", entity_id=booking.id)
             if data.status is not None and data.status != booking.status:
@@ -968,7 +991,26 @@ class BookingService:
             starts_at,
             ends_at,
         )
-        return problem or BookingCheck(ok=True)
+        if problem is not None:
+            return problem
+        choice = await choose_resource(
+            self.db,
+            self.biz,
+            item,
+            starts_at,
+            ends_at,
+            exclude=slot.id,
+            hold=slot.resource_id,
+            chosen=data.resource_id,
+        )
+        if choice.refusal is not None:
+            return BookingCheck(
+                ok=False,
+                problem="resource",
+                message=choice.refusal.message,
+                free_resource_ids=choice.free,
+            )
+        return BookingCheck(ok=True, resource_id=choice.held, free_resource_ids=choice.free)
 
     async def _answer_enrolment(
         self, cmd: Command, booking: Booking, slot: Slot, status: Literal["confirmed", "canceled"]
@@ -1003,6 +1045,7 @@ class BookingService:
             data.starts_at is not None
             or data.ends_at is not None
             or (data.staff_id is not None and data.staff_id != slot.staff_id)
+            or (data.resource_id is not None and data.resource_id != slot.resource_id)
         )
 
     async def _target(self, data: BookingMove, slot: Slot) -> tuple[str, datetime, datetime]:
@@ -1585,7 +1628,15 @@ class BookingService:
             ends_at = max(ends_at, min(slot.ends_at, slot.starts_at + service))
         if minutes > 0:
             problem = await slot_problem(
-                self.db, self.biz, item, slot.staff_id, slot.starts_at, ends_at, exclude=slot.id
+                self.db,
+                self.biz,
+                item,
+                slot.staff_id,
+                slot.starts_at,
+                ends_at,
+                exclude=slot.id,
+                resources=True,
+                hold=slot.resource_id,
             ) or await crew_problem(
                 self.db,
                 self.biz,
@@ -1595,12 +1646,14 @@ class BookingService:
                 ends_at,
             )
             if problem is not None:
-                raise Conflict(problem.message or OVERLAP, code="visit_no_room")
+                code = "no_resource" if problem.problem == "resource" else "visit_no_room"
+                raise Conflict(problem.message or OVERLAP, code=code)
+            await keep_resource(self.db, item, slot, slot.starts_at, ends_at)
         await move_slot(self.db, self.biz, slot, slot.starts_at, ends_at)
         try:
             await self.db.flush()
         except IntegrityError as exc:
-            raise Conflict(OVERLAP, code="visit_no_room") from exc
+            raise lost_race(exc, Conflict(OVERLAP, code="visit_no_room")) from exc
         await carry_crew(self.db, self.biz, booking, slot)
 
     async def _lock_visit(self, booking: Booking, slot: Slot) -> None:
@@ -1675,13 +1728,16 @@ async def open_slots(
     exclude: str | None = None,
     minutes: int | None = None,
     crew: Sequence[Hours] = (),
+    hold: str | None = None,
 ) -> list[datetime]:
     """Bookable start times for the item and staff on a date, in UTC; none until hours are set."""
     tz = await business_tz(db, business_id)
     members = [staff_id, *(row.staff_id for row in crew if row.staff_id is not None)]
-    found = await load_availability(db, business_id, members, on_date, on_date, tz, [item])
+    found = await load_availability(
+        db, business_id, members, on_date, on_date, tz, [item], held=[hold] if hold else ()
+    )
     return found.open_starts(
-        item, staff_id, on_date, step_min, exclude=exclude, minutes=minutes, crew=crew
+        item, staff_id, on_date, step_min, exclude=exclude, minutes=minutes, crew=crew, hold=hold
     )
 
 
@@ -1713,6 +1769,9 @@ class Availability:
     hours: dict[str, list[Hours]]
     time_off: dict[str, list[Away]]
     busy: dict[str, list[Busy]]
+    # each item's active pool, and the live slots holding any resource read
+    pools: dict[str, list[str]] = field(default_factory=dict[str, list[str]])
+    held: dict[str, list[Busy]] = field(default_factory=dict[str, list[Busy]])
 
     def open_starts(
         self,
@@ -1724,6 +1783,7 @@ class Availability:
         exclude: str | None = None,
         minutes: int | None = None,
         crew: Sequence[Hours] = (),
+        hold: str | None = None,
     ) -> list[datetime]:
         """The starts `slot_problem` would accept on the date's step grid, in UTC."""
         duration = item.duration_min if minutes is None else minutes
@@ -1735,6 +1795,8 @@ class Availability:
             return []
         away = self.closures + self.time_off.get(staff_id, [])
         busy = [b for b in self.busy.get(staff_id, []) if b.id != exclude]
+        pool = self.pools.get(item.id, [])
+        needs = [*([hold] if hold is not None else []), *pool] if pool else []
         before = timedelta(minutes=item.buffer_before_min)
         after = timedelta(minutes=item.buffer_after_min)
         length = timedelta(minutes=duration)
@@ -1760,10 +1822,44 @@ class Availability:
                         for b in busy
                     )
                     and all(self.free(item, row, start, end) for row in crew)
+                    and (
+                        not needs
+                        or self._joins(item, busy, start, end)
+                        or self.room(item, needs, start, end, exclude)
+                    )
                 ):
                     slots.append(start)
                 start += step
         return slots
+
+    @staticmethod
+    def _joins(item: Item, busy: Sequence[Busy], start: datetime, end: datetime) -> bool:
+        """Whether the start takes a seat in a session already there, which keeps its room."""
+        return any(
+            not b.full and b.item_id == item.id and b.starts_at == start and b.ends_at == end
+            for b in busy
+        )
+
+    def room(
+        self,
+        item: Item,
+        candidates: Sequence[str],
+        start: datetime,
+        end: datetime,
+        exclude: str | None = None,
+    ) -> bool:
+        """Whether one of the resources is free for the window, as `resource_free` reads it."""
+        before = timedelta(minutes=item.buffer_before_min)
+        after = timedelta(minutes=item.buffer_after_min)
+        return any(
+            not any(
+                b.id != exclude
+                and b.starts_at - b.before < end + after
+                and b.ends_at + b.after > start - before
+                for b in self.held.get(resource_id, [])
+            )
+            for resource_id in candidates
+        )
 
     def free(self, item: Item, block: Hours, start: datetime, end: datetime) -> bool:
         """Whether a helper can follow their visit to this window, as `crew_problem` checks it."""
@@ -1791,8 +1887,9 @@ async def load_availability(
     last: date,
     tz: ZoneInfo,
     items: Sequence[Item],
+    held: Sequence[str] = (),
 ) -> Availability:
-    """Three reads for any number of members and days: hours, closures and time off, slots."""
+    """Three reads for any number of members and days, and two more when a service needs a room."""
     opens, closes = local_day(first, tz)[0], local_day(last, tz)[1]
     hours: dict[str, list[Hours]] = {staff_id: [] for staff_id in staff_ids}
     rows = await db.scalars(
@@ -1857,7 +1954,52 @@ async def load_availability(
                 full=bool(full),
             )
         )
-    return Availability(tz=tz, closures=closures, hours=hours, time_off=time_off, busy=busy)
+    found = Availability(tz=tz, closures=closures, hours=hours, time_off=time_off, busy=busy)
+    wanted = sorted({*(r for i in items for r in i.resource_ids), *held})
+    if not wanted:
+        return found
+    active = set(
+        await db.scalars(
+            scoped(Resource, business_id)
+            .with_only_columns(Resource.id)
+            .where(Resource.id.in_(wanted), Resource.active.is_(True))
+        )
+    )
+    for item in items:
+        found.pools[item.id] = [r for r in item.resource_ids if r in active]
+    rooms = await db.execute(
+        scoped(Slot, business_id)
+        .join(Item, Item.id == Slot.item_id)
+        .with_only_columns(
+            Slot.id,
+            Slot.resource_id,
+            Slot.item_id,
+            Slot.starts_at,
+            Slot.ends_at,
+            Item.buffer_before_min,
+            Item.buffer_after_min,
+        )
+        .where(
+            Slot.resource_id.in_(wanted),
+            Slot.status != "canceled",
+            Slot.starts_at - before < closes + margin,
+            Slot.ends_at + after > opens - margin,
+        )
+    )
+    for slot_id, resource_id, item_id, starts_at, ends_at, buffer_before, buffer_after in rooms:
+        if resource_id is not None:
+            found.held.setdefault(resource_id, []).append(
+                Busy(
+                    id=slot_id,
+                    item_id=item_id,
+                    starts_at=starts_at,
+                    ends_at=ends_at,
+                    before=timedelta(minutes=buffer_before),
+                    after=timedelta(minutes=buffer_after),
+                    full=True,
+                )
+            )
+    return found
 
 
 async def visit_needs(
@@ -2188,6 +2330,14 @@ class RecurrenceService:
             await lock_staff(
                 self.db, self.biz, *members, *([data.staff_id] if data.staff_id else [])
             )
+            service = await load_item(self.db, self.biz, recurrence.item_id, require_active=False)
+            # the whole series' rooms at once, in order, so a later visit never waits holding one
+            await lock_resources(
+                self.db,
+                self.biz,
+                *service.resource_ids,
+                *(slot.resource_id for _, slot in visits),
+            )
             for booking, slot in await self._lock_visits(visits):
                 local = slot.starts_at.astimezone(tz)
                 day = local.date()
@@ -2212,6 +2362,8 @@ class RecurrenceService:
                         starts_at,
                         ends_at,
                         exclude=slot.id,
+                        resources=True,
+                        hold=slot.resource_id,
                     )
                     or await crew_problem(
                         self.db,
@@ -2229,6 +2381,7 @@ class RecurrenceService:
                         )
                     )
                     continue
+                await keep_resource(self.db, item, slot, starts_at, ends_at)
                 await move_slot(self.db, self.biz, slot, starts_at, ends_at)
                 slot.staff_id = staff_id
                 if booking.staff_id != staff_id:
