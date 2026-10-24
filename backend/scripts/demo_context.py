@@ -4,7 +4,7 @@ from zoneinfo import ZoneInfo
 
 from clientbridge.core.db import Base
 
-DEMO_VERSION = "2026-10-23.4"
+DEMO_VERSION = "2026-10-23.5"
 DEMO_PASSWORD = "demo1234"  # every seeded user logs in with this
 BUSINESS_TIMEZONE = ZoneInfo("America/Vancouver")
 

@@ -418,6 +418,7 @@ async def validate_database(
             Slot,
             Hours,
             Recurrence,
+            Resource,
             Contract,
             Signature,
             FormResponse,
