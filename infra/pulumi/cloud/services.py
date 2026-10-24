@@ -8,6 +8,7 @@ from cloud.google_business import APIS as GOOGLE_BUSINESS_APIS
 # serviceusage and cloudresourcemanager are enabled by hand first: Pulumi needs them for the rest
 APIS = (
     "androidpublisher.googleapis.com",
+    "apikeys.googleapis.com",
     "artifactregistry.googleapis.com",
     "billingbudgets.googleapis.com",
     "certificatemanager.googleapis.com",

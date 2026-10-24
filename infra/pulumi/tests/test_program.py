@@ -1271,7 +1271,7 @@ def test_each_apps_key_serves_only_push_and_only_its_signed_app(cloud: Built) ->
         targets = dig(key.inputs, "restrictions", "apiTargets")
         assert isinstance(targets, list)
         assert sorted(str(dig(each, "service")) for each in targets) == sorted(firebase.PUSH_APIS)
-        assert set(firebase.PUSH_APIS) <= set(services.APIS)
+        assert {*firebase.PUSH_APIS, "apikeys.googleapis.com"} <= set(services.APIS)
         assert dig(key.inputs, "restrictions", "androidKeyRestrictions") is None
     cert = ":".join(["ab"] * 20)
     signed = build_cloud({"clientbridge:androidSigningCerts": json.dumps({"staging": [cert]})})
