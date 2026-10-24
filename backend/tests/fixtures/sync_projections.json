@@ -104,6 +104,15 @@
       "addon",
       "addon_for",
       "staff_ids",
+      "resource_ids",
+      "id",
+      "business_id",
+      "created_at",
+      "updated_at"
+    ],
+    "resources": [
+      "name",
+      "active",
       "id",
       "business_id",
       "created_at",
@@ -721,6 +730,7 @@
     "slots": [
       "item_id",
       "staff_id",
+      "resource_id",
       "recurrence_id",
       "starts_at",
       "ends_at",
@@ -765,6 +775,7 @@
     "slots": [
       "item_id",
       "staff_id",
+      "resource_id",
       "recurrence_id",
       "starts_at",
       "ends_at",

@@ -56,6 +56,7 @@ const base: ItemRow = {
     member_discount_bps: null,
     gift_amounts: null,
     staff_ids: null,
+    resource_ids: null,
 };
 
 const values: ItemFormValues = {
@@ -87,6 +88,7 @@ const values: ItemFormValues = {
     memberDiscount: "",
     giftAmounts: [],
     staffIds: [],
+    resourceIds: [],
     addon: false,
 };
 
@@ -218,6 +220,14 @@ describe("item editor", () => {
         expect(
             itemPayload({ ...values, kind: "product", staffIds: ["st_ana"] }, true),
         ).not.toHaveProperty("staff_ids");
+    });
+
+    it("sends the rooms a service needs, and never a product's", () => {
+        const body = itemPayload({ ...values, resourceIds: ["rs_one"] }, false);
+        expect(body.resource_ids).toEqual(["rs_one"]);
+        expect(
+            itemPayload({ ...values, kind: "product", resourceIds: ["rs_one"] }, true),
+        ).not.toHaveProperty("resource_ids");
     });
 
     it("sends an add-on product's minutes, and none for a plain product", () => {

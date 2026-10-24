@@ -21,6 +21,7 @@ export * from "./domain/recurrences";
 export * from "./domain/classes";
 export * from "./domain/programs";
 export * from "./domain/reminders";
+export * from "./domain/resources";
 export * from "./domain/onlineBooking";
 export * from "./domain/navigation";
 export * from "./domain/billing";

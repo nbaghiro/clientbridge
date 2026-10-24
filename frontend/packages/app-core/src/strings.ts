@@ -90,6 +90,10 @@ interface Strings {
         readonly serviceNotOffered: string;
         readonly visitNoRoom: string;
         readonly crewBusy: string;
+        readonly resourceBusy: string;
+        readonly noResource: string;
+        readonly resourceNotInPool: string;
+        readonly resourceNameTaken: string;
         readonly crewMember: string;
         readonly crewBlock: string;
         readonly visitStarted: string;
@@ -1155,6 +1159,11 @@ interface Strings {
         readonly crewWhere: string;
         readonly crewLead: string;
         readonly problemCrew: string;
+        readonly problemResource: string;
+        readonly resource: string;
+        readonly resourceChange: string;
+        readonly resourceAll: string;
+        readonly resourceFilter: string;
         readonly invoiceVisit: string;
         readonly invoiceVisitError: string;
         readonly visitInvoiced: string;
@@ -1353,6 +1362,7 @@ interface Strings {
         readonly weekdays: string;
         readonly pickDays: (n: number) => string;
         readonly summary: (n: number, first: string, last: string) => string;
+        readonly rooms: (count: number, rooms: string) => string;
         readonly daysCount: (n: number) => string;
         readonly create: string;
         readonly close: string;
@@ -1417,6 +1427,25 @@ interface Strings {
         readonly loading: string;
         readonly loadError: string;
         readonly actionError: string;
+    };
+    readonly resources: {
+        readonly subtitle: string;
+        readonly add: string;
+        readonly name: string;
+        readonly namePlaceholder: string;
+        readonly nameRequired: string;
+        readonly save: string;
+        readonly rename: string;
+        readonly turnOff: string;
+        readonly turnOn: string;
+        readonly off: string;
+        readonly upcoming: (count: number) => string;
+        readonly offUpcoming: (count: number) => string;
+        readonly empty: string;
+        readonly emptyHint: string;
+        readonly loading: string;
+        readonly loadError: string;
+        readonly saveError: string;
     };
     readonly forms: {
         readonly fieldTypeText: string;
@@ -2884,6 +2913,9 @@ interface Strings {
         readonly offeredBy: string;
         readonly offeredByEveryone: string;
         readonly offeredByHint: string;
+        readonly needs: string;
+        readonly needsNothing: string;
+        readonly needsHint: string;
         readonly depositNone: string;
         readonly depositFixed: string;
         readonly depositPercent: string;
@@ -4456,6 +4488,7 @@ interface Strings {
             readonly start: string;
             readonly business: string;
             readonly services: string;
+            readonly resources: string;
             readonly team: string;
             readonly gettingPaid: string;
             readonly plan: string;

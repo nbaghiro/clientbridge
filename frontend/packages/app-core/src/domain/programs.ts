@@ -34,6 +34,7 @@ import {
     seatMatches,
     sessionCounts,
 } from "./classes";
+import { activePool, resourceName, useResources } from "./resources";
 import { staffName, useStaff } from "./staff";
 import { parseAttributes, pickupLine, useSubjectKind } from "./subjects";
 import { useReplicaLoad } from "./sync";
@@ -61,6 +62,7 @@ interface DayRow {
     starts_at: string;
     ends_at: string;
     capacity: number;
+    resource_id: string | null;
 }
 
 interface SeatRow extends RosterRow {
@@ -76,7 +78,7 @@ FROM recurrences r JOIN items i ON i.id = r.item_id
 WHERE r.client_id IS NULL AND r.status = 'active' AND i.session_count IS NOT NULL`;
 
 export const PROGRAM_DAYS_SQL = `
-SELECT s.id AS slot_id, s.recurrence_id, s.starts_at, s.ends_at, s.capacity
+SELECT s.id AS slot_id, s.recurrence_id, s.starts_at, s.ends_at, s.capacity, s.resource_id
 FROM slots s JOIN recurrences r ON r.id = s.recurrence_id
 WHERE r.client_id IS NULL AND r.status = 'active' AND s.status != 'canceled'`;
 
@@ -118,6 +120,8 @@ interface ProgramDay {
     seatsLabel: string;
     started: boolean;
     today: boolean;
+    // the room or equipment the session holds
+    room: string | null;
 }
 
 export interface Enrolment {
@@ -171,6 +175,7 @@ export function useProgramBoard(api: ApiLike): ProgramBoard {
     const staff = useStaff();
     const programsQ = useQuery<ProgramRow>(PROGRAMS_SQL);
     const daysQ = useQuery<DayRow>(PROGRAM_DAYS_SQL);
+    const rooms = useResources();
     const seatsQ = useQuery<SeatRow>(PROGRAM_SEATS_SQL);
     const clients = useQuery<SeatCandidate>(CLASS_CLIENTS_SQL).data;
     const [selected, setSelected] = useState<string | null>(null);
@@ -243,6 +248,7 @@ export function useProgramBoard(api: ApiLike): ProgramBoard {
             seatsLabel: full ? s.full : s.seatsLeft(d.capacity - booked),
             started: sameDay(start, now, zone) || start <= now,
             today: sameDay(start, now, zone),
+            room: resourceName(rooms, d.resource_id),
         };
     });
     const day =
@@ -420,6 +426,8 @@ export interface ProgramForm {
     weekdayOptions: ChoiceOption<ProgramWeekday>[];
     preview: string;
     summary: string | null;
+    // which rooms the days take, from the class's pool; null when it needs none
+    rooms: string | null;
     canSubmit: boolean;
     // why the program can't be scheduled yet, once a program is chosen
     blocker: string | null;
@@ -452,6 +460,8 @@ export function useProgramForm(
     const { busy, error, setError, run } = useAsyncAction();
     const attempt = useRef<Attempt | null>(null);
     const item = programs.find((i) => i.id === itemId) ?? null;
+    const rooms = useResources();
+    const pool = activePool(rooms, idList(item?.resource_ids ?? null));
     const offered = item === null ? [] : idList(item.staff_ids);
     const staff = team.filter((x) => offered.length === 0 || offered.includes(x.id));
     const count = item?.session_count ?? 0;
@@ -503,6 +513,10 @@ export function useProgramForm(
             first && last && item
                 ? s.summary(dates.length, weekdayDay(first, zone), weekdayDay(last, zone))
                 : null,
+        rooms:
+            pool.length === 0
+                ? null
+                : s.rooms(pool.length, formatList(pool.map((id) => resourceName(rooms, id) ?? id))),
         canSubmit: ready,
         blocker: item === null ? null : blocker,
         busy,

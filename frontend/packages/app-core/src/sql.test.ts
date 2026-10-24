@@ -1304,6 +1304,25 @@ describe("app-core SQL against the replica schema", () => {
         expect(run("INVOICE_SQL", ["inv_missing"])).toEqual([]);
     });
 
+    it("lists rooms by name and carries the room a visit holds and its service's pool", () => {
+        scoped("resources", [
+            { id: "rs_b", name: "room B", active: 1 },
+            { id: "rs_a", name: "Room A", active: 0 },
+        ]);
+        db.run("UPDATE items SET resource_ids = '[\"rs_a\",\"rs_b\"]' WHERE id = 'it_cut'");
+        db.run("UPDATE slots SET resource_id = 'rs_b' WHERE id = 'ss_1'");
+        expect(pick(run("RESOURCES_SQL"), "id", "name", "active")).toEqual([
+            { id: "rs_a", name: "Room A", active: 0 },
+            { id: "rs_b", name: "room B", active: 1 },
+        ]);
+        const range = ["2026-06-28T00:00:00.000Z", "2026-06-26T00:00:00.000Z"];
+        const visit = run("EVENTS_SQL", range).find((r) => r.slot_id === "ss_1");
+        expect(visit).toMatchObject({
+            resource_id: "rs_b",
+            item_resource_ids: '["rs_a","rs_b"]',
+        });
+    });
+
     it("lists clients by name with their lifetime value", () => {
         expect(pick(run("CLIENTS_SQL"), "id", "lifetime_value_cents")).toEqual([
             { id: "cl_ann", lifetime_value_cents: 6750 },

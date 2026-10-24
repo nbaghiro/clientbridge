@@ -150,6 +150,7 @@ const items = new Table(
         addon: column.integer,
         addon_for: column.text,
         staff_ids: column.text,
+        resource_ids: column.text,
         business_id: column.text,
         created_at: column.text,
         updated_at: column.text,
@@ -159,6 +160,21 @@ const items = new Table(
             items_business_id: ["business_id"],
             items_business_kind_active: ["kind", "active"],
             ux_items_business_sku: ["sku"],
+        },
+    },
+);
+
+const resources = new Table(
+    {
+        name: column.text,
+        active: column.integer,
+        business_id: column.text,
+        created_at: column.text,
+        updated_at: column.text,
+    },
+    {
+        indexes: {
+            resources_business_id: ["business_id"],
         },
     },
 );
@@ -824,6 +840,7 @@ const slots = new Table(
     {
         item_id: column.text,
         staff_id: column.text,
+        resource_id: column.text,
         recurrence_id: column.text,
         starts_at: column.text,
         ends_at: column.text,
@@ -837,6 +854,7 @@ const slots = new Table(
         indexes: {
             slots_business_id: ["business_id"],
             slots_business_start: ["starts_at"],
+            slots_resource_start: ["resource_id", "starts_at"],
             slots_staff_start: ["staff_id", "starts_at"],
         },
     },
@@ -924,6 +942,7 @@ export const AppSchema = new Schema({
     consents,
     hours,
     items,
+    resources,
     packages,
     subscriptions,
     forms,

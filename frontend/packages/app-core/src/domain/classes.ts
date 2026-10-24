@@ -19,6 +19,7 @@ import type { Intent } from "../ui";
 import { slotOverlapSql } from "./bookings";
 import { afterReview } from "./previews";
 import { useNow } from "../hooks";
+import { resourceName, useResources } from "./resources";
 import { staffName, useStaff } from "./staff";
 import {
     type SubjectKind,
@@ -41,6 +42,7 @@ interface SessionRow {
     item_name: string;
     item_color: string | null;
     program_id: string | null;
+    resource_id: string | null;
 }
 
 export interface RosterRow {
@@ -60,7 +62,7 @@ export interface RosterRow {
 }
 
 export const CLASS_SESSIONS_SQL = `
-SELECT s.id AS slot_id, s.starts_at, s.ends_at, s.capacity, s.staff_id,
+SELECT s.id AS slot_id, s.starts_at, s.ends_at, s.capacity, s.staff_id, s.resource_id,
        i.name AS item_name, i.color AS item_color,
        (SELECT r.id FROM recurrences r WHERE r.id = s.recurrence_id AND r.client_id IS NULL
           AND i.session_count IS NOT NULL) AS program_id
@@ -177,6 +179,8 @@ export interface ClassSession {
     intent: Intent;
     // set on a program's day, whose seats are taken and given back by enrolment
     programId: string | null;
+    // the room or equipment the session holds for every seat
+    room: string | null;
 }
 
 type RosterStatus = "confirmed" | "checked_in" | "no_show" | "waitlist";
@@ -289,6 +293,7 @@ export function useClassBoard(api: ApiLike): ClassBoard {
     const clients = useQuery<SeatCandidate>(CLASS_CLIENTS_SQL).data;
     const kind = useSubjectKind();
     const staff = useStaff();
+    const rooms = useResources();
     const [selected, setSelected] = useState<string | null>(null);
     const [query, setQuery] = useState("");
     const [notice, setNotice] = useState<string | null>(null);
@@ -314,6 +319,7 @@ export function useClassBoard(api: ApiLike): ClassBoard {
             day: relativeDay(start, zone),
             time: formatTimeRange(start, end, zone),
             staffName: member ? staffName(member) : "",
+            room: resourceName(rooms, r.resource_id),
             capacity: r.capacity,
             booked,
             waitlist,

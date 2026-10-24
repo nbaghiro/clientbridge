@@ -27,6 +27,7 @@ import {
     openStarts,
     placeEvents,
     planMove,
+    freeResources,
     settleMoves,
     shiftDay,
     slotProblem,
@@ -404,6 +405,55 @@ describe("slotProblem and planMove", () => {
         expect(
             planMove(kept, 15, "st_bo", { ...ctx, events: [kept] }, at(5), "resize").problem,
         ).toBeNull();
+    });
+
+    it("needs a free room from the pool, keeps the one a visit holds and ignores retired ones", () => {
+        const massage = {
+            id: "it_massage",
+            capacity: 1,
+            bufferBeforeMin: 0,
+            bufferAfterMin: 15,
+            resourceIds: ["rs_1", "rs_2"],
+        };
+        const busy = [
+            event("bk_one", at(9), at(10), {
+                staffId: "st_bo",
+                resourceId: "rs_1",
+                bufferAfterMin: 15,
+            }),
+            event("bk_two", at(9), at(10), {
+                staffId: "st_cy",
+                resourceId: "rs_2",
+                bufferAfterMin: 15,
+            }),
+        ];
+        const check = (start: Date, end: Date, target: Parameters<typeof slotProblem>[7]) =>
+            slotProblem(avail, busy, STAFF, "st_amy", start, end, null, target);
+        expect(check(at(9), at(10), { item: massage })).toEqual({
+            problem: "resource",
+            message: s.problemResource,
+        });
+        expect(check(at(10), at(11), { item: massage }).problem).toBe("resource");
+        expect(check(at(10, 15), at(11, 15), { item: massage }).problem).toBeNull();
+        expect(check(at(9), at(10), { item: { ...massage, resourceIds: [] } }).problem).toBeNull();
+        expect(
+            freeResources(busy, ["rs_2", "rs_3", "rs_1"], massage, at(9), at(10), "bk_two"),
+        ).toEqual(["rs_2", "rs_3"]);
+        const visit = event("bk_amy", at(10, 15), at(11, 15), {
+            resourceId: "rs_1",
+            itemResourceIds: ["rs_1", "rs_2"],
+        });
+        const ctx = {
+            avail,
+            events: [visit, ...busy],
+            staff: STAFF,
+            rooms: [
+                { id: "rs_1", name: "Room 1", active: 1 },
+                { id: "rs_2", name: "Room 2", active: 0 },
+            ],
+        };
+        expect(planMove(visit, -75, "st_amy", ctx, at(5)).problem).toBe("resource");
+        expect(planMove(visit, 0, "st_amy", ctx, at(5)).problem).toBeNull();
     });
 
     it("resizes from the end and never below fifteen minutes", () => {

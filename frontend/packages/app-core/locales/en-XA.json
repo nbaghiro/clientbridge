@@ -224,6 +224,18 @@
     "api.crewBusy": {
         "message": "[Ţĥåţ ţéåɱ ɱéɱƀéŕ îš ƀûšý ţĥéñ, åŵåý öŕ öûţšîðé ţĥéîŕ ĥöûŕš. Çĥööšé šöɱéöñé éļšé öŕ åñöţĥéŕ ţîɱé. one two three four five six]"
     },
+    "api.resourceBusy": {
+        "message": "[Ţĥåţ ŕööɱ öŕ þîéçé öƒ éǫûîþɱéñţ îš ƀööķéð ţĥéñ. Çĥööšé åñöţĥéŕ öñé öŕ å ðîƒƒéŕéñţ ţîɱé. one two three four five six]"
+    },
+    "api.noResource": {
+        "message": "[Ñöñé öƒ ţĥé ŕööɱš öŕ éǫûîþɱéñţ ţĥîš šéŕṽîçé ñééðš îš ƒŕéé ţĥéñ. Çĥööšé å ðîƒƒéŕéñţ ţîɱé. one two three four five six]"
+    },
+    "api.resourceNotInPool": {
+        "message": "[Ţĥîš šéŕṽîçé ðöéšñ'ţ ûšé ţĥåţ ŕööɱ öŕ þîéçé öƒ éǫûîþɱéñţ. Çĥööšé öñé îţ ûšéš. one two three four five]"
+    },
+    "api.resourceNameTaken": {
+        "message": "[Åñöţĥéŕ ŕööɱ öŕ þîéçé öƒ éǫûîþɱéñţ åļŕéåðý ĥåš ţĥåţ ñåɱé. Çĥööšé å ðîƒƒéŕéñţ öñé. one two three four five six]"
+    },
     "api.crewMember": {
         "message": "[Ţĥåţ ţéåɱ ɱéɱƀéŕ îš åļŕéåðý öñ ţĥîš ṽîšîţ. one two three]"
     },
@@ -3251,6 +3263,21 @@
     "bookings.problemCrew": {
         "message": "[Šöɱéöñé öñ ţĥîš ṽîšîţ'š çŕéŵ îš ƀûšý ţĥéñ one two three]"
     },
+    "bookings.problemResource": {
+        "message": "[Ñöñé öƒ ţĥé ŕööɱš öŕ éǫûîþɱéñţ ţĥîš šéŕṽîçé ñééðš îš ƒŕéé ţĥéñ one two three four]"
+    },
+    "bookings.resource": {
+        "message": "[Ŕööɱ öŕ éǫûîþɱéñţ one two]"
+    },
+    "bookings.resourceChange": {
+        "message": "[Çĥåñĝé one]"
+    },
+    "bookings.resourceAll": {
+        "message": "[Åļļ ŕööɱš åñð éǫûîþɱéñţ one two]"
+    },
+    "bookings.resourceFilter": {
+        "message": "[Ŕööɱ öŕ éǫûîþɱéñţ one two]"
+    },
     "bookings.invoiceVisit": {
         "message": "[Çŕéåţé îñṽöîçé one two]"
     },
@@ -3809,6 +3836,9 @@
     "programs.summary": {
         "message": "[{n,plural,one{# ðåý, öñ {first}} other{# ðåýš, {first} ţö {last}}} one two]"
     },
+    "programs.rooms": {
+        "message": "[{count,plural,one{Éåçĥ ðåý îš ĥéļð îñ {rooms}} other{Éåçĥ ðåý ţåķéš ţĥé ƒîŕšţ ƒŕéé öƒ {rooms}}} one two three four]"
+    },
     "programs.daysCount": {
         "message": "[{n,plural,one{# ðåý} other{# ðåýš}} one]"
     },
@@ -3919,6 +3949,57 @@
     },
     "reminders.subtitle": {
         "message": "[Ŵĥåţ çļîéñţš ĥéåŕ ƀéƒöŕé å ṽîšîţ, åñð çļöšîñĝ ṽîšîţš ŵĥéñ ţĥé ðåý îš öṽéŕ. one two three four five]"
+    },
+    "resources.subtitle": {
+        "message": "[Ţĥé ŕööɱš, ţåƀļéš, çåŕš åñð éǫûîþɱéñţ ýöûŕ šéŕṽîçéš ñééð. Å ṽîšîţ îš ƀööķéð öñļý ŵĥéñ öñé îţ ñééðš îš ƒŕéé. one two three four five six seven]"
+    },
+    "resources.add": {
+        "message": "[Åðð ŕööɱ öŕ éǫûîþɱéñţ one two]"
+    },
+    "resources.name": {
+        "message": "[Ñåɱé one]"
+    },
+    "resources.namePlaceholder": {
+        "message": "[Ŕööɱ 1 one]"
+    },
+    "resources.nameRequired": {
+        "message": "[Éñţéŕ å ñåɱé. one two]"
+    },
+    "resources.save": {
+        "message": "[Šåṽé one]"
+    },
+    "resources.rename": {
+        "message": "[Ŕéñåɱé one]"
+    },
+    "resources.turnOff": {
+        "message": "[Ţûŕñ öƒƒ one]"
+    },
+    "resources.turnOn": {
+        "message": "[Ţûŕñ ƀåçķ öñ one two]"
+    },
+    "resources.off": {
+        "message": "[Ţûŕñéð öƒƒ. Îţ îšñ'ţ öƒƒéŕéð ƒöŕ ñéŵ ṽîšîţš. one two three]"
+    },
+    "resources.upcoming": {
+        "message": "[{count,plural,one{# ûþçöɱîñĝ ṽîšîţ} other{# ûþçöɱîñĝ ṽîšîţš} =0{Ñö ûþçöɱîñĝ ṽîšîţš}} one two three four]"
+    },
+    "resources.offUpcoming": {
+        "message": "[Ţûŕñéð öƒƒ. {count,plural,one{# ûþçöɱîñĝ ṽîšîţ šţîļļ ûšéš îţ} other{# ûþçöɱîñĝ ṽîšîţš šţîļļ ûšé îţ}} ûñţîļ ɱöṽéð. one two three four five six]"
+    },
+    "resources.empty": {
+        "message": "[Ñö ŕööɱš öŕ éǫûîþɱéñţ ýéţ one two three]"
+    },
+    "resources.emptyHint": {
+        "message": "[Åðð öñé ŵĥéñ å šéŕṽîçé ñééðš å ƒŕéé ŕööɱ, ţåƀļé öŕ çåŕ åš ŵéļļ åš å ƒŕéé þéŕšöñ. one two three four five]"
+    },
+    "resources.loading": {
+        "message": "[Ļöåðîñĝ ŕööɱš åñð éǫûîþɱéñţ one two three]"
+    },
+    "resources.loadError": {
+        "message": "[Ŕööɱš åñð éǫûîþɱéñţ çöûļð ñöţ ƀé ļöåðéð. Þļéåšé ţŕý åĝåîñ. one two three four]"
+    },
+    "resources.saveError": {
+        "message": "[Ţĥåţ çĥåñĝé çöûļð ñöţ ƀé šåṽéð. Þļéåšé ţŕý åĝåîñ. one two three four]"
     },
     "reminders.remindersTitle": {
         "message": "[Ŕéɱîñðéŕš one two]"
@@ -7873,6 +7954,15 @@
     },
     "catalog.offeredByHint": {
         "message": "[Öñļý ţĥé þéöþļé çĥöšéñ ĥéŕé çåñ ƀé ƀööķéð ƒöŕ îţ, öñļîñé åñð öñ ţĥé šçĥéðûļé. one two three four five]"
+    },
+    "catalog.needs": {
+        "message": "[Ñééðš one]"
+    },
+    "catalog.needsNothing": {
+        "message": "[Ñöţĥîñĝ one]"
+    },
+    "catalog.needsHint": {
+        "message": "[Å ṽîšîţ îš ƀööķéð öñļý ŵĥéñ öñé öƒ ţĥé çĥöšéñ ŕööɱš öŕ éǫûîþɱéñţ îš ƒŕéé åš ŵéļļ åš ţĥé þéŕšöñ. one two three four five six]"
     },
     "catalog.depositNone": {
         "message": "[Ñöñé one]"
@@ -12193,6 +12283,9 @@
     },
     "navigation.setupSections.services": {
         "message": "[Šéŕṽîçéš & þŕöðûçţš one two]"
+    },
+    "navigation.setupSections.resources": {
+        "message": "[Ŕööɱš & éǫûîþɱéñţ one two]"
     },
     "navigation.setupSections.team": {
         "message": "[Ţéåɱ & ĥöûŕš one two]"

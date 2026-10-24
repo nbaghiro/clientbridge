@@ -165,6 +165,7 @@ export type SetupSectionKey =
     | "start"
     | "business"
     | "services"
+    | "resources"
     | "team"
     | "gettingPaid"
     | "plan"
@@ -200,6 +201,14 @@ const SETUP_SECTIONS: {
         key: "services",
         get label() {
             return strings.navigation.setupSections.services;
+        },
+        webOnly: false,
+        managersOnly: true,
+    },
+    {
+        key: "resources",
+        get label() {
+            return strings.navigation.setupSections.resources;
         },
         webOnly: false,
         managersOnly: true,

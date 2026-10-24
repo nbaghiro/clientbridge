@@ -88,7 +88,8 @@ export type IconName =
     | "printer"
     | "pushpin"
     | "minus"
-    | "car";
+    | "car"
+    | "door";
 
 export const SUBJECT_ICON: Record<SubjectKind, IconName> = {
     pet: "paw",
@@ -120,6 +121,7 @@ export const ICON_SPECS: Record<IconName, IconPrimitive[]> = {
     ],
     inbox: chat,
     plus: [{ kind: "path", d: "M12 5v14M5 12h14" }],
+    door: [r(5, 3, 14, 18, 1), p("M2 21h20M15 12h.01")],
     search: [
         { kind: "circle", cx: 11, cy: 11, r: 8 },
         { kind: "path", d: "m21 21-4.3-4.3" },

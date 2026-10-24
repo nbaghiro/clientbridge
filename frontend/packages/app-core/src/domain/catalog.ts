@@ -26,6 +26,7 @@ import { useReplicaLoad } from "./sync";
 import { asTaxClass, type DocRate, isFederal, lineTax, useTaxSetup } from "./taxes";
 import { taxName, taxList, taxRateLabel } from "./printing";
 import { bareUrl, shopPageUrl } from "../runtime";
+import { useResources } from "./resources";
 import { staffName, staffNameSql, useStaff } from "./staff";
 
 const s = strings.catalog;
@@ -66,6 +67,7 @@ export interface ItemRow {
     member_discount_bps: number | null;
     gift_amounts: string | null;
     staff_ids: string | null;
+    resource_ids: string | null;
     // a product offered while booking; its duration then lengthens the visit
     addon?: number;
 }
@@ -146,6 +148,7 @@ SELECT i.variant_parent_id, i.variant_label, i.id, i.kind, i.name, i.description
        i.session_count, i.validity_days, i.interval, i.frequency, i.tax_class,
        i.sku, i.cost_cents, i.track_stock, i.sell_online, i.stock_on_hand, i.low_stock_at,
        i.covers_item_id, i.visits_per_period, i.member_discount_bps, i.gift_amounts, i.staff_ids,
+       i.resource_ids,
        i.addon,
        (SELECT f.id FROM files f
         WHERE f.parent_type = 'item' AND f.parent_id = i.id AND f.purpose = 'image'
@@ -476,6 +479,7 @@ export interface ItemFormValues {
     memberDiscount: string;
     giftAmounts: number[];
     staffIds: string[];
+    resourceIds: string[];
     addon: boolean;
 }
 
@@ -489,6 +493,7 @@ const KIND_FIELDS: Record<string, ItemField[]> = {
         "onlineBookable",
         "depositType",
         "staffIds",
+        "resourceIds",
     ],
     class: [
         "duration",
@@ -499,6 +504,7 @@ const KIND_FIELDS: Record<string, ItemField[]> = {
         "onlineBookable",
         "depositType",
         "staffIds",
+        "resourceIds",
     ],
     product: ["sku", "cost", "trackStock", "lowStockAt", "sellOnline"],
     package: ["sessionCount", "validityDays", "coversItemId"],
@@ -559,6 +565,7 @@ function initialValues(item: ItemRow | null, kind: string): ItemFormValues {
             item?.member_discount_bps == null ? "" : decimal(item.member_discount_bps / 100),
         giftAmounts: item === null ? [] : giftAmounts(item),
         staffIds: idList(item?.staff_ids ?? null),
+        resourceIds: idList(item?.resource_ids ?? null),
         addon: item?.addon === 1,
     };
 }
@@ -643,6 +650,7 @@ export function itemPayload(v: ItemFormValues, creating: boolean): Record<string
             v.memberDiscount.trim() === "" ? null : Math.round(percentOf(v.memberDiscount) * 100);
     if (shown("giftAmounts")) body.gift_amounts = v.giftAmounts;
     if (shown("staffIds")) body.staff_ids = v.staffIds;
+    if (shown("resourceIds")) body.resource_ids = v.resourceIds;
     if (shown("sku")) body.sku = blankToNull(v.sku);
     if (shown("cost")) body.cost_cents = parseCents(v.cost, BUSINESS_CURRENCY);
     if (shown("trackStock")) body.track_stock = v.trackStock;
@@ -857,6 +865,8 @@ export interface ServiceEditor extends Taxed {
     isClass: boolean;
     // who performs it, picked from the team; null while there is only one member to pick
     offeredBy: OfferedBy | null;
+    // the rooms or equipment it needs one of; null while the business has none
+    needs: OfferedBy | null;
 }
 
 /** The service and class editor: the item form plus what it blocks on the calendar and the deposit in words. */
@@ -868,7 +878,9 @@ export function useServiceEditor(
 ): ServiceEditor {
     const form = useItemForm(api, item, kind, onDone);
     const team = useStaff();
+    const rooms = useResources();
     const listed = form.values.staffIds;
+    const needed = form.values.resourceIds;
     return {
         ...useTaxed(form),
         timing: itemTiming(form.values),
@@ -891,6 +903,28 @@ export function useServiceEditor(
                                   : listed.includes(key)
                                     ? listed.filter((x) => x !== key)
                                     : [...listed, key],
+                          );
+                      },
+                  },
+        needs:
+            rooms.length === 0 && needed.length === 0
+                ? null
+                : {
+                      options: [
+                          { key: "all", label: s.needsNothing },
+                          ...rooms
+                              .filter((r) => Boolean(r.active) || needed.includes(r.id))
+                              .map((r) => ({ key: r.id, label: r.name })),
+                      ],
+                      value: needed.length === 0 ? "all" : needed,
+                      pick: (key) => {
+                          form.set(
+                              "resourceIds",
+                              key === "all"
+                                  ? []
+                                  : needed.includes(key)
+                                    ? needed.filter((x) => x !== key)
+                                    : [...needed, key],
                           );
                       },
                   },

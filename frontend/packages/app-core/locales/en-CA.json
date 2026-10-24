@@ -249,6 +249,18 @@
     "api.crewBusy": {
         "message": "That team member is busy then, away or outside their hours. Choose someone else or another time."
     },
+    "api.resourceBusy": {
+        "message": "That room or piece of equipment is booked then. Choose another one or a different time."
+    },
+    "api.noResource": {
+        "message": "None of the rooms or equipment this service needs is free then. Choose a different time."
+    },
+    "api.resourceNotInPool": {
+        "message": "This service doesn't use that room or piece of equipment. Choose one it uses."
+    },
+    "api.resourceNameTaken": {
+        "message": "Another room or piece of equipment already has that name. Choose a different one."
+    },
     "api.crewMember": {
         "message": "That team member is already on this visit."
     },
@@ -3528,6 +3540,24 @@
     "bookings.problemCrew": {
         "message": "Someone on this visit's crew is busy then"
     },
+    "bookings.problemResource": {
+        "message": "None of the rooms or equipment this service needs is free then"
+    },
+    "bookings.resource": {
+        "message": "Room or equipment",
+        "description": "The label beside the room, table, car or equipment a visit holds"
+    },
+    "bookings.resourceChange": {
+        "message": "Change"
+    },
+    "bookings.resourceAll": {
+        "message": "All rooms and equipment",
+        "description": "The calendar filter showing every visit"
+    },
+    "bookings.resourceFilter": {
+        "message": "Room or equipment",
+        "description": "Names the calendar filter by room or equipment"
+    },
     "bookings.invoiceVisit": {
         "message": "Create invoice"
     },
@@ -4135,6 +4165,10 @@
         "message": "{n, plural, one {# day, on {first}} other {# days, {first} to {last}}}",
         "args": ["n", "first", "last"]
     },
+    "programs.rooms": {
+        "message": "{count, plural, one {Each day is held in {rooms}} other {Each day takes the first free of {rooms}}}",
+        "args": ["count", "rooms"]
+    },
     "programs.daysCount": {
         "message": "{n, plural, one {# day} other {# days}}",
         "args": ["n"]
@@ -4260,6 +4294,59 @@
     },
     "reminders.subtitle": {
         "message": "What clients hear before a visit, and closing visits when the day is over."
+    },
+    "resources.subtitle": {
+        "message": "The rooms, tables, cars and equipment your services need. A visit is booked only when one it needs is free."
+    },
+    "resources.add": {
+        "message": "Add room or equipment"
+    },
+    "resources.name": {
+        "message": "Name"
+    },
+    "resources.namePlaceholder": {
+        "message": "Room 1"
+    },
+    "resources.nameRequired": {
+        "message": "Enter a name."
+    },
+    "resources.save": {
+        "message": "Save"
+    },
+    "resources.rename": {
+        "message": "Rename"
+    },
+    "resources.turnOff": {
+        "message": "Turn off"
+    },
+    "resources.turnOn": {
+        "message": "Turn back on"
+    },
+    "resources.off": {
+        "message": "Turned off. It isn't offered for new visits."
+    },
+    "resources.upcoming": {
+        "message": "{count, plural, =0 {No upcoming visits} one {# upcoming visit} other {# upcoming visits}}",
+        "args": ["count"]
+    },
+    "resources.offUpcoming": {
+        "message": "Turned off. {count, plural, one {# upcoming visit still uses it} other {# upcoming visits still use it}} until moved.",
+        "args": ["count"]
+    },
+    "resources.empty": {
+        "message": "No rooms or equipment yet"
+    },
+    "resources.emptyHint": {
+        "message": "Add one when a service needs a free room, table or car as well as a free person."
+    },
+    "resources.loading": {
+        "message": "Loading rooms and equipment"
+    },
+    "resources.loadError": {
+        "message": "Rooms and equipment could not be loaded. Please try again."
+    },
+    "resources.saveError": {
+        "message": "That change could not be saved. Please try again."
     },
     "reminders.remindersTitle": {
         "message": "Reminders"
@@ -8485,6 +8572,16 @@
     },
     "catalog.offeredByHint": {
         "message": "Only the people chosen here can be booked for it, online and on the schedule."
+    },
+    "catalog.needs": {
+        "message": "Needs",
+        "description": "The rooms or equipment a service needs one of"
+    },
+    "catalog.needsNothing": {
+        "message": "Nothing"
+    },
+    "catalog.needsHint": {
+        "message": "A visit is booked only when one of the chosen rooms or equipment is free as well as the person."
     },
     "catalog.depositNone": {
         "message": "None"
@@ -13076,6 +13173,9 @@
     },
     "navigation.setupSections.services": {
         "message": "Services & products"
+    },
+    "navigation.setupSections.resources": {
+        "message": "Rooms & equipment"
     },
     "navigation.setupSections.team": {
         "message": "Team & hours"

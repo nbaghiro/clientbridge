@@ -59,6 +59,7 @@ import {
 import { canManagePayments } from "./payments";
 import { isPlace, mapsUrl, visitAddress } from "./publicBooking";
 import { type VisitReceipt, type VisitReceiptView, useVisitReceipt } from "./publicReceipt";
+import { type ResourceRow, activePool, resourceName, useResources } from "./resources";
 import { type StaffRow, staffName, useStaff } from "./staff";
 import {
     type SubjectKind,
@@ -95,6 +96,9 @@ export interface CalendarEvent {
     bufferAfterMin: number;
     // The members the service names as offering it; empty or absent means everyone.
     itemStaffIds?: readonly string[];
+    // The room or equipment the visit holds, and the pool its service takes one from.
+    resourceId?: string | null;
+    itemResourceIds?: readonly string[];
 }
 
 interface PositionedEvent {
@@ -241,6 +245,8 @@ interface EventRow {
     buffer_before_min: number;
     buffer_after_min: number;
     item_staff_ids: string | null;
+    resource_id: string | null;
+    item_resource_ids: string | null;
     booked_count: number;
     booking_id: string | null;
     booking_status: string | null;
@@ -273,9 +279,10 @@ export function slotOverlapSql(start: string, end: string): string {
 // One row per visit; a class session (capacity over one) is one row with its seats counted.
 export const EVENTS_SQL = `
 SELECT s.id AS slot_id, s.starts_at, s.ends_at, s.staff_id, s.capacity, s.status AS slot_status,
-       s.recurrence_id,
+       s.recurrence_id, s.resource_id,
        i.id AS item_id, i.name AS item_name, i.color AS item_color, i.price_cents AS item_price,
        i.buffer_before_min, i.buffer_after_min, i.staff_ids AS item_staff_ids,
+       i.resource_ids AS item_resource_ids,
        (SELECT COUNT(*) FROM bookings x WHERE x.slot_id = s.id
           AND x.status NOT IN ('canceled', 'waitlisted') AND x.deleted_at IS NULL) AS booked_count,
        b.id AS booking_id, b.status AS booking_status, b.client_id, c.name AS client_name,
@@ -324,6 +331,8 @@ function enrich(r: EventRow, staff: Map<string, StaffRow>, now: Date, zone: stri
         bufferBeforeMin: r.buffer_before_min,
         bufferAfterMin: r.buffer_after_min,
         itemStaffIds: idList(r.item_staff_ids),
+        resourceId: r.resource_id,
+        itemResourceIds: idList(r.item_resource_ids),
         priceCents: isClass ? r.item_price : (r.booking_price ?? r.item_price),
         serviceName: r.item_name,
         clientName: r.client_name,
@@ -567,7 +576,15 @@ export function buildAvailability(hours: HoursRow[], away: AwayRow[], zone: stri
 }
 
 type MoveProblem =
-    "overlap" | "off_hours" | "time_off" | "closed" | "past" | "full" | "not_offered" | null;
+    | "overlap"
+    | "off_hours"
+    | "time_off"
+    | "closed"
+    | "past"
+    | "full"
+    | "not_offered"
+    | "resource"
+    | null;
 
 /** The service being placed: its buffers widen the overlap check and a class with seats is joined. */
 export interface SlotItem {
@@ -577,26 +594,59 @@ export interface SlotItem {
     bufferAfterMin: number;
     // checked only when the member is new to the visit, so a kept visit can still be resized
     staffIds?: readonly string[];
+    // the pool's rooms still in service; empty or absent when the service needs none
+    resourceIds?: readonly string[];
 }
 
 export interface SlotTarget {
     item?: SlotItem | null;
+    // the room the visit already holds, which it keeps when it is free
+    hold?: string | null;
 }
 
-export const slotItemOf = (item: ItemRow): SlotItem => ({
+export const slotItemOf = (item: ItemRow, rooms?: readonly ResourceRow[]): SlotItem => ({
     id: item.id,
     capacity: item.capacity,
     bufferBeforeMin: item.buffer_before_min,
     bufferAfterMin: item.buffer_after_min,
     staffIds: idList(item.staff_ids),
+    resourceIds: rooms ? activePool(rooms, idList(item.resource_ids)) : [],
 });
 
-const eventItem = (e: CalendarEvent): SlotItem => ({
+const eventItem = (e: CalendarEvent, rooms?: readonly ResourceRow[]): SlotItem => ({
     id: e.itemId,
     capacity: e.capacity,
     bufferBeforeMin: e.bufferBeforeMin,
     bufferAfterMin: e.bufferAfterMin,
+    resourceIds: rooms ? activePool(rooms, e.itemResourceIds ?? []) : [],
 });
+
+/** The rooms free for the window in the order a booking would try them, held room first. */
+export function freeResources(
+    events: readonly CalendarEvent[],
+    candidates: readonly string[],
+    item: Pick<SlotItem, "bufferBeforeMin" | "bufferAfterMin">,
+    start: Date,
+    end: Date,
+    ignoreId: string | null,
+): string[] {
+    const from = start.getTime() - item.bufferBeforeMin * MIN;
+    const to = end.getTime() + item.bufferAfterMin * MIN;
+    const held = new Set(
+        events
+            .filter(
+                (e) =>
+                    e.id !== ignoreId &&
+                    e.status !== "canceled" &&
+                    e.resourceId !== null &&
+                    e.resourceId !== undefined &&
+                    e.start.getTime() - e.bufferBeforeMin * MIN < to &&
+                    e.end.getTime() + e.bufferAfterMin * MIN > from,
+            )
+            .map((e) => e.resourceId),
+    );
+    return [...new Set(candidates)].filter((id) => !held.has(id));
+}
 
 export interface MovePlan {
     start: Date;
@@ -665,6 +715,15 @@ export function slotProblem(
             !joinable(e),
     );
     if (clash) return { problem: "overlap", message: s.problemOverlap(who) };
+    const pool = item?.resourceIds ?? [];
+    const hold = target.hold ?? null;
+    if (
+        item !== null &&
+        pool.length > 0 &&
+        freeResources(events, hold === null ? pool : [hold, ...pool], item, start, end, ignoreId)
+            .length === 0
+    )
+        return { problem: "resource", message: s.problemResource };
     return { problem: null, message: "" };
 }
 
@@ -673,7 +732,12 @@ export function planMove(
     event: ScheduleEvent,
     deltaMin: number,
     staffId: string,
-    ctx: { avail: Availability; events: readonly CalendarEvent[]; staff: Map<string, StaffRow> },
+    ctx: {
+        avail: Availability;
+        events: readonly CalendarEvent[];
+        staff: Map<string, StaffRow>;
+        rooms?: readonly ResourceRow[];
+    },
     now: Date,
     mode: "move" | "resize" = "move",
 ): MovePlan {
@@ -691,9 +755,10 @@ export function planMove(
             ? { problem: "past" as const, message: s.problemPast }
             : slotProblem(ctx.avail, ctx.events, ctx.staff, staffId, start, end, event.id, {
                   item: {
-                      ...eventItem(event),
+                      ...eventItem(event, ctx.rooms),
                       staffIds: staffId === event.staffId ? [] : (event.itemStaffIds ?? []),
                   },
+                  hold: event.resourceId ?? null,
               });
     const message =
         found.problem !== null
@@ -745,6 +810,8 @@ function verdictMessage(v: ServerVerdict, who: string): string {
             return s.problemNotOffered(who);
         case "crew":
             return s.problemCrew;
+        case "resource":
+            return s.problemResource;
         default:
             return s.dropRefused;
     }
@@ -1171,6 +1238,11 @@ export interface ScheduleBoard {
     staff: Map<string, StaffRow>;
     // The members this viewer can book for and move visits to.
     actors: StaffRow[];
+    // The business's rooms and equipment, and the one the board is narrowed to ("" for all).
+    rooms: ResourceRow[];
+    resource: string;
+    setResource: (id: string) => void;
+    resourceOptions: { key: string; label: string }[] | null;
     load: Load;
 }
 
@@ -1194,6 +1266,8 @@ export function useScheduleBoard(
     const zone = useBusinessZone();
     const [anchor, setAnchor] = useState(() => startOfDay(new Date(), zone));
     const [selectedId, select] = useState<string | null>(null);
+    const [resource, setResource] = useState("");
+    const rooms = useResources();
     const weekStart = startOfWeek(anchor, zone);
     const weekEnd = addDays(weekStart, 7, zone);
     const raw = useScheduleEvents(weekStart, weekEnd);
@@ -1210,8 +1284,10 @@ export function useScheduleBoard(
         () => markMoves(applyPending(raw.events, pending, zone), away, now),
         [raw.events, pending, zone, away, now],
     );
-    const dayEvents = weekEvents.filter((e) => sameDay(e.start, anchor, zone));
-    const lanes = members.map((m) => laneFor(m, anchor, weekEvents, avail));
+    const shown =
+        resource === "" ? weekEvents : weekEvents.filter((e) => e.resourceId === resource);
+    const dayEvents = shown.filter((e) => sameDay(e.start, anchor, zone));
+    const lanes = members.map((m) => laneFor(m, anchor, shown, avail));
     const closure = avail.isClosed(anchor);
     const focus: DayColumn = {
         date: anchor,
@@ -1261,6 +1337,16 @@ export function useScheduleBoard(
         avail,
         staff: staff.byId,
         actors: members,
+        rooms,
+        resource,
+        setResource,
+        resourceOptions:
+            rooms.length === 0
+                ? null
+                : [
+                      { key: "", label: s.resourceAll },
+                      ...rooms.map((r) => ({ key: r.id, label: r.name })),
+                  ],
         load,
     };
 }
@@ -1897,6 +1983,8 @@ export interface BookingComposer {
     staffId: string;
     setStaffId: (id: string) => void;
     staffOptions: { id: string; name: string; free: boolean; media: OptionMedia }[];
+    // the room the visit takes and the free ones it could take instead; null when none is needed
+    resource: ResourcePicker | null;
     day: string;
     setDay: (key: string) => void;
     time: string;
@@ -1929,6 +2017,13 @@ export interface BookingComposer {
     draft: BookingDraft | null;
     // moves the draft to a member and start, snapped to the quarter hour the time menu offers
     place: (staffId: string, at: Date) => void;
+}
+
+interface ResourcePicker {
+    label: string;
+    options: { key: string; label: string }[];
+    value: string;
+    pick: (id: string) => void;
 }
 
 export interface BookingDraft {
@@ -2109,7 +2204,9 @@ export function useBookingComposer(
         )
         .slice(0, 6);
     const now = new Date();
-    const target = { item: item === null ? null : slotItemOf(item) };
+    const rooms = useResources();
+    const [resourceId, setResourceId] = useState("");
+    const target = { item: item === null ? null : slotItemOf(item, rooms) };
     const check = (who: string, at = start): { problem: MoveProblem; message: string } =>
         at < now
             ? { problem: "past", message: s.problemPast }
@@ -2146,6 +2243,7 @@ export function useBookingComposer(
         setClientId(null);
         setSubjectId("");
         setItemId("");
+        setResourceId("");
         setRepeat(false);
         setNote("");
         setNotify(true);
@@ -2206,6 +2304,10 @@ export function useBookingComposer(
     const booking = estimate !== null && client?.id === estimate.client_id;
     const verdict = check(staffId);
     const problem = item !== null && verdict.problem !== null ? verdict.message : null;
+    const pool = target.item?.resourceIds ?? [];
+    const free =
+        target.item === null ? [] : freeResources(events, pool, target.item, start, end, null);
+    const room = free.includes(resourceId) ? resourceId : (free[0] ?? "");
     const deposit = depositOf(item);
     const member = staff.get(staffId);
     const subjectName = allSubjects.find((p) => p.id === subjectId)?.name ?? null;
@@ -2242,6 +2344,18 @@ export function useBookingComposer(
                 free: check(x.id).problem === null,
                 media: personMedia(staffName(x), x.color, photos.staff(x.id)),
             })),
+        resource:
+            pool.length === 0 || free.length === 0
+                ? null
+                : {
+                      label: s.resource,
+                      options: free.map((id) => ({
+                          key: id,
+                          label: resourceName(rooms, id) ?? id,
+                      })),
+                      value: room,
+                      pick: setResourceId,
+                  },
         day,
         setDay,
         time,
@@ -2280,6 +2394,7 @@ export function useBookingComposer(
                 staff_id: staffId,
                 starts_at: start.toISOString(),
                 ...(booking ? { estimate_id: estimateId } : {}),
+                ...(room !== "" && !repeat ? { resource_id: room } : {}),
             };
             const idempotencyKey = attemptKey(key, { body, repeat, every, count, notify, note });
             let skipped = 0;
@@ -2415,7 +2530,8 @@ export function useReschedule(
     const avail = useAvailability(weekStart, weekEnd);
     const staff = useActiveStaff();
     const length = (event.end.getTime() - event.start.getTime()) / MIN;
-    const ctx = { avail, events: week.events, staff: staff.byId };
+    const rooms = useResources();
+    const ctx = { avail, events: week.events, staff: staff.byId, rooms };
     const slots = openStarts(avail, staffId, date, length, USUAL_DAY)
         .filter((at) => at >= now)
         .map((at) => {
@@ -2945,5 +3061,61 @@ export function useCrewJob(
                   },
         loading: remote.isLoading && id !== "",
         error: remote.error === null ? null : s.crewLoadError,
+    };
+}
+
+interface VisitResource {
+    label: string;
+    name: string | null;
+    // the visit's room and the free ones it can switch to; null when it can't be changed
+    picker: ResourcePicker | null;
+    busy: boolean;
+    error: string | null;
+}
+
+/** The room or equipment a visit holds, and a change to another one free at the same time. */
+export function useVisitResource(api: ApiLike, event: ScheduleEvent | null): VisitResource | null {
+    const zone = useBusinessZone();
+    const rooms = useResources();
+    const day = startOfDay(event?.start ?? new Date(), zone);
+    const { events } = useScheduleEvents(day, addDays(day, 1, zone));
+    const { busy, error, run } = useAsyncAction();
+    if (event === null) return null;
+    const pool = activePool(rooms, event.itemResourceIds ?? []);
+    const held = event.resourceId ?? null;
+    if (held === null && pool.length === 0) return null;
+    const item = { bufferBeforeMin: event.bufferBeforeMin, bufferAfterMin: event.bufferAfterMin };
+    const free = freeResources(
+        events,
+        held === null ? pool : [held, ...pool],
+        item,
+        event.start,
+        event.end,
+        event.id,
+    );
+    const bookingId = event.bookingId;
+    const open = event.status === "pending" || event.status === "confirmed";
+    return {
+        label: s.resource,
+        name: resourceName(rooms, held),
+        picker:
+            bookingId === null || !open || free.length === 0
+                ? null
+                : {
+                      label: s.resourceChange,
+                      options: free.map((id) => ({
+                          key: id,
+                          label: resourceName(rooms, id) ?? id,
+                      })),
+                      value: held ?? "",
+                      pick: (id) => {
+                          if (id === held) return;
+                          run(() => api.patch(`/v1/bookings/${bookingId}`, { resource_id: id }), {
+                              errorMessage: moveFailure,
+                          });
+                      },
+                  },
+        busy,
+        error,
     };
 }
