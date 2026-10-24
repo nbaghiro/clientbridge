@@ -125,7 +125,7 @@ function ProgramDetail({ board }: { board: Board }) {
                 options={board.days.map((d) => ({
                     key: d.slotId,
                     label: d.label,
-                    hint: d.seatsLabel,
+                    hint: formatParts([d.seatsLabel, d.room]),
                 }))}
                 value={day?.slotId ?? null}
                 onChange={board.selectDay}

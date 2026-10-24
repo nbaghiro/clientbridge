@@ -66,6 +66,9 @@ export function ProgramForm({
                     <div className="rounded-md border border-line bg-bg px-4 py-3">
                         <p className="text-sm font-medium text-ink">{f.summary}</p>
                         <p className="mt-1 text-xs text-muted">{f.preview}</p>
+                        {f.rooms !== null ? (
+                            <p className="mt-1 text-xs text-muted">{f.rooms}</p>
+                        ) : null}
                     </div>
                 ) : null}
                 {f.blocker !== null ? <p className="text-sm text-muted">{f.blocker}</p> : null}

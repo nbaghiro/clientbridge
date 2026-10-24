@@ -29,6 +29,7 @@ import {
     LoadFailed,
     Modal,
     Notice,
+    Select,
     Skeleton,
 } from "@clientbridge/ui";
 import { type PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from "react";
@@ -188,14 +189,27 @@ export function Schedule() {
         <ScheduleFrame
             active="board"
             actions={
-                <Button
-                    icon="plus"
-                    onPress={() => {
-                        openNew();
-                    }}
-                >
-                    {s.newBooking}
-                </Button>
+                <div className="flex items-center gap-3">
+                    {board.resourceOptions !== null ? (
+                        <Select
+                            name={s.resourceFilter}
+                            size="sm"
+                            width="auto"
+                            surface="surface"
+                            value={board.resource}
+                            options={board.resourceOptions}
+                            onChange={board.setResource}
+                        />
+                    ) : null}
+                    <Button
+                        icon="plus"
+                        onPress={() => {
+                            openNew();
+                        }}
+                    >
+                        {s.newBooking}
+                    </Button>
+                </div>
             }
         >
             <div

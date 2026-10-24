@@ -401,7 +401,12 @@ export function useGridDrag({
         mode: "move" | "resize";
     } | null>(null);
     const justDragged = useRef(false);
-    const ctx = { avail: board.avail, events: board.weekEvents, staff: board.staff };
+    const ctx = {
+        avail: board.avail,
+        events: board.weekEvents,
+        staff: board.staff,
+        rooms: board.rooms,
+    };
 
     const compute = (
         event: ScheduleEvent,

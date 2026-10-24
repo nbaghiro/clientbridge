@@ -211,6 +211,18 @@ function ServiceFields({ ed }: { ed: ServiceEditor }) {
                         <Text style={styles.hint}>{s.offeredByHint}</Text>
                     </>
                 ) : null}
+                {ed.needs !== null ? (
+                    <>
+                        <Text style={styles.label}>{s.needs}</Text>
+                        <Choice
+                            label={s.needs}
+                            options={ed.needs.options}
+                            value={ed.needs.value}
+                            onChange={ed.needs.pick}
+                        />
+                        <Text style={styles.hint}>{s.needsHint}</Text>
+                    </>
+                ) : null}
             </DetailSection>
             <DetailSection title={s.sectionDeposit}>
                 <View style={styles.gap}>

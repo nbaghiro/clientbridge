@@ -63,6 +63,7 @@ export function ProgramForm({
                     <View style={styles.preview}>
                         <Text style={styles.summary}>{f.summary}</Text>
                         <Text style={styles.muted}>{f.preview}</Text>
+                        {f.rooms !== null ? <Text style={styles.muted}>{f.rooms}</Text> : null}
                     </View>
                 ) : null}
                 {f.blocker !== null ? <Text style={styles.muted}>{f.blocker}</Text> : null}

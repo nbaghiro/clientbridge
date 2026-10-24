@@ -61,6 +61,7 @@ import { ClassesScreen } from "./src/screens/Classes";
 import { OnlineBookingScreen } from "./src/screens/OnlineBooking";
 import { RecurrencesScreen } from "./src/screens/Recurrences";
 import { RemindersScreen } from "./src/screens/Reminders";
+import { ResourcesScreen } from "./src/screens/Resources";
 import { SecurityScreen } from "./src/screens/Security";
 
 configureStripe(stripePublishableKey);
@@ -349,6 +350,13 @@ function AuthedApp({ onSignOut }: { onSignOut: () => void }) {
                                         component={RemindersScreen}
                                         options={{
                                             title: strings.navigation.setupSections.reminders,
+                                        }}
+                                    />
+                                    <RootStack.Screen
+                                        name="Resources"
+                                        component={ResourcesScreen}
+                                        options={{
+                                            title: strings.navigation.setupSections.resources,
                                         }}
                                     />
                                     <RootStack.Screen

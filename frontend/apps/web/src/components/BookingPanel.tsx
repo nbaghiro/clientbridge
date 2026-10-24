@@ -11,6 +11,7 @@ import {
     strings,
     useBookingAddons,
     useBookingCrew,
+    useVisitResource,
     useBookingPhotos,
     useDeparture,
     usePeoplePhotos,
@@ -123,6 +124,27 @@ function BookingFacts({ detail, layout }: { detail: BookingDetail; layout: "inli
                     : []),
             ]}
         />
+    );
+}
+
+function BookingResource({ event }: { event: ScheduleEvent }) {
+    const room = useVisitResource(api, event);
+    if (room === null) return null;
+    return (
+        <DetailSection title={room.label}>
+            {room.picker !== null ? (
+                <Select
+                    label={room.picker.label}
+                    options={room.picker.options}
+                    value={room.picker.value}
+                    onChange={room.picker.pick}
+                    disabled={room.busy}
+                />
+            ) : (
+                <p className="text-sm text-ink">{room.name ?? s.problemResource}</p>
+            )}
+            {room.error !== null ? <Notice tone="danger">{room.error}</Notice> : null}
+        </DetailSection>
     );
 }
 
@@ -825,6 +847,7 @@ export function BookingBody({
             <div className={`rounded-md border border-line bg-bg px-4 ${narrow ? "py-3" : "py-1"}`}>
                 <BookingFacts detail={detail} layout={narrow ? "stack" : "inline"} />
             </div>
+            <BookingResource key={`room:${detail.event.id}`} event={detail.event} />
             <Departure event={detail.event} />
             <CheckInCard key={detail.event.id} event={detail.event} />
             <DepositDue event={detail.event} />

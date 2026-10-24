@@ -8,6 +8,7 @@ import { GetSetUp } from "../components/GetSetUp";
 import { Business } from "./Business";
 import { OnlineBooking } from "./OnlineBooking";
 import { Reminders } from "./Reminders";
+import { Resources } from "./Resources";
 import { Security } from "./Security";
 import { Catalog } from "./Catalog";
 import { GettingPaid } from "./GettingPaid";
@@ -21,6 +22,7 @@ const SETUP_SLUGS: Record<SetupSectionKey, string> = {
     start: "start",
     business: "business",
     services: "services",
+    resources: "rooms-and-equipment",
     team: "team",
     gettingPaid: "getting-paid",
     plan: "plan",
@@ -40,6 +42,8 @@ function sectionBody(key: SetupSectionKey): ReactElement {
             return <Taxes />;
         case "services":
             return <Catalog />;
+        case "resources":
+            return <Resources />;
         case "team":
             return (
                 <div className="space-y-10">

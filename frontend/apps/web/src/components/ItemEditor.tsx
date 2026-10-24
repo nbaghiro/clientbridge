@@ -214,6 +214,18 @@ function ServiceFields({ ed }: { ed: ServiceEditor }) {
                             <p className="text-xs text-muted">{s.offeredByHint}</p>
                         </div>
                     ) : null}
+                    {ed.needs !== null ? (
+                        <div className="space-y-2">
+                            <p className="text-sm font-medium text-ink">{s.needs}</p>
+                            <Choice
+                                label={s.needs}
+                                options={ed.needs.options}
+                                value={ed.needs.value}
+                                onChange={ed.needs.pick}
+                            />
+                            <p className="text-xs text-muted">{s.needsHint}</p>
+                        </div>
+                    ) : null}
                 </div>
             </DetailSection>
             <DetailSection title={s.sectionDeposit}>

@@ -15,6 +15,7 @@ import {
     useAsyncAction,
     useBookingAddons,
     useBookingCrew,
+    useVisitResource,
     useBookingPhotos,
     useDeparture,
     usePeoplePhotos,
@@ -399,6 +400,27 @@ function Addons({ event }: { event: ScheduleEvent }) {
     );
 }
 
+function Room({ event }: { event: ScheduleEvent }) {
+    const room = useVisitResource(api, event);
+    if (room === null) return null;
+    return (
+        <DetailSection title={room.label}>
+            {room.picker !== null ? (
+                <Select
+                    label={room.picker.label}
+                    options={room.picker.options}
+                    value={room.picker.value}
+                    onChange={room.picker.pick}
+                    disabled={room.busy}
+                />
+            ) : (
+                <Text style={styles.addon}>{room.name ?? s.problemResource}</Text>
+            )}
+            {room.error !== null ? <Notice tone="danger">{room.error}</Notice> : null}
+        </DetailSection>
+    );
+}
+
 function Crew({ event }: { event: ScheduleEvent }) {
     const crew = useBookingCrew(api, event, useViewer());
     if (!crew.shown) return null;
@@ -658,6 +680,7 @@ export function BookingBody({ detail }: { detail: BookingDetail }) {
                     ) : null}
                 </DetailSection>
             ) : null}
+            <Room key={`room:${e.id}`} event={e} />
             {e.bookingId !== null ? <Photos event={e} /> : null}
             {e.bookingId !== null ? <Addons event={e} /> : null}
             {e.bookingId !== null ? <Crew key={e.bookingId} event={e} /> : null}
@@ -1091,6 +1114,15 @@ export function BookingComposerSheet({
                                 value={form.staffId}
                                 onChange={form.setStaffId}
                             />
+
+                            {form.resource !== null ? (
+                                <Select
+                                    label={form.resource.label}
+                                    value={form.resource.value}
+                                    options={form.resource.options}
+                                    onChange={form.resource.pick}
+                                />
+                            ) : null}
 
                             <Text style={styles.label}>{s.composerDate}</Text>
                             <DateStrip

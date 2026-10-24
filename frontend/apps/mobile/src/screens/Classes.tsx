@@ -119,7 +119,7 @@ export function ClassesScreen() {
                         options={board.sessions.map((x) => ({
                             key: x.slotId,
                             label: formatParts([x.day, x.name]),
-                            hint: formatParts([x.time, x.seatsLabel]),
+                            hint: formatParts([x.time, x.seatsLabel, x.room]),
                         }))}
                         value={board.selected}
                         onChange={board.select}

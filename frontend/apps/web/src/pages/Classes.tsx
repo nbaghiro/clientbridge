@@ -281,6 +281,9 @@ function SessionRow({ x, on, onPress }: { x: ClassSession; on: boolean; onPress:
                 >
                     {x.seatsLabel}
                 </span>
+                {x.room !== null ? (
+                    <span className="mt-0.5 block text-xs text-muted">{x.room}</span>
+                ) : null}
             </span>
         </button>
     );

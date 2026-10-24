@@ -44,6 +44,7 @@ import {
     LoadFailed,
     Modal,
     Notice,
+    Select,
     Skeleton,
 } from "@clientbridge/ui";
 import { type RouteProp, useNavigation, useRoute } from "@react-navigation/native";
@@ -172,6 +173,17 @@ export function ScheduleScreen() {
                     {s.newShort}
                 </Button>
             </View>
+            {board.resourceOptions !== null ? (
+                <View style={styles.strip}>
+                    <Select
+                        name={s.resourceFilter}
+                        size="sm"
+                        value={board.resource}
+                        options={board.resourceOptions}
+                        onChange={board.setResource}
+                    />
+                </View>
+            ) : null}
             <View style={styles.strip}>
                 <DateStrip
                     label={s.railJump}
