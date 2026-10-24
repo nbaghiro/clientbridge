@@ -32,6 +32,7 @@ class ProgramSession(Mirror):
     starts_at: datetime
     ends_at: datetime
     capacity: int
+    resource_id: str | None = Field(default=None, description="The room the session holds")
 
 
 class ProgramOut(Mirror):

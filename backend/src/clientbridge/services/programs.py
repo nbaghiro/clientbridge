@@ -45,12 +45,14 @@ from clientbridge.services.business import business_tz, load_staff
 from clientbridge.services.catalog import assert_offers, deposit_cents, load_item
 from clientbridge.services.clients import load_client
 from clientbridge.services.payments import cancel_open_deposits, refund_deposit
+from clientbridge.services.resources import choose_resource, lock_resources, lost_race
 
 _CLASS_ONLY = "a schedule lays out the sessions of a class"
 _DAYS = "a program's schedule holds one session for each of its days"
 _TOO_LONG = f"a schedule can hold at most {MAX_OCCURRENCES} sessions; end it sooner"
 _STARTED = "a schedule starts in the future"
 _BUSY = "the instructor is away, off or already booked on one of those days"
+_NO_ROOM = "none of the class's rooms or equipment is free on one of those days"
 _NOT_PROGRAM = "only a class with a number of days is enrolled in as a whole"
 _ENDED = "this schedule isn't taking enrolments"
 _OVER = "this program has no sessions left"
@@ -192,6 +194,8 @@ class ProgramService:
 
         async def run(cmd: Command) -> ProgramOut:
             await lock_staff(self.db, self.biz, data.staff_id)
+            await lock_resources(self.db, self.biz, *item.resource_ids)
+            rooms: list[str | None] = []
             for start in starts:
                 problem = await slot_problem(
                     self.db, self.biz, item, data.staff_id, start, start + length
@@ -199,8 +203,17 @@ class ProgramService:
                 taken = await open_class_slot(self.db, self.biz, item.id, data.staff_id, start)
                 if problem is not None or taken is not None:
                     raise Conflict(
-                        _BUSY, code="schedule_conflict", detail={"starts_at": start.isoformat()}
+                        _BUSY,
+                        code="schedule_conflict",
+                        detail={
+                            "starts_at": start.isoformat(),
+                            "problem": problem.problem if problem else "overlap",
+                        },
                     )
+                choice = await choose_resource(self.db, self.biz, item, start, start + length)
+                if choice.refusal is not None:
+                    raise _no_room(start)
+                rooms.append(choice.held)
             program = Recurrence(
                 id=new_id("recurrence"),
                 business_id=self.biz,
@@ -222,18 +235,19 @@ class ProgramService:
                     item_id=item.id,
                     staff_id=data.staff_id,
                     recurrence_id=program.id,
+                    resource_id=room,
                     starts_at=start,
                     ends_at=start + length,
                     capacity=item.capacity or 1,
                     status="scheduled",
                 )
-                for start in starts
+                for start, room in zip(starts, rooms, strict=True)
             ]
             self.db.add_all(slots)
             try:
                 await self.db.flush()
             except IntegrityError as exc:
-                raise Conflict(OVERLAP, code="schedule_conflict") from exc
+                raise lost_race(exc, Conflict(OVERLAP, code="schedule_conflict")) from exc
             cmd.record("program.create", entity_type="recurrence", entity_id=program.id)
             return _out(program, slots)
 
@@ -385,6 +399,14 @@ class ProgramService:
         return program
 
 
+def _no_room(start: datetime) -> Conflict:
+    return Conflict(
+        _NO_ROOM,
+        code="schedule_conflict",
+        detail={"starts_at": start.isoformat(), "problem": "resource"},
+    )
+
+
 def _out(program: Recurrence, slots: Sequence[Slot]) -> ProgramOut:
     return ProgramOut(
         id=program.id,
@@ -394,7 +416,11 @@ def _out(program: Recurrence, slots: Sequence[Slot]) -> ProgramOut:
         status=program.status,
         sessions=[
             ProgramSession(
-                slot_id=s.id, starts_at=s.starts_at, ends_at=s.ends_at, capacity=s.capacity
+                slot_id=s.id,
+                starts_at=s.starts_at,
+                ends_at=s.ends_at,
+                capacity=s.capacity,
+                resource_id=s.resource_id,
             )
             for s in slots
         ],

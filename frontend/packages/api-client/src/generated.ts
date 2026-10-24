@@ -7812,6 +7812,11 @@ export interface components {
             ends_at: string;
             /** Capacity */
             capacity: number;
+            /**
+             * Resource Id
+             * @description The room the session holds
+             */
+            resource_id?: string | null;
         };
         /** ProvincialReport */
         ProvincialReport: {
