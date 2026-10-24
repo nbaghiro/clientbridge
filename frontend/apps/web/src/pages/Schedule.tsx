@@ -18,6 +18,7 @@ import {
     useBusinessZone,
     minutesInto,
     dateKey,
+    draftWindow,
     suggestedStart,
 } from "@clientbridge/app-core";
 import {
@@ -70,9 +71,6 @@ export function Schedule() {
     const board = useScheduleBoard(viewer, mover);
     const wide = useWide();
     const day = board.focus;
-    const { startHour, endHour } = board.window;
-    const [gridRef, hourPx] = useHourHeight(endHour - startHour);
-    const pxPerMin = hourPx / 60;
     const lanesRef = useRef<HTMLDivElement>(null);
     const [composer, setComposer] = useState<ComposerSlot | null>(null);
     const [hover, setHover] = useState<{ lane: string; min: number } | null>(null);
@@ -87,6 +85,14 @@ export function Schedule() {
     const draft = form.draft;
     const draftLane = draft === null ? -1 : day.lanes.findIndex((l) => l.id === draft.staffId);
     const showDraft = draft !== null && draftLane >= 0 && dateKey(draft.start, zone) === day.key;
+    const { startHour, endHour } = draftWindow(
+        board.window,
+        showDraft ? draft : null,
+        day.date,
+        zone,
+    );
+    const [gridRef, hourPx] = useHourHeight(endHour - startHour);
+    const pxPerMin = hourPx / 60;
     const laneWidth = (): number =>
         (lanesRef.current?.clientWidth ?? 0) / Math.max(1, day.lanes.length);
     const grid = useGridDrag({
@@ -113,7 +119,7 @@ export function Schedule() {
         board.select(null);
         setComposer({
             staffId: first?.id ?? viewer?.staffId ?? "",
-            start: suggestedStart(day.date, board.now, zone),
+            start: suggestedStart(day.date, board.now, board.window, zone),
             ...from,
         });
     };

@@ -1416,6 +1416,21 @@ export function visibleWindow(
     return startHour < endHour ? { startHour, endHour } : { startHour: 9, endHour: 17 };
 }
 
+/** The board's hours, widened to take in a draft that sits outside them on that day. */
+export function draftWindow(
+    window: VisibleWindow,
+    draft: { start: Date; end: Date } | null,
+    day: Date,
+    zone: string,
+): VisibleWindow {
+    if (draft === null) return window;
+    const shown = {
+        start: minutesInto(day, window.startHour * 60, zone),
+        end: minutesInto(day, window.endHour * 60, zone),
+    };
+    return visibleWindow(day, [shown, draft], zone);
+}
+
 /** A block's place in the visible window, in pixels from its top, or null when it falls outside. */
 export function blockSpan(
     block: ScheduleBlock,
@@ -2129,10 +2144,14 @@ export function draftFollows(
     return focus !== was.focus ? "form" : null;
 }
 
-/** Where New booking first puts the visit: the next quarter hour on today, otherwise ten in the morning. */
-export function suggestedStart(day: Date, now: Date, zone: string): Date {
-    if (!sameDay(day, now, zone)) return minutesInto(day, 10 * 60, zone);
-    return new Date(Math.ceil(+now / (15 * MIN)) * 15 * MIN);
+/** Where New booking first puts the visit: the next quarter hour on today, otherwise ten in the morning, never before the board's first hour. */
+export function suggestedStart(day: Date, now: Date, window: VisibleWindow, zone: string): Date {
+    const opens = minutesInto(day, window.startHour * 60, zone);
+    const lastQuarter = minutesInto(day, 24 * 60 - 15, zone);
+    const wanted = sameDay(day, now, zone)
+        ? new Date(Math.min(Math.ceil(+now / (15 * MIN)) * 15 * MIN, +lastQuarter))
+        : minutesInto(day, 10 * 60, zone);
+    return wanted < opens ? opens : wanted;
 }
 
 /** The nearest quarter hour, the steps the composer's time menu offers. */

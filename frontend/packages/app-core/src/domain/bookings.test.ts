@@ -33,6 +33,7 @@ import {
     slotProblem,
     upNext,
     visibleWindow,
+    draftWindow,
     draftFollows,
     suggestedStart,
     toQuarterHour,
@@ -550,6 +551,20 @@ describe("the day board", () => {
         expect(visibleWindow(DAY, [], ZONE)).toEqual({ startHour: 9, endHour: 17 });
     });
 
+    it("widens the board's hours to show a draft outside them", () => {
+        const window = { startHour: 9, endHour: 17 };
+        expect(draftWindow(window, null, DAY, ZONE)).toEqual(window);
+        expect(draftWindow(window, { start: at(10), end: at(11) }, DAY, ZONE)).toEqual(window);
+        expect(draftWindow(window, { start: at(5, 15), end: at(6, 15) }, DAY, ZONE)).toEqual({
+            startHour: 5,
+            endHour: 17,
+        });
+        expect(draftWindow(window, { start: at(18, 15), end: at(19, 15) }, DAY, ZONE)).toEqual({
+            startHour: 9,
+            endHour: 20,
+        });
+    });
+
     it("builds a lane's hours, time booked and what is left after breaks and time off", () => {
         const events = [
             event("a", at(10), at(11)),
@@ -875,13 +890,35 @@ describe("suggestedStart", () => {
     const zone = "America/Vancouver";
     const now = new Date("2026-10-21T17:02:00Z");
 
+    const window = { startHour: 9, endHour: 17 };
+
     it("offers the next quarter hour on today", () => {
-        expect(suggestedStart(now, now, zone).toISOString()).toBe("2026-10-21T17:15:00.000Z");
+        expect(suggestedStart(now, now, window, zone).toISOString()).toBe(
+            "2026-10-21T17:15:00.000Z",
+        );
     });
 
     it("offers ten in the morning on another day", () => {
-        expect(suggestedStart(addDays(now, 1, zone), now, zone).toISOString()).toBe(
+        expect(suggestedStart(addDays(now, 1, zone), now, window, zone).toISOString()).toBe(
             "2026-10-22T17:00:00.000Z",
+        );
+    });
+
+    it("waits for the board's first hour before the day opens", () => {
+        const early = new Date("2026-10-21T12:05:00Z");
+        expect(suggestedStart(early, early, window, zone).toISOString()).toBe(
+            "2026-10-21T16:00:00.000Z",
+        );
+        const late = { startHour: 11, endHour: 19 };
+        expect(suggestedStart(addDays(now, 1, zone), now, late, zone).toISOString()).toBe(
+            "2026-10-22T18:00:00.000Z",
+        );
+    });
+
+    it("keeps a late evening start on today", () => {
+        const late = new Date("2026-10-22T06:55:00Z");
+        expect(suggestedStart(late, late, window, zone).toISOString()).toBe(
+            "2026-10-22T06:45:00.000Z",
         );
     });
 });

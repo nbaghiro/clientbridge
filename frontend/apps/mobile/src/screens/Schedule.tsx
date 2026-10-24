@@ -3,6 +3,7 @@ import {
     type ComposerSlot,
     addDays,
     dateKey,
+    draftWindow,
     suggestedStart,
     arrivalLabel,
     blockSpan,
@@ -78,7 +79,6 @@ export function ScheduleScreen() {
     const route = useRoute<RouteProp<TabParamList, "Schedule">>();
     const board = useScheduleBoard(viewer);
     const day = board.focus;
-    const { startHour, endHour } = board.window;
     const detail = useBookingDetail(board.selected, board.now);
     const actions = useBookingActions(api, detail?.event ?? null, board.now);
     const [composer, setComposer] = useState<ComposerSlot | null>(null);
@@ -92,6 +92,12 @@ export function ScheduleScreen() {
     const draft = form.draft;
     const draftLane = draft === null ? -1 : day.lanes.findIndex((l) => l.id === draft.staffId);
     const showDraft = draft !== null && draftLane >= 0 && dateKey(draft.start, zone) === day.key;
+    const { startHour, endHour } = draftWindow(
+        board.window,
+        showDraft ? draft : null,
+        day.date,
+        zone,
+    );
     const draftTop = draft === null ? 0 : minuteTop(draft.start, startHour, PX, zone);
     const [moving, setMoving] = useState(false);
     const hours = hourMarks(startHour, endHour);
@@ -103,7 +109,7 @@ export function ScheduleScreen() {
         setExpanded(true);
         setComposer({
             staffId: first?.id ?? viewer?.staffId ?? "",
-            start: suggestedStart(day.date, board.now, zone),
+            start: suggestedStart(day.date, board.now, board.window, zone),
             ...from,
         });
     };
