@@ -64,7 +64,7 @@ def cloud_stack() -> None:
         if above is not None:
             dns.delegate(zones[above.name], zones[env.name], env.base_domain)
     certificate_map = certificates.create(zones, stack.environments)
-    pushes = firebase.create(stack.project, stack.environments)
+    pushes = firebase.create(stack.project, stack.environments, stack.signing_certs)
     publisher = firebase.play_publisher()
     github.create(
         stack.github_repository,

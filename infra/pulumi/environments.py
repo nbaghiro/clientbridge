@@ -182,6 +182,8 @@ class Cloud:
     # the environments this project runs; production joins with one config change
     environments: tuple[Environment, ...]
     mail_records: dict[str, tuple[Record, ...]]  # by environment name
+    # SHA-1 of each environment's Android signing certificates, the only apps its push key serves
+    signing_certs: dict[str, tuple[str, ...]]
     state_bucket: str  # the Pulumi state bucket and KMS key the bootstrap created
     state_key: str
     github_reviewer: str  # the GitHub user who approves production deploys
@@ -214,10 +216,39 @@ def load_cloud() -> Cloud:
         budget_currency=config.require("budgetCurrency"),
         environments=envs,
         mail_records=mail_records(config.get_object("mailRecords") or {}, every, envs),
+        signing_certs=signing_certs(config.get_object("androidSigningCerts") or {}, every, envs),
         state_bucket=config.require("stateBucket"),
         state_key=config.require("stateKey"),
         github_reviewer=config.require("githubReviewer"),
     )
+
+
+SHA1_FINGERPRINT = re.compile(r"([0-9A-F]{2}:){19}[0-9A-F]{2}")
+
+
+def signing_certs(
+    raw: object, every: tuple[Environment, ...], envs: tuple[Environment, ...]
+) -> dict[str, tuple[str, ...]]:
+    if not isinstance(raw, dict):
+        raise ValueError("clientbridge:androidSigningCerts must map an environment name to a list")
+    unknown = {str(key) for key in raw} - {env.name for env in every}
+    if unknown:
+        raise ValueError(
+            f"clientbridge:androidSigningCerts names no environment: {sorted(unknown)}"
+        )
+    parsed: dict[str, tuple[str, ...]] = {}
+    for env in envs:
+        entries = raw.get(env.name) or []
+        if not isinstance(entries, list):
+            raise ValueError(f"clientbridge:androidSigningCerts.{env.name} must be a list")
+        certs = tuple(str(each).upper() for each in entries)
+        bad = [each for each in certs if not SHA1_FINGERPRINT.fullmatch(each)]
+        if bad:
+            raise ValueError(
+                f"clientbridge:androidSigningCerts.{env.name} holds no SHA-1 fingerprint: {bad}"
+            )
+        parsed[env.name] = certs
+    return parsed
 
 
 def mail_records(

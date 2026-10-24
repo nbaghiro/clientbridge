@@ -18,7 +18,7 @@ from pulumi.runtime.settings import get_root_resource
 from pulumi.runtime.stack import Stack
 
 import environments
-from cloud import cluster, database, identity, services
+from cloud import cluster, database, firebase, identity, services
 from environments import HOSTS
 from kubernetes import settings
 
@@ -95,6 +95,8 @@ class Fakes(mocks.Mocks):
                 state["id"] = f"projects/project/secrets/{args.inputs['secretId']}"
             case "gcp:storage/bucket:Bucket":
                 state["name"] = args.inputs["name"]
+            case "gcp:projects/apiKey:ApiKey":
+                state["uid"] = f"{args.name}-uid"
             case "gcp:firebase/androidApp:AndroidApp":
                 state["appId"] = f"1:123456789:android:{args.name}"
             case "pulumi:pulumi:StackReference":
@@ -1251,6 +1253,43 @@ def test_each_environment_has_an_android_app_that_push_can_reach(cloud: Built) -
             dig(shared, "googleServicesFile") == f"services-1:123456789:android:{env.name}-android"
         )
     assert cloud.outputs["playPublisher"] == "cb-play-publisher@project.iam.gserviceaccount.com"
+
+
+def test_each_apps_key_serves_only_push_and_only_its_signed_app(cloud: Built) -> None:
+    for env in environments.build(*DOMAINS.values()):
+        (app,) = [
+            each
+            for each in of_type(cloud, "gcp:firebase/androidApp:AndroidApp")
+            if each.name == f"{env.name}-android"
+        ]
+        assert app.inputs["apiKeyId"] == f"{env.name}-android-push-uid"
+        (key,) = [
+            each
+            for each in of_type(cloud, "gcp:projects/apiKey:ApiKey")
+            if each.name == f"{env.name}-android-push"
+        ]
+        targets = dig(key.inputs, "restrictions", "apiTargets")
+        assert isinstance(targets, list)
+        assert sorted(str(dig(each, "service")) for each in targets) == sorted(firebase.PUSH_APIS)
+        assert set(firebase.PUSH_APIS) <= set(services.APIS)
+        assert dig(key.inputs, "restrictions", "androidKeyRestrictions") is None
+    cert = ":".join(["ab"] * 20)
+    signed = build_cloud({"clientbridge:androidSigningCerts": json.dumps({"staging": [cert]})})
+    (key,) = [
+        each
+        for each in of_type(signed, "gcp:projects/apiKey:ApiKey")
+        if each.name == "staging-android-push"
+    ]
+    assert dig(key.inputs, "restrictions", "androidKeyRestrictions", "allowedApplications") == [
+        {"packageName": "ca.clientbridge.app.staging", "sha1Fingerprint": cert.upper()}
+    ]
+
+
+def test_signing_certs_take_only_sha1_fingerprints_of_known_environments() -> None:
+    envs = environments.build(*DOMAINS.values())
+    for wrong in ({"staging": [":".join(["ab"] * 32)]}, {"staging": "AB"}, {"qa": []}, []):
+        with pytest.raises(ValueError, match="androidSigningCerts"):
+            environments.signing_certs(wrong, envs, envs)
 
 
 def test_each_environments_app_matches_its_eas_profile() -> None:
