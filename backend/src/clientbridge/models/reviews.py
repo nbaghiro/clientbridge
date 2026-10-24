@@ -22,6 +22,7 @@ class ReviewRequest(PKMixin, BusinessScoped, TimestampMixin, Base):
     __table_args__ = (
         Index("ix_review_requests_booking", "business_id", "booking_id"),
         Index("ix_review_requests_client", "client_id"),
+        Index("ix_review_requests_booking_id", "booking_id"),
     )
 
     client_id: Mapped[str] = mapped_column(ForeignKey("clients.id"), nullable=False)

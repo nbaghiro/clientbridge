@@ -47,6 +47,7 @@ class Invoice(PKMixin, BusinessScoped, TimestampMixin, Discounted, Base):
         enum_check("invoices", "status", InvoiceStatus),
         Index("ix_invoices_client", "business_id", "client_id"),
         Index("ix_invoices_status", "business_id", "status"),
+        Index("ix_invoices_client_id", "client_id"),
     )
 
     client_id: Mapped[str] = mapped_column(ForeignKey("clients.id"), nullable=False)

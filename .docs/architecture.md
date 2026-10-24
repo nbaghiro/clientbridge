@@ -227,8 +227,8 @@ records every money movement and is the only place money balances are stored. Th
 - **Tenancy:** `business_id` (indexed) on every business-scoped row. `businesses` is the top entity
   (business/location **and** billing entity). `users` are global
   logins; `staff` link a user↔business with a `role`.
-- **Foreign keys:** each foreign-key column has an index that starts with it, or with `business_id` and
-  then it, because deleting a parent row checks every table that references it.
+- **Foreign keys:** each foreign-key column has an index that starts with it, because deleting a parent
+  row looks up its children with `WHERE col = $1`, which an index led by `business_id` can't serve.
 - **Money:** integer **cents** (`BigInteger`) + `currency char(3) default 'CAD'`. No floats.
 - **Enums:** `text` + a named `CHECK` constraint (via `enum_check`) — easy to evolve by drop+recreate.
   Each vocabulary is a `Literal` alias in its model file; the column's `Mapped[...]`, the `CHECK` and the

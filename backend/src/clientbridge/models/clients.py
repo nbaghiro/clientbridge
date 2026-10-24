@@ -54,7 +54,10 @@ class Client(PKMixin, BusinessScoped, TimestampMixin, SoftDelete, Base):
 
 class Subject(PKMixin, BusinessScoped, TimestampMixin, SoftDelete, Base):
     __tablename__ = "subjects"
-    __table_args__ = (Index("ix_subjects_business_client", "business_id", "client_id"),)
+    __table_args__ = (
+        Index("ix_subjects_business_client", "business_id", "client_id"),
+        Index("ix_subjects_client_id", "client_id"),
+    )
 
     client_id: Mapped[str] = mapped_column(ForeignKey("clients.id"), nullable=False)
     name: Mapped[str] = mapped_column(String, nullable=False)
@@ -88,6 +91,7 @@ class Consent(PKMixin, BusinessScoped, TimestampMixin, Base):
         enum_check("consents", "source", ConsentSource),
         Index("ix_consents_client", "business_id", "client_id", "channel", "created_at"),
         Index("ix_consents_recorded_by", "recorded_by"),
+        Index("ix_consents_client_id", "client_id"),
     )
 
     client_id: Mapped[str] = mapped_column(ForeignKey("clients.id"), nullable=False)

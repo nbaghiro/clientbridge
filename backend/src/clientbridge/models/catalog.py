@@ -126,6 +126,7 @@ class Package(PKMixin, BusinessScoped, TimestampMixin, Base):
         Index("ix_packages_item", "item_id"),
         Index("ix_packages_payment", "payment_id"),
         Index("ix_packages_subject", "subject_id"),
+        Index("ix_packages_client_id", "client_id"),
     )
 
     client_id: Mapped[str] = mapped_column(ForeignKey("clients.id"), nullable=False)
@@ -154,6 +155,7 @@ class Subscription(PKMixin, BusinessScoped, TimestampMixin, Base):
         ),
         Index("ix_subscriptions_item", "item_id"),
         Index("ix_subscriptions_payment_method", "payment_method_id"),
+        Index("ix_subscriptions_client_id", "client_id"),
     )
 
     client_id: Mapped[str] = mapped_column(ForeignKey("clients.id"), nullable=False)
@@ -199,6 +201,7 @@ class StockMovement(PKMixin, BusinessScoped, TimestampMixin, Base):
         ),
         Index("ix_inventory_item", "business_id", "item_id"),
         Index("ix_inventory_created_by", "created_by"),
+        Index("ix_inventory_item_id", "item_id"),
     )
 
     item_id: Mapped[str] = mapped_column(ForeignKey("items.id"), nullable=False)

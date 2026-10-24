@@ -22,6 +22,7 @@ class Thread(PKMixin, BusinessScoped, TimestampMixin, Base):
         enum_check("threads", "channel", ThreadChannel),
         enum_check("threads", "status", ThreadStatus),
         UniqueConstraint("business_id", "client_id", "channel", name="uq_threads_client_channel"),
+        Index("ix_threads_client_id", "client_id"),
     )
 
     client_id: Mapped[str] = mapped_column(ForeignKey("clients.id"), nullable=False)

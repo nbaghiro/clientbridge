@@ -85,6 +85,7 @@ const consents = new Table(
         indexes: {
             consents_business_id: ["business_id"],
             consents_client: ["client_id", "channel", "created_at"],
+            consents_client_id: ["client_id"],
             consents_recorded_by: ["recorded_by"],
         },
     },
@@ -112,6 +113,7 @@ const hours = new Table(
             hours_business_id: ["business_id"],
             hours_exception: ["basis", "starts_at"],
             hours_staff: ["staff_id", "basis"],
+            hours_staff_id: ["staff_id"],
         },
     },
 );
@@ -202,6 +204,7 @@ const packages = new Table(
     {
         indexes: {
             packages_business_id: ["business_id"],
+            packages_client_id: ["client_id"],
             packages_client_status: ["client_id", "status"],
             packages_item: ["item_id"],
             packages_payment: ["payment_id"],
@@ -225,6 +228,7 @@ const subscriptions = new Table(
         indexes: {
             subscriptions_active_unique: ["client_id", "item_id"],
             subscriptions_business_id: ["business_id"],
+            subscriptions_client_id: ["client_id"],
             subscriptions_client_status: ["client_id", "status"],
             subscriptions_item: ["item_id"],
             subscriptions_payment_method: ["payment_method_id"],
@@ -321,6 +325,7 @@ const threads = new Table(
     {
         indexes: {
             threads_business_id: ["business_id"],
+            threads_client_id: ["client_id"],
         },
     },
 );
@@ -382,6 +387,7 @@ const staff = new Table(
     {
         indexes: {
             staff_business_id: ["business_id"],
+            staff_user_id: ["user_id"],
         },
     },
 );
@@ -890,7 +896,9 @@ const slots = new Table(
             slots_business_start: ["starts_at"],
             slots_item: ["item_id"],
             slots_recurrence: ["recurrence_id"],
+            slots_resource_id: ["resource_id"],
             slots_resource_start: ["resource_id", "starts_at"],
+            slots_staff_id: ["staff_id"],
             slots_staff_start: ["staff_id", "starts_at"],
         },
     },
