@@ -1061,7 +1061,8 @@ def test_stagings_seed_has_room_for_every_demo_business(stacks: dict[str, Built]
     command = str(dig(container, "command"))
     scratch_url = "postgresql://postgres@127.0.0.1:5433/scratch"
     assert f"scripts.seed_demo --jobs 2 --scratch {scratch_url} --prune-logins " in command
-    assert dig(seed.inputs, "spec", "activeDeadlineSeconds") == 1800
+    assert dig(seed.inputs, "spec", "activeDeadlineSeconds") == 3600
+    assert dig(seed.inputs, "metadata", "annotations") == {"pulumi.com/skipAwait": "true"}
     proxy, scratch = listed(dig(spec, "initContainers"))
     assert dig(proxy, "name") == "cloud-sql-proxy"
     assert dig(scratch, "resources", "requests") == {"cpu": "1", "memory": "2Gi"}
