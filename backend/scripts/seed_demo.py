@@ -50,6 +50,7 @@ from clientbridge.models.scheduling import (
     Booking,
     Hours,
     Recurrence,
+    Resource,
     Slot,
 )
 from clientbridge.services.forms import form_definition
@@ -1844,6 +1845,7 @@ INSERT_ORDER = [
     Client,
     Consent,
     Item,
+    Resource,
     Form,
     Contract,
     Broadcast,

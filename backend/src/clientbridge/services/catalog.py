@@ -9,7 +9,7 @@ from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
 from clientbridge.models.business import Staff
 from clientbridge.models.catalog import BOOKABLE_KINDS, Item
-from clientbridge.models.scheduling import Addon, Booking
+from clientbridge.models.scheduling import Addon, Booking, Resource
 from clientbridge.schemas.catalog import (
     ItemCreate,
     ItemUpdate,
@@ -111,11 +111,13 @@ class CatalogService:
             member_discount_bps=data.member_discount_bps,
             gift_amounts=_amounts(data.gift_amounts),
             staff_ids=sorted(set(data.staff_ids)),
+            resource_ids=sorted(set(data.resource_ids)),
         )
         _assert_shape(item)
         await self._assert_covers(item)
         await self._assert_variant(item)
         await self._assert_staff(item.staff_ids)
+        await self._assert_resources(item.resource_ids)
         self.db.add(item)
         await self._save(item)
         return item
@@ -129,11 +131,14 @@ class CatalogService:
         ):
             await self._assert_length_unused(item)
         offered_before = set(item.staff_ids)
-        if changes.get("staff_ids", ()) is None:
-            changes["staff_ids"] = []
+        pool_before = set(item.resource_ids)
+        for listed in ("staff_ids", "resource_ids"):
+            if changes.get(listed, ()) is None:
+                changes[listed] = []
         for key, value in changes.items():
             setattr(item, key, _amounts(value) if key == "gift_amounts" else value)
         item.staff_ids = sorted(set(item.staff_ids))
+        item.resource_ids = sorted(set(item.resource_ids))
         if "online_bookable" not in changes and item.kind not in BOOKABLE_KINDS:
             item.online_bookable = False
         if item.track_stock and item.stock_on_hand is None:
@@ -142,6 +147,7 @@ class CatalogService:
         await self._assert_covers(item)
         await self._assert_variant(item)
         await self._assert_staff([s for s in item.staff_ids if s not in offered_before])
+        await self._assert_resources([r for r in item.resource_ids if r not in pool_before])
         await self._save(item)
         return item
 
@@ -176,6 +182,18 @@ class CatalogService:
         )
         if set(found) != set(staff_ids):
             raise NotFound("staff not found")
+
+    async def _assert_resources(self, resource_ids: list[str]) -> None:
+        """Each newly added resource is active in this business; one retired later stays listed."""
+        if not resource_ids:
+            return
+        found = await self.db.scalars(
+            scoped(Resource, self.principal.business_id)
+            .with_only_columns(Resource.id)
+            .where(Resource.id.in_(resource_ids), Resource.active.is_(True))
+        )
+        if set(found) != set(resource_ids):
+            raise NotFound("resource not found")
 
     async def _assert_variant(self, item: Item) -> None:
         if item.variant_parent_id is not None:
@@ -276,6 +294,8 @@ def _assert_shape(item: Item) -> None:
         raise Unprocessable("only gift cards have suggested amounts")
     if item.staff_ids and item.kind not in BOOKABLE_KINDS:
         raise Unprocessable("only services and classes name the staff who offer them")
+    if item.resource_ids and item.kind not in BOOKABLE_KINDS:
+        raise Unprocessable("only services and classes need rooms or equipment")
 
 
 NOT_OFFERED = "that staff member doesn't offer this service"

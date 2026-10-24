@@ -109,6 +109,10 @@ class Item(PKMixin, BusinessScoped, TimestampMixin, Base):
     staff_ids: Mapped[list[str]] = mapped_column(
         ARRAY(String), default=list, server_default="{}", nullable=False
     )
+    # the rooms or equipment a service or class needs one of (empty = none)
+    resource_ids: Mapped[list[str]] = mapped_column(
+        ARRAY(String), default=list, server_default="{}", nullable=False
+    )
 
 
 class Package(PKMixin, BusinessScoped, TimestampMixin, Base):

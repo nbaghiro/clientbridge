@@ -66,6 +66,11 @@ class ItemBase(Mirror):
         max_length=100,
         description="Services and classes only: the members who offer it; empty means everyone",
     )
+    resource_ids: list[str] = Field(
+        default_factory=list,
+        max_length=100,
+        description="Services and classes only: the rooms or equipment it needs one of",
+    )
 
 
 class ItemCreate(ItemBase):
@@ -109,6 +114,7 @@ class ItemUpdate(Mirror):
     member_discount_bps: int | None = Field(default=None, ge=0, le=10000)
     gift_amounts: list[GiftAmount] | None = Field(default=None, max_length=12)
     staff_ids: list[str] | None = Field(default=None, max_length=100)
+    resource_ids: list[str] | None = Field(default=None, max_length=100)
 
 
 class ItemOut(ItemBase):

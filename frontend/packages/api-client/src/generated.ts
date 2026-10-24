@@ -1713,6 +1713,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/resources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Resources */
+        get: operations["list_resources_v1_resources_get"];
+        put?: never;
+        /** Create Resource */
+        post: operations["create_resource_v1_resources_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/resources/{resource_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Resource */
+        patch: operations["update_resource_v1_resources__resource_id__patch"];
+        trace?: never;
+    };
     "/v1/online-booking": {
         parameters: {
             query?: never;
@@ -6454,6 +6489,11 @@ export interface components {
              */
             staff_ids?: string[];
             /**
+             * Resource Ids
+             * @description Services and classes only: the rooms or equipment it needs one of
+             */
+            resource_ids?: string[];
+            /**
              * Online Bookable
              * @description Defaults by kind: services and classes only
              */
@@ -6575,6 +6615,11 @@ export interface components {
              * @description Services and classes only: the members who offer it; empty means everyone
              */
             staff_ids?: string[];
+            /**
+             * Resource Ids
+             * @description Services and classes only: the rooms or equipment it needs one of
+             */
+            resource_ids?: string[];
             /** Id */
             id: string;
             /** Online Bookable */
@@ -6660,6 +6705,8 @@ export interface components {
             gift_amounts?: number[] | null;
             /** Staff Ids */
             staff_ids?: string[] | null;
+            /** Resource Ids */
+            resource_ids?: string[] | null;
         };
         /** LeftVisit */
         LeftVisit: {
@@ -9331,6 +9378,50 @@ export interface components {
             payouts: components["schemas"]["PayoutRow"][];
             /** Rates */
             rates: components["schemas"]["ReportRate"][];
+        };
+        /** ResourceCreate */
+        ResourceCreate: {
+            /**
+             * Name
+             * @description Unique in the business, in any case
+             */
+            name: string;
+        };
+        /** ResourceOut */
+        ResourceOut: {
+            /** Id */
+            id: string;
+            /** Business Id */
+            business_id: string;
+            /** Name */
+            name: string;
+            /** Active */
+            active: boolean;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /**
+             * Upcoming
+             * @description Visits and sessions still ahead that hold it
+             */
+            upcoming: number;
+        };
+        /** ResourceUpdate */
+        ResourceUpdate: {
+            /** Name */
+            name?: string | null;
+            /**
+             * Active
+             * @description False offers it for no new visit; booked visits keep it
+             */
+            active?: boolean | null;
         };
         /** RestockIn */
         RestockIn: {
@@ -13809,6 +13900,117 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EnrolmentCancelOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_resources_v1_resources_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResourceOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_resource_v1_resources_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "x-business-id"?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResourceCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResourceOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_resource_v1_resources__resource_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "x-business-id"?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
+            };
+            path: {
+                resource_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResourceUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResourceOut"];
                 };
             };
             /** @description Validation Error */
