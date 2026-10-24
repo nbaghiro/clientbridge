@@ -36,6 +36,7 @@ from clientbridge.models.scheduling import (
     BookingStatus,
     Hours,
     Recurrence,
+    Resource,
     Slot,
     Weekday,
 )
@@ -108,6 +109,8 @@ class Demo:
         self.code = spec.code
         self.rng = random.Random(spec.seed)
         self.busy: list[Busy] = []
+        # resource id, start, end and the buffers of the slot holding it
+        self.held: list[tuple[str, datetime, datetime, int, int]] = []
         self.invoice_number = spec.invoice_start
         self.estimate_number = spec.estimate_start
         self.order_number = 0
@@ -295,6 +298,7 @@ class Demo:
                 addon=bool(offering.addon_for),
                 addon_for=list(offering.addon_for),
                 staff_ids=sorted(offering.staff),
+                resource_ids=sorted(offering.resources),
                 buffer_before_min=0,
                 buffer_after_min=offering.buffer_after_min,
                 deposit_type=offering.deposit_type,
@@ -317,6 +321,16 @@ class Demo:
             )
             self.items[offering.id] = item
             self.ctx.add(item)
+        for resource_id, name in spec.resources:
+            self.ctx.add(
+                Resource(
+                    id=resource_id,
+                    business_id=spec.id,
+                    name=name,
+                    created_at=opened,
+                    updated_at=opened,
+                )
+            )
         prefix = f"it_{self.code}_"
         add_catalog_images(
             self.ctx, lambda item_id: f"{self.assets}_it_{item_id.removeprefix(prefix)}"
@@ -519,6 +533,42 @@ class Demo:
             for other, other_subject, other_start, other_end, other_before, other_after in self.busy
         )
 
+    def rooms_free(self, item_id: str, start: datetime, end: datetime) -> list[str]:
+        """The resources of the service's pool free for the window, in pool order."""
+        item = self.items[item_id]
+        before, after = item.buffer_before_min, item.buffer_after_min
+        return [
+            resource
+            for resource in item.resource_ids
+            if not any(
+                other == resource
+                and start - timedelta(minutes=before) < other_end + timedelta(minutes=o_after)
+                and other_start - timedelta(minutes=o_before) < end + timedelta(minutes=after)
+                for other, other_start, other_end, o_before, o_after in self.held
+            )
+        ]
+
+    def room(self, item_id: str, start: datetime, end: datetime) -> str | None:
+        """The first free resource of the service's pool, as the product picks it."""
+        return next(iter(self.rooms_free(item_id, start, end)), None)
+
+    def roomy(self, item_id: str, start: datetime, end: datetime) -> bool:
+        """Whether the service needs no resource, or one of its pool is free then."""
+        return not self.items[item_id].resource_ids or self.room(item_id, start, end) is not None
+
+    def hold(self, slot: Slot) -> None:
+        """Give a new live slot the first free resource of its service's pool."""
+        item = self.items[slot.item_id]
+        if not item.resource_ids:
+            return
+        resource = self.room(slot.item_id, slot.starts_at, slot.ends_at)
+        if resource is None:
+            raise ValueError(f"{slot.id}: no room or equipment of {item.id} is free")
+        slot.resource_id = resource
+        self.held.append(
+            (resource, slot.starts_at, slot.ends_at, item.buffer_before_min, item.buffer_after_min)
+        )
+
     def place(
         self,
         staff: str,
@@ -568,7 +618,7 @@ class Demo:
                     continue
                 if self.free(
                     staff, subject, start, end, item.buffer_before_min, item.buffer_after_min
-                ):
+                ) and self.roomy(item_id, start, end):
                     return start
         return None
 
@@ -654,6 +704,7 @@ class Demo:
             )
             self.ctx.add(slot)
             if status != "canceled":
+                self.hold(slot)
                 self.busy.append(
                     (staff, subject_id, start, end, item.buffer_before_min, item.buffer_after_min)
                 )
@@ -711,6 +762,7 @@ class Demo:
             updated_at=min(end, self.now),
         )
         self.ctx.add(slot)
+        self.hold(slot)
         self.busy.append((staff, None, start, end, item.buffer_before_min, item.buffer_after_min))
         return slot
 

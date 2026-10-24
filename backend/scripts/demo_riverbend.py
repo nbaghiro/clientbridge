@@ -54,8 +54,14 @@ TEN_AUTO, TEN_MANUAL, CLASSROOM, MAGNET, GIFT = (
 )
 REGISTRATION_FORM, FEEDBACK_FORM = "frm_rb_registration", "frm_rb_feedback"
 AGREEMENT = "con_rb_agreement"
-# the instructors whose cars have an automatic transmission; Jasmine's Golf is the manual
+# the instructors who teach in the two automatics; Jasmine teaches in the manual Golf
 AUTOMATIC = (BOSS, MARCUS, ARJUN)
+COROLLA, CIVIC, GOLF = "rs_rb_corolla", "rs_rb_civic", "rs_rb_golf"
+CARS: tuple[tuple[str, str], ...] = (
+    (COROLLA, "Corolla · auto · ABC 123"),
+    (CIVIC, "Civic · auto · DEF 456"),
+    (GOLF, "Golf · manual · GHI 789"),
+)
 
 # id, kind, name, price, minutes, category, description
 ITEMS: tuple[tuple[str, ItemKind, str, int, int | None, str, str], ...] = (
@@ -76,8 +82,8 @@ ITEMS: tuple[tuple[str, ItemKind, str, int, int | None, str, str], ...] = (
         7000,
         60,
         "Lessons",
-        "An hour in Jasmine's dual-brake manual: the clutch, starting on hills and smooth "
-        "shifting, then everyday driving once it clicks.",
+        "An hour with Jasmine in the dual-brake manual Golf: the clutch, starting on hills and "
+        "smooth shifting, then everyday driving once it clicks.",
     ),
     (
         HIGHWAY,
@@ -116,7 +122,7 @@ ITEMS: tuple[tuple[str, ItemKind, str, int, int | None, str, str], ...] = (
         17500,
         120,
         "Road test",
-        "A warm-up lesson on the test area's streets, the use of the instructor's car for your "
+        "A warm-up lesson on the test area's streets, the use of the school's car for your "
         "road test, and the drive home. The test fee is paid separately. A $50 deposit holds "
         "the date.",
     ),
@@ -181,6 +187,15 @@ COLORS = {
     ROAD_TEST: "#B07A2A",
     CLASSROOM: "#7A3F5A",
 }
+# the cars each service can take; parking practice goes out in whichever car is free
+POOLS: dict[str, tuple[str, ...]] = {
+    LESSON: (COROLLA, CIVIC),
+    HIGHWAY: (COROLLA, CIVIC),
+    ASSESSMENT: (COROLLA, CIVIC),
+    ROAD_TEST: (COROLLA, CIVIC),
+    MANUAL: (GOLF,),
+    PARKING: (COROLLA, CIVIC, GOLF),
+}
 STAFF: dict[str, tuple[str, ...]] = {
     LESSON: AUTOMATIC,
     HIGHWAY: AUTOMATIC,
@@ -217,9 +232,9 @@ AGREEMENT_BODY = "\n\n".join(
         "to every lesson. We can't start a lesson without it, and the lesson is charged.",
         "Students under 18\nA parent or guardian signs this agreement and books for the student. "
         "We pick up and drop off at the address on the booking, such as home or school.",
-        "The car\nEach instructor teaches in their own dual-brake car, so manual lessons are "
-        "with Jasmine and automatic lessons are with Linda, Marcus or Arjun. The instructor can "
-        "end a lesson if it isn't safe to continue.",
+        "The car\nLessons are in one of the school's three dual-brake cars. Manual lessons are "
+        "with Jasmine in the Golf, and automatic lessons are with Linda, Marcus or Arjun in the "
+        "Corolla or the Civic. The instructor can end a lesson if it isn't safe to continue.",
         "Weather\nLessons go ahead in snow, because winter driving is part of learning in "
         "Winnipeg. We cancel at no charge for freezing rain or a storm warning.",
         "Moving or cancelling\nYou can move or cancel a lesson at no charge up to 24 hours "
@@ -538,6 +553,7 @@ def _offering(row: tuple[str, ItemKind, str, int, int | None, str, str]) -> Offe
         capacity=12 if item_id == CLASSROOM else None,
         addon_for=(LESSON, MANUAL) if item_id == MAGNET else (),
         staff=STAFF.get(item_id, ()),
+        resources=POOLS.get(item_id, ()),
         buffer_after_min=PICKUP_MIN if kind == "service" else 0,
         deposit_type="fixed" if item_id == ROAD_TEST else "none",
         deposit_value=5000 if item_id == ROAD_TEST else None,
@@ -565,7 +581,7 @@ SPEC = BusinessSpec(
             "Linda Friesen",
             "+12045550193",
             "owner",
-            "Owner · Instructor · Civic, automatic",
+            "Owner · Instructor",
             "#2B6E62",
             HOURS[BOSS],
         ),
@@ -576,7 +592,7 @@ SPEC = BusinessSpec(
             "Marcus Okafor",
             "+12045550194",
             "staff",
-            "Instructor · Corolla, automatic",
+            "Instructor",
             "#3B5E8C",
             HOURS[MARCUS],
             payee=True,
@@ -590,7 +606,7 @@ SPEC = BusinessSpec(
             "Jasmine Santos",
             "+12045550195",
             "staff",
-            "Instructor · Golf, manual",
+            "Instructor · Manual",
             "#8A5A2B",
             HOURS[JASMINE],
             payee=True,
@@ -604,7 +620,7 @@ SPEC = BusinessSpec(
             "Arjun Mehta",
             "+12045550196",
             "staff",
-            "Instructor · Elantra, automatic",
+            "Instructor",
             "#6B7F3A",
             HOURS[ARJUN],
             payee=True,
@@ -628,8 +644,8 @@ SPEC = BusinessSpec(
         "tagline": "Driving lessons in Winnipeg for teens and adults, in automatic or manual.",
         "about": (
             "Riverbend Driving School is a team of four instructors and an office manager in "
-            "St. Boniface. Each instructor teaches in their own dual-brake car, three automatics "
-            "and a manual, and picks students up at home, school or work. We teach new drivers "
+            "St. Boniface. We teach in three dual-brake cars, two automatics and a manual, and "
+            "pick students up at home, school or work. We teach new drivers "
             "and adults new to Manitoba, run a four-evening classroom course, and take students "
             "to their road test in the car they learned in."
         ),
@@ -661,6 +677,7 @@ SPEC = BusinessSpec(
         FormSpec(FEEDBACK_FORM, "Lesson feedback", "ff_rb_feedback_", FEEDBACK_FIELDS),
     ),
     contracts=(ContractSpec(AGREEMENT, "Lesson agreement", AGREEMENT_BODY, created_day=-480),),
+    resources=CARS,
     storyline=(
         Stage(
             "New teen student booked online, registration in, waiting for approval",
@@ -681,6 +698,11 @@ SPEC = BusinessSpec(
             "Today's lessons: in the car, instructor on the way, later today",
             "lena",
             ("bk_rb_lena", "bk_rb_navjot", "bk_rb_emma"),
+        ),
+        Stage(
+            "Both automatics out, so Arjun's free hour can't be booked",
+            "teen_00",
+            ("bk_rb_both_cars_linda", "bk_rb_both_cars_marcus", COROLLA, CIVIC),
         ),
         Stage(
             "Road test package booked, deposit paid",
@@ -791,6 +813,7 @@ class Riverbend(Demo):
         self.courses()
         self.regulars()
         self.today_lessons()
+        self.both_cars_out()
         self.storyline()
         self.routine()
         self.paperwork()
@@ -983,6 +1006,46 @@ class Riverbend(Demo):
             ),
         ):
             self.note(lessons[key].id, "booking", body, lessons[key].created_at)
+
+    def both_cars_out(self) -> None:
+        """An afternoon when Linda and Marcus have both automatics out while Arjun is free."""
+        hour = timedelta(minutes=self.items[LESSON].duration_min or 60)
+        teachers = (BOSS, MARCUS, ARJUN)
+        starts = (
+            datetime.combine(self.local(self.at(offset)).date(), at, self.ctx.zone).astimezone(UTC)
+            for offset in range(2, 40)
+            for at in (time(15, 0), time(15, 30), time(16, 0))
+        )
+        start = next(
+            (
+                start
+                for start in starts
+                if all(
+                    self.within_hours(staff, start, start + hour)
+                    and self.free(staff, None, start, start + hour, 0, PICKUP_MIN)
+                    for staff in teachers
+                )
+                and len(self.rooms_free(LESSON, start, start + hour)) == 2
+            ),
+            None,
+        )
+        if start is None:
+            raise ValueError("no afternoon when all three automatic instructors and cars are free")
+        created = self.now - timedelta(days=3)
+        for staff, name, household in ((BOSS, "linda", "teen_00"), (MARCUS, "marcus", "teen_02")):
+            booking = self.book(
+                f"both_cars_{name}",
+                household,
+                LESSON,
+                staff,
+                start,
+                "confirmed",
+                created,
+                subject=self.learner(household),
+            )
+            self.note(
+                booking.id, "booking", f"Pick up at {self.pickup(booking)}.", booking.created_at
+            )
 
     def storyline(self) -> None:
         self.lead()

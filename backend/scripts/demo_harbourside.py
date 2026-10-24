@@ -232,6 +232,12 @@ HOURS: dict[str, dict[int, tuple[time, time]]] = {
 # the credential and registration number printed on receipts for extended health claims
 CREDENTIALS = {LEILA: ("RMT", "10482"), JUN: ("RMT", "13917"), WEN: ("R.Ac.", "A-2316")}
 MASSAGE_STAFF = (LEILA, JUN)
+ROOMS = ("rs_hs_room_1", "rs_hs_room_2", "rs_hs_room_3")
+TABLES = ("rs_hs_couples_1", "rs_hs_couples_2")
+RESOURCES = (
+    *((room, f"Room {n}") for n, room in enumerate(ROOMS, start=1)),
+    *((table, f"Couples room, table {n}") for n, table in enumerate(TABLES, start=1)),
+)
 
 
 def _registration(staff: str) -> str:
@@ -620,6 +626,7 @@ def _offering(row: tuple[str, ItemKind, str, int, int | None, str, str, TaxClass
         else MASSAGE_STAFF
         if kind == "service"
         else (),
+        resources=TABLES if item_id == COUPLES else ROOMS if kind == "service" else (),
         buffer_after_min=BUFFERS.get(item_id, 15) if kind == "service" else 0,
         deposit_type="fixed" if deposit else "none",
         deposit_value=5000 if deposit else None,
@@ -719,6 +726,7 @@ SPEC = BusinessSpec(
     sms_number="+17785550199",
     gst_hst_number="742581936RT0001",
     pst_number="PST10583321",
+    resources=RESOURCES,
     forms=(
         FormSpec(
             INTAKE,

@@ -273,6 +273,15 @@ COLORS = {
 }
 CAPACITY = {STRENGTH: 8, MOBILITY: 10, BOOTCAMP: 12, SENIORS: 8, FOUNDATIONS: 6}
 OFFERED_BY = {SENIORS: (SIMRAN,), FOUNDATIONS: (MATEO,)}
+STUDIO, TURF = "rs_rl_studio", "rs_rl_turf"
+# classes run in the studio, so two can't overlap there; bootcamp takes the turf
+ROOMS = {
+    STRENGTH: (STUDIO,),
+    MOBILITY: (STUDIO,),
+    SENIORS: (STUDIO,),
+    FOUNDATIONS: (STUDIO,),
+    BOOTCAMP: (TURF,),
+}
 PROGRAM_WEEKDAY, PROGRAM_AT = 3, time(19, 0)
 # the cohort halfway through its six weeks, and the next one enrolling with balances still due
 RUNNING = ("jake", "yusuf", "amy", "noah", "isaac")
@@ -571,6 +580,7 @@ def _offering(row: tuple[str, ItemKind, str, int, int | None, str, str]) -> Offe
         sell_online=kind == "product",
         capacity=CAPACITY.get(item_id),
         staff=OFFERED_BY.get(item_id, ()),
+        resources=ROOMS.get(item_id, ()),
         deposit_type="fixed" if item_id == FOUNDATIONS else "none",
         deposit_value=5000 if item_id == FOUNDATIONS else None,
         buffer_after_min=15 if kind == "class" else 10 if kind == "service" else 0,
@@ -665,6 +675,7 @@ SPEC = BusinessSpec(
     subject=None,
     sms_number="+17805550199",
     gst_hst_number="786512340RT0001",
+    resources=((STUDIO, "Studio"), (TURF, "Turf")),
     forms=(
         FormSpec(
             PARQ,

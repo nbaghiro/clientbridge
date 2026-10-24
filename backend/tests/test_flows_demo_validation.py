@@ -2,6 +2,7 @@ from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 import pytest
+from scripts.demo_engine import build_edition, edition_of
 from scripts.demo_validate import validate_database, validate_graph
 from scripts.seed_demo import build_demo, validate_seed_target
 from sqlalchemy import func, select, text
@@ -283,3 +284,21 @@ async def test_the_scratch_database_is_neither_the_target_nor_in_use() -> None:
         await demo_copy.prepare(url, url)
     with pytest.raises(SystemExit, match="must start empty"):
         await demo_copy.prepare(url, url.rsplit("/", 1)[0] + "/elsewhere")
+
+
+def test_demo_preflight_rejects_a_shared_room_and_one_outside_the_pool() -> None:
+    demo = build_edition(edition_of("bz_riverbend"), datetime(2026, 10, 8, 16, tzinfo=UTC))
+    ctx = demo.ctx
+    assert validate_graph(ctx) == []
+    held = [s for s in ctx.all(Slot) if s.resource_id is not None and s.status != "canceled"]
+    first, other = held[0], next(s for s in held[1:] if s.resource_id != held[0].resource_id)
+    other.starts_at, other.ends_at = first.starts_at, first.ends_at
+    other.resource_id = first.resource_id
+    golf = next(s for s in held if s.resource_id == "rs_rb_golf")
+    automatic = next(s for s in held if s.item_id == "it_rb_lesson_auto" and s is not first)
+    automatic.resource_id = "rs_rb_golf"
+    errors = validate_graph(ctx)
+    assert any(first.id in e and other.id in e and "resource conflict" in e for e in errors), errors
+    assert f"{automatic.id}: holds a resource outside it_rb_lesson_auto's pool" in errors
+    golf.resource_id = None
+    assert f"{golf.id}: {golf.item_id} needs a resource and holds none" in validate_graph(ctx)

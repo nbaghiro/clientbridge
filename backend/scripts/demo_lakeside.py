@@ -1,6 +1,6 @@
 """Lakeside Learning Studio: a tutoring and music lessons studio in Ottawa, on the demo engine."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, date, datetime, time, timedelta
 
 from clientbridge.core.locale import SOURCE_LOCALE, plural
@@ -37,6 +37,7 @@ ASSESSMENT, MATH, ENGLISH, FRENCH, SCIENCE = (
     "it_ls_science",
 )
 PIANO, PIANO_LONG, GUITAR = "it_ls_piano", "it_ls_piano_long", "it_ls_guitar"
+PIANO_ROOM = "rs_ls_piano"
 SAT, REVIEW = "it_ls_sat", "it_ls_review"
 CAMP = "it_ls_coding_camp"
 TERM10, TERM10_FR, TERM12, SAT_COURSE, PLAN, GIFT = (
@@ -1059,7 +1060,10 @@ SPEC = BusinessSpec(
             rate_bps=6000,
         ),
     ),
-    items=ITEMS,
+    items=tuple(
+        replace(item, resources=(PIANO_ROOM,)) if item.id in (PIANO, PIANO_LONG) else item
+        for item in ITEMS
+    ),
     brand={
         "tagline": "Tutoring and music lessons for students from JK to Grade 12, near Dow's Lake.",
         "about": (
@@ -1084,6 +1088,7 @@ SPEC = BusinessSpec(
     subject="student",
     sms_number="+16135550199",
     gst_hst_number="742913586RT0001",
+    resources=((PIANO_ROOM, "Piano room"),),
     forms=(
         FormSpec(
             REGISTRATION,

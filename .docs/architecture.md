@@ -216,7 +216,7 @@ restarts the worker without taking the API out of the load balancer.
 
 ## The data model
 
-**44 tables** across the 12 domains; credentials and sessions live in the auth service's own database. Stripe Connect custodies funds and pays out; a double-entry ledger (`accounts` + `entries`)
+**45 tables** across the 12 domains; credentials and sessions live in the auth service's own database. Stripe Connect custodies funds and pays out; a double-entry ledger (`accounts` + `entries`)
 records every money movement and is the only place money balances are stored. The SQLAlchemy models in
 `backend/src/clientbridge/models/` are the exact-DDL source of truth; the migrations in
 `migrations/versions/` start from one baseline (squashed before launch) with increments after it.
@@ -245,8 +245,8 @@ records every money movement and is the only place money balances are stored. Th
   (`bookings → packages → payments → bookings`) is broken with `use_alter=True`.
 - **JSONB** for lightweight config (brand, custom_fields, attributes, audience, answers, changes,
   requirements); **never** for queried business data.
-- **Concurrency invariants live in SQL:** a GiST exclusion constraint stops double-booking a staff
-  member; partial-unique indexes enforce business rules (one active/paused subscription per client+item,
+- **Concurrency invariants live in SQL:** GiST exclusion constraints stop double-booking a staff
+  member or a room or piece of equipment; partial-unique indexes enforce business rules (one active/paused subscription per client+item,
   one invitation per booking enforced by the service).
 
 ### ID prefixes
@@ -255,7 +255,7 @@ Prefixes predate the table renames and are kept so existing ids stay valid; the 
 shown after it.
 `bz_`businesses `us_`users `st_`staff · `cl_`clients `sj_`subjects `nt_`notes `cns_`consents · `it_`items `pkg_`packages
 `sub_`subscriptions `gc_`gift_cards `stk_`inventory · `ses_`slots `bk_`bookings `bka_`addons `av_`hours
-`sch_`recurrences · `inv_`invoices `est_`estimates `ord_`orders `ln_`lines · `pay_`payments
+`sch_`recurrences `rs_`resources · `inv_`invoices `est_`estimates `ord_`orders `ln_`lines · `pay_`payments
 `pm_`payment_methods `psl_`payment_setup_links `acc_`accounts `ent_`entries `jrn_`journal · `th_`threads `msg_`messages `bro_`broadcasts
 · `frm_`forms `ff_`fields `fr_`responses `con_`contracts `sig_`signatures · `rrq_`review requests (preserved historical invitation IDs remain unchanged)
 · `fl_`files `aud_`audits `wh_`webhooks `dvt_`devices `idk_`commands `sur_`sync_receipts · `rtc_`returning_challenges
@@ -277,7 +277,7 @@ client can only be lifted by the client's own START).
 
 **catalog (5)** — `items` (**one table drives the whole catalog** via `kind` service/class/product/package/
 subscription/gift — duration, capacity, deposit, recurrence, session_count, `stripe_price_id`, and
-`staff_ids` for who offers a service or class), `packages`
+`staff_ids` for who offers a service or class, and `resource_ids` for the pool of rooms or equipment it needs one of), `packages`
 (client's package: `sessions_total` and status, and `subject_id` when it belongs to one of the client's
 subjects, so it covers only that subject's visits, refused with 422 `package_other_subject`; null shares it;
 sessions used is the count of its consumption journals), `subscriptions` (recurring: status, period,
@@ -286,8 +286,8 @@ sessions used is the count of its consumption journals), `subscriptions` (recurr
 left reads as redeemed), `inventory` (one signed stock movement per row, `reason` sale/refund/restock, keyed
 by line and reason; `items.stock_on_hand` is the running total).
 
-**scheduling (6)** — `slots` (the calendar event: capacity-bearing block; appointment = capacity 1, class
-= capacity N; seats taken are counted from its live bookings; `recurrence_id`), `bookings` _(soft-del)_ (client↔slot via `slot_id`; denormalized
+**scheduling (7)** — `slots` (the calendar event: capacity-bearing block; appointment = capacity 1, class
+= capacity N; seats taken are counted from its live bookings; `recurrence_id`; `resource_id`, the room or equipment it holds), `resources` (rooms and equipment by `name`, unique per business in any case, and `active`; turning one off keeps its visits and offers it for nothing new), `bookings` _(soft-del)_ (client↔slot via `slot_id`; denormalized
 `staff_id`; status pending→confirmed→completed/canceled/no_show, or waitlisted on a full class (a seat freed before the session starts goes to the earliest sign-up waiting, and the overnight job closes what is left once the class ends); `source`; deposit terms (the deposit's
 state is derived from the ledger, and a deposit is due when `deposit_amount_cents > 0`); `reminded_at`;
 `departed_at`, set once by `POST /v1/bookings/{id}/depart` ("On my way", which texts the client), and
@@ -539,7 +539,7 @@ currently same perms as staff).
 Four auto-subscribed streams and three history streams implement the read model (owner-sees-workers'-activity is carried by
 `bookings.staff_id` and the ledger's `owner_type`/`owner_id`; the `audits` trail is server-only):
 
-- **`business_shared`** (every active member): the catalog and entitlements, the client book, forms,
+- **`business_shared`** (every active member): the catalog, rooms and equipment and entitlements, the client book, forms,
   fields, contracts, files and threads.
 - **`staff_limited`** (staff and contractors): the business row without its tax numbers and billing
   email, but with its legal address and phone so every member's printed documents carry the
@@ -728,6 +728,22 @@ entitlement and its liability are created.
   shares, on an invoice or a desk sale alike. The documents keep one line for the visit but name the whole
   crew from the same split: a receipt's `served_by` (invoice, desk sale and visit receipt), the pay page's
   `tip_for`, and the visit receipt's practitioner (the lead) followed by the helpers who assisted.
+- **Rooms and equipment:** a service or class can name a pool of `resources` in `items.resource_ids`, and a visit then
+  needs a free member and one free resource from the pool, which its slot holds in `slots.resource_id`. Managers add,
+  rename and turn them off through `/v1/resources` (409 `resource_name_taken` for a name already used in any case),
+  and the response counts the visits still ahead that hold one (`upcoming`), which keep it after it is turned off.
+  A booking takes the first free one in pool order, or the one staff pick (`resource_id` on `POST /v1/bookings` and
+  on a move), refused with 422 `resource_not_in_pool`, 409 `resource_busy` when the chosen one is taken, or 409
+  `no_resource` when none is free; the window is widened by both visits' buffers, as the member's is. Writes lock the
+  members first and then every resource in the pool, in order, and the `excl_slots_resource_overlap` constraint
+  backstops a race as 409 `resource_busy`. Staff and Connect reads offer only starts that have a free resource
+  (`load_availability` reads the pools and their live slots once per request), and the move check reports problem
+  `resource` with the free alternatives in `free_resource_ids`. A move, resize, add-on, client move or series change
+  keeps the visit's resource when it is still free there, switches to another free one in the pool, or is refused;
+  a reassignment on removal keeps it, since the time doesn't change, and crew blocks take none. A class session holds
+  one resource for every seat, joining reuses it, and `POST /v1/programs` picks one for every day or refuses the
+  whole schedule with 409 `schedule_conflict` and `detail.problem` `resource`. A visit needs at most one resource,
+  and resources have no hours or maintenance windows of their own.
 - **Programs:** staff lay out a class's sessions ahead of any booking with `POST /v1/programs`: a class, its
   instructor, a first start, weekdays and a count or end date. Every session is checked the way a booking is
   (closures, time off and crew blocks, the instructor's hours, other visits, `items.staff_ids`) under the

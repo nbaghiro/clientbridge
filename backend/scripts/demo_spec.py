@@ -63,6 +63,8 @@ class Offering:
     addon_for: tuple[str, ...] = ()
     # the members who offer a service or class; empty means everyone
     staff: tuple[str, ...] = ()
+    # the rooms or equipment a visit takes one of; empty means none
+    resources: tuple[str, ...] = ()
     buffer_after_min: int = 0
     deposit_type: DepositType = "none"
     deposit_value: int | None = None
@@ -158,6 +160,8 @@ class BusinessSpec:
     forms: tuple[FormSpec, ...] = ()
     contracts: tuple[ContractSpec, ...] = ()
     storyline: tuple[Stage, ...] = ()
+    # the rooms and equipment the business books: id and name
+    resources: tuple[tuple[str, str], ...] = ()
     pacing: Pacing | None = None
     photo_clients: tuple[str, ...] = ()
     inbox_user: str | None = None

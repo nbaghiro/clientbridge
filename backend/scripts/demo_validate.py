@@ -20,7 +20,7 @@ from clientbridge.models.business import Business, Staff
 from clientbridge.models.catalog import GiftCard, Item, Package, StockMovement
 from clientbridge.models.clients import Subject
 from clientbridge.models.documents import Contract, FormResponse, Signature
-from clientbridge.models.scheduling import Booking, Hours, Recurrence, Slot, Weekday
+from clientbridge.models.scheduling import Booking, Hours, Recurrence, Resource, Slot, Weekday
 from clientbridge.schemas.forms import FormDefinition
 from clientbridge.schemas.subjects import ATTRIBUTES
 from clientbridge.services.bookings import within_hours
@@ -33,7 +33,7 @@ from scripts.demo_context import DEMO_BUSINESSES, DEMO_IDS, DemoContext
 def _conflicts(
     active: list[Slot], subjects: dict[str, set[str]], items: dict[str, Item]
 ) -> list[tuple[int, int]]:
-    """Pairs of slots, by position, that share a member or a subject and overlap with buffers."""
+    """Pairs of slots, by position, sharing a member, subject or resource and overlapping."""
     padded = [
         (
             slot.starts_at - timedelta(minutes=items[slot.item_id].buffer_before_min or 0),
@@ -44,6 +44,8 @@ def _conflicts(
     groups: dict[str, list[int]] = {}
     for index, slot in enumerate(active):
         groups.setdefault(f"staff:{slot.staff_id}", []).append(index)
+        if slot.resource_id is not None:
+            groups.setdefault(f"resource:{slot.resource_id}", []).append(index)
         for subject in subjects[slot.id]:
             groups.setdefault(f"subject:{subject}", []).append(index)
     pairs: set[tuple[int, int]] = set()
@@ -106,10 +108,18 @@ def validate_graph(ctx: DemoContext) -> list[str]:
     seated: dict[str, list[Booking]] = {}
     for booking in bookings:
         seated.setdefault(booking.slot_id, []).append(booking)
+    rooms = {r.id: r for r in ctx.all(Resource)}
     for slot in active:
         offered = items[slot.item_id].staff_ids
         if offered and slot.staff_id not in offered:
             errors.append(f"{slot.id}: the member does not offer {slot.item_id}")
+        pool = items[slot.item_id].resource_ids
+        if slot.resource_id is not None and slot.resource_id not in pool:
+            errors.append(f"{slot.id}: holds a resource outside {slot.item_id}'s pool")
+        if slot.resource_id is not None and slot.resource_id not in rooms:
+            errors.append(f"{slot.id}: holds a resource of another business")
+        if pool and slot.resource_id is None:
+            errors.append(f"{slot.id}: {slot.item_id} needs a resource and holds none")
         # the product's rule: inside the member's hours that day, or a day with none set
         member = [h for h in hours if h.staff_id == slot.staff_id]
         if not within_hours(member, zone, slot.starts_at, slot.ends_at):
@@ -122,7 +132,7 @@ def validate_graph(ctx: DemoContext) -> list[str]:
         if waiting and taken < slot.capacity and slot.starts_at > ctx.now:
             errors.append(f"{slot.id}: a seat is open while someone waits for one")
     errors.extend(
-        f"{active[left].id}/{active[right].id}: staff or pet conflict"
+        f"{active[left].id}/{active[right].id}: staff, subject or resource conflict"
         for left, right in _conflicts(active, slot_pets, items)
     )
     by_booking = {b.id: b for b in bookings}
