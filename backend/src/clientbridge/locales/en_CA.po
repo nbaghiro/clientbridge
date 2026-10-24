@@ -163,6 +163,9 @@ msgstr "{business} has asked you to sign the contract \"{contract}\"."
 msgid "contract_sent.subject"
 msgstr "{business}: please sign \"{contract}\""
 
+msgid "crew.job"
+msgstr "{service} · {client}"
+
 msgid "datetime.day_at_time"
 msgstr "{day} at {time}"
 
@@ -315,6 +318,11 @@ msgstr "Message from {client}: {body}"
 
 msgid "invoice.action"
 msgstr "Pay invoice"
+
+msgid "invoice_line.program"
+msgid_plural "invoice_line.program"
+msgstr[0] "{program} · {count} day"
+msgstr[1] "{program} · {count} days"
 
 msgid "invoice_line.visit"
 msgstr "Visit"

@@ -21,7 +21,9 @@ from clientbridge.api import (
     payments,
     plans,
     previews,
+    programs,
     reports,
+    resources,
     reviews,
     staff,
     subjects,
@@ -42,6 +44,8 @@ api_router.include_router(bookings.router)
 api_router.include_router(bookings.recurrences_router)
 api_router.include_router(bookings.time_off_router)
 api_router.include_router(bookings.classes_router)
+api_router.include_router(programs.router)
+api_router.include_router(resources.router)
 api_router.include_router(bookings.online_router)
 api_router.include_router(billing.invoices_router)
 api_router.include_router(earnings.router)

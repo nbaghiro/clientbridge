@@ -55,7 +55,7 @@ class EnvSettings(Settings):
 
 async def text_in(api: httpx.AsyncClient, data: dict[str, str]) -> httpx.Response:
     """Post an inbound SMS signed the way Twilio signs it."""
-    data = {"To": "+12505550999", **data}
+    data = {"To": "+12365550190", **data}
     url = f"{get_settings().api_base_url}/webhooks/sms"
     signature = twilio_signature(TWILIO_TOKEN, url, list(data.items()))
     return await api.post("/webhooks/sms", data=data, headers={"X-Twilio-Signature": signature})
@@ -148,7 +148,14 @@ async def enable_payments(db: AsyncSession, account: str | None = "acct_test") -
 async def client_id(db: AsyncSession, *, business_id: str = BIZ, email: str | None = None) -> str:
     """A seeded client of the business, optionally given an email."""
     cid = (
-        (await db.execute(select(Client.id).where(Client.business_id == business_id).limit(1)))
+        (
+            await db.execute(
+                select(Client.id)
+                .where(Client.business_id == business_id)
+                .order_by(Client.id)
+                .limit(1)
+            )
+        )
         .scalars()
         .first()
     )

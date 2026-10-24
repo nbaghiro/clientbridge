@@ -33,12 +33,14 @@ const SECTION_SCREEN: Partial<
         | "Taxes"
         | "OnlineBooking"
         | "Reminders"
+        | "Resources"
         | "Security"
     >
 > = {
     start: "GetSetUp",
     business: "Business",
     services: "Services",
+    resources: "Resources",
     team: "Team",
     gettingPaid: "GettingPaid",
     plan: "Plans",

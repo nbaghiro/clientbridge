@@ -13,7 +13,7 @@ from clientbridge.core.scoping import scoped, scoped_delete
 from clientbridge.models.billing import Discounted, Estimate, Invoice, Line, Order
 from clientbridge.models.business import Staff
 from clientbridge.models.catalog import ENTITLEMENT_KINDS, Item
-from clientbridge.models.scheduling import Booking
+from clientbridge.models.scheduling import Booking, Hours
 from clientbridge.schemas.billing import DiscountIn, LineInput, LineOut
 from clientbridge.services.tax import TaxResult
 
@@ -36,6 +36,37 @@ def allocate(total: int, weights: list[int]) -> list[int]:
     for i in order[: total - sum(parts)]:
         parts[i] += 1
     return parts
+
+
+def crew_note(booking_id: str) -> str:
+    """The note on a helper's hours block that ties it to the visit they work on."""
+    return f"booking:{booking_id}"
+
+
+async def crew_ids(db: AsyncSession, business_id: str, booking_id: str) -> list[str]:
+    """The helpers on a visit, in the order they were added."""
+    rows = await db.scalars(
+        scoped(Hours, business_id)
+        .with_only_columns(Hours.staff_id)
+        .where(
+            Hours.basis == "exception",
+            Hours.note == crew_note(booking_id),
+            Hours.staff_id.is_not(None),
+        )
+        .order_by(Hours.created_at, Hours.id)
+    )
+    return [staff_id for staff_id in rows if staff_id is not None]
+
+
+async def worker_shares(db: AsyncSession, line: Line) -> list[tuple[str, int]]:
+    """Who did a line and their part of it: its member, or the visit's crew in even shares."""
+    staff_id = line.staff_id
+    booking = await db.get(Booking, line.booking_id) if line.booking_id is not None else None
+    lead = booking.staff_id if booking is not None else None
+    if booking is None or lead is None or staff_id not in (None, lead):
+        return [] if staff_id is None else [(staff_id, line.amount_cents)]
+    crew = [lead, *(h for h in await crew_ids(db, line.business_id, booking.id) if h != lead)]
+    return list(zip(crew, allocate(line.amount_cents, [1] * len(crew)), strict=True))
 
 
 def discount_off(base: int, kind: str | None, value: int | None) -> int:

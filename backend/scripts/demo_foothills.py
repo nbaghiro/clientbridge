@@ -1,7 +1,6 @@
 """Foothills Lawn and Garden: a four-person lawn and landscaping crew in Calgary."""
 
 import unicodedata
-from collections import Counter
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
 
@@ -16,7 +15,6 @@ from clientbridge.schemas.subjects import PropertyAttributes
 from clientbridge.services.bookings import expand_occurrences
 from scripts.demo_context import demo_business
 from scripts.demo_engine import ASSETS, WEEKDAYS, Demo, Quote
-from scripts.demo_photos import add_photos
 from scripts.demo_spec import (
     BusinessSpec,
     ContractSpec,
@@ -864,6 +862,8 @@ SNOW_RENEWALS = (
     ("home_10", 376),
 )
 SNOW_SIGNUPS = (("linda", 23), ("patrick", 11), ("adebayo", 3), ("home_11", 16))
+# the client who missed a consultation and rebooked it
+MISSED = "home_23"
 PHOTO_CLIENTS = (
     "helen",
     "amir",
@@ -995,7 +995,6 @@ SPEC = BusinessSpec(
         "address": "2615 42 Avenue NE, Calgary, AB T2E 7T1",
         "phone": "+1 587-555-0198",
         "email": "hello@foothills.example",
-        "website": "https://foothills.example",
         "neighbourhood": "Northwest Calgary",
     },
     booking_policy={
@@ -1071,6 +1070,11 @@ SPEC = BusinessSpec(
             ("sch_fh_silverridge", "inv_fh_silverridge_hedges"),
         ),
         Stage("Rain-delayed visit moved to the next dry day", "nina", ("bk_fh_nina",)),
+        Stage(
+            "No-show for a consultation, rebooked",
+            MISSED,
+            (f"bk_fh_{MISSED}_missed", f"bk_fh_{MISSED}_consult"),
+        ),
         Stage("Five-star feedback and a review request", "harjit", ("fr_fh_feedback_harjit",)),
         Stage(
             "Three-star feedback about a gate left open, with a reply",
@@ -1181,51 +1185,7 @@ class Foothills(Demo):
 
     def finish(self) -> None:
         super().finish()
-        negative = self.negative_clients()
-        add_photos(
-            self.ctx,
-            self.spec.id,
-            [p.user_id for p in self.spec.people if p.photo],
-            [
-                self.client_id(key)
-                for key in self.spec.photo_clients
-                if self.client_id(key) not in negative
-            ],
-        )
-
-    def negative_clients(self) -> set[str]:
-        """Clients a stock portrait may not stand in for, by the rules demo_validate checks."""
-        ctx = self.ctx
-        paid: Counter[str] = Counter()
-        for payment in ctx.all(Payment):
-            if payment.invoice_id and payment.status == "succeeded" and payment.kind != "refund":
-                paid[payment.invoice_id] += payment.amount_cents
-        found: set[str | None] = {
-            *(
-                b.client_id
-                for b in ctx.all(Booking)
-                if b.status in {"no_show", "waitlisted"} or b.deposit_status == "forfeited"
-            ),
-            *(e.client_id for e in ctx.all(Estimate) if e.status == "declined"),
-            *(s.client_id for s in ctx.all(Signature) if s.status in {"declined", "expired"}),
-            *(
-                p.client_id
-                for p in ctx.all(Payment)
-                if p.status == "failed" or p.dispute_status is not None
-            ),
-            *(
-                i.client_id
-                for i in ctx.all(Invoice)
-                if i.overdue_notified_at is not None
-                or (i.status == "sent" and i.total_cents > paid[i.id])
-            ),
-            *(
-                r.client_id
-                for r in ctx.all(FormResponse)
-                if int(str(r.answers.get("rating", 5))) <= 3
-            ),
-        }
-        return {client_id for client_id in found if client_id}
+        self.portraits()
 
     def visit_note(self, item: Item, booking: Booking) -> str:
         address = self.ctx.get(Subject, booking.subject_id or "").attributes.get("address", "")
@@ -1497,6 +1457,7 @@ class Foothills(Demo):
         self.fall_quotes()
         self.projects()
         self.rain_delay()
+        self.missed_consult()
         self.tap_to_pay()
         self.refund_story()
         self.spring()
@@ -1568,7 +1529,8 @@ class Foothills(Demo):
             note="Fall cleanup with aeration for the 8,200 sq ft lot, plus three yards of "
             "mulch for the beds along the back fence. We'll blow out the sprinklers too.",
         )
-        start = self.place(MEGAN, FALL, 6, "sj_fh_amir", past=False)
+        helper = self.crew(6)
+        start = self.place(MEGAN, FALL, 6, "sj_fh_amir", past=False, helper=helper)
         assert start is not None and estimate.accepted_at is not None
         booking = self.book(
             "amir",
@@ -1579,6 +1541,7 @@ class Foothills(Demo):
             "confirmed",
             estimate.accepted_at + timedelta(minutes=20),
         )
+        assert self.helper_on(booking, helper)
         self.addons(booking, estimate, quote)
 
     def projects(self) -> None:
@@ -1679,6 +1642,7 @@ class Foothills(Demo):
         self.sign(key, key, PROJECT_AGREEMENT, accepted + timedelta(minutes=15), f"sj_fh_{key}")
         booked = accepted + timedelta(minutes=30)
         past = project_day < 0
+        helper = self.crew(project_day)
         start = self.place(
             MEGAN,
             PROJECT,
@@ -1686,11 +1650,13 @@ class Foothills(Demo):
             f"sj_fh_{key}",
             past=past,
             not_before=booked + timedelta(days=5),
+            helper=helper,
         )
         assert start is not None
         booking = self.book(
             key, key, PROJECT, MEGAN, start, "completed" if past else "confirmed", booked
         )
+        assert self.helper_on(booking, helper)
         self.deposit(booking, booked + timedelta(minutes=10))
         if not past:
             self.addons(booking, estimate, quote)
@@ -1809,6 +1775,51 @@ class Foothills(Demo):
             moved + timedelta(minutes=40),
         )
 
+    def missed_consult(self) -> None:
+        """Nobody was home for Ian's consultation, so Ravi left a card and Ian rebooked."""
+        start = self.place(BOSS, CONSULT, -9, f"sj_fh_{MISSED}", past=True)
+        assert start is not None
+        missed = self.book(
+            f"{MISSED}_missed",
+            MISSED,
+            CONSULT,
+            BOSS,
+            start,
+            "no_show",
+            start - timedelta(days=4),
+            source="online",
+        )
+        waited = start + timedelta(minutes=20)
+        self.note(
+            missed.id,
+            "booking",
+            "Nobody home and the side gate was locked. Waited 15 minutes, called twice and left a "
+            "card in the door.",
+            waited,
+        )
+        rebooked = self.consult(MISSED, 4, status="confirmed")
+        thread = self.thread(MISSED, "sms", waited)
+        self.say(
+            thread,
+            f"Hi Ian, it's Ravi from Foothills. I'm at your place for the "
+            f"{_clock(self.local(start))} consultation but nobody's answering. I've left a card "
+            "in the door.",
+            waited,
+        )
+        self.say(
+            thread,
+            "So sorry, Ravi, I got stuck at work and forgot to cancel. Could we try again next "
+            "week?",
+            waited + timedelta(hours=2),
+            sender=None,
+        )
+        local = self.local(rebooked.starts_at)
+        self.say(
+            thread,
+            f"No problem. You're booked for {local:%A, %B} {local.day} at {_clock(local)}.",
+            waited + timedelta(hours=2, minutes=20),
+        )
+
     def tap_to_pay(self) -> None:
         booking = self.visit("marco", "marco", HEDGE, self.crew(-6), -6, settle=None)
         assert booking is not None and booking.completed_at is not None
@@ -1833,7 +1844,9 @@ class Foothills(Demo):
         """Spring cleanups for the clients whose stories need a visit before the first mow."""
         for key in ("carol", "harjit"):
             day = (self.this_year(4, 24) - self.local(self.now).date()).days
-            self.visit(f"{key}_spring", key, SPRING, MEGAN, day if day < -1 else -2)
+            booking = self.visit(f"{key}_spring", key, SPRING, MEGAN, day if day < -1 else -2)
+            if booking is not None:
+                self.helper_on(booking, self.crew(self.days_to(booking.starts_at)))
 
     def refund_story(self) -> None:
         booking = self.visit("ken", "ken", FALL, MEGAN, -8)

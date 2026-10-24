@@ -42,6 +42,7 @@ describe("what each role sees", () => {
             "start",
             "business",
             "services",
+            "resources",
             "team",
             "gettingPaid",
             "plan",

@@ -10,6 +10,7 @@ import { strings } from "../strings";
 import type { Intent } from "../ui";
 import { useSetupProgress } from "./business";
 import { bookingPageUrl } from "../runtime";
+import { idList } from "./catalog";
 import { useReplicaLoad } from "./sync";
 
 const s = strings.onlineBooking;
@@ -353,22 +354,6 @@ export const ONLINE_BOOKINGS_SQL =
 export const ADDON_SERVICES_SQL =
     "SELECT id, name FROM items WHERE kind IN ('service', 'class') AND active = 1 ORDER BY name COLLATE NOCASE";
 
-function parseIds(raw: string | null): string[] {
-    if (raw === null || raw === "") return [];
-    try {
-        const parsed: unknown = JSON.parse(raw);
-        return Array.isArray(parsed)
-            ? parsed.filter((x): x is string => typeof x === "string")
-            : [];
-    } catch {
-        return raw
-            .replace(/[{}]/g, "")
-            .split(",")
-            .map((x) => x.trim())
-            .filter(Boolean);
-    }
-}
-
 interface AddonOffer {
     id: string;
     name: string;
@@ -396,7 +381,7 @@ export function useAddonOffers(api: ApiLike) {
     const { busy, error, run } = useAsyncAction();
     const online = onlineQ.data[0]?.n ?? 0;
     const offers: AddonOffer[] = products.data.map((r) => {
-        const base = { addon: r.addon === 1, addonFor: parseIds(r.addon_for) };
+        const base = { addon: r.addon === 1, addonFor: idList(r.addon_for) };
         const cur = edits[r.id] ?? base;
         const rate = online > 0 ? Math.round((r.attached / online) * 100) : 0;
         const left = r.track_stock === 1 ? Math.max(0, r.stock_on_hand ?? 0) : null;

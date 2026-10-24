@@ -1,6 +1,5 @@
 import {
     type ClassRoster,
-    type RosterEntry,
     strings,
     useClassBoard,
     formatParts,
@@ -10,7 +9,6 @@ import {
 import { theme } from "@clientbridge/tokens/native";
 import {
     Avatar,
-    Badge,
     Button,
     Choice,
     Empty,
@@ -22,17 +20,22 @@ import {
     Notice,
     SearchField,
     Skeleton,
-    StatusPill,
+    Tabs,
     TextField,
 } from "@clientbridge/ui";
 import { useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 
+import { ProgramBoard } from "../components/ProgramBoard";
+import { ProgramForm } from "../components/ProgramForm";
+import { RosterAttendee } from "../components/RosterAttendee";
 import { api } from "../lib/api";
 import { useOpenLink } from "../lib/links";
 
 const c = theme.colors;
 const s = strings.classes;
+
+type ClassView = "sessions" | "programs";
 
 /** Upcoming class sessions with their seats, and the selected session's roster at the door. */
 export function ClassesScreen() {
@@ -42,6 +45,9 @@ export function ClassesScreen() {
     const [messaging, setMessaging] = useState(false);
     const [body, setBody] = useState("");
     const [sent, setSent] = useState<string | null>(null);
+    const [view, setView] = useState<ClassView>("sessions");
+    const [scheduling, setScheduling] = useState(false);
+    const [scheduled, setScheduled] = useState<string | null>(null);
     return (
         <ScrollView
             style={styles.screen}
@@ -49,8 +55,38 @@ export function ClassesScreen() {
             keyboardShouldPersistTaps="handled"
         >
             <Text style={styles.subtitle}>{s.subtitle}</Text>
+            <Tabs
+                variant="pill"
+                inset={false}
+                label={s.title}
+                items={[
+                    { key: "sessions", label: s.sessionsTab },
+                    { key: "programs", label: strings.programs.tab },
+                ]}
+                active={view}
+                onSelect={setView}
+            />
+            {scheduling ? (
+                <ProgramForm
+                    onClose={() => {
+                        setScheduling(false);
+                    }}
+                    onDone={(name) => {
+                        setScheduling(false);
+                        setScheduled(strings.programs.created(name));
+                    }}
+                />
+            ) : null}
             {sent !== null ? <Notice tone="success">{sent}</Notice> : null}
-            {board.load.state === "loading" ? (
+            {view === "programs" ? (
+                <ProgramBoard
+                    notice={scheduled}
+                    onSchedule={() => {
+                        setScheduled(null);
+                        setScheduling(true);
+                    }}
+                />
+            ) : board.load.state === "loading" ? (
                 <Skeleton variant="row" count={4} label={s.loading} />
             ) : board.load.state === "error" ? (
                 <LoadFailed
@@ -83,7 +119,7 @@ export function ClassesScreen() {
                         options={board.sessions.map((x) => ({
                             key: x.slotId,
                             label: formatParts([x.day, x.name]),
-                            hint: formatParts([x.time, x.seatsLabel]),
+                            hint: formatParts([x.time, x.seatsLabel, x.room]),
                         }))}
                         value={board.selected}
                         onChange={board.select}
@@ -188,28 +224,25 @@ function RosterBody({ roster }: { roster: ClassRoster }) {
                     />
                 </View>
             </View>
-            <SearchField
-                value={roster.query}
-                onChange={roster.setQuery}
-                placeholder={s.addPlaceholder(kindWord(kind))}
-            />
+            {roster.programNote !== null ? (
+                <Text style={styles.muted}>{roster.programNote}</Text>
+            ) : (
+                <SearchField
+                    value={roster.query}
+                    onChange={roster.setQuery}
+                    placeholder={s.addPlaceholder(kindWord(kind))}
+                />
+            )}
             {roster.matches.length > 0 ? (
                 <View style={styles.list}>
                     {roster.matches.map((m) => (
                         <ListRow
-                            key={m.clientId}
-                            title={
-                                m.subjectName === "" ? m.name : formatParts([m.subjectName, m.name])
-                            }
-                            leading={
-                                <Avatar
-                                    name={m.subjectName === "" ? m.name : m.subjectName}
-                                    size="sm"
-                                />
-                            }
+                            key={m.key}
+                            title={m.title}
+                            leading={<Avatar name={m.avatar} size="sm" />}
                             meta={x.full ? s.waitlist : s.add}
                             onPress={() => {
-                                roster.add(m.clientId);
+                                roster.add(m.key);
                             }}
                         />
                     ))}
@@ -242,105 +275,45 @@ function RosterBody({ roster }: { roster: ClassRoster }) {
                     <Text style={styles.empty}>{s.emptyRoster}</Text>
                 ) : null}
                 {roster.attendees.map((a, i) => (
-                    <Attendee key={a.key} a={a} roster={roster} first={i === 0} />
-                ))}
-            </View>
-
-            <Text style={styles.section}>{s.waitlist}</Text>
-            <View style={styles.list}>
-                {roster.waitlist.length === 0 ? (
-                    <Text style={styles.empty}>{s.emptyWaitlist}</Text>
-                ) : null}
-                {roster.waitlist.map((w, i) => (
-                    <View key={w.key} style={[styles.row, i > 0 && styles.divider]}>
-                        <Text style={styles.pos}>{i + 1}</Text>
-                        <Avatar name={w.subjectName} size="sm" />
-                        <View style={styles.flex}>
-                            <Text style={styles.subject}>{w.subjectName}</Text>
-                            <Text style={styles.muted}>{w.clientName}</Text>
-                        </View>
-                        <Button
-                            style={{ alignSelf: "center" }}
-                            size="sm"
-                            variant="outline"
-                            onPress={() => {
-                                roster.promote(w.key);
-                            }}
-                        >
-                            {s.promote}
-                        </Button>
-                    </View>
-                ))}
-            </View>
-        </View>
-    );
-}
-
-function Attendee({ a, roster, first }: { a: RosterEntry; roster: ClassRoster; first: boolean }) {
-    return (
-        <View style={[styles.row, !first && styles.divider]}>
-            <Avatar name={a.subjectName} size="sm" />
-            <View style={styles.flex}>
-                <Text style={styles.subject} numberOfLines={1}>
-                    {a.subjectName}
-                    {a.subjectName !== a.clientName ? (
-                        <Text style={styles.muted}>
-                            {`${strings.common.separator}${a.clientName}`}
-                        </Text>
-                    ) : null}
-                </Text>
-                <View style={styles.badges}>
-                    {a.note !== null ? <Badge label={a.note} intent="warning" /> : null}
-                    {a.paid ? null : <Badge label={s.unpaid} intent="danger" />}
-                </View>
-                {a.pickup !== null ? (
-                    <Text style={styles.muted} numberOfLines={2}>
-                        {a.pickup}
-                    </Text>
-                ) : null}
-            </View>
-            {a.status === "confirmed" && roster.started ? (
-                <View style={styles.actions}>
-                    <Button
-                        style={{ alignSelf: "center" }}
-                        size="sm"
-                        variant="quiet"
-                        onPress={() => {
-                            roster.noShow(a.key);
-                        }}
-                    >
-                        {s.noShow}
-                    </Button>
-                    <Button
-                        style={{ alignSelf: "center" }}
-                        size="sm"
-                        onPress={() => {
-                            roster.checkIn(a.key);
-                        }}
-                    >
-                        {s.checkIn}
-                    </Button>
-                </View>
-            ) : (
-                <View style={styles.actions}>
-                    <StatusPill
-                        style={{ alignSelf: "center" }}
-                        status={a.statusLabel}
-                        intent={a.intent}
+                    <RosterAttendee
+                        key={a.key}
+                        a={a}
+                        started={roster.started}
+                        actions={roster}
+                        first={i === 0}
                     />
-                    {a.status === "checked_in" || a.status === "no_show" ? (
-                        <Button
-                            style={{ alignSelf: "center" }}
-                            size="sm"
-                            variant="link"
-                            onPress={() => {
-                                roster.undo(a.key);
-                            }}
-                        >
-                            {s.undo}
-                        </Button>
-                    ) : null}
-                </View>
+                ))}
+            </View>
+
+            {roster.programNote !== null ? null : (
+                <>
+                    <Text style={styles.section}>{s.waitlist}</Text>
+                    <View style={styles.list}>
+                        {roster.waitlist.length === 0 ? (
+                            <Text style={styles.empty}>{s.emptyWaitlist}</Text>
+                        ) : null}
+                        {roster.waitlist.map((w, i) => (
+                            <View key={w.key} style={[styles.row, i > 0 && styles.divider]}>
+                                <Text style={styles.pos}>{i + 1}</Text>
+                                <Avatar name={w.subjectName} size="sm" />
+                                <View style={styles.flex}>
+                                    <Text style={styles.subject}>{w.subjectName}</Text>
+                                    <Text style={styles.muted}>{w.clientName}</Text>
+                                </View>
+                                <Button
+                                    style={{ alignSelf: "center" }}
+                                    size="sm"
+                                    variant="outline"
+                                    onPress={() => {
+                                        roster.promote(w.key);
+                                    }}
+                                >
+                                    {s.promote}
+                                </Button>
+                            </View>
+                        ))}
+                    </View>
+                </>
             )}
         </View>
     );

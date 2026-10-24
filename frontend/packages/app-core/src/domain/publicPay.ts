@@ -8,7 +8,9 @@ import {
     discountReason,
     docReference,
     longDate,
+    type PostalParts,
     printedDoc,
+    publicAddressLines,
     shortDate,
     taxRateLabel,
 } from "./printing";
@@ -44,6 +46,8 @@ interface PublicInvoice {
     number: number | null;
     business_name: string;
     brand: PublicBrand;
+    address?: Partial<PostalParts>;
+    phone?: string | null;
     currency: string;
     timezone: string;
     subtotal_cents: number;
@@ -169,6 +173,8 @@ export function printedPublicInvoice(
             email: invoice.contact_email,
             gstHstNumber: invoice.gst_hst_number,
             qstNumber: invoice.qst_number,
+            address: publicAddressLines(invoice.address),
+            phone: invoice.phone ?? null,
         },
         fallbackColor,
     );

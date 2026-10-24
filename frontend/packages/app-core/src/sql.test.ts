@@ -1227,11 +1227,28 @@ describe("app-core SQL against the replica schema", () => {
             { event: "payment", cents: 5000, method: "card" },
         ]);
         expect(run("INVOICE_CREDITS_SQL", ["inv_2"])).toEqual([]);
-        expect(pick(run("LETTERHEAD_SQL"), "name", "billing_email", "gst_hst_number")).toEqual([
+        db.run(
+            "UPDATE businesses SET street_number = '1250', province = 'BC', legal_phone = ? WHERE id = ?",
+            ["+16045550142", BIZ],
+        );
+        expect(
+            pick(
+                run("LETTERHEAD_SQL"),
+                "name",
+                "billing_email",
+                "gst_hst_number",
+                "street_number",
+                "province",
+                "legal_phone",
+            ),
+        ).toEqual([
             {
                 name: "Birch Studio",
                 billing_email: "billing@birch.test",
                 gst_hst_number: "123456789RT0001",
+                street_number: "1250",
+                province: "BC",
+                legal_phone: "+16045550142",
             },
         ]);
         expect(pick(run("INVOICES_SQL"), "id", "client_email", "paid_cents", "paid_at")).toEqual([
@@ -1285,6 +1302,25 @@ describe("app-core SQL against the replica schema", () => {
         const list = run("INVOICES_SQL").find((r) => r.id === "inv_3");
         expect(run("INVOICE_SQL", ["inv_3"])).toEqual([list]);
         expect(run("INVOICE_SQL", ["inv_missing"])).toEqual([]);
+    });
+
+    it("lists rooms by name and carries the room a visit holds and its service's pool", () => {
+        scoped("resources", [
+            { id: "rs_b", name: "room B", active: 1 },
+            { id: "rs_a", name: "Room A", active: 0 },
+        ]);
+        db.run("UPDATE items SET resource_ids = '[\"rs_a\",\"rs_b\"]' WHERE id = 'it_cut'");
+        db.run("UPDATE slots SET resource_id = 'rs_b' WHERE id = 'ss_1'");
+        expect(pick(run("RESOURCES_SQL"), "id", "name", "active")).toEqual([
+            { id: "rs_a", name: "Room A", active: 0 },
+            { id: "rs_b", name: "room B", active: 1 },
+        ]);
+        const range = ["2026-06-28T00:00:00.000Z", "2026-06-26T00:00:00.000Z"];
+        const visit = run("EVENTS_SQL", range).find((r) => r.slot_id === "ss_1");
+        expect(visit).toMatchObject({
+            resource_id: "rs_b",
+            item_resource_ids: '["rs_a","rs_b"]',
+        });
     });
 
     it("lists clients by name with their lifetime value", () => {
@@ -1357,7 +1393,9 @@ describe("app-core SQL against the replica schema", () => {
             },
         ]);
         expect(run("ADDONS_SQL", ["bk_1"]).map((r) => r.id)).toEqual(["ba_1"]);
-        expect(run("BOOKING_INVOICE_SQL", ["bk_1"])).toEqual([{ invoice_id: "inv_1" }]);
+        expect(run("BOOKING_INVOICE_SQL", ["bk_1"])).toEqual([
+            { invoice_id: "inv_1", order_id: null },
+        ]);
     });
 
     it("derives each earning's status from its journals, tips included", () => {
@@ -1562,6 +1600,43 @@ describe("app-core SQL against the replica schema", () => {
         ]);
     });
 
+    it("covers a visit with its subject's package before a shared one, never another's", () => {
+        db.run(
+            "UPDATE bookings SET status = 'confirmed', subject_id = 'sj_site' WHERE id = 'bk_1'",
+        );
+        scoped("packages", [
+            {
+                id: "pk_own",
+                client_id: "cl_ann",
+                item_id: "it_pkg",
+                subject_id: "sj_site",
+                sessions_total: 5,
+                status: "active",
+                created_at: "2026-07-01T00:00:00Z",
+            },
+            {
+                id: "pk_sibling",
+                client_id: "cl_ann",
+                item_id: "it_pkg",
+                subject_id: "sj_sibling",
+                sessions_total: 5,
+                status: "active",
+                created_at: "2026-01-01T00:00:00Z",
+            },
+        ]);
+        const day = ["2026-06-26T00:00:00.000Z", "2026-06-27T00:00:00.000Z"];
+        const cover = (): Row[] => pick(run("CHECKOUT_QUEUE_SQL", day), "cover_package_id");
+        expect(cover()).toEqual([{ cover_package_id: "pk_own" }]);
+        db.run("UPDATE bookings SET subject_id = NULL WHERE id = 'bk_1'");
+        expect(cover()).toEqual([{ cover_package_id: "pk_1" }]);
+        expect(pick(run("CLIENT_PACKAGES_SQL", ["cl_ann"]), "id", "subject_name")).toContainEqual({
+            id: "pk_1",
+            subject_name: null,
+        });
+        db.run("DELETE FROM packages WHERE id IN ('pk_own', 'pk_sibling')");
+        db.run("UPDATE bookings SET status = 'completed' WHERE id = 'bk_1'");
+    });
+
     it("lists invitation history and Google settings", () => {
         expect(pick(run("REVIEW_REQUESTS_SQL"), "id", "client_name")).toEqual([
             { id: "rrq_1", client_name: "Ann" },
@@ -1640,9 +1715,22 @@ describe("app-core SQL against the replica schema", () => {
 
     it("reads forms, contracts and weekly hours", () => {
         scoped("responses", [
-            { id: "rs_1", form_id: "frm_a", status: "submitted", submitted_at: TS, answers: "{}" },
-            { id: "rs_2", form_id: "frm_a", status: "draft", answers: "{}" },
+            {
+                id: "rs_1",
+                form_id: "frm_a",
+                client_id: "cl_ann",
+                status: "submitted",
+                submitted_at: TS,
+                answers: "{}",
+            },
+            { id: "rs_2", form_id: "frm_a", client_id: "cl_ann", status: "draft", answers: "{}" },
         ]);
+        expect(pick(run("CLIENT_FORMS_SQL", ["cl_ann"]), "id", "name")).toEqual([
+            { id: "rs_1", name: "Alpha" },
+        ]);
+        db.run("UPDATE forms SET send_on = 'manual' WHERE id IN ('frm_a', 'frm_z')");
+        db.run("UPDATE forms SET send_on = 'booking' WHERE id = 'frm_b'");
+        expect(run("NOTE_FORMS_SQL").map((r) => r.id)).toEqual(["frm_a"]);
         expect(pick(run("FORM_LIBRARY_SQL"), "id", "field_count", "submitted", "waiting")).toEqual([
             { id: "frm_a", field_count: 2, submitted: 1, waiting: 1 },
             { id: "frm_b", field_count: 0, submitted: 0, waiting: 0 },
@@ -2286,6 +2374,93 @@ describe("app-core SQL against the replica schema", () => {
         ]);
     });
 
+    it("reads programs, their days and who holds a seat, one per sibling", () => {
+        scheduleRows();
+        scoped("items", [
+            {
+                id: "it_camp",
+                kind: "class",
+                name: "Camp",
+                price_cents: 30000,
+                currency: "CAD",
+                capacity: 4,
+                session_count: 2,
+                active: 1,
+            },
+        ]);
+        scoped("subjects", [
+            { id: "sj_luna", client_id: "cl_ann", name: "Luna", attributes: null },
+        ]);
+        scoped("recurrences", [
+            {
+                id: "sch_camp",
+                item_id: "it_camp",
+                staff_id: "st_cara",
+                client_id: null,
+                frequency: "week",
+                interval: 1,
+                count: 2,
+                status: "active",
+            },
+        ]);
+        const day = (id: string, date: string): Row => ({
+            id,
+            item_id: "it_camp",
+            staff_id: "st_cara",
+            recurrence_id: "sch_camp",
+            starts_at: `${date}T14:00:00Z`,
+            ends_at: `${date}T20:00:00Z`,
+            capacity: 4,
+            status: "scheduled",
+        });
+        scoped("slots", [day("ss_camp1", "2027-01-11"), day("ss_camp2", "2027-01-12")]);
+        const seat = (id: string, slot: string, subject: string, price: number): Row => ({
+            id,
+            slot_id: slot,
+            starts_at: slot === "ss_camp1" ? "2027-01-11T14:00:00Z" : "2027-01-12T14:00:00Z",
+            staff_id: "st_cara",
+            client_id: "cl_ann",
+            subject_id: subject,
+            status: "confirmed",
+            source: "manual",
+            price_cents: price,
+            deposit_status: "none",
+            deleted_at: null,
+        });
+        scoped("bookings", [
+            seat("bk_camp_rex1", "ss_camp1", "sj_rex", 30000),
+            seat("bk_camp_rex2", "ss_camp2", "sj_rex", 0),
+            seat("bk_camp_luna1", "ss_camp1", "sj_luna", 30000),
+        ]);
+        expect(pick(run("PROGRAMS_SQL"), "id", "session_count")).toEqual([
+            { id: "sch_camp", session_count: 2 },
+        ]);
+        expect(pick(run("PROGRAM_DAYS_SQL"), "slot_id", "recurrence_id")).toEqual([
+            { slot_id: "ss_camp1", recurrence_id: "sch_camp" },
+            { slot_id: "ss_camp2", recurrence_id: "sch_camp" },
+        ]);
+        expect(pick(run("PROGRAM_SEATS_SQL"), "booking_id", "subject_name")).toEqual([
+            { booking_id: "bk_camp_luna1", subject_name: "Luna" },
+            { booking_id: "bk_camp_rex1", subject_name: "Rex" },
+            { booking_id: "bk_camp_rex2", subject_name: "Rex" },
+        ]);
+        expect(
+            pick(
+                run("CLASS_SESSIONS_SQL", ["2027-01-11T00:00:00.000Z", "2027-01-13T00:00:00.000Z"]),
+                "slot_id",
+                "program_id",
+            ),
+        ).toEqual([
+            { slot_id: "ss_camp1", program_id: "sch_camp" },
+            { slot_id: "ss_camp2", program_id: "sch_camp" },
+        ]);
+        expect(pick(run("CLASS_CLIENTS_SQL"), "id", "subject_name")).toEqual([
+            { id: "cl_ann", subject_name: "Luna" },
+            { id: "cl_ann", subject_name: "Rex" },
+            { id: "cl_ben", subject_name: null },
+        ]);
+    });
+
     it("reads class rosters, reminders and add-on offers", () => {
         scheduleRows();
         expect(
@@ -2366,6 +2541,15 @@ describe("app-core SQL against the replica schema", () => {
         ]);
         expect(run("ONLINE_BOOKINGS_SQL", ["2026-01-01T00:00:00Z"])).toEqual([{ n: 2 }]);
         expect(run("ADDON_SERVICES_SQL").map((r) => r.id)).toEqual(["it_cut"]);
+        expect(run("ADDON_CHOICES_SQL")).toEqual([
+            {
+                id: "it_brush",
+                name: "Brush",
+                price_cents: 1500,
+                duration_min: null,
+                addon_for: '["it_cut"]',
+            },
+        ]);
     });
 
     it("totals a sale with line and sale discounts, a tip and a partial refund", () => {

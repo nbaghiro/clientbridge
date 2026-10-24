@@ -309,8 +309,10 @@ test("owner: schedule, booking panel, classes and repeat visits", async ({ page 
         const draft = main.getByTestId("draft");
         await expect(draft).toBeVisible();
         await expect(draft).toContainText(b.newBooking);
+        await expect(draft).toBeInViewport();
         const card = draft.getByRole("button");
-        const before = (await card.getAttribute("aria-label")) ?? "";
+        // the card's text shows its time but no member, so it is set before the team loads
+        const before = await card.innerText();
         const box = await draft.boundingBox();
         expect(box).not.toBeNull();
         if (box !== null) {
@@ -319,7 +321,7 @@ test("owner: schedule, booking panel, classes and repeat visits", async ({ page 
             await page.mouse.move(box.x + box.width / 2, box.y + 8 + box.height * 2, { steps: 8 });
             await page.mouse.up();
         }
-        await expect(card).not.toHaveAttribute("aria-label", before);
+        await expect(card).not.toHaveText(before, { useInnerText: true });
         await main.getByRole("button", { name: b.next }).first().click();
         await expect(draft).toBeVisible();
         await composer.getByRole("button", { name: strings.common.close }).click();

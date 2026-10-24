@@ -347,6 +347,21 @@ export interface PanelProps {
     children: ReactNode;
 }
 
+// A list of like items edited in place, such as a site's devices or a student's pickups.
+export interface RepeatingGroupProps<T> {
+    title: string;
+    hint?: string | undefined;
+    items: readonly T[];
+    // The heading over one item from its position, counting from 1: "Device 2".
+    itemLabel: (n: number) => string;
+    addLabel: string;
+    onAdd: () => void;
+    onRemove: (index: number) => void;
+    // The add button hides once the group holds this many items.
+    max: number;
+    children: (item: T, index: number) => ReactNode;
+}
+
 export interface LoadingProps {
     label?: string | undefined;
     inline?: boolean | undefined;

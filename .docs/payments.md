@@ -332,8 +332,10 @@ On 2026-10-18, CLI prefilling succeeded for Cedar Coast's Canadian test bank, su
 website (`https://accessible.stripe.com`). Birchbark rejected support/identity changes because an
 Account Session had already started onboarding. Stripe can continue reporting pending requirements
 while processing updates; a successful field update alone does not mean charges/payouts are enabled.
-New demo-account creation now prefills support phone, owner title and a test website when there is no
-business website. Existing accounts retain their identifiers and onboarding state.
+New demo-account creation prefills the support phone, the owner title and the business's website,
+`https://<slug>.example` from `scripts/demo_context.py`; the sandbox accepted `https://inkwell.example`
+when Inkwell's account was created. Existing accounts retain their identifiers, onboarding state and
+the website they were created with.
 
 Our accounts use `requirements_collector=stripe`. Stripe documents the external-bank-account API for
 application-collected accounts. In this sandbox it accepted Cedar Coast's test bank before onboarding,
@@ -345,7 +347,7 @@ and [account configuration](https://docs.stripe.com/connect/accounts-v2/connecte
 Complete the one-time manual step for each business:
 
 1. Sign into the local app as `hannah@birchbark.example` for Birchbark or
-   `owner@cedarcoast.example.test` for Cedar Coast, with the seeded password `demo1234`.
+   `owner@cedarcoast.example` for Cedar Coast, with the seeded password `demo1234`.
 2. Open **Setup → Getting paid**, then finish onboarding. Confirm the component says test/sandbox.
 3. Choose **Use test phone number** in Stripe's authentication prompt; use `000000` if prompted for
    a test verification code. Review and accept the displayed agreements yourself.

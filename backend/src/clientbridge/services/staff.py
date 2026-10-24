@@ -3,6 +3,7 @@
 import logging
 import secrets
 from collections import Counter
+from datetime import datetime
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -21,14 +22,15 @@ from clientbridge.core.errors import (
 )
 from clientbridge.core.ids import new_id
 from clientbridge.core.locale import locale_for
-from clientbridge.core.scoping import scoped, scoped_update
+from clientbridge.core.scoping import scoped, scoped_delete, scoped_update
 from clientbridge.core.security import hash_token
 from clientbridge.integrations.identity import Identity
 from clientbridge.integrations.resend import EmailSender
 from clientbridge.integrations.stripe import PaymentGateway
 from clientbridge.models.business import Business, Staff, User
+from clientbridge.models.catalog import Item
 from clientbridge.models.platform import Audit
-from clientbridge.models.scheduling import Addon, Booking, Recurrence, Slot
+from clientbridge.models.scheduling import Addon, Booking, Hours, Recurrence, Slot
 from clientbridge.schemas.bookings import BookingCheck
 from clientbridge.schemas.staff import (
     AcceptInviteOut,
@@ -48,21 +50,28 @@ from clientbridge.schemas.staff import (
     TeamOut,
 )
 from clientbridge.services import plans
+from clientbridge.services.billing import void_enrolment_invoice
 from clientbridge.services.bookings import (
     OVERLAP,
+    carry_crew,
+    is_program_day,
     lock_bookings,
     lock_staff,
     release_slot,
     slot_problem,
 )
 from clientbridge.services.business import load_staff, staff_names
-from clientbridge.services.catalog import load_item
+from clientbridge.services.catalog import NOT_OFFERED, load_item, offers
+from clientbridge.services.lines import crew_note
 from clientbridge.services.notifications import Notice, business_email, invite_link, staff_invite
 from clientbridge.services.payments import cancel_open_deposits, refund_deposit
 from clientbridge.services.plans import INVITE_TTL
+from clientbridge.services.programs import sessions_of
 
 _ANY = "any"
 _OPEN = ("pending", "confirmed", "waitlisted")
+_SCHEDULE_CLASH = "the member chosen can't take every session of this class schedule"
+_ENROLMENT_PAID = "money was taken on a program enrolment's invoice; refund it first"
 
 
 def _fit_rate_unit(staff: Staff, data: StaffPayUpdate) -> None:
@@ -462,8 +471,31 @@ class StaffService:
                 )
             out = StaffRemoveOut(moved=[], canceled=[], left=[], series_moved=[], series_ended=[])
             live = {b.id for b in await lock_bookings(self.db, biz, [b.id for b, _ in visits])}
+            schedules = [r for r in series if r.client_id is None]
+            sessions = {
+                r.id: await sessions_of(self.db, biz, r.id, after=clock.now()) for r in schedules
+            }
+            if data.future == "reassign":
+                for schedule in schedules:
+                    taker = await self._take_schedule(
+                        biz, schedule, sessions[schedule.id], candidates
+                    )
+                    for booking, slot in visits:
+                        if slot.recurrence_id == schedule.id and booking.id in live:
+                            cmd.record(
+                                "booking.reassign",
+                                entity_type="booking",
+                                entity_id=booking.id,
+                                changes={"from": member.id, "to": taker},
+                            )
+                            out.moved.append(booking.id)
+                    out.series_moved.append(MovedSeries(recurrence_id=schedule.id, staff_id=taker))
+                series = [r for r in series if r.client_id is not None]
+            moved_whole = {r.id for r in schedules} if data.future == "reassign" else set()
             slots: dict[str, tuple[Slot, list[Booking]]] = {}
             for booking, slot in visits:
+                if slot.recurrence_id in moved_whole:
+                    continue
                 if booking.id in live and booking.status in _OPEN:
                     slots.setdefault(slot.id, (slot, []))[1].append(booking)
             taken: dict[str, list[str]] = {}
@@ -471,7 +503,14 @@ class StaffService:
                 await self.db.refresh(slot, with_for_update=True)
                 if data.future == "cancel":
                     for booking in bookings:
+                        if (
+                            booking.invoice_id is not None
+                            and await is_program_day(self.db, slot)
+                            and not await void_enrolment_invoice(self.db, booking, cmd)
+                        ):
+                            raise Conflict(_ENROLMENT_PAID, code="enrolment_paid")
                         await self._cancel(cmd, gateway, booking)
+                        await carry_crew(self.db, biz, booking, slot)
                         out.canceled.append(booking.id)
                     await release_slot(self.db, slot)
                     continue
@@ -497,7 +536,18 @@ class StaffService:
                     out.moved.append(booking.id)
                 if slot.recurrence_id is not None:
                     taken.setdefault(slot.recurrence_id, []).append(taker)
+            if data.future == "cancel":
+                for slot in (slot for ahead in sessions.values() for slot in ahead):
+                    slot.status = "canceled"
             await self._settle_series(biz, series, data, taken, out)
+            await self.db.execute(
+                scoped_delete(Hours, biz).where(
+                    Hours.staff_id == member.id,
+                    Hours.basis == "exception",
+                    Hours.note.startswith(crew_note("")),
+                    Hours.starts_at >= clock.now(),
+                )
+            )
             member.status = "removed"
             await self.db.flush()
             cmd.record(
@@ -570,14 +620,18 @@ class StaffService:
         item = await load_item(self.db, biz, slot.item_id, require_active=False)
         first: BookingCheck | None = None
         for candidate in candidates:
-            problem = await slot_problem(
-                self.db,
-                biz,
-                item,
-                candidate.id,
-                slot.starts_at,
-                slot.ends_at,
-                exclude=slot.id,
+            problem = (
+                await slot_problem(
+                    self.db,
+                    biz,
+                    item,
+                    candidate.id,
+                    slot.starts_at,
+                    slot.ends_at,
+                    exclude=slot.id,
+                )
+                if offers(item, candidate.id)
+                else BookingCheck(ok=False, problem="not_offered", message=NOT_OFFERED)
             )
             if problem is None:
                 try:
@@ -600,6 +654,73 @@ class StaffService:
                     return candidate.id, None
             first = first or problem
         return None, first
+
+    async def _take_schedule(
+        self, biz: str, schedule: Recurrence, sessions: list[Slot], candidates: list[Staff]
+    ) -> str:
+        """Give a class schedule and its sessions ahead to the first candidate free for them all."""
+        item = await load_item(self.db, biz, schedule.item_id, require_active=False)
+        first: tuple[datetime, str] | None = None
+        for candidate in candidates:
+            clash = await self._schedule_clash(biz, item, sessions, candidate.id)
+            if clash is None:
+                try:
+                    async with self.db.begin_nested():
+                        await self._move_schedule(biz, schedule, sessions, candidate.id)
+                except IntegrityError:
+                    for slot in sessions:
+                        await self.db.refresh(slot)
+                    await self.db.refresh(schedule)
+                    clash = (sessions[0].starts_at, "overlap")
+                else:
+                    return candidate.id
+            first = first or clash
+        day, problem = first or (sessions[0].starts_at if sessions else clock.now(), "overlap")
+        raise Conflict(
+            _SCHEDULE_CLASH,
+            code="schedule_clash",
+            detail={"recurrence_id": schedule.id, "starts_at": day.isoformat(), "problem": problem},
+        )
+
+    async def _schedule_clash(
+        self, biz: str, item: Item, sessions: list[Slot], staff_id: str
+    ) -> tuple[datetime, str] | None:
+        """The first session the member can't take, and why; None when they can take them all."""
+        if not offers(item, staff_id):
+            return (sessions[0].starts_at if sessions else clock.now()), "not_offered"
+        for slot in sessions:
+            problem = await slot_problem(
+                self.db, biz, item, staff_id, slot.starts_at, slot.ends_at, exclude=slot.id
+            )
+            if problem is not None:
+                return slot.starts_at, problem.problem or "overlap"
+        return None
+
+    async def _move_schedule(
+        self, biz: str, schedule: Recurrence, sessions: list[Slot], staff_id: str
+    ) -> None:
+        held = await lock_bookings(
+            self.db,
+            biz,
+            list(
+                await self.db.scalars(
+                    scoped(Booking, biz)
+                    .with_only_columns(Booking.id)
+                    .where(Booking.slot_id.in_([s.id for s in sessions]))
+                )
+            ),
+        )
+        schedule.staff_id = staff_id
+        for slot in sessions:
+            slot.staff_id = staff_id
+        for booking in held:
+            booking.staff_id = staff_id
+        await self.db.execute(
+            scoped_update(Addon, biz)
+            .where(Addon.booking_id.in_([b.id for b in held]))
+            .values(staff_id=staff_id)
+        )
+        await self.db.flush()
 
     async def _cancel(self, cmd: Command, gateway: PaymentGateway, booking: Booking) -> None:
         if booking.deposit_status == "collected":

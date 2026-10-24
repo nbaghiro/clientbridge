@@ -26,7 +26,7 @@ from clientbridge.schemas.consents import (
 from clientbridge.schemas.contracts import PublicContractContext, PublicContractSign
 from clientbridge.schemas.files import PublicFileComplete, PublicFileCreate, PublicFileUpload
 from clientbridge.schemas.forms import PublicFormContext, PublicFormSubmit
-from clientbridge.schemas.orders import PublicReceipt
+from clientbridge.schemas.orders import PublicReceipt, VisitReceipt
 from clientbridge.schemas.payments import (
     PublicCardIntent,
     PublicInvoice,
@@ -44,6 +44,7 @@ from clientbridge.schemas.public import (
     PublicBookingResult,
     PublicDays,
     PublicPickupDays,
+    PublicPrograms,
     PublicShop,
     PublicShopOrderCreate,
     PublicShopOrderResult,
@@ -255,6 +256,11 @@ async def public_next_openings(
     return await PublicBookingService(db, gateway).next_openings(slug, item_ids)
 
 
+ExtraMinutes = Annotated[
+    int, Query(ge=0, le=720, description="Minutes the chosen add-ons add to the visit")
+]
+
+
 @booking_router.get("/{slug}/slots", response_model=PublicSlots)
 async def public_booking_slots(
     slug: str,
@@ -264,8 +270,9 @@ async def public_booking_slots(
     db: DbSession,
     gateway: GatewayDep,
     _: BookingRateLimited,
+    extra_min: ExtraMinutes = 0,
 ) -> PublicSlots:
-    return await PublicBookingService(db, gateway).slots(slug, item_id, staff_id, date)
+    return await PublicBookingService(db, gateway).slots(slug, item_id, staff_id, date, extra_min)
 
 
 @booking_router.get("/{slug}/days", response_model=PublicDays)
@@ -278,8 +285,23 @@ async def public_booking_days(
     gateway: GatewayDep,
     _: BookingRateLimited,
     days: Annotated[int, Query(ge=1, le=14)] = 7,
+    extra_min: ExtraMinutes = 0,
 ) -> PublicDays:
-    return await PublicBookingService(db, gateway).days(slug, item_id, staff_id, start, days)
+    return await PublicBookingService(db, gateway).days(
+        slug, item_id, staff_id, start, days, extra_min
+    )
+
+
+@booking_router.get("/{slug}/programs", response_model=PublicPrograms)
+async def public_booking_programs(
+    slug: str,
+    item_id: str,
+    staff_id: str,
+    db: DbSession,
+    gateway: GatewayDep,
+    _: BookingRateLimited,
+) -> PublicPrograms:
+    return await PublicBookingService(db, gateway).programs(slug, item_id, staff_id)
 
 
 @booking_router.post("/{slug}", response_model=PublicBookingResult)
@@ -298,6 +320,8 @@ async def public_book(
     notifier = Notifier(email, sms, push)
     if result.status == "pending":
         await notifier.on_booking_requested(db, result.booking_id)
+    elif len(result.booking_ids) > 1:
+        await notifier.on_series_booked(db, result.booking_ids, "booked")
     else:
         await notifier.on_booking_confirmed(db, result.booking_id)
     return result
@@ -347,6 +371,13 @@ async def manage_view(
     token: str, db: DbSession, gateway: GatewayDep, _: BookingRateLimited
 ) -> ManagedBooking:
     return await PublicManageService(db, gateway).view(token)
+
+
+@manage_router.get("/{token}/receipt", response_model=VisitReceipt)
+async def manage_receipt(
+    token: str, db: DbSession, gateway: GatewayDep, _: BookingRateLimited
+) -> VisitReceipt:
+    return await PublicManageService(db, gateway).receipt(token)
 
 
 @manage_router.get("/{token}/photos/{file_id}", response_class=RedirectResponse, status_code=302)
@@ -417,9 +448,9 @@ async def manage_cancel(
 ) -> ManageCancelResult:
     service = PublicManageService(db, gateway)
     live = (await service.view(token)).status != "canceled"
-    result = await service.cancel(token, idempotency_key)
-    if live:
-        await Notifier(email, sms, push).on_booking_canceled(db, await service.booking_id(token))
+    result, canceled = await service.cancel(token, idempotency_key)
+    if live and canceled:
+        await Notifier(email, sms, push).on_visits_canceled(db, canceled)
     return result
 
 

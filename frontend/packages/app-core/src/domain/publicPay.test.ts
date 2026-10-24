@@ -177,6 +177,8 @@ describe("the public pay page", () => {
                 issued_at: "2026-10-02T05:30:00Z",
                 gst_hst_number: "84720 1539 RT0001",
                 qst_number: "1234567890 TQ0001",
+                address: { street_number: "1250", street_name: "Main St", city: "Victoria" },
+                phone: "+12505550142",
             }),
             "https://pay.test/i/x",
             "#000",
@@ -191,6 +193,10 @@ describe("the public pay page", () => {
         expect(doc.labels.page).toBe("Page 1 of 1");
         expect(doc.labels.taxBase("$10.00")).toBe("On $10.00");
         expect(doc.business.registration).toBe("GST/HST 84720 1539 RT0001 · QST 1234567890 TQ0001");
+        expect([doc.business.address, doc.business.phone]).toEqual([
+            ["1250 Main St", "Victoria"],
+            "(250) 555-0142",
+        ]);
         const draft = printedPublicInvoice(publicInvoice({ number: null }), "u", "#000");
         expect([draft.reference, draft.heading]).toEqual(["Draft", "Invoice Draft"]);
     });

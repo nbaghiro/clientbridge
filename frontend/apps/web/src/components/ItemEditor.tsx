@@ -183,6 +183,17 @@ function ServiceFields({ ed }: { ed: ServiceEditor }) {
                             />
                         </div>
                     ) : null}
+                    {ed.isClass ? (
+                        <TextField
+                            label={s.programDays}
+                            hint={s.programDaysHint}
+                            type="number"
+                            value={v.sessionCount}
+                            onChange={(x) => {
+                                set("sessionCount", x);
+                            }}
+                        />
+                    ) : null}
                     <Toggle
                         label={s.onlineBookable}
                         hint={s.onlineBookableHint}
@@ -191,6 +202,30 @@ function ServiceFields({ ed }: { ed: ServiceEditor }) {
                             set("onlineBookable", x);
                         }}
                     />
+                    {ed.offeredBy !== null ? (
+                        <div className="space-y-2">
+                            <p className="text-sm font-medium text-ink">{s.offeredBy}</p>
+                            <Choice
+                                label={s.offeredBy}
+                                options={ed.offeredBy.options}
+                                value={ed.offeredBy.value}
+                                onChange={ed.offeredBy.pick}
+                            />
+                            <p className="text-xs text-muted">{s.offeredByHint}</p>
+                        </div>
+                    ) : null}
+                    {ed.needs !== null ? (
+                        <div className="space-y-2">
+                            <p className="text-sm font-medium text-ink">{s.needs}</p>
+                            <Choice
+                                label={s.needs}
+                                options={ed.needs.options}
+                                value={ed.needs.value}
+                                onChange={ed.needs.pick}
+                            />
+                            <p className="text-xs text-muted">{s.needsHint}</p>
+                        </div>
+                    ) : null}
                 </div>
             </DetailSection>
             <DetailSection title={s.sectionDeposit}>
@@ -335,6 +370,20 @@ function ProductFields({ ed }: { ed: ProductEditor }) {
                     <p className="text-xs text-muted">{s.costHint}</p>
                 </div>
             </DetailSection>
+            {ed.addsToVisit ? (
+                <DetailSection title={s.sectionVisit}>
+                    <div className="w-48">
+                        <Num
+                            label={s.addsToVisit}
+                            hint={s.addsToVisitHint}
+                            value={v.duration}
+                            onChange={(x) => {
+                                set("duration", x);
+                            }}
+                        />
+                    </div>
+                </DetailSection>
+            ) : null}
             <DetailSection title={s.sectionStock}>
                 <div className="space-y-3">
                     <Toggle

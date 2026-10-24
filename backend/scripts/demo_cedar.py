@@ -1301,6 +1301,7 @@ def _offering(row: tuple[str, ItemKind, str, int, int | None, str, str]) -> Offe
         buffer_after_min=BUFFERS.get(item_id, 15) if minutes else 0,
         deposit_type="fixed" if item_id == OVERNIGHT else "none",
         deposit_value=5000 if item_id == OVERNIGHT else None,
+        staff=(LEILA,) if item_id == OVERNIGHT else (),
         frequency="month" if kind == "subscription" else None,
         sku=stock[3] if stock else None,
         cost_cents=stock[2] if stock else None,
@@ -1316,8 +1317,8 @@ def _offering(row: tuple[str, ItemKind, str, int, int | None, str, str]) -> Offe
 SPEC = BusinessSpec(
     listing=demo_business(CEDAR),
     code="cc",
-    slug="cedar-coast-demo",
-    login_domain="cedarcoast.example.test",
+    slug="cedarcoast",
+    login_domain="cedarcoast.example",
     owner=CEDAR_OWNER,
     people=(
         Person(
@@ -1386,8 +1387,7 @@ SPEC = BusinessSpec(
         ),
         "address": "455 Granville Street, Vancouver, BC V6C 1T1",
         "phone": "+1 604-555-0120",
-        "email": "hello@cedarcoast.example.test",
-        "website": "https://cedarcoast.example.test",
+        "email": "hello@cedarcoast.example",
         "neighbourhood": "Downtown and the West End",
     },
     booking_policy={
@@ -1398,9 +1398,9 @@ SPEC = BusinessSpec(
         "reschedule_cutoff_hours": 24,
     },
     subject="pet",
-    sms_number="+16045550998",
+    sms_number="+16045550199",
     gst_hst_number="726418093RT0001",
-    pst_number="PST-1048-2716",
+    pst_number="PST10482716",
     trial_days=14,
     forms=(
         FormSpec(MEET_FORM, "Meet and greet intake", "ff_cc_meet_", MEET_FIELDS, send_on="booking"),
@@ -1441,6 +1441,11 @@ SPEC = BusinessSpec(
             "Late cancellation, half the walk charged",
             "ryan",
             ("bk_cc_ryan_late", "inv_cc_ryan_late"),
+        ),
+        Stage(
+            "Missed walk charged in full, invoice overdue",
+            "derek",
+            ("bk_cc_derek_missed", "inv_cc_derek_missed"),
         ),
         Stage("Five-star feedback", "isabel", ("fr_cc_feedback_isabel",)),
         Stage(
@@ -2128,10 +2133,10 @@ class Cedar(Demo):
         daniel = self.home("daniel")
         meet = self.meet(daniel, 2, status="confirmed")
         meet.created_at = self.now - timedelta(hours=5)
-        # Wen's 10-walk pack: six walks used, one booked, three left
+        # Wen's 10-walk pack for Mochi: six walks used, one booked, three left
         wen = self.home("wen")
         self.meet(wen, wen.since)
-        pack = self.package("wen", TEN, self.at(wen.since + 1, 18))
+        pack = self.package("wen", TEN, self.at(wen.since + 1, 18), subject=self.subject_id("wen"))
         for index, day in enumerate((-50, -43, -36, -29, -22, -9)):
             self.visit(f"wen_pack_{index}", "wen", WALK30, TESSA, day, package_id=pack.id)
         self.visit("wen_pack_next", "wen", WALK30, TESSA, 3, package_id=pack.id)
@@ -2203,7 +2208,7 @@ class Cedar(Demo):
             "terms.",
         )
         self.line(charged.id, WALK30, charged.created_at)
-        self.settle(charged, "derek", "etransfer")
+        self.settle(charged, "derek", "overdue")
         # Tap to Pay at the door: Hugo's walk and a collar light for the dark evenings
         hugo = self.visit("hugo", "hugo", WALK60, BOSS, -6, settle=None)
         assert hugo is not None and hugo.completed_at is not None

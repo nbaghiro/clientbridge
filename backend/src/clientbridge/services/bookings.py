@@ -1,7 +1,7 @@
 import calendar
 import secrets
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, time, timedelta
 from typing import Literal
 from zoneinfo import ZoneInfo
@@ -11,18 +11,19 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
-from clientbridge.core.command import Command, run_command
+from clientbridge.core.command import Command, PublicPrincipal, run_command
 from clientbridge.core.deps import Principal, assert_can_act_as, assert_role, is_manager
 from clientbridge.core.errors import (
     AppError,
     CardDeclined,
     Conflict,
+    Forbidden,
     NotFound,
     PaymentActionRequired,
     Unprocessable,
 )
 from clientbridge.core.ids import new_id
-from clientbridge.core.locale import locale_for
+from clientbridge.core.locale import locale_for, message
 from clientbridge.core.scoping import scoped, scoped_update
 from clientbridge.core.zones import zone
 from clientbridge.integrations.resend import EmailSender
@@ -43,10 +44,12 @@ from clientbridge.models.scheduling import (
     MonthlyBy,
     Recurrence,
     RecurrenceFrequency,
+    Resource,
     Slot,
     Weekday,
 )
 from clientbridge.schemas.bookings import (
+    AddonAdd,
     AddonOffer,
     AddonOffersOut,
     AddonOffersPatch,
@@ -58,6 +61,9 @@ from clientbridge.schemas.bookings import (
     BookingPolicy,
     ClassMessage,
     ClassMessageOut,
+    CrewAdd,
+    CrewMember,
+    CrewOut,
     DepositOut,
     OnlineBookingOut,
     OnlineBookingPatch,
@@ -83,10 +89,10 @@ from clientbridge.schemas.bookings import (
     VisitPage,
 )
 from clientbridge.services import ledger
-from clientbridge.services.business import business_tz, load_staff, staff_name
-from clientbridge.services.catalog import deposit_cents, load_item
+from clientbridge.services.business import business_tz, load_staff, staff_name, staff_names
+from clientbridge.services.catalog import assert_offers, deposit_cents, load_item
 from clientbridge.services.clients import load_client
-from clientbridge.services.lines import fetch_lines
+from clientbridge.services.lines import crew_ids, crew_note, fetch_lines
 from clientbridge.services.messaging import dispatch_message, open_thread
 from clientbridge.services.notifications import (
     Notifier,
@@ -105,8 +111,17 @@ from clientbridge.services.payments import (
     resolve_saved_method_ref,
 )
 from clientbridge.services.plans import serving
+from clientbridge.services.resources import (
+    choose_resource,
+    keep_resource,
+    lock_resources,
+    lost_race,
+    pick_resource,
+)
+from clientbridge.services.subjects import visit_address
 
 OVERLAP = "that staff member is already booked at that time"
+CREW_BUSY = "someone on this visit's crew is busy then"
 _OUTSIDE_HOURS = "outside the provider's available hours"
 _CLASS_FULL = "that class is full"
 _CLOSED = "the business is closed then"
@@ -116,12 +131,19 @@ _CLASS_MOVE = "a class session moves as a whole; change its time from the class"
 _WAITLIST_SEAT = "give a waitlisted client a seat from the class roster"
 _MIN_VISIT = timedelta(minutes=5)
 ALREADY_IN_CLASS = "you already have a booking for this class"
+PROGRAM_ENROL = "a program is enrolled in as a whole; enrol from its schedule"
+_PROGRAM_FIRST_DAY = "a program's first day carries its price; cancel the whole enrolment"
 _TERMINAL = frozenset({"completed", "canceled", "no_show"})
 _AFTER_START = frozenset({"completed", "no_show"})
 _NOT_STARTED = "a visit can be completed or marked a no-show only once it has started"
 _ESTIMATE_BOOKED = "the estimate already has a booked visit; cancel it to book the estimate again"
 _ESTIMATE_INVOICED = "the estimate was already invoiced, so its products are billed there"
 _CLOSED_OR_WAITING = ("completed", "canceled", "no_show", "waitlisted")
+_INVOICED = "this visit is already invoiced"
+_CLASS_CREW = "a class session has no crew; add helpers to a one-to-one visit"
+_CREW_STARTED = "the visit has already started; add helpers before it starts"
+_CREW_MANAGERS = "only an owner or admin can change a visit's crew"
+_ENROLMENT_PAID = "money was taken on this enrolment's invoice; refund it before declining"
 BookingNotice = Literal["confirmed", "canceled", "rescheduled"]
 
 
@@ -143,6 +165,7 @@ async def booking_out(db: AsyncSession, booking: Booking, slot: Slot) -> Booking
         checked_in_at=booking.checked_in_at,
         starts_at=slot.starts_at,
         ends_at=slot.ends_at,
+        resource_id=slot.resource_id,
     )
 
 
@@ -217,6 +240,8 @@ async def fill_freed_seats(
 ) -> list[str]:
     """Seat the people waiting, earliest first, while a class that hasn't started has room."""
     if slot.capacity <= 1 or slot.status == "canceled" or slot.starts_at <= clock.now():
+        return []
+    if await is_program_day(db, slot):
         return []
     await db.flush()
     # callers hold the member's lock; the slot row lock makes the count and the pick one step
@@ -311,22 +336,67 @@ async def open_class_slot(
     return (await db.execute(q)).scalars().first()
 
 
-async def client_has_seat(db: AsyncSession, business_id: str, slot_id: str, client_id: str) -> bool:
-    """Whether this client already has a live booking on the slot."""
+async def has_seat(
+    db: AsyncSession, business_id: str, slot_id: str, client_id: str, subject_id: str | None
+) -> bool:
+    """Whether the subject, or the client's own seat when there is none, is already on the slot."""
     q = (
         scoped(Booking, business_id, soft_delete=True)
-        .where(
-            Booking.slot_id == slot_id,
-            Booking.client_id == client_id,
-            Booking.status != "canceled",
-        )
+        .where(Booking.slot_id == slot_id, Booking.status != "canceled")
         .limit(1)
     )
+    if subject_id is None:
+        q = q.where(Booking.client_id == client_id, Booking.subject_id.is_(None))
+    else:
+        q = q.where(Booking.subject_id == subject_id)
     return (await db.execute(q)).first() is not None
 
 
+async def schedule_of(db: AsyncSession, slot: Slot) -> Recurrence | None:
+    """The class schedule that laid the session out ahead of any booking, if there is one."""
+    if slot.recurrence_id is None:
+        return None
+    recurrence = await db.get(Recurrence, slot.recurrence_id)
+    return recurrence if recurrence is not None and recurrence.client_id is None else None
+
+
+async def is_program_day(db: AsyncSession, slot: Slot) -> bool:
+    """Whether the session is one day of a program, which is enrolled in as a whole."""
+    if await schedule_of(db, slot) is None:
+        return False
+    item = await db.get(Item, slot.item_id)
+    return item is not None and is_program(item)
+
+
+async def enrolment(
+    db: AsyncSession, business_id: str, program_id: str, client_id: str, subject_id: str | None
+) -> list[Booking]:
+    """An enrolment, derived: the client's live bookings on the schedule for that subject."""
+    q = (
+        scoped(Booking, business_id, soft_delete=True)
+        .join(Slot, Slot.id == Booking.slot_id)
+        .where(
+            Slot.recurrence_id == program_id,
+            Booking.client_id == client_id,
+            Booking.status.in_(("pending", "confirmed")),
+        )
+        .order_by(Slot.starts_at, Booking.id)
+    )
+    q = (
+        q.where(Booking.subject_id.is_(None))
+        if subject_id is None
+        else q.where(Booking.subject_id == subject_id)
+    )
+    return list(await db.scalars(q))
+
+
 async def blocking_exception(
-    db: AsyncSession, business_id: str, staff_id: str, start: datetime, end: datetime
+    db: AsyncSession,
+    business_id: str,
+    staff_id: str,
+    start: datetime,
+    end: datetime,
+    skip: str | None = None,
 ) -> Hours | None:
     """A closure or this member's time off overlapping the window; closures come first."""
     q = (
@@ -340,11 +410,17 @@ async def blocking_exception(
         .order_by(Hours.staff_id.is_(None).desc(), Hours.starts_at)
         .limit(1)
     )
+    if skip is not None:
+        q = q.where(Hours.id != skip)
     return (await db.execute(q)).scalars().first()
 
 
 def _verdict(problem: Problem, message: str, reason: str | None = None) -> BookingCheck:
     return BookingCheck(ok=False, problem=problem, reason=reason, message=message)
+
+
+def _code(problem: BookingCheck) -> str | None:
+    return {"crew": "crew_busy", "resource": "no_resource"}.get(problem.problem or "")
 
 
 async def slot_problem(
@@ -356,9 +432,12 @@ async def slot_problem(
     ends_at: datetime,
     *,
     exclude: str | None = None,
+    skip_hours: str | None = None,
+    resources: bool = False,
+    hold: str | None = None,
 ) -> BookingCheck | None:
     """Why a visit can't take this window, most fundamental reason first; None when it can."""
-    away = await blocking_exception(db, business_id, staff_id, starts_at, ends_at)
+    away = await blocking_exception(db, business_id, staff_id, starts_at, ends_at, skip_hours)
     if away is not None:
         if away.staff_id is None:
             return _verdict("closed", _CLOSED, away.reason)
@@ -367,7 +446,73 @@ async def slot_problem(
         return _verdict("off_hours", _OUTSIDE_HOURS)
     if await conflicting_slot(db, business_id, item, staff_id, starts_at, ends_at, exclude):
         return _verdict("overlap", OVERLAP)
+    if resources:
+        choice = await choose_resource(
+            db, business_id, item, starts_at, ends_at, exclude=exclude, hold=hold
+        )
+        if choice.refusal is not None:
+            return _verdict("resource", choice.refusal.message)
     return None
+
+
+def is_class(item: Item) -> bool:
+    return item.kind == "class" and item.capacity is not None and item.capacity > 1
+
+
+def is_program(item: Item) -> bool:
+    """A class run over a set number of days, sold and enrolled in as a whole."""
+    return is_class(item) and item.session_count is not None
+
+
+def addon_minutes(products: Sequence[tuple[Item, int]]) -> int:
+    """The minutes a visit's add-ons add to it: each product's duration times its quantity."""
+    return sum((product.duration_min or 0) * quantity for product, quantity in products)
+
+
+def visit_minutes(item: Item, extra_min: int = 0) -> int:
+    """A visit's length with its add-ons; a class session keeps the class's own length."""
+    return (item.duration_min or 0) + (0 if is_class(item) else extra_min)
+
+
+async def crew_rows(db: AsyncSession, business_id: str, booking_id: str) -> list[Hours]:
+    """The helpers' blocks on a visit, oldest first."""
+    rows = await db.scalars(
+        scoped(Hours, business_id)
+        .where(Hours.basis == "exception", Hours.note == crew_note(booking_id))
+        .order_by(Hours.created_at, Hours.id)
+        .execution_options(populate_existing=True)
+    )
+    return list(rows)
+
+
+async def crew_problem(
+    db: AsyncSession,
+    business_id: str,
+    item: Item,
+    crew: Sequence[Hours],
+    starts_at: datetime,
+    ends_at: datetime,
+) -> BookingCheck | None:
+    """Why a helper can't follow the visit to this window; their own block for it doesn't count."""
+    for row in crew:
+        if row.staff_id is None:
+            continue
+        found = await slot_problem(
+            db, business_id, item, row.staff_id, starts_at, ends_at, skip_hours=row.id
+        )
+        if found is not None:
+            return _verdict("crew", CREW_BUSY, found.reason)
+    return None
+
+
+async def carry_crew(db: AsyncSession, business_id: str, booking: Booking, slot: Slot) -> None:
+    """Keep the helpers' blocks on the visit's window, and drop them once it is canceled."""
+    for row in await crew_rows(db, business_id, booking.id):
+        if booking.status == "canceled" or booking.deleted_at is not None:
+            await db.delete(row)
+        else:
+            row.starts_at, row.ends_at = slot.starts_at, slot.ends_at
+    await db.flush()
 
 
 async def create_booking_core(
@@ -382,43 +527,51 @@ async def create_booking_core(
     subject_id: str | None = None,
     recurrence_id: str | None = None,
     dedupe_client: bool = False,
+    extra_min: int = 0,
+    resource_id: str | None = None,
 ) -> tuple[Booking, Slot]:
     """Create a confirmed booking under the scheduling invariant (staff and online paths)."""
+    if is_program(item):
+        raise Conflict(PROGRAM_ENROL, code="program_enrol")
+    assert_offers(item, staff_id)
     await lock_staff(db, business_id, staff_id)
-    ends_at = starts_at + timedelta(minutes=item.duration_min or 0)
+    ends_at = starts_at + timedelta(minutes=visit_minutes(item, extra_min))
     away = await blocking_exception(db, business_id, staff_id, starts_at, ends_at)
     if away is not None:
         raise Conflict(_CLOSED if away.staff_id is None else _AWAY)
     if not await is_within_hours(db, staff_id, business_id, starts_at, ends_at):
         raise Conflict(_OUTSIDE_HOURS)
-    is_class = item.kind == "class" and item.capacity is not None and item.capacity > 1
+    session = is_class(item)
     slot = None
-    if is_class:
+    if session:
         slot = await open_class_slot(db, business_id, item.id, staff_id, starts_at)
         if slot is not None:
-            if dedupe_client and await client_has_seat(db, business_id, slot.id, client_id):
+            if dedupe_client and await has_seat(db, business_id, slot.id, client_id, subject_id):
                 raise Conflict(ALREADY_IN_CLASS)
             if await seats_closed(db, slot.id):
                 raise Conflict(_CLASS_FULL, code="class_full")
     if slot is None:
         await assert_free(db, business_id, item, staff_id, starts_at, ends_at)
+        await lock_resources(db, business_id, resource_id, *item.resource_ids)
+        held = await pick_resource(db, business_id, item, starts_at, ends_at, chosen=resource_id)
         slot = Slot(
             id=new_id("slot"),
             business_id=business_id,
             item_id=item.id,
             staff_id=staff_id,
+            resource_id=held,
             recurrence_id=recurrence_id,
             starts_at=starts_at,
             ends_at=ends_at,
-            capacity=item.capacity if is_class and item.capacity is not None else 1,
+            capacity=item.capacity if session and item.capacity is not None else 1,
             status="scheduled",
         )
         db.add(slot)
         try:
-            # the exclusion constraint backstops a concurrent overlapping insert
+            # the exclusion constraints backstop a concurrent overlapping insert
             await db.flush()
         except IntegrityError as exc:
-            raise Conflict(OVERLAP) from exc
+            raise lost_race(exc, Conflict(OVERLAP)) from exc
     deposit = deposit_cents(item) if item.deposit_type != "none" else 0
     booking = Booking(
         id=new_id("booking"),
@@ -491,8 +644,10 @@ async def assert_subject(
 
 
 async def release_slot(db: AsyncSession, slot: Slot) -> None:
-    """Cancel the slot once its last live or waiting booking is gone."""
+    """Cancel the slot once its last live or waiting booking is gone; a schedule keeps its own."""
     await db.flush()
+    if await schedule_of(db, slot) is not None:
+        return
     left = await db.execute(
         select(func.count(Booking.id)).where(
             Booking.slot_id == slot.id,
@@ -634,6 +789,8 @@ class BookingService:
                 client_id=data.client_id,
                 source="manual",
                 subject_id=data.subject_id,
+                extra_min=addon_minutes([(product, qty) for _, product, qty in quoted]),
+                resource_id=data.resource_id,
             )
             booking.estimate_id = data.estimate_id
             if data.note is not None and data.note.strip() != "":
@@ -700,6 +857,14 @@ class BookingService:
         starts_at = target[1] if target is not None else slot.starts_at
         if data.status in _AFTER_START and data.status != before:
             _assert_started(starts_at)
+        program_day = await is_program_day(self.db, slot)
+        if (
+            data.status == "canceled"
+            and before not in ("canceled", "pending")
+            and (booking.price_cents > 0 or booking.deposit_amount_cents > 0)
+            and program_day
+        ):
+            raise Conflict(_PROGRAM_FIRST_DAY, code="program_first_day")
 
         async def run(cmd: Command) -> BookingOut:
             if target is None and data.status is not None and data.status != booking.status:
@@ -709,7 +874,8 @@ class BookingService:
                     raise Conflict(f"a {booking.status} booking can't be modified")
             if target is not None:
                 staff_id, starts_at, ends_at = target
-                await lock_staff(self.db, self.biz, slot.staff_id, staff_id)
+                crew = await crew_ids(self.db, self.biz, booking.id)
+                await lock_staff(self.db, self.biz, slot.staff_id, staff_id, *crew)
                 await lock_bookings(self.db, self.biz, [booking.id])
                 await self.db.refresh(slot)
                 if booking.status in _TERMINAL:
@@ -723,9 +889,17 @@ class BookingService:
                     starts_at,
                     ends_at,
                     exclude=slot.id,
+                ) or await crew_problem(
+                    self.db,
+                    self.biz,
+                    item,
+                    await crew_rows(self.db, self.biz, booking.id),
+                    starts_at,
+                    ends_at,
                 )
                 if problem is not None:
-                    raise Conflict(problem.message or OVERLAP)
+                    raise Conflict(problem.message or OVERLAP, code=_code(problem))
+                await keep_resource(self.db, item, slot, starts_at, ends_at, data.resource_id)
                 await move_slot(self.db, self.biz, slot, starts_at, ends_at)
                 slot.staff_id = staff_id
                 if booking.staff_id != staff_id:
@@ -738,7 +912,8 @@ class BookingService:
                 try:
                     await self.db.flush()
                 except IntegrityError as exc:
-                    raise Conflict(OVERLAP) from exc
+                    raise lost_race(exc, Conflict(OVERLAP)) from exc
+                await carry_crew(self.db, self.biz, booking, slot)
                 cmd.record("booking.reschedule", entity_type="booking", entity_id=booking.id)
             if data.status is not None and data.status != booking.status:
                 held_seat = booking.status in ("pending", "confirmed")
@@ -752,6 +927,7 @@ class BookingService:
                 if data.status == "canceled":
                     booking.canceled_at = clock.now()
                     await release_slot(self.db, slot)  # a class keeps its slot for the rest
+                    await carry_crew(self.db, self.biz, booking, slot)
                 elif data.status == "completed":
                     booking.completed_at = clock.now()
                     await complete_when_done(self.db, slot)
@@ -760,6 +936,8 @@ class BookingService:
                 cmd.record(f"booking.{data.status}", entity_type="booking", entity_id=booking.id)
                 if held_seat and data.status in ("canceled", "no_show"):
                     await fill_freed_seats(self.db, slot, performed_by=self.principal.user_id)
+                if program_day and before == "pending" and data.status in ("confirmed", "canceled"):
+                    await self._answer_enrolment(cmd, booking, slot, data.status)
             await self.db.flush()
             return await booking_out(self.db, booking, slot)
 
@@ -792,6 +970,10 @@ class BookingService:
             staff_id, starts_at, ends_at = await self._target(data, slot)
         except Conflict as exc:
             return _verdict("class" if exc.message == _CLASS_MOVE else "past", exc.message)
+        except Unprocessable as exc:
+            if exc.code != "service_not_offered":
+                raise
+            return _verdict("not_offered", exc.message)
         item = await self._item(slot.item_id, require_active=False)
         problem = await slot_problem(
             self.db,
@@ -801,14 +983,69 @@ class BookingService:
             starts_at,
             ends_at,
             exclude=slot.id,
+        ) or await crew_problem(
+            self.db,
+            self.biz,
+            item,
+            await crew_rows(self.db, self.biz, booking.id),
+            starts_at,
+            ends_at,
         )
-        return problem or BookingCheck(ok=True)
+        if problem is not None:
+            return problem
+        choice = await choose_resource(
+            self.db,
+            self.biz,
+            item,
+            starts_at,
+            ends_at,
+            exclude=slot.id,
+            hold=slot.resource_id,
+            chosen=data.resource_id,
+        )
+        if choice.refusal is not None:
+            return BookingCheck(
+                ok=False,
+                problem="resource",
+                message=choice.refusal.message,
+                free_resource_ids=choice.free,
+            )
+        return BookingCheck(ok=True, resource_id=choice.held, free_resource_ids=choice.free)
+
+    async def _answer_enrolment(
+        self, cmd: Command, booking: Booking, slot: Slot, status: Literal["confirmed", "canceled"]
+    ) -> None:
+        """An enrolment waiting for approval is approved or declined whole, every day at once."""
+        if slot.recurrence_id is None:
+            return
+        days = await enrolment(
+            self.db, self.biz, slot.recurrence_id, booking.client_id, booking.subject_id
+        )
+        waiting = [b.id for b in days if b.status == "pending" and b.id != booking.id]
+        others = await lock_bookings(self.db, self.biz, waiting)
+        for other in others:
+            other.status = status
+            if status == "confirmed":
+                other.confirmed_at = other.confirmed_at or clock.now()
+            else:
+                if other.deposit_status == "pending":
+                    await cancel_open_deposits(self.db, self.gateway, other)
+                    other.deposit_status = "none"
+                other.canceled_at = clock.now()
+            cmd.record(f"booking.{status}", entity_type="booking", entity_id=other.id)
+        if status == "canceled":
+            from clientbridge.services import billing  # deferred: billing imports this module
+
+            for day in (booking, *others):
+                if not await billing.void_enrolment_invoice(self.db, day, cmd):
+                    raise Conflict(_ENROLMENT_PAID, code="enrolment_paid")
 
     def _moves(self, data: BookingMove, slot: Slot) -> bool:
         return (
             data.starts_at is not None
             or data.ends_at is not None
             or (data.staff_id is not None and data.staff_id != slot.staff_id)
+            or (data.resource_id is not None and data.resource_id != slot.resource_id)
         )
 
     async def _target(self, data: BookingMove, slot: Slot) -> tuple[str, datetime, datetime]:
@@ -819,9 +1056,13 @@ class BookingService:
             await self._staff(staff_id)
             if slot.capacity > 1:
                 raise Conflict(_CLASS_MOVE, code="class_move")
+            assert_offers(await self._item(slot.item_id, require_active=False), staff_id)
         starts_at = data.starts_at or slot.starts_at
         ends_at = data.ends_at or starts_at + (slot.ends_at - slot.starts_at)
-        if slot.capacity > 1 and (starts_at, ends_at) != (slot.starts_at, slot.ends_at):
+        if slot.capacity > 1 and (
+            (starts_at, ends_at) != (slot.starts_at, slot.ends_at)
+            or data.resource_id not in (None, slot.resource_id)
+        ):
             raise Conflict(_CLASS_MOVE, code="class_move")
         if ends_at - starts_at < _MIN_VISIT:
             raise Unprocessable("a visit must end at least five minutes after it starts")
@@ -1144,22 +1385,72 @@ class BookingService:
             raise NotFound("business not found")
         return row
 
-    async def remove_addon(self, booking_id: str, addon_id: str) -> BookingOut:
-        """Drop a product the client added online, before the visit is invoiced."""
+    async def add_addon(
+        self, booking_id: str, data: AddonAdd, idempotency_key: str | None
+    ) -> BookingOut:
+        """Add a product to a visit before it is invoiced; its minutes lengthen the visit."""
         booking = await self._booking(booking_id)
         self._assert_can_act_as(booking.staff_id)
-        if booking.invoice_id is not None:
-            raise Conflict("this visit is already invoiced")
-        addon = (
-            await self.db.execute(
-                scoped(Addon, self.biz).where(Addon.id == addon_id, Addon.booking_id == booking.id)
-            )
-        ).scalar_one_or_none()
-        if addon is None:
-            raise NotFound("add-on not found")
+        self._assert_open_for_addons(booking)
+        product = await self._item(data.item_id)
+        if product.kind != "product":
+            raise NotFound("product not found")
+        if product.track_stock and (product.stock_on_hand or 0) < data.quantity:
+            raise Conflict(f"only {max(product.stock_on_hand or 0, 0)} left of {product.name}")
         slot = await self._slot(booking.slot_id)
 
         async def run(cmd: Command) -> BookingOut:
+            await self._lengthen(booking, slot, (product.duration_min or 0) * data.quantity)
+            self.db.add(
+                Addon(
+                    id=new_id("addon"),
+                    business_id=self.biz,
+                    booking_id=booking.id,
+                    staff_id=booking.staff_id,
+                    item_id=product.id,
+                    description=product.name,
+                    quantity=data.quantity,
+                    unit_amount_cents=product.price_cents,
+                )
+            )
+            await self.db.flush()
+            cmd.record("booking.addon_add", entity_type="booking", entity_id=booking.id)
+            return await booking_out(self.db, booking, slot)
+
+        return await run_command(
+            self.db,
+            self.principal,
+            action="booking.addon_add",
+            run=run,
+            response_model=BookingOut,
+            idempotency_key=idempotency_key,
+            request={"booking_id": booking_id, **data.model_dump(mode="json")},
+        )
+
+    async def remove_addon(
+        self, booking_id: str, addon_id: str, idempotency_key: str | None
+    ) -> BookingOut:
+        """Drop an add-on before the visit is invoiced; the visit shortens by its minutes."""
+        booking = await self._booking(booking_id)
+        self._assert_can_act_as(booking.staff_id)
+        slot = await self._slot(booking.slot_id)
+
+        async def run(cmd: Command) -> BookingOut:
+            await self._lock_visit(booking, slot)
+            if booking.invoice_id is not None:
+                raise Conflict(_INVOICED)
+            addon = (
+                await self.db.execute(
+                    scoped(Addon, self.biz)
+                    .where(Addon.id == addon_id, Addon.booking_id == booking.id)
+                    .with_for_update()
+                    .execution_options(populate_existing=True)
+                )
+            ).scalar_one_or_none()
+            if addon is None:
+                raise NotFound("add-on not found")
+            product = await self._item(addon.item_id, require_active=False)
+            await self._lengthen(booking, slot, -(product.duration_min or 0) * addon.quantity)
             await self.db.delete(addon)
             await self.db.flush()
             cmd.record("booking.addon_remove", entity_type="booking", entity_id=booking.id)
@@ -1171,7 +1462,208 @@ class BookingService:
             action="booking.addon_remove",
             run=run,
             response_model=BookingOut,
+            idempotency_key=idempotency_key,
+            request={"booking_id": booking_id, "addon_id": addon_id},
         )
+
+    async def crew(self, booking_id: str) -> CrewOut:
+        """The visit's job and crew, for a manager, its lead or one of its helpers."""
+        booking = await self._booking(booking_id)
+        crew = await crew_ids(self.db, self.biz, booking.id)
+        if not is_manager(self.principal.role) and self.principal.staff_id not in (
+            booking.staff_id,
+            *crew,
+        ):
+            raise Forbidden("only the visit's crew or a manager can read it")
+        return await self._crew_out(booking)
+
+    async def add_crew(
+        self, booking_id: str, data: CrewAdd, idempotency_key: str | None
+    ) -> CrewOut:
+        """Put a helper on the visit: their calendar is blocked for its window under the lock."""
+        assert_role(self.principal, "owner", "admin", message=_CREW_MANAGERS)
+        booking = await self._booking(booking_id)
+        slot = await self._slot(booking.slot_id)
+        if slot.capacity > 1:
+            raise Conflict(_CLASS_CREW, code="class_move")
+        helper = await self._staff(data.staff_id)
+        item = await self._item(slot.item_id, require_active=False)
+        assert_offers(item, helper.id)
+
+        async def run(cmd: Command) -> CrewOut:
+            await lock_staff(self.db, self.biz, slot.staff_id, helper.id)
+            await self._lock_live(booking, slot)
+            if slot.starts_at <= clock.now():
+                raise Conflict(_CREW_STARTED, code="visit_started")
+            if helper.id == booking.staff_id or helper.id in await crew_ids(
+                self.db, self.biz, booking.id
+            ):
+                raise Conflict("that member is already on this visit", code="crew_member")
+            problem = await slot_problem(
+                self.db, self.biz, item, helper.id, slot.starts_at, slot.ends_at
+            )
+            if problem is not None:
+                raise Conflict(problem.message or OVERLAP, code="crew_busy")
+            self.db.add(
+                Hours(
+                    id=new_id("hours"),
+                    business_id=self.biz,
+                    staff_id=helper.id,
+                    basis="exception",
+                    starts_at=slot.starts_at,
+                    ends_at=slot.ends_at,
+                    reason=await self._job_label(booking, item),
+                    note=crew_note(booking.id),
+                    available=False,
+                )
+            )
+            await self.db.flush()
+            cmd.record(
+                "booking.crew_add",
+                entity_type="booking",
+                entity_id=booking.id,
+                changes={"staff_id": helper.id},
+            )
+            return await self._crew_out(booking)
+
+        return await run_command(
+            self.db,
+            self.principal,
+            action="booking.crew_add",
+            run=run,
+            response_model=CrewOut,
+            idempotency_key=idempotency_key,
+            request={"booking_id": booking_id, "staff_id": data.staff_id},
+        )
+
+    async def remove_crew(
+        self, booking_id: str, staff_id: str, idempotency_key: str | None
+    ) -> CrewOut:
+        """Take a helper off the visit and free their calendar."""
+        assert_role(self.principal, "owner", "admin", message=_CREW_MANAGERS)
+        booking = await self._booking(booking_id)
+        slot = await self._slot(booking.slot_id)
+
+        async def run(cmd: Command) -> CrewOut:
+            await lock_staff(self.db, self.biz, slot.staff_id, staff_id)
+            await self._lock_live(booking, slot)
+            rows = [
+                r for r in await crew_rows(self.db, self.biz, booking.id) if r.staff_id == staff_id
+            ]
+            if not rows:
+                raise NotFound("that member isn't on this visit")
+            for row in rows:
+                await self.db.delete(row)
+            await self.db.flush()
+            cmd.record(
+                "booking.crew_remove",
+                entity_type="booking",
+                entity_id=booking.id,
+                changes={"staff_id": staff_id},
+            )
+            return await self._crew_out(booking)
+
+        return await run_command(
+            self.db,
+            self.principal,
+            action="booking.crew_remove",
+            run=run,
+            response_model=CrewOut,
+            idempotency_key=idempotency_key,
+            request={"booking_id": booking_id, "staff_id": staff_id},
+        )
+
+    async def _lock_live(self, booking: Booking, slot: Slot) -> None:
+        await lock_bookings(self.db, self.biz, [booking.id])
+        await self.db.refresh(slot)
+        if booking.status not in ("pending", "confirmed"):
+            raise Conflict(f"a {booking.status} visit's crew can't change")
+
+    async def _job_label(self, booking: Booking, item: Item) -> str:
+        """What the helper's calendar calls the block: the service and the client."""
+        client = await self._client(booking.client_id)
+        locale = locale_for(business=await self._business(), client=client)
+        return message(locale, "crew.job", service=item.name, client=client.name)[:120]
+
+    async def _crew_out(self, booking: Booking) -> CrewOut:
+        slot = await self._slot(booking.slot_id)
+        item = await self._item(slot.item_id, require_active=False)
+        client = await self._client(booking.client_id)
+        subject = await self.db.get(Subject, booking.subject_id) if booking.subject_id else None
+        crew = await crew_ids(self.db, self.biz, booking.id)
+        names = await staff_names(
+            self.db, self.biz, [*crew, *([booking.staff_id] if booking.staff_id else [])]
+        )
+        return CrewOut(
+            booking_id=booking.id,
+            status=booking.status,
+            lead_id=booking.staff_id,
+            lead_name=names.get(booking.staff_id) if booking.staff_id else None,
+            service=item.name,
+            client_name=client.name,
+            address=visit_address(await self._business(), subject),
+            starts_at=slot.starts_at,
+            ends_at=slot.ends_at,
+            members=[CrewMember(staff_id=h, name=names.get(h)) for h in crew],
+            can_edit=booking.status in ("pending", "confirmed")
+            and slot.capacity <= 1
+            and is_manager(self.principal.role),
+        )
+
+    def _assert_open_for_addons(self, booking: Booking) -> None:
+        if booking.invoice_id is not None:
+            raise Conflict(_INVOICED)
+        if booking.status in ("canceled", "no_show", "waitlisted"):
+            raise Conflict(f"a {booking.status} booking can't take an add-on")
+
+    async def _lengthen(self, booking: Booking, slot: Slot, minutes: int) -> None:
+        """Resize a live one-to-one visit by an add-on's minutes, refused when the time is taken."""
+        if minutes == 0 or slot.capacity > 1:
+            return
+        await self._lock_visit(booking, slot)
+        if booking.status not in ("pending", "confirmed"):
+            raise Conflict(f"a {booking.status} booking can't be modified")
+        item = await self._item(slot.item_id, require_active=False)
+        ends_at = slot.ends_at + timedelta(minutes=minutes)
+        if minutes < 0:
+            # a staff resize may have shortened the visit, so never cut into the service
+            service = max(timedelta(minutes=item.duration_min or 0), _MIN_VISIT)
+            ends_at = max(ends_at, min(slot.ends_at, slot.starts_at + service))
+        if minutes > 0:
+            problem = await slot_problem(
+                self.db,
+                self.biz,
+                item,
+                slot.staff_id,
+                slot.starts_at,
+                ends_at,
+                exclude=slot.id,
+                resources=True,
+                hold=slot.resource_id,
+            ) or await crew_problem(
+                self.db,
+                self.biz,
+                item,
+                await crew_rows(self.db, self.biz, booking.id),
+                slot.starts_at,
+                ends_at,
+            )
+            if problem is not None:
+                code = "no_resource" if problem.problem == "resource" else "visit_no_room"
+                raise Conflict(problem.message or OVERLAP, code=code)
+            await keep_resource(self.db, item, slot, slot.starts_at, ends_at)
+        await move_slot(self.db, self.biz, slot, slot.starts_at, ends_at)
+        try:
+            await self.db.flush()
+        except IntegrityError as exc:
+            raise lost_race(exc, Conflict(OVERLAP, code="visit_no_room")) from exc
+        await carry_crew(self.db, self.biz, booking, slot)
+
+    async def _lock_visit(self, booking: Booking, slot: Slot) -> None:
+        crew = await crew_ids(self.db, self.biz, booking.id)
+        await lock_staff(self.db, self.biz, slot.staff_id, *crew)
+        await lock_bookings(self.db, self.biz, [booking.id])
+        await self.db.refresh(slot)
 
     async def needs(self, booking_id: str) -> VisitNeeds:
         """What the client still owes before this visit: forms, signatures and a deposit."""
@@ -1237,11 +1729,19 @@ async def open_slots(
     step_min: int | None = None,
     *,
     exclude: str | None = None,
+    minutes: int | None = None,
+    crew: Sequence[Hours] = (),
+    hold: str | None = None,
 ) -> list[datetime]:
     """Bookable start times for the item and staff on a date, in UTC; none until hours are set."""
     tz = await business_tz(db, business_id)
-    found = await load_availability(db, business_id, [staff_id], on_date, on_date, tz, [item])
-    return found.open_starts(item, staff_id, on_date, step_min, exclude=exclude)
+    members = [staff_id, *(row.staff_id for row in crew if row.staff_id is not None)]
+    found = await load_availability(
+        db, business_id, members, on_date, on_date, tz, [item], held=[hold] if hold else ()
+    )
+    return found.open_starts(
+        item, staff_id, on_date, step_min, exclude=exclude, minutes=minutes, crew=crew, hold=hold
+    )
 
 
 @dataclass(frozen=True)
@@ -1249,6 +1749,7 @@ class Away:
     starts_at: datetime
     ends_at: datetime
     reason: str | None
+    id: str = ""
 
 
 @dataclass(frozen=True)
@@ -1271,6 +1772,9 @@ class Availability:
     hours: dict[str, list[Hours]]
     time_off: dict[str, list[Away]]
     busy: dict[str, list[Busy]]
+    # each item's active pool, and the live slots holding any resource read
+    pools: dict[str, list[str]] = field(default_factory=dict[str, list[str]])
+    held: dict[str, list[Busy]] = field(default_factory=dict[str, list[Busy]])
 
     def open_starts(
         self,
@@ -1280,9 +1784,12 @@ class Availability:
         step_min: int | None = None,
         *,
         exclude: str | None = None,
+        minutes: int | None = None,
+        crew: Sequence[Hours] = (),
+        hold: str | None = None,
     ) -> list[datetime]:
         """The starts `slot_problem` would accept on the date's step grid, in UTC."""
-        duration = item.duration_min
+        duration = item.duration_min if minutes is None else minutes
         if duration is None or duration <= 0:
             return []
         windows = windows_on(self.hours.get(staff_id, []), on_date)
@@ -1291,6 +1798,8 @@ class Availability:
             return []
         away = self.closures + self.time_off.get(staff_id, [])
         busy = [b for b in self.busy.get(staff_id, []) if b.id != exclude]
+        pool = self.pools.get(item.id, [])
+        needs = [*([hold] if hold is not None else []), *pool] if item.resource_ids else []
         before = timedelta(minutes=item.buffer_before_min)
         after = timedelta(minutes=item.buffer_after_min)
         length = timedelta(minutes=duration)
@@ -1302,15 +1811,75 @@ class Availability:
             limit = datetime.combine(on_date, window_end, tzinfo=self.tz).astimezone(UTC)
             while start + length <= limit:
                 end = start + length
-                if not any(a.starts_at < end and a.ends_at > start for a in away) and not any(
-                    b.starts_at - b.before < end + after
-                    and b.ends_at + b.after > start - before
-                    and (b.full or b.item_id != item.id or b.starts_at != start or b.ends_at != end)
-                    for b in busy
+                if (
+                    not any(a.starts_at < end and a.ends_at > start for a in away)
+                    and not any(
+                        b.starts_at - b.before < end + after
+                        and b.ends_at + b.after > start - before
+                        and (
+                            b.full
+                            or b.item_id != item.id
+                            or b.starts_at != start
+                            or b.ends_at != end
+                        )
+                        for b in busy
+                    )
+                    and all(self.free(item, row, start, end) for row in crew)
+                    and (
+                        not item.resource_ids
+                        or self._joins(item, busy, start, end)
+                        or self.room(item, needs, start, end, exclude)
+                    )
                 ):
                     slots.append(start)
                 start += step
         return slots
+
+    @staticmethod
+    def _joins(item: Item, busy: Sequence[Busy], start: datetime, end: datetime) -> bool:
+        """Whether the start takes a seat in a session already there, which keeps its room."""
+        return any(
+            not b.full and b.item_id == item.id and b.starts_at == start and b.ends_at == end
+            for b in busy
+        )
+
+    def room(
+        self,
+        item: Item,
+        candidates: Sequence[str],
+        start: datetime,
+        end: datetime,
+        exclude: str | None = None,
+    ) -> bool:
+        """Whether one of the resources is free for the window, as `resource_free` reads it."""
+        before = timedelta(minutes=item.buffer_before_min)
+        after = timedelta(minutes=item.buffer_after_min)
+        return any(
+            not any(
+                b.id != exclude
+                and b.starts_at - b.before < end + after
+                and b.ends_at + b.after > start - before
+                for b in self.held.get(resource_id, [])
+            )
+            for resource_id in candidates
+        )
+
+    def free(self, item: Item, block: Hours, start: datetime, end: datetime) -> bool:
+        """Whether a helper can follow their visit to this window, as `crew_problem` checks it."""
+        staff_id = block.staff_id
+        if staff_id is None:
+            return True
+        away = self.closures + self.time_off.get(staff_id, [])
+        if any(a.id != block.id and a.starts_at < end and a.ends_at > start for a in away):
+            return False
+        if not within_hours(self.hours.get(staff_id, []), self.tz, start, end):
+            return False
+        before = timedelta(minutes=item.buffer_before_min)
+        after = timedelta(minutes=item.buffer_after_min)
+        return not any(
+            b.starts_at - b.before < end + after and b.ends_at + b.after > start - before
+            for b in self.busy.get(staff_id, [])
+        )
 
 
 async def load_availability(
@@ -1321,8 +1890,9 @@ async def load_availability(
     last: date,
     tz: ZoneInfo,
     items: Sequence[Item],
+    held: Sequence[str] = (),
 ) -> Availability:
-    """Three reads for any number of members and days: hours, closures and time off, slots."""
+    """Three reads for any number of members and days, and two more when a service needs a room."""
     opens, closes = local_day(first, tz)[0], local_day(last, tz)[1]
     hours: dict[str, list[Hours]] = {staff_id: [] for staff_id in staff_ids}
     rows = await db.scalars(
@@ -1344,7 +1914,7 @@ async def load_availability(
     for row in exceptions:
         if row.starts_at is None or row.ends_at is None:
             continue
-        window = Away(row.starts_at, row.ends_at, row.reason)
+        window = Away(row.starts_at, row.ends_at, row.reason, row.id)
         if row.staff_id is None:
             closures.append(window)
         else:
@@ -1387,7 +1957,52 @@ async def load_availability(
                 full=bool(full),
             )
         )
-    return Availability(tz=tz, closures=closures, hours=hours, time_off=time_off, busy=busy)
+    found = Availability(tz=tz, closures=closures, hours=hours, time_off=time_off, busy=busy)
+    wanted = sorted({*(r for i in items for r in i.resource_ids), *held})
+    if not wanted:
+        return found
+    active = set(
+        await db.scalars(
+            scoped(Resource, business_id)
+            .with_only_columns(Resource.id)
+            .where(Resource.id.in_(wanted), Resource.active.is_(True))
+        )
+    )
+    for item in items:
+        found.pools[item.id] = [r for r in item.resource_ids if r in active]
+    rooms = await db.execute(
+        scoped(Slot, business_id)
+        .join(Item, Item.id == Slot.item_id)
+        .with_only_columns(
+            Slot.id,
+            Slot.resource_id,
+            Slot.item_id,
+            Slot.starts_at,
+            Slot.ends_at,
+            Item.buffer_before_min,
+            Item.buffer_after_min,
+        )
+        .where(
+            Slot.resource_id.in_(wanted),
+            Slot.status != "canceled",
+            Slot.starts_at - before < closes + margin,
+            Slot.ends_at + after > opens - margin,
+        )
+    )
+    for slot_id, resource_id, item_id, starts_at, ends_at, buffer_before, buffer_after in rooms:
+        if resource_id is not None:
+            found.held.setdefault(resource_id, []).append(
+                Busy(
+                    id=slot_id,
+                    item_id=item_id,
+                    starts_at=starts_at,
+                    ends_at=ends_at,
+                    before=timedelta(minutes=buffer_before),
+                    after=timedelta(minutes=buffer_after),
+                    full=True,
+                )
+            )
+    return found
 
 
 async def visit_needs(
@@ -1411,7 +2026,14 @@ async def visit_needs(
                 FormResponse.status,
                 FormResponse.token,
             )
-            .where(FormResponse.client_id.in_(clients))
+            .where(
+                FormResponse.client_id.in_(clients),
+                # a treatment note is a staff response on a visit, never the client's intake
+                or_(
+                    FormResponse.token.is_not(None),
+                    FormResponse.parent_type.is_distinct_from("booking"),
+                ),
+            )
             .order_by(FormResponse.created_at)
         )
     ).all()
@@ -1497,8 +2119,10 @@ def local_day(on_date: date, tz: ZoneInfo) -> tuple[datetime, datetime]:
 _WEEKDAY_CODES: dict[Weekday, int] = {"MO": 0, "TU": 1, "WE": 2, "TH": 3, "FR": 4, "SA": 5, "SU": 6}
 _WEEKDAY_NAMES: dict[int, Weekday] = {v: k for k, v in _WEEKDAY_CODES.items()}
 _SKIPPED = "left out when the series was booked"
-_MAX_OCCURRENCES = 60  # a full year of weekly + headroom; caps runaway/unbounded rules
-_TOO_LONG = f"a series can hold at most {_MAX_OCCURRENCES} visits; end it sooner"
+_SERVICE_ONLY = "a client's series repeats a service; book a class's sessions one at a time"
+MAX_OCCURRENCES = 60  # a full year of weekly + headroom; caps runaway/unbounded rules
+_TOO_LONG = f"a series can hold at most {MAX_OCCURRENCES} visits; end it sooner"
+_SCHEDULE = "a class schedule is changed or canceled from its class"
 
 
 def _add_months(d: date, months: int) -> date:
@@ -1527,7 +2151,7 @@ def expand_occurrences(
     count: int | None,
     until: date | None,
     monthly_by: MonthlyBy = "date",
-    cap: int = _MAX_OCCURRENCES,
+    cap: int = MAX_OCCURRENCES,
 ) -> list[date]:
     """Occurrence dates for a rule, bounded by count, until and a hard cap."""
     interval = max(1, interval)
@@ -1575,6 +2199,8 @@ class RecurrenceService:
         if data.count is None and data.until is None:
             raise AppError("a recurring schedule needs an end: set count or until", status_code=422)
         item = await load_item(self.db, self.biz, data.item_id)
+        if item.kind != "service":
+            raise Unprocessable(_SERVICE_ONLY, code="series_service_only")
         if item.duration_min is None or item.duration_min <= 0:
             raise AppError("that service has no duration and can't be booked", status_code=422)
         await load_client(self.db, self.biz, data.client_id)
@@ -1596,9 +2222,9 @@ class RecurrenceService:
             count=data.count,
             until=data.until,
             monthly_by=data.monthly_by,
-            cap=_MAX_OCCURRENCES + 1,
+            cap=MAX_OCCURRENCES + 1,
         )
-        if len(occ_dates) > _MAX_OCCURRENCES:
+        if len(occ_dates) > MAX_OCCURRENCES:
             raise Unprocessable(_TOO_LONG, code="recurrence_too_long")
         handled = {e.date: e for e in data.exceptions}
 
@@ -1690,16 +2316,30 @@ class RecurrenceService:
         if data.staff_id is not None:
             assert_can_act_as(self.principal, data.staff_id)
             await load_staff(self.db, self.biz, data.staff_id)
+            series_item = await load_item(
+                self.db, self.biz, recurrence.item_id, require_active=False
+            )
+            assert_offers(series_item, data.staff_id)
         tz = await business_tz(self.db, self.biz)
-        visits = await self._upcoming(recurrence.id, data.scope, data.from_date, tz)
+        visits = await self._upcoming(recurrence, data.scope, data.from_date, tz)
         new_time = time.fromisoformat(data.time) if data.time is not None else None
 
         async def run(cmd: Command) -> RecurrenceChangeOut:
             moved: list[str] = []
             skipped: list[RecurrenceOccurrence] = []
             members = {slot.staff_id for _, slot in visits}
+            for booking, _ in visits:
+                members.update(await crew_ids(self.db, self.biz, booking.id))
             await lock_staff(
                 self.db, self.biz, *members, *([data.staff_id] if data.staff_id else [])
+            )
+            service = await load_item(self.db, self.biz, recurrence.item_id, require_active=False)
+            # the whole series' rooms at once, in order, so a later visit never waits holding one
+            await lock_resources(
+                self.db,
+                self.biz,
+                *service.resource_ids,
+                *(slot.resource_id for _, slot in visits),
             )
             for booking, slot in await self._lock_visits(visits):
                 local = slot.starts_at.astimezone(tz)
@@ -1715,6 +2355,8 @@ class RecurrenceService:
                 problem = (
                     _verdict("past", _PAST)
                     if starts_at < clock.now()
+                    else _verdict("class", _CLASS_MOVE)
+                    if slot.capacity > 1
                     else await slot_problem(
                         self.db,
                         self.biz,
@@ -1723,6 +2365,16 @@ class RecurrenceService:
                         starts_at,
                         ends_at,
                         exclude=slot.id,
+                        resources=True,
+                        hold=slot.resource_id,
+                    )
+                    or await crew_problem(
+                        self.db,
+                        self.biz,
+                        item,
+                        await crew_rows(self.db, self.biz, booking.id),
+                        starts_at,
+                        ends_at,
                     )
                 )
                 if problem is not None:
@@ -1732,6 +2384,7 @@ class RecurrenceService:
                         )
                     )
                     continue
+                await keep_resource(self.db, item, slot, starts_at, ends_at)
                 await move_slot(self.db, self.biz, slot, starts_at, ends_at)
                 slot.staff_id = staff_id
                 if booking.staff_id != staff_id:
@@ -1742,6 +2395,7 @@ class RecurrenceService:
                         .values(staff_id=staff_id)
                     )
                 await self.db.flush()
+                await carry_crew(self.db, self.biz, booking, slot)
                 moved.append(booking.id)
             if data.scope != "one" and data.staff_id is not None:
                 recurrence.staff_id = data.staff_id
@@ -1769,7 +2423,7 @@ class RecurrenceService:
             raise Conflict("this series is already canceled")
         tz = await business_tz(self.db, self.biz)
         scope = "all" if data.from_date is None else "following"
-        visits = await self._upcoming(recurrence.id, scope, data.from_date, tz, strict=False)
+        visits = await self._upcoming(recurrence, scope, data.from_date, tz, strict=False)
 
         async def run(cmd: Command) -> RecurrenceCancelOut:
             refunded = 0
@@ -1785,9 +2439,10 @@ class RecurrenceService:
                 booking.status = "canceled"
                 booking.canceled_at = now
                 await release_slot(self.db, slot)
+                await carry_crew(self.db, self.biz, booking, slot)
                 await fill_freed_seats(self.db, slot, performed_by=self.principal.user_id)
                 canceled.append(booking.id)
-            remaining = await self._upcoming(recurrence.id, "all", None, tz, strict=False)
+            remaining = await self._upcoming(recurrence, "all", None, tz, strict=False)
             if remaining:
                 recurrence.status = "ended"
                 if data.from_date is not None:
@@ -1831,25 +2486,28 @@ class RecurrenceService:
         ).scalar_one_or_none()
         if row is None:
             raise NotFound("series not found")
+        if row.client_id is None:
+            raise Conflict(_SCHEDULE, code="class_schedule")
         return row
 
     async def _upcoming(
         self,
-        recurrence_id: str,
+        recurrence: Recurrence,
         scope: str,
         from_date: date | None,
         tz: ZoneInfo,
         *,
         strict: bool = True,
     ) -> list[tuple[Booking, Slot]]:
-        """The series' live visits still ahead, narrowed to one date or from a date on."""
+        """The series client's live visits still ahead, narrowed to one date or from a date on."""
         rows = (
             await self.db.execute(
                 scoped(Booking, self.biz, soft_delete=True)
                 .add_columns(Slot)
                 .join(Slot, Slot.id == Booking.slot_id)
                 .where(
-                    Slot.recurrence_id == recurrence_id,
+                    Slot.recurrence_id == recurrence.id,
+                    Booking.client_id == recurrence.client_id,
                     Booking.status.in_(("pending", "confirmed")),
                     Slot.starts_at >= clock.now(),
                 )
@@ -1943,11 +2601,13 @@ class ClassService:
             await self._subject(data.subject_id, data.client_id)
         if slot.starts_at < clock.now() - timedelta(hours=12):
             raise Conflict("that class has already happened")
+        if await is_program_day(self.db, slot):
+            raise Conflict(PROGRAM_ENROL, code="program_enrol")
         item = await load_item(self.db, self.biz, slot.item_id, require_active=False)
 
         async def run(cmd: Command) -> RosterEntry:
             await lock_staff(self.db, self.biz, slot.staff_id)
-            if await client_has_seat(self.db, self.biz, slot.id, data.client_id):
+            if await has_seat(self.db, self.biz, slot.id, data.client_id, data.subject_id):
                 raise Conflict(ALREADY_IN_CLASS)
             full = await seats_closed(self.db, slot.id)
             deposit = deposit_cents(item) if item.deposit_type != "none" else 0
@@ -2354,6 +3014,8 @@ class TimeOffService:
         if row is None:
             raise NotFound("time off not found")
         await self._assert_may_edit(row.staff_id)
+        if row.note is not None and row.note.startswith(crew_note("")):
+            raise Conflict("take the member off the visit's crew instead", code="crew_block")
 
         async def run(cmd: Command) -> TimeOffOut:
             out = await self._out(row)
@@ -2424,6 +3086,7 @@ async def run_reap_unpaid_bookings(
     db: AsyncSession, gateway: PaymentGateway, notifier: Notifier, now: datetime
 ) -> int:
     """Release online bookings whose deposit went unpaid past the window, and tell the client."""
+    from clientbridge.services import billing  # deferred: billing imports this module
 
     def deposits(*statuses: str) -> Exists:
         q = select(Payment.id).where(Payment.booking_id == Booking.id, Payment.kind == "deposit")
@@ -2465,7 +3128,19 @@ async def run_reap_unpaid_bookings(
         booking.canceled_at = now
         if booking.deposit_status == "pending":
             booking.deposit_status = "none"
+        if slot.recurrence_id is not None and await is_program_day(db, slot):
+            # the deposit holds the whole enrolment, so its other days go with it
+            days = await enrolment(
+                db, booking.business_id, slot.recurrence_id, booking.client_id, booking.subject_id
+            )
+            for day in await lock_bookings(db, booking.business_id, [d.id for d in days]):
+                day.status, day.canceled_at = "canceled", now
+            cmd = Command(db, PublicPrincipal(booking.business_id))
+            # money taken on the invoice stays for staff to refund, so only an unpaid one is voided
+            await billing.void_enrolment_invoice(db, booking, cmd)
+            db.add_all(cmd.audits)
         await release_slot(db, slot)
+        await carry_crew(db, booking.business_id, booking, slot)
         await fill_freed_seats(db, slot)
         released.append(booking.id)
     await db.commit()
@@ -2579,6 +3254,7 @@ async def _close_past_visits(
         else:
             booking.status, booking.canceled_at = "canceled", now
             action = "booking.auto_cancel"
+            await carry_crew(db, business_id, booking, slot)
         if booking.deposit_status == "pending":
             booking.deposit_status = "none"
         db.add(

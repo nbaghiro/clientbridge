@@ -738,7 +738,7 @@ def test_linking_runs_only_on_dev_or_staging_with_a_test_key() -> None:
     assert link_problems("staging", "sk_live_1") == ["STRIPE_SECRET_KEY is not a test-mode key"]
 
 
-def test_demo_without_website_uses_stripe_test_url() -> None:
+def test_each_demo_account_gets_its_business_website() -> None:
     body = _body(plan_account(DEMO_BUSINESSES[1], []).params)
     defaults = cast(dict[str, dict[str, object]], body["defaults"])
-    assert defaults["profile"]["business_url"] == "https://accessible.stripe.com"
+    assert defaults["profile"]["business_url"] == "https://cedarcoast.example"

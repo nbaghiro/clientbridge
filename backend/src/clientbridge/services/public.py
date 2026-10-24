@@ -1,8 +1,6 @@
-import re
 import secrets
 from collections.abc import Sequence
-from datetime import date, datetime, time, timedelta
-from decimal import Decimal, InvalidOperation
+from datetime import UTC, date, datetime, timedelta
 from typing import get_args
 
 from sqlalchemy import ColumnElement, and_, func, select, text
@@ -26,7 +24,7 @@ from clientbridge.models.documents import Contract, Form, FormField, FormRespons
 from clientbridge.models.messaging import Message
 from clientbridge.models.payments import Payment
 from clientbridge.models.platform import File
-from clientbridge.models.scheduling import Addon, Booking, Slot
+from clientbridge.models.scheduling import Addon, Booking, Hours, Recurrence, Slot
 from clientbridge.schemas.billing import (
     LineInput,
     PublicEstimate,
@@ -45,7 +43,7 @@ from clientbridge.schemas.forms import (
     PublicFormField,
     PublicFormSubmit,
 )
-from clientbridge.schemas.orders import PublicReceipt, PublicReceiptPayment
+from clientbridge.schemas.orders import PublicReceipt, PublicReceiptPayment, VisitReceipt
 from clientbridge.schemas.payments import (
     PublicCardIntent,
     PublicDocLine,
@@ -63,6 +61,8 @@ from clientbridge.schemas.public import (
     ManageMessageResult,
     ManageReschedule,
     PublicAddon,
+    PublicAddress,
+    PublicBookedDay,
     PublicBookingClient,
     PublicBookingCreate,
     PublicBookingPage,
@@ -72,6 +72,9 @@ from clientbridge.schemas.public import (
     PublicDays,
     PublicPickupDays,
     PublicPolicy,
+    PublicProgram,
+    PublicProgramDay,
+    PublicPrograms,
     PublicService,
     PublicShop,
     PublicShopItem,
@@ -89,9 +92,17 @@ from clientbridge.services.bookings import (
     ALREADY_IN_CLASS,
     OVERLAP,
     Availability,
-    client_has_seat,
+    addon_minutes,
+    booked_count_expr,
+    carry_crew,
     create_booking_core,
+    crew_problem,
+    crew_rows,
+    enrolment,
     fill_freed_seats,
+    has_seat,
+    is_program,
+    is_program_day,
     load_availability,
     local_day,
     lock_bookings,
@@ -102,11 +113,12 @@ from clientbridge.services.bookings import (
     release_slot,
     seats_closed,
     slot_problem,
+    visit_minutes,
     visit_needs,
     waitlist_position,
 )
 from clientbridge.services.business import business_tz, local_today, staff_names
-from clientbridge.services.catalog import deposit_cents
+from clientbridge.services.catalog import assert_offers, deposit_cents, offers
 from clientbridge.services.clients import find_or_create_by_contact
 from clientbridge.services.consents import (
     allows_marketing,
@@ -122,14 +134,17 @@ from clientbridge.services.files import (
     mint_upload,
     team_photos,
 )
+from clientbridge.services.forms import validate_answers
 from clientbridge.services.lines import (
     apply_totals,
+    crew_ids,
     fetch_lines,
     included,
     included_totals,
     issued_at,
     price_lines,
     replace_lines,
+    worker_shares,
 )
 from clientbridge.services.messaging import open_thread
 from clientbridge.services.notifications import Notifier, queued_notifier
@@ -146,6 +161,8 @@ from clientbridge.services.payments import (
     resolve_tip,
 )
 from clientbridge.services.plans import assert_serving
+from clientbridge.services.programs import enrol, sessions_of, withdraw
+from clientbridge.services.resources import keep_resource, lost_race
 from clientbridge.services.returning import ReturningService
 from clientbridge.services.subjects import new_subject, place_address, visit_address
 from clientbridge.services.tax import (
@@ -180,6 +197,7 @@ def _service_out(
         category=item.category,
         color=item.color,
         staff_ids=staff_ids or [],
+        session_count=item.session_count if is_program(item) else None,
     )
 
 
@@ -198,6 +216,7 @@ _BOOK_SCOPE = "book.create"
 _WAITLIST_SCOPE = "book.waitlist"
 _UNOFFERED = "that time isn't open for booking; pick another"
 _MAX_DAYS = 14
+_EVER = datetime.min.replace(tzinfo=UTC)
 
 
 class PublicBookingService:
@@ -234,7 +253,9 @@ class PublicBookingService:
         return PublicBookingPage(
             business_name=business.name,
             brand=public_brand(business),
-            services=[_service_out(i, images.get(i.id), ids) for i in items],
+            services=[
+                _service_out(i, images.get(i.id), [x for x in ids if offers(i, x)]) for i in items
+            ],
             staff=[
                 PublicStaff(
                     id=s.id,
@@ -272,8 +293,9 @@ class PublicBookingService:
         services: list[PublicServiceOpening] = []
         for item in items:
             slots: list[PublicSlot] = []
+            members = [s for s in staff if offers(item, s.id)]
             for offset in range(7):
-                slots.extend(_open(business, found, item, staff, today + timedelta(days=offset)))
+                slots.extend(_open(business, found, item, members, today + timedelta(days=offset)))
                 if len(slots) >= 3:
                     break
             services.append(PublicServiceOpening(item_id=item.id, slots=slots[:3]))
@@ -281,24 +303,87 @@ class PublicBookingService:
             services=services, through=(today + timedelta(days=6)).isoformat()
         )
 
-    async def slots(self, slug: str, item_id: str, staff_id: str, on_date: date) -> PublicSlots:
+    async def slots(
+        self, slug: str, item_id: str, staff_id: str, on_date: date, extra_min: int = 0
+    ) -> PublicSlots:
+        """Open times for the service, long enough for the add-ons' minutes when chosen first."""
         business = await self._business(slug)
         item = await self._bookable_item(business.id, item_id)
-        staff = await self._who(business.id, staff_id)
+        staff = await self._who(business.id, staff_id, item)
         tz = await business_tz(self.db, business.id)
         found = await load_availability(
             self.db, business.id, [s.id for s in staff], on_date, on_date, tz, [item]
         )
-        return PublicSlots(slots=_open(business, found, item, staff, on_date))
+        minutes = visit_minutes(item, extra_min)
+        return PublicSlots(slots=_open(business, found, item, staff, on_date, minutes))
 
     async def days(
-        self, slug: str, item_id: str, staff_id: str, start: date, count: int
+        self, slug: str, item_id: str, staff_id: str, start: date, count: int, extra_min: int = 0
     ) -> PublicDays:
         """How many open times each day has, so the date strip can grey out full days."""
         business = await self._business(slug)
         item = await self._bookable_item(business.id, item_id)
-        staff = await self._who(business.id, staff_id)
-        return PublicDays(days=await open_days(self.db, business, item, staff, start, count))
+        staff = await self._who(business.id, staff_id, item)
+        minutes = visit_minutes(item, extra_min)
+        return PublicDays(
+            days=await open_days(self.db, business, item, staff, start, count, minutes=minutes)
+        )
+
+    async def programs(self, slug: str, item_id: str, staff_id: str) -> PublicPrograms:
+        """A program's runs that haven't started and still have a seat on every day."""
+        business = await self._business(slug)
+        item = await self._bookable_item(business.id, item_id)
+        if not is_program(item):
+            return PublicPrograms(programs=[])
+        staff = [s.id for s in await self._who(business.id, staff_id, item)]
+        policy = policy_of(business)
+        now = clock.now()
+        earliest = now + timedelta(hours=policy.lead_hours)
+        latest = now + timedelta(days=policy.horizon_days)
+        rows = await self.db.execute(
+            scoped(Slot, business.id)
+            .add_columns(booked_count_expr())
+            .join(Recurrence, Recurrence.id == Slot.recurrence_id)
+            .where(
+                Slot.item_id == item.id,
+                Slot.status != "canceled",
+                Recurrence.client_id.is_(None),
+                Recurrence.status == "active",
+                Recurrence.staff_id.in_(staff),
+                Recurrence.id.not_in(
+                    scoped(Slot, business.id)
+                    .with_only_columns(Slot.recurrence_id)
+                    .where(
+                        Slot.item_id == item.id,
+                        Slot.status != "canceled",
+                        Slot.starts_at < earliest,
+                        Slot.recurrence_id.is_not(None),
+                    )
+                ),
+            )
+            .order_by(Slot.starts_at, Slot.id)
+        )
+        runs: dict[str, list[tuple[Slot, int]]] = {}
+        for slot, taken in rows.all():
+            if slot.recurrence_id is not None:
+                runs.setdefault(slot.recurrence_id, []).append((slot, int(taken)))
+        programs: list[PublicProgram] = []
+        for days in runs.values():
+            first = days[0][0]
+            seats = min(slot.capacity - taken for slot, taken in days)
+            if seats <= 0 or not earliest <= first.starts_at <= latest:
+                continue
+            programs.append(
+                PublicProgram(
+                    starts_at=first.starts_at,
+                    staff_id=first.staff_id,
+                    days=[
+                        PublicProgramDay(starts_at=d.starts_at, ends_at=d.ends_at) for d, _ in days
+                    ],
+                    seats_left=seats,
+                )
+            )
+        return PublicPrograms(programs=sorted(programs, key=lambda x: x.starts_at))
 
     async def book(
         self, slug: str, data: PublicBookingCreate, idempotency_key: str | None = None
@@ -312,8 +397,13 @@ class PublicBookingService:
                 raise Unprocessable("that service has no duration and can't be booked")
             policy = policy_of(business)
             _assert_bookable_window(policy, data.starts_at)
-            staff_id = await self._staff_for(business, item, data.staff_id, data.starts_at)
+            if is_program(item):
+                return await self._enrol(cmd, business, item, data)
             addons = await self._addons(business, item, data)
+            extra = addon_minutes(addons)
+            staff_id = await self._staff_for(
+                business, item, data.staff_id, data.starts_at, visit_minutes(item, extra)
+            )
             client, subject_id = await self._booker(business, data)
             first_visit = not await _has_booked(self.db, business.id, client.id)
             booking, _ = await create_booking_core(
@@ -326,6 +416,7 @@ class PublicBookingService:
                 source="online",
                 subject_id=subject_id,
                 dedupe_client=True,
+                extra_min=extra,
             )
             if policy.approve_new_clients and first_visit:
                 booking.status = "pending"
@@ -353,6 +444,67 @@ class PublicBookingService:
             request=data,
         )
 
+    async def _enrol(
+        self, cmd: Command, business: Business, item: Item, data: PublicBookingCreate
+    ) -> PublicBookingResult:
+        """Enrol in the program run that starts at the chosen time, every day or none."""
+        staff = [s.id for s in await self._who(business.id, data.staff_id, item)]
+        program = await self.db.scalar(
+            scoped(Recurrence, business.id)
+            .join(Slot, Slot.recurrence_id == Recurrence.id)
+            .where(
+                Recurrence.client_id.is_(None),
+                Recurrence.item_id == item.id,
+                Recurrence.status == "active",
+                Slot.staff_id.in_(staff),
+                Slot.starts_at == data.starts_at,
+                Slot.status != "canceled",
+            )
+            .order_by(Recurrence.id)
+            .limit(1)
+        )
+        days = (
+            []
+            if program is None
+            else await sessions_of(self.db, business.id, program.id, after=_EVER)
+        )
+        if program is None or not days or days[0].starts_at != data.starts_at:
+            raise Conflict(_UNOFFERED, code="slot_unavailable")
+        client, subject_id = await self._booker(business, data)
+        first_visit = not await _has_booked(self.db, business.id, client.id)
+        bookings = await enrol(
+            self.db,
+            business.id,
+            program,
+            item,
+            client_id=client.id,
+            subject_id=subject_id,
+            source="online",
+            after=clock.now(),
+            cmd=cmd,
+        )
+        if policy_of(business).approve_new_clients and first_visit:
+            for booking in bookings:
+                booking.status, booking.confirmed_at = "pending", None
+        first = bookings[0]
+        ends = {d.id: d.ends_at for d in days}
+        self._extras(business, first, data, [])
+        secret = await self._open_deposit(business, first, client)
+        cmd.record(_BOOK_SCOPE, entity_type="booking", entity_id=first.id)
+        return PublicBookingResult(
+            booking_id=first.id,
+            deposit_client_secret=secret,
+            stripe_account_id=_account(business),
+            status=first.status,
+            manage_token=first.manage_token,
+            deposit_cents=first.deposit_amount_cents,
+            booking_ids=[b.id for b in bookings],
+            days=[
+                PublicBookedDay(booking_id=b.id, starts_at=b.starts_at, ends_at=ends[b.slot_id])
+                for b in bookings
+            ],
+        )
+
     async def join_waitlist(
         self, slug: str, data: PublicBookingCreate, idempotency_key: str | None = None
     ) -> PublicBookingResult:
@@ -364,8 +516,10 @@ class PublicBookingService:
             item = await self._bookable_item(business.id, data.item_id)
             if item.kind != "class" or item.capacity is None or item.capacity <= 1:
                 raise Unprocessable("only a class session has a waitlist", code="no_waitlist")
+            if is_program(item):
+                raise Unprocessable("a program's days have no waitlist", code="no_waitlist")
             _assert_bookable_window(policy_of(business), data.starts_at)
-            staff = [s.id for s in await self._who(business.id, data.staff_id)]
+            staff = [s.id for s in await self._who(business.id, data.staff_id, item)]
             slot = await self.db.scalar(
                 scoped(Slot, business.id)
                 .where(
@@ -384,7 +538,7 @@ class PublicBookingService:
                 raise Conflict("that class has a seat open; book it instead", code="class_open")
             addons = await self._addons(business, item, data)
             client, subject_id = await self._booker(business, data)
-            if await client_has_seat(self.db, business.id, slot.id, client.id):
+            if await has_seat(self.db, business.id, slot.id, client.id, subject_id):
                 raise Conflict(ALREADY_IN_CLASS)
             deposit = deposit_cents(item) if item.deposit_type != "none" else 0
             booking = Booking(
@@ -494,22 +648,26 @@ class PublicBookingService:
             )
 
     async def _staff_for(
-        self, business: Business, item: Item, staff_id: str, starts_at: datetime
+        self, business: Business, item: Item, staff_id: str, starts_at: datetime, minutes: int
     ) -> str:
         """The member a time is booked with: the first one whose open times list it."""
-        staff = await self._who(business.id, staff_id)
-        member = await _offered(self.db, business, item, [s.id for s in staff], starts_at)
+        staff = await self._who(business.id, staff_id, item)
+        member = await _offered(
+            self.db, business, item, [s.id for s in staff], starts_at, minutes=minutes
+        )
         if member is None:
             raise Conflict(_UNOFFERED, code="slot_unavailable")
         return member
 
-    async def _who(self, business_id: str, staff_id: str) -> list[Staff]:
+    async def _who(self, business_id: str, staff_id: str, item: Item) -> list[Staff]:
+        """The online members a time is looked for with: one, or every member offering the item."""
         staff = await self._online_staff(business_id)
         if staff_id == _ANY:
-            return staff
+            return [s for s in staff if offers(item, s.id)]
         chosen = [s for s in staff if s.id == staff_id]
         if not chosen:
             raise NotFound("staff not found")
+        assert_offers(item, staff_id)
         return chosen
 
     async def _online_staff(self, business_id: str) -> list[Staff]:
@@ -571,16 +729,23 @@ class PublicBookingService:
 
 
 def _open(
-    business: Business, found: Availability, item: Item, staff: list[Staff], on_date: date
+    business: Business,
+    found: Availability,
+    item: Item,
+    staff: list[Staff],
+    on_date: date,
+    minutes: int | None = None,
 ) -> list[PublicSlot]:
+    if is_program(item):
+        return []
     policy = policy_of(business)
     now = clock.now()
     earliest = now + timedelta(hours=policy.lead_hours)
     latest = now + timedelta(days=policy.horizon_days)
-    delta = timedelta(minutes=item.duration_min or 0)
+    delta = timedelta(minutes=(item.duration_min or 0) if minutes is None else minutes)
     seen: dict[datetime, str] = {}
     for member in staff:
-        for start in found.open_starts(item, member.id, on_date, policy.step_min):
+        for start in found.open_starts(item, member.id, on_date, policy.step_min, minutes=minutes):
             if earliest <= start <= latest and start not in seen:
                 seen[start] = member.id
     full = {
@@ -630,14 +795,24 @@ async def _offered(
     staff_ids: list[str],
     starts_at: datetime,
     exclude: str | None = None,
+    *,
+    minutes: int | None = None,
+    crew: Sequence[Hours] = (),
+    hold: str | None = None,
 ) -> str | None:
     """The first member whose open times on the start's local day list it."""
     tz = await business_tz(db, business.id)
     day = starts_at.astimezone(tz).date()
     step = policy_of(business).step_min
-    found = await load_availability(db, business.id, staff_ids, day, day, tz, [item])
+    members = [*staff_ids, *(r.staff_id for r in crew if r.staff_id is not None)]
+    found = await load_availability(
+        db, business.id, members, day, day, tz, [item], held=[hold] if hold else ()
+    )
     for staff_id in staff_ids:
-        if starts_at in found.open_starts(item, staff_id, day, step, exclude=exclude):
+        starts = found.open_starts(
+            item, staff_id, day, step, exclude=exclude, minutes=minutes, crew=crew, hold=hold
+        )
+        if starts_at in starts:
             return staff_id
     return None
 
@@ -657,6 +832,11 @@ async def open_days(
     staff: list[Staff],
     start: date,
     count: int,
+    *,
+    minutes: int | None = None,
+    crew: Sequence[Hours] = (),
+    exclude: str | None = None,
+    hold: str | None = None,
 ) -> list[PublicDay]:
     """Open start times per day for one service, across the given members."""
     policy = policy_of(business)
@@ -665,8 +845,9 @@ async def open_days(
     earliest = now + timedelta(hours=policy.lead_hours)
     latest = now + timedelta(days=policy.horizon_days)
     days = [start + timedelta(days=offset) for offset in range(min(max(count, 1), _MAX_DAYS))]
+    members = [s.id for s in staff] + [r.staff_id for r in crew if r.staff_id is not None]
     found = await load_availability(
-        db, business.id, [s.id for s in staff], days[0], days[-1], tz, [item]
+        db, business.id, members, days[0], days[-1], tz, [item], held=[hold] if hold else ()
     )
     out: list[PublicDay] = []
     for day in days:
@@ -676,9 +857,18 @@ async def open_days(
         )
         starts: set[datetime] = set()
         full: set[datetime] = set()
-        if closure is None and closes > earliest and opens <= latest:
+        if closure is None and closes > earliest and opens <= latest and not is_program(item):
             for member in staff:
-                for s in found.open_starts(item, member.id, day, policy.step_min):
+                for s in found.open_starts(
+                    item,
+                    member.id,
+                    day,
+                    policy.step_min,
+                    exclude=exclude,
+                    minutes=minutes,
+                    crew=crew,
+                    hold=hold,
+                ):
                     if earliest <= s <= latest:
                         starts.add(s)
             full = set(_waitlists(found, item, staff, day, earliest, latest)) - starts
@@ -777,6 +967,11 @@ class PublicManageService:
         booking, slot, business = await self._resolve(token)
         return await self._view(booking, slot, business)
 
+    async def receipt(self, token: str) -> VisitReceipt:
+        """The visit's receipt for the client's insurer; the manage link is the credential."""
+        booking, _, business = await self._resolve(token)
+        return await visit_receipt(self.db, booking, business)
+
     async def photo(self, token: str, file_id: str, storage: FileStorage) -> str:
         """Where one of the visit's photos can be downloaded; the manage link is the credential."""
         booking, _, _ = await self._resolve(token)
@@ -799,7 +994,19 @@ class PublicManageService:
     async def days(self, token: str, start: date, count: int) -> PublicDays:
         booking, slot, business = await self._resolve(token)
         item, staff = await self._movable(booking, slot, business)
-        return PublicDays(days=await open_days(self.db, business, item, [staff], start, count))
+        days = await open_days(
+            self.db,
+            business,
+            item,
+            [staff],
+            start,
+            count,
+            minutes=_length(slot),
+            crew=await crew_rows(self.db, business.id, booking.id),
+            exclude=slot.id,
+            hold=slot.resource_id,
+        )
+        return PublicDays(days=days)
 
     async def slots(self, token: str, on_date: date) -> PublicSlots:
         booking, slot, business = await self._resolve(token)
@@ -810,7 +1017,16 @@ class PublicManageService:
         latest = now + timedelta(days=policy.horizon_days)
         delta = slot.ends_at - slot.starts_at
         starts = await open_slots(
-            self.db, business.id, item, staff.id, on_date, policy.step_min, exclude=slot.id
+            self.db,
+            business.id,
+            item,
+            staff.id,
+            on_date,
+            policy.step_min,
+            exclude=slot.id,
+            minutes=_length(slot),
+            crew=await crew_rows(self.db, business.id, booking.id),
+            hold=slot.resource_id,
         )
         return PublicSlots(
             slots=[
@@ -840,17 +1056,36 @@ class PublicManageService:
                 data.starts_at,
                 ends_at,
                 exclude=slot.id,
+                resources=True,
+                hold=slot.resource_id,
             )
             if problem is not None:
-                raise Conflict(problem.message or _UNOFFERED)
-            if await _offered(self.db, business, item, [staff.id], data.starts_at, slot.id) is None:
+                code = "no_resource" if problem.problem == "resource" else None
+                raise Conflict(problem.message or _UNOFFERED, code=code)
+            crew = await crew_rows(self.db, business.id, booking.id)
+            offered = await _offered(
+                self.db,
+                business,
+                item,
+                [staff.id],
+                data.starts_at,
+                slot.id,
+                minutes=_length(slot),
+                crew=crew,
+                hold=slot.resource_id,
+            )
+            if offered is None:
                 raise Conflict(_UNOFFERED, code="slot_unavailable")
+            if await crew_problem(self.db, business.id, item, crew, data.starts_at, ends_at):
+                raise Conflict(_UNOFFERED, code="slot_unavailable")
+            await keep_resource(self.db, item, slot, data.starts_at, ends_at)
             await move_slot(self.db, business.id, slot, data.starts_at, ends_at)
             booking.reschedule_count += 1
             try:
                 await self.db.flush()
             except IntegrityError as exc:
-                raise Conflict(OVERLAP) from exc
+                raise lost_race(exc, Conflict(OVERLAP)) from exc
+            await carry_crew(self.db, business.id, booking, slot)
             out = await self._view(booking, slot, business)
             cmd.record(_MOVE_SCOPE, entity_type="booking", entity_id=booking.id)
             return out
@@ -911,16 +1146,34 @@ class PublicManageService:
             await notifier.on_inbound_message(self.db, message_id)
         return result
 
-    async def cancel(self, token: str, idempotency_key: str | None) -> ManageCancelResult:
+    async def cancel(
+        self, token: str, idempotency_key: str | None
+    ) -> tuple[ManageCancelResult, list[str]]:
+        """Cancel the visit, or every day of a program enrolment; also names what it canceled."""
         booking, slot, business = await self._locked(token)
         request = {"booking_id": booking.id}
+        days = await self._program_days(booking, slot)
+        canceled: list[str] = []
 
         async def run(cmd: Command) -> ManageCancelResult:
             _, staff = await self._visit(booking, slot, business)
-            blocked = self._blocked(booking, slot, business, staff, "cancel")
+            first = await self._first_day(booking, slot) if days else None
+            blocked = self._blocked(booking, slot, business, staff, "cancel", first)
             if blocked is not None:
                 raise Conflict(
                     f"this visit can't be canceled online ({blocked[0]})", code="change_blocked"
+                )
+            if days:
+                live = [
+                    b
+                    for b in await lock_bookings(self.db, business.id, [b.id for b in days])
+                    if b.status in ("pending", "confirmed")
+                ]
+                refunded = await withdraw(self.db, self.gateway, live, cmd)
+                cmd.record(_CANCEL_SCOPE, entity_type="booking", entity_id=booking.id)
+                canceled.extend(b.id for b in live)
+                return ManageCancelResult(
+                    deposit="refunded" if refunded > 0 else "none", refund_cents=refunded
                 )
             refunded = 0
             if booking.deposit_status == "collected":
@@ -932,6 +1185,7 @@ class PublicManageService:
             booking.status = "canceled"
             booking.canceled_at = clock.now()
             await release_slot(self.db, slot)
+            await carry_crew(self.db, business.id, booking, slot)
             if held_seat:
                 await fill_freed_seats(self.db, slot)
             result = ManageCancelResult(
@@ -939,10 +1193,11 @@ class PublicManageService:
                 or ("refunded" if refunded > 0 else "none"),
                 refund_cents=refunded,
             )
+            canceled.append(booking.id)
             cmd.record(_CANCEL_SCOPE, entity_type="booking", entity_id=booking.id)
             return result
 
-        return await run_command(
+        result = await run_command(
             self.db,
             PublicPrincipal(business.id),
             action=_CANCEL_SCOPE,
@@ -951,6 +1206,7 @@ class PublicManageService:
             idempotency_key=idempotency_key,
             request=request,
         )
+        return result, canceled
 
     async def pay_deposit(self, token: str) -> PublicCardIntent:
         """Open the card payment for a visit's unpaid deposit, superseding any earlier attempt."""
@@ -979,9 +1235,15 @@ class PublicManageService:
         return PublicCardIntent(client_secret=client_secret, stripe_account_id=account_id)
 
     def _blocked(
-        self, booking: Booking, slot: Slot, business: Business, staff: Staff, change: str
+        self,
+        booking: Booking,
+        slot: Slot,
+        business: Business,
+        staff: Staff,
+        change: str,
+        first: datetime | None = None,
     ) -> tuple[ManageBlock, int | None] | None:
-        """Why the client can't make this change online, and the cutoff hours when that is why."""
+        """Why the client can't make this change online; a program's cutoff is its first day."""
         policy = policy_of(business)
         waiting = booking.status == "waitlisted" and change == "cancel"
         if booking.status not in ("pending", "confirmed") and not waiting:
@@ -990,7 +1252,7 @@ class PublicManageService:
             return "by_phone", None
         if waiting:
             return None
-        hours_away = (slot.starts_at - clock.now()).total_seconds() / 3600
+        hours_away = ((first or slot.starts_at) - clock.now()).total_seconds() / 3600
         if change == "cancel":
             if hours_away < policy.cancel_cutoff_hours:
                 return "cutoff", policy.cancel_cutoff_hours
@@ -1022,7 +1284,9 @@ class PublicManageService:
         """The booking with its member and row locked, so limits are read after other changes."""
         booking, slot, business = await self._resolve(token)
         member = slot.staff_id
-        await lock_staff(self.db, business.id, member)
+        await lock_staff(
+            self.db, business.id, member, *await crew_ids(self.db, business.id, booking.id)
+        )
         if not await lock_bookings(self.db, business.id, [booking.id]):
             raise NotFound(_GONE)
         await self.db.refresh(slot)
@@ -1032,6 +1296,36 @@ class PublicManageService:
                 code="visit_changed",
             )
         return booking, slot, business
+
+    async def _program_days(self, booking: Booking, slot: Slot) -> list[Booking]:
+        """A program enrolment's days, which the client cancels together; empty for any visit."""
+        if slot.recurrence_id is None or not await is_program_day(self.db, slot):
+            return []
+        return await enrolment(
+            self.db, booking.business_id, slot.recurrence_id, booking.client_id, booking.subject_id
+        )
+
+    async def _first_day(self, booking: Booking, slot: Slot) -> datetime | None:
+        """When the program the client enrolled in began for them, attended days included."""
+        if slot.recurrence_id is None:
+            return None
+        q = (
+            scoped(Booking, booking.business_id, soft_delete=True)
+            .with_only_columns(func.min(Slot.starts_at))
+            .select_from(Booking)
+            .join(Slot, Slot.id == Booking.slot_id)
+            .where(
+                Slot.recurrence_id == slot.recurrence_id,
+                Booking.client_id == booking.client_id,
+                Booking.status != "canceled",
+            )
+        )
+        q = (
+            q.where(Booking.subject_id.is_(None))
+            if booking.subject_id is None
+            else q.where(Booking.subject_id == booking.subject_id)
+        )
+        return await self.db.scalar(q)
 
     async def _visit(self, booking: Booking, slot: Slot, business: Business) -> tuple[Item, Staff]:
         item = await self.db.get(Item, slot.item_id)
@@ -1082,9 +1376,18 @@ class PublicManageService:
         )
         images = await item_images(self.db, business.id, [item.id])
         tz = await business_tz(self.db, business.id)
+        days = await self._program_days(booking, slot)
         move = self._blocked(booking, slot, business, staff, "move")
-        cancel = self._blocked(booking, slot, business, staff, "cancel")
+        cancel = self._blocked(
+            booking,
+            slot,
+            business,
+            staff,
+            "cancel",
+            await self._first_day(booking, slot) if days else None,
+        )
         blocked, blocked_hours = cancel or move or (None, None)
+        document = await visit_document(self.db, booking)
         return ManagedBooking(
             refund_status=await booking_refund_status(self.db, booking),
             address=visit_address(business, subject),
@@ -1138,10 +1441,17 @@ class PublicManageService:
             timezone=business.timezone,
             can_move=move is None,
             can_cancel=cancel is None,
+            has_receipt=document is not None and await receipted(self.db, document),
             blocked=blocked,
             blocked_hours=blocked_hours,
             waitlist_position=await waitlist_position(self.db, booking),
+            program_days=len(days) if days else None,
         )
+
+
+def _length(slot: Slot) -> int:
+    """The visit's stored length in minutes, which a move keeps."""
+    return int((slot.ends_at - slot.starts_at).total_seconds() // 60)
 
 
 def _deposit_due(booking: Booking) -> bool:
@@ -1423,65 +1733,6 @@ class PublicFormService:
         )
 
 
-def validate_answers(
-    fields: Sequence[FormField | PublicFormField], answers: dict[str, object]
-) -> None:
-    if answers.keys() - {field.name for field in fields}:
-        raise Unprocessable("answers contain an unknown field")
-    for field in fields:
-        value = answers.get(field.name)
-        missing = value is None or value == [] or (isinstance(value, str) and not value.strip())
-        if missing:
-            if field.required:
-                raise Unprocessable(f"missing required field: {field.name}")
-            continue
-        valid = True
-        if field.input == "checkbox":
-            valid = isinstance(value, bool) and (not field.required or value)
-        elif field.input in ("number", "currency", "rating"):
-            valid = _valid_numeric_answer(field, value)
-        elif field.input == "multiselect":
-            valid = isinstance(value, list) and all(
-                isinstance(option, str) and option in _form_options(field) for option in value
-            )
-        else:
-            valid = isinstance(value, str) and len(value) <= 40000
-            if valid and isinstance(value, str):
-                if field.input == "select":
-                    valid = value in _form_options(field)
-                elif field.input == "email":
-                    valid = re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", value) is not None
-                elif field.input in ("date", "time"):
-                    try:
-                        if field.input == "date":
-                            valid = date.fromisoformat(value).isoformat() == value
-                        else:
-                            valid = time.fromisoformat(value).tzinfo is None
-                    except ValueError:
-                        valid = False
-        if not valid:
-            raise Unprocessable(f"invalid answer for field: {field.name}")
-
-
-def _form_options(field: FormField | PublicFormField) -> set[str]:
-    return {
-        str(option.get("value", "")) if isinstance(option, dict) else str(option)
-        for option in field.options
-    }
-
-
-def _valid_numeric_answer(field: FormField | PublicFormField, value: object) -> bool:
-    if isinstance(value, bool) or not isinstance(value, str | int | float):
-        return False
-    try:
-        number = Decimal(str(value))
-    except InvalidOperation:
-        return False
-    if not number.is_finite():
-        return False
-    return field.input != "rating" or (number == number.to_integral_value() and 1 <= number <= 5)
-
-
 class PublicPayService:
     """Public pay links; the pay token is the only credential."""
 
@@ -1507,6 +1758,8 @@ class PublicPayService:
             number=invoice.number,
             business_name=business.name,
             brand=public_brand(business),
+            address=public_address(business),
+            phone=business.legal_phone,
             currency=invoice.currency,
             timezone=business.timezone,
             subtotal_cents=invoice.subtotal_cents,
@@ -1589,16 +1842,19 @@ async def tip_lines(db: AsyncSession, business_id: str, lines: list[Line]) -> li
     ]
 
 
-async def _tip_names(db: AsyncSession, business_id: str, lines: list[Line]) -> list[str]:
-    """Who a pay-link tip goes to, by first name: the staff on its lines or their bookings."""
+async def _workers(db: AsyncSession, lines: list[Line]) -> list[str]:
+    """Everyone who did the lines, each once: their members, or each visit's lead and crew."""
     ids: list[str] = []
     for line in lines:
-        staff_id = line.staff_id
-        if staff_id is None and line.booking_id is not None:
-            booking = await db.get(Booking, line.booking_id)
-            staff_id = booking.staff_id if booking is not None else None
-        if staff_id is not None and staff_id not in ids:
-            ids.append(staff_id)
+        for staff_id, _ in await worker_shares(db, line):
+            if staff_id not in ids:
+                ids.append(staff_id)
+    return ids
+
+
+async def _tip_names(db: AsyncSession, business_id: str, lines: list[Line]) -> list[str]:
+    """Who a pay-link tip goes to, by first name: the staff on its lines or their bookings."""
+    ids = await _workers(db, lines)
     if not ids:
         return []
     names = await staff_names(db, business_id, ids)
@@ -1776,57 +2032,134 @@ class PublicReceiptService:
         msg = "receipt not found"
         order = await resolve_by_token(self.db, Order, Order.receipt_token == token, msg)
         business = await business_or_404(self.db, order.business_id, msg)
-        lines = await fetch_lines(self.db, order.business_id, "order", order.id)
-        doc_lines, taxes = await public_doc_lines(self.db, order, lines)
-        client = await self.db.get(Client, order.client_id) if order.client_id else None
-        staff_ids = list(dict.fromkeys(ln.staff_id for ln in lines if ln.staff_id))
-        by_id = await staff_names(self.db, order.business_id, staff_ids)
-        payments = (
-            await self.db.execute(
-                scoped(Payment, order.business_id)
-                .where(Payment.order_id == order.id, Payment.status == "succeeded")
-                .order_by(Payment.paid_at)
-            )
-        ).scalars()
-        status, _ = await ledger.order_state(self.db, order)
-        rows = [
-            PublicReceiptPayment(
-                kind="refund" if p.kind == "refund" else "payment",
-                method=p.method,
-                amount_cents=p.amount_cents,
-                tip_cents=p.tip_cents,
-                at=p.paid_at,
-            )
-            for p in payments
-        ]
-        applied = await ledger.order_deposit_applied(self.db, order)
-        if applied > 0:
-            rows.insert(
-                0,
-                PublicReceiptPayment(kind="deposit", method=None, amount_cents=applied, at=None),
-            )
-        return PublicReceipt(
-            number=order.number,
-            business_name=business.name,
-            brand=public_brand(business),
-            gst_hst_number=business.gst_hst_number,
-            qst_number=business.qst_number,
-            client_name=client.name if client is not None else None,
-            served_by=[n for sid in staff_ids if (n := by_id.get(sid))],
-            status=status,
-            currency=order.currency,
-            timezone=business.timezone,
-            created_at=order.created_at,
-            lines=[line for line, _ in doc_lines],
-            discount_cents=sum(ln.sale_discount_cents for ln in lines),
-            discount_reason=order.discount_reason,
-            subtotal_cents=order.subtotal_cents,
-            taxes=taxes,
-            tax_total_cents=order.tax_total_cents,
-            total_cents=order.total_cents,
-            tip_cents=sum(r.tip_cents for r in rows if r.kind == "payment"),
-            payments=rows,
+        return await document_receipt(self.db, order, business)
+
+
+def public_address(business: Business) -> PublicAddress:
+    return PublicAddress(
+        unit=business.unit,
+        street_number=business.street_number,
+        street_name=business.street_name,
+        city=business.city,
+        province=business.province,
+        postal_code=business.postal_code,
+    )
+
+
+async def document_receipt(
+    db: AsyncSession, document: Invoice | Order, business: Business
+) -> PublicReceipt:
+    """What an invoice or sale prints as a receipt: its lines, tax, tip and each payment."""
+    if isinstance(document, Invoice):
+        lines = await fetch_lines(db, document.business_id, "invoice", document.id)
+        status, _ = await ledger.invoice_state(db, document)
+        paid_by = and_(Payment.invoice_id == document.id, Payment.kind != "deposit")
+        applied = sum(
+            c.amount_cents for c in await invoice_credits(db, document) if c.kind == "deposit"
         )
+    else:
+        lines = await fetch_lines(db, document.business_id, "order", document.id)
+        status, _ = await ledger.order_state(db, document)
+        paid_by = Payment.order_id == document.id
+        applied = await ledger.order_deposit_applied(db, document)
+    doc_lines, taxes = await public_doc_lines(db, document, lines)
+    client = await db.get(Client, document.client_id) if document.client_id else None
+    staff_ids = await _workers(db, lines)
+    by_id = await staff_names(db, document.business_id, staff_ids)
+    payments = (
+        await db.execute(
+            scoped(Payment, document.business_id)
+            .where(paid_by, Payment.status == "succeeded")
+            .order_by(Payment.paid_at)
+        )
+    ).scalars()
+    rows = [
+        PublicReceiptPayment(
+            kind="refund" if p.kind == "refund" else "payment",
+            method=p.method,
+            amount_cents=p.amount_cents,
+            tip_cents=p.tip_cents,
+            at=p.paid_at,
+        )
+        for p in payments
+    ]
+    if applied > 0:
+        rows.insert(
+            0,
+            PublicReceiptPayment(kind="deposit", method=None, amount_cents=applied, at=None),
+        )
+    return PublicReceipt(
+        number=document.number,
+        business_name=business.name,
+        brand=public_brand(business),
+        address=public_address(business),
+        phone=business.legal_phone,
+        gst_hst_number=business.gst_hst_number,
+        qst_number=business.qst_number,
+        client_name=client.name if client is not None else None,
+        served_by=[n for sid in staff_ids if (n := by_id.get(sid))],
+        status=status,
+        currency=document.currency,
+        timezone=business.timezone,
+        created_at=issued_at(document),
+        lines=[line for line, _ in doc_lines],
+        discount_cents=sum(ln.sale_discount_cents for ln in lines),
+        discount_reason=document.discount_reason,
+        subtotal_cents=document.subtotal_cents,
+        taxes=taxes,
+        tax_total_cents=document.tax_total_cents,
+        total_cents=document.total_cents,
+        tip_cents=sum(r.tip_cents for r in rows if r.kind == "payment"),
+        payments=rows,
+    )
+
+
+_RECEIPTED = frozenset({"paid", "partial", "refunded"})
+
+
+async def visit_document(db: AsyncSession, booking: Booking) -> Invoice | Order | None:
+    """The invoice or sale a visit was billed on, unless it was voided."""
+    if booking.invoice_id is not None:
+        invoice = await db.get(Invoice, booking.invoice_id)
+        if invoice is not None and invoice.status != "void":
+            return invoice
+    if booking.order_id is not None:
+        order = await db.get(Order, booking.order_id)
+        if order is not None and order.status != "void":
+            return order
+    return None
+
+
+async def receipted(db: AsyncSession, document: Invoice | Order) -> bool:
+    if isinstance(document, Invoice):
+        return (await ledger.invoice_state(db, document))[0] in _RECEIPTED
+    return (await ledger.order_state(db, document))[0] in _RECEIPTED
+
+
+async def visit_receipt(db: AsyncSession, booking: Booking, business: Business) -> VisitReceipt:
+    """A visit's receipt, numbered as its invoice or sale, with who saw the client."""
+    document = await visit_document(db, booking)
+    if document is None:
+        raise Conflict(
+            "this visit has no invoice or sale to print a receipt from", code="visit_not_billed"
+        )
+    if not await receipted(db, document):
+        raise Conflict("nothing has been paid on this visit yet", code="visit_unpaid")
+    slot = await db.get(Slot, booking.slot_id)
+    item = await db.get(Item, slot.item_id) if slot is not None else None
+    if slot is None or item is None:
+        raise NotFound("booking not found")
+    staff = await db.get(Staff, booking.staff_id) if booking.staff_id else None
+    names = await staff_names(db, business.id, [staff.id] if staff is not None else [])
+    receipt = await document_receipt(db, document, business)
+    return VisitReceipt(
+        **receipt.model_dump(),
+        source="invoice" if isinstance(document, Invoice) else "sale",
+        service=item.name,
+        visit_at=slot.starts_at,
+        practitioner=names.get(staff.id) if staff is not None else None,
+        practitioner_title=staff.title if staff is not None else None,
+    )
 
 
 class PublicPreferencesService:
@@ -1919,6 +2252,7 @@ async def addon_items(db: AsyncSession, business_id: str) -> list[PublicAddon]:
             description=i.description,
             in_stock=_stock_left(i) != 0,
             addon_for=list(i.addon_for),
+            duration_min=i.duration_min,
         )
         for i in items
     ]

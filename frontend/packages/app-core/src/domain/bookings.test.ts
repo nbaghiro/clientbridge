@@ -27,11 +27,13 @@ import {
     openStarts,
     placeEvents,
     planMove,
+    freeResources,
     settleMoves,
     shiftDay,
     slotProblem,
     upNext,
     visibleWindow,
+    draftWindow,
     draftFollows,
     suggestedStart,
     toQuarterHour,
@@ -247,6 +249,26 @@ describe("layoutDay", () => {
 });
 
 describe("buildAvailability", () => {
+    it("reads a helper's block for a visit as a job tied to that booking", () => {
+        const [job, away] = buildAvailability(
+            HOURS,
+            [
+                {
+                    id: "av_job",
+                    staff_id: "st_amy",
+                    starts_at: at(9).toISOString(),
+                    ends_at: at(11).toISOString(),
+                    reason: "Install · Owen",
+                    note: "booking:bk_1",
+                },
+                { ...AWAY[0], id: "av_own", note: null } as AwayRow,
+            ],
+            ZONE,
+        ).awayRows;
+        expect([job?.kind, job?.bookingId, job?.label]).toEqual(["job", "bk_1", "Install · Owen"]);
+        expect([away?.kind, away?.bookingId]).toEqual(["time_off", null]);
+    });
+
     it("reads split recurring hours, a dated day off and a dated open-ended day", () => {
         expect(avail.windows("st_amy", DAY)).toEqual([
             { start: at(9), end: at(12) },
@@ -367,6 +389,76 @@ describe("slotProblem and planMove", () => {
         });
     });
 
+    it("refuses a member the service doesn't name, except to keep a visit where it is", () => {
+        const groom = { id: "it_groom", capacity: 1, bufferBeforeMin: 0, bufferAfterMin: 0 };
+        const named = { item: { ...groom, staffIds: ["st_amy"] } };
+        expect(slotProblem(avail, [], STAFF, "st_bo", at(6), at(7), null, named)).toEqual({
+            problem: "not_offered",
+            message: s.problemNotOffered("Bo"),
+        });
+        expect(slotProblem(avail, [], STAFF, "st_amy", at(9), at(10), null, named).problem).toBe(
+            null,
+        );
+        const visit = event("bk_amy", at(10), at(11), { itemStaffIds: ["st_amy"] });
+        const ctx = { avail, events: [visit], staff: STAFF };
+        expect(planMove(visit, 0, "st_bo", ctx, at(8)).problem).toBe("not_offered");
+        const kept = event("bk_bo", at(6), at(7), { staffId: "st_bo", itemStaffIds: ["st_amy"] });
+        expect(
+            planMove(kept, 15, "st_bo", { ...ctx, events: [kept] }, at(5), "resize").problem,
+        ).toBeNull();
+    });
+
+    it("needs a free room from the pool, keeps the one a visit holds and ignores retired ones", () => {
+        const massage = {
+            id: "it_massage",
+            capacity: 1,
+            bufferBeforeMin: 0,
+            bufferAfterMin: 15,
+            resourceIds: ["rs_1", "rs_2"],
+        };
+        const busy = [
+            event("bk_one", at(9), at(10), {
+                staffId: "st_bo",
+                resourceId: "rs_1",
+                bufferAfterMin: 15,
+            }),
+            event("bk_two", at(9), at(10), {
+                staffId: "st_cy",
+                resourceId: "rs_2",
+                bufferAfterMin: 15,
+            }),
+        ];
+        const check = (start: Date, end: Date, target: Parameters<typeof slotProblem>[7]) =>
+            slotProblem(avail, busy, STAFF, "st_amy", start, end, null, target);
+        expect(check(at(9), at(10), { item: massage })).toEqual({
+            problem: "resource",
+            message: s.problemResource,
+        });
+        expect(check(at(10), at(11), { item: massage }).problem).toBe("resource");
+        expect(check(at(10, 15), at(11, 15), { item: massage }).problem).toBeNull();
+        expect(check(at(9), at(10), { item: { ...massage, resourceIds: [] } }).problem).toBeNull();
+        const retired = { ...massage, resourceIds: [], needsResource: true };
+        expect(check(at(10, 30), at(11, 30), { item: retired }).problem).toBe("resource");
+        expect(
+            freeResources(busy, ["rs_2", "rs_3", "rs_1"], massage, at(9), at(10), "bk_two"),
+        ).toEqual(["rs_2", "rs_3"]);
+        const visit = event("bk_amy", at(10, 15), at(11, 15), {
+            resourceId: "rs_1",
+            itemResourceIds: ["rs_1", "rs_2"],
+        });
+        const ctx = {
+            avail,
+            events: [visit, ...busy],
+            staff: STAFF,
+            rooms: [
+                { id: "rs_1", name: "Room 1", active: 1 },
+                { id: "rs_2", name: "Room 2", active: 0 },
+            ],
+        };
+        expect(planMove(visit, -75, "st_amy", ctx, at(5)).problem).toBe("resource");
+        expect(planMove(visit, 0, "st_amy", ctx, at(5)).problem).toBeNull();
+    });
+
     it("resizes from the end and never below fifteen minutes", () => {
         const visit = event("bk_1", at(10), at(11));
         const ctx = { avail, events: booked, staff: STAFF };
@@ -457,6 +549,20 @@ describe("the day board", () => {
             endHour: 1,
         });
         expect(visibleWindow(DAY, [], ZONE)).toEqual({ startHour: 9, endHour: 17 });
+    });
+
+    it("widens the board's hours to show a draft outside them", () => {
+        const window = { startHour: 9, endHour: 17 };
+        expect(draftWindow(window, null, DAY, ZONE)).toEqual(window);
+        expect(draftWindow(window, { start: at(10), end: at(11) }, DAY, ZONE)).toEqual(window);
+        expect(draftWindow(window, { start: at(5, 15), end: at(6, 15) }, DAY, ZONE)).toEqual({
+            startHour: 5,
+            endHour: 17,
+        });
+        expect(draftWindow(window, { start: at(18, 15), end: at(19, 15) }, DAY, ZONE)).toEqual({
+            startHour: 9,
+            endHour: 20,
+        });
     });
 
     it("builds a lane's hours, time booked and what is left after breaks and time off", () => {
@@ -784,13 +890,35 @@ describe("suggestedStart", () => {
     const zone = "America/Vancouver";
     const now = new Date("2026-10-21T17:02:00Z");
 
+    const window = { startHour: 9, endHour: 17 };
+
     it("offers the next quarter hour on today", () => {
-        expect(suggestedStart(now, now, zone).toISOString()).toBe("2026-10-21T17:15:00.000Z");
+        expect(suggestedStart(now, now, window, zone).toISOString()).toBe(
+            "2026-10-21T17:15:00.000Z",
+        );
     });
 
     it("offers ten in the morning on another day", () => {
-        expect(suggestedStart(addDays(now, 1, zone), now, zone).toISOString()).toBe(
+        expect(suggestedStart(addDays(now, 1, zone), now, window, zone).toISOString()).toBe(
             "2026-10-22T17:00:00.000Z",
+        );
+    });
+
+    it("waits for the board's first hour before the day opens", () => {
+        const early = new Date("2026-10-21T12:05:00Z");
+        expect(suggestedStart(early, early, window, zone).toISOString()).toBe(
+            "2026-10-21T16:00:00.000Z",
+        );
+        const late = { startHour: 11, endHour: 19 };
+        expect(suggestedStart(addDays(now, 1, zone), now, late, zone).toISOString()).toBe(
+            "2026-10-22T18:00:00.000Z",
+        );
+    });
+
+    it("keeps a late evening start on today", () => {
+        const late = new Date("2026-10-22T06:55:00Z");
+        expect(suggestedStart(late, late, window, zone).toISOString()).toBe(
+            "2026-10-22T06:45:00.000Z",
         );
     });
 });

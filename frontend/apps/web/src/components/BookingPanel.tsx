@@ -10,6 +10,8 @@ import {
     savedCardLabel,
     strings,
     useBookingAddons,
+    useBookingCrew,
+    useVisitResource,
     useBookingPhotos,
     useDeparture,
     usePeoplePhotos,
@@ -24,7 +26,9 @@ import {
     canCheckIn,
     useUndoCheckIn,
     useNoteComposer,
+    useBookingReceipt,
 } from "@clientbridge/app-core";
+import { cssVar } from "@clientbridge/tokens";
 import {
     ActivityTimeline,
     Avatar,
@@ -38,6 +42,7 @@ import {
     Modal,
     Money,
     Notice,
+    Select,
     StatusPill,
     TextField,
 } from "@clientbridge/ui";
@@ -46,6 +51,8 @@ import { type ChangeEvent, useRef, useState } from "react";
 import { api } from "../lib/api";
 import { useViewer } from "../lib/auth";
 import { CheckInSheet } from "./CheckInSheet";
+import { DocumentPreview } from "./DocumentPreview";
+import { BookingTreatmentNotes } from "./TreatmentNotes";
 
 const s = strings.bookings;
 const c = strings.classes;
@@ -117,6 +124,27 @@ function BookingFacts({ detail, layout }: { detail: BookingDetail; layout: "inli
                     : []),
             ]}
         />
+    );
+}
+
+function BookingResource({ event }: { event: ScheduleEvent }) {
+    const room = useVisitResource(api, event);
+    if (room === null) return null;
+    return (
+        <DetailSection title={room.label}>
+            {room.picker !== null ? (
+                <Select
+                    label={room.picker.label}
+                    options={room.picker.options}
+                    value={room.picker.value}
+                    onChange={room.picker.pick}
+                    disabled={room.busy}
+                />
+            ) : (
+                <p className="text-sm text-ink">{room.name ?? s.problemResource}</p>
+            )}
+            {room.error !== null ? <Notice tone="danger">{room.error}</Notice> : null}
+        </DetailSection>
     );
 }
 
@@ -239,20 +267,10 @@ function BookingNotes({ detail }: { detail: BookingDetail }) {
 }
 
 function BookingNoteBox({ bookingId }: { bookingId: string }) {
-    const [open, setOpen] = useState(false);
-    const composer = useNoteComposer(api, { bookingId }, () => {
-        setOpen(false);
-    });
-    if (!open)
+    const composer = useNoteComposer(api, { bookingId });
+    if (!composer.open)
         return (
-            <Button
-                size="sm"
-                variant="quiet"
-                icon="plus"
-                onPress={() => {
-                    setOpen(true);
-                }}
-            >
+            <Button size="sm" variant="quiet" icon="plus" onPress={composer.show}>
                 {s.noteAdd}
             </Button>
         );
@@ -274,13 +292,7 @@ function BookingNoteBox({ bookingId }: { bookingId: string }) {
                 autoFocus
             />
             <div className="flex justify-end gap-2">
-                <Button
-                    size="sm"
-                    variant="quiet"
-                    onPress={() => {
-                        setOpen(false);
-                    }}
-                >
+                <Button size="sm" variant="quiet" onPress={composer.cancel}>
                     {strings.common.cancel}
                 </Button>
                 <Button
@@ -388,34 +400,49 @@ export function PhotoGrid({
 function BookingAddons({ event }: { event: ScheduleEvent }) {
     const viewer = useViewer();
     const addons = useBookingAddons(api, event, viewer);
-    if (addons.addons.length === 0) return null;
+    const canAdd = addons.canEdit && addons.choices.length > 0;
+    if (addons.addons.length === 0 && !canAdd) return null;
     return (
         <DetailSection title={s.detailAddons}>
-            <ul className="divide-y divide-line-soft rounded-md border border-line">
-                {addons.addons.map((a) => (
-                    <li key={a.id} className="flex items-center gap-3 px-3 py-2 text-sm">
-                        <Icon name="bag" size={15} />
-                        <span className="min-w-0 flex-1 truncate text-ink">
-                            {a.quantity} × {a.description}
-                        </span>
-                        <Money
-                            currency={BUSINESS_CURRENCY}
-                            cents={a.quantity * a.unit_amount_cents}
-                        />
-                        {addons.canEdit ? (
-                            <Button
-                                size="sm"
-                                variant="link"
-                                onPress={() => {
-                                    addons.remove(a.id);
-                                }}
-                            >
-                                {s.addonRemove}
-                            </Button>
-                        ) : null}
-                    </li>
-                ))}
-            </ul>
+            {addons.addons.length > 0 ? (
+                <ul className="divide-y divide-line-soft rounded-md border border-line">
+                    {addons.addons.map((a) => (
+                        <li key={a.id} className="flex items-center gap-3 px-3 py-2 text-sm">
+                            <Icon name="bag" size={15} />
+                            <span className="min-w-0 flex-1 truncate text-ink">
+                                {strings.common.quantityOf(a.quantity, a.description)}
+                            </span>
+                            <Money
+                                currency={BUSINESS_CURRENCY}
+                                cents={a.quantity * a.unit_amount_cents}
+                            />
+                            {addons.canEdit ? (
+                                <Button
+                                    size="sm"
+                                    variant="link"
+                                    onPress={() => {
+                                        addons.remove(a.id);
+                                    }}
+                                >
+                                    {s.addonRemove}
+                                </Button>
+                            ) : null}
+                        </li>
+                    ))}
+                </ul>
+            ) : null}
+            {canAdd ? (
+                <div className="mt-2">
+                    <Select
+                        label={s.addonAdd}
+                        size="sm"
+                        value=""
+                        placeholder={s.addonPick}
+                        options={addons.choices}
+                        onChange={addons.add}
+                    />
+                </div>
+            ) : null}
             <div className="mt-1.5 flex items-center justify-between gap-2">
                 <p className="text-xs text-muted">
                     {s.addonsTotal(formatMoney(addons.totalCents, BUSINESS_CURRENCY))}
@@ -434,6 +461,81 @@ function BookingAddons({ event }: { event: ScheduleEvent }) {
                 ) : null}
             </div>
             {addons.error !== null ? <Notice tone="danger">{addons.error}</Notice> : null}
+        </DetailSection>
+    );
+}
+
+function BookingCrew({ event }: { event: ScheduleEvent }) {
+    const crew = useBookingCrew(api, event, useViewer());
+    if (!crew.shown) return null;
+    return (
+        <DetailSection title={s.crewTitle}>
+            {crew.members.length > 0 ? (
+                <ul className="divide-y divide-line-soft rounded-md border border-line">
+                    {crew.members.map((m) => (
+                        <li key={m.id} className="flex items-center gap-3 px-3 py-2 text-sm">
+                            <Icon name="user" size={15} />
+                            <span className="min-w-0 flex-1 truncate text-ink">{m.name}</span>
+                            {crew.canEdit ? (
+                                <Button
+                                    size="sm"
+                                    variant="link"
+                                    busy={crew.busy}
+                                    onPress={() => {
+                                        crew.remove(m.id);
+                                    }}
+                                >
+                                    {s.crewRemove}
+                                </Button>
+                            ) : null}
+                        </li>
+                    ))}
+                </ul>
+            ) : (
+                <p className="text-sm text-muted">{s.crewNone}</p>
+            )}
+            {crew.canEdit && crew.options.length > 0 ? (
+                <div className="mt-2">
+                    <Select
+                        label={s.crewAdd}
+                        size="sm"
+                        value=""
+                        placeholder={s.crewPick}
+                        options={crew.options}
+                        onChange={crew.add}
+                    />
+                </div>
+            ) : null}
+            <p className="mt-1.5 text-xs text-muted">{s.crewHint}</p>
+            {crew.error !== null ? <Notice tone="danger">{crew.error}</Notice> : null}
+        </DetailSection>
+    );
+}
+
+function BookingDocuments({ event }: { event: ScheduleEvent }) {
+    const receipt = useBookingReceipt(api, event, useViewer(), cssVar("accent"));
+    if (!receipt.available) return null;
+    const doc = receipt.doc;
+    return (
+        <DetailSection title={strings.billing.doc.title}>
+            <Button
+                size="sm"
+                variant="outline"
+                icon="receipt"
+                busy={receipt.busy}
+                onPress={receipt.open}
+            >
+                {receipt.busy ? s.receiptLoading : s.receipt}
+            </Button>
+            {receipt.error !== null ? <Notice tone="danger">{receipt.error}</Notice> : null}
+            {doc !== null ? (
+                <DocumentPreview
+                    businessName={doc.business.name}
+                    doc={doc}
+                    attached={strings.billing.doc.attachedVisit}
+                    onClose={receipt.close}
+                />
+            ) : null}
         </DetailSection>
     );
 }
@@ -745,6 +847,7 @@ export function BookingBody({
             <div className={`rounded-md border border-line bg-bg px-4 ${narrow ? "py-3" : "py-1"}`}>
                 <BookingFacts detail={detail} layout={narrow ? "stack" : "inline"} />
             </div>
+            <BookingResource key={`room:${detail.event.id}`} event={detail.event} />
             <Departure event={detail.event} />
             <CheckInCard key={detail.event.id} event={detail.event} />
             <DepositDue event={detail.event} />
@@ -753,6 +856,13 @@ export function BookingBody({
             <BookingNotes detail={detail} />
             {detail.event.bookingId !== null ? <BookingPhotos event={detail.event} /> : null}
             {detail.event.bookingId !== null ? <BookingAddons event={detail.event} /> : null}
+            {detail.event.bookingId !== null ? (
+                <BookingCrew key={detail.event.bookingId} event={detail.event} />
+            ) : null}
+            {detail.event.bookingId !== null ? <BookingDocuments event={detail.event} /> : null}
+            {detail.event.bookingId !== null ? (
+                <BookingTreatmentNotes key={detail.event.bookingId} event={detail.event} />
+            ) : null}
             <BookingHistory detail={detail} />
         </>
     );

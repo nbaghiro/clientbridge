@@ -1,13 +1,14 @@
 """Lakeside Learning Studio: a tutoring and music lessons studio in Ottawa, on the demo engine."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, date, datetime, time, timedelta
 
+from clientbridge.core.locale import SOURCE_LOCALE, plural
 from clientbridge.models.billing import Invoice
 from clientbridge.models.catalog import Item
 from clientbridge.models.clients import Client, Subject
 from clientbridge.models.payments import Payment
-from clientbridge.models.scheduling import Booking, BookingStatus, Slot
+from clientbridge.models.scheduling import Booking, BookingStatus, Hours, Recurrence, Slot
 from clientbridge.schemas.subjects import Pickup, StudentAttributes
 from scripts.demo_context import demo_business
 from scripts.demo_engine import Demo, Quote
@@ -36,9 +37,12 @@ ASSESSMENT, MATH, ENGLISH, FRENCH, SCIENCE = (
     "it_ls_science",
 )
 PIANO, PIANO_LONG, GUITAR = "it_ls_piano", "it_ls_piano_long", "it_ls_guitar"
+PIANO_ROOM = "rs_ls_piano"
 SAT, REVIEW = "it_ls_sat", "it_ls_review"
-TERM10, TERM12, SAT_COURSE, PLAN, GIFT = (
+CAMP = "it_ls_coding_camp"
+TERM10, TERM10_FR, TERM12, SAT_COURSE, PLAN, GIFT = (
     "it_ls_term10",
+    "it_ls_term10_french",
     "it_ls_term12",
     "it_ls_sat_course",
     "it_ls_plan",
@@ -236,6 +240,26 @@ ITEMS: tuple[Offering, ...] = (
         online=False,
     ),
     Offering(
+        id=CAMP,
+        kind="class",
+        name="Fall Coding Camp",
+        price_cents=39500,
+        category="Camps",
+        description="A week of day camp for Grades 4 to 8, Monday to Friday from 9 to 3. "
+        "Students build games in Scratch and then Python, and show them to families on "
+        "Friday afternoon. Bring a lunch and a water bottle. Up to 10 students. A $100 "
+        "deposit holds a place and comes off the camp invoice.",
+        tax_class="exempt",
+        minutes=360,
+        color="#3B6EA5",
+        online_bookable=True,
+        capacity=10,
+        staff=(SAMUEL,),
+        sessions=5,
+        deposit_type="fixed",
+        deposit_value=10000,
+    ),
+    Offering(
         id=TERM10,
         kind="package",
         name="Term package, 10 math lessons",
@@ -248,6 +272,20 @@ ITEMS: tuple[Offering, ...] = (
         covers=MATH,
         validity_days=120,
         ref="term10",
+    ),
+    Offering(
+        id=TERM10_FR,
+        kind="package",
+        name="Term package, 10 French lessons",
+        price_cents=65000,
+        category="Packages and plans",
+        description="Ten 60-minute French lessons at the same time each week for the term, "
+        "paid up front at a lower rate than single lessons. Valid for 120 days.",
+        tax_class="exempt",
+        sessions=10,
+        covers=FRENCH,
+        validity_days=120,
+        ref="term10fr",
     ),
     Offering(
         id=TERM12,
@@ -586,12 +624,19 @@ FAMILIES: tuple[Family, ...] = (
         "tran",
         "Thu Tran",
         (
-            Kid("Minh Tran", 8, FISHER, note="Wants to move up to the enriched math stream."),
+            Kid(
+                "Minh Tran",
+                8,
+                FISHER,
+                note="Wants to move up to the enriched math stream.",
+                pickups=(Pickup(name="Bao Tran", relation="Father", phone="+16135550185"),),
+            ),
             Kid(
                 "An Tran",
                 4,
                 ELMDALE,
                 note="Second year of piano; practises about 15 minutes a day.",
+                pickups=(Pickup(name="Bao Tran", relation="Father", phone="+16135550185"),),
             ),
         ),
         since=-420,
@@ -662,7 +707,18 @@ FAMILIES: tuple[Family, ...] = (
     Family("sullivan", "Brendan Sullivan", (Kid("Fiona Sullivan", 5, HOPEWELL),)),
     Family("gill", "Navdeep Gill", (Kid("Arjun Gill", 10, NEPEAN),), since=-250),
     Family("leblanc", "Marc Leblanc", (Kid("Chloé Leblanc", 11, IMMACULATA),)),
-    Family("abdi", "Hodan Abdi", (Kid("Ayaan Abdi", 6, CAMBRIDGE),)),
+    Family(
+        "abdi",
+        "Hodan Abdi",
+        (
+            Kid(
+                "Ayaan Abdi",
+                6,
+                CAMBRIDGE,
+                pickups=(Pickup(name="Faisal Abdi", relation="Uncle", phone="+16135550187"),),
+            ),
+        ),
+    ),
     Family("nguyen", "Lan Nguyen", (Kid("Bao Nguyen", 9, GLEBE),), since=-500),
     Family(
         "chen",
@@ -712,7 +768,20 @@ FAMILIES: tuple[Family, ...] = (
     Family(
         "kim",
         "Ji-woo Kim",
-        (Kid("Hannah Kim", 8, FISHER), Kid("Joon Kim", 5, ELMDALE)),
+        (
+            Kid(
+                "Hannah Kim",
+                8,
+                FISHER,
+                pickups=(Pickup(name="Grace Kim", relation="Aunt", phone="+16135550186"),),
+            ),
+            Kid(
+                "Joon Kim",
+                5,
+                ELMDALE,
+                pickups=(Pickup(name="Grace Kim", relation="Aunt", phone="+16135550186"),),
+            ),
+        ),
         since=-310,
     ),
     Family(
@@ -743,7 +812,26 @@ FAMILIES: tuple[Family, ...] = (
         tags=("sat prep",),
     ),
     Family("ali", "Sana Ali", (Kid("Omar Ali", 9, IMMACULATA),), since=-230),
-    Family("murphy", "Kathleen Murphy", (Kid("Nora Murphy", 5, ELMDALE),), since=-400),
+    Family(
+        "murphy",
+        "Kathleen Murphy",
+        (
+            Kid(
+                "Nora Murphy",
+                5,
+                ELMDALE,
+                pickups=(
+                    Pickup(
+                        name="Siobhan Murphy",
+                        relation="Sister",
+                        phone="+16135550189",
+                        note="Picks her up most days; she is 19.",
+                    ),
+                ),
+            ),
+        ),
+        since=-400,
+    ),
     Family("petrenko", "Oksana Petrenko", (Kid("Mark Petrenko", 10, NEPEAN),)),
     Family("tesfaye", "Meron Tesfaye", (Kid("Yonas Tesfaye", 7, CAMBRIDGE),)),
     Family("roy", "Geneviève Roy", (Kid("Olivier Roy", 12, DELASALLE),), since=-620),
@@ -758,7 +846,19 @@ FAMILIES: tuple[Family, ...] = (
     Family("cohen", "Rachel Cohen", (Kid("Noah Cohen", 8, FISHER),), since=-260),
     Family("ibrahim", "Amina Ibrahim", (Kid("Yasmin Ibrahim", 10, LISGAR),), since=-440),
     Family("girard", "Julie Girard", (Kid("Antoine Girard", 9, GLEBE),)),
-    Family("wong", "Karen Wong", (Kid("Lucas Wong", 6, ELMDALE),), since=-520),
+    Family(
+        "wong",
+        "Karen Wong",
+        (
+            Kid(
+                "Lucas Wong",
+                6,
+                ELMDALE,
+                pickups=(Pickup(name="David Wong", relation="Grandfather", phone="+16135550188"),),
+            ),
+        ),
+        since=-520,
+    ),
     Family("bouchard", "Stéphane Bouchard", (Kid("Zoé Bouchard", 7, BROADVIEW),)),
     Family("adeyemi", "Funmi Adeyemi", (Kid("Tobi Adeyemi", 11, NEPEAN),), since=-290),
     Family("hassan", "Omar Hassan", (Kid("Layla Hassan", 5, CAMBRIDGE),)),
@@ -836,7 +936,7 @@ TERM: tuple[Weekly, ...] = (
     Weekly("kowalski", "kowalski", 0, SCIENCE, SAMUEL, 3, time(18, 0)),
     Weekly("park", "park", 0, MATH, NADIA, 4, time(18, 30)),
     Weekly("abdi", "abdi", 0, MATH, NADIA, 3, time(16, 0)),
-    Weekly("chen_olivia", "chen", 0, FRENCH, JULIEN, 1, time(16, 0)),
+    Weekly("chen_olivia", "chen", 0, FRENCH, JULIEN, 1, time(16, 0), package=TERM10_FR),
     Weekly("chen_ethan", "chen", 1, PIANO, SOFIA, 2, time(15, 30), package=TERM12),
     Weekly("moreau", "moreau", 0, FRENCH, JULIEN, 3, time(17, 0)),
     Weekly("khoury", "khoury", 0, SCIENCE, SAMUEL, 2, time(16, 0)),
@@ -853,6 +953,20 @@ TERM: tuple[Weekly, ...] = (
     Weekly("macdonald", "macdonald", 1, GUITAR, SOFIA, 2, time(17, 0)),
     Weekly("kim", "kim", 0, PIANO_LONG, SOFIA, 4, time(15, 30)),
 )
+# (family, child) enrolled in the camp week; two are away for days they told us about
+CAMPERS = (
+    ("nwosu", 0),
+    ("ahmed", 0),
+    ("tran", 0),
+    ("tran", 1),
+    ("kim", 0),
+    ("kim", 1),
+    ("abdi", 0),
+    ("wong", 0),
+    ("murphy", 0),
+)
+CAMP_AWAY = {("wong", 0): (1, 2), ("murphy", 0): (3, 4)}
+CAMP_DAYS = ("MO", "TU", "WE", "TH", "FR")
 SAT_STUDENTS = ("kowalski", "sharma", "zhang", "dhillon", "okafor", "mukherjee", "akhtar")
 REVIEW_PAST = ("morrison", "akhtar", "rahimi", "okafor", "adeyemi")
 REVIEW_NEXT = ("sharma", "dhillon", "lefebvre", "adeyemi", "mukherjee", "zhang")
@@ -946,7 +1060,10 @@ SPEC = BusinessSpec(
             rate_bps=6000,
         ),
     ),
-    items=ITEMS,
+    items=tuple(
+        replace(item, resources=(PIANO_ROOM,)) if item.id in (PIANO, PIANO_LONG) else item
+        for item in ITEMS
+    ),
     brand={
         "tagline": "Tutoring and music lessons for students from JK to Grade 12, near Dow's Lake.",
         "about": (
@@ -960,7 +1077,6 @@ SPEC = BusinessSpec(
         "address": "512 Preston Street, Ottawa, ON K1R 7P8",
         "phone": "+1 613-555-0198",
         "email": "hello@lakeside.example",
-        "website": "https://lakeside.example",
         "neighbourhood": "Dow's Lake",
     },
     booking_policy={
@@ -972,6 +1088,7 @@ SPEC = BusinessSpec(
     subject="student",
     sms_number="+16135550199",
     gst_hst_number="742913586RT0001",
+    resources=((PIANO_ROOM, "Piano room"),),
     forms=(
         FormSpec(
             REGISTRATION,
@@ -1006,6 +1123,15 @@ SPEC = BusinessSpec(
             ("sch_ls_tran_minh", "sch_ls_tran_an"),
         ),
         Stage(
+            "Each child with a term package of their own, plus one shared",
+            "chen",
+            (
+                "pkg_ls_term10fr_chen_olivia",
+                "pkg_ls_term12_chen_ethan",
+                "pkg_ls_term12_chen_shared",
+            ),
+        ),
+        Stage(
             "Partway through a 10-lesson term package",
             "fontaine",
             ("pkg_ls_term10_fontaine", "sch_ls_fontaine"),
@@ -1013,6 +1139,11 @@ SPEC = BusinessSpec(
         Stage("Missed lesson, rescheduled as a make-up", "ahmed", ("bk_ls_ahmed_makeup",)),
         Stage("SAT prep class nearly full", "kowalski", ("ses_ls_sat_3", "pkg_ls_sat_kowalski")),
         Stage("Exam review class full, with a waitlist", "leblanc", ("bk_ls_review_next_leblanc",)),
+        Stage(
+            "Coding camp week, one seat left on Monday, with siblings and pickups",
+            "tran",
+            ("sch_ls_coding_camp", "bk_ls_camp_tran_0_0", "bk_ls_camp_tran_1_0"),
+        ),
         Stage(
             "Today's lessons for each tutor",
             "dhillon",
@@ -1062,8 +1193,10 @@ class Lakeside(Demo):
     def story(self) -> None:
         self.families()
         self.classes()
+        self.camp()
         for lesson in (*TODAY, *TERM):
             self.weekly(lesson)
+        self.arrivals()
         self.storyline()
         self.history()
         self.plans()
@@ -1159,7 +1292,9 @@ class Lakeside(Demo):
         package_id = None
         if lesson.package is not None:
             bought = self.starts(days, time(19, 30))[0] - timedelta(days=4)
-            package_id = self.package(lesson.family, lesson.package, bought).id
+            package_id = self.package(
+                lesson.family, lesson.package, bought, key=lesson.key, subject=subject
+            ).id
         self.series(
             lesson.key,
             lesson.family,
@@ -1182,6 +1317,18 @@ class Lakeside(Demo):
                     invoice = self.ctx.get(Invoice, booking.invoice_id)
                     invoice.discount_kind, invoice.discount_value = "percent", SIBLING_DISCOUNT
                     invoice.discount_reason = "Sibling discount"
+
+    def arrivals(self) -> None:
+        """Today's students were checked in as they arrived, for the lessons begun by now."""
+        today = self.local(self.now).date()
+        for booking in self.ctx.all(Booking):
+            if (
+                booking.status in {"confirmed", "completed"}
+                and self.ctx.get(Slot, booking.slot_id).capacity == 1
+                and self.local(booking.starts_at).date() == today
+                and booking.starts_at + timedelta(minutes=2) <= self.now
+            ):
+                booking.checked_in_at = booking.starts_at - timedelta(minutes=3)
 
     def seat(
         self,
@@ -1263,6 +1410,101 @@ class Lakeside(Demo):
             self.now - timedelta(hours=20),
             status="waitlisted",
         )
+
+    def camp(self) -> None:
+        """Next week's coding camp, laid out ahead and enrolled day by day for its whole week."""
+        today = self.local(self.now).date()
+        monday = today + timedelta(days=7 - today.weekday())
+        item = self.items[CAMP]
+        opened = self.now - timedelta(days=24)
+        program = Recurrence(
+            id="sch_ls_coding_camp",
+            business_id=self.spec.id,
+            item_id=CAMP,
+            staff_id=SAMUEL,
+            frequency="week",
+            interval=1,
+            byday=list(CAMP_DAYS),
+            count=len(CAMP_DAYS),
+            status="active",
+            created_at=opened,
+            updated_at=opened,
+        )
+        self.ctx.add(program)
+        sessions: list[Slot] = []
+        for n in range(len(CAMP_DAYS)):
+            day = monday + timedelta(days=n)
+            # the camp week runs from the morning, before Samuel's usual after-school lessons
+            self.ctx.add(
+                Hours(
+                    id=f"av_ls_camp_{n}",
+                    business_id=self.spec.id,
+                    staff_id=SAMUEL,
+                    basis="date",
+                    date=day,
+                    start_time=time(9, 0),
+                    end_time=WEEKDAYS_OPEN[1],
+                    available=True,
+                    note="Fall Coding Camp week",
+                    created_at=opened,
+                    updated_at=opened,
+                )
+            )
+            start = self.starts([day], time(9, 0))[0]
+            end = start + timedelta(minutes=item.duration_min or 360)
+            slot = Slot(
+                id=f"ses_ls_camp_{n}",
+                business_id=self.spec.id,
+                item_id=CAMP,
+                staff_id=SAMUEL,
+                recurrence_id=program.id,
+                starts_at=start,
+                ends_at=end,
+                capacity=item.capacity or 1,
+                status="scheduled",
+                created_at=opened,
+                updated_at=opened,
+            )
+            self.ctx.add(slot)
+            self.busy.append((SAMUEL, None, start, end, 0, 0))
+            sessions.append(slot)
+        for order, (family, child) in enumerate(CAMPERS):
+            subject = self.kid(family, child)
+            enrolled = opened + timedelta(days=1 + order * 2, hours=3)
+            away = CAMP_AWAY.get((family, child), ())
+            for n, slot in enumerate(sessions):
+                if n not in away:
+                    self.busy.append(("", subject, slot.starts_at, slot.ends_at, 0, 0))
+                booking = self.book(
+                    f"camp_{family}_{child}_{n}",
+                    family,
+                    CAMP,
+                    SAMUEL,
+                    slot.starts_at,
+                    "canceled" if n in away else "confirmed",
+                    enrolled,
+                    subject=subject,
+                    price=None if n == 0 else 0,
+                    slot=slot,
+                )
+                if n == 0:
+                    self.deposit(booking, enrolled + timedelta(minutes=5))
+                    self.enrolment_invoice(booking, family, child, enrolled, paid=order % 2 == 0)
+
+    def enrolment_invoice(
+        self, first: Booking, family: str, child: int, enrolled: datetime, *, paid: bool
+    ) -> None:
+        """The camp's invoice, issued on enrolment and due on its first day; some are paid."""
+        item = self.items[CAMP]
+        invoice = self.invoice(f"camp_{family}_{child}", family, enrolled, enrolled, "")
+        invoice.due_at = first.starts_at
+        first.invoice_id = invoice.id
+        days = plural(
+            SOURCE_LOCALE, "invoice_line.program", item.session_count or 0, program=item.name
+        )
+        self.line(invoice.id, CAMP, enrolled, booking=first, description=days)
+        if paid:
+            self.settle(invoice, family, "etransfer")
 
     def storyline(self) -> None:
         ctx = self.ctx
@@ -1422,8 +1664,11 @@ class Lakeside(Demo):
         sold = {MATH: MATH_BOOK, FRENCH: FRENCH_BOOK, PIANO: PIANO_BOOK, GUITAR: STRINGS}
         turn = 0
         slots = {slot.id: slot.item_id for slot in ctx.all(Slot)}
+        named = {"thompson_1": TUNER, "bianchi_giulia_0": STRINGS}
         for booking in sorted(ctx.all(Booking), key=lambda b: (b.starts_at, b.id)):
             if booking.invoice_id is None or booking.starts_at < self.at(-150):
+                continue
+            if booking.id.removeprefix("bk_ls_") in named:
                 continue
             item = slots[booking.slot_id]
             if item not in sold:
@@ -1432,12 +1677,14 @@ class Lakeside(Demo):
             if turn % 11:
                 continue
             self.line(booking.invoice_id, sold[item], booking.created_at, 1)
-        for key, product in (("thompson_1", TUNER), ("bianchi_giulia_0", STRINGS)):
+        for key, product in named.items():
             booking = ctx.get(Booking, f"bk_ls_{key}")
             if booking.invoice_id is not None:
                 self.line(booking.invoice_id, product, booking.created_at, 1)
 
     def plans(self) -> None:
+        # one piano package the Chens keep unassigned, for whichever child takes the lesson
+        self.package("chen", TERM12, self.at(-6, 18), key="chen_shared")
         for key, bank in (("mensah", ("RBC Royal Bank", "4417")), ("campbell", None)):
             first = self.ctx.get(Booking, f"bk_ls_{key}_0")
             self.subscribe(key, PLAN, first.starts_at - timedelta(days=4, hours=4), bank=bank)

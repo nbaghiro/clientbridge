@@ -2,6 +2,7 @@
 
 import importlib
 import random
+from collections import Counter
 from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass
 from datetime import UTC, date, datetime, time, timedelta
@@ -11,6 +12,7 @@ from typing import ClassVar, Literal, get_args
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
+from clientbridge.core.locale import SOURCE_LOCALE, message
 from clientbridge.models.base import TimestampMixin
 from clientbridge.models.billing import Estimate, Invoice, Line, Order
 from clientbridge.models.business import Business, Staff, User
@@ -34,6 +36,7 @@ from clientbridge.models.scheduling import (
     BookingStatus,
     Hours,
     Recurrence,
+    Resource,
     Slot,
     Weekday,
 )
@@ -44,6 +47,7 @@ from clientbridge.services.bookings import expand_occurrences
 from clientbridge.services.catalog import deposit_cents
 from clientbridge.services.consents import allows_marketing
 from clientbridge.services.forms import form_definition
+from clientbridge.services.lines import crew_note
 from clientbridge.services.tax import TaxResult
 from scripts.demo_catalog import add_catalog_images
 from scripts.demo_chronology import align_timestamps, chronology_errors
@@ -105,6 +109,8 @@ class Demo:
         self.code = spec.code
         self.rng = random.Random(spec.seed)
         self.busy: list[Busy] = []
+        # resource id, start, end and the buffers of the slot holding it
+        self.held: list[tuple[str, datetime, datetime, int, int]] = []
         self.invoice_number = spec.invoice_start
         self.estimate_number = spec.estimate_start
         self.order_number = 0
@@ -152,6 +158,7 @@ class Demo:
             {
                 "logo_file_id": logo,
                 "primary": listing.primary_color,
+                "website": listing.url,
                 **spec.brand,
                 "public_staff_ids": [p.staff_id for p in spec.people if p.bookable_online],
             }
@@ -165,6 +172,7 @@ class Demo:
                 **asdict(listing.legal),
                 gst_hst_number=spec.gst_hst_number,
                 pst_number=spec.pst_number,
+                qst_number=spec.qst_number,
                 tax_registered=spec.gst_hst_number is not None,
                 brand=brand.model_dump(exclude_none=True),
                 booking_policy=dict(spec.booking_policy),
@@ -289,6 +297,8 @@ class Demo:
                 sell_online=offering.sell_online,
                 addon=bool(offering.addon_for),
                 addon_for=list(offering.addon_for),
+                staff_ids=sorted(offering.staff),
+                resource_ids=sorted(offering.resources),
                 buffer_before_min=0,
                 buffer_after_min=offering.buffer_after_min,
                 deposit_type=offering.deposit_type,
@@ -311,6 +321,16 @@ class Demo:
             )
             self.items[offering.id] = item
             self.ctx.add(item)
+        for resource_id, name in spec.resources:
+            self.ctx.add(
+                Resource(
+                    id=resource_id,
+                    business_id=spec.id,
+                    name=name,
+                    created_at=opened,
+                    updated_at=opened,
+                )
+            )
         prefix = f"it_{self.code}_"
         add_catalog_images(
             self.ctx, lambda item_id: f"{self.assets}_it_{item_id.removeprefix(prefix)}"
@@ -427,6 +447,54 @@ class Demo:
             [self.client_id(key) for key in self.spec.photo_clients],
         )
 
+    def portraits(self) -> None:
+        """Photos for the team and for the photo clients with no negative storyline."""
+        negative = self.negative_clients()
+        add_photos(
+            self.ctx,
+            self.spec.id,
+            [p.user_id for p in self.spec.people if p.photo],
+            [
+                self.client_id(key)
+                for key in self.spec.photo_clients
+                if self.client_id(key) not in negative
+            ],
+        )
+
+    def negative_clients(self) -> set[str]:
+        """Clients a stock portrait may not stand in for, by the rules demo_validate checks."""
+        ctx = self.ctx
+        paid: Counter[str] = Counter()
+        for payment in ctx.all(Payment):
+            if payment.invoice_id and payment.status == "succeeded" and payment.kind != "refund":
+                paid[payment.invoice_id] += payment.amount_cents
+        found: set[str | None] = {
+            *(
+                b.client_id
+                for b in ctx.all(Booking)
+                if b.status in {"no_show", "waitlisted"} or b.deposit_status == "forfeited"
+            ),
+            *(e.client_id for e in ctx.all(Estimate) if e.status == "declined"),
+            *(s.client_id for s in ctx.all(Signature) if s.status in {"declined", "expired"}),
+            *(
+                p.client_id
+                for p in ctx.all(Payment)
+                if p.status == "failed" or p.dispute_status is not None
+            ),
+            *(
+                i.client_id
+                for i in ctx.all(Invoice)
+                if i.overdue_notified_at is not None
+                or (i.status == "sent" and i.total_cents > paid[i.id])
+            ),
+            *(
+                r.client_id
+                for r in ctx.all(FormResponse)
+                if int(str(r.answers.get("rating", 5))) <= 3
+            ),
+        }
+        return {client_id for client_id in found if client_id}
+
     def joined(self, key: str, when: datetime) -> None:
         """Clients and their subjects date from their first contact."""
         client = self.ctx.get(Client, self.client_id(key))
@@ -465,6 +533,42 @@ class Demo:
             for other, other_subject, other_start, other_end, other_before, other_after in self.busy
         )
 
+    def rooms_free(self, item_id: str, start: datetime, end: datetime) -> list[str]:
+        """The resources of the service's pool free for the window, in pool order."""
+        item = self.items[item_id]
+        before, after = item.buffer_before_min, item.buffer_after_min
+        return [
+            resource
+            for resource in item.resource_ids
+            if not any(
+                other == resource
+                and start - timedelta(minutes=before) < other_end + timedelta(minutes=o_after)
+                and other_start - timedelta(minutes=o_before) < end + timedelta(minutes=after)
+                for other, other_start, other_end, o_before, o_after in self.held
+            )
+        ]
+
+    def room(self, item_id: str, start: datetime, end: datetime) -> str | None:
+        """The first free resource of the service's pool, as the product picks it."""
+        return next(iter(self.rooms_free(item_id, start, end)), None)
+
+    def roomy(self, item_id: str, start: datetime, end: datetime) -> bool:
+        """Whether the service needs no resource, or one of its pool is free then."""
+        return not self.items[item_id].resource_ids or self.room(item_id, start, end) is not None
+
+    def hold(self, slot: Slot) -> None:
+        """Give a new live slot the first free resource of its service's pool."""
+        item = self.items[slot.item_id]
+        if not item.resource_ids:
+            return
+        resource = self.room(slot.item_id, slot.starts_at, slot.ends_at)
+        if resource is None:
+            raise ValueError(f"{slot.id}: no room or equipment of {item.id} is free")
+        slot.resource_id = resource
+        self.held.append(
+            (resource, slot.starts_at, slot.ends_at, item.buffer_before_min, item.buffer_after_min)
+        )
+
     def place(
         self,
         staff: str,
@@ -475,10 +579,12 @@ class Demo:
         past: bool,
         not_before: datetime | None = None,
         forward: bool = False,
+        extra_min: int = 0,
+        helper: str | None = None,
     ) -> datetime | None:
         """The first free half hour in the member's hours, searching from `day` away from today."""
         item = self.items[item_id]
-        minutes = item.duration_min or 60
+        minutes = (item.duration_min or 60) + extra_min
         step = -1 if past and not forward else 1
         for offset in range(60):
             current = day + step * offset
@@ -506,9 +612,13 @@ class Demo:
                     continue
                 if not past and start <= self.now + timedelta(hours=1):
                     continue
+                if helper is not None and not (
+                    self.within_hours(helper, start, end) and self.free(helper, None, start, end)
+                ):
+                    continue
                 if self.free(
                     staff, subject, start, end, item.buffer_before_min, item.buffer_after_min
-                ):
+                ) and self.roomy(item_id, start, end):
                     return start
         return None
 
@@ -528,6 +638,32 @@ class Demo:
         )
         self.busy.append((staff, None, start, end, 0, 0))
 
+    def helper_on(self, booking: Booking, helper: str) -> bool:
+        """Put a helper on a visit as the product does: a block for its window, if they are free."""
+        slot = self.ctx.get(Slot, booking.slot_id)
+        if not self.within_hours(helper, slot.starts_at, slot.ends_at) or not self.free(
+            helper, None, slot.starts_at, slot.ends_at
+        ):
+            return False
+        item = self.items[slot.item_id]
+        client = self.ctx.get(Client, booking.client_id)
+        self.ctx.add(
+            Hours(
+                id=f"av_{self.code}_crew_{booking.id.removeprefix(f'bk_{self.code}_')}",
+                business_id=self.spec.id,
+                staff_id=helper,
+                basis="exception",
+                starts_at=slot.starts_at,
+                ends_at=slot.ends_at,
+                available=False,
+                reason=message(SOURCE_LOCALE, "crew.job", service=item.name, client=client.name),
+                note=crew_note(booking.id),
+                created_at=booking.created_at,
+            )
+        )
+        self.busy.append((helper, None, slot.starts_at, slot.ends_at, 0, 0))
+        return True
+
     def book(
         self,
         key: str,
@@ -543,10 +679,11 @@ class Demo:
         price: int | None = None,
         package_id: str | None = None,
         slot: Slot | None = None,
+        extra_min: int = 0,
     ) -> Booking:
-        """A visit in its own slot, or a seat in a class session's `slot`."""
+        """A visit in its own slot, or a seat in a class session's `slot`; add-ons lengthen it."""
         item = self.items[item_id]
-        end = start + timedelta(minutes=item.duration_min or 60)
+        end = start + timedelta(minutes=(item.duration_min or 60) + extra_min)
         subject_id = subject or self.subject_id(client_key)
         if slot is None:
             slot = Slot(
@@ -567,6 +704,7 @@ class Demo:
             )
             self.ctx.add(slot)
             if status != "canceled":
+                self.hold(slot)
                 self.busy.append(
                     (staff, subject_id, start, end, item.buffer_before_min, item.buffer_after_min)
                 )
@@ -624,6 +762,7 @@ class Demo:
             updated_at=min(end, self.now),
         )
         self.ctx.add(slot)
+        self.hold(slot)
         self.busy.append((staff, None, start, end, item.buffer_before_min, item.buffer_after_min))
         return slot
 
@@ -857,6 +996,7 @@ class Demo:
         booking: Booking | None = None,
         quantity: int = 1,
         price: int | None = None,
+        description: str | None = None,
     ) -> None:
         item = self.items[item_id]
         if price is None:
@@ -869,7 +1009,7 @@ class Demo:
                 item_id=item.id,
                 booking_id=booking.id if booking is not None else None,
                 staff_id=booking.staff_id if booking is not None else None,
-                description=item.name,
+                description=description or item.name,
                 quantity=quantity,
                 unit_amount_cents=price,
                 amount_cents=price * quantity,
@@ -910,6 +1050,10 @@ class Demo:
         self.ctx.add(estimate)
         self.lines("estimate", estimate.id, quote, created, optional=optional)
         return estimate
+
+    def extra_minutes(self, quote: Quote) -> int:
+        """The minutes a quote's products add to the visit they ride on."""
+        return sum((self.items[part].duration_min or 0) * qty for part, qty in quote.parts)
 
     def addons(self, booking: Booking, estimate: Estimate, quote: Quote) -> None:
         """Book the estimate: its products ride on the booking until checkout bills them."""
@@ -1254,7 +1398,13 @@ class Demo:
         return subscription
 
     def package(
-        self, client_key: str, item_id: str, bought: datetime, *, key: str | None = None
+        self,
+        client_key: str,
+        item_id: str,
+        bought: datetime,
+        *,
+        key: str | None = None,
+        subject: str | None = None,
     ) -> Package:
         """A prepaid bundle bought by card; `key` names a client's second or later one."""
         offering = self.offerings[item_id]
@@ -1265,6 +1415,7 @@ class Demo:
             business_id=self.spec.id,
             client_id=self.client_id(client_key),
             item_id=item_id,
+            subject_id=subject,
             sessions_total=offering.sessions,
             expires_at=bought + timedelta(days=offering.validity_days or 365),
             status="active",

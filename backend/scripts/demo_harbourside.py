@@ -4,8 +4,9 @@ from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
 
 from clientbridge.models.billing import Invoice, Line
-from clientbridge.models.catalog import GiftCard, Item, ItemKind, TaxClass
+from clientbridge.models.catalog import GiftCard, ItemKind, TaxClass
 from clientbridge.models.clients import Client
+from clientbridge.models.documents import FormResponse
 from clientbridge.models.payments import Payment
 from clientbridge.models.scheduling import Booking, Slot
 from scripts.demo_context import demo_business
@@ -36,7 +37,7 @@ DEEP, PRENATAL, HOTSTONE, COUPLES = (
 ACU_INITIAL, ACU_FOLLOW = "it_hs_acu_initial", "it_hs_acu_follow"
 PACK5, PACK10, GIFT = "it_hs_pack5", "it_hs_pack10", "it_hs_gift"
 OIL, HEAT = "it_hs_oil", "it_hs_heat"
-INTAKE, FEEDBACK = "frm_hs_intake", "frm_hs_feedback"
+INTAKE, FEEDBACK, SOAP = "frm_hs_intake", "frm_hs_feedback", "frm_hs_soap"
 POLICY, ACU_CONSENT = "con_hs_cancellation", "con_hs_acupuncture"
 
 # id, kind, name, price, minutes, category, description, tax class
@@ -228,12 +229,23 @@ HOURS: dict[str, dict[int, tuple[time, time]]] = {
         **{d: (time(14, 0), time(19, 0)) for d in (1, 3)},
     },
 }
-# the name and registration number printed on receipts for extended health claims
-CREDENTIALS = {
-    LEILA: ("Leila Moradi", "RMT", "10482"),
-    JUN: ("Jun Park", "RMT", "13917"),
-    WEN: ("Wen Liu", "R.Ac.", "A-2316"),
-}
+# the credential and registration number printed on receipts for extended health claims
+CREDENTIALS = {LEILA: ("RMT", "10482"), JUN: ("RMT", "13917"), WEN: ("R.Ac.", "A-2316")}
+MASSAGE_STAFF = (LEILA, JUN)
+ROOMS = ("rs_hs_room_1", "rs_hs_room_2", "rs_hs_room_3")
+TABLES = ("rs_hs_couples_1", "rs_hs_couples_2")
+RESOURCES = (
+    *((room, f"Room {n}") for n, room in enumerate(ROOMS, start=1)),
+    *((table, f"Couples room, table {n}") for n, table in enumerate(TABLES, start=1)),
+)
+
+
+def _registration(staff: str) -> str:
+    """A practitioner's title, which their visit receipts print: "RMT · Reg. 10482"."""
+    credential, number = CREDENTIALS[staff]
+    return f"{credential} · Reg. {number}"
+
+
 POLICY_REVISED = 120
 POLICY_V1 = (
     "Please give us 24 hours' notice to move or cancel a massage or acupuncture visit. "
@@ -382,6 +394,73 @@ FEEDBACK_FIELDS: tuple[DocField, ...] = (
         ("Yes", "Maybe", "No"),
     ),
 )
+
+SOAP_FIELDS: tuple[DocField, ...] = (
+    (
+        "subjective",
+        "longtext",
+        "Subjective",
+        "What the client reports: where it hurts, since when, and what helps.",
+        True,
+        (),
+    ),
+    ("objective", "longtext", "Objective", "Posture, range of motion and palpation.", False, ()),
+    ("assessment", "longtext", "Assessment", None, False, ()),
+    ("plan", "longtext", "Plan", "Treatment given, home care and when to come back.", True, ()),
+    ("pressure", "select", "Pressure used", None, False, ("Light", "Medium", "Firm")),
+)
+# note key, visit key, minutes after the visit ended, answers
+SOAP_NOTES: tuple[tuple[str, str, int, dict[str, object]], ...] = (
+    (
+        "fatemeh",
+        "fatemeh_recent",
+        20,
+        {
+            "subjective": "Tension across both shoulders after a week of long desk days.",
+            "objective": "Right shoulder elevated; upper trapezius hypertonic, more on the right.",
+            "assessment": "Postural muscle tension, no red flags.",
+            "plan": "Full-body treatment with focus on the shoulders. Chin tucks twice a day. "
+            "Rebook in three weeks.",
+            "pressure": "Medium",
+        },
+    ),
+    (
+        "hiroshi",
+        "hiroshi_recent",
+        15,
+        {
+            "subjective": "Left calf tight since a 10 km race on the weekend.",
+            "objective": "Trigger points in the left gastrocnemius; ankle range normal.",
+            "plan": "Deep tissue to both calves. Gentle stretching and a rest day.",
+            "pressure": "Firm",
+        },
+    ),
+    (
+        "hiroshi_amended",
+        "hiroshi_recent",
+        65,
+        {
+            "subjective": "Left calf tight since a 10 km race on the weekend.",
+            "objective": "Trigger points in the left gastrocnemius and soleus; ankle range normal.",
+            "assessment": "Post-race muscle soreness. The soleus was missed in the first note.",
+            "plan": "Deep tissue to both calves. Gentle stretching and a rest day. "
+            "Rebook in two weeks if it hasn't settled.",
+            "pressure": "Firm",
+        },
+    ),
+    (
+        "raj",
+        "raj_recent",
+        25,
+        {
+            "subjective": "Lower back stiffness in the mornings, about a month now.",
+            "objective": "Reduced lumbar flexion; tender quadratus lumborum on both sides.",
+            "plan": "90 minutes with focus on the lower back and hips. Cat-cow stretch daily.",
+            "pressure": "Medium",
+        },
+    ),
+)
+NOTE_AMENDS = {"hiroshi_amended": "hiroshi"}
 
 
 @dataclass(frozen=True)
@@ -542,6 +621,12 @@ def _offering(row: tuple[str, ItemKind, str, int, int | None, str, str, TaxClass
         online_bookable=kind == "service" and item_id != COUPLES,
         sell_online=kind == "product",
         addon_for=(M30, M60, M90, DEEP, PRENATAL, HOTSTONE) if kind == "product" else (),
+        staff=(WEN,)
+        if item_id in {ACU_INITIAL, ACU_FOLLOW}
+        else MASSAGE_STAFF
+        if kind == "service"
+        else (),
+        resources=TABLES if item_id == COUPLES else ROOMS if kind == "service" else (),
         buffer_after_min=BUFFERS.get(item_id, 15) if kind == "service" else 0,
         deposit_type="fixed" if deposit else "none",
         deposit_value=5000 if deposit else None,
@@ -569,7 +654,7 @@ SPEC = BusinessSpec(
             "Leila Moradi",
             "+17785550191",
             "owner",
-            "Owner, registered massage therapist",
+            f"Owner · {_registration(LEILA)}",
             "#2C5F6E",
             HOURS[LEILA],
         ),
@@ -580,7 +665,7 @@ SPEC = BusinessSpec(
             "Jun Park",
             "+17785550192",
             "staff",
-            "Registered massage therapist",
+            _registration(JUN),
             "#7A5C3E",
             HOURS[JUN],
             payee=True,
@@ -594,7 +679,7 @@ SPEC = BusinessSpec(
             "Wen Liu",
             "+17785550193",
             "staff",
-            "Registered acupuncturist",
+            _registration(WEN),
             "#4F6D8F",
             HOURS[WEN],
             payee=True,
@@ -627,7 +712,6 @@ SPEC = BusinessSpec(
         "address": "1285 West Pender Street, Vancouver, BC V6E 4B1",
         "phone": "+1 778-555-0190",
         "email": "hello@harbourside.example",
-        "website": "https://harbourside.example",
         "neighbourhood": "Coal Harbour",
     },
     booking_policy={
@@ -642,6 +726,7 @@ SPEC = BusinessSpec(
     sms_number="+17785550199",
     gst_hst_number="742581936RT0001",
     pst_number="PST10583321",
+    resources=RESOURCES,
     forms=(
         FormSpec(
             INTAKE,
@@ -652,6 +737,7 @@ SPEC = BusinessSpec(
             send_on="booking",
         ),
         FormSpec(FEEDBACK, "Visit feedback", "ff_hs_feedback_", FEEDBACK_FIELDS),
+        FormSpec(SOAP, "SOAP treatment note", "ff_hs_soap_", SOAP_FIELDS),
     ),
     contracts=(
         ContractSpec(
@@ -692,6 +778,11 @@ SPEC = BusinessSpec(
             "Couples massage with both therapists",
             "leah",
             ("bk_hs_couples_leah", "bk_hs_couples_aaron"),
+        ),
+        Stage(
+            "Missed visit, fee invoice overdue",
+            "tyler",
+            ("bk_hs_tyler_missed", "inv_hs_tyler_missed"),
         ),
         Stage("Weekly acupuncture series", "harjit", ("sch_hs_harjit", "bk_hs_harjit_initial")),
         Stage("Five-star feedback", "fatemeh", ("fr_hs_feedback_fatemeh",)),
@@ -759,15 +850,8 @@ class Harbourside(Demo):
         )
         self.retail()
         self.paperwork()
+        self.treatment_notes()
         self.engagement()
-
-    def visit_note(self, item: Item, booking: Booking) -> str:
-        name, credential, number = CREDENTIALS[booking.staff_id or LEILA]
-        day = self.local(booking.starts_at)
-        return (
-            f"{item.name} on {day:%B} {day.day}, {day.year} with {name}, {credential}, "
-            f"registration {number}."
-        )
 
     def clock(self, when: datetime) -> str:
         local = self.local(when)
@@ -1034,7 +1118,7 @@ class Harbourside(Demo):
             canceled + timedelta(minutes=40),
         )
         # a missed visit with no word
-        self.visit("tyler_missed", "tyler", M60, JUN, -20, status="no_show", settle=None)
+        missed = self.visit("tyler_missed", "tyler", M60, JUN, -20, status="no_show", settle=None)
         self.visit("tyler_first", "tyler", M30, JUN, -48, settle="card")
         self.note(
             "bk_hs_tyler_missed",
@@ -1042,6 +1126,8 @@ class Harbourside(Demo):
             "No answer by phone or text. Sent the missed-visit fee notice.",
             self.at(-20, 18),
         )
+        assert missed is not None
+        self.missed_fee(missed)
 
     def packages(self) -> None:
         pack = self.package("kenji", PACK10, self.at(-160, 13))
@@ -1082,6 +1168,26 @@ class Harbourside(Demo):
             self.ctx.get(Booking, "bk_hs_lucas_gift").completed_at or self.now,
         )
         self.gift_card("elif_mothers_day", "elif", GIFT, 13000, self.at(-162, 16), "Ayse Yilmaz")
+
+    def missed_fee(self, missed: Booking) -> None:
+        """The full fee for a visit missed with no word, still unpaid after its due date."""
+        issued = self.ctx.get(Slot, missed.slot_id).ends_at + timedelta(hours=3)
+        invoice = self.invoice(
+            "tyler_missed",
+            "tyler",
+            issued,
+            issued,
+            "Missed 60 minute massage with no notice. The full fee is charged under our "
+            "cancellation policy, and extended health plans don't cover it.",
+        )
+        day = self.local(missed.starts_at)
+        self.line(
+            invoice.id,
+            M60,
+            issued,
+            description=f"Missed visit fee, 60 minute massage on {day:%B} {day.day}",
+        )
+        self.settle(invoice, "tyler", "overdue")
 
     def named_visits(self) -> None:
         for index, day in enumerate((-62, -34, -12, 14)):
@@ -1217,6 +1323,39 @@ class Harbourside(Demo):
                 ACU_CONSENT,
                 initial.created_at + timedelta(hours=1),
                 None,
+            )
+
+    def treatment_notes(self) -> None:
+        """SOAP notes the practitioners wrote after some visits, kept off devices with no token."""
+        people = {person.staff_id: person for person in SPEC.people}
+        for key, visit, minutes, answers in SOAP_NOTES:
+            booking = self.ctx.get(Booking, f"bk_hs_{visit}")
+            assert booking.completed_at is not None and booking.staff_id is not None
+            person = people[booking.staff_id]
+            written = booking.completed_at + timedelta(minutes=minutes)
+            amends = NOTE_AMENDS.get(key)
+            self.ctx.add(
+                FormResponse(
+                    id=f"fr_hs_soap_{key}",
+                    business_id=self.spec.id,
+                    form_id=SOAP,
+                    client_id=booking.client_id,
+                    parent_type="booking",
+                    parent_id=booking.id,
+                    status="submitted",
+                    token=None,
+                    answers=answers,
+                    submitted_at=written,
+                    signature={
+                        "user_id": person.user_id,
+                        "staff_id": person.staff_id,
+                        "name": person.name,
+                        "signed_at": written.isoformat(),
+                        "amends": None if amends is None else f"fr_hs_soap_{amends}",
+                    },
+                    created_at=written,
+                    updated_at=written,
+                )
             )
 
     def feedback(self, key: str, booking: Booking, answers: dict[str, object]) -> None:

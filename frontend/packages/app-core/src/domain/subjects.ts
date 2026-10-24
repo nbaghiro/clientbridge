@@ -3,7 +3,13 @@ import { useState } from "react";
 import type { ApiLike } from "../api";
 import { dateKey, formatDate, readDate } from "../datetime";
 import { formatList, formatParts, normalizePhone, parseNumber } from "../format";
-import { useAsyncAction, useBusinessQuery as useQuery } from "../hooks";
+import {
+    type DraftRow,
+    typedRows,
+    useAsyncAction,
+    useBusinessQuery as useQuery,
+    useDraftList,
+} from "../hooks";
 import { strings } from "../strings";
 import type { Intent } from "../ui";
 import { type Photo, useFileLinks } from "./files";
@@ -141,6 +147,7 @@ const ADDRESS: SubjectField = {
         return s.fields.property.address;
     },
     type: "text",
+    maxLength: 200,
 };
 
 const PET_FIELDS: readonly SubjectField[] = [
@@ -493,8 +500,6 @@ const EQUIPMENT_KEYS = ["model", "serial", "location", "installed_on", "warranty
 
 type EquipmentKey = (typeof EQUIPMENT_KEYS)[number];
 
-type EquipmentDraft = Record<EquipmentKey, string>;
-
 interface EquipmentField {
     key: EquipmentKey;
     label: string;
@@ -550,37 +555,64 @@ export const EQUIPMENT_FIELDS: readonly EquipmentField[] = [
 /** The most devices one site holds, matching the API's limit. */
 export const EQUIPMENT_MAX = 100;
 
-const EQUIPMENT_LENGTH: Record<EquipmentKey, number> = {
-    model: 80,
-    serial: 80,
-    location: 80,
-    installed_on: 10,
-    warranty_until: 10,
+const DATE_KEYS: ReadonlySet<string> = new Set(["installed_on", "warranty_until"]);
+
+// One repeating list in a kind's attributes: a site's equipment, a student's pickups.
+interface DraftGroup<K extends string> {
+    attribute: "equipment" | "pickups";
+    kind: SubjectKind;
+    keys: readonly K[];
+    max: number;
+    length: Record<K, number>;
+    required: K;
+    requiredMessage: () => string;
+    invalid: (key: K, value: string) => string | null;
+}
+
+const EQUIPMENT: DraftGroup<EquipmentKey> = {
+    attribute: "equipment",
+    kind: "site",
+    keys: EQUIPMENT_KEYS,
+    max: EQUIPMENT_MAX,
+    length: { model: 80, serial: 80, location: 80, installed_on: 10, warranty_until: 10 },
+    required: "model",
+    requiredMessage: () => s.equipment.modelRequired,
+    invalid: (key, value) =>
+        DATE_KEYS.has(key) && !/^\d{4}-\d{2}-\d{2}$/.test(value) ? s.dateInvalid : null,
 };
 
-const DATE_KEYS: ReadonlySet<EquipmentKey> = new Set(["installed_on", "warranty_until"]);
-
-const blankEquipment = (): EquipmentDraft => ({
-    model: "",
-    serial: "",
-    location: "",
-    installed_on: "",
-    warranty_until: "",
-});
-
-/** A site's stored equipment list as drafts; entries that are not objects are dropped. */
-function storedEquipment(attributes: Record<string, unknown>): EquipmentDraft[] {
-    const list = attributes.equipment;
+/** A group's stored list as drafts; entries that are not objects are dropped. */
+function storedRows<K extends string>(
+    group: DraftGroup<K>,
+    attributes: Record<string, unknown>,
+): DraftRow<K>[] {
+    const list = attributes[group.attribute];
     if (!Array.isArray(list)) return [];
     return list
         .filter((e): e is Record<string, unknown> => typeof e === "object" && e !== null)
-        .map((e) => ({
-            model: text(e.model),
-            serial: text(e.serial),
-            location: text(e.location),
-            installed_on: text(e.installed_on),
-            warranty_until: text(e.warranty_until),
-        }));
+        .map((e) => Object.fromEntries(group.keys.map((k) => [k, text(e[k])])) as DraftRow<K>);
+}
+
+/** Errors keyed `<attribute>.<row>.<key>`; a row left entirely blank is dropped, not checked. */
+function groupErrors<K extends string>(
+    group: DraftGroup<K>,
+    rows: readonly DraftRow<K>[] | null,
+): Record<string, string> {
+    const e: Record<string, string> = {};
+    (rows ?? []).forEach((r, i) => {
+        if (group.keys.every((k) => r[k].trim() === "")) return;
+        const at = (k: K): string => `${group.attribute}.${String(i)}.${k}`;
+        if (r[group.required].trim() === "") e[at(group.required)] = group.requiredMessage();
+        for (const k of group.keys) {
+            const v = r[k].trim();
+            if (v.length > group.length[k]) e[at(k)] = s.tooLong(group.length[k]);
+            else if (v !== "" && e[at(k)] === undefined) {
+                const invalid = group.invalid(k, v);
+                if (invalid !== null) e[at(k)] = invalid;
+            }
+        }
+    });
+    return e;
 }
 
 export interface EquipmentLine {
@@ -599,7 +631,7 @@ export function equipmentLines(
     zone: string,
     now: Date = new Date(),
 ): EquipmentLine[] {
-    return storedEquipment(attributes).map((e, i) => {
+    return storedRows(EQUIPMENT, attributes).map((e, i) => {
         const installed = e.installed_on === "" ? null : readDate(e.installed_on, zone);
         const until = e.warranty_until === "" ? null : readDate(e.warranty_until, zone);
         const days = until === null ? null : (until.getTime() - now.getTime()) / 86_400_000;
@@ -632,8 +664,6 @@ export function equipmentLines(
 const PICKUP_KEYS = ["name", "relation", "phone", "note"] as const;
 
 type PickupKey = (typeof PICKUP_KEYS)[number];
-
-type PickupDraft = Record<PickupKey, string>;
 
 interface PickupField {
     key: PickupKey;
@@ -683,23 +713,17 @@ export const PICKUP_PERSON_FIELDS: readonly PickupField[] = [
 /** The most people one student lists for pickup, matching the API's limit. */
 export const PICKUP_PEOPLE_MAX = 10;
 
-const PICKUP_LENGTH: Record<PickupKey, number> = { name: 80, relation: 40, phone: 20, note: 200 };
-
-const blankPickup = (): PickupDraft => ({ name: "", relation: "", phone: "", note: "" });
-
-/** A student's stored pickup list as drafts; entries that are not objects are dropped. */
-function storedPickups(attributes: Record<string, unknown>): PickupDraft[] {
-    const list = attributes.pickups;
-    if (!Array.isArray(list)) return [];
-    return list
-        .filter((e): e is Record<string, unknown> => typeof e === "object" && e !== null)
-        .map((e) => ({
-            name: text(e.name),
-            relation: text(e.relation),
-            phone: text(e.phone),
-            note: text(e.note),
-        }));
-}
+const PICKUPS: DraftGroup<PickupKey> = {
+    attribute: "pickups",
+    kind: "student",
+    keys: PICKUP_KEYS,
+    max: PICKUP_PEOPLE_MAX,
+    length: { name: 80, relation: 40, phone: 20, note: 200 },
+    required: "name",
+    requiredMessage: () => s.pickup.nameRequired,
+    invalid: (key, value) =>
+        key === "phone" && normalizePhone(value) === null ? s.pickup.phoneInvalid : null,
+};
 
 /** "May be picked up by …" for a student with a pickup list; null for other kinds or an empty list. */
 export function pickupLine(
@@ -707,7 +731,7 @@ export function pickupLine(
     attributes: Record<string, unknown>,
 ): string | null {
     if (kind !== "student") return null;
-    const names = storedPickups(attributes)
+    const names = storedRows(PICKUPS, attributes)
         .map((p) => p.name.trim())
         .filter((n) => n !== "");
     return names.length === 0 ? null : s.pickup.mayBePickedUpBy(formatList(names));
@@ -744,7 +768,7 @@ export function subjectSummary(
     }
     if (kind === "site") {
         const building = text(attributes.building);
-        const devices = storedEquipment(attributes).length;
+        const devices = storedRows(EQUIPMENT, attributes).length;
         return formatParts([
             text(attributes.address),
             building === "" ? "" : s.fields.site.buildings(building),
@@ -816,12 +840,12 @@ export interface SubjectForm {
     values: Record<string, string>;
     setValue: (key: string, v: string) => void;
     /** A site's installed devices; null for kinds that keep no equipment list. */
-    equipment: EquipmentDraft[] | null;
+    equipment: DraftRow<EquipmentKey>[] | null;
     addEquipment: () => void;
     setEquipment: (index: number, key: EquipmentKey, v: string) => void;
     removeEquipment: (index: number) => void;
     /** A student's people allowed to collect them; null for other kinds. */
-    pickups: PickupDraft[] | null;
+    pickups: DraftRow<PickupKey>[] | null;
     addPickup: () => void;
     setPickup: (index: number, key: PickupKey, v: string) => void;
     removePickup: (index: number) => void;
@@ -852,12 +876,12 @@ export function useSubjectForm(
     const fields = kind === null ? [] : SUBJECT_FIELDS[kind];
     const [name, setNameRaw] = useState(subject?.name ?? "");
     const [edits, setEdits] = useState<Record<string, string>>({});
-    const [devices, setDevices] = useState<EquipmentDraft[] | null>(null);
-    const equipment =
-        kind === "site" ? (devices ?? storedEquipment(subject?.attributes ?? {})) : null;
-    const [people, setPeople] = useState<PickupDraft[] | null>(null);
-    const pickups =
-        kind === "student" ? (people ?? storedPickups(subject?.attributes ?? {})) : null;
+    const listOf = <K extends string>(group: DraftGroup<K>): DraftRow<K>[] | null =>
+        kind === group.kind ? storedRows(group, subject?.attributes ?? {}) : null;
+    const devices = useDraftList(EQUIPMENT.keys, listOf(EQUIPMENT), EQUIPMENT.max);
+    const people = useDraftList(PICKUPS.keys, listOf(PICKUPS), PICKUPS.max);
+    const equipment = devices.rows;
+    const pickups = people.rows;
     // edits sit over the stored values, so a kind that syncs after the first render still fills in
     const values = { ...storedValues(fields, subject), ...edits };
     const [tried, setTried] = useState(false);
@@ -887,31 +911,7 @@ export function useSubjectForm(
                     e[f.key] = s.fields.property.roomsInvalid;
             }
         }
-        (equipment ?? []).forEach((d, i) => {
-            if (EQUIPMENT_KEYS.every((k) => d[k].trim() === "")) return;
-            if (d.model.trim() === "")
-                e[`equipment.${String(i)}.model`] = s.equipment.modelRequired;
-            for (const k of EQUIPMENT_KEYS) {
-                const v = d[k].trim();
-                if (v.length > EQUIPMENT_LENGTH[k])
-                    e[`equipment.${String(i)}.${k}`] = s.equipment.tooLong(EQUIPMENT_LENGTH[k]);
-                else if (DATE_KEYS.has(k) && v !== "" && !/^\d{4}-\d{2}-\d{2}$/.test(v))
-                    e[`equipment.${String(i)}.${k}`] = s.dateInvalid;
-            }
-        });
-        (pickups ?? []).forEach((p, i) => {
-            if (PICKUP_KEYS.every((k) => p[k].trim() === "")) return;
-            const at = (k: PickupKey): string => `pickups.${String(i)}.${k}`;
-            if (p.name.trim() === "") e[at("name")] = s.pickup.nameRequired;
-            for (const k of PICKUP_KEYS)
-                if (p[k].trim().length > PICKUP_LENGTH[k]) e[at(k)] = s.tooLong(PICKUP_LENGTH[k]);
-            if (
-                e[at("phone")] === undefined &&
-                p.phone.trim() !== "" &&
-                normalizePhone(p.phone) === null
-            )
-                e[at("phone")] = s.pickup.phoneInvalid;
-        });
+        Object.assign(e, groupErrors(EQUIPMENT, equipment), groupErrors(PICKUPS, pickups));
         return e;
     };
 
@@ -930,22 +930,8 @@ export function useSubjectForm(
                 .filter(([, v]) => v !== "")
                 .map(([f, v]) => [f.key, f.type === "number" ? parseNumber(v) : v]),
         );
-        const devicesTyped = (equipment ?? [])
-            .map((d) =>
-                Object.fromEntries(
-                    EQUIPMENT_KEYS.map((k) => [k, d[k].trim()] as const).filter(
-                        ([, v]) => v !== "",
-                    ),
-                ),
-            )
-            .filter((d) => Object.keys(d).length > 0);
-        const peopleTyped = (pickups ?? [])
-            .map((p) =>
-                Object.fromEntries(
-                    PICKUP_KEYS.map((k) => [k, p[k].trim()] as const).filter(([, v]) => v !== ""),
-                ),
-            )
-            .filter((p) => Object.keys(p).length > 0);
+        const devicesTyped = typedRows(EQUIPMENT.keys, equipment);
+        const peopleTyped = typedRows(PICKUPS.keys, pickups);
         const attributes = {
             ...kept,
             ...typed,
@@ -987,33 +973,19 @@ export function useSubjectForm(
             setError(null);
         },
         equipment,
-        addEquipment: () => {
-            if (equipment === null || equipment.length >= EQUIPMENT_MAX) return;
-            setDevices([...equipment, blankEquipment()]);
-        },
+        addEquipment: devices.add,
         setEquipment: (index, key, v) => {
-            if (equipment === null) return;
-            setDevices(equipment.map((d, i) => (i === index ? { ...d, [key]: v } : d)));
+            devices.set(index, key, v);
             setError(null);
         },
-        removeEquipment: (index) => {
-            if (equipment === null) return;
-            setDevices(equipment.filter((_, i) => i !== index));
-        },
+        removeEquipment: devices.remove,
         pickups,
-        addPickup: () => {
-            if (pickups === null || pickups.length >= PICKUP_PEOPLE_MAX) return;
-            setPeople([...pickups, blankPickup()]);
-        },
+        addPickup: people.add,
         setPickup: (index, key, v) => {
-            if (pickups === null) return;
-            setPeople(pickups.map((p, i) => (i === index ? { ...p, [key]: v } : p)));
+            people.set(index, key, v);
             setError(null);
         },
-        removePickup: (index) => {
-            if (pickups === null) return;
-            setPeople(pickups.filter((_, i) => i !== index));
-        },
+        removePickup: people.remove,
         errors: tried ? check() : {},
         busy,
         error,

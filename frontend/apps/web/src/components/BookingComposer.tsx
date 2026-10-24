@@ -183,6 +183,15 @@ export function BookingComposer({
                         onChange={form.setTime}
                     />
                 </div>
+
+                {form.resource !== null ? (
+                    <Select
+                        label={form.resource.label}
+                        value={form.resource.value}
+                        options={form.resource.options}
+                        onChange={form.resource.pick}
+                    />
+                ) : null}
                 <p className="-mt-3 text-xs text-muted">
                     {formatParts([form.item ? form.endsLabel : null, s.draftHint])}
                 </p>

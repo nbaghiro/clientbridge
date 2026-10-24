@@ -37,6 +37,7 @@ export type RootStackParamList = {
     Classes: undefined;
     Recurrences: undefined;
     Reminders: undefined;
+    Resources: undefined;
     Security: undefined;
     OnlineBooking: undefined;
 };

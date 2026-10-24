@@ -42,6 +42,8 @@ import { mediaUrl } from "./files";
 import { type PaymentRow, invoiceBalanceKey, payLinkUrl, useInvoicePayments } from "./payments";
 import {
     type Letterhead,
+    type PostalParts,
+    addressLines,
     discountReason,
     longDate,
     printedDoc,
@@ -208,7 +210,9 @@ WHERE a.category = 'receivable' AND e.subject_type = 'invoice' AND e.subject_id 
 ORDER BY e.occurred_at, e.id`;
 
 export const LETTERHEAD_SQL = `
-SELECT name, brand, billing_email, gst_hst_number, qst_number FROM businesses LIMIT 1`;
+SELECT name, brand, billing_email, gst_hst_number, qst_number,
+       unit, street_number, street_name, city, province, postal_code, legal_phone
+FROM businesses LIMIT 1`;
 
 interface CreditRow {
     id: string;
@@ -218,12 +222,13 @@ interface CreditRow {
     method: string | null;
 }
 
-interface LetterheadRow {
+interface LetterheadRow extends PostalParts {
     name: string | null;
     brand: string | null;
     billing_email: string | null;
     gst_hst_number: string | null;
     qst_number: string | null;
+    legal_phone: string | null;
 }
 
 export function useInvoices(): InvoiceRow[] {
@@ -259,6 +264,8 @@ export function useLetterhead(apiBaseUrl: string): Letterhead {
         email: row?.billing_email ?? null,
         gstHstNumber: row?.gst_hst_number ?? null,
         qstNumber: row?.qst_number ?? null,
+        address: row === undefined ? [] : addressLines(row),
+        phone: row?.legal_phone ?? null,
     };
 }
 

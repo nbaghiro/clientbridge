@@ -16,7 +16,7 @@ from clientbridge.models.scheduling import Booking, Slot
 from clientbridge.schemas.business import BrandInput
 from clientbridge.services.consents import allows_marketing
 from clientbridge.services.contracts import signed_copy
-from clientbridge.services.public import validate_answers
+from clientbridge.services.forms import validate_answers
 
 
 @pytest.fixture

@@ -216,7 +216,7 @@ restarts the worker without taking the API out of the load balancer.
 
 ## The data model
 
-**44 tables** across the 12 domains; credentials and sessions live in the auth service's own database. Stripe Connect custodies funds and pays out; a double-entry ledger (`accounts` + `entries`)
+**45 tables** across the 12 domains; credentials and sessions live in the auth service's own database. Stripe Connect custodies funds and pays out; a double-entry ledger (`accounts` + `entries`)
 records every money movement and is the only place money balances are stored. The SQLAlchemy models in
 `backend/src/clientbridge/models/` are the exact-DDL source of truth; the migrations in
 `migrations/versions/` start from one baseline (squashed before launch) with increments after it.
@@ -245,8 +245,8 @@ records every money movement and is the only place money balances are stored. Th
   (`bookings → packages → payments → bookings`) is broken with `use_alter=True`.
 - **JSONB** for lightweight config (brand, custom_fields, attributes, audience, answers, changes,
   requirements); **never** for queried business data.
-- **Concurrency invariants live in SQL:** a GiST exclusion constraint stops double-booking a staff
-  member; partial-unique indexes enforce business rules (one active/paused subscription per client+item,
+- **Concurrency invariants live in SQL:** GiST exclusion constraints stop double-booking a staff
+  member or a room or piece of equipment; partial-unique indexes enforce business rules (one active/paused subscription per client+item,
   one invitation per booking enforced by the service).
 
 ### ID prefixes
@@ -255,7 +255,7 @@ Prefixes predate the table renames and are kept so existing ids stay valid; the 
 shown after it.
 `bz_`businesses `us_`users `st_`staff · `cl_`clients `sj_`subjects `nt_`notes `cns_`consents · `it_`items `pkg_`packages
 `sub_`subscriptions `gc_`gift_cards `stk_`inventory · `ses_`slots `bk_`bookings `bka_`addons `av_`hours
-`sch_`recurrences · `inv_`invoices `est_`estimates `ord_`orders `ln_`lines · `pay_`payments
+`sch_`recurrences `rs_`resources · `inv_`invoices `est_`estimates `ord_`orders `ln_`lines · `pay_`payments
 `pm_`payment_methods `psl_`payment_setup_links `acc_`accounts `ent_`entries `jrn_`journal · `th_`threads `msg_`messages `bro_`broadcasts
 · `frm_`forms `ff_`fields `fr_`responses `con_`contracts `sig_`signatures · `rrq_`review requests (preserved historical invitation IDs remain unchanged)
 · `fl_`files `aud_`audits `wh_`webhooks `dvt_`devices `idk_`commands `sur_`sync_receipts · `rtc_`returning_challenges
@@ -276,15 +276,18 @@ client's marketing consent on a channel, with its `source`; the newest row holds
 client can only be lifted by the client's own START).
 
 **catalog (5)** — `items` (**one table drives the whole catalog** via `kind` service/class/product/package/
-subscription/gift — duration, capacity, deposit, recurrence, session_count, `stripe_price_id`), `packages`
-(client's package: `sessions_total` and status; sessions used is the count of its consumption journals), `subscriptions` (recurring: status, period,
+subscription/gift — duration, capacity, deposit, recurrence, session_count, `stripe_price_id`, and
+`staff_ids` for who offers a service or class, and `resource_ids` for the pool of rooms or equipment it needs one of), `packages`
+(client's package: `sessions_total` and status, and `subject_id` when it belongs to one of the client's
+subjects, so it covers only that subject's visits, refused with 422 `package_other_subject`; null shares it;
+sessions used is the count of its consumption journals), `subscriptions` (recurring: status, period,
 `provider_ref`; partial-unique one active/paused per client+item), `gift_cards` (`code` unique per business,
 `initial_cents`; the spendable balance is the card's own ledger account, and an active card with nothing
 left reads as redeemed), `inventory` (one signed stock movement per row, `reason` sale/refund/restock, keyed
 by line and reason; `items.stock_on_hand` is the running total).
 
-**scheduling (6)** — `slots` (the calendar event: capacity-bearing block; appointment = capacity 1, class
-= capacity N; seats taken are counted from its live bookings; `recurrence_id`), `bookings` _(soft-del)_ (client↔slot via `slot_id`; denormalized
+**scheduling (7)** — `slots` (the calendar event: capacity-bearing block; appointment = capacity 1, class
+= capacity N; seats taken are counted from its live bookings; `recurrence_id`; `resource_id`, the room or equipment it holds), `resources` (rooms and equipment by `name`, unique per business in any case, and `active`; turning one off keeps its visits and offers it for nothing new), `bookings` _(soft-del)_ (client↔slot via `slot_id`; denormalized
 `staff_id`; status pending→confirmed→completed/canceled/no_show, or waitlisted on a full class (a seat freed before the session starts goes to the earliest sign-up waiting, and the overnight job closes what is left once the class ends); `source`; deposit terms (the deposit's
 state is derived from the ledger, and a deposit is due when `deposit_amount_cents > 0`); `reminded_at`;
 `departed_at`, set once by `POST /v1/bookings/{id}/depart` ("On my way", which texts the client), and
@@ -294,8 +297,9 @@ exception is time off for one member, or a closure for everyone when `staff_id` 
 `starts_at`/`ends_at` and a `reason`, written only through `/v1/time-off`), `recurrences` (recurrence rule with `frequency` day/week/month, the same words
 items use, and `monthly_by` date or weekday → expands to slots/bookings; dates can be skipped or shifted
 when booking, and `PATCH /v1/recurrences/{id}` moves one, the following or all upcoming visits while
-`/cancel` ends the series and refunds paid deposits), `addons` (products a client added to a visit when booking; they join
-the visit's invoice).
+`/cancel` ends the series and refunds paid deposits; a recurrence with no client is a class schedule, see Programs), `addons` (products added to a visit, by the client when booking or
+by staff through `POST /v1/bookings/{id}/addons`; they join the visit's invoice, and a product's `duration_min` lengthens
+a one-to-one visit by its minutes times the quantity).
 
 **billing (4)** — `invoices` (per-business unique `number`, stored status draft/sent/void, document totals
 subtotal/tax/total fixed at issue, `pay_token`, `overdue_notified_at`; what is owed is the invoice's
@@ -331,7 +335,9 @@ count, inbound messages not yet `read`, are read from `messages`), `messages` (d
 `broadcast_id`, `attachments`), `broadcasts` (audience JSONB + `scheduled_at`), and server-only `deliveries` (immutable typed payload, stable key, current transport state and fenced worker claim).
 
 **documents (5)** — `forms`, `fields` (`input` is one of 17 field types), `responses` (public-link token,
-`answers`, immutable issued `definition`, and optional submitted `signature` JSONB), `contracts` (template), `signatures` (public-link token; snapshots `signed_body` + captures
+`answers`, immutable issued `definition`, and optional submitted `signature` JSONB; a treatment note is a
+response with no token, written by staff on a booking with a form sent by hand, with its author in
+`signature`; it is final, never syncs, and each read is audited as `treatment.read`), `contracts` (template), `signatures` (public-link token; snapshots `signed_body` + captures
 `ip`; links a signature image file).
 
 **reviews (3)** — `review_requests` preserves invitation history. `google_business_connections`
@@ -533,10 +539,11 @@ currently same perms as staff).
 Four auto-subscribed streams and three history streams implement the read model (owner-sees-workers'-activity is carried by
 `bookings.staff_id` and the ledger's `owner_type`/`owner_id`; the `audits` trail is server-only):
 
-- **`business_shared`** (every active member): the catalog and entitlements, the client book, forms,
+- **`business_shared`** (every active member): the catalog, rooms and equipment and entitlements, the client book, forms,
   fields, contracts, files and threads.
 - **`staff_limited`** (staff and contractors): the business row without its tax numbers and billing
-  email, and the team without pay rates or payee flags. Owner/admin read both from `business_full` with
+  email, but with its legal address and phone so every member's printed documents carry the
+  letterhead, and the team without pay rates or payee flags. Owner/admin read both from `business_full` with
   more columns, so a row never reaches one device with two different column sets. No bucket syncs
   `invite_token` or the Stripe verification fields. Both streams also carry `users.id` and
   `users.name`, and nothing else from `users`, for every user with a staff row in the business,
@@ -545,7 +552,8 @@ Four auto-subscribed streams and three history streams implement the read model 
 - **`staff_self`** (per staff, sliced by `staff_id`) — a member's **own** addons, hours and recurrences,
   plus their own staff `accounts` and `entries` (earnings).
 - **`business_full`** (owner/admin only) — **all** members' addons, hours and recurrences, all financials
-  (including the whole ledger), review requests, broadcasts, form responses and signatures.
+  (including the whole ledger), review requests, broadcasts, form responses that have a client link
+  (treatment notes have none and stay on the server) and signatures.
 - **`history_shared`**, **`history_self`**, **`history_full`**: messages for every member, a member's own
   slots and bookings, and every member's slots and bookings for owner/admin, each limited to the months
   the device subscribes (see the history window above).
@@ -641,6 +649,12 @@ What posts, and where:
 | Deposit applied                         | invoice sent with the booking on a line, or the deposit settling after that (`bookings.apply_deposit`)                   | deposit + / client receivable − ; a void or a refund of the deposit reverses it                                                    |
 | Staff earning accrued / approved / paid | `earnings` (invoice fully paid, `/v1/earnings/approve`, `/v1/earnings/pay`)                                              | staff cost + / payable(pending) − ; pending → approved ; approved → bank                                                           |
 
+An earning accrues once per booking and member: a paid document's booking lines are grouped by the line's
+`staff_id`, or the booking's member and its crew in even shares when the line names none or names the lead, and
+each group earns at that member's rate under
+the ref `earning:<booking>:<staff>:<n>`, where `n` counts that member's earlier journals on the booking. A journal
+is found by its subject and the member's payable leg, so one posted under an older ref still counts.
+
 Derived from the ledger rather than stored: an invoice's and order's balance and amount paid, gift card
 balances, package deferred revenue, client lifetime value, staff earnings and their status, tax payable per code, today's revenue, and Stripe
 payout journal amounts. Current payout status is read from Stripe (see [payouts](payments.md#payouts-and-schedules)). A booking's `deposit_status` (none/pending/collected/applied/forfeited/refunded) is a lifecycle column set
@@ -686,8 +700,82 @@ entitlement and its liability are created.
   card, has `source = online`, and moves through `pickup_status` (unfulfilled, ready, picked up) from Sales.
 - **Booking add-ons:** products the owner offers at booking (`items.addon`, with `addon_for` naming the
   services each goes with) and the client chose on the booking page are stored in `addons` and become lines
-  on the invoice created from the booking (`POST /v1/invoices/from-booking/{id}`); only the deposit is
-  charged at booking time.
+  on the invoice created from the booking (`POST /v1/invoices/from-booking/{id}`), each carrying the booking
+  and the member, so they count toward that member's earning; only the deposit is charged at booking time.
+  An add-on's `duration_min` is the time it adds to the visit: the visit's length is the service plus each
+  add-on's minutes times its quantity, stored in `slots.ends_at` when it is booked, since the overlap
+  constraint reads it. Connect asks for extras before the time and passes their minutes as `extra_min` to
+  the slots and days reads, so it offers only times that fit. A client's move keeps the stored length.
+  Staff add an add-on through the same resize check a move uses, refused with 409 `visit_no_room` when the
+  time after the visit is taken, and removing one shortens the visit by its minutes. An add-on row keeps no
+  minutes of its own, so a removal reads the product's `duration_min`, and the product's length can't change
+  while any pending or confirmed, unbilled visit carries it (409 `addon_length_in_use`, with the number of
+  visits as `detail.count`). A removal still never shortens the visit below the service's length, since a
+  staff resize may have shortened it. A class seat keeps the class's length.
+- **Crew:** a one-to-one visit can have helpers besides its lead, and only an owner or admin adds or removes
+  them (403 for anyone else, the lead included). `POST /v1/bookings/{id}/crew` locks the helper, checks
+  their calendar the way a booking is checked (and that they offer the service), and writes an `hours`
+  exception for the visit's window with the job as its `reason` and `booking:<id>` as its `note`, so
+  availability, sync and the helper's calendar already treat it as time off.
+  The blocks follow the visit: a staff move or resize, an add-on, a client's move and a series change re-time
+  them (refused, or skipped in a series, when a helper can't follow, with 409 `crew_busy`), a cancel deletes
+  them, a reassigned lead leaves them, and completion keeps them. A member who leaves comes off the crews still
+  ahead, and a block can't be removed as time off (409 `crew_block`). Helpers join only before the visit
+  starts (409 `visit_started`), and can still be taken off afterwards. `GET /v1/bookings/{id}/crew` gives the
+  job to its crew and to managers, since a helper's device syncs only their own bookings. Pay splits at the
+  ledger, not on the documents: a booking line done by the lead is shared evenly among the lead and the
+  helpers (`lines.worker_shares`), so each earns their share at their own rate and a tip follows the same
+  shares, on an invoice or a desk sale alike. The documents keep one line for the visit but name the whole
+  crew from the same split: a receipt's `served_by` (invoice, desk sale and visit receipt), the pay page's
+  `tip_for`, and the visit receipt's practitioner (the lead) followed by the helpers who assisted.
+- **Rooms and equipment:** a service or class can name a pool of `resources` in `items.resource_ids`, and a visit then
+  needs a free member and one free resource from the pool, which its slot holds in `slots.resource_id`. Managers add,
+  rename and turn them off through `/v1/resources` (409 `resource_name_taken` for a name already used in any case),
+  and the response counts the visits still ahead that hold one (`upcoming`), which keep it after it is turned off.
+  A booking takes the first free one in pool order, or the one staff pick (`resource_id` on `POST /v1/bookings` and
+  on a move), refused with 422 `resource_not_in_pool`, 409 `resource_busy` when the chosen one is taken, or 409
+  `no_resource` when none is free; the window is widened by both visits' buffers, as the member's is. Writes lock the
+  members first and then every resource in the pool, in order, and the `excl_slots_resource_overlap` constraint
+  backstops a race as 409 `resource_busy`. Staff and Connect reads offer only starts that have a free resource
+  (`load_availability` reads the pools and their live slots once per request), and the move check reports problem
+  `resource` with the free alternatives in `free_resource_ids`. A move, resize, add-on, client move or series change
+  keeps the visit's resource when it is still free there, switches to another free one in the pool, or is refused;
+  a reassignment on removal keeps it, since the time doesn't change, and crew blocks take none. A class session holds
+  one resource for every seat, joining reuses it, and `POST /v1/programs` picks one for every day or refuses the
+  whole schedule with 409 `schedule_conflict` and `detail.problem` `resource`. A visit needs at most one resource,
+  and resources have no hours or maintenance windows of their own.
+- **Programs:** staff lay out a class's sessions ahead of any booking with `POST /v1/programs`: a class, its
+  instructor, a first start, weekdays and a count or end date. Every session is checked the way a booking is
+  (closures, time off and crew blocks, the instructor's hours, other visits, `items.staff_ids`) under the
+  staff lock, and one busy day refuses the whole schedule with 409 `schedule_conflict`. The sessions are
+  empty `slots` tagged with a `recurrences` row that has no client; such a schedule keeps its sessions when
+  bookings come and go, and the client series commands refuse it with 409 `class_schedule`. A class with
+  `items.session_count` is a program: it is never booked one day at a time (409 `program_enrol`), and
+  `POST /v1/programs/{id}/enrolments` (staff) or a Connect booking of its first day books every session
+  still ahead or none, refusing a full day with 409 `program_full`. The first booking carries the price and
+  the deposit and the rest are at no charge, so the invoice from that booking, its receipt and the
+  instructor's earning cover the program once, while each day still gets its own reminder and check-in.
+  Enrolling issues that invoice at once, through the same drafting and issuing as
+  `POST /v1/invoices/from-booking/{id}`: one line naming the program and its day count, due on the first
+  day, and a deposit paid online later applies to it the way any visit's deposit applies to its open
+  invoice. Connect's enrolment response lists each day (`days`), and its calendar file holds one event per
+  day. An enrolment is derived, never stored: the client's (and subject's) live bookings on the schedule.
+  Cancelling it (`/enrolments/cancel`, or any day's manage link before the first day's cutoff) cancels every
+  day ahead, voids its invoice and refunds a paid deposit, and an online deposit left unpaid releases every
+  day with it and voids the invoice. Once money was taken on the invoice itself, cancelling and declining
+  are refused with 409 `enrolment_paid` until that payment is refunded. An enrolment waiting for approval is
+  approved or declined as a whole; a later day can be canceled on its own, but the priced first day
+  only with the whole enrolment (409 `program_first_day`). A schedule is canceled only once no one
+  holds a day still ahead (409 `program_enrolled`), so canceling it never takes a seat or money from anyone. Program days
+  have no waitlist: online waitlists refuse them and a freed seat promotes no one. A class seat is held once
+  per subject, or per client when there is none, so siblings can each take a seat in one session.
+  Removing an instructor (`POST /v1/staff/{id}/remove`) settles each of their schedules whole. Moved to a
+  member, a schedule goes to the first candidate who offers the class and is free for every session still
+  ahead, checked under the staff lock; its sessions (empty and booked), the `recurrences.staff_id` and the
+  bookings and add-ons on those sessions move together. When no candidate fits, the removal is refused with
+  409 `schedule_clash`, whose `detail` names the schedule, the first day that clashes and the problem
+  (`not_offered` when the member doesn't teach the class). Canceled instead, the enrolments on it are
+  canceled with their invoices voided, and the sessions ahead are canceled with the schedule.
 - **Receipts** list every line with its tax, and walk-in sales can take an email or phone for the receipt.
   Sales by item is a report with a CSV like the others.
 
@@ -695,7 +783,13 @@ entitlement and its liability are created.
 
 The rules the public booking page follows (lead time, how far ahead, the start-time step, approval for new
 clients) and the cancellation policy live in `businesses.booking_policy`, read and written through
-`/v1/online-booking`; members are hidden from the page with `staff.bookable_online`. Every booking gets a
+`/v1/online-booking`; members are hidden from the page with `staff.bookable_online`. A service or class
+can name the members who offer it in `items.staff_ids`, where an empty list means everyone. The catalog
+accepts only active members of the business there, and a member removed later stays listed while readers
+skip them. `PublicService.staff_ids` lists the online members who offer it, "any" chooses only among them,
+and every new booking, move to another member, series change and reassignment on removal checks the list,
+refusing with 422 `service_not_offered` (`not_offered` in a move check). A visit that stays with its member
+can still be moved or resized after that member stops offering the service. Every booking gets a
 `manage_token`, and the confirmation and reminder carry `book.D/m/<token>` on Connect, where the client can move
 or cancel within the cut-offs (`/manage/{token}`). The server enforces the cut-offs and the move limit and
 refunds a paid deposit on an allowed cancel. A booked visit whose deposit is still pending can be paid

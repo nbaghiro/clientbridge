@@ -8,12 +8,14 @@ import {
     type ItemRow,
     giftAmounts,
     groupByCategory,
+    idList,
     itemFormError,
     itemMeta,
     itemPayload,
     itemPriceLabel,
     itemStatus,
     matchesFilter,
+    offers,
     sellableItems,
     stockScale,
     stockState,
@@ -53,6 +55,8 @@ const base: ItemRow = {
     visits_per_period: null,
     member_discount_bps: null,
     gift_amounts: null,
+    staff_ids: null,
+    resource_ids: null,
 };
 
 const values: ItemFormValues = {
@@ -83,6 +87,9 @@ const values: ItemFormValues = {
     visitsPerPeriod: "",
     memberDiscount: "",
     giftAmounts: [],
+    staffIds: [],
+    resourceIds: [],
+    addon: false,
 };
 
 describe("stock", () => {
@@ -191,6 +198,11 @@ describe("item editor", () => {
             true,
         );
         expect(pkg).toMatchObject({ session_count: 5, covers_item_id: "it_bath" });
+        const camp = itemPayload(
+            { ...values, kind: "class", capacity: "10", sessionCount: "5" },
+            true,
+        );
+        expect(camp).toMatchObject({ capacity: 10, session_count: 5 });
         const club = itemPayload(
             { ...values, kind: "subscription", visitsPerPeriod: "2", memberDiscount: "10" },
             false,
@@ -199,6 +211,43 @@ describe("item editor", () => {
         expect(itemPayload({ ...values, kind: "gift", giftAmounts: [5000] }, true)).toMatchObject({
             gift_amounts: [5000],
         });
+    });
+
+    it("sends who offers a service, and never a product", () => {
+        const body = itemPayload({ ...values, staffIds: ["st_ana"] }, false);
+        expect(body.staff_ids).toEqual(["st_ana"]);
+        expect(itemPayload({ ...values, staffIds: [] }, false).staff_ids).toEqual([]);
+        expect(
+            itemPayload({ ...values, kind: "product", staffIds: ["st_ana"] }, true),
+        ).not.toHaveProperty("staff_ids");
+    });
+
+    it("sends the rooms a service needs, and never a product's", () => {
+        const body = itemPayload({ ...values, resourceIds: ["rs_one"] }, false);
+        expect(body.resource_ids).toEqual(["rs_one"]);
+        expect(
+            itemPayload({ ...values, kind: "product", resourceIds: ["rs_one"] }, true),
+        ).not.toHaveProperty("resource_ids");
+    });
+
+    it("sends an add-on product's minutes, and none for a plain product", () => {
+        const addon = { ...values, kind: "product", addon: true };
+        expect(itemPayload({ ...addon, duration: "30" }, false).duration_min).toBe(30);
+        expect(itemPayload({ ...addon, duration: "" }, false).duration_min).toBeNull();
+        expect(itemPayload({ ...values, kind: "product" }, false)).not.toHaveProperty(
+            "duration_min",
+        );
+        expect(itemFormError({ ...addon, duration: "-5" })).not.toBeNull();
+        expect(itemFormError({ ...addon, duration: "" })).toBeNull();
+    });
+
+    it("reads the members a service names, where none named means everyone", () => {
+        expect(idList('["st_ana","st_bo"]')).toEqual(["st_ana", "st_bo"]);
+        expect(idList("{st_ana,st_bo}")).toEqual(["st_ana", "st_bo"]);
+        expect(idList(null)).toEqual([]);
+        expect(offers([], "st_bo")).toBe(true);
+        expect(offers(["st_ana"], "st_ana")).toBe(true);
+        expect(offers(["st_ana"], "st_bo")).toBe(false);
     });
 
     it("sends a fixed deposit in cents and leaves the kind out on edit", () => {
@@ -212,6 +261,10 @@ describe("item editor", () => {
         expect(itemFormError({ ...values, duration: "" })).not.toBeNull();
         expect(itemFormError({ ...values, depositValue: "120" })).not.toBeNull();
         expect(itemFormError({ ...values, kind: "package", sessionCount: "" })).not.toBeNull();
+        expect(itemFormError({ ...values, kind: "class", capacity: "8" })).toBeNull();
+        expect(
+            itemFormError({ ...values, kind: "class", capacity: "8", sessionCount: "0" }),
+        ).not.toBeNull();
         expect(
             itemFormError({ ...values, kind: "package", sessionCount: "3", coversItemId: "" }),
         ).toBe("Choose which service a visit covers");

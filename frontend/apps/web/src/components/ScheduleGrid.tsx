@@ -20,8 +20,17 @@ import {
     BUSINESS_CURRENCY,
     useBusinessZone,
     formatTimeRange,
+    useCrewJob,
 } from "@clientbridge/app-core";
-import { Button, CalendarEventCard, Icon, IconButton } from "@clientbridge/ui";
+import {
+    Button,
+    CalendarEventCard,
+    Icon,
+    IconButton,
+    KeyValueList,
+    Modal,
+    Notice,
+} from "@clientbridge/ui";
 import { INTENT_COLORS, cssVar } from "@clientbridge/tokens";
 import {
     type PointerEvent as ReactPointerEvent,
@@ -30,6 +39,7 @@ import {
     useRef,
     useState,
 } from "react";
+import { api } from "../lib/api";
 import { SummaryStrip } from "./SummaryStrip";
 
 const s = strings.bookings;
@@ -278,6 +288,7 @@ export function BlockCard({
     if (span === null) return null;
     const { top, height } = span;
     const away = block.kind !== "break";
+    const job = block.kind === "job" ? (block.bookingId ?? null) : null;
     return (
         <div
             className={`pointer-events-none absolute inset-x-1 overflow-hidden rounded-md border px-2 py-1 text-xs ${
@@ -286,7 +297,7 @@ export function BlockCard({
             style={{ top, height: Math.max(18, height - 2), ...(away ? HATCH : {}) }}
         >
             <span className="flex items-center gap-1 font-medium text-ink-soft">
-                <Icon name={away ? "moon" : "clock"} size={12} />
+                <Icon name={job !== null ? "users" : away ? "moon" : "clock"} size={12} />
                 <span className="truncate">{block.label}</span>
             </span>
             {height > 34 ? (
@@ -294,7 +305,52 @@ export function BlockCard({
                     {formatTimeRange(block.start, block.end, zone)}
                 </span>
             ) : null}
+            {job !== null && height > 52 ? <JobDetails bookingId={job} /> : null}
         </div>
+    );
+}
+
+function JobDetails({ bookingId }: { bookingId: string }) {
+    const [open, setOpen] = useState(false);
+    return (
+        <span className="pointer-events-auto mt-0.5 block">
+            <Button
+                size="sm"
+                variant="link"
+                onPress={() => {
+                    setOpen(true);
+                }}
+            >
+                {s.crewJob}
+            </Button>
+            {open ? (
+                <JobModal
+                    bookingId={bookingId}
+                    onClose={() => {
+                        setOpen(false);
+                    }}
+                />
+            ) : null}
+        </span>
+    );
+}
+
+function JobModal({ bookingId, onClose }: { bookingId: string; onClose: () => void }) {
+    const { job, loading, error } = useCrewJob(api, bookingId);
+    return (
+        <Modal open onClose={onClose} size="sm">
+            <div className="space-y-3 p-5">
+                <h2 className="text-base font-semibold text-ink">{job?.title ?? s.crewJob}</h2>
+                {loading ? <p className="text-sm text-muted">{strings.common.loading}</p> : null}
+                {error !== null ? <Notice tone="danger">{error}</Notice> : null}
+                {job !== null ? (
+                    <KeyValueList
+                        layout="stack"
+                        rows={job.facts.map((f) => ({ label: f.label, value: f.value }))}
+                    />
+                ) : null}
+            </div>
+        </Modal>
     );
 }
 
@@ -345,7 +401,12 @@ export function useGridDrag({
         mode: "move" | "resize";
     } | null>(null);
     const justDragged = useRef(false);
-    const ctx = { avail: board.avail, events: board.weekEvents, staff: board.staff };
+    const ctx = {
+        avail: board.avail,
+        events: board.weekEvents,
+        staff: board.staff,
+        rooms: board.rooms,
+    };
 
     const compute = (
         event: ScheduleEvent,

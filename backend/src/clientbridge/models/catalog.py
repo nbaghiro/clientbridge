@@ -105,6 +105,14 @@ class Item(PKMixin, BusinessScoped, TimestampMixin, Base):
     addon_for: Mapped[list[str]] = mapped_column(
         ARRAY(String), default=list, server_default="{}", nullable=False
     )
+    # the staff who offer a service or class (empty = every member)
+    staff_ids: Mapped[list[str]] = mapped_column(
+        ARRAY(String), default=list, server_default="{}", nullable=False
+    )
+    # the rooms or equipment a service or class needs one of (empty = none)
+    resource_ids: Mapped[list[str]] = mapped_column(
+        ARRAY(String), default=list, server_default="{}", nullable=False
+    )
 
 
 class Package(PKMixin, BusinessScoped, TimestampMixin, Base):
@@ -116,6 +124,8 @@ class Package(PKMixin, BusinessScoped, TimestampMixin, Base):
 
     client_id: Mapped[str] = mapped_column(ForeignKey("clients.id"), nullable=False)
     item_id: Mapped[str] = mapped_column(ForeignKey("items.id"), nullable=False)
+    # the one subject whose visits it covers; null shares it across the client's subjects
+    subject_id: Mapped[str | None] = mapped_column(ForeignKey("subjects.id"))
     sessions_total: Mapped[int] = mapped_column(Integer, nullable=False)
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     status: Mapped[PackageStatus] = mapped_column(String, default="active", nullable=False)

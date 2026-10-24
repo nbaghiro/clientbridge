@@ -122,6 +122,11 @@ export function PublicReceipt() {
                             currency={receipt.currency}
                             density="compact"
                         />
+                        {page.businessLines.length > 0 ? (
+                            <p className="mt-4 text-center text-xs text-muted">
+                                {formatParts(page.businessLines)}
+                            </p>
+                        ) : null}
                     </div>
                     <div className="space-y-3 border-t border-dashed border-line bg-bg px-6 py-5 print:hidden">
                         <Button

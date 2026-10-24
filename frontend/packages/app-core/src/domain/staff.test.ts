@@ -6,7 +6,8 @@ import type { ApiLike } from "../api";
 import { strings } from "../strings";
 import type { OccurrenceRow } from "../ui";
 import { BRAND_COLOURS } from "./staff";
-import { removalOutcome, useStaffProfileForm } from "./staff";
+import { formatShortDay } from "../datetime";
+import { removalFailure, removalOutcome, useStaffProfileForm } from "./staff";
 
 const t = strings.staff.team;
 
@@ -27,6 +28,35 @@ const LEFT: OccurrenceRow = {
     state: t.removeLeftState,
     note: null,
 };
+
+describe("removalFailure", () => {
+    const ZONE = "America/Vancouver";
+    const camp = [{ id: "sch_camp", item_name: "Spring Camp" }];
+    const refused = (detail: Record<string, unknown>): Error =>
+        Object.assign(new Error("POST → 409"), { status: 409, code: "schedule_clash", detail });
+
+    it("names the class and the first day its taker isn't free", () => {
+        const day = "2027-03-03T18:00:00Z";
+        expect(
+            removalFailure(refused({ recurrence_id: "sch_camp", starts_at: day }), camp, ZONE),
+        ).toBe(t.removeScheduleClash("Spring Camp", formatShortDay(new Date(day), ZONE)));
+    });
+
+    it("says when the taker doesn't teach the class, or no day is named", () => {
+        const notTaught = refused({ recurrence_id: "sch_camp", problem: "not_offered" });
+        expect(removalFailure(notTaught, camp, ZONE)).toBe(
+            t.removeScheduleNotTaught("Spring Camp"),
+        );
+        expect(removalFailure(refused({ recurrence_id: "sch_other" }), camp, ZONE)).toBe(
+            t.removeScheduleBusy(t.removeSchedules),
+        );
+    });
+
+    it("reads any other refusal the usual way", () => {
+        const other = Object.assign(new Error("x"), { status: 409, code: "conflict" });
+        expect(removalFailure(other, camp, ZONE)).toBe(t.actionError);
+    });
+});
 
 describe("removalOutcome", () => {
     it("is null when nothing was left, moved or ended", () => {

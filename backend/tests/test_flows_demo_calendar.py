@@ -35,7 +35,7 @@ def test_demo_calendar_is_consistent_at_different_seed_dates(anchor: str) -> Non
             assert booking.completed_at >= slot.ends_at
             assert slot.ends_at < ctx.now
         if booking.status in {"pending", "confirmed"}:
-            assert slot.starts_at > ctx.now
+            assert slot.starts_at > ctx.now or booking.checked_in_at is not None
     for slot in slots.values():
         local = slot.starts_at.astimezone(BUSINESS_TIMEZONE)
         end = slot.ends_at.astimezone(BUSINESS_TIMEZONE)

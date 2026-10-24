@@ -14,6 +14,8 @@ from sqlalchemy import (
     SmallInteger,
     String,
     Time,
+    func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Mapped, mapped_column
@@ -38,10 +40,19 @@ class Slot(PKMixin, BusinessScoped, TimestampMixin, Base):
         enum_check("slots", "status", SlotStatus),
         Index("ix_slots_staff_start", "business_id", "staff_id", "starts_at"),
         Index("ix_slots_business_start", "business_id", "starts_at"),
+        Index(
+            "ix_slots_resource_start",
+            "business_id",
+            "resource_id",
+            "starts_at",
+            postgresql_where=text("resource_id IS NOT NULL"),
+        ),
     )
 
     item_id: Mapped[str] = mapped_column(ForeignKey("items.id"), nullable=False)
     staff_id: Mapped[str] = mapped_column(ForeignKey("staff.id"), nullable=False)
+    # the room or equipment the visit holds, one of its service's pool
+    resource_id: Mapped[str | None] = mapped_column(ForeignKey("resources.id"))
     recurrence_id: Mapped[str | None] = mapped_column(ForeignKey("recurrences.id"))
     starts_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     ends_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
@@ -139,6 +150,19 @@ class Hours(PKMixin, BusinessScoped, TimestampMixin, Base):
     starts_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))  # exception only
     ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     reason: Mapped[str | None] = mapped_column(String)
+
+
+class Resource(PKMixin, BusinessScoped, TimestampMixin, Base):
+    __tablename__ = "resources"
+    __table_args__ = (
+        Index("ux_resources_business_name", "business_id", func.lower(text("name")), unique=True),
+    )
+
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    # an inactive room keeps its visits and is offered for no new ones
+    active: Mapped[bool] = mapped_column(
+        Boolean, default=True, server_default="true", nullable=False
+    )
 
 
 class Recurrence(PKMixin, BusinessScoped, TimestampMixin, Base):

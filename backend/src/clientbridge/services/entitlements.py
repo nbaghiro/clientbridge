@@ -31,6 +31,7 @@ from clientbridge.schemas.entitlements import (
     SubscriptionOut,
 )
 from clientbridge.services import ledger
+from clientbridge.services.bookings import assert_subject
 from clientbridge.services.business import merchant_account
 from clientbridge.services.payments import (
     cancel_open_deposits,
@@ -309,6 +310,8 @@ class PackageService:
         self._assert_admin()
         client = await self._client(data.client_id)
         item = await self._item(data.item_id)
+        if data.subject_id is not None:
+            await assert_subject(self.db, self.biz, data.subject_id, client.id)
         if item.kind != "package":
             raise Conflict("item is not a package")
         if item.session_count is None:
@@ -348,6 +351,7 @@ class PackageService:
                 business_id=self.biz,
                 client_id=data.client_id,
                 item_id=item.id,
+                subject_id=data.subject_id,
                 sessions_total=sessions_total,
                 status="pending",
                 payment_id=payment.id,
@@ -441,6 +445,11 @@ class PackageService:
             covers = (await self._item(package.item_id)).covers_item_id
             if package.client_id != booking.client_id or covers not in (None, slot.item_id):
                 raise Conflict("this package is for another client or service")
+            if package.subject_id is not None and package.subject_id != booking.subject_id:
+                raise Unprocessable(
+                    "this package is for another of the client's subjects",
+                    code="package_other_subject",
+                )
             if package.status != "active" or (
                 package.expires_at is not None and package.expires_at <= now
             ):
@@ -516,6 +525,7 @@ async def _package_out(db: AsyncSession, package: Package) -> PackageOut:
         id=package.id,
         client_id=package.client_id,
         item_id=package.item_id,
+        subject_id=package.subject_id,
         sessions_total=package.sessions_total,
         sessions_used=await ledger.sessions_used(db, package),
         status=package.status,

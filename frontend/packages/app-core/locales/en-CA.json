@@ -237,6 +237,87 @@
     "api.businessUnavailable": {
         "message": "This business isn't taking bookings or orders right now."
     },
+    "api.packageOtherSubject": {
+        "message": "This package is for a different student, pet, vehicle or place on this client's account. Choose a shared package or the one for this visit."
+    },
+    "api.serviceNotOffered": {
+        "message": "That team member doesn't offer this service. Choose someone who does."
+    },
+    "api.visitNoRoom": {
+        "message": "The visit can't run that much longer, because the time after it is booked or outside working hours."
+    },
+    "api.crewBusy": {
+        "message": "That team member is busy then, away or outside their hours. Choose someone else or another time."
+    },
+    "api.resourceBusy": {
+        "message": "That room or piece of equipment is booked then. Choose another one or a different time."
+    },
+    "api.noResource": {
+        "message": "None of the rooms or equipment this service needs is free then. Choose a different time."
+    },
+    "api.resourceNotInPool": {
+        "message": "This service doesn't use that room or piece of equipment. Choose one it uses."
+    },
+    "api.resourceNameTaken": {
+        "message": "Another room or piece of equipment already has that name. Choose a different one."
+    },
+    "api.crewMember": {
+        "message": "That team member is already on this visit."
+    },
+    "api.crewBlock": {
+        "message": "This time is a visit the member helps on. Take them off the visit's crew instead."
+    },
+    "api.visitStarted": {
+        "message": "This visit has already started. Add helpers to a visit before it starts."
+    },
+    "api.visitNotBilled": {
+        "message": "This visit has no invoice or sale yet, so there is no receipt to print."
+    },
+    "api.visitUnpaid": {
+        "message": "This visit hasn't been paid yet. Its receipt is ready once a payment is recorded."
+    },
+    "api.programFull": {
+        "message": "One of the program's days is full, so it can't be booked."
+    },
+    "api.alreadyEnrolled": {
+        "message": "They're already enrolled in this program."
+    },
+    "api.programEnrol": {
+        "message": "A program is booked as a whole. Enrol them from its schedule under Programs."
+    },
+    "api.programFirstDay": {
+        "message": "A program's first day holds its price, so it's canceled with the whole enrolment."
+    },
+    "api.programEnrolled": {
+        "message": "Clients are enrolled in this program. Cancel their enrolments first."
+    },
+    "api.programClosed": {
+        "message": "This program isn't taking enrolments any more."
+    },
+    "api.programOver": {
+        "message": "This program has no days left to book."
+    },
+    "api.programDays": {
+        "message": "The weekdays and first day need to give the program exactly its number of days."
+    },
+    "api.scheduleConflict": {
+        "message": "The instructor is away, outside their hours or already booked on one of those days. Choose other days or another time."
+    },
+    "api.schedulePast": {
+        "message": "Choose a first day that's still ahead."
+    },
+    "api.classSchedule": {
+        "message": "This is a class schedule. Change or cancel it under Classes."
+    },
+    "api.enrolmentPaid": {
+        "message": "A payment was taken on this enrolment's invoice, so it can't be canceled until that payment is refunded.",
+        "description": "Refusing to cancel or decline a program enrolment whose invoice has money paid on it"
+    },
+    "api.addonLengthInUse": {
+        "message": "{count, plural, one {This add-on's length can't change while a visit carries it. Remove it from # upcoming visit first, or wait until it's done.} other {This add-on's length can't change while visits carry it. Remove it from # upcoming visits first, or wait until they're done.}}",
+        "description": "Refusing a change to an add-on product's length: count is how many upcoming, unbilled visits carry it",
+        "args": ["count"]
+    },
     "common.amountWithCurrency": {
         "message": "{amount} {currency}",
         "args": ["amount", "currency"],
@@ -310,6 +391,14 @@
     },
     "ui.copied": {
         "message": "Copied"
+    },
+    "ui.remove": {
+        "message": "Remove"
+    },
+    "ui.removeItem": {
+        "message": "Remove {item}",
+        "args": ["item"],
+        "description": "The accessible name of a remove button in a repeating group, such as “Remove Device 2”."
     },
     "ui.removeTag": {
         "message": "Remove {tag}",
@@ -1182,6 +1271,9 @@
     "billing.review.decline": {
         "message": "Mark declined"
     },
+    "billing.doc.title": {
+        "message": "Documents"
+    },
     "billing.doc.kinds.invoice": {
         "message": "Invoice"
     },
@@ -1214,6 +1306,10 @@
     "billing.doc.attachedEstimate": {
         "message": "Estimate email, {when}",
         "args": ["when"]
+    },
+    "billing.doc.attachedVisit": {
+        "message": "The client's visit page",
+        "description": "Where a visit receipt is also available to the client"
     },
     "billing.doc.notSentYet": {
         "message": "Not sent yet"
@@ -1259,6 +1355,26 @@
     },
     "printing.estimateNumber": {
         "message": "Estimate"
+    },
+    "printing.forInvoice": {
+        "message": "For invoice"
+    },
+    "printing.forSale": {
+        "message": "For sale"
+    },
+    "printing.practitioner": {
+        "message": "Practitioner",
+        "description": "On a visit receipt: who treated the client, with their credentials and registration number"
+    },
+    "printing.assistedBy": {
+        "message": "Assisted by",
+        "description": "On a visit receipt: the other members of the crew who worked on the visit with the practitioner"
+    },
+    "printing.serviceDate": {
+        "message": "Date of service"
+    },
+    "printing.service": {
+        "message": "Service"
     },
     "printing.item": {
         "message": "Item"
@@ -1310,6 +1426,16 @@
         "message": "Page {page, number} of {pages, number}",
         "args": ["page", "pages"]
     },
+    "printing.streetLine": {
+        "message": "{number} {street}",
+        "args": ["number", "street"],
+        "description": "The street line of the business's address on a printed document, like 1250 Main St"
+    },
+    "printing.unitStreetLine": {
+        "message": "{unit}-{number} {street}",
+        "args": ["unit", "number", "street"],
+        "description": "The street line with a unit, written the Canada Post way, like 4-1250 Main St"
+    },
     "printing.registration": {
         "message": "{first} · {second}",
         "args": ["first", "second"]
@@ -1324,6 +1450,9 @@
     },
     "printing.scanToPay": {
         "message": "Scan to pay"
+    },
+    "printing.amountPaid": {
+        "message": "Amount paid"
     },
     "printing.paidStamp": {
         "message": "Paid"
@@ -2428,6 +2557,21 @@
         "message": "Expired {when}",
         "args": ["when"]
     },
+    "entitlements.forSubject": {
+        "message": "{subject}: {balance}",
+        "args": ["subject", "balance"],
+        "description": "A package's sessions left, led by the student, pet or other subject it belongs to"
+    },
+    "entitlements.subjectShared": {
+        "message": "{kind, select, pet {Shared by all their pets} student {Shared by all their students} property {Shared by all their properties} site {Shared by all their sites} vehicle {Shared by all their vehicles} other {Shared}}",
+        "args": ["kind"],
+        "description": "kind is what the business books besides the client"
+    },
+    "entitlements.subjectHint": {
+        "message": "{kind, select, pet {A package for one pet covers only that pet's visits. A shared one covers any of them.} student {A package for one student covers only that student's lessons. A shared one covers any of them.} property {A package for one property covers only visits there. A shared one covers any of them.} site {A package for one site covers only visits there. A shared one covers any of them.} vehicle {A package for one vehicle covers only that vehicle's visits. A shared one covers any of them.} other {A shared package covers any visit.}}",
+        "args": ["kind"],
+        "description": "kind is what the business books besides the client"
+    },
     "entitlements.forRecipient": {
         "message": "For {name}",
         "args": ["name"]
@@ -2810,6 +2954,10 @@
     "bookings.problemClass": {
         "message": "A class moves as a whole from its session"
     },
+    "bookings.problemNotOffered": {
+        "message": "{who} doesn't offer this service",
+        "args": ["who"]
+    },
     "bookings.moved": {
         "message": "Moved to {when}. The client gets an updated confirmation.",
         "args": ["when"]
@@ -2879,6 +3027,13 @@
     },
     "bookings.noteAdd": {
         "message": "Add note"
+    },
+    "bookings.receipt": {
+        "message": "Receipt",
+        "description": "Opens the visit's receipt, which a client can send to their insurer"
+    },
+    "bookings.receiptLoading": {
+        "message": "Opening receipt"
     },
     "bookings.notePlaceholder": {
         "message": "Anything the team should know about this visit"
@@ -3326,6 +3481,82 @@
     },
     "bookings.addonRemoveError": {
         "message": "Couldn't remove this item. Please try again."
+    },
+    "bookings.addonAdd": {
+        "message": "Add to this visit"
+    },
+    "bookings.addonPick": {
+        "message": "Choose an add-on"
+    },
+    "bookings.addonAdds": {
+        "message": "Adds {n, number} min",
+        "args": ["n"]
+    },
+    "bookings.addonAddError": {
+        "message": "Couldn't add this item. Please try again."
+    },
+    "bookings.crewTitle": {
+        "message": "Crew"
+    },
+    "bookings.crewHint": {
+        "message": "Helpers on this visit are blocked on their calendars for its time."
+    },
+    "bookings.crewAdd": {
+        "message": "Add a helper"
+    },
+    "bookings.crewPick": {
+        "message": "Choose a team member"
+    },
+    "bookings.crewRemove": {
+        "message": "Remove"
+    },
+    "bookings.crewNone": {
+        "message": "No helpers yet."
+    },
+    "bookings.crewAddError": {
+        "message": "Couldn't add this helper. Please try again."
+    },
+    "bookings.crewRemoveError": {
+        "message": "Couldn't remove this helper. Please try again."
+    },
+    "bookings.crewLoadError": {
+        "message": "Couldn't load this visit's crew. Please try again."
+    },
+    "bookings.crewJob": {
+        "message": "Job details"
+    },
+    "bookings.crewClient": {
+        "message": "Client"
+    },
+    "bookings.crewWhen": {
+        "message": "When"
+    },
+    "bookings.crewWhere": {
+        "message": "Where"
+    },
+    "bookings.crewLead": {
+        "message": "Lead"
+    },
+    "bookings.problemCrew": {
+        "message": "Someone on this visit's crew is busy then"
+    },
+    "bookings.problemResource": {
+        "message": "None of the rooms or equipment this service needs is free then"
+    },
+    "bookings.resource": {
+        "message": "Room or equipment",
+        "description": "The label beside the room, table, car or equipment a visit holds"
+    },
+    "bookings.resourceChange": {
+        "message": "Change"
+    },
+    "bookings.resourceAll": {
+        "message": "All rooms and equipment",
+        "description": "The calendar filter showing every visit"
+    },
+    "bookings.resourceFilter": {
+        "message": "Room or equipment",
+        "description": "Names the calendar filter by room or equipment"
     },
     "bookings.invoiceVisit": {
         "message": "Create invoice"
@@ -3872,7 +4103,7 @@
         "message": "No classes coming up"
     },
     "classes.emptyClassesBody": {
-        "message": "Class sessions show here once someone books one, with their roster and waitlist."
+        "message": "Class sessions show here once someone books one or a program is scheduled, with their roster and waitlist."
     },
     "classes.rosterError": {
         "message": "Couldn't update the roster. Please try again."
@@ -3880,8 +4111,242 @@
     "classes.startsLater": {
         "message": "Check-in opens on the day of the class."
     },
+    "classes.sessionsTab": {
+        "message": "Sessions"
+    },
+    "classes.programDay": {
+        "message": "This day is part of {name}. Enrol and cancel from Programs.",
+        "args": ["name"]
+    },
+    "programs.tab": {
+        "message": "Programs"
+    },
+    "programs.newProgram": {
+        "message": "Schedule a program"
+    },
+    "programs.formTitle": {
+        "message": "Schedule a program"
+    },
+    "programs.formSubtitle": {
+        "message": "Lay out every day of a program before anyone enrols. Clients book all of its days at once, for one price."
+    },
+    "programs.program": {
+        "message": "Program"
+    },
+    "programs.pickProgram": {
+        "message": "Choose a program"
+    },
+    "programs.programHint": {
+        "message": "A class with a number of days. Set the days on the class in the catalog."
+    },
+    "programs.noPrograms": {
+        "message": "No class has a number of days yet. Set one on a class in the catalog to schedule it as a program."
+    },
+    "programs.pickInstructor": {
+        "message": "No active team member teaches this program. Choose who offers it on the class in the catalog."
+    },
+    "programs.instructor": {
+        "message": "Instructor"
+    },
+    "programs.firstDay": {
+        "message": "First day"
+    },
+    "programs.time": {
+        "message": "Starts at"
+    },
+    "programs.weekdays": {
+        "message": "Runs on"
+    },
+    "programs.pickDays": {
+        "message": "{n, plural, one {Choose a weekday and first day that give the program its # day.} other {Choose weekdays and a first day that give the program its # days.}}",
+        "args": ["n"]
+    },
+    "programs.summary": {
+        "message": "{n, plural, one {# day, on {first}} other {# days, {first} to {last}}}",
+        "args": ["n", "first", "last"]
+    },
+    "programs.rooms": {
+        "message": "{count, plural, one {Each day is held in {rooms}} other {Each day takes the first free of {rooms}}}",
+        "args": ["count", "rooms"]
+    },
+    "programs.daysCount": {
+        "message": "{n, plural, one {# day} other {# days}}",
+        "args": ["n"]
+    },
+    "programs.create": {
+        "message": "Schedule program"
+    },
+    "programs.close": {
+        "message": "Cancel"
+    },
+    "programs.created": {
+        "message": "{name} is scheduled. Clients can enrol online until shortly before its first day.",
+        "args": ["name"]
+    },
+    "programs.createError": {
+        "message": "Couldn't schedule the program. Please try again."
+    },
+    "programs.dates": {
+        "message": "{first} to {last}",
+        "args": ["first", "last"]
+    },
+    "programs.full": {
+        "message": "Full"
+    },
+    "programs.seatsLeft": {
+        "message": "{n, plural, one {# seat left} other {# seats left}}",
+        "args": ["n"]
+    },
+    "programs.enrolledCount": {
+        "message": "{n, plural, =0 {No one enrolled} other {# enrolled}}",
+        "args": ["n"]
+    },
+    "programs.emptyTitle": {
+        "message": "No programs coming up"
+    },
+    "programs.emptyBody": {
+        "message": "Schedule a program, such as a week of day camp, and clients enrol in all of its days at once."
+    },
+    "programs.loading": {
+        "message": "Loading programs"
+    },
+    "programs.loadError": {
+        "message": "Couldn't load programs"
+    },
+    "programs.days": {
+        "message": "Days"
+    },
+    "programs.enrolments": {
+        "message": "Enrolled"
+    },
+    "programs.emptyEnrolments": {
+        "message": "No one is enrolled yet."
+    },
+    "programs.enrolPlaceholder": {
+        "message": "{kind, select, pet {Enrol a client or pet} student {Enrol a client or student} property {Enrol a client or property} site {Enrol a client or site} vehicle {Enrol a client or vehicle} other {Enrol a client}}",
+        "args": ["kind"],
+        "description": "kind is what the business books besides the client: pet, student, property, site, vehicle, or none"
+    },
+    "programs.enrol": {
+        "message": "Enrol"
+    },
+    "programs.enrolled": {
+        "message": "{name} is enrolled for every day still ahead.",
+        "args": ["name"]
+    },
+    "programs.enrolError": {
+        "message": "Couldn't enrol them. Please try again."
+    },
+    "programs.attending": {
+        "message": "{of, plural, one {{n, number} of # day} other {{n, number} of # days}}",
+        "args": ["n", "of"]
+    },
+    "programs.away": {
+        "message": "Away {days}",
+        "args": ["days"]
+    },
+    "programs.cancelEnrolment": {
+        "message": "Cancel enrolment"
+    },
+    "programs.cancelEnrolmentTitle": {
+        "message": "Cancel {name}'s enrolment?",
+        "args": ["name"]
+    },
+    "programs.cancelEnrolmentBody": {
+        "message": "Every day still ahead is released and a paid deposit is refunded. They get one message listing the days."
+    },
+    "programs.keep": {
+        "message": "Keep"
+    },
+    "programs.canceledEnrolment": {
+        "message": "{name}'s enrolment is canceled.",
+        "args": ["name"]
+    },
+    "programs.cancelError": {
+        "message": "Couldn't cancel. Please try again."
+    },
+    "programs.cancelProgram": {
+        "message": "Cancel program"
+    },
+    "programs.cancelProgramTitle": {
+        "message": "Cancel {name}?",
+        "args": ["name"]
+    },
+    "programs.cancelProgramBody": {
+        "message": "Its days ahead come off the calendar. A program is canceled only once no one holds a day still ahead."
+    },
+    "programs.canceledProgram": {
+        "message": "{name} is canceled.",
+        "args": ["name"]
+    },
+    "programs.dayRoster": {
+        "message": "Roster for {day}",
+        "args": ["day"]
+    },
+    "programs.emptyDay": {
+        "message": "No one is booked on this day."
+    },
+    "programs.rosterError": {
+        "message": "Couldn't update the roster. Please try again."
+    },
+    "programs.startsLater": {
+        "message": "Check-in opens on the day."
+    },
     "reminders.subtitle": {
         "message": "What clients hear before a visit, and closing visits when the day is over."
+    },
+    "resources.subtitle": {
+        "message": "The rooms, tables, cars and equipment your services need. A visit is booked only when one it needs is free."
+    },
+    "resources.add": {
+        "message": "Add room or equipment"
+    },
+    "resources.name": {
+        "message": "Name"
+    },
+    "resources.namePlaceholder": {
+        "message": "Room 1"
+    },
+    "resources.nameRequired": {
+        "message": "Enter a name."
+    },
+    "resources.save": {
+        "message": "Save"
+    },
+    "resources.rename": {
+        "message": "Rename"
+    },
+    "resources.turnOff": {
+        "message": "Turn off"
+    },
+    "resources.turnOn": {
+        "message": "Turn back on"
+    },
+    "resources.off": {
+        "message": "Turned off. It isn't offered for new visits."
+    },
+    "resources.upcoming": {
+        "message": "{count, plural, =0 {No upcoming visits} one {# upcoming visit} other {# upcoming visits}}",
+        "args": ["count"]
+    },
+    "resources.offUpcoming": {
+        "message": "Turned off. {count, plural, one {# upcoming visit still uses it} other {# upcoming visits still use it}} until moved.",
+        "args": ["count"]
+    },
+    "resources.empty": {
+        "message": "No rooms or equipment yet"
+    },
+    "resources.emptyHint": {
+        "message": "Add one when a service needs a free room, table or car as well as a free person."
+    },
+    "resources.loading": {
+        "message": "Loading rooms and equipment"
+    },
+    "resources.loadError": {
+        "message": "Rooms and equipment could not be loaded. Please try again."
+    },
+    "resources.saveError": {
+        "message": "That change could not be saved. Please try again."
     },
     "reminders.remindersTitle": {
         "message": "Reminders"
@@ -4140,7 +4605,7 @@
         "message": "Only when staff send it"
     },
     "forms.sendManualHint": {
-        "message": "Send it from here when a client needs it."
+        "message": "Send it from here when a client needs it. Staff can also fill it in on a visit as a treatment note."
     },
     "forms.requireSignature": {
         "message": "Ask for a signature at the end"
@@ -4194,6 +4659,88 @@
     },
     "forms.done": {
         "message": "Done"
+    },
+    "forms.noAnswer": {
+        "message": "No answer"
+    },
+    "forms.answerYes": {
+        "message": "Yes"
+    },
+    "forms.answerNo": {
+        "message": "No"
+    },
+    "forms.answerAttached": {
+        "message": "File attached"
+    },
+    "forms.writtenAt": {
+        "message": "{date} at {time}",
+        "args": ["date", "time"],
+        "description": "When a treatment note was written, like October 7, 2026 at 3:20 p.m."
+    },
+    "forms.amendment": {
+        "message": "Amendment",
+        "description": "Marks a treatment note that corrects an earlier note on the same visit"
+    },
+    "forms.treatmentNotes": {
+        "message": "Treatment notes"
+    },
+    "forms.treatmentNote": {
+        "message": "Treatment note",
+        "description": "Opens a form staff fill in on a visit, such as a SOAP note"
+    },
+    "forms.writeNote": {
+        "message": "Write a treatment note"
+    },
+    "forms.amendNote": {
+        "message": "Amend"
+    },
+    "forms.amendTitle": {
+        "message": "Amend treatment note"
+    },
+    "forms.amendHint": {
+        "message": "The original note stays as it was. This one is saved after it, marked as an amendment."
+    },
+    "forms.noteForm": {
+        "message": "Form"
+    },
+    "forms.noteFinalHint": {
+        "message": "A treatment note can't be edited or deleted once it's saved. To correct it, add an amendment."
+    },
+    "forms.saveNote": {
+        "message": "Save note"
+    },
+    "forms.savingNote": {
+        "message": "Saving note"
+    },
+    "forms.noteFormMissing": {
+        "message": "Add a form that's sent by hand first, such as a SOAP note, in Forms."
+    },
+    "forms.noteSaveError": {
+        "message": "The note could not be saved. Please try again."
+    },
+    "forms.showNotes": {
+        "message": "Show treatment notes"
+    },
+    "forms.loadingNotes": {
+        "message": "Loading notes"
+    },
+    "forms.noNotes": {
+        "message": "No treatment notes yet."
+    },
+    "forms.notesPrivate": {
+        "message": "Only the practitioner who wrote a note and owners or admins can read it, and each read is recorded."
+    },
+    "forms.notesLoadError": {
+        "message": "The answers could not be loaded. Please try again."
+    },
+    "forms.clientForms": {
+        "message": "Forms and treatment notes"
+    },
+    "forms.noClientForms": {
+        "message": "No submitted forms yet."
+    },
+    "forms.viewAnswers": {
+        "message": "View answers"
     },
     "forms.errors.name-missing": {
         "message": "Give the form a name."
@@ -5181,9 +5728,6 @@
     "subjects.equipment.add": {
         "message": "Add device"
     },
-    "subjects.equipment.remove": {
-        "message": "Remove device"
-    },
     "subjects.equipment.item": {
         "message": "Device {n, number}",
         "args": ["n"]
@@ -5212,10 +5756,6 @@
     "subjects.equipment.modelRequired": {
         "message": "Add the model, or remove this device."
     },
-    "subjects.equipment.tooLong": {
-        "message": "Keep this under {max, number} characters.",
-        "args": ["max"]
-    },
     "subjects.equipment.serialShort": {
         "message": "S/N {serial}",
         "args": ["serial"]
@@ -5240,9 +5780,6 @@
     },
     "subjects.pickup.add": {
         "message": "Add person"
-    },
-    "subjects.pickup.remove": {
-        "message": "Remove person"
     },
     "subjects.pickup.item": {
         "message": "Person {n, number}",
@@ -6786,7 +7323,7 @@
         "message": "Choose a province or territory"
     },
     "business.onboarding.industry": {
-        "message": "{industry, select, petGrooming {Pet grooming and daycare} petCare {Dog walking and pet sitting} tutoring {Tutoring and lessons} cleaning {Home cleaning} landscaping {Landscaping and lawn care} security {Security, alarm and AV installs} detailing {Mobile car detailing} beauty {Hair and beauty} fitness {Fitness and personal training} wellness {Massage and wellness} photography {Photography} tattoo {Tattoo and piercing} other {Something else}}",
+        "message": "{industry, select, petGrooming {Pet grooming and daycare} petCare {Dog walking and pet sitting} tutoring {Tutoring and lessons} drivingSchool {Driving school} cleaning {Home cleaning} landscaping {Landscaping and lawn care} security {Security, alarm and AV installs} detailing {Mobile car detailing} beauty {Hair and beauty} fitness {Fitness and personal training} wellness {Massage and wellness} photography {Photography} tattoo {Tattoo and piercing} other {Something else}}",
         "args": ["industry"],
         "description": "The owner's line of work, chosen at signup from a list"
     },
@@ -7536,6 +8073,33 @@
         "message": "{count, plural, one {Their repeating series goes with the visits.} other {Their # repeating series go with the visits.}}",
         "args": ["count"]
     },
+    "staff.team.removeSchedules": {
+        "message": "Class schedules",
+        "description": "Heading over the member's class and program schedules when removing them, and the name of one whose class is unknown"
+    },
+    "staff.team.removeScheduleMoves": {
+        "message": "Moves whole",
+        "description": "A class schedule whose sessions ahead all move to the member chosen"
+    },
+    "staff.team.removeScheduleCancels": {
+        "message": "Sessions ahead are canceled"
+    },
+    "staff.team.removeScheduleNote": {
+        "message": "A class schedule moves with every session left. The member you choose needs to teach the class and be free for all of them."
+    },
+    "staff.team.removeScheduleClash": {
+        "message": "The member you chose isn't free for {name} on {day}. Choose someone else, or cancel the sessions.",
+        "description": "Refusing a removal: the member chosen to take a class schedule is busy or off on that day",
+        "args": ["name", "day"]
+    },
+    "staff.team.removeScheduleBusy": {
+        "message": "No member is free for every session of {name}. Choose someone else, or cancel the sessions.",
+        "args": ["name"]
+    },
+    "staff.team.removeScheduleNotTaught": {
+        "message": "The member you chose doesn't teach {name}. Choose someone who does, or cancel the sessions.",
+        "args": ["name"]
+    },
     "staff.team.removeFuture": {
         "message": "Upcoming visits"
     },
@@ -7985,11 +8549,39 @@
     "catalog.capacityHint": {
         "message": "How many clients can book one class."
     },
+    "catalog.programDays": {
+        "message": "Days in a program"
+    },
+    "catalog.programDaysHint": {
+        "message": "Leave empty for drop-in sessions. With a number of days, clients enrol in every day at once."
+    },
+    "catalog.programDaysInvalid": {
+        "message": "Set the program's days as a whole number, or leave it empty for drop-in sessions."
+    },
     "catalog.onlineBookable": {
         "message": "Clients can book this online"
     },
     "catalog.onlineBookableHint": {
         "message": "Shows on your booking page with the times you’re open."
+    },
+    "catalog.offeredBy": {
+        "message": "Who offers this"
+    },
+    "catalog.offeredByEveryone": {
+        "message": "Everyone on the team"
+    },
+    "catalog.offeredByHint": {
+        "message": "Only the people chosen here can be booked for it, online and on the schedule."
+    },
+    "catalog.needs": {
+        "message": "Needs",
+        "description": "The rooms or equipment a service needs one of"
+    },
+    "catalog.needsNothing": {
+        "message": "Nothing"
+    },
+    "catalog.needsHint": {
+        "message": "A visit is booked only when one of the chosen rooms or equipment is free as well as the person."
     },
     "catalog.depositNone": {
         "message": "None"
@@ -8083,6 +8675,18 @@
     },
     "catalog.costHint": {
         "message": "What you pay the supplier. Never shown to clients."
+    },
+    "catalog.sectionVisit": {
+        "message": "On a visit"
+    },
+    "catalog.addsToVisit": {
+        "message": "Adds to the visit (min)"
+    },
+    "catalog.addsToVisitHint": {
+        "message": "Booking this add-on makes the visit longer by these minutes, for each one added. Leave it blank if it takes no time."
+    },
+    "catalog.addsToVisitInvalid": {
+        "message": "Enter the minutes it adds as a whole number, or leave it blank"
     },
     "catalog.margin": {
         "message": "Margin"
@@ -10875,6 +11479,9 @@
     "publicReceipt.print": {
         "message": "Print or save as PDF"
     },
+    "publicReceipt.visitError": {
+        "message": "The receipt could not be loaded. Please try again."
+    },
     "publicReceipt.status.paid": {
         "message": "Paid"
     },
@@ -11263,6 +11870,27 @@
         "message": "Waitlist",
         "description": "Under a full class time that a client can join the waitlist for."
     },
+    "publicBooking.programDates": {
+        "message": "{first} to {last}",
+        "args": ["first", "last"]
+    },
+    "publicBooking.programDays": {
+        "message": "{n, plural, one {# day} other {# days}}",
+        "args": ["n"]
+    },
+    "publicBooking.programSeats": {
+        "message": "{n, plural, one {# seat left} other {# seats left}}",
+        "args": ["n"]
+    },
+    "publicBooking.programNone": {
+        "message": "No start dates are open right now."
+    },
+    "publicBooking.programPick": {
+        "message": "Start dates"
+    },
+    "publicBooking.programNote": {
+        "message": "One price covers every day, and you're booked into all of them together."
+    },
     "publicBooking.waitlistNotice": {
         "message": "This class is full. Join the waitlist and you'll be booked into the first seat that opens before it starts."
     },
@@ -11316,6 +11944,11 @@
     },
     "publicBooking.oftenAdded": {
         "message": "Often added"
+    },
+    "publicBooking.addsTime": {
+        "message": "Adds {length}",
+        "description": "Under an add-on that lengthens the visit, e.g. Adds 30 min",
+        "args": ["length"]
     },
     "publicBooking.addonsPaidLater": {
         "message": "Paid at your visit, not now"
@@ -12154,6 +12787,12 @@
     "publicManage.payment": {
         "message": "Your payment"
     },
+    "publicManage.receipt": {
+        "message": "Download receipt"
+    },
+    "publicManage.receiptBody": {
+        "message": "A receipt for this visit with your practitioner's name and credentials, for an insurance claim."
+    },
     "publicManage.directions": {
         "message": "Directions"
     },
@@ -12267,6 +12906,13 @@
     "publicManage.inDays": {
         "message": "{d, plural, one {in # day} other {in # days}}",
         "args": ["d"]
+    },
+    "publicManage.cancelProgram": {
+        "message": "Cancel enrolment"
+    },
+    "publicManage.cancelProgramTitle": {
+        "message": "{n, plural, one {Cancel this program?} other {Cancel all # days of this program?}}",
+        "args": ["n"]
     },
     "publicManage.cancelTitle": {
         "message": "Cancel this visit?"
@@ -12527,6 +13173,9 @@
     },
     "navigation.setupSections.services": {
         "message": "Services & products"
+    },
+    "navigation.setupSections.resources": {
+        "message": "Rooms & equipment"
     },
     "navigation.setupSections.team": {
         "message": "Team & hours"

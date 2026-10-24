@@ -14,6 +14,8 @@ import {
     type Photo,
     useAsyncAction,
     useBookingAddons,
+    useBookingCrew,
+    useVisitResource,
     useBookingPhotos,
     useDeparture,
     usePeoplePhotos,
@@ -32,6 +34,7 @@ import {
     useUndoCheckIn,
     itemMedia,
     useNoteComposer,
+    useBookingReceipt,
 } from "@clientbridge/app-core";
 import { SHADOW } from "@clientbridge/tokens";
 import { theme } from "@clientbridge/tokens/native";
@@ -57,6 +60,7 @@ import {
     TimeSlotPicker,
     Toggle,
     SearchSelect,
+    Select,
     IconButton,
 } from "@clientbridge/ui";
 import {
@@ -79,6 +83,8 @@ import {
 import { api } from "../lib/api";
 import { useViewer } from "../lib/auth";
 import { CheckInSheet } from "./CheckInSheet";
+import { DocumentPreview } from "./DocumentPreview";
+import { BookingTreatmentNotes } from "./TreatmentNotes";
 
 const c = theme.colors;
 const s = strings.bookings;
@@ -331,34 +337,47 @@ function Photos({ event }: { event: ScheduleEvent }) {
 
 function Addons({ event }: { event: ScheduleEvent }) {
     const addons = useBookingAddons(api, event, useViewer());
-    if (addons.addons.length === 0) return null;
+    const canAdd = addons.canEdit && addons.choices.length > 0;
+    if (addons.addons.length === 0 && !canAdd) return null;
     return (
         <DetailSection title={s.detailAddons}>
-            <View style={styles.card}>
-                {addons.addons.map((a, i) => (
-                    <View key={a.id} style={[styles.cardRow, i > 0 && styles.divider]}>
-                        <Icon name="bag" size={15} color={c.muted} />
-                        <Text style={[styles.flex, styles.addon]} numberOfLines={1}>
-                            {strings.common.quantityOf(a.quantity, a.description)}
-                        </Text>
-                        <Text style={styles.money}>
-                            {formatMoney(a.quantity * a.unit_amount_cents, BUSINESS_CURRENCY)}
-                        </Text>
-                        {addons.canEdit ? (
-                            <Button
-                                style={{ alignSelf: "center" }}
-                                size="sm"
-                                variant="link"
-                                onPress={() => {
-                                    addons.remove(a.id);
-                                }}
-                            >
-                                {s.addonRemove}
-                            </Button>
-                        ) : null}
-                    </View>
-                ))}
-            </View>
+            {addons.addons.length > 0 ? (
+                <View style={styles.card}>
+                    {addons.addons.map((a, i) => (
+                        <View key={a.id} style={[styles.cardRow, i > 0 && styles.divider]}>
+                            <Icon name="bag" size={15} color={c.muted} />
+                            <Text style={[styles.flex, styles.addon]} numberOfLines={1}>
+                                {strings.common.quantityOf(a.quantity, a.description)}
+                            </Text>
+                            <Text style={styles.money}>
+                                {formatMoney(a.quantity * a.unit_amount_cents, BUSINESS_CURRENCY)}
+                            </Text>
+                            {addons.canEdit ? (
+                                <Button
+                                    style={{ alignSelf: "center" }}
+                                    size="sm"
+                                    variant="link"
+                                    onPress={() => {
+                                        addons.remove(a.id);
+                                    }}
+                                >
+                                    {s.addonRemove}
+                                </Button>
+                            ) : null}
+                        </View>
+                    ))}
+                </View>
+            ) : null}
+            {canAdd ? (
+                <Select
+                    label={s.addonAdd}
+                    size="sm"
+                    value=""
+                    placeholder={s.addonPick}
+                    options={addons.choices}
+                    onChange={addons.add}
+                />
+            ) : null}
             <Text style={styles.hint}>
                 {s.addonsTotal(formatMoney(addons.totalCents, BUSINESS_CURRENCY))}
             </Text>
@@ -377,6 +396,100 @@ function Addons({ event }: { event: ScheduleEvent }) {
                 <Text style={styles.hint}>{s.visitInvoiced}</Text>
             ) : null}
             {addons.error !== null ? <Notice tone="danger">{addons.error}</Notice> : null}
+        </DetailSection>
+    );
+}
+
+function Room({ event }: { event: ScheduleEvent }) {
+    const room = useVisitResource(api, event);
+    if (room === null) return null;
+    return (
+        <DetailSection title={room.label}>
+            {room.picker !== null ? (
+                <Select
+                    label={room.picker.label}
+                    options={room.picker.options}
+                    value={room.picker.value}
+                    onChange={room.picker.pick}
+                    disabled={room.busy}
+                />
+            ) : (
+                <Text style={styles.addon}>{room.name ?? s.problemResource}</Text>
+            )}
+            {room.error !== null ? <Notice tone="danger">{room.error}</Notice> : null}
+        </DetailSection>
+    );
+}
+
+function Crew({ event }: { event: ScheduleEvent }) {
+    const crew = useBookingCrew(api, event, useViewer());
+    if (!crew.shown) return null;
+    return (
+        <DetailSection title={s.crewTitle}>
+            {crew.members.length > 0 ? (
+                <View style={styles.card}>
+                    {crew.members.map((m, i) => (
+                        <View key={m.id} style={[styles.cardRow, i > 0 && styles.divider]}>
+                            <Icon name="user" size={15} color={c.muted} />
+                            <Text style={[styles.flex, styles.addon]} numberOfLines={1}>
+                                {m.name}
+                            </Text>
+                            {crew.canEdit ? (
+                                <Button
+                                    style={{ alignSelf: "center" }}
+                                    size="sm"
+                                    variant="link"
+                                    busy={crew.busy}
+                                    onPress={() => {
+                                        crew.remove(m.id);
+                                    }}
+                                >
+                                    {s.crewRemove}
+                                </Button>
+                            ) : null}
+                        </View>
+                    ))}
+                </View>
+            ) : (
+                <Text style={styles.hint}>{s.crewNone}</Text>
+            )}
+            {crew.canEdit && crew.options.length > 0 ? (
+                <Select
+                    label={s.crewAdd}
+                    size="sm"
+                    value=""
+                    placeholder={s.crewPick}
+                    options={crew.options}
+                    onChange={crew.add}
+                />
+            ) : null}
+            <Text style={styles.hint}>{s.crewHint}</Text>
+            {crew.error !== null ? <Notice tone="danger">{crew.error}</Notice> : null}
+        </DetailSection>
+    );
+}
+
+function Documents({ event }: { event: ScheduleEvent }) {
+    const receipt = useBookingReceipt(api, event, useViewer(), c.accent);
+    if (!receipt.available) return null;
+    const doc = receipt.doc;
+    return (
+        <DetailSection title={strings.billing.doc.title}>
+            <View style={styles.invoice}>
+                <Button
+                    size="sm"
+                    variant="outline"
+                    icon="receipt"
+                    busy={receipt.busy}
+                    onPress={receipt.open}
+                >
+                    {receipt.busy ? s.receiptLoading : s.receipt}
+                </Button>
+            </View>
+            {receipt.error !== null ? <Notice tone="danger">{receipt.error}</Notice> : null}
+            {doc !== null ? (
+                <DocumentPreview doc={doc} shareUrl={null} onClose={receipt.close} />
+            ) : null}
         </DetailSection>
     );
 }
@@ -567,8 +680,12 @@ export function BookingBody({ detail }: { detail: BookingDetail }) {
                     ) : null}
                 </DetailSection>
             ) : null}
+            <Room key={`room:${e.id}`} event={e} />
             {e.bookingId !== null ? <Photos event={e} /> : null}
             {e.bookingId !== null ? <Addons event={e} /> : null}
+            {e.bookingId !== null ? <Crew key={e.bookingId} event={e} /> : null}
+            {e.bookingId !== null ? <Documents event={e} /> : null}
+            {e.bookingId !== null ? <BookingTreatmentNotes key={e.bookingId} event={e} /> : null}
             {detail.history.length > 0 ? (
                 <DetailSection title={s.detailHistory}>
                     <ActivityTimeline entries={detail.history} />
@@ -579,19 +696,10 @@ export function BookingBody({ detail }: { detail: BookingDetail }) {
 }
 
 function BookingNoteBox({ bookingId }: { bookingId: string }) {
-    const [open, setOpen] = useState(false);
-    const composer = useNoteComposer(api, { bookingId }, () => {
-        setOpen(false);
-    });
-    if (!open)
+    const composer = useNoteComposer(api, { bookingId });
+    if (!composer.open)
         return (
-            <Button
-                size="sm"
-                variant="outline"
-                onPress={() => {
-                    setOpen(true);
-                }}
-            >
+            <Button size="sm" variant="outline" onPress={composer.show}>
                 {s.noteAdd}
             </Button>
         );
@@ -607,14 +715,7 @@ function BookingNoteBox({ bookingId }: { bookingId: string }) {
                 autoFocus
             />
             <View style={styles.photoActions}>
-                <Button
-                    size="sm"
-                    variant="outline"
-                    grow
-                    onPress={() => {
-                        setOpen(false);
-                    }}
-                >
+                <Button size="sm" variant="outline" grow onPress={composer.cancel}>
                     {strings.common.cancel}
                 </Button>
                 <Button
@@ -1013,6 +1114,15 @@ export function BookingComposerSheet({
                                 value={form.staffId}
                                 onChange={form.setStaffId}
                             />
+
+                            {form.resource !== null ? (
+                                <Select
+                                    label={form.resource.label}
+                                    value={form.resource.value}
+                                    options={form.resource.options}
+                                    onChange={form.resource.pick}
+                                />
+                            ) : null}
 
                             <Text style={styles.label}>{s.composerDate}</Text>
                             <DateStrip

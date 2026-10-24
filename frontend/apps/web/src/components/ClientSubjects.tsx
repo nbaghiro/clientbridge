@@ -30,6 +30,7 @@ import {
     LoadFailed,
     Modal,
     Notice,
+    RepeatingGroup,
     Skeleton,
     TextField,
     DateField,
@@ -112,54 +113,19 @@ function SubjectFields({ form }: { form: SubjectForm }) {
                 );
             })}
             {form.equipment !== null ? (
-                <div className="sm:col-span-2">
-                    <EquipmentFields form={form} equipment={form.equipment} />
-                </div>
-            ) : null}
-            {form.pickups !== null ? (
-                <div className="sm:col-span-2">
-                    <PickupFields form={form} pickups={form.pickups} />
-                </div>
-            ) : null}
-        </div>
-    );
-}
-
-/** A site's installed devices, one group of fields per device. */
-function EquipmentFields({
-    form,
-    equipment,
-}: {
-    form: SubjectForm;
-    equipment: NonNullable<SubjectForm["equipment"]>;
-}) {
-    const zone = useBusinessZone();
-    return (
-        <section className="space-y-3 border-t border-line-soft pt-4">
-            <div>
-                <h3 className="font-display text-base font-bold text-ink">{s.equipment.title}</h3>
-                <p className="text-sm text-muted">{s.equipment.hint}</p>
-            </div>
-            {equipment.map((device, i) => (
-                <div key={i} className="rounded-lg border border-line p-3">
-                    <div className="mb-2 flex items-center justify-between">
-                        <span className="text-sm font-semibold text-ink">
-                            {s.equipment.item(i + 1)}
-                        </span>
-                        <Button
-                            size="sm"
-                            variant="quiet"
-                            label={s.equipment.remove}
-                            icon={<Icon name="trash" size={14} />}
-                            onPress={() => {
-                                form.removeEquipment(i);
-                            }}
-                        >
-                            {s.equipment.remove}
-                        </Button>
-                    </div>
-                    <div className="grid gap-3 sm:grid-cols-2">
-                        {EQUIPMENT_FIELDS.map((f) => {
+                <RepeatingGroup
+                    className="sm:col-span-2"
+                    title={s.equipment.title}
+                    hint={s.equipment.hint}
+                    items={form.equipment}
+                    itemLabel={s.equipment.item}
+                    addLabel={s.equipment.add}
+                    onAdd={form.addEquipment}
+                    onRemove={form.removeEquipment}
+                    max={EQUIPMENT_MAX}
+                >
+                    {(device, i) =>
+                        EQUIPMENT_FIELDS.map((f) => {
                             const error = form.errors[`equipment.${String(i)}.${f.key}`];
                             return f.type === "date" ? (
                                 <DateField
@@ -186,57 +152,24 @@ function EquipmentFields({
                                     error={error}
                                 />
                             );
-                        })}
-                    </div>
-                </div>
-            ))}
-            {equipment.length < EQUIPMENT_MAX ? (
-                <Button
-                    variant="outline"
-                    icon={<Icon name="plus" size={16} />}
-                    onPress={form.addEquipment}
-                >
-                    {s.equipment.add}
-                </Button>
+                        })
+                    }
+                </RepeatingGroup>
             ) : null}
-        </section>
-    );
-}
-
-/** A student's people allowed to collect them, one group of fields per person. */
-function PickupFields({
-    form,
-    pickups,
-}: {
-    form: SubjectForm;
-    pickups: NonNullable<SubjectForm["pickups"]>;
-}) {
-    return (
-        <section className="space-y-3 border-t border-line-soft pt-4">
-            <div>
-                <h3 className="font-display text-base font-bold text-ink">{s.pickup.title}</h3>
-                <p className="text-sm text-muted">{s.pickup.hint}</p>
-            </div>
-            {pickups.map((person, i) => (
-                <div key={i} className="rounded-lg border border-line p-3">
-                    <div className="mb-2 flex items-center justify-between">
-                        <span className="text-sm font-semibold text-ink">
-                            {s.pickup.item(i + 1)}
-                        </span>
-                        <Button
-                            size="sm"
-                            variant="quiet"
-                            label={s.pickup.remove}
-                            icon={<Icon name="trash" size={14} />}
-                            onPress={() => {
-                                form.removePickup(i);
-                            }}
-                        >
-                            {s.pickup.remove}
-                        </Button>
-                    </div>
-                    <div className="grid gap-3 sm:grid-cols-2">
-                        {PICKUP_PERSON_FIELDS.map((f) => (
+            {form.pickups !== null ? (
+                <RepeatingGroup
+                    className="sm:col-span-2"
+                    title={s.pickup.title}
+                    hint={s.pickup.hint}
+                    items={form.pickups}
+                    itemLabel={s.pickup.item}
+                    addLabel={s.pickup.add}
+                    onAdd={form.addPickup}
+                    onRemove={form.removePickup}
+                    max={PICKUP_PEOPLE_MAX}
+                >
+                    {(person, i) =>
+                        PICKUP_PERSON_FIELDS.map((f) => (
                             <TextField
                                 key={f.key}
                                 label={f.label}
@@ -249,20 +182,11 @@ function PickupFields({
                                 }}
                                 error={form.errors[`pickups.${String(i)}.${f.key}`]}
                             />
-                        ))}
-                    </div>
-                </div>
-            ))}
-            {pickups.length < PICKUP_PEOPLE_MAX ? (
-                <Button
-                    variant="outline"
-                    icon={<Icon name="plus" size={16} />}
-                    onPress={form.addPickup}
-                >
-                    {s.pickup.add}
-                </Button>
+                        ))
+                    }
+                </RepeatingGroup>
             ) : null}
-        </section>
+        </div>
     );
 }
 

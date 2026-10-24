@@ -34,12 +34,20 @@ class BookingCreate(Mirror):
         default=None,
         description="An accepted estimate whose product lines join the visit as add-ons",
     )
+    resource_id: str | None = Field(
+        default=None,
+        description="The room or equipment from the service's pool; the first free one if unset",
+    )
 
 
 class BookingMove(BaseModel):
     starts_at: datetime | None = None
     ends_at: datetime | None = Field(default=None, description="A new end resizes the visit")
     staff_id: str | None = Field(default=None, description="Moves the visit to another member")
+    resource_id: str | None = Field(
+        default=None,
+        description="Another free room or equipment from the pool; unset keeps or switches it",
+    )
 
 
 class BookingPatch(BookingMove, Mirror):
@@ -51,7 +59,9 @@ class BookingPatch(BookingMove, Mirror):
     )
 
 
-Problem = Literal["past", "closed", "time_off", "off_hours", "overlap", "class"]
+Problem = Literal[
+    "past", "closed", "time_off", "off_hours", "overlap", "class", "not_offered", "crew", "resource"
+]
 
 
 class BookingCheck(BaseModel):
@@ -61,6 +71,12 @@ class BookingCheck(BaseModel):
     problem: Problem | None = None
     reason: str | None = Field(default=None, description="The closure or time-off reason")
     message: str | None = None
+    resource_id: str | None = Field(
+        default=None, description="The room or equipment the visit would hold there"
+    )
+    free_resource_ids: list[str] = Field(
+        default_factory=list, description="The rooms or equipment it could switch to there"
+    )
 
 
 class ReminderPreview(BaseModel):
@@ -112,6 +128,7 @@ class BookingOut(Mirror):
     checked_in_at: datetime | None
     starts_at: datetime
     ends_at: datetime
+    resource_id: str | None = None
 
 
 class VisitOut(Mirror):
@@ -361,6 +378,36 @@ class OnlineBookingPatch(BaseModel):
     policy: BookingPolicyPatch | None = None
     services: dict[str, bool] | None = Field(default=None, description="Service id: bookable")
     staff: dict[str, bool] | None = Field(default=None, description="Member id: shown online")
+
+
+class AddonAdd(BaseModel):
+    item_id: str = Field(description="An active product; its minutes lengthen the visit")
+    quantity: int = Field(default=1, ge=1, le=99)
+
+
+class CrewAdd(BaseModel):
+    staff_id: str = Field(description="A member to help on the visit, blocked for its window")
+
+
+class CrewMember(BaseModel):
+    staff_id: str
+    name: str | None
+
+
+class CrewOut(BaseModel):
+    """A visit as its crew sees it: the job, its lead and the helpers on it."""
+
+    booking_id: str
+    status: BookingStatus
+    lead_id: str | None
+    lead_name: str | None
+    service: str
+    client_name: str
+    address: str | None
+    starts_at: datetime
+    ends_at: datetime
+    members: list[CrewMember] = Field(description="The helpers, in the order they were added")
+    can_edit: bool = Field(description="The viewer can add and remove helpers")
 
 
 class AddonOffer(Mirror):

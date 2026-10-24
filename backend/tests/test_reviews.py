@@ -194,7 +194,7 @@ async def test_request_rejects_mismatched_client(
     await _configure(db)
     data = {
         "client_id": await new_client(db),
-        "booking_id": await _booking(db, await client_id(db)),
+        "booking_id": await _booking(db, await new_client(db, name="Other Client")),
     }
     assert (await as_owner.post("/v1/reviews/request", json=data)).status_code == 404
 

@@ -7,6 +7,7 @@ from clientbridge.models.billing import Estimate, Invoice
 from clientbridge.models.catalog import Item, ItemKind
 from clientbridge.models.clients import Client, Subject
 from clientbridge.models.documents import Signature
+from clientbridge.models.payments import Payment
 from clientbridge.models.platform import File
 from clientbridge.models.scheduling import Booking, BookingStatus, Slot
 from clientbridge.schemas.subjects import Building, Equipment, SiteAttributes
@@ -43,8 +44,10 @@ NVR8, NVR16, SWITCH, CABLE, JBOX = (
     "it_nl_cable_run",
     "it_nl_junction_box",
 )
+MOUNT = "it_nl_second_mount"
 REMOTE, MAINTENANCE = "it_nl_remote_viewing", "it_nl_maintenance"
 SURVEY_FORM, HANDOVER_FORM = "frm_nl_site_survey", "frm_nl_handover"
+FEEDBACK_FORM = "frm_nl_feedback"
 AGREEMENT, NOTICE = "con_nl_agreement", "con_nl_surveillance"
 PLAN_AGREEMENT = "con_nl_maintenance"
 
@@ -179,6 +182,16 @@ ITEMS: tuple[tuple[str, ItemKind, str, int, int | None, str, str], ...] = (
         None,
         "Network",
         "Weatherproof base that hides the cable joint behind a camera.",
+    ),
+    (
+        MOUNT,
+        "product",
+        "Second camera mount",
+        8900,
+        30,
+        "Mounting",
+        "A second bracket and cable run for one camera, so it can be moved between two views. "
+        "Adds about 30 minutes to the install.",
     ),
     (
         REMOTE,
@@ -433,6 +446,19 @@ SURVEY_FIELDS: tuple[DocField, ...] = (
     ("goals", "longtext", "Anything else we should know?", None, False, ()),
     ("photo_front", "image", "A photo of the front of the building", None, False, ()),
     ("photo_side", "image", "A photo of the side or back entrance", None, False, ()),
+)
+FEEDBACK_FIELDS: tuple[DocField, ...] = (
+    ("rating", "rating", "How was your install?", None, True, ()),
+    (
+        "highlights",
+        "multiselect",
+        "What went well?",
+        None,
+        False,
+        ("On time", "Tidy cable runs", "Camera placement", "App setup", "Explained the system"),
+    ),
+    ("comments", "longtext", "Anything we could do better?", None, False, ()),
+    ("follow_up", "checkbox", "You can contact me about this", None, False, ()),
 )
 HANDOVER_FIELDS: tuple[DocField, ...] = (
     ("install_date", "date", "Install date", None, True, ()),
@@ -1005,7 +1031,6 @@ SPEC = BusinessSpec(
         "address": "2860 Quadra Street, Victoria, BC V8T 4E7",
         "phone": "+1 250-555-0198",
         "email": "hello@northlight.example",
-        "website": "https://northlight.example",
         "neighbourhood": "Quadra Village",
     },
     booking_policy={
@@ -1015,7 +1040,7 @@ SPEC = BusinessSpec(
         "reschedule_cutoff_hours": 48,
     },
     subject="site",
-    sms_number="+12505550998",
+    sms_number="+12365550199",
     gst_hst_number="781934625RT0001",
     pst_number="PST10427788",
     forms=(
@@ -1027,6 +1052,7 @@ SPEC = BusinessSpec(
             HANDOVER_FIELDS,
             require_signature=True,
         ),
+        FormSpec(FEEDBACK_FORM, "Install feedback", "ff_nl_feedback_", FEEDBACK_FIELDS),
     ),
     contracts=(
         ContractSpec(
@@ -1047,10 +1073,22 @@ SPEC = BusinessSpec(
         Stage("Estimate sent with optional lines", "rajesh", ("est_nl_rajesh",)),
         Stage("Accepted estimate ready for Book the install", "ruth", ("est_nl_ruth",)),
         Stage("Install booked from its estimate, deposit paid", "claire", ("bk_nl_claire",)),
+        Stage("Add-on that lengthens the install", "simon", ("bk_nl_simon", "bka_bk_nl_simon_6")),
+        Stage(
+            "Two-person install",
+            "claire",
+            ("av_nl_crew_claire", "bk_nl_harbourbikes", "av_nl_crew_harbourbikes"),
+        ),
         Stage("Today's install, on site", "owen", ("bk_nl_owen",)),
         Stage("Today's install, on the way", "meilin", ("bk_nl_meilin",)),
         Stage("Installed and paid by Tap to Pay", "sarah", ("bk_nl_sarah", "ord_nl_sarah")),
         Stage("Commercial client with two sites, overdue", "islandstorage"),
+        Stage("Unused part refunded after the install", "nora", ("inv_nl_nora",)),
+        Stage(
+            "Five-star and four-star install feedback",
+            "sarah",
+            ("fr_nl_feedback_sarah", "fr_nl_feedback_marco"),
+        ),
         Stage("Warranty call on a camera nearing its end date", "fiona", ("bk_nl_fiona_warranty",)),
         Stage("Declined estimate", "gordon", ("est_nl_gordon",)),
         Stage("Cancelled survey", "natalie", ("bk_nl_natalie_survey",)),
@@ -1118,6 +1156,7 @@ class Northlight(Demo):
         self.households()
         self.storyline()
         self.history()
+        self.refund_story()
         self.upcoming()
         self.plans()
         self.engagement()
@@ -1259,6 +1298,7 @@ class Northlight(Demo):
         spots: tuple[str, ...] = CAMERA_SPOTS,
         handover: bool = True,
         online: bool = False,
+        helper: str | None = None,
     ) -> Booking | None:
         site_id = site or f"sj_nl_{client_key}"
         survey = self.survey(
@@ -1269,7 +1309,13 @@ class Northlight(Demo):
         estimate, booked = self.quoted(key, client_key, survey, quote)
         earliest = booked + timedelta(days=2)
         start = self.place(
-            installer, quote.service, install_day, site_id, past=True, not_before=earliest
+            installer,
+            quote.service,
+            install_day,
+            site_id,
+            past=True,
+            not_before=earliest,
+            helper=helper,
         ) or self.place(
             installer,
             quote.service,
@@ -1278,6 +1324,7 @@ class Northlight(Demo):
             past=True,
             not_before=earliest,
             forward=True,
+            helper=helper,
         )
         if start is None:
             return None
@@ -1285,6 +1332,8 @@ class Northlight(Demo):
             key, client_key, quote.service, installer, start, "completed", booked, subject=site_id
         )
         assert booking.completed_at is not None
+        if helper is not None:
+            assert self.helper_on(booking, helper)
         if booking.deposit_amount_cents:
             self.deposit(booking, booked + timedelta(minutes=10))
         address = self.ctx.get(Subject, site_id).attributes.get("address", "")
@@ -1438,13 +1487,19 @@ class Northlight(Demo):
             )
         )
         # accepted with a signed agreement and the install booked, deposit paid
-        claire_quote = Quote(HOME, ((TURRET, 4), (BULLET, 1), (NVR8, 1), (CABLE, 5), (JBOX, 4)))
+        claire_quote = Quote(
+            HOME, ((TURRET, 4), (BULLET, 1), (NVR8, 1), (CABLE, 5), (JBOX, 4), (MOUNT, 1))
+        )
         claire_survey = self.survey("claire", "claire", -16)
         assert claire_survey is not None
         estimate, booked = self.quoted("claire", "claire", claire_survey, claire_quote)
-        start = self.place(LIAM, HOME, 6, "sj_nl_claire", past=False)
+        extra = self.extra_minutes(claire_quote)
+        start = self.place(LIAM, HOME, 6, "sj_nl_claire", past=False, extra_min=extra, helper=AVA)
         assert start is not None
-        claire = self.book("claire", "claire", HOME, LIAM, start, "confirmed", booked)
+        claire = self.book(
+            "claire", "claire", HOME, LIAM, start, "confirmed", booked, extra_min=extra
+        )
+        assert self.helper_on(claire, AVA)
         self.addons(claire, estimate, claire_quote)
         self.deposit(claire, booked + timedelta(minutes=10))
         # accepted and waiting to be booked, for Book the install
@@ -1519,14 +1574,16 @@ class Northlight(Demo):
             note="Draft from yesterday's survey.",
         )
         simon_quote = Quote(
-            HOME, ((TURRET, 3), (BULLET, 1), (DOORBELL, 1), (NVR8, 1), (CABLE, 5), (JBOX, 4))
+            HOME,
+            ((TURRET, 3), (BULLET, 1), (DOORBELL, 1), (NVR8, 1), (CABLE, 5), (JBOX, 4), (MOUNT, 2)),
         )
         simon_survey = self.survey("simon", "simon", -18)
         assert simon_survey is not None
         estimate, booked = self.quoted("simon", "simon", simon_survey, simon_quote)
-        start = self.place(AVA, HOME, 14, "sj_nl_simon", past=False)
+        extra = self.extra_minutes(simon_quote)
+        start = self.place(AVA, HOME, 14, "sj_nl_simon", past=False, extra_min=extra)
         assert start is not None
-        simon = self.book("simon", "simon", HOME, AVA, start, "confirmed", booked)
+        simon = self.book("simon", "simon", HOME, AVA, start, "confirmed", booked, extra_min=extra)
         self.addons(simon, estimate, simon_quote)
         diane = self.survey("diane", "diane", 5, online=True, status="confirmed", lead_days=4)
         assert diane is not None
@@ -1723,6 +1780,7 @@ class Northlight(Demo):
                 settle=settle,
                 site=site,
                 spots=SHOP_SPOTS,
+                helper=LIAM if key == "harbourbikes" else None,
             )
             assert booking is not None
             if key == client_key:
@@ -1876,6 +1934,7 @@ class Northlight(Demo):
             self.at(-185, 10),
         )
         self.conversations()
+        self.feedback_stories()
         for key in (
             "sarah",
             "ingrid",
@@ -1894,6 +1953,61 @@ class Northlight(Demo):
             ),
         ):
             self.review(key)
+
+    def refund_story(self) -> None:
+        """Nora's install used one junction box fewer than quoted, so it was refunded."""
+        booking = self.ctx.get(Booking, "bk_nl_nora")
+        payment = next(p for p in self.ctx.all(Payment) if p.invoice_id == booking.invoice_id)
+        assert payment.paid_at is not None
+        when = payment.paid_at + timedelta(days=2, hours=3)
+        self.refund(
+            payment,
+            3248,
+            when,
+            "One junction box unused: the soffit camera's cable runs straight into the attic.",
+        )
+        self.note(
+            self.client_id("nora"),
+            "client",
+            "Refunded one junction box with GST and PST ($32.48). The soffit camera didn't need "
+            "one.",
+            when,
+        )
+
+    def feedback_stories(self) -> None:
+        for key, rating, highlights, comment in (
+            (
+                "sarah",
+                5,
+                ["On time", "Camera placement", "App setup"],
+                "Liam showed us how to find a clip in the app before he left. Very tidy work.",
+            ),
+            ("ingrid", 5, ["Tidy cable runs", "Explained the system"], None),
+            (
+                "marco",
+                4,
+                ["Camera placement", "App setup"],
+                "Happy with the cameras. The cable along the back siding is more visible than we "
+                "expected.",
+            ),
+        ):
+            booking = self.ctx.get(Booking, f"bk_nl_{key}")
+            assert booking.completed_at is not None
+            answers: dict[str, object] = {"rating": rating, "highlights": highlights}
+            if comment:
+                answers["comments"] = comment
+            submitted = min(
+                booking.completed_at + timedelta(hours=26), self.now - timedelta(hours=2)
+            )
+            self.response(
+                "feedback",
+                key,
+                FEEDBACK_FORM,
+                booking,
+                answers,
+                submitted,
+                created=booking.completed_at + timedelta(hours=2),
+            )
 
     def conversations(self) -> None:
         ctx = self.ctx

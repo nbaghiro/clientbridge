@@ -60,6 +60,7 @@ import {
     SubjectSheet,
     TagSheet,
 } from "../components/ClientSheets";
+import { ClientFormsSection } from "../components/TreatmentNotes";
 import { api } from "../lib/api";
 import { useRole, useViewer } from "../lib/auth";
 import { useOpenLink } from "../lib/links";
@@ -738,6 +739,7 @@ function RecordSheet({
                     <NoteLine key={note.id} note={note} manager={manager} />
                 ))}
             </DetailSection>
+            <ClientFormsSection key={cl.id} clientId={cl.id} manager={manager} />
             {manager ? (
                 <DetailSection
                     title={r.wallet}

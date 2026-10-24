@@ -258,7 +258,7 @@ async def test_invoice_for_a_visit_includes_its_add_ons(
     res = await as_owner.post(f"/v1/invoices/from-booking/{ADDON_BOOKING}", headers=_key())
     assert res.status_code == 201, res.text
     lines = res.json()["lines"]
-    assert [ln["booking_id"] for ln in lines] == [ADDON_BOOKING, None]
+    assert [ln["booking_id"] for ln in lines] == [ADDON_BOOKING, ADDON_BOOKING]
     assert lines[1]["item_id"] == SHAMPOO
     booking = await db.get(Booking, ADDON_BOOKING, populate_existing=True)
     assert booking is not None and booking.invoice_id == res.json()["id"]

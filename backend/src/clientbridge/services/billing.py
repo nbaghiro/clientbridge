@@ -10,7 +10,7 @@ from clientbridge.core.command import Command, run_command
 from clientbridge.core.deps import Principal, assert_role
 from clientbridge.core.errors import Conflict, NotFound, Unprocessable
 from clientbridge.core.ids import new_id
-from clientbridge.core.locale import locale_for, message
+from clientbridge.core.locale import locale_for, message, plural
 from clientbridge.core.scoping import scoped
 from clientbridge.models.billing import Estimate, EstimateStatus, Invoice, Line, Order
 from clientbridge.models.business import Business
@@ -27,8 +27,9 @@ from clientbridge.schemas.billing import (
     InvoiceUpdate,
     LineInput,
 )
+from clientbridge.schemas.orders import VisitReceipt
 from clientbridge.services import ledger
-from clientbridge.services.bookings import apply_deposit, hold_estimate, unapply_deposit
+from clientbridge.services.bookings import apply_deposit, hold_estimate, is_program, unapply_deposit
 from clientbridge.services.business import business_tz, businesses_at_hour
 from clientbridge.services.ledger import invoice_status_expr
 from clientbridge.services.lines import (
@@ -83,7 +84,7 @@ class BillingService:
             if data.send:
                 if not lines:
                     raise Unprocessable("add a line before sending the invoice")
-                await self._issue_invoice(invoice, cmd)
+                await issue_invoice(self.db, invoice, cmd)
             return await invoice_out(self.db, invoice, await self._lines("invoice", invoice.id))
 
         return await run_command(
@@ -131,7 +132,7 @@ class BillingService:
 
         async def run(cmd: Command) -> InvoiceOut:
             if invoice.status == "draft":
-                await self._issue_invoice(invoice, cmd)
+                await issue_invoice(self.db, invoice, cmd)
             else:
                 cmd.record("invoice.resend", entity_type="invoice", entity_id=invoice.id)
             return await invoice_out(self.db, invoice, await self._lines("invoice", invoice.id))
@@ -156,35 +157,6 @@ class BillingService:
             self.db, self.principal, action="invoice.remind", run=run, response_model=InvoiceOut
         )
 
-    async def _issue_invoice(self, invoice: Invoice, cmd: Command) -> None:
-        """Number, date and post a draft invoice; its tax is fixed here and matches its journal."""
-        now = clock.now()
-        invoice.number = await self._next_number(Invoice)
-        invoice.status = "sent"
-        invoice.issued_at = now
-        invoice.pay_token = secrets.token_urlsafe(16)
-        if invoice.due_at is None:
-            invoice.due_at = now + timedelta(days=_DUE_DAYS)
-        lines = await self._lines("invoice", invoice.id)
-        tax = await tax_for_lines(self.db, self.biz, lines)
-        apply_totals(invoice, tax)
-        try:
-            await self.db.flush()  # the unique (business_id, number) backstops a concurrent send
-        except IntegrityError as exc:
-            raise Conflict("that number was just assigned — please retry") from exc
-        await ledger.post_invoice(self.db, invoice, tax)
-        await self._apply_deposits(invoice)
-        for booking in await self._bookings(invoice):
-            if booking.order_id is not None:
-                sale = await self.db.get(Order, booking.order_id)
-                if sale is not None and sale.status != "void":
-                    raise Conflict("this visit is already on a sale")
-            booking.invoice_id = booking.invoice_id or invoice.id
-            await close_settled_visit(
-                self.db, booking, "booking.complete_on_invoice", invoice_id=invoice.id
-            )
-        cmd.record("invoice.send", entity_type="invoice", entity_id=invoice.id)
-
     async def void_invoice(self, invoice_id: str) -> InvoiceOut:
         self._assert_admin()
         invoice = await self._invoice(invoice_id)
@@ -193,42 +165,14 @@ class BillingService:
             raise Conflict(f"a {status} invoice can't be voided")
 
         async def run(cmd: Command) -> InvoiceOut:
-            pending = await self.db.execute(
-                scoped(Payment, self.biz)
-                .with_only_columns(Payment.id)
-                .where(Payment.invoice_id == invoice.id, Payment.status == "pending")
-                .limit(1)
-            )
-            if pending.scalar_one_or_none() is not None:
+            if await payment_pending(self.db, invoice):
                 raise Conflict("this invoice has a payment in progress")
-            invoice.status = "void"
-            invoice.voided_at = clock.now()
-            await self.db.flush()
-            await ledger.void_invoice(self.db, invoice)
-            for booking in await self._bookings(invoice):
-                await unapply_deposit(self.db, booking, invoice.id)
-            cmd.record("invoice.void", entity_type="invoice", entity_id=invoice.id)
+            await void_issued(self.db, invoice, cmd)
             return await invoice_out(self.db, invoice, await self._lines("invoice", invoice.id))
 
         return await run_command(
             self.db, self.principal, action="invoice.void", run=run, response_model=InvoiceOut
         )
-
-    async def _bookings(self, invoice: Invoice) -> list[Booking]:
-        rows = await self.db.execute(
-            scoped(Booking, self.biz)
-            .join(Line, Line.booking_id == Booking.id)
-            .where(Line.invoice_id == invoice.id)
-            .distinct()
-        )
-        return list(rows.scalars().all())
-
-    async def _apply_deposits(self, invoice: Invoice) -> None:
-        applied = False
-        for booking in await self._bookings(invoice):
-            applied = await apply_deposit(self.db, booking, invoice) or applied
-        if applied:
-            await sync_invoice(self.db, invoice.id)
 
     async def create_estimate(
         self, data: EstimateCreate, idempotency_key: str | None
@@ -316,7 +260,7 @@ class BillingService:
         )
 
     async def _issue_estimate(self, estimate: Estimate, cmd: Command) -> None:
-        estimate.number = await self._next_number(Estimate)
+        estimate.number = await next_number(self.db, self.biz, Estimate)
         estimate.status = "sent"
         estimate.view_token = secrets.token_urlsafe(16)
         if estimate.valid_until is None:
@@ -433,62 +377,9 @@ class BillingService:
         """A draft invoice for one visit and its add-ons; a booking is invoiced once."""
         self._assert_admin()
         booking = await self._booking(booking_id)
-        slot = await self.db.get(Slot, booking.slot_id)
-        item = await self.db.get(Item, slot.item_id) if slot is not None else None
-        addons = (
-            (
-                await self.db.execute(
-                    scoped(Addon, self.biz)
-                    .where(Addon.booking_id == booking.id)
-                    .order_by(Addon.created_at, Addon.id)
-                )
-            )
-            .scalars()
-            .all()
-        )
-        locale = locale_for(
-            business=await self.db.get(Business, self.biz),
-            client=await self.db.get(Client, booking.client_id),
-        )
-        inputs = [
-            LineInput(
-                description=item.name
-                if item is not None
-                else message(locale, "invoice_line.visit"),
-                quantity=1,
-                unit_amount_cents=booking.price_cents,
-                item_id=item.id if item is not None else None,
-                booking_id=booking.id,
-            ),
-            *(
-                LineInput(
-                    description=a.description,
-                    quantity=a.quantity,
-                    unit_amount_cents=a.unit_amount_cents,
-                    item_id=a.item_id,
-                )
-                for a in addons
-            ),
-        ]
 
         async def run(cmd: Command) -> InvoiceOut:
-            if booking.invoice_id is not None:
-                prior = await self.db.get(Invoice, booking.invoice_id)
-                if prior is not None and prior.status != "void":
-                    raise Conflict("this visit already has an invoice")
-            invoice = Invoice(
-                id=new_id("invoice"),
-                business_id=self.biz,
-                client_id=booking.client_id,
-                status="draft",
-                currency=item.currency if item is not None else "CAD",
-            )
-            self.db.add(invoice)
-            await self.db.flush()
-            lines = await self._replace_lines("invoice", invoice, inputs)
-            await self._apply_totals(invoice, lines)
-            booking.invoice_id = invoice.id
-            await self.db.flush()
+            invoice, lines = await draft_for_booking(self.db, booking)
             cmd.record("invoice.create", entity_type="invoice", entity_id=invoice.id)
             return await invoice_out(self.db, invoice, lines)
 
@@ -501,6 +392,18 @@ class BillingService:
             idempotency_key=idempotency_key,
             request={"booking_id": booking_id},
         )
+
+    async def visit_receipt(self, booking_id: str) -> VisitReceipt:
+        assert_role(
+            self.principal, "owner", "admin", message="only an owner or admin can print receipts"
+        )
+        booking = await self._booking(booking_id)
+        business = await self.db.get(Business, self.biz)
+        if business is None:
+            raise NotFound("business not found")
+        from clientbridge.services.public import visit_receipt
+
+        return await visit_receipt(self.db, booking, business)
 
     async def _booking(self, booking_id: str) -> Booking:
         row = (
@@ -536,16 +439,6 @@ class BillingService:
     async def _lines(self, parent: LineParent, parent_id: str) -> list[Line]:
         return await fetch_lines(self.db, self.biz, parent, parent_id)
 
-    async def _next_number(self, model: type[Invoice] | type[Estimate]) -> int:
-        await self.db.execute(
-            select(
-                func.pg_advisory_xact_lock(
-                    func.hashtextextended(f"number:{self.biz}:{model.__tablename__}", 0)
-                )
-            )
-        )
-        return await peek_number(self.db, self.biz, model)
-
     async def _client(self, client_id: str) -> Client:
         row = (
             await self.db.execute(
@@ -574,6 +467,171 @@ class BillingService:
         if row is None:
             raise NotFound("estimate not found")
         return row
+
+
+async def next_number(
+    db: AsyncSession, business_id: str, model: type[Invoice] | type[Estimate]
+) -> int:
+    await db.execute(
+        select(
+            func.pg_advisory_xact_lock(
+                func.hashtextextended(f"number:{business_id}:{model.__tablename__}", 0)
+            )
+        )
+    )
+    return await peek_number(db, business_id, model)
+
+
+async def invoice_bookings(db: AsyncSession, invoice: Invoice) -> list[Booking]:
+    rows = await db.execute(
+        scoped(Booking, invoice.business_id)
+        .join(Line, Line.booking_id == Booking.id)
+        .where(Line.invoice_id == invoice.id)
+        .distinct()
+    )
+    return list(rows.scalars().all())
+
+
+async def booking_lines(db: AsyncSession, booking: Booking) -> tuple[list[LineInput], Item | None]:
+    """A visit's lines: its service, named with its day count for a program, then its add-ons."""
+    slot = await db.get(Slot, booking.slot_id)
+    item = await db.get(Item, slot.item_id) if slot is not None else None
+    addons = await db.scalars(
+        scoped(Addon, booking.business_id)
+        .where(Addon.booking_id == booking.id)
+        .order_by(Addon.created_at, Addon.id)
+    )
+    locale = locale_for(
+        business=await db.get(Business, booking.business_id),
+        client=await db.get(Client, booking.client_id),
+    )
+    if item is None:
+        description = message(locale, "invoice_line.visit")
+    elif is_program(item) and item.session_count is not None:
+        description = plural(locale, "invoice_line.program", item.session_count, program=item.name)
+    else:
+        description = item.name
+    return [
+        LineInput(
+            description=description,
+            quantity=1,
+            unit_amount_cents=booking.price_cents,
+            item_id=item.id if item is not None else None,
+            booking_id=booking.id,
+        ),
+        *(
+            LineInput(
+                description=a.description,
+                quantity=a.quantity,
+                unit_amount_cents=a.unit_amount_cents,
+                item_id=a.item_id,
+                booking_id=booking.id,
+                staff_id=a.staff_id or booking.staff_id,
+            )
+            for a in addons
+        ),
+    ], item
+
+
+async def draft_for_booking(db: AsyncSession, booking: Booking) -> tuple[Invoice, list[Line]]:
+    """The visit's draft invoice, refused while an earlier one stands."""
+    if booking.invoice_id is not None:
+        prior = await db.get(Invoice, booking.invoice_id)
+        if prior is not None and prior.status != "void":
+            raise Conflict("this visit already has an invoice")
+    inputs, item = await booking_lines(db, booking)
+    invoice = Invoice(
+        id=new_id("invoice"),
+        business_id=booking.business_id,
+        client_id=booking.client_id,
+        status="draft",
+        currency=item.currency if item is not None else "CAD",
+    )
+    db.add(invoice)
+    await db.flush()
+    lines = await replace_lines(db, booking.business_id, "invoice", invoice.id, inputs, invoice)
+    apply_totals(
+        invoice, included_totals(lines, await tax_for_lines(db, booking.business_id, lines))
+    )
+    booking.invoice_id = invoice.id
+    await db.flush()
+    return invoice, lines
+
+
+async def issue_invoice(db: AsyncSession, invoice: Invoice, cmd: Command) -> None:
+    """Number, date and post a draft invoice; its tax is fixed here and matches its journal."""
+    biz = invoice.business_id
+    now = clock.now()
+    invoice.number = await next_number(db, biz, Invoice)
+    invoice.status = "sent"
+    invoice.issued_at = now
+    invoice.pay_token = secrets.token_urlsafe(16)
+    if invoice.due_at is None:
+        invoice.due_at = now + timedelta(days=_DUE_DAYS)
+    lines = await fetch_lines(db, biz, "invoice", invoice.id)
+    tax = await tax_for_lines(db, biz, lines)
+    apply_totals(invoice, tax)
+    try:
+        await db.flush()  # the unique (business_id, number) backstops a concurrent send
+    except IntegrityError as exc:
+        raise Conflict("that number was just assigned — please retry") from exc
+    await ledger.post_invoice(db, invoice, tax)
+    bookings = await invoice_bookings(db, invoice)
+    applied = False
+    for booking in bookings:
+        applied = await apply_deposit(db, booking, invoice) or applied
+    if applied:
+        await sync_invoice(db, invoice.id)
+    for booking in bookings:
+        if booking.order_id is not None:
+            sale = await db.get(Order, booking.order_id)
+            if sale is not None and sale.status != "void":
+                raise Conflict("this visit is already on a sale")
+        booking.invoice_id = booking.invoice_id or invoice.id
+        await close_settled_visit(db, booking, "booking.complete_on_invoice", invoice_id=invoice.id)
+    cmd.record("invoice.send", entity_type="invoice", entity_id=invoice.id)
+
+
+async def payment_pending(db: AsyncSession, invoice: Invoice) -> bool:
+    pending = await db.scalar(
+        scoped(Payment, invoice.business_id)
+        .with_only_columns(Payment.id)
+        .where(Payment.invoice_id == invoice.id, Payment.status == "pending")
+        .limit(1)
+    )
+    return pending is not None
+
+
+async def void_issued(db: AsyncSession, invoice: Invoice, cmd: Command) -> None:
+    """Void an invoice and reverse its journal, handing any applied deposit back to its visit."""
+    invoice.status = "void"
+    invoice.voided_at = clock.now()
+    await db.flush()
+    await ledger.void_invoice(db, invoice)
+    for booking in await invoice_bookings(db, invoice):
+        await unapply_deposit(db, booking, invoice.id)
+    cmd.record("invoice.void", entity_type="invoice", entity_id=invoice.id)
+
+
+async def issue_enrolment_invoice(db: AsyncSession, first: Booking, cmd: Command) -> Invoice:
+    """Bill a program enrolment on its first day, which carries the price, due when it starts."""
+    invoice, _ = await draft_for_booking(db, first)
+    invoice.due_at = first.starts_at
+    cmd.record("invoice.create", entity_type="invoice", entity_id=invoice.id)
+    await issue_invoice(db, invoice, cmd)
+    return invoice
+
+
+async def void_enrolment_invoice(db: AsyncSession, first: Booking, cmd: Command) -> bool:
+    """Void a canceled enrolment's invoice; False once money was taken on it, for a refund."""
+    invoice = await db.get(Invoice, first.invoice_id) if first.invoice_id is not None else None
+    if invoice is None or invoice.status != "sent":
+        return True
+    cash, _ = await ledger.collected(db, invoice.business_id, "invoice", invoice.id)
+    if cash != 0 or await payment_pending(db, invoice):
+        return False
+    await void_issued(db, invoice, cmd)
+    return True
 
 
 def _tax_class(value: str) -> TaxClass:

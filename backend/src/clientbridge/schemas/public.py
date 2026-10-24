@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 from clientbridge.core.mirrors import Mirror
 from clientbridge.core.phones import Phone
-from clientbridge.models.business import Staff, SubjectKind
+from clientbridge.models.business import Business, ProvinceCode, Staff, SubjectKind
 from clientbridge.models.catalog import Item, ItemKind
 from clientbridge.models.scheduling import Booking, BookingStatus, DepositStatus
 
@@ -26,6 +26,19 @@ class PublicBrand(BaseModel):
     tagline: str | None = None
 
 
+class PublicAddress(Mirror):
+    """The business's legal street address, as its documents print it; unset parts are None."""
+
+    mirrors = Business
+
+    unit: str | None = None
+    street_number: str | None = None
+    street_name: str | None = None
+    city: str | None = None
+    province: ProvinceCode | None = None
+    postal_code: str | None = None
+
+
 class PublicService(Mirror):
     mirrors = Item
 
@@ -42,6 +55,9 @@ class PublicService(Mirror):
     category: str | None = None
     color: str | None = None
     staff_ids: list[str] = Field(default_factory=list, description="Who can be booked for it")
+    session_count: int | None = Field(
+        default=None, description="A program's days, booked together from its start dates"
+    )
 
 
 class PublicStaff(Mirror):
@@ -68,6 +84,9 @@ class PublicAddon(Mirror):
     in_stock: bool = True
     addon_for: list[str] = Field(
         default_factory=list, description="Services it is offered with; empty means all"
+    )
+    duration_min: int | None = Field(
+        default=None, description="Minutes it adds to a visit, times its quantity"
     )
 
 
@@ -115,6 +134,30 @@ class PublicSlot(BaseModel):
 
 class PublicSlots(BaseModel):
     slots: list[PublicSlot]
+
+
+class PublicProgramDay(BaseModel):
+    starts_at: datetime
+    ends_at: datetime
+
+
+class PublicBookedDay(BaseModel):
+    booking_id: str
+    starts_at: datetime
+    ends_at: datetime
+
+
+class PublicProgram(BaseModel):
+    """One run of a program a client can enrol in: every day still has a seat."""
+
+    starts_at: datetime = Field(description="The first day's start, which books the program")
+    staff_id: str
+    days: list[PublicProgramDay]
+    seats_left: int = Field(description="The fewest seats left on any of its days")
+
+
+class PublicPrograms(BaseModel):
+    programs: list[PublicProgram]
 
 
 class PublicDay(BaseModel):
@@ -187,6 +230,9 @@ class ManagedBooking(Mirror):
     timezone: str = Field(description="The business's IANA time zone, which its times are shown in")
     can_move: bool
     can_cancel: bool
+    has_receipt: bool = Field(
+        default=False, description="The visit's invoice or sale is paid, so it has a receipt"
+    )
     blocked: ManageBlock | None = Field(
         default=None, description="Why a change is refused online, as a code Connect words"
     )
@@ -195,6 +241,9 @@ class ManagedBooking(Mirror):
     )
     waitlist_position: int | None = Field(
         default=None, description="Where a waitlisted client stands; 1 is seated first"
+    )
+    program_days: int | None = Field(
+        default=None, description="For a program, the enrolment's days a cancel releases"
     )
 
 
@@ -249,6 +298,12 @@ class PublicBookingResult(Mirror):
     )
     waitlist_position: int | None = Field(
         default=None, description="Where a waitlisted client stands; 1 is seated first"
+    )
+    booking_ids: list[str] = Field(
+        default_factory=list, description="Every day booked, for a program enrolment"
+    )
+    days: list[PublicBookedDay] = Field(
+        default_factory=list, description="When each day of a program enrolment is, in order"
     )
 
 

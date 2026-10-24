@@ -14,6 +14,7 @@ export { ListPage } from "./ListPage";
 export { Money } from "./Money";
 export { Modal } from "./Modal";
 export { Panel } from "./Panel";
+export { RepeatingGroup } from "./RepeatingGroup";
 export { Tabs } from "./Tabs";
 export { Button } from "./Button";
 export { Choice } from "./Choice";

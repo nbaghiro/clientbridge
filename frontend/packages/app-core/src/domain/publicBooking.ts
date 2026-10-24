@@ -58,6 +58,8 @@ interface PublicService {
     category: string | null;
     color: string | null;
     staff_ids: string[];
+    // a program's days, booked together from its start dates
+    session_count?: number | null;
 }
 
 /** Price and length of a service, e.g. "$45.00 · 60 min". */
@@ -86,6 +88,8 @@ interface PublicAddon {
     description: string | null;
     in_stock: boolean;
     addon_for: string[];
+    // minutes it adds to the visit, times its quantity
+    duration_min?: number | null;
 }
 
 interface PublicPolicy {
@@ -118,6 +122,13 @@ interface OpenSlot {
     waitlist: boolean;
 }
 
+interface PublicProgram {
+    starts_at: string;
+    staff_id: string;
+    days: { starts_at: string; ends_at: string }[];
+    seats_left: number;
+}
+
 interface DayOpenings {
     date: string;
     count: number;
@@ -134,6 +145,8 @@ interface PublicBookingResult {
     deposit_client_secret: string | null;
     stripe_account_id: string | null;
     waitlist_position: number | null;
+    // each day of a program enrolment, in order; empty for one visit
+    days?: { booking_id: string; starts_at: string; ends_at: string }[];
 }
 
 interface BookingInput {
@@ -161,11 +174,11 @@ interface PublicBookingClient {
     getServices: (slug: string) => Promise<PublicBookingPage>;
     getDays: (
         slug: string,
-        q: { itemId: string; staffId: string; from: string; days: number },
+        q: { itemId: string; staffId: string; from: string; days: number; extraMin?: number },
     ) => Promise<DayOpenings[]>;
     getSlots: (
         slug: string,
-        q: { itemId: string; staffId: string; date: string },
+        q: { itemId: string; staffId: string; date: string; extraMin?: number },
     ) => Promise<OpenSlot[]>;
     book: (
         slug: string,
@@ -177,6 +190,7 @@ interface PublicBookingClient {
         input: BookingInput,
         idempotencyKey: string,
     ) => Promise<PublicBookingResult>;
+    getPrograms: (slug: string, q: { itemId: string; staffId: string }) => Promise<PublicProgram[]>;
 }
 
 function bookingBody(input: BookingInput): string {
@@ -198,18 +212,20 @@ export function createPublicBookingClient(baseUrl: string): PublicBookingClient 
     const at = (slug: string): string => `${baseUrl}/book/${encodeURIComponent(slug)}`;
     return {
         getServices: (slug) => request<PublicBookingPage>(`${at(slug)}/services`),
-        getDays: async (slug, { itemId, staffId, from, days }) => {
+        getDays: async (slug, { itemId, staffId, from, days, extraMin = 0 }) => {
             const q = new URLSearchParams({
                 item_id: itemId,
                 staff_id: staffId,
                 from,
                 days: String(days),
             });
+            if (extraMin > 0) q.set("extra_min", String(extraMin));
             return (await request<{ days: DayOpenings[] }>(`${at(slug)}/days?${q.toString()}`))
                 .days;
         },
-        getSlots: async (slug, { itemId, staffId, date }) => {
+        getSlots: async (slug, { itemId, staffId, date, extraMin = 0 }) => {
             const q = new URLSearchParams({ item_id: itemId, staff_id: staffId, date });
+            if (extraMin > 0) q.set("extra_min", String(extraMin));
             return (await request<{ slots: OpenSlot[] }>(`${at(slug)}/slots?${q.toString()}`))
                 .slots;
         },
@@ -225,6 +241,12 @@ export function createPublicBookingClient(baseUrl: string): PublicBookingClient 
                 headers: { "Content-Type": "application/json", "Idempotency-Key": idempotencyKey },
                 body: bookingBody(input),
             }),
+        getPrograms: async (slug, { itemId, staffId }) => {
+            const q = new URLSearchParams({ item_id: itemId, staff_id: staffId });
+            return (
+                await request<{ programs: PublicProgram[] }>(`${at(slug)}/programs?${q.toString()}`)
+            ).programs;
+        },
     };
 }
 
@@ -352,24 +374,49 @@ const icsStamp = (iso: string): string =>
         .replace(/[-:]/g, "")
         .replace(/\.\d{3}/, "");
 
-/** An .ics file for one visit, so "Add to calendar" works in Apple, Google and Outlook. */
-export function icsFor(e: CalendarEntry): string {
+/** An .ics file with one event per visit, so "Add to calendar" works in Apple, Google and Outlook. */
+export function icsFor(entries: readonly CalendarEntry[]): string {
     const esc = (t: string): string =>
         t.replace(/[\\;,]/g, (c) => `\\${c}`).replace(/\r\n|\r|\n/g, "\\n");
+    const stamp = icsStamp(new Date().toISOString());
     return [
         "BEGIN:VCALENDAR",
         "VERSION:2.0",
         "PRODID:-//Clientbridge//Booking//EN",
-        "BEGIN:VEVENT",
-        `UID:${e.uid}@clientbridge.ca`,
-        `DTSTAMP:${icsStamp(new Date().toISOString())}`,
-        `DTSTART:${icsStamp(e.starts_at)}`,
-        `DTEND:${icsStamp(e.ends_at)}`,
-        `SUMMARY:${esc(e.title)}`,
-        `LOCATION:${esc(e.location)}`,
-        "END:VEVENT",
+        ...entries.flatMap((e) => [
+            "BEGIN:VEVENT",
+            `UID:${e.uid}@clientbridge.ca`,
+            `DTSTAMP:${stamp}`,
+            `DTSTART:${icsStamp(e.starts_at)}`,
+            `DTEND:${icsStamp(e.ends_at)}`,
+            `SUMMARY:${esc(e.title)}`,
+            `LOCATION:${esc(e.location)}`,
+            "END:VEVENT",
+        ]),
         "END:VCALENDAR",
     ].join("\r\n");
+}
+
+/** What a confirmation adds to a calendar: every day of a program enrolment, else the one visit. */
+export function bookedEntries(
+    result: {
+        booking_id: string;
+        days?: readonly { booking_id: string; starts_at: string; ends_at: string }[];
+    },
+    slot: { starts_at: string; ends_at: string },
+    visit: { slug: string; title: string; location: string },
+): CalendarEntry[] {
+    const days =
+        result.days === undefined || result.days.length === 0
+            ? [{ booking_id: result.booking_id, starts_at: slot.starts_at, ends_at: slot.ends_at }]
+            : result.days;
+    return days.map((d) => ({
+        uid: `${d.booking_id}.${visit.slug}`,
+        title: visit.title,
+        starts_at: d.starts_at,
+        ends_at: d.ends_at,
+        location: visit.location,
+    }));
 }
 
 /** The business-zone day a saved start falls on, or null when it isn't a time. */
@@ -421,7 +468,59 @@ export function visitAddress(
         : null;
 }
 
-type BookingStep = "service" | "time" | "extras" | "details" | "pay" | "done";
+type BookingStep = "service" | "extras" | "time" | "details" | "pay" | "done";
+
+/** A program's start dates as choices: its dates, daily hours, days and seats left. */
+function programChoices(
+    programs: readonly PublicProgram[],
+    zone: string,
+): { key: string; label: string; hint: string }[] {
+    return programs.map((p) => {
+        const first = p.days[0];
+        const last = p.days.at(-1);
+        const start = parseTimestamp(p.starts_at);
+        return {
+            key: p.starts_at,
+            label:
+                first && last
+                    ? s.programDates(
+                          formatFullDate(parseTimestamp(first.starts_at), zone),
+                          formatFullDate(parseTimestamp(last.starts_at), zone),
+                      )
+                    : formatFullDate(start, zone),
+            hint: formatParts([
+                first
+                    ? formatTimeRange(start, parseTimestamp(first.ends_at), zone)
+                    : formatTime(start, zone),
+                s.programDays(p.days.length),
+                s.programSeats(p.seats_left),
+            ]),
+        };
+    });
+}
+
+/** The add-ons offered with a service: those listed for it, or for every service. */
+function offeredWith(addons: readonly PublicAddon[], serviceId: string | null): PublicAddon[] {
+    return addons.filter(
+        (x) => x.addon_for.length === 0 || (serviceId !== null && x.addon_for.includes(serviceId)),
+    );
+}
+
+/** The minutes chosen add-ons add to a visit; a class session keeps its own length. */
+export function extraMinutes(
+    addons: readonly PublicAddon[],
+    chosen: Readonly<Record<string, number>>,
+    kind: string | null,
+): number {
+    if (kind === "class") return 0;
+    return addons.reduce((sum, a) => sum + (a.duration_min ?? 0) * (chosen[a.id] ?? 0), 0);
+}
+
+/** "Adds 30 min" under an add-on that lengthens the visit, else null. */
+export function addsLabel(addon: PublicAddon): string | null {
+    const minutes = addon.duration_min ?? 0;
+    return minutes > 0 ? s.addsTime(durationLabel(minutes)) : null;
+}
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -485,6 +584,7 @@ export function usePublicBookingFlow(
     const [daysError, setDaysError] = useState(false);
     const [slots, setSlots] = useState<OpenSlot[] | null>(null);
     const [slotsError, setSlotsError] = useState(false);
+    const [programs, setPrograms] = useState<PublicProgram[] | null>(null);
     const [reload, setReload] = useState(0);
     const [startsAt, setStartsAt] = useState("");
     const [addons, setAddons] = useState<Record<string, number>>({});
@@ -551,6 +651,14 @@ export function usePublicBookingFlow(
         days?.find((d) => d.count > 0 || d.waitlist > 0)?.date ??
         (days === null ? null : from);
     const service = page?.services.find((x) => x.id === itemId) ?? null;
+    const program = (service?.session_count ?? null) !== null;
+    const offered = program ? [] : offeredWith(page?.addons ?? [], service?.id ?? null);
+    const extraMin = extraMinutes(offered, addons, service?.kind ?? null);
+    const firstStep = (id: string): BookingStep =>
+        (page?.services.find((x) => x.id === id)?.session_count ?? null) === null &&
+        offeredWith(page?.addons ?? [], id).length > 0
+            ? "extras"
+            : "time";
     const staffFor =
         page?.staff.filter((x) => service === null || service.staff_ids.includes(x.id)) ?? [];
     const staffFirst = (id: string): string =>
@@ -569,16 +677,46 @@ export function usePublicBookingFlow(
             setDate(starts);
             setWeekFrom(starts);
         }
-        setStep("time");
+        const extras =
+            (selected.session_count ?? null) === null &&
+            offeredWith(page.addons, selected.id).length > 0;
+        setStep(extras ? "extras" : "time");
     }, [page, status, selection.itemId, selection.staffId, selection.startsAt, today, zone]);
 
     useEffect(() => {
-        if (itemId === "" || status !== "ready") return;
+        if (itemId === "" || status !== "ready" || !program) return;
+        let live = true;
+        setSlots(null);
+        setSlotsError(false);
+        client
+            .getPrograms(slug, { itemId, staffId })
+            .then((x) => {
+                if (!live) return;
+                setPrograms(x);
+                setSlots(
+                    x.map((p) => ({
+                        starts_at: p.starts_at,
+                        ends_at: p.days[0]?.ends_at ?? p.starts_at,
+                        staff_id: p.staff_id,
+                        waitlist: false,
+                    })),
+                );
+            })
+            .catch(() => {
+                if (live) setSlotsError(true);
+            });
+        return () => {
+            live = false;
+        };
+    }, [client, slug, itemId, staffId, program, status, reload]);
+
+    useEffect(() => {
+        if (itemId === "" || status !== "ready" || program) return;
         let live = true;
         setDays(null);
         setDaysError(false);
         client
-            .getDays(slug, { itemId, staffId, from, days: 7 })
+            .getDays(slug, { itemId, staffId, from, days: 7, extraMin })
             .then((d) => {
                 if (live) setDays(d);
             })
@@ -588,16 +726,17 @@ export function usePublicBookingFlow(
         return () => {
             live = false;
         };
-    }, [client, slug, itemId, staffId, from, status, reload]);
+    }, [client, slug, itemId, staffId, from, extraMin, program, status, reload]);
 
     useEffect(() => {
+        if (program) return;
         setStartsAt("");
         if (itemId === "" || status !== "ready" || day === null) return;
         let live = true;
         setSlots(null);
         setSlotsError(false);
         client
-            .getSlots(slug, { itemId, staffId, date: day })
+            .getSlots(slug, { itemId, staffId, date: day, extraMin })
             .then((x) => {
                 if (live) {
                     setSlots(x);
@@ -620,21 +759,21 @@ export function usePublicBookingFlow(
         return () => {
             live = false;
         };
-    }, [client, slug, itemId, staffId, day, status, reload]);
+    }, [client, slug, itemId, staffId, day, extraMin, program, status, reload]);
 
-    const offered = (page?.addons ?? []).filter(
-        (x) => x.addon_for.length === 0 || (service !== null && x.addon_for.includes(service.id)),
-    );
-    const addonLines = offered
-        .filter((x) => (addons[x.id] ?? 0) > 0)
-        .map((x) => ({
-            addon: x,
-            quantity: addons[x.id] ?? 0,
-            cents: x.price_cents * (addons[x.id] ?? 0),
-        }));
-    const addonsCents = addonLines.reduce((sum, l) => sum + l.cents, 0);
     const slot = slots?.find((x) => x.starts_at === startsAt) ?? null;
     const waitlist = slot?.waitlist === true;
+    // a waitlist seat books no add-ons, so the totals leave them out
+    const addonLines = waitlist
+        ? []
+        : offered
+              .filter((x) => (addons[x.id] ?? 0) > 0)
+              .map((x) => ({
+                  addon: x,
+                  quantity: addons[x.id] ?? 0,
+                  cents: x.price_cents * (addons[x.id] ?? 0),
+              }));
+    const addonsCents = addonLines.reduce((sum, l) => sum + l.cents, 0);
     const depositCents =
         service?.deposit_required === true && !waitlist ? service.deposit_amount_cents : 0;
     const serviceCents = service?.price_cents ?? 0;
@@ -648,8 +787,8 @@ export function usePublicBookingFlow(
     const detailsOk = Object.values(errors).every((x) => x === null);
     const order: BookingStep[] = [
         "service",
+        ...(offered.length > 0 ? (["extras"] as const) : []),
         "time",
-        ...(offered.length > 0 && !waitlist ? (["extras"] as const) : []),
         "details",
         ...(depositCents > 0 ? (["pay"] as const) : []),
     ];
@@ -698,12 +837,10 @@ export function usePublicBookingFlow(
             returningToken,
             subjectId: kind === null ? null : subjectId,
             note: note.trim(),
-            addons: waitlist
-                ? []
-                : addonLines.map((l) => ({
-                      itemId: l.addon.id,
-                      quantity: l.quantity,
-                  })),
+            addons: addonLines.map((l) => ({
+                itemId: l.addon.id,
+                quantity: l.quantity,
+            })),
         };
         run(
             async () => {
@@ -806,7 +943,7 @@ export function usePublicBookingFlow(
         service,
         setService: (id: string) => {
             setItemId(id);
-            setStep("time");
+            setStep(firstStep(id));
             key.current = null;
             const svc = page?.services.find((x) => x.id === id);
             if (svc && staffId !== ANY_STAFF && !svc.staff_ids.includes(staffId))
@@ -900,7 +1037,7 @@ export function usePublicBookingFlow(
             setAddons({});
             key.current = null;
             setError(null);
-            setStep("time");
+            setStep(firstStep(selected.id));
         },
         fields: {
             name,
@@ -947,7 +1084,14 @@ export function usePublicBookingFlow(
         },
         totalLines,
         currency,
-        when: slot ? whenLabel(slot.starts_at, today, zone) : null,
+        programs: program ? programChoices(programs ?? [], zone) : null,
+        programNote: program ? s.programNote : null,
+        when: slot
+            ? program
+                ? (programChoices(programs ?? [], zone).find((x) => x.key === slot.starts_at)
+                      ?.label ?? null)
+                : whenLabel(slot.starts_at, today, zone)
+            : null,
         whenTitle: slot ? whenTitle(slot.starts_at, today, zone) : null,
         timeRange: slot
             ? formatTimeRange(parseTimestamp(slot.starts_at), parseTimestamp(slot.ends_at), zone)
@@ -962,13 +1106,11 @@ export function usePublicBookingFlow(
                 : null,
         calendar:
             slot && service && page && result
-                ? {
-                      uid: `${result.booking_id}.${page.slug}`,
+                ? bookedEntries(result, slot, {
+                      slug: page.slug,
                       title: s.calendarTitle(service.name, page.business_name),
-                      starts_at: slot.starts_at,
-                      ends_at: slot.ends_at,
                       location: page.business_name,
-                  }
+                  })
                 : null,
         paid: () => {
             setStep("done");
@@ -1017,9 +1159,12 @@ interface ManagedBooking {
     timezone: string;
     can_move: boolean;
     can_cancel: boolean;
+    has_receipt?: boolean;
     blocked: ManageBlock | null;
     blocked_hours: number | null;
     waitlist_position: number | null;
+    // a program's enrolled days, which a cancel releases together
+    program_days?: number | null;
 }
 
 type ManageBlock =
@@ -1132,6 +1277,7 @@ export function useManageBooking(client: ManageBookingClient, token: string) {
     const live = data !== null && (data.status === "confirmed" || data.status === "pending");
     const [left, setLeft] = useState(false);
     const waiting = data?.status === "waitlisted";
+    const programDays = data?.program_days ?? null;
     const weekFrom = from ?? (data ? visitWeekFrom(start, today, zone) : today);
     const day = date ?? (data ? dateKey(start, zone) : today);
     const lastDay = horizonDay(today, data?.policy.horizon_days, zone);
@@ -1214,13 +1360,15 @@ export function useManageBooking(client: ManageBookingClient, token: string) {
         whenTitle: data ? whenTitle(data.starts_at, today, zone) : "",
         timeRange: data ? formatTimeRange(start, parseTimestamp(data.ends_at), zone) : "",
         calendar: data
-            ? {
-                  uid: `${data.booking_id}.${data.slug}`,
-                  title: s.calendarTitle(data.service.name, data.business_name),
-                  starts_at: data.starts_at,
-                  ends_at: data.ends_at,
-                  location: data.business_name,
-              }
+            ? [
+                  {
+                      uid: `${data.booking_id}.${data.slug}`,
+                      title: s.calendarTitle(data.service.name, data.business_name),
+                      starts_at: data.starts_at,
+                      ends_at: data.ends_at,
+                      location: data.business_name,
+                  },
+              ]
             : null,
         countdown: m.countdown(
             hoursAway < 48
@@ -1241,8 +1389,9 @@ export function useManageBooking(client: ManageBookingClient, token: string) {
                   }
                 : {
                       title: m.title,
-                      cancel: m.cancel,
-                      cancelTitle: m.cancelTitle,
+                      cancel: programDays === null ? m.cancel : m.cancelProgram,
+                      cancelTitle:
+                          programDays === null ? m.cancelTitle : m.cancelProgramTitle(programDays),
                       cancelConfirm: m.cancelConfirm,
                       canceledTitle: m.canceledTitle,
                   },

@@ -535,6 +535,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/book/{slug}/programs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Public Booking Programs */
+        get: operations["public_booking_programs_book__slug__programs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/book/{slug}": {
         parameters: {
             query?: never;
@@ -663,6 +680,23 @@ export interface paths {
         };
         /** Manage View */
         get: operations["manage_view_manage__token__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/manage/{token}/receipt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Manage Receipt */
+        get: operations["manage_receipt_manage__token__receipt_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1320,6 +1354,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/bookings/{booking_id}/receipt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Booking Receipt */
+        get: operations["booking_receipt_v1_bookings__booking_id__receipt_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/bookings/{booking_id}/reminder": {
         parameters: {
             query?: never;
@@ -1389,6 +1440,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/bookings/{booking_id}/addons": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add Booking Addon */
+        post: operations["add_booking_addon_v1_bookings__booking_id__addons_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/bookings/{booking_id}/addons/{addon_id}": {
         parameters: {
             query?: never;
@@ -1401,6 +1469,41 @@ export interface paths {
         post?: never;
         /** Remove Booking Addon */
         delete: operations["remove_booking_addon_v1_bookings__booking_id__addons__addon_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/bookings/{booking_id}/crew": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Booking Crew */
+        get: operations["booking_crew_v1_bookings__booking_id__crew_get"];
+        put?: never;
+        /** Add Booking Crew */
+        post: operations["add_booking_crew_v1_bookings__booking_id__crew_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/bookings/{booking_id}/crew/{staff_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove Booking Crew */
+        delete: operations["remove_booking_crew_v1_bookings__booking_id__crew__staff_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1540,6 +1643,109 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/v1/programs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Program */
+        post: operations["create_program_v1_programs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/programs/{program_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel Program */
+        post: operations["cancel_program_v1_programs__program_id__cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/programs/{program_id}/enrolments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Enrol In Program */
+        post: operations["enrol_in_program_v1_programs__program_id__enrolments_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/programs/{program_id}/enrolments/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel Enrolment */
+        post: operations["cancel_enrolment_v1_programs__program_id__enrolments_cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/resources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Resources */
+        get: operations["list_resources_v1_resources_get"];
+        put?: never;
+        /** Create Resource */
+        post: operations["create_resource_v1_resources_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/resources/{resource_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Resource */
+        patch: operations["update_resource_v1_resources__resource_id__patch"];
         trace?: never;
     };
     "/v1/online-booking": {
@@ -3279,6 +3485,44 @@ export interface paths {
         patch: operations["update_form_v1_forms__form_id__patch"];
         trace?: never;
     };
+    "/v1/forms/treatment-notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Treatment Notes
+         * @description A visit's notes, or every note on a client's visits; each one read is audited.
+         */
+        get: operations["treatment_notes_v1_forms_treatment_notes_get"];
+        put?: never;
+        /** Write Treatment Note */
+        post: operations["write_treatment_note_v1_forms_treatment_notes_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/forms/responses/{response_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Form Response */
+        get: operations["form_response_v1_forms_responses__response_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/contracts/send": {
         parameters: {
             query?: never;
@@ -3803,6 +4047,19 @@ export interface components {
             /** Staff Id */
             staff_id: string;
         };
+        /** AddonAdd */
+        AddonAdd: {
+            /**
+             * Item Id
+             * @description An active product; its minutes lengthen the visit
+             */
+            item_id: string;
+            /**
+             * Quantity
+             * @default 1
+             */
+            quantity: number;
+        };
         /** AddonOffer */
         AddonOffer: {
             /** Id */
@@ -4312,7 +4569,7 @@ export interface components {
             /** Ok */
             ok: boolean;
             /** Problem */
-            problem?: ("past" | "closed" | "time_off" | "off_hours" | "overlap" | "class") | null;
+            problem?: ("past" | "closed" | "time_off" | "off_hours" | "overlap" | "class" | "not_offered" | "crew" | "resource") | null;
             /**
              * Reason
              * @description The closure or time-off reason
@@ -4320,6 +4577,16 @@ export interface components {
             reason?: string | null;
             /** Message */
             message?: string | null;
+            /**
+             * Resource Id
+             * @description The room or equipment the visit would hold there
+             */
+            resource_id?: string | null;
+            /**
+             * Free Resource Ids
+             * @description The rooms or equipment it could switch to there
+             */
+            free_resource_ids?: string[];
         };
         /** BookingCreate */
         BookingCreate: {
@@ -4352,6 +4619,11 @@ export interface components {
              * @description An accepted estimate whose product lines join the visit as add-ons
              */
             estimate_id?: string | null;
+            /**
+             * Resource Id
+             * @description The room or equipment from the service's pool; the first free one if unset
+             */
+            resource_id?: string | null;
         };
         /** BookingMove */
         BookingMove: {
@@ -4367,6 +4639,11 @@ export interface components {
              * @description Moves the visit to another member
              */
             staff_id?: string | null;
+            /**
+             * Resource Id
+             * @description Another free room or equipment from the pool; unset keeps or switches it
+             */
+            resource_id?: string | null;
         };
         /** BookingOut */
         BookingOut: {
@@ -4417,6 +4694,8 @@ export interface components {
              * Format: date-time
              */
             ends_at: string;
+            /** Resource Id */
+            resource_id?: string | null;
         };
         /** BookingPatch */
         BookingPatch: {
@@ -4432,6 +4711,11 @@ export interface components {
              * @description Moves the visit to another member
              */
             staff_id?: string | null;
+            /**
+             * Resource Id
+             * @description Another free room or equipment from the pool; unset keeps or switches it
+             */
+            resource_id?: string | null;
             /** Status */
             status?: ("confirmed" | "completed" | "canceled" | "no_show") | null;
             /**
@@ -5029,6 +5313,64 @@ export interface components {
             /** More */
             more: boolean;
         };
+        /** CrewAdd */
+        CrewAdd: {
+            /**
+             * Staff Id
+             * @description A member to help on the visit, blocked for its window
+             */
+            staff_id: string;
+        };
+        /** CrewMember */
+        CrewMember: {
+            /** Staff Id */
+            staff_id: string;
+            /** Name */
+            name: string | null;
+        };
+        /**
+         * CrewOut
+         * @description A visit as its crew sees it: the job, its lead and the helpers on it.
+         */
+        CrewOut: {
+            /** Booking Id */
+            booking_id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "confirmed" | "completed" | "canceled" | "no_show" | "waitlisted";
+            /** Lead Id */
+            lead_id: string | null;
+            /** Lead Name */
+            lead_name: string | null;
+            /** Service */
+            service: string;
+            /** Client Name */
+            client_name: string;
+            /** Address */
+            address: string | null;
+            /**
+             * Starts At
+             * Format: date-time
+             */
+            starts_at: string;
+            /**
+             * Ends At
+             * Format: date-time
+             */
+            ends_at: string;
+            /**
+             * Members
+             * @description The helpers, in the order they were added
+             */
+            members: components["schemas"]["CrewMember"][];
+            /**
+             * Can Edit
+             * @description The viewer can add and remove helpers
+             */
+            can_edit: boolean;
+        };
         /** DashboardSummary */
         DashboardSummary: {
             /**
@@ -5130,6 +5472,57 @@ export interface components {
         EarningsOut: {
             /** Earnings */
             earnings: components["schemas"]["EarningOut"][];
+        };
+        /** EnrolmentCancel */
+        EnrolmentCancel: {
+            /** Client Id */
+            client_id: string;
+            /** Subject Id */
+            subject_id?: string | null;
+            /**
+             * Notify
+             * @default true
+             */
+            notify: boolean;
+        };
+        /** EnrolmentCancelOut */
+        EnrolmentCancelOut: {
+            /** Program Id */
+            program_id: string;
+            /** Canceled */
+            canceled: string[];
+            /**
+             * Refunded Cents
+             * @description The deposit refunded with the enrolment
+             */
+            refunded_cents: number;
+        };
+        /** EnrolmentCreate */
+        EnrolmentCreate: {
+            /** Client Id */
+            client_id: string;
+            /** Subject Id */
+            subject_id?: string | null;
+            /**
+             * Notify
+             * @description Send the client one message with every day
+             * @default true
+             */
+            notify: boolean;
+        };
+        /**
+         * EnrolmentOut
+         * @description A client's (and subject's) bookings on a program schedule, the first carrying the price.
+         */
+        EnrolmentOut: {
+            /** Program Id */
+            program_id: string;
+            /** Client Id */
+            client_id: string;
+            /** Subject Id */
+            subject_id: string | null;
+            /** Booking Ids */
+            booking_ids: string[];
         };
         /** EstimateCreate */
         EstimateCreate: {
@@ -5358,6 +5751,49 @@ export interface components {
             attributes?: {
                 [key: string]: unknown;
             };
+        };
+        /**
+         * FormAnswersOut
+         * @description A submitted response read back with the questions it was answered against.
+         */
+        FormAnswersOut: {
+            /** Id */
+            id: string;
+            /** Form Id */
+            form_id: string;
+            /** Form Name */
+            form_name: string;
+            /** Client Id */
+            client_id: string | null;
+            /** Parent Type */
+            parent_type: ("client" | "subject" | "booking") | null;
+            /** Parent Id */
+            parent_id: string | null;
+            /** Submitted At */
+            submitted_at: string | null;
+            /** Fields */
+            fields: components["schemas"]["PublicFormField"][];
+            /** Answers */
+            answers: {
+                [key: string]: unknown;
+            };
+            /**
+             * Author Staff Id
+             * @description Who wrote a treatment note
+             */
+            author_staff_id?: string | null;
+            /** Author Name */
+            author_name?: string | null;
+            /**
+             * Signer Name
+             * @description Who signed a client's form
+             */
+            signer_name?: string | null;
+            /**
+             * Amends
+             * @description The note this one corrects
+             */
+            amends?: string | null;
         };
         /** FormFieldIn */
         FormFieldIn: {
@@ -6075,6 +6511,16 @@ export interface components {
              */
             gift_amounts?: number[] | null;
             /**
+             * Staff Ids
+             * @description Services and classes only: the members who offer it; empty means everyone
+             */
+            staff_ids?: string[];
+            /**
+             * Resource Ids
+             * @description Services and classes only: the rooms or equipment it needs one of
+             */
+            resource_ids?: string[];
+            /**
              * Online Bookable
              * @description Defaults by kind: services and classes only
              */
@@ -6191,6 +6637,16 @@ export interface components {
              * @description Gift cards only: suggested amounts in cents
              */
             gift_amounts?: number[] | null;
+            /**
+             * Staff Ids
+             * @description Services and classes only: the members who offer it; empty means everyone
+             */
+            staff_ids?: string[];
+            /**
+             * Resource Ids
+             * @description Services and classes only: the rooms or equipment it needs one of
+             */
+            resource_ids?: string[];
             /** Id */
             id: string;
             /** Online Bookable */
@@ -6274,6 +6730,10 @@ export interface components {
             member_discount_bps?: number | null;
             /** Gift Amounts */
             gift_amounts?: number[] | null;
+            /** Staff Ids */
+            staff_ids?: string[] | null;
+            /** Resource Ids */
+            resource_ids?: string[] | null;
         };
         /** LeftVisit */
         LeftVisit: {
@@ -6285,7 +6745,7 @@ export interface components {
              */
             starts_at: string;
             /** Problem */
-            problem: ("past" | "closed" | "time_off" | "off_hours" | "overlap" | "class") | null;
+            problem: ("past" | "closed" | "time_off" | "off_hours" | "overlap" | "class" | "not_offered" | "crew" | "resource") | null;
             /** Message */
             message: string | null;
         };
@@ -6505,6 +6965,12 @@ export interface components {
             /** Can Cancel */
             can_cancel: boolean;
             /**
+             * Has Receipt
+             * @description The visit's invoice or sale is paid, so it has a receipt
+             * @default false
+             */
+            has_receipt: boolean;
+            /**
              * Blocked
              * @description Why a change is refused online, as a code Connect words
              */
@@ -6519,6 +6985,11 @@ export interface components {
              * @description Where a waitlisted client stands; 1 is seated first
              */
             waitlist_position?: number | null;
+            /**
+             * Program Days
+             * @description For a program, the enrolment's days a cancel releases
+             */
+            program_days?: number | null;
         };
         /** ManagedToDo */
         ManagedToDo: {
@@ -7039,6 +7510,8 @@ export interface components {
             client_id: string;
             /** Item Id */
             item_id: string;
+            /** Subject Id */
+            subject_id: string | null;
             /** Sessions Total */
             sessions_total: number;
             /** Sessions Used */
@@ -7055,6 +7528,11 @@ export interface components {
             client_id: string;
             /** Item Id */
             item_id: string;
+            /**
+             * Subject Id
+             * @description The client's subject it covers; null shares it
+             */
+            subject_id?: string | null;
             /** Payment Method Id */
             payment_method_id?: string | null;
             /**
@@ -7257,6 +7735,89 @@ export interface components {
             /** Amount Cents */
             amount_cents: number;
         };
+        /** ProgramCancelOut */
+        ProgramCancelOut: {
+            /** Id */
+            id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "active" | "ended" | "canceled";
+            /**
+             * Canceled
+             * @description The sessions called off
+             */
+            canceled: string[];
+        };
+        /**
+         * ProgramCreate
+         * @description A class's sessions laid out ahead of any booking, on set weekdays at one local time.
+         */
+        ProgramCreate: {
+            /** Item Id */
+            item_id: string;
+            /** Staff Id */
+            staff_id: string;
+            /**
+             * Starts At
+             * Format: date-time
+             * @description The first session; its local time repeats
+             */
+            starts_at: string;
+            /** Byday */
+            byday: ("MO" | "TU" | "WE" | "TH" | "FR" | "SA" | "SU")[];
+            /**
+             * Count
+             * @description Sessions in all; set count or until
+             */
+            count?: number | null;
+            /**
+             * Until
+             * @description The last day; set count or until
+             */
+            until?: string | null;
+        };
+        /** ProgramOut */
+        ProgramOut: {
+            /** Id */
+            id: string;
+            /** Business Id */
+            business_id: string;
+            /** Item Id */
+            item_id: string;
+            /** Staff Id */
+            staff_id: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "active" | "ended" | "canceled";
+            /** Sessions */
+            sessions: components["schemas"]["ProgramSession"][];
+        };
+        /** ProgramSession */
+        ProgramSession: {
+            /** Slot Id */
+            slot_id: string;
+            /**
+             * Starts At
+             * Format: date-time
+             */
+            starts_at: string;
+            /**
+             * Ends At
+             * Format: date-time
+             */
+            ends_at: string;
+            /** Capacity */
+            capacity: number;
+            /**
+             * Resource Id
+             * @description The room the session holds
+             */
+            resource_id?: string | null;
+        };
         /** ProvincialReport */
         ProvincialReport: {
             /**
@@ -7300,6 +7861,11 @@ export interface components {
              * @description Services it is offered with; empty means all
              */
             addon_for?: string[];
+            /**
+             * Duration Min
+             * @description Minutes it adds to a visit, times its quantity
+             */
+            duration_min?: number | null;
         };
         /** PublicAddonIn */
         PublicAddonIn: {
@@ -7310,6 +7876,39 @@ export interface components {
              * @default 1
              */
             quantity: number;
+        };
+        /**
+         * PublicAddress
+         * @description The business's legal street address, as its documents print it; unset parts are None.
+         */
+        PublicAddress: {
+            /** Unit */
+            unit?: string | null;
+            /** Street Number */
+            street_number?: string | null;
+            /** Street Name */
+            street_name?: string | null;
+            /** City */
+            city?: string | null;
+            /** Province */
+            province?: ("AB" | "BC" | "MB" | "NB" | "NL" | "NS" | "NT" | "NU" | "ON" | "PE" | "QC" | "SK" | "YT") | null;
+            /** Postal Code */
+            postal_code?: string | null;
+        };
+        /** PublicBookedDay */
+        PublicBookedDay: {
+            /** Booking Id */
+            booking_id: string;
+            /**
+             * Starts At
+             * Format: date-time
+             */
+            starts_at: string;
+            /**
+             * Ends At
+             * Format: date-time
+             */
+            ends_at: string;
         };
         /** PublicBookingClient */
         PublicBookingClient: {
@@ -7418,6 +8017,16 @@ export interface components {
              * @description Where a waitlisted client stands; 1 is seated first
              */
             waitlist_position?: number | null;
+            /**
+             * Booking Ids
+             * @description Every day booked, for a program enrolment
+             */
+            booking_ids?: string[];
+            /**
+             * Days
+             * @description When each day of a program enrolment is, in order
+             */
+            days?: components["schemas"]["PublicBookedDay"][];
         };
         /**
          * PublicBrand
@@ -7754,6 +8363,12 @@ export interface components {
             /** Business Name */
             business_name: string;
             brand: components["schemas"]["PublicBrand"];
+            address?: components["schemas"]["PublicAddress"];
+            /**
+             * Phone
+             * @description The business's legal phone number
+             */
+            phone?: string | null;
             /** Currency */
             currency: string;
             /**
@@ -8063,6 +8678,45 @@ export interface components {
             /** End */
             end: string;
         };
+        /**
+         * PublicProgram
+         * @description One run of a program a client can enrol in: every day still has a seat.
+         */
+        PublicProgram: {
+            /**
+             * Starts At
+             * Format: date-time
+             * @description The first day's start, which books the program
+             */
+            starts_at: string;
+            /** Staff Id */
+            staff_id: string;
+            /** Days */
+            days: components["schemas"]["PublicProgramDay"][];
+            /**
+             * Seats Left
+             * @description The fewest seats left on any of its days
+             */
+            seats_left: number;
+        };
+        /** PublicProgramDay */
+        PublicProgramDay: {
+            /**
+             * Starts At
+             * Format: date-time
+             */
+            starts_at: string;
+            /**
+             * Ends At
+             * Format: date-time
+             */
+            ends_at: string;
+        };
+        /** PublicPrograms */
+        PublicPrograms: {
+            /** Programs */
+            programs: components["schemas"]["PublicProgram"][];
+        };
         /** PublicReceipt */
         PublicReceipt: {
             /** Number */
@@ -8070,6 +8724,12 @@ export interface components {
             /** Business Name */
             business_name: string;
             brand: components["schemas"]["PublicBrand"];
+            address?: components["schemas"]["PublicAddress"];
+            /**
+             * Phone
+             * @description The business's legal phone number
+             */
+            phone?: string | null;
             /** Gst Hst Number */
             gst_hst_number?: string | null;
             /** Qst Number */
@@ -8171,6 +8831,11 @@ export interface components {
              * @description Who can be booked for it
              */
             staff_ids?: string[];
+            /**
+             * Session Count
+             * @description A program's days, booked together from its start dates
+             */
+            session_count?: number | null;
         };
         /** PublicServiceOpening */
         PublicServiceOpening: {
@@ -8746,6 +9411,50 @@ export interface components {
             /** Rates */
             rates: components["schemas"]["ReportRate"][];
         };
+        /** ResourceCreate */
+        ResourceCreate: {
+            /**
+             * Name
+             * @description Unique in the business, in any case
+             */
+            name: string;
+        };
+        /** ResourceOut */
+        ResourceOut: {
+            /** Id */
+            id: string;
+            /** Business Id */
+            business_id: string;
+            /** Name */
+            name: string;
+            /** Active */
+            active: boolean;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /**
+             * Upcoming
+             * @description Visits and sessions still ahead that hold it
+             */
+            upcoming: number;
+        };
+        /** ResourceUpdate */
+        ResourceUpdate: {
+            /** Name */
+            name?: string | null;
+            /**
+             * Active
+             * @description False offers it for no new visit; booked visits keep it
+             */
+            active?: boolean | null;
+        };
         /** RestockIn */
         RestockIn: {
             /**
@@ -9266,6 +9975,76 @@ export interface components {
             /** Cents */
             cents: number;
         };
+        /** TreatmentNoteCreate */
+        TreatmentNoteCreate: {
+            /** Form Id */
+            form_id: string;
+            /** Booking Id */
+            booking_id: string;
+            /** Answers */
+            answers?: {
+                [key: string]: unknown;
+            };
+            /**
+             * Amends
+             * @description An earlier note on the same visit that this one corrects
+             */
+            amends?: string | null;
+        };
+        /** TreatmentNoteOut */
+        TreatmentNoteOut: {
+            /** Id */
+            id: string;
+            /** Form Id */
+            form_id: string;
+            /** Form Name */
+            form_name: string;
+            /** Client Id */
+            client_id: string | null;
+            /** Parent Type */
+            parent_type: ("client" | "subject" | "booking") | null;
+            /** Parent Id */
+            parent_id: string | null;
+            /** Submitted At */
+            submitted_at: string | null;
+            /** Fields */
+            fields: components["schemas"]["PublicFormField"][];
+            /** Answers */
+            answers: {
+                [key: string]: unknown;
+            };
+            /**
+             * Author Staff Id
+             * @description Who wrote a treatment note
+             */
+            author_staff_id?: string | null;
+            /** Author Name */
+            author_name?: string | null;
+            /**
+             * Signer Name
+             * @description Who signed a client's form
+             */
+            signer_name?: string | null;
+            /**
+             * Amends
+             * @description The note this one corrects
+             */
+            amends?: string | null;
+            /** Booking Id */
+            booking_id: string;
+            /**
+             * Visit At
+             * Format: date-time
+             */
+            visit_at: string;
+            /** Service */
+            service: string;
+        };
+        /** TreatmentNotes */
+        TreatmentNotes: {
+            /** Notes */
+            notes: components["schemas"]["TreatmentNoteOut"][];
+        };
         /** ValidationError */
         ValidationError: {
             /** Location */
@@ -9362,6 +10141,90 @@ export interface components {
             completed: number;
             /** Last Completed At */
             last_completed_at: string | null;
+        };
+        /**
+         * VisitReceipt
+         * @description A visit's receipt for an insurer: its invoice or sale, with who treated the client.
+         */
+        VisitReceipt: {
+            /** Number */
+            number: number | null;
+            /** Business Name */
+            business_name: string;
+            brand: components["schemas"]["PublicBrand"];
+            address?: components["schemas"]["PublicAddress"];
+            /**
+             * Phone
+             * @description The business's legal phone number
+             */
+            phone?: string | null;
+            /** Gst Hst Number */
+            gst_hst_number?: string | null;
+            /** Qst Number */
+            qst_number?: string | null;
+            /** Client Name */
+            client_name?: string | null;
+            /** Served By */
+            served_by?: string[];
+            /** Status */
+            status: string;
+            /** Currency */
+            currency: string;
+            /**
+             * Timezone
+             * @description The business's IANA time zone, which its times are shown in
+             */
+            timezone: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Lines */
+            lines: components["schemas"]["PublicDocLine"][];
+            /**
+             * Discount Cents
+             * @default 0
+             */
+            discount_cents: number;
+            /** Discount Reason */
+            discount_reason?: string | null;
+            /** Subtotal Cents */
+            subtotal_cents: number;
+            /** Taxes */
+            taxes: components["schemas"]["PublicDocTax"][];
+            /** Tax Total Cents */
+            tax_total_cents: number;
+            /** Total Cents */
+            total_cents: number;
+            /**
+             * Tip Cents
+             * @default 0
+             */
+            tip_cents: number;
+            /** Payments */
+            payments: components["schemas"]["PublicReceiptPayment"][];
+            /**
+             * Source
+             * @description Which document it prints; the number is that invoice's or sale's
+             * @enum {string}
+             */
+            source: "invoice" | "sale";
+            /** Service */
+            service: string;
+            /**
+             * Visit At
+             * Format: date-time
+             * @description When the visit started
+             */
+            visit_at: string;
+            /** Practitioner */
+            practitioner?: string | null;
+            /**
+             * Practitioner Title
+             * @description The practitioner's title, with any credential and registration
+             */
+            practitioner_title?: string | null;
         };
         /** WeekDay */
         WeekDay: {
@@ -10341,6 +11204,8 @@ export interface operations {
                 item_id: string;
                 staff_id: string;
                 date: string;
+                /** @description Minutes the chosen add-ons add to the visit */
+                extra_min?: number;
             };
             header?: never;
             path: {
@@ -10377,6 +11242,8 @@ export interface operations {
                 staff_id: string;
                 from: string;
                 days?: number;
+                /** @description Minutes the chosen add-ons add to the visit */
+                extra_min?: number;
             };
             header?: never;
             path: {
@@ -10393,6 +11260,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PublicDays"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    public_booking_programs_book__slug__programs_get: {
+        parameters: {
+            query: {
+                item_id: string;
+                staff_id: string;
+            };
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicPrograms"];
                 };
             };
             /** @description Validation Error */
@@ -10667,6 +11568,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ManagedBooking"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    manage_receipt_manage__token__receipt_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisitReceipt"];
                 };
             };
             /** @description Validation Error */
@@ -12151,6 +13083,41 @@ export interface operations {
             };
         };
     };
+    booking_receipt_v1_bookings__booking_id__receipt_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
+            };
+            path: {
+                booking_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisitReceipt"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     booking_reminder_v1_bookings__booking_id__reminder_get: {
         parameters: {
             query?: never;
@@ -12329,10 +13296,51 @@ export interface operations {
             };
         };
     };
+    add_booking_addon_v1_bookings__booking_id__addons_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "x-business-id"?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
+            };
+            path: {
+                booking_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddonAdd"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookingOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     remove_booking_addon_v1_bookings__booking_id__addons__addon_id__delete: {
         parameters: {
             query?: never;
             header?: {
+                "Idempotency-Key"?: string | null;
                 "x-business-id"?: string;
                 "x-expected-user"?: string;
                 "x-session-token"?: string;
@@ -12352,6 +13360,118 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BookingOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    booking_crew_v1_bookings__booking_id__crew_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
+            };
+            path: {
+                booking_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CrewOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_booking_crew_v1_bookings__booking_id__crew_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "x-business-id"?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
+            };
+            path: {
+                booking_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CrewAdd"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CrewOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_booking_crew_v1_bookings__booking_id__crew__staff_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "x-business-id"?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
+            };
+            path: {
+                booking_id: string;
+                staff_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CrewOut"];
                 };
             };
             /** @description Validation Error */
@@ -12660,6 +13780,269 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ClassMessageOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_program_v1_programs_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "x-business-id"?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProgramCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProgramOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cancel_program_v1_programs__program_id__cancel_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
+            };
+            path: {
+                program_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProgramCancelOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    enrol_in_program_v1_programs__program_id__enrolments_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "x-business-id"?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
+            };
+            path: {
+                program_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EnrolmentCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnrolmentOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cancel_enrolment_v1_programs__program_id__enrolments_cancel_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
+            };
+            path: {
+                program_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EnrolmentCancel"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnrolmentCancelOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_resources_v1_resources_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResourceOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_resource_v1_resources_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "x-business-id"?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResourceCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResourceOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_resource_v1_resources__resource_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "x-business-id"?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
+            };
+            path: {
+                resource_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResourceUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResourceOut"];
                 };
             };
             /** @description Validation Error */
@@ -16494,6 +17877,115 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FormOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    treatment_notes_v1_forms_treatment_notes_get: {
+        parameters: {
+            query?: {
+                booking_id?: string | null;
+                client_id?: string | null;
+            };
+            header?: {
+                "x-business-id"?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TreatmentNotes"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    write_treatment_note_v1_forms_treatment_notes_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "x-business-id"?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TreatmentNoteCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TreatmentNoteOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    form_response_v1_forms_responses__response_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
+            };
+            path: {
+                response_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FormAnswersOut"];
                 };
             };
             /** @description Validation Error */

@@ -168,7 +168,7 @@ Polyglot monorepo: `backend/` (Python · uv · FastAPI) · `frontend/` (pnpm + t
 ## Docs (`.docs/`)
 Keep only the documentation index and main docs at the root: **architecture** (system · data model ·
 sync · authorization · frontend), **engineering** (gate · testing · shipping · ports · demo · conventions),
-**launch-readiness** (launch work and deferred scope), and **operations** (environments · secrets ·
+**launch-readiness** (launch work and deferred scope), **demo** (demo businesses, logins and what each shows), and **operations** (environments · secrets ·
 providers · deploys · jobs · alerts · restore). Use `.docs/reviews/<area>/` for dated audits,
 `.docs/explorations/<topic>/` for investigations, and `.docs/executions/<name>/` for each execution's plan,
 task queue and progress; delete an execution's folder once it is implemented, after moving anything durable

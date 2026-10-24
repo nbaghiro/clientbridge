@@ -325,12 +325,35 @@ describe("refused requests", () => {
         });
     });
 
+    it("carry the values the code names", async () => {
+        const state = setup();
+        vi.stubGlobal(
+            "fetch",
+            vi.fn(() =>
+                Promise.resolve(
+                    Response.json(
+                        { error: "addon_length_in_use", message: "in use", detail: { count: 2 } },
+                        { status: 409 },
+                    ),
+                ),
+            ),
+        );
+        await expect(state.api.patch("/v1/items/it_wax", {})).rejects.toMatchObject({
+            code: "addon_length_in_use",
+            detail: { count: 2 },
+        });
+    });
+
     it("leave the code empty when the body names none", async () => {
         const state = setup();
         vi.stubGlobal(
             "fetch",
             vi.fn(() => Promise.resolve(new Response("gateway", { status: 502 }))),
         );
-        await expect(state.api.get("/v1/x")).rejects.toMatchObject({ status: 502, code: null });
+        await expect(state.api.get("/v1/x")).rejects.toMatchObject({
+            status: 502,
+            code: null,
+            detail: null,
+        });
     });
 });

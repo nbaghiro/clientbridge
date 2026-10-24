@@ -301,6 +301,16 @@ function RemoveSheet({
                             />
                         </View>
                     ) : null}
+                    {removal.scheduleNote !== null ? (
+                        <View style={styles.gapSm}>
+                            <Text style={styles.small}>{removal.scheduleNote}</Text>
+                        </View>
+                    ) : null}
+                    {removal.schedules.length > 0 ? (
+                        <View style={styles.gap}>
+                            <FactList facts={removal.schedules} label={t.removeSchedules} />
+                        </View>
+                    ) : null}
                     {removal.visits.length > 0 ? (
                         <View style={styles.gap}>
                             <OccurrenceList rows={removal.visits} label={t.removeFuture} />

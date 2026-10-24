@@ -698,6 +698,8 @@ export function useTeamWeek(api: ApiLike, viewer: Viewer | null): TeamWeek {
     );
     const names = new Map(members.map((m) => [m.id, staffName(m)]));
     const away = avail.awayRows.map((b) => toAway(b, names, events, now, zone));
+    // a helper's block for a visit comes off with the visit's crew, not from this list
+    const removable = new Set(avail.awayRows.filter((b) => b.kind !== "job").map((b) => b.id));
     const cols = Array.from({ length: 7 }, (_, i) => addDays(anchor, i, zone));
     const days = cols.map((date) => ({
         key: dateKey(date, zone),
@@ -764,13 +766,15 @@ export function useTeamWeek(api: ApiLike, viewer: Viewer | null): TeamWeek {
                             : null,
                     };
                 }),
-                away: away.filter((a) => a.staffId === m.id && !a.past),
+                away: away.filter((a) => a.staffId === m.id && !a.past && removable.has(a.id)),
                 editable: manager || m.id === viewer?.staffId,
             };
         }),
         closures: away.filter((a) => a.staffId === null && !a.past),
         timeOff: away
-            .filter((a) => a.staffId !== null && !a.past && names.has(a.staffId))
+            .filter(
+                (a) => a.staffId !== null && !a.past && names.has(a.staffId) && removable.has(a.id),
+            )
             .sort((a, b) => +a.start - +b.start),
         canClose: manager,
         removeAway: (id) => {

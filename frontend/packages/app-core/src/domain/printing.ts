@@ -1,5 +1,5 @@
 import { formatLongDate, formatMonthDay, readDate } from "../datetime";
-import { formatRate, initials } from "../format";
+import { formatList, formatPhone, formatRate, initials } from "../format";
 import english from "../../locales/en-CA.json" with { type: "json" };
 import { strings } from "../strings";
 import { TAX_RATES } from "../taxRates";
@@ -22,6 +22,45 @@ export interface Letterhead {
     email: string | null;
     gstHstNumber: string | null;
     qstNumber: string | null;
+    address?: readonly string[];
+    phone?: string | null;
+}
+
+export interface PostalParts {
+    unit: string | null;
+    street_number: string | null;
+    street_name: string | null;
+    city: string | null;
+    province: string | null;
+    postal_code: string | null;
+}
+
+/** A Canadian address as printed: "4-1250 Main St", then "Vancouver, BC, V6B 1A1". */
+export function addressLines(a: PostalParts): string[] {
+    const clean = (v: string | null): string => v?.trim() ?? "";
+    const [unit, number, street] = [clean(a.unit), clean(a.street_number), clean(a.street_name)];
+    const line =
+        street === ""
+            ? ""
+            : number === ""
+              ? street
+              : unit === ""
+                ? s.streetLine(number, street)
+                : s.unitStreetLine(unit, number, street);
+    const place = [a.city, a.province, a.postal_code].map(clean).filter((v) => v !== "");
+    return [line, place.length === 0 ? "" : formatList(place, "unit")].filter((l) => l !== "");
+}
+
+/** The lines of an address from a public payload, which may leave out the parts not set. */
+export function publicAddressLines(a: Partial<PostalParts> | undefined): string[] {
+    return addressLines({
+        unit: a?.unit ?? null,
+        street_number: a?.street_number ?? null,
+        street_name: a?.street_name ?? null,
+        city: a?.city ?? null,
+        province: a?.province ?? null,
+        postal_code: a?.postal_code ?? null,
+    });
 }
 
 const s = strings.printing;
@@ -153,8 +192,8 @@ export function printedDoc(
             avatarUrl: letterhead.avatarUrl ?? null,
             tagline: letterhead.tagline ?? "",
             brandColor: letterhead.brandColor ?? fallbackColor,
-            address: [],
-            phone: "",
+            address: letterhead.address ?? [],
+            phone: formatPhone(letterhead.phone),
             email: letterhead.email ?? "",
             website: "",
             registration: registrationLine(letterhead.gstHstNumber, letterhead.qstNumber),

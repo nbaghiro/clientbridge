@@ -12,6 +12,7 @@ from clientbridge.core.deps import (
     SmsDep,
 )
 from clientbridge.schemas.bookings import (
+    AddonAdd,
     AddonOffersOut,
     AddonOffersPatch,
     BookingCheck,
@@ -21,6 +22,8 @@ from clientbridge.schemas.bookings import (
     BookingPatch,
     ClassMessage,
     ClassMessageOut,
+    CrewAdd,
+    CrewOut,
     DepositOut,
     OnlineBookingOut,
     OnlineBookingPatch,
@@ -39,6 +42,8 @@ from clientbridge.schemas.bookings import (
     VisitNeeds,
     VisitPage,
 )
+from clientbridge.schemas.orders import VisitReceipt
+from clientbridge.services.billing import BillingService
 from clientbridge.services.bookings import (
     BookingService,
     ClassService,
@@ -132,6 +137,13 @@ async def client_visits(
     return await BookingService(db, principal, gateway).visits(client_id, before, before_id, limit)
 
 
+@router.get("/{booking_id}/receipt", response_model=VisitReceipt)
+async def booking_receipt(
+    booking_id: str, principal: CurrentPrincipal, db: DbSession
+) -> VisitReceipt:
+    return await BillingService(db, principal).visit_receipt(booking_id)
+
+
 @router.get("/{booking_id}/reminder", response_model=ReminderPreview)
 async def booking_reminder(
     booking_id: str, principal: CurrentPrincipal, db: DbSession, gateway: GatewayDep
@@ -174,6 +186,18 @@ async def collect_deposit(
     )
 
 
+@router.post("/{booking_id}/addons", response_model=BookingOut, status_code=201)
+async def add_booking_addon(
+    booking_id: str,
+    body: AddonAdd,
+    principal: CurrentPrincipal,
+    db: DbSession,
+    gateway: GatewayDep,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+) -> BookingOut:
+    return await BookingService(db, principal, gateway).add_addon(booking_id, body, idempotency_key)
+
+
 @router.delete("/{booking_id}/addons/{addon_id}", response_model=BookingOut)
 async def remove_booking_addon(
     booking_id: str,
@@ -181,8 +205,44 @@ async def remove_booking_addon(
     principal: CurrentPrincipal,
     db: DbSession,
     gateway: GatewayDep,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> BookingOut:
-    return await BookingService(db, principal, gateway).remove_addon(booking_id, addon_id)
+    return await BookingService(db, principal, gateway).remove_addon(
+        booking_id, addon_id, idempotency_key
+    )
+
+
+@router.get("/{booking_id}/crew", response_model=CrewOut)
+async def booking_crew(
+    booking_id: str, principal: CurrentPrincipal, db: DbSession, gateway: GatewayDep
+) -> CrewOut:
+    return await BookingService(db, principal, gateway).crew(booking_id)
+
+
+@router.post("/{booking_id}/crew", response_model=CrewOut, status_code=201)
+async def add_booking_crew(
+    booking_id: str,
+    body: CrewAdd,
+    principal: CurrentPrincipal,
+    db: DbSession,
+    gateway: GatewayDep,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+) -> CrewOut:
+    return await BookingService(db, principal, gateway).add_crew(booking_id, body, idempotency_key)
+
+
+@router.delete("/{booking_id}/crew/{staff_id}", response_model=CrewOut)
+async def remove_booking_crew(
+    booking_id: str,
+    staff_id: str,
+    principal: CurrentPrincipal,
+    db: DbSession,
+    gateway: GatewayDep,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+) -> CrewOut:
+    return await BookingService(db, principal, gateway).remove_crew(
+        booking_id, staff_id, idempotency_key
+    )
 
 
 recurrences_router = APIRouter(prefix="/recurrences", tags=["recurrences"])

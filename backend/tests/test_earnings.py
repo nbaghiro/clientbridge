@@ -16,7 +16,7 @@ from clientbridge.models.ledger import Account, Entry
 from clientbridge.models.payments import Payment
 from clientbridge.models.scheduling import Booking, Slot
 from clientbridge.services import ledger
-from clientbridge.services.earnings import ensure_earnings, load_earning
+from clientbridge.services.earnings import ensure_earnings, load_earning, reverse_earnings
 from clientbridge.services.ledger import Leg
 from tests.conftest import Factory, book_invoice
 from tests.helpers import card_pay, settle
@@ -242,6 +242,7 @@ async def test_refunded_register_sale_reverses_the_service_commission(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     booking = await _diego_visit(db, rate_type="fixed", rate=15.0)
+    before = await _payable(db, "st_diego", "pending")
     sale = await _visit_sale(as_owner, db, booking)
     pay = await as_owner.post(f"/v1/orders/{sale}/pay", json={})
     assert pay.status_code == 200, pay.text
@@ -251,7 +252,7 @@ async def test_refunded_register_sale_reverses_the_service_commission(
         f"/v1/payments/{pay.json()['payment_id']}/refund", json={}, headers=retry_key()
     )
     assert refunded.status_code == 200, refunded.text
-    assert await _payable(db, "st_diego", "pending") == 0
+    assert await _payable(db, "st_diego", "pending") == before
 
 
 async def test_approve_then_pay_moves_payable_to_bank(
@@ -421,3 +422,97 @@ async def test_a_payout_canceled_before_it_was_recorded_nets_to_nothing(
     assert await _balances(db) == (bank, stripe)
     assert await ledger.journal_for(db, BIZ, "payout:po_2") is not None
     assert await ledger.journal_for(db, BIZ, "payout:po_2:failed") is not None
+
+
+async def _two_member_invoice(db: AsyncSession) -> tuple[Booking, Invoice]:
+    """Diego's visit billed as his $100 line and a $40 line Priya did on the same visit."""
+    booking = await _diego_visit(db)
+    await db.execute(
+        update(Staff)
+        .where(Staff.id == "st_priya")
+        .values(payee=True, rate_type="percent", rate_bps=5000, rate_cents=None)
+    )
+    inv = Invoice(
+        id=new_id("invoice"),
+        business_id=BIZ,
+        client_id=booking.client_id,
+        number=9302,
+        status="sent",
+        currency="CAD",
+        subtotal_cents=14000,
+        tax_total_cents=0,
+        total_cents=14000,
+    )
+    db.add(inv)
+    await db.flush()
+    for position, (cents, staff_id) in enumerate(((10000, None), (4000, "st_priya"))):
+        db.add(
+            Line(
+                id=new_id("line"),
+                business_id=BIZ,
+                invoice_id=inv.id,
+                description="Service",
+                booking_id=booking.id,
+                staff_id=staff_id,
+                quantity=1,
+                unit_amount_cents=cents,
+                amount_cents=cents,
+                position=position,
+            )
+        )
+    await db.flush()
+    return booking, inv
+
+
+async def _earned(db: AsyncSession, booking_id: str) -> dict[str, tuple[int, str]]:
+    out: dict[str, tuple[int, str]] = {}
+    for journal in await _journals(db, booking_id):
+        earning = await load_earning(db, BIZ, journal)
+        assert earning is not None
+        out[earning.staff_id] = (earning.amount_cents, earning.status)
+    return out
+
+
+async def test_each_member_on_a_visit_earns_from_their_own_lines(db: AsyncSession) -> None:
+    booking, inv = await _two_member_invoice(db)
+    await ensure_earnings(db, inv)
+    await ensure_earnings(db, inv)
+    assert await _earned(db, booking.id) == {
+        "st_diego": (6000, "pending"),
+        "st_priya": (2000, "pending"),
+    }
+    refs = await db.execute(
+        select(Entry.ref).where(Entry.subject_id == booking.id, Entry.owner_type == "staff")
+    )
+    assert sorted(refs.scalars()) == [
+        f"earning:{booking.id}:st_diego:0",
+        f"earning:{booking.id}:st_priya:0",
+    ]
+    await reverse_earnings(db, inv)
+    assert await _earned(db, booking.id) == {
+        "st_diego": (6000, "reversed"),
+        "st_priya": (2000, "reversed"),
+    }
+    await ensure_earnings(db, inv)
+    assert len(await _journals(db, booking.id)) == 4
+
+
+async def test_an_earning_posted_under_the_old_ref_still_counts(db: AsyncSession) -> None:
+    booking, inv = await _two_member_invoice(db)
+    await ledger.post(
+        db,
+        BIZ,
+        event="earning",
+        ref=f"earning:{booking.id}:0",
+        legs=[
+            Leg("business", BIZ, "staff_cost", 6000),
+            Leg("staff", "st_diego", "payable", -6000, "pending"),
+        ],
+        subject=("booking", booking.id),
+    )
+    await ensure_earnings(db, inv)
+    assert await _earned(db, booking.id) == {
+        "st_diego": (6000, "pending"),
+        "st_priya": (2000, "pending"),
+    }
+    assert len(await _journals(db, booking.id)) == 2

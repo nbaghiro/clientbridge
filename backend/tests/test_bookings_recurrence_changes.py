@@ -2,10 +2,11 @@ from datetime import UTC, date, datetime
 from zoneinfo import ZoneInfo
 
 import httpx
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.ids import new_id
+from clientbridge.models.business import Business
 from clientbridge.models.catalog import Item
 from clientbridge.models.platform import Audit
 from clientbridge.models.scheduling import Booking, Recurrence, Slot
@@ -381,3 +382,121 @@ async def test_create_replays_on_the_same_key(
     assert first.json()["id"] == again.json()["id"]
     rows = await db.execute(select(Recurrence.id).where(Recurrence.id == first.json()["id"]))
     assert len(rows.scalars().all()) == 1
+
+
+async def _shared_class_visit(
+    api: httpx.AsyncClient, db: AsyncSession, factory: Factory
+) -> tuple[str, Booking, Booking]:
+    """A series on a class slot that another client also has a seat in."""
+    item = Item(
+        id=new_id("item"),
+        business_id=BIZ,
+        kind="class",
+        name="Puppy Class",
+        price_cents=3000,
+        currency="CAD",
+        duration_min=60,
+        capacity=6,
+    )
+    db.add(item)
+    business = await db.get(Business, BIZ)
+    assert business is not None
+    other = await factory.client(business=business, name="Noor Haddad")
+    seats: list[Booking] = []
+    for client_id in (CL_AMELIE, other.id):
+        res = await api.post(
+            "/v1/bookings",
+            json={
+                "client_id": client_id,
+                "item_id": item.id,
+                "staff_id": ST_PRIYA,
+                "starts_at": "2027-03-01T18:00:00Z",
+            },
+        )
+        assert res.status_code == 201, res.text
+        booking = await db.get(Booking, res.json()["id"])
+        assert booking is not None
+        seats.append(booking)
+    assert seats[0].slot_id == seats[1].slot_id
+    recurrence = Recurrence(
+        id=new_id("recurrence"),
+        business_id=BIZ,
+        item_id=item.id,
+        staff_id=ST_PRIYA,
+        client_id=CL_AMELIE,
+        frequency="week",
+        interval=1,
+        status="active",
+    )
+    db.add(recurrence)
+    await db.flush()
+    slot = await db.get(Slot, seats[0].slot_id)
+    assert slot is not None
+    slot.recurrence_id = recurrence.id
+    await db.flush()
+    return recurrence.id, seats[0], seats[1]
+
+
+async def test_changing_a_series_leaves_a_shared_class_slot_in_place(
+    as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory
+) -> None:
+    rid, own, theirs = await _shared_class_visit(as_owner, db, factory)
+    res = await as_owner.patch(
+        f"/v1/recurrences/{rid}", json={"scope": "all", "time": "13:00", "notify": False}
+    )
+    assert res.status_code == 200, res.text
+    assert res.json()["moved"] == []
+    skipped = res.json()["skipped"]
+    assert [s["booking_id"] for s in skipped] == [own.id]
+    starts = await _starts(db, rid)
+    assert {s[0] for s in starts} == {datetime(2027, 3, 1, 18, tzinfo=UTC)}
+    await db.refresh(theirs)
+    assert theirs.status == "confirmed"
+
+
+async def test_canceling_a_series_keeps_other_clients_seats(
+    as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory
+) -> None:
+    rid, own, theirs = await _shared_class_visit(as_owner, db, factory)
+    res = await as_owner.post(f"/v1/recurrences/{rid}/cancel", json={})
+    assert res.status_code == 200, res.text
+    assert res.json()["canceled"] == [own.id]
+    assert res.json()["status"] == "canceled"
+    await db.refresh(own)
+    await db.refresh(theirs)
+    slot = await db.get(Slot, theirs.slot_id, populate_existing=True)
+    assert slot is not None
+    assert (own.status, theirs.status, slot.status) == ("canceled", "confirmed", "scheduled")
+
+
+async def test_a_series_repeats_only_a_service(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    item = Item(
+        id=new_id("item"),
+        business_id=BIZ,
+        kind="class",
+        name="Puppy Class",
+        price_cents=3000,
+        currency="CAD",
+        duration_min=60,
+        capacity=6,
+    )
+    db.add(item)
+    await db.flush()
+    series = select(func.count()).select_from(Recurrence)
+    before = await db.scalar(series)
+    res = await as_owner.post(
+        "/v1/recurrences",
+        json={
+            "client_id": CL_AMELIE,
+            "item_id": item.id,
+            "staff_id": ST_PRIYA,
+            "starts_at": "2027-03-01T18:00:00Z",
+            "frequency": "week",
+            "count": 4,
+        },
+    )
+    assert res.status_code == 422, res.text
+    assert res.json()["error"] == "series_service_only"
+    assert await db.scalar(series) == before

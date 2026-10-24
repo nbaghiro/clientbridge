@@ -181,6 +181,16 @@ function ServiceFields({ ed }: { ed: ServiceEditor }) {
                         }}
                     />
                 ) : null}
+                {ed.isClass ? (
+                    <Num
+                        label={s.programDays}
+                        hint={s.programDaysHint}
+                        value={v.sessionCount}
+                        onChange={(x) => {
+                            set("sessionCount", x);
+                        }}
+                    />
+                ) : null}
                 <Toggle
                     label={s.onlineBookable}
                     hint={s.onlineBookableHint}
@@ -189,6 +199,30 @@ function ServiceFields({ ed }: { ed: ServiceEditor }) {
                         set("onlineBookable", x);
                     }}
                 />
+                {ed.offeredBy !== null ? (
+                    <>
+                        <Text style={styles.label}>{s.offeredBy}</Text>
+                        <Choice
+                            label={s.offeredBy}
+                            options={ed.offeredBy.options}
+                            value={ed.offeredBy.value}
+                            onChange={ed.offeredBy.pick}
+                        />
+                        <Text style={styles.hint}>{s.offeredByHint}</Text>
+                    </>
+                ) : null}
+                {ed.needs !== null ? (
+                    <>
+                        <Text style={styles.label}>{s.needs}</Text>
+                        <Choice
+                            label={s.needs}
+                            options={ed.needs.options}
+                            value={ed.needs.value}
+                            onChange={ed.needs.pick}
+                        />
+                        <Text style={styles.hint}>{s.needsHint}</Text>
+                    </>
+                ) : null}
             </DetailSection>
             <DetailSection title={s.sectionDeposit}>
                 <View style={styles.gap}>
@@ -310,6 +344,18 @@ function ProductFields({ ed }: { ed: ProductEditor }) {
                 ) : null}
                 <Text style={styles.hint}>{s.costHint}</Text>
             </DetailSection>
+            {ed.addsToVisit ? (
+                <DetailSection title={s.sectionVisit}>
+                    <Num
+                        label={s.addsToVisit}
+                        hint={s.addsToVisitHint}
+                        value={v.duration}
+                        onChange={(x) => {
+                            set("duration", x);
+                        }}
+                    />
+                </DetailSection>
+            ) : null}
             <DetailSection title={s.sectionStock}>
                 <Toggle
                     label={s.trackStock}

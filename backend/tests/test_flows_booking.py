@@ -84,9 +84,9 @@ async def test_online_booking_from_deposit_to_t4a(
     done = ok(await api.patch(f"/v1/bookings/{bid}", json={"status": "completed"})).json()
     assert done["status"] == "completed"
     draft = ok(await api.post(f"/v1/invoices/from-booking/{bid}", headers=key()), 201).json()
-    assert [(ln["booking_id"], ln["item_id"]) for ln in draft["lines"]] == [
-        (bid, GROOM_LG),
-        (None, BRUSH),
+    assert [(ln["booking_id"], ln["item_id"], ln["staff_id"]) for ln in draft["lines"]] == [
+        (bid, GROOM_LG, None),
+        (bid, BRUSH, "st_owner"),
     ]
     assert draft["status"] == "draft" and draft["subtotal_cents"] == 11000 + 2900
     sent = ok(await api.post(f"/v1/invoices/{draft['id']}/send")).json()
@@ -114,14 +114,14 @@ async def test_online_booking_from_deposit_to_t4a(
     approved = ok(await api.post("/v1/earnings/approve", json={"ids": [journal]})).json()[
         "earnings"
     ][0]
-    assert approved["amount_cents"] == 4400  # 40% of the $110 service line
+    assert approved["amount_cents"] == 5560  # 40% of the $110 service and its $29 add-on
     assert approved["booking_id"] == bid and approved["status"] == "approved"
     bank = await business_balance(db, "bank")
     paid_out = ok(await api.post("/v1/earnings/pay", json={"ids": [journal]})).json()
     assert paid_out["earnings"][0]["status"] == "paid"
-    assert await business_balance(db, "bank") == bank - 4400
+    assert await business_balance(db, "bank") == bank - 5560
     after = await _t4a(api, year)
-    assert after["st_owner"] - before.get("st_owner", 0) == 4400
+    assert after["st_owner"] - before.get("st_owner", 0) == 5560
 
 
 async def test_no_show_forfeits_the_deposit(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:

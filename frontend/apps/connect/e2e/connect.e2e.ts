@@ -45,7 +45,15 @@ async function bookVisit(
         (response) => response.url().includes(`/book/${slug}/days?`) && response.ok(),
     );
     await page.getByRole("button", { name: service }).click();
-    await expect(page.getByRole("heading", { name: b.stepTime })).toBeVisible();
+    if (extras === "add an extra") {
+        await expect(page.getByRole("heading", { name: b.stepExtras, level: 2 })).toBeVisible();
+        await page
+            .getByRole("button", { name: new RegExp(`^${b.addNamed("")}`) })
+            .first()
+            .click();
+        await page.getByRole("button", { name: b.continue }).first().click();
+    }
+    await expect(page.getByRole("radiogroup", { name: b.date })).toBeVisible();
     const openings = (await (await openingsResponse).json()) as {
         days: { count: number; closed: boolean }[];
     };
@@ -61,14 +69,6 @@ async function bookVisit(
         .click();
     await page.getByRole("radiogroup", { name: b.openTimes }).getByRole("radio").first().click();
     await page.getByRole("button", { name: b.continue }).first().click();
-    if (extras === "add an extra") {
-        await expect(page.getByRole("heading", { name: b.stepExtras, level: 2 })).toBeVisible();
-        await page
-            .getByRole("button", { name: new RegExp(`^${b.addNamed("")}`) })
-            .first()
-            .click();
-        await page.getByRole("button", { name: b.continue }).first().click();
-    }
     await expect(page.getByRole("heading", { name: b.stepDetails, level: 2 })).toBeVisible();
     await page.getByRole("textbox", { name: b.name }).fill("Robin Test");
     await page.getByRole("textbox", { name: b.subject("pet") }).fill("Pepper");
@@ -106,7 +106,7 @@ test("a new client's online booking waits for approval and opens the manage link
 
 test("a client books a confirmed visit where new clients need no approval", async ({ page }) => {
     const errors = watchErrors(page);
-    await bookVisit(page, "cedar-coast-demo", /^Dog Walk, 30 minutes/, "no extras");
+    await bookVisit(page, "cedarcoast", /^Dog Walk, 30 minutes/, "no extras");
     await expect(
         page.getByRole("heading", { name: strings.publicBooking.doneTitle }),
     ).toBeVisible();
@@ -123,6 +123,8 @@ test("anyone books with any member, and a refused or unreachable booking reads a
         (response) => response.url().includes(`/book/${links.slug}/days?`) && response.ok(),
     );
     await page.getByRole("button", { name: /^Full Groom — Large Dog/ }).click();
+    await expect(page.getByRole("heading", { name: b.stepExtras, level: 2 })).toBeVisible();
+    await page.getByRole("button", { name: b.continue }).first().click();
     const openings = (await (await openingsResponse).json()) as {
         days: { count: number; closed: boolean }[];
     };
@@ -136,8 +138,6 @@ test("anyone books with any member, and a refused or unreachable booking reads a
             .nth(availableDay)
             .click();
         await times.getByRole("radio").first().click();
-        await page.getByRole("button", { name: b.continue }).first().click();
-        await expect(page.getByRole("heading", { name: b.stepExtras, level: 2 })).toBeVisible();
         await page.getByRole("button", { name: b.continue }).first().click();
         await expect(page.getByRole("heading", { name: b.stepDetails, level: 2 })).toBeVisible();
     };

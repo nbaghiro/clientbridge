@@ -28,9 +28,10 @@ import {
     useCatalogItems,
 } from "./catalog";
 import { type Checkout, type CheckoutMethod, NEW_CARD, useCheckout } from "./checkout";
-import { useClients } from "./clients";
+import { packageBalance, useClients } from "./clients";
 import { ownedLiabilitySql, sessionsUsedSql } from "./ledger";
 import { checkoutMethods, useSavedCards } from "./payments";
+import { CLIENT_SUBJECTS_SQL, type SubjectDbRow, kindWord, useSubjectKind } from "./subjects";
 import { useReplicaLoad } from "./sync";
 import { asTaxClass, useTaxSetup } from "./taxes";
 
@@ -39,15 +40,17 @@ export interface PackageRow {
     client_id: string;
     item_id: string;
     item_name: string | null;
+    subject_name: string | null;
     sessions_total: number;
     sessions_used: number;
     status: string;
 }
 
 export const CLIENT_PACKAGES_SQL = `
-SELECT p.id, p.client_id, p.item_id, i.name AS item_name,
+SELECT p.id, p.client_id, p.item_id, i.name AS item_name, sj.name AS subject_name,
        p.sessions_total, ${sessionsUsedSql("p.id")} AS sessions_used, p.status
 FROM packages p LEFT JOIN items i ON i.id = p.item_id
+LEFT JOIN subjects sj ON sj.id = p.subject_id
 WHERE p.client_id = ? ORDER BY p.created_at DESC`;
 
 export function useClientPackages(clientId: string): PackageRow[] {
@@ -241,13 +244,15 @@ SELECT 'package' AS kind, p.id, p.client_id, i.name AS item_name, p.status, p.se
        NULL AS recipient, i.price_cents AS price_cents,
        ${ownedLiabilitySql("package", "deferred", "p.id")} AS balance_cents,
        NULL AS period_end, NULL AS method_brand, NULL AS method_last4, p.payment_id,
-       pay.amount_cents AS paid_cents, p.created_at AS created_at
+       pay.amount_cents AS paid_cents, p.created_at AS created_at, sj.name AS subject_name
 FROM packages p LEFT JOIN items i ON i.id = p.item_id
 LEFT JOIN payments pay ON pay.id = p.payment_id
+LEFT JOIN subjects sj ON sj.id = p.subject_id
 WHERE ${pkg}
 UNION ALL
 SELECT 'membership', s.id, s.client_id, i.name, s.status, NULL, NULL, NULL, NULL, NULL,
-       i.price_cents, NULL, s.current_period_end, pm.brand, pm.last4, NULL, NULL, s.created_at
+       i.price_cents, NULL, s.current_period_end, pm.brand, pm.last4, NULL, NULL, s.created_at,
+       NULL
 FROM subscriptions s LEFT JOIN items i ON i.id = s.item_id
 LEFT JOIN payment_methods pm ON pm.id = s.payment_method_id
 WHERE ${sub}
@@ -255,7 +260,7 @@ UNION ALL
 SELECT 'gift_card', g.id, g.purchaser_client_id, NULL, g.status, NULL, NULL, g.expires_at,
        g.code, g.recipient, g.initial_cents,
        ${ownedLiabilitySql("gift_card", "gift_card", "g.id")}, NULL, NULL, NULL,
-       g.payment_id, pay.amount_cents, g.created_at
+       g.payment_id, pay.amount_cents, g.created_at, NULL
 FROM gift_cards g LEFT JOIN payments pay ON pay.id = g.payment_id
 WHERE ${gift}`;
 
@@ -290,6 +295,7 @@ interface WalletRow {
     payment_id: string | null;
     paid_cents: number | null;
     created_at: string;
+    subject_name: string | null;
 }
 
 export const ENTITLEMENT_ICON: Record<WalletKind, IconName> = {
@@ -351,7 +357,7 @@ function summarizeEntitlement(r: WalletRow, zone: string): EntitlementSummary {
         return {
             ...base,
             title: r.item_name ?? w.kindNoun.package,
-            balanceLabel: w.sessionsLeft(left, total),
+            balanceLabel: packageBalance(r.subject_name, w.sessionsLeft(left, total)),
             meter: {
                 value: left,
                 max: Math.max(total, 1),
@@ -632,6 +638,7 @@ export function useEntitlementDetail(
 }
 
 const CASH = "cash";
+const SHARED = "shared";
 
 const GIFT_PRESETS = ["25", "50", "75", "100"];
 const GIFT_MIN_CENTS = 500;
@@ -659,6 +666,14 @@ export interface EntitlementSaleForm {
     clientId: string;
     setClientId: (id: string) => void;
     clientOptions: SelectOption<string>[];
+    // who a package is for: one of the client's subjects or shared; null when there's no choice
+    subject: {
+        label: string;
+        hint: string;
+        options: { key: string; label: string }[];
+        value: string;
+        pick: (key: string) => void;
+    } | null;
     methods: CheckoutMethod[];
     checkout: Checkout;
     needsCard: boolean;
@@ -689,6 +704,10 @@ export function useEntitlementSaleForm(
     const [amount, setAmount] = useState("50");
     const [recipient, setRecipient] = useState("");
     const [clientId, setClientId] = useState(opts.clientId ?? "");
+    const [subjectId, setSubjectId] = useState(SHARED);
+    const subjectKind = useSubjectKind();
+    const subjects = useQuery<SubjectDbRow>(CLIENT_SUBJECTS_SQL, [clientId]).data;
+    const forSubject = subjects.some((x) => x.id === subjectId) ? subjectId : SHARED;
     const [sold, setSold] = useState<string | null>(null);
     const cards = useSavedCards(clientId);
     const pool =
@@ -794,7 +813,13 @@ export function useEntitlementSaleForm(
                 if (kind === "package")
                     return api.post<object>(
                         "/v1/packages",
-                        { client_id: clientId, item_id: itemRef, payment_method_id: card, cash },
+                        {
+                            client_id: clientId,
+                            item_id: itemRef,
+                            subject_id: forSubject === SHARED ? null : forSubject,
+                            payment_method_id: card,
+                            cash,
+                        },
                         opt,
                     );
                 return api.post<object>(
@@ -804,7 +829,7 @@ export function useEntitlementSaleForm(
                 );
             },
             w.sellError,
-            { kind, clientId, giftCents, recipient, itemId: item?.id ?? null },
+            { kind, clientId, giftCents, recipient, itemId: item?.id ?? null, forSubject },
         );
     };
 
@@ -840,6 +865,19 @@ export function useEntitlementSaleForm(
             label: c.name,
             media: personMedia(c.name, null, photos.client(c.id)),
         })),
+        subject:
+            kind !== "package" || subjectKind === null || subjects.length === 0
+                ? null
+                : {
+                      label: strings.subjects.one(kindWord(subjectKind)),
+                      hint: w.subjectHint(kindWord(subjectKind)),
+                      options: [
+                          ...subjects.map((x) => ({ key: x.id, label: x.name })),
+                          { key: SHARED, label: w.subjectShared(kindWord(subjectKind)) },
+                      ],
+                      value: forSubject,
+                      pick: setSubjectId,
+                  },
         methods,
         checkout,
         needsCard: kind === "membership" && clientId !== "" && saved.length === 0,

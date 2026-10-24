@@ -575,6 +575,7 @@ const INDUSTRY_SUBJECTS = {
     petGrooming: "pet",
     petCare: "pet",
     tutoring: "student",
+    drivingSchool: "student",
     cleaning: "property",
     landscaping: "property",
     security: "site",

@@ -1,3 +1,4 @@
+from sqlalchemy import distinct, func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -6,7 +7,9 @@ from clientbridge.core.deps import Principal, assert_role
 from clientbridge.core.errors import Conflict, NotFound, Unprocessable
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
+from clientbridge.models.business import Staff
 from clientbridge.models.catalog import BOOKABLE_KINDS, Item
+from clientbridge.models.scheduling import Addon, Booking, Resource
 from clientbridge.schemas.catalog import (
     ItemCreate,
     ItemUpdate,
@@ -107,10 +110,14 @@ class CatalogService:
             visits_per_period=data.visits_per_period,
             member_discount_bps=data.member_discount_bps,
             gift_amounts=_amounts(data.gift_amounts),
+            staff_ids=sorted(set(data.staff_ids)),
+            resource_ids=sorted(set(data.resource_ids)),
         )
         _assert_shape(item)
         await self._assert_covers(item)
         await self._assert_variant(item)
+        await self._assert_staff(item.staff_ids)
+        await self._assert_resources(item.resource_ids)
         self.db.add(item)
         await self._save(item)
         return item
@@ -119,8 +126,19 @@ class CatalogService:
         self._assert_admin()
         item = await load_item(self.db, self.principal.business_id, item_id, require_active=False)
         changes = data.model_dump(exclude_unset=True)
+        if item.kind == "product" and changes.get("duration_min", item.duration_min) != (
+            item.duration_min
+        ):
+            await self._assert_length_unused(item)
+        offered_before = set(item.staff_ids)
+        pool_before = set(item.resource_ids)
+        for listed in ("staff_ids", "resource_ids"):
+            if changes.get(listed, ()) is None:
+                changes[listed] = []
         for key, value in changes.items():
             setattr(item, key, _amounts(value) if key == "gift_amounts" else value)
+        item.staff_ids = sorted(set(item.staff_ids))
+        item.resource_ids = sorted(set(item.resource_ids))
         if "online_bookable" not in changes and item.kind not in BOOKABLE_KINDS:
             item.online_bookable = False
         if item.track_stock and item.stock_on_hand is None:
@@ -128,8 +146,54 @@ class CatalogService:
         _assert_shape(item)
         await self._assert_covers(item)
         await self._assert_variant(item)
+        await self._assert_staff([s for s in item.staff_ids if s not in offered_before])
+        await self._assert_resources([r for r in item.resource_ids if r not in pool_before])
         await self._save(item)
         return item
+
+    async def _assert_length_unused(self, item: Item) -> None:
+        """An add-on's minutes are part of each visit it is on, so its length holds until then."""
+        visits = await self.db.scalar(
+            scoped(Addon, self.principal.business_id)
+            .with_only_columns(func.count(distinct(Addon.booking_id)))
+            .join(Booking, Booking.id == Addon.booking_id)
+            .where(
+                Addon.item_id == item.id,
+                Booking.deleted_at.is_(None),
+                Booking.status.in_(("pending", "confirmed")),
+                Booking.invoice_id.is_(None),
+            )
+        )
+        if visits:
+            raise Conflict(
+                f"this add-on is on {visits} upcoming visits; its length can't change until then",
+                code="addon_length_in_use",
+                detail={"count": visits},
+            )
+
+    async def _assert_staff(self, staff_ids: list[str]) -> None:
+        """Each newly named member is active in this business; one removed later stays listed."""
+        if not staff_ids:
+            return
+        found = await self.db.scalars(
+            scoped(Staff, self.principal.business_id)
+            .with_only_columns(Staff.id)
+            .where(Staff.id.in_(staff_ids), Staff.status == "active")
+        )
+        if set(found) != set(staff_ids):
+            raise NotFound("staff not found")
+
+    async def _assert_resources(self, resource_ids: list[str]) -> None:
+        """Each newly added resource is active in this business; one retired later stays listed."""
+        if not resource_ids:
+            return
+        found = await self.db.scalars(
+            scoped(Resource, self.principal.business_id)
+            .with_only_columns(Resource.id)
+            .where(Resource.id.in_(resource_ids), Resource.active.is_(True))
+        )
+        if set(found) != set(resource_ids):
+            raise NotFound("resource not found")
 
     async def _assert_variant(self, item: Item) -> None:
         if item.variant_parent_id is not None:
@@ -216,8 +280,8 @@ def _assert_shape(item: Item) -> None:
         and item.deposit_value > 100
     ):
         raise Unprocessable("a percentage deposit can't be over 100")
-    if item.session_count is not None and item.kind != "package":
-        raise Unprocessable("only packages have a session count")
+    if item.session_count is not None and item.kind not in ("package", "class"):
+        raise Unprocessable("only packages and classes have a session count")
     if (item.interval is not None or item.frequency is not None) and item.kind != "subscription":
         raise Unprocessable("only subscriptions repeat")
     if item.covers_item_id is not None and item.kind != "package":
@@ -228,6 +292,23 @@ def _assert_shape(item: Item) -> None:
         raise Unprocessable("only memberships include visits or a member discount")
     if item.gift_amounts is not None and item.kind != "gift":
         raise Unprocessable("only gift cards have suggested amounts")
+    if item.staff_ids and item.kind not in BOOKABLE_KINDS:
+        raise Unprocessable("only services and classes name the staff who offer them")
+    if item.resource_ids and item.kind not in BOOKABLE_KINDS:
+        raise Unprocessable("only services and classes need rooms or equipment")
+
+
+NOT_OFFERED = "that staff member doesn't offer this service"
+
+
+def offers(item: Item, staff_id: str) -> bool:
+    """Whether the member performs this service or class; an empty list means everyone does."""
+    return not item.staff_ids or staff_id in item.staff_ids
+
+
+def assert_offers(item: Item, staff_id: str) -> None:
+    if not offers(item, staff_id):
+        raise Unprocessable(NOT_OFFERED, code="service_not_offered")
 
 
 def _amounts(value: object) -> list[int] | None:

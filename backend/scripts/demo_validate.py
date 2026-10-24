@@ -17,14 +17,15 @@ from clientbridge.core.deps import Principal
 from clientbridge.core.errors import AppError
 from clientbridge.models.billing import Estimate, Invoice, Line
 from clientbridge.models.business import Business, Staff
-from clientbridge.models.catalog import GiftCard, Item, StockMovement
+from clientbridge.models.catalog import GiftCard, Item, Package, StockMovement
 from clientbridge.models.clients import Subject
 from clientbridge.models.documents import Contract, FormResponse, Signature
-from clientbridge.models.scheduling import Booking, Hours, Recurrence, Slot, Weekday
+from clientbridge.models.scheduling import Booking, Hours, Recurrence, Resource, Slot, Weekday
 from clientbridge.schemas.forms import FormDefinition
 from clientbridge.schemas.subjects import ATTRIBUTES
 from clientbridge.services.bookings import within_hours
-from clientbridge.services.public import validate_answers
+from clientbridge.services.forms import validate_answers
+from clientbridge.services.lines import crew_note
 from clientbridge.services.remittances import RemittanceService
 from scripts.demo_context import DEMO_BUSINESSES, DEMO_IDS, DemoContext
 
@@ -32,7 +33,7 @@ from scripts.demo_context import DEMO_BUSINESSES, DEMO_IDS, DemoContext
 def _conflicts(
     active: list[Slot], subjects: dict[str, set[str]], items: dict[str, Item]
 ) -> list[tuple[int, int]]:
-    """Pairs of slots, by position, that share a member or a subject and overlap with buffers."""
+    """Pairs of slots, by position, sharing a member, subject or resource and overlapping."""
     padded = [
         (
             slot.starts_at - timedelta(minutes=items[slot.item_id].buffer_before_min or 0),
@@ -43,6 +44,8 @@ def _conflicts(
     groups: dict[str, list[int]] = {}
     for index, slot in enumerate(active):
         groups.setdefault(f"staff:{slot.staff_id}", []).append(index)
+        if slot.resource_id is not None:
+            groups.setdefault(f"resource:{slot.resource_id}", []).append(index)
         for subject in subjects[slot.id]:
             groups.setdefault(f"subject:{subject}", []).append(index)
     pairs: set[tuple[int, int]] = set()
@@ -61,6 +64,7 @@ def validate_graph(ctx: DemoContext) -> list[str]:
     items = {r.id: r for r in ctx.all(Item)}
     slots = {r.id: r for r in ctx.all(Slot)}
     pets = {r.id: r for r in ctx.all(Subject)}
+    packages = {r.id: r for r in ctx.all(Package)}
     bookings = ctx.all(Booking)
     hours = ctx.all(Hours)
     business = ctx.get(Business, ctx.business_id)
@@ -85,6 +89,9 @@ def validate_graph(ctx: DemoContext) -> list[str]:
             for rule in rules:
                 if slot.item_id in rule.items and not rule.fits(pet.attributes):
                     errors.append(f"{booking.id}: subject {rule.attribute} does not suit the visit")
+        held = packages.get(booking.package_id or "")
+        if held is not None and held.subject_id not in (None, booking.subject_id):
+            errors.append(f"{booking.id}: covered by another subject's package")
         if booking.confirmed_at and booking.confirmed_at > ctx.now:
             errors.append(f"{booking.id}: future confirmation")
         if booking.status == "completed" and (
@@ -101,7 +108,18 @@ def validate_graph(ctx: DemoContext) -> list[str]:
     seated: dict[str, list[Booking]] = {}
     for booking in bookings:
         seated.setdefault(booking.slot_id, []).append(booking)
+    rooms = {r.id: r for r in ctx.all(Resource)}
     for slot in active:
+        offered = items[slot.item_id].staff_ids
+        if offered and slot.staff_id not in offered:
+            errors.append(f"{slot.id}: the member does not offer {slot.item_id}")
+        pool = items[slot.item_id].resource_ids
+        if slot.resource_id is not None and slot.resource_id not in pool:
+            errors.append(f"{slot.id}: holds a resource outside {slot.item_id}'s pool")
+        if slot.resource_id is not None and slot.resource_id not in rooms:
+            errors.append(f"{slot.id}: holds a resource of another business")
+        if pool and slot.resource_id is None:
+            errors.append(f"{slot.id}: {slot.item_id} needs a resource and holds none")
         # the product's rule: inside the member's hours that day, or a day with none set
         member = [h for h in hours if h.staff_id == slot.staff_id]
         if not within_hours(member, zone, slot.starts_at, slot.ends_at):
@@ -114,9 +132,28 @@ def validate_graph(ctx: DemoContext) -> list[str]:
         if waiting and taken < slot.capacity and slot.starts_at > ctx.now:
             errors.append(f"{slot.id}: a seat is open while someone waits for one")
     errors.extend(
-        f"{active[left].id}/{active[right].id}: staff or pet conflict"
+        f"{active[left].id}/{active[right].id}: staff, subject or resource conflict"
         for left, right in _conflicts(active, slot_pets, items)
     )
+    by_booking = {b.id: b for b in bookings}
+    prefix = crew_note("")
+    for block in hours:
+        if block.note is None or not block.note.startswith(prefix):
+            continue
+        visit = by_booking.get(block.note.removeprefix(prefix))
+        if visit is None or visit.status == "canceled" or visit.staff_id == block.staff_id:
+            errors.append(f"{block.id}: crew block without a live visit it helps on")
+            continue
+        slot = slots[visit.slot_id]
+        if (block.starts_at, block.ends_at) != (slot.starts_at, slot.ends_at):
+            errors.append(f"{block.id}: crew block off its visit's window")
+        if any(
+            other.staff_id == block.staff_id
+            and other.starts_at < slot.ends_at
+            and other.ends_at > slot.starts_at
+            for other in active
+        ):
+            errors.append(f"{block.id}: helper is booked during the visit")
     series: dict[str, list[Slot]] = {}
     for slot in slots.values():
         if slot.recurrence_id is not None:
@@ -381,6 +418,7 @@ async def validate_database(
             Slot,
             Hours,
             Recurrence,
+            Resource,
             Contract,
             Signature,
             FormResponse,

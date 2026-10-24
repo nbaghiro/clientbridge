@@ -4,7 +4,7 @@ from zoneinfo import ZoneInfo
 
 from clientbridge.core.db import Base
 
-DEMO_VERSION = "2026-10-20.5"
+DEMO_VERSION = "2026-10-23.5"
 DEMO_PASSWORD = "demo1234"  # every seeded user logs in with this
 BUSINESS_TIMEZONE = ZoneInfo("America/Vancouver")
 
@@ -62,7 +62,8 @@ class DemoBusiness:
     primary_color: str
     legal: LegalAddress
     owner_login: str
-    url: str | None = None
+    # its website, which Stripe also gets as the account's business URL
+    url: str
     timezone: str = "America/Vancouver"
     # the module that builds it on the demo engine, which exposes EDITION
     edition: str | None = None
@@ -85,11 +86,11 @@ DEMO_BUSINESSES = (
         last_name="Wong",
         product_description="Pet grooming and daycare",
         primary_color="#2E4A3F",
-        url="https://birchbarkpets.ca",
         legal=LegalAddress(
             "1207", "Government Street", "Victoria", "BC", "V8W 1Y9", "+12505550110"
         ),
         owner_login="hannah@birchbark.example",
+        url="https://birchbark.example",
         core=True,
         rules=(
             SubjectRule(("it_cat",), "species", equals="cat"),
@@ -109,13 +110,14 @@ DEMO_BUSINESSES = (
     DemoBusiness(
         id="bz_demo_second",
         name="Cedar Coast Pet Care",
-        email="owner@cedarcoast.example.test",
+        email="hello@cedarcoast.example",
         first_name="Rowan",
         last_name="Ellis",
         product_description="Dog walking and pet sitting",
         primary_color="#35576B",
         legal=LegalAddress("455", "Granville Street", "Vancouver", "BC", "V6C 1T1", "+16045550120"),
-        owner_login="owner@cedarcoast.example.test",
+        owner_login="owner@cedarcoast.example",
+        url="https://cedarcoast.example",
         core=True,
         edition="scripts.demo_cedar",
         rules=(
@@ -144,6 +146,7 @@ DEMO_BUSINESSES = (
         primary_color="#1F2F4A",
         legal=LegalAddress("2860", "Quadra Street", "Victoria", "BC", "V8T 4E7", "+12505550198"),
         owner_login="owner@northlight.example",
+        url="https://northlight.example",
         core=True,
         edition="scripts.demo_northlight",
     ),
@@ -157,6 +160,7 @@ DEMO_BUSINESSES = (
         primary_color="#1E6A73",
         legal=LegalAddress("1324", "9 Avenue SE", "Calgary", "AB", "T2G 0T2", "+14035550198"),
         owner_login="owner@brightwater.example",
+        url="https://brightwater.example",
         timezone="America/Edmonton",
         edition="scripts.demo_brightwater",
     ),
@@ -170,6 +174,7 @@ DEMO_BUSINESSES = (
         primary_color="#9C4221",
         legal=LegalAddress("10418", "82 Avenue NW", "Edmonton", "AB", "T6E 2A2", "+17805550198"),
         owner_login="owner@ridgeline.example",
+        url="https://ridgeline.example",
         timezone="America/Edmonton",
         edition="scripts.demo_ridgeline",
     ),
@@ -183,6 +188,7 @@ DEMO_BUSINESSES = (
         primary_color="#24506B",
         legal=LegalAddress("512", "Preston Street", "Ottawa", "ON", "K1R 7P8", "+16135550198"),
         owner_login="owner@lakeside.example",
+        url="https://lakeside.example",
         timezone="America/Toronto",
         edition="scripts.demo_lakeside",
     ),
@@ -196,6 +202,7 @@ DEMO_BUSINESSES = (
         primary_color="#7B3F35",
         legal=LegalAddress("2087", "Danforth Avenue", "Toronto", "ON", "M4C 1J9", "+14165550198"),
         owner_login="owner@maplemain.example",
+        url="https://maplemain.example",
         timezone="America/Toronto",
         edition="scripts.demo_maplemain",
     ),
@@ -211,6 +218,7 @@ DEMO_BUSINESSES = (
             "214", "James Street North", "Hamilton", "ON", "L8R 2L3", "+19055550198"
         ),
         owner_login="owner@fieldnote.example",
+        url="https://fieldnote.example",
         timezone="America/Toronto",
         edition="scripts.demo_fieldnote",
     ),
@@ -224,6 +232,7 @@ DEMO_BUSINESSES = (
         primary_color="#2F5D3A",
         legal=LegalAddress("2615", "42 Avenue NE", "Calgary", "AB", "T2E 7T1", "+15875550198"),
         owner_login="owner@foothills.example",
+        url="https://foothills.example",
         timezone="America/Edmonton",
         edition="scripts.demo_foothills",
     ),
@@ -239,6 +248,7 @@ DEMO_BUSINESSES = (
             "1285", "West Pender Street", "Vancouver", "BC", "V6E 4B1", "+17785550190"
         ),
         owner_login="owner@harbourside.example",
+        url="https://harbourside.example",
         edition="scripts.demo_harbourside",
     ),
     DemoBusiness(
@@ -249,10 +259,42 @@ DEMO_BUSINESSES = (
         last_name="Moreno",
         product_description="Custom and flash tattoos, and piercing",
         primary_color="#8C2F2F",
-        url="https://inkwell.example",
         legal=LegalAddress("2418", "Main Street", "Vancouver", "BC", "V5T 3E2", "+16725550198"),
         owner_login="owner@inkwell.example",
+        url="https://inkwell.example",
         edition="scripts.demo_inkwell",
+    ),
+    DemoBusiness(
+        id="bz_clearcoat",
+        name="Clearcoat Mobile Detailing",
+        email="hello@clearcoat.example",
+        first_name="Mathieu",
+        last_name="Roy",
+        product_description="Mobile car washes, detailing and ceramic coatings",
+        primary_color="#1F4E6B",
+        legal=LegalAddress(
+            "4040", "Rue Saint-Ambroise", "Montréal", "QC", "H4C 2C8", "+15145550198"
+        ),
+        owner_login="owner@clearcoat.example",
+        url="https://clearcoat.example",
+        timezone="America/Toronto",
+        edition="scripts.demo_clearcoat",
+    ),
+    DemoBusiness(
+        id="bz_riverbend",
+        name="Riverbend Driving School",
+        email="hello@riverbend.example",
+        first_name="Linda",
+        last_name="Friesen",
+        product_description="Driving lessons, classroom courses and road test packages",
+        primary_color="#2B6E62",
+        legal=LegalAddress(
+            "180", "Provencher Boulevard", "Winnipeg", "MB", "R2H 0G3", "+12045550198"
+        ),
+        owner_login="owner@riverbend.example",
+        url="https://riverbend.example",
+        timezone="America/Winnipeg",
+        edition="scripts.demo_riverbend",
     ),
 )
 DEMO_IDS = tuple(business.id for business in DEMO_BUSINESSES)

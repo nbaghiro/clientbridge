@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 
+import { formatList } from "../format";
 import { strings } from "../strings";
-import { type PublicReceipt, publicReceiptTotals } from "./publicReceipt";
+import {
+    type PublicReceipt,
+    type VisitReceipt,
+    printedVisitReceipt,
+    publicReceiptTotals,
+} from "./publicReceipt";
 
 const r = strings.publicReceipt;
 
@@ -65,5 +71,71 @@ describe("publicReceiptTotals", () => {
             ["total", 13041],
         ]);
         expect(totals[0]?.hint).toBeUndefined();
+    });
+});
+
+function visit(extra: Partial<VisitReceipt> = {}): VisitReceipt {
+    return {
+        ...receipt(),
+        address: {
+            unit: null,
+            street_number: "1250",
+            street_name: "Main St",
+            city: "Victoria",
+            province: "BC",
+            postal_code: "V8W 1A1",
+        },
+        phone: "+12505550142",
+        source: "invoice",
+        service: "Massage, 60 min",
+        visit_at: "2026-10-07T16:00:00Z",
+        practitioner: "Amy Chen",
+        practitioner_title: "RMT · Reg. 12345",
+        served_by: ["Amy Chen"],
+        ...extra,
+    };
+}
+
+describe("printedVisitReceipt", () => {
+    const p = strings.printing;
+
+    it("prints the invoice number, the practitioner and the business address", () => {
+        const doc = printedVisitReceipt(visit(), "#000");
+        expect([doc.kind, doc.number]).toEqual(["receipt", "42"]);
+        expect(doc.meta).toEqual([
+            { label: p.forInvoice, value: "42" },
+            { label: p.practitioner, value: "Amy Chen · RMT · Reg. 12345" },
+            { label: p.serviceDate, value: "October 7, 2026" },
+            { label: p.service, value: "Massage, 60 min" },
+        ]);
+        expect(doc.business.address).toEqual(["1250 Main St", "Victoria, BC, V8W 1A1"]);
+        expect(doc.business.phone).toBe("(250) 555-0142");
+        expect(doc.headline.cents).toBe(2750 + 11791 - 2000 + 1);
+        expect(doc.stamp).toBe(p.paidStamp);
+    });
+
+    it("names the rest of the crew after the practitioner", () => {
+        const doc = printedVisitReceipt(
+            visit({ served_by: ["Amy Chen", "Priya Shah", "Diego Ruiz"] }),
+            "#000",
+        );
+        expect(doc.meta[2]).toEqual({
+            label: p.assistedBy,
+            value: formatList(["Priya Shah", "Diego Ruiz"], "unit"),
+        });
+        expect(printedVisitReceipt(visit({ served_by: ["Amy Chen"] }), "#000").meta).toHaveLength(
+            4,
+        );
+    });
+
+    it("numbers a desk sale's receipt as the sale and leaves out a missing practitioner", () => {
+        const doc = printedVisitReceipt(
+            visit({ source: "sale", practitioner: null, practitioner_title: null, status: "open" }),
+            "#000",
+        );
+        expect(doc.number).toBe("S-42");
+        expect(doc.meta[0]).toEqual({ label: p.forSale, value: "S-42" });
+        expect(doc.meta[1]?.value).toBe("");
+        expect(doc.stamp).toBeNull();
     });
 });
