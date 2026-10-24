@@ -6,7 +6,8 @@ import pulumi_kubernetes as k8s
 from kubernetes import migrate, settings, sidecar
 
 NAME = "seed"
-DEADLINE_SECONDS = 1800
+# the copy is bound by Cloud SQL's shared core, so the deploy starts the Job and doesn't wait for it
+DEADLINE_SECONDS = 3600
 # one writer per core of the pod, the seed's and its scratch Postgres's together
 JOBS = 2
 # a round trip through the Cloud SQL proxy costs milliseconds, so the seed writes locally first
@@ -42,13 +43,15 @@ def create(ctx: settings.Context, after: list[pulumi.Resource]) -> k8s.batch.v1.
         volumes=[volume, *scratch_volumes],
         restart_policy="Never",
     )
+    # a new image, command or deadline starts a fresh Job, since Pulumi never reruns one
+    digest = settings.config_digest(ctx.images.backend, *COMMAND, str(DEADLINE_SECONDS))
     return k8s.batch.v1.Job(
         f"{ctx.env.name}-{NAME}",
         metadata=k8s.meta.v1.ObjectMetaArgs(
-            name=f"{NAME}-{settings.config_digest(ctx.images.backend)}",
+            name=f"{NAME}-{digest}",
             namespace=ctx.env.namespace,
             labels={"app": NAME},
-            annotations={"pulumi.com/replaceUnready": "true"},
+            annotations={"pulumi.com/skipAwait": "true"},
         ),
         spec=k8s.batch.v1.JobSpecArgs(
             backoff_limit=ctx.env.migrate_retries,
@@ -57,8 +60,5 @@ def create(ctx: settings.Context, after: list[pulumi.Resource]) -> k8s.batch.v1.
                 metadata=k8s.meta.v1.ObjectMetaArgs(labels={"app": NAME}), spec=spec
             ),
         ),
-        opts=ctx.options(
-            [provider_class, *after],
-            pulumi.CustomTimeouts(create=f"{DEADLINE_SECONDS}s", update=f"{DEADLINE_SECONDS}s"),
-        ),
+        opts=ctx.options([provider_class, *after]),
     )
