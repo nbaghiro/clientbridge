@@ -472,6 +472,8 @@ Production and staging setup of the sending domain, API key and webhook is in [o
 
 ## The demo / QA account
 
+[demo.md](demo.md) is the overview of the demo businesses, their logins and what each shows.
+
 Demo accounts are normal tenants in the main local `clientbridge` database, using the standard servers and provider integrations. Every `make seed` replaces the demo businesses' rows with a fresh scenario and keeps unrelated tenants, and it behaves the same way locally and on staging. Tests and CI seed only the core businesses (`make seed-core`, or `seed_demo --core`), which keeps their setup to about a quarter of the rows; this is the one deliberate difference between test data and the demo, and `make seed` and the staging seed job still write every business. `make demo-check` validates their scenario and ledger. There is no demo runtime mode or separate presentation database.
 
 | Login                        | Role                                                                        |
