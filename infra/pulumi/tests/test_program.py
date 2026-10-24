@@ -1408,3 +1408,14 @@ def test_google_business_resources_are_gated_and_use_a_separate_key() -> None:
     assert "mybusiness.googleapis.com" in enabled_apis
     assert "mybusinessaccountmanagement.googleapis.com" in enabled_apis
     assert "mybusinessbusinessinformation.googleapis.com" in enabled_apis
+
+
+def test_stagings_seed_job_is_renamed_when_its_command_or_deadline_changes(
+    stacks: dict[str, Built],
+) -> None:
+    (seed,) = jobs(stacks["staging"], "seed")
+    (container,) = listed(dig(seed.inputs, "spec", "template", "spec", "containers"))
+    image = str(dig(container, "image"))
+    command = [str(each) for each in listed(dig(container, "command"))]
+    assert command
+    assert dig(seed.inputs, "metadata", "name") != f"seed-{settings.config_digest(image)}"

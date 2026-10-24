@@ -43,10 +43,12 @@ def create(ctx: settings.Context, after: list[pulumi.Resource]) -> k8s.batch.v1.
         volumes=[volume, *scratch_volumes],
         restart_policy="Never",
     )
+    # a new image, command or deadline starts a fresh Job, since Pulumi never reruns one
+    digest = settings.config_digest(ctx.images.backend, *COMMAND, str(DEADLINE_SECONDS))
     return k8s.batch.v1.Job(
         f"{ctx.env.name}-{NAME}",
         metadata=k8s.meta.v1.ObjectMetaArgs(
-            name=f"{NAME}-{settings.config_digest(ctx.images.backend)}",
+            name=f"{NAME}-{digest}",
             namespace=ctx.env.namespace,
             labels={"app": NAME},
             annotations={"pulumi.com/skipAwait": "true"},
