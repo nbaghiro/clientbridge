@@ -70,6 +70,8 @@ class FormResponse(PKMixin, BusinessScoped, TimestampMixin, Base):
         UniqueConstraint("token", name="uq_responses_token"),
         Index("ix_responses_form", "business_id", "form_id"),
         Index("ix_responses_parent", "parent_type", "parent_id"),
+        Index("ix_responses_client", "client_id"),
+        Index("ix_responses_form_id", "form_id"),
     )
 
     form_id: Mapped[str] = mapped_column(ForeignKey("forms.id"), nullable=False)
@@ -105,6 +107,8 @@ class Signature(PKMixin, BusinessScoped, TimestampMixin, Base):
         UniqueConstraint("token", name="uq_signatures_token"),
         Index("ix_signatures_contract", "business_id", "contract_id"),
         Index("ix_signatures_parent", "parent_type", "parent_id"),
+        Index("ix_signatures_client", "client_id"),
+        Index("ix_signatures_contract_id", "contract_id"),
     )
 
     contract_id: Mapped[str] = mapped_column(ForeignKey("contracts.id"), nullable=False)

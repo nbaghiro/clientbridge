@@ -47,6 +47,7 @@ class Invoice(PKMixin, BusinessScoped, TimestampMixin, Discounted, Base):
         enum_check("invoices", "status", InvoiceStatus),
         Index("ix_invoices_client", "business_id", "client_id"),
         Index("ix_invoices_status", "business_id", "status"),
+        Index("ix_invoices_client_id", "client_id"),
     )
 
     client_id: Mapped[str] = mapped_column(ForeignKey("clients.id"), nullable=False)
@@ -71,6 +72,8 @@ class Estimate(PKMixin, BusinessScoped, TimestampMixin, Discounted, Base):
         enum_check("estimates", "discount_kind", DiscountKind, nullable=True),
         enum_check("estimates", "status", EstimateStatus),
         Index("ix_estimates_status", "business_id", "status"),
+        Index("ix_estimates_client", "client_id"),
+        Index("ix_estimates_converted_invoice", "converted_invoice_id"),
     )
 
     client_id: Mapped[str] = mapped_column(ForeignKey("clients.id"), nullable=False)
@@ -100,6 +103,8 @@ class Order(PKMixin, BusinessScoped, TimestampMixin, Discounted, Base):
         UniqueConstraint("business_id", "number", name="uq_orders_business_number"),
         enum_check("orders", "discount_kind", DiscountKind, nullable=True),
         enum_check("orders", "receipt_channel", Channel, nullable=True),
+        Index("ix_orders_client", "client_id"),
+        Index("ix_orders_staff", "staff_id"),
     )
 
     client_id: Mapped[str | None] = mapped_column(ForeignKey("clients.id"))  # null = walk-in
@@ -143,6 +148,9 @@ class Line(PKMixin, BusinessScoped, TimestampMixin, Discounted, Base):
         Index("ix_lines_invoice", "invoice_id"),
         Index("ix_lines_order", "order_id"),
         enum_check("lines", "discount_kind", DiscountKind, nullable=True),
+        Index("ix_lines_booking", "booking_id"),
+        Index("ix_lines_item", "item_id"),
+        Index("ix_lines_staff", "staff_id"),
     )
 
     estimate_id: Mapped[str | None] = mapped_column(ForeignKey("estimates.id"))

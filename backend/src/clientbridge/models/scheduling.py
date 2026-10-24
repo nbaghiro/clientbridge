@@ -47,6 +47,10 @@ class Slot(PKMixin, BusinessScoped, TimestampMixin, Base):
             "starts_at",
             postgresql_where=text("resource_id IS NOT NULL"),
         ),
+        Index("ix_slots_item", "item_id"),
+        Index("ix_slots_recurrence", "recurrence_id"),
+        Index("ix_slots_resource_id", "resource_id"),
+        Index("ix_slots_staff_id", "staff_id"),
     )
 
     item_id: Mapped[str] = mapped_column(ForeignKey("items.id"), nullable=False)
@@ -71,6 +75,14 @@ class Booking(PKMixin, BusinessScoped, TimestampMixin, SoftDelete, Base):
         Index("ix_bookings_status", "business_id", "status"),
         Index("ix_bookings_staff", "business_id", "staff_id"),
         Index("ix_bookings_estimate", "business_id", "estimate_id"),
+        Index("ix_bookings_invoice", "invoice_id"),
+        Index("ix_bookings_order", "order_id"),
+        Index("ix_bookings_package", "package_id"),
+        Index("ix_bookings_subject", "subject_id"),
+        Index("ix_bookings_client_id", "client_id"),
+        Index("ix_bookings_estimate_id", "estimate_id"),
+        Index("ix_bookings_slot_id", "slot_id"),
+        Index("ix_bookings_staff_id", "staff_id"),
     )
 
     slot_id: Mapped[str] = mapped_column(ForeignKey("slots.id"), nullable=False)
@@ -136,6 +148,7 @@ class Hours(PKMixin, BusinessScoped, TimestampMixin, Base):
         ),
         Index("ix_hours_staff", "business_id", "staff_id", "basis"),
         Index("ix_hours_exception", "business_id", "basis", "starts_at"),
+        Index("ix_hours_staff_id", "staff_id"),
     )
 
     # null only on an exception: a closure of the whole business
@@ -172,6 +185,9 @@ class Recurrence(PKMixin, BusinessScoped, TimestampMixin, Base):
         enum_check("recurrences", "status", RecurrenceStatus),
         enum_check("recurrences", "monthly_by", MonthlyBy),
         Index("ix_recurrences_status", "business_id", "status"),
+        Index("ix_recurrences_client", "client_id"),
+        Index("ix_recurrences_item", "item_id"),
+        Index("ix_recurrences_staff", "staff_id"),
     )
 
     item_id: Mapped[str] = mapped_column(ForeignKey("items.id"), nullable=False)
@@ -196,6 +212,9 @@ class Addon(PKMixin, BusinessScoped, TimestampMixin, Base):
     __table_args__ = (
         CheckConstraint("quantity > 0", name="ck_addons_quantity"),
         Index("ix_addons_booking", "business_id", "booking_id"),
+        Index("ix_addons_item", "item_id"),
+        Index("ix_addons_staff", "staff_id"),
+        Index("ix_addons_booking_id", "booking_id"),
     )
 
     booking_id: Mapped[str] = mapped_column(ForeignKey("bookings.id"), nullable=False)

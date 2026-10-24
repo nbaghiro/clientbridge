@@ -62,6 +62,9 @@ class Item(PKMixin, BusinessScoped, TimestampMixin, Base):
             unique=True,
             postgresql_where=text("sku IS NOT NULL"),
         ),
+        Index("ix_items_covers_item", "covers_item_id"),
+        Index("ix_items_created_by", "created_by"),
+        Index("ix_items_variant_parent", "variant_parent_id"),
     )
 
     created_by: Mapped[str | None] = mapped_column(ForeignKey("users.id"))
@@ -120,6 +123,10 @@ class Package(PKMixin, BusinessScoped, TimestampMixin, Base):
     __table_args__ = (
         enum_check("packages", "status", PackageStatus),
         Index("ix_packages_client_status", "business_id", "client_id", "status"),
+        Index("ix_packages_item", "item_id"),
+        Index("ix_packages_payment", "payment_id"),
+        Index("ix_packages_subject", "subject_id"),
+        Index("ix_packages_client_id", "client_id"),
     )
 
     client_id: Mapped[str] = mapped_column(ForeignKey("clients.id"), nullable=False)
@@ -146,6 +153,9 @@ class Subscription(PKMixin, BusinessScoped, TimestampMixin, Base):
             unique=True,
             postgresql_where=text("status IN ('active', 'paused')"),
         ),
+        Index("ix_subscriptions_item", "item_id"),
+        Index("ix_subscriptions_payment_method", "payment_method_id"),
+        Index("ix_subscriptions_client_id", "client_id"),
     )
 
     client_id: Mapped[str] = mapped_column(ForeignKey("clients.id"), nullable=False)
@@ -161,6 +171,9 @@ class GiftCard(PKMixin, BusinessScoped, TimestampMixin, Base):
     __table_args__ = (
         UniqueConstraint("business_id", "code", name="uq_gift_cards_business_code"),
         enum_check("gift_cards", "status", GiftCardStatus),
+        Index("ix_gift_cards_item", "item_id"),
+        Index("ix_gift_cards_payment", "payment_id"),
+        Index("ix_gift_cards_purchaser_client", "purchaser_client_id"),
     )
 
     code: Mapped[str] = mapped_column(String, nullable=False)
@@ -187,6 +200,8 @@ class StockMovement(PKMixin, BusinessScoped, TimestampMixin, Base):
             postgresql_where=text("line_id IS NOT NULL"),
         ),
         Index("ix_inventory_item", "business_id", "item_id"),
+        Index("ix_inventory_created_by", "created_by"),
+        Index("ix_inventory_item_id", "item_id"),
     )
 
     item_id: Mapped[str] = mapped_column(ForeignKey("items.id"), nullable=False)

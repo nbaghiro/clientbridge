@@ -25,6 +25,8 @@ const clients = new Table(
             clients_business_email: ["email"],
             clients_business_id: ["business_id"],
             clients_business_phone: ["phone"],
+            clients_created_by: ["created_by"],
+            clients_user: ["user_id"],
         },
     },
 );
@@ -61,6 +63,7 @@ const notes = new Table(
     {
         indexes: {
             notes_business_id: ["business_id"],
+            notes_created_by: ["created_by"],
             notes_parent: ["parent_type", "parent_id"],
         },
     },
@@ -82,6 +85,8 @@ const consents = new Table(
         indexes: {
             consents_business_id: ["business_id"],
             consents_client: ["client_id", "channel", "created_at"],
+            consents_client_id: ["client_id"],
+            consents_recorded_by: ["recorded_by"],
         },
     },
 );
@@ -108,6 +113,7 @@ const hours = new Table(
             hours_business_id: ["business_id"],
             hours_exception: ["basis", "starts_at"],
             hours_staff: ["staff_id", "basis"],
+            hours_staff_id: ["staff_id"],
         },
     },
 );
@@ -159,6 +165,9 @@ const items = new Table(
         indexes: {
             items_business_id: ["business_id"],
             items_business_kind_active: ["kind", "active"],
+            items_covers_item: ["covers_item_id"],
+            items_created_by: ["created_by"],
+            items_variant_parent: ["variant_parent_id"],
             ux_items_business_sku: ["sku"],
         },
     },
@@ -195,7 +204,11 @@ const packages = new Table(
     {
         indexes: {
             packages_business_id: ["business_id"],
+            packages_client_id: ["client_id"],
             packages_client_status: ["client_id", "status"],
+            packages_item: ["item_id"],
+            packages_payment: ["payment_id"],
+            packages_subject: ["subject_id"],
         },
     },
 );
@@ -215,7 +228,10 @@ const subscriptions = new Table(
         indexes: {
             subscriptions_active_unique: ["client_id", "item_id"],
             subscriptions_business_id: ["business_id"],
+            subscriptions_client_id: ["client_id"],
             subscriptions_client_status: ["client_id", "status"],
+            subscriptions_item: ["item_id"],
+            subscriptions_payment_method: ["payment_method_id"],
         },
     },
 );
@@ -309,6 +325,7 @@ const threads = new Table(
     {
         indexes: {
             threads_business_id: ["business_id"],
+            threads_client_id: ["client_id"],
         },
     },
 );
@@ -370,6 +387,7 @@ const staff = new Table(
     {
         indexes: {
             staff_business_id: ["business_id"],
+            staff_user_id: ["user_id"],
         },
     },
 );
@@ -412,6 +430,8 @@ const orders = new Table(
     {
         indexes: {
             orders_business_id: ["business_id"],
+            orders_client: ["client_id"],
+            orders_staff: ["staff_id"],
             orders_status: ["status"],
         },
     },
@@ -446,10 +466,13 @@ const lines = new Table(
     },
     {
         indexes: {
+            lines_booking: ["booking_id"],
             lines_business_id: ["business_id"],
             lines_estimate: ["estimate_id"],
             lines_invoice: ["invoice_id"],
+            lines_item: ["item_id"],
             lines_order: ["order_id"],
+            lines_staff: ["staff_id"],
         },
     },
 );
@@ -470,6 +493,8 @@ const addons = new Table(
         indexes: {
             addons_booking: ["booking_id"],
             addons_business_id: ["business_id"],
+            addons_item: ["item_id"],
+            addons_staff: ["staff_id"],
         },
     },
 );
@@ -493,6 +518,9 @@ const recurrences = new Table(
     {
         indexes: {
             recurrences_business_id: ["business_id"],
+            recurrences_client: ["client_id"],
+            recurrences_item: ["item_id"],
+            recurrences_staff: ["staff_id"],
             recurrences_status: ["status"],
         },
     },
@@ -609,6 +637,8 @@ const estimates = new Table(
     {
         indexes: {
             estimates_business_id: ["business_id"],
+            estimates_client: ["client_id"],
+            estimates_converted_invoice: ["converted_invoice_id"],
             estimates_status: ["status"],
         },
     },
@@ -630,6 +660,7 @@ const inventory = new Table(
     {
         indexes: {
             inventory_business_id: ["business_id"],
+            inventory_created_by: ["created_by"],
             inventory_item: ["item_id"],
             ux_inventory_line_reason: ["line_id", "reason"],
         },
@@ -666,13 +697,14 @@ const payments = new Table(
     },
     {
         indexes: {
+            payments_booking: ["booking_id"],
             payments_business_id: ["business_id"],
+            payments_client: ["client_id"],
             payments_invoice: ["invoice_id"],
             payments_order: ["order_id"],
             payments_refund_parent: ["parent_payment_id"],
             payments_status: ["status"],
             ux_payments_credit_note: ["credit_note"],
-            payments_client: ["client_id"],
         },
     },
 );
@@ -718,6 +750,9 @@ const gift_cards = new Table(
     {
         indexes: {
             gift_cards_business_id: ["business_id"],
+            gift_cards_item: ["item_id"],
+            gift_cards_payment: ["payment_id"],
+            gift_cards_purchaser_client: ["purchaser_client_id"],
         },
     },
 );
@@ -735,6 +770,7 @@ const review_requests = new Table(
         indexes: {
             review_requests_booking: ["booking_id"],
             review_requests_business_id: ["business_id"],
+            review_requests_client: ["client_id"],
         },
     },
 );
@@ -757,6 +793,7 @@ const broadcasts = new Table(
     {
         indexes: {
             broadcasts_business_id: ["business_id"],
+            broadcasts_created_by: ["created_by"],
             broadcasts_status: ["status"],
         },
     },
@@ -779,6 +816,7 @@ const responses = new Table(
     {
         indexes: {
             responses_business_id: ["business_id"],
+            responses_client: ["client_id"],
             responses_form: ["form_id"],
             responses_parent: ["parent_type", "parent_id"],
         },
@@ -808,6 +846,7 @@ const signatures = new Table(
     {
         indexes: {
             signatures_business_id: ["business_id"],
+            signatures_client: ["client_id"],
             signatures_contract: ["contract_id"],
             signatures_parent: ["parent_type", "parent_id"],
         },
@@ -831,6 +870,7 @@ const messages = new Table(
         indexes: {
             messages_broadcast: ["broadcast_id"],
             messages_business_id: ["business_id"],
+            messages_sent_by: ["sent_by"],
             messages_thread: ["thread_id", "created_at"],
         },
     },
@@ -854,7 +894,11 @@ const slots = new Table(
         indexes: {
             slots_business_id: ["business_id"],
             slots_business_start: ["starts_at"],
+            slots_item: ["item_id"],
+            slots_recurrence: ["recurrence_id"],
+            slots_resource_id: ["resource_id"],
             slots_resource_start: ["resource_id", "starts_at"],
+            slots_staff_id: ["staff_id"],
             slots_staff_start: ["staff_id", "starts_at"],
         },
     },
@@ -894,9 +938,13 @@ const bookings = new Table(
             bookings_business_id: ["business_id"],
             bookings_client: ["client_id"],
             bookings_estimate: ["estimate_id"],
+            bookings_invoice: ["invoice_id"],
+            bookings_order: ["order_id"],
+            bookings_package: ["package_id"],
             bookings_slot: ["slot_id"],
             bookings_staff: ["staff_id"],
             bookings_status: ["status"],
+            bookings_subject: ["subject_id"],
         },
     },
 );

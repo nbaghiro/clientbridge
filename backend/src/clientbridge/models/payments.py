@@ -55,6 +55,8 @@ class Payment(PKMixin, BusinessScoped, TimestampMixin, Base):
             unique=True,
             postgresql_where=text("credit_note IS NOT NULL"),
         ),
+        Index("ix_payments_booking", "booking_id"),
+        Index("ix_payments_client", "client_id"),
     )
 
     client_id: Mapped[str | None] = mapped_column(ForeignKey("clients.id"))
@@ -98,6 +100,7 @@ class PaymentMethod(PKMixin, BusinessScoped, TimestampMixin, Base):
         enum_check("payment_methods", "mandate_status", MandateStatus),
         Index("ix_payment_methods_client", "business_id", "client_id"),
         Index("ix_payment_methods_provider", "business_id", "provider_ref", unique=True),
+        Index("ix_payment_methods_client_id", "client_id"),
     )
 
     client_id: Mapped[str] = mapped_column(ForeignKey("clients.id"), nullable=False)
@@ -120,6 +123,7 @@ class PaymentSetupLink(PKMixin, BusinessScoped, TimestampMixin, Base):
         Index("uq_payment_setup_links_hash", "token_hash", unique=True),
         Index("uq_payment_setup_links_intent", "setup_intent_id", unique=True),
         Index("ix_payment_setup_links_client", "business_id", "client_id"),
+        Index("ix_payment_setup_links_client_id", "client_id"),
     )
 
     client_id: Mapped[str] = mapped_column(ForeignKey("clients.id"), nullable=False)

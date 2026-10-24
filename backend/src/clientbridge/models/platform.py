@@ -53,6 +53,7 @@ class Audit(PKMixin, BusinessScoped, Base):
     __table_args__ = (
         Index("ix_audit_entity", "business_id", "entity_type", "entity_id"),
         Index("ix_audit_created", "business_id", "created_at"),
+        Index("ix_audit_performed_by", "performed_by"),
     )
 
     performed_by: Mapped[str | None] = mapped_column(ForeignKey("users.id"))
@@ -91,6 +92,7 @@ class Device(PKMixin, BusinessScoped, TimestampMixin, Base):
         enum_check("devices", "platform", DevicePlatform),
         Index("ix_devices_token", "token", unique=True),
         Index("ix_devices_business", "business_id"),
+        Index("ix_devices_user", "user_id"),
     )
 
     user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), nullable=False)
