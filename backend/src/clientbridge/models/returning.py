@@ -14,6 +14,7 @@ class ReturningChallenge(PKMixin, BusinessScoped, Base):
     __table_args__ = (
         Index("ix_returning_destination", "business_id", "destination_hash", "created_at"),
         Index("ix_returning_session", "session_hash", unique=True),
+        Index("ix_returning_client", "client_id"),
     )
 
     client_id: Mapped[str | None] = mapped_column(ForeignKey("clients.id"))

@@ -30,6 +30,8 @@ class Client(PKMixin, BusinessScoped, TimestampMixin, SoftDelete, Base):
         enum_check("clients", "preferred_channel", Channel),
         Index("ix_clients_business_email", "business_id", "email"),
         Index("ix_clients_business_phone", "business_id", "phone"),
+        Index("ix_clients_created_by", "created_by"),
+        Index("ix_clients_user", "user_id"),
     )
 
     created_by: Mapped[str | None] = mapped_column(ForeignKey("users.id"))
@@ -64,6 +66,7 @@ class Note(PKMixin, BusinessScoped, TimestampMixin, Base):
     __table_args__ = (
         enum_check("notes", "parent_type", NoteParent),
         Index("ix_notes_parent", "business_id", "parent_type", "parent_id"),
+        Index("ix_notes_created_by", "created_by"),
     )
 
     created_by: Mapped[str | None] = mapped_column(ForeignKey("users.id"))
@@ -84,6 +87,7 @@ class Consent(PKMixin, BusinessScoped, TimestampMixin, Base):
         enum_check("consents", "status", ConsentStatus),
         enum_check("consents", "source", ConsentSource),
         Index("ix_consents_client", "business_id", "client_id", "channel", "created_at"),
+        Index("ix_consents_recorded_by", "recorded_by"),
     )
 
     client_id: Mapped[str] = mapped_column(ForeignKey("clients.id"), nullable=False)

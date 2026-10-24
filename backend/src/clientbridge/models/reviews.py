@@ -19,7 +19,10 @@ from clientbridge.models.base import BusinessScoped, PKMixin, TimestampMixin, en
 
 class ReviewRequest(PKMixin, BusinessScoped, TimestampMixin, Base):
     __tablename__ = "review_requests"
-    __table_args__ = (Index("ix_review_requests_booking", "business_id", "booking_id"),)
+    __table_args__ = (
+        Index("ix_review_requests_booking", "business_id", "booking_id"),
+        Index("ix_review_requests_client", "client_id"),
+    )
 
     client_id: Mapped[str] = mapped_column(ForeignKey("clients.id"), nullable=False)
     booking_id: Mapped[str | None] = mapped_column(ForeignKey("bookings.id"))
@@ -43,6 +46,7 @@ class GoogleBusinessConnection(PKMixin, BusinessScoped, TimestampMixin, Base):
             unique=True,
             postgresql_where=text("state = 'active'"),
         ),
+        Index("ix_google_connections_connected_by", "connected_by"),
     )
 
     connected_by: Mapped[str] = mapped_column(ForeignKey("users.id"), nullable=False)
@@ -65,6 +69,8 @@ class GoogleBusinessOperation(PKMixin, BusinessScoped, TimestampMixin, Base):
         CheckConstraint("generation > 0", name="ck_google_operation_generation"),
         CheckConstraint("attempts >= 0", name="ck_google_operation_attempts"),
         Index("ix_google_operations_due", "state", "next_at"),
+        Index("ix_google_operations_actor", "actor_id"),
+        Index("ix_google_operations_connection", "connection_id"),
     )
 
     connection_id: Mapped[str] = mapped_column(

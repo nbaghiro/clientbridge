@@ -55,6 +55,8 @@ class Payment(PKMixin, BusinessScoped, TimestampMixin, Base):
             unique=True,
             postgresql_where=text("credit_note IS NOT NULL"),
         ),
+        Index("ix_payments_booking", "booking_id"),
+        Index("ix_payments_client", "client_id"),
     )
 
     client_id: Mapped[str | None] = mapped_column(ForeignKey("clients.id"))

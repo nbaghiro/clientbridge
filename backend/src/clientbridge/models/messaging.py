@@ -41,6 +41,7 @@ class Message(PKMixin, BusinessScoped, TimestampMixin, Base):
             "provider_ref",
             postgresql_where=text("provider_ref IS NOT NULL"),
         ),
+        Index("ix_messages_sent_by", "sent_by"),
     )
 
     thread_id: Mapped[str] = mapped_column(ForeignKey("threads.id"), nullable=False)
@@ -59,6 +60,7 @@ class Broadcast(PKMixin, BusinessScoped, TimestampMixin, Base):
         enum_check("broadcasts", "channel", Channel),
         enum_check("broadcasts", "status", BroadcastStatus),
         Index("ix_broadcasts_status", "business_id", "status"),
+        Index("ix_broadcasts_created_by", "created_by"),
     )
 
     created_by: Mapped[str | None] = mapped_column(ForeignKey("users.id"))

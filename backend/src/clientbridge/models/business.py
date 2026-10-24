@@ -134,6 +134,7 @@ class Staff(PKMixin, TimestampMixin, Base):
         ),
         UniqueConstraint("business_id", "user_id", name="uq_staff_business_user"),
         CheckConstraint("hours_revision >= 0", name="ck_staff_hours_revision"),
+        Index("ix_staff_invited_by", "invited_by"),
     )
 
     business_id: Mapped[str] = mapped_column(
