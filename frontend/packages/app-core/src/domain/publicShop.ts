@@ -206,6 +206,59 @@ function storedCart(storage: ShopStorage | undefined, slug: string): Record<stri
     }
 }
 
+// an unpaid online order is released 30 minutes after it is placed, so a resume stops short of that
+const RESUME_MS = 25 * 60 * 1000;
+
+interface PendingOrder {
+    attempt: Attempt;
+    placedAt: number;
+    order: PublicShopOrderResult | null;
+}
+
+function isOrder(value: unknown): value is PublicShopOrderResult {
+    if (value === null || typeof value !== "object") return false;
+    const o = value as Record<string, unknown>;
+    return (
+        typeof o.order_id === "string" &&
+        typeof o.client_secret === "string" &&
+        typeof o.stripe_account_id === "string" &&
+        typeof o.total_cents === "number" &&
+        typeof o.currency === "string"
+    );
+}
+
+function storedPending(storage: ShopStorage | undefined, key: string): PendingOrder | null {
+    try {
+        const raw: unknown = JSON.parse(storage?.getItem(key) ?? "null");
+        if (raw === null || typeof raw !== "object") return null;
+        const { attempt, placedAt, order } = raw as Record<string, unknown>;
+        if (typeof placedAt !== "number" || Date.now() - placedAt > RESUME_MS) return null;
+        if (attempt === null || typeof attempt !== "object") return null;
+        const { key: attemptId, request } = attempt as Record<string, unknown>;
+        if (typeof attemptId !== "string" || typeof request !== "string") return null;
+        return {
+            attempt: { key: attemptId, request },
+            placedAt,
+            order: isOrder(order) ? order : null,
+        };
+    } catch {
+        return null;
+    }
+}
+
+function savePending(
+    storage: ShopStorage | undefined,
+    key: string,
+    pending: PendingOrder | null,
+): void {
+    try {
+        if (pending === null) storage?.removeItem(key);
+        else storage?.setItem(key, JSON.stringify(pending));
+    } catch {
+        /* Storage can be disabled by the host browser. */
+    }
+}
+
 function usePublicShop(
     client: PublicShopClient,
     slug: string,
@@ -222,9 +275,12 @@ function usePublicShop(
     const [notifySms, setNotifySms] = useState(draft.notifySms !== "false");
     const [email, setEmail] = useState(draft.email ?? "");
     const [phone, setPhone] = useState(draft.phone ?? "");
-    const [order, setOrder] = useState<PublicShopOrderResult | null>(null);
+    const pendingKey = `connect-order:${slug}`;
+    const [pending] = useState(() => storedPending(storage, pendingKey));
+    const [order, setOrder] = useState<PublicShopOrderResult | null>(pending?.order ?? null);
     const [paid, setPaid] = useState(false);
-    const key = useRef<Attempt | null>(null);
+    const key = useRef<Attempt | null>(pending?.attempt ?? null);
+    const placedAt = useRef(pending?.placedAt ?? 0);
     const { busy, error, setError, run } = useAsyncAction();
 
     useEffect(() => {
@@ -274,6 +330,7 @@ function usePublicShop(
             setError(strings.publicShop.phoneInvalid);
             return;
         }
+        const previous = key.current?.key;
         const attempt = attemptKey(key, {
             name: name.trim(),
             email: email.trim(),
@@ -283,28 +340,38 @@ function usePublicShop(
             note: note.trim(),
             notifySms,
         });
+        if (attempt !== previous) placedAt.current = Date.now();
+        const remember = (placed: PublicShopOrderResult | null): void => {
+            if (key.current === null) return;
+            savePending(storage, pendingKey, {
+                attempt: key.current,
+                placedAt: placedAt.current,
+                order: placed,
+            });
+        };
+        remember(null);
         run(
             async () => {
-                setOrder(
-                    await client.placeOrder(
-                        slug,
-                        {
-                            client: {
-                                name: name.trim(),
-                                email: email.trim() || null,
-                                phone: normalizePhone(phone),
-                            },
-                            lines,
-                            pickup_from: pickupFrom || null,
-                            pickup_to:
-                                pickup?.windows.find((window) => window.starts_at === pickupFrom)
-                                    ?.ends_at ?? null,
-                            note: note.trim() || null,
-                            notify_sms: notifySms,
+                const placed = await client.placeOrder(
+                    slug,
+                    {
+                        client: {
+                            name: name.trim(),
+                            email: email.trim() || null,
+                            phone: normalizePhone(phone),
                         },
-                        attempt,
-                    ),
+                        lines,
+                        pickup_from: pickupFrom || null,
+                        pickup_to:
+                            pickup?.windows.find((window) => window.starts_at === pickupFrom)
+                                ?.ends_at ?? null,
+                        note: note.trim() || null,
+                        notify_sms: notifySms,
+                    },
+                    attempt,
                 );
+                remember(placed);
+                setOrder(placed);
             },
             { errorMessage: (e) => failureMessage(e, strings.publicShop.orderError) },
         );
@@ -337,10 +404,18 @@ function usePublicShop(
         order,
         markPaid: () => {
             key.current = null;
+            savePending(storage, pendingKey, null);
             setPaid(true);
             setCart({});
         },
         cancelPayment: () => {
+            if (key.current !== null) {
+                savePending(storage, pendingKey, {
+                    attempt: key.current,
+                    placedAt: placedAt.current,
+                    order: null,
+                });
+            }
             setOrder(null);
         },
         busy,

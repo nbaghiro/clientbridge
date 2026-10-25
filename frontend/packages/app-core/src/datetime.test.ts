@@ -10,6 +10,7 @@ import {
     clockOptions,
     combineDayAndTime,
     dateKey,
+    yearOf,
     dayKey,
     daysUntil,
     firstWeekday,
@@ -380,5 +381,13 @@ describe("the server's zone table", () => {
         expect(wallTime(new Date("2026-12-01T19:00:00Z"), VAN).hour).toBe(11);
         expect(adoptZoneTable({ ...BUNDLED_ZONES, version: "3000.1" })).toBe(true);
         expect(zoneTableVersion()).not.toBe(version);
+    });
+});
+
+describe("yearOf", () => {
+    it("keeps a payment late on New Year's Eve in the business's year", () => {
+        const late = new Date("2027-01-01T01:00:00Z");
+        expect(yearOf(late, "America/Vancouver")).toBe(2026);
+        expect(yearOf(late, "Asia/Tokyo")).toBe(2027);
     });
 });

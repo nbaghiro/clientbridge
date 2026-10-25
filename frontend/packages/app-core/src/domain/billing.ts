@@ -873,11 +873,15 @@ interface InvoiceActions {
 export function useInvoiceActions(api: ApiLike): InvoiceActions {
     const { busy, error, setError, run } = useAsyncAction();
     const [notice, setNotice] = useState<string | null>(null);
+    const attempt = useRef<Attempt | null>(null);
     const act = (path: string, message: (res: { number: number | null }) => string): void => {
         setNotice(null);
+        const idempotencyKey = attemptKey(attempt, path);
         run(
             async () => {
-                setNotice(message(await api.post<{ number: number | null }>(path, {})));
+                const res = await api.post<{ number: number | null }>(path, {}, { idempotencyKey });
+                attempt.current = null;
+                setNotice(message(res));
             },
             { errorMessage: (e) => failureMessage(e, s.actionError) },
         );

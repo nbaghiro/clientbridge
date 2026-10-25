@@ -5056,12 +5056,6 @@ export interface components {
             phone?: string | null;
             /** Tags */
             tags?: string[];
-            /**
-             * Status
-             * @default active
-             * @enum {string}
-             */
-            status: "active" | "inactive";
             /** Custom Fields */
             custom_fields?: {
                 [key: string]: unknown;
@@ -5104,12 +5098,6 @@ export interface components {
             phone?: string | null;
             /** Tags */
             tags?: string[];
-            /**
-             * Status
-             * @default active
-             * @enum {string}
-             */
-            status: "active" | "inactive";
             /** Custom Fields */
             custom_fields?: {
                 [key: string]: unknown;
@@ -5122,6 +5110,11 @@ export interface components {
             preferred_channel: "sms" | "email";
             /** Id */
             id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "active" | "inactive";
             /** Business Id */
             business_id: string;
             /** Archived At */
@@ -5159,8 +5152,6 @@ export interface components {
             phone?: string | null;
             /** Tags */
             tags?: string[] | null;
-            /** Status */
-            status?: ("active" | "inactive") | null;
             /** Custom Fields */
             custom_fields?: {
                 [key: string]: unknown;
@@ -14296,6 +14287,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
+                "Idempotency-Key"?: string | null;
                 "x-business-id"?: string;
                 "x-expected-user"?: string;
                 "x-session-token"?: string;
@@ -14331,6 +14323,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
+                "Idempotency-Key"?: string | null;
                 "x-business-id"?: string;
                 "x-expected-user"?: string;
                 "x-session-token"?: string;

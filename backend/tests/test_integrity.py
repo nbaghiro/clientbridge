@@ -45,10 +45,10 @@ async def test_database_refuses_values_outside_the_vocabulary(
     await db.rollback()
 
 
-async def test_client_status_outside_the_vocabulary_is_422(as_owner: httpx.AsyncClient) -> None:
-    res = await as_owner.post("/v1/clients", json={"name": "Lead", "status": "lead"})
+async def test_client_channel_outside_the_vocabulary_is_422(as_owner: httpx.AsyncClient) -> None:
+    res = await as_owner.post("/v1/clients", json={"name": "Lead", "preferred_channel": "fax"})
     assert res.status_code == 422
-    ok = await as_owner.post("/v1/clients", json={"name": "Quiet", "status": "inactive"})
+    ok = await as_owner.post("/v1/clients", json={"name": "Quiet", "preferred_channel": "email"})
     assert ok.status_code == 201, ok.text
 
 

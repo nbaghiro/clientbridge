@@ -3,7 +3,7 @@ from zoneinfo import ZoneInfo
 
 import httpx
 import pytest
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.ids import new_id
@@ -12,7 +12,8 @@ from clientbridge.models.clients import Client
 from clientbridge.models.platform import Audit
 from clientbridge.models.scheduling import Recurrence, Slot
 from clientbridge.services.bookings import expand_occurrences
-from tests.conftest import BIZ, Factory
+from tests.conftest import BIZ, Factory, FakeEmailSender
+from tests.helpers import key, ok
 
 ST_OWNER = "st_owner"
 ST_PRIYA = "st_priya"  # seeded staff with no hours rows → unconfigured (all hours open)
@@ -312,3 +313,18 @@ async def test_another_business_client_item_or_staff_404(
 async def test_unauth_cannot_schedule_a_series(unauth: httpx.AsyncClient) -> None:
     res = await unauth.post("/v1/recurrences", json=_body("cl_amelie", "it_groom_sm"))
     assert res.status_code == 401
+
+
+async def test_a_replayed_recurring_booking_confirms_the_series_once(
+    as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
+) -> None:
+    client, item = await _client_and_item(db)
+    await db.execute(
+        update(Client).where(Client.id == client).values(email="series-replay@example.ca")
+    )
+    headers = key()
+    body = _body(client, item, count=3, confirmation="series")
+    first = ok(await as_owner.post("/v1/recurrences", json=body, headers=headers), 201).json()
+    again = ok(await as_owner.post("/v1/recurrences", json=body, headers=headers), 201).json()
+    assert again["id"] == first["id"]
+    assert len([m for m in email.sent if m.to == "series-replay@example.ca"]) == 1

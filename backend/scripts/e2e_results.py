@@ -30,6 +30,7 @@ REQUIRED_CASES = {
         "FILES-E2E-01",
         "MSG-E2E-01",
         "MSG-E2E-02",
+        "MSG-E2E-03",
         "PAY-E2E-01",
         "REF-E2E-01",
         "SALE-E2E-01",
@@ -49,6 +50,7 @@ REQUIRED_CASES = {
         "DOC-E2E-05",
         "EMBED-E2E-01",
         "DOC-E2E-06",
+        "SALE-E2E-03",
     ],
     "journeys": [
         "CLS-E2E-01",

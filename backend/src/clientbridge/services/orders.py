@@ -53,7 +53,7 @@ from clientbridge.services.lines import (
     replace_lines,
     set_discount,
 )
-from clientbridge.services.notifications import Notifier
+from clientbridge.services.notifications import Notifier, queued_notifier
 from clientbridge.services.payments import (
     TipTerms,
     has_pending_order_refund,
@@ -288,6 +288,9 @@ class OrderService:
             await ledger.post_payment(self.db, payment)
             await sync_order(self.db, order.id)
             cmd.record("order.cash", entity_type="payment", entity_id=payment.id)
+            await queued_notifier(self.db, f"payment:{payment.id}", self.biz).on_payment_succeeded(
+                self.db, payment.id
+            )
             return OrderCashOut(
                 payment_id=payment.id,
                 amount_cents=amount,

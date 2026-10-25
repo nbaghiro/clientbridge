@@ -2131,6 +2131,7 @@ interface Strings {
         readonly selectClient: string;
         readonly writeMessage: string;
         readonly sendError: string;
+        readonly notDelivered: string;
     };
     readonly broadcasts: {
         readonly subtitle: string;

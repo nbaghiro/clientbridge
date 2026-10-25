@@ -2190,6 +2190,10 @@ def expand_occurrences(
     return dates
 
 
+def series_scope(recurrence_id: str) -> str:
+    return f"recurrence:{recurrence_id}"
+
+
 class RecurrenceService:
     def __init__(self, db: AsyncSession, principal: Principal) -> None:
         self.db = db
@@ -2286,6 +2290,14 @@ class RecurrenceService:
                     )
 
             cmd.record("recurrence.create", entity_type="recurrence", entity_id=recurrence.id)
+            await self.db.flush()
+            booked = [o.booking_id for o in occurrences if o.booking_id is not None]
+            notifier = queued_notifier(self.db, series_scope(recurrence.id), self.biz)
+            if data.confirmation == "series":
+                await notifier.on_series_booked(self.db, booked, "booked")
+            elif data.confirmation == "each":
+                for booking_id in booked:
+                    await notifier.on_booking_confirmed(self.db, booking_id)
             return RecurrenceOut(
                 id=recurrence.id,
                 business_id=self.biz,

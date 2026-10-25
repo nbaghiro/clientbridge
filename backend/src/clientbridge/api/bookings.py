@@ -51,6 +51,7 @@ from clientbridge.services.bookings import (
     RecurrenceService,
     TimeOffService,
     seat_scope,
+    series_scope,
 )
 from clientbridge.services.deliveries import dispatch_scope
 from clientbridge.services.notifications import Notifier
@@ -259,13 +260,7 @@ async def create_recurrence(
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> RecurrenceOut:
     result = await RecurrenceService(db, principal).create(body, idempotency_key)
-    booked = [o.booking_id for o in result.occurrences if o.booking_id is not None]
-    notifier = Notifier(email, sms, push)
-    if body.confirmation == "series":
-        await notifier.on_series_booked(db, booked, "booked")
-    elif body.confirmation == "each":
-        for booking_id in booked:
-            await notifier.on_booking_confirmed(db, booking_id)
+    await dispatch_scope(db, series_scope(result.id), email, sms, push)
     return result
 
 

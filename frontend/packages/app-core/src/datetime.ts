@@ -251,6 +251,11 @@ export function dateKey(d: Date, zone: string): string {
     return `${String(w.year)}-${String(w.month).padStart(2, "0")}-${String(w.day).padStart(2, "0")}`;
 }
 
+/** The calendar year in `zone`, so a payment late on Dec 31 counts there even when UTC is Jan 1. */
+export function yearOf(d: Date, zone: string): number {
+    return wallTime(d, zone).year;
+}
+
 /** "HH:MM" on a 24-hour clock in `zone`. */
 export function clockKey(d: Date, zone: string): string {
     const w = wallTime(d, zone);

@@ -23,7 +23,7 @@ from clientbridge.schemas.payments import (
     InvoicePaymentIn,
     InvoicePaymentOut,
 )
-from clientbridge.services.billing import BillingService
+from clientbridge.services.billing import BillingService, reminder_scope, sent_scope
 from clientbridge.services.deliveries import dispatch_scope
 from clientbridge.services.notifications import Notifier
 from clientbridge.services.payments import PaymentService
@@ -123,7 +123,7 @@ async def create_invoice(
 ) -> InvoiceOut:
     result = await BillingService(db, principal).create_invoice(body, idempotency_key)
     if body.send:
-        await Notifier(email, sms, push).on_invoice_sent(db, result.id)
+        await dispatch_scope(db, sent_scope(result.id), email, sms, push)
     return result
 
 
@@ -154,9 +154,10 @@ async def send_invoice(
     email: EmailDep,
     sms: SmsDep,
     push: PushDep,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> InvoiceOut:
-    result = await BillingService(db, principal).send_invoice(invoice_id)
-    await Notifier(email, sms, push).on_invoice_sent(db, result.id)
+    result = await BillingService(db, principal).send_invoice(invoice_id, idempotency_key)
+    await dispatch_scope(db, sent_scope(result.id), email, sms, push)
     return result
 
 
@@ -168,9 +169,10 @@ async def remind_invoice(
     email: EmailDep,
     sms: SmsDep,
     push: PushDep,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> InvoiceOut:
-    result = await BillingService(db, principal).remind_invoice(invoice_id)
-    await Notifier(email, sms, push).on_invoice_reminder(db, result.id)
+    result = await BillingService(db, principal).remind_invoice(invoice_id, idempotency_key)
+    await dispatch_scope(db, reminder_scope(result.id), email, sms, push)
     return result
 
 

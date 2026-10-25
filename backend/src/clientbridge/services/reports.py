@@ -2,7 +2,7 @@ import csv
 import io
 import zipfile
 from calendar import monthrange
-from datetime import UTC, date, datetime, time
+from datetime import UTC, date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import ColumnElement, Select, func, select
@@ -43,10 +43,10 @@ _MONEY_BACK = ("payment", "refund", "dispute")
 
 
 def period_bounds(start: date, end: date, tz: ZoneInfo) -> tuple[datetime, datetime]:
-    """The [start, end] days in the business timezone, as UTC instants."""
+    """The [start, end] local days as UTC instants: start included, the day after end excluded."""
     return (
         datetime.combine(start, time.min, tzinfo=tz).astimezone(UTC),
-        datetime.combine(end, time.max, tzinfo=tz).astimezone(UTC),
+        datetime.combine(end + timedelta(days=1), time.min, tzinfo=tz).astimezone(UTC),
     )
 
 
@@ -200,7 +200,7 @@ class ReportService:
                     Line.item_id.isnot(None),
                     status.in_(("paid", "refunded")),
                     at >= lo,
-                    at <= hi,
+                    at < hi,
                 )
             )
             for item_id, quantity, amount, tax, parent_status in rows.tuples().all():
@@ -393,7 +393,7 @@ class ReportService:
                     Line.tax_amount_cents > 0,
                     status.notin_(("draft", "void", "open")),
                     at >= lo,
-                    at <= hi,
+                    at < hi,
                 )
             )
             total += int(value.scalar_one())

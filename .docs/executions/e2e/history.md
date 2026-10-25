@@ -288,3 +288,15 @@ Cross-surface selector/cleanup requalification: `.scratchpad/e2e-db6da6a98853/`,
 Both runners now wait for the worker's heartbeat, run `cron:prune_receipts` by its scheduled name, and at the end require a job the scheduler fired itself and a live worker, recorded in `run.json`. The Android CI job starts the worker and checks it before and after the walkthroughs. CLS-E2E-01 proves the worker sent the promoted client's seat notice; the first strict attempt (`e2e-6f9c4368fcb6`) and the embed attempt (`e2e-141b0bf228d0`) failed in setup when the run's Kratos stopped answering, and a second CLS attempt (`e2e-82eb0818a1e9`) passed the worker step but failed cleanup on the same Kratos outage. The Docker VM had 3.8 GiB shared with other agents' stacks. The next attempt (`e2e-175f57ee8f6e`) passed.
 
 The staging QA script became `make test-staging-smoke`. Against current staging, 23 of 24 checks passed; the below-the-fold widget stayed at 256px, the bug fixed in `src/embed.ts` and covered locally by EMBED-E2E-01.
+
+## Findings 8 to 16 of the brief
+
+- Replays and sends: a same-key replay of a cash sale, a create-and-send invoice or a recurring booking sent its message twice, and a send or reminder lost to a provider outage was never retried. Cash receipts, invoice sends and reminders and series confirmations now queue their delivery inside the command; send and remind take an idempotency key, and each new send still mails again. Booking reminders already retried and never repeated.
+- A client status PATCH let staff archive or restore without `archived_at`; status is now set only by archive and restore.
+- Report periods now end at the next local midnight, so ledger and line reports agree on the last instant; staff-pay year to date counts in the business year.
+- A one-day return marked its whole period filed; a period is now filed only when no taxed day is left unfiled.
+- A STOP or withdrawal after a broadcast's audience was chosen, or after a text was queued, is now honoured at send time: the broadcast counts the recipient as excluded and the delivery fails with `consent_withdrawn`.
+- A refused manual message cleared the draft; the composer now keeps it, shows that it wasn't delivered and retries as a new message (MSG-E2E-03, `e2e-3c87f92ea077`).
+- A shop order's attempt key and order lived only in memory; Connect now keeps them in session storage for 25 minutes, so a reload resumes the same order (SALE-E2E-03, `e2e-79929fd68d1a`, order endpoint stubbed).
+- After a lapse, cancelling a client subscription, disconnecting Google and cancelling a scheduled broadcast stay available.
+- Opening Plans and the daily `sync_plans` job now mirror the plan status from Stripe, so a missed cancellation or recovery event no longer leaves access wrong.
