@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { strings } from "@clientbridge/app-core/public";
@@ -130,4 +131,27 @@ export async function expectMessageReplica(page: Page, client: ClientFixture): P
     await expect(
         page.getByRole("textbox", { name: s.replyPlaceholder("email"), exact: true }),
     ).toHaveValue("");
+}
+export async function readdress(page: Page, client: ClientFixture, email: string): Promise<void> {
+    const api = process.env.VITE_API_URL ?? "http://localhost:8701";
+    const response = await page.request.patch(`${api}/v1/clients/${client.id}`, {
+        data: { email },
+        headers: { "Idempotency-Key": randomUUID(), Origin: new URL(page.url()).origin },
+    });
+    expect(response.status(), await response.text()).toBe(200);
+}
+export async function expectConversation(
+    page: Page,
+    client: ClientFixture,
+    statuses: string[],
+): Promise<void> {
+    await page.goto("/inbox");
+    await page.getByRole("searchbox").fill(client.name);
+    await page
+        .getByRole("button")
+        .filter({ has: page.getByText(client.name, { exact: true }) })
+        .click({ timeout: 60_000 });
+    const log = page.locator('[aria-live="polite"]');
+    await expect(log.getByText(careMessage, { exact: true })).toHaveCount(statuses.length);
+    for (const status of statuses) await expect(log).toContainText(status);
 }

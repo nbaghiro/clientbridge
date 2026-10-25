@@ -25,6 +25,15 @@ from clientbridge.core.zones import zone
 from scripts.e2e_results import REQUIRED_CASES, Report
 
 ROOT = Path(__file__).resolve().parents[2]
+# Mailpit refuses only the reserved .invalid domain, so a case can meet a real provider refusal
+_INVALID = "invalid"
+DELIVERABLE = "(?i)^(?:[^@]*@[^.]*|.+\\.(?:{}))$".format(
+    "|".join(
+        [f"{_INVALID[:i]}[^{_INVALID[i]}.][^.]*" for i in range(len(_INVALID))]
+        + [f"{_INVALID}[^.]+"]
+        + [_INVALID[:i] for i in range(1, len(_INVALID))]
+    )
+)
 
 
 def seed_timestamp(value: str) -> datetime:
@@ -268,6 +277,7 @@ class Stack:
                 },
             }
         )
+        services["mailpit"]["environment"] = {"MP_SMTP_ALLOWED_RECIPIENTS": DELIVERABLE}
         services["s3"]["environment"] = {
             "RUSTFS_ACCESS_KEY": "rustfs",
             "RUSTFS_SECRET_KEY": "rustfs-dev-secret",

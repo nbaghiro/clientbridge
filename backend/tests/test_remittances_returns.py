@@ -234,3 +234,36 @@ async def test_replayed_return_posts_once(as_owner: httpx.AsyncClient, db: Async
     assert first.status_code == again.status_code == 201
     assert first.json() == again.json()
     assert await _balance(db, "itc", "GST") == itc - 100
+
+
+async def _federal(api: httpx.AsyncClient, start: date) -> tuple[str, str | None]:
+    body = (await api.get("/v1/payments/remittances")).json()
+    period = next(p for p in body["periods"] if p["start"] == start.isoformat())
+    return period["federal_status"], body["next_due"]
+
+
+async def test_a_one_day_return_leaves_the_rest_of_its_period_due(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await db.execute(update(Business).where(Business.id == BIZ).values(tax_registered=True))
+    start, end = await _last_period(db)
+    first_day = datetime.combine(start, datetime.min.time(), tzinfo=UTC) + timedelta(hours=20)
+    await _invoice(db, issued_at=first_day, tax={"GST": 300})
+    await _invoice(db, issued_at=first_day + timedelta(days=30), tax={"GST": 4000})
+    status, due = await _federal(as_owner, start)
+    assert (status, due) == ("due", due_date(end, "quarterly").isoformat())
+
+    one_day = {"period_start": start.isoformat(), "period_end": start.isoformat()}
+    filed = await as_owner.post("/v1/payments/remittances", json={**one_day, "family": "federal"})
+    assert filed.status_code == 201, filed.text
+    assert await _federal(as_owner, start) == (status, due)
+
+    rest = {
+        "period_start": (start + timedelta(days=1)).isoformat(),
+        "period_end": end.isoformat(),
+        "family": "federal",
+    }
+    assert (await as_owner.post("/v1/payments/remittances", json=rest)).status_code == 201
+    status, due = await _federal(as_owner, start)
+    assert status == "filed"
+    assert due != due_date(end, "quarterly").isoformat()

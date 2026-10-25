@@ -17,7 +17,6 @@ class ClientBase(Mirror):
     email: str | None = None
     phone: str | None = None
     tags: list[str] = Field(default_factory=list)
-    status: ClientStatus = "active"
     custom_fields: dict[str, object] = Field(default_factory=dict)
     preferred_channel: Channel = "sms"
 
@@ -30,6 +29,8 @@ class FirstSubject(Mirror):
 
 
 class ClientCreate(ClientBase):
+    model_config = ConfigDict(extra="forbid")
+
     phone: Phone = None
     marketing_consent: bool = Field(
         default=False, description="Record that the client agreed to news and offers"
@@ -39,12 +40,12 @@ class ClientCreate(ClientBase):
 
 class ClientUpdate(Mirror):
     mirrors = Client
+    model_config = ConfigDict(extra="forbid")
 
     name: str | None = Field(default=None, min_length=1)
     email: str | None = None
     phone: Phone = None
     tags: list[str] | None = None
-    status: ClientStatus | None = None
     custom_fields: dict[str, object] | None = None
     preferred_channel: Channel | None = None
     marketing_consent: bool | None = None
@@ -54,6 +55,7 @@ class ClientOut(ClientBase):
     model_config = ConfigDict(from_attributes=True)
 
     id: str
+    status: ClientStatus
     business_id: str
     archived_at: datetime | None
     created_at: datetime

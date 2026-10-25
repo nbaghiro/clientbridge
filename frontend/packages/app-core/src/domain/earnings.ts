@@ -5,7 +5,7 @@ import { useMemo, useRef, useState } from "react";
 import { type Load, useAsyncAction } from "../hooks";
 import { type ApiLike, type Attempt, attemptKey } from "../api";
 import { formatMoney, formatParts, BUSINESS_CURRENCY } from "../format";
-import { dateKey, parseTimestamp, useBusinessZone } from "../datetime";
+import { parseTimestamp, useBusinessZone, yearOf } from "../datetime";
 import type { Intent } from "../ui";
 import { strings } from "../strings";
 import { staffName, staffNameSql } from "./staff";
@@ -204,7 +204,7 @@ export function useEarningApprovals(api: ApiLike): EarningApprovals {
     const key = useRef<Attempt | null>(null);
     const { busy, error, run } = useAsyncAction();
     const zone = useBusinessZone();
-    const year = dateKey(new Date(), zone).slice(0, 4);
+    const year = yearOf(new Date(), zone);
     const payees = useMemo(
         () =>
             staff.data.map((p) => {
@@ -222,7 +222,12 @@ export function useEarningApprovals(api: ApiLike): EarningApprovals {
                     pendingCount: pending.length,
                     approvedCents: sum(mine.filter((r) => r.status === "approved")),
                     paidYtdCents: sum(
-                        mine.filter((r) => r.status === "paid" && r.paid_at?.startsWith(year)),
+                        mine.filter(
+                            (r) =>
+                                r.status === "paid" &&
+                                r.paid_at !== null &&
+                                yearOf(parseTimestamp(r.paid_at), zone) === year,
+                        ),
                     ),
                     tipsCents: sum(mine.filter((r) => r.kind === "tip" && r.status !== "paid")),
                 };

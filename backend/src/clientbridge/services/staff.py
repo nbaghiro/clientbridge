@@ -356,7 +356,7 @@ class StaffService:
         await self.release_seat(principal.business_id, gateway)
 
     async def release_seat(self, business_id: str, gateway: PaymentGateway) -> None:
-        """Lower a Premium seat count after a member leaves; run_sync_seats retries a failure."""
+        """Lower a Premium seat count after a member leaves; run_sync_plans retries a failure."""
         try:
             business = await self._locked_business(business_id)
             seats = await plans.billed_seats(self.db, business_id, clock.now())

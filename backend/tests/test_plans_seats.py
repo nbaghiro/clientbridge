@@ -12,7 +12,7 @@ from clientbridge.integrations.identity import Identity
 from clientbridge.integrations.stripe import PlanItem, PlanSubscription
 from clientbridge.models.business import Business, Staff
 from clientbridge.services import plans
-from clientbridge.services.plans import run_sync_seats
+from clientbridge.services.plans import run_sync_plans
 from tests.conftest import (
     FakeEmailSender,
     FakeIdentityProvider,
@@ -169,10 +169,10 @@ async def test_an_expired_invite_drops_out_at_the_daily_sync(
         .values(invited_at=clock.now() - plans.INVITE_TTL - timedelta(minutes=1))
     )
     await db.flush()
-    assert await run_sync_seats(db, gateway, clock.now()) == 1
+    assert await run_sync_plans(db, gateway, clock.now()) == 1
     assert _billed(gateway) == billed - 1
     keys = len(gateway.plan_item_keys)
-    assert await run_sync_seats(db, gateway, clock.now()) == 1
+    assert await run_sync_plans(db, gateway, clock.now()) == 1
     assert len(gateway.plan_item_keys) == keys  # already at the count: nothing to change
 
 

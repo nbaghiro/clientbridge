@@ -183,6 +183,69 @@ test("the shop adds from the grid, changes quantities and checks out in steps", 
     });
 });
 
+test("SALE-E2E-03 a shop order whose response was lost resumes after reload with one key", async ({
+    page,
+}) => {
+    const shop = strings.publicShop;
+    await page.route(`${api}/book/${slug}/shop`, (route) =>
+        rewrite(route, (body) => ({ ...body, stripe_account_id: "acct_e2e" })),
+    );
+    const keys: (string | undefined)[] = [];
+    await page.route(`${api}/book/${slug}/shop/orders`, async (route) => {
+        keys.push(route.request().headers()["idempotency-key"]);
+        if (keys.length === 1) {
+            await route.abort("connectionreset");
+            return;
+        }
+        await route.fulfill({
+            json: {
+                order_id: "ord_01E2ERESUMEDORDER",
+                order_token: null,
+                subtotal_cents: 2400,
+                tax_total_cents: 120,
+                total_cents: 2520,
+                currency: "CAD",
+                client_secret: "pi_e2e_resumed_secret",
+                stripe_account_id: "acct_e2e",
+            },
+        });
+    });
+    const summary = page.locator("aside");
+    const toPay = async (): Promise<void> => {
+        await expect(page.getByRole("heading", { name: shop.sectionPickup })).toBeVisible();
+        await summary.getByRole("button", { name: shop.continue, exact: true }).click();
+        await expect(page.getByRole("heading", { name: shop.sectionDetails })).toBeFocused();
+        await summary.getByRole("button", { name: shop.continuePay, exact: true }).click();
+    };
+    await page.goto(shopPage);
+    const card = page.getByRole("group", { name: "Oatmeal Soothe Shampoo (500ml)", exact: true });
+    await card
+        .getByRole("button", { name: shop.addNamed("Oatmeal Soothe Shampoo (500ml)") })
+        .click();
+    await summary.getByRole("button", { name: shop.checkout, exact: true }).click();
+    await expect(page.getByRole("heading", { name: shop.sectionPickup })).toBeVisible();
+    await summary.getByRole("button", { name: shop.continue, exact: true }).click();
+    await page.getByLabel(shop.name, { exact: true }).fill("Avery Laurent");
+    await page.getByLabel(shop.email, { exact: false }).fill("resume@example.test");
+    await summary.getByRole("button", { name: shop.continuePay, exact: true }).click();
+    await expect.poll(() => keys.length).toBe(1);
+    await expect(page.getByRole("alert").getByText(shop.orderError)).toBeVisible();
+    await expect(page.getByText(shop.payBody("$25.20"))).toHaveCount(0);
+
+    await page.reload();
+    await toPay();
+    await expect(page.getByRole("heading", { name: shop.sectionPay })).toBeFocused();
+    await expect(page.getByText(shop.payBody("$25.20"))).toBeVisible();
+    expect(keys).toHaveLength(2);
+    expect(keys[0]).toBeTruthy();
+    expect(keys[1]).toBe(keys[0]);
+
+    await page.reload();
+    await expect(page.getByText(shop.payBody("$25.20"))).toBeVisible();
+    await expect(page.getByRole("button", { name: shop.continuePay })).toHaveCount(0);
+    expect(keys).toHaveLength(2);
+});
+
 test("the shop's order panel folds into a bottom bar on a phone", async ({ page }) => {
     const shop = strings.publicShop;
     await page.setViewportSize({ width: 390, height: 844 });

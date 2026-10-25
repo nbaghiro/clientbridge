@@ -281,3 +281,15 @@ Cross-surface selector/cleanup requalification: `.scratchpad/e2e-db6da6a98853/`,
 ## Optional Stripe postal-field regression
 
 `e2e-7de2142a3a8f` failed all seven browser cases on unchanged source `5345063b5b9a0ef8e5d3c426c61da6d2e05a83b11a95a93fa87887df7327d512`. A new helper incorrectly required a postal textbox whenever Canada was selected; both genuine Stripe surfaces legitimately omitted that optional field. No payment was confirmed. Cleanup passed with seven cancellations, no refunds, and no remaining owned containers/volumes. This test regression does not validate the no-add-on invoicing fix and does not explain the prior case05 failure.
+
+## Findings 8 to 16 of the brief
+
+- Replays and sends: a same-key replay of a cash sale, a create-and-send invoice or a recurring booking sent its message twice, and a send or reminder lost to a provider outage was never retried. Cash receipts, invoice sends and reminders and series confirmations now queue their delivery inside the command; send and remind take an idempotency key, and each new send still mails again. Booking reminders already retried and never repeated.
+- A client status PATCH let staff archive or restore without `archived_at`; status is now set only by archive and restore.
+- Report periods now end at the next local midnight, so ledger and line reports agree on the last instant; staff-pay year to date counts in the business year.
+- A one-day return marked its whole period filed; a period is now filed only when no taxed day is left unfiled.
+- A STOP or withdrawal after a broadcast's audience was chosen, or after a text was queued, is now honoured at send time: the broadcast counts the recipient as excluded and the delivery fails with `consent_withdrawn`.
+- A refused manual message cleared the draft; the composer now keeps it, shows that it wasn't delivered and retries as a new message (MSG-E2E-03, `e2e-3c87f92ea077`).
+- A shop order's attempt key and order lived only in memory; Connect now keeps them in session storage for 25 minutes, so a reload resumes the same order (SALE-E2E-03, `e2e-79929fd68d1a`, order endpoint stubbed).
+- After a lapse, cancelling a client subscription, disconnecting Google and cancelling a scheduled broadcast stay available.
+- Opening Plans and the daily `sync_plans` job now mirror the plan status from Stripe, so a missed cancellation or recovery event no longer leaves access wrong.

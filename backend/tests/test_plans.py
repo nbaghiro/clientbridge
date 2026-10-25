@@ -872,3 +872,37 @@ async def test_previous_live_subscription_is_cancelled_without_refunding_its_his
     assert gateway.canceled_plan_subscriptions == ["sub_previous"]
     assert gateway.refunded_plan_subscriptions == []
     assert (await _business(db)).stripe_subscription_id == SUB
+
+
+async def _plan(db: AsyncSession) -> tuple[str | None, str]:
+    business = await _business(db)
+    return business.plan, business.plan_status
+
+
+@pytest.mark.parametrize("provider", ["canceled", "unpaid"])
+async def test_a_refresh_follows_stripe_when_the_ending_event_never_arrived(
+    provider: str, as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await _subscribed(db, gateway, PlanItem("team_month"))
+    gateway.plan_subscriptions[SUB] = _sub(PlanItem("team_month"), status=provider)
+    ok(await as_owner.post("/v1/clients", json={"name": "Before Refresh"}), 201)
+    refreshed = ok(await as_owner.get("/v1/plan")).json()
+    assert (refreshed["access"], refreshed["plan_status"]) == ("lapsed", "lapsed")
+    assert await _plan(db) == (None, "lapsed")
+    assert (await as_owner.post("/v1/clients", json={"name": "After"})).status_code == 402
+    gateway.plan_subscriptions[SUB] = _sub(PlanItem("team_month"))
+    await _deliver(as_owner, _event("customer.subscription.updated"))
+    assert await _plan(db) == ("team", "active")
+
+
+async def test_the_daily_sync_heals_a_missed_lapse_and_a_missed_recovery(
+    db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await _subscribed(db, gateway, PlanItem("team_month"))
+    gateway.plan_subscriptions[SUB] = _sub(PlanItem("team_month"), status="unpaid")
+    await plans.run_sync_plans(db, gateway, clock.now())
+    assert await _plan(db) == (None, "lapsed")
+    gateway.plan_subscriptions[SUB] = _sub(PlanItem("team_month"))
+    await plans.run_sync_plans(db, gateway, clock.now())
+    assert await _plan(db) == ("team", "active")
+    assert gateway.canceled_plan_subscriptions == []

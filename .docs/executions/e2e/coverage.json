@@ -15889,6 +15889,94 @@
         ".scratchpad/e2e-7b0b1698509f/browser-results/results.json"
       ],
       "runtime_scope": "Strict unchanged-source five-case run with catalog4, all first attempt46.2s; process/Docker cleanup passed"
+    },
+    {
+      "id": "MSG-E2E-03",
+      "status": "verified",
+      "risk": "high",
+      "layer": "browser",
+      "lane": "pr",
+      "implementation": [
+        "frontend/apps/web/e2e/messaging.e2e.ts",
+        "backend/scripts/e2e_stack.py"
+      ],
+      "setup": "Fresh natural client whose email is on the reserved .invalid domain, which the run's Mailpit refuses at RCPT",
+      "actions": [
+        "Send an email message through the new-message composer",
+        "Read the HTTP 200 status=failed response and the committed row",
+        "Correct the client's address through the API, then retry through the same open composer",
+        "Open the conversation, reload"
+      ],
+      "expected": [
+        "Not-delivered error shown and the draft kept after the refused send",
+        "One failed message and one audit before the retry; no Mailpit mail",
+        "Retry uses a new idempotency key and sends once: failed then sent rows in one thread, one Mailpit mail",
+        "Conversation shows the failed and the sent message, unchanged after reload"
+      ],
+      "forbidden": [
+        "Draft cleared on a refused send",
+        "Retry replaying the failed response",
+        "Second sent message or second mail"
+      ],
+      "boundaries": [
+        "Address correction is API setup, not UI client editing",
+        "Refusal is SMTP 550 from Mailpit, not a real email provider",
+        "Does not cover provider acceptance followed by a rollback (MSG04)"
+      ],
+      "depends_on": [
+        "seeded_stack",
+        "mailpit",
+        "read_only_database_observer"
+      ],
+      "related_audit_families": [
+        "MSG03"
+      ],
+      "verified_on": "2026-10-25",
+      "evidence": [
+        ".scratchpad/e2e-3c87f92ea077/browser-results/results.json"
+      ],
+      "runtime_scope": "Local isolated stack, strict unchanged source for the run; other agents' source changed afterwards, not fixed-release certification"
+    },
+    {
+      "id": "SALE-E2E-03",
+      "status": "verified",
+      "risk": "high",
+      "layer": "browser",
+      "lane": "pr",
+      "implementation": [
+        "frontend/apps/connect/e2e/navigation.e2e.ts"
+      ],
+      "setup": "Seeded shop with its order endpoint answered by the test: the first request is dropped, the second fulfilled with a stub order",
+      "actions": [
+        "Add a product and fill details through the rendered Connect checkout",
+        "Lose the order response",
+        "Reload, step back to payment and resubmit the unchanged cart",
+        "Reload on the payment step"
+      ],
+      "expected": [
+        "Order error shown after the lost response",
+        "The resubmitted order carries the first attempt's idempotency key",
+        "Payment step and total come back after a further reload without another order request"
+      ],
+      "forbidden": [
+        "A second order attempt key for an unchanged cart",
+        "An order request on the reload that restores payment"
+      ],
+      "boundaries": [
+        "The order endpoint is stubbed because the functional stack has no Stripe account; server replay of the same key is covered by backend tests/test_public_shop.py::test_order_replay_returns_the_same_order",
+        "Expiry of the stored attempt is covered by the app-core unit test, not the browser"
+      ],
+      "depends_on": [
+        "seeded_stack"
+      ],
+      "related_audit_families": [
+        "SALE15"
+      ],
+      "verified_on": "2026-10-25",
+      "evidence": [
+        ".scratchpad/e2e-79929fd68d1a/browser-results/results.json"
+      ],
+      "runtime_scope": "Local isolated stack, strict unchanged source for the run; not hosted CI"
     }
   ],
   "audit_revision": "2a5441aff0b2a9c791bf75b63cffc6884cb8fceb",

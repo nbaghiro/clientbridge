@@ -2,12 +2,13 @@ from datetime import UTC, date, datetime
 from zoneinfo import ZoneInfo
 
 import httpx
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.ids import new_id
 from clientbridge.models.business import Business
 from clientbridge.models.catalog import Item
+from clientbridge.models.clients import Client
 from clientbridge.models.platform import Audit
 from clientbridge.models.scheduling import Booking, Recurrence, Slot
 from clientbridge.services.bookings import expand_occurrences
@@ -131,9 +132,19 @@ async def test_a_shift_needs_its_new_time(as_owner: httpx.AsyncClient, db: Async
     assert res.status_code == 422
 
 
+async def _reachable(db: AsyncSession) -> None:
+    # confirmations are queued deliveries, which refuse the seed's reserved demo addresses
+    await db.execute(
+        update(Client)
+        .where(Client.id == CL_AMELIE)
+        .values(email="amelie@birchbark.ca", phone="+12505551234")
+    )
+
+
 async def test_series_confirmation_is_one_message(
     as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender, sms: FakeSmsSender
 ) -> None:
+    await _reachable(db)
     await _series(as_owner, db, confirmation="series")
     assert len(email.sent) == 1
     assert email.sent[0].body.count("at ") == 4
@@ -143,6 +154,7 @@ async def test_series_confirmation_is_one_message(
 async def test_each_confirmation_is_one_message_per_visit(
     as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
 ) -> None:
+    await _reachable(db)
     await _series(as_owner, db, confirmation="each", count=3)
     assert len(email.sent) == 3
 

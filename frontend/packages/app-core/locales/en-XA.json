@@ -5954,6 +5954,9 @@
     "messaging.sendError": {
         "message": "[Çöûļðñ'ţ šéñð ýöûŕ ɱéššåĝé. Þļéåšé ţŕý åĝåîñ. one two three]"
     },
+    "messaging.notDelivered": {
+        "message": "[Ýöûŕ ɱéššåĝé ŵåšñ'ţ ðéļîṽéŕéð. Îţ'š šţîļļ ĥéŕé, šö ýöû çåñ ţŕý åĝåîñ. one two three four five]"
+    },
     "broadcasts.subtitle": {
         "message": "[Šéñð ñéŵš åñð öƒƒéŕš ţö çļîéñţš ŵĥö åĝŕééð ţö ĥéåŕ ƒŕöɱ ýöû. one two three four]"
     },

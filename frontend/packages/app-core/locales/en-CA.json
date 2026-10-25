@@ -6461,6 +6461,10 @@
     "messaging.sendError": {
         "message": "Couldn't send your message. Please try again."
     },
+    "messaging.notDelivered": {
+        "message": "Your message wasn't delivered. It's still here, so you can try again.",
+        "description": "The provider refused a message the business sent; the conversation shows it as failed"
+    },
     "broadcasts.subtitle": {
         "message": "Send news and offers to clients who agreed to hear from you."
     },

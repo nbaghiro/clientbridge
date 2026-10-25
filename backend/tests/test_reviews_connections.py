@@ -1,8 +1,10 @@
+from datetime import timedelta
 from typing import Literal
 from urllib.parse import parse_qs, urlsplit
 
 import httpx
 import pytest
+from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
@@ -14,6 +16,7 @@ from clientbridge.integrations.google_business import (
     get_google_secret_store,
 )
 from clientbridge.main import app
+from clientbridge.models.business import Business
 from clientbridge.services.reviews import run_google_operations
 from tests.conftest import Factory, FakeIdentityProvider, session_token
 from tests.google_business import FakeFlows, FakeGoogle, FakeVault
@@ -408,3 +411,21 @@ async def test_uncertain_reply_readback_error_never_requeues_write(
     assert google[0].writes == 0
     await db.refresh(row)
     assert row.state == "unknown"
+
+
+async def test_a_lapsed_business_can_disconnect_google_but_not_reconnect(
+    as_owner: httpx.AsyncClient, db: AsyncSession, google: tuple[FakeGoogle, FakeVault, FakeFlows]
+) -> None:
+    status = await connect(as_owner)
+    await db.execute(
+        update(Business)
+        .where(Business.id == "bz_birchbark")
+        .values(plan=None, plan_status="trialing", trial_ends_at=clock.now() - timedelta(days=1))
+    )
+    start = await as_owner.post("/v1/reviews/google/authorization", json={"platform": "web"})
+    assert start.status_code == 402
+    disconnected = await as_owner.post(
+        "/v1/reviews/google/disconnect", json={"generation": status["generation"]}
+    )
+    assert disconnected.status_code == 200, disconnected.text
+    assert disconnected.json()["state"] == "disconnected"

@@ -45,7 +45,7 @@ from clientbridge.services.lines import (
     replace_lines,
     set_discount,
 )
-from clientbridge.services.notifications import Notifier, Outcome
+from clientbridge.services.notifications import Notifier, Outcome, queued_notifier
 from clientbridge.services.payments import close_settled_visit, sync_invoice
 from clientbridge.services.tax import tax_for_lines
 
@@ -85,6 +85,7 @@ class BillingService:
                 if not lines:
                     raise Unprocessable("add a line before sending the invoice")
                 await issue_invoice(self.db, invoice, cmd)
+                await self._queue_send(invoice.id)
             return await invoice_out(self.db, invoice, await self._lines("invoice", invoice.id))
 
         return await run_command(
@@ -124,7 +125,12 @@ class BillingService:
             self.db, self.principal, action="invoice.update", run=run, response_model=InvoiceOut
         )
 
-    async def send_invoice(self, invoice_id: str) -> InvoiceOut:
+    async def _queue_send(self, invoice_id: str) -> None:
+        """Each send is its own delivery, so a replay sends nothing new and a resend sends again."""
+        scope = f"{sent_scope(invoice_id)}:{new_id('delivery')}"
+        await queued_notifier(self.db, scope, self.biz).on_invoice_sent(self.db, invoice_id)
+
+    async def send_invoice(self, invoice_id: str, idempotency_key: str | None) -> InvoiceOut:
         self._assert_admin()
         invoice = await self._invoice(invoice_id)
         if invoice.status == "void":
@@ -135,13 +141,20 @@ class BillingService:
                 await issue_invoice(self.db, invoice, cmd)
             else:
                 cmd.record("invoice.resend", entity_type="invoice", entity_id=invoice.id)
+            await self._queue_send(invoice.id)
             return await invoice_out(self.db, invoice, await self._lines("invoice", invoice.id))
 
         return await run_command(
-            self.db, self.principal, action="invoice.send", run=run, response_model=InvoiceOut
+            self.db,
+            self.principal,
+            action="invoice.send",
+            run=run,
+            response_model=InvoiceOut,
+            idempotency_key=idempotency_key,
+            request={"invoice_id": invoice_id},
         )
 
-    async def remind_invoice(self, invoice_id: str) -> InvoiceOut:
+    async def remind_invoice(self, invoice_id: str, idempotency_key: str | None) -> InvoiceOut:
         self._assert_admin()
         invoice = await self._invoice(invoice_id)
         if invoice.status != "sent":
@@ -151,10 +164,18 @@ class BillingService:
 
         async def run(cmd: Command) -> InvoiceOut:
             cmd.record("invoice.remind", entity_type="invoice", entity_id=invoice.id)
+            scope = f"{reminder_scope(invoice.id)}:{new_id('delivery')}"
+            await queued_notifier(self.db, scope, self.biz).on_invoice_reminder(self.db, invoice.id)
             return await invoice_out(self.db, invoice, await self._lines("invoice", invoice.id))
 
         return await run_command(
-            self.db, self.principal, action="invoice.remind", run=run, response_model=InvoiceOut
+            self.db,
+            self.principal,
+            action="invoice.remind",
+            run=run,
+            response_model=InvoiceOut,
+            idempotency_key=idempotency_key,
+            request={"invoice_id": invoice_id},
         )
 
     async def void_invoice(self, invoice_id: str) -> InvoiceOut:
@@ -696,6 +717,14 @@ def _estimate_out(estimate: Estimate, lines: list[Line], today: date) -> Estimat
         discount_cents=discount_total(lines),
         lines=[line_out(ln) for ln in lines],
     )
+
+
+def sent_scope(invoice_id: str) -> str:
+    return f"invoice-sent:{invoice_id}"
+
+
+def reminder_scope(invoice_id: str) -> str:
+    return f"invoice-reminder:{invoice_id}"
 
 
 async def run_overdue_sweep(db: AsyncSession, notifier: Notifier, now: datetime) -> int:

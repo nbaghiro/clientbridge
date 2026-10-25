@@ -23,6 +23,7 @@ from clientbridge.schemas.orders import (
     OrderReceiptIn,
     OrderUpdate,
 )
+from clientbridge.services.deliveries import dispatch_scope
 from clientbridge.services.notifications import Notifier
 from clientbridge.services.orders import OrderService
 
@@ -83,7 +84,7 @@ async def pay_order_cash(
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> OrderCashOut:
     result = await OrderService(db, principal, gateway).pay_cash(order_id, data, idempotency_key)
-    await Notifier(email, sms, push).on_payment_succeeded(db, result.payment_id)
+    await dispatch_scope(db, f"payment:{result.payment_id}", email, sms, push)
     return result
 
 
