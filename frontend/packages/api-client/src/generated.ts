@@ -8228,6 +8228,13 @@ export interface components {
             notes: string | null;
             /** Decline Reason */
             decline_reason: string | null;
+            /**
+             * Discount Cents
+             * @description The estimate's own discount over its included lines
+             */
+            discount_cents: number;
+            /** Discount Reason */
+            discount_reason: string | null;
             /** Lines */
             lines: components["schemas"]["PublicEstimateLine"][];
             /** Taxes */
@@ -8240,6 +8247,11 @@ export interface components {
              * @description The optional add-ons the client ticked
              */
             line_ids?: string[];
+            /**
+             * Total Cents
+             * @description The total the client was shown; refused when it has changed
+             */
+            total_cents?: number | null;
         };
         /** PublicEstimateDecline */
         PublicEstimateDecline: {
@@ -10644,7 +10656,10 @@ export interface operations {
     };
     public_estimate_estimate__token__get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Quote the estimate with these optional add-ons ticked */
+                line_ids?: string[] | null;
+            };
             header?: never;
             path: {
                 token: string;

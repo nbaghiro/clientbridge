@@ -126,6 +126,7 @@ interface LineRow {
     id: string;
     item_id: string | null;
     booking_id: string | null;
+    staff_id: string | null;
     description: string;
     quantity: number;
     unit_amount_cents: number;
@@ -191,7 +192,7 @@ LEFT JOIN bookings b ON b.id = (
 ORDER BY e.created_at DESC`;
 
 export const LINES_SQL = `
-SELECT id, item_id, booking_id, description, quantity, unit_amount_cents, amount_cents,
+SELECT id, item_id, booking_id, staff_id, description, quantity, unit_amount_cents, amount_cents,
        tax_amount_cents, tax_class, optional, selected, position, discount_kind, discount_value,
        discount_reason
 FROM lines WHERE ? IN (invoice_id, estimate_id) ORDER BY position`;
@@ -1436,6 +1437,9 @@ interface DraftLine {
     quantity: string;
     unit: string;
     itemId: string | null;
+    // the visit and member a line was billed for, kept so an edit can't detach them
+    bookingId: string | null;
+    staffId: string | null;
     taxClass: ItemTaxClass;
     optional: boolean;
     discount: SaleDiscount | null;
@@ -1480,6 +1484,8 @@ export function docDraft(row: InvoiceRow | EstimateRow, lines: readonly LineRow[
             quantity: formatNumber(l.quantity, { useGrouping: false }),
             unit: formatAmountInput(l.unit_amount_cents, BUSINESS_CURRENCY),
             itemId: l.item_id,
+            bookingId: l.booking_id,
+            staffId: l.staff_id,
             taxClass: asTaxClass(l.tax_class),
             optional: l.optional === 1,
             discount: storedDiscount(l),
@@ -1498,6 +1504,8 @@ const blankLine = (): DraftLine & { key: string } =>
         quantity: "1",
         unit: "",
         itemId: null,
+        bookingId: null,
+        staffId: null,
         taxClass: "standard",
         optional: false,
         discount: null,
@@ -1637,6 +1645,8 @@ export function useDocComposer(
                 quantity: qtyOf(l),
                 unit_amount_cents: unitOf(l),
                 item_id: l.itemId,
+                booking_id: l.bookingId,
+                staff_id: l.staffId,
                 tax_class: l.taxClass,
                 discount: l.discount,
                 ...(kind === "estimate" ? { optional: l.optional } : {}),
@@ -1812,6 +1822,8 @@ export function useDocComposer(
                 quantity: "1",
                 unit: formatAmountInput(item.price_cents ?? 0, BUSINESS_CURRENCY),
                 itemId: item.id,
+                bookingId: null,
+                staffId: null,
                 taxClass: asTaxClass(item.tax_class),
                 optional: false,
                 discount: null,

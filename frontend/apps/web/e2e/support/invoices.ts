@@ -40,12 +40,15 @@ interface DocumentLine {
     tax_class: string;
     optional: boolean;
     selected: boolean;
+    booking_id: string | null;
+    staff_id: string | null;
 }
 
 export interface DocumentEvidence {
     document: DocumentRecord;
     lines: DocumentLine[];
     siblings: { id: string; status: string }[];
+    bookings: { id: string; status: string; deposit_status: string; invoice_id: string | null }[];
 }
 
 export async function documentEvidence(

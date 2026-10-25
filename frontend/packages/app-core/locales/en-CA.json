@@ -186,6 +186,9 @@
     "api.estimateOnVisit": {
         "message": "This estimate's products are billed on its booked visit. Cancel the visit to convert the estimate to an invoice."
     },
+    "api.estimateChanged": {
+        "message": "This estimate just changed. Reload the page to see the latest version."
+    },
     "api.depositNotDue": {
         "message": "This deposit is already paid or no longer due."
     },
@@ -11719,6 +11722,9 @@
     },
     "publicEstimate.answerError": {
         "message": "We couldn't send your answer. Please try again."
+    },
+    "publicEstimate.quoteError": {
+        "message": "We couldn't update the total for your choices. Please try again."
     },
     "publicReturning.title": {
         "message": "Been here before?"

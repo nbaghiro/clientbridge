@@ -4,6 +4,7 @@ import asyncio
 import json
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable
+from datetime import timedelta
 
 import pytest
 from scripts.seed_demo import purge_businesses
@@ -11,23 +12,28 @@ from sqlalchemy import delete, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
+from clientbridge.core import clock
 from clientbridge.core.config import get_settings
 from clientbridge.core.db import SessionLocal
 from clientbridge.core.deps import Principal
 from clientbridge.core.errors import Conflict
 from clientbridge.core.ids import new_id
-from clientbridge.models.billing import Invoice
+from clientbridge.models.billing import Invoice, Line
 from clientbridge.models.business import Business
 from clientbridge.models.catalog import GiftCard, Item, Package
 from clientbridge.models.clients import Client
 from clientbridge.models.ledger import Entry
 from clientbridge.models.payments import Payment
 from clientbridge.models.platform import Webhook
+from clientbridge.models.scheduling import Booking, Slot
+from clientbridge.schemas.billing import LineInput
 from clientbridge.schemas.entitlements import GiftCardRedeem
+from clientbridge.schemas.orders import OrderCreate, OrderUpdate
 from clientbridge.schemas.payments import InvoicePaymentIn
 from clientbridge.services import ledger
 from clientbridge.services.entitlements import GiftCardService, PackageService
 from clientbridge.services.ledger import Leg
+from clientbridge.services.orders import OrderService
 from clientbridge.services.payments import PaymentService, process_stripe_event
 from tests.conftest import Factory, FakePaymentGateway, book_invoice
 
@@ -328,3 +334,81 @@ async def test_cash_is_refused_while_a_card_charge_is_pending(
         assert paid is not None
         assert (await ledger.invoice_state(check, paid))[0] == "paid"
         assert await ledger.collected(check, business.id, "invoice", invoice_id) == (5000, False)
+
+
+async def test_two_open_tickets_cannot_both_take_one_visit(
+    db: AsyncSession, throwaway: Throwaway
+) -> None:
+    business, client, principal = await throwaway()
+    starts = clock.now() + timedelta(days=1)
+    async with SessionLocal() as session:
+        item = Item(
+            id=new_id("item"),
+            business_id=business.id,
+            kind="service",
+            name="Race groom",
+            price_cents=4000,
+            duration_min=60,
+        )
+        session.add(item)
+        await session.flush()
+        assert principal.staff_id is not None
+        slot = Slot(
+            id=new_id("slot"),
+            business_id=business.id,
+            item_id=item.id,
+            staff_id=principal.staff_id,
+            starts_at=starts,
+            ends_at=starts + timedelta(hours=1),
+        )
+        session.add(slot)
+        await session.flush()
+        booking = Booking(
+            id=new_id("booking"),
+            business_id=business.id,
+            slot_id=slot.id,
+            starts_at=starts,
+            staff_id=principal.staff_id,
+            client_id=client.id,
+            status="confirmed",
+            source="manual",
+            price_cents=4000,
+        )
+        session.add(booking)
+        await session.flush()
+        service = OrderService(session, principal, FakePaymentGateway())
+        tickets = [(await service.create_order(OrderCreate())).id for _ in range(2)]
+        await session.commit()
+        booking_id = booking.id
+    visit = LineInput(
+        description="Race groom", quantity=1, unit_amount_cents=4000, booking_id=booking_id
+    )
+    race = Race[Conflict | None]()
+
+    async def ring(first: bool) -> Conflict | None:
+        async with SessionLocal() as session:
+            service = OrderService(session, principal, FakePaymentGateway())
+            try:
+                if first:
+                    # the lock a visit's own UPDATE takes, so the other ticket's read passes it
+                    await session.execute(
+                        select(Booking.id)
+                        .where(Booking.id == booking_id)
+                        .with_for_update(key_share=True)
+                    )
+                    await race.hold(session)
+                else:
+                    await race.join(session)
+                await service.update_order(tickets[0 if first else 1], OrderUpdate(lines=[visit]))
+            except Conflict as exc:
+                return exc
+            return None
+
+    first, second = await race.run(lambda: ring(True), lambda: ring(False))
+    assert first is None
+    assert second is not None and second.message.startswith("this visit is already on sale")
+    async with SessionLocal() as check:
+        linked = await check.get(Booking, booking_id)
+        assert linked is not None and linked.order_id == tickets[0]
+        billed = await check.scalars(select(Line.order_id).where(Line.booking_id == booking_id))
+        assert list(billed) == [tickets[0]]

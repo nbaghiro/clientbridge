@@ -161,6 +161,9 @@
     "api.estimateOnVisit": {
         "message": "[Ţĥîš éšţîɱåţé'š þŕöðûçţš åŕé ƀîļļéð öñ îţš ƀööķéð ṽîšîţ. Çåñçéļ ţĥé ṽîšîţ ţö çöñṽéŕţ ţĥé éšţîɱåţé ţö åñ îñṽöîçé. one two three four five six seven]"
     },
+    "api.estimateChanged": {
+        "message": "[Ţĥîš éšţîɱåţé ĵûšţ çĥåñĝéð. Ŕéļöåð ţĥé þåĝé ţö šéé ţĥé ļåţéšţ ṽéŕšîöñ. one two three four five]"
+    },
     "api.depositNotDue": {
         "message": "[Ţĥîš ðéþöšîţ îš åļŕéåðý þåîð öŕ ñö ļöñĝéŕ ðûé. one two three]"
     },
@@ -10921,6 +10924,9 @@
     },
     "publicEstimate.answerError": {
         "message": "[Ŵé çöûļðñ'ţ šéñð ýöûŕ åñšŵéŕ. Þļéåšé ţŕý åĝåîñ. one two three]"
+    },
+    "publicEstimate.quoteError": {
+        "message": "[Ŵé çöûļðñ'ţ ûþðåţé ţĥé ţöţåļ ƒöŕ ýöûŕ çĥöîçéš. Þļéåšé ţŕý åĝåîñ. one two three four]"
     },
     "publicReturning.title": {
         "message": "[Ɓééñ ĥéŕé ƀéƒöŕé? one two]"

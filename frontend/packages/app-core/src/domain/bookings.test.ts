@@ -736,6 +736,16 @@ describe("deposits", () => {
         expect(depositOf(item({ deposit_type: "fixed", deposit_value: null }))).toBe(0);
     });
 
+    it("charges what the server charges: half to even, never more than the price", () => {
+        const at = (deposit_type: string, deposit_value: number, price_cents: number): number =>
+            depositOf(item({ deposit_type, deposit_value, price_cents }));
+        expect(at("percent", 50, 101)).toBe(50);
+        expect(at("percent", 50, 103)).toBe(52);
+        expect(at("percent", 25, 102)).toBe(26);
+        expect(at("fixed", 200, 101)).toBe(101);
+        expect(at("fixed", 100, 101)).toBe(100);
+    });
+
     it("lets a manager or the visit's own staff collect a deposit still due", () => {
         const due = event("bk_1", at(9), at(10), {
             depositRequired: true,

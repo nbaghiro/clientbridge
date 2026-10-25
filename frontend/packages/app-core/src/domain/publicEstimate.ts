@@ -1,13 +1,13 @@
 import { useState } from "react";
 
 import { formatMoney } from "../format";
-import { useAsyncAction } from "../hooks";
+import { useAsyncAction, useRemote } from "../hooks";
 import { strings } from "../strings";
 import type { DocTotalLine, PrintedDoc } from "../ui";
-import { docReference, longDate, printedDoc } from "./printing";
+import { discountReason, docReference, longDate, printedDoc } from "./printing";
 import { type PublicDocLine, type PublicDocTax, publicDocLines, publicDocTaxes } from "./publicPay";
 import { type PublicBrand, usePublicResource } from "./publicResource";
-import { refusal } from "../api";
+import { failureMessage, refusal } from "../api";
 
 interface PublicEstimateLine extends PublicDocLine {
     id: string;
@@ -35,13 +35,16 @@ export interface PublicEstimate {
     valid_until: string | null;
     notes: string | null;
     decline_reason: string | null;
+    discount_cents: number;
+    discount_reason: string | null;
     lines: PublicEstimateLine[];
     taxes: PublicDocTax[];
 }
 
 interface PublicEstimateClient {
     getEstimate: (token: string) => Promise<PublicEstimate>;
-    accept: (token: string, lineIds: string[]) => Promise<PublicEstimate>;
+    quote: (token: string, lineIds: readonly string[]) => Promise<PublicEstimate>;
+    accept: (token: string, lineIds: string[], totalCents: number) => Promise<PublicEstimate>;
     decline: (token: string, reason: string | null) => Promise<PublicEstimate>;
 }
 
@@ -61,9 +64,16 @@ export function createPublicEstimateClient(baseUrl: string): PublicEstimateClien
         });
     return {
         getEstimate: (token) => request<PublicEstimate>(`/estimate/${encodeURIComponent(token)}`),
-        accept: (token, lineIds) =>
+        quote: (token, lineIds) => {
+            const query = new URLSearchParams(lineIds.map((id) => ["line_ids", id]));
+            return request<PublicEstimate>(
+                `/estimate/${encodeURIComponent(token)}?${query.toString()}`,
+            );
+        },
+        accept: (token, lineIds, totalCents) =>
             post<PublicEstimate>(`/estimate/${encodeURIComponent(token)}/accept`, {
                 line_ids: lineIds,
+                total_cents: totalCents,
             }),
         decline: (token, reason) =>
             post<PublicEstimate>(`/estimate/${encodeURIComponent(token)}/decline`, { reason }),
@@ -92,7 +102,7 @@ interface PublicEstimatePage {
     printed: (fallbackColor: string) => PrintedDoc | null;
 }
 
-/** The client's estimate page: optional add-ons start unticked, and the total follows the ticks. */
+/** The client's estimate page: optional add-ons start unticked, and the server quotes each choice. */
 export function usePublicEstimatePage(
     client: PublicEstimateClient,
     token: string,
@@ -104,35 +114,48 @@ export function usePublicEstimatePage(
     const { busy, error, run } = useAsyncAction();
     const pe = strings.publicEstimate;
 
-    const included = (l: PublicEstimateLine): boolean =>
-        !l.optional || (data?.status === "sent" ? picked.has(l.id) : l.selected);
-    const lines = data?.lines.filter(included) ?? [];
-    const subtotal = lines.reduce((a, l) => a + l.amount_cents, 0);
-    const byCode = new Map<string, number>();
-    for (const l of lines)
-        for (const [code, cents] of Object.entries(l.tax_by_code))
-            byCode.set(code, (byCode.get(code) ?? 0) + cents);
-    const taxes = publicDocTaxes(
-        (data?.taxes ?? []).map((t) => ({
-            ...t,
-            cents: byCode.get(t.code) ?? 0,
-        })),
-    ).filter((t) => t.cents !== 0);
-    const missing = [...byCode.keys()].filter((c) => !taxes.some((t) => t.code === c));
-    const tax = [...byCode.values()].reduce((a, b) => a + b, 0);
-    const totalCents = subtotal + tax;
+    const choosing = data?.status === "sent";
+    const choice = choosing ? [...picked].sort() : [];
+    const quoted = useRemote<PublicEstimate | null>(
+        () => (choice.length > 0 ? client.quote(token, choice) : Promise.resolve(null)),
+        `${token}|${choice.join(",")}`,
+    );
+    const answers = (q: PublicEstimate): boolean =>
+        q.lines.every((l) => !l.optional || l.selected === choice.includes(l.id));
+    const quote =
+        choice.length === 0
+            ? data
+            : quoted.data !== null && answers(quoted.data)
+              ? quoted.data
+              : null;
+    const quoting = choice.length > 0 && quote === null;
+    const shown = quote ?? data;
+    const lines = shown?.lines.filter((l) => !l.optional || l.selected || picked.has(l.id)) ?? [];
+    const taxes = publicDocTaxes(shown?.taxes ?? []).filter((t) => t.cents !== 0);
+    const discount = shown?.discount_cents ?? 0;
+    const totalCents = shown?.total_cents ?? 0;
     const totals: DocTotalLine[] = [
-        { key: "subtotal", label: pe.subtotal, cents: subtotal, kind: "subtotal" },
+        ...(discount > 0
+            ? [
+                  {
+                      key: "discount",
+                      label: strings.publicReceipt.discount,
+                      cents: discount,
+                      kind: "credit" as const,
+                      hint: discountReason(shown?.discount_reason) ?? undefined,
+                  },
+              ]
+            : []),
+        {
+            key: "subtotal",
+            label: pe.subtotal,
+            cents: shown?.subtotal_cents ?? 0,
+            kind: "subtotal",
+        },
         ...taxes.map((t): DocTotalLine => ({
             key: t.code,
             label: t.label,
             cents: t.cents,
-            kind: "tax",
-        })),
-        ...missing.map((c): DocTotalLine => ({
-            key: c,
-            label: c,
-            cents: byCode.get(c) ?? 0,
             kind: "tax",
         })),
         { key: "total", label: pe.total, cents: totalCents, kind: "total" },
@@ -170,14 +193,18 @@ export function usePublicEstimatePage(
         setDeclining,
         reason,
         setReason,
-        busy,
-        error,
+        busy: busy || (quoting && quoted.error === null),
+        error: quoting && quoted.error !== null ? pe.quoteError : error,
         accept: () => {
+            if (quote === null) {
+                quoted.refresh().catch(() => undefined);
+                return;
+            }
             run(
                 async () => {
-                    setData(await client.accept(token, [...picked]));
+                    setData(await client.accept(token, choice, quote.total_cents));
                 },
-                { errorMessage: pe.answerError },
+                { errorMessage: (e) => failureMessage(e, pe.answerError) },
             );
         },
         decline: () => {

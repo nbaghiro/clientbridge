@@ -69,6 +69,7 @@ interface Strings {
         readonly visitNotStarted: string;
         readonly estimateBooked: string;
         readonly estimateOnVisit: string;
+        readonly estimateChanged: string;
         readonly depositNotDue: string;
         readonly depositInProgress: string;
         readonly cardPaymentsUnavailable: string;
@@ -4006,6 +4007,7 @@ interface Strings {
         readonly expiredBody: (biz: string) => string;
         readonly downloadPdf: string;
         readonly answerError: string;
+        readonly quoteError: string;
     };
     readonly publicReturning: {
         readonly title: string;

@@ -16,6 +16,7 @@ REQUIRED_CASES = {
         "SCH-PILOT-01",
         "BILL-DOC-01",
         "BILL-DOC-02",
+        "BILL-DOC-03",
         "SEC-E2E-01",
         "SEC-E2E-02",
         "OFF-E2E-01",
@@ -37,7 +38,14 @@ REQUIRED_CASES = {
         "FIN-REPORT-01",
         "FIN-EXPORT-02",
     ],
-    "connect": ["DOC-E2E-01", "DOC-E2E-02", "DOC-E2E-03", "DOC-E2E-04", "DOC-E2E-05"],
+    "connect": [
+        "DOC-E2E-01",
+        "DOC-E2E-02",
+        "DOC-E2E-03",
+        "DOC-E2E-04",
+        "DOC-E2E-05",
+        "DOC-E2E-06",
+    ],
     "journeys": [
         "CLS-E2E-01",
         "CRM-E2E-05",

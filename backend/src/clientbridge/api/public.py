@@ -107,8 +107,16 @@ estimate_router = APIRouter(prefix="/estimate", tags=["public-estimate"])
 
 
 @estimate_router.get("/{token}", response_model=PublicEstimate)
-async def public_estimate(token: str, db: DbSession, _: RateLimited) -> PublicEstimate:
-    return await PublicEstimateService(db).context(token)
+async def public_estimate(
+    token: str,
+    db: DbSession,
+    _: RateLimited,
+    line_ids: Annotated[
+        list[str] | None,
+        Query(description="Quote the estimate with these optional add-ons ticked"),
+    ] = None,
+) -> PublicEstimate:
+    return await PublicEstimateService(db).context(token, line_ids)
 
 
 @estimate_router.post("/{token}/accept", response_model=PublicEstimate)

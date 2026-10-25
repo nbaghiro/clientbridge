@@ -19,6 +19,7 @@ import { dateKey } from "../datetime";
 import { SUBJECT_ICON } from "../icons";
 import { type SubjectKind, useSubjectKind } from "./subjects";
 import { taxSummary } from "./taxes";
+import { depositCents } from "./catalog";
 
 interface BusinessRow {
     id: string;
@@ -1028,14 +1029,6 @@ export interface BookingPreview {
     facts: Fact[];
 }
 
-// The same deposit the server asks for at booking (services/catalog.deposit_cents).
-function previewDeposit(i: PreviewItem): number {
-    if (i.deposit_type === "none" || i.deposit_value === null) return 0;
-    return i.deposit_type === "fixed"
-        ? i.deposit_value
-        : Math.round((i.price_cents * i.deposit_value) / 100);
-}
-
 /** The booking page's first step from the replica: the bookable services and a pick. */
 export function useBookingPreview(limit: number): BookingPreview {
     const items = useQuery<PreviewItem>(BOOKING_PREVIEW_SQL).data.slice(0, limit);
@@ -1045,7 +1038,7 @@ export function useBookingPreview(limit: number): BookingPreview {
     const b = strings.publicBooking;
     return {
         services: items.map((i) => {
-            const deposit = previewDeposit(i);
+            const deposit = depositCents(i.price_cents, i.deposit_type, i.deposit_value);
             return {
                 key: i.id,
                 label: i.name,

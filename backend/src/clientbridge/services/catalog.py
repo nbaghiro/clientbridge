@@ -340,9 +340,9 @@ def _amounts(value: object) -> list[int] | None:
 
 
 def deposit_cents(item: Item) -> int:
-    """The deposit owed for a booking of this item: fixed cents, or a percent of its price."""
+    """Fixed cents or a percent of the price (half to even), never more than the price."""
     if item.deposit_type == "none" or item.deposit_value is None:
         return 0
     if item.deposit_type == "fixed":
-        return int(item.deposit_value)
-    return round(item.price_cents * float(item.deposit_value) / 100)
+        return min(int(item.deposit_value), item.price_cents)
+    return min(round(item.price_cents * float(item.deposit_value) / 100), item.price_cents)
