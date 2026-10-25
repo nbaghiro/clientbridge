@@ -1,6 +1,8 @@
 import { clippedText, englishCopy } from "@clientbridge/config/e2e/pseudo";
 import { expect, test } from "@playwright/test";
 
+import { clientMessageCopy } from "./support/pseudo";
+
 const PAGES = [
     "/today",
     "/schedule",
@@ -20,9 +22,12 @@ test("key pages read every text from the en-XA catalog", async ({ page }) => {
     await expect(page).toHaveURL(/\/today$/, { timeout: 60_000 });
     // The replica needs a moment to sync before the pages have rows.
     await page.waitForTimeout(6000);
+    const historyMessageCopy = await clientMessageCopy("cl_amelie");
     const found: Record<string, string[]> = {};
     const record = async (where: string): Promise<void> => {
-        const english = await englishCopy(page);
+        const data =
+            where === "/clients/cl_amelie/history" ? historyMessageCopy : new Set<string>();
+        const english = await englishCopy(page, "body", data);
         const clipped = (await clippedText(page)).map((t) => `clipped: ${t}`);
         if (english.length + clipped.length > 0) found[where] = [...english, ...clipped];
     };

@@ -151,6 +151,9 @@
     "api.shopNotReady": {
         "message": "This shop isn't taking online orders yet."
     },
+    "api.contactAmbiguous": {
+        "message": "These contact details match more than one client. Check your email and phone number, or contact the business."
+    },
     "api.slotUnavailable": {
         "message": "That time is no longer open. Pick another time."
     },

@@ -3,7 +3,8 @@ import { axeIssues, unmarkedFocus, unreadableHover } from "@clientbridge/config/
 import { type ConsoleMessage, expect, type Page, test } from "@playwright/test";
 
 import { on } from "./hosts";
-import { links, ownAddress } from "./links";
+import { links } from "./links";
+import { ownAddress } from "./network";
 
 test.beforeEach(async ({ context }, info) => {
     await ownAddress(context, info);
@@ -70,7 +71,7 @@ async function bookVisit(
     await page.getByRole("radiogroup", { name: b.openTimes }).getByRole("radio").first().click();
     await page.getByRole("button", { name: b.continue }).first().click();
     await expect(page.getByRole("heading", { name: b.stepDetails, level: 2 })).toBeVisible();
-    await page.getByRole("textbox", { name: b.name }).fill("Robin Test");
+    await page.getByRole("textbox", { name: b.name }).fill("Robin Bennett");
     await page.getByRole("textbox", { name: b.subject("pet") }).fill("Pepper");
     // fresh contact details, so an earlier run's booking never makes this client a returning one
     const fresh = String(Date.now() % 1_000_000).padStart(6, "0");
@@ -142,7 +143,7 @@ test("anyone books with any member, and a refused or unreachable booking reads a
         await expect(page.getByRole("heading", { name: b.stepDetails, level: 2 })).toBeVisible();
     };
     await pickTime();
-    await page.getByRole("textbox", { name: b.name }).fill("Robin Test");
+    await page.getByRole("textbox", { name: b.name }).fill("Robin Bennett");
     await page.getByRole("textbox", { name: b.subject("pet") }).fill("Pepper");
     await page.getByRole("textbox", { name: b.phone }).fill("2505550199");
     const sent: { staff_id?: string }[] = [];

@@ -135,7 +135,11 @@ export function DocEditor({ kind, draft, onClose }: DocEditorProps) {
                             error={form.clientError}
                             options={[
                                 { key: "", label: s.chooseClient },
-                                ...clients.map((x) => ({ key: x.id, label: x.name })),
+                                ...clients.map((x) => ({
+                                    key: x.id,
+                                    label: x.name,
+                                    detail: x.email ?? undefined,
+                                })),
                             ]}
                             onChange={form.setClientId}
                         />

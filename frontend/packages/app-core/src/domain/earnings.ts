@@ -281,10 +281,7 @@ export function useEarningApprovals(api: ApiLike): EarningApprovals {
         payApproved: () => {
             const ids = rows.filter((r) => r.status === "approved").map((r) => r.id);
             if (ids.length === 0) return;
-            const amount = formatMoney(
-                payees.reduce((n, p) => n + p.approvedCents, 0),
-                BUSINESS_CURRENCY,
-            );
+            const amount = formatMoney(selected?.approvedCents ?? 0, BUSINESS_CURRENCY);
             afterReview(
                 {
                     title: strings.earnings.review.payTitle(amount),

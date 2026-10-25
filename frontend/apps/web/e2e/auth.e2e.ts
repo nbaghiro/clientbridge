@@ -1,5 +1,5 @@
 import { strings } from "@clientbridge/app-core/public";
-import { type APIRequestContext, type Page, expect, test } from "@playwright/test";
+import { type Page, expect, test } from "@playwright/test";
 
 import {
     deleteIdentity,
@@ -12,6 +12,8 @@ import {
     sessionActive,
     totp,
 } from "./identity";
+
+import { signUp, openBusiness } from "./support/onboarding";
 
 const a = strings.auth;
 
@@ -119,52 +121,13 @@ test("existing business never flashes onboarding during sign-in or a slow reload
     expect(await page.evaluate(() => sessionStorage.getItem("onboarding-flashed"))).toBeNull();
 });
 
-async function signUp(
-    page: Page,
-    request: APIRequestContext,
-    account: { email: string; password: string; name: string },
-): Promise<void> {
-    if (!page.url().includes("/signup")) await page.goto("/signup");
-    await page.getByLabel(a.name, { exact: true }).fill(account.name);
-    await page.getByRole("textbox", { name: a.email, exact: true }).fill(account.email);
-    await page.getByLabel(a.newPassword, { exact: true }).fill(account.password);
-    await page.getByRole("button", { name: a.createAccount, exact: true }).click();
-    await expect(page.getByRole("heading", { name: a.verifyTitle })).toBeVisible();
-    await page
-        .getByLabel(a.code, { exact: true })
-        .fill(await mailedCode(request, account.email, "verification"));
-    await page.getByRole("button", { name: a.verify, exact: true }).click();
-}
-
-async function openBusiness(page: Page, name: string): Promise<void> {
-    const o = strings.business.onboarding;
-    await expect(page.getByRole("heading", { name: o.title })).toBeVisible();
-    await page.getByLabel(o.businessName, { exact: true }).fill(name);
-    await page.getByRole("combobox", { name: o.province }).click();
-    await page
-        .getByRole("listbox", { name: o.province })
-        .getByRole("option", { name: o.provinceBC, exact: true })
-        .click();
-    await page.getByRole("combobox", { name: o.industryLabel }).click();
-    await page
-        .getByRole("listbox", { name: o.industryLabel })
-        .getByRole("option", { name: o.industry("beauty"), exact: true })
-        .click();
-    await page.getByRole("button", { name: o.createBusiness, exact: true }).click();
-    await expect(
-        page
-            .locator("aside")
-            .getByRole("link", { name: strings.navigation.businessMenu, exact: true }),
-    ).toBeVisible({ timeout: 60_000 });
-}
-
 test("sign up, confirm the email with the mailed code, then open a business", async ({
     page,
     request,
 }) => {
     const account = newAccount("signup");
     await signUp(page, request, account);
-    await openBusiness(page, `Signup Studio ${account.email.slice(7, 15)}`);
+    await openBusiness(page, `${account.name}'s Beauty Studio`);
 });
 
 test("recover a forgotten password with an emailed code, staying signed in only here", async ({
@@ -199,7 +162,7 @@ test("recover a forgotten password with an emailed code, staying signed in only 
 test("changing the password signs out every other device", async ({ page, request }) => {
     const account = newAccount("password");
     await signUp(page, request, account);
-    await openBusiness(page, `Password Studio ${account.email.slice(9, 17)}`);
+    await openBusiness(page, `${account.name}'s Beauty Studio`);
     const otherDevice = await nativeSession(request, account.email, account.password);
     expect(await sessionActive(request, otherDevice)).toBe(true);
 
@@ -216,7 +179,7 @@ test("changing the password signs out every other device", async ({ page, reques
 test("turn on an authenticator app, then sign in with its code", async ({ page, request }) => {
     const account = newAccount("totp");
     await signUp(page, request, account);
-    await openBusiness(page, `Totp Studio ${account.email.slice(5, 13)}`);
+    await openBusiness(page, `${account.name}'s Beauty Studio`);
     await page.goto("/setup/security");
     const key = page.getByText(/^Or enter this key: /);
     const secret = ((await key.textContent()) ?? "").replace("Or enter this key: ", "").trim();
@@ -307,7 +270,7 @@ test("an account whose identity was recreated confirms its email instead of loop
 }) => {
     const account = newAccount("relink");
     await signUp(page, request, account);
-    await openBusiness(page, `Relink Studio ${account.email.slice(7, 15)}`);
+    await openBusiness(page, `${account.name}'s Beauty Studio`);
     await deleteIdentity(request, account.email);
     await page.goto("/signup");
     await expect(page.getByRole("heading", { name: a.signUpTitle })).toBeVisible();

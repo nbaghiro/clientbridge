@@ -27,6 +27,8 @@ help:
 	@echo "test-site        build the site, then the browser pass (links, images, phone width, a11y)"
 	@echo "test-web         web smoke test: every page and dialog (needs the local stack + seed)"
 	@echo "test-connect     Connect e2e: booking, manage link, shop and every client page (needs the API + seed)"
+	@echo "test-functional  disposable full-stack browser journeys (FUNCTIONAL_ARGS selects surface/project/specs)"
+	@echo "test-stripe-browser  isolated sandbox checkout (STRIPE_BROWSER_ARGS selects credentials mode)"
 	@echo "test-mobile      Maestro native walkthroughs (needs a development build, local stack + seed)"
 	@echo "test-sync        disposable Postgres + PowerSync: replica rows per role, revocation, key rotation"
 	@echo "replication-health  local PowerSync readiness, slot, retained WAL and replay lag"
@@ -129,6 +131,10 @@ build-site:
 # The site's browser pass (every page, links, images, phone width, accessibility) on a fresh build.
 test-site:
 	cd frontend && pnpm --filter site build && pnpm --filter site e2e
+
+.PHONY: test-functional
+test-functional:
+	cd backend && uv run python -m scripts.e2e_stack $(FUNCTIONAL_ARGS)
 
 test-web:
 	cd backend && uv run python -m scripts.web_fixtures && uv run python -m scripts.sync_caught_up
@@ -329,3 +335,7 @@ infra-providers:
 infra-mobile:
 	@test -n "$(PROJECT)" -a -n "$(ENV)" || { echo "usage: make infra-mobile PROJECT=<id> ENV=staging"; exit 1; }
 	cd infra/pulumi && uv run python mobile_init.py --env $(ENV) --project $(PROJECT) --env-file ../../.env.$(ENV)
+
+.PHONY: test-stripe-browser
+test-stripe-browser:
+	cd backend && uv run python -m scripts.e2e_stripe_stack $(STRIPE_BROWSER_ARGS)

@@ -2,7 +2,9 @@ import { expect, test } from "@playwright/test";
 
 import { on } from "./hosts";
 
-test("demo catalog photos load in the shop and booking page", async ({ page }, testInfo) => {
+test("presentation demo: catalog photos load in the shop and booking page", async ({
+    page,
+}, testInfo) => {
     test.skip(process.env.DEMO_E2E !== "1", "Requires the standard local demo catalog");
     await page.route("http://localhost:8701/**", (route) =>
         route.continue({ url: route.request().url().replace("localhost", "127.0.0.1") }),

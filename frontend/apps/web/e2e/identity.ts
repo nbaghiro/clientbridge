@@ -1,5 +1,6 @@
 import { createHmac, randomUUID } from "node:crypto";
 import type { APIRequestContext } from "@playwright/test";
+import { demoPerson } from "@clientbridge/config/e2e/demo";
 
 const API = process.env.VITE_API_URL ?? "http://localhost:8701";
 const AUTH = process.env.VITE_AUTH_URL ?? "http://localhost:8713";
@@ -7,11 +8,11 @@ const MAILPIT = process.env.MAILPIT_URL ?? "http://localhost:8715";
 const AUTH_ADMIN = process.env.AUTH_ADMIN_URL ?? "http://localhost:8714";
 
 export function newAccount(prefix: string): { email: string; password: string; name: string } {
-    const id = randomUUID().slice(0, 8);
+    const run = randomUUID();
     return {
-        email: `${prefix}-${id}@example.com`,
+        email: `${prefix}-${run}@example.com`,
         password: `Plum-${randomUUID()}`,
-        name: `E2E ${prefix}`,
+        name: demoPerson(run),
     };
 }
 

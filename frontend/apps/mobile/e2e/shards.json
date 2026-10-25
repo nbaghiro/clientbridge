@@ -18,6 +18,11 @@
     {
         "id": "c",
         "name": "inbox, clients",
-        "flows": ["10-inbox-navigation.yaml", "04-inbox.yaml", "05-client-record.yaml"]
+        "flows": [
+            "10-inbox-navigation.yaml",
+            "04-inbox.yaml",
+            "05-client-record.yaml",
+            "functional-client.yaml"
+        ]
     }
 ]

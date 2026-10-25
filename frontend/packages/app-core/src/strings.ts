@@ -58,6 +58,7 @@ interface Strings {
         readonly outOfStock: string;
         readonly pickupWindowTaken: string;
         readonly shopNotReady: string;
+        readonly contactAmbiguous: string;
         readonly slotUnavailable: string;
         readonly classSeat: string;
         readonly classMove: string;

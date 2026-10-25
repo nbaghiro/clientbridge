@@ -12,6 +12,7 @@ from clientbridge.models.catalog import BOOKABLE_KINDS, Item
 from clientbridge.models.scheduling import Addon, Booking, Resource
 from clientbridge.schemas.catalog import (
     ItemCreate,
+    ItemOut,
     ItemUpdate,
     TaxClassChange,
     TaxClassResult,
@@ -69,58 +70,79 @@ class CatalogService:
             request=data,
         )
 
-    async def create(self, data: ItemCreate) -> Item:
+    async def create(self, data: ItemCreate, idempotency_key: str | None = None) -> ItemOut:
         self._assert_admin()
-        bookable = (
-            data.kind in BOOKABLE_KINDS if data.online_bookable is None else data.online_bookable
-        )
-        item = Item(
-            id=new_id("item"),
-            business_id=self.principal.business_id,
-            created_by=self.principal.user_id,
-            kind=data.kind,
-            name=data.name,
-            description=data.description,
-            variant_parent_id=data.variant_parent_id,
-            variant_label=data.variant_label,
-            price_cents=data.price_cents,
-            currency=data.currency,
-            duration_min=data.duration_min,
-            capacity=data.capacity,
-            category=data.category,
-            color=data.color,
-            online_bookable=bookable,
-            active=data.active,
-            tax_class=data.tax_class,
-            sku=data.sku,
-            cost_cents=data.cost_cents,
-            track_stock=data.track_stock,
-            sell_online=data.sell_online,
-            stock_on_hand=0 if data.track_stock else None,
-            low_stock_at=data.low_stock_at,
-            buffer_before_min=data.buffer_before_min,
-            buffer_after_min=data.buffer_after_min,
-            deposit_type=data.deposit_type,
-            deposit_value=data.deposit_value,
-            session_count=data.session_count,
-            validity_days=data.validity_days,
-            interval=data.interval,
-            frequency=data.frequency,
-            covers_item_id=data.covers_item_id,
-            visits_per_period=data.visits_per_period,
-            member_discount_bps=data.member_discount_bps,
-            gift_amounts=_amounts(data.gift_amounts),
-            staff_ids=sorted(set(data.staff_ids)),
-            resource_ids=sorted(set(data.resource_ids)),
-        )
-        _assert_shape(item)
-        await self._assert_covers(item)
-        await self._assert_variant(item)
-        await self._assert_staff(item.staff_ids)
-        await self._assert_resources(item.resource_ids)
-        self.db.add(item)
-        await self._save(item)
-        return item
+
+        async def run(cmd: Command) -> ItemOut:
+            bookable = (
+                data.kind in BOOKABLE_KINDS
+                if data.online_bookable is None
+                else data.online_bookable
+            )
+            item = Item(
+                id=new_id("item"),
+                business_id=self.principal.business_id,
+                created_by=self.principal.user_id,
+                kind=data.kind,
+                name=data.name,
+                description=data.description,
+                variant_parent_id=data.variant_parent_id,
+                variant_label=data.variant_label,
+                price_cents=data.price_cents,
+                currency=data.currency,
+                duration_min=data.duration_min,
+                capacity=data.capacity,
+                category=data.category,
+                color=data.color,
+                online_bookable=bookable,
+                active=data.active,
+                tax_class=data.tax_class,
+                sku=data.sku,
+                cost_cents=data.cost_cents,
+                track_stock=data.track_stock,
+                sell_online=data.sell_online,
+                stock_on_hand=0 if data.track_stock else None,
+                low_stock_at=data.low_stock_at,
+                buffer_before_min=data.buffer_before_min,
+                buffer_after_min=data.buffer_after_min,
+                deposit_type=data.deposit_type,
+                deposit_value=data.deposit_value,
+                session_count=data.session_count,
+                validity_days=data.validity_days,
+                interval=data.interval,
+                frequency=data.frequency,
+                covers_item_id=data.covers_item_id,
+                visits_per_period=data.visits_per_period,
+                member_discount_bps=data.member_discount_bps,
+                gift_amounts=_amounts(data.gift_amounts),
+                staff_ids=sorted(set(data.staff_ids)),
+                resource_ids=sorted(set(data.resource_ids)),
+            )
+            _assert_shape(item)
+            await self._assert_covers(item)
+            await self._assert_variant(item)
+            await self._assert_staff(item.staff_ids)
+            await self._assert_resources(item.resource_ids)
+            self.db.add(item)
+            await self.db.flush()
+            await self.db.refresh(item)
+            cmd.record("item.create", entity_type="item", entity_id=item.id)
+            return ItemOut.model_validate(item)
+
+        try:
+            return await run_command(
+                self.db,
+                self.principal,
+                action="item.create",
+                run=run,
+                response_model=ItemOut,
+                idempotency_key=idempotency_key,
+                request=data,
+            )
+        except IntegrityError as exc:
+            if "ux_items_business_sku" in str(exc.orig):
+                raise Conflict("another item already uses that SKU") from exc
+            raise
 
     async def update(self, item_id: str, data: ItemUpdate) -> Item:
         self._assert_admin()

@@ -52,7 +52,6 @@ async def test_pad_setup_has_a_scoped_customer(stripe_run: StripeRun) -> None:
         stripe_run.account,
         customer_id=customer,
         idempotency_key=f"{stripe_run.namespace}:pad",
-        interval_description="When an invoice or a scheduled membership payment is due",
     )
     try:
         setup = await stripe.SetupIntent.retrieve_async(
@@ -61,6 +60,13 @@ async def test_pad_setup_has_a_scoped_customer(stripe_run: StripeRun) -> None:
         assert setup.customer == customer
         assert setup.payment_method_types == ["acss_debit"]
         assert setup.livemode is False
+        options = setup.payment_method_options
+        assert options is not None and options.acss_debit is not None
+        assert options.acss_debit.currency == "cad"
+        mandate = options.acss_debit.mandate_options
+        assert mandate is not None and mandate.default_for is not None
+        assert set(mandate.default_for) == {"invoice", "subscription"}
+        assert mandate.transaction_type == "personal"
     finally:
         await stripe.SetupIntent.cancel_async(result.id, stripe_account=stripe_run.account)
 
@@ -84,7 +90,7 @@ async def test_terminal_intent_allows_card_present(stripe_run: StripeRun) -> Non
 async def test_declined_test_card_maps_to_card_declined(stripe_run: StripeRun) -> None:
     customer = await stripe_run.customer()
     method = await stripe.PaymentMethod.attach_async(
-        "pm_card_chargeDeclined", customer=customer, stripe_account=stripe_run.account
+        "pm_card_chargeCustomerFail", customer=customer, stripe_account=stripe_run.account
     )
     with pytest.raises(CardDeclined):
         await stripe_run.gateway.create_payment_intent(

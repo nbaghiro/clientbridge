@@ -3,10 +3,20 @@
     "workspaces": {
         "apps/web": {
             "ignoreDependencies": ["@journeyapps/wa-sqlite"],
-            "entry": ["scripts/service-worker.js"]
+            "entry": ["scripts/service-worker.js"],
+            "playwright": {
+                "config": [
+                    "playwright.config.ts",
+                    "playwright.journeys.config.ts",
+                    "playwright.filings.config.ts"
+                ]
+            }
         },
         "apps/connect": {
-            "entry": ["public/embed.js", "src/embedLoader.ts"]
+            "entry": ["public/embed.js", "src/embedLoader.ts"],
+            "playwright": {
+                "config": ["playwright.config.ts", "playwright.stripe.config.ts"]
+            }
         },
         "apps/site": {
             "entry": ["src/entry-server.tsx", "scripts/*.ts"]

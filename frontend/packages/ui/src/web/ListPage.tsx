@@ -110,6 +110,7 @@ export function ListPage<T, K extends string = string>({
                         onRowPress !== undefined ? (
                             <button
                                 key={rowKey(row)}
+                                data-row-key={rowKey(row)}
                                 type="button"
                                 aria-current={rowKey(row) === selectedKey || undefined}
                                 onClick={() => {
@@ -122,6 +123,7 @@ export function ListPage<T, K extends string = string>({
                         ) : (
                             <div
                                 key={rowKey(row)}
+                                data-row-key={rowKey(row)}
                                 className="border-b border-line-soft px-4 py-3 text-sm last:border-0"
                             >
                                 {renderRow(row)}

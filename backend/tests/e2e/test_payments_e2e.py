@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from tests.conftest import BIZ, Factory
 from tests.e2e.conftest import StripeEvents, StripeRun
 
+from clientbridge.core.errors import AppError
 from clientbridge.models.business import Business, User
 from clientbridge.models.clients import Client
 from clientbridge.models.ledger import Entry
@@ -132,7 +133,11 @@ async def test_invoice_signed_webhook_replay_and_partial_refunds(
     assert first.status_code == 200, first.text
     assert (await as_owner.post(path, json=body, headers=headers)).json() == first.json()
     assert (
-        await as_owner.post(path, json={"amount_cents": 2000, "notify": False})
+        await as_owner.post(
+            path,
+            json={"amount_cents": 2000, "notify": False},
+            headers={"Idempotency-Key": f"{stripe_run.namespace}:over-refund"},
+        )
     ).status_code == 409
     assert await ledger.collected(db, BIZ, "invoice", invoice_id) == (1500, True)
     rest = await as_owner.post(
@@ -184,9 +189,22 @@ async def test_withheld_webhook_is_repaired_from_the_owned_charge(
     event = stripe_events.gateway.verify_webhook(payload, signature)
     assert isinstance(intent.latest_charge, str)
     for _ in range(2):
-        refs = await recover_stripe_source(
-            db, stripe_run.gateway, BIZ, stripe_run.account, intent.latest_charge, event.created
-        )
+        async with asyncio.timeout(30):
+            while True:
+                try:
+                    refs = await recover_stripe_source(
+                        db,
+                        stripe_run.gateway,
+                        BIZ,
+                        stripe_run.account,
+                        intent.latest_charge,
+                        event.created,
+                    )
+                    break
+                except AppError as exc:
+                    if exc.status_code != 503 or exc.code != "retry_later":
+                        raise
+                    await asyncio.sleep(0.25)
         assert f"payment:{payment.id}" in refs
         await db.commit()
     await deliver(as_owner, payload, signature)
@@ -234,7 +252,10 @@ async def test_cross_business_refund_does_not_touch_stripe(
     response = await as_owner.post(
         f"/v1/payments/{payment.id}/refund",
         json={"notify": False},
-        headers={"X-Business-Id": other.id},
+        headers={
+            "X-Business-Id": other.id,
+            "Idempotency-Key": f"{stripe_run.namespace}:foreign-refund",
+        },
     )
     assert response.status_code == 404
     assert isinstance(intent.latest_charge, str)

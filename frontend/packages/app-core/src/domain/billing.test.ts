@@ -10,7 +10,7 @@ import {
     invoiceStats,
     invoiceStatus,
     issuedTaxes,
-    lineDiscount,
+    storedDiscount,
     listRow,
     priceDoc,
     documentRates,
@@ -90,7 +90,7 @@ describe("chargeable saved methods", () => {
     });
 });
 
-type LineRow = Parameters<typeof lineDiscount>[0];
+type LineRow = Parameters<typeof docDraft>[1][number];
 
 const docLine = (extra: Partial<LineRow> = {}): LineRow => ({
     id: "ln_1",
@@ -110,13 +110,13 @@ const docLine = (extra: Partial<LineRow> = {}): LineRow => ({
 
 describe("draft documents", () => {
     it("reads a line's stored discount, ignoring a zero or unknown one", () => {
-        expect(lineDiscount(docLine({ discount_kind: "percent", discount_value: 10 }))).toEqual({
+        expect(storedDiscount(docLine({ discount_kind: "percent", discount_value: 10 }))).toEqual({
             kind: "percent",
             value: 10,
             reason: null,
         });
         expect(
-            lineDiscount(
+            storedDiscount(
                 docLine({
                     discount_kind: "amount",
                     discount_value: 500,
@@ -124,26 +124,41 @@ describe("draft documents", () => {
                 }),
             ),
         ).toEqual({ kind: "amount", value: 500, reason: "Regular" });
-        expect(lineDiscount(docLine({ discount_kind: "amount", discount_value: 0 }))).toBeNull();
-        expect(lineDiscount(docLine({ discount_kind: "free", discount_value: 5 }))).toBeNull();
-        expect(lineDiscount(docLine())).toBeNull();
+        expect(storedDiscount(docLine({ discount_kind: "amount", discount_value: 0 }))).toBeNull();
+        expect(storedDiscount(docLine({ discount_kind: "free", discount_value: 5 }))).toBeNull();
+        expect(storedDiscount(docLine())).toBeNull();
     });
 
     it("opens a draft for editing with typed-in quantities and dollars", () => {
-        const draft = docDraft(invoice({ notes: null, number: null }), [
-            docLine({ discount_kind: "percent", discount_value: 10 }),
-            docLine({
-                id: "ln_2",
-                item_id: null,
-                description: "Nail trim",
-                quantity: 1.5,
-                unit_amount_cents: 1005,
-                tax_class: "federal_only",
-                optional: 1,
+        const draft = docDraft(
+            invoice({
+                notes: null,
+                number: null,
+                discount_kind: "percent",
+                discount_value: 10,
+                discount_reason: "Loyalty",
             }),
-            docLine({ id: "ln_3", tax_class: "zero_rated", unit_amount_cents: 0 }),
-        ]);
-        expect(draft).toMatchObject({ id: "inv_1", number: null, clientId: "cl_1", notes: "" });
+            [
+                docLine({ discount_kind: "percent", discount_value: 10 }),
+                docLine({
+                    id: "ln_2",
+                    item_id: null,
+                    description: "Nail trim",
+                    quantity: 1.5,
+                    unit_amount_cents: 1005,
+                    tax_class: "federal_only",
+                    optional: 1,
+                }),
+                docLine({ id: "ln_3", tax_class: "zero_rated", unit_amount_cents: 0 }),
+            ],
+        );
+        expect(draft).toMatchObject({
+            id: "inv_1",
+            number: null,
+            clientId: "cl_1",
+            notes: "",
+            discount: { kind: "percent", value: 10, reason: "Loyalty" },
+        });
         expect(draft.lines).toEqual([
             {
                 description: "Groom",
@@ -231,6 +246,9 @@ function invoice(extra: Partial<InvoiceRow> = {}): InvoiceRow {
         voided_at: null,
         pay_token: null,
         notes: "Thanks",
+        discount_kind: null,
+        discount_value: null,
+        discount_reason: null,
         created_at: "2026-09-01T12:00:00Z",
         ...extra,
     };

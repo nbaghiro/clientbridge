@@ -1,0 +1,212 @@
+import { execFile } from "node:child_process";
+import { randomUUID } from "node:crypto";
+import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
+import { strings } from "@clientbridge/app-core/public";
+import { expect, type Page } from "@playwright/test";
+
+import { createClient, type ClientFixture } from "./crm";
+import { requireLocalMail } from "./evidence";
+import { navigate } from "./session";
+
+const execute = promisify(execFile);
+const w = strings.entitlements;
+export interface EntitlementEvidence {
+    gifts: {
+        id: string;
+        code: string;
+        initial_cents: number;
+        status: string;
+        payment_id: string;
+    }[];
+    packages: {
+        id: string;
+        item_id: string;
+        sessions_total: number;
+        status: string;
+        payment_id: string;
+    }[];
+    payments: {
+        id: string;
+        kind: string;
+        method: string;
+        provider: string;
+        status: string;
+        amount_cents: number;
+    }[];
+    entries: {
+        journal_id: string;
+        event: string;
+        amount_cents: number;
+        category: string;
+        subject_id: string;
+    }[];
+}
+export async function entitlementEvidence(clientId: string): Promise<EntitlementEvidence> {
+    const { stdout } = await execute(
+        "uv",
+        ["run", "python", "-m", "scripts.e2e_entitlements_evidence", clientId],
+        {
+            cwd: fileURLToPath(new URL("../../../../../backend", import.meta.url)),
+            timeout: 30_000,
+        },
+    );
+    return JSON.parse(stdout) as EntitlementEvidence;
+}
+export async function entitlementFixture(page: Page, kind: "gift_card" | "package") {
+    await requireLocalMail();
+    const client = await createClient(page);
+    let itemId: string | null = null;
+    const itemName = `${client.name} — Three Gentle Grooming Visits`;
+    if (kind === "package") {
+        const response = await page.request.post(
+            `${process.env.VITE_API_URL ?? "http://localhost:8701"}/v1/items`,
+            {
+                headers: { Origin: new URL(page.url()).origin, "Idempotency-Key": randomUUID() },
+                data: {
+                    kind: "package",
+                    name: itemName,
+                    sku: `BB-GROOM-${randomUUID().slice(0, 8).toUpperCase()}`,
+                    price_cents: 6001,
+                    tax_class: "exempt",
+                    session_count: 3,
+                    validity_days: 365,
+                    active: true,
+                },
+            },
+        );
+        expect(response.status(), await response.text()).toBe(201);
+        itemId = ((await response.json()) as { id: string }).id;
+    }
+    expect(await entitlementEvidence(client.id)).toEqual({
+        gifts: [],
+        packages: [],
+        payments: [],
+        entries: [],
+    });
+    return { client, itemId, itemName };
+}
+export async function sellEntitlement(
+    page: Page,
+    client: ClientFixture,
+    kind: "gift_card" | "package",
+    itemId: string | null,
+): Promise<void> {
+    await navigate(page, "/payments/gift-cards");
+    await page.getByRole("button", { name: w.sellNew, exact: true }).click();
+    const dialog = page.getByRole("dialog");
+    await dialog
+        .getByRole("group", { name: w.chooseKind, exact: true })
+        .getByRole("button", { name: w.kindNoun[kind], exact: true })
+        .click();
+    if (kind === "gift_card")
+        await dialog.getByRole("textbox", { name: w.giftAmount, exact: true }).fill("50");
+    else
+        await dialog
+            .getByRole("group", { name: w.chooseItem, exact: true })
+            .locator(`button[data-value="${itemId ?? ""}"]`)
+            .click();
+    await dialog.getByRole("combobox", { name: w.client, exact: true }).fill(client.name);
+    await page.locator(`[role="option"][data-value="${client.id}"]`).click({ timeout: 60_000 });
+    const responsePromise = page.waitForResponse(
+        (r) =>
+            r.url().endsWith(kind === "gift_card" ? "/v1/gift-cards" : "/v1/packages") &&
+            r.request().method() === "POST",
+    );
+    await dialog
+        .getByRole("button", {
+            name: w.record(kind === "gift_card" ? "$50.00" : "$60.01"),
+            exact: true,
+        })
+        .click();
+    const response = await responsePromise;
+    expect(response.status(), await response.text()).toBe(201);
+    await expect(dialog.getByText(w.doneTitle, { exact: true })).toBeVisible();
+    await dialog.getByRole("button", { name: strings.common.close, exact: true }).click();
+}
+export async function openEntitlement(
+    page: Page,
+    clientName: string,
+    entitlementId: string,
+): Promise<void> {
+    await page.goto("/payments/gift-cards");
+    await page.getByRole("searchbox", { name: w.search, exact: true }).fill(clientName);
+    await page.locator(`button[data-row-key="${entitlementId}"]`).click({ timeout: 60_000 });
+    await expect(page.getByRole("dialog")).toBeVisible({ timeout: 60_000 });
+}
+export async function redeemGift(
+    page: Page,
+    code: string,
+    amount: string,
+    status = 200,
+): Promise<void> {
+    await navigate(page, "/payments/gift-cards");
+    await page.getByRole("button", { name: w.redeemGift, exact: true }).click();
+    const dialog = page.getByRole("dialog");
+    await dialog.getByRole("textbox", { name: w.giftCards.code, exact: true }).fill(code);
+    await dialog.getByRole("textbox", { name: w.giftCards.balance, exact: true }).fill(amount);
+    const pending = page.waitForResponse(
+        (r) => r.url().endsWith("/v1/gift-cards/redeem") && r.request().method() === "POST",
+    );
+    await dialog.getByRole("button", { name: w.giftCards.redeem, exact: true }).click();
+    const response = await pending;
+    expect(response.status(), await response.text()).toBe(status);
+    if (status !== 200) {
+        await expect(dialog.getByText(w.giftCards.redeemError, { exact: true })).toBeVisible();
+        await dialog.getByRole("button", { name: strings.common.cancel, exact: true }).click();
+    }
+    await expect(dialog).toBeHidden();
+}
+export function expectEntitlementLedger(
+    evidence: EntitlementEvidence,
+    amount: number,
+    liability: "gift_card" | "deferred",
+    recognized: number[],
+): void {
+    expect(evidence.payments).toEqual([
+        {
+            id: expect.any(String),
+            kind: "payment",
+            method: "cash",
+            provider: "manual",
+            status: "succeeded",
+            amount_cents: amount,
+        },
+    ]);
+    const expected = [
+        { event: "payment", category: "cash", amount_cents: amount },
+        { event: "payment", category: liability, amount_cents: -amount },
+        ...recognized.flatMap((value) => [
+            {
+                event: liability === "gift_card" ? "redemption" : "consumption",
+                category: liability,
+                amount_cents: value,
+            },
+            {
+                event: liability === "gift_card" ? "redemption" : "consumption",
+                category: "revenue",
+                amount_cents: -value,
+            },
+        ]),
+    ];
+    const sorted = (rows: typeof expected) =>
+        rows.sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
+    expect(
+        sorted(
+            evidence.entries.map(({ event, category, amount_cents }) => ({
+                event,
+                category,
+                amount_cents,
+            })),
+        ),
+    ).toEqual(sorted(expected));
+    const journals = new Set(evidence.entries.map((e) => e.journal_id));
+    expect(journals.size).toBe(1 + recognized.length);
+    const subject = liability === "gift_card" ? evidence.gifts[0]?.id : evidence.packages[0]?.id;
+    expect(new Set(evidence.entries.map((e) => e.subject_id))).toEqual(new Set([subject]));
+    for (const journal of journals) {
+        const legs = evidence.entries.filter((e) => e.journal_id === journal);
+        expect(legs).toHaveLength(2);
+        expect(legs.reduce((sum, leg) => sum + leg.amount_cents, 0)).toBe(0);
+    }
+}

@@ -10,7 +10,8 @@ from clientbridge.core import clock
 from clientbridge.models.business import Business, Staff
 from clientbridge.models.catalog import Item
 from clientbridge.models.clients import Note, Subject
-from clientbridge.models.platform import Audit
+from clientbridge.models.messaging import Delivery
+from clientbridge.models.platform import Audit, IdempotencyKey
 from clientbridge.models.scheduling import Addon, Booking, Hours
 from clientbridge.services.bookings import run_reminders
 from clientbridge.services.notifications import Notifier
@@ -29,7 +30,7 @@ def _body(starts: str = OPENING, staff: str = "st_owner", **extra: object) -> di
         "item_id": "it_groom_sm",
         "staff_id": staff,
         "starts_at": starts,
-        "client": {"name": "Web Booker", "email": "web@example.com"},
+        "client": {"name": "Web Booker", "email": "web@example.ca"},
         **extra,
     }
 
@@ -174,18 +175,53 @@ async def test_addons_must_be_offered_with_the_service(
     assert rows.scalars().all() == [2]
 
 
-async def test_booking_replays_on_the_same_key(api: httpx.AsyncClient, db: AsyncSession) -> None:
+@pytest.mark.parametrize("pending", [False, True])
+async def test_booking_replays_on_the_same_key(
+    api: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender, pending: bool
+) -> None:
+    await _policy(db, approve_new_clients=pending)
     headers = key()
     first = await api.post(f"/book/{SLUG}", json=_body(), headers=headers)
     again = await api.post(f"/book/{SLUG}", json=_body(), headers=headers)
     assert first.status_code == 200 and again.status_code == 200
     assert first.json()["booking_id"] == again.json()["booking_id"]
-    rows = await db.execute(select(Booking.id).where(Booking.source == "online"))
-    assert first.json()["booking_id"] in rows.scalars().all()
+    booking = await db.get(Booking, first.json()["booking_id"])
+    assert booking is not None
+    rows = await db.execute(select(Booking.id).where(Booking.slot_id == booking.slot_id))
+    assert rows.scalars().all() == [booking.id]
+    audits = list(await db.scalars(select(Audit).where(Audit.entity_id == booking.id)))
+    receipts = list(
+        await db.scalars(
+            select(IdempotencyKey).where(
+                IdempotencyKey.key == headers["Idempotency-Key"],
+                IdempotencyKey.scope == "book.create",
+            )
+        )
+    )
+    assert len(audits) == len(receipts) == 1
+    assert audits[0].action == "book.create" and receipts[0].response == first.json()
+    assert first.json() == again.json()
+    assert first.json()["status"] == ("pending" if pending else "confirmed")
+    deliveries = list(
+        await db.scalars(
+            select(Delivery).where(
+                Delivery.key.startswith(f"booking-created:{first.json()['booking_id']}:")
+            )
+        )
+    )
+    assert len(deliveries) == len(email.sent) == 1
+    assert deliveries[0].state == "accepted"
+    if pending:
+        assert "You'll hear back once it's confirmed." in email.sent[0].body
+    else:
+        assert f"/m/{first.json()['manage_token']}" in email.sent[0].body
+    assert email.sent[0].subject.startswith(
+        "Booking request received" if pending else "Booking confirmed"
+    )
 
 
 async def test_booking_refuses_a_key_reused_for_a_different_choice(
-    api: httpx.AsyncClient, db: AsyncSession
+    api: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
 ) -> None:
     headers = key()
     first = await api.post(f"/book/{SLUG}", json=_body(), headers=headers)
@@ -195,6 +231,15 @@ async def test_booking_refuses_a_key_reused_for_a_different_choice(
     assert changed.json()["error"] == "idempotency_key_reused"
     notes = await db.execute(select(Note.id).where(Note.parent_id == first.json()["booking_id"]))
     assert notes.scalars().all() == []
+    assert len(email.sent) == 1
+    deliveries = list(
+        await db.scalars(
+            select(Delivery).where(
+                Delivery.key.startswith(f"booking-created:{first.json()['booking_id']}:")
+            )
+        )
+    )
+    assert len(deliveries) == 1
 
 
 def _days(**params: str | int) -> dict[str, str | int]:
@@ -262,7 +307,8 @@ async def test_a_pending_request_is_acknowledged_then_confirmed_on_approval(
     email: FakeEmailSender,
 ) -> None:
     await _policy(db, approve_new_clients=True)
-    res = await api.post(f"/book/{SLUG}", json=_body())
+    headers = key()
+    res = await api.post(f"/book/{SLUG}", json=_body(), headers=headers)
     assert res.json()["status"] == "pending"
     assert [m.subject for m in email.sent] == ["Booking request received — Birchbark Pet Studio"]
     notifier = Notifier(email, FakeSmsSender(), FakePushSender())
@@ -278,6 +324,18 @@ async def test_a_pending_request_is_acknowledged_then_confirmed_on_approval(
     sent = len(email.sent)
     await as_owner.patch(f"/v1/bookings/{booking.id}", json={"status": "confirmed"})
     assert len(email.sent) == sent
+
+    replayed = await api.post(f"/book/{SLUG}", json=_body(), headers=headers)
+    assert replayed.json() == res.json()
+    assert len(email.sent) == sent == 2
+    canceled = await as_owner.patch(f"/v1/bookings/{booking.id}", json={"status": "canceled"})
+    assert canceled.status_code == 200
+    assert (
+        len(email.sent) == 3
+        and email.sent[-1].subject == "Appointment canceled — Birchbark Pet Studio"
+    )
+    replayed = await api.post(f"/book/{SLUG}", json=_body(), headers=headers)
+    assert replayed.json() == res.json() and len(email.sent) == 3
 
 
 async def test_days_name_closures_on_23_and_25_hour_days(

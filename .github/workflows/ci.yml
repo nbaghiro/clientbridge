@@ -19,7 +19,7 @@ jobs:
     timeout-minutes: 20
     services:
       postgres:
-        image: postgres:16@sha256:1a6ab3f5345eb6dbe04a1349529caabdb0ab09293a09590fad07b2246bfa4b54  # the docker-compose.yml pin
+        image: postgres:16@sha256:1a6ab3f5345eb6dbe04a1349529caabdb0ab09293a09590fad07b2246bfa4b54 # the docker-compose.yml pin
         env:
           POSTGRES_USER: clientbridge
           POSTGRES_PASSWORD: clientbridge
@@ -53,7 +53,7 @@ jobs:
       S3_ACCESS_KEY: rustfs
       S3_SECRET_KEY: rustfs-dev-secret
       S3_REGION: us-east-1
-      SMTP_URL: ""  # no Mailpit in this job, so mail goes to the console sender
+      SMTP_URL: "" # no Mailpit in this job, so mail goes to the console sender
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v10.3.0
@@ -87,9 +87,9 @@ jobs:
                   time.sleep(1)
           PYTHON
       - run: make migrate
-      - run: make auth-standalone  # the seed creates the demo users' auth identities
+      - run: make auth-standalone # the seed creates the demo users' auth identities
       - run: make test-backend
-      - run: make test-auth  # KratosIdentityProvider against the real auth service
+      - run: make test-auth # KratosIdentityProvider against the real auth service
       - if: failure()
         run: docker logs auth
 
@@ -111,7 +111,7 @@ jobs:
     timeout-minutes: 10
     services:
       stripe-mock:
-        image: stripe/stripe-mock@sha256:aeb96b83e87a893d2ac005e363ac01ffa6e59a5ad85b49c155dfc9129de02e78  # v0.206.0
+        image: stripe/stripe-mock@sha256:aeb96b83e87a893d2ac005e363ac01ffa6e59a5ad85b49c155dfc9129de02e78 # v0.206.0
         ports: ["8708:12111"]
     defaults:
       run:
@@ -180,8 +180,8 @@ jobs:
             server: caddy version
     steps:
       - uses: actions/checkout@v7
-      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069  # v4.4.1
-      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc  # v7.4.0
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
           file: ${{ matrix.image }}/Dockerfile
@@ -219,81 +219,16 @@ jobs:
         working-directory: frontend
       - run: make test-site
 
-  connect:
-    # Connect's client pages against the real API over a migrated, seeded Postgres.
+  connect-functional:
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
-    services:
-      postgres:
-        image: postgres:16@sha256:1a6ab3f5345eb6dbe04a1349529caabdb0ab09293a09590fad07b2246bfa4b54  # the docker-compose.yml pin
-        env:
-          POSTGRES_USER: clientbridge
-          POSTGRES_PASSWORD: clientbridge
-          POSTGRES_DB: clientbridge_test_ci
-        ports: ["8702:5432"]
-        options: >-
-          --health-cmd "pg_isready -U clientbridge" --health-interval 5s
-          --health-timeout 3s --health-retries 15
-      rustfs:
-        image: rustfs/rustfs@sha256:1803faef57627e2d9c2e7d89d655d712ddded5389040054987163043fecb6a3c
-        env:
-          RUSTFS_ACCESS_KEY: rustfs
-          RUSTFS_SECRET_KEY: rustfs-dev-secret
-          RUSTFS_CONSOLE_ENABLE: "true"
-          RUSTFS_CORS_ALLOWED_ORIGINS: "*"
-        ports: ["8705:9000"]
-    env:
-      # the service's superuser only creates roles and grants; the API and tests use clientbridge_api
-      ADMIN_DATABASE_URL: postgresql+asyncpg://clientbridge:clientbridge@localhost:8702/clientbridge_test_ci
-      MIGRATION_DATABASE_URL: postgresql+asyncpg://clientbridge_migrator:clientbridge_migrator@localhost:8702/clientbridge_test_ci
-      DATABASE_URL: postgresql+asyncpg://clientbridge_api:clientbridge_api@localhost:8702/clientbridge_test_ci
-      ENV: dev
-      S3_ENDPOINT: http://localhost:8705
-      S3_BUCKET: clientbridge-demo-ci
-      S3_ACCESS_KEY: rustfs
-      S3_SECRET_KEY: rustfs-dev-secret
-      S3_REGION: us-east-1
-      SMTP_URL: ""  # no Mailpit in this job, so mail goes to the console sender
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [default, pseudo]
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v10.3.0
-        with:
-          # the API still runs under uv run at the end, and the post step would wait on its cache lock
-          enable-cache: false
-      - run: uv sync
-        working-directory: backend
-      - name: wait for local object storage
-        working-directory: backend
-        run: |
-          uv run python - <<'PYTHON'
-          import os
-          import time
-          import boto3
-          from botocore.config import Config
-          from botocore.exceptions import BotoCoreError, ClientError
-
-          storage = boto3.client(
-              "s3", endpoint_url=os.environ["S3_ENDPOINT"],
-              aws_access_key_id=os.environ["S3_ACCESS_KEY"],
-              aws_secret_access_key=os.environ["S3_SECRET_KEY"],
-              region_name=os.environ["S3_REGION"],
-              config=Config(connect_timeout=2, read_timeout=2, retries={"max_attempts": 0}),
-          )
-          for attempt in range(30):
-              try:
-                  storage.list_buckets()
-                  break
-              except (BotoCoreError, ClientError):
-                  if attempt == 29:
-                      raise
-                  time.sleep(1)
-          PYTHON
-      - run: make migrate
-      - run: make auth-standalone
-      - run: make seed-core
-      # keep-alive outlasts any wait in a test, so no request reuses a connection uvicorn closed
-      - run: uv run uvicorn clientbridge.main:app --port 8701 --timeout-keep-alive 120 > /tmp/api.log 2>&1 &
-        working-directory: backend
       - uses: pnpm/action-setup@v6
         with:
           version: 9
@@ -302,15 +237,39 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
           cache-dependency-path: frontend/pnpm-lock.yaml
+      - run: uv sync --frozen
+        working-directory: backend
       - run: pnpm install --frozen-lockfile --ignore-scripts
         working-directory: frontend
       - run: pnpm --filter connect exec playwright install --with-deps chromium
         working-directory: frontend
-      - run: until curl -sf localhost:8701/health; do sleep 1; done
-        timeout-minutes: 2
-      - run: make test-connect
-      - if: failure()
-        run: cat /tmp/api.log
+      - name: run isolated functional browsers
+        run: make test-functional FUNCTIONAL_ARGS="--surface connect --project ${{ matrix.project }}"
+      - name: reap run-owned services after interruption
+        if: always()
+        working-directory: backend
+        run: |
+          for config in ../.scratchpad/e2e-*/compose.json; do
+            [ -f "$config" ] || continue
+            project="$(basename "$(dirname "$config")")"
+            uv run python -m scripts.e2e_stack --cleanup "$project"
+          done
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: connect-e2e-${{ matrix.project }}
+          include-hidden-files: true
+          if-no-files-found: error
+          path: |
+            .scratchpad/e2e-*/run.json
+            .scratchpad/e2e-*/browser-results
+            .scratchpad/e2e-*/browser-report
+            .scratchpad/e2e-*/browser.log
+            .scratchpad/e2e-*/setup.log
+            .scratchpad/e2e-*/api.log
+            .scratchpad/e2e-*/worker.log
+            .scratchpad/e2e-*/services.log
+          retention-days: 7
 
   codegen-drift:
     # The generated api-client + PowerSync client schema come from the backend — fail if either is
@@ -362,16 +321,16 @@ jobs:
           path: .scratchpad/sync-hardening/service-verification.log
           retention-days: 7
 
-  web:
-    # The web smoke suite against the full local stack: Postgres, PowerSync, Redis, S3, the API and the seed.
+  web-functional:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [default, pseudo]
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v10.3.0
-        with:
-          # the API still runs under uv run at the end, and the post step would wait on its cache lock
-          enable-cache: false
       - uses: pnpm/action-setup@v6
         with:
           version: 9
@@ -380,29 +339,135 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
           cache-dependency-path: frontend/pnpm-lock.yaml
-      - run: uv sync
+      - run: uv sync --frozen
         working-directory: backend
       - run: pnpm install --frozen-lockfile --ignore-scripts
         working-directory: frontend
       - run: pnpm --filter web exec playwright install --with-deps chromium
         working-directory: frontend
-      - run: make up migrate seed-core
-      - run: uv run uvicorn clientbridge.main:app --host 0.0.0.0 --port 8701 --timeout-keep-alive 120 > /tmp/api.log 2>&1 &  # 0.0.0.0: the compose auth service posts email here
+      - name: run isolated functional browsers
+        run: make test-functional FUNCTIONAL_ARGS="--surface web --project ${{ matrix.project }}"
+      - name: reap run-owned services after interruption
+        if: always()
         working-directory: backend
-      - run: until curl -sf 127.0.0.1:8701/health; do sleep 1; done
-        timeout-minutes: 2
-      - run: make test-web
-      - uses: actions/upload-artifact@v7
-        if: failure() || cancelled()
-        with:
-          name: web-e2e
-          path: frontend/apps/web/test-results
-          retention-days: 7
-      - if: failure()
         run: |
-          cat /tmp/api.log
-          docker compose logs --no-color powersync | tail -200
-          docker compose logs --no-color auth | tail -200
+          for config in ../.scratchpad/e2e-*/compose.json; do
+            [ -f "$config" ] || continue
+            project="$(basename "$(dirname "$config")")"
+            uv run python -m scripts.e2e_stack --cleanup "$project"
+          done
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: web-e2e-${{ matrix.project }}
+          include-hidden-files: true
+          if-no-files-found: error
+          path: |
+            .scratchpad/e2e-*/run.json
+            .scratchpad/e2e-*/browser-results
+            .scratchpad/e2e-*/browser-report
+            .scratchpad/e2e-*/browser.log
+            .scratchpad/e2e-*/setup.log
+            .scratchpad/e2e-*/api.log
+            .scratchpad/e2e-*/worker.log
+            .scratchpad/e2e-*/services.log
+          retention-days: 7
+
+  journeys-functional:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.0
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 9
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - run: uv sync --frozen
+        working-directory: backend
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+        working-directory: frontend
+      - run: pnpm --filter web exec playwright install --with-deps chromium
+        working-directory: frontend
+      - name: run isolated functional browsers
+        run: make test-functional FUNCTIONAL_ARGS="--surface journeys"
+      - name: reap run-owned services after interruption
+        if: always()
+        working-directory: backend
+        run: |
+          for config in ../.scratchpad/e2e-*/compose.json; do
+            [ -f "$config" ] || continue
+            project="$(basename "$(dirname "$config")")"
+            uv run python -m scripts.e2e_stack --cleanup "$project"
+          done
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: journeys-e2e
+          include-hidden-files: true
+          if-no-files-found: error
+          path: |
+            .scratchpad/e2e-*/run.json
+            .scratchpad/e2e-*/browser-results
+            .scratchpad/e2e-*/browser-report
+            .scratchpad/e2e-*/browser.log
+            .scratchpad/e2e-*/setup.log
+            .scratchpad/e2e-*/api.log
+            .scratchpad/e2e-*/worker.log
+            .scratchpad/e2e-*/services.log
+          retention-days: 7
+
+  filings-functional:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.0
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 9
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - run: uv sync --frozen
+        working-directory: backend
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+        working-directory: frontend
+      - run: pnpm --filter web exec playwright install --with-deps chromium
+        working-directory: frontend
+      - name: run isolated functional browsers
+        run: make test-functional FUNCTIONAL_ARGS="--surface filings"
+      - name: reap run-owned services after interruption
+        if: always()
+        working-directory: backend
+        run: |
+          for config in ../.scratchpad/e2e-*/compose.json; do
+            [ -f "$config" ] || continue
+            project="$(basename "$(dirname "$config")")"
+            uv run python -m scripts.e2e_stack --cleanup "$project"
+          done
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: filings-e2e
+          include-hidden-files: true
+          if-no-files-found: error
+          path: |
+            .scratchpad/e2e-*/run.json
+            .scratchpad/e2e-*/browser-results
+            .scratchpad/e2e-*/browser-report
+            .scratchpad/e2e-*/browser.log
+            .scratchpad/e2e-*/setup.log
+            .scratchpad/e2e-*/api.log
+            .scratchpad/e2e-*/worker.log
+            .scratchpad/e2e-*/services.log
+          retention-days: 7
 
   shards:
     # Fails when a walkthrough is in no shard or in two, and hands the shard list to mobile-shard.
@@ -611,3 +676,30 @@ jobs:
       - env:
           NEEDS: ${{ toJSON(needs) }}
         run: jq -e 'all(.[]; .result == "success")' <<< "$NEEDS"
+
+  web:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    needs: [web-functional, journeys-functional, filings-functional]
+    if: always()
+    steps:
+      - name: require every functional project
+        env:
+          WEB_RESULT: ${{ needs.web-functional.result }}
+          JOURNEYS_RESULT: ${{ needs.journeys-functional.result }}
+          FILINGS_RESULT: ${{ needs.filings-functional.result }}
+        run: |
+          test "$WEB_RESULT" = success
+          test "$JOURNEYS_RESULT" = success
+          test "$FILINGS_RESULT" = success
+
+  connect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    needs: connect-functional
+    if: always()
+    steps:
+      - name: require every functional project
+        env:
+          RESULT: ${{ needs.connect-functional.result }}
+        run: test "$RESULT" = success

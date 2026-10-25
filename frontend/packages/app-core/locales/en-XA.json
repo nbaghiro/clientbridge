@@ -128,6 +128,9 @@
     "api.shopNotReady": {
         "message": "[Ţĥîš šĥöþ îšñ'ţ ţåķîñĝ öñļîñé öŕðéŕš ýéţ. one two three]"
     },
+    "api.contactAmbiguous": {
+        "message": "[Ţĥéšé çöñţåçţ ðéţåîļš ɱåţçĥ ɱöŕé ţĥåñ öñé çļîéñţ. Çĥéçķ ýöûŕ éɱåîļ åñð þĥöñé ñûɱƀéŕ, öŕ çöñţåçţ ţĥé ƀûšîñéšš. one two three four five six seven]"
+    },
     "api.slotUnavailable": {
         "message": "[Ţĥåţ ţîɱé îš ñö ļöñĝéŕ öþéñ. Þîçķ åñöţĥéŕ ţîɱé. one two three]"
     },

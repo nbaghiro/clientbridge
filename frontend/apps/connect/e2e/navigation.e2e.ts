@@ -56,15 +56,17 @@ test("business navigation connects the shop, booking, and homepage sections on m
     await expect(page).toHaveURL(`${home}#team`);
     await expect(page.locator("#team")).toBeInViewport();
     await expect(nav).toHaveCount(0);
-    await page
-        .locator("header")
+    const mobileBooking = page
         .getByRole("button", { name: strings.publicLanding.book, exact: true })
-        .click();
+        .last();
+    await expect(mobileBooking).toBeInViewport();
+    await mobileBooking.click();
     await expect(page).toHaveURL(on("book", booking));
     await expect(
         page.getByRole("heading", { name: strings.publicBooking.stepService }),
     ).toBeVisible();
     await page.goBack();
+    await expect(page).toHaveURL(`${home}#team`);
     await expect(page.locator("#team")).toBeInViewport();
     expect(
         await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
@@ -97,7 +99,7 @@ test("product deep links, cart, and checkout contact details survive navigation 
     await summary.getByRole("button", { name: strings.publicShop.checkout, exact: true }).click();
     await expect(page).toHaveURL(`${shopPage}/checkout`);
     await summary.getByRole("button", { name: strings.publicShop.continue, exact: true }).click();
-    await page.getByLabel(strings.publicShop.name, { exact: true }).fill("Navigation Test");
+    await page.getByLabel(strings.publicShop.name, { exact: true }).fill("Morgan Ellis");
     await page
         .getByLabel(strings.publicShop.email, { exact: false })
         .fill("navigation@example.test");
@@ -113,7 +115,7 @@ test("product deep links, cart, and checkout contact details survive navigation 
     await summary.getByRole("button", { name: strings.publicShop.checkout, exact: true }).click();
     await summary.getByRole("button", { name: strings.publicShop.continue, exact: true }).click();
     await expect(page.getByLabel(strings.publicShop.name, { exact: true })).toHaveValue(
-        "Navigation Test",
+        "Morgan Ellis",
     );
     await page.reload();
     await summary.getByRole("button", { name: strings.publicShop.continue, exact: true }).click();
@@ -169,14 +171,14 @@ test("the shop adds from the grid, changes quantities and checks out in steps", 
     await expect(page.getByText(shop.pickupAsap).first()).toBeVisible();
     await summary.getByRole("button", { name: shop.continuePay, exact: true }).click();
     await expect(page.getByText(shop.incomplete)).toBeVisible();
-    await page.getByLabel(shop.name, { exact: true }).fill("Stepper Test");
+    await page.getByLabel(shop.name, { exact: true }).fill("Avery Laurent");
     await page.getByLabel(shop.email, { exact: false }).fill("stepper@example.test");
     await summary.getByRole("button", { name: shop.continuePay, exact: true }).click();
     await expect(page.getByRole("heading", { name: shop.sectionPay })).toBeFocused();
     await expect(page.getByText(shop.payBody("$52.50"))).toBeVisible();
     await expect(summary.getByRole("button", { name: shop.remove })).toHaveCount(0);
     expect(placed).toMatchObject({
-        client: { name: "Stepper Test", email: "stepper@example.test", phone: null },
+        client: { name: "Avery Laurent", email: "stepper@example.test", phone: null },
         lines: [{ item_id: "it_shampoo", quantity: 1 }],
     });
 });

@@ -156,13 +156,12 @@ class StripeRun:
                 errors.append(exc)
         for account, identity in reversed(self.prices):
             try:
-                price = await stripe.Price.modify_async(
-                    identity, active=False, stripe_account=account
-                )
+                price = await stripe.Price.retrieve_async(identity, stripe_account=account)
                 assert isinstance(price.product, str)
                 await stripe.Product.modify_async(
-                    price.product, active=False, stripe_account=account
+                    price.product, default_price="", active=False, stripe_account=account
                 )
+                await stripe.Price.modify_async(identity, active=False, stripe_account=account)
             except Exception as exc:
                 errors.append(exc)
         if errors:

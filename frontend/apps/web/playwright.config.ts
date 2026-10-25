@@ -6,10 +6,16 @@ const pseudoPort = Number(process.env.WEB_PSEUDO_E2E_PORT ?? "8724");
 // Needs the local stack (API, PowerSync, seeded Postgres): `make up migrate seed dev-api` first.
 export default defineConfig({
     testDir: "e2e",
+    outputDir: process.env.E2E_OUTPUT_DIR ?? "test-results",
     testMatch: "*.e2e.ts",
     timeout: 120_000,
+    forbidOnly: Boolean(process.env.CI),
     expect: { timeout: 15_000 },
-    reporter: [[process.env.CI ? "github" : "list"], ["html", { open: "never" }]],
+    reporter: [
+        [process.env.CI ? "github" : "list"],
+        ["html", { open: "never" }],
+        ["json", { outputFile: `${process.env.E2E_OUTPUT_DIR ?? "test-results"}/results.json` }],
+    ],
     workers: 2,
     use: {
         viewport: { width: 1440, height: 900 },

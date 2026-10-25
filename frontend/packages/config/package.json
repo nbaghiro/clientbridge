@@ -12,7 +12,8 @@
         "./prettier": "./prettier.config.json",
         "./e2e/accessibility": "./e2e/accessibility.ts",
         "./e2e/pseudo": "./e2e/pseudo.ts",
-        "./vitest/config": "./vitest/config.ts"
+        "./vitest/config": "./vitest/config.ts",
+        "./e2e/demo": "./e2e/demo.ts"
     },
     "dependencies": {
         "@axe-core/playwright": "^4.13.0",

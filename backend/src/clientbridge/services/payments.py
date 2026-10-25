@@ -345,6 +345,12 @@ class PaymentService:
             await ledger.post_payment(self.db, payment)
             await _sync_parent(self.db, payment)
             cmd.record("payment.record", entity_type="payment", entity_id=payment.id)
+            if data.send_receipt:
+                from clientbridge.services.notifications import queued_notifier
+
+                await queued_notifier(
+                    self.db, f"payment:{payment.id}", self.biz
+                ).on_payment_succeeded(self.db, payment.id)
             return InvoicePaymentOut(
                 payment_id=payment.id,
                 status=payment.status,
@@ -2931,9 +2937,6 @@ class PublicPaymentSetupService:
                 link.account_id,
                 customer_id=link.customer_id,
                 idempotency_key=f"pad_setup_{link.id}",
-                interval_description=message(
-                    locale_for(client=client), "stripe.pad_interval_description"
-                ),
                 email=client.email,
             )
             link.setup_intent_id = intent.id

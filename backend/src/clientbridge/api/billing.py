@@ -24,6 +24,7 @@ from clientbridge.schemas.payments import (
     InvoicePaymentOut,
 )
 from clientbridge.services.billing import BillingService
+from clientbridge.services.deliveries import dispatch_scope
 from clientbridge.services.notifications import Notifier
 from clientbridge.services.payments import PaymentService
 
@@ -194,5 +195,8 @@ async def record_invoice_payment(
         invoice_id, body, idempotency_key
     )
     if body.send_receipt and result.status == "succeeded":
-        await Notifier(email, sms, push).on_payment_succeeded(db, result.payment_id)
+        if body.method == "card":
+            await Notifier(email, sms, push).on_payment_succeeded(db, result.payment_id)
+        else:
+            await dispatch_scope(db, f"payment:{result.payment_id}", email, sms, push)
     return result

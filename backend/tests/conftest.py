@@ -600,7 +600,6 @@ class FakePaymentGateway:
         *,
         customer_id: str,
         idempotency_key: str,
-        interval_description: str,
         email: str | None = None,
     ) -> SetupIntentResult:
         if idempotency_key in self.pad_keys:

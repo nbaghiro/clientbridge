@@ -12709,6 +12709,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
+                "Idempotency-Key"?: string | null;
                 "x-business-id"?: string;
                 "x-expected-user"?: string;
                 "x-session-token"?: string;

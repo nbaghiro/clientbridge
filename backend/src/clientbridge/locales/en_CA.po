@@ -757,9 +757,6 @@ msgstr "You've been invited to join the {business} team on Clientbridge. Accept 
 msgid "staff_invite.subject"
 msgstr "You're invited to Clientbridge"
 
-msgid "stripe.pad_interval_description"
-msgstr "When an invoice or a scheduled membership payment is due"
-
 msgid "stripe.subscription_product"
 msgstr "Subscription"
 

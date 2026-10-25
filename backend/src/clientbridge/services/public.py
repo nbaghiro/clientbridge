@@ -398,7 +398,7 @@ class PublicBookingService:
             policy = policy_of(business)
             _assert_bookable_window(policy, data.starts_at)
             if is_program(item):
-                return await self._enrol(cmd, business, item, data)
+                return await self._announce(business, await self._enrol(cmd, business, item, data))
             addons = await self._addons(business, item, data)
             extra = addon_minutes(addons)
             staff_id = await self._staff_for(
@@ -432,7 +432,7 @@ class PublicBookingService:
                 deposit_cents=booking.deposit_amount_cents,
             )
             cmd.record(_BOOK_SCOPE, entity_type="booking", entity_id=booking.id)
-            return result
+            return await self._announce(business, result)
 
         return await run_command(
             self.db,
@@ -443,6 +443,19 @@ class PublicBookingService:
             idempotency_key=idempotency_key,
             request=data,
         )
+
+    async def _announce(
+        self, business: Business, result: PublicBookingResult
+    ) -> PublicBookingResult:
+        # queued in the booking's own command, so a replayed request never sends it twice
+        notifier = queued_notifier(self.db, f"booking-created:{result.booking_id}", business.id)
+        if result.status == "pending":
+            await notifier.on_booking_requested(self.db, result.booking_id)
+        elif len(result.booking_ids) > 1:
+            await notifier.on_series_booked(self.db, result.booking_ids, "booked")
+        else:
+            await notifier.on_booking_confirmed(self.db, result.booking_id)
+        return result
 
     async def _enrol(
         self, cmd: Command, business: Business, item: Item, data: PublicBookingCreate

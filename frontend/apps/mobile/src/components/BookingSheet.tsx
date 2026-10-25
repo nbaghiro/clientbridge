@@ -337,11 +337,13 @@ function Photos({ event }: { event: ScheduleEvent }) {
 
 function Addons({ event }: { event: ScheduleEvent }) {
     const addons = useBookingAddons(api, event, useViewer());
+    const hasAddons = addons.addons.length > 0;
     const canAdd = addons.canEdit && addons.choices.length > 0;
-    if (addons.addons.length === 0 && !canAdd) return null;
+    const quiet = !addons.canInvoice && addons.invoiceId === null && addons.error === null;
+    if (!hasAddons && !canAdd && quiet) return null;
     return (
-        <DetailSection title={s.detailAddons}>
-            {addons.addons.length > 0 ? (
+        <DetailSection title={hasAddons || canAdd ? s.detailAddons : s.invoiceVisit}>
+            {hasAddons ? (
                 <View style={styles.card}>
                     {addons.addons.map((a, i) => (
                         <View key={a.id} style={[styles.cardRow, i > 0 && styles.divider]}>
@@ -378,9 +380,11 @@ function Addons({ event }: { event: ScheduleEvent }) {
                     onChange={addons.add}
                 />
             ) : null}
-            <Text style={styles.hint}>
-                {s.addonsTotal(formatMoney(addons.totalCents, BUSINESS_CURRENCY))}
-            </Text>
+            {hasAddons ? (
+                <Text style={styles.hint}>
+                    {s.addonsTotal(formatMoney(addons.totalCents, BUSINESS_CURRENCY))}
+                </Text>
+            ) : null}
             {addons.canInvoice ? (
                 <View style={styles.invoice}>
                     <Button
@@ -1066,7 +1070,10 @@ export function BookingComposerSheet({
                                                     />
                                                 }
                                                 title={m.client.name}
-                                                detail={formatList(m.subjects, "unit")}
+                                                detail={formatParts([
+                                                    m.client.email,
+                                                    formatList(m.subjects, "unit"),
+                                                ])}
                                                 onPress={() => {
                                                     form.pickClient(m.client.id);
                                                 }}

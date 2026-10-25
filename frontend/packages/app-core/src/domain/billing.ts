@@ -88,6 +88,9 @@ export interface InvoiceRow {
     voided_at: string | null;
     pay_token: string | null;
     notes: string | null;
+    discount_kind: string | null;
+    discount_value: number | null;
+    discount_reason: string | null;
     created_at: string;
 }
 
@@ -110,6 +113,9 @@ interface EstimateRow {
     converted_invoice_id: string | null;
     converted_number: number | null;
     notes: string | null;
+    discount_kind: string | null;
+    discount_value: number | null;
+    discount_reason: string | null;
     created_at: string;
     // the live visit booked from this estimate, if the replica holds it
     booking_id: string | null;
@@ -155,7 +161,8 @@ SELECT i.id, i.client_id, c.name AS client_name, c.email AS client_email, c.phon
         WHERE pa.category = 'receivable' AND pe.subject_type = 'invoice' AND pe.subject_id = i.id
           AND pe.amount_cents < 0 AND ${settledSql("pe")}) AS paid_at,
        ${netTipSql("te.subject_type = 'invoice' AND te.subject_id = i.id")} AS tip_cents,
-       i.currency, i.issued_at, i.due_at, i.voided_at, i.pay_token, i.notes, i.created_at
+       i.currency, i.issued_at, i.due_at, i.voided_at, i.pay_token, i.notes,
+       i.discount_kind, i.discount_value, i.discount_reason, i.created_at
 FROM invoices i
 LEFT JOIN clients c ON c.id = i.client_id`;
 
@@ -171,7 +178,8 @@ SELECT e.id, e.client_id, c.name AS client_name, c.email AS client_email, c.phon
             ELSE e.status END AS status,
        e.subtotal_cents, e.tax_total_cents, e.total_cents, e.valid_until, e.accepted_at,
        e.declined_at, e.decline_reason, e.view_token, e.converted_invoice_id,
-       ci.number AS converted_number, e.notes, e.created_at,
+       ci.number AS converted_number, e.notes, e.discount_kind, e.discount_value,
+       e.discount_reason, e.created_at,
        b.id AS booking_id, b.starts_at AS booking_starts_at
 FROM estimates e
 LEFT JOIN clients c ON c.id = e.client_id
@@ -240,8 +248,9 @@ export function useEstimates(): EstimateRow[] {
     return useQuery<EstimateRow>(ESTIMATES_SQL, [today]).data;
 }
 
-export function useLines(parentId: string): LineRow[] {
-    return useQuery<LineRow>(LINES_SQL, [parentId]).data;
+export function useLines(parentId: string): LineRow[] | null {
+    const query = useQuery<LineRow>(LINES_SQL, [parentId]);
+    return query.isLoading ? null : query.data;
 }
 
 function brandField(brand: string | null, key: string): string | null {
@@ -1446,10 +1455,13 @@ export interface DocDraft {
     number: number | null;
     clientId: string;
     notes: string;
+    discount: SaleDiscount | null;
     lines: DraftLine[];
 }
 
-export function lineDiscount(l: LineRow): SaleDiscount | null {
+export function storedDiscount(
+    l: Pick<LineRow, "discount_kind" | "discount_value" | "discount_reason">,
+): SaleDiscount | null {
     const kind = l.discount_kind;
     const value = l.discount_value ?? null;
     if ((kind !== "percent" && kind !== "amount") || value === null || value <= 0) return null;
@@ -1462,6 +1474,7 @@ export function docDraft(row: InvoiceRow | EstimateRow, lines: readonly LineRow[
         number: row.number,
         clientId: row.client_id,
         notes: row.notes ?? "",
+        discount: storedDiscount(row),
         lines: lines.map((l) => ({
             description: l.description,
             quantity: formatNumber(l.quantity, { useGrouping: false }),
@@ -1469,7 +1482,7 @@ export function docDraft(row: InvoiceRow | EstimateRow, lines: readonly LineRow[
             itemId: l.item_id,
             taxClass: asTaxClass(l.tax_class),
             optional: l.optional === 1,
-            discount: lineDiscount(l),
+            discount: storedDiscount(l),
         })),
     };
 }
@@ -1553,7 +1566,9 @@ export function useDocComposer(
         draft !== undefined && draft.lines.length > 0 ? draft.lines.map(keyed) : [blankLine()],
     );
     const [message, setMessage] = useState(draft?.notes ?? "");
-    const [docDiscount, setDocDiscountState] = useState<SaleDiscount | null>(null);
+    const [docDiscount, setDocDiscountState] = useState<SaleDiscount | null>(
+        draft?.discount ?? null,
+    );
     const [docDiscountTouched, setDocDiscountTouched] = useState(false);
     const [chosenTerms, setTerms] = useState<DocTerms>("d14");
     // an invoice switched to an estimate can't keep the pay-now term, which only invoices offer

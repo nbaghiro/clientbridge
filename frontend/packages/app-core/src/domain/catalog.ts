@@ -2,7 +2,15 @@ import { useBusinessQuery as useQuery } from "../hooks";
 
 import { useMemo, useRef, useState } from "react";
 
-import { type ApiLike, type Attempt, attemptKey, failureMessage, newIdempotencyKey } from "../api";
+import {
+    type ApiLike,
+    type Attempt,
+    attemptKey,
+    failedCode,
+    failedStatus,
+    failureMessage,
+    newIdempotencyKey,
+} from "../api";
 import { addDays, parseTimestamp, stampLabel, useBusinessZone } from "../datetime";
 import {
     blankToNull,
@@ -689,6 +697,13 @@ function useItemForm(
     const [values, setValues] = useState<ItemFormValues>(() => initialValues(item, kind));
     const { busy, error, setError, run } = useAsyncAction();
     const editing = item !== null;
+    const pendingCreate = useRef<{ body: Record<string, unknown>; key: string } | null>(null);
+    // Keep the acknowledged create and any uncertain stock command across retries.
+    const created = useRef<{
+        id: string;
+        opening: number;
+        pending: { quantity: number; note: string; key: string } | null;
+    } | null>(null);
 
     const set = <K extends ItemField>(field: K, value: ItemFormValues[K]): void => {
         setError(null);
@@ -708,15 +723,55 @@ function useItemForm(
                     await api.patch(`/v1/items/${item.id}`, body);
                     return;
                 }
-                const created = await api.post<{ id: string }>("/v1/items", body);
-                const opening = toInt(values.openingStock) ?? 0;
-                if (values.trackStock && opening > 0) {
+                const fields = itemPayload(values, false);
+                const retrying = created.current !== null || pendingCreate.current !== null;
+                if (created.current === null) {
+                    pendingCreate.current ??= { body, key: newIdempotencyKey() };
+                    const pending = pendingCreate.current;
+                    try {
+                        const saved = await api.post<{ id: string }>("/v1/items", pending.body, {
+                            idempotencyKey: pending.key,
+                        });
+                        created.current = { id: saved.id, opening: 0, pending: null };
+                        pendingCreate.current = null;
+                    } catch (error) {
+                        const status = failedStatus(error);
+                        const code = failedCode(error);
+                        if (
+                            (status === 422 &&
+                                (code === "invalid_request" || code === "unprocessable")) ||
+                            (status === 409 && code === "conflict") ||
+                            (status === 404 && code === "not_found")
+                        )
+                            pendingCreate.current = null;
+                        throw error;
+                    }
+                }
+                const saved = created.current;
+                const finishStock = async (): Promise<void> => {
+                    const pending = saved.pending;
+                    if (pending === null) return;
                     await restockItem(
                         api,
-                        created.id,
-                        { quantity: opening, note: s.openingStockNote },
-                        newIdempotencyKey(),
+                        saved.id,
+                        { quantity: pending.quantity, note: pending.note },
+                        pending.key,
                     );
+                    saved.opening += pending.quantity;
+                    saved.pending = null;
+                };
+                // Resolve the original command before applying edits, including turning tracking off.
+                await finishStock();
+                // Reapply uncertain field updates before adjusting stock, including re-enabled tracking.
+                if (retrying) await api.patch(`/v1/items/${saved.id}`, fields);
+                const delta = (toInt(values.openingStock) ?? 0) - saved.opening;
+                if (values.trackStock && delta !== 0) {
+                    saved.pending = {
+                        quantity: delta,
+                        note: s.openingStockNote,
+                        key: newIdempotencyKey(),
+                    };
+                    await finishStock();
                 }
             },
             {

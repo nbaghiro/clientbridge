@@ -3,6 +3,14 @@ import { axeIssues, unmarkedFocus, unreadableHover } from "@clientbridge/config/
 import { expect, type Locator, type Page, test } from "@playwright/test";
 
 import { offsiteLoadFailure } from "./errors";
+import { createInvoice, openInvoice } from "./support/billing";
+import {
+    bookingApi,
+    cancelOwnedBooking,
+    createBookingFixture,
+    createBookingThroughUi,
+    openBooking,
+} from "./support/bookings";
 
 const OWNER = "hannah@birchbark.example";
 const STAFF = "diego@birchbark.example";
@@ -158,20 +166,6 @@ function gridBookings(main: Locator): Locator {
     return main.getByRole("button", { name: /^\d{1,2}:\d{2} [ap]\.m\. – \d/ });
 }
 
-// A confirmed visit names its pet and client; a class names only itself and has no message or reschedule
-async function openVisit(main: Locator, panel: Locator): Promise<void> {
-    const b = strings.bookings;
-    const visits = main.getByRole("button", {
-        name: /^\d{1,2}:\d{2} [ap]\.m\. – [^,]+, [^,]+ · [^,]+, .+, Confirmed$/,
-    });
-    for (let day = 0; day < 14 && (await visits.count()) === 0; day++) {
-        await main.getByRole("button", { name: b.next, exact: true }).click();
-    }
-    await visits.first().click();
-    await expect(panel.getByRole("heading", { level: 2 })).toBeVisible();
-    await expect(panel.getByRole("button", { name: b.message, exact: true })).toBeVisible();
-}
-
 test("owner: shell, today, create menu, search, notifications and account menu", async ({
     page,
 }) => {
@@ -290,184 +284,202 @@ test("owner: schedule, booking panel, classes and repeat visits", async ({ page 
     const walk = await signIn(page, OWNER);
     const { main } = walk;
     const b = strings.bookings;
+    let ownedBookingId: string | undefined;
+    try {
+        await walk.step("schedule views", async () => {
+            await navigate(page, "/schedule");
+            const views = main.getByRole("tablist", { name: b.viewLabel });
+            await views.getByRole("tab", { name: b.viewClasses }).click();
+            await expect(page).toHaveURL(/\/schedule\/classes$/);
+            await views.getByRole("tab", { name: b.viewSeries }).click();
+            await expect(page).toHaveURL(/\/schedule\/series$/);
+            await views.getByRole("tab", { name: b.viewBoard }).click();
+            await expect(page).toHaveURL(/\/schedule$/);
+        });
 
-    await walk.step("schedule views", async () => {
-        await navigate(page, "/schedule");
-        const views = main.getByRole("tablist", { name: b.viewLabel });
-        await views.getByRole("tab", { name: b.viewClasses }).click();
-        await expect(page).toHaveURL(/\/schedule\/classes$/);
-        await views.getByRole("tab", { name: b.viewSeries }).click();
-        await expect(page).toHaveURL(/\/schedule\/series$/);
-        await views.getByRole("tab", { name: b.viewBoard }).click();
-        await expect(page).toHaveURL(/\/schedule$/);
-    });
+        await walk.step("new booking draft", async () => {
+            await main.getByRole("button", { name: b.newBooking }).click();
+            const composer = page.getByRole("form", { name: b.newBooking });
+            await expect(composer).toBeVisible();
+            const draft = main.getByTestId("draft");
+            await expect(draft).toBeVisible();
+            await expect(draft).toContainText(b.newBooking);
+            await expect(draft).toBeInViewport();
+            const card = draft.getByRole("button");
+            // the draft first shows in the first lane and moves to its member's once the team loads
+            const [, lead = "", tail = ""] = b
+                .draftLabel("\0", "\0", "")
+                .split("\0")
+                .map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+            await expect(card).toHaveAccessibleName(new RegExp(`${lead}(?!${tail.trim()})\\S`));
+            const before = await card.innerText();
+            const box = await draft.boundingBox();
+            const lanes = await draft.locator("..").boundingBox();
+            expect(box).not.toBeNull();
+            expect(lanes).not.toBeNull();
+            if (box !== null && lanes !== null) {
+                // late in the day the draft sits at the bottom of the grid, so drag toward the room
+                const above = box.y - lanes.y;
+                const below = lanes.y + lanes.height - (box.y + box.height);
+                const x = box.x + box.width / 2;
+                const y = box.y + box.height / 2;
+                await page.mouse.move(x, y);
+                await page.mouse.down();
+                await page.mouse.move(x, y + (above > below ? -2 : 2) * box.height, { steps: 8 });
+                await page.mouse.up();
+            }
+            await expect(card).not.toHaveText(before, { useInnerText: true });
+            await main.getByRole("button", { name: b.next }).first().click();
+            await expect(draft).toBeVisible();
+            await composer.getByRole("button", { name: strings.common.close }).click();
+            await expect(draft).toHaveCount(0);
+            await main.getByRole("button", { name: b.today, exact: true }).click();
+        });
 
-    await walk.step("new booking draft", async () => {
-        await main.getByRole("button", { name: b.newBooking }).click();
-        const composer = page.getByRole("form", { name: b.newBooking });
-        await expect(composer).toBeVisible();
-        const draft = main.getByTestId("draft");
-        await expect(draft).toBeVisible();
-        await expect(draft).toContainText(b.newBooking);
-        await expect(draft).toBeInViewport();
-        const card = draft.getByRole("button");
-        // the draft first shows in the first lane and moves to its member's once the team loads
-        const [, lead = "", tail = ""] = b
-            .draftLabel("\0", "\0", "")
-            .split("\0")
-            .map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
-        await expect(card).toHaveAccessibleName(new RegExp(`${lead}(?!${tail.trim()})\\S`));
-        const before = await card.innerText();
-        const box = await draft.boundingBox();
-        const lanes = await draft.locator("..").boundingBox();
-        expect(box).not.toBeNull();
-        expect(lanes).not.toBeNull();
-        if (box !== null && lanes !== null) {
-            // late in the day the draft sits at the bottom of the grid, so drag toward the room
-            const above = box.y - lanes.y;
-            const below = lanes.y + lanes.height - (box.y + box.height);
-            const x = box.x + box.width / 2;
-            const y = box.y + box.height / 2;
-            await page.mouse.move(x, y);
-            await page.mouse.down();
-            await page.mouse.move(x, y + (above > below ? -2 : 2) * box.height, { steps: 8 });
-            await page.mouse.up();
-        }
-        await expect(card).not.toHaveText(before, { useInnerText: true });
-        await main.getByRole("button", { name: b.next }).first().click();
-        await expect(draft).toBeVisible();
-        await composer.getByRole("button", { name: strings.common.close }).click();
-        await expect(draft).toHaveCount(0);
-        await main.getByRole("button", { name: b.today, exact: true }).click();
-    });
+        await walk.step("new booking composer", async () => {
+            await main.getByRole("button", { name: b.newBooking }).click();
+            const composer = page.getByRole("form", { name: b.newBooking });
+            await expect(composer).toBeVisible();
+            const service = composer.getByRole("combobox", { name: b.composerService });
+            await expect(service).toHaveValue("");
+            await expect(service).toHaveAttribute("placeholder", b.composerServicePlaceholder);
+            await service.click();
+            const services = page.getByRole("listbox", { name: b.composerService });
+            await expect(services.getByRole("option").first()).toBeVisible();
+            await page.keyboard.press("ArrowDown");
+            await page.keyboard.press("End");
+            const last = (await services.getByRole("option").last().getAttribute("id")) ?? "";
+            expect(last).not.toBe("");
+            await expect(service).toHaveAttribute("aria-activedescendant", last);
+            await page.keyboard.press("Enter");
+            await expect(services).toBeHidden();
+            await expect(service).toBeFocused();
+            await expect(service).not.toHaveValue("");
+            const date = composer.getByRole("button", { name: b.composerDate });
+            const picked = (await date.textContent()) ?? "";
+            await date.click();
+            const calendar = page.getByRole("dialog", { name: b.composerDate });
+            const month = calendar.getByRole("grid");
+            await expect(month).toBeVisible();
+            const shown = (await month.getAttribute("aria-label")) ?? "";
+            await page.keyboard.press("ArrowRight");
+            await page.keyboard.press("PageDown");
+            await expect(month).not.toHaveAttribute("aria-label", shown);
+            await page.keyboard.press("Enter");
+            await expect(calendar).toBeHidden();
+            await expect(date).toBeFocused();
+            await expect(date).not.toHaveText(picked);
+            await date.click();
+            await expect(calendar).toBeVisible();
+            await page.keyboard.press("Escape");
+            await expect(calendar).toBeHidden();
+            await expect(date).toBeFocused();
+            await expect(composer).toBeVisible();
+            await composer.getByRole("button", { name: strings.common.close }).click();
+            await expect(composer).toBeHidden();
+        });
 
-    await walk.step("new booking composer", async () => {
-        await main.getByRole("button", { name: b.newBooking }).click();
-        const composer = page.getByRole("form", { name: b.newBooking });
-        await expect(composer).toBeVisible();
-        const service = composer.getByRole("combobox", { name: b.composerService });
-        await expect(service).toHaveValue("");
-        await expect(service).toHaveAttribute("placeholder", b.composerServicePlaceholder);
-        await service.click();
-        const services = page.getByRole("listbox", { name: b.composerService });
-        await expect(services.getByRole("option").first()).toBeVisible();
-        await page.keyboard.press("ArrowDown");
-        await page.keyboard.press("End");
-        const last = (await services.getByRole("option").last().getAttribute("id")) ?? "";
-        expect(last).not.toBe("");
-        await expect(service).toHaveAttribute("aria-activedescendant", last);
-        await page.keyboard.press("Enter");
-        await expect(services).toBeHidden();
-        await expect(service).toBeFocused();
-        await expect(service).not.toHaveValue("");
-        const date = composer.getByRole("button", { name: b.composerDate });
-        const picked = (await date.textContent()) ?? "";
-        await date.click();
-        const calendar = page.getByRole("dialog", { name: b.composerDate });
-        const month = calendar.getByRole("grid");
-        await expect(month).toBeVisible();
-        const shown = (await month.getAttribute("aria-label")) ?? "";
-        await page.keyboard.press("ArrowRight");
-        await page.keyboard.press("PageDown");
-        await expect(month).not.toHaveAttribute("aria-label", shown);
-        await page.keyboard.press("Enter");
-        await expect(calendar).toBeHidden();
-        await expect(date).toBeFocused();
-        await expect(date).not.toHaveText(picked);
-        await date.click();
-        await expect(calendar).toBeVisible();
-        await page.keyboard.press("Escape");
-        await expect(calendar).toBeHidden();
-        await expect(date).toBeFocused();
-        await expect(composer).toBeVisible();
-        await composer.getByRole("button", { name: strings.common.close }).click();
-        await expect(composer).toBeHidden();
-    });
+        const panel = main.getByRole("complementary").filter({
+            has: page.getByRole("button", { name: b.close, exact: true }),
+        });
 
-    const panel = main.getByRole("complementary").filter({
-        has: page.getByRole("button", { name: b.close, exact: true }),
-    });
+        await walk.step("booking panel from the grid", async () => {
+            const fixture = await createBookingFixture(page);
+            const booking = await createBookingThroughUi(page, fixture);
+            ownedBookingId = booking.id;
+            await openBooking(page, fixture, booking.id);
+            await panel.getByRole("button", { name: b.close, exact: true }).click();
+            await main.getByTestId(`event-${booking.id}`).getByRole("button").click();
+            await expect(
+                panel.getByRole("heading", { name: fixture.clientName, exact: true }),
+            ).toBeVisible();
+        });
 
-    await walk.step("booking panel from the grid", async () => {
-        await main.getByRole("button", { name: b.next, exact: true }).click();
-        await openVisit(main, panel);
-    });
+        await walk.step("booking panel: message", async () => {
+            await panel.getByRole("button", { name: b.message, exact: true }).click();
+            const dialog = page.getByRole("dialog", { name: prefixOf(b.messageTitle) });
+            await expect(dialog).toBeVisible();
+            await dialog.getByRole("button", { name: strings.common.cancel }).click();
+            await expect(dialog).toBeHidden();
+        });
 
-    await walk.step("booking panel: message", async () => {
-        await panel.getByRole("button", { name: b.message, exact: true }).click();
-        const dialog = page.getByRole("dialog", { name: prefixOf(b.messageTitle) });
-        await expect(dialog).toBeVisible();
-        await dialog.getByRole("button", { name: strings.common.cancel }).click();
-        await expect(dialog).toBeHidden();
-    });
+        await walk.step("booking panel: reschedule", async () => {
+            await panel.getByRole("button", { name: b.reschedule }).click();
+            await expect(page.getByRole("dialog")).toBeVisible();
+            await escapeDialog(page);
+        });
 
-    await walk.step("booking panel: reschedule", async () => {
-        await panel.getByRole("button", { name: b.reschedule }).click();
-        await expect(page.getByRole("dialog")).toBeVisible();
-        await escapeDialog(page);
-    });
+        await walk.step("booking panel: cancel visit, then keep it", async () => {
+            await panel.getByRole("button", { name: b.cancel }).click();
+            await panel.getByRole("button", { name: b.keepVisit }).click();
+            await expect(panel.getByRole("button", { name: b.cancel })).toBeVisible();
+            await panel.getByRole("button", { name: b.close, exact: true }).click();
+            await expect(panel).toBeHidden();
+        });
 
-    await walk.step("booking panel: cancel visit, then keep it", async () => {
-        await panel.getByRole("button", { name: b.cancel }).click();
-        await panel.getByRole("button", { name: b.keepVisit }).click();
-        await expect(panel.getByRole("button", { name: b.cancel })).toBeVisible();
-        await panel.getByRole("button", { name: b.close, exact: true }).click();
-        await expect(panel).toBeHidden();
-    });
+        await walk.step("booking panel: deposit charge sheet", async () => {
+            await navigate(page, `/schedule?open=${DEPOSIT_BOOKING}`, "/schedule");
+            await expect(panel.getByRole("heading", { level: 2 })).toBeVisible();
+            const collect = panel.getByRole("button", { name: b.collectNow });
+            if (await collect.isVisible()) {
+                await collect.click();
+                const charge = panel.getByRole("button", {
+                    name: prefixOf((x) => b.collectAmount(`$${x}`)),
+                });
+                await expect(charge).toBeVisible();
+                await panel
+                    .getByRole("button", { name: strings.common.cancel, exact: true })
+                    .click();
+                await expect(charge).toBeHidden();
+            }
+            await panel.getByRole("button", { name: b.close, exact: true }).click();
+            await expect(panel).toBeHidden();
+        });
 
-    await walk.step("booking panel: deposit charge sheet", async () => {
-        await navigate(page, `/schedule?open=${DEPOSIT_BOOKING}`, "/schedule");
-        await expect(panel.getByRole("heading", { level: 2 })).toBeVisible();
-        const collect = panel.getByRole("button", { name: b.collectNow });
-        if (await collect.isVisible()) {
-            await collect.click();
-            const charge = panel.getByRole("button", {
-                name: prefixOf((x) => b.collectAmount(`$${x}`)),
-            });
-            await expect(charge).toBeVisible();
-            await panel.getByRole("button", { name: strings.common.cancel, exact: true }).click();
-            await expect(charge).toBeHidden();
-        }
-        await panel.getByRole("button", { name: b.close, exact: true }).click();
-        await expect(panel).toBeHidden();
-    });
+        await walk.step("classes: roster and message everyone", async () => {
+            await navigate(page, "/schedule/classes");
+            await expect(
+                main.getByRole("tab", { name: strings.bookings.viewClasses, selected: true }),
+            ).toBeVisible();
+            await main.getByRole("button", { name: strings.classes.messageClass }).click();
+            await expect(page.getByRole("dialog")).toBeVisible();
+            await escapeDialog(page);
+        });
 
-    await walk.step("classes: roster and message everyone", async () => {
-        await navigate(page, "/schedule/classes");
-        await expect(
-            main.getByRole("tab", { name: strings.bookings.viewClasses, selected: true }),
-        ).toBeVisible();
-        await main.getByRole("button", { name: strings.classes.messageClass }).click();
-        await expect(page.getByRole("dialog")).toBeVisible();
-        await escapeDialog(page);
-    });
+        await walk.step("repeat visits: new series", async () => {
+            await navigate(page, "/schedule/series");
+            await openAndClose(page, exactly(strings.recurrences.newSeries));
+        });
 
-    await walk.step("repeat visits: new series", async () => {
-        await navigate(page, "/schedule/series");
-        await openAndClose(page, exactly(strings.recurrences.newSeries));
-    });
+        const rs = strings.recurrences;
+        await walk.step(
+            "repeat visits: a series record, its change and cancel dialogs",
+            async () => {
+                const rows = main
+                    .getByRole("navigation", { name: rs.listTitle })
+                    .getByRole("button");
+                await expect(rows.first()).toBeVisible();
+                const change = main.getByRole("button", { name: rs.changeSeries, exact: true });
+                // The fixtures guarantee one active series with visits ahead; earlier ones may have ended.
+                for (let i = 0, n = await rows.count(); i < n; i++) {
+                    await rows.nth(i).click();
+                    if (await change.isEnabled()) break;
+                }
+                await change.click();
+                await expect(page.getByRole("dialog")).toBeVisible();
+                await escapeDialog(page);
+                await main.getByRole("button", { name: rs.cancelSeries, exact: true }).click();
+                const ask = page.getByRole("dialog");
+                await expect(ask).toContainText(rs.cancelTitle);
+                await ask.getByRole("button", { name: rs.keepSeries }).click();
+                await expect(ask).toBeHidden();
+            },
+        );
 
-    const rs = strings.recurrences;
-    await walk.step("repeat visits: a series record, its change and cancel dialogs", async () => {
-        const rows = main.getByRole("navigation", { name: rs.listTitle }).getByRole("button");
-        await expect(rows.first()).toBeVisible();
-        const change = main.getByRole("button", { name: rs.changeSeries, exact: true });
-        // The fixtures guarantee one active series with visits ahead; earlier ones may have ended.
-        for (let i = 0, n = await rows.count(); i < n; i++) {
-            await rows.nth(i).click();
-            if (await change.isEnabled()) break;
-        }
-        await change.click();
-        await expect(page.getByRole("dialog")).toBeVisible();
-        await escapeDialog(page);
-        await main.getByRole("button", { name: rs.cancelSeries, exact: true }).click();
-        const ask = page.getByRole("dialog");
-        await expect(ask).toContainText(rs.cancelTitle);
-        await ask.getByRole("button", { name: rs.keepSeries }).click();
-        await expect(ask).toBeHidden();
-    });
-
-    walk.expectNoErrors();
+        walk.expectNoErrors();
+    } finally {
+        if (ownedBookingId) await cancelOwnedBooking(page, ownedBookingId);
+    }
 });
 
 test("owner: clients, records, notes, subjects, wallet and merge", async ({ page }) => {
@@ -513,8 +525,13 @@ test("owner: clients, records, notes, subjects, wallet and merge", async ({ page
     await walk.step("tidy: tag and merge", async () => {
         await main.getByRole("button", { name: strings.clients.tidy.select }).click();
         // A seeded near-duplicate with no money or saved cards, so the merge isn't blocked.
-        await main.getByRole("checkbox", { name: "Grace Lin" }).check();
-        await main.getByRole("checkbox", { name: "Robin Test" }).check();
+        await main.getByRole("checkbox", { name: "Grace Lin", exact: true }).check();
+        await main.getByRole("searchbox").fill("robin@example.com");
+        await expect(main.getByText("robin@example.com", { exact: true })).toBeVisible();
+        const duplicate = main.getByRole("checkbox", { name: "Robin Bennett", exact: true });
+        await expect(duplicate).toHaveCount(1);
+        await duplicate.check();
+        await main.getByRole("searchbox").clear();
         await page.getByRole("button", { name: strings.clients.tidy.tag, exact: true }).click();
         await expect(page.getByRole("dialog")).toBeVisible();
         await page.getByRole("button", { name: strings.clients.tidy.tag, exact: true }).click();
@@ -523,6 +540,9 @@ test("owner: clients, records, notes, subjects, wallet and merge", async ({ page
             .click();
         const merge = page.getByRole("dialog");
         await expect(merge).toBeVisible();
+        await expect(
+            merge.getByRole("button", { name: prefixOf(strings.clients.tidy.merge) }),
+        ).toBeEnabled();
         await cancelConfirm(
             page,
             merge.getByRole("button", { name: prefixOf(strings.clients.tidy.merge) }),
@@ -602,10 +622,13 @@ test("owner: payments desk, records and their dialogs", async ({ page }) => {
     });
 
     await walk.step("invoice record: payment, PDF and void", async () => {
-        await main.locator("button.block").first().click();
+        const invoice = await createInvoice(page);
+        await openInvoice(page, invoice);
         const record = page.getByRole("dialog");
         await record.getByRole("button", { name: s.recordPayment }).click();
-        await expect(page.getByRole("dialog").last()).toContainText(s.rec.howPaid);
+        await expect(page.getByRole("dialog", { name: s.rec.title, exact: true })).toContainText(
+            s.rec.howPaid,
+        );
         await page.keyboard.press("Escape");
         await expect(page.getByRole("dialog")).toHaveCount(1);
         await expect(
@@ -1195,8 +1218,8 @@ test.describe("in another time zone than the business", () => {
         const { main } = walk;
         const b = strings.bookings;
         const h = strings.hours;
-        const e2eClosure = "Closed for the e2e run";
-        const reason = `${e2eClosure} ${Date.now().toString()}`;
+        const reason = "Staff training";
+        let closureId: string | undefined;
         const composer = page.getByRole("form", { name: b.newBooking });
         const panel = main.getByRole("complementary").filter({
             has: page.getByRole("button", { name: b.close, exact: true }),
@@ -1217,27 +1240,30 @@ test.describe("in another time zone than the business", () => {
             return point ?? { x: 0, y: 0 };
         };
 
-        // Removes this run's closure and any an earlier run left behind, so the board names this one.
         const reopen = async (): Promise<void> => {
-            await navigate(page, "/setup/team");
-            const remove = main.getByRole("button", {
-                name: startsWith(h.removeLabel(e2eClosure)),
+            if (!closureId) return;
+            const removed = await page.request.delete(`${bookingApi()}/v1/time-off/${closureId}`, {
+                headers: { Origin: new URL(page.url()).origin },
             });
-            while ((await remove.count()) > 0) {
-                const before = await remove.count();
-                await remove.first().click();
-                await expect(remove).toHaveCount(before - 1);
-            }
-            await expect(main.getByText(e2eClosure)).toHaveCount(0);
+            expect(removed.status(), await removed.text()).toBe(200);
+            expect(await removed.json()).toMatchObject({ id: closureId });
+            await navigate(page, "/setup/team");
         };
-        await walk.step("clear closures earlier runs left behind", reopen);
         try {
             await walk.step("close the business tomorrow", async () => {
                 await navigate(page, "/setup/team");
                 await main.getByRole("button", { name: h.addClosure }).click();
                 const form = page.getByRole("form", { name: h.addClosure });
                 await form.getByRole("textbox", { name: h.reason }).fill(reason);
+                const creating = page.waitForResponse(
+                    (response) =>
+                        new URL(response.url()).pathname === "/v1/time-off" &&
+                        response.request().method() === "POST",
+                );
                 await form.getByRole("button", { name: h.saveClosure }).click();
+                const created = await creating;
+                expect(created.status(), await created.text()).toBe(201);
+                closureId = ((await created.json()) as { id: string }).id;
                 await expect(form).toBeHidden();
                 await expect(main.getByRole("listitem").filter({ hasText: reason })).toBeVisible();
             });
@@ -1269,6 +1295,7 @@ test.describe("in another time zone than the business", () => {
         await walk.step("an open time is labelled with the time the composer books", async () => {
             await navigate(page, "/schedule");
             await main.getByRole("button", { name: b.next, exact: true }).click();
+            await expect(main.getByRole("status").filter({ hasText: reason })).toHaveCount(0);
             const { x, y } = await openPoint();
             await page.mouse.move(x, y);
             const hover = main
@@ -1288,18 +1315,24 @@ test.describe("in another time zone than the business", () => {
         });
 
         await walk.step("reschedule keeps a day picked when the week changes", async () => {
-            await openVisit(main, panel);
-            await panel.getByRole("button", { name: b.reschedule }).click();
-            const dialog = page.getByRole("dialog");
-            const days = dialog.getByRole("group", { name: b.rescheduleDay });
-            const picked = days.locator('[aria-pressed="true"]');
-            await expect(picked).toHaveCount(1);
-            const before = await picked.textContent();
-            await days.getByRole("button", { name: b.next, exact: true }).click();
-            await expect(picked).toHaveCount(1);
-            await expect(picked).not.toHaveText(before ?? "");
-            await expect(dialog.getByRole("status", { name: b.loading })).toHaveCount(0);
-            await escapeDialog(page);
+            const fixture = await createBookingFixture(page);
+            const booking = await createBookingThroughUi(page, fixture);
+            try {
+                await openBooking(page, fixture, booking.id);
+                await panel.getByRole("button", { name: b.reschedule }).click();
+                const dialog = page.getByRole("dialog");
+                const days = dialog.getByRole("group", { name: b.rescheduleDay });
+                const picked = days.locator('[aria-pressed="true"]');
+                await expect(picked).toHaveCount(1);
+                const before = await picked.textContent();
+                await days.getByRole("button", { name: b.next, exact: true }).click();
+                await expect(picked).toHaveCount(1);
+                await expect(picked).not.toHaveText(before ?? "");
+                await expect(dialog.getByRole("status", { name: b.loading })).toHaveCount(0);
+                await escapeDialog(page);
+            } finally {
+                await cancelOwnedBooking(page, booking.id);
+            }
         });
 
         walk.expectNoErrors();

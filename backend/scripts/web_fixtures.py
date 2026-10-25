@@ -25,7 +25,8 @@ from scripts.demo_context import DEMO_IDS, DEMO_PASSWORD, FIXTURE_BUSINESS, demo
 
 API = os.environ.get("API_URL", "http://localhost:8701")
 # a near-duplicate with no money or saved cards, so the merge flow is not blocked
-DUPLICATE = "Robin Test"
+DUPLICATE = "Robin Bennett"
+DUPLICATE_EMAIL = "robin@example.com"
 
 
 async def _has_series(db: AsyncSession, biz: str) -> bool:
@@ -60,7 +61,9 @@ async def _has_low_stock(db: AsyncSession, biz: str) -> bool:
 async def _has_duplicate(db: AsyncSession, biz: str) -> bool:
     found = await db.execute(
         select(Client.id)
-        .where(Client.business_id == biz, Client.name == DUPLICATE, Client.deleted_at.is_(None))
+        .where(
+            Client.business_id == biz, Client.email == DUPLICATE_EMAIL, Client.deleted_at.is_(None)
+        )
         .limit(1)
     )
     return found.first() is not None
@@ -238,7 +241,7 @@ async def main(biz: str) -> None:
         if need_duplicate:
             client = await http.post(
                 "/v1/clients",
-                json={"name": DUPLICATE, "email": "robin@example.com"},
+                json={"name": DUPLICATE, "email": DUPLICATE_EMAIL},
                 headers={"Idempotency-Key": f"web-fixtures-duplicate-{stamp}"},
             )
             client.raise_for_status()

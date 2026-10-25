@@ -766,9 +766,6 @@ msgstr ""
 msgid "staff_invite.subject"
 msgstr ""
 
-msgid "stripe.pad_interval_description"
-msgstr ""
-
 msgid "stripe.subscription_product"
 msgstr ""
 

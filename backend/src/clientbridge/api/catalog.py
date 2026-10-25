@@ -18,9 +18,13 @@ router = APIRouter(prefix="/items", tags=["catalog"])
 
 
 @router.post("", response_model=ItemOut, status_code=201)
-async def create_item(body: ItemCreate, principal: CurrentPrincipal, db: DbSession) -> ItemOut:
-    item = await CatalogService(db, principal).create(body)
-    return ItemOut.model_validate(item)
+async def create_item(
+    body: ItemCreate,
+    principal: CurrentPrincipal,
+    db: DbSession,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+) -> ItemOut:
+    return await CatalogService(db, principal).create(body, idempotency_key)
 
 
 @router.post("/tax-class", response_model=TaxClassResult)

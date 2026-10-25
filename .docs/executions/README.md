@@ -22,3 +22,4 @@ Use a new folder for a separate execution. Record tested behavior, remaining wor
 
 
 - [Connect hosts](connect-hosts/plan.md): one host per kind of Connect page and a subdomain per business page, on `connect-hosts`; [QA checklist](connect-hosts/qa.md).
+- [End to end testing](e2e/README.md) — real functional journeys, reusable test building blocks, [coverage catalogue](e2e/coverage.json), and pilot validation.

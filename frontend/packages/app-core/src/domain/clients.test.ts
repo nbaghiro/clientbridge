@@ -21,6 +21,19 @@ const ROWS = [
 ];
 
 describe("filterClients", () => {
+    it("distinguishes clients with the same name using their email", () => {
+        const clients = [
+            client("cl_ann_home", "Ann Tremblay", "ann.home@example.ca", null),
+            client("cl_ann_work", "Ann Tremblay", "ann.work@example.ca", null),
+        ];
+        expect(filterClients(clients, "Ann Tremblay").map((c) => c.id)).toEqual([
+            "cl_ann_home",
+            "cl_ann_work",
+        ]);
+        expect(filterClients(clients, "ann.work@example.ca").map((c) => c.id)).toEqual([
+            "cl_ann_work",
+        ]);
+    });
     it("matches name and email without case, and phone digits as stored", () => {
         expect(filterClients(ROWS, "")).toBe(ROWS);
         expect(filterClients(ROWS, "   ")).toBe(ROWS);
