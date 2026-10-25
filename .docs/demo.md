@@ -1,6 +1,6 @@
 # Demo businesses
 
-There is one seeded demo business per vertical the product serves, so each trade can be shown and tested from its own point of view. They are ordinary tenants: `make seed` replaces them locally, and every staging deploy reseeds them. The full stage tables, with seeded ids, are in [engineering.md](engineering.md#demo-businesses-by-vertical).
+There is one seeded demo business per vertical the product serves, so each trade can be shown and tested from its own point of view. They are ordinary tenants: `make seed` replaces them locally, and staging reseeds them every night and on demand ([operations.md](operations.md#stagings-demo-seed)). The full stage tables, with seeded ids, are in [engineering.md](engineering.md#demo-businesses-by-vertical).
 
 - **Password:** `demo1234` for every login.
 - **Where:** locally, and on staging at `https://app.staging.clientbridge.ca` and in the staging mobile app.

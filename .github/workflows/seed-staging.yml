@@ -1,0 +1,74 @@
+name: seed-staging
+# Reseeds staging's demo businesses now, from the nightly seed CronJob that the staging stack keeps
+# (kubernetes/seed.py), and by default waits for the run and prints its result. It signs in as
+# staging's deployer, which the deployer Role lets start a Job from the CronJob and read its logs.
+on:
+  workflow_dispatch:
+    inputs:
+      wait:
+        description: Wait for the seed to finish and print its result
+        type: boolean
+        default: true
+
+permissions: {}
+
+jobs:
+  seed:
+    # the deployer's identity is granted only to a job on main in the staging environment
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    # the seed's own deadline is an hour
+    timeout-minutes: 75
+    environment: staging
+    concurrency:
+      group: seed-staging
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      NAMESPACE: staging
+      JOB: seed-manual-${{ github.run_id }}
+    steps:
+      - uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOYER }}
+      - uses: google-github-actions/setup-gcloud@v3
+        with:
+          install_components: gke-gcloud-auth-plugin
+      - name: reach the cluster
+        env:
+          PROJECT: ${{ vars.GCP_PROJECT }}
+          REGION: ${{ vars.GCP_REGION }}
+        run: |
+          gcloud container clusters get-credentials clientbridge --location "$REGION" \
+            --project "$PROJECT" --dns-endpoint
+      - name: start the seed
+        run: |
+          # a Job started by hand is not held back by the CronJob's Forbid policy, so check here
+          running=$(kubectl -n "$NAMESPACE" get jobs -l app=seed \
+            -o jsonpath='{range .items[?(@.status.active)]}{.metadata.name}{"\n"}{end}')
+          if [ -n "$running" ]; then
+            echo "a seed is already running: $running"
+            exit 1
+          fi
+          kubectl -n "$NAMESPACE" create job --from=cronjob/seed "$JOB"
+      - if: inputs.wait
+        name: wait for the seed
+        run: |
+          until state=$(kubectl -n "$NAMESPACE" get job "$JOB" \
+                  -o jsonpath='{.status.conditions[?(@.status=="True")].type}') &&
+                grep -qwE 'Complete|Failed' <<<"$state"; do
+            sleep 30
+          done
+          kubectl -n "$NAMESPACE" logs "job/$JOB" -c seed --tail=-1 | tee seed.log || true
+          {
+            echo '```'
+            grep -E '^(Copied|Pruned|Seeded) |copy failed|^refusing|^database rows|^  ' seed.log || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          if grep -qw Failed <<<"$state"; then
+            echo "the seed failed; its pods: kubectl -n $NAMESPACE get pods -l job-name=$JOB"
+            exit 1
+          fi

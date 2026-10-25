@@ -1,4 +1,4 @@
-"""Staging's demo Job after migrate: seed a scratch Postgres, copy it over, then link Stripe."""
+"""Staging's nightly demo CronJob: seed a scratch Postgres, copy it over, then link Stripe."""
 
 import pulumi
 import pulumi_kubernetes as k8s
@@ -6,8 +6,13 @@ import pulumi_kubernetes as k8s
 from kubernetes import migrate, settings, sidecar
 
 NAME = "seed"
-# the copy is bound by Cloud SQL's shared core, so the deploy starts the Job and doesn't wait for it
+# after Vancouver's midnight all year, and past the backup window (07:00 to 11:00) and maintenance
+SCHEDULE = "0 11 * * *"
+TIME_ZONE = "Etc/UTC"
+# the copy is bound by Cloud SQL's shared core, which prod shares, and takes about 35 minutes
 DEADLINE_SECONDS = 3600
+# a run that misses its slot by more than this waits for the next night
+STARTING_DEADLINE_SECONDS = 3600
 # one writer per core of the pod, the seed's and its scratch Postgres's together
 JOBS = 2
 # a round trip through the Cloud SQL proxy costs milliseconds, so the seed writes locally first
@@ -19,7 +24,7 @@ COMMAND = (
 )
 
 
-def create(ctx: settings.Context, after: list[pulumi.Resource]) -> k8s.batch.v1.Job:
+def create(ctx: settings.Context, after: list[pulumi.Resource]) -> k8s.batch.v1.CronJob:
     """Runs as the migrate account, whose secrets hold the owner's database URL and Stripe key."""
     workload = ctx.env.demo
     if workload is None:
@@ -43,21 +48,26 @@ def create(ctx: settings.Context, after: list[pulumi.Resource]) -> k8s.batch.v1.
         volumes=[volume, *scratch_volumes],
         restart_policy="Never",
     )
-    # a new image, command or deadline starts a fresh Job, since Pulumi never reruns one
-    digest = settings.config_digest(ctx.images.backend, *COMMAND, str(DEADLINE_SECONDS))
-    return k8s.batch.v1.Job(
+    labels = {"app": NAME}
+    return k8s.batch.v1.CronJob(
         f"{ctx.env.name}-{NAME}",
-        metadata=k8s.meta.v1.ObjectMetaArgs(
-            name=f"{NAME}-{digest}",
-            namespace=ctx.env.namespace,
-            labels={"app": NAME},
-            annotations={"pulumi.com/skipAwait": "true"},
-        ),
-        spec=k8s.batch.v1.JobSpecArgs(
-            backoff_limit=ctx.env.migrate_retries,
-            active_deadline_seconds=DEADLINE_SECONDS,
-            template=k8s.core.v1.PodTemplateSpecArgs(
-                metadata=k8s.meta.v1.ObjectMetaArgs(labels={"app": NAME}), spec=spec
+        metadata=ctx.metadata(NAME),
+        spec=k8s.batch.v1.CronJobSpecArgs(
+            schedule=SCHEDULE,
+            time_zone=TIME_ZONE,
+            concurrency_policy="Forbid",
+            starting_deadline_seconds=STARTING_DEADLINE_SECONDS,
+            successful_jobs_history_limit=1,
+            failed_jobs_history_limit=2,
+            job_template=k8s.batch.v1.JobTemplateSpecArgs(
+                metadata=k8s.meta.v1.ObjectMetaArgs(labels=labels),
+                spec=k8s.batch.v1.JobSpecArgs(
+                    backoff_limit=ctx.env.migrate_retries,
+                    active_deadline_seconds=DEADLINE_SECONDS,
+                    template=k8s.core.v1.PodTemplateSpecArgs(
+                        metadata=k8s.meta.v1.ObjectMetaArgs(labels=labels), spec=spec
+                    ),
+                ),
             ),
         ),
         opts=ctx.options([provider_class, *after]),

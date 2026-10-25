@@ -56,7 +56,7 @@ class Environment:
     redis: Workload
     # staging's migrate pod runs on Spot and its steps are idempotent; a failed prod run stops
     migrate_retries: int
-    # the demo seed Job's size where the environment seeds the demo businesses after each migrate
+    # the nightly demo seed's size where the environment seeds the demo businesses
     demo: Workload | None
     mobile: Mobile
 
