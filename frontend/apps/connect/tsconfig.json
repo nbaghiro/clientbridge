@@ -10,6 +10,7 @@
         "vite.config.ts",
         "tailwind.config.ts",
         "playwright.config.ts",
-        "playwright.stripe.config.ts"
+        "playwright.stripe.config.ts",
+        "playwright.smoke.config.ts"
     ]
 }

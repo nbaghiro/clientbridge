@@ -8,6 +8,7 @@ import {
     classManageUrl,
     cleanupClass,
     expectClassState,
+    expectWorkerSentSeatNotice,
     openClass,
 } from "./support/classes";
 import { signIn } from "./support/session";
@@ -150,6 +151,12 @@ test("CLS-E2E-01 enrollment, full-class waitlist and cancellation auto-promotion
         } finally {
             await observer.close();
         }
+        const notice = await test.step("the background worker sends the seat notice", () =>
+            expectWorkerSentSeatNotice(page, fixture, waitingId, fixture.waiting.email));
+        await testInfo.attach("worker-sent-seat-notice", {
+            body: JSON.stringify(notice),
+            contentType: "application/json",
+        });
     } finally {
         await cleanupClass(page, fixture);
     }

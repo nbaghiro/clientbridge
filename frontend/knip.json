@@ -15,7 +15,11 @@
         "apps/connect": {
             "entry": ["public/embed.js", "src/embedLoader.ts"],
             "playwright": {
-                "config": ["playwright.config.ts", "playwright.stripe.config.ts"]
+                "config": [
+                    "playwright.config.ts",
+                    "playwright.stripe.config.ts",
+                    "playwright.smoke.config.ts"
+                ]
             }
         },
         "apps/site": {

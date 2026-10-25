@@ -160,6 +160,35 @@ jobs:
       newer_only: ${{ github.event_name == 'workflow_run' }}
       allow_schema_ahead: ${{ github.event_name == 'workflow_dispatch' && inputs.rollback == true }}
 
+  # read-only browser checks of the deployed staging hosts; a job of its own, so the third-party
+  # packages it installs never run beside the deployer's credentials
+  staging-smoke:
+    needs: [images, staging]
+    if: needs.staging.outputs.deployed == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.images.outputs.sha }}
+          persist-credentials: false
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 9
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+        working-directory: frontend
+      - run: pnpm --filter connect exec playwright install --with-deps chromium
+        working-directory: frontend
+      # it signs in as the demo owners and never books, pays or sends a message
+      - run: make test-staging-smoke
+
   # a manual run redeploys or rolls back the backend; the app rolls back with deploy-mobile.yml
   staging-mobile:
     needs: [images, staging]

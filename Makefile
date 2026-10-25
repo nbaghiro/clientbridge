@@ -1,4 +1,4 @@
-.PHONY: infra-bootstrap infra-providers infra-mobile help up down images up-app logs-sync logs-auth install stripe-listen stripe-setup dev-api worker dev-web dev-connect dev-site dev-mobile build build-apps build-site test-site test-web test-connect test-mobile lighthouse-site migrate revision seed seed-core gen-api gen-sync-schema gen-themes gen-messages gen-strings gen-zones gen-taxes codegen-check test test-backend test-frontend test-contract test-auth auth-standalone test-e2e stripe-mock lint lint-backend lint-frontend lint-infra test-infra typecheck format format-check format-check-backend format-check-frontend format-check-infra precommit hooks check gen-waitlist-email preview-emails configure-demo-admin dev-admin
+.PHONY: infra-bootstrap infra-providers infra-mobile help up down images up-app logs-sync logs-auth install stripe-listen stripe-setup dev-api worker dev-web dev-connect dev-site dev-mobile build build-apps build-site test-site test-web test-connect test-mobile test-staging-smoke lighthouse-site migrate revision seed seed-core gen-api gen-sync-schema gen-themes gen-messages gen-strings gen-zones gen-taxes codegen-check test test-backend test-frontend test-contract test-auth auth-standalone test-e2e stripe-mock lint lint-backend lint-frontend lint-infra test-infra typecheck format format-check format-check-backend format-check-frontend format-check-infra precommit hooks check gen-waitlist-email preview-emails configure-demo-admin dev-admin
 .DEFAULT_GOAL := help
 
 help:
@@ -339,3 +339,7 @@ infra-mobile:
 .PHONY: test-stripe-browser
 test-stripe-browser:
 	cd backend && uv run python -m scripts.e2e_stripe_stack $(STRIPE_BROWSER_ARGS)
+
+# Read-only browser checks of a deployed environment (staging unless SMOKE_* say otherwise).
+test-staging-smoke:
+	cd frontend && pnpm --filter connect exec playwright test --config=playwright.smoke.config.ts $(SMOKE_ARGS)

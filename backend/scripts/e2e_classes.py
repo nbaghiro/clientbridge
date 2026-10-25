@@ -11,7 +11,9 @@ from clientbridge.core.config import get_settings
 from clientbridge.core.db import engine
 
 
-async def evidence(item_id: str, booking_id: str | None = None) -> dict[str, object]:
+async def evidence(
+    item_id: str, booking_id: str | None = None, seated: str | None = None
+) -> dict[str, object]:
     settings = get_settings()
     if settings.env != "dev" or urlparse(settings.smtp_url or "").hostname not in (
         "localhost",
@@ -22,6 +24,23 @@ async def evidence(item_id: str, booking_id: str | None = None) -> dict[str, obj
     async with engine.connect() as db:
         await db.execute(text("SET TRANSACTION READ ONLY"))
         params = {"item": item_id}
+        if seated is not None:
+            rows = await db.execute(
+                text(
+                    "SELECT d.id, d.state, d.error, d.payload->>'channel' AS channel, "
+                    "d.payload->'message'->>'to' AS recipient, "
+                    "d.payload->'message'->>'subject' AS subject, d.created_at "
+                    "FROM deliveries d JOIN bookings b ON b.id = :booking "
+                    "JOIN slots s ON s.id = b.slot_id AND s.item_id = :item "
+                    "WHERE starts_with(d.key, 'seat:' || s.id || ':' || b.id || ':') ORDER BY d.id"
+                ),
+                {**params, "booking": seated},
+            )
+            return {
+                "deliveries": [
+                    {**row, "created_at": row["created_at"].isoformat()} for row in rows.mappings()
+                ]
+            }
         if booking_id is not None:
             token = await db.scalar(
                 text(
@@ -58,9 +77,10 @@ async def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("item_id")
     parser.add_argument("--manage-booking")
+    parser.add_argument("--seat-deliveries")
     args = parser.parse_args()
     try:
-        print(json.dumps(await evidence(args.item_id, args.manage_booking)))
+        print(json.dumps(await evidence(args.item_id, args.manage_booking, args.seat_deliveries)))
     finally:
         await engine.dispose()
 

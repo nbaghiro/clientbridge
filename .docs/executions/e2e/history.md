@@ -281,3 +281,10 @@ Cross-surface selector/cleanup requalification: `.scratchpad/e2e-db6da6a98853/`,
 ## Optional Stripe postal-field regression
 
 `e2e-7de2142a3a8f` failed all seven browser cases on unchanged source `5345063b5b9a0ef8e5d3c426c61da6d2e05a83b11a95a93fa87887df7327d512`. A new helper incorrectly required a postal textbox whenever Canada was selected; both genuine Stripe surfaces legitimately omitted that optional field. No payment was confirmed. Cleanup passed with seven cancellations, no refunds, and no remaining owned containers/volumes. This test regression does not validate the no-add-on invoicing fix and does not explain the prior case05 failure.
+
+
+## Worker checks, staging smoke lane and the embed height
+
+Both runners now wait for the worker's heartbeat, run `cron:prune_receipts` by its scheduled name, and at the end require a job the scheduler fired itself and a live worker, recorded in `run.json`. The Android CI job starts the worker and checks it before and after the walkthroughs. CLS-E2E-01 proves the worker sent the promoted client's seat notice; the first strict attempt (`e2e-6f9c4368fcb6`) and the embed attempt (`e2e-141b0bf228d0`) failed in setup when the run's Kratos stopped answering, and a second CLS attempt (`e2e-82eb0818a1e9`) passed the worker step but failed cleanup on the same Kratos outage. The Docker VM had 3.8 GiB shared with other agents' stacks. The next attempt (`e2e-175f57ee8f6e`) passed.
+
+The staging QA script became `make test-staging-smoke`. Against current staging, 23 of 24 checks passed; the below-the-fold widget stayed at 256px, the bug fixed in `src/embed.ts` and covered locally by EMBED-E2E-01.

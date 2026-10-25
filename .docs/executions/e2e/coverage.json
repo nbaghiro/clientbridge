@@ -15313,7 +15313,8 @@
         "Attempt promotion while full through UI and API",
         "Dismiss anonymous customer cancellation confirmation without mutation",
         "Cancel through real Connect manage page and reload",
-        "Observe automatic promotion in two provider contexts and reload"
+        "Observe automatic promotion in two provider contexts and reload",
+        "Wait for the background worker's scheduled delivery run to send the promoted client's seat notice"
       ],
       "expected": [
         "One class slot only, maximum two occupied seats",
@@ -15321,19 +15322,59 @@
         "Canceled client absent from occupied roster",
         "Waitlisted client automatically confirmed",
         "Exactly one canceled and two confirmed bookings",
-        "Customer reload shows canceled and disallows repeat cancel/reschedule"
+        "Customer reload shows canceled and disallows repeat cancel/reschedule",
+        "The seat notice delivery, queued by the manage-page cancellation and sent by no request, becomes accepted and reaches Mailpit exactly once inside the send_deliveries tick window"
       ],
       "boundaries": [
         "Provider UI currently exposes no individual class-enrollment cancellation; tested customer cancellation instead",
         "API creates initial class/session/enrollment prerequisites",
-        "No deposit/refund/provider payment or concurrent cancellation claim"
+        "No deposit/refund/provider payment or concurrent cancellation claim",
+        "Worker attribution comes from the delivery scope having no inline dispatch plus Mailpit arrival timing; the delivery row has no sender column"
       ],
-      "verified_on": "2026-10-23",
+      "verified_on": "2026-10-25",
       "evidence": [
-        ".scratchpad/e2e-282ac2170f9a/run.json",
-        ".scratchpad/e2e-282ac2170f9a/browser-results/results.json"
+        ".scratchpad/e2e-175f57ee8f6e/run.json",
+        ".scratchpad/e2e-175f57ee8f6e/browser-results/results.json"
       ],
-      "runtime_scope": "Real web and Connect production servers, source stable, cleanup independently verified"
+      "runtime_scope": "Real web and Connect production servers, source stable, cleanup independently verified",
+      "families": [
+        "SCH06",
+        "OPS19"
+      ]
+    },
+    {
+      "id": "EMBED-E2E-01",
+      "status": "verified",
+      "risk": "medium",
+      "layer": "browser",
+      "lane": "pr",
+      "implementation": [
+        "frontend/apps/connect/e2e/connect.e2e.ts",
+        "frontend/apps/connect/src/embed.ts"
+      ],
+      "setup": "Host page on the book origin with a tall spacer above an inline shop widget from the shop origin",
+      "actions": [
+        "Load the embed loader and the shop widget below the fold without scrolling"
+      ],
+      "expected": [
+        "The iframe grows past its 256px loading height to match its content while still offscreen",
+        "The host page has not scrolled"
+      ],
+      "boundaries": [
+        "Chromium only; the cause is Chrome not running ResizeObserver in offscreen cross-origin frames",
+        "No completion, focus or message-trust checks"
+      ],
+      "families": [
+        "OPS15",
+        "OPS16"
+      ],
+      "verified_on": "2026-10-25",
+      "evidence": [
+        ".scratchpad/e2e-c12811f16ab5/run.json",
+        ".scratchpad/e2e-c12811f16ab5/browser-results/results.json",
+        ".scratchpad/e2e-43f3e7b14dce/run.json"
+      ],
+      "runtime_scope": "Real Connect production server, strict unchanged source, cleanup passed; the old-code reproduction run was diagnostic"
     },
     {
       "id": "STRIPE-BROWSER-02",

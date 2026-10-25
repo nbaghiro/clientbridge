@@ -459,3 +459,33 @@ test("the single-script booking drawer opens, closes and restores focus", async 
     await page.getByRole("button", { name: "Close", exact: true }).click();
     await expect(launch).toBeFocused();
 });
+
+test("EMBED-E2E-01 an inline widget below the fold sizes to its content before it is scrolled into view", async ({
+    page,
+}) => {
+    await page.goto(`/c/${links.slug}`);
+    await page.evaluate((slug) => {
+        const spacer = document.createElement("div");
+        spacer.style.height = "2400px";
+        const shop = document.createElement("connect-shop");
+        shop.setAttribute("slug", slug);
+        const script = document.createElement("script");
+        script.src = "/embed.js";
+        document.body.replaceChildren(spacer, shop, script);
+    }, links.slug);
+    const frame = page.locator("connect-shop iframe");
+    await expect(frame).toHaveAttribute("src", on("shop", `/${links.slug}?embed=1`));
+    await expect(
+        frame.contentFrame().getByRole("heading", { name: strings.publicShop.title, level: 1 }),
+    ).toBeAttached();
+    const gap = async (): Promise<number> => {
+        const content = await frame
+            .contentFrame()
+            .locator("body")
+            .evaluate((body) => Math.ceil(body.getBoundingClientRect().height));
+        return Math.abs(((await frame.boundingBox())?.height ?? 0) - content);
+    };
+    await expect.poll(async () => (await frame.boundingBox())?.height ?? 0).toBeGreaterThan(300);
+    await expect.poll(gap).toBeLessThan(2);
+    expect(await page.evaluate(() => window.scrollY)).toBe(0);
+});
