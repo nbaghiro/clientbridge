@@ -2,29 +2,28 @@
 
 The suite exercises actual rendered interfaces, authenticated APIs, committed PostgreSQL transactions, PowerSync replicas, local mail/storage and genuine Stripe sandbox outcomes. Shared helpers handle sessions, owned prerequisites and observable waits; each scenario states its own exact expected and forbidden effects.
 
-**Execution is ongoing.** The registry contains 49 verified atomic cases, including one Android development-build case. These do not complete the 302 broader audit families. [coverage.json](coverage.json) records precise behavior, parent families, limitations and runtime evidence. The [comprehensive product brief](../../reviews/product/comprehensive-e2e-brief.md) remains the product map; [history.md](history.md) preserves diagnostic failures, fixes and earlier results. [evidence.json](evidence.json) is a source-assertion inventory, not runtime proof.
+**Execution is ongoing.** The registry contains 60 required cases, including one Android development-build case. These do not complete the 302 broader audit families. [coverage.json](coverage.json) records precise behavior, parent families, limitations and runtime evidence. The [comprehensive product brief](../../reviews/product/comprehensive-e2e-brief.md) remains the product map; [history.md](history.md) preserves diagnostic failures, fixes and earlier results. [evidence.json](evidence.json) is a source-assertion inventory, not runtime proof.
 
 ## Latest verification
 
-| Lane | Result | Evidence boundary |
+Every lane passed on one source, `71a3d1cdcb6683f671a4b5e934784f2a89ca736f03a5cf2706a64e65180a63ee`, at commit `22a83707`. Each run was strict: no source change during the run, no retries, and process, Docker and (for Stripe) provider cleanup all passed. Each run's worker was alive at the start and the end, and its scheduler fired a job on its own.
+
+| Lane | Result | Run |
 | --- | --- | --- |
-| Cross-surface journeys | 6/6; 36.8 seconds | Strict unchanged source; no skips/retries; owned cleanup passed |
-| Real Stripe browser | 6/6; 2.4 minutes | Strict unchanged source; owner invoice/payment bridge plus genuine event hold/release; exact provider/process/Docker cleanup |
-| Full default web | 61 passed + one presentation skip; 6.3 minutes | Strict unchanged source; owned cleanup passed |
-| Full default Connect | 50 passed + one presentation skip; 42.2 seconds | Strict unchanged source; owned cleanup passed |
-| Pseudo locale | Web 1/1; Connect 6/6 | Both strict unchanged-source runs; owned cleanup passed |
-| Finance, auth and concurrent hours editors | Included in strict full web pass | Exact invoice/payment journal attribution, real CSV/ZIP, one stale revision conflict and explicit repair |
-| Access revocation and catalog recovery | 5/5 strict; 46.2 seconds | Two real member browsers, API downgrade/removal, exact owner controls; all four catalog cases |
-| Completed-quarter filings | 1/1 strict; 12.8 seconds | Raw-ledger totals, exact balanced journals and filing date, validation/replay/overlap; cleanup passed |
-| Backend regression | 2493 passed, 50 deselected; 93.33% coverage | Fresh owned database; external tiers separate |
-| Runner/recovery/relay harness | 74 selected checks passed | Ownership refusals, cleanup failure recording, quarter anchors and signed relay transport; other harness tests separately verified |
-| Frontend regression | All six package tasks; 569 app-core tests in each configured timezone | Vancouver, Halifax and Tokyo |
-| Infrastructure | Lint/typechecks and 105 tests passed | No deployment |
+| Full default web | 67 passed + one presentation skip | `e2e-d35310e3ffcc` |
+| Full default Connect | 53 passed + one presentation skip | `e2e-312f41471fe6` |
+| Cross-surface journeys | 10/10 | `e2e-9e2010e2e285` |
+| Completed-quarter filings | 1/1 | `e2e-8e772ccfdd3d` |
+| Pseudo locale | Web 1/1, Connect 6/6 | `e2e-d91927896142`, `e2e-73b1a71fa492` |
+| Real Stripe browser | 7/7, including FIN-DEPOSIT-04 | `e2e-594077efb873` |
+| Backend regression | 2818 passed, 50 deselected; 93.62% coverage | `make check` on a fresh database |
+| Frontend regression | 622 app-core tests in each of Vancouver, Halifax and Tokyo, plus every other package | `make check` |
+| Hosted CI | All 24 checks passed on PR #59 | Includes the web, Connect, journeys, filings and Android jobs; Stripe runs in its own manual workflow |
 | Native transaction | Android 1/1 | Development build; iOS and release-build qualification remain open |
 
-Full web61 passed on source `c5f82cd5e2957be72a97a0e3274febf648061b7dbef0620bfd7530afde14244e` (`e2e-d267570d4a7f`). Later targeted web5 (`e2e-7b0b1698509f`), Connect50 (`e2e-e83219560593`), filings1 (`e2e-3376d9cab069`) and journeys6 (`e2e-91256a3e3042`) all passed on source `91ed7d755852b79af9dd8418e13b0494052ea4d04ce5f6dea7d1573894737f7d`. Reports live under `.scratchpad/<run>/`. Stripe six-case qualification after cleanup hardening is `.scratchpad/e2e-bf4adfa3061f/`, on the same `91ed7d…` source. Exact hashes and all prior runs remain in `coverage.json`. No hosted CI run is credited.
+Reports live under `.scratchpad/<run>/`. Earlier runs and their sources remain in `coverage.json` and `history.md`.
 
-Backend/frontend lint, strict typechecking, structure/unused-code checks and all formatting checks passed. Code generation passed against a temporary Git index containing the intended generated changes; the user's real index was untouched. This is component-gate evidence, not a claim that one aggregate `make check` invocation or hosted pipeline passed.
+The registry holds 60 required cases. `coverage.json` maps each to the audit families its assertions exercise. Judged strictly, 74 of the 302 families are partly covered, none is fully covered and 228 have no case yet; `coverage_summary` breaks this down by priority and category.
 
 ## Organization and reusable pieces
 
@@ -57,7 +56,7 @@ make test-stripe-browser
 
 The Stripe lane requires dedicated ready sandbox merchants and local CLI credentials, or explicit environment credentials in CI. It uses actual Stripe.js pointer interaction, challenge controls and signed callbacks. Fee-readiness failures can invoke bounded official CLI redelivery of the exact owned event. This does not simulate a callback or establish production retry timing.
 
-Each isolated run applies the approved existing migration chain through `cb0028` to its new database and seeds core demo data before starting services. No schema, model or new migration is part of this changeset. Browser time stays real; backend regression uses the repository's frozen clock and supported fresh-database wrapper.
+Each isolated run applies the approved existing migration chain through `cb0032` to its new database and seeds core demo data before starting services. No schema, model or new migration is part of this changeset. Browser time stays real; backend regression uses the repository's frozen clock and supported fresh-database wrapper.
 
 ## Background worker and scheduler
 
@@ -91,6 +90,21 @@ Read-only recovery verified already-refunded/canceled objects after their applic
 
 ## Product defects found and fixed
 
+- An invoice paid down by a visit deposit stayed "Sent"; an applied deposit now counts as part payment, and a part-paid invoice can still show overdue.
+- Deposit previews could exceed the price; a deposit is now capped at the price, and every preview uses the backend's half-to-even rounding.
+- An estimate preview ignored the document discount on a ticked add-on; Connect now shows the server's quote and acceptance refuses a total that changed.
+- A repeating booking with a count of zero or less was accepted; it is now refused and nothing is saved.
+- Editing a visit's invoice dropped its visit and staff links, so its deposit was never applied; the links now survive the edit.
+- A sale paid fully by gift card ignored another order's stock hold, and two open tickets could both take one visit; both are now refused.
+- Replaying a cash receipt, an invoice send or a series confirmation mailed twice, and a send lost to a provider outage was never retried; these now queue their delivery inside the command.
+- Staff could change a client's status without archiving; status now changes only through archive and restore.
+- Reports disagreed on the last instant of a period, a one-day tax return marked its whole period filed, and staff-pay year to date counted in UTC; all three are fixed.
+- A STOP received after a broadcast or text was queued was ignored; consent is now checked when the message goes out.
+- A refused manual message cleared its draft; the composer keeps it and says it wasn't delivered.
+- A reload during shop checkout lost the order; Connect keeps it for the session and resumes it.
+- A lapsed plan blocked cancelling client subscriptions, disconnecting Google and cancelling a scheduled broadcast; these stay available.
+- A missed plan webhook left access wrong; opening Plans and the daily `sync_plans` job now follow Stripe's status.
+- A widget embedded below the fold could stay at its 256px loading height; the frame now reports its height on changes Chrome still delivers offscreen.
 - Manual payment replay sent duplicate receipts: receipt intent now commits inside the original payment command.
 - Public booking replay sent duplicate acknowledgments: a distinct creation delivery scope preserves later approval/cancellation messages.
 - Contact ambiguity displayed “slot taken” and cleared the chosen time: localized contact guidance now keeps details and time available for correction.
@@ -104,13 +118,15 @@ The independent application review found no further concrete High/Medium regress
 
 ## Remaining execution
 
-1. Current web/Connect/pseudo and provider qualification passed; retain that evidence while expanding the next slice.
-2. Preserve strict reports/exports, completed-quarter filings and genuine Stripe event delay qualification; continue remaining finance/payment edges. No full-family coverage is implied.
-3. Continue the broader family matrix: more deposit/payment/refund and entitlement lifecycles, roles/tenant boundaries, worker/provider recovery, documents/configuration and native/device paths. Existing lower-level assertions supplement real user journeys.
-4. Provision GitHub's protected `stripe-sandbox` environment, dedicated CI credentials and ready CI merchants; hosted CI has not run.
-5. Qualify iOS and native release builds, and complete remaining lifecycle recovery checks.
+1. Add cases for the audit areas that have none yet: messages and consent, plans and seats, reviews and Google, admin and the marketing site, onboarding choices, and shop holds.
+2. Build the remaining anchor journeys (FLOW02 to FLOW10 in the brief); FLOW01 is covered in part.
+3. Close the residuals the fixes left: booking-change and estimate-send notices still send after commit without a queued delivery, a queued review invitation doesn't recheck email opt-out, a nil tax return can't be filed, and an SMTP connection refusal marks a delivery ambiguous instead of retrying it.
+4. Cover a program deposit, which needs the Stripe lane, and mixed-tax or capped fixed estimate discounts.
+5. Provision GitHub's protected `stripe-sandbox` environment, dedicated CI credentials and ready CI merchants, so the Stripe lane runs in hosted CI.
+6. Qualify iOS and native release builds, Firefox and WebKit for auth and payment, and measure flakes with shuffled and repeated runs.
+7. Strip a leading `--` from the runner's test arguments: today it reaches Playwright and turns a `--grep` into a file filter, so the whole lane runs.
 
-The pre-existing user edits to Connect's `PublicManage.tsx` and `PublicPay.tsx` were preserved. A long-label narrow-screen manage-page layout concern remains unverified. No commit, push or deployment has been performed.
+The pre-existing user edits to Connect's `PublicManage.tsx` and `PublicPay.tsx` stay in the main checkout and are not part of this branch. A long-label narrow-screen manage-page layout concern remains unverified. The branch is on PR #59 and nothing has been deployed.
 
 The filings lane seeds once at noon on the first day of the current Vancouver quarter using the supported seed clock. API and browser clocks stay real. It records completed-quarter filings in the app; it does not submit to tax authorities or transfer money. Cleanup reaping preserves prior provider/process failures and treats unknown outcomes as incomplete.
 

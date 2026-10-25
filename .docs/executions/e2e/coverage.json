@@ -17365,7 +17365,7 @@
   },
   "audit_revision": "2a5441aff0b2a9c791bf75b63cffc6884cb8fceb",
   "execution_base_revision": "eea0e1cbe94ba4d12a3c788c759b06b05b636d2c",
-  "execution_has_uncommitted_changes": true,
+  "execution_has_uncommitted_changes": false,
   "fixture_policy": {
     "visible_content": "Realistic people, pets, services and document text appropriate to the demo business",
     "run_identity": "UUIDs remain in email aliases, idempotency keys and fixture identifiers",
@@ -17561,6 +17561,76 @@
       "source_stable": true,
       "diagnostic_override": false,
       "metadata": ".scratchpad/e2e-bf4adfa3061f/run.json"
+    },
+    {
+      "surface": "web",
+      "project": "default",
+      "passed": 67,
+      "presentation_skipped": 1,
+      "source_sha256": "71a3d1cdcb6683f671a4b5e934784f2a89ca736f03a5cf2706a64e65180a63ee",
+      "source_stable": true,
+      "diagnostic_override": false,
+      "metadata": ".scratchpad/e2e-d35310e3ffcc/run.json"
+    },
+    {
+      "surface": "connect",
+      "project": "default",
+      "passed": 53,
+      "presentation_skipped": 1,
+      "source_sha256": "71a3d1cdcb6683f671a4b5e934784f2a89ca736f03a5cf2706a64e65180a63ee",
+      "source_stable": true,
+      "diagnostic_override": false,
+      "metadata": ".scratchpad/e2e-312f41471fe6/run.json"
+    },
+    {
+      "surface": "journeys",
+      "project": "default",
+      "passed": 10,
+      "presentation_skipped": 0,
+      "source_sha256": "71a3d1cdcb6683f671a4b5e934784f2a89ca736f03a5cf2706a64e65180a63ee",
+      "source_stable": true,
+      "diagnostic_override": false,
+      "metadata": ".scratchpad/e2e-9e2010e2e285/run.json"
+    },
+    {
+      "surface": "filings",
+      "project": "default",
+      "passed": 1,
+      "presentation_skipped": 0,
+      "source_sha256": "71a3d1cdcb6683f671a4b5e934784f2a89ca736f03a5cf2706a64e65180a63ee",
+      "source_stable": true,
+      "diagnostic_override": false,
+      "metadata": ".scratchpad/e2e-8e772ccfdd3d/run.json"
+    },
+    {
+      "surface": "web",
+      "project": "pseudo",
+      "passed": 1,
+      "presentation_skipped": 0,
+      "source_sha256": "71a3d1cdcb6683f671a4b5e934784f2a89ca736f03a5cf2706a64e65180a63ee",
+      "source_stable": true,
+      "diagnostic_override": false,
+      "metadata": ".scratchpad/e2e-d91927896142/run.json"
+    },
+    {
+      "surface": "connect",
+      "project": "pseudo",
+      "passed": 6,
+      "presentation_skipped": 0,
+      "source_sha256": "71a3d1cdcb6683f671a4b5e934784f2a89ca736f03a5cf2706a64e65180a63ee",
+      "source_stable": true,
+      "diagnostic_override": false,
+      "metadata": ".scratchpad/e2e-73b1a71fa492/run.json"
+    },
+    {
+      "surface": "connect-stripe",
+      "project": "default",
+      "passed": 7,
+      "presentation_skipped": 0,
+      "source_sha256": "71a3d1cdcb6683f671a4b5e934784f2a89ca736f03a5cf2706a64e65180a63ee",
+      "source_stable": true,
+      "diagnostic_override": false,
+      "metadata": ".scratchpad/e2e-594077efb873/run.json"
     }
   ]
 }
