@@ -74,6 +74,37 @@ export async function inboxMail(
     expect(response.status()).toBe(200);
     return ((await response.json()) as { messages: { ID: string; Subject: string }[] }).messages;
 }
+export interface DeliveredMail {
+    id: string;
+    subject: string;
+    to: string[];
+    text: string;
+}
+export async function deliveredMail(
+    request: APIRequestContext,
+    email: string,
+): Promise<DeliveredMail[]> {
+    const base = process.env.MAILPIT_URL ?? "http://localhost:8715";
+    const found = await inboxMail(request, email);
+    return Promise.all(
+        found.reverse().map(async ({ ID }) => {
+            const response = await request.get(`${base}/api/v1/message/${ID}`);
+            expect(response.status()).toBe(200);
+            const mail = (await response.json()) as {
+                Subject: string;
+                Text: string;
+                To: { Address: string }[];
+            };
+            return {
+                id: ID,
+                subject: mail.Subject,
+                to: mail.To.map((to) => to.Address),
+                // SMTP MIME normalizes line endings and adds a terminal newline only.
+                text: mail.Text.replaceAll("\r\n", "\n").replace(/\n$/, ""),
+            };
+        }),
+    );
+}
 export async function expectMail(request: APIRequestContext, email: string): Promise<string> {
     await expect
         .poll(async () => (await inboxMail(request, email)).length, { timeout: 30_000 })

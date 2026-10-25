@@ -91,6 +91,7 @@ export async function sellEntitlement(
     client: ClientFixture,
     kind: "gift_card" | "package",
     itemId: string | null,
+    subjectId?: string,
 ): Promise<void> {
     await navigate(page, "/payments/gift-cards");
     await page.getByRole("button", { name: w.sellNew, exact: true }).click();
@@ -108,6 +109,18 @@ export async function sellEntitlement(
             .click();
     await dialog.getByRole("combobox", { name: w.client, exact: true }).fill(client.name);
     await page.locator(`[role="option"][data-value="${client.id}"]`).click({ timeout: 60_000 });
+    if (subjectId !== undefined) {
+        const subjects = dialog.getByRole("group", {
+            name: strings.subjects.one("pet"),
+            exact: true,
+        });
+        await expect(subjects.locator('button[data-value="shared"]')).toHaveAttribute(
+            "aria-pressed",
+            "true",
+            { timeout: 60_000 },
+        );
+        await subjects.locator(`button[data-value="${subjectId}"]`).click();
+    }
     const responsePromise = page.waitForResponse(
         (r) =>
             r.url().endsWith(kind === "gift_card" ? "/v1/gift-cards" : "/v1/packages") &&
