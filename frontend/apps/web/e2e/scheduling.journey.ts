@@ -197,9 +197,14 @@ test("SCH-E2E-03 two real clients race for one time without loser side effects",
         expect(committed.deliveries).toEqual([
             { id: expect.any(String), state: "accepted", recipient: winner.email },
         ]);
-        await expect.poll(async () => (await inboxMail(page.request, winner.email)).length).toBe(1);
-        const winnerMail = await inboxMail(page.request, winner.email);
-        expect(winnerMail[0]?.Subject).toBe("Booking request received — Birchbark Pet Studio");
+        const acknowledgment = "Booking request received — Birchbark Pet Studio";
+        // the intake form cron may also mail the new client while this runs
+        const acknowledgments = async () =>
+            (await inboxMail(page.request, winner.email)).filter(
+                ({ Subject }) => Subject === acknowledgment,
+            );
+        await expect.poll(async () => (await acknowledgments()).length).toBe(1);
+        const winnerMail = await acknowledgments();
         const message = await page.request.get(
             `${process.env.MAILPIT_URL ?? "http://localhost:8715"}/api/v1/message/${winnerMail[0]?.ID}`,
         );
@@ -230,12 +235,9 @@ test("SCH-E2E-03 two real clients race for one time without loser side effects",
                 }
             }
             expect(await raceEvidence(fixture, contacts)).toEqual(committed);
-            expect(
-                (await inboxMail(page.request, winner.email)).map(({ ID, Subject }) => ({
-                    ID,
-                    Subject,
-                })),
-            ).toEqual(winnerMail.map(({ ID, Subject }) => ({ ID, Subject })));
+            expect((await acknowledgments()).map(({ ID, Subject }) => ({ ID, Subject }))).toEqual(
+                winnerMail.map(({ ID, Subject }) => ({ ID, Subject })),
+            );
             expect(await inboxMail(page.request, losingContact.email)).toEqual([]);
             await testInfo.attach("real-last-slot-race", {
                 body: JSON.stringify({
