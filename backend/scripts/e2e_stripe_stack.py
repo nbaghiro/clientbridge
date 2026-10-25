@@ -204,6 +204,7 @@ def run(args: argparse.Namespace, directory: Path) -> None:
         "cleanup": "pending",
         "docker_cleanup": "pending",
         "process_cleanup": "pending",
+        **stack.worker_checks,
     }
     metadata = directory / "run.json"
     metadata.write_text(json.dumps(record, indent=2))
@@ -248,25 +249,29 @@ def run(args: argparse.Namespace, directory: Path) -> None:
                 record["provider_cleanup"] = "pending"
 
             try:
-                stack.start(processes, log, before_api=before_api, browser_fixtures=False)
-                with (directory / "browser.log").open("wb") as browser_log:
-                    stack.command(
-                        [
-                            "pnpm",
-                            "--filter",
-                            "connect",
-                            "exec",
-                            "playwright",
-                            "test",
-                            "--config=playwright.stripe.config.ts",
-                        ],
-                        browser_log,
-                        frontend=True,
+                try:
+                    stack.start(processes, log, before_api=before_api, browser_fixtures=False)
+                    with (directory / "browser.log").open("wb") as browser_log:
+                        stack.command(
+                            [
+                                "pnpm",
+                                "--filter",
+                                "connect",
+                                "exec",
+                                "playwright",
+                                "test",
+                                "--config=playwright.stripe.config.ts",
+                            ],
+                            browser_log,
+                            frontend=True,
+                        )
+                    report = directory / "browser-results" / "results.json"
+                    Report.model_validate_json(report.read_text()).validate_evidence(
+                        REQUIRED_CASES["stripe"]
                     )
-                report = directory / "browser-results" / "results.json"
-                Report.model_validate_json(report.read_text()).validate_evidence(
-                    REQUIRED_CASES["stripe"]
-                )
+                finally:
+                    record.update(stack.finish_worker())
+                stack.require_worker()
                 record["outcome"] = "passed"
             finally:
                 if prepared:

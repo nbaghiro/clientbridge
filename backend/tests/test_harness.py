@@ -549,9 +549,18 @@ class _Runtime:
         self.provider_cleanup_attempted = False
         self.docker_cleanup_attempted = False
         self.browser_report_written = False
+        self.worker_checks: dict[str, object] = {"worker_final": "pending"}
 
     def configure(self) -> None:
         pass
+
+    def finish_worker(self) -> dict[str, object]:
+        self.worker_checks["worker_final"] = "failed" if self.fault == "worker" else "passed"
+        return dict(self.worker_checks)
+
+    def require_worker(self) -> None:
+        if self.worker_checks["worker_final"] != "passed":
+            raise functional.WorkerFailed("injected worker stop")
 
     def start(
         self,
@@ -636,6 +645,7 @@ class _Relay:
         ("callback", "passed", "failed", "passed"),
         ("provider", "failed", "passed", "passed"),
         ("docker", "passed", "passed", "failed"),
+        ("worker", "passed", "passed", "passed"),
     ],
 )
 def test_provider_runner_retains_cleanup_failures_without_external_services(
@@ -689,8 +699,11 @@ def test_provider_runner_retains_cleanup_failures_without_external_services(
     assert record["provider_cleanup"] == provider
     assert record["process_cleanup"] == process
     assert record["docker_cleanup"] == docker
-    assert record["cleanup"] == ("passed" if fault == "none" else "failed")
+    assert record["cleanup"] == ("passed" if fault in ("none", "worker") else "failed")
     assert record["outcome"] == ("passed" if fault == "none" else "failed")
+    assert record["worker_final"] == ("failed" if fault == "worker" else "passed")
+    if fault == "worker":
+        assert record["failure_type"] == "WorkerFailed"
     if fault == "docker":
         assert record["failure_type"] == "CleanupFailed"
     assert record["source_stable"] is True
@@ -1108,3 +1121,151 @@ def test_docker_reaper_preserves_provider_and_process_evidence(
     assert preserved == {
         key: value for key, value in original.items() if key not in ("cleanup", "docker_cleanup")
     }
+
+
+def _worker(stack: functional.Stack, code: str) -> subprocess.Popen[bytes]:
+    stack.worker = subprocess.Popen([sys.executable, "-c", code], start_new_session=True)
+    return stack.worker
+
+
+def _log(stack: functional.Stack, *lines: str) -> None:
+    with (stack.directory / "worker.log").open("a") as log:
+        for line in lines:
+            log.write(f"2026-10-25 09:00:15,000 INFO arq.worker {line}\n")
+
+
+def test_functional_browsers_wait_for_a_live_worker_heartbeat(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    stack = functional.Stack(tmp_path)
+    beats: list[bool] = [False, True]
+    monkeypatch.setattr(stack, "worker_heartbeat", lambda: beats.pop(0))
+    exited = _worker(stack, "pass")
+    exited.wait(timeout=10)
+    with pytest.raises(functional.WorkerFailed, match="no heartbeat"):
+        stack.await_worker(seconds=5)
+    assert stack.worker_checks["worker_heartbeat"] == "failed"
+    assert beats == [False, True]
+    running = _worker(stack, "import time; time.sleep(30)")
+    try:
+        stack.await_worker(seconds=10)
+    finally:
+        stop(running, grace_seconds=5)
+    assert stack.worker_checks["worker_heartbeat"] == "passed"
+    assert beats == []
+
+
+def test_functional_probe_runs_a_real_cron_entry_by_its_scheduled_name(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from arq.cron import CronJob
+
+    from clientbridge.tasks.worker import WorkerSettings
+
+    enqueued: list[tuple[str, str | None]] = []
+    stack = functional.Stack(tmp_path)
+    stack.env["REDIS_URL"] = "redis://localhost:1/0"
+
+    class Pool:
+        async def enqueue_job(self, function: str, *, _job_id: str | None = None) -> object:
+            enqueued.append((function, _job_id))
+            _log(stack, f"  0.01s ← {function} ● 0")
+            return object()
+
+        async def aclose(self) -> None:
+            pass
+
+    async def pool(_settings: object) -> Pool:
+        return Pool()
+
+    monkeypatch.setattr(functional, "create_pool", pool)
+    running = _worker(stack, "import time; time.sleep(30)")
+    try:
+        stack.probe_schedule(seconds=10)
+    finally:
+        stop(running, grace_seconds=5)
+    names = [job.name for job in WorkerSettings.cron_jobs if isinstance(job, CronJob)]
+    assert [function for function, _ in enqueued] == [f"cron:{functional.PROBE_JOB}"]
+    assert enqueued[0][0] in names
+    assert (enqueued[0][1] or "").startswith("e2e-probe:")
+    assert stack.worker_checks["worker_probe"] == "passed"
+
+
+def test_functional_probe_fails_when_the_cron_job_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    stack = functional.Stack(tmp_path)
+    stack.env["REDIS_URL"] = "redis://localhost:1/0"
+
+    class Pool:
+        async def enqueue_job(self, function: str, *, _job_id: str | None = None) -> object:
+            _log(stack, f"  0.01s ! {function} failed, RuntimeError: injected")
+            return object()
+
+        async def aclose(self) -> None:
+            pass
+
+    async def pool(_settings: object) -> Pool:
+        return Pool()
+
+    monkeypatch.setattr(functional, "create_pool", pool)
+    running = _worker(stack, "import time; time.sleep(30)")
+    try:
+        with pytest.raises(functional.WorkerFailed, match="probed cron job"):
+            stack.probe_schedule(seconds=10)
+    finally:
+        stop(running, grace_seconds=5)
+    assert stack.worker_checks["worker_probe"] == "failed"
+
+
+@pytest.mark.parametrize(
+    ("lines", "alive", "schedule", "final"),
+    [
+        ([f"  0.01s ← cron:{functional.PROBE_JOB} ● 0"], True, "failed", "passed"),
+        (["  0.02s ← cron:send_deliveries ● 1"], True, "passed", "passed"),
+        (["  0.02s ← cron:send_deliveries ● 1"], False, "passed", "failed"),
+        (
+            ["  0.02s ← cron:send_deliveries ● 1", "  0.03s ! cron:reconcile_ledger failed, X: y"],
+            True,
+            "failed",
+            "passed",
+        ),
+    ],
+)
+def test_functional_run_records_the_scheduler_and_a_worker_alive_at_the_end(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    lines: list[str],
+    alive: bool,
+    schedule: str,
+    final: str,
+) -> None:
+    stack = functional.Stack(tmp_path)
+    stack.worker_checks.update(worker_heartbeat="passed", worker_probe="passed")
+    monkeypatch.setattr(stack, "worker_heartbeat", lambda: alive)
+    _log(stack, *lines)
+    running = _worker(stack, "import time; time.sleep(30)")
+    try:
+        evidence = stack.finish_worker(seconds=0.5)
+    finally:
+        stop(running, grace_seconds=5)
+    assert evidence["worker_schedule"] == schedule
+    assert evidence["worker_final"] == final
+    assert evidence["scheduled_jobs"] == functional.scheduled_jobs(tmp_path / "worker.log")
+    if schedule == final == "passed":
+        stack.require_worker()
+    else:
+        with pytest.raises(functional.WorkerFailed):
+            stack.require_worker()
+
+
+def test_functional_run_without_a_started_worker_keeps_pending_checks(tmp_path: Path) -> None:
+    stack = functional.Stack(tmp_path)
+    assert stack.finish_worker(seconds=0) == {
+        "worker_heartbeat": "pending",
+        "worker_probe": "pending",
+        "worker_schedule": "pending",
+        "worker_final": "pending",
+    }
+    with pytest.raises(functional.WorkerFailed, match="worker_heartbeat"):
+        stack.require_worker()

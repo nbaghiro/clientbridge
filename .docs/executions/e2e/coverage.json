@@ -14834,8 +14834,11 @@
       "canonical_id": "OPS15",
       "completion_gate": "Implement the full scenario with real rendered browser/native interactions wherever UI exists, real app/DB and sync observation, durable/provider side-effect oracle, explicit forbidden effects, and relevant restart/concurrency edges. Existing API/unit/provider assertions supplement the journey. Record successful execution per required lane; never count skips as proof.",
       "runtime_verified": false,
-      "coverage": "open",
-      "covered_by": []
+      "coverage": "partial",
+      "covered_by": [
+        "EMBED-E2E-01"
+      ],
+      "coverage_gap": "Only what EMBED-E2E-01 asserts is covered; the rest of this family's audit assertions are unverified."
     },
     {
       "id": "OPS16",
@@ -14871,8 +14874,11 @@
       "canonical_id": "OPS16",
       "completion_gate": "Implement the full scenario with real rendered browser/native interactions wherever UI exists, real app/DB and sync observation, durable/provider side-effect oracle, explicit forbidden effects, and relevant restart/concurrency edges. Existing API/unit/provider assertions supplement the journey. Record successful execution per required lane; never count skips as proof.",
       "runtime_verified": false,
-      "coverage": "open",
-      "covered_by": []
+      "coverage": "partial",
+      "covered_by": [
+        "EMBED-E2E-01"
+      ],
+      "coverage_gap": "Only what EMBED-E2E-01 asserts is covered; the rest of this family's audit assertions are unverified."
     },
     {
       "id": "OPS17",
@@ -15004,8 +15010,11 @@
       "canonical_id": "OPS19",
       "completion_gate": "Implement the full scenario with real rendered browser/native interactions wherever UI exists, real app/DB and sync observation, durable/provider side-effect oracle, explicit forbidden effects, and relevant restart/concurrency edges. Existing API/unit/provider assertions supplement the journey. Record successful execution per required lane; never count skips as proof.",
       "runtime_verified": false,
-      "coverage": "open",
-      "covered_by": []
+      "coverage": "partial",
+      "covered_by": [
+        "CLS-E2E-01"
+      ],
+      "coverage_gap": "Only what CLS-E2E-01 asserts is covered; the rest of this family's audit assertions are unverified."
     },
     {
       "id": "OPS20",
@@ -16168,7 +16177,8 @@
         "Attempt promotion while full through UI and API",
         "Dismiss anonymous customer cancellation confirmation without mutation",
         "Cancel through real Connect manage page and reload",
-        "Observe automatic promotion in two provider contexts and reload"
+        "Observe automatic promotion in two provider contexts and reload",
+        "Wait for the background worker's scheduled delivery run to send the promoted client's seat notice"
       ],
       "expected": [
         "One class slot only, maximum two occupied seats",
@@ -16176,21 +16186,24 @@
         "Canceled client absent from occupied roster",
         "Waitlisted client automatically confirmed",
         "Exactly one canceled and two confirmed bookings",
-        "Customer reload shows canceled and disallows repeat cancel/reschedule"
+        "Customer reload shows canceled and disallows repeat cancel/reschedule",
+        "The seat notice delivery, queued by the manage-page cancellation and sent by no request, becomes accepted and reaches Mailpit exactly once inside the send_deliveries tick window"
       ],
       "boundaries": [
         "Provider UI currently exposes no individual class-enrollment cancellation; tested customer cancellation instead",
         "API creates initial class/session/enrollment prerequisites",
-        "No deposit/refund/provider payment or concurrent cancellation claim"
+        "No deposit/refund/provider payment or concurrent cancellation claim",
+        "Worker attribution comes from the delivery scope having no inline dispatch plus Mailpit arrival timing; the delivery row has no sender column"
       ],
       "related_audit_families": [
+        "OPS19",
         "SCH06",
         "SCH09"
       ],
-      "verified_on": "2026-10-23",
+      "verified_on": "2026-10-25",
       "evidence": [
-        ".scratchpad/e2e-282ac2170f9a/run.json",
-        ".scratchpad/e2e-282ac2170f9a/browser-results/results.json"
+        ".scratchpad/e2e-175f57ee8f6e/run.json",
+        ".scratchpad/e2e-175f57ee8f6e/browser-results/results.json"
       ],
       "runtime_scope": "Real web and Connect production servers, source stable, cleanup independently verified"
     },
@@ -16754,6 +16767,40 @@
         ".scratchpad/e2e-7b0b1698509f/browser-results/results.json"
       ],
       "runtime_scope": "Strict unchanged-source five-case run with catalog4, all first attempt46.2s; process/Docker cleanup passed"
+    },
+    {
+      "id": "EMBED-E2E-01",
+      "status": "verified",
+      "risk": "medium",
+      "layer": "browser",
+      "lane": "pr",
+      "implementation": [
+        "frontend/apps/connect/e2e/connect.e2e.ts",
+        "frontend/apps/connect/src/embed.ts"
+      ],
+      "setup": "Host page on the book origin with a tall spacer above an inline shop widget from the shop origin",
+      "actions": [
+        "Load the embed loader and the shop widget below the fold without scrolling"
+      ],
+      "expected": [
+        "The iframe grows past its 256px loading height to match its content while still offscreen",
+        "The host page has not scrolled"
+      ],
+      "boundaries": [
+        "Chromium only; the cause is Chrome not running ResizeObserver in offscreen cross-origin frames",
+        "No completion, focus or message-trust checks"
+      ],
+      "verified_on": "2026-10-25",
+      "evidence": [
+        ".scratchpad/e2e-c12811f16ab5/run.json",
+        ".scratchpad/e2e-c12811f16ab5/browser-results/results.json",
+        ".scratchpad/e2e-43f3e7b14dce/run.json"
+      ],
+      "runtime_scope": "Real Connect production server, strict unchanged source, cleanup passed; the old-code reproduction run was diagnostic",
+      "related_audit_families": [
+        "OPS15",
+        "OPS16"
+      ]
     }
   ],
   "coverage_summary": {
@@ -16761,19 +16808,19 @@
     "families": 302,
     "overall": {
       "covered": 0,
-      "partial": 61,
-      "open": 241
+      "partial": 64,
+      "open": 238
     },
     "by_priority": {
       "P0": {
         "covered": 0,
-        "partial": 39,
-        "open": 109
+        "partial": 40,
+        "open": 108
       },
       "P1": {
         "covered": 0,
-        "partial": 22,
-        "open": 124
+        "partial": 24,
+        "open": 122
       },
       "P1 capability": {
         "covered": 0,
@@ -16864,8 +16911,8 @@
       },
       "15": {
         "covered": 0,
-        "partial": 0,
-        "open": 20
+        "partial": 3,
+        "open": 17
       }
     }
   },

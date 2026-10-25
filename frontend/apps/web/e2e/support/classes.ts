@@ -210,3 +210,74 @@ export async function classManageUrl(fixture: ClassFixture): Promise<string> {
     const { manage_token: token } = JSON.parse(stdout) as { manage_token: string };
     return `http://book.localhost:${port}/m/${encodeURIComponent(token)}`;
 }
+
+interface SeatDelivery {
+    id: string;
+    state: string;
+    error: string | null;
+    channel: string;
+    recipient: string;
+    subject: string;
+    created_at: string;
+}
+
+async function seatDeliveries(fixture: ClassFixture, bookingId: string): Promise<SeatDelivery[]> {
+    const { stdout } = await execute(
+        "uv",
+        [
+            "run",
+            "python",
+            "-m",
+            "scripts.e2e_classes",
+            fixture.itemId,
+            "--seat-deliveries",
+            bookingId,
+        ],
+        {
+            cwd: fileURLToPath(new URL("../../../../../backend", import.meta.url)),
+            timeout: 30_000,
+        },
+    );
+    return (JSON.parse(stdout) as { deliveries: SeatDelivery[] }).deliveries;
+}
+
+// The worker's send_deliveries cron fires at second 15 of every minute (tasks/worker.py).
+const DELIVERY_TICK = { second: 15, window: 10 };
+
+export async function expectWorkerSentSeatNotice(
+    page: Page,
+    fixture: ClassFixture,
+    bookingId: string,
+    email: string,
+) {
+    await expect
+        .poll(async () => (await seatDeliveries(fixture, bookingId)).map((row) => row.state), {
+            timeout: 100_000,
+            intervals: [2_000],
+        })
+        .toEqual(["accepted"]);
+    const [delivery] = await seatDeliveries(fixture, bookingId);
+    if (!delivery) throw new Error("The seat notice delivery disappeared");
+    expect(delivery).toMatchObject({ channel: "email", error: null, recipient: email });
+    const base = process.env.MAILPIT_URL ?? "http://localhost:8715";
+    const received = async () => {
+        const response = await page.request.get(`${base}/api/v1/search`, {
+            params: { query: `to:${email}`, limit: 100 },
+        });
+        expect(response.status()).toBe(200);
+        const body = (await response.json()) as {
+            messages: { ID: string; Subject: string; Created: string }[];
+        };
+        return body.messages.filter((message) => message.Subject === delivery.subject);
+    };
+    await expect.poll(async () => (await received()).length).toBe(1);
+    const [message] = await received();
+    if (!message) throw new Error("Mailpit lost the seat notice");
+    const queued = new Date(delivery.created_at).getTime();
+    const arrived = new Date(message.Created);
+    expect(arrived.getTime()).toBeGreaterThanOrEqual(queued - 1_000);
+    expect(arrived.getTime() - queued).toBeLessThanOrEqual(75_000);
+    expect(arrived.getUTCSeconds()).toBeGreaterThanOrEqual(DELIVERY_TICK.second);
+    expect(arrived.getUTCSeconds()).toBeLessThan(DELIVERY_TICK.second + DELIVERY_TICK.window);
+    return { delivery, message };
+}

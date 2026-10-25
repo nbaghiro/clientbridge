@@ -579,10 +579,13 @@ jobs:
           enable-cache: false
       - run: uv sync
         working-directory: backend
-      - name: start the stack and the API
+      - name: start the stack, the API and the worker
         run: |
           ( make up migrate seed-core && cd backend \
             && exec uv run uvicorn clientbridge.main:app --host 0.0.0.0 --port 8701 --timeout-keep-alive 120 ) > /tmp/api.log 2>&1 &  # 0.0.0.0: the compose auth service posts email here
+          ( timeout 900 sh -c 'until curl -sf 127.0.0.1:8701/health; do sleep 2; done' && cd backend \
+            && exec uv run arq clientbridge.tasks.worker.WorkerSettings ) > /tmp/worker.log 2>&1 &
+          echo $! > /tmp/worker.pid
       - name: enable KVM for the emulator
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
@@ -637,12 +640,18 @@ jobs:
           frontend/apps/mobile/scripts/ci-emulator.sh start
           adb install app-release.apk
           timeout 720 sh -c 'until curl -sf 127.0.0.1:8701/health; do sleep 2; done'
+          # the same heartbeat the liveness probe reads, so no walkthrough runs without a worker
+          (cd backend && timeout 120 sh -c 'until uv run arq --check clientbridge.tasks.worker.WorkerSettings; do sleep 2; done')
           (cd backend && uv run python -m scripts.sync_caught_up)
           cd frontend/apps/mobile
           # a fixed driver port outside the ephemeral range, where Maestro's random pick can collide with an emulator socket
           timeout 20m "$HOME/.maestro/bin/maestro" test shard --driver-host-port 7001 \
             --test-output-dir test-results --debug-output test-results/debug --flatten-debug-output \
             | tee /tmp/maestro.log
+      - name: check the worker outlived the walkthroughs
+        run: |
+          kill -0 "$(cat /tmp/worker.pid)"
+          cd backend && uv run arq --check clientbridge.tasks.worker.WorkerSettings
       - name: flag walkthroughs over three times their usual time
         if: success() || failure()
         run: frontend/apps/mobile/scripts/slow-flows.sh /tmp/maestro.log
@@ -651,7 +660,7 @@ jobs:
         run: |
           mkdir -p frontend/apps/mobile/test-results
           adb logcat -d -v threadtime > frontend/apps/mobile/test-results/logcat.txt || true
-          cp /tmp/emulator.log /tmp/api.log frontend/apps/mobile/test-results/ || true
+          cp /tmp/emulator.log /tmp/api.log /tmp/worker.log frontend/apps/mobile/test-results/ || true
       - uses: actions/upload-artifact@v7
         if: always()
         with:
@@ -664,6 +673,7 @@ jobs:
           tail -200 frontend/apps/mobile/test-results/debug/maestro.log || true
           tail -300 frontend/apps/mobile/test-results/logcat.txt
           cat /tmp/api.log
+          tail -200 /tmp/worker.log || true
           docker compose logs --no-color auth | tail -200
 
   mobile:

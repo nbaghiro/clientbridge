@@ -2,7 +2,7 @@
 
 The suite exercises actual rendered interfaces, authenticated APIs, committed PostgreSQL transactions, PowerSync replicas, local mail/storage and genuine Stripe sandbox outcomes. Shared helpers handle sessions, owned prerequisites and observable waits; each scenario states its own exact expected and forbidden effects.
 
-**Execution is ongoing.** The registry contains 48 verified atomic cases, including one Android development-build case. These do not complete the 302 broader audit families. [coverage.json](coverage.json) records precise behavior, parent families, limitations and runtime evidence. The [comprehensive product brief](../../reviews/product/comprehensive-e2e-brief.md) remains the product map; [history.md](history.md) preserves diagnostic failures, fixes and earlier results. [evidence.json](evidence.json) is a source-assertion inventory, not runtime proof.
+**Execution is ongoing.** The registry contains 49 verified atomic cases, including one Android development-build case. These do not complete the 302 broader audit families. [coverage.json](coverage.json) records precise behavior, parent families, limitations and runtime evidence. The [comprehensive product brief](../../reviews/product/comprehensive-e2e-brief.md) remains the product map; [history.md](history.md) preserves diagnostic failures, fixes and earlier results. [evidence.json](evidence.json) is a source-assertion inventory, not runtime proof.
 
 ## Latest verification
 
@@ -58,6 +58,24 @@ make test-stripe-browser
 The Stripe lane requires dedicated ready sandbox merchants and local CLI credentials, or explicit environment credentials in CI. It uses actual Stripe.js pointer interaction, challenge controls and signed callbacks. Fee-readiness failures can invoke bounded official CLI redelivery of the exact owned event. This does not simulate a callback or establish production retry timing.
 
 Each isolated run applies the approved existing migration chain through `cb0028` to its new database and seeds core demo data before starting services. No schema, model or new migration is part of this changeset. Browser time stays real; backend regression uses the repository's frozen clock and supported fresh-database wrapper.
+
+## Background worker and scheduler
+
+Every isolated stack starts the arq worker beside the API, and both runners (`e2e_stack.py` and `e2e_stripe_stack.py`) refuse to start browsers until it is alive. They wait for the heartbeat the production liveness probe reads (`arq --check`), then enqueue one cron entry, `cron:prune_receipts`, under its scheduled name and wait for the worker's log to report it finished. That proves the schedule's wiring without changing it. At the end of a run they wait for a job the scheduler fired by itself, then require the worker process and its heartbeat to still be alive. `run.json` records `worker_heartbeat`, `worker_probe`, `worker_schedule`, `worker_final` and the `scheduled_jobs` the log reports, and a failed check fails the run as `WorkerFailed`. A cron job that fails during the run also fails `worker_schedule`.
+
+CLS-E2E-01 now proves the worker delivers. The customer cancellation on the manage page commits the promoted client's seat notice to the delivery queue, and nothing in that request sends it. The case waits for the delivery row to become `accepted`, finds exactly one matching message in Mailpit, and checks it arrived within ten seconds after second 15 of a minute, when `send_deliveries` runs. In the qualifying run (`e2e-175f57ee8f6e`) the notice was queued at 18:18:40 UTC and arrived at 18:19:15.
+
+The Android CI job also starts the worker, waits on the same heartbeat before the walkthroughs and checks it is still alive afterwards. `backend/tests/test_jobs.py` checks that every cron entry is a worker coroutine that fires at least daily, and `backend/tests/test_harness.py` covers the heartbeat gate, the probe and the end-of-run record.
+
+## Staging smoke lane
+
+`make test-staging-smoke` runs `frontend/apps/connect/e2e/smoke/` against deployed staging, or another environment through the `SMOKE_*` variables. It turns the staging QA checks into a lane: `config.js` and frame policy on every host, the bare-host redirects, the marketing site's demo link, the business page to booking and the shop, not-found pages, both widgets embedded on another origin, a widget below the fold, the staff setup screens and every demo owner's sign-in. A route guard aborts and fails on any write to the environment except signing in and the payment setup's Stripe session. The deploy workflow runs it in its own `staging-smoke` job after each staging deploy.
+
+The QA script's token-page check needs locally minted links, and its slug check saved a reserved slug to see the error, so neither is part of the read-only lane.
+
+The intermittent 256px shop widget was the frame's own resize report. The loading view is 256px tall, and Chrome delivers no ResizeObserver callbacks to an offscreen cross-origin frame, so a widget pushed below the fold before its content loaded kept its loading height until it was scrolled into view. `src/embed.ts` now also reports the height on DOM mutations, resource loads and font loads, which Chrome still delivers there, and skips unchanged heights. EMBED-E2E-01 reproduced 256px on the old code (`e2e-43f3e7b14dce`) and passes on the fix (`e2e-c12811f16ab5`). Against current staging, 23 of 24 smoke checks passed and the below-the-fold check failed at 256px, which is expected until the fix deploys.
+
+Strict targeted runs on source `4f2bd18679f0a0cfbf5e214ca3ccdccb9e434a94e331f4d8d01c93b4a902e21a`: CLS-E2E-01 in `e2e-175f57ee8f6e` and EMBED-E2E-01 in `e2e-c12811f16ab5`, each 1/1 on the first attempt with every worker check and cleanup passed. Two earlier attempts on the same source failed in setup or cleanup because the run's Kratos stopped answering while the 3.8 GiB Docker VM was shared with other stacks; neither is credited.
 
 ## CI and cleanup contract
 

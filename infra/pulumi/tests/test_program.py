@@ -617,10 +617,10 @@ def test_deploy_jobs_hold_only_what_they_need() -> None:
         jobs = dig(each, "jobs")
         assert isinstance(jobs, dict)
         for name_, job in jobs.items():
-            # the app jobs reach EAS with its token, so they need no Google identity
+            # app jobs reach EAS with its token and the smoke lane only reads: no Google identity
             wanted = (
                 {"contents": "read"}
-                if name_.endswith("-mobile")
+                if name_.endswith(("-mobile", "-smoke"))
                 else {
                     "contents": "read",
                     "id-token": "write",
@@ -634,6 +634,18 @@ def test_deploy_jobs_hold_only_what_they_need() -> None:
     assert 'pulumi login "$PULUMI_BACKEND_URL"' in str(dig(up, "run"))
     env = dig(workflow("deploy-environment.yml"), "jobs", "deploy", "env")
     assert dig(env, "PULUMI_BACKEND_URL") == "${{ vars.PULUMI_BACKEND_URL }}"
+
+
+def test_the_browser_smoke_lane_runs_after_each_staging_deploy_without_credentials() -> None:
+    smoke = dig(workflow("deploy.yml"), "jobs", "staging-smoke")
+    assert dig(smoke, "needs") == ["images", "staging"]
+    assert dig(smoke, "if") == "needs.staging.outputs.deployed == 'true'"
+    assert "environment" not in keys(smoke)
+    steps = listed(dig(smoke, "steps"))
+    assert [dig(s, "run") for s in steps][-1] == "make test-staging-smoke"
+    assert not [s for s in steps if str(dig(s, "uses")).startswith("google-github-actions/")]
+    production = dig(workflow("deploy.yml"), "jobs", "production", "needs")
+    assert "staging-smoke" not in listed(production)
 
 
 def test_stagings_seed_runs_by_hand_only_from_main_as_the_deployer() -> None:

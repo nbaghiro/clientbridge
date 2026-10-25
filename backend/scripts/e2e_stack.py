@@ -1,10 +1,12 @@
 """Run functional browsers against services owned by one disposable Compose project."""
 
 import argparse
+import asyncio
 import base64
 import hashlib
 import json
 import os
+import re
 import secrets
 import signal
 import socket
@@ -18,6 +20,7 @@ from pathlib import Path
 from typing import IO, Literal, cast
 
 import httpx
+from arq.connections import RedisSettings, create_pool
 
 from clientbridge.core import clock
 from clientbridge.core.config import Settings
@@ -25,6 +28,10 @@ from clientbridge.core.zones import zone
 from scripts.e2e_results import REQUIRED_CASES, Report
 
 ROOT = Path(__file__).resolve().parents[2]
+WORKER_SETTINGS = "clientbridge.tasks.worker.WorkerSettings"
+PROBE_JOB = "prune_receipts"
+COMPLETED_JOB = re.compile(r"← cron:(\w+) ●")
+FAILED_JOB = re.compile(r"! cron:(\w+) failed")
 
 
 def seed_timestamp(value: str) -> datetime:
@@ -110,6 +117,19 @@ def wait_for(url: str, seconds: int = 90) -> None:
     raise RuntimeError(f"service did not become ready: {url}")
 
 
+class WorkerFailed(RuntimeError):
+    pass
+
+
+def scheduled_jobs(log: Path) -> dict[str, list[str]]:
+    """The cron jobs the worker's own log reports finished, by outcome."""
+    text = log.read_text(errors="replace") if log.is_file() else ""
+    return {
+        "completed": sorted(set(COMPLETED_JOB.findall(text))),
+        "failed": sorted(set(FAILED_JOB.findall(text))),
+    }
+
+
 def group_alive(identity: int) -> bool:
     try:
         os.killpg(identity, 0)
@@ -181,6 +201,13 @@ class Stack:
         self.web = f"http://localhost:{self.web_port}"
         self.pseudo = f"http://localhost:{self.pseudo_port}"
         self.app = self.pseudo if browser_project == "pseudo" else self.web
+        self.worker: subprocess.Popen[bytes] | None = None
+        self.worker_checks: dict[str, object] = {
+            "worker_heartbeat": "pending",
+            "worker_probe": "pending",
+            "worker_schedule": "pending",
+            "worker_final": "pending",
+        }
 
     def command(self, arguments: list[str], log: IO[bytes], *, frontend: bool = False) -> None:
         process = subprocess.Popen(
@@ -462,10 +489,103 @@ class Stack:
                 start_new_session=True,
             )
             processes.callback(self.stop_owned, process)
+            if name == "worker":
+                self.worker = process
         wait_for(f"{self.api}/ready")
+        self.await_worker()
+        self.probe_schedule()
         if browser_fixtures:
             self.command([sys.executable, "-m", "scripts.web_fixtures"], log)
         self.command([sys.executable, "-m", "scripts.sync_caught_up"], log)
+
+    def worker_heartbeat(self) -> bool:
+        """The liveness probe production runs: `arq --check` reads the worker's heartbeat key."""
+        process = subprocess.Popen(
+            [sys.executable, "-m", "arq", "--check", WORKER_SETTINGS],
+            cwd=ROOT / "backend",
+            env=self.env,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
+        )
+        try:
+            return process.wait(timeout=30) == 0
+        except subprocess.TimeoutExpired:
+            return False
+        finally:
+            self.stop_owned(process)
+
+    def worker_running(self) -> bool:
+        return self.worker is not None and self.worker.poll() is None
+
+    def await_worker(self, seconds: float = 60) -> None:
+        deadline = time.monotonic() + seconds
+        while self.worker_running() and time.monotonic() < deadline:
+            if self.worker_heartbeat():
+                self.worker_checks["worker_heartbeat"] = "passed"
+                return
+            time.sleep(0.5)
+        self.worker_checks["worker_heartbeat"] = "failed"
+        raise WorkerFailed("the worker exited or recorded no heartbeat")
+
+    def probe_schedule(self, seconds: float = 60) -> None:
+        """Run one cron entry now under its scheduled name, so the schedule's wiring is proven."""
+
+        async def enqueue() -> bool:
+            pool = await create_pool(RedisSettings.from_dsn(self.env["REDIS_URL"]))
+            try:
+                job = await pool.enqueue_job(
+                    f"cron:{PROBE_JOB}", _job_id=f"e2e-probe:{secrets.token_hex(6)}"
+                )
+                return job is not None
+            finally:
+                await pool.aclose()
+
+        log = self.directory / "worker.log"
+        if asyncio.run(enqueue()):
+            deadline = time.monotonic() + seconds
+            while self.worker_running() and time.monotonic() < deadline:
+                jobs = scheduled_jobs(log)
+                if PROBE_JOB in jobs["failed"]:
+                    break
+                if PROBE_JOB in jobs["completed"]:
+                    self.worker_checks["worker_probe"] = "passed"
+                    return
+                time.sleep(0.5)
+        self.worker_checks["worker_probe"] = "failed"
+        raise WorkerFailed("the worker did not run the probed cron job")
+
+    def finish_worker(self, seconds: float = 75) -> dict[str, object]:
+        """Wait for a job the scheduler fired itself, then require the worker still alive."""
+        if self.worker is None:
+            return dict(self.worker_checks)
+        log = self.directory / "worker.log"
+        deadline = time.monotonic() + seconds
+        jobs = scheduled_jobs(log)
+        while (
+            not set(jobs["completed"]) - {PROBE_JOB}
+            and self.worker_running()
+            and time.monotonic() < deadline
+        ):
+            time.sleep(1)
+            jobs = scheduled_jobs(log)
+        fired = bool(set(jobs["completed"]) - {PROBE_JOB})
+        self.worker_checks["scheduled_jobs"] = jobs
+        self.worker_checks["worker_schedule"] = (
+            "passed" if fired and not jobs["failed"] else "failed"
+        )
+        alive = self.worker_running() and self.worker_heartbeat()
+        self.worker_checks["worker_final"] = "passed" if alive else "failed"
+        return dict(self.worker_checks)
+
+    def require_worker(self) -> None:
+        failed = [
+            name
+            for name in ("worker_heartbeat", "worker_probe", "worker_schedule", "worker_final")
+            if self.worker_checks[name] != "passed"
+        ]
+        if failed:
+            raise WorkerFailed(f"worker checks did not pass: {', '.join(failed)}")
 
     def cleanup(self) -> None:
         try:
@@ -492,6 +612,39 @@ def owned_processes(record: dict[str, object]) -> Iterator[ExitStack]:
             raise
         else:
             record["process_cleanup"] = "passed"
+
+
+def run_browsers(
+    stack: Stack, args: argparse.Namespace, processes: ExitStack, log: IO[bytes]
+) -> None:
+    stack.start(processes, log)
+    if args.surface == "connect":
+        stack.env["CONNECT_LINKS"] = subprocess.check_output(
+            [sys.executable, "-m", "scripts.connect_links"],
+            cwd=ROOT / "backend",
+            env=stack.env,
+            text=True,
+        )
+    command = [
+        "pnpm",
+        "--filter",
+        "web" if args.surface in ("journeys", "filings") else args.surface,
+        "exec",
+        "playwright",
+        "test",
+        *(
+            [f"--config=playwright.{args.surface}.config.ts"]
+            if args.surface in ("journeys", "filings")
+            else []
+        ),
+        f"--project={args.project}",
+        *args.tests,
+    ]
+    with (stack.directory / "browser.log").open("wb") as browser_log:
+        stack.command(command, browser_log, frontend=True)
+    report = stack.directory / "browser-results" / "results.json"
+    required = [] if args.tests or args.project != "default" else REQUIRED_CASES[args.surface]
+    Report.model_validate_json(report.read_text()).validate_evidence(required)
 
 
 def main() -> None:
@@ -564,42 +717,18 @@ def main() -> None:
         "process_cleanup": "pending",
         "docker_cleanup": "pending",
         "allow_source_changes": args.allow_source_changes,
+        **stack.worker_checks,
     }
     metadata = directory / "run.json"
     metadata.write_text(json.dumps(record, indent=2))
     signal.signal(signal.SIGTERM, lambda _signal, _frame: sys.exit(143))
     try:
         with owned_processes(record) as processes, (directory / "setup.log").open("wb") as log:
-            stack.start(processes, log)
-            if args.surface == "connect":
-                stack.env["CONNECT_LINKS"] = subprocess.check_output(
-                    [sys.executable, "-m", "scripts.connect_links"],
-                    cwd=ROOT / "backend",
-                    env=stack.env,
-                    text=True,
-                )
-            command = [
-                "pnpm",
-                "--filter",
-                "web" if args.surface in ("journeys", "filings") else args.surface,
-                "exec",
-                "playwright",
-                "test",
-                *(
-                    [f"--config=playwright.{args.surface}.config.ts"]
-                    if args.surface in ("journeys", "filings")
-                    else []
-                ),
-                f"--project={args.project}",
-                *args.tests,
-            ]
-            with (directory / "browser.log").open("wb") as browser_log:
-                stack.command(command, browser_log, frontend=True)
-            report = directory / "browser-results" / "results.json"
-            required = (
-                [] if args.tests or args.project != "default" else REQUIRED_CASES[args.surface]
-            )
-            Report.model_validate_json(report.read_text()).validate_evidence(required)
+            try:
+                run_browsers(stack, args, processes, log)
+            finally:
+                record.update(stack.finish_worker())
+            stack.require_worker()
             record["outcome"] = "passed"
     except BaseException as error:
         record["outcome"] = (

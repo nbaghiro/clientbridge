@@ -363,6 +363,8 @@ make test-web              # web smoke test: sign in, every page and dialog, no 
                            # duplicate client through the API if missing)
 make test-connect          # Connect e2e: book to the deposit step, manage link, shop and every client page (needs the API + seed)
 make test-mobile           # Maestro native walkthroughs (development build + local stack + seed)
+make test-staging-smoke    # read-only Playwright checks of deployed staging (SMOKE_* env vars pick another
+                           # environment; see demo.md for the logins it uses)
 make lighthouse-site       # Lighthouse budget (desktop >= 95 in every category) against the :8710 preview
 make test-sync             # disposable Postgres + PowerSync: per-role replica rows and columns, revocation,
                            # hours uploads, the signing-key rotation drill, then the replication health check
