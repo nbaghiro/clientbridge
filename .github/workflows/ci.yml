@@ -291,7 +291,8 @@ jobs:
       - run: make migrate
       - run: make auth-standalone
       - run: make seed-core
-      - run: uv run uvicorn clientbridge.main:app --port 8701 > /tmp/api.log 2>&1 &
+      # keep-alive outlasts any wait in a test, so no request reuses a connection uvicorn closed
+      - run: uv run uvicorn clientbridge.main:app --port 8701 --timeout-keep-alive 120 > /tmp/api.log 2>&1 &
         working-directory: backend
       - uses: pnpm/action-setup@v6
         with:
@@ -386,7 +387,7 @@ jobs:
       - run: pnpm --filter web exec playwright install --with-deps chromium
         working-directory: frontend
       - run: make up migrate seed-core
-      - run: uv run uvicorn clientbridge.main:app --host 0.0.0.0 --port 8701 > /tmp/api.log 2>&1 &  # 0.0.0.0: the compose auth service posts email here
+      - run: uv run uvicorn clientbridge.main:app --host 0.0.0.0 --port 8701 --timeout-keep-alive 120 > /tmp/api.log 2>&1 &  # 0.0.0.0: the compose auth service posts email here
         working-directory: backend
       - run: until curl -sf 127.0.0.1:8701/health; do sleep 1; done
         timeout-minutes: 2
@@ -516,7 +517,7 @@ jobs:
       - name: start the stack and the API
         run: |
           ( make up migrate seed-core && cd backend \
-            && exec uv run uvicorn clientbridge.main:app --host 0.0.0.0 --port 8701 ) > /tmp/api.log 2>&1 &  # 0.0.0.0: the compose auth service posts email here
+            && exec uv run uvicorn clientbridge.main:app --host 0.0.0.0 --port 8701 --timeout-keep-alive 120 ) > /tmp/api.log 2>&1 &  # 0.0.0.0: the compose auth service posts email here
       - name: enable KVM for the emulator
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
