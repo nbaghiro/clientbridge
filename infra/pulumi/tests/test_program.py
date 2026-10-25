@@ -636,7 +636,7 @@ def test_deploy_jobs_hold_only_what_they_need() -> None:
     assert dig(env, "PULUMI_BACKEND_URL") == "${{ vars.PULUMI_BACKEND_URL }}"
 
 
-def test_the_browser_smoke_lane_runs_after_each_staging_deploy_without_credentials() -> None:
+def test_the_browser_smoke_lane_gates_production_and_runs_without_credentials() -> None:
     smoke = dig(workflow("deploy.yml"), "jobs", "staging-smoke")
     assert dig(smoke, "needs") == ["images", "staging"]
     assert dig(smoke, "if") == "needs.staging.outputs.deployed == 'true'"
@@ -644,8 +644,9 @@ def test_the_browser_smoke_lane_runs_after_each_staging_deploy_without_credentia
     steps = listed(dig(smoke, "steps"))
     assert [dig(s, "run") for s in steps][-1] == "make test-staging-smoke"
     assert not [s for s in steps if str(dig(s, "uses")).startswith("google-github-actions/")]
-    production = dig(workflow("deploy.yml"), "jobs", "production", "needs")
-    assert "staging-smoke" not in listed(production)
+    production = dig(workflow("deploy.yml"), "jobs", "production")
+    assert "staging-smoke" in listed(dig(production, "needs"))
+    assert "needs.staging-smoke.result == 'success'" in str(dig(production, "if"))
 
 
 def test_stagings_seed_runs_by_hand_only_from_main_as_the_deployer() -> None:

@@ -3,6 +3,7 @@
 import argparse
 import asyncio
 import base64
+import fcntl
 import hashlib
 import json
 import os
@@ -88,6 +89,45 @@ def source_snapshot() -> dict[str, object]:
         "source_sha256": digest.hexdigest(),
         "dirty": bool(subprocess.check_output(["git", "status", "--porcelain"], cwd=ROOT)),
     }
+
+
+STACK_BYTES = 1536 * 1024 * 1024
+SLOTS = Path(os.environ.get("E2E_SLOT_DIR", Path.home() / ".cache" / "clientbridge-e2e" / "slots"))
+
+
+def slot_count() -> int:
+    configured = os.environ.get("E2E_STACK_SLOTS")
+    if configured:
+        return max(1, int(configured))
+    memory = subprocess.run(
+        ["docker", "info", "--format", "{{.MemTotal}}"], capture_output=True, text=True
+    )
+    return max(1, int(memory.stdout.strip() or STACK_BYTES) // STACK_BYTES)
+
+
+@contextmanager
+def stack_slot(*, poll_seconds: float = 5) -> Iterator[int]:
+    """Hold one of the machine's stack slots, so parallel runs can't exhaust Docker's memory."""
+    SLOTS.mkdir(parents=True, exist_ok=True)
+    count = slot_count()
+    waiting = False
+    while True:
+        for index in range(count):
+            handle = (SLOTS / f"{index}.lock").open("a")
+            try:
+                fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                handle.close()
+                continue
+            try:
+                yield index
+            finally:
+                handle.close()
+            return
+        if not waiting:
+            print(f"Waiting for one of {count} e2e stack slots on this machine", flush=True)
+            waiting = True
+        time.sleep(poll_seconds)
 
 
 def free_port() -> int:
@@ -669,6 +709,8 @@ def main() -> None:
     parser.add_argument("--allow-source-changes", action="store_true")
     parser.add_argument("tests", nargs=argparse.REMAINDER)
     args = parser.parse_args()
+    if args.tests[:1] == ["--"]:
+        args.tests = args.tests[1:]
     if args.allow_source_changes and os.environ.get("CI"):
         parser.error("CI cannot accept source changes during a run")
     if args.surface in ("journeys", "filings") and args.project != "default":
@@ -733,7 +775,11 @@ def main() -> None:
     metadata.write_text(json.dumps(record, indent=2))
     signal.signal(signal.SIGTERM, lambda _signal, _frame: sys.exit(143))
     try:
-        with owned_processes(record) as processes, (directory / "setup.log").open("wb") as log:
+        with (
+            stack_slot(),
+            owned_processes(record) as processes,
+            (directory / "setup.log").open("wb") as log,
+        ):
             try:
                 run_browsers(stack, args, processes, log)
             finally:

@@ -23,7 +23,7 @@ from dotenv import dotenv_values
 from clientbridge.core import clock
 from clientbridge.integrations.stripe import STRIPE_API_VERSION
 from scripts.e2e_results import REQUIRED_CASES, Report
-from scripts.e2e_stack import ROOT, Stack, owned_processes, source_snapshot, stop
+from scripts.e2e_stack import ROOT, Stack, owned_processes, source_snapshot, stack_slot, stop
 from scripts.e2e_stripe_relay import Relay
 from scripts.stripe_qa import environment, preflight
 
@@ -357,7 +357,8 @@ def main() -> int:
                 fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
             except BlockingIOError:
                 raise RuntimeError("another provider run holds the merchant lease") from None
-            run(args, directory)
+            with stack_slot():
+                run(args, directory)
     except BaseException as error:
         print(f"Stripe browser run did not complete: {type(error).__name__}", file=sys.stderr)
         return 1

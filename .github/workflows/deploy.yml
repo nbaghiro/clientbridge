@@ -140,13 +140,14 @@ jobs:
       allow_schema_ahead: ${{ github.event_name == 'workflow_dispatch' && inputs.rollback == true }}
 
   production:
-    needs: [images, staging]
-    # after staging deployed a push to main; directly (still behind approval) for a manual production run.
+    needs: [images, staging, staging-smoke]
+    # after staging deployed a push to main and passed its smoke lane; directly (still behind
+    # approval) for a manual production run.
     # DEPLOY_PRODUCTION is set by the cloud stack, false until production is one of its environments
     if: >-
       always() && vars.DEPLOY_PRODUCTION == 'true' && needs.images.result == 'success' &&
       ((github.event_name == 'workflow_run' && needs.staging.result == 'success' &&
-        needs.staging.outputs.deployed == 'true') ||
+        needs.staging.outputs.deployed == 'true' && needs.staging-smoke.result == 'success') ||
        (github.event_name == 'workflow_dispatch' && inputs.environment == 'production'))
     permissions:
       contents: read

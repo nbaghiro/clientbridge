@@ -1269,3 +1269,36 @@ def test_functional_run_without_a_started_worker_keeps_pending_checks(tmp_path: 
     }
     with pytest.raises(functional.WorkerFailed, match="worker_heartbeat"):
         stack.require_worker()
+
+
+def test_a_stack_waits_for_a_free_slot_on_the_machine(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(functional, "SLOTS", tmp_path)
+    monkeypatch.setenv("E2E_STACK_SLOTS", "1")
+    waits: list[float] = []
+
+    def sleep(seconds: float) -> None:
+        waits.append(seconds)
+        raise TimeoutError
+
+    with functional.stack_slot() as held:
+        assert held == 0
+        monkeypatch.setattr(functional.time, "sleep", sleep)
+        with pytest.raises(TimeoutError), functional.stack_slot(poll_seconds=0.5):
+            pass
+    assert waits == [0.5]
+    with functional.stack_slot() as again:
+        assert again == 0
+
+
+def test_the_slot_count_follows_dockers_memory(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("E2E_STACK_SLOTS", raising=False)
+
+    def docker_info(*_: object, **__: object) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess([], 0, stdout=str(4 * 1024**3), stderr="")
+
+    monkeypatch.setattr(functional.subprocess, "run", docker_info)
+    assert functional.slot_count() == 2
+    monkeypatch.setenv("E2E_STACK_SLOTS", "3")
+    assert functional.slot_count() == 3
