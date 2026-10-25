@@ -74,6 +74,7 @@ def cloud_stack() -> None:
         ci,
         stack.environments,
         f"gs://{stack.state_bucket}",
+        {name: push.services_file for name, push in pushes.items()},
     )
     observability.create(
         stack.project,

@@ -1,6 +1,6 @@
 """The repository's deploy settings: Actions variables, and a GitHub environment per stack."""
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 
 import pulumi
 import pulumi_github as github
@@ -19,6 +19,7 @@ def create(
     ci: Ci,
     envs: Sequence[Environment],
     state_url: str,
+    google_services: Mapping[str, pulumi.Output[str]],
 ) -> None:
     """Everything deploy.yml reads, applied with the administrator's GITHUB_TOKEN."""
     owner, name = repository.split("/", 1)
@@ -69,5 +70,14 @@ def create(
             environment=environment.environment,
             variable_name="GCP_DEPLOYER",
             value=ci.deployers[env.name].email,
+            opts=opts,
+        )
+        # deploy-mobile.yml hands it to EAS, so the app's Firebase file and key stay out of git
+        github.ActionsEnvironmentVariable(
+            f"environment-{env.name}-google-services",
+            repository=name,
+            environment=environment.environment,
+            variable_name="GOOGLE_SERVICES",
+            value=google_services[env.name],
             opts=opts,
         )

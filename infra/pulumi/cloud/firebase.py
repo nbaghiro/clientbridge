@@ -58,8 +58,8 @@ def _key(env: Environment, certs: tuple[str, ...]) -> gcp.projects.ApiKey:
     """The key google-services.json carries, which ships in the app and so is public by design."""
     # Firebase's own key serves any caller and most Firebase APIs; this one serves only push
     return gcp.projects.ApiKey(
-        f"{env.name}-android-push",
-        name=f"{env.name}-android-push",
+        f"{env.name}-push-key",
+        name=f"{env.name}-push-key",
         display_name=f"Clientbridge {env.name} Android push",
         restrictions=gcp.projects.ApiKeyRestrictionsArgs(
             api_targets=[

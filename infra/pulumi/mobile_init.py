@@ -168,18 +168,6 @@ def variables(eas: Eas, env: Environment, desired: Mapping[str, str], report: Re
             report.add(f"eas {environment_name} {name}: kept")
 
 
-def services_file(env: Environment, encoded: str, report: Report) -> None:
-    """The Firebase app's google-services.json, committed so every machine fingerprints it alike."""
-    path = MOBILE / "firebase" / f"{env.mobile.bundle_id}.json"
-    contents = base64.b64decode(encoded).decode()
-    if path.exists() and path.read_text() == contents:
-        report.add(f"{path.relative_to(MOBILE)}: kept")
-        return
-    path.parent.mkdir(exist_ok=True)
-    path.write_text(contents)
-    report.add(f"{path.relative_to(MOBILE)}: written; commit it")
-
-
 def android(
     eas: Eas,
     keys: Keys,
@@ -832,7 +820,6 @@ def main(argv: Sequence[str] | None = None) -> None:
     eas = ExpoApi(token)
     report = Report([])
     variables(eas, env, desired_variables(env, stripe_key), report)
-    services_file(env, str(outputs["googleServicesFile"]), report)
     android(
         eas,
         ServiceAccountKeys(str(args.project)),

@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 import type { ExpoConfig } from "expo/config";
@@ -11,10 +11,13 @@ const APP_ID = env.APP_ID;
 const BASE_DOMAIN = env.BASE_DOMAIN;
 const EAS_PROJECT_ID = "f546baca-30f8-4528-811a-a8ae804585bc";
 
-// without them a staging or store build would ship the local app id and development URLs
-if (["staging", "production"].includes(env.EAS_BUILD_PROFILE ?? "") && !(APP_ID && BASE_DOMAIN)) {
+// without them a staging or store build would ship the local app id, development URLs and no push
+if (
+    ["staging", "production"].includes(env.EAS_BUILD_PROFILE ?? "") &&
+    !(APP_ID && BASE_DOMAIN && env.GOOGLE_SERVICES)
+) {
     throw new Error(
-        `the ${env.EAS_BUILD_PROFILE ?? ""} build profile needs APP_ID and BASE_DOMAIN`,
+        `the ${env.EAS_BUILD_PROFILE ?? ""} build profile needs APP_ID, BASE_DOMAIN and GOOGLE_SERVICES`,
     );
 }
 
@@ -23,8 +26,15 @@ const deployed = (host: string, path = ""): string | undefined =>
     BASE_DOMAIN ? `https://${host}.${BASE_DOMAIN}${path}` : undefined;
 
 const appId = APP_ID ?? "ca.clientbridge.app";
-const googleServices = `./firebase/${appId}.json`;
-const hasGoogleServices = APP_ID !== undefined && existsSync(join(__dirname, googleServices));
+// Firebase's file for push, kept out of git: written here from the EAS variable deploy-mobile.yml sets
+const googleServices = "./.firebase/google-services.json";
+if (env.GOOGLE_SERVICES) {
+    mkdirSync(join(__dirname, ".firebase"), { recursive: true });
+    writeFileSync(
+        join(__dirname, googleServices),
+        Buffer.from(env.GOOGLE_SERVICES, "base64").toString("utf8"),
+    );
+}
 // app.<base> lists the app in its association file for passwords and passkeys
 const associatedDomains = BASE_DOMAIN
     ? { associatedDomains: [`webcredentials:app.${BASE_DOMAIN}`] }
@@ -61,8 +71,7 @@ const config: ExpoConfig = {
     },
     android: {
         package: appId,
-        // Firebase's file for push, written from the cloud stack by mobile_init.py and committed
-        ...(hasGoogleServices ? { googleServicesFile: googleServices } : {}),
+        ...(env.GOOGLE_SERVICES ? { googleServicesFile: googleServices } : {}),
         adaptiveIcon: {
             foregroundImage: "./assets/adaptive-icon.png",
             backgroundColor: "#3F5E80",

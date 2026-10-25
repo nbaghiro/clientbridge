@@ -174,24 +174,6 @@ def test_variables_are_written_once_and_updated_when_they_change() -> None:
     ]
 
 
-def test_the_services_file_is_written_where_the_app_config_reads_it(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setattr(m, "MOBILE", tmp_path)
-    report = Report([])
-    m.services_file(STAGING, "eyJhIjogMX0=", report)
-    m.services_file(STAGING, "eyJhIjogMX0=", report)
-    assert (tmp_path / "firebase" / "ca.clientbridge.app.staging.json").read_text() == '{"a": 1}'
-    assert report.lines == [
-        "firebase/ca.clientbridge.app.staging.json: written; commit it",
-        "firebase/ca.clientbridge.app.staging.json: kept",
-    ]
-    assert (
-        "./firebase/${appId}.json"
-        in (m.PROGRAM.parents[1] / "frontend/apps/mobile/app.config.ts").read_text()
-    )
-
-
 def test_staging_gets_a_push_key_and_no_play_key() -> None:
     eas, keys, report = FakeEas(), FakeKeys(), Report([])
     m.android(eas, keys, STAGING, SENDER, PUBLISHER, report)

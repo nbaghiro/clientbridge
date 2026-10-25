@@ -1022,6 +1022,27 @@ def test_github_holds_the_deploy_settings(staging_only: Built, cloud: Built) -> 
     assert branches == {"main"}
 
 
+def test_each_apps_firebase_file_reaches_eas_through_its_github_environment(cloud: Built) -> None:
+    files = {
+        str(dig(each.inputs, "environment")): dig(each.inputs, "value")
+        for each in of_type(
+            cloud, "github:index/actionsEnvironmentVariable:ActionsEnvironmentVariable"
+        )
+        if dig(each.inputs, "variableName") == "GOOGLE_SERVICES"
+    }
+    assert files == {
+        "production": "services-1:123456789:android:prod-android",
+        "staging": "services-1:123456789:android:staging-android",
+    }
+    job = dig(workflow("deploy-mobile.yml"), "jobs", "mobile")
+    assert dig(job, "env", "GOOGLE_SERVICES") == "${{ vars.GOOGLE_SERVICES }}"
+    steps = [str(dig(step, "run")) for step in listed(dig(job, "steps"))]
+    handed = next(i for i, run in enumerate(steps) if "env:set" in run)
+    assert "--visibility sensitive" in steps[handed]
+    assert all("fingerprint:generate" not in run for run in steps[:handed])
+    assert not (EAS.parent / "firebase").exists()
+
+
 def test_each_deployer_writes_only_its_own_state(cloud: Built) -> None:
     writes = [
         each
@@ -1263,11 +1284,11 @@ def test_each_apps_key_serves_only_push_and_only_its_signed_app(cloud: Built) ->
             for each in of_type(cloud, "gcp:firebase/androidApp:AndroidApp")
             if each.name == f"{env.name}-android"
         ]
-        assert app.inputs["apiKeyId"] == f"{env.name}-android-push-uid"
+        assert app.inputs["apiKeyId"] == f"{env.name}-push-key-uid"
         (key,) = [
             each
             for each in of_type(cloud, "gcp:projects/apiKey:ApiKey")
-            if each.name == f"{env.name}-android-push"
+            if each.name == f"{env.name}-push-key"
         ]
         targets = dig(key.inputs, "restrictions", "apiTargets")
         assert isinstance(targets, list)
@@ -1279,7 +1300,7 @@ def test_each_apps_key_serves_only_push_and_only_its_signed_app(cloud: Built) ->
     (key,) = [
         each
         for each in of_type(signed, "gcp:projects/apiKey:ApiKey")
-        if each.name == "staging-android-push"
+        if each.name == "staging-push-key"
     ]
     assert dig(key.inputs, "restrictions", "androidKeyRestrictions", "allowedApplications") == [
         {"packageName": "ca.clientbridge.app.staging", "sha1Fingerprint": cert.upper()}

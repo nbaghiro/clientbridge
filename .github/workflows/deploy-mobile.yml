@@ -42,6 +42,8 @@ jobs:
       contents: read
     env:
       EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      # the app's google-services.json, base64, which the cloud stack keeps in the GitHub environment
+      GOOGLE_SERVICES: ${{ vars.GOOGLE_SERVICES }}
       # the eas.json build profile and update channel; the EAS environment holds app.config.ts's inputs
       CHANNEL: ${{ inputs.environment }}
       EAS_ENVIRONMENT: ${{ inputs.environment == 'production' && 'production' || 'preview' }}
@@ -88,6 +90,13 @@ jobs:
       - if: steps.ready.outputs.ship == 'true'
         run: pnpm install --frozen-lockfile
         working-directory: frontend
+      - name: give EAS the app's Firebase file
+        if: steps.ready.outputs.ship == 'true'
+        run: |
+          # app.config.ts writes it out on EAS and in fingerprint:generate, and git never holds it
+          [ -n "$GOOGLE_SERVICES" ] || { echo "GOOGLE_SERVICES is not set; apply the cloud stack"; exit 1; }
+          npx --yes "$EAS_CLI" env:set --environment "$EAS_ENVIRONMENT" --name GOOGLE_SERVICES \
+            --value "$GOOGLE_SERVICES" --type string --visibility sensitive --non-interactive >/dev/null
       - name: roll back to an earlier update
         if: steps.ready.outputs.ship == 'true' && env.REPUBLISH_GROUP != ''
         run: |
