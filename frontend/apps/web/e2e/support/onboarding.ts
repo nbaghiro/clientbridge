@@ -21,7 +21,11 @@ export async function signUp(
     await page.getByRole("button", { name: a.verify, exact: true }).click();
 }
 
-export async function openBusiness(page: Page, name: string): Promise<void> {
+export async function openBusiness(
+    page: Page,
+    name: string,
+    industry: Parameters<typeof strings.business.onboarding.industry>[0] = "beauty",
+): Promise<void> {
     const o = strings.business.onboarding;
     await expect(page.getByRole("heading", { name: o.title })).toBeVisible();
     await page.getByLabel(o.businessName, { exact: true }).fill(name);
@@ -33,7 +37,7 @@ export async function openBusiness(page: Page, name: string): Promise<void> {
     await page.getByRole("combobox", { name: o.industryLabel }).click();
     await page
         .getByRole("listbox", { name: o.industryLabel })
-        .getByRole("option", { name: o.industry("beauty"), exact: true })
+        .getByRole("option", { name: o.industry(industry), exact: true })
         .click();
     await page.getByRole("button", { name: o.createBusiness, exact: true }).click();
     await expect(

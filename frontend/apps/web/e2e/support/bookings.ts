@@ -39,7 +39,10 @@ export function bookingApi(): string {
     return base;
 }
 
-export async function createBookingFixture(page: Page): Promise<BookingFixture> {
+export async function createBookingFixture(
+    page: Page,
+    overrides: Record<string, unknown> = {},
+): Promise<BookingFixture> {
     await requireLocalMail();
     const api = bookingApi();
     const run = randomUUID();
@@ -69,6 +72,7 @@ export async function createBookingFixture(page: Page): Promise<BookingFixture> 
             price_cents: 1000,
             deposit_type: "none",
             online_bookable: false,
+            ...overrides,
         },
     });
     expect(item.status(), await item.text()).toBe(201);
@@ -107,7 +111,7 @@ export async function fillBookingComposer(page: Page, fixture: BookingFixture): 
     await form.getByRole("switch", { name: strings.bookings.composerConfirm }).uncheck();
 }
 
-async function pickBookingDay(page: Page, date: Date, zone: string): Promise<void> {
+export async function pickBookingDay(page: Page, date: Date, zone: string): Promise<void> {
     await page.getByRole("button", { name: strings.bookings.composerDate, exact: true }).click();
     const target = page.getByRole("gridcell", { name: formatFullDate(date, zone), exact: true });
     for (let month = 0; month < 3 && (await target.count()) === 0; month++) {
@@ -116,28 +120,42 @@ async function pickBookingDay(page: Page, date: Date, zone: string): Promise<voi
     await target.click();
 }
 
+export async function pickBookingTime(
+    page: Page,
+    day: Date,
+    time: string,
+    zone: string,
+): Promise<void> {
+    await page.getByRole("combobox", { name: strings.bookings.composerTime }).click();
+    await page
+        .getByRole("option", {
+            name: formatTime(combineDayAndTime(day, time, zone), zone),
+            exact: true,
+        })
+        .click();
+}
+
 export async function chooseFreeBookingTime(page: Page, fixture: BookingFixture): Promise<void> {
     const submit = page.getByRole("button", { name: strings.bookings.composerBook, exact: true });
     for (let offset = 14; offset < 21; offset++) {
         const day = addDays(new Date(), offset, fixture.zone);
         await pickBookingDay(page, day, fixture.zone);
         for (const time of ["10:00", "11:00", "13:00", "14:00", "15:00"]) {
-            await page.getByRole("combobox", { name: strings.bookings.composerTime }).click();
-            await page
-                .getByRole("option", {
-                    name: formatTime(combineDayAndTime(day, time, fixture.zone), fixture.zone),
-                    exact: true,
-                })
-                .click();
+            await pickBookingTime(page, day, time, fixture.zone);
             if (await submit.isEnabled()) return;
         }
     }
     throw new Error("No free owner appointment found in the fixture window");
 }
 
-export async function openBooking(page: Page, fixture: BookingFixture, id: string): Promise<void> {
+export async function openBooking(
+    page: Page,
+    fixture: BookingFixture,
+    id: string,
+    heading = fixture.clientName,
+): Promise<void> {
     await navigate(page, `/schedule?open=${id}`);
-    await expect(page.getByRole("heading", { name: fixture.clientName, exact: true })).toBeVisible({
+    await expect(page.getByRole("heading", { name: heading, exact: true })).toBeVisible({
         timeout: 60_000,
     });
     await expect(page.getByText(fixture.itemName, { exact: true }).first()).toBeVisible();

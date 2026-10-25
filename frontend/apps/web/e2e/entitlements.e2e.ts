@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
-import { strings } from "@clientbridge/app-core/public";
+import { combineDayAndTime, dateKey, formatTime, strings } from "@clientbridge/app-core/public";
 import { expect, test } from "@playwright/test";
+import { addPet } from "./support/crm";
 import {
     entitlementEvidence,
     entitlementFixture,
@@ -9,7 +10,9 @@ import {
     redeemGift,
     sellEntitlement,
 } from "./support/entitlements";
-import { signIn } from "./support/session";
+import { joinHoursStaff } from "./support/offline";
+import { navigate, signIn } from "./support/session";
+import { apiCall, visitEvidence } from "./support/visits";
 const w = strings.entitlements;
 
 test("ENT-E2E-01 cash gift card partial redemption rejects overspend and exhausts exactly", async ({
@@ -177,5 +180,159 @@ test("ENT-E2E-02 cash package confirmation cancellation preserves sessions and f
         });
     } finally {
         await observer.close();
+    }
+});
+
+test("ENT-E2E-03 a package for one pet covers that pet's visit at the desk and is refused for its sibling", async ({
+    page,
+    browser,
+    request,
+    baseURL,
+}, testInfo) => {
+    test.setTimeout(240_000);
+    const zone = "America/Vancouver";
+    const joining = await browser.newContext({ baseURL: baseURL ?? "" });
+    // a member with no hours set can take a visit at any time, so both visits start today
+    const member = await joinHoursStaff(await joining.newPage(), request);
+    try {
+        await signIn(page);
+        const fixture = await entitlementFixture(page, "package");
+        const biscuit = await addPet(page, fixture.client, "Biscuit");
+        const juniper = await addPet(page, fixture.client, "Juniper");
+        await sellEntitlement(page, fixture.client, "package", fixture.itemId, biscuit);
+        const sold = await visitEvidence([fixture.client.id]);
+        expect(sold.packages).toEqual([
+            {
+                id: expect.any(String),
+                item_id: fixture.itemId,
+                subject_id: biscuit,
+                sessions_total: 3,
+                status: "active",
+                payment_id: sold.payments[0]?.id,
+            },
+        ]);
+        const pack = sold.packages[0];
+        if (pack === undefined) throw new Error("The package is missing");
+        expectEntitlementLedger(await entitlementEvidence(fixture.client.id), 6001, "deferred", []);
+        const service = await apiCall<{ id: string; name: string }>(
+            page,
+            "POST",
+            "/v1/items",
+            {
+                kind: "service",
+                name: `Ear cleaning for ${fixture.client.name}`,
+                duration_min: 5,
+                price_cents: 2000,
+                deposit_type: "none",
+                online_bookable: false,
+            },
+            201,
+        );
+        const midnight = combineDayAndTime(dateKey(new Date(), zone), "00:00", zone).getTime();
+        const wait = midnight + 13 * 60_000 - Date.now();
+        if (wait > 0) await page.waitForTimeout(wait);
+        const now = Date.now();
+        const visits: Record<string, { id: string; starts: Date }> = {};
+        for (const [subject, minutesAgo] of [
+            [biscuit, 12],
+            [juniper, 6],
+        ] as const) {
+            const starts = new Date(Math.floor((now - minutesAgo * 60_000) / 60_000) * 60_000);
+            const booked = await apiCall<{ id: string; status: string }>(
+                page,
+                "POST",
+                "/v1/bookings",
+                {
+                    client_id: fixture.client.id,
+                    subject_id: subject,
+                    item_id: service.id,
+                    staff_id: member.id,
+                    starts_at: starts.toISOString(),
+                    notify: false,
+                },
+                201,
+            );
+            expect(booked.status).toBe("confirmed");
+            visits[subject] = { id: booked.id, starts };
+        }
+        const mine = visits[biscuit];
+        const sibling = visits[juniper];
+        if (mine === undefined || sibling === undefined) throw new Error("Visits are missing");
+
+        await navigate(page, "/payments/sales");
+        const row = (visit: { starts: Date }) =>
+            page
+                .getByRole("main")
+                .locator("div")
+                .filter({ hasText: service.name })
+                .filter({ hasText: formatTime(visit.starts, zone) })
+                .filter({
+                    has: page.getByText(
+                        strings.pos.desk.endsAt(
+                            formatTime(new Date(visit.starts.getTime() + 5 * 60_000), zone),
+                        ),
+                        { exact: true },
+                    ),
+                })
+                .last();
+        await expect(row(mine)).toBeVisible({ timeout: 60_000 });
+        await expect(row(sibling)).toBeVisible();
+        await expect(
+            row(sibling).getByRole("button", { name: strings.pos.desk.usePackage, exact: true }),
+        ).toHaveCount(0);
+        const covering = page.waitForResponse(
+            (response) =>
+                new URL(response.url()).pathname === `/v1/packages/${pack.id}/cover` &&
+                response.request().method() === "POST",
+        );
+        await row(mine)
+            .getByRole("button", { name: strings.pos.desk.usePackage, exact: true })
+            .click();
+        const covered = await covering;
+        expect(covered.status(), await covered.text()).toBe(200);
+        expect(covered.request().postDataJSON()).toEqual({ booking_id: mine.id });
+        // a covered visit leaves the queue; its sibling still waits to be rung up
+        await expect(row(mine)).toHaveCount(0, { timeout: 60_000 });
+        await expect(row(sibling)).toBeVisible();
+        await expect(
+            page.getByRole("button", { name: strings.pos.desk.usePackage, exact: true }),
+        ).toHaveCount(0);
+        const used = await visitEvidence([fixture.client.id]);
+        const byId = (id: string) => used.bookings.find((booking) => booking.id === id);
+        expect(byId(mine.id)).toMatchObject({
+            subject_id: biscuit,
+            package_id: pack.id,
+            status: "completed",
+        });
+        expect(byId(sibling.id)).toMatchObject({
+            subject_id: juniper,
+            package_id: null,
+            status: "confirmed",
+        });
+        // a third of CAD60.01, recognized from the deferred balance
+        expectEntitlementLedger(
+            await entitlementEvidence(fixture.client.id),
+            6001,
+            "deferred",
+            [2000],
+        );
+
+        const refused = await page.request.post(
+            `${process.env.VITE_API_URL ?? "http://localhost:8701"}/v1/packages/${pack.id}/cover`,
+            {
+                headers: { Origin: new URL(page.url()).origin, "Idempotency-Key": randomUUID() },
+                data: { booking_id: sibling.id },
+            },
+        );
+        expect(refused.status(), await refused.text()).toBe(422);
+        expect(((await refused.json()) as { error: string }).error).toBe("package_other_subject");
+        expect(await visitEvidence([fixture.client.id])).toEqual(used);
+        await testInfo.attach("subject-package", {
+            body: JSON.stringify(used),
+            contentType: "application/json",
+        });
+    } finally {
+        await member.cleanup();
+        await joining.close();
     }
 });

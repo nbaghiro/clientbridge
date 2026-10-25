@@ -62,8 +62,11 @@
       "canonical_id": "ID01",
       "completion_gate": "Implement the full scenario with real rendered browser/native interactions wherever UI exists, real app/DB and sync observation, durable/provider side-effect oracle, explicit forbidden effects, and relevant restart/concurrency edges. Existing API/unit/provider assertions supplement the journey. Record successful execution per required lane; never count skips as proof.",
       "runtime_verified": false,
-      "coverage": "open",
-      "covered_by": []
+      "coverage": "partial",
+      "covered_by": [
+        "CRM-E2E-08"
+      ],
+      "coverage_gap": "Only what CRM-E2E-08 asserts is covered; the rest of this family's audit assertions are unverified."
     },
     {
       "id": "ID02",
@@ -1702,7 +1705,10 @@
       "runtime_verified": false,
       "coverage": "partial",
       "covered_by": [
-        "SCH-PILOT-01"
+        "SCH-PILOT-01",
+        "SCH-E2E-05",
+        "SCH-E2E-06",
+        "SCH-E2E-07"
       ],
       "coverage_gap": "Resize, owner reassignment of the member, add-ons following staff, loss of old staff access and duplicate-notice checks on retry are not asserted."
     },
@@ -1853,8 +1859,12 @@
       "canonical_id": "SCH04",
       "completion_gate": "Implement the full scenario with real rendered browser/native interactions wherever UI exists, real app/DB and sync observation, durable/provider side-effect oracle, explicit forbidden effects, and relevant restart/concurrency edges. Existing API/unit/provider assertions supplement the journey. Record successful execution per required lane; never count skips as proof.",
       "runtime_verified": false,
-      "coverage": "open",
-      "covered_by": []
+      "coverage": "partial",
+      "covered_by": [
+        "SCH-E2E-05",
+        "SCH-E2E-07"
+      ],
+      "coverage_gap": "Only what SCH-E2E-05, SCH-E2E-07 asserts is covered; the rest of this family's audit assertions are unverified."
     },
     {
       "id": "SCH05",
@@ -3884,7 +3894,8 @@
       "coverage": "partial",
       "covered_by": [
         "BILL-DOC-01",
-        "BILL-DOC-02"
+        "BILL-DOC-02",
+        "BILL-DOC-04"
       ],
       "coverage_gap": "The customer public estimate acceptance with an optional line, issuing the converted invoice, customer payment and provider evidence are not exercised end to end."
     },
@@ -3931,8 +3942,11 @@
       "canonical_id": "BILL02",
       "completion_gate": "Implement the full scenario with real rendered browser/native interactions wherever UI exists, real app/DB and sync observation, durable/provider side-effect oracle, explicit forbidden effects, and relevant restart/concurrency edges. Existing API/unit/provider assertions supplement the journey. Record successful execution per required lane; never count skips as proof.",
       "runtime_verified": false,
-      "coverage": "open",
-      "covered_by": []
+      "coverage": "partial",
+      "covered_by": [
+        "BILL-DOC-03"
+      ],
+      "coverage_gap": "Only what BILL-DOC-03 asserts is covered; the rest of this family's audit assertions are unverified."
     },
     {
       "id": "BILL03",
@@ -3977,8 +3991,11 @@
       "canonical_id": "BILL03",
       "completion_gate": "Implement the full scenario with real rendered browser/native interactions wherever UI exists, real app/DB and sync observation, durable/provider side-effect oracle, explicit forbidden effects, and relevant restart/concurrency edges. Existing API/unit/provider assertions supplement the journey. Record successful execution per required lane; never count skips as proof.",
       "runtime_verified": false,
-      "coverage": "open",
-      "covered_by": []
+      "coverage": "partial",
+      "covered_by": [
+        "DOC-E2E-06"
+      ],
+      "coverage_gap": "Only what DOC-E2E-06 asserts is covered; the rest of this family's audit assertions are unverified."
     },
     {
       "id": "BILL04",
@@ -7529,8 +7546,11 @@
       "canonical_id": "ENT10",
       "completion_gate": "Implement the full scenario with real rendered browser/native interactions wherever UI exists, real app/DB and sync observation, durable/provider side-effect oracle, explicit forbidden effects, and relevant restart/concurrency edges. Existing API/unit/provider assertions supplement the journey. Record successful execution per required lane; never count skips as proof.",
       "runtime_verified": false,
-      "coverage": "open",
-      "covered_by": []
+      "coverage": "partial",
+      "covered_by": [
+        "ENT-E2E-03"
+      ],
+      "coverage_gap": "Only what ENT-E2E-03 asserts is covered; the rest of this family's audit assertions are unverified."
     },
     {
       "id": "ENT11",
@@ -7576,8 +7596,11 @@
       "canonical_id": "ENT11",
       "completion_gate": "Implement the full scenario with real rendered browser/native interactions wherever UI exists, real app/DB and sync observation, durable/provider side-effect oracle, explicit forbidden effects, and relevant restart/concurrency edges. Existing API/unit/provider assertions supplement the journey. Record successful execution per required lane; never count skips as proof.",
       "runtime_verified": false,
-      "coverage": "open",
-      "covered_by": []
+      "coverage": "partial",
+      "covered_by": [
+        "ENT-E2E-03"
+      ],
+      "coverage_gap": "Only what ENT-E2E-03 asserts is covered; the rest of this family's audit assertions are unverified."
     },
     {
       "id": "ENT12",
@@ -14427,8 +14450,11 @@
       "canonical_id": "OPS06",
       "completion_gate": "Implement the full scenario with real rendered browser/native interactions wherever UI exists, real app/DB and sync observation, durable/provider side-effect oracle, explicit forbidden effects, and relevant restart/concurrency edges. Existing API/unit/provider assertions supplement the journey. Record successful execution per required lane; never count skips as proof.",
       "runtime_verified": false,
-      "coverage": "open",
-      "covered_by": []
+      "coverage": "partial",
+      "covered_by": [
+        "CRM-E2E-08"
+      ],
+      "coverage_gap": "Only what CRM-E2E-08 asserts is covered; the rest of this family's audit assertions are unverified."
     },
     {
       "id": "OPS07",
@@ -14546,8 +14572,11 @@
       "canonical_id": "OPS09",
       "completion_gate": "Implement the full scenario with real rendered browser/native interactions wherever UI exists, real app/DB and sync observation, durable/provider side-effect oracle, explicit forbidden effects, and relevant restart/concurrency edges. Existing API/unit/provider assertions supplement the journey. Record successful execution per required lane; never count skips as proof.",
       "runtime_verified": false,
-      "coverage": "open",
-      "covered_by": []
+      "coverage": "partial",
+      "covered_by": [
+        "BILL-DOC-04"
+      ],
+      "coverage_gap": "Only what BILL-DOC-04 asserts is covered; the rest of this family's audit assertions are unverified."
     },
     {
       "id": "OPS10",
@@ -16874,6 +16903,257 @@
         "Strict source-stable web run, 1/1 first attempt, cleanup passed"
       ],
       "runtime_scope": "Web production bundle on an isolated stack"
+    },
+    {
+      "id": "SCH-E2E-05",
+      "status": "verified",
+      "risk": "high",
+      "layer": "browser",
+      "lane": "pr",
+      "implementation": [
+        "frontend/apps/web/e2e/resources.journey.ts"
+      ],
+      "depends_on": [],
+      "setup": "Birchbark with a grooming table created in the test",
+      "actions": [
+        "Book a visit in the calendar",
+        "Try a second groomer at the same time",
+        "Book an hour later",
+        "Book on Connect"
+      ],
+      "expected": [
+        "The visit holds the table",
+        "The clash shows the no-room notice with Book disabled",
+        "The later visit holds the same table",
+        "Connect hides held times while a service without the table still offers them",
+        "A direct post at a held time is refused with no_resource and no client created"
+      ],
+      "forbidden": [
+        "Two visits holding one table at once"
+      ],
+      "boundaries": [
+        "The calendar refuses but suggests no other time"
+      ],
+      "related_audit_families": [
+        "SCH01",
+        "SCH04"
+      ],
+      "runtime_scope": "Isolated stack; staff web and Connect production bundles",
+      "verified_on": ".scratchpad/e2e-ad1e3e0b5848",
+      "evidence": [
+        "Strict source-stable journeys run, 4/4 first attempt, cleanup passed"
+      ]
+    },
+    {
+      "id": "SCH-E2E-06",
+      "status": "verified",
+      "risk": "high",
+      "layer": "browser",
+      "lane": "pr",
+      "implementation": [
+        "frontend/apps/web/e2e/staff.journey.ts"
+      ],
+      "depends_on": [],
+      "setup": "Birchbark with a newly joined member",
+      "actions": [
+        "Pick two staff in the service editor",
+        "Book in the calendar and on Connect",
+        "Remove the member"
+      ],
+      "expected": [
+        "Only the picked staff are offered in both places",
+        "Asking for another staff member is refused with service_not_offered",
+        "After removal only the remaining staff member is offered and an anyone booking lands on them"
+      ],
+      "forbidden": [
+        "Any booking with a staff member who doesn't offer the service"
+      ],
+      "boundaries": [
+        "The member is removed through the owner API, not the Team page"
+      ],
+      "related_audit_families": [
+        "SCH01"
+      ],
+      "runtime_scope": "Isolated stack; staff web and Connect production bundles",
+      "verified_on": ".scratchpad/e2e-ad1e3e0b5848",
+      "evidence": [
+        "Strict source-stable journeys run, 4/4 first attempt, cleanup passed"
+      ]
+    },
+    {
+      "id": "SCH-E2E-07",
+      "status": "verified",
+      "risk": "high",
+      "layer": "browser",
+      "lane": "pr",
+      "implementation": [
+        "frontend/apps/web/e2e/addons.journey.ts"
+      ],
+      "depends_on": [],
+      "setup": "Northlight with its own service and a 30-minute add-on",
+      "actions": [
+        "Choose the add-on in Connect's Extras step",
+        "Pick a time",
+        "Create the invoice in the web app"
+      ],
+      "expected": [
+        "Extras shows the added 30 minutes",
+        "Offered times are 90 minutes long and the last hour-long slot drops out",
+        "The saved visit is 90 minutes with the add-on row",
+        "The invoice has two lines totalling 250.88"
+      ],
+      "forbidden": [
+        "A too-late time accepted with the add-on"
+      ],
+      "boundaries": [],
+      "related_audit_families": [
+        "SCH01",
+        "SCH04"
+      ],
+      "runtime_scope": "Isolated stack; staff web and Connect production bundles",
+      "verified_on": ".scratchpad/e2e-ad1e3e0b5848",
+      "evidence": [
+        "Strict source-stable journeys run, 4/4 first attempt, cleanup passed"
+      ]
+    },
+    {
+      "id": "CLS-E2E-02",
+      "status": "verified",
+      "risk": "high",
+      "layer": "browser",
+      "lane": "pr",
+      "implementation": [
+        "frontend/apps/web/e2e/programs.journey.ts"
+      ],
+      "depends_on": [],
+      "setup": "Cedar Coast three-day camp without a deposit",
+      "actions": [
+        "Enrol through Connect",
+        "Try to enrol again",
+        "Try to book a later day alone"
+      ],
+      "expected": [
+        "Three confirmed visits on the program days with the price on the first",
+        "One sent invoice of 134.40 due on day one with a single line for the three days",
+        "Seats drop from 2 to 1"
+      ],
+      "forbidden": [
+        "A second enrolment (already_enrolled)",
+        "A later day booked alone (slot_unavailable)"
+      ],
+      "boundaries": [
+        "No program deposit: the regular stack has no card payments, so the deposit and part-paid path is unverified for programs"
+      ],
+      "related_audit_families": [],
+      "runtime_scope": "Isolated stack; staff web and Connect production bundles",
+      "verified_on": ".scratchpad/e2e-ad1e3e0b5848",
+      "evidence": [
+        "Strict source-stable journeys run, 4/4 first attempt, cleanup passed"
+      ]
+    },
+    {
+      "id": "ENT-E2E-03",
+      "status": "verified",
+      "risk": "high",
+      "layer": "browser",
+      "lane": "pr",
+      "implementation": [
+        "frontend/apps/web/e2e/entitlements.e2e.ts"
+      ],
+      "depends_on": [],
+      "setup": "Birchbark family with two pets",
+      "actions": [
+        "Sell a package for one pet in the sales dialog",
+        "Use it at the desk on that pet's visit"
+      ],
+      "expected": [
+        "Only that pet's visit offers the package",
+        "Using it completes the visit and posts one 20.00 consumption",
+        "The sibling's visit is untouched"
+      ],
+      "forbidden": [
+        "Covering the sibling's visit through the API (package_other_subject) changes nothing"
+      ],
+      "boundaries": [],
+      "related_audit_families": [
+        "ENT10",
+        "ENT11"
+      ],
+      "runtime_scope": "Isolated stack; staff web and Connect production bundles",
+      "verified_on": ".scratchpad/e2e-04e800808483",
+      "evidence": [
+        "Strict source-stable web run, 5/5 first attempt, cleanup passed"
+      ]
+    },
+    {
+      "id": "CRM-E2E-08",
+      "status": "verified",
+      "risk": "high",
+      "layer": "browser",
+      "lane": "pr",
+      "implementation": [
+        "frontend/apps/web/e2e/vehicles.e2e.ts"
+      ],
+      "depends_on": [],
+      "setup": "A new business signed up as mobile car detailing",
+      "actions": [
+        "Add a vehicle",
+        "Book it in the calendar",
+        "Open the visit"
+      ],
+      "expected": [
+        "The vehicle saves exact attributes and shows no pet fields",
+        "The booking carries the vehicle and the panel shows it with its address"
+      ],
+      "forbidden": [
+        "An invalid size saved"
+      ],
+      "boundaries": [],
+      "related_audit_families": [
+        "OPS06",
+        "ID01"
+      ],
+      "runtime_scope": "Isolated stack; staff web and Connect production bundles",
+      "verified_on": ".scratchpad/e2e-04e800808483",
+      "evidence": [
+        "Strict source-stable web run, 5/5 first attempt, cleanup passed"
+      ]
+    },
+    {
+      "id": "BILL-DOC-04",
+      "status": "verified",
+      "risk": "high",
+      "layer": "browser",
+      "lane": "pr",
+      "implementation": [
+        "frontend/apps/web/e2e/previews.e2e.ts"
+      ],
+      "depends_on": [],
+      "setup": "Issued invoice for a demo client",
+      "actions": [
+        "Open the send preview and send",
+        "Preview and send a reminder",
+        "Cancel a reminder"
+      ],
+      "expected": [
+        "The delivered subject matches the preview exactly and the body word for word apart from the pay link",
+        "The reminder matches its preview exactly"
+      ],
+      "forbidden": [
+        "Any mail from a cancelled reminder"
+      ],
+      "boundaries": [
+        "Messages and broadcasts have no send preview, so only invoice send and reminders are covered"
+      ],
+      "related_audit_families": [
+        "OPS09",
+        "BILL01"
+      ],
+      "runtime_scope": "Isolated stack; staff web and Connect production bundles",
+      "verified_on": ".scratchpad/e2e-04e800808483",
+      "evidence": [
+        "Strict source-stable web run, 5/5 first attempt, cleanup passed"
+      ]
     }
   ],
   "coverage_summary": {
@@ -16881,19 +17161,19 @@
     "families": 302,
     "overall": {
       "covered": 0,
-      "partial": 64,
-      "open": 238
+      "partial": 72,
+      "open": 230
     },
     "by_priority": {
       "P0": {
         "covered": 0,
-        "partial": 40,
-        "open": 108
+        "partial": 44,
+        "open": 104
       },
       "P1": {
         "covered": 0,
-        "partial": 24,
-        "open": 122
+        "partial": 28,
+        "open": 118
       },
       "P1 capability": {
         "covered": 0,
@@ -16914,8 +17194,8 @@
     "by_category": {
       "1": {
         "covered": 0,
-        "partial": 1,
-        "open": 14
+        "partial": 2,
+        "open": 13
       },
       "2": {
         "covered": 0,
@@ -16924,8 +17204,8 @@
       },
       "3": {
         "covered": 0,
-        "partial": 6,
-        "open": 16
+        "partial": 7,
+        "open": 15
       },
       "4": {
         "covered": 0,
@@ -16934,8 +17214,8 @@
       },
       "5": {
         "covered": 0,
-        "partial": 6,
-        "open": 14
+        "partial": 8,
+        "open": 12
       },
       "6": {
         "covered": 0,
@@ -16949,8 +17229,8 @@
       },
       "8": {
         "covered": 0,
-        "partial": 3,
-        "open": 19
+        "partial": 5,
+        "open": 17
       },
       "9": {
         "covered": 0,
@@ -16984,8 +17264,8 @@
       },
       "15": {
         "covered": 0,
-        "partial": 3,
-        "open": 17
+        "partial": 5,
+        "open": 15
       }
     }
   },
