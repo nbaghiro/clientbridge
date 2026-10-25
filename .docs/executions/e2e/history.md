@@ -301,7 +301,6 @@ The staging QA script became `make test-staging-smoke`. Against current staging,
 - After a lapse, cancelling a client subscription, disconnecting Google and cancelling a scheduled broadcast stay available.
 - Opening Plans and the daily `sync_plans` job now mirror the plan status from Stripe, so a missed cancellation or recovery event no longer leaves access wrong.
 
-
 ## Requalification after merging the bug, feature and harness work
 
 Commit `22a83707` merges the findings 1 to 16 fixes, the seven new feature cases, the worker and scheduler checks and the staging smoke lane. `make check` passed on it (backend 2818 passed, 93.62% coverage; 622 app-core tests in each configured zone). Every lane then ran one at a time on source `71a3d1cdcb6683f671a4b5e934784f2a89ca736f03a5cf2706a64e65180a63ee`: web 67 + one presentation skip (`e2e-d35310e3ffcc`), Connect 53 + one presentation skip (`e2e-312f41471fe6`), journeys 10 (`e2e-9e2010e2e285`), filings 1 (`e2e-8e772ccfdd3d`), web pseudo 1 (`e2e-d91927896142`), Connect pseudo 6 (`e2e-73b1a71fa492`) and Stripe 7 (`e2e-594077efb873`). All cleanups and worker checks passed. Hosted CI passed all 24 checks on PR #59. Runs went one at a time because parallel stacks on the 3.8 GiB Docker VM had OOM-killed Kratos and the shared dev S3 container earlier in the day.
