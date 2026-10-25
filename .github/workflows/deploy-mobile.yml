@@ -43,7 +43,7 @@ jobs:
     env:
       EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
       # the app's google-services.json, base64, which the cloud stack keeps in the GitHub environment
-      GOOGLE_SERVICES: ${{ vars.GOOGLE_SERVICES }}
+      GOOGLE_SERVICES: ${{ secrets.GOOGLE_SERVICES }}
       # the eas.json build profile and update channel; the EAS environment holds app.config.ts's inputs
       CHANNEL: ${{ inputs.environment }}
       EAS_ENVIRONMENT: ${{ inputs.environment == 'production' && 'production' || 'preview' }}

@@ -8,6 +8,8 @@ import pulumi_gcp as gcp
 
 from environments import Environment
 
+# a deleted key's id stays taken, so replacing the key means raising this
+KEY_GENERATION = 3
 # what the app's Firebase Messaging client calls to register for push; sending uses the sender
 PUSH_APIS = ("fcmregistrations.googleapis.com", "firebaseinstallations.googleapis.com")
 
@@ -59,7 +61,7 @@ def _key(env: Environment, certs: tuple[str, ...]) -> gcp.projects.ApiKey:
     # Firebase's own key serves any caller and most Firebase APIs; this one serves only push
     return gcp.projects.ApiKey(
         f"{env.name}-push-key",
-        name=f"{env.name}-push-key",
+        name=f"{env.name}-push-{KEY_GENERATION}",
         display_name=f"Clientbridge {env.name} Android push",
         restrictions=gcp.projects.ApiKeyRestrictionsArgs(
             api_targets=[

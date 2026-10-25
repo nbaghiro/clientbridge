@@ -72,12 +72,12 @@ def create(
             value=ci.deployers[env.name].email,
             opts=opts,
         )
-        # deploy-mobile.yml hands it to EAS, so the app's Firebase file and key stay out of git
-        github.ActionsEnvironmentVariable(
+        # deploy-mobile.yml hands it to EAS; a secret, since Actions prints variables in public logs
+        github.ActionsEnvironmentSecret(
             f"environment-{env.name}-google-services",
             repository=name,
             environment=environment.environment,
-            variable_name="GOOGLE_SERVICES",
+            secret_name="GOOGLE_SERVICES",
             value=google_services[env.name],
             opts=opts,
         )

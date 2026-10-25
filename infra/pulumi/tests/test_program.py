@@ -390,6 +390,9 @@ def test_no_stack_holds_a_secret_value(cloud: Built, stacks: dict[str, Built]) -
             "gcp:storage/hmacKey:HmacKey",
         }
         for each in built.resources:
+            # the Firebase file is public app config, a GitHub secret only so logs mask it
+            if each.type == "github:index/actionsEnvironmentSecret:ActionsEnvironmentSecret":
+                continue
             assert not list(secret_values(each.inputs)), (each.type, each.name)
     # Cloud SQL requires a password for a built-in user, so secrets_init.py creates the admins
     assert not of_type(cloud, "gcp:sql/user:User")
@@ -1023,19 +1026,18 @@ def test_github_holds_the_deploy_settings(staging_only: Built, cloud: Built) -> 
 
 
 def test_each_apps_firebase_file_reaches_eas_through_its_github_environment(cloud: Built) -> None:
-    files = {
-        str(dig(each.inputs, "environment")): dig(each.inputs, "value")
+    secrets = of_type(cloud, "github:index/actionsEnvironmentSecret:ActionsEnvironmentSecret")
+    assert {str(dig(each.inputs, "environment")) for each in secrets} == {"production", "staging"}
+    assert all(dig(each.inputs, "secretName") == "GOOGLE_SERVICES" for each in secrets)
+    assert not [
+        each
         for each in of_type(
             cloud, "github:index/actionsEnvironmentVariable:ActionsEnvironmentVariable"
         )
         if dig(each.inputs, "variableName") == "GOOGLE_SERVICES"
-    }
-    assert files == {
-        "production": "services-1:123456789:android:prod-android",
-        "staging": "services-1:123456789:android:staging-android",
-    }
+    ]
     job = dig(workflow("deploy-mobile.yml"), "jobs", "mobile")
-    assert dig(job, "env", "GOOGLE_SERVICES") == "${{ vars.GOOGLE_SERVICES }}"
+    assert dig(job, "env", "GOOGLE_SERVICES") == "${{ secrets.GOOGLE_SERVICES }}"
     steps = [str(dig(step, "run")) for step in listed(dig(job, "steps"))]
     handed = next(i for i, run in enumerate(steps) if "env:set" in run)
     assert "--visibility sensitive" in steps[handed]
