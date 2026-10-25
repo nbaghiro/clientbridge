@@ -6,6 +6,7 @@ import { expect, type Page } from "@playwright/test";
 import { mailedCode } from "../identity";
 import { bookingApi, createBookingFixture, type BookingFixture } from "./bookings";
 import { addPet, type ClientFixture } from "./crm";
+import { pastExtras } from "./scheduling";
 
 const execute = promisify(execFile);
 export interface ReturningFixture extends BookingFixture {
@@ -67,9 +68,9 @@ export async function verifyReturning(
     await page.goto(
         `http://book.localhost:${port}/birchbark?service=${f.itemId}&staff=${f.staffId}`,
     );
+    await pastExtras(page);
     let response = await loaded;
     const days = page.getByRole("radiogroup", { name: b.date, exact: true });
-    await expect(days).toBeVisible();
     for (let index = 0; index < week; index++) {
         loaded = availableDays();
         await page.getByRole("button", { name: b.nextWeek, exact: true }).first().click();

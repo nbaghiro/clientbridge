@@ -70,7 +70,7 @@ test("SEC-E2E-02 another business cannot read or mutate client, invoice or payme
     });
     try {
         const foreign = await foreignContext.newPage();
-        await signIn(foreign, { email: "owner@cedarcoast.example.test", password: "demo1234" });
+        await signIn(foreign, { email: "owner@cedarcoast.example", password: "demo1234" });
         await navigate(foreign, `/clients/${fixture.client.id}/history`);
         await expect(
             foreign.getByText(strings.clients.record.goneBody, { exact: true }),

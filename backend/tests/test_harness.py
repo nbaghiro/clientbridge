@@ -516,6 +516,28 @@ def test_functional_cleanup_kills_a_descendant_after_its_leader_exits() -> None:
             process.stdout.close()
 
 
+def test_functional_cleanup_accepts_a_refused_signal_only_once_the_group_is_gone(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    process = subprocess.Popen([sys.executable, "-c", "pass"], start_new_session=True)
+    process.wait(timeout=5)
+
+    alive = False
+
+    def refused(_: int, __: int) -> None:
+        raise PermissionError
+
+    def group_alive(_: int) -> bool:
+        return alive
+
+    monkeypatch.setattr(functional.os, "killpg", refused)
+    monkeypatch.setattr(functional, "group_alive", group_alive)
+    functional.stop(process)
+    alive = True
+    with pytest.raises(PermissionError):
+        functional.stop(process)
+
+
 class _Runtime:
     def __init__(self, directory: Path, fault: str) -> None:
         self.directory = directory

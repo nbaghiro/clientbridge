@@ -97,6 +97,17 @@ export async function raceFixture(page: Page): Promise<RaceFixture> {
         url: `http://book.localhost:${port}/birchbark`,
     };
 }
+// a service with add-ons offers them in its own step before the time
+export async function pastExtras(page: Page): Promise<void> {
+    const b = strings.publicBooking;
+    const days = page.getByRole("radiogroup", { name: b.date, exact: true });
+    const extras = page.getByText(b.oftenAdded, { exact: true });
+    await expect(days.or(extras)).toBeVisible();
+    if (await days.isVisible()) return;
+    await page.getByRole("button", { name: b.continue, exact: true }).first().click();
+    await expect(days).toBeVisible();
+}
+
 export async function raceTimePicker(
     page: Page,
     fixture: RaceFixture,
@@ -108,6 +119,7 @@ export async function raceTimePicker(
         .getByRole("button")
         .filter({ has: page.getByText(fixture.itemName, { exact: true }) })
         .click();
+    await pastExtras(page);
     const staffDays = page.waitForResponse(
         (response) =>
             response.url().includes("/book/birchbark/days?") &&

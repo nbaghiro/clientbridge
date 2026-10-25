@@ -729,7 +729,10 @@ async def _open_invoice(db: AsyncSession, booking: Booking) -> Invoice | None:
     rows = await db.execute(
         scoped(Invoice, booking.business_id)
         .join(Line, Line.invoice_id == Invoice.id)
-        .where(Line.booking_id == booking.id, ledger.invoice_status_expr().in_(("sent", "partial")))
+        .where(
+            Line.booking_id == booking.id,
+            ledger.invoice_status_expr().in_(("sent", "partial", "overdue")),
+        )
         .order_by(Invoice.issued_at.desc())
         .limit(1)
     )

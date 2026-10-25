@@ -161,7 +161,8 @@ class BillingService:
         self._assert_admin()
         invoice = await self._invoice(invoice_id)
         status, _ = await ledger.invoice_state(self.db, invoice)
-        if status in ("paid", "partial", "refunded", "void"):
+        cash, _ = await ledger.collected(self.db, invoice.business_id, "invoice", invoice.id)
+        if status in ("paid", "refunded", "void") or cash != 0:
             raise Conflict(f"a {status} invoice can't be voided")
 
         async def run(cmd: Command) -> InvoiceOut:

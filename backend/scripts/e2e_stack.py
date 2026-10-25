@@ -129,6 +129,12 @@ def stop(process: subprocess.Popen[bytes], *, grace_seconds: float = 15) -> None
     except ProcessLookupError:
         process.wait(timeout=5)
         return
+    except PermissionError:
+        # macOS refuses to signal a group whose only member is a zombie
+        if group_alive(process.pid):
+            raise
+        process.wait(timeout=5)
+        return
     deadline = time.monotonic() + grace_seconds
     while time.monotonic() < deadline:
         process.poll()
@@ -440,7 +446,7 @@ class Stack:
                 "0.0.0.0",
                 "--port",
                 str(self.api_port),
-                # keep-alive outlasts any wait in a test, so no request reuses a connection uvicorn closed
+                # outlasts any wait in a test, so no request reuses a connection uvicorn closed
                 "--timeout-keep-alive",
                 "120",
             ],

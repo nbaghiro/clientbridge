@@ -2,6 +2,7 @@ import httpx
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.models.billing import Invoice
 from clientbridge.models.catalog import Item
 from clientbridge.models.clients import Client
@@ -151,7 +152,10 @@ async def test_sending_the_invoice_applies_the_deposit(
     invoice = (await db.execute(select(Invoice).where(Invoice.id == inv_id))).scalar_one()
     assert (status, held) == ("applied", 0)
     assert balance == invoice.total_cents - 2000
-    assert invoice.status == "sent"
+    assert (await ledger.invoice_state(db, invoice))[0] == "partial"
+    invoice.overdue_notified_at = clock.now()
+    await db.flush()
+    assert (await ledger.invoice_state(db, invoice))[0] == "overdue"
 
 
 async def test_deposit_settled_after_the_invoice_is_applied(
@@ -195,6 +199,7 @@ async def test_refunding_an_applied_deposit_reopens_the_invoice(
     invoice = (await db.execute(select(Invoice).where(Invoice.id == inv_id))).scalar_one()
     status, held, balance = await _state(db, bid, inv_id)
     assert (status, held, balance) == ("refunded", 0, invoice.total_cents)
+    assert (await ledger.invoice_state(db, invoice))[0] == "sent"
 
 
 async def test_void_with_a_payment_in_progress_409(

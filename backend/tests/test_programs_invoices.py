@@ -110,7 +110,7 @@ async def test_an_online_enrolment_s_paid_deposit_applies_to_its_invoice(
     await settle(unauth, db, deposit.id)
     first = (await bookings(db, ids(out, "booking_ids")))[0]
     assert first.deposit_status == "applied"
-    assert await _status(db, invoice) == "sent"
+    assert await _status(db, invoice) == "partial"
     assert await ledger.invoice_balance(db, invoice) == invoice.total_cents - 5000
 
 
