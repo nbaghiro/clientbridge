@@ -26,7 +26,7 @@ DEPLOY_RULES: tuple[tuple[str, tuple[str, ...], tuple[str, ...]], ...] = (
     ("", ("pods/log",), ("get",)),  # why a migrate Job failed, in the deploy's log
     ("apps", ("deployments",), ("*",)),
     ("apps", ("replicasets",), ("get", "list", "watch")),
-    ("batch", ("jobs",), ("*",)),
+    ("batch", ("jobs", "cronjobs"), ("*",)),
     ("policy", ("poddisruptionbudgets",), ("*",)),
     ("discovery.k8s.io", ("endpointslices",), ("get", "list", "watch")),
     ("networking.k8s.io", ("networkpolicies",), ("*",)),

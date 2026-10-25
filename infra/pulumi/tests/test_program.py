@@ -252,7 +252,11 @@ def containers(deployment_: Registered) -> list[object]:
 
 def test_the_cloud_stack_runs_no_workloads(cloud: Built) -> None:
     kinds = {each.type for each in cloud.resources}
-    assert not kinds & {"kubernetes:apps/v1:Deployment", "kubernetes:batch/v1:Job"}
+    assert not kinds & {
+        "kubernetes:apps/v1:Deployment",
+        "kubernetes:batch/v1:Job",
+        "kubernetes:batch/v1:CronJob",
+    }
     assert len(of_type(cloud, "kubernetes:core/v1:Namespace")) == 3  # gateway, prod, staging
 
 
@@ -444,6 +448,10 @@ def jobs(built: Built, prefix: str) -> list[Registered]:
     ]
 
 
+def seed_pod(cron: Registered) -> object:
+    return dig(cron.inputs, "spec", "jobTemplate", "spec", "template", "spec")
+
+
 def migrate_job(built: Built) -> Registered:
     (job,) = jobs(built, "migrate")
     return job
@@ -628,6 +636,21 @@ def test_deploy_jobs_hold_only_what_they_need() -> None:
     assert dig(env, "PULUMI_BACKEND_URL") == "${{ vars.PULUMI_BACKEND_URL }}"
 
 
+def test_stagings_seed_runs_by_hand_only_from_main_as_the_deployer() -> None:
+    seed_staging = workflow("seed-staging.yml")
+    assert seed_staging["permissions"] == {}
+    assert keys(dig(seed_staging, "True")) == {"workflow_dispatch"}  # yaml reads `on` as True
+    job = dig(seed_staging, "jobs", "seed")
+    assert dig(job, "if") == "github.ref == 'refs/heads/main'"
+    assert dig(job, "environment") == "staging"
+    assert dig(job, "permissions") == {"contents": "read", "id-token": "write"}
+    steps = listed(dig(job, "steps"))
+    (auth,) = [s for s in steps if str(dig(s, "uses")).startswith("google-github-actions/auth@")]
+    assert dig(auth, "with", "service_account") == "${{ vars.GCP_DEPLOYER }}"
+    (start,) = [s for s in steps if dig(s, "name") == "start the seed"]
+    assert 'create job --from=cronjob/seed "$JOB"' in str(dig(start, "run"))
+
+
 def test_production_waits_until_the_project_runs_it() -> None:
     production = dig(workflow("deploy.yml"), "jobs", "production", "if")
     assert "vars.DEPLOY_PRODUCTION == 'true'" in str(production)
@@ -672,11 +695,14 @@ def image_user(image: str) -> tuple[int, int]:
 
 def pod_specs(built: Built) -> list[object]:
     return [
-        dig(each.inputs, "spec", "template", "spec")
-        for each in [
-            *of_type(built, "kubernetes:apps/v1:Deployment"),
-            *of_type(built, "kubernetes:batch/v1:Job"),
-        ]
+        *(
+            dig(each.inputs, "spec", "template", "spec")
+            for each in [
+                *of_type(built, "kubernetes:apps/v1:Deployment"),
+                *of_type(built, "kubernetes:batch/v1:Job"),
+            ]
+        ),
+        *(seed_pod(each) for each in of_type(built, "kubernetes:batch/v1:CronJob")),
     ]
 
 
@@ -907,6 +933,17 @@ def test_deployers_can_watch_what_pulumi_awaits(cloud: Built) -> None:
         assert {"pods", "replicasets", "persistentvolumeclaims", "jobs", "deployments"} <= readable
 
 
+def test_deployers_manage_cronjobs_and_start_jobs_from_them(cloud: Built) -> None:
+    for env in DOMAINS:
+        (role,) = [
+            each
+            for each in of_type(cloud, "kubernetes:rbac.authorization.k8s.io/v1:Role")
+            if dig(each.inputs, "metadata", "namespace") == env
+        ]
+        rules = listed(dig(role.inputs, "rules"))
+        assert {"apiGroups": ["batch"], "resources": ["jobs", "cronjobs"], "verbs": ["*"]} in rules
+
+
 def test_the_connection_pools_fit_the_instance(cloud: Built, stacks: dict[str, Built]) -> None:
     for built in stacks.values():
         (api,) = containers(named(built, "kubernetes:apps/v1:Deployment", "api"))
@@ -1060,32 +1097,49 @@ def test_each_deployer_writes_only_its_own_state(cloud: Built) -> None:
         assert f"/clientbridge/{other}" not in expression
 
 
-def test_only_staging_seeds_the_demo_after_migrate_and_auth(stacks: dict[str, Built]) -> None:
-    assert not jobs(stacks["prod"], "seed")
+def test_no_stack_seeds_the_demo_on_deploy(stacks: dict[str, Built]) -> None:
+    for built in stacks.values():
+        assert not jobs(built, "seed")
+
+
+def test_only_staging_seeds_the_demo_nightly_after_migrate_and_auth(
+    stacks: dict[str, Built],
+) -> None:
+    assert not of_type(stacks["prod"], "kubernetes:batch/v1:CronJob")
     built = stacks["staging"]
-    (seed,) = jobs(built, "seed")
+    (seed,) = of_type(built, "kubernetes:batch/v1:CronJob")
+    assert dig(seed.inputs, "metadata", "name") == "seed"
+    assert dig(seed.inputs, "metadata", "annotations") is None
+    assert dig(seed.inputs, "spec", "schedule") == "0 11 * * *"
+    assert dig(seed.inputs, "spec", "timeZone") == "Etc/UTC"
+    assert dig(seed.inputs, "spec", "concurrencyPolicy") == "Forbid"
+    assert dig(seed.inputs, "spec", "startingDeadlineSeconds") == 3600
+    assert dig(seed.inputs, "spec", "successfulJobsHistoryLimit") == 1
+    assert dig(seed.inputs, "spec", "failedJobsHistoryLimit") == 2
+    job = dig(seed.inputs, "spec", "jobTemplate", "spec")
+    assert dig(job, "activeDeadlineSeconds") == 3600
+    assert dig(job, "backoffLimit") == 2
     (auth,) = [
         each
         for each in of_type(built, "kubernetes:apps/v1:Deployment")
         if dig(each.inputs, "metadata", "name") == "auth"
     ]
     assert {migrate_job(built).urn, auth.urn} <= set(seed.dependencies)
-    spec = dig(seed.inputs, "spec", "template", "spec")
+    spec = seed_pod(seed)
     assert dig(spec, "serviceAccountName") == "migrate"
+    assert dig(spec, "restartPolicy") == "Never"
     (container,) = listed(dig(spec, "containers"))
     assert "scripts.stripe_setup --link-only --apply" in str(dig(container, "command"))
 
 
 def test_stagings_seed_has_room_for_every_demo_business(stacks: dict[str, Built]) -> None:
-    (seed,) = jobs(stacks["staging"], "seed")
-    spec = dig(seed.inputs, "spec", "template", "spec")
+    (seed,) = of_type(stacks["staging"], "kubernetes:batch/v1:CronJob")
+    spec = seed_pod(seed)
     (container,) = listed(dig(spec, "containers"))
     assert dig(container, "resources", "requests") == {"cpu": "1", "memory": "2Gi"}
     command = str(dig(container, "command"))
     scratch_url = "postgresql://postgres@127.0.0.1:5433/scratch"
     assert f"scripts.seed_demo --jobs 2 --scratch {scratch_url} --prune-logins " in command
-    assert dig(seed.inputs, "spec", "activeDeadlineSeconds") == 3600
-    assert dig(seed.inputs, "metadata", "annotations") == {"pulumi.com/skipAwait": "true"}
     proxy, scratch = listed(dig(spec, "initContainers"))
     assert dig(proxy, "name") == "cloud-sql-proxy"
     assert dig(scratch, "resources", "requests") == {"cpu": "1", "memory": "2Gi"}
@@ -1098,8 +1152,8 @@ def test_stagings_seed_has_room_for_every_demo_business(stacks: dict[str, Built]
 def test_stagings_seed_writes_into_a_loopback_postgres_of_cloud_sqls_version(
     stacks: dict[str, Built],
 ) -> None:
-    (seed,) = jobs(stacks["staging"], "seed")
-    spec = dig(seed.inputs, "spec", "template", "spec")
+    (seed,) = of_type(stacks["staging"], "kubernetes:batch/v1:CronJob")
+    spec = seed_pod(seed)
     (scratch,) = [
         each
         for each in listed(dig(spec, "initContainers"))
@@ -1431,14 +1485,3 @@ def test_google_business_resources_are_gated_and_use_a_separate_key() -> None:
     assert "mybusiness.googleapis.com" in enabled_apis
     assert "mybusinessaccountmanagement.googleapis.com" in enabled_apis
     assert "mybusinessbusinessinformation.googleapis.com" in enabled_apis
-
-
-def test_stagings_seed_job_is_renamed_when_its_command_or_deadline_changes(
-    stacks: dict[str, Built],
-) -> None:
-    (seed,) = jobs(stacks["staging"], "seed")
-    (container,) = listed(dig(seed.inputs, "spec", "template", "spec", "containers"))
-    image = str(dig(container, "image"))
-    command = [str(each) for each in listed(dig(container, "command"))]
-    assert command
-    assert dig(seed.inputs, "metadata", "name") != f"seed-{settings.config_digest(image)}"
