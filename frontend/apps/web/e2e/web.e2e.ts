@@ -311,14 +311,26 @@ test("owner: schedule, booking panel, classes and repeat visits", async ({ page 
         await expect(draft).toContainText(b.newBooking);
         await expect(draft).toBeInViewport();
         const card = draft.getByRole("button");
-        // the card's text shows its time but no member, so it is set before the team loads
+        // the draft first shows in the first lane and moves to its member's once the team loads
+        const [, lead = "", tail = ""] = b
+            .draftLabel("\0", "\0", "")
+            .split("\0")
+            .map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+        await expect(card).toHaveAccessibleName(new RegExp(`${lead}(?!${tail.trim()})\\S`));
         const before = await card.innerText();
         const box = await draft.boundingBox();
+        const lanes = await draft.locator("..").boundingBox();
         expect(box).not.toBeNull();
-        if (box !== null) {
-            await page.mouse.move(box.x + box.width / 2, box.y + 8);
+        expect(lanes).not.toBeNull();
+        if (box !== null && lanes !== null) {
+            // late in the day the draft sits at the bottom of the grid, so drag toward the room
+            const above = box.y - lanes.y;
+            const below = lanes.y + lanes.height - (box.y + box.height);
+            const x = box.x + box.width / 2;
+            const y = box.y + box.height / 2;
+            await page.mouse.move(x, y);
             await page.mouse.down();
-            await page.mouse.move(box.x + box.width / 2, box.y + 8 + box.height * 2, { steps: 8 });
+            await page.mouse.move(x, y + (above > below ? -2 : 2) * box.height, { steps: 8 });
             await page.mouse.up();
         }
         await expect(card).not.toHaveText(before, { useInnerText: true });

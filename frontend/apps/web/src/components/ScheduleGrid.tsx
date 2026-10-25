@@ -635,6 +635,12 @@ export function DraftCard({
     const origin = useRef<{ x: number; y: number; lane: number; start: Date; last: string } | null>(
         null,
     );
+    const card = useRef<HTMLDivElement>(null);
+    const startMs = draft.start.getTime();
+    useLayoutEffect(() => {
+        // a draft placed from the form can land below the fold, late in the day
+        if (origin.current === null) card.current?.scrollIntoView({ block: "nearest" });
+    }, [startMs, lane]);
     const at = (e: ReactPointerEvent<HTMLElement>): void => {
         const o = origin.current;
         if (!o) return;
@@ -649,6 +655,7 @@ export function DraftCard({
     };
     return (
         <div
+            ref={card}
             data-testid="draft"
             className="absolute z-20 cursor-grab touch-none select-none px-[3px] active:cursor-grabbing"
             style={{
