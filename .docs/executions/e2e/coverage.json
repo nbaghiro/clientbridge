@@ -16801,6 +16801,79 @@
         "OPS15",
         "OPS16"
       ]
+    },
+    {
+      "id": "DOC-E2E-06",
+      "status": "verified",
+      "risk": "critical",
+      "layer": "browser",
+      "lane": "pr",
+      "implementation": [
+        "frontend/apps/connect/e2e/documents.e2e.ts"
+      ],
+      "setup": "Sent estimate with an optional add-on and a 10% document discount, created through the authenticated API",
+      "actions": [
+        "Open the estimate link in Connect as the client",
+        "Tick the optional add-on",
+        "Accept"
+      ],
+      "expected": [
+        "The shown total is the server's quote for the ticked lines, with the document discount spread across them",
+        "The accepted total equals the shown total"
+      ],
+      "forbidden": [
+        "A shown total that differs from the accepted one",
+        "Accepting after the estimate changed without a 409 estimate_changed"
+      ],
+      "boundaries": [
+        "GST-only lines and a percent discount; mixed tax and capped fixed discounts are covered by neither this case nor backend tests"
+      ],
+      "depends_on": [],
+      "related_audit_families": [
+        "BILL03"
+      ],
+      "verified_on": ".scratchpad/e2e-e2bceb072998",
+      "evidence": [
+        "Strict source-stable connect lane, 51 passed and 1 presentation skip; first attempt"
+      ],
+      "runtime_scope": "Connect production bundle on an isolated stack"
+    },
+    {
+      "id": "BILL-DOC-03",
+      "status": "verified",
+      "risk": "critical",
+      "layer": "browser",
+      "lane": "pr",
+      "implementation": [
+        "frontend/apps/web/e2e/invoices.e2e.ts"
+      ],
+      "setup": "Seeded booking bk_rex_2 with a collected 2750 deposit and an API-added add-on, invoiced as a draft",
+      "actions": [
+        "Edit an unrelated field of the visit's draft invoice in the web app",
+        "Send it"
+      ],
+      "expected": [
+        "Every line keeps its booking_id and staff_id through the edit and the send",
+        "The booking is deposit_status applied with invoice_id set",
+        "One application journal of -2750 receivable",
+        "Balance is the total less 2750 and the status is partial"
+      ],
+      "forbidden": [
+        "Lines rebuilt with null booking or staff references",
+        "An unapplied deposit"
+      ],
+      "boundaries": [
+        "Prerequisites are API setup; the edit and the send are through the UI"
+      ],
+      "depends_on": [],
+      "related_audit_families": [
+        "BILL02"
+      ],
+      "verified_on": ".scratchpad/e2e-eead50ad8e8e",
+      "evidence": [
+        "Strict source-stable web run, 1/1 first attempt, cleanup passed"
+      ],
+      "runtime_scope": "Web production bundle on an isolated stack"
     }
   ],
   "coverage_summary": {

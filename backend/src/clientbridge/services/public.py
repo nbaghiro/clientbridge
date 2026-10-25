@@ -1943,23 +1943,27 @@ class PublicEstimateService:
             raise NotFound(msg)
         return estimate, await business_or_404(self.db, estimate.business_id, msg)
 
-    async def context(self, token: str) -> PublicEstimate:
+    async def context(self, token: str, line_ids: list[str] | None = None) -> PublicEstimate:
+        """The estimate as sent, or quoted with `line_ids` ticked as accepting prices it."""
         estimate, business = await self._resolve(token)
-        return await self._context(estimate, business)
+        if line_ids is None:
+            return await self._context(estimate, business)
+        self._assert_open(estimate, business)
+        lines = [_unsaved(ln) for ln in await self._lines(estimate)]
+        _select(lines, line_ids, estimate)
+        return await self._context(estimate, business, lines)
 
     async def accept(self, token: str, data: PublicEstimateAccept) -> PublicEstimate:
         estimate, business = await self._resolve(token, lock=True)
         self._assert_open(estimate, business)
         assert_serving(business, clock.now())
-        lines = await fetch_lines(self.db, estimate.business_id, "estimate", estimate.id)
-        offered = {ln.id for ln in lines if ln.optional}
-        if not set(data.line_ids) <= offered:
-            raise Unprocessable("only an optional add-on can be ticked")
-        for line in lines:
-            line.selected = line.optional and line.id in data.line_ids
-        price_lines(lines, estimate)
+        lines = await self._lines(estimate)
+        _select(lines, data.line_ids, estimate)
         result = await tax_for_lines(self.db, estimate.business_id, lines)
-        apply_totals(estimate, included_totals(lines, result))
+        totals = included_totals(lines, result)
+        if data.total_cents is not None and data.total_cents != totals.total_cents:
+            raise Conflict("this estimate changed since it was shown", code="estimate_changed")
+        apply_totals(estimate, totals)
         estimate.status = "accepted"
         estimate.accepted_at = clock.now()
         await self.db.commit()
@@ -1980,9 +1984,14 @@ class PublicEstimateService:
         if status != "sent":
             raise Conflict(f"this estimate is already {status}")
 
-    async def _context(self, estimate: Estimate, business: Business) -> PublicEstimate:
+    async def _lines(self, estimate: Estimate) -> list[Line]:
+        return await fetch_lines(self.db, estimate.business_id, "estimate", estimate.id)
+
+    async def _context(
+        self, estimate: Estimate, business: Business, lines: list[Line] | None = None
+    ) -> PublicEstimate:
         client = await self.db.get(Client, estimate.client_id)
-        lines = await fetch_lines(self.db, estimate.business_id, "estimate", estimate.id)
+        lines = lines if lines is not None else await self._lines(estimate)
         priced = await estimate_tax(self.db, estimate, lines)
         doc_lines, taxes = await public_doc_lines(self.db, estimate, lines, priced)
         totals = included_totals(lines, priced[1])
@@ -2004,6 +2013,8 @@ class PublicEstimateService:
             valid_until=estimate.valid_until,
             notes=estimate.notes,
             decline_reason=estimate.decline_reason,
+            discount_cents=sum(ln.sale_discount_cents for ln in lines if included(ln)),
+            discount_reason=estimate.discount_reason,
             lines=[
                 PublicEstimateLine(
                     **doc.model_dump(),
@@ -2017,6 +2028,20 @@ class PublicEstimateService:
             ],
             taxes=taxes,
         )
+
+
+def _unsaved(line: Line) -> Line:
+    """A copy outside the session, so a quote can price it without writing the estimate."""
+    return Line(**{attr.key: getattr(line, attr.key) for attr in Line.__mapper__.column_attrs})
+
+
+def _select(lines: list[Line], line_ids: list[str], estimate: Estimate) -> None:
+    """Tick the chosen add-ons and price the document's discount over everything included."""
+    if not set(line_ids) <= {ln.id for ln in lines if ln.optional}:
+        raise Unprocessable("only an optional add-on can be ticked")
+    for line in lines:
+        line.selected = line.optional and line.id in line_ids
+    price_lines(lines, estimate)
 
 
 async def owner_staff_id(db: AsyncSession, business_id: str) -> str:

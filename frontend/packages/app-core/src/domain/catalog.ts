@@ -858,14 +858,29 @@ function itemTiming(v: ItemFormValues): ItemTiming {
     };
 }
 
+function halfToEven(x: number): number {
+    const floor = Math.floor(x);
+    if (x - floor !== 0.5) return Math.round(x);
+    return floor % 2 === 0 ? floor : floor + 1;
+}
+
+/** The deposit the server charges (services/catalog.deposit_cents): half to even, capped at the price. */
+export function depositCents(price: number, type: string, value: number | null): number {
+    if (type === "none" || value === null) return 0;
+    const raw = type === "fixed" ? Math.trunc(value) : halfToEven((price * value) / 100);
+    return Math.max(0, Math.min(raw, price));
+}
+
 function depositSummary(v: ItemFormValues): string {
     const price = parseCents(v.price, BUSINESS_CURRENCY) ?? 0;
     if (v.depositType === "none") return s.depositNoneSummary;
-    const raw =
+    const deposit = depositCents(
+        price,
+        v.depositType,
         v.depositType === "percent"
-            ? Math.round((price * (parseNumber(v.depositValue) ?? 0)) / 100)
-            : (parseCents(v.depositValue, BUSINESS_CURRENCY) ?? 0);
-    const deposit = Math.min(price, Math.max(0, raw));
+            ? (parseNumber(v.depositValue) ?? 0)
+            : (parseCents(v.depositValue, BUSINESS_CURRENCY) ?? 0),
+    );
     return s.depositSummary(
         formatMoney(deposit, BUSINESS_CURRENCY),
         formatMoney(price - deposit, BUSINESS_CURRENCY),

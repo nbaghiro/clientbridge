@@ -16,6 +16,7 @@ REQUIRED_CASES = {
         "SCH-PILOT-01",
         "BILL-DOC-01",
         "BILL-DOC-02",
+        "BILL-DOC-03",
         "SEC-E2E-01",
         "SEC-E2E-02",
         "OFF-E2E-01",
@@ -44,6 +45,7 @@ REQUIRED_CASES = {
         "DOC-E2E-04",
         "DOC-E2E-05",
         "EMBED-E2E-01",
+        "DOC-E2E-06",
     ],
     "journeys": [
         "CLS-E2E-01",

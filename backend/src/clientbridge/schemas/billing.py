@@ -180,6 +180,8 @@ class PublicEstimate(BaseModel):
     valid_until: date | None
     notes: str | None
     decline_reason: str | None
+    discount_cents: int = Field(description="The estimate's own discount over its included lines")
+    discount_reason: str | None
     lines: list[PublicEstimateLine]
     taxes: list[PublicDocTax]
 
@@ -187,6 +189,9 @@ class PublicEstimate(BaseModel):
 class PublicEstimateAccept(BaseModel):
     line_ids: list[str] = Field(
         default_factory=list, description="The optional add-ons the client ticked"
+    )
+    total_cents: int | None = Field(
+        default=None, description="The total the client was shown; refused when it has changed"
     )
 
 

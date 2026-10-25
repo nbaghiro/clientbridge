@@ -212,7 +212,9 @@ class RecurrenceCreate(Mirror):
     monthly_by: MonthlyBy = Field(
         default="date", description="Monthly on the same date, or the same weekday (2nd Tuesday)"
     )
-    count: int | None = Field(default=None, description="End after this many; set count or until")
+    count: int | None = Field(
+        default=None, ge=1, description="End after this many; set count or until"
+    )
     until: date | None = Field(default=None, description="End on this date; set count or until")
     subject_id: str | None = None
     exceptions: list[RecurrenceException] = Field(default_factory=list, max_length=60)

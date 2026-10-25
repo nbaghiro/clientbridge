@@ -72,10 +72,20 @@ async def document_evidence(
             ),
             {"id": document_id},
         )
+        bookings = await db.execute(
+            text(
+                "SELECT id, status, deposit_status, invoice_id FROM bookings "
+                f"WHERE id IN (SELECT booking_id FROM lines WHERE {parent} = :id) "
+                + ("OR invoice_id = :id " if kind == "invoice" else "")
+                + "ORDER BY id"
+            ),
+            {"id": document_id},
+        )
         return {
             "document": document.scalar_one(),
             "lines": list(lines.scalars()),
             "siblings": [dict(row) for row in siblings.mappings()],
+            "bookings": [dict(row) for row in bookings.mappings()],
         }
 
 

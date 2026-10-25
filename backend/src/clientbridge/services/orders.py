@@ -332,6 +332,7 @@ class OrderService:
             amount = min(balance, due)
             if amount <= 0:
                 raise Conflict("nothing is left to pay on this sale")
+            await assert_parent_stock(self.db, self.biz, "order", order.id)
             await ledger.post_redemption(self.db, card, amount, source=("order", order.id))
             await sync_order(self.db, order.id)
             cmd.record("order.gift_card", entity_type="order", entity_id=order.id)
@@ -486,7 +487,11 @@ class OrderService:
         """A visit rung up on this sale points at it, so the desk queue knows it is on a ticket."""
         wanted = {ln.booking_id for ln in lines if ln.booking_id}
         linked = await self.db.execute(
-            scoped(Booking, self.biz).where((Booking.order_id == order.id) | Booking.id.in_(wanted))
+            scoped(Booking, self.biz)
+            .where((Booking.order_id == order.id) | Booking.id.in_(wanted))
+            .order_by(Booking.id)
+            .with_for_update(key_share=True)
+            .execution_options(populate_existing=True)
         )
         for booking in linked.scalars().all():
             if booking.id not in wanted:

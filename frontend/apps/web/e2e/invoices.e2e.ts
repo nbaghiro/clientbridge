@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { strings } from "@clientbridge/app-core/public";
 import { expect, test } from "@playwright/test";
 
@@ -344,4 +345,82 @@ test("BILL-DOC-02 UI estimate approval converts selected required work into one 
     } finally {
         await observer.close();
     }
+});
+
+test("BILL-DOC-03 editing a visit's draft invoice keeps its visit, staff and deposit", async ({
+    page,
+}) => {
+    // a seeded upcoming large-dog groom (25% of $110 held as a deposit) no other case touches
+    const visit = "bk_rex_2";
+    const deposit = 2750;
+    await signIn(page);
+    const api = process.env.VITE_API_URL ?? "http://localhost:8701";
+    const headers = { Origin: new URL(page.url()).origin };
+    const addon = await page.request.post(`${api}/v1/bookings/${visit}/addons`, {
+        headers,
+        data: { item_id: "it_brush", quantity: 1 },
+    });
+    expect(addon.status(), await addon.text()).toBe(201);
+    const created = await page.request.post(`${api}/v1/invoices/from-booking/${visit}`, {
+        headers: { ...headers, "Idempotency-Key": randomUUID() },
+    });
+    expect(created.status(), await created.text()).toBe(201);
+    const draft = (await created.json()) as DocumentRecord & {
+        lines: { booking_id: string | null; staff_id: string | null }[];
+    };
+    const refs = draft.lines.map((l) => [l.booking_id, l.staff_id]);
+    expect(refs).toEqual([
+        [visit, null],
+        [visit, "st_diego"],
+    ]);
+    const client = { id: "cl_marcus", name: "Marcus Bennett", email: "marcus.b@example.test" };
+    expect(draft.client_id).toBe(client.id);
+
+    const detail = await openDocument(page, client, "invoice", draft.id);
+    await detail.getByRole("button", { name: strings.billing.edit, exact: true }).click();
+    const editing = page.getByRole("dialog").filter({
+        has: page.getByRole("button", { name: strings.billing.saveDraft, exact: true }),
+    });
+    await editing
+        .getByRole("textbox", { name: strings.billing.messageToClient })
+        .fill("Thanks for bringing Rex in. His next groom is due in six weeks.");
+    const saved = await saveDocument(page, editing, "invoice", draft.id);
+    expect(saved).toMatchObject({
+        notes: "Thanks for bringing Rex in. His next groom is due in six weeks.",
+        total_cents: draft.total_cents,
+    });
+    const edited = await documentEvidence("invoice", draft.id);
+    expect(edited.lines.map((l) => [l.booking_id, l.staff_id])).toEqual(refs);
+    await editing.getByRole("button", { name: strings.common.close, exact: true }).click();
+
+    await openDocument(page, client, "invoice", draft.id);
+    await page.getByRole("button", { name: strings.billing.sendInvoice, exact: true }).click();
+    const sent = page.waitForResponse(
+        (response) =>
+            response.url().endsWith(`/invoices/${draft.id}/send`) &&
+            response.request().method() === "POST",
+    );
+    await page
+        .getByRole("dialog")
+        .filter({ has: page.getByRole("heading", { name: strings.previews.title, exact: true }) })
+        .getByRole("button", { name: strings.billing.sendInvoice, exact: true })
+        .click();
+    const sentResponse = await sent;
+    expect(sentResponse.status(), await sentResponse.text()).toBe(200);
+    expect(await sentResponse.json()).toMatchObject({
+        status: "partial",
+        total_cents: draft.total_cents,
+        balance_cents: draft.total_cents - deposit,
+    });
+    const issued = await documentEvidence("invoice", draft.id);
+    expect(issued.lines.map((l) => [l.booking_id, l.staff_id])).toEqual(refs);
+    expect(issued.bookings).toEqual([
+        { id: visit, status: "confirmed", deposit_status: "applied", invoice_id: draft.id },
+    ]);
+    const journal = await paymentEvidence(draft.id);
+    expect(
+        journal.entries
+            .filter((entry) => entry.event === "application")
+            .map((entry) => [entry.category, entry.amount_cents]),
+    ).toEqual([["receivable", -deposit]]);
 });

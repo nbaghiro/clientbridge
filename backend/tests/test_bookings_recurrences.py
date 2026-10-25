@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from clientbridge.core.ids import new_id
 from clientbridge.models.catalog import Item
 from clientbridge.models.clients import Client
+from clientbridge.models.platform import Audit
 from clientbridge.models.scheduling import Recurrence, Slot
 from clientbridge.services.bookings import expand_occurrences
 from tests.conftest import BIZ, Factory
@@ -217,6 +218,21 @@ async def test_a_series_longer_than_the_cap_is_refused(
     )
     assert last.status_code == 201, last.text
     assert len(last.json()["occurrences"]) == 60
+
+
+@pytest.mark.parametrize("frequency", ["day", "week", "month"])
+async def test_a_nonpositive_count_is_refused_and_books_nothing(
+    as_owner: httpx.AsyncClient, db: AsyncSession, frequency: str
+) -> None:
+    client_id, item_id = await _client_and_item(db)
+    written = [select(func.count()).select_from(t) for t in (Recurrence, Slot, Audit)]
+    before = [await db.scalar(q) for q in written]
+    for count in (0, -1):
+        body = _body(client_id, item_id, frequency=frequency, count=count)
+        res = await as_owner.post("/v1/recurrences", json=body)
+        assert res.status_code == 422, res.text
+        assert res.json()["error"] == "invalid_request"
+    assert [await db.scalar(q) for q in written] == before
 
 
 async def test_staff_cannot_schedule_for_others(

@@ -29,6 +29,23 @@ export interface ContractEvidence {
     signed_at: string | null;
 }
 
+export interface EstimateEvidence {
+    id: string;
+    status: string;
+    subtotal_cents: number;
+    tax_total_cents: number;
+    total_cents: number;
+    accepted_at: string | null;
+    lines: {
+        description: string;
+        optional: boolean;
+        selected: boolean;
+        amount_cents: number;
+        sale_discount_cents: number;
+        tax_amount_cents: number;
+    }[];
+}
+
 async function committed(kind: string, id?: string): Promise<string> {
     const { stdout } = await execute(
         "uv",
@@ -51,6 +68,14 @@ export async function contractEvidence(id: string): Promise<ContractEvidence> {
     expect(rows).toHaveLength(1);
     const row = rows[0];
     if (!row) throw new Error("committed signature is missing");
+    return row;
+}
+
+export async function estimateEvidence(id: string): Promise<EstimateEvidence> {
+    const rows = JSON.parse(await committed("estimate", id)) as EstimateEvidence[];
+    expect(rows).toHaveLength(1);
+    const row = rows[0];
+    if (!row) throw new Error("committed estimate is missing");
     return row;
 }
 
@@ -130,4 +155,28 @@ export async function issueContract(request: APIRequestContext) {
     expect(sent.status(), await sent.text()).toBe(201);
     const signature = (await sent.json()) as { id: string; token: string };
     return { ...provider, ...signature, contractId: contract.id, version: contract.version, body };
+}
+
+// two $100 GST-only lines, the second an optional add-on, with 10% off the whole estimate
+export async function issueEstimate(request: APIRequestContext) {
+    const provider = await documentProvider(request);
+    const line = (description: string, optional: boolean) => ({
+        description,
+        quantity: 1,
+        unit_amount_cents: 10000,
+        tax_class: "federal_only",
+        optional,
+    });
+    const created = await request.post(`${documentApi}/v1/estimates`, {
+        headers: { ...provider.headers, "Idempotency-Key": randomUUID() },
+        data: {
+            client_id: provider.clientId,
+            lines: [line("Full groom", false), line("De-shedding treatment", true)],
+            discount: { kind: "percent", value: 10, reason: "Returning client" },
+            send: true,
+        },
+    });
+    expect(created.status(), await created.text()).toBe(201);
+    const estimate = (await created.json()) as { id: string; view_token: string };
+    return { ...provider, id: estimate.id, token: estimate.view_token };
 }
