@@ -4,6 +4,16 @@ import { StatusBar } from "expo-status-bar";
 import { type ReactNode, useState } from "react";
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import Svg, {
+    Circle,
+    Defs,
+    G,
+    LinearGradient,
+    Path,
+    RadialGradient,
+    Rect,
+    Stop,
+} from "react-native-svg";
 import {
     Button,
     Checkbox,
@@ -13,6 +23,7 @@ import {
     Lockup,
     Notice,
     TextField,
+    useTabletLayout,
 } from "@clientbridge/ui";
 
 import { identity, openAuthSession } from "../lib/api";
@@ -343,9 +354,86 @@ function Recovering({
     return <Recover recovery={recovery} onBack={onBack} />;
 }
 
-function Frame({ children }: { children: ReactNode }) {
+const NODES = [
+    [96, 168],
+    [520, 196],
+    [132, 470],
+    [470, 372],
+    [250, 612],
+    [486, 588],
+] as const;
+
+function BrandBackdrop() {
     return (
-        <SafeAreaView style={styles.screen}>
+        <Svg
+            style={StyleSheet.absoluteFill}
+            viewBox="0 0 600 820"
+            preserveAspectRatio="xMidYMid slice"
+            pointerEvents="none"
+        >
+            <Defs>
+                <LinearGradient id="brand" x1="0.25" y1="0" x2="0.75" y2="1">
+                    <Stop offset="0" stopColor={c.accent} />
+                    <Stop offset="0.55" stopColor={c.primary} />
+                    <Stop offset="1" stopColor={c.side} />
+                </LinearGradient>
+                <RadialGradient id="sheen" cx="108" cy="66" r="540" gradientUnits="userSpaceOnUse">
+                    <Stop offset="0" stopColor={c.accentInk} stopOpacity={0.06} />
+                    <Stop offset="0.6" stopColor={c.accentInk} stopOpacity={0} />
+                </RadialGradient>
+                <RadialGradient id="glow" cx="300" cy="300" r="280" gradientUnits="userSpaceOnUse">
+                    <Stop offset="0" stopColor={c.logo} stopOpacity={0.09} />
+                    <Stop offset="1" stopColor={c.logo} stopOpacity={0} />
+                </RadialGradient>
+            </Defs>
+            <Rect width="600" height="820" fill="url(#brand)" />
+            <Rect width="600" height="820" fill="url(#sheen)" />
+            <Circle cx="300" cy="300" r="280" fill="url(#glow)" />
+            <G stroke={c.accentInk} strokeOpacity={0.045} strokeWidth={1}>
+                <Path d={NODES.map(([x, y]) => `M300 300 ${String(x)} ${String(y)}`).join("")} />
+            </G>
+            <G fill={c.accentInk} fillOpacity={0.35}>
+                {NODES.map(([x, y]) => (
+                    <Circle key={`${String(x)}-${String(y)}`} cx={x} cy={y} r={2.6} />
+                ))}
+            </G>
+            <G stroke={c.accentInk} strokeOpacity={0.06} fill="none" strokeWidth={1}>
+                <Circle cx="300" cy="300" r="150" />
+                <Circle cx="300" cy="300" r="230" />
+            </G>
+        </Svg>
+    );
+}
+
+function BrandPanel() {
+    return (
+        <SafeAreaView style={styles.brandPanel} edges={["top", "bottom", "left"]}>
+            <BrandBackdrop />
+            <Lockup fontSize={21} markColor={c.accentInk} textColor={c.accentInk} />
+            <View>
+                <Text style={styles.heroTitle} accessibilityRole="header">
+                    {a.heroHeadlineLine1}
+                    {"\n"}
+                    {a.heroHeadlineLine2}
+                </Text>
+                <Text style={styles.heroSubtitle}>{a.heroSubtitle}</Text>
+                <View style={styles.chips}>
+                    {a.heroFeatures.map((f) => (
+                        <View key={f} style={styles.chip}>
+                            <View style={styles.chipRing} />
+                            <Text style={styles.chipText}>{f}</Text>
+                        </View>
+                    ))}
+                </View>
+            </View>
+        </SafeAreaView>
+    );
+}
+
+function Frame({ children }: { children: ReactNode }) {
+    const split = useTabletLayout();
+    const form = (
+        <SafeAreaView style={split ? styles.formPane : styles.screen}>
             <StatusBar style="dark" />
             <KeyboardAvoidingView
                 behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -356,18 +444,27 @@ function Frame({ children }: { children: ReactNode }) {
                     keyboardShouldPersistTaps="handled"
                     showsVerticalScrollIndicator={false}
                 >
-                    <View>
-                        <Lockup
-                            fontSize={19}
-                            markColor={c.accent}
-                            textColor={c.ink}
-                            style={styles.brand}
-                        />
+                    <View style={styles.form}>
+                        {split ? null : (
+                            <Lockup
+                                fontSize={19}
+                                markColor={c.accent}
+                                textColor={c.ink}
+                                style={styles.brand}
+                            />
+                        )}
                         {children}
                     </View>
                 </ScrollView>
             </KeyboardAvoidingView>
         </SafeAreaView>
+    );
+    if (!split) return form;
+    return (
+        <View style={styles.split}>
+            <BrandPanel />
+            {form}
+        </View>
     );
 }
 
@@ -472,10 +569,58 @@ const styles = StyleSheet.create({
     content: {
         flexGrow: 1,
         justifyContent: "center",
+        alignItems: "center",
         paddingHorizontal: 28,
         paddingVertical: 32,
     },
     brand: { marginBottom: 36 },
+    form: { width: "100%", maxWidth: theme.layout.form },
+    split: { flex: 1, flexDirection: "row", backgroundColor: c.surface },
+    formPane: { flex: 1, backgroundColor: c.surface },
+    brandPanel: {
+        flex: 1.05,
+        justifyContent: "space-between",
+        padding: 48,
+        overflow: "hidden",
+        backgroundColor: c.side,
+    },
+    heroTitle: {
+        color: c.accentInk,
+        fontFamily: theme.fonts.display,
+        fontSize: 32,
+        fontWeight: "700",
+        lineHeight: 37,
+        letterSpacing: -0.6,
+    },
+    heroSubtitle: {
+        color: c.accentInk,
+        opacity: 0.7,
+        fontFamily: theme.fonts.ui,
+        fontSize: 15,
+        lineHeight: 24,
+        marginTop: 16,
+        maxWidth: 448,
+    },
+    chips: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 32 },
+    chip: { borderRadius: 999, paddingHorizontal: 12, paddingVertical: 4 },
+    chipRing: {
+        position: "absolute",
+        top: 0,
+        right: 0,
+        bottom: 0,
+        left: 0,
+        borderRadius: 999,
+        borderWidth: 1,
+        borderColor: c.accentInk,
+        opacity: 0.2,
+    },
+    chipText: {
+        color: c.accentInk,
+        opacity: 0.8,
+        fontFamily: theme.fonts.ui,
+        fontSize: 12,
+        fontWeight: "500",
+    },
     title: {
         color: c.ink,
         fontFamily: theme.fonts.ui,
