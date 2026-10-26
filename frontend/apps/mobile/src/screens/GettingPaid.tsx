@@ -22,6 +22,7 @@ import {
     PaymentNotices,
     Skeleton,
     StatusPill,
+    Panel,
 } from "@clientbridge/ui";
 
 import { api } from "../lib/api";
@@ -123,7 +124,7 @@ export function GettingPaidScreen() {
                 {web.error !== null ? <Notice tone="danger">{web.error}</Notice> : null}
 
                 <Text style={styles.section}>{g.whatsNeeded}</Text>
-                <View style={styles.card}>
+                <Panel flush style={styles.card}>
                     {paid.requirements.length === 0 ? (
                         <Text style={styles.small}>{g.nothingNeeded}</Text>
                     ) : null}
@@ -152,14 +153,14 @@ export function GettingPaidScreen() {
                             ))}
                         </View>
                     ))}
-                </View>
+                </Panel>
                 <View style={styles.help}>
                     <Icon name="shield" size={14} color={c.muted} />
                     <Text style={[styles.small, styles.flex]}>{g.help}</Text>
                 </View>
 
                 <Text style={styles.section}>{g.capabilities}</Text>
-                <View style={styles.card}>
+                <Panel flush style={styles.card}>
                     <KeyValueList
                         rows={[
                             {
@@ -179,10 +180,10 @@ export function GettingPaidScreen() {
                             },
                         ]}
                     />
-                </View>
+                </Panel>
 
                 <Text style={styles.section}>{g.balance}</Text>
-                <View style={styles.card}>
+                <Panel flush style={styles.card}>
                     <KeyValueList
                         rows={[
                             {
@@ -202,7 +203,7 @@ export function GettingPaidScreen() {
                                 : []),
                         ]}
                     />
-                </View>
+                </Panel>
             </ScrollView>
             <View style={styles.footer}>
                 <View style={styles.flex}>
@@ -234,24 +235,24 @@ const styles = StyleSheet.create({
     hero: { borderRadius: theme.radius, padding: 16, gap: 6 },
     heroWarn: { backgroundColor: c.warnBg },
     heroOk: { backgroundColor: c.okBg },
-    heroTitle: { color: c.ink, fontSize: 18, fontWeight: "700", marginTop: 4 },
-    heroBody: { color: c.inkSoft, fontSize: 14, lineHeight: 20 },
+    heroTitle: {
+        color: c.ink,
+        fontFamily: theme.fonts.ui,
+        fontSize: 18,
+        fontWeight: "700",
+        marginTop: 4,
+    },
+    heroBody: { color: c.inkSoft, fontFamily: theme.fonts.ui, fontSize: 14, lineHeight: 20 },
     section: {
         color: c.muted,
+        fontFamily: theme.fonts.ui,
         fontSize: 12,
         fontWeight: "700",
         letterSpacing: 0.5,
         textTransform: "uppercase",
         marginTop: 10,
     },
-    card: {
-        backgroundColor: c.surface,
-        borderRadius: theme.radius,
-        borderWidth: 1,
-        borderColor: c.border,
-        paddingHorizontal: 14,
-        paddingVertical: 4,
-    },
+    card: { paddingHorizontal: 14, paddingVertical: 4 },
     req: { paddingVertical: 12 },
     divider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.borderSoft },
     reqHead: {
@@ -260,8 +261,20 @@ const styles = StyleSheet.create({
         justifyContent: "space-between",
         gap: 8,
     },
-    reqTitle: { color: c.ink, fontSize: 15, fontWeight: "600", flexShrink: 1 },
-    small: { color: c.muted, fontSize: 13, lineHeight: 18, marginTop: 3 },
+    reqTitle: {
+        color: c.ink,
+        fontFamily: theme.fonts.ui,
+        fontSize: 15,
+        fontWeight: "600",
+        flexShrink: 1,
+    },
+    small: {
+        color: c.muted,
+        fontFamily: theme.fonts.ui,
+        fontSize: 13,
+        lineHeight: 18,
+        marginTop: 3,
+    },
     error: { color: c.danFg },
     flex: { flex: 1 },
     help: { flexDirection: "row", alignItems: "flex-start", gap: 6 },

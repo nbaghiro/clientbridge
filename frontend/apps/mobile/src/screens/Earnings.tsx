@@ -202,5 +202,11 @@ const styles = StyleSheet.create({
     stats: { gap: 12 },
     actions: { flexDirection: "row", gap: 8 },
     meta: { alignItems: "flex-end", gap: 4 },
-    amount: { color: c.ink, fontSize: 14, fontWeight: "600", fontVariant: ["tabular-nums"] },
+    amount: {
+        color: c.ink,
+        fontFamily: theme.fonts.ui,
+        fontSize: 14,
+        fontWeight: "600",
+        fontVariant: ["tabular-nums"],
+    },
 });

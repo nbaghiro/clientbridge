@@ -285,6 +285,7 @@ const styles = StyleSheet.create({
     stats: { gap: 12 },
     caption: {
         color: c.muted,
+        fontFamily: theme.fonts.ui,
         fontSize: 12,
         fontWeight: "600",
         textTransform: "uppercase",

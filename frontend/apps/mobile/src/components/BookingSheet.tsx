@@ -49,19 +49,21 @@ import {
     DetailSection,
     Empty,
     Icon,
+    IconButton,
     KeyValueList,
     ListRow,
     Modal,
     Notice,
+    Panel,
     SearchField,
+    SearchSelect,
+    Select,
+    SheetHeader,
     Skeleton,
     StatusPill,
     TextField,
     TimeSlotPicker,
     Toggle,
-    SearchSelect,
-    Select,
-    IconButton,
 } from "@clientbridge/ui";
 import {
     launchCameraAsync,
@@ -93,7 +95,7 @@ function Departure({ event }: { event: ScheduleEvent }) {
     const departure = useDeparture(api, event, useViewer(), useSubjectKind());
     if (!departure.canDepart) return null;
     return (
-        <View style={styles.depart}>
+        <Panel style={styles.depart}>
             <Text style={styles.name}>{s.departTitle}</Text>
             <Text style={styles.sub}>{s.departBody}</Text>
             <View style={styles.dueActions}>
@@ -102,7 +104,7 @@ function Departure({ event }: { event: ScheduleEvent }) {
                 </Button>
             </View>
             {departure.error !== null ? <Notice tone="danger">{departure.error}</Notice> : null}
-        </View>
+        </Panel>
     );
 }
 
@@ -138,7 +140,7 @@ function CheckInCard({ event }: { event: ScheduleEvent }) {
     if (event.bookingId === null || !canCheckIn(event, viewer, kind, zone)) return null;
     const bookingId = event.bookingId;
     return (
-        <View style={styles.depart}>
+        <Panel style={styles.depart}>
             <Text style={styles.sub}>
                 {kind === "site" ? strings.today.arriveBody : strings.today.checkInBody}
             </Text>
@@ -165,7 +167,7 @@ function CheckInCard({ event }: { event: ScheduleEvent }) {
                     }}
                 />
             ) : null}
-        </View>
+        </Panel>
     );
 }
 
@@ -344,7 +346,7 @@ function Addons({ event }: { event: ScheduleEvent }) {
     return (
         <DetailSection title={hasAddons || canAdd ? s.detailAddons : s.invoiceVisit}>
             {hasAddons ? (
-                <View style={styles.card}>
+                <Panel flush style={styles.card}>
                     {addons.addons.map((a, i) => (
                         <View key={a.id} style={[styles.cardRow, i > 0 && styles.divider]}>
                             <Icon name="bag" size={15} color={c.muted} />
@@ -368,7 +370,7 @@ function Addons({ event }: { event: ScheduleEvent }) {
                             ) : null}
                         </View>
                     ))}
-                </View>
+                </Panel>
             ) : null}
             {canAdd ? (
                 <Select
@@ -431,7 +433,7 @@ function Crew({ event }: { event: ScheduleEvent }) {
     return (
         <DetailSection title={s.crewTitle}>
             {crew.members.length > 0 ? (
-                <View style={styles.card}>
+                <Panel flush style={styles.card}>
                     {crew.members.map((m, i) => (
                         <View key={m.id} style={[styles.cardRow, i > 0 && styles.divider]}>
                             <Icon name="user" size={15} color={c.muted} />
@@ -453,7 +455,7 @@ function Crew({ event }: { event: ScheduleEvent }) {
                             ) : null}
                         </View>
                     ))}
-                </View>
+                </Panel>
             ) : (
                 <Text style={styles.hint}>{s.crewNone}</Text>
             )}
@@ -558,7 +560,7 @@ export function BookingBody({ detail }: { detail: BookingDetail }) {
                         </Button>
                     }
                 >
-                    <View style={styles.card}>
+                    <Panel flush style={styles.card}>
                         <View style={styles.cardRow}>
                             <Avatar name={client.name} src={photos.client(client.id)} />
                             <View style={styles.flex}>
@@ -628,7 +630,7 @@ export function BookingBody({ detail }: { detail: BookingDetail }) {
                                 {card ? s.cardOnFile(savedCardLabel(card)) : s.noCard}
                             </Text>
                         </View>
-                    </View>
+                    </Panel>
                     {messaging ? (
                         <MessageSheet
                             clientId={client.id}
@@ -642,7 +644,7 @@ export function BookingBody({ detail }: { detail: BookingDetail }) {
             ) : null}
             {e.kind === "class" ? (
                 <DetailSection title={s.classSeats(e.bookedCount, e.capacity)}>
-                    <View style={styles.card}>
+                    <Panel flush style={styles.card}>
                         {detail.roster.map((r, i) => (
                             <View key={r.id} style={[styles.cardRow, i > 0 && styles.divider]}>
                                 <Avatar
@@ -669,7 +671,7 @@ export function BookingBody({ detail }: { detail: BookingDetail }) {
                                 ) : null}
                             </View>
                         ))}
-                    </View>
+                    </Panel>
                 </DetailSection>
             ) : null}
             {detail.notes.length > 0 || e.bookingId !== null ? (
@@ -837,10 +839,11 @@ export function RescheduleSheet({ event, onClose }: { event: ScheduleEvent; onCl
     const r = useReschedule(api, event, useViewer(), onClose);
     return (
         <Modal size="xl" onClose={onClose}>
-            <Text style={styles.sheetTitle}>{s.rescheduleTitle}</Text>
-            <Text style={styles.sub} numberOfLines={1}>
-                {formatParts([event.headline, event.timeLabel])}
-            </Text>
+            <SheetHeader
+                title={s.rescheduleTitle}
+                subtitle={formatParts([event.headline, event.timeLabel])}
+                onClose={onClose}
+            />
             <ScrollView style={styles.sheetScroll} contentContainerStyle={styles.sheetBody}>
                 <Text style={styles.label}>{s.rescheduleWith}</Text>
                 <Choice
@@ -906,7 +909,7 @@ function MessageSheet({
     return (
         <Modal size="lg" onClose={onClose}>
             <View style={styles.sheetBody}>
-                <Text style={styles.sheetTitle}>{s.messageTitle(name)}</Text>
+                <SheetHeader title={s.messageTitle(name)} onClose={onClose} />
                 <Choice
                     label={s.messageChannel}
                     layout="segmented"
@@ -1057,7 +1060,7 @@ export function BookingComposerSheet({
                                         onChange={form.setQuery}
                                         placeholder={s.composerClientSearch(kindWord(form.kind))}
                                     />
-                                    <View style={styles.card}>
+                                    <Panel flush style={styles.card}>
                                         {form.matches.slice(0, 4).map((m) => (
                                             <ListRow
                                                 key={m.client.id}
@@ -1079,7 +1082,7 @@ export function BookingComposerSheet({
                                                 }}
                                             />
                                         ))}
-                                    </View>
+                                    </Panel>
                                 </>
                             )}
                             {form.kind !== null && form.subjects.length > 1 ? (
@@ -1154,7 +1157,7 @@ export function BookingComposerSheet({
                             ) : null}
 
                             {form.fromEstimate !== null ? (
-                                <View style={styles.depart}>
+                                <Panel style={styles.depart}>
                                     <Text style={styles.name}>{form.fromEstimate.title}</Text>
                                     {form.fromEstimate.lines.map((line, i) => (
                                         <Text key={i} style={styles.sub}>
@@ -1162,7 +1165,7 @@ export function BookingComposerSheet({
                                         </Text>
                                     ))}
                                     <Text style={styles.hint}>{s.composerFromEstimateHint}</Text>
-                                </View>
+                                </Panel>
                             ) : (
                                 <Toggle
                                     label={s.composerRepeat}
@@ -1218,15 +1221,7 @@ const styles = StyleSheet.create({
     body: { gap: 4 },
     checkIn: { marginBottom: 8, gap: 8 },
     photos: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-    depart: {
-        gap: 4,
-        padding: 12,
-        marginBottom: 8,
-        borderRadius: theme.radius,
-        borderWidth: 1,
-        borderColor: c.border,
-        backgroundColor: c.surface,
-    },
+    depart: { gap: 4, marginBottom: 8 },
     photoCell: { width: "31%", gap: 4 },
     photo: {
         width: "100%",
@@ -1239,11 +1234,11 @@ const styles = StyleSheet.create({
     photoActions: { flexDirection: "row", gap: 8, marginTop: 8 },
     noteBox: { gap: 8, marginTop: 4 },
     statusLine: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 10 },
-    timing: { color: c.muted, fontSize: 13, fontWeight: "600" },
+    timing: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 13, fontWeight: "600" },
     facts: {
         backgroundColor: c.bg,
         borderRadius: theme.radius,
-        borderWidth: 1,
+        borderWidth: theme.borderWidth,
         borderColor: c.border,
         paddingHorizontal: 14,
         marginBottom: 8,
@@ -1255,16 +1250,10 @@ const styles = StyleSheet.create({
         gap: 6,
         marginBottom: 8,
     },
-    dueTitle: { color: c.warnFg, fontSize: 14, fontWeight: "700" },
-    dueBody: { color: c.inkSoft, fontSize: 13, lineHeight: 18 },
+    dueTitle: { color: c.warnFg, fontFamily: theme.fonts.ui, fontSize: 14, fontWeight: "700" },
+    dueBody: { color: c.inkSoft, fontFamily: theme.fonts.ui, fontSize: 13, lineHeight: 18 },
     dueActions: { flexDirection: "row", gap: 8, marginTop: 4 },
-    card: {
-        borderWidth: 1,
-        borderColor: c.border,
-        borderRadius: theme.radius,
-        marginTop: 8,
-        overflow: "hidden",
-    },
+    card: { marginTop: 8 },
     cardRow: {
         flexDirection: "row",
         alignItems: "center",
@@ -1275,26 +1264,44 @@ const styles = StyleSheet.create({
     divider: { borderTopWidth: 1, borderTopColor: c.borderSoft },
     flex: { flex: 1, minWidth: 0 },
     rowGap: { flexDirection: "row", alignItems: "center", gap: 6 },
-    name: { color: c.ink, fontSize: 15, fontWeight: "600", flexShrink: 1 },
-    subjectName: { color: c.ink, fontSize: 14, fontWeight: "600" },
-    sub: { color: c.muted, fontSize: 13, marginTop: 1 },
+    name: {
+        color: c.ink,
+        fontFamily: theme.fonts.ui,
+        fontSize: 15,
+        fontWeight: "600",
+        flexShrink: 1,
+    },
+    subjectName: { color: c.ink, fontFamily: theme.fonts.ui, fontSize: 14, fontWeight: "600" },
+    sub: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 13, marginTop: 1 },
     note: {
         backgroundColor: c.warnBg,
         color: c.inkSoft,
+        fontFamily: theme.fonts.ui,
         fontSize: 14,
         lineHeight: 20,
         padding: 10,
         borderRadius: theme.radius,
         marginTop: 8,
     },
-    addon: { color: c.ink, fontSize: 14 },
-    money: { color: c.ink, fontSize: 14, fontWeight: "600", fontVariant: ["tabular-nums"] },
-    hint: { color: c.muted, fontSize: 12, marginTop: 6 },
+    addon: { color: c.ink, fontFamily: theme.fonts.ui, fontSize: 14 },
+    money: {
+        color: c.ink,
+        fontFamily: theme.fonts.ui,
+        fontSize: 14,
+        fontWeight: "600",
+        fontVariant: ["tabular-nums"],
+    },
+    hint: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 12, marginTop: 6 },
     invoice: { marginTop: 8, flexDirection: "row" },
     ask: { flex: 1, gap: 8 },
-    askTitle: { color: c.ink, fontSize: 15, fontWeight: "700" },
+    askTitle: { color: c.ink, fontFamily: theme.fonts.ui, fontSize: 15, fontWeight: "700" },
     askRow: { flexDirection: "row", gap: 8 },
-    sheetTitle: { color: c.ink, fontSize: 20, fontWeight: "700" },
+    sheetTitle: {
+        color: c.ink,
+        fontFamily: theme.fonts.ui,
+        fontSize: theme.type.section,
+        fontWeight: "700",
+    },
     sheetScroll: { flex: 1, marginTop: 8 },
     sheetBody: { gap: 12, paddingBottom: 12 },
     sheetFoot: { paddingTop: 10 },
@@ -1322,14 +1329,20 @@ const styles = StyleSheet.create({
     },
     dockOpen: { height: "72%" },
     dockHead: { flexDirection: "row", alignItems: "center", gap: 8 },
-    label: { color: c.inkSoft, fontSize: 13, fontWeight: "600", marginTop: 6 },
+    label: {
+        color: c.inkSoft,
+        fontFamily: theme.fonts.ui,
+        fontSize: 13,
+        fontWeight: "600",
+        marginTop: 6,
+    },
     picked: {
         flexDirection: "row",
         alignItems: "center",
         gap: 10,
         padding: 10,
         borderRadius: theme.radius,
-        borderWidth: 1,
+        borderWidth: theme.borderWidth,
         borderColor: c.accent,
         backgroundColor: c.accentWeak,
     },

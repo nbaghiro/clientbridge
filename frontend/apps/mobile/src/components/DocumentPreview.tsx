@@ -9,8 +9,8 @@ import {
     useLetterhead,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
-import { ScrollView, Share, StyleSheet, Text, View } from "react-native";
-import { Button, Modal, PrintedDocument } from "@clientbridge/ui";
+import { ScrollView, Share, StyleSheet, View } from "react-native";
+import { Button, Modal, PrintedDocument, SheetHeader } from "@clientbridge/ui";
 
 import { apiUrl, payUrl } from "../lib/config";
 
@@ -29,7 +29,7 @@ export function DocumentPreview({
 }) {
     return (
         <Modal onClose={onClose} size="xl">
-            <Text style={styles.title}>{d.kinds[doc.kind]}</Text>
+            <SheetHeader title={d.kinds[doc.kind]} />
             <ScrollView style={styles.page}>
                 <PrintedDocument doc={doc} />
             </ScrollView>
@@ -54,7 +54,6 @@ export function DocumentPreview({
 }
 
 const styles = StyleSheet.create({
-    title: { fontSize: 19, fontWeight: "700", color: c.ink, marginBottom: 12 },
     page: { maxHeight: 520 },
     footer: { flexDirection: "row", gap: 10, paddingTop: 12 },
 });

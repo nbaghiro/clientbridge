@@ -16,7 +16,7 @@ import { StatusBar } from "expo-status-bar";
 import { type ReactNode, useRef, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Backdrop, Button, Empty, Notice } from "@clientbridge/ui";
+import { Backdrop, Button, Empty, Notice, Panel } from "@clientbridge/ui";
 
 import { DebugOverlay } from "../components/DebugOverlay";
 import {
@@ -224,7 +224,7 @@ function StaffToday({ bell, onSecretTap }: { bell: number; onSecretTap: () => vo
                     <CheckInLayer actions={actions} />
                     <Section title={t.staff.nextClient}>
                         {next === null ? (
-                            <View style={styles.card}>
+                            <Panel flush>
                                 <Empty
                                     icon="calendar"
                                     message={
@@ -234,7 +234,7 @@ function StaffToday({ bell, onSecretTap }: { bell: number; onSecretTap: () => vo
                                     }
                                     body={t.staff.noNextBody}
                                 />
-                            </View>
+                            </Panel>
                         ) : (
                             <NextCard item={next}>
                                 <NextActions item={next} actions={actions} />
@@ -243,20 +243,20 @@ function StaffToday({ bell, onSecretTap }: { bell: number; onSecretTap: () => vo
                     </Section>
                     <PaymentsSummary />
                     <View style={styles.facts}>
-                        <View style={styles.fact}>
+                        <Panel style={styles.fact}>
                             <Text style={styles.factLabel}>{t.staff.earnings}</Text>
                             <Text style={[styles.factValue, { color: c.success }]}>
                                 {formatMoney(day.earnedCents, BUSINESS_CURRENCY)}
                             </Text>
                             <Text style={styles.factHint}>{t.staff.earningsHint}</Text>
-                        </View>
-                        <View style={styles.fact}>
+                        </Panel>
+                        <Panel style={styles.fact}>
                             <Text style={styles.factLabel}>{t.staff.hours}</Text>
                             <Text style={styles.factValue}>{day.hours ?? t.teamOff}</Text>
                             <Text style={styles.factHint}>
                                 {t.staff.tomorrow}: {t.teamCount(day.tomorrow)}
                             </Text>
-                        </View>
+                        </Panel>
                     </View>
                     {later.length === 0 ? null : (
                         <Section title={t.restOfDay}>
@@ -281,24 +281,22 @@ const styles = StyleSheet.create({
     body: { paddingTop: 4, paddingBottom: 32 },
     notice: { paddingHorizontal: 20, paddingBottom: 10 },
     loading: { paddingHorizontal: 20, paddingTop: 12 },
-    sub: { color: c.muted, fontSize: 14, paddingHorizontal: 20 },
-    card: {
-        backgroundColor: c.surface,
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: c.border,
-        overflow: "hidden",
-    },
+    sub: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 14, paddingHorizontal: 20 },
     facts: { flexDirection: "row", gap: 10, paddingHorizontal: 20, marginTop: 22 },
-    fact: {
-        flex: 1,
-        backgroundColor: c.surface,
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: c.border,
-        padding: 14,
+    fact: { flex: 1 },
+    factLabel: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 12, fontWeight: "600" },
+    factValue: {
+        color: c.ink,
+        fontFamily: theme.fonts.ui,
+        fontSize: 18,
+        fontWeight: "700",
+        marginTop: 4,
     },
-    factLabel: { color: c.muted, fontSize: 12, fontWeight: "600" },
-    factValue: { color: c.ink, fontSize: 18, fontWeight: "700", marginTop: 4 },
-    factHint: { color: c.muted, fontSize: 12, marginTop: 3, lineHeight: 16 },
+    factHint: {
+        color: c.muted,
+        fontFamily: theme.fonts.ui,
+        fontSize: 12,
+        marginTop: 3,
+        lineHeight: 16,
+    },
 });

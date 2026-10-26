@@ -106,7 +106,7 @@ const styles = StyleSheet.create({
     group: {
         backgroundColor: theme.colors.surface,
         borderRadius: theme.radius,
-        borderWidth: 1,
+        borderWidth: theme.borderWidth,
         borderColor: theme.colors.border,
         overflow: "hidden",
     },
@@ -118,6 +118,11 @@ const styles = StyleSheet.create({
         paddingVertical: 15,
     },
     rowBorder: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.colors.border },
-    rowLabel: { color: theme.colors.ink, fontSize: 15, fontWeight: "500" },
+    rowLabel: {
+        color: theme.colors.ink,
+        fontFamily: theme.fonts.ui,
+        fontSize: 15,
+        fontWeight: "500",
+    },
     signOut: { flexDirection: "row", justifyContent: "center", paddingTop: 24 },
 });

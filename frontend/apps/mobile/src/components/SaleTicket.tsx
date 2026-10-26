@@ -38,7 +38,9 @@ import {
     ListRow,
     Modal,
     Notice,
+    Panel,
     SearchField,
+    SheetHeader,
     TextField,
 } from "@clientbridge/ui";
 
@@ -114,8 +116,7 @@ export function DiscountForm({
 }) {
     const editor = useDiscountEditor(initial, baseCents);
     return (
-        <View style={styles.card}>
-            <Text style={styles.cardTitle}>{title}</Text>
+        <Panel title={title} style={styles.card}>
             <DiscountFields editor={editor} baseCents={baseCents} />
             <View style={styles.row}>
                 {initial !== null ? (
@@ -150,7 +151,7 @@ export function DiscountForm({
                     {d.applyDiscount}
                 </Button>
             </View>
-        </View>
+        </Panel>
     );
 }
 
@@ -227,7 +228,7 @@ function DiscountSheetBody({ sale, onDone }: { sale: SaleTicket; onDone: () => v
                   .reduce((n, l) => n + l.grossCents, 0);
     return (
         <View style={styles.stack}>
-            <Text style={styles.title}>{d.discountTitle}</Text>
+            <SheetHeader title={d.discountTitle} />
             <Choice
                 layout="tiles"
                 columns={2}
@@ -555,13 +556,15 @@ function Reader({ sale, locationId }: { sale: SaleTicket; locationId: string | n
     }, [phase, sale]);
     return (
         <View style={styles.stack}>
-            <Text style={styles.title}>
-                {phase === "error"
-                    ? strings.terminal.failed
-                    : phase === "connecting"
-                      ? strings.terminal.connecting
-                      : d.tapReady}
-            </Text>
+            <SheetHeader
+                title={
+                    phase === "error"
+                        ? strings.terminal.failed
+                        : phase === "connecting"
+                          ? strings.terminal.connecting
+                          : d.tapReady
+                }
+            />
             <Text style={styles.soft}>
                 {phase === "connecting"
                     ? strings.terminal.setup
@@ -609,7 +612,7 @@ function PaidSummary({
           : METHOD_LABEL[sale.method];
     return (
         <View style={styles.stack}>
-            <Text style={styles.title}>{d.paidTitle}</Text>
+            <SheetHeader title={d.paidTitle} />
             <Text style={styles.soft}>
                 {d.paidBody(formatMoney(sale.paidCents, BUSINESS_CURRENCY), method)}
             </Text>
@@ -791,10 +794,12 @@ export function TicketSheet({
     else
         body = (
             <View style={styles.stack}>
-                <View style={styles.row}>
-                    <Text style={styles.title}>{d.ticket}</Text>
-                    <Text style={styles.note}>{sale.number}</Text>
-                </View>
+                <SheetHeader
+                    title={d.ticket}
+                    subtitle={sale.number}
+                    onClose={close}
+                    closeLabel={strings.common.close}
+                />
                 <ClientPicker sale={sale} />
                 {sale.held !== null ? <Notice tone="success">{sale.held}</Notice> : null}
                 {sale.invoiced !== null ? <Notice tone="success">{sale.invoiced}</Notice> : null}
@@ -912,31 +917,33 @@ const styles = StyleSheet.create({
     grow: { flex: 1 },
     heading: {
         color: c.muted,
+        fontFamily: theme.fonts.ui,
         fontSize: 11,
         fontWeight: "600",
         letterSpacing: 0.6,
         textTransform: "uppercase",
     },
-    title: { color: c.ink, fontSize: 18, fontWeight: "700" },
-    big: { color: c.ink, fontSize: 24, fontWeight: "700", fontVariant: ["tabular-nums"] },
-    soft: { color: c.inkSoft, fontSize: 14 },
-    note: { color: c.muted, fontSize: 12 },
-    card: {
-        gap: 12,
-        marginTop: 6,
-        marginBottom: 10,
-        padding: 14,
-        borderRadius: theme.radius,
-        borderWidth: 1,
-        borderColor: c.accentLine,
-        backgroundColor: c.surface,
+    title: {
+        color: c.ink,
+        fontFamily: theme.fonts.ui,
+        fontSize: theme.type.section,
+        fontWeight: "700",
     },
-    cardTitle: { color: c.ink, fontSize: 14, fontWeight: "600" },
+    big: {
+        color: c.ink,
+        fontFamily: theme.fonts.ui,
+        fontSize: 24,
+        fontWeight: "700",
+        fontVariant: ["tabular-nums"],
+    },
+    soft: { color: c.inkSoft, fontFamily: theme.fonts.ui, fontSize: 14 },
+    note: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 12 },
+    card: { gap: 12, marginTop: 6, marginBottom: 10, borderColor: c.accentLine },
     box: {
         gap: 10,
         padding: 14,
         borderRadius: theme.radius,
-        borderWidth: 1,
+        borderWidth: theme.borderWidth,
         borderColor: c.border,
         backgroundColor: c.bg,
     },

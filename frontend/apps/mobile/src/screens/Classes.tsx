@@ -18,7 +18,9 @@ import {
     Meter,
     Modal,
     Notice,
+    Panel,
     SearchField,
+    SheetHeader,
     Skeleton,
     Tabs,
     TextField,
@@ -149,9 +151,9 @@ export function ClassesScreen() {
                     }}
                 >
                     <View style={styles.sheet}>
-                        <Text style={styles.sheetTitle}>
-                            {s.messageClassTitle(roster.session.name, roster.session.when)}
-                        </Text>
+                        <SheetHeader
+                            title={s.messageClassTitle(roster.session.name, roster.session.when)}
+                        />
                         <Text style={styles.muted}>
                             {s.messageClassHint(roster.session.booked)}
                         </Text>
@@ -201,7 +203,7 @@ function RosterBody({ roster }: { roster: ClassRoster }) {
     const x = roster.session;
     return (
         <View style={styles.gap}>
-            <View style={styles.card}>
+            <Panel style={styles.card}>
                 <View style={styles.headRow}>
                     <Icon name="users" size={24} color={c.inkSoft} />
                     <View style={styles.flex}>
@@ -223,7 +225,7 @@ function RosterBody({ roster }: { roster: ClassRoster }) {
                         ])}
                     />
                 </View>
-            </View>
+            </Panel>
             {roster.programNote !== null ? (
                 <Text style={styles.muted}>{roster.programNote}</Text>
             ) : (
@@ -234,7 +236,7 @@ function RosterBody({ roster }: { roster: ClassRoster }) {
                 />
             )}
             {roster.matches.length > 0 ? (
-                <View style={styles.list}>
+                <Panel flush>
                     {roster.matches.map((m) => (
                         <ListRow
                             key={m.key}
@@ -246,7 +248,7 @@ function RosterBody({ roster }: { roster: ClassRoster }) {
                             }}
                         />
                     ))}
-                </View>
+                </Panel>
             ) : null}
             {roster.notice !== null ? (
                 <Notice tone="info" banner>
@@ -270,7 +272,7 @@ function RosterBody({ roster }: { roster: ClassRoster }) {
                 ) : null}
             </View>
             {!roster.started ? <Text style={styles.muted}>{s.startsLater}</Text> : null}
-            <View style={styles.list}>
+            <Panel flush>
                 {roster.attendees.length === 0 ? (
                     <Text style={styles.empty}>{s.emptyRoster}</Text>
                 ) : null}
@@ -283,12 +285,12 @@ function RosterBody({ roster }: { roster: ClassRoster }) {
                         first={i === 0}
                     />
                 ))}
-            </View>
+            </Panel>
 
             {roster.programNote !== null ? null : (
                 <>
                     <Text style={styles.section}>{s.waitlist}</Text>
-                    <View style={styles.list}>
+                    <Panel flush>
                         {roster.waitlist.length === 0 ? (
                             <Text style={styles.empty}>{s.emptyWaitlist}</Text>
                         ) : null}
@@ -312,7 +314,7 @@ function RosterBody({ roster }: { roster: ClassRoster }) {
                                 </Button>
                             </View>
                         ))}
-                    </View>
+                    </Panel>
                 </>
             )}
         </View>
@@ -322,43 +324,46 @@ function RosterBody({ roster }: { roster: ClassRoster }) {
 const styles = StyleSheet.create({
     screen: { flex: 1, backgroundColor: c.bg },
     body: { padding: 16, paddingBottom: 32, gap: 12 },
-    subtitle: { color: c.muted, fontSize: 13 },
+    subtitle: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 13 },
     gap: { gap: 12 },
-    card: {
-        backgroundColor: c.surface,
-        borderRadius: theme.radius,
-        borderWidth: 1,
-        borderColor: c.border,
-        padding: 14,
-        gap: 12,
-    },
+    card: { gap: 12 },
     headRow: { flexDirection: "row", alignItems: "center", gap: 12 },
     flex: { flex: 1, minWidth: 0 },
-    className: { color: c.ink, fontSize: 17, fontWeight: "700" },
-    muted: { color: c.muted, fontSize: 13 },
-    meterBig: {},
-    list: {
-        backgroundColor: c.surface,
-        borderRadius: theme.radius,
-        borderWidth: 1,
-        borderColor: c.border,
-        overflow: "hidden",
+    className: {
+        color: c.ink,
+        fontFamily: theme.fonts.ui,
+        fontSize: theme.type.section,
+        fontWeight: "700",
     },
+    muted: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 13 },
+    meterBig: {},
     sectionRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
     section: {
+        fontFamily: theme.fonts.ui,
         fontSize: 12,
         fontWeight: "700",
         color: c.muted,
         textTransform: "uppercase",
         letterSpacing: 0.5,
     },
-    empty: { padding: 16, fontSize: 14, color: c.muted, textAlign: "center" },
+    empty: {
+        padding: 16,
+        fontFamily: theme.fonts.ui,
+        fontSize: 14,
+        color: c.muted,
+        textAlign: "center",
+    },
     row: { flexDirection: "row", alignItems: "center", gap: 10, padding: 12 },
     divider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.border },
-    pos: { width: 16, textAlign: "right", color: c.muted, fontSize: 12 },
-    subject: { color: c.ink, fontSize: 15, fontWeight: "600" },
+    pos: {
+        width: 16,
+        textAlign: "right",
+        color: c.muted,
+        fontFamily: theme.fonts.ui,
+        fontSize: 12,
+    },
+    subject: { color: c.ink, fontFamily: theme.fonts.ui, fontSize: 15, fontWeight: "600" },
     badges: { flexDirection: "row", gap: 6, marginTop: 4 },
     actions: { flexDirection: "row", alignItems: "center", gap: 6 },
     sheet: { gap: 12 },
-    sheetTitle: { color: c.ink, fontSize: 18, fontWeight: "700" },
 });

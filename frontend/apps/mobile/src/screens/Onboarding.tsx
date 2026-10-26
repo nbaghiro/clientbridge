@@ -11,7 +11,17 @@ import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Button, Choice, Field, Lockup, Logo, Notice, Select, TextField } from "@clientbridge/ui";
+import {
+    Button,
+    Choice,
+    Field,
+    Lockup,
+    Logo,
+    Notice,
+    Panel,
+    Select,
+    TextField,
+} from "@clientbridge/ui";
 
 import { api, identity } from "../lib/api";
 import { pageUrl } from "../lib/config";
@@ -109,7 +119,7 @@ export function OnboardingScreen({ onSignOut }: { onSignOut: () => void }) {
                         />
                     </Field>
                     {form.taxSummary !== null ? (
-                        <View style={styles.tax}>
+                        <Panel style={styles.tax}>
                             <Text style={styles.taxTitle}>
                                 {strings.business.onboarding.taxTitle(
                                     PROVINCES.find((p) => p.code === form.province)?.name ?? "",
@@ -120,7 +130,7 @@ export function OnboardingScreen({ onSignOut }: { onSignOut: () => void }) {
                             <Text style={styles.taxNote}>
                                 {strings.business.onboarding.taxNone}
                             </Text>
-                        </View>
+                        </Panel>
                     ) : null}
                     <Select
                         label={strings.business.onboarding.industryLabel}
@@ -158,21 +168,26 @@ const styles = StyleSheet.create({
     screen: { flex: 1, backgroundColor: c.bg },
     fill: { flex: 1 },
     center: { alignItems: "center", justifyContent: "center", gap: 14 },
-    settingUp: { color: c.muted, fontSize: 14 },
+    settingUp: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 14 },
     content: { paddingHorizontal: 28, paddingVertical: 32 },
     brand: { marginBottom: 28 },
-    title: { color: c.ink, fontSize: 28, fontWeight: "700", letterSpacing: -0.5 },
-    subtitle: { color: c.muted, fontSize: 14.5, marginTop: 5, marginBottom: 22 },
-    submitGap: { marginTop: 22 },
-    tax: {
-        marginTop: 12,
-        padding: 12,
-        borderRadius: theme.radius,
-        borderWidth: 1,
-        borderColor: c.border,
-        backgroundColor: c.surface,
+    title: {
+        color: c.ink,
+        fontFamily: theme.fonts.ui,
+        fontSize: theme.type.page,
+        fontWeight: "700",
+        letterSpacing: -0.4,
     },
-    taxTitle: { color: c.ink, fontSize: 14, fontWeight: "600" },
-    taxNote: { color: c.muted, fontSize: 12, marginTop: 2 },
+    subtitle: {
+        color: c.muted,
+        fontFamily: theme.fonts.ui,
+        fontSize: 14.5,
+        marginTop: 5,
+        marginBottom: 22,
+    },
+    submitGap: { marginTop: 22 },
+    tax: { marginTop: 12 },
+    taxTitle: { color: c.ink, fontFamily: theme.fonts.ui, fontSize: 14, fontWeight: "600" },
+    taxNote: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 12, marginTop: 2 },
     signOut: { flexDirection: "row", justifyContent: "center", paddingTop: 20 },
 });

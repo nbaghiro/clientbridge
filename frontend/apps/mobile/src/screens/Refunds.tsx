@@ -13,6 +13,7 @@ import {
     BUSINESS_CURRENCY,
     currencyAffix,
 } from "@clientbridge/app-core";
+import { theme } from "@clientbridge/tokens/native";
 import { useEffect, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import {
@@ -353,5 +354,11 @@ const styles = StyleSheet.create({
     screen: { flex: 1, gap: 8 },
     page: { gap: 10, padding: 16, paddingBottom: 32 },
     meta: { alignItems: "flex-end", gap: 4 },
-    caption: { fontSize: 12, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.5 },
+    caption: {
+        fontFamily: theme.fonts.ui,
+        fontSize: 12,
+        fontWeight: "600",
+        textTransform: "uppercase",
+        letterSpacing: 0.5,
+    },
 });

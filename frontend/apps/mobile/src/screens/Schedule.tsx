@@ -41,6 +41,8 @@ import {
     Empty,
     Icon,
     IconButton,
+    PageHeader,
+    SheetHeader,
     KeyValueList,
     LoadFailed,
     Modal,
@@ -145,40 +147,39 @@ export function ScheduleScreen() {
     return (
         <SafeAreaView edges={["top"]} style={styles.screen}>
             <Backdrop />
-            <View style={styles.head}>
-                <View style={styles.flex}>
-                    <Text style={styles.title} accessibilityRole="header">
-                        {s.title}
-                    </Text>
-                    <Text style={styles.subtitle} numberOfLines={1}>
-                        {board.label}
-                    </Text>
-                </View>
-                <IconButton
-                    icon="users"
-                    label={s.viewClasses}
-                    onPress={() => {
-                        nav.navigate("Classes");
-                    }}
-                />
-                <IconButton
-                    icon="repeat"
-                    label={s.viewSeries}
-                    onPress={() => {
-                        nav.navigate("Recurrences");
-                    }}
-                />
-                <Button
-                    style={{ alignSelf: "center" }}
-                    size="sm"
-                    icon="plus"
-                    onPress={() => {
-                        openNew();
-                    }}
-                >
-                    {s.newShort}
-                </Button>
-            </View>
+            <PageHeader
+                style={styles.head}
+                title={s.title}
+                subtitle={board.label}
+                actions={
+                    <>
+                        <IconButton
+                            icon="users"
+                            label={s.viewClasses}
+                            onPress={() => {
+                                nav.navigate("Classes");
+                            }}
+                        />
+                        <IconButton
+                            icon="repeat"
+                            label={s.viewSeries}
+                            onPress={() => {
+                                nav.navigate("Recurrences");
+                            }}
+                        />
+                        <Button
+                            style={{ alignSelf: "center" }}
+                            size="sm"
+                            icon="plus"
+                            onPress={() => {
+                                openNew();
+                            }}
+                        >
+                            {s.newShort}
+                        </Button>
+                    </>
+                }
+            />
             {board.resourceOptions !== null ? (
                 <View style={styles.strip}>
                     <Select
@@ -605,18 +606,11 @@ const styles = StyleSheet.create({
     screen: { flex: 1, backgroundColor: c.surface },
     flex: { flex: 1, minWidth: 0 },
     pad: { padding: 16 },
-    head: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 8,
-        paddingHorizontal: 16,
-        paddingTop: 8,
-    },
-    title: { color: c.ink, fontSize: 26, fontWeight: "700" },
-    subtitle: { color: c.muted, fontSize: 13, marginTop: 1 },
+    head: { paddingHorizontal: 16, paddingTop: 8 },
     strip: { paddingHorizontal: 8, paddingTop: 10 },
     summary: {
         color: c.muted,
+        fontFamily: theme.fonts.ui,
         fontSize: 12,
         paddingHorizontal: 16,
         paddingTop: 6,
@@ -639,11 +633,17 @@ const styles = StyleSheet.create({
         borderLeftWidth: 1,
         borderLeftColor: c.border,
     },
-    laneName: { color: c.ink, fontSize: 13, fontWeight: "700" },
-    laneSub: { color: c.muted, fontSize: 11 },
+    laneName: { color: c.ink, fontFamily: theme.fonts.ui, fontSize: 13, fontWeight: "700" },
+    laneSub: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 11 },
     gridWrap: { paddingBottom: 24, paddingTop: 8 },
     grid: { flexDirection: "row" },
-    hour: { position: "absolute", right: 6, fontSize: 10, color: c.muted },
+    hour: {
+        position: "absolute",
+        right: 6,
+        fontFamily: theme.fonts.ui,
+        fontSize: 10,
+        color: c.muted,
+    },
     lanes: { flex: 1, flexDirection: "row" },
     lane: { flex: 1, borderLeftWidth: 1, borderLeftColor: c.border },
     draft: { position: "absolute", zIndex: 5, paddingHorizontal: 2, paddingBottom: 2 },
@@ -656,7 +656,12 @@ const styles = StyleSheet.create({
         paddingVertical: 3,
         backgroundColor: c.danFg,
     },
-    draftProblemText: { color: c.surface, fontSize: 11, fontWeight: "700" },
+    draftProblemText: {
+        color: c.surface,
+        fontFamily: theme.fonts.ui,
+        fontSize: 11,
+        fontWeight: "700",
+    },
     off: { position: "absolute", left: 0, right: 0, backgroundColor: c.bg },
     line: { position: "absolute", left: 0, right: 0, height: 1, backgroundColor: c.borderSoft },
     block: {
@@ -668,12 +673,18 @@ const styles = StyleSheet.create({
         gap: 3,
         padding: 4,
         borderRadius: 6,
-        borderWidth: 1,
+        borderWidth: theme.borderWidth,
         borderColor: c.border,
         borderStyle: "dashed",
         backgroundColor: c.bg,
     },
-    blockText: { flex: 1, fontSize: 10, color: c.muted, fontWeight: "600" },
+    blockText: {
+        flex: 1,
+        fontFamily: theme.fonts.ui,
+        fontSize: 10,
+        color: c.muted,
+        fontWeight: "600",
+    },
     event: { position: "absolute", paddingHorizontal: 2, paddingBottom: 2 },
     now: {
         position: "absolute",
@@ -717,7 +728,11 @@ function JobSheet({ bookingId, onClose }: { bookingId: string; onClose: () => vo
     return (
         <Modal open onClose={onClose} size="sm">
             <View style={jobStyles.sheet}>
-                <Text style={jobStyles.title}>{job?.title ?? strings.bookings.crewJob}</Text>
+                <SheetHeader
+                    title={job?.title ?? strings.bookings.crewJob}
+                    onClose={onClose}
+                    closeLabel={strings.common.close}
+                />
                 {loading ? <Text style={jobStyles.muted}>{strings.common.loading}</Text> : null}
                 {error !== null ? <Notice tone="danger">{error}</Notice> : null}
                 {job !== null ? (
@@ -733,6 +748,5 @@ function JobSheet({ bookingId, onClose }: { bookingId: string; onClose: () => vo
 
 const jobStyles = StyleSheet.create({
     sheet: { gap: 12, padding: 20 },
-    title: { color: c.ink, fontSize: 17, fontWeight: "700" },
-    muted: { color: c.muted, fontSize: 14 },
+    muted: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 14 },
 });

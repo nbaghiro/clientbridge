@@ -31,6 +31,7 @@ import {
     TextField,
     ui,
     DateField,
+    SheetHeader,
 } from "@clientbridge/ui";
 import { useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
@@ -97,7 +98,7 @@ export function Remittances() {
                                 {flash}
                             </Notice>
                         ) : null}
-                        <View style={styles.hero}>
+                        <Panel>
                             <Text style={styles.heroLabel}>{s.owed}</Text>
                             <Text style={styles.heroValue}>
                                 {formatMoney(t.federalSetAsideCents, BUSINESS_CURRENCY)}
@@ -129,7 +130,7 @@ export function Remittances() {
                                     </Text>
                                 </View>
                             ) : null}
-                        </View>
+                        </Panel>
                         {due !== null ? (
                             <View style={styles.due}>
                                 <View style={styles.dueHead}>
@@ -226,7 +227,7 @@ function RecordReturn({
     return (
         <Modal open size="xl" onClose={onClose}>
             <ScrollView contentContainerStyle={styles.sheet}>
-                <Text style={styles.sheetTitle}>{s.recordTitle(period.title)}</Text>
+                <SheetHeader title={s.recordTitle(period.title)} onClose={onClose} />
                 <Text style={ui.note}>
                     {formatParts([period.span, s.dueOn(formatShortDay(period.due, zone))])}
                 </Text>
@@ -335,22 +336,22 @@ const styles = StyleSheet.create({
     screen: { flex: 1 },
     page: { gap: 12, padding: 16, paddingBottom: 32 },
     sheet: { gap: 12, paddingBottom: 24 },
-    hero: {
-        backgroundColor: c.surface,
-        borderColor: c.border,
-        borderWidth: theme.borderWidth,
-        borderRadius: theme.radius,
-        padding: 18,
-    },
-    heroLabel: { color: c.muted, fontSize: 13 },
+    heroLabel: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 13 },
     heroValue: {
         color: c.ink,
+        fontFamily: theme.fonts.ui,
         fontSize: 32,
         fontWeight: "700",
         fontVariant: ["tabular-nums"],
         marginTop: 2,
     },
-    heroHint: { color: c.muted, fontSize: 13, marginTop: 2, marginBottom: 8 },
+    heroHint: {
+        color: c.muted,
+        fontFamily: theme.fonts.ui,
+        fontSize: 13,
+        marginTop: 2,
+        marginBottom: 8,
+    },
     line: {
         flexDirection: "row",
         alignItems: "center",
@@ -360,9 +361,15 @@ const styles = StyleSheet.create({
         borderTopWidth: StyleSheet.hairlineWidth,
     },
     lineMain: { flex: 1 },
-    lineTitle: { color: c.ink, fontSize: 15, fontWeight: "600" },
-    lineSub: { color: c.muted, fontSize: 12, marginTop: 1 },
-    lineAmount: { color: c.ink, fontSize: 15, fontWeight: "600", fontVariant: ["tabular-nums"] },
+    lineTitle: { color: c.ink, fontFamily: theme.fonts.ui, fontSize: 15, fontWeight: "600" },
+    lineSub: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 12, marginTop: 1 },
+    lineAmount: {
+        color: c.ink,
+        fontFamily: theme.fonts.ui,
+        fontSize: 15,
+        fontWeight: "600",
+        fontVariant: ["tabular-nums"],
+    },
     provincial: {
         flexDirection: "row",
         justifyContent: "space-between",
@@ -374,14 +381,14 @@ const styles = StyleSheet.create({
     },
     due: { backgroundColor: c.warnBg, borderRadius: theme.radius, padding: 16, gap: 10 },
     dueHead: { flexDirection: "row", alignItems: "center", gap: 6 },
-    dueText: { color: c.warnFg, fontSize: 14, fontWeight: "700" },
-    dueBody: { color: c.ink, fontSize: 14, lineHeight: 20 },
+    dueText: { color: c.warnFg, fontFamily: theme.fonts.ui, fontSize: 14, fontWeight: "700" },
+    dueBody: { color: c.ink, fontFamily: theme.fonts.ui, fontSize: 14, lineHeight: 20 },
     caption: {
         color: c.muted,
+        fontFamily: theme.fonts.ui,
         fontSize: 12,
         fontWeight: "600",
         textTransform: "uppercase",
         letterSpacing: 0.5,
     },
-    sheetTitle: { color: c.ink, fontSize: 18, fontWeight: "700" },
 });

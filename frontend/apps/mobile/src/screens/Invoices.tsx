@@ -812,8 +812,8 @@ const styles = StyleSheet.create({
     stat: { flex: 1 },
     row: { flexDirection: "row", alignItems: "center", gap: 12 },
     rowMain: { flex: 1, minWidth: 0 },
-    rowName: { fontSize: 16, fontWeight: "600", color: c.ink },
-    rowSub: { fontSize: 13, color: c.muted, marginTop: 2 },
+    rowName: { fontFamily: theme.fonts.ui, fontSize: 16, fontWeight: "600", color: c.ink },
+    rowSub: { fontFamily: theme.fonts.ui, fontSize: 13, color: c.muted, marginTop: 2 },
     late: { color: c.danFg },
     rowRight: { alignItems: "flex-end", gap: 4 },
     line: {
@@ -824,7 +824,7 @@ const styles = StyleSheet.create({
         borderBottomWidth: 1,
         borderBottomColor: c.borderSoft,
     },
-    lineName: { fontSize: 15, color: c.ink },
+    lineName: { fontFamily: theme.fonts.ui, fontSize: 15, color: c.ink },
     muted: { color: c.muted },
     totals: { marginTop: 10, borderRadius: 10, backgroundColor: c.bg, padding: 12 },
 });

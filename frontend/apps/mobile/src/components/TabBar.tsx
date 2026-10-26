@@ -182,7 +182,7 @@ const styles = StyleSheet.create({
         paddingTop: 8,
     },
     tab: { flex: 1, alignItems: "center", gap: 3 },
-    label: { fontSize: 10.5, fontWeight: "600" },
+    label: { fontFamily: theme.fonts.ui, fontSize: 10.5, fontWeight: "600" },
     badge: {
         position: "absolute",
         top: -4,
@@ -197,7 +197,7 @@ const styles = StyleSheet.create({
         alignItems: "center",
         justifyContent: "center",
     },
-    badgeText: { color: c.surface, fontSize: 9.5, fontWeight: "700" },
+    badgeText: { color: c.surface, fontFamily: theme.fonts.ui, fontSize: 9.5, fontWeight: "700" },
     fab: {
         width: 52,
         height: 52,

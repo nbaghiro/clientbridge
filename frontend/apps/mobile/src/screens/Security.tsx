@@ -195,7 +195,7 @@ const styles = StyleSheet.create({
     screen: { flex: 1, backgroundColor: c.bg },
     body: { padding: 16, paddingBottom: 32, gap: 14 },
     stack: { gap: 10 },
-    soft: { color: c.inkSoft, fontSize: 14, lineHeight: 20 },
-    mono: { color: c.ink, fontSize: 13, fontFamily: "monospace", lineHeight: 20 },
+    soft: { color: c.inkSoft, fontFamily: theme.fonts.ui, fontSize: 14, lineHeight: 20 },
+    mono: { color: c.ink, fontSize: 13, fontFamily: theme.fonts.mono, lineHeight: 20 },
     qr: { width: 176, height: 176, borderRadius: theme.radius },
 });

@@ -17,6 +17,7 @@ import {
     SearchField,
     Skeleton,
     StatusPill,
+    Panel,
 } from "@clientbridge/ui";
 import { useNavigation } from "@react-navigation/native";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
@@ -126,9 +127,9 @@ export function SearchScreen() {
             </View>
             <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
                 {search.load.state === "loading" ? (
-                    <View style={styles.card}>
+                    <Panel flush style={styles.card}>
                         <Skeleton variant="row" count={5} label={s.loading} />
-                    </View>
+                    </Panel>
                 ) : search.load.state === "error" ? (
                     <LoadFailed
                         message={s.loadError}
@@ -154,7 +155,7 @@ export function SearchScreen() {
                                         {s.clearRecent}
                                     </Button>
                                 </View>
-                                <View style={styles.card}>
+                                <Panel flush style={styles.card}>
                                     {search.recent.map((r, i) => (
                                         <View key={r} style={i > 0 ? styles.divider : undefined}>
                                             <ListRow
@@ -175,7 +176,7 @@ export function SearchScreen() {
                                             />
                                         </View>
                                     ))}
-                                </View>
+                                </Panel>
                             </>
                         ) : null}
                         <Text style={styles.note}>{s.offline}</Text>
@@ -184,7 +185,7 @@ export function SearchScreen() {
                     <>
                         <Empty icon="search" message={s.noResults(q)} body={s.noResultsHint} />
                         {search.flat.map((hit) => (
-                            <View key={hit.id} style={styles.card}>
+                            <Panel flush key={hit.id} style={styles.card}>
                                 <HitRow
                                     hit={hit}
                                     q={search.q}
@@ -192,7 +193,7 @@ export function SearchScreen() {
                                         open(hit);
                                     }}
                                 />
-                            </View>
+                            </Panel>
                         ))}
                     </>
                 ) : (
@@ -213,7 +214,7 @@ export function SearchScreen() {
                                     </Button>
                                 ) : null}
                             </View>
-                            <View style={styles.card}>
+                            <Panel flush style={styles.card}>
                                 {g.hits.map((hit, i) => (
                                     <View key={hit.id} style={i > 0 ? styles.divider : undefined}>
                                         <HitRow
@@ -225,7 +226,7 @@ export function SearchScreen() {
                                         />
                                     </View>
                                 ))}
-                            </View>
+                            </Panel>
                         </View>
                     ))
                 )}
@@ -241,6 +242,7 @@ const styles = StyleSheet.create({
     body: { paddingHorizontal: 16, paddingBottom: 40 },
     head: {
         color: c.muted,
+        fontFamily: theme.fonts.ui,
         fontSize: 12,
         fontWeight: "700",
         letterSpacing: 0.5,
@@ -250,20 +252,20 @@ const styles = StyleSheet.create({
         marginLeft: 4,
     },
     groupHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-    card: {
-        backgroundColor: c.surface,
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: c.border,
-        overflow: "hidden",
-        marginTop: 8,
-    },
+    card: { marginTop: 8 },
     divider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.border },
-    note: { color: c.muted, fontSize: 12.5, marginTop: 20, textAlign: "center", lineHeight: 18 },
+    note: {
+        color: c.muted,
+        fontFamily: theme.fonts.ui,
+        fontSize: 12.5,
+        marginTop: 20,
+        textAlign: "center",
+        lineHeight: 18,
+    },
     match: { color: c.accentStrong, fontWeight: "700", backgroundColor: c.accentWeak },
-    title: { color: c.ink, fontSize: 15, fontWeight: "500" },
-    detail: { color: c.muted, fontSize: 13, marginTop: 2 },
-    price: { color: c.ink, fontSize: 14, fontWeight: "600" },
+    title: { color: c.ink, fontFamily: theme.fonts.ui, fontSize: 15, fontWeight: "500" },
+    detail: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 13, marginTop: 2 },
+    price: { color: c.ink, fontFamily: theme.fonts.ui, fontSize: 14, fontWeight: "600" },
     swatch: {
         width: 32,
         height: 32,

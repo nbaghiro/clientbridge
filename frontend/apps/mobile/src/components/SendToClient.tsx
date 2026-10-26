@@ -1,6 +1,6 @@
 import { strings, useSendToClient } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
-import { Button, Modal, Notice, SearchSelect } from "@clientbridge/ui";
+import { Button, Modal, Notice, SearchSelect, SheetHeader } from "@clientbridge/ui";
 import { StyleSheet, Text, View } from "react-native";
 
 import { api } from "../lib/api";
@@ -24,7 +24,7 @@ export function SendToClientSheet({
     return (
         <Modal open onClose={onClose}>
             <View style={styles.sheet}>
-                <Text style={styles.title}>{title}</Text>
+                <SheetHeader title={title} />
                 <Text style={styles.body}>{s.sendBody}</Text>
                 <SearchSelect
                     label={s.client}
@@ -61,8 +61,7 @@ export function SendToClientSheet({
 
 const styles = StyleSheet.create({
     sheet: { gap: 14 },
-    title: { color: c.ink, fontSize: 18, fontWeight: "700" },
-    body: { color: c.inkSoft, fontSize: 14, lineHeight: 20 },
+    body: { color: c.inkSoft, fontFamily: theme.fonts.ui, fontSize: 14, lineHeight: 20 },
     actions: { flexDirection: "row", gap: 10 },
     flex: { flex: 1 },
 });

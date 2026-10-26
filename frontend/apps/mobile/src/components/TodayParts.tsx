@@ -22,6 +22,8 @@ import {
     Empty,
     Icon,
     IconButton,
+    PageHeader,
+    Panel,
     ListRow,
     LoadFailed,
     Meter,
@@ -54,38 +56,41 @@ export function TodayHeader({
     const openLink = useOpenLink();
     const nav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
     return (
-        <View style={styles.header}>
-            <View style={styles.headerText}>
+        <PageHeader
+            style={styles.header}
+            title={greeting}
+            leading={
                 <Pressable onPress={onSecretTap} accessibilityRole="text">
                     <Text style={styles.date}>{dateLabel}</Text>
                 </Pressable>
-                <Text style={styles.greeting} accessibilityRole="header" numberOfLines={1}>
-                    {greeting}
-                </Text>
-            </View>
-            <IconButton
-                icon="search"
-                label={strings.navigation.search}
-                onPress={() => {
-                    openLink("search");
-                }}
-            />
-            <IconButton
-                icon="bell"
-                label={strings.navigation.notifications}
-                badge={bellCount}
-                onPress={() => {
-                    openLink("notifications");
-                }}
-            />
-            <IconButton
-                icon="settings"
-                label={strings.navigation.setup}
-                onPress={() => {
-                    nav.navigate("Setup");
-                }}
-            />
-        </View>
+            }
+            actions={
+                <>
+                    <IconButton
+                        icon="search"
+                        label={strings.navigation.search}
+                        onPress={() => {
+                            openLink("search");
+                        }}
+                    />
+                    <IconButton
+                        icon="bell"
+                        label={strings.navigation.notifications}
+                        badge={bellCount}
+                        onPress={() => {
+                            openLink("notifications");
+                        }}
+                    />
+                    <IconButton
+                        icon="settings"
+                        label={strings.navigation.setup}
+                        onPress={() => {
+                            nav.navigate("Setup");
+                        }}
+                    />
+                </>
+            }
+        />
     );
 }
 
@@ -111,14 +116,14 @@ export function PaymentsSummary({ owner }: { owner?: OwnerToday }) {
             }
         >
             {owner === undefined ? (
-                <View style={styles.card}>
+                <Panel flush>
                     <ListRow
                         icon="pos"
                         title={strings.navigation.paymentsTabs.sales}
                         meta={<Icon name="chevronRight" size={18} color={c.muted} />}
                         onPress={openPayments}
                     />
-                </View>
+                </Panel>
             ) : owner.moneyLoad.state === "loading" ? (
                 <RowsLoading count={2} />
             ) : owner.moneyLoad.state === "error" ? (
@@ -127,7 +132,7 @@ export function PaymentsSummary({ owner }: { owner?: OwnerToday }) {
                     retrying={owner.moneyLoad.retrying}
                 />
             ) : (
-                <View style={styles.card}>
+                <Panel flush>
                     <View style={styles.paymentFigures}>
                         <View style={styles.flex}>
                             <Text style={styles.kpiLabel}>{t.collected}</Text>
@@ -165,7 +170,7 @@ export function PaymentsSummary({ owner }: { owner?: OwnerToday }) {
                             {strings.navigation.paymentsTabs.invoices}
                         </Button>
                     </View>
-                </View>
+                </Panel>
             )}
         </Section>
     );
@@ -204,9 +209,9 @@ export function KpiSummary({ items }: { items: MobileKpi[] }) {
 export function KpiSummaryLoading() {
     return (
         <View style={styles.kpis}>
-            <View style={[styles.card, styles.flex]}>
+            <Panel flush style={styles.flex}>
                 <Skeleton variant="stat" count={2} columns={2} label={t.loading} />
-            </View>
+            </Panel>
         </View>
     );
 }
@@ -242,7 +247,7 @@ export function TodayFailed({ onRetry, retrying }: { onRetry: () => void; retryi
 export function QuietDay({ bookingLink }: { bookingLink: string | null }) {
     const openLink = useOpenLink();
     return (
-        <View style={styles.card}>
+        <Panel flush>
             <Empty
                 icon="calendar"
                 message={t.quietTitle}
@@ -272,15 +277,15 @@ export function QuietDay({ bookingLink }: { bookingLink: string | null }) {
                     </>
                 }
             />
-        </View>
+        </Panel>
     );
 }
 
 export function RowsLoading({ count = 4 }: { count?: number }) {
     return (
-        <View style={styles.card}>
+        <Panel flush>
             <Skeleton variant="row" count={count} label={t.loading} />
-        </View>
+        </Panel>
     );
 }
 
@@ -309,7 +314,7 @@ export function Section({
 export function NextCard({ item, children }: { item: AgendaItem; children?: ReactNode }) {
     const kind = useSubjectKind();
     return (
-        <View style={styles.next}>
+        <Panel>
             <View style={styles.nextBody}>
                 <View style={[styles.nextBar, { backgroundColor: item.color ?? c.accent }]} />
                 <View style={styles.flex}>
@@ -345,7 +350,7 @@ export function NextCard({ item, children }: { item: AgendaItem; children?: Reac
                 </View>
             </View>
             {children}
-        </View>
+        </Panel>
     );
 }
 
@@ -401,7 +406,7 @@ export function AttentionList({
 }) {
     const openLink = useOpenLink();
     return (
-        <View style={styles.card}>
+        <Panel flush>
             {items.length === 0 ? <Text style={styles.empty}>{empty}</Text> : null}
             {items.map((a, i) => {
                 const sent = actions.sent.has(a.key);
@@ -433,7 +438,7 @@ export function AttentionList({
                     </View>
                 );
             })}
-        </View>
+        </Panel>
     );
 }
 
@@ -445,7 +450,7 @@ export function AgendaRows({
     showStaff?: boolean;
 }) {
     return (
-        <View style={styles.card}>
+        <Panel flush>
             {items.map((item, i) => {
                 const done = item.state === "done";
                 return (
@@ -495,7 +500,7 @@ export function AgendaRows({
                     </View>
                 );
             })}
-        </View>
+        </Panel>
     );
 }
 
@@ -509,7 +514,7 @@ export function SetupGuide({ setup }: { setup: SetupProgress }) {
     const progress = strings.business.getSetUp.progress(setup.done, setup.total);
     return (
         <Section title={strings.business.getSetUp.gettingStarted}>
-            <View style={styles.card}>
+            <Panel flush>
                 <View style={styles.guideHead}>
                     <Text style={styles.stepsDone}>{progress}</Text>
                     <Meter
@@ -560,7 +565,7 @@ export function SetupGuide({ setup }: { setup: SetupProgress }) {
                         </Text>
                     </View>
                 ) : null}
-            </View>
+            </Panel>
         </Section>
     );
 }
@@ -568,7 +573,7 @@ export function SetupGuide({ setup }: { setup: SetupProgress }) {
 /** The day while nothing has been booked yet: one line and the booking link. */
 export function QuietSchedule({ bookingLink }: { bookingLink: string | null }) {
     return (
-        <View style={[styles.card, styles.pad]}>
+        <Panel>
             <Text style={styles.guideHint}>{t.guideNothingToday}</Text>
             {bookingLink === null ? null : (
                 <Button
@@ -582,7 +587,7 @@ export function QuietSchedule({ bookingLink }: { bookingLink: string | null }) {
                     {t.shareLink}
                 </Button>
             )}
-        </View>
+        </Panel>
     );
 }
 
@@ -597,37 +602,35 @@ const styles = StyleSheet.create({
         paddingHorizontal: 16,
         paddingVertical: 8,
     },
-    paymentCount: { color: c.muted, fontSize: 12 },
+    paymentCount: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 12 },
     flex: { flex: 1, minWidth: 0 },
-    header: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 4,
-        paddingHorizontal: 20,
-        paddingTop: 6,
-        paddingBottom: 10,
+    header: { paddingHorizontal: 20, paddingTop: 6, paddingBottom: 10 },
+    date: {
+        color: c.muted,
+        fontFamily: theme.fonts.ui,
+        fontSize: 13,
+        fontWeight: "600",
+        marginBottom: 1,
     },
-    headerText: { flex: 1, minWidth: 0 },
-    date: { color: c.muted, fontSize: 13, fontWeight: "600" },
-    greeting: { color: c.ink, fontSize: 24, fontWeight: "700", letterSpacing: -0.4, marginTop: 1 },
     kpis: { paddingHorizontal: 20, gap: 10, paddingBottom: 4 },
     paymentFiguresRow: { flexDirection: "row" },
     kpi: {
         backgroundColor: c.surface,
         borderRadius: theme.radius,
-        borderWidth: 1,
+        borderWidth: theme.borderWidth,
         borderColor: c.border,
         padding: 12,
     },
-    kpiLabel: { color: c.muted, fontSize: 12, fontWeight: "600" },
+    kpiLabel: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 12, fontWeight: "600" },
     kpiValue: {
         color: c.ink,
+        fontFamily: theme.fonts.ui,
         fontSize: 21,
         fontWeight: "700",
         marginTop: 4,
         fontVariant: ["tabular-nums"],
     },
-    kpiHint: { color: c.muted, fontSize: 11.5, marginTop: 2 },
+    kpiHint: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 11.5, marginTop: 2 },
     section: { paddingHorizontal: 20, marginTop: 22 },
     sectionHead: {
         flexDirection: "row",
@@ -635,31 +638,34 @@ const styles = StyleSheet.create({
         justifyContent: "space-between",
         marginBottom: 8,
     },
-    sectionTitle: { color: c.ink, fontSize: 17, fontWeight: "700" },
-    next: {
-        backgroundColor: c.surface,
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: c.border,
-        padding: 14,
+    sectionTitle: {
+        color: c.ink,
+        fontFamily: theme.fonts.ui,
+        fontSize: theme.type.section,
+        fontWeight: "700",
     },
     nextTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
     nextBody: { flexDirection: "row", gap: 12 },
     nextBar: { width: 4, borderRadius: 2 },
-    nextTime: { color: c.inkSoft, fontSize: 13, fontWeight: "600" },
-    nextClient: { color: c.ink, fontSize: 19, fontWeight: "700", marginTop: 2 },
-    nextService: { color: c.muted, fontSize: 14, marginTop: 2 },
-    nextActions: { flexDirection: "row", gap: 10, marginTop: 12 },
-    card: {
-        backgroundColor: c.surface,
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: c.border,
-        overflow: "hidden",
+    nextTime: { color: c.inkSoft, fontFamily: theme.fonts.ui, fontSize: 13, fontWeight: "600" },
+    nextClient: {
+        color: c.ink,
+        fontFamily: theme.fonts.ui,
+        fontSize: 19,
+        fontWeight: "700",
+        marginTop: 2,
     },
+    nextService: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 14, marginTop: 2 },
+    nextActions: { flexDirection: "row", gap: 10, marginTop: 12 },
     divider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.border },
-    metaAction: { color: c.accent, fontSize: 13, fontWeight: "600" },
-    empty: { color: c.muted, fontSize: 14, textAlign: "center", paddingVertical: 24 },
+    metaAction: { color: c.accent, fontFamily: theme.fonts.ui, fontSize: 13, fontWeight: "600" },
+    empty: {
+        color: c.muted,
+        fontFamily: theme.fonts.ui,
+        fontSize: 14,
+        textAlign: "center",
+        paddingVertical: 24,
+    },
     agendaRow: {
         flexDirection: "row",
         alignItems: "center",
@@ -668,26 +674,43 @@ const styles = StyleSheet.create({
         paddingHorizontal: 14,
     },
     agendaTime: { width: 74 },
-    agendaClock: { color: c.ink, fontSize: 13, fontWeight: "600", fontVariant: ["tabular-nums"] },
+    agendaClock: {
+        color: c.ink,
+        fontFamily: theme.fonts.ui,
+        fontSize: 13,
+        fontWeight: "600",
+        fontVariant: ["tabular-nums"],
+    },
     agendaBar: { width: 3, alignSelf: "stretch", borderRadius: 2 },
-    agendaClient: { color: c.ink, fontSize: 15, fontWeight: "600" },
-    agendaSub: { color: c.muted, fontSize: 13, marginTop: 1 },
+    agendaClient: { color: c.ink, fontFamily: theme.fonts.ui, fontSize: 15, fontWeight: "600" },
+    agendaSub: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 13, marginTop: 1 },
     muted: { color: c.muted },
-    pad: { padding: 14 },
-    stepsDone: { color: c.muted, fontSize: 13, marginBottom: 8 },
+    stepsDone: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 13, marginBottom: 8 },
     guideHead: { padding: 14 },
     guideNext: {
         marginHorizontal: 14,
         marginBottom: 14,
         padding: 14,
         borderRadius: theme.radius,
-        borderWidth: 1,
+        borderWidth: theme.borderWidth,
         borderColor: c.accentLine,
         backgroundColor: c.accentWeak,
     },
-    guideEyebrow: { color: c.accent, fontSize: 12, fontWeight: "700" },
-    guideTitle: { color: c.ink, fontSize: 16, fontWeight: "700", marginTop: 4 },
-    guideHint: { color: c.muted, fontSize: 13, marginTop: 2, lineHeight: 18 },
+    guideEyebrow: { color: c.accent, fontFamily: theme.fonts.ui, fontSize: 12, fontWeight: "700" },
+    guideTitle: {
+        color: c.ink,
+        fontFamily: theme.fonts.ui,
+        fontSize: 16,
+        fontWeight: "700",
+        marginTop: 4,
+    },
+    guideHint: {
+        color: c.muted,
+        fontFamily: theme.fonts.ui,
+        fontSize: 13,
+        marginTop: 2,
+        lineHeight: 18,
+    },
     guideStart: { alignSelf: "flex-start", marginTop: 12 },
     guideRow: {
         flexDirection: "row",
@@ -696,5 +719,5 @@ const styles = StyleSheet.create({
         paddingHorizontal: 14,
         paddingVertical: 12,
     },
-    guideRowTitle: { color: c.ink, fontSize: 15, fontWeight: "600" },
+    guideRowTitle: { color: c.ink, fontFamily: theme.fonts.ui, fontSize: 15, fontWeight: "600" },
 });

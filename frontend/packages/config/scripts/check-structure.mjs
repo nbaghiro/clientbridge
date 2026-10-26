@@ -14,8 +14,12 @@ const ENTRY_FILES = new Set(["main.tsx", "entry-server.tsx", "routes.tsx"]);
 
 // Domain files that hold no copy of their own.
 const NO_STRINGS = new Set(["ledger", "publicResource"]);
-// Pages named by their nav label rather than the concept they render.
+// Pages and screens named by their nav label or their part of a record, not the concept itself.
 const PAGE_CONCEPT = {
+    clientHistory: "clients",
+    clientSubjects: "subjects",
+    clientWallet: "clients",
+    getSetUp: "business",
     invoices: "billing",
     inbox: "messaging",
     team: "staff",

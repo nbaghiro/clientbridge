@@ -20,7 +20,9 @@ import {
     KeyValueList,
     Modal,
     Notice,
+    Panel,
     Select,
+    SheetHeader,
 } from "@clientbridge/ui";
 import { useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
@@ -48,7 +50,7 @@ function NoteCard({
 }) {
     const zone = useBusinessZone();
     return (
-        <View style={styles.card}>
+        <Panel style={styles.card}>
             <View style={styles.head}>
                 <View style={styles.flex}>
                     <Text style={styles.title}>{note.form_name}</Text>
@@ -62,7 +64,7 @@ function NoteCard({
                 ) : null}
             </View>
             <AnswerList response={note} />
-        </View>
+        </Panel>
     );
 }
 
@@ -82,9 +84,7 @@ function NoteSheet({
     return (
         <Modal onClose={onClose} size="xl">
             <ScrollView contentContainerStyle={styles.sheet}>
-                <Text style={styles.heading}>
-                    {start === null ? f.treatmentNote : f.amendTitle}
-                </Text>
+                <SheetHeader title={start === null ? f.treatmentNote : f.amendTitle} />
                 {start === null ? (
                     <Select
                         label={f.noteForm}
@@ -243,7 +243,7 @@ export function ClientFormsSection({ clientId, manager }: { clientId: string; ma
             {open !== null ? (
                 <Modal onClose={forms.close} size="xl">
                     <ScrollView contentContainerStyle={styles.sheet}>
-                        <Text style={styles.heading}>{open.form_name}</Text>
+                        <SheetHeader title={open.form_name} />
                         <AnswerList response={open} />
                         <Button variant="outline" onPress={forms.close}>
                             {strings.common.close}
@@ -256,21 +256,12 @@ export function ClientFormsSection({ clientId, manager }: { clientId: string; ma
 }
 
 const styles = StyleSheet.create({
-    card: {
-        gap: 8,
-        padding: 12,
-        marginTop: 8,
-        borderRadius: theme.radius,
-        borderWidth: 1,
-        borderColor: c.border,
-        backgroundColor: c.surface,
-    },
+    card: { gap: 8, marginTop: 8 },
     head: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
     row: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 6 },
     flex: { flex: 1, minWidth: 0 },
-    title: { color: c.ink, fontSize: 14, fontWeight: "600" },
-    heading: { color: c.ink, fontSize: 19, fontWeight: "700" },
-    muted: { color: c.muted, fontSize: 12, marginTop: 4 },
+    title: { color: c.ink, fontFamily: theme.fonts.ui, fontSize: 14, fontWeight: "600" },
+    muted: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 12, marginTop: 4 },
     actions: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 8 },
     sheet: { gap: 14, paddingBottom: 24 },
 });

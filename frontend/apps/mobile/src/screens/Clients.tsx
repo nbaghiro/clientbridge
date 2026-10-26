@@ -35,6 +35,7 @@ import {
     Badge,
     Button,
     Checkbox,
+    confirm,
     DetailSection,
     DetailView,
     KeyValueList,
@@ -43,9 +44,9 @@ import {
     LoadFailed,
     Modal,
     Notice,
+    Panel,
     Skeleton,
     StatusPill,
-    confirm,
 } from "@clientbridge/ui";
 import { type RouteProp, useNavigation, useRoute } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -641,7 +642,7 @@ function RecordSheet({
                     {record.subjects.map((subject) => {
                         const temperament = subjectTemperament(kind, subject.attributes);
                         return (
-                            <View key={subject.id} style={styles.rowCard}>
+                            <Panel flush key={subject.id} style={styles.rowCard}>
                                 <ListRow
                                     density="compact"
                                     leading={<Avatar name={subject.name} size="sm" />}
@@ -660,7 +661,7 @@ function RecordSheet({
                                         onSheet({ kind: "subject", clientId: cl.id, subject });
                                     }}
                                 />
-                            </View>
+                            </Panel>
                         );
                     })}
                     {record.subjects.length > 0 ? (
@@ -688,7 +689,7 @@ function RecordSheet({
                 {record.upcoming.slice(0, 3).map((v) => {
                     const pill = visitPill(v, now);
                     return (
-                        <View key={v.id} style={styles.card}>
+                        <Panel key={v.id} style={styles.card}>
                             <View
                                 style={[styles.stripe, { backgroundColor: v.color ?? c.accent }]}
                             />
@@ -711,7 +712,7 @@ function RecordSheet({
                                     intent={pill.intent}
                                 />
                             ) : null}
-                        </View>
+                        </Panel>
                     );
                 })}
                 {record.lastVisitAt !== null ? (
@@ -755,7 +756,7 @@ function RecordSheet({
                         </Button>
                     }
                 >
-                    <View style={styles.lines}>
+                    <Panel flush style={styles.lines}>
                         {record.methods.length === 0 ? (
                             <Text style={styles.lineMuted}>{r.noCards}</Text>
                         ) : null}
@@ -777,7 +778,7 @@ function RecordSheet({
                                 <Text style={styles.rowSub}>{plan.detail}</Text>
                             </View>
                         ))}
-                    </View>
+                    </Panel>
                 </DetailSection>
             ) : null}
         </DetailView>
@@ -789,9 +790,9 @@ const styles = StyleSheet.create({
     accessory: { flexDirection: "row", alignItems: "center", gap: 6 },
     row: { flexDirection: "row", alignItems: "center", gap: 12 },
     rowMain: { flex: 1, minWidth: 0 },
-    rowName: { color: c.ink, fontSize: 16, fontWeight: "600" },
-    rowSub: { color: c.muted, fontSize: 13, marginTop: 2 },
-    due: { color: c.danFg, fontSize: 14, fontWeight: "600" },
+    rowName: { color: c.ink, fontFamily: theme.fonts.ui, fontSize: 16, fontWeight: "600" },
+    rowSub: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 13, marginTop: 2 },
+    due: { color: c.danFg, fontFamily: theme.fonts.ui, fontSize: 14, fontWeight: "600" },
     bar: {
         flexDirection: "row",
         gap: 8,
@@ -808,32 +809,15 @@ const styles = StyleSheet.create({
     facts: {
         backgroundColor: c.bg,
         borderRadius: theme.radius,
-        borderWidth: 1,
+        borderWidth: theme.borderWidth,
         borderColor: c.border,
         padding: 14,
         marginBottom: 6,
     },
-    muted: { color: c.muted, fontSize: 13, marginTop: 4 },
-    rowCard: {
-        borderRadius: theme.radius,
-        borderWidth: 1,
-        borderColor: c.border,
-        backgroundColor: c.surface,
-        marginBottom: 8,
-        overflow: "hidden",
-    },
-    card: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 12,
-        padding: 12,
-        borderRadius: theme.radius,
-        borderWidth: 1,
-        borderColor: c.border,
-        backgroundColor: c.surface,
-        marginBottom: 8,
-    },
-    cardTitle: { color: c.ink, fontSize: 15, fontWeight: "600" },
+    muted: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 13, marginTop: 4 },
+    rowCard: { marginBottom: 8 },
+    card: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 8 },
+    cardTitle: { color: c.ink, fontFamily: theme.fonts.ui, fontSize: 15, fontWeight: "600" },
     stripe: { width: 4, alignSelf: "stretch", borderRadius: 2 },
     note: {
         backgroundColor: c.warnBg,
@@ -841,13 +825,7 @@ const styles = StyleSheet.create({
         marginBottom: 8,
         overflow: "hidden",
     },
-    lines: {
-        borderRadius: theme.radius,
-        borderWidth: 1,
-        borderColor: c.border,
-        backgroundColor: c.surface,
-        paddingHorizontal: 12,
-    },
+    lines: { paddingHorizontal: 12 },
     line: {
         flexDirection: "row",
         justifyContent: "space-between",
@@ -858,5 +836,5 @@ const styles = StyleSheet.create({
         borderBottomWidth: StyleSheet.hairlineWidth,
     },
     lineMuted: { color: c.muted, paddingVertical: 11 },
-    lineText: { color: c.ink, fontSize: 15 },
+    lineText: { color: c.ink, fontFamily: theme.fonts.ui, fontSize: 15 },
 });

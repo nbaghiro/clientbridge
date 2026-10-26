@@ -18,6 +18,7 @@ import {
     ItemImage,
     LoadFailed,
     Notice,
+    Panel,
     PayCode,
     Skeleton,
     Stat,
@@ -96,9 +97,7 @@ function PageSettings() {
                     {strings.common.titleAndBody(s.noneBookable, s.noneBookableBody)}
                 </Notice>
             ) : null}
-            <View style={styles.card}>
-                <Text style={styles.cardTitle}>{s.share}</Text>
-                <Text style={styles.muted}>{s.shareHint}</Text>
+            <Panel title={s.share} subtitle={s.shareHint} style={styles.card}>
                 <CopyField
                     label={s.link}
                     value={st.linkLabel}
@@ -116,10 +115,8 @@ function PageSettings() {
                 <Button variant="outline" icon="external" onPress={st.openPage}>
                     {s.open}
                 </Button>
-            </View>
-            <View style={styles.card}>
-                <Text style={styles.cardTitle}>{s.services}</Text>
-                <Text style={styles.muted}>{s.servicesHint}</Text>
+            </Panel>
+            <Panel title={s.services} subtitle={s.servicesHint} style={styles.card}>
                 {st.services.map((x) => (
                     <Toggle
                         key={x.id}
@@ -131,10 +128,8 @@ function PageSettings() {
                         }}
                     />
                 ))}
-            </View>
-            <View style={styles.card}>
-                <Text style={styles.cardTitle}>{s.team}</Text>
-                <Text style={styles.muted}>{s.teamHint}</Text>
+            </Panel>
+            <Panel title={s.team} subtitle={s.teamHint} style={styles.card}>
                 {st.staff.map((x) => (
                     <View key={x.id} style={styles.rowGap}>
                         <Avatar name={x.name} src={photos.staff(x.id)} size="sm" color={x.color} />
@@ -150,9 +145,8 @@ function PageSettings() {
                         </View>
                     </View>
                 ))}
-            </View>
-            <View style={styles.card}>
-                <Text style={styles.cardTitle}>{s.rules}</Text>
+            </Panel>
+            <Panel title={s.rules} style={styles.card}>
                 <Text style={styles.label}>{s.leadTime}</Text>
                 <Choice
                     label={s.leadTime}
@@ -201,7 +195,7 @@ function PageSettings() {
                         st.setPolicy("auto_complete", v);
                     }}
                 />
-            </View>
+            </Panel>
             {st.error !== null ? <Notice tone="danger">{st.error}</Notice> : null}
             {st.justSaved && !st.dirty ? <Notice tone="success">{s.saved}</Notice> : null}
             {st.dirty ? (
@@ -231,14 +225,14 @@ function Addons() {
     return (
         <>
             <Text style={styles.muted}>{a.subtitle}</Text>
-            <View style={styles.card}>
+            <Panel style={styles.card}>
                 <Stat label={a.revenue} value={o.revenue} />
-            </View>
+            </Panel>
             {o.offers.length === 0 ? (
                 <Empty variant="card" icon="bag" message={a.emptyTitle} body={a.emptyBody} />
             ) : null}
             {o.offers.map((x) => (
-                <View key={x.id} style={styles.card}>
+                <Panel key={x.id} style={styles.card}>
                     <View style={styles.rowGap}>
                         <ItemImage
                             src={x.imageFileId !== null ? mediaUrl(apiUrl, x.imageFileId) : null}
@@ -283,7 +277,7 @@ function Addons() {
                             />
                         </>
                     ) : null}
-                </View>
+                </Panel>
             ))}
             {o.error !== null ? <Notice tone="danger">{o.error}</Notice> : null}
             {o.justSaved && !o.dirty ? <Notice tone="success">{a.saved}</Notice> : null}
@@ -306,7 +300,7 @@ function Policy() {
     return (
         <>
             <Text style={styles.muted}>{p.subtitle}</Text>
-            <View style={styles.card}>
+            <Panel style={styles.card}>
                 <Toggle
                     label={p.selfService}
                     hint={p.selfServiceHint}
@@ -343,19 +337,17 @@ function Policy() {
                         pol.set("max_reschedules", Number(k));
                     }}
                 />
-            </View>
-            <View style={styles.card}>
-                <Text style={styles.cardTitle}>{p.clientSees}</Text>
+            </Panel>
+            <Panel title={p.clientSees} style={styles.card}>
                 <Text style={styles.soft}>{pol.clientText}</Text>
-            </View>
-            <View style={styles.card}>
-                <Text style={styles.cardTitle}>{p.examples}</Text>
+            </Panel>
+            <Panel title={p.examples} style={styles.card}>
                 {pol.examples.map((x) => (
                     <Text key={x.key} style={styles.soft}>
                         {strings.common.bullet(x.text)}
                     </Text>
                 ))}
-            </View>
+            </Panel>
             {pol.error !== null ? <Notice tone="danger">{pol.error}</Notice> : null}
             {pol.justSaved && !pol.dirty ? <Notice tone="success">{p.saved}</Notice> : null}
             {pol.dirty ? (
@@ -370,19 +362,17 @@ function Policy() {
 const styles = StyleSheet.create({
     screen: { flex: 1, backgroundColor: c.bg },
     body: { padding: 16, paddingBottom: 32, gap: 14 },
-    card: {
-        backgroundColor: c.surface,
-        borderRadius: theme.radius,
-        borderWidth: 1,
-        borderColor: c.border,
-        padding: 16,
-        gap: 10,
+    card: { gap: 10 },
+    muted: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 13 },
+    soft: { color: c.inkSoft, fontFamily: theme.fonts.ui, fontSize: 14, lineHeight: 20 },
+    value: { color: c.ink, fontFamily: theme.fonts.ui, fontSize: 14, fontWeight: "600" },
+    label: {
+        color: c.inkSoft,
+        fontFamily: theme.fonts.ui,
+        fontSize: 13,
+        fontWeight: "600",
+        marginTop: 4,
     },
-    cardTitle: { color: c.ink, fontSize: 16, fontWeight: "700" },
-    muted: { color: c.muted, fontSize: 13 },
-    soft: { color: c.inkSoft, fontSize: 14, lineHeight: 20 },
-    value: { color: c.ink, fontSize: 14, fontWeight: "600" },
-    label: { color: c.inkSoft, fontSize: 13, fontWeight: "600", marginTop: 4 },
     rowGap: { flexDirection: "row", alignItems: "center", gap: 10 },
     flex: { flex: 1, minWidth: 0 },
     qr: { alignItems: "center", gap: 8, paddingVertical: 8 },

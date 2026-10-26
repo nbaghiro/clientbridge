@@ -30,6 +30,7 @@ import {
     ListRow,
     LoadFailed,
     Notice,
+    Panel,
     SearchField,
     Skeleton,
     Stat,
@@ -75,7 +76,7 @@ export function SalesBoard({ onResume }: { onResume: (order: OrderOut) => void }
                         <Empty message={current.empty} />
                     ) : (
                         current.cards.map((card) => (
-                            <View key={card.id} style={styles.card}>
+                            <Panel key={card.id} style={styles.card}>
                                 <View style={styles.row}>
                                     <Text style={styles.name}>{card.clientName}</Text>
                                     <Text style={styles.money}>{card.total}</Text>
@@ -118,7 +119,7 @@ export function SalesBoard({ onResume }: { onResume: (order: OrderOut) => void }
                                         {card.action.label}
                                     </Button>
                                 </View>
-                            </View>
+                            </Panel>
                         ))
                     )}
                     {current.key === "prepare" ? (
@@ -368,16 +369,15 @@ const styles = StyleSheet.create({
     stack: { gap: 12 },
     row: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
     stats: { flexDirection: "row", gap: 12 },
-    name: { color: c.ink, fontSize: 15, fontWeight: "600" },
-    money: { color: c.ink, fontSize: 15, fontWeight: "600", fontVariant: ["tabular-nums"] },
-    soft: { color: c.inkSoft, fontSize: 14 },
-    note: { color: c.muted, fontSize: 12 },
-    card: {
-        gap: 6,
-        padding: 14,
-        borderRadius: theme.radius,
-        borderWidth: 1,
-        borderColor: c.border,
-        backgroundColor: c.surface,
+    name: { color: c.ink, fontFamily: theme.fonts.ui, fontSize: 15, fontWeight: "600" },
+    money: {
+        color: c.ink,
+        fontFamily: theme.fonts.ui,
+        fontSize: 15,
+        fontWeight: "600",
+        fontVariant: ["tabular-nums"],
     },
+    soft: { color: c.inkSoft, fontFamily: theme.fonts.ui, fontSize: 14 },
+    note: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 12 },
+    card: { gap: 6 },
 });

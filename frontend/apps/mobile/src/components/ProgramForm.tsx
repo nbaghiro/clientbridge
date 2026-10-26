@@ -1,6 +1,6 @@
 import { strings, useBusinessZone, useProgramForm } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
-import { Button, Choice, DateField, Modal, Notice, Select } from "@clientbridge/ui";
+import { Button, Choice, DateField, Modal, Notice, Select, SheetHeader } from "@clientbridge/ui";
 import { StyleSheet, Text, View } from "react-native";
 
 import { api } from "../lib/api";
@@ -22,7 +22,7 @@ export function ProgramForm({
     return (
         <Modal size="xl" onClose={onClose}>
             <View style={styles.sheet}>
-                <Text style={styles.title}>{s.formTitle}</Text>
+                <SheetHeader title={s.formTitle} />
                 <Text style={styles.muted}>{s.formSubtitle}</Text>
                 {f.itemOptions.length === 0 ? <Notice tone="info">{s.noPrograms}</Notice> : null}
                 <Select
@@ -81,14 +81,13 @@ export function ProgramForm({
 
 const styles = StyleSheet.create({
     sheet: { gap: 12 },
-    title: { color: c.ink, fontSize: 18, fontWeight: "700" },
-    muted: { color: c.muted, fontSize: 13 },
-    label: { color: c.inkSoft, fontSize: 14, fontWeight: "500" },
-    summary: { color: c.ink, fontSize: 14, fontWeight: "600" },
+    muted: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 13 },
+    label: { color: c.inkSoft, fontFamily: theme.fonts.ui, fontSize: 14, fontWeight: "500" },
+    summary: { color: c.ink, fontFamily: theme.fonts.ui, fontSize: 14, fontWeight: "600" },
     preview: {
         backgroundColor: c.bg,
         borderRadius: theme.radius,
-        borderWidth: 1,
+        borderWidth: theme.borderWidth,
         borderColor: c.border,
         padding: 12,
         gap: 4,

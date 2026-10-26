@@ -1,6 +1,15 @@
 import { strings, useResourceForm, useResourceSettings } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
-import { Button, Empty, ListRow, LoadFailed, Notice, Skeleton, TextField } from "@clientbridge/ui";
+import {
+    Button,
+    Empty,
+    ListRow,
+    LoadFailed,
+    Notice,
+    Skeleton,
+    TextField,
+    Panel,
+} from "@clientbridge/ui";
 import { useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 
@@ -57,7 +66,7 @@ export function ResourcesScreen() {
                                 onCancel={cancel}
                             />
                         ) : (
-                            <View key={e.id} style={styles.card}>
+                            <Panel key={e.id} style={styles.card}>
                                 <ListRow
                                     icon="door"
                                     title={e.name}
@@ -85,7 +94,7 @@ export function ResourcesScreen() {
                                         {e.toggleLabel}
                                     </Button>
                                 </View>
-                            </View>
+                            </Panel>
                         ),
                     )}
                     {r.error !== null ? <Notice tone="danger">{r.error}</Notice> : null}
@@ -106,7 +115,7 @@ function ResourceEditor({
 }) {
     const f = useResourceForm(api, resource, onDone);
     return (
-        <View style={styles.card}>
+        <Panel style={styles.card}>
             <TextField
                 label={s.name}
                 value={f.name}
@@ -123,21 +132,14 @@ function ResourceEditor({
                     {strings.common.cancel}
                 </Button>
             </View>
-        </View>
+        </Panel>
     );
 }
 
 const styles = StyleSheet.create({
     screen: { flex: 1, backgroundColor: c.bg },
     body: { padding: 16, paddingBottom: 32, gap: 14 },
-    card: {
-        backgroundColor: c.surface,
-        borderRadius: theme.radius,
-        borderWidth: 1,
-        borderColor: c.border,
-        padding: 12,
-        gap: 8,
-    },
+    card: { gap: 8 },
     actions: { flexDirection: "row", gap: 8 },
-    muted: { color: c.muted, fontSize: 13 },
+    muted: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 13 },
 });

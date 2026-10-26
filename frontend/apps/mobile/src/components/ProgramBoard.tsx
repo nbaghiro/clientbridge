@@ -13,14 +13,15 @@ import {
     Badge,
     Button,
     Choice,
+    confirm,
     Empty,
     ListRow,
     LoadFailed,
     Meter,
     Notice,
+    Panel,
     SearchField,
     Skeleton,
-    confirm,
 } from "@clientbridge/ui";
 import { StyleSheet, Text, View } from "react-native";
 
@@ -82,7 +83,7 @@ function ProgramDetail({ board }: { board: Board }) {
     const day = board.day;
     return (
         <View style={styles.gap}>
-            <View style={styles.card}>
+            <Panel style={styles.card}>
                 <Text style={styles.title}>{p.name}</Text>
                 <Text style={styles.muted}>{formatParts([p.dates, p.time, p.staffName])}</Text>
                 <Text style={styles.muted}>
@@ -110,7 +111,7 @@ function ProgramDetail({ board }: { board: Board }) {
                         {s.cancelProgram}
                     </Button>
                 ) : null}
-            </View>
+            </Panel>
             {board.notice !== null ? (
                 <Notice tone="info" banner>
                     {board.notice}
@@ -158,7 +159,7 @@ function ProgramDetail({ board }: { board: Board }) {
                         ])}
                     />
                     {!day.started ? <Text style={styles.muted}>{s.startsLater}</Text> : null}
-                    <View style={styles.list}>
+                    <Panel flush>
                         {board.attendees.length === 0 ? (
                             <Text style={styles.empty}>{s.emptyDay}</Text>
                         ) : null}
@@ -171,7 +172,7 @@ function ProgramDetail({ board }: { board: Board }) {
                                 first={i === 0}
                             />
                         ))}
-                    </View>
+                    </Panel>
                 </>
             ) : null}
 
@@ -182,7 +183,7 @@ function ProgramDetail({ board }: { board: Board }) {
                 placeholder={s.enrolPlaceholder(kindWord(kind))}
             />
             {board.matches.length > 0 ? (
-                <View style={styles.list}>
+                <Panel flush>
                     {board.matches.map((m) => (
                         <ListRow
                             key={m.key}
@@ -194,16 +195,16 @@ function ProgramDetail({ board }: { board: Board }) {
                             }}
                         />
                     ))}
-                </View>
+                </Panel>
             ) : null}
-            <View style={styles.list}>
+            <Panel flush>
                 {board.enrolments.length === 0 ? (
                     <Text style={styles.empty}>{s.emptyEnrolments}</Text>
                 ) : null}
                 {board.enrolments.map((e, i) => (
                     <EnrolmentRow key={e.key} e={e} board={board} first={i === 0} />
                 ))}
-            </View>
+            </Panel>
         </View>
     );
 }
@@ -259,17 +260,16 @@ function EnrolmentRow({ e, board, first }: { e: Enrolment; board: Board; first: 
 
 const styles = StyleSheet.create({
     gap: { gap: 12 },
-    card: {
-        backgroundColor: c.surface,
-        borderRadius: theme.radius,
-        borderWidth: 1,
-        borderColor: c.border,
-        padding: 14,
-        gap: 6,
+    card: { gap: 6 },
+    title: {
+        color: c.ink,
+        fontFamily: theme.fonts.ui,
+        fontSize: theme.type.section,
+        fontWeight: "700",
     },
-    title: { color: c.ink, fontSize: 17, fontWeight: "700" },
-    muted: { color: c.muted, fontSize: 13 },
+    muted: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 13 },
     section: {
+        fontFamily: theme.fonts.ui,
         fontSize: 12,
         fontWeight: "700",
         color: c.muted,
@@ -277,17 +277,16 @@ const styles = StyleSheet.create({
         letterSpacing: 0.5,
     },
     sectionRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-    list: {
-        backgroundColor: c.surface,
-        borderRadius: theme.radius,
-        borderWidth: 1,
-        borderColor: c.border,
-        overflow: "hidden",
+    empty: {
+        padding: 16,
+        fontFamily: theme.fonts.ui,
+        fontSize: 14,
+        color: c.muted,
+        textAlign: "center",
     },
-    empty: { padding: 16, fontSize: 14, color: c.muted, textAlign: "center" },
     row: { flexDirection: "row", alignItems: "center", gap: 10, padding: 12 },
     divider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.border },
     flex: { flex: 1, minWidth: 0 },
-    subject: { color: c.ink, fontSize: 15, fontWeight: "600" },
+    subject: { color: c.ink, fontFamily: theme.fonts.ui, fontSize: 15, fontWeight: "600" },
     badges: { flexDirection: "row", gap: 6, marginTop: 4 },
 });

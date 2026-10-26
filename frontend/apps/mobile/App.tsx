@@ -40,13 +40,11 @@ import type { RootStackParamList, TabParamList } from "./src/navigation";
 import { ScheduleScreen } from "./src/screens/Schedule";
 import { CatalogScreen } from "./src/screens/Catalog";
 import { ClientsScreen } from "./src/screens/Clients";
-import { GetSetUpScreen } from "./src/components/GetSetUp";
+import { GetSetUpScreen } from "./src/screens/GetSetUp";
 import { TaxesScreen } from "./src/screens/Taxes";
-import {
-    ClientHistoryScreen,
-    ClientSubjectsScreen,
-    ClientWalletScreen,
-} from "./src/components/ClientScreens";
+import { ClientHistoryScreen } from "./src/screens/ClientHistory";
+import { ClientSubjectsScreen } from "./src/screens/ClientSubjects";
+import { ClientWalletScreen } from "./src/screens/ClientWallet";
 import { InboxScreen } from "./src/screens/Inbox";
 import { NotificationsScreen } from "./src/screens/Notifications";
 import { SearchScreen } from "./src/screens/Search";

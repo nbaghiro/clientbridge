@@ -3,7 +3,7 @@ import { theme } from "@clientbridge/tokens/native";
 import { useFocusEffect } from "@react-navigation/native";
 import { useCallback } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
-import { KeyValueList, LoadFailed, Skeleton, StatusPill } from "@clientbridge/ui";
+import { KeyValueList, LoadFailed, Panel, Skeleton, StatusPill } from "@clientbridge/ui";
 
 import { api } from "../lib/api";
 
@@ -45,10 +45,10 @@ export function PlansScreen() {
     return (
         <View style={styles.screen}>
             <ScrollView contentContainerStyle={styles.content}>
-                <View style={styles.card}>
+                <Panel style={styles.card}>
                     <StatusPill status={plan.status} intent={plan.intent} />
                     <Text style={styles.title}>{plan.title}</Text>
-                </View>
+                </Panel>
                 <KeyValueList rows={plan.facts} />
             </ScrollView>
         </View>
@@ -58,14 +58,11 @@ export function PlansScreen() {
 const styles = StyleSheet.create({
     screen: { flex: 1, backgroundColor: c.bg },
     content: { padding: 16, paddingBottom: 24, gap: 12 },
-    card: {
-        backgroundColor: c.surface,
-        borderRadius: theme.radius,
-        borderWidth: 1,
-        borderColor: c.border,
-        padding: 16,
-        gap: 8,
-        alignItems: "flex-start",
+    card: { gap: 8, alignItems: "flex-start" },
+    title: {
+        color: c.ink,
+        fontFamily: theme.fonts.ui,
+        fontSize: theme.type.section,
+        fontWeight: "700",
     },
-    title: { color: c.ink, fontSize: 18, fontWeight: "700" },
 });

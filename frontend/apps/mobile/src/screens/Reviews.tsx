@@ -22,6 +22,7 @@ import {
     Panel,
     Select,
     SearchSelect,
+    SheetHeader,
     Stars,
     TextField,
     Toggle,
@@ -110,17 +111,19 @@ export function Reviews() {
                     </Button>
                 ) : null}
                 {google.busy === "connect" ? (
-                    <View style={styles.card}>
+                    <Panel style={styles.card}>
                         <Text style={styles.meta}>{s.authorizationWaiting}</Text>
                         <Button variant="outline" onPress={google.cancelConnect}>
                             {s.cancel}
                         </Button>
-                    </View>
+                    </Panel>
                 ) : null}
                 {google.connection?.state === "selecting" ? (
-                    <View style={styles.card}>
-                        <Text style={styles.sheetTitle}>{s.chooseProfile}</Text>
-                        <Text style={styles.meta}>{s.chooseProfileBody}</Text>
+                    <Panel
+                        title={s.chooseProfile}
+                        subtitle={s.chooseProfileBody}
+                        style={styles.card}
+                    >
                         <Select
                             label={s.googleAccount}
                             value={google.account}
@@ -179,14 +182,11 @@ export function Reviews() {
                         <Button variant="outline" disabled={google.busy !== null} onPress={connect}>
                             {s.changeAccount}
                         </Button>
-                    </View>
+                    </Panel>
                 ) : null}
                 {google.connected ? (
                     <>
-                        <View style={styles.card}>
-                            <Text style={styles.sheetTitle}>
-                                {google.connection?.location?.title}
-                            </Text>
+                        <Panel title={google.connection?.location?.title} style={styles.card}>
                             <Text style={styles.sheetBody}>{google.summary}</Text>
                             <Text style={styles.meta}>{s.attribution}</Text>
                             <Button
@@ -196,7 +196,7 @@ export function Reviews() {
                             >
                                 {s.refresh}
                             </Button>
-                        </View>
+                        </Panel>
                         {google.reviews.length === 0 ? (
                             <Panel>
                                 <Empty
@@ -207,7 +207,7 @@ export function Reviews() {
                             </Panel>
                         ) : null}
                         {google.reviews.map((review) => (
-                            <View key={review.review_id} style={styles.card}>
+                            <Panel key={review.review_id} style={styles.card}>
                                 <Text style={styles.rowName}>{review.author}</Text>
                                 <Stars value={review.stars} />
                                 <Text style={styles.meta}>{review.date}</Text>
@@ -230,7 +230,7 @@ export function Reviews() {
                                 >
                                     {review.reply ? s.editReply : s.reply}
                                 </Button>
-                            </View>
+                            </Panel>
                         ))}
                         {google.moreReviews ? (
                             <Button
@@ -241,7 +241,12 @@ export function Reviews() {
                                 {s.moreReviews}
                             </Button>
                         ) : null}
-                        <Loaded load={queue.load} loading={s.requestsLoading} failed={s.loadError}>
+                        <Loaded
+                            flush
+                            load={queue.load}
+                            loading={s.requestsLoading}
+                            failed={s.loadError}
+                        >
                             <Toggle
                                 label={s.automation}
                                 hint={s.automationHint}
@@ -284,7 +289,7 @@ export function Reviews() {
             {google.reply !== null ? (
                 <Modal open onClose={google.closeReply}>
                     <View style={styles.sheet}>
-                        <Text style={styles.sheetTitle}>{s.replyTitle}</Text>
+                        <SheetHeader title={s.replyTitle} />
                         <Text style={styles.meta}>{s.replyPublic}</Text>
                         <TextField
                             label={s.replyText}
@@ -349,7 +354,7 @@ export function Reviews() {
                     }}
                 >
                     <View style={styles.sheet}>
-                        <Text style={styles.sheetTitle}>{s.disconnect}</Text>
+                        <SheetHeader title={s.disconnect} />
                         <Text style={styles.sheetBody}>{s.disconnectBody}</Text>
                         <Button busy={google.busy !== null} onPress={google.disconnect}>
                             {s.confirm}
@@ -383,7 +388,7 @@ function AskList({ queue }: { queue: ReviewQueue }) {
     const zone = useBusinessZone();
     const req = useRequestReview(api);
     return (
-        <View style={styles.card}>
+        <Panel style={styles.card}>
             <Text style={styles.section}>{s.askTitle}</Text>
             <Text style={styles.meta}>{s.askSubtitle}</Text>
             {queue.suggestions.length === 0 ? <Text style={styles.meta}>{s.askEmpty}</Text> : null}
@@ -430,7 +435,7 @@ function AskList({ queue }: { queue: ReviewQueue }) {
                 </View>
             ))}
             {req.error !== null ? <Notice tone="danger">{req.error}</Notice> : null}
-        </View>
+        </Panel>
     );
 }
 
@@ -442,7 +447,7 @@ function RequestReviewSheet({ queue, onClose }: { queue: ReviewQueue; onClose: (
     return (
         <Modal open onClose={onClose}>
             <View style={styles.sheet}>
-                <Text style={styles.sheetTitle}>{s.requestTitle}</Text>
+                <SheetHeader title={s.requestTitle} />
                 <Text style={styles.sheetBody}>{s.requestBody}</Text>
                 <SearchSelect
                     label={s.requestClient}
@@ -481,19 +486,13 @@ const styles = StyleSheet.create({
     reply: { gap: 6, padding: 12, backgroundColor: c.bg, borderRadius: theme.radius },
     screen: { flex: 1, backgroundColor: c.bg },
     body: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 32, gap: 12 },
-    subtitle: { color: c.muted, fontSize: 13 },
-    card: {
-        backgroundColor: c.surface,
-        borderWidth: 1,
-        borderColor: c.border,
-        borderRadius: theme.radius,
-        padding: 14,
-        gap: 10,
-    },
+    subtitle: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 13 },
+    card: { gap: 10 },
     flex: { flex: 1, minWidth: 0 },
-    meta: { color: c.muted, fontSize: 12, marginTop: 2 },
+    meta: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 12, marginTop: 2 },
     section: {
         color: c.muted,
+        fontFamily: theme.fonts.ui,
         fontSize: 11,
         fontWeight: "600",
         letterSpacing: 0.5,
@@ -501,9 +500,8 @@ const styles = StyleSheet.create({
     },
     sectionGap: { marginTop: 8 },
     row: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 4 },
-    rowName: { color: c.ink, fontSize: 14, fontWeight: "600" },
+    rowName: { color: c.ink, fontFamily: theme.fonts.ui, fontSize: 14, fontWeight: "600" },
     sheet: { gap: 14 },
-    sheetTitle: { color: c.ink, fontSize: 18, fontWeight: "700" },
-    sheetBody: { color: c.inkSoft, fontSize: 14, lineHeight: 20 },
+    sheetBody: { color: c.inkSoft, fontFamily: theme.fonts.ui, fontSize: 14, lineHeight: 20 },
     sheetActions: { flexDirection: "row", gap: 10 },
 });

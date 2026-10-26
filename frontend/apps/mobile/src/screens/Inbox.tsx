@@ -32,6 +32,8 @@ import {
     ConversationRow,
     Empty,
     IconButton,
+    PageHeader,
+    SheetHeader,
     KeyValueList,
     MessageBubble,
     Modal,
@@ -84,9 +86,7 @@ export function InboxScreen() {
     return (
         <SafeAreaView style={styles.screen} edges={["top"]}>
             <Backdrop />
-            <Text style={styles.inboxTitle} accessibilityRole="header">
-                {strings.navigation.inbox}
-            </Text>
+            <PageHeader style={styles.inboxTitle} title={strings.navigation.inbox} />
             {segments.length > 1 ? (
                 <Tabs items={segments} active={current} onSelect={setSegment} />
             ) : null}
@@ -186,7 +186,7 @@ function Messages() {
                 active={inbox.filter}
                 onSelect={inbox.setFilter}
             />
-            <Loaded load={inbox.load} loading={s.loading} failed={s.loadError} rows={6}>
+            <Loaded flush load={inbox.load} loading={s.loading} failed={s.loadError} rows={6}>
                 <FlatList
                     style={styles.flex}
                     contentContainerStyle={styles.listContent}
@@ -487,7 +487,7 @@ function NewMessageSheet({
     return (
         <Modal open size="xl" onClose={onClose}>
             <ScrollView contentContainerStyle={styles.gap} keyboardShouldPersistTaps="handled">
-                <Text style={styles.threadTitle}>{s.newMessageTitle}</Text>
+                <SheetHeader title={s.newMessageTitle} />
                 <SearchSelect
                     label={s.clientLabel}
                     value={msg.clientId}
@@ -533,13 +533,7 @@ function NewMessageSheet({
 const styles = StyleSheet.create({
     earlier: { gap: 8 },
     earlierAction: { flexDirection: "row", justifyContent: "center" },
-    inboxTitle: {
-        color: c.ink,
-        fontSize: 28,
-        fontWeight: "700",
-        paddingHorizontal: 20,
-        paddingVertical: 8,
-    },
+    inboxTitle: { paddingHorizontal: 20, paddingVertical: 8 },
     screen: { flex: 1, backgroundColor: c.bg },
     flex: { flex: 1, minWidth: 0 },
     header: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 6, gap: 10 },
@@ -549,7 +543,7 @@ const styles = StyleSheet.create({
         justifyContent: "space-between",
         gap: 10,
     },
-    meta: { color: c.muted, fontSize: 13, lineHeight: 18 },
+    meta: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 13, lineHeight: 18 },
     pad: { paddingHorizontal: 16, paddingTop: 8 },
     listContent: {
         paddingBottom: 24,
@@ -566,11 +560,17 @@ const styles = StyleSheet.create({
         borderBottomWidth: StyleSheet.hairlineWidth,
         backgroundColor: c.surface,
     },
-    threadTitle: { color: c.ink, fontSize: 17, fontWeight: "700" },
+    threadTitle: {
+        color: c.ink,
+        fontFamily: theme.fonts.ui,
+        fontSize: theme.type.section,
+        fontWeight: "700",
+    },
     messages: { padding: 16, gap: 12 },
     day: { gap: 10 },
     dayLabel: {
         color: c.muted,
+        fontFamily: theme.fonts.ui,
         fontSize: 11,
         fontWeight: "600",
         textAlign: "center",
@@ -586,6 +586,7 @@ const styles = StyleSheet.create({
     gap: { gap: 12 },
     section: {
         color: c.muted,
+        fontFamily: theme.fonts.ui,
         fontSize: 11,
         fontWeight: "600",
         letterSpacing: 0.5,
@@ -593,5 +594,5 @@ const styles = StyleSheet.create({
         marginTop: 6,
     },
     consentRow: { flexDirection: "row", alignItems: "center", gap: 10 },
-    rowName: { color: c.ink, fontSize: 14, fontWeight: "600" },
+    rowName: { color: c.ink, fontFamily: theme.fonts.ui, fontSize: 14, fontWeight: "600" },
 });

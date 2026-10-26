@@ -48,6 +48,8 @@ import {
     SwatchPicker,
     TextField,
     Toggle,
+    Panel,
+    SheetHeader,
 } from "@clientbridge/ui";
 import { type ReactNode, useState } from "react";
 import { ScrollView, Share, StyleSheet, Text, View } from "react-native";
@@ -118,7 +120,7 @@ function InviteSheet({ form, onClose }: { form: InviteTeammatesForm; onClose: ()
                 </View>
             ) : (
                 <View>
-                    <Text style={styles.sheetTitle}>{t.inviteMember}</Text>
+                    <SheetHeader title={t.inviteMember} onClose={onClose} />
                     <TextField
                         label={t.emails}
                         hint={t.emailsHint}
@@ -248,7 +250,7 @@ function RemoveSheet({
     if (outcome !== null) {
         return (
             <Modal open onClose={finish} size="xl">
-                <Text style={styles.sheetTitle}>{t.removedTitle(member.name)}</Text>
+                <SheetHeader title={t.removedTitle(member.name)} />
                 <Text style={styles.small}>{outcome.body}</Text>
                 {outcome.series.length > 0 ? (
                     <View style={styles.gap}>
@@ -270,7 +272,7 @@ function RemoveSheet({
     }
     return (
         <Modal open onClose={onClose} size="xl">
-            <Text style={styles.sheetTitle}>{t.removeTitle(member.name)}</Text>
+            <SheetHeader title={t.removeTitle(member.name)} onClose={onClose} />
             <Text style={styles.small}>
                 {strings.common.twoSentences(t.removeBody, removal.summary)}
             </Text>
@@ -533,7 +535,7 @@ export function Team({ footer }: { footer?: ReactNode }) {
                                 ? t.readOnlyNoName
                                 : t.readOnly(team.ownerName)}
                         </Notice>
-                        <View style={[styles.card, styles.access]}>
+                        <Panel style={styles.access}>
                             <Text style={styles.accessTitle}>{t.yourRole(roleLabel(role))}</Text>
                             <Text style={styles.small}>{t.roleAccess[role]}</Text>
                             {t.roleCan[role].map((x) => (
@@ -548,7 +550,7 @@ export function Team({ footer }: { footer?: ReactNode }) {
                                     <Text style={styles.small}>{x}</Text>
                                 </View>
                             ))}
-                        </View>
+                        </Panel>
                     </View>
                 ) : null}
                 {team.load.state === "loading" ? (
@@ -569,7 +571,7 @@ export function Team({ footer }: { footer?: ReactNode }) {
                 {team.load.hasData ? (
                     <>
                         <Text style={styles.section}>{strings.staff.members}</Text>
-                        <View style={styles.card}>
+                        <Panel flush>
                             {team.members.map((m) => (
                                 <ListRow
                                     key={m.id}
@@ -594,15 +596,15 @@ export function Team({ footer }: { footer?: ReactNode }) {
                                     }}
                                 />
                             ))}
-                        </View>
+                        </Panel>
                         {team.canManage && team.invites.length > 0 ? (
                             <>
                                 <Text style={styles.section}>{strings.staff.pending}</Text>
-                                <View style={styles.card}>
+                                <Panel flush>
                                     {team.invites.map((inv) => (
                                         <InviteLine key={inv.id} invite={inv} team={team} />
                                     ))}
-                                </View>
+                                </Panel>
                             </>
                         ) : null}
                         {team.error !== null && open === undefined ? (
@@ -649,9 +651,10 @@ export function Team({ footer }: { footer?: ReactNode }) {
 const styles = StyleSheet.create({
     screen: { flex: 1, backgroundColor: c.bg },
     content: { padding: 16, paddingBottom: 32 },
-    sub: { color: c.muted, fontSize: 14, lineHeight: 20 },
+    sub: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 14, lineHeight: 20 },
     section: {
         color: c.muted,
+        fontFamily: theme.fonts.ui,
         fontSize: 12,
         fontWeight: "700",
         letterSpacing: 0.5,
@@ -659,24 +662,36 @@ const styles = StyleSheet.create({
         marginTop: 22,
         marginBottom: 8,
     },
-    card: {
-        backgroundColor: c.surface,
-        borderRadius: theme.radius,
-        borderWidth: 1,
-        borderColor: c.border,
-        overflow: "hidden",
-    },
-    access: { padding: 14, marginTop: 10, gap: 6 },
-    accessTitle: { color: c.ink, fontSize: 15, fontWeight: "700" },
+    access: { marginTop: 10, gap: 6 },
+    accessTitle: { color: c.ink, fontFamily: theme.fonts.ui, fontSize: 15, fontWeight: "700" },
     accessRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-    accessText: { color: c.inkSoft, fontSize: 14 },
-    sheetTitle: { color: c.ink, fontSize: 20, fontWeight: "700", marginTop: 6 },
-    small: { color: c.muted, fontSize: 13, lineHeight: 18, marginTop: 2 },
-    label: { color: c.inkSoft, fontSize: 13, fontWeight: "600", marginTop: 16, marginBottom: 8 },
+    accessText: { color: c.inkSoft, fontFamily: theme.fonts.ui, fontSize: 14 },
+    sheetTitle: {
+        color: c.ink,
+        fontFamily: theme.fonts.ui,
+        fontSize: theme.type.section,
+        fontWeight: "700",
+        marginTop: 6,
+    },
+    small: {
+        color: c.muted,
+        fontFamily: theme.fonts.ui,
+        fontSize: 13,
+        lineHeight: 18,
+        marginTop: 2,
+    },
+    label: {
+        color: c.inkSoft,
+        fontFamily: theme.fonts.ui,
+        fontSize: 13,
+        fontWeight: "600",
+        marginTop: 16,
+        marginBottom: 8,
+    },
     gap: { marginTop: 18 },
     gapSm: { marginTop: 10 },
     okIcon: { marginBottom: 4 },
     sentRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 12 },
-    sentText: { flex: 1, color: c.inkSoft, fontSize: 14 },
+    sentText: { flex: 1, color: c.inkSoft, fontFamily: theme.fonts.ui, fontSize: 14 },
     inviteActions: { flexDirection: "row", alignItems: "center", gap: 2 },
 });
