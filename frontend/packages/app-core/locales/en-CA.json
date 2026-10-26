@@ -2369,6 +2369,10 @@
     "earnings.colPay": {
         "message": "Pay"
     },
+    "earnings.summary": {
+        "message": "{n, plural, one {# person} other {# people}} · {waiting, plural, =0 {nothing to approve} one {# waiting for approval} other {# waiting for approval}}",
+        "args": ["n", "waiting"]
+    },
     "earnings.toApprove": {
         "message": "To approve"
     },

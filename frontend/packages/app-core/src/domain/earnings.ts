@@ -175,6 +175,7 @@ interface EarningApprovals {
     togglePick: (id: string) => void;
     pickAllPending: () => void;
     totals: { pendingCents: number; approvedCents: number; paidYtdCents: number };
+    summary: string;
     busy: boolean;
     error: string | null;
     approvePicked: () => void;
@@ -254,6 +255,10 @@ export function useEarningApprovals(api: ApiLike): EarningApprovals {
     return {
         load,
         payees,
+        summary: strings.earnings.summary(
+            payees.length,
+            payees.filter((p) => p.pendingCount > 0).length,
+        ),
         selected,
         select: (id) => {
             key.current = null;

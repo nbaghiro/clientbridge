@@ -775,6 +775,7 @@ interface Strings {
         readonly subtitle: string;
         readonly colMember: string;
         readonly colPay: string;
+        readonly summary: (n: number, waiting: number) => string;
         readonly toApprove: string;
         readonly toPay: string;
         readonly paidYtd: string;

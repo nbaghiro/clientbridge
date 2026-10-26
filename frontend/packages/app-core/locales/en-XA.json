@@ -2177,6 +2177,9 @@
     "earnings.colPay": {
         "message": "[Þåý one]"
     },
+    "earnings.summary": {
+        "message": "[{n,plural,one{# þéŕšöñ} other{# þéöþļé}} · {waiting,plural,one{# ŵåîţîñĝ ƒöŕ åþþŕöṽåļ} other{# ŵåîţîñĝ ƒöŕ åþþŕöṽåļ} =0{ñöţĥîñĝ ţö åþþŕöṽé}} one two three four five]"
+    },
     "earnings.toApprove": {
         "message": "[Ţö åþþŕöṽé one two]"
     },
