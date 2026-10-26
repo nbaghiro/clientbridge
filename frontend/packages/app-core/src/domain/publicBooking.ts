@@ -1105,7 +1105,7 @@ export function usePublicBookingFlow(
             result?.status === "waitlisted" && slot
                 ? s.waitlistBody(
                       result.waitlist_position ?? 1,
-                      whenLabel(slot.starts_at, today, zone).replace(/\.$/, ""),
+                      whenLabel(slot.starts_at, today, zone),
                   )
                 : null,
         calendar:

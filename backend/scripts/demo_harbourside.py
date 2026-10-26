@@ -1500,8 +1500,8 @@ class Harbourside(Demo):
         )
         self.say(
             thread,
-            f"No problem, Hiroshi. You're now booked with Jun on {local:%A, %B} {local.day} at "
-            f"{self.clock(moved.starts_at)}.",
+            f"No problem, Hiroshi. You're now booked at {self.clock(moved.starts_at)} on "
+            f"{local:%A, %B} {local.day} with Jun.",
             when + timedelta(minutes=15),
         )
         gwen = ctx.get(Booking, "bk_hs_gwen_recent")

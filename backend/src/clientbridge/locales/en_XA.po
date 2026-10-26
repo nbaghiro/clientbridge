@@ -35,13 +35,13 @@ msgid "booking_canceled.subject"
 msgstr "[Åþþöîñţɱéñţ çåñçéļéð — {business}~~~~~~~~~]"
 
 msgid "booking_confirmed.body"
-msgstr "[Ýöû'ŕé ƀööķéð ŵîţĥ {business} öñ {when}.~~~~~~~~~]"
+msgstr "[Ýöû'ŕé ƀööķéð ƒöŕ {when} ŵîţĥ {business}.~~~~~~~~~]"
 
 msgid "booking_confirmed.body_deposit"
-msgstr "[Ýöû'ŕé ƀööķéð ŵîţĥ {business} öñ {when}. Þļéåšé þåý ţĥé {amount} ðéþöšîţ, ŵĥîçĥ çöɱéš öƒƒ ýöûŕ ƀîļļ åţ ţĥé ṽîšîţ: {link}~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]"
+msgstr "[Ýöû'ŕé ƀööķéð ƒöŕ {when} ŵîţĥ {business}. Þļéåšé þåý ţĥé {amount} ðéþöšîţ, ŵĥîçĥ çöɱéš öƒƒ ýöûŕ ƀîļļ åţ ţĥé ṽîšîţ: {link}~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]"
 
 msgid "booking_confirmed.body_link"
-msgstr "[Ýöû'ŕé ƀööķéð ŵîţĥ {business} öñ {when}. Çĥåñĝé öŕ çåñçéļ: {link}~~~~~~~~~~~~~~~~]"
+msgstr "[Ýöû'ŕé ƀööķéð ƒöŕ {when} ŵîţĥ {business}. Çĥåñĝé öŕ çåñçéļ: {link}~~~~~~~~~~~~~~~~]"
 
 msgid "booking_confirmed.deposit_due"
 msgstr "[Þļéåšé þåý ţĥé {amount} ðéþöšîţ, ŵĥîçĥ çöɱéš öƒƒ ýöûŕ ƀîļļ åţ ţĥé ṽîšîţ.~~~~~~~~~~~~~~~~~~~~~~~]"
@@ -86,10 +86,10 @@ msgid "booking_released.subject"
 msgstr "[Åþþöîñţɱéñţ ŕéļéåšéð — {business}~~~~~~~~~]"
 
 msgid "booking_reminder.body"
-msgstr "[Ŕéɱîñðéŕ: ýöû ĥåṽé åñ åþþöîñţɱéñţ ŵîţĥ {business} öñ {when}.~~~~~~~~~~~~~~~~]"
+msgstr "[Ŕéɱîñðéŕ: ýöû ĥåṽé åñ åþþöîñţɱéñţ öñ {when} ŵîţĥ {business}.~~~~~~~~~~~~~~~~]"
 
 msgid "booking_reminder.body_link"
-msgstr "[Ŕéɱîñðéŕ: ýöû ĥåṽé åñ åþþöîñţɱéñţ ŵîţĥ {business} öñ {when}. Çĥåñĝé öŕ çåñçéļ: {link}~~~~~~~~~~~~~~~~~~~~~~~]"
+msgstr "[Ŕéɱîñðéŕ: ýöû ĥåṽé åñ åþþöîñţɱéñţ öñ {when} ŵîţĥ {business}. Çĥåñĝé öŕ çåñçéļ: {link}~~~~~~~~~~~~~~~~~~~~~~~]"
 
 msgid "booking_reminder.heading"
 msgstr "[Åþþöîñţɱéñţ ŕéɱîñðéŕ~~~~~~~]"
@@ -98,7 +98,7 @@ msgid "booking_reminder.subject"
 msgstr "[Åþþöîñţɱéñţ ŕéɱîñðéŕ — {business}~~~~~~~~~]"
 
 msgid "booking_requested.body"
-msgstr "[{business} ŕéçéîṽéð ýöûŕ ŕéǫûéšţ ƒöŕ {when}. Ýöû'ļļ ĥéåŕ ƀåçķ öñçé îţ'š çöñƒîŕɱéð.~~~~~~~~~~~~~~~~~~~~~~~~]"
+msgstr "[{business} ŕéçéîṽéð ýöûŕ ŕéǫûéšţ ƒöŕ {when} åñð ŵîļļ ļéţ ýöû ķñöŵ öñçé îţ'š çöñƒîŕɱéð.~~~~~~~~~~~~~~~~~~~~~~~~~]"
 
 msgid "booking_requested.heading"
 msgstr "[Ŕéǫûéšţ ŕéçéîṽéð~~~~~~]"
@@ -107,7 +107,7 @@ msgid "booking_requested.subject"
 msgstr "[Ɓööķîñĝ ŕéǫûéšţ ŕéçéîṽéð — {business}~~~~~~~~~~]"
 
 msgid "booking_rescheduled.body"
-msgstr "[Ýöûŕ åþþöîñţɱéñţ ŵîţĥ {business} ŵåš ɱöṽéð ţö {when}.~~~~~~~~~~~~~]"
+msgstr "[Ýöûŕ åþþöîñţɱéñţ ŵîţĥ {business} ŵåš ɱöṽéð ţö {when}, åñð ţĥé éåŕļîéŕ ţîɱé îš ñö ļöñĝéŕ ƀööķéð.~~~~~~~~~~~~~~~~~~~~~~~~~~~~]"
 
 msgid "booking_rescheduled.heading"
 msgstr "[Åþþöîñţɱéñţ ŕéšçĥéðûļéð~~~~~~~~~]"
@@ -751,7 +751,7 @@ msgid "series.separator"
 msgstr "[; ~]"
 
 msgid "series_booked.body"
-msgstr "[Ýöû'ŕé ƀööķéð ŵîţĥ {business} öñ: {whens}.~~~~~~~~~]"
+msgstr "[Ýöû'ŕé ƀööķéð ŵîţĥ {business} ƒöŕ ţĥéšé ṽîšîţš: {whens}~~~~~~~~~~~~~~]"
 
 msgid "series_booked.heading"
 msgstr "[Ýöûŕ ṽîšîţš åŕé ƀööķéð~~~~~~~~]"
@@ -760,7 +760,7 @@ msgid "series_booked.subject"
 msgstr "[Ýöûŕ ṽîšîţš åŕé ƀööķéð — {business}~~~~~~~~~]"
 
 msgid "series_canceled.body"
-msgstr "[Ţĥéšé ṽîšîţš ŵîţĥ {business} ŵéŕé çåñçéļéð: {whens}.~~~~~~~~~~~~~]"
+msgstr "[Ţĥéšé ṽîšîţš ŵîţĥ {business} ŵéŕé çåñçéļéð: {whens}~~~~~~~~~~~~]"
 
 msgid "series_canceled.heading"
 msgstr "[Ýöûŕ ṽîšîţš ŵéŕé çåñçéļéð~~~~~~~~~]"
@@ -769,7 +769,7 @@ msgid "series_canceled.subject"
 msgstr "[Ýöûŕ ṽîšîţš ŵéŕé çåñçéļéð — {business}~~~~~~~~~~]"
 
 msgid "series_moved.body"
-msgstr "[Ýöûŕ ṽîšîţš ŵîţĥ {business} åŕé ñöŵ öñ: {whens}.~~~~~~~~~~~]"
+msgstr "[Ýöûŕ ṽîšîţš ŵîţĥ {business} ĥåṽé ñéŵ ţîɱéš: {whens}~~~~~~~~~~~~]"
 
 msgid "series_moved.heading"
 msgstr "[Ýöûŕ ṽîšîţš ŵéŕé ɱöṽéð~~~~~~~~]"
@@ -823,25 +823,25 @@ msgid "trial.action"
 msgstr "[Çĥööšé å þļåñ~~~~~]"
 
 msgid "trial_ending.body"
-msgstr "[Ţĥé ƒŕéé ţŕîåļ ƒöŕ {business} éñðš {when}. Çĥööšé Þŕéɱîûɱ öŕ Ţéåɱ ţö ķééþ åððîñĝ åñð çĥåñĝîñĝ ŕéçöŕðš: {link}~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]"
+msgstr "[Ţö ķééþ åððîñĝ åñð çĥåñĝîñĝ ŕéçöŕðš åƒţéŕ ţĥé ƒŕéé ţŕîåļ ƒöŕ {business} éñðš öñ {when}, çĥööšé Þŕéɱîûɱ öŕ Ţéåɱ: {link}~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]"
 
 msgid "trial_ending.heading"
 msgstr "[Ýöûŕ ƒŕéé ţŕîåļ éñðš šööñ~~~~~~~~~]"
 
 msgid "trial_ending.lead"
-msgstr "[Ţĥé ƒŕéé ţŕîåļ ƒöŕ {business} éñðš {when}. Çĥööšé Þŕéɱîûɱ öŕ Ţéåɱ ţö ķééþ åððîñĝ åñð çĥåñĝîñĝ ŕéçöŕðš.~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]"
+msgstr "[Ţö ķééþ åððîñĝ åñð çĥåñĝîñĝ ŕéçöŕðš åƒţéŕ ţĥé ƒŕéé ţŕîåļ ƒöŕ {business} éñðš öñ {when}, çĥööšé Þŕéɱîûɱ öŕ Ţéåɱ.~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]"
 
 msgid "trial_ending.subject"
 msgstr "[Ýöûŕ Çļîéñţƀŕîðĝé ţŕîåļ éñðš šööñ~~~~~~~~~~~~]"
 
 msgid "trial_last_day.body"
-msgstr "[Ţĥé ƒŕéé ţŕîåļ ƒöŕ {business} éñðš {when}. Åƒţéŕ ţĥåţ ţĥé ƀûšîñéšš ƀéçöɱéš ŕéåð-öñļý: ýöû çåñ šţîļļ šîĝñ îñ åñð šéé ýöûŕ ŕéçöŕðš, åñð îñṽöîçéš ýöû åļŕéåðý šéñţ çåñ šţîļļ ƀé þåîð. Çĥööšé å þļåñ ţö ķééþ ŵöŕķîñĝ: {link}~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]"
+msgstr "[Åƒţéŕ ţĥé ƒŕéé ţŕîåļ ƒöŕ {business} éñðš öñ {when}, ţĥé ƀûšîñéšš ƀéçöɱéš ŕéåð-öñļý: ýöû çåñ šţîļļ šîĝñ îñ åñð šéé ýöûŕ ŕéçöŕðš, åñð îñṽöîçéš ýöû åļŕéåðý šéñţ çåñ šţîļļ ƀé þåîð. Çĥööšé å þļåñ ţö ķééþ ŵöŕķîñĝ: {link}~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]"
 
 msgid "trial_last_day.heading"
 msgstr "[Ýöûŕ ƒŕéé ţŕîåļ îš åƀöûţ ţö éñð~~~~~~~~~~~]"
 
 msgid "trial_last_day.lead"
-msgstr "[Ţĥé ƒŕéé ţŕîåļ ƒöŕ {business} éñðš {when}. Åƒţéŕ ţĥåţ ţĥé ƀûšîñéšš ƀéçöɱéš ŕéåð-öñļý: ýöû çåñ šţîļļ šîĝñ îñ åñð šéé ýöûŕ ŕéçöŕðš, åñð îñṽöîçéš ýöû åļŕéåðý šéñţ çåñ šţîļļ ƀé þåîð.~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]"
+msgstr "[Åƒţéŕ ţĥé ƒŕéé ţŕîåļ ƒöŕ {business} éñðš öñ {when}, ţĥé ƀûšîñéšš ƀéçöɱéš ŕéåð-öñļý: ýöû çåñ šţîļļ šîĝñ îñ åñð šéé ýöûŕ ŕéçöŕðš, åñð îñṽöîçéš ýöû åļŕéåðý šéñţ çåñ šţîļļ ƀé þåîð.~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]"
 
 msgid "trial_last_day.subject"
 msgstr "[Ýöûŕ Çļîéñţƀŕîðĝé ţŕîåļ îš åƀöûţ ţö éñð~~~~~~~~~~~~~~]"
@@ -887,7 +887,7 @@ msgstr ""
 "Þĥöţöš åñð ðéţåîļš ƒŕöɱ ýöûŕ ṽîšîţ: {link}~~~~~~~~~~~~~~]"
 
 msgid "visits_reassigned.body"
-msgstr "[Ţĥéšé ṽîšîţš ŵîţĥ {business} åŕé ñöŵ ŵîţĥ {member}: {whens}.~~~~~~~~~~~~~]"
+msgstr "[Ţĥéšé ṽîšîţš ŵîţĥ {business} åŕé ñöŵ ŵîţĥ {member}: {whens}~~~~~~~~~~~~]"
 
 msgid "visits_reassigned.heading"
 msgstr "[Ñéŵ þŕöṽîðéŕ ƒöŕ ýöûŕ ṽîšîţš~~~~~~~~~~]"

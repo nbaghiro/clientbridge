@@ -3005,7 +3005,7 @@
         "args": ["who"]
     },
     "bookings.moved": {
-        "message": "Moved to {when}. The client gets an updated confirmation.",
+        "message": "Moved to {when}, and the client gets an updated confirmation.",
         "args": ["when"]
     },
     "bookings.undo": {
@@ -6666,7 +6666,7 @@
         "message": "Broadcast queued"
     },
     "broadcasts.queuedBody": {
-        "message": "It's quiet hours for your clients, so it goes out at {when}. {n, plural, one {# client} other {# clients}} will get it.",
+        "message": "It's quiet hours for your clients, so it goes out at {when} to {n, plural, one {# client} other {# clients}}.",
         "args": ["when", "n"],
         "description": "Broadcasts don't send between 9 p.m. and 9 a.m. in the business's time zone."
     },
@@ -12227,22 +12227,22 @@
         "message": "Request sent"
     },
     "publicBooking.pendingBody": {
-        "message": "The studio confirms new clients first. You'll hear back about {when}.",
+        "message": "The studio confirms new clients first. You'll hear back about {when} once they've looked at your request.",
         "args": ["when"]
     },
     "publicBooking.waitlistTitle": {
         "message": "You're on the waitlist"
     },
     "publicBooking.waitlistBody": {
-        "message": "{position, plural, =1 {You're first in line for {when}.} other {You're number # in line for {when}.}} If a seat opens up before the class, you'll be booked into it and get a message.",
+        "message": "{position, plural, =1 {For {when}, you're first in line.} other {For {when}, you're number # in line.}} If a seat opens up before the class, you'll be booked into it and get a message.",
         "args": ["position", "when"]
     },
     "publicBooking.doneBody": {
-        "message": "{name} is booked for {when}. A confirmation is on its way.",
+        "message": "{name} is booked for {when}, and a confirmation is on its way.",
         "args": ["name", "when"]
     },
     "publicBooking.doneNoSubject": {
-        "message": "You're booked for {when}. A confirmation is on its way.",
+        "message": "You're booked for {when}, and a confirmation is on its way.",
         "args": ["when"]
     },
     "publicBooking.addToCalendar": {
@@ -13125,7 +13125,7 @@
         "message": "Booking moved"
     },
     "publicManage.movedBody": {
-        "message": "See you {when}. Your deposit moved with it.",
+        "message": "Your visit is now {when}, and your deposit moved with it.",
         "args": ["when"]
     },
     "publicManage.back": {

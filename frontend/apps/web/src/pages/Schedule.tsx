@@ -406,7 +406,7 @@ export function Schedule() {
                                 </Button>
                             }
                         >
-                            {s.moved(mover.last.label.replace(/\.$/, ""))}
+                            {s.moved(mover.last.label)}
                         </Toast>
                     ) : null}
                 </section>

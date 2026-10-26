@@ -2763,7 +2763,7 @@
         "message": "[{who} ðöéšñ'ţ öƒƒéŕ ţĥîš šéŕṽîçé one two three]"
     },
     "bookings.moved": {
-        "message": "[Ṁöṽéð ţö {when}. Ţĥé çļîéñţ ĝéţš åñ ûþðåţéð çöñƒîŕɱåţîöñ. one two three four]"
+        "message": "[Ṁöṽéð ţö {when}, åñð ţĥé çļîéñţ ĝéţš åñ ûþðåţéð çöñƒîŕɱåţîöñ. one two three four]"
     },
     "bookings.undo": {
         "message": "[Ûñðö one]"
@@ -6138,7 +6138,7 @@
         "message": "[Ɓŕöåðçåšţ ǫûéûéð one two]"
     },
     "broadcasts.queuedBody": {
-        "message": "[Îţ'š ǫûîéţ ĥöûŕš ƒöŕ ýöûŕ çļîéñţš, šö îţ ĝöéš öûţ åţ {when}. {n,plural,one{# çļîéñţ} other{# çļîéñţš}} ŵîļļ ĝéţ îţ. one two three four five]"
+        "message": "[Îţ'š ǫûîéţ ĥöûŕš ƒöŕ ýöûŕ çļîéñţš, šö îţ ĝöéš öûţ åţ {when} ţö {n,plural,one{# çļîéñţ} other{# çļîéñţš}}. one two three four five]"
     },
     "broadcasts.sentBody": {
         "message": "[{n,plural,one{# çļîéñţ} other{# çļîéñţš}} ŵîļļ ĝéţ îţ. Ŕéþļîéš ļåñð îñ ýöûŕ îñƀöẋ, åñð öþţ-öûţš åŕé ŕéçöŕðéð åûţöɱåţîçåļļý. one two three four five six seven]"
@@ -11382,19 +11382,19 @@
         "message": "[Ŕéǫûéšţ šéñţ one two]"
     },
     "publicBooking.pendingBody": {
-        "message": "[Ţĥé šţûðîö çöñƒîŕɱš ñéŵ çļîéñţš ƒîŕšţ. Ýöû'ļļ ĥéåŕ ƀåçķ åƀöûţ {when}. one two three four]"
+        "message": "[Ţĥé šţûðîö çöñƒîŕɱš ñéŵ çļîéñţš ƒîŕšţ. Ýöû'ļļ ĥéåŕ ƀåçķ åƀöûţ {when} öñçé ţĥéý'ṽé ļööķéð åţ ýöûŕ ŕéǫûéšţ. one two three four five six seven]"
     },
     "publicBooking.waitlistTitle": {
         "message": "[Ýöû'ŕé öñ ţĥé ŵåîţļîšţ one two]"
     },
     "publicBooking.waitlistBody": {
-        "message": "[{position,plural,other{Ýöû'ŕé ñûɱƀéŕ # îñ ļîñé ƒöŕ {when}.} =1{Ýöû'ŕé ƒîŕšţ îñ ļîñé ƒöŕ {when}.}} Îƒ å šéåţ öþéñš ûþ ƀéƒöŕé ţĥé çļåšš, ýöû'ļļ ƀé ƀööķéð îñţö îţ åñð ĝéţ å ɱéššåĝé. one two three four five six seven eight]"
+        "message": "[{position,plural,other{Ƒöŕ {when}, ýöû'ŕé ñûɱƀéŕ # îñ ļîñé.} =1{Ƒöŕ {when}, ýöû'ŕé ƒîŕšţ îñ ļîñé.}} Îƒ å šéåţ öþéñš ûþ ƀéƒöŕé ţĥé çļåšš, ýöû'ļļ ƀé ƀööķéð îñţö îţ åñð ĝéţ å ɱéššåĝé. one two three four five six seven eight]"
     },
     "publicBooking.doneBody": {
-        "message": "[{name} îš ƀööķéð ƒöŕ {when}. Å çöñƒîŕɱåţîöñ îš öñ îţš ŵåý. one two three]"
+        "message": "[{name} îš ƀööķéð ƒöŕ {when}, åñð å çöñƒîŕɱåţîöñ îš öñ îţš ŵåý. one two three]"
     },
     "publicBooking.doneNoSubject": {
-        "message": "[Ýöû'ŕé ƀööķéð ƒöŕ {when}. Å çöñƒîŕɱåţîöñ îš öñ îţš ŵåý. one two three]"
+        "message": "[Ýöû'ŕé ƀööķéð ƒöŕ {when}, åñð å çöñƒîŕɱåţîöñ îš öñ îţš ŵåý. one two three four]"
     },
     "publicBooking.addToCalendar": {
         "message": "[Åðð ţö çåļéñðåŕ one two]"
@@ -12231,7 +12231,7 @@
         "message": "[Ɓööķîñĝ ɱöṽéð one two]"
     },
     "publicManage.movedBody": {
-        "message": "[Šéé ýöû {when}. Ýöûŕ ðéþöšîţ ɱöṽéð ŵîţĥ îţ. one two three]"
+        "message": "[Ýöûŕ ṽîšîţ îš ñöŵ {when}, åñð ýöûŕ ðéþöšîţ ɱöṽéð ŵîţĥ îţ. one two three four]"
     },
     "publicManage.back": {
         "message": "[Ɓåçķ one]"
