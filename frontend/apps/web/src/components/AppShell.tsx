@@ -40,7 +40,7 @@ const ICON: Record<DestinationKey, IconName> = {
     today: "today",
     schedule: "calendar",
     clients: "clients",
-    payments: "wallet",
+    payments: "card",
     inbox: "inbox",
 };
 
