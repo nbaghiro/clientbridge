@@ -20,6 +20,7 @@ REQUIRED_CASES = {
         "BILL-DOC-02",
         "BILL-DOC-03",
         "BILL-DOC-04",
+        "BILL-DOC-20",
         "SEC-E2E-01",
         "SEC-E2E-02",
         "OFF-E2E-01",

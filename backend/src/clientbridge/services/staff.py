@@ -63,7 +63,13 @@ from clientbridge.services.bookings import (
 from clientbridge.services.business import load_staff, staff_names
 from clientbridge.services.catalog import NOT_OFFERED, load_item, offers
 from clientbridge.services.lines import crew_note
-from clientbridge.services.notifications import Notice, business_email, invite_link, staff_invite
+from clientbridge.services.notifications import (
+    Notice,
+    business_email,
+    invite_link,
+    queued_notifier,
+    staff_invite,
+)
 from clientbridge.services.payments import cancel_open_deposits, refund_deposit
 from clientbridge.services.plans import INVITE_TTL
 from clientbridge.services.programs import sessions_of
@@ -89,6 +95,10 @@ def _fit_rate_unit(staff: Staff, data: StaffPayUpdate) -> None:
 
 
 _log = logging.getLogger(__name__)
+
+
+def removal_scope(staff_id: str) -> str:
+    return f"staff-removal:{staff_id}"
 
 
 class StaffService:
@@ -433,8 +443,8 @@ class StaffService:
         *,
         gateway: PaymentGateway,
         idempotency_key: str | None = None,
-    ) -> tuple[StaffRemoveOut, bool]:
-        """Settle the member's future work, keeping their session; True if this call did it."""
+    ) -> StaffRemoveOut:
+        """Settle the member's future work and queue the clients' notices, keeping the session."""
         assert_role(principal, "owner", "admin", message="only an owner or admin can change roles")
         biz = principal.business_id
         ran: list[bool] = []
@@ -561,6 +571,11 @@ class StaffService:
                     "left": len(out.left),
                 },
             )
+            notifier = queued_notifier(
+                self.db, f"{removal_scope(member.id)}:{new_id('delivery')}", biz
+            )
+            await notifier.on_visits_reassigned(self.db, out.moved)
+            await notifier.on_visits_canceled(self.db, out.canceled)
             ran.append(True)
             return out
 
@@ -575,7 +590,7 @@ class StaffService:
         )
         if ran:
             await self.release_seat(biz, gateway)
-        return result, bool(ran)
+        return result
 
     async def _takers(self, biz: str, member_id: str, data: StaffRemove) -> list[Staff]:
         """The members who may take the visits, in the order they are offered them."""

@@ -171,3 +171,64 @@ test("BILL-DOC-04 the send preview shows word for word the invoice and reminder 
         contentType: "application/json",
     });
 });
+
+test("BILL-DOC-20 retry after a lost estimate send response mails the estimate once", async ({
+    page,
+}, testInfo) => {
+    await signIn(page);
+    const client = await createDocumentClient(page);
+    const editor = await composeDocument(page, client, "estimate");
+    await fillDocumentLine(page, editor, 0, "Deshedding treatment", "1", "40.00", "standard");
+    const draft = await saveDocument(page, editor, "estimate");
+    // CAD40 plus 5% GST and 7% PST
+    expect(draft).toMatchObject({ status: "draft", number: null, total_cents: 4480 });
+    await editor.getByRole("button", { name: strings.common.close, exact: true }).click();
+    await openDocument(page, client, "estimate", draft.id);
+    const keys: (string | undefined)[] = [];
+    await page.route(`**/v1/estimates/${draft.id}/send`, async (route) => {
+        keys.push(route.request().headers()["idempotency-key"]);
+        const committed = await route.fetch();
+        expect(committed.status()).toBe(200);
+        if (keys.length === 1) await route.abort("connectionreset");
+        else await route.fulfill({ response: committed });
+    });
+    const confirm = new RegExp(
+        `^(${escape(strings.billing.sendEstimate)}|${escape(strings.previews.sendAgain)})$`,
+    );
+    const send = async (): Promise<void> => {
+        const { review } = await reviewSend(
+            page,
+            strings.billing.sendEstimate,
+            `/v1/previews/estimates/${draft.id}/send`,
+        );
+        await review.getByRole("button", { name: confirm }).click();
+    };
+
+    await send();
+    await expect(page.getByText(strings.billing.actionError, { exact: true })).toBeVisible();
+    const committed = (await documentEvidence("estimate", draft.id)).document;
+    expect(committed).toMatchObject({ status: "sent", number: expect.any(Number) });
+    await expect
+        .poll(async () => (await inboxMail(page.request, client.email)).length, {
+            timeout: 30_000,
+        })
+        .toBe(1);
+
+    await send();
+    await expect(
+        page.getByText(strings.billing.estimateSentTo(committed.number ?? 0, client.name), {
+            exact: true,
+        }),
+    ).toBeVisible();
+    expect(keys).toHaveLength(2);
+    expect(keys[0]).toBeTruthy();
+    expect(keys[1]).toBe(keys[0]);
+    expect((await documentEvidence("estimate", draft.id)).document).toEqual(committed);
+    const delivered = await deliveredMail(page.request, client.email);
+    expect(delivered).toHaveLength(1);
+    expect(delivered[0]?.subject).toContain(`#${String(committed.number)}`);
+    await testInfo.attach("estimate-send", {
+        body: JSON.stringify({ keys, committed, delivered }),
+        contentType: "application/json",
+    });
+});

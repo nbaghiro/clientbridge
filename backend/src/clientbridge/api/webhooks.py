@@ -32,6 +32,7 @@ from clientbridge.services.deliveries import (
 )
 from clientbridge.services.messaging import (
     EmailEventPending,
+    inbound_scope,
     process_email_event,
     process_inbound_sms,
 )
@@ -102,7 +103,7 @@ async def sms_webhook(
         message_sid=sid,
     )
     if message_id is not None:
-        await Notifier(email, sms, push).on_inbound_message(db, message_id)
+        await dispatch_scope(db, inbound_scope(message_id), email, sms, push)
     return Response(status_code=200)
 
 

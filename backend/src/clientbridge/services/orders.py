@@ -69,6 +69,15 @@ _PICKUP_STEPS = {"unfulfilled": 0, "preparing": 1, "ready": 2, "picked_up": 3}
 # a wrong PIN locks the desk out for a while, so four digits can't be guessed in a minute
 
 
+def order_scope(order_id: str) -> str:
+    return f"order:{order_id}"
+
+
+def notice_scope(order_id: str) -> str:
+    """Each receipt or pickup notice is its own delivery, so asking again sends again."""
+    return f"{order_scope(order_id)}:{new_id('delivery')}"
+
+
 class OrderService:
     def __init__(self, db: AsyncSession, principal: Principal, gateway: PaymentGateway) -> None:
         self.db = db
@@ -361,7 +370,7 @@ class OrderService:
         ]
 
     async def send_receipt(self, order_id: str, data: OrderReceiptIn) -> OrderOut:
-        """Choose where a paid sale's receipt goes; the router sends it once this commits."""
+        """Choose where a paid sale's receipt goes and queue it for the router to send."""
         order = await self._order(order_id)
         if await _status(self.db, order) not in ("paid", "refunded"):
             raise Conflict("a receipt is sent once the sale is paid")
@@ -381,6 +390,9 @@ class OrderService:
             order.receipt_token = order.receipt_token or secrets.token_urlsafe(16)
             await self.db.flush()
             cmd.record("order.receipt", entity_type="order", entity_id=order.id)
+            await queued_notifier(self.db, notice_scope(order.id), self.biz).on_order_receipt(
+                self.db, order.id
+            )
             lines = await fetch_lines(self.db, self.biz, "order", order.id)
             return await order_out(self.db, order, lines)
 
@@ -420,6 +432,10 @@ class OrderService:
                 order.picked_up_at = now
             await self.db.flush()
             cmd.record("order.pickup", entity_type="order", entity_id=order.id)
+            if data.status == "ready":
+                await queued_notifier(self.db, notice_scope(order.id), self.biz).on_order_ready(
+                    self.db, order.id
+                )
             lines = await fetch_lines(self.db, self.biz, "order", order.id)
             return await order_out(self.db, order, lines)
 

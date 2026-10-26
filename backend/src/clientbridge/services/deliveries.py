@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
 from clientbridge.core.emails import reserved_email
-from clientbridge.core.errors import AppError, Unprocessable
+from clientbridge.core.errors import AppError, Undelivered, Unprocessable
 from clientbridge.core.ids import new_id
 from clientbridge.core.phones import e164, reserved_phone, same_phone
 from clientbridge.core.scoping import scoped
@@ -27,7 +27,7 @@ from clientbridge.schemas.deliveries import (
     PushDelivery,
     SmsDelivery,
 )
-from clientbridge.services.consents import stopped_clients
+from clientbridge.services.consents import emails_withdrawn, stopped_clients
 
 _LEASE = timedelta(minutes=5)
 _RETRY = timedelta(minutes=1)
@@ -99,7 +99,10 @@ async def dispatch(
         row.state, row.error, row.next_at = "failed", "reserved_address", None
         await db.commit()
         return False
-    if row.business_id is not None and await _texts_stopped(db, row.business_id, payload):
+    if row.business_id is not None and (
+        await _texts_stopped(db, row.business_id, payload)
+        or await _emails_withdrawn(db, row.business_id, payload)
+    ):
         row.state, row.error, row.next_at = "failed", "consent_withdrawn", None
         await db.commit()
         return False
@@ -135,6 +138,8 @@ async def dispatch(
                 await push.send(message)
     except AppError as exc:
         state, error = "failed", exc.code
+    except Undelivered as exc:
+        state, error = "queued" if exc.retry else "failed", exc.code
     except (httpx.ConnectError, httpx.ConnectTimeout, httpx.PoolTimeout):
         state, error = "queued", "connection_unavailable"
     except httpx.HTTPStatusError as exc:
@@ -174,6 +179,14 @@ async def _texts_stopped(db: AsyncSession, business_id: str, payload: DeliveryPa
         )
     )
     return bool(holders) and bool(await stopped_clients(db, business_id, holders))
+
+
+async def _emails_withdrawn(db: AsyncSession, business_id: str, payload: DeliveryPayload) -> bool:
+    """An email the client can opt out of stays unsent once they have, even after it queued."""
+    if not isinstance(payload, EmailDelivery) or not payload.message.opt_out:
+        return False
+    client_id = payload.message.tags.get("client")
+    return client_id is not None and await emails_withdrawn(db, business_id, client_id)
 
 
 def _reserved(payload: DeliveryPayload) -> bool:

@@ -116,11 +116,19 @@ async def test_overlapping_or_refiled_period_409(
     assert await _remittances(db) == seeded + 1
 
 
-async def test_period_with_no_tax_owed_409(as_owner: httpx.AsyncClient) -> None:
+async def test_period_with_no_tax_owed_files_once_as_a_nil_return(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
     empty = {"period_start": "2020-01-01", "period_end": "2020-03-31"}
+    seeded = await _remittances(db)
     res = await as_owner.post("/v1/payments/remittances", json=empty)
-    assert res.status_code == 409
-    assert res.json()["message"] == "no tax is owed for this period"
+    assert res.status_code == 201, res.text
+    assert (res.json()["by_code"], res.json()["total_cents"]) == ({}, 0)
+    again = await as_owner.post(
+        "/v1/payments/remittances", json=empty, headers={"Idempotency-Key": "nil-again"}
+    )
+    assert again.status_code == 409
+    assert await _remittances(db) == seeded + 1
 
 
 async def test_period_ending_before_it_starts_422(as_owner: httpx.AsyncClient) -> None:

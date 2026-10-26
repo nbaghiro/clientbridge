@@ -397,6 +397,12 @@ class PaymentService:
                 idempotency_key=idempotency_key,
             )
             cmd.record("payment.intent", entity_type="payment", entity_id=payment.id)
+            if data.send_receipt and payment.status == "succeeded":
+                from clientbridge.services.notifications import queued_notifier
+
+                await queued_notifier(
+                    self.db, f"payment:{payment.id}", self.biz
+                ).on_payment_succeeded(self.db, payment.id)
             return InvoicePaymentOut(
                 payment_id=payment.id,
                 status=payment.status,

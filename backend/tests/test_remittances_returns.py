@@ -4,15 +4,20 @@ from datetime import UTC, date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 import httpx
+import pytest
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
+from clientbridge.core.deps import Principal
+from clientbridge.core.errors import Conflict
 from clientbridge.core.ids import new_id
 from clientbridge.models.billing import Invoice
 from clientbridge.models.business import Business
 from clientbridge.models.clients import Client
+from clientbridge.schemas.payments import RemittanceIn, TaxFilings
 from clientbridge.services import ledger
+from clientbridge.services.remittances import RemittanceService
 from clientbridge.services.reports import add_months, due_date, period_of
 from clientbridge.services.tax import TaxResult
 from tests.conftest import BIZ, Factory
@@ -140,10 +145,17 @@ async def test_filed_in_the_future_422(as_owner: httpx.AsyncClient) -> None:
     assert res.json()["error"] == "invalid_filed_on"
 
 
-async def test_family_with_nothing_owed_409(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
+async def test_a_family_with_nothing_owed_files_a_nil_return(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
     await _invoice(db, issued_at=IN_Q1, tax={"GST": 500})
+    gst = await _balance(db, "tax", "GST")
     res = await as_owner.post("/v1/payments/remittances", json={**Q1, "family": "provincial"})
-    assert res.status_code == 409
+    assert res.status_code == 201, res.text
+    assert (res.json()["by_code"], res.json()["total_cents"]) == ({}, 0)
+    assert await _balance(db, "tax", "GST") == gst
+    federal = await as_owner.post("/v1/payments/remittances", json={**Q1, "family": "federal"})
+    assert federal.status_code == 201 and federal.json()["total_cents"] == 500
 
 
 async def _last_period(db: AsyncSession) -> tuple[date, date]:
@@ -219,7 +231,8 @@ async def test_other_business_returns_stay_apart(
     await factory.client(business=other)
     await _invoice(db, issued_at=IN_Q1, tax={"GST": 777}, business_id=other.id)
     res = await as_owner.post("/v1/payments/remittances", json={**Q1, "family": "federal"})
-    assert res.status_code == 409
+    assert res.status_code == 201, res.text
+    assert (res.json()["by_code"], res.json()["total_cents"]) == ({}, 0)
     filings = (await as_owner.get("/v1/payments/remittances")).json()
     assert all(r["by_code"].get("GST") != 777 for p in filings["periods"] for r in p["returns"])
 
@@ -267,3 +280,45 @@ async def test_a_one_day_return_leaves_the_rest_of_its_period_due(
     status, due = await _federal(as_owner, start)
     assert status == "filed"
     assert due != due_date(end, "quarterly").isoformat()
+
+
+async def test_a_nil_return_files_a_period_with_no_tax(db: AsyncSession, factory: Factory) -> None:
+    other = await factory.business()
+    other.tax_registered = True
+    user = await factory.user()
+    staff = await factory.staff(business=other, user=user, role="owner")
+    await factory.client(business=other)
+    principal = Principal(user_id=user.id, business_id=other.id, staff_id=staff.id, role="owner")
+    await _invoice(
+        db, issued_at=datetime(2026, 5, 15, 18, tzinfo=UTC), tax={"GST": 500}, business_id=other.id
+    )
+    service = RemittanceService(db, principal)
+    q2 = {"period_start": "2026-04-01", "period_end": "2026-06-30", "family": "federal"}
+    q3 = {"period_start": "2026-07-01", "period_end": "2026-09-30", "family": "federal"}
+    assert (await service.record(RemittanceIn.model_validate(q2), None)).total_cents == 500
+
+    def status(filings: TaxFilings, start: str) -> str:
+        return next(p.federal_status for p in filings.periods if p.start.isoformat() == start)
+
+    before = await service.filings()
+    assert status(before, "2026-07-01") == "due"
+    assert before.next_due == due_date(date(2026, 9, 30), "quarterly")
+    bank = await ledger.balance(
+        db, other.id, owner_type="business", owner_id=other.id, category="bank"
+    )
+
+    nil = await service.record(RemittanceIn.model_validate(q3), None)
+    assert (nil.total_cents, nil.by_code, nil.itc_cents) == (0, {}, 0)
+    after = await service.filings()
+    assert status(after, "2026-07-01") == "filed"
+    assert after.next_due == due_date(date(2026, 12, 31), "quarterly")
+    filed = next(r for r in await service.filed_returns() if r.period_start == date(2026, 7, 1))
+    assert (filed.by_code, filed.paid_cents, filed.family) == ({}, 0, "federal")
+    assert (
+        await ledger.balance(
+            db, other.id, owner_type="business", owner_id=other.id, category="bank"
+        )
+        == bank
+    )
+    with pytest.raises(Conflict):
+        await service.record(RemittanceIn.model_validate(q3), None)

@@ -5,10 +5,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
 from clientbridge.integrations.resend import Email
+from clientbridge.models.catalog import Item
 from clientbridge.models.messaging import Delivery
 from clientbridge.services.deliveries import run_deliveries
-from tests.conftest import FakeEmailSender, FakePushSender, FakeSmsSender
-from tests.helpers import client_id, key, ok
+from tests.conftest import BIZ, FakeEmailSender, FakePushSender, FakeSmsSender
+from tests.helpers import client_id, key, new_client, ok
+from tests.test_programs import program
 
 BRUSH = {"description": "Brush", "unit_amount_cents": 2900, "tax_class": "standard"}
 LINE = {"description": "Consultation", "quantity": 1.0, "unit_amount_cents": 10000}
@@ -131,3 +133,110 @@ async def test_an_invoice_the_provider_missed_goes_on_the_next_run(
     scope = f"invoice-sent:{draft['id']}:"
     assert "queued" in await _retry_later(db, scope, email, sms, push)
     assert _mailed(email, "invoice-offline@example.ca", f"/i/{sent['pay_token']}") == 1
+
+
+async def _visit(api: httpx.AsyncClient, db: AsyncSession, address: str) -> str:
+    cid = await new_client(db, email=address)
+    item_id = (
+        await db.execute(
+            select(Item.id)
+            .where(Item.business_id == BIZ, Item.duration_min.isnot(None), Item.active.is_(True))
+            .order_by(Item.id)
+            .limit(1)
+        )
+    ).scalar_one()
+    body = {
+        "client_id": cid,
+        "item_id": item_id,
+        "staff_id": "st_owner",
+        "starts_at": "2027-05-04T17:00:00Z",
+    }
+    return str(ok(await api.post("/v1/bookings", json=body, headers=key()), 201).json()["id"])
+
+
+async def test_a_reschedule_notice_the_provider_missed_goes_on_the_next_run(
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    email: FakeEmailSender,
+    sms: FakeSmsSender,
+    push: FakePushSender,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    booking = await _visit(as_owner, db, "moved-offline@example.ca")
+    send = email.send
+    _offline(email, monkeypatch)
+    moved = {"starts_at": "2027-05-05T17:00:00Z"}
+    ok(await as_owner.patch(f"/v1/bookings/{booking}", json=moved))
+    monkeypatch.setattr(email, "send", send)
+    assert "queued" in await _retry_later(db, f"booking:{booking}:", email, sms, push)
+    assert _mailed(email, "moved-offline@example.ca", "Wednesday, May 5") == 1
+
+
+async def test_a_repeated_cancel_or_reschedule_sends_each_notice_once(
+    as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
+) -> None:
+    booking = await _visit(as_owner, db, "moved-twice@example.ca")
+    path = f"/v1/bookings/{booking}"
+    moved = {"starts_at": "2027-05-05T17:00:00Z"}
+    ok(await as_owner.patch(path, json=moved))
+    ok(await as_owner.patch(path, json=moved))
+    assert _mailed(email, "moved-twice@example.ca", "Wednesday, May 5") == 1
+    ok(await as_owner.patch(path, json={"starts_at": "2027-05-04T17:00:00Z"}))
+    ok(await as_owner.patch(path, json=moved))
+    assert _mailed(email, "moved-twice@example.ca", "Wednesday, May 5") == 2
+    ok(await as_owner.patch(path, json={"status": "canceled"}))
+    ok(await as_owner.patch(path, json={"status": "canceled"}))
+    canceled = [
+        m for m in email.sent if m.to == "moved-twice@example.ca" and "cancel" in m.body.lower()
+    ]
+    assert len(canceled) == 1
+
+
+async def _estimate(api: httpx.AsyncClient, db: AsyncSession, address: str) -> str:
+    cid = await new_client(db, email=address)
+    draft = await api.post("/v1/estimates", json={"client_id": cid, "lines": [LINE]})
+    return str(ok(draft, 201).json()["id"])
+
+
+async def test_a_replayed_estimate_send_mails_once_and_a_new_send_mails_again(
+    as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
+) -> None:
+    estimate = await _estimate(as_owner, db, "estimate-replay@example.ca")
+    path = f"/v1/estimates/{estimate}/send"
+    headers = key()
+    first = ok(await as_owner.post(path, headers=headers)).json()
+    again = ok(await as_owner.post(path, headers=headers)).json()
+    assert again == first
+    link = f"/e/{first['view_token']}"
+    assert _mailed(email, "estimate-replay@example.ca", link) == 1
+    ok(await as_owner.post(path, headers=key()))
+    assert _mailed(email, "estimate-replay@example.ca", link) == 2
+
+
+async def test_an_estimate_the_provider_missed_goes_on_the_next_run(
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    email: FakeEmailSender,
+    sms: FakeSmsSender,
+    push: FakePushSender,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    estimate = await _estimate(as_owner, db, "estimate-offline@example.ca")
+    send = email.send
+    _offline(email, monkeypatch)
+    sent = ok(await as_owner.post(f"/v1/estimates/{estimate}/send", headers=key())).json()
+    monkeypatch.setattr(email, "send", send)
+    assert "queued" in await _retry_later(db, f"estimate:{estimate}:", email, sms, push)
+    assert _mailed(email, "estimate-offline@example.ca", f"/e/{sent['view_token']}") == 1
+
+
+async def test_a_replayed_enrolment_sends_its_message_once(
+    as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
+) -> None:
+    program_id = await program(as_owner, db)
+    cid = await new_client(db, email="enrol-replay@example.ca")
+    url = f"/v1/programs/{program_id}/enrolments"
+    headers = key()
+    ok(await as_owner.post(url, json={"client_id": cid}, headers=headers), 201)
+    ok(await as_owner.post(url, json={"client_id": cid}, headers=headers), 201)
+    assert _mailed(email, "enrol-replay@example.ca") == 1

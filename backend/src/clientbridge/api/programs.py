@@ -19,7 +19,8 @@ from clientbridge.schemas.programs import (
     ProgramCreate,
     ProgramOut,
 )
-from clientbridge.services.notifications import Notifier
+from clientbridge.services.bookings import series_scope
+from clientbridge.services.deliveries import dispatch_scope
 from clientbridge.services.programs import ProgramService
 
 router = APIRouter(prefix="/programs", tags=["programs"])
@@ -54,8 +55,7 @@ async def enrol_in_program(
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> EnrolmentOut:
     result = await ProgramService(db, principal).enrol(program_id, body, idempotency_key)
-    if body.notify:
-        await Notifier(email, sms, push).on_series_booked(db, result.booking_ids, "booked")
+    await dispatch_scope(db, series_scope(result.program_id), email, sms, push)
     return result
 
 
@@ -71,6 +71,5 @@ async def cancel_enrolment(
     push: PushDep,
 ) -> EnrolmentCancelOut:
     result = await ProgramService(db, principal).withdraw(program_id, body, gateway)
-    if body.notify:
-        await Notifier(email, sms, push).on_series_booked(db, result.canceled, "canceled")
+    await dispatch_scope(db, series_scope(result.program_id), email, sms, push)
     return result

@@ -1298,6 +1298,7 @@ export function useEstimateActions(api: ApiLike): EstimateActions {
     const { busy, error, setError, run } = useAsyncAction();
     const [notice, setNotice] = useState<string | null>(null);
     const convertKey = useRef<Attempt | null>(null);
+    const sendKey = useRef<Attempt | null>(null);
     const act = <T>(
         call: () => Promise<T>,
         message: (res: T) => string,
@@ -1331,13 +1332,18 @@ export function useEstimateActions(api: ApiLike): EstimateActions {
                     document: { kind: "estimate", id: rec.row.id },
                 },
                 () => {
+                    const idempotencyKey = attemptKey(sendKey, rec.row.id);
                     act(
                         () =>
                             api.post<{ number: number | null }>(
                                 `/v1/estimates/${rec.row.id}/send`,
                                 {},
+                                { idempotencyKey },
                             ),
                         (res) => s.estimateSentTo(res.number ?? 0, rec.row.client_name ?? ""),
+                        () => {
+                            sendKey.current = null;
+                        },
                     );
                 },
             );
@@ -1593,6 +1599,7 @@ export function useDocComposer(
     const save = useAsyncAction();
     const sendAction = useAsyncAction();
     const keyRef = useRef<Attempt | null>(null);
+    const sendKey = useRef<Attempt | null>(null);
     const tax = useTaxSetup();
     const zone = useBusinessZone();
     const rates = docRates(tax.rates, tax.registered);
@@ -1690,9 +1697,11 @@ export function useDocComposer(
         if (!valid) return;
         const key = attemptKey(keyRef, [path, body()]);
         const deliver = (id: string): void => {
+            const idempotencyKey = attemptKey(sendKey, [path, id]);
             sendAction.run(
                 async () => {
-                    await api.post(`${path}/${id}/send`, {});
+                    await api.post(`${path}/${id}/send`, {}, { idempotencyKey });
+                    sendKey.current = null;
                     setSent(s.sentTitle(s.doc.kinds[kind]));
                     onDone?.(id);
                 },

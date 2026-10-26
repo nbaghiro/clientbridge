@@ -87,7 +87,7 @@ from clientbridge.schemas.public import (
 )
 from clientbridge.schemas.public_profiles import PublicNextOpenings, PublicServiceOpening
 from clientbridge.services import ledger
-from clientbridge.services.billing import estimate_status
+from clientbridge.services.billing import estimate_scope, estimate_status
 from clientbridge.services.bookings import (
     ALREADY_IN_CLASS,
     OVERLAP,
@@ -95,6 +95,7 @@ from clientbridge.services.bookings import (
     addon_minutes,
     booked_count_expr,
     carry_crew,
+    change_scope,
     create_booking_core,
     crew_problem,
     crew_rows,
@@ -146,8 +147,8 @@ from clientbridge.services.lines import (
     replace_lines,
     worker_shares,
 )
-from clientbridge.services.messaging import open_thread
-from clientbridge.services.notifications import Notifier, queued_notifier
+from clientbridge.services.messaging import inbound_scope, open_thread
+from clientbridge.services.notifications import queued_notifier
 from clientbridge.services.orders import next_order_number, pickup_setting, pickup_windows
 from clientbridge.services.payments import (
     assert_payable,
@@ -1091,6 +1092,7 @@ class PublicManageService:
                 raise Conflict(_UNOFFERED, code="slot_unavailable")
             if await crew_problem(self.db, business.id, item, crew, data.starts_at, ends_at):
                 raise Conflict(_UNOFFERED, code="slot_unavailable")
+            moved = slot.starts_at != data.starts_at
             await keep_resource(self.db, item, slot, data.starts_at, ends_at)
             await move_slot(self.db, business.id, slot, data.starts_at, ends_at)
             booking.reschedule_count += 1
@@ -1099,6 +1101,10 @@ class PublicManageService:
             except IntegrityError as exc:
                 raise lost_race(exc, Conflict(OVERLAP)) from exc
             await carry_crew(self.db, business.id, booking, slot)
+            if moved:
+                await queued_notifier(
+                    self.db, change_scope(booking.id), business.id
+                ).on_booking_rescheduled(self.db, booking.id)
             out = await self._view(booking, slot, business)
             cmd.record(_MOVE_SCOPE, entity_type="booking", entity_id=booking.id)
             return out
@@ -1113,10 +1119,8 @@ class PublicManageService:
             request=request,
         )
 
-    async def message(
-        self, token: str, data: ManageMessage, key: str, notifier: Notifier
-    ) -> ManageMessageResult:
-        """Record the client's message in their thread and alert staff once, not on a replay."""
+    async def message(self, token: str, data: ManageMessage, key: str) -> ManageMessageResult:
+        """Record the client's message in their thread and queue staff's alert, once per key."""
         booking, _, business = await self._resolve(token)
         client = (
             await self.db.execute(
@@ -1142,11 +1146,12 @@ class PublicManageService:
             self.db.add(message)
             await self.db.flush()
             cmd.record("booking.message", entity_type="booking", entity_id=booking.id)
-            received.append(message.id)
+            await queued_notifier(
+                self.db, inbound_scope(message.id), business.id
+            ).on_inbound_message(self.db, message.id)
             return ManageMessageResult(id=message.id)
 
-        received: list[str] = []
-        result = await run_command(
+        return await run_command(
             self.db,
             PublicPrincipal(business.id),
             action=f"booking.message.{booking.id}",
@@ -1155,20 +1160,21 @@ class PublicManageService:
             idempotency_key=key,
             request=data,
         )
-        for message_id in received:
-            await notifier.on_inbound_message(self.db, message_id)
-        return result
 
-    async def cancel(
-        self, token: str, idempotency_key: str | None
-    ) -> tuple[ManageCancelResult, list[str]]:
-        """Cancel the visit, or every day of a program enrolment; also names what it canceled."""
+    async def cancel(self, token: str, idempotency_key: str | None) -> ManageCancelResult:
+        """Cancel the visit, or every day of a program enrolment, and queue the client's notice."""
         booking, slot, business = await self._locked(token)
         request = {"booking_id": booking.id}
         days = await self._program_days(booking, slot)
-        canceled: list[str] = []
+
+        async def notify(canceled: list[str]) -> None:
+            if canceled:
+                await queued_notifier(
+                    self.db, change_scope(booking.id), business.id
+                ).on_visits_canceled(self.db, canceled)
 
         async def run(cmd: Command) -> ManageCancelResult:
+            was = booking.status
             _, staff = await self._visit(booking, slot, business)
             first = await self._first_day(booking, slot) if days else None
             blocked = self._blocked(booking, slot, business, staff, "cancel", first)
@@ -1184,7 +1190,7 @@ class PublicManageService:
                 ]
                 refunded = await withdraw(self.db, self.gateway, live, cmd)
                 cmd.record(_CANCEL_SCOPE, entity_type="booking", entity_id=booking.id)
-                canceled.extend(b.id for b in live)
+                await notify([b.id for b in live] if was != "canceled" else [])
                 return ManageCancelResult(
                     deposit="refunded" if refunded > 0 else "none", refund_cents=refunded
                 )
@@ -1194,23 +1200,22 @@ class PublicManageService:
             elif booking.deposit_status == "pending":
                 await cancel_open_deposits(self.db, self.gateway, booking)
                 booking.deposit_status = "none"
-            held_seat = booking.status in ("pending", "confirmed")
             booking.status = "canceled"
             booking.canceled_at = clock.now()
             await release_slot(self.db, slot)
             await carry_crew(self.db, business.id, booking, slot)
-            if held_seat:
+            if was in ("pending", "confirmed"):
                 await fill_freed_seats(self.db, slot)
             result = ManageCancelResult(
                 deposit=(await booking_refund_status(self.db, booking))
                 or ("refunded" if refunded > 0 else "none"),
                 refund_cents=refunded,
             )
-            canceled.append(booking.id)
+            await notify([booking.id] if was != "canceled" else [])
             cmd.record(_CANCEL_SCOPE, entity_type="booking", entity_id=booking.id)
             return result
 
-        result = await run_command(
+        return await run_command(
             self.db,
             PublicPrincipal(business.id),
             action=_CANCEL_SCOPE,
@@ -1219,7 +1224,6 @@ class PublicManageService:
             idempotency_key=idempotency_key,
             request=request,
         )
-        return result, canceled
 
     async def pay_deposit(self, token: str) -> PublicCardIntent:
         """Open the card payment for a visit's unpaid deposit, superseding any earlier attempt."""
@@ -1953,6 +1957,9 @@ class PublicEstimateService:
         _select(lines, line_ids, estimate)
         return await self._context(estimate, business, lines)
 
+    async def estimate_id(self, token: str) -> str:
+        return (await self._resolve(token))[0].id
+
     async def accept(self, token: str, data: PublicEstimateAccept) -> PublicEstimate:
         estimate, business = await self._resolve(token, lock=True)
         self._assert_open(estimate, business)
@@ -1966,6 +1973,7 @@ class PublicEstimateService:
         apply_totals(estimate, totals)
         estimate.status = "accepted"
         estimate.accepted_at = clock.now()
+        await self._queue_answer(estimate)
         await self.db.commit()
         return await self._context(estimate, business)
 
@@ -1975,8 +1983,18 @@ class PublicEstimateService:
         estimate.status = "declined"
         estimate.declined_at = clock.now()
         estimate.decline_reason = (data.reason or "").strip() or None
+        await self._queue_answer(estimate)
         await self.db.commit()
         return await self._context(estimate, business)
+
+    async def _queue_answer(self, estimate: Estimate) -> None:
+        await self.db.flush()
+        scope = f"{estimate_scope(estimate.id)}:{new_id('delivery')}"
+        notifier = queued_notifier(self.db, scope, estimate.business_id)
+        if estimate.status == "accepted":
+            await notifier.on_estimate_accepted(self.db, estimate.id)
+        else:
+            await notifier.on_estimate_declined(self.db, estimate.id)
 
     @staticmethod
     def _assert_open(estimate: Estimate, business: Business) -> None:

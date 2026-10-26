@@ -111,6 +111,75 @@ async def test_a_ticked_addon_is_quoted_with_the_estimate_discount_as_it_is_acce
     assert late.status_code == 409
 
 
+async def _discounted(
+    api: httpx.AsyncClient, db: AsyncSession, discount_cents: int
+) -> tuple[str, str, str]:
+    """A taxed main line and a GST-only add-on, under a fixed document discount."""
+    cid = await client_id(db, email="client@example.ca")
+    lines = [
+        {**_line("Deep clean", 6000), "tax_class": "standard"},
+        _line("Window wash", 3000, optional=True),
+    ]
+    discount = {"kind": "amount", "value": discount_cents, "reason": "Returning client"}
+    body = {"client_id": cid, "lines": lines, "discount": discount, "send": True}
+    created = ok(await api.post("/v1/estimates", json=body), 201).json()
+    page = ok(await api.get(f"/estimate/{created['view_token']}")).json()
+    return created["id"], created["view_token"], page["lines"][1]["id"]
+
+
+def _totals(doc: dict[str, object]) -> tuple[object, ...]:
+    return (
+        doc["subtotal_cents"],
+        doc["discount_cents"],
+        doc["tax_total_cents"],
+        doc["total_cents"],
+    )
+
+
+async def test_a_fixed_discount_over_mixed_tax_lines_is_quoted_as_it_is_accepted(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    estimate, token, addon = await _discounted(as_owner, db, 1500)
+    # 6000 less 1500 is 4500, with 5% GST (225) and 7% PST (315)
+    assert _totals(ok(await as_owner.get(f"/estimate/{token}")).json()) == (4500, 1500, 540, 5040)
+    quoted = ok(await as_owner.get(f"/estimate/{token}", params={"line_ids": [addon]})).json()
+    # the 1500 splits 1000 and 500 by value: 5000 taxed at 12% and 2500 at 5%
+    assert _totals(quoted) == (7500, 1500, 725, 8225)
+    assert quoted["taxes"] == [
+        {"code": "GST", "rate_bps": 500, "base_cents": 7500, "cents": 375},
+        {"code": "PST", "rate_bps": 700, "base_cents": 5000, "cents": 350},
+    ]
+    accepted = ok(
+        await as_owner.post(
+            f"/estimate/{token}/accept", json={"line_ids": [addon], "total_cents": 8225}
+        )
+    ).json()
+    assert _totals(accepted) == _totals(quoted)
+    assert accepted["taxes"] == quoted["taxes"]
+    invoice = ok(await as_owner.post(f"/v1/estimates/{estimate}/convert"), 201).json()
+    assert (invoice["subtotal_cents"], invoice["tax_total_cents"]) == (7500, 725)
+    assert invoice["total_cents"] == 8225
+
+
+async def test_a_fixed_discount_larger_than_the_lines_is_capped_in_quote_and_acceptance(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    estimate, token, addon = await _discounted(as_owner, db, 7500)
+    # capped at the 6000 the main line is worth, leaving nothing to tax
+    assert _totals(ok(await as_owner.get(f"/estimate/{token}")).json()) == (0, 6000, 0, 0)
+    quoted = ok(await as_owner.get(f"/estimate/{token}", params={"line_ids": [addon]})).json()
+    # with the add-on there is 9000 to discount: 7500 splits 5000 and 2500, leaving 1000 and 500
+    assert _totals(quoted) == (1500, 7500, 145, 1645)
+    accepted = ok(
+        await as_owner.post(
+            f"/estimate/{token}/accept", json={"line_ids": [addon], "total_cents": 1645}
+        )
+    ).json()
+    assert _totals(accepted) == _totals(quoted)
+    saved = await db.scalar(select(Estimate).where(Estimate.id == estimate))
+    assert saved is not None and saved.total_cents == 1645
+
+
 async def test_only_offered_addons_can_be_quoted(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:

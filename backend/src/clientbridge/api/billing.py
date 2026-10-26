@@ -23,9 +23,13 @@ from clientbridge.schemas.payments import (
     InvoicePaymentIn,
     InvoicePaymentOut,
 )
-from clientbridge.services.billing import BillingService, reminder_scope, sent_scope
+from clientbridge.services.billing import (
+    BillingService,
+    estimate_scope,
+    reminder_scope,
+    sent_scope,
+)
 from clientbridge.services.deliveries import dispatch_scope
-from clientbridge.services.notifications import Notifier
 from clientbridge.services.payments import PaymentService
 
 estimates_router = APIRouter(prefix="/estimates", tags=["estimates"])
@@ -43,7 +47,7 @@ async def create_estimate(
 ) -> EstimateOut:
     result = await BillingService(db, principal).create_estimate(body, idempotency_key)
     if body.send:
-        await Notifier(email, sms, push).on_estimate_sent(db, result.id)
+        await dispatch_scope(db, estimate_scope(result.id), email, sms, push)
     return result
 
 
@@ -62,9 +66,10 @@ async def send_estimate(
     email: EmailDep,
     sms: SmsDep,
     push: PushDep,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> EstimateOut:
-    result = await BillingService(db, principal).send_estimate(estimate_id)
-    await Notifier(email, sms, push).on_estimate_sent(db, result.id)
+    result = await BillingService(db, principal).send_estimate(estimate_id, idempotency_key)
+    await dispatch_scope(db, estimate_scope(result.id), email, sms, push)
     return result
 
 
@@ -78,7 +83,7 @@ async def accept_estimate(
     push: PushDep,
 ) -> EstimateOut:
     result = await BillingService(db, principal).accept_estimate(estimate_id)
-    await Notifier(email, sms, push).on_estimate_accepted(db, result.id)
+    await dispatch_scope(db, estimate_scope(result.id), email, sms, push)
     return result
 
 
@@ -94,7 +99,7 @@ async def decline_estimate(
 ) -> EstimateOut:
     reason = body.reason if body is not None else None
     result = await BillingService(db, principal).decline_estimate(estimate_id, reason)
-    await Notifier(email, sms, push).on_estimate_declined(db, result.id)
+    await dispatch_scope(db, estimate_scope(result.id), email, sms, push)
     return result
 
 
@@ -197,8 +202,5 @@ async def record_invoice_payment(
         invoice_id, body, idempotency_key
     )
     if body.send_receipt and result.status == "succeeded":
-        if body.method == "card":
-            await Notifier(email, sms, push).on_payment_succeeded(db, result.payment_id)
-        else:
-            await dispatch_scope(db, f"payment:{result.payment_id}", email, sms, push)
+        await dispatch_scope(db, f"payment:{result.payment_id}", email, sms, push)
     return result

@@ -59,6 +59,7 @@ from clientbridge.services.notifications import (
     business_brand,
     client_email,
     message_notice,
+    queued_notifier,
     visit_link,
     visit_note_body,
 )
@@ -352,6 +353,10 @@ async def route_inbound_sms(db: AsyncSession, number: str, destination: str) -> 
     return clients[0] if len(clients) == 1 else None
 
 
+def inbound_scope(message_id: str) -> str:
+    return f"inbound:{message_id}"
+
+
 async def process_inbound_sms(
     db: AsyncSession, *, from_phone: str, to_phone: str, body: str, message_sid: str
 ) -> str | None:
@@ -382,6 +387,9 @@ async def process_inbound_sms(
         db.add(message)
         await db.flush()
         message_id = message.id
+        await queued_notifier(db, inbound_scope(message.id), client.business_id).on_inbound_message(
+            db, message.id
+        )
     db.add(
         Webhook(
             id=event_id,

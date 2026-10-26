@@ -9,10 +9,13 @@ from clientbridge.core.ids import new_id
 from clientbridge.models.business import Business
 from clientbridge.models.catalog import Item
 from clientbridge.models.clients import Client
+from clientbridge.models.messaging import Delivery
 from clientbridge.models.reviews import ReviewRequest
 from clientbridge.models.scheduling import Booking, Slot
+from clientbridge.schemas.deliveries import DELIVERY_PAYLOAD
 from clientbridge.services.consents import record_consent
-from tests.conftest import Factory, FakeEmailSender, FakeSmsSender
+from clientbridge.services.deliveries import run_deliveries
+from tests.conftest import Factory, FakeEmailSender, FakePushSender, FakeSmsSender
 from tests.google_business import configure_google_review_profile, review_emails, review_texts
 from tests.helpers import client_id, new_client
 
@@ -128,6 +131,34 @@ async def test_invitation_skips_email_after_opt_out(
     assert sent.status_code == 201, sent.text
     assert not any(m.to == "optout-review@example.ca" for m in await review_emails(db))
     assert any(GOOGLE in text.body for text in await review_texts(db))
+
+
+async def test_a_queued_invitation_email_is_dropped_after_an_opt_out(
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    email: FakeEmailSender,
+    sms: FakeSmsSender,
+    push: FakePushSender,
+) -> None:
+    await _configure(db)
+    cid = await new_client(db, email="late-optout@example.ca")
+    await db.execute(update(Client).where(Client.id == cid).values(phone="+16045551289"))
+    sent = await as_owner.post("/v1/reviews/request", json={"client_id": cid})
+    assert sent.status_code == 201, sent.text
+    await record_consent(
+        db, BIZ, cid, channel="email", status="withdrawn", source="unsubscribe", recorded_by=None
+    )
+    await db.commit()
+    await run_deliveries(db, email, sms, push)
+    rows = list(
+        await db.scalars(
+            select(Delivery).where(Delivery.key.startswith(f"review:{sent.json()['id']}:"))
+        )
+    )
+    states = {DELIVERY_PAYLOAD.validate_python(r.payload).channel: (r.state, r.error) for r in rows}
+    assert states == {"email": ("failed", "consent_withdrawn"), "sms": ("accepted", None)}
+    assert not any(m.to == "late-optout@example.ca" for m in email.sent)
+    assert any(t.to == "+16045551289" and GOOGLE in t.body for t in sms.sent)
 
 
 async def test_business_update_no_longer_sets_the_review_link(

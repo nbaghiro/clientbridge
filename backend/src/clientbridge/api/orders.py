@@ -24,8 +24,7 @@ from clientbridge.schemas.orders import (
     OrderUpdate,
 )
 from clientbridge.services.deliveries import dispatch_scope
-from clientbridge.services.notifications import Notifier
-from clientbridge.services.orders import OrderService
+from clientbridge.services.orders import OrderService, order_scope
 
 router = APIRouter(prefix="/orders", tags=["orders"])
 
@@ -114,7 +113,7 @@ async def send_order_receipt(
     push: PushDep,
 ) -> OrderOut:
     result = await OrderService(db, principal, gateway).send_receipt(order_id, data)
-    await Notifier(email, sms, push).on_order_receipt(db, result.id)
+    await dispatch_scope(db, order_scope(result.id), email, sms, push)
     return result
 
 
@@ -149,6 +148,5 @@ async def set_order_pickup(
     push: PushDep,
 ) -> OrderOut:
     result = await OrderService(db, principal, gateway).set_pickup(order_id, data)
-    if data.status == "ready":
-        await Notifier(email, sms, push).on_order_ready(db, result.id)
+    await dispatch_scope(db, order_scope(result.id), email, sms, push)
     return result

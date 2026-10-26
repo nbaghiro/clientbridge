@@ -111,8 +111,8 @@ class RemittanceService:
             raise Conflict("this period overlaps a return that was already filed")
         owed = await self._owed(lo, hi, family)
         total = sum(owed.values())
-        if total <= 0:
-            raise Conflict("no tax is owed for this period")
+        if total < 0:
+            raise Conflict("more tax was refunded than collected in this period")
         federal = sum(owed.get(code, 0) for code in FAMILY_CODES["federal"])
         if data.itc_cents > federal:
             raise AppError(
@@ -135,7 +135,10 @@ class RemittanceService:
                 ),
                 Leg("business", self.biz, "itc", -data.itc_cents, credit_code),
                 Leg("business", self.biz, "bank", -paid),
-            ],
+            ]
+            if total
+            else [Leg("business", self.biz, "bank", 0)],
+            keep_zero=total == 0,  # a nil return still records that the period was filed
             meta={
                 "start": data.period_start.isoformat(),
                 "end": data.period_end.isoformat(),
@@ -241,7 +244,7 @@ class RemittanceService:
                     ),
                 )
                 grouped[entry.journal_id] = found
-            if account.category == "tax":
+            if account.category == "tax" and entry.amount_cents:
                 found.by_code[account.code] = entry.amount_cents
             elif account.category == "bank":
                 found.paid_cents = -entry.amount_cents

@@ -222,6 +222,7 @@ class BillingService:
                 if not any(included(ln) for ln in lines):
                     raise Unprocessable("add a line before sending the estimate")
                 await self._issue_estimate(estimate, cmd)
+                await self._queue_estimate(estimate.id)
             return _estimate_out(estimate, lines, await self._today())
 
         return await run_command(
@@ -261,7 +262,11 @@ class BillingService:
             self.db, self.principal, action="estimate.update", run=run, response_model=EstimateOut
         )
 
-    async def send_estimate(self, estimate_id: str) -> EstimateOut:
+    async def _queue_estimate(self, estimate_id: str) -> None:
+        scope = f"{estimate_scope(estimate_id)}:{new_id('delivery')}"
+        await queued_notifier(self.db, scope, self.biz).on_estimate_sent(self.db, estimate_id)
+
+    async def send_estimate(self, estimate_id: str, idempotency_key: str | None) -> EstimateOut:
         self._assert_admin()
         estimate = await self._estimate(estimate_id)
         status = estimate_status(estimate, await self._today())
@@ -273,12 +278,19 @@ class BillingService:
                 await self._issue_estimate(estimate, cmd)
             else:
                 cmd.record("estimate.resend", entity_type="estimate", entity_id=estimate.id)
+            await self._queue_estimate(estimate.id)
             return _estimate_out(
                 estimate, await self._lines("estimate", estimate.id), await self._today()
             )
 
         return await run_command(
-            self.db, self.principal, action="estimate.send", run=run, response_model=EstimateOut
+            self.db,
+            self.principal,
+            action="estimate.send",
+            run=run,
+            response_model=EstimateOut,
+            idempotency_key=idempotency_key,
+            request={"estimate_id": estimate_id},
         )
 
     async def _issue_estimate(self, estimate: Estimate, cmd: Command) -> None:
@@ -381,6 +393,12 @@ class BillingService:
                 estimate.decline_reason = reason
             await self.db.flush()
             cmd.record(f"estimate.{status}", entity_type="estimate", entity_id=estimate.id)
+            scope = f"{estimate_scope(estimate.id)}:{new_id('delivery')}"
+            notifier = queued_notifier(self.db, scope, self.biz)
+            if status == "accepted":
+                await notifier.on_estimate_accepted(self.db, estimate.id)
+            else:
+                await notifier.on_estimate_declined(self.db, estimate.id)
             return _estimate_out(
                 estimate, await self._lines("estimate", estimate.id), await self._today()
             )
@@ -717,6 +735,10 @@ def _estimate_out(estimate: Estimate, lines: list[Line], today: date) -> Estimat
         discount_cents=discount_total(lines),
         lines=[line_out(ln) for ln in lines],
     )
+
+
+def estimate_scope(estimate_id: str) -> str:
+    return f"estimate:{estimate_id}"
 
 
 def sent_scope(invoice_id: str) -> str:
