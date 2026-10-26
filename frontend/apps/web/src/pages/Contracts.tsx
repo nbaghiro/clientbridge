@@ -39,6 +39,7 @@ import { Loaded } from "../components/Loaded";
 import { SendToClientDialog } from "../components/SendToClient";
 import { config } from "../config";
 import { api } from "../lib/api";
+import { usePrintSheet } from "../lib/print";
 
 const s = strings.contracts;
 
@@ -383,16 +384,20 @@ function SignedCopyDialog({
     onClose: () => void;
 }) {
     const zone = useBusinessZone();
+    const printing = usePrintSheet();
+    const paper = (
+        <ContractDocument
+            issuer={issuer}
+            title={request.contract_name}
+            meta={s.version(request.version)}
+            clauses={contractClauses(signedText(request, currentBody))}
+            signature={signatureBlock(request, zone)}
+        />
+    );
     return (
         <Modal open onClose={onClose} size="lg">
             <div className="space-y-5">
-                <ContractDocument
-                    issuer={issuer}
-                    title={request.contract_name}
-                    meta={s.version(request.version)}
-                    clauses={contractClauses(signedText(request, currentBody))}
-                    signature={signatureBlock(request, zone)}
-                />
+                {paper}
                 <div>
                     <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
                         {s.history}
@@ -407,13 +412,14 @@ function SignedCopyDialog({
                     <Button
                         icon="printer"
                         onPress={() => {
-                            globalThis.print();
+                            printing.print();
                         }}
                     >
                         {s.print}
                     </Button>
                 </div>
             </div>
+            {printing.sheet(paper)}
         </Modal>
     );
 }

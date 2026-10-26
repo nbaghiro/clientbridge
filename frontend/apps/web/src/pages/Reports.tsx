@@ -35,6 +35,7 @@ import { useState } from "react";
 
 import { DeskBar } from "../components/Desk";
 import { api } from "../lib/api";
+import { usePrintSheet } from "../lib/print";
 
 const s = strings.reports;
 const REPORTS: ReportKey[] = ["income", "salesByItem", "gstHst", "pst", "t4a"];
@@ -67,9 +68,11 @@ export function Reports() {
     const [open, setOpen] = useState<ReportKey>("income");
     const [packing, setPacking] = useState(false);
     const ready = r.load.state === "ready";
+    const printing = usePrintSheet();
     const v = r.view;
     const title =
         open === "pst" && v?.provincial ? s.pstTitle(v.provincial.label) : s.library[open];
+    const subtitle = v !== null && open === "t4a" ? s.t4aYear(v.t4aYear) : spanLabel(r.span);
 
     return (
         <div className="space-y-6">
@@ -116,12 +119,10 @@ export function Reports() {
                 }
             />
             <div>
-                <div className="print-area">
+                <div>
                     <Panel
                         title={title}
-                        subtitle={
-                            v !== null && open === "t4a" ? s.t4aYear(v.t4aYear) : spanLabel(r.span)
-                        }
+                        subtitle={subtitle}
                         actions={
                             <>
                                 <Button
@@ -131,7 +132,7 @@ export function Reports() {
                                     disabled={!ready}
                                     label={s.printHint}
                                     onPress={() => {
-                                        window.print();
+                                        printing.print();
                                     }}
                                 >
                                     {s.pdf}
@@ -176,6 +177,17 @@ export function Reports() {
                     </Panel>
                 </div>
             </div>
+            {v === null
+                ? null
+                : printing.sheet(
+                      <div className="space-y-6 p-8">
+                          <div>
+                              <h1 className="font-display text-xl font-bold text-ink">{title}</h1>
+                              <p className="text-sm text-muted">{subtitle}</p>
+                          </div>
+                          <ReportBody report={open} v={v} />
+                      </div>,
+                  )}
 
             <Modal
                 open={packing}

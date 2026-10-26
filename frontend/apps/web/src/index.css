@@ -201,20 +201,20 @@ body {
     }
 }
 
-/* Print only the document a preview shows, as the PDF a client gets. */
+/* Print only the sheet a print button renders at the body, as the PDF a client gets. */
+.print-sheet {
+    display: none;
+}
 @media print {
-    body * {
-        visibility: hidden;
+    body > :not(.print-sheet) {
+        display: none !important;
     }
-    .print-area,
-    .print-area * {
-        visibility: visible;
+    .print-sheet {
+        display: block;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
     }
-    .print-area {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        max-width: none;
+    .print-sheet * {
+        box-shadow: none !important;
     }
 }

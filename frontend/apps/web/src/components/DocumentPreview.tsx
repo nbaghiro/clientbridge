@@ -14,6 +14,7 @@ import type { ReactNode } from "react";
 
 import { config } from "../config";
 import { apiBaseUrl } from "../lib/api";
+import { usePrintSheet } from "../lib/print";
 
 const d = strings.billing.doc;
 
@@ -40,7 +41,7 @@ export function PaperPane({ children, bar }: { children: ReactNode; bar?: ReactN
 
 export function Paper({ doc }: { doc: PrintedDoc }) {
     return (
-        <div className="print-area mx-auto max-w-[44rem] rounded-md bg-surface shadow-xl ring-1 ring-line">
+        <div className="mx-auto max-w-[44rem] rounded-md bg-surface shadow-xl ring-1 ring-line">
             <PrintedDocument doc={doc} />
         </div>
     );
@@ -56,13 +57,17 @@ export function DocumentPane({
     attached: string;
     businessName: string;
 }) {
+    const printing = usePrintSheet();
     const print = (): void => {
-        const before = document.title;
-        document.title = d
-            .fileName(businessName.replace(/[^A-Za-z0-9]+/g, "-"), d.kinds[doc.kind], doc.number)
-            .replace(/\.pdf$/, "");
-        window.print();
-        document.title = before;
+        printing.print(
+            d
+                .fileName(
+                    businessName.replace(/[^A-Za-z0-9]+/g, "-"),
+                    d.kinds[doc.kind],
+                    doc.number,
+                )
+                .replace(/\.pdf$/, ""),
+        );
     };
     return (
         <PaperPane
@@ -86,6 +91,7 @@ export function DocumentPane({
             }
         >
             <Paper doc={doc} />
+            {printing.sheet(<PrintedDocument doc={doc} />)}
         </PaperPane>
     );
 }
