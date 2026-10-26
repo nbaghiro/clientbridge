@@ -147,11 +147,6 @@ export function ClientHistory({ clientId, aside }: { clientId: string; aside?: R
                         />
                     </Panel>
                 ) : null}
-                {h.load.hasData ? (
-                    <Panel>
-                        <NoteComposer composer={composer} subjects={h.subjects} />
-                    </Panel>
-                ) : null}
                 {h.load.state === "empty" ? (
                     <Panel flush>
                         <Empty icon="history" message={s.emptyTitle} body={s.empty} />
@@ -227,6 +222,11 @@ export function ClientHistory({ clientId, aside }: { clientId: string; aside?: R
                     </section>
                 ) : null}
                 {aside}
+                {h.load.hasData ? (
+                    <Panel title={strings.clients.record.addNoteTitle}>
+                        <NoteComposer composer={composer} subjects={h.subjects} />
+                    </Panel>
+                ) : null}
             </aside>
         </div>
     );
