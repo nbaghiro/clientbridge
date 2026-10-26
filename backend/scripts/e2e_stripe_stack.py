@@ -22,8 +22,9 @@ from dotenv import dotenv_values
 
 from clientbridge.core import clock
 from clientbridge.integrations.stripe import STRIPE_API_VERSION
+from scripts import tier
 from scripts.e2e_results import REQUIRED_CASES, Report, browser_cases
-from scripts.e2e_stack import ROOT, Stack, owned_processes, source_snapshot, stack_slot, stop
+from scripts.e2e_stack import ROOT, Stack, owned_processes, source_snapshot, stop
 from scripts.e2e_stripe_relay import Relay
 from scripts.stripe_qa import environment, preflight
 
@@ -185,8 +186,8 @@ def listener(stack: Stack, processes: ExitStack) -> str:
     return found["secret"]
 
 
-def run(args: argparse.Namespace, directory: Path) -> None:
-    stack = Stack(directory)
+def run(args: argparse.Namespace, directory: Path, lease: tier.Lease) -> None:
+    stack = Stack(directory, lease)
     stack.configure()
     print(f"Stripe browser diagnostics: {directory}", flush=True)
     if args.configure_only:
@@ -202,7 +203,7 @@ def run(args: argparse.Namespace, directory: Path) -> None:
         "provider_cleanup": "not_started",
         "allow_source_changes": args.allow_source_changes,
         "cleanup": "pending",
-        "docker_cleanup": "pending",
+        "data_cleanup": "pending",
         "process_cleanup": "pending",
         **stack.worker_checks,
     }
@@ -300,9 +301,9 @@ def run(args: argparse.Namespace, directory: Path) -> None:
     finally:
         try:
             stack.cleanup()
-            record["docker_cleanup"] = "passed"
+            record["data_cleanup"] = "passed"
         except BaseException:
-            record["docker_cleanup"] = "failed"
+            record["data_cleanup"] = "failed"
             record["cleanup"] = "failed"
             if record["outcome"] == "passed":
                 record["outcome"] = "failed"
@@ -313,7 +314,7 @@ def run(args: argparse.Namespace, directory: Path) -> None:
                 record["process_cleanup"] = "failed"
             record["cleanup"] = (
                 "passed"
-                if record["docker_cleanup"] == "passed"
+                if record["data_cleanup"] == "passed"
                 and record["process_cleanup"] == "passed"
                 and record["provider_cleanup"] in ("passed", "not_started")
                 else "failed"
@@ -357,8 +358,8 @@ def main() -> int:
                 fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
             except BlockingIOError:
                 raise RuntimeError("another provider run holds the merchant lease") from None
-            with stack_slot():
-                run(args, directory)
+            with tier.hold(), tier.lease() as lease:
+                run(args, directory, lease)
     except BaseException as error:
         print(f"Stripe browser run did not complete: {type(error).__name__}", file=sys.stderr)
         return 1

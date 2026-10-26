@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { strings } from "@clientbridge/app-core/public";
 import { expect, type Browser, type BrowserContext, type Page } from "@playwright/test";
+import { runEmail } from "@clientbridge/config/e2e/run";
 
 export interface Credentials {
     email: string;
@@ -9,7 +10,7 @@ export interface Credentials {
 
 export async function signIn(
     page: Page,
-    credentials: Credentials = { email: "hannah@birchbark.example", password: "demo1234" },
+    credentials: Credentials = { email: runEmail("hannah@birchbark.example"), password: "demo1234" },
 ): Promise<void> {
     await page.goto("/");
     await page

@@ -134,6 +134,14 @@ build-site:
 test-site:
 	cd frontend && pnpm --filter site build && pnpm --filter site e2e
 
+# The shared test tier every suite and e2e run uses: its own compose project on :8760-8769.
+.PHONY: test-tier test-tier-reset
+test-tier:
+	cd backend && uv run python -m scripts.tier up
+
+test-tier-reset:
+	cd backend && uv run python -m scripts.tier reset
+
 .PHONY: test-functional
 test-functional:
 	cd backend && uv run python -m scripts.e2e_stack $(FUNCTIONAL_ARGS)

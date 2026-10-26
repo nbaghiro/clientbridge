@@ -21,7 +21,14 @@ from clientbridge.models.catalog import Item
 from clientbridge.models.clients import Client, Subject
 from clientbridge.models.payments import Payment
 from clientbridge.models.scheduling import Recurrence, Slot
-from scripts.demo_context import DEMO_IDS, DEMO_PASSWORD, FIXTURE_BUSINESS, demo_business
+from scripts.demo_context import (
+    DEMO_IDS,
+    DEMO_PASSWORD,
+    FIXTURE_BUSINESS,
+    demo_business,
+    run_email,
+    run_id,
+)
 
 API = os.environ.get("API_URL", "http://localhost:8701")
 # a near-duplicate with no money or saved cards, so the merge flow is not blocked
@@ -62,7 +69,9 @@ async def _has_duplicate(db: AsyncSession, biz: str) -> bool:
     found = await db.execute(
         select(Client.id)
         .where(
-            Client.business_id == biz, Client.email == DUPLICATE_EMAIL, Client.deleted_at.is_(None)
+            Client.business_id == biz,
+            Client.email == run_email(DUPLICATE_EMAIL),
+            Client.deleted_at.is_(None),
         )
         .limit(1)
     )
@@ -192,7 +201,8 @@ async def sign_in(http: httpx.AsyncClient, *, email: str, password: str) -> str:
     return str(login.json()["session_token"])
 
 
-async def main(biz: str) -> None:
+async def main(seeded: str) -> None:
+    biz = run_id(seeded)
     async with SessionLocal() as db:
         need_series = not await _has_series(db, biz)
         need_stock = not await _has_low_stock(db, biz)
@@ -204,7 +214,7 @@ async def main(biz: str) -> None:
 
     added: list[str] = []
     async with httpx.AsyncClient(base_url=API, timeout=30) as http:
-        owner = demo_business(biz).owner_login
+        owner = run_email(demo_business(seeded).owner_login)
         http.headers["X-Session-Token"] = await sign_in(http, email=owner, password=DEMO_PASSWORD)
         http.headers["X-Business-Id"] = biz
         stamp = clock.today(UTC).isoformat()
@@ -241,7 +251,7 @@ async def main(biz: str) -> None:
         if need_duplicate:
             client = await http.post(
                 "/v1/clients",
-                json={"name": DUPLICATE, "email": DUPLICATE_EMAIL},
+                json={"name": DUPLICATE, "email": run_email(DUPLICATE_EMAIL)},
                 headers={"Idempotency-Key": f"web-fixtures-duplicate-{stamp}"},
             )
             client.raise_for_status()

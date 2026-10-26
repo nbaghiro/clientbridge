@@ -1,4 +1,4 @@
-"""Run functional browsers against services owned by one disposable Compose project."""
+"""Run functional browsers on the shared test tier, isolated by the run's own namespace."""
 
 import argparse
 import asyncio
@@ -31,6 +31,7 @@ from arq.connections import RedisSettings, create_pool
 from clientbridge.core import clock
 from clientbridge.core.config import Settings
 from clientbridge.core.zones import zone
+from scripts import tier
 from scripts.e2e_results import (
     BROWSERS,
     REQUIRED_CASES,
@@ -106,9 +107,9 @@ def source_snapshot() -> dict[str, object]:
 MOBILE = ROOT / "frontend" / "apps" / "mobile"
 NATIVE_APP_ID = "ca.clientbridge.app.e2e"
 # the e2e build has these hosts compiled in; the lane forwards them to the run's services
-NATIVE_PORTS = {"api": 8761, "auth": 8763, "powersync": 8764}
+NATIVE_PORTS = {"api": 8794, "auth": 8795, "powersync": 8796}
 # Maestro's own port to its device driver, fixed where a random pick can't meet an emulator socket
-DRIVER_PORT = 8767
+DRIVER_PORT = 8797
 NATIVE_BUILDS = {
     "ios": ROOT / ".scratchpad" / "native" / "ClientbridgeE2E.app",
     "android": ROOT / ".scratchpad" / "native" / "clientbridge-e2e.apk",
@@ -126,45 +127,6 @@ def native_urls(platform: str) -> dict[str, str]:
         "AUTH_URL": f"http://{host}:{NATIVE_PORTS['auth']}",
         "POWERSYNC_URL": f"http://{host}:{NATIVE_PORTS['powersync']}",
     }
-
-
-STACK_BYTES = 1536 * 1024 * 1024
-SLOTS = Path(os.environ.get("E2E_SLOT_DIR", Path.home() / ".cache" / "clientbridge-e2e" / "slots"))
-
-
-def slot_count() -> int:
-    configured = os.environ.get("E2E_STACK_SLOTS")
-    if configured:
-        return max(1, int(configured))
-    memory = subprocess.run(
-        ["docker", "info", "--format", "{{.MemTotal}}"], capture_output=True, text=True
-    )
-    return max(1, int(memory.stdout.strip() or STACK_BYTES) // STACK_BYTES)
-
-
-@contextmanager
-def stack_slot(*, poll_seconds: float = 5) -> Iterator[int]:
-    """Hold one of the machine's stack slots, so parallel runs can't exhaust Docker's memory."""
-    SLOTS.mkdir(parents=True, exist_ok=True)
-    count = slot_count()
-    waiting = False
-    while True:
-        for index in range(count):
-            handle = (SLOTS / f"{index}.lock").open("a")
-            try:
-                fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            except BlockingIOError:
-                handle.close()
-                continue
-            try:
-                yield index
-            finally:
-                handle.close()
-            return
-        if not waiting:
-            print(f"Waiting for one of {count} e2e stack slots on this machine", flush=True)
-            waiting = True
-        time.sleep(poll_seconds)
 
 
 def free_port() -> int:
@@ -254,27 +216,24 @@ def stop(process: subprocess.Popen[bytes], *, grace_seconds: float = 15) -> None
 
 
 class Stack:
+    """One run on the shared test tier: its own API, worker, bundles and namespaced businesses."""
+
     def __init__(
         self,
         directory: Path,
+        lease: tier.Lease,
         browser_project: Literal["default", "pseudo"] = "default",
         *,
         seed_as_of: datetime | None = None,
         native: str | None = None,
     ) -> None:
         self.directory = directory
+        self.lease = lease
+        self.namespace = lease.namespace
         self.native = native
         self.process_cleanup_failed = False
         self.project = directory.name
         self.browser_project = browser_project
-        self.compose = [
-            "docker",
-            "compose",
-            "-p",
-            self.project,
-            "-f",
-            str(directory / "compose.json"),
-        ]
         self.env = environment()
         # per-run callback secrets only: no account SID or API key, so nothing reaches a provider
         self.env["TWILIO_AUTH_TOKEN"] = secrets.token_urlsafe(24)
@@ -286,11 +245,13 @@ class Stack:
             if seed_as_of.utcoffset() is None:
                 raise ValueError("seed-as-of must include a UTC offset")
             self.env["E2E_SEED_AS_OF"] = seed_as_of.isoformat()
-        self.api_port, self.web_port, self.pseudo_port, self.auth_port = (
-            free_port() for _ in range(4)
+        self.web_port, self.pseudo_port, self.admin_port = (
+            lease.web_port,
+            lease.pseudo_port,
+            lease.admin_port,
         )
+        self.api_port, self.site_port = free_port(), free_port()
         self.connect_port, self.connect_pseudo_port = free_port(), free_port()
-        self.admin_port, self.site_port = free_port(), free_port()
         self.api = f"http://localhost:{self.api_port}"
         self.web = f"http://localhost:{self.web_port}"
         self.pseudo = f"http://localhost:{self.pseudo_port}"
@@ -303,11 +264,18 @@ class Stack:
             "worker_final": "pending",
         }
 
-    def command(self, arguments: list[str], log: IO[bytes], *, frontend: bool = False) -> None:
+    def command(
+        self,
+        arguments: list[str],
+        log: IO[bytes],
+        *,
+        frontend: bool = False,
+        env: dict[str, str] | None = None,
+    ) -> None:
         process = subprocess.Popen(
             arguments,
             cwd=ROOT / ("frontend" if frontend else "backend"),
-            env=self.env,
+            env=self.env | (env or {}),
             stdout=log,
             stderr=subprocess.STDOUT,
             start_new_session=True,
@@ -326,177 +294,26 @@ class Stack:
             self.process_cleanup_failed = True
             raise
 
-    def compose_command(self, *arguments: str) -> str:
-        command = [*self.compose, *arguments]
-        process = subprocess.Popen(
-            command, stdout=subprocess.PIPE, cwd=ROOT, start_new_session=True
-        )
-        try:
-            output, _ = process.communicate()
-            if process.returncode:
-                raise subprocess.CalledProcessError(process.returncode, command, output=output)
-            return output.decode()
-        finally:
-            self.stop_owned(process)
-
-    def port(self, service: str, port: int) -> int:
-        return int(self.compose_command("port", service, str(port)).strip().rsplit(":", 1)[1])
-
     def configure(self) -> None:
-        base = cast(
-            dict[str, dict[str, dict[str, object]]],
-            json.loads(
-                subprocess.check_output(
-                    [
-                        "docker",
-                        "compose",
-                        "-f",
-                        str(ROOT / "docker-compose.yml"),
-                        "config",
-                        "--format",
-                        "json",
-                    ],
-                    cwd=ROOT,
-                )
-            ),
+        """Record what cleanup needs if this process dies: the namespace and the slot it held."""
+        (self.directory / "tier.json").write_text(
+            json.dumps({"namespace": self.namespace, "slot": self.lease.slot}, indent=2)
         )
-        services: dict[str, dict[str, object]] = {}
-        for name, ports in {
-            "postgres": [5432],
-            "redis": [6379],
-            "s3": [9000],
-            "mailpit": [8025, 1025],
-            "auth": [4433, 4434],
-            "powersync": [8080],
-        }.items():
-            services[name] = {
-                "image": base["services"][name]["image"],
-                "ports": [f"127.0.0.1::{port}" for port in ports],
-            }
-        services["postgres"].update(
-            {
-                "command": ["postgres", "-c", "wal_level=logical"],
-                "environment": {
-                    "POSTGRES_USER": "clientbridge",
-                    "POSTGRES_PASSWORD": "clientbridge",
-                    "POSTGRES_DB": "clientbridge_test_e2e",
-                },
-                "healthcheck": {
-                    "test": ["CMD-SHELL", "pg_isready -U clientbridge -d clientbridge_test_e2e"],
-                    "interval": "1s",
-                    "timeout": "3s",
-                    "retries": 60,
-                },
-            }
-        )
-        services["mailpit"]["environment"] = {"MP_SMTP_ALLOWED_RECIPIENTS": DELIVERABLE}
-        services["s3"]["environment"] = {
-            "RUSTFS_ACCESS_KEY": "rustfs",
-            "RUSTFS_SECRET_KEY": "rustfs-dev-secret",
-            "RUSTFS_CORS_ALLOWED_ORIGINS": "*",
-        }
-        services["auth"]["ports"] = [f"127.0.0.1:{self.auth_port}:4433", "127.0.0.1::4434"]
-        auth_environment = {
-            # the native app reaches auth through its compiled-in host, so the flows' URLs must too
-            "SERVE_PUBLIC_BASE_URL": f"{native_urls(self.native)['AUTH_URL']}/"
-            if self.native
-            else f"http://localhost:{self.auth_port}/",
-            "DSN": "postgres://auth:auth@postgres:5432/auth?sslmode=disable",
-            "SECRETS_COOKIE": secrets.token_urlsafe(32),
-            "SECRETS_CIPHER": secrets.token_hex(16),
-            "COURIER_HTTP_REQUEST_CONFIG_AUTH_CONFIG_VALUE": self.env["AUTH_EMAIL_HOOK_SECRET"],
-            "COURIER_HTTP_REQUEST_CONFIG_URL": f"http://host.docker.internal:{self.api_port}/webhooks/auth-email",
-            "SELFSERVICE_METHODS_PASSWORD_CONFIG_HAVEIBEENPWNED_ENABLED": "false",
-            "SERVE_PUBLIC_CORS_ALLOWED_ORIGINS": f"{self.web},{self.pseudo}",
-            "SELFSERVICE_ALLOWED_RETURN_URLS": f"{self.web},{self.pseudo},clientbridge://auth/callback",
-            "SELFSERVICE_DEFAULT_BROWSER_RETURN_URL": self.app,
-            "SELFSERVICE_METHODS_WEBAUTHN_CONFIG_RP_ORIGINS": f"{self.web},{self.pseudo}",
-        }
-        for flow, path in {
-            "ERROR": "auth-error",
-            "LOGIN": "login",
-            "REGISTRATION": "signup",
-            "VERIFICATION": "verify",
-            "RECOVERY": "recover",
-            "SETTINGS": "setup/security",
-        }.items():
-            auth_environment[f"SELFSERVICE_FLOWS_{flow}_UI_URL"] = f"{self.app}/{path}"
-        auth_environment["SELFSERVICE_FLOWS_VERIFICATION_AFTER_DEFAULT_BROWSER_RETURN_URL"] = (
-            self.app
-        )
-        auth_environment["SELFSERVICE_FLOWS_LOGOUT_AFTER_DEFAULT_BROWSER_RETURN_URL"] = (
-            f"{self.app}/login"
-        )
-        services["auth"].update(
-            {
-                "environment": auth_environment,
-                "volumes": [f"{ROOT / 'infra/auth'}:/etc/config/auth:ro"],
-                "extra_hosts": ["host.docker.internal:host-gateway"],
-                "command": [
-                    "serve",
-                    "-c",
-                    "/etc/config/auth/kratos.yml",
-                    "--dev",
-                    "--watch-courier",
-                ],
-            }
-        )
-        services["auth-migrate"] = {
-            "image": base["services"]["auth"]["image"],
-            "environment": {"DSN": auth_environment["DSN"]},
-            "command": ["migrate", "sql", "up", "-e", "--yes"],
-        }
-        jwt = secrets.token_urlsafe(32)
-        self.env["JWT_SECRET"] = jwt
-        sync = {
-            "replication": {
-                "connections": [
-                    {
-                        "type": "postgresql",
-                        "uri": "postgresql://powersync_source:powersync_source@postgres:5432/clientbridge_test_e2e",
-                        "sslmode": "disable",
-                    }
-                ]
-            },
-            "storage": {
-                "type": "postgresql",
-                "uri": "postgresql://powersync_storage_owner:powersync_storage_owner@postgres:5432/powersync_storage",
-                "sslmode": "disable",
-            },
-            "port": 8080,
-            "sync_rules": {"path": "/config/sync-rules.yaml"},
-            "client_auth": {
-                "jwks": {
-                    "keys": [
-                        {
-                            "kty": "oct",
-                            "alg": "HS256",
-                            "kid": "clientbridge-dev",
-                            "k": base64.urlsafe_b64encode(jwt.encode()).decode().rstrip("="),
-                        }
-                    ]
-                },
-                "audience": ["powersync"],
-            },
-        }
-        (self.directory / "powersync.json").write_text(json.dumps(sync))
-        services["powersync"].update(
-            {
-                "volumes": [
-                    f"{self.directory / 'powersync.json'}:/config/powersync.yaml:ro",
-                    f"{ROOT / 'infra/powersync/sync-rules.yaml'}:/config/sync-rules.yaml:ro",
-                ],
-                "environment": {"POWERSYNC_CONFIG_PATH": "/config/powersync.yaml"},
-                "command": ["start", "-r", "unified"],
-            }
-        )
-        (self.directory / "compose.json").write_text(json.dumps({"services": services}, indent=2))
 
     def seed(self, log: IO[bytes]) -> None:
-        command = [sys.executable, "-m", "scripts.seed_demo", "--core"]
+        command = [
+            sys.executable,
+            "-m",
+            "scripts.e2e_namespace",
+            "seed",
+            self.namespace,
+            "--output",
+            str(self.directory / "demo.json"),
+        ]
         if self.seed_as_of is not None:
             command.extend(["--as-of", self.seed_as_of.isoformat()])
-        self.command(command, log)
+        # the seed's own writes keep demo ids, which the copy then renames into the namespace
+        self.command(command, log, env={"RUN_NAMESPACE": ""})
 
     def start(
         self,
@@ -506,21 +323,16 @@ class Stack:
         before_api: Callable[[], None] | None = None,
         browser_fixtures: bool = True,
     ) -> None:
-        self.compose_command("up", "-d", "--wait", "postgres", "redis", "s3", "mailpit")
-        database = f"localhost:{self.port('postgres', 5432)}/clientbridge_test_e2e"
         public_port = (
             self.connect_pseudo_port if self.browser_project == "pseudo" else self.connect_port
         )
         self.env.update(
             {
-                "ADMIN_DATABASE_URL": f"postgresql+asyncpg://clientbridge:clientbridge@{database}",
-                "MIGRATION_DATABASE_URL": f"postgresql+asyncpg://clientbridge_migrator:clientbridge_migrator@{database}",
-                "DATABASE_URL": f"postgresql+asyncpg://clientbridge_api:clientbridge_api@{database}",
-                "REDIS_URL": f"redis://localhost:{self.port('redis', 6379)}/0",
-                "S3_ENDPOINT": f"http://localhost:{self.port('s3', 9000)}",
-                "S3_BUCKET": self.project,
-                "SMTP_URL": f"smtp://localhost:{self.port('mailpit', 1025)}",
-                "MAILPIT_URL": f"http://localhost:{self.port('mailpit', 8025)}",
+                **tier.environment(),
+                "RUN_NAMESPACE": self.namespace,
+                "E2E_NAMESPACE": self.namespace,
+                "REDIS_URL": self.lease.redis_url,
+                "S3_BUCKET": self.lease.bucket,
                 "API_BASE_URL": self.api,
                 "API_URL": self.api,
                 "VITE_API_URL": self.api,
@@ -548,22 +360,8 @@ class Stack:
                 "CI": "1",
             }
         )
-        self.command([sys.executable, "-m", "scripts.db_access", "roles"], log)
-        self.command([sys.executable, "-m", "alembic", "upgrade", "head"], log)
-        self.command([sys.executable, "-m", "scripts.db_access", "grants"], log)
-        self.compose_command("run", "--rm", "auth-migrate")
-        self.compose_command("up", "-d", "auth", "powersync")
-        auth = f"http://localhost:{self.port('auth', 4433)}"
-        self.env.update(
-            {
-                "AUTH_PUBLIC_URL": auth,
-                "AUTH_INTERNAL_URL": auth,
-                "VITE_AUTH_URL": auth,
-                "AUTH_ADMIN_URL": f"http://localhost:{self.port('auth', 4434)}",
-                "VITE_POWERSYNC_URL": f"http://localhost:{self.port('powersync', 8080)}",
-            }
-        )
-        wait_for(f"{self.env['AUTH_ADMIN_URL']}/admin/health/ready")
+        flush_redis(self.lease.redis_url)
+        self.lease.register(self.api, keys=self.env.get("POWERSYNC_USE_RS256") == "true")
         self.seed(log)
         self.grant_platform_access()
         if before_api is not None:
@@ -607,7 +405,7 @@ class Stack:
         """Own verified operator identities for the admin console, granted before the API starts."""
         granted: list[str] = []
         for role in PLATFORM_OPERATORS:
-            email = f"operator-{role}-{secrets.token_hex(6)}@example.com"
+            email = f"operator-{role}-{secrets.token_hex(6)}+{self.namespace}@example.com"
             password = secrets.token_urlsafe(24)
             response = httpx.post(
                 f"{self.env['AUTH_ADMIN_URL']}/admin/identities",
@@ -717,15 +515,33 @@ class Stack:
             raise WorkerFailed(f"worker checks did not pass: {', '.join(failed)}")
 
     def cleanup(self) -> None:
+        """Remove the run's businesses, logins, mail, bucket and queue; the tier stays up."""
+        purge(self.namespace, self.lease.redis_url, self.directory / "purge.json")
+
+
+def flush_redis(url: str) -> None:
+    async def flush() -> None:
+        pool = await create_pool(RedisSettings.from_dsn(url))
         try:
-            if self.compose_command("ps", "-a", "-q").strip():
-                (self.directory / "services.log").write_text(
-                    self.compose_command("logs", "--no-color")
-                )
+            await pool.flushdb()
         finally:
-            self.compose_command("down", "--volumes", "--remove-orphans")
-        if self.compose_command("ps", "-a", "-q").strip():
-            raise RuntimeError("run-owned containers remain after cleanup")
+            await pool.aclose()
+
+    asyncio.run(flush())
+
+
+def purge(namespace: str, redis_url: str, record: Path) -> None:
+    result = subprocess.run(
+        [sys.executable, "-m", "scripts.e2e_namespace", "purge", namespace],
+        cwd=ROOT / "backend",
+        env=environment() | tier.environment(),
+        capture_output=True,
+        text=True,
+    )
+    record.write_text(result.stdout + result.stderr)
+    if result.returncode:
+        raise RuntimeError(f"purging namespace {namespace} failed; see {record}")
+    flush_redis(redis_url)
 
 
 @contextmanager
@@ -1026,8 +842,8 @@ def native_control(link: NativeLink, push: Callable[[bytes], None], log: Path) -
 @contextmanager
 def native_ports_free() -> Iterator[None]:
     """One native stack at a time: its ports are fixed, and so is the device it drives."""
-    SLOTS.mkdir(parents=True, exist_ok=True)
-    with (SLOTS.parent / "native.lock").open("a") as handle:
+    tier.TIER.mkdir(parents=True, exist_ok=True)
+    with (tier.TIER / "native.lock").open("a") as handle:
         try:
             fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
@@ -1088,8 +904,8 @@ def run_native(
     link = NativeLink(
         {
             NATIVE_PORTS["api"]: stack.api_port,
-            NATIVE_PORTS["auth"]: stack.auth_port,
-            NATIVE_PORTS["powersync"]: stack.port("powersync", 8080),
+            NATIVE_PORTS["auth"]: tier.PORTS["auth"],
+            NATIVE_PORTS["powersync"]: tier.PORTS["powersync"],
         }
     )
     link.online()
@@ -1164,51 +980,18 @@ def main() -> None:
     if args.cleanup and args.seed_as_of is not None:
         parser.error("cleanup cannot override a recorded seed date")
     if args.cleanup:
-        name = str(args.cleanup)
-        if (
-            len(name) != 16
-            or not name.startswith("e2e-")
-            or any(c not in "0123456789abcdef" for c in name[4:])
-        ):
-            parser.error("cleanup requires the exact generated e2e-<12 hex digits> project name")
-        directory = ROOT / ".scratchpad" / name
-        if not (directory / "compose.json").is_file():
-            parser.error("the recorded run configuration is missing")
-        Stack(directory).cleanup()
-        metadata = directory / "run.json"
-        if metadata.is_file():
-            record = json.loads(metadata.read_text())
-            record["docker_cleanup"] = "passed"
-            process = record.get("process_cleanup")
-            provider = record.get("provider_cleanup", "not_started")
-            if process == "failed" or provider == "failed":
-                record["cleanup"] = "failed"
-            elif process == "passed" and provider in ("passed", "not_started"):
-                record["cleanup"] = "passed"
-            else:
-                record["cleanup"] = "incomplete"
-            record["reaped_at"] = clock.wall().isoformat()
-            if record.get("outcome") == "running":
-                record["outcome"] = "interrupted"
-            metadata.write_text(json.dumps(record, indent=2))
+        reap(parser, str(args.cleanup))
         return
     directory = ROOT / ".scratchpad" / f"e2e-{secrets.token_hex(6)}"
     directory.mkdir(parents=True)
     anchor = args.seed_as_of
     if anchor is None and args.surface == "filings":
         anchor = filing_seed_anchor(clock.wall())
-    stack = Stack(
-        directory,
-        "pseudo" if args.project == "pseudo" else "default",
-        seed_as_of=anchor,
-        native=args.platform,
-    )
-    stack.configure()
-    print(f"E2E project and diagnostics: {directory}", flush=True)
+    print(f"E2E diagnostics: {directory}", flush=True)
     if args.configure_only:
         return
     record: dict[str, object] = {
-        "project": stack.project,
+        "project": directory.name,
         "started_at": clock.wall().isoformat(),
         "surface": args.surface,
         "seed_as_of": anchor.isoformat() if anchor is not None else None,
@@ -1225,63 +1008,127 @@ def main() -> None:
         "outcome": "running",
         "cleanup": "pending",
         "process_cleanup": "pending",
-        "docker_cleanup": "pending",
+        "data_cleanup": "pending",
         "allow_source_changes": args.allow_source_changes,
-        **stack.worker_checks,
+        "worker_heartbeat": "pending",
+        "worker_probe": "pending",
+        "worker_schedule": "pending",
+        "worker_final": "pending",
     }
     metadata = directory / "run.json"
     metadata.write_text(json.dumps(record, indent=2))
     signal.signal(signal.SIGTERM, lambda _signal, _frame: sys.exit(143))
+    stack: Stack | None = None
     try:
         with (
             native_ports_free() if args.surface == "native" else nullcontext(),
-            stack_slot(),
-            owned_processes(record) as processes,
-            (directory / "setup.log").open("wb") as log,
+            tier.hold(),
+            tier.lease() as lease,
         ):
+            stack = Stack(
+                directory,
+                lease,
+                "pseudo" if args.project == "pseudo" else "default",
+                seed_as_of=anchor,
+                native=args.platform,
+            )
+            stack.configure()
+            record["namespace"] = lease.namespace
+            record["slot"] = lease.slot
+            metadata.write_text(json.dumps(record, indent=2))
             try:
-                (run_native if args.surface == "native" else run_browsers)(
-                    stack, args, processes, log
-                )
+                with (
+                    owned_processes(record) as processes,
+                    (directory / "setup.log").open("wb") as log,
+                ):
+                    try:
+                        (run_native if args.surface == "native" else run_browsers)(
+                            stack, args, processes, log
+                        )
+                    finally:
+                        record.update(stack.finish_worker())
+                    stack.require_worker()
+                    record["outcome"] = "passed"
             finally:
-                record.update(stack.finish_worker())
-            stack.require_worker()
-            record["outcome"] = "passed"
+                cleanup(stack, record)
     except BaseException as error:
-        record["outcome"] = (
-            "interrupted" if isinstance(error, (SystemExit, KeyboardInterrupt)) else "failed"
-        )
-        record["failure_type"] = type(error).__name__
+        if record["outcome"] in ("running", "passed") and not isinstance(error, CleanupFailed):
+            record["outcome"] = (
+                "interrupted" if isinstance(error, (SystemExit, KeyboardInterrupt)) else "failed"
+            )
+            record["failure_type"] = type(error).__name__
         raise
     finally:
-        try:
-            stack.cleanup()
-            if stack.process_cleanup_failed:
-                record["process_cleanup"] = "failed"
-            record["docker_cleanup"] = "passed"
-            record["cleanup"] = "passed" if record["process_cleanup"] == "passed" else "failed"
-        except BaseException:
-            record["docker_cleanup"] = "failed"
+        record["finished_at"] = clock.wall().isoformat()
+        record["final_source"] = source_snapshot()
+        record["source_stable"] = record["source"] == record["final_source"]
+        reject_changes = (
+            record["outcome"] == "passed"
+            and not record["source_stable"]
+            and not args.allow_source_changes
+        )
+        if reject_changes:
+            record["outcome"] = "failed"
+            record["failure_type"] = "SourceChanged"
+        metadata.write_text(json.dumps(record, indent=2))
+        if reject_changes:
+            raise RuntimeError("source changed during the run; evidence is diagnostic only")
+
+
+class CleanupFailed(RuntimeError):
+    pass
+
+
+def cleanup(stack: Stack, record: dict[str, object]) -> None:
+    """Purge the run's data, and fail a run that passed when its cleanup did not."""
+    try:
+        stack.cleanup()
+        record["data_cleanup"] = "passed"
+    except BaseException:
+        record["data_cleanup"] = "failed"
+        record["cleanup"] = "failed"
+        if record["outcome"] == "passed":
+            record["outcome"] = "failed"
+            record["failure_type"] = "CleanupFailed"
+        raise CleanupFailed("the run's data was not purged") from None
+    if stack.process_cleanup_failed:
+        record["process_cleanup"] = "failed"
+    record["cleanup"] = "passed" if record["process_cleanup"] == "passed" else "failed"
+
+
+def reap(parser: argparse.ArgumentParser, name: str) -> None:
+    """Purge what an interrupted run left in the tier, by the namespace it recorded."""
+    if not re.fullmatch(r"e2e-[0-9a-f]{12}", name):
+        parser.error("cleanup requires the exact generated e2e-<12 hex digits> project name")
+    directory = ROOT / ".scratchpad" / name
+    if not (directory / "tier.json").is_file():
+        parser.error("the recorded run configuration is missing")
+    held = json.loads((directory / "tier.json").read_text())
+    if tier.slot_held(int(held["slot"])) and held["namespace"] not in tier.stale_namespaces():
+        found = json.loads((tier.TIER / "runs" / f"{held['namespace']}.json").read_text())
+        if found.get("pid") and group_alive(int(found["pid"])):
+            parser.error("that run is still going")
+    purge(
+        held["namespace"],
+        tier.Lease(int(held["slot"]), held["namespace"]).redis_url,
+        directory / "purge.json",
+    )
+    metadata = directory / "run.json"
+    if metadata.is_file():
+        record = json.loads(metadata.read_text())
+        record["data_cleanup"] = "passed"
+        process = record.get("process_cleanup")
+        provider = record.get("provider_cleanup", "not_started")
+        if process == "failed" or provider == "failed":
             record["cleanup"] = "failed"
-            if record["outcome"] == "passed":
-                record["outcome"] = "failed"
-                record["failure_type"] = "CleanupFailed"
-            raise
-        finally:
-            record["finished_at"] = clock.wall().isoformat()
-            record["final_source"] = source_snapshot()
-            record["source_stable"] = record["source"] == record["final_source"]
-            reject_changes = (
-                record["outcome"] == "passed"
-                and not record["source_stable"]
-                and not args.allow_source_changes
-            )
-            if reject_changes:
-                record["outcome"] = "failed"
-                record["failure_type"] = "SourceChanged"
-            metadata.write_text(json.dumps(record, indent=2))
-            if reject_changes:
-                raise RuntimeError("source changed during the run; evidence is diagnostic only")
+        elif process == "passed" and provider in ("passed", "not_started"):
+            record["cleanup"] = "passed"
+        else:
+            record["cleanup"] = "incomplete"
+        record["reaped_at"] = clock.wall().isoformat()
+        if record.get("outcome") == "running":
+            record["outcome"] = "interrupted"
+        metadata.write_text(json.dumps(record, indent=2))
 
 
 if __name__ == "__main__":

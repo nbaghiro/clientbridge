@@ -10,6 +10,7 @@ from clientbridge.core import clock
 from clientbridge.core.config import get_settings
 from clientbridge.core.db import SessionLocal
 from clientbridge.core.logs import configure_logging
+from clientbridge.core.scoping import confine_to_namespace
 from clientbridge.integrations.expo import get_push_sender
 from clientbridge.integrations.google_business import (
     get_google_business_gateway,
@@ -139,8 +140,11 @@ async def send_deliveries(ctx: Context) -> int:
 
 
 async def startup(ctx: Context) -> None:
+    settings = get_settings()
+    if settings.run_namespace:
+        confine_to_namespace(settings.run_namespace)
     start_http_client()
-    configure_logging(get_settings().env)
+    configure_logging(settings.env)
 
 
 async def shutdown(ctx: Context) -> None:

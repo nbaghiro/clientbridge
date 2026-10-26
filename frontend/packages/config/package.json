@@ -13,7 +13,8 @@
         "./e2e/accessibility": "./e2e/accessibility.ts",
         "./e2e/pseudo": "./e2e/pseudo.ts",
         "./vitest/config": "./vitest/config.ts",
-        "./e2e/demo": "./e2e/demo.ts"
+        "./e2e/demo": "./e2e/demo.ts",
+        "./e2e/run": "./e2e/run.ts"
     },
     "dependencies": {
         "@axe-core/playwright": "^4.13.0",
