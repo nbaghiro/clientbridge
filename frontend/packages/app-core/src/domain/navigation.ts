@@ -10,7 +10,7 @@ import { staffName, staffNameSql } from "./staff";
 
 export type DestinationKey = "today" | "schedule" | "clients" | "payments" | "inbox";
 
-/** The five top-level destinations, in order. Each app maps `key` to its own route + icon. */
+/** The five top-level destinations, in order. Each app maps `key` to its own route. */
 export const DESTINATIONS: { key: DestinationKey; label: string }[] = [
     {
         key: "today",
@@ -318,6 +318,14 @@ export type ShellTarget =
     | "onlineBooking"
     | "search"
     | "notifications";
+
+export const DESTINATION_ICON: Record<DestinationKey, IconName> = {
+    today: "today",
+    schedule: "calendar",
+    clients: "clients",
+    payments: "card",
+    inbox: "inbox",
+};
 
 export const DESTINATION_TARGET: Record<DestinationKey, ShellTarget> = {
     today: "today",

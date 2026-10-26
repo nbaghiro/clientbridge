@@ -336,6 +336,12 @@ export interface ChoiceProps<K extends string> {
     size?: "md" | "lg" | undefined;
 }
 
+export interface PageFrameProps {
+    children: ReactNode;
+    // Full-width content above the centred column, such as a sync banner.
+    leading?: ReactNode | undefined;
+}
+
 export interface PanelProps {
     title?: string | undefined;
     subtitle?: string | undefined;

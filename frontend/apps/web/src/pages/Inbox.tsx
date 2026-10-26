@@ -35,6 +35,7 @@ import {
     Skeleton,
     Tabs,
     TextField,
+    PageFrame,
 } from "@clientbridge/ui";
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
@@ -49,7 +50,7 @@ import { Broadcasts } from "./Broadcasts";
 import { Contracts } from "./Contracts";
 import { Forms } from "./Forms";
 import { Reviews } from "./Reviews";
-import { FILL, PageFrame } from "../components/PageFrame";
+import { FILL } from "../lib/layout";
 
 const s = strings.messaging;
 const CHANNELS: Channel[] = ["sms", "email"];

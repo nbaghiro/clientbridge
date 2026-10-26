@@ -1,9 +1,7 @@
 import { strings, useOffersClasses } from "@clientbridge/app-core";
-import { PageHeader, Tabs } from "@clientbridge/ui";
+import { PageHeader, Tabs, PageFrame } from "@clientbridge/ui";
 import type { ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
-
-import { PageFrame } from "./PageFrame";
 
 const s = strings.bookings;
 

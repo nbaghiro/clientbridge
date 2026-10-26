@@ -56,7 +56,7 @@ import {
     useWide,
 } from "../components/ScheduleGrid";
 import { ScheduleRail } from "../components/ScheduleRail";
-import { FILL } from "../components/PageFrame";
+import { FILL } from "../lib/layout";
 import { ScheduleFrame } from "../components/ScheduleViews";
 import { api } from "../lib/api";
 import { useViewer } from "../lib/auth";

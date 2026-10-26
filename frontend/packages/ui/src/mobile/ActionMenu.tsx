@@ -14,6 +14,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Icon } from "./Icon";
+import { useTabletLayout } from "./layout";
 import type { NativeProps } from "./props";
 
 const c = theme.colors;
@@ -41,6 +42,7 @@ export function ActionMenu({
     style,
 }: NativeProps<ActionMenuProps>) {
     const insets = useSafeAreaInsets();
+    const tablet = useTabletLayout();
     if (layout === "radial" && anchor !== undefined)
         return (
             <RadialMenu
@@ -59,7 +61,7 @@ export function ActionMenu({
             animationType="fade"
             onRequestClose={onClose}
         >
-            <View style={styles.root}>
+            <View style={[styles.root, tablet && styles.centred]}>
                 <Pressable
                     style={styles.backdrop}
                     onPress={onClose}
@@ -67,10 +69,13 @@ export function ActionMenu({
                     accessibilityLabel={strings.common.close}
                 />
                 <View
-                    style={[styles.sheet, { paddingBottom: insets.bottom + 12 }]}
+                    style={[
+                        styles.sheet,
+                        tablet ? styles.card : { paddingBottom: insets.bottom + 12 },
+                    ]}
                     accessibilityViewIsModal
                 >
-                    <View style={styles.grabber} />
+                    {tablet ? null : <View style={styles.grabber} />}
                     {title !== undefined ? (
                         <Text style={styles.title} accessibilityRole="header">
                             {title}
@@ -232,6 +237,14 @@ function RadialMenu({
 
 const styles = StyleSheet.create({
     root: { flex: 1, justifyContent: "flex-end" },
+    centred: { justifyContent: "center", alignItems: "center", padding: theme.layout.gutter },
+    card: {
+        width: "100%",
+        maxWidth: theme.layout.sheet,
+        borderRadius: 20,
+        paddingTop: 16,
+        paddingBottom: 16,
+    },
     backdrop: {
         position: "absolute",
         top: 0,

@@ -32,6 +32,7 @@ import {
     PaymentNotices,
     Skeleton,
     StatusPill,
+    PageFrame,
 } from "@clientbridge/ui";
 import { Fragment, type ReactNode } from "react";
 
@@ -51,7 +52,6 @@ import { api } from "../lib/api";
 import { useViewer } from "../lib/auth";
 import { useOpenLink } from "../lib/links";
 import { CheckInLayer } from "../components/CheckInSheet";
-import { PageFrame } from "../components/PageFrame";
 
 const t = strings.today;
 

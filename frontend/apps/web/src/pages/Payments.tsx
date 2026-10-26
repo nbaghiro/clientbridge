@@ -1,7 +1,7 @@
 import { type PaymentsTabKey, strings, visiblePaymentsTabs } from "@clientbridge/app-core";
 import type { ReactElement } from "react";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
-import { PageHeader, Tabs } from "@clientbridge/ui";
+import { PageHeader, Tabs, PageFrame } from "@clientbridge/ui";
 
 import { useRole } from "../lib/auth";
 import { GiftCards } from "./GiftCards";
@@ -12,7 +12,6 @@ import { Payouts } from "./Payouts";
 import { Refunds } from "./Refunds";
 import { Remittances } from "./Remittances";
 import { Reports } from "./Reports";
-import { PageFrame } from "../components/PageFrame";
 
 const PAYMENTS_SLUGS: Record<PaymentsTabKey, string> = {
     invoices: "invoices",

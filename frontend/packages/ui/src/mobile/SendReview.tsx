@@ -16,6 +16,7 @@ import { Modal as NativeModal, Pressable, ScrollView, StyleSheet, Text, View } f
 import { Button } from "./Button";
 import { MessageBubble } from "./MessageBubble";
 import { showOverlay, useAnyModalOpen } from "./layers";
+import { useTabletLayout } from "./layout";
 import { Notice } from "./Notice";
 import { Skeleton } from "./Skeleton";
 
@@ -71,8 +72,9 @@ export function SendReview({ request, document, onResolve }: SendReviewProps) {
     const preview = useOutgoingPreview(request);
     const [showPage, setShowPage] = useState(false);
     const page = request.document !== undefined ? document?.(request.document) : undefined;
+    const tablet = useTabletLayout();
     return (
-        <View style={styles.backdrop} accessibilityViewIsModal>
+        <View style={[styles.backdrop, tablet && styles.centred]} accessibilityViewIsModal>
             <Pressable
                 style={StyleSheet.absoluteFill}
                 onPress={() => {
@@ -81,7 +83,10 @@ export function SendReview({ request, document, onResolve }: SendReviewProps) {
                 accessibilityRole="button"
                 accessibilityLabel={strings.common.close}
             />
-            <ScrollView style={styles.sheet} contentContainerStyle={[styles.stack, styles.pad]}>
+            <ScrollView
+                style={[styles.sheet, tablet && styles.card]}
+                contentContainerStyle={[styles.stack, styles.pad]}
+            >
                 <View>
                     <Text style={styles.title}>{request.title}</Text>
                     {preview.data?.recipient != null ? (
@@ -203,6 +208,8 @@ const styles = StyleSheet.create({
         borderTopLeftRadius: 18,
         borderTopRightRadius: 18,
     },
+    centred: { justifyContent: "center", alignItems: "center", padding: theme.layout.gutter },
+    card: { width: "100%", maxWidth: theme.layout.sheet, borderRadius: 18 },
     pad: { padding: 22, paddingBottom: 36 },
     stack: { gap: 12 },
     title: { fontFamily: theme.fonts.ui, fontSize: 18, fontWeight: "700", color: c.ink },

@@ -1,3 +1,4 @@
+import { PageFrame } from "@clientbridge/ui";
 import { type SetupSectionKey, setupSectionsFor, strings } from "@clientbridge/app-core";
 import type { ReactElement } from "react";
 import { NavLink, Navigate, useParams } from "react-router-dom";
@@ -16,7 +17,6 @@ import { Hours } from "./Hours";
 import { Plans } from "./Plans";
 import { Taxes } from "./Taxes";
 import { Team } from "./Team";
-import { PageFrame } from "../components/PageFrame";
 
 const SETUP_SLUGS: Record<SetupSectionKey, string> = {
     start: "start",

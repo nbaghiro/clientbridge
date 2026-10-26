@@ -31,6 +31,7 @@ import {
     Panel,
     Skeleton,
     TextField,
+    PageFrame,
 } from "@clientbridge/ui";
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
@@ -47,7 +48,6 @@ import { useWide } from "../components/ScheduleGrid";
 import { api } from "../lib/api";
 import { useRole, useViewer } from "../lib/auth";
 import { useLinkIntent, useOpenLink } from "../lib/links";
-import { PageFrame } from "../components/PageFrame";
 
 const r = strings.clients.record;
 const t = strings.clients.tidy;

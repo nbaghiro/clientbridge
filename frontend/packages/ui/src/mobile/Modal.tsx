@@ -11,6 +11,7 @@ import {
     View,
 } from "react-native";
 
+import { useTabletLayout } from "./layout";
 import { useModalLayer, useOverlay } from "./layers";
 import type { NativeProps } from "./props";
 
@@ -32,6 +33,7 @@ export function Modal({
     const inFlow = useModalFlow();
     const top = useModalLayer(open && !inFlow);
     const overlay = useOverlay();
+    const tablet = useTabletLayout();
     const content = framed ? (
         <ScrollView
             style={styles.scroll}
@@ -66,7 +68,7 @@ export function Modal({
                 style={styles.fill}
                 behavior={Platform.OS === "ios" ? "padding" : undefined}
             >
-                <View style={styles.backdrop} accessibilityViewIsModal>
+                <View style={[styles.backdrop, tablet && styles.centred]} accessibilityViewIsModal>
                     <Pressable
                         style={StyleSheet.absoluteFill}
                         onPress={onClose}
@@ -76,6 +78,7 @@ export function Modal({
                     <View
                         style={[
                             styles.sheet,
+                            tablet && styles.card,
                             size === "xl" && styles.tall,
                             (framed || flow) && styles.surface,
                         ]}
@@ -100,6 +103,8 @@ const styles = StyleSheet.create({
         borderTopRightRadius: 18,
         overflow: "hidden",
     },
+    centred: { justifyContent: "center", alignItems: "center", padding: theme.layout.gutter },
+    card: { width: "100%", maxWidth: theme.layout.sheet, borderRadius: 18 },
     tall: { height: "86%" },
     surface: { backgroundColor: c.surface },
     scroll: { flexGrow: 0, flexShrink: 1 },

@@ -1,5 +1,5 @@
 import { StatusBar } from "expo-status-bar";
-import { type ReactNode, useCallback } from "react";
+import { type ReactElement, type ReactNode, useCallback } from "react";
 import {
     checkSession,
     strings,
@@ -21,14 +21,16 @@ import {
     ConfirmHost,
     configureStripe,
     LoadFailed,
+    PageFrame,
     Select,
     SendReviewHost,
+    useTabletLayout,
 } from "@clientbridge/ui";
 
 import { RecordPaper } from "./src/components/DocumentPreview";
 import { StripeAppProvider } from "./src/components/Stripe";
 import { Splash, revealApp } from "./src/components/Splash";
-import { TabBar } from "./src/components/TabBar";
+import { ShellBanners, TabBar } from "./src/components/TabBar";
 import { api, identity, onSignedOut, selectBusiness } from "./src/lib/api";
 import { clearSession, getSession, rememberUser, signIn } from "./src/lib/auth";
 import { stripePublishableKey } from "./src/lib/config";
@@ -76,6 +78,7 @@ const navTheme = {
 
 function Tabs() {
     const open = useOpenLink();
+    const tablet = useTabletLayout();
     usePushTaps(
         useCallback(
             (threadId: string) => {
@@ -88,7 +91,10 @@ function Tabs() {
         <Tab.Navigator
             initialRouteName="Today"
             tabBar={(props) => <TabBar {...props} />}
-            screenOptions={{ headerShown: false }}
+            screenOptions={{ headerShown: false, tabBarPosition: tablet ? "left" : "bottom" }}
+            screenLayout={({ children }) => (
+                <PageFrame leading={tablet ? <ShellBanners /> : undefined}>{children}</PageFrame>
+            )}
         >
             <Tab.Screen name="Today" component={TodayScreen} />
             <Tab.Screen name="Inbox" component={InboxScreen} />
@@ -254,12 +260,18 @@ function AuthedApp({ onSignOut }: { onSignOut: () => void }) {
                         <NavigationContainer theme={navTheme}>
                             <RootStack.Navigator screenOptions={{ headerShown: false }}>
                                 <RootStack.Screen name="Tabs" component={Tabs} />
-                                <RootStack.Screen name="Search" component={SearchScreen} />
+                                <RootStack.Screen
+                                    name="Search"
+                                    component={SearchScreen}
+                                    layout={framed}
+                                />
                                 <RootStack.Screen
                                     name="Notifications"
                                     component={NotificationsScreen}
+                                    layout={framed}
                                 />
                                 <RootStack.Group
+                                    screenLayout={framed}
                                     screenOptions={{
                                         headerShown: true,
                                         headerStyle: { backgroundColor: theme.colors.surface },
@@ -383,6 +395,10 @@ function AuthedApp({ onSignOut }: { onSignOut: () => void }) {
             </SignOutContext.Provider>
         </BusinessZoneContext.Provider>
     );
+}
+
+function framed({ children }: { children: ReactElement }) {
+    return <PageFrame>{children}</PageFrame>;
 }
 
 const styles = StyleSheet.create({
