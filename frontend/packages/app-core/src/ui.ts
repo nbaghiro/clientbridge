@@ -504,9 +504,22 @@ export interface ItemImageProps {
 export interface PageHeaderProps {
     title: string;
     subtitle?: string | undefined;
+    // A small line above the title, such as today's date.
+    leading?: ReactNode | undefined;
     actions?: ReactNode | undefined;
     // A tab row or filters under the title.
     children?: ReactNode | undefined;
+}
+
+// A sheet's top row: a close button, the centred title and the sheet's main action.
+export interface SheetHeaderProps {
+    title: string;
+    subtitle?: string | undefined;
+    // Without it the row has no close button, for a sheet that closes from its own buttons.
+    onClose?: (() => void) | undefined;
+    // The close button's text; Cancel unless the sheet only shows something.
+    closeLabel?: string | undefined;
+    actions?: ReactNode | undefined;
 }
 
 // The faint contour art in a corner behind a page; purely decorative.

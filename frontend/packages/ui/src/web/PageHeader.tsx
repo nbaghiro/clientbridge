@@ -5,6 +5,7 @@ import type { WebProps } from "./props";
 export function PageHeader({
     title,
     subtitle,
+    leading,
     actions,
     children,
     className,
@@ -13,6 +14,7 @@ export function PageHeader({
         <header className={className}>
             <div className="flex flex-wrap items-center justify-between gap-4">
                 <div className="min-w-0">
+                    {leading}
                     <h1 className="font-display text-2xl font-bold text-ink">{title}</h1>
                     {subtitle !== undefined ? (
                         <p className="mt-0.5 text-sm text-muted">{subtitle}</p>

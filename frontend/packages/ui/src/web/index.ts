@@ -30,6 +30,7 @@ export { Stat } from "./Stat";
 export { ConfirmHost, confirm } from "./Confirm";
 export { SendReview, SendReviewHost } from "./SendReview";
 export { PageHeader } from "./PageHeader";
+export { SheetHeader } from "./SheetHeader";
 export { Stars } from "./Stars";
 export { Stepper } from "./Stepper";
 export { ActionMenu } from "./ActionMenu";

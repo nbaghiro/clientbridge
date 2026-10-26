@@ -55,8 +55,13 @@ const styles = StyleSheet.create({
         borderBottomWidth: StyleSheet.hairlineWidth,
     },
     headText: { flex: 1 },
-    title: { color: c.ink, fontSize: 16, fontWeight: "700" },
-    subtitle: { color: c.muted, fontSize: 13, marginTop: 2 },
+    title: {
+        color: c.ink,
+        fontFamily: theme.fonts.ui,
+        fontSize: theme.type.section,
+        fontWeight: "700",
+    },
+    subtitle: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 13, marginTop: 2 },
     actions: { flexDirection: "row", alignItems: "center", gap: 8 },
     footer: {
         flexDirection: "row",

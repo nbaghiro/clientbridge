@@ -10,4 +10,6 @@ export const theme = {
     radius: t.radius.base,
     avatarRadius: t.radius.avatar,
     borderWidth: t.borderWidth,
+    // The web's scale: text-2xl page titles and 17 px section and sheet titles.
+    type: { page: 24, section: 17 },
 } as const;
