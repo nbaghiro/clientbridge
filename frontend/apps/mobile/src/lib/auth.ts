@@ -1,7 +1,7 @@
 import { SessionEpoch } from "@clientbridge/api-client";
 import { type Viewer, useCurrentViewer } from "@clientbridge/app-core";
 import * as SecureStore from "expo-secure-store";
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 
 // The session token, and whose replica it opened once the API said who that is.
 interface StoredSession {
@@ -11,6 +11,27 @@ interface StoredSession {
 }
 
 const KEY = "cb_session";
+
+// in memory as well, so a screen mounted later queries as this user from its first render
+let currentUser: string | null = null;
+const userListeners = new Set<() => void>();
+
+function setCurrentUser(userId: string | null): void {
+    if (currentUser === userId) return;
+    currentUser = userId;
+    for (const listener of userListeners) listener();
+}
+
+function subscribeUser(listener: () => void): () => void {
+    userListeners.add(listener);
+    return () => {
+        userListeners.delete(listener);
+    };
+}
+
+export function currentUserId(): string | null {
+    return currentUser;
+}
 
 export const sessionEpoch = new SessionEpoch();
 let teardown: () => Promise<void> = () => Promise.resolve();
@@ -37,6 +58,7 @@ function serialized<T>(fn: () => Promise<T>): Promise<T> {
 
 export async function forgetSession(): Promise<void> {
     sessionEpoch.advance();
+    setCurrentUser(null);
     await serialized(() => SecureStore.deleteItemAsync(KEY));
 }
 
@@ -44,6 +66,7 @@ export async function signIn(sessionToken: string): Promise<void> {
     sessionEpoch.advance();
     await teardown();
     const session: StoredSession = { session_token: sessionToken, user_id: null };
+    setCurrentUser(null);
     await serialized(() => SecureStore.setItemAsync(KEY, JSON.stringify(session)));
     sessionEpoch.advance();
 }
@@ -68,6 +91,7 @@ export async function rememberUser(userId: string, checkedAt?: number): Promise<
             KEY,
             JSON.stringify({ ...session, user_id: userId, verified_at: checkedAt ?? 0 }),
         );
+        setCurrentUser(userId);
     });
 }
 
@@ -78,20 +102,9 @@ export async function clearSession(): Promise<void> {
 }
 
 export function useUserId(): string | null {
-    const [userId, setUserId] = useState<string | null>(null);
-    useEffect(() => {
-        getSession()
-            .then((s) => {
-                setUserId(s?.user_id ?? null);
-            })
-            .catch(() => {
-                setUserId(null);
-            });
-    }, []);
-    return userId;
+    return useSyncExternalStore(subscribeUser, currentUserId);
 }
 
-/** SecureStore is read once on mount, then the member resolves from the stored user. */
 export function useViewer(): Viewer | null {
     return useCurrentViewer(useUserId());
 }

@@ -850,6 +850,8 @@ def native_ports_free() -> Iterator[None]:
             raise RuntimeError("another native e2e run holds the native ports") from None
         for port in [*NATIVE_PORTS.values(), DRIVER_PORT]:
             with socket.socket() as sock:
+                # a previous run's closed connections linger in TIME_WAIT; only a listener counts
+                sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
                 try:
                     sock.bind(("127.0.0.1", port))
                 except OSError:
