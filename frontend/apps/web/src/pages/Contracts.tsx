@@ -29,6 +29,7 @@ import {
     ListPage,
     Modal,
     Notice,
+    Panel,
     StatusPill,
     TextField,
 } from "@clientbridge/ui";
@@ -62,96 +63,84 @@ export function Contracts() {
     return (
         <div>
             {active !== null ? (
-                <>
-                    <Button
-                        variant="link"
-                        icon="chevronLeft"
-                        onPress={() => {
-                            setPicked(null);
+                <Modal
+                    variant="drawer"
+                    size="xl"
+                    onClose={() => {
+                        setPicked(null);
+                    }}
+                >
+                    <ContractDetail
+                        key={`${active.contract.id}:${String(active.contract.version)}`}
+                        summary={active}
+                        issuer={library.issuer}
+                        onSend={() => {
+                            setSending(true);
                         }}
-                    >
-                        {s.templates}
-                    </Button>
-                    <div className="mt-2">
-                        <ContractDetail
-                            key={`${active.contract.id}:${String(active.contract.version)}`}
-                            summary={active}
-                            issuer={library.issuer}
-                            onSend={() => {
-                                setSending(true);
-                            }}
-                        />
-                    </div>
-                </>
-            ) : (
-                <div className="space-y-6">
-                    <div className="flex items-center justify-between gap-4">
-                        <p className="text-sm text-muted">{s.subtitle}</p>
-                        {none ? null : (
-                            <Button size="sm" icon="plus" onPress={add}>
-                                {s.newContract}
-                            </Button>
-                        )}
-                    </div>
-                    <Loaded load={library.load} loading={s.loading} failed={s.loadError}>
-                        <ListPage
-                            head={
-                                none ? undefined : (
-                                    <div className={GRID}>
-                                        <span>{s.colContract}</span>
-                                        <span>{s.signatures}</span>
-                                        <span className="text-right">{s.colUpdated}</span>
-                                    </div>
-                                )
-                            }
-                            rows={library.contracts}
-                            rowKey={(x) => x.contract.id}
-                            onRowPress={(x) => {
-                                setPicked(x.contract.id);
-                            }}
-                            empty={{
-                                message: s.noContractsTitle,
-                                body: s.noContractsBody,
-                                icon: "note",
-                                actions: (
-                                    <Button size="sm" icon="plus" onPress={add}>
-                                        {s.newContract}
-                                    </Button>
-                                ),
-                            }}
-                            renderRow={(x) => (
+                    />
+                </Modal>
+            ) : null}
+            <div className="space-y-6">
+                <div className="flex items-center justify-between gap-4">
+                    <p className="text-sm text-muted">{s.subtitle}</p>
+                    {none ? null : (
+                        <Button size="sm" icon="plus" onPress={add}>
+                            {s.newContract}
+                        </Button>
+                    )}
+                </div>
+                <Loaded load={library.load} loading={s.loading} failed={s.loadError}>
+                    <ListPage
+                        head={
+                            none ? undefined : (
                                 <div className={GRID}>
-                                    <div className="min-w-0">
-                                        <div className="truncate font-medium text-ink">
-                                            {x.contract.name}
-                                        </div>
-                                        <div className="text-xs text-muted">
-                                            {s.versionShort(x.contract.version)}
-                                        </div>
+                                    <span>{s.colContract}</span>
+                                    <span>{s.signatures}</span>
+                                    <span className="text-right">{s.colUpdated}</span>
+                                </div>
+                            )
+                        }
+                        rows={library.contracts}
+                        rowKey={(x) => x.contract.id}
+                        onRowPress={(x) => {
+                            setPicked(x.contract.id);
+                        }}
+                        empty={{
+                            message: s.noContractsTitle,
+                            body: s.noContractsBody,
+                            icon: "note",
+                            actions: (
+                                <Button size="sm" icon="plus" onPress={add}>
+                                    {s.newContract}
+                                </Button>
+                            ),
+                        }}
+                        renderRow={(x) => (
+                            <div className={GRID}>
+                                <div className="min-w-0">
+                                    <div className="truncate font-medium text-ink">
+                                        {x.contract.name}
                                     </div>
-                                    <div className="flex min-w-0 items-center gap-2 text-sm text-ink-soft">
-                                        <span className="truncate">{s.signedCount(x.signed)}</span>
-                                        {x.waiting > 0 ? (
-                                            <Badge
-                                                label={s.waitingCount(x.waiting)}
-                                                intent="warning"
-                                            />
-                                        ) : null}
-                                    </div>
-                                    <div className="text-right text-sm text-ink-soft">
-                                        {x.contract.updated_at === null
-                                            ? "—"
-                                            : formatDate(
-                                                  parseTimestamp(x.contract.updated_at),
-                                                  zone,
-                                              )}
+                                    <div className="text-xs text-muted">
+                                        {s.versionShort(x.contract.version)}
                                     </div>
                                 </div>
-                            )}
-                        />
-                    </Loaded>
-                </div>
-            )}
+                                <div className="flex min-w-0 items-center gap-2 text-sm text-ink-soft">
+                                    <span className="truncate">{s.signedCount(x.signed)}</span>
+                                    {x.waiting > 0 ? (
+                                        <Badge label={s.waitingCount(x.waiting)} intent="warning" />
+                                    ) : null}
+                                </div>
+                                <div className="text-right text-sm text-ink-soft">
+                                    {x.contract.updated_at === null
+                                        ? "—"
+                                        : formatDate(parseTimestamp(x.contract.updated_at), zone)}
+                                </div>
+                            </div>
+                        )}
+                    />
+                </Loaded>
+            </div>
             {adding ? (
                 <NewContractDialog
                     onClose={() => {
@@ -230,10 +219,10 @@ function ContractDetail({
                     </Button>
                 </div>
             </header>
-            <div className="mt-5 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_340px] xl:grid-cols-[minmax(0,1fr)_400px]">
+            <div className="mt-5 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
                 <div>
                     {editing ? (
-                        <div className="space-y-3 rounded-lg border border-line bg-surface p-5 shadow-card">
+                        <Panel>
                             <TextField
                                 label={s.text}
                                 multiline
@@ -263,7 +252,7 @@ function ContractDetail({
                                     {draft.busy ? s.publishing : s.publish(draft.nextVersion)}
                                 </Button>
                             </div>
-                        </div>
+                        </Panel>
                     ) : (
                         <div className="overflow-hidden rounded-lg shadow-card">
                             <ContractDocument
@@ -276,9 +265,8 @@ function ContractDetail({
                         </div>
                     )}
                 </div>
-                <aside className="space-y-3 lg:sticky lg:top-6">
-                    <h3 className="px-1 text-sm font-semibold text-ink">{s.signatures}</h3>
-                    <div className="overflow-hidden rounded-lg border border-line bg-surface shadow-card">
+                <aside className="lg:sticky lg:top-0">
+                    <Panel flush title={s.signatures}>
                         {summary.requests.length === 0 ? <Empty message={s.noSignatures} /> : null}
                         <ul className="divide-y divide-line-soft">
                             {summary.requests.map((r) => {
@@ -366,7 +354,7 @@ function ContractDetail({
                                 <Notice tone="danger">{actions.error}</Notice>
                             </div>
                         ) : null}
-                    </div>
+                    </Panel>
                 </aside>
             </div>
             {viewing !== null ? (

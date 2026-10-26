@@ -24,7 +24,9 @@ import {
     ListPage,
     ListRow,
     Loading,
+    Modal,
     Notice,
+    Panel,
     Select,
     TextField,
     Toggle,
@@ -48,26 +50,19 @@ export function Forms() {
     };
     const none = library.load.hasData && library.forms.length === 0;
 
-    if (picked !== null)
-        return (
-            <div>
-                <Button
-                    variant="link"
-                    icon="chevronLeft"
-                    onPress={() => {
+    return (
+        <div className="space-y-6">
+            {picked !== null ? (
+                <Modal
+                    variant="drawer"
+                    size="xl"
+                    onClose={() => {
                         setPicked(null);
                     }}
                 >
-                    {s.library}
-                </Button>
-                <div className="mt-2">
                     <EditorSource key={picked} formId={picked} onCreated={setPicked} />
-                </div>
-            </div>
-        );
-
-    return (
-        <div className="space-y-6">
+                </Modal>
+            ) : null}
             <div className="flex items-center justify-between gap-4">
                 <p className="text-sm text-muted">{s.subtitle}</p>
                 {none ? null : (
@@ -194,14 +189,14 @@ function Editor({
                     }}
                 />
             ) : null}
-            <div className="mt-5 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_340px] xl:grid-cols-[minmax(0,1fr)_380px]">
+            <div className="mt-5 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
                 <div className="space-y-6">
                     {editor.error !== null ? (
                         <Notice tone="danger" banner>
                             {s.errors[editor.error]}
                         </Notice>
                     ) : null}
-                    <section className="space-y-4 rounded-lg border border-line bg-surface p-5 shadow-card">
+                    <Panel>
                         <div className="grid gap-4 md:grid-cols-2">
                             <TextField
                                 label={s.formName}
@@ -231,18 +226,28 @@ function Editor({
                             value={editor.requireSignature}
                             onChange={editor.setRequireSignature}
                         />
-                    </section>
-                    <section>
-                        <div className="mb-2 flex items-baseline justify-between px-1">
-                            <h3 className="text-sm font-semibold text-ink">{s.questions}</h3>
-                            <span className="text-xs text-muted">
-                                {s.fields(editor.fields.length)}
-                            </span>
-                        </div>
+                    </Panel>
+                    <Panel
+                        flush
+                        title={s.questions}
+                        subtitle={s.fields(editor.fields.length)}
+                        actions={
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                icon="plus"
+                                onPress={() => {
+                                    editor.addField("text");
+                                }}
+                            >
+                                {s.addQuestion}
+                            </Button>
+                        }
+                    >
                         {editor.fields.length === 0 ? (
-                            <Empty variant="card" message={s.emptyFields} />
+                            <Empty message={s.emptyFields} />
                         ) : (
-                            <ol className="divide-y divide-line-soft overflow-hidden rounded-lg border border-line bg-surface shadow-card">
+                            <ol className="divide-y divide-line-soft">
                                 {editor.fields.map((field, i) => {
                                     const open = field.key === editor.selectedKey;
                                     return (
@@ -292,22 +297,10 @@ function Editor({
                                 })}
                             </ol>
                         )}
-                        <div className="mt-3">
-                            <Button
-                                variant="quiet"
-                                icon="plus"
-                                onPress={() => {
-                                    editor.addField("text");
-                                }}
-                            >
-                                {s.addQuestion}
-                            </Button>
-                        </div>
-                    </section>
+                    </Panel>
                 </div>
-                <aside className="space-y-3 lg:sticky lg:top-6">
-                    <h3 className="px-1 text-sm font-semibold text-ink">{s.preview}</h3>
-                    <div className="rounded-lg border border-line bg-surface p-6 shadow-card">
+                <aside className="lg:sticky lg:top-0">
+                    <Panel title={s.preview}>
                         <h3 className="font-display text-lg font-bold text-ink">
                             {editor.name || s.untitledForm}
                         </h3>
@@ -329,7 +322,7 @@ function Editor({
                                 {f.sendAnswers}
                             </Button>
                         </div>
-                    </div>
+                    </Panel>
                 </aside>
             </div>
         </>
