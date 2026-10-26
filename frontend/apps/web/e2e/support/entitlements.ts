@@ -1,16 +1,13 @@
-import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { fileURLToPath } from "node:url";
-import { promisify } from "node:util";
 import { strings } from "@clientbridge/app-core/public";
 import { expect, type Page } from "@playwright/test";
 
 import { createClient, type ClientFixture } from "./crm";
+import { select } from "./db";
 import { requireLocalMail } from "./evidence";
 import { navigate } from "./session";
 import { runUrl } from "@clientbridge/config/e2e/run";
 
-const execute = promisify(execFile);
 const w = strings.entitlements;
 export interface EntitlementEvidence {
     gifts: {
@@ -44,18 +41,31 @@ export interface EntitlementEvidence {
     }[];
 }
 export async function entitlementEvidence(clientId: string): Promise<EntitlementEvidence> {
-    const { stdout } = await execute(
-        "uv",
-        ["run", "python", "-m", "scripts.e2e_entitlements_evidence", clientId],
-        {
-            cwd: fileURLToPath(new URL("../../../../../backend", import.meta.url)),
-            timeout: 30_000,
-        },
-    );
-    return JSON.parse(stdout) as EntitlementEvidence;
+    type Evidence = EntitlementEvidence;
+    return {
+        gifts: await select<Evidence["gifts"][number]>`
+            SELECT id, code, initial_cents, status, payment_id FROM gift_cards
+            WHERE purchaser_client_id = ${clientId} ORDER BY id`,
+        packages: await select<Evidence["packages"][number]>`
+            SELECT id, item_id, sessions_total, status, payment_id FROM packages
+            WHERE client_id = ${clientId} ORDER BY id`,
+        payments: await select<Evidence["payments"][number]>`
+            SELECT id, kind, method, provider, status, amount_cents FROM payments
+            WHERE id IN (
+                SELECT payment_id FROM gift_cards WHERE purchaser_client_id = ${clientId}
+                UNION SELECT payment_id FROM packages WHERE client_id = ${clientId})
+            ORDER BY id`,
+        entries: await select<Evidence["entries"][number]>`
+            SELECT e.journal_id, e.event, e.amount_cents, a.category, e.subject_id
+            FROM entries e JOIN accounts a ON a.id = e.account_id
+            WHERE e.subject_id IN (
+                SELECT id FROM gift_cards WHERE purchaser_client_id = ${clientId}
+                UNION SELECT id FROM packages WHERE client_id = ${clientId})
+            ORDER BY e.journal_id, e.leg`,
+    };
 }
 export async function entitlementFixture(page: Page, kind: "gift_card" | "package") {
-    await requireLocalMail();
+    requireLocalMail();
     const client = await createClient(page);
     let itemId: string | null = null;
     const itemName = `${client.name} — Three Gentle Grooming Visits`;

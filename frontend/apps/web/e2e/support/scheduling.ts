@@ -1,15 +1,12 @@
-import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { fileURLToPath } from "node:url";
-import { promisify } from "node:util";
 import { strings } from "@clientbridge/app-core/public";
 import { demoPerson } from "@clientbridge/config/e2e/demo";
 import { expect, type Page } from "@playwright/test";
 import { bookingApi } from "./bookings";
+import { select } from "./db";
 import { requireLocalMail } from "./evidence";
 import { demoSlug, runEmail } from "@clientbridge/config/e2e/run";
 
-const execute = promisify(execFile);
 export interface RaceContact {
     name: string;
     email: string;
@@ -47,25 +44,40 @@ export async function raceEvidence(
     fixture: RaceFixture,
     contacts: readonly RaceContact[],
 ): Promise<RaceEvidence> {
-    const { stdout } = await execute(
-        "uv",
-        [
-            "run",
-            "python",
-            "-m",
-            "scripts.e2e_scheduling",
-            fixture.itemId,
-            ...contacts.map((contact) => contact.email),
-        ],
-        {
-            cwd: fileURLToPath(new URL("../../../../../backend", import.meta.url)),
-            timeout: 30_000,
-        },
-    );
-    return JSON.parse(stdout) as RaceEvidence;
+    const item = fixture.itemId;
+    const first = contacts[0]?.email;
+    if (first === undefined) throw new Error("race evidence needs at least one contact");
+    const second = contacts[1]?.email ?? first;
+    return {
+        deliveries: await select<RaceEvidence["deliveries"][number]>`
+            SELECT id, state, payload->'message'->>'to' AS recipient FROM deliveries
+            WHERE payload->>'channel' = 'email'
+                AND payload->'message'->>'to' IN (${first}, ${second})
+            ORDER BY id`,
+        slots: await select<RaceEvidence["slots"][number]>`
+            SELECT id, item_id, staff_id, starts_at::text, capacity FROM slots
+            WHERE item_id = ${item} ORDER BY id`,
+        bookings: await select<RaceEvidence["bookings"][number]>`
+            SELECT b.id, b.slot_id, b.client_id, b.subject_id, b.status, b.source,
+                b.deposit_status, b.deposit_amount_cents
+            FROM bookings b JOIN slots s ON s.id = b.slot_id
+            WHERE s.item_id = ${item} ORDER BY b.id`,
+        clients: await select<RaceEvidence["clients"][number]>`
+            SELECT id, name, email FROM clients WHERE email IN (${first}, ${second}) ORDER BY id`,
+        subjects: await select<RaceEvidence["subjects"][number]>`
+            SELECT s.id, s.client_id, s.name FROM subjects s
+            JOIN clients c ON c.id = s.client_id
+            WHERE c.email IN (${first}, ${second}) ORDER BY s.id`,
+        payments: await select<RaceEvidence["payments"][number]>`
+            SELECT p.id FROM payments p
+            LEFT JOIN clients c ON c.id = p.client_id
+            LEFT JOIN bookings b ON b.id = p.booking_id
+            LEFT JOIN slots s ON s.id = b.slot_id
+            WHERE c.email IN (${first}, ${second}) OR s.item_id = ${item} ORDER BY p.id`,
+    };
 }
 export async function raceFixture(page: Page): Promise<RaceFixture> {
-    await requireLocalMail();
+    requireLocalMail();
     const api = bookingApi();
     const port = process.env.CONNECT_E2E_PORT;
     if (!port || !/^\d+$/.test(port))

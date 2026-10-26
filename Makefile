@@ -138,17 +138,17 @@ test-site:
 # The shared test tier every suite and e2e run uses: its own compose project on :8760-8769.
 .PHONY: test-tier test-tier-reset test-tier-logs
 test-tier:
-	cd backend && uv run python -m scripts.tier up
+	cd backend && uv run python -m e2e.tier up
 
 test-tier-reset:
-	cd backend && uv run python -m scripts.tier reset
+	cd backend && uv run python -m e2e.tier reset
 
 test-tier-logs:
 	docker compose -p clientbridge-test logs --no-color --timestamps
 
 .PHONY: test-functional
 test-functional:
-	cd backend && uv run python -m scripts.e2e_stack $(FUNCTIONAL_ARGS)
+	cd backend && uv run python -m e2e.runner $(FUNCTIONAL_ARGS)
 
 FLAKE_REPEAT ?= 3
 FLAKE_SEED ?= $(shell date +%s)
@@ -157,18 +157,18 @@ FLAKE_ARGS ?= --surface web
 # Measures flakes, never qualifies a lane: the report is in the run's flakes.json.
 .PHONY: test-flakes
 test-flakes:
-	cd backend && uv run python -m scripts.e2e_stack --repeat-each $(FLAKE_REPEAT) --shuffle-seed $(FLAKE_SEED) $(FLAKE_ARGS)
+	cd backend && uv run python -m e2e.runner --repeat-each $(FLAKE_REPEAT) --shuffle-seed $(FLAKE_SEED) $(FLAKE_ARGS)
 
 # Works on a committed revision in a temporary worktree, so the checkout is never changed.
 .PHONY: test-mutations
 test-mutations:
-	cd backend && uv run python -m scripts.e2e_mutations $(MUTATION_ARGS)
+	cd backend && uv run python -m e2e.mutations $(MUTATION_ARGS)
 
 test-web:
-	cd backend && uv run python -m scripts.e2e_stack --surface web $(ARGS)
+	cd backend && uv run python -m e2e.runner --surface web $(ARGS)
 
 test-connect:
-	cd backend && uv run python -m scripts.e2e_stack --surface connect $(ARGS)
+	cd backend && uv run python -m e2e.runner --surface connect $(ARGS)
 
 # Lighthouse budget (desktop >= 95 per category); needs the built site served on :8710 (make dev-site
 # serves source, so run `cd frontend && pnpm --filter site preview` first).
@@ -181,7 +181,7 @@ dev-mobile:
 # The e2e build comes first: make test-functional FUNCTIONAL_ARGS="--build-native ios".
 test-mobile:
 	@test -n "$(PLATFORM)" -a -n "$(DEVICE)" || { echo "usage: make test-mobile PLATFORM=ios|android DEVICE=<id>"; exit 1; }
-	cd backend && uv run python -m scripts.e2e_stack --surface native --platform $(PLATFORM) --device $(DEVICE) $(ARGS)
+	cd backend && uv run python -m e2e.runner --surface native --platform $(PLATFORM) --device $(DEVICE) $(ARGS)
 
 migrate:
 	cd backend && uv run python -m scripts.db_access roles
@@ -238,7 +238,7 @@ gen-strings:
 test: test-backend test-frontend test-infra
 
 test-backend:
-	cd backend && uv run python -m scripts.fresh_database \
+	cd backend && uv run python -m e2e.database \
 		pytest --cov=clientbridge --cov-branch --cov-fail-under=90 -q
 
 # App-core runs again in three time zones, since displays must follow the business zone, not the device's.
@@ -249,11 +249,11 @@ test-frontend:
 
 # Contract tier: real StripeGateway vs the OpenAPI mock; skips locally and fails in CI when it is down.
 test-contract:
-	cd backend && uv run python -m scripts.fresh_database pytest -m contract -q
+	cd backend && uv run python -m e2e.database pytest -m contract -q
 
 # Contract tier: the real KratosIdentityProvider vs the local auth service; skips locally, fails in CI when it is down.
 test-auth:
-	cd backend && uv run python -m scripts.fresh_database pytest -m kratos -q
+	cd backend && uv run python -m e2e.database pytest -m kratos -q
 
 # E2E tier: real Stripe test mode. Skips unless STRIPE_TEST_SECRET_KEY is exported.
 test-e2e:
@@ -337,7 +337,7 @@ demo-snapshot:
 
 .PHONY: test-sync replication-health
 test-sync:
-	cd backend && uv run python -m scripts.verify_sync
+	cd backend && uv run python -m e2e.sync verify
 
 # Readiness, an active replication slot, retained WAL (alert above 1 GiB) and lag (above 60 s).
 replication-health:
@@ -358,7 +358,7 @@ infra-mobile:
 
 .PHONY: test-stripe-browser
 test-stripe-browser:
-	cd backend && uv run python -m scripts.e2e_stripe_stack $(STRIPE_BROWSER_ARGS)
+	cd backend && uv run python -m e2e.stripe stack $(STRIPE_BROWSER_ARGS)
 
 # Read-only browser checks of a deployed environment (staging unless SMOKE_* say otherwise).
 test-staging-smoke:

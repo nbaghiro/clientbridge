@@ -1,14 +1,10 @@
-import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { fileURLToPath } from "node:url";
-import { promisify } from "node:util";
 import { addDays, combineDayAndTime } from "@clientbridge/app-core/public";
 import { expect, type Page } from "@playwright/test";
 
 import { bookingApi, createBookingFixture } from "./bookings";
+import { select } from "./db";
 import { navigate } from "./session";
-
-const execute = promisify(execFile);
 
 export interface StaffPayEntry {
     journal_id: string;
@@ -21,16 +17,14 @@ export interface StaffPayEntry {
     owner_id: string;
 }
 
-export async function staffPayEvidence(bookingId: string): Promise<StaffPayEntry[]> {
-    const { stdout } = await execute(
-        "uv",
-        ["run", "python", "-m", "scripts.e2e_staff_pay", bookingId],
-        {
-            cwd: fileURLToPath(new URL("../../../../../backend", import.meta.url)),
-            timeout: 30_000,
-        },
-    );
-    return JSON.parse(stdout) as StaffPayEntry[];
+export function staffPayEvidence(bookingId: string): Promise<StaffPayEntry[]> {
+    return select<StaffPayEntry>`
+        SELECT e.journal_id, e.event, e.ref, e.amount_cents, a.category, a.code, a.owner_type,
+            a.owner_id
+        FROM entries e JOIN accounts a ON a.id = e.account_id
+        WHERE e.subject_type = 'booking' AND e.subject_id = ${bookingId}
+            AND e.event IN ('earning', 'approval', 'staff_payment')
+        ORDER BY e.journal_id, e.leg`;
 }
 
 export async function createStaffPaySale(

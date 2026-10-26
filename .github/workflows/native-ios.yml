@@ -50,7 +50,7 @@ jobs:
             [ -f "$record" ] || continue
             run="$(basename "$(dirname "$record")")"
             if [ "$(jq -r .data_cleanup "../.scratchpad/$run/run.json")" != passed ]; then
-              uv run python -m scripts.e2e_stack --cleanup "$run"
+              uv run python -m e2e.runner --cleanup "$run"
             fi
           done
       - uses: actions/upload-artifact@v7

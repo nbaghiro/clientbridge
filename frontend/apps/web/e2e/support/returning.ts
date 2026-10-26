@@ -1,15 +1,12 @@
-import { execFile } from "node:child_process";
-import { fileURLToPath } from "node:url";
-import { promisify } from "node:util";
 import { strings } from "@clientbridge/app-core/public";
 import { expect, type Page } from "@playwright/test";
 import { mailedCode } from "../identity";
 import { bookingApi, createBookingFixture, type BookingFixture } from "./bookings";
 import { addPet, type ClientFixture } from "./crm";
+import { select } from "./db";
 import { pastExtras } from "./scheduling";
 import { demoSlug } from "@clientbridge/config/e2e/run";
 
-const execute = promisify(execFile);
 export interface ReturningFixture extends BookingFixture {
     client: ClientFixture;
     petId: string;
@@ -22,23 +19,68 @@ interface ReturningEvidence {
     challenges: { id: string; client_id: string; attempts: number; verified: boolean }[];
 }
 export async function returningEvidence(f: ReturningFixture): Promise<ReturningEvidence> {
-    const { stdout } = await execute(
-        "uv",
-        [
-            "run",
-            "python",
-            "-m",
-            "scripts.e2e_returning_evidence",
-            f.clientId,
-            f.clientEmail,
-            f.itemId,
-        ],
-        {
-            cwd: fileURLToPath(new URL("../../../../../backend", import.meta.url)),
-            timeout: 30_000,
-        },
-    );
-    return JSON.parse(stdout) as ReturningEvidence;
+    type Evidence = ReturningEvidence;
+    return {
+        clients: await select<Evidence["clients"][number]>`
+            SELECT id, name, email, phone, status, preferred_channel FROM clients
+            WHERE id = ${f.clientId} OR email = ${f.clientEmail} ORDER BY id`,
+        subjects: await select<Evidence["subjects"][number]>`
+            SELECT id, client_id, name, to_jsonb(deleted_at) AS deleted_at FROM subjects
+            WHERE client_id = ${f.clientId} ORDER BY id`,
+        bookings: await select<Evidence["bookings"][number]>`
+            SELECT b.id, b.client_id, b.subject_id, b.status, b.source, b.price_cents,
+                b.deposit_amount_cents, b.deposit_status
+            FROM bookings b JOIN slots s ON s.id = b.slot_id
+            WHERE s.item_id = ${f.itemId} ORDER BY b.id`,
+        slots: await select<Evidence["slots"][number]>`
+            SELECT id, item_id, staff_id, to_jsonb(starts_at) AS starts_at,
+                to_jsonb(ends_at) AS ends_at
+            FROM slots WHERE item_id = ${f.itemId} ORDER BY id`,
+        challenges: await select<Evidence["challenges"][number]>`
+            SELECT id, client_id, attempts, verified_at IS NOT NULL AS verified
+            FROM returning_challenges WHERE client_id = ${f.clientId} ORDER BY id`,
+    };
+}
+
+export interface ContactEvidence {
+    clients: {
+        id: string;
+        name: string;
+        email: string | null;
+        phone: string | null;
+        status: string;
+    }[];
+    subjects: { id: string; client_id: string; name: string; deleted_at: string | null }[];
+    bookings: { id: string; client_id: string; subject_id: string | null }[];
+    slots: { id: string; item_id: string }[];
+}
+
+/** Every client either address or the phone matches, and what a booking of `item` left behind. */
+export async function contactEvidence(
+    emails: readonly [string, string],
+    phone: string,
+    item: string,
+): Promise<ContactEvidence> {
+    const [first, second] = emails;
+    return {
+        clients: await select<ContactEvidence["clients"][number]>`
+            SELECT id, name, email, phone, status FROM clients
+            WHERE id IN (
+                SELECT id FROM clients
+                WHERE email IN (${first}, ${second}) OR phone = ${phone})
+            ORDER BY id`,
+        subjects: await select<ContactEvidence["subjects"][number]>`
+            SELECT id, client_id, name, to_jsonb(deleted_at) AS deleted_at FROM subjects
+            WHERE client_id IN (
+                SELECT id FROM clients
+                WHERE email IN (${first}, ${second}) OR phone = ${phone})
+            ORDER BY id`,
+        bookings: await select<ContactEvidence["bookings"][number]>`
+            SELECT b.id, b.client_id, b.subject_id FROM bookings b
+            JOIN slots s ON b.slot_id = s.id WHERE s.item_id = ${item} ORDER BY b.id`,
+        slots: await select<ContactEvidence["slots"][number]>`
+            SELECT id, item_id FROM slots WHERE item_id = ${item} ORDER BY id`,
+    };
 }
 export async function returningFixture(page: Page): Promise<ReturningFixture> {
     const f = await createBookingFixture(page);

@@ -1,11 +1,7 @@
-import { execFile } from "node:child_process";
-import { fileURLToPath } from "node:url";
-import { promisify } from "node:util";
 import { strings } from "@clientbridge/app-core/public";
 import { type APIRequestContext, type Page, expect } from "@playwright/test";
 import { mailedCode } from "../identity";
-
-const execute = promisify(execFile);
+import { select } from "./db";
 
 export interface BusinessEvidence {
     business: {
@@ -38,15 +34,21 @@ export interface BusinessEvidence {
 }
 
 export async function businessEvidence(businessId: string): Promise<BusinessEvidence> {
-    const { stdout } = await execute(
-        "uv",
-        ["run", "python", "-m", "scripts.e2e_business_evidence", businessId],
-        {
-            cwd: fileURLToPath(new URL("../../../../../backend", import.meta.url)),
-            timeout: 30_000,
-        },
-    );
-    return JSON.parse(stdout) as BusinessEvidence;
+    return {
+        business: await select<BusinessEvidence["business"][number]>`
+            SELECT id, name, slug, province, timezone, subject, status, plan, plan_status,
+                tax_registered,
+                round(extract(epoch FROM trial_ends_at - created_at))::int AS trial_seconds
+            FROM businesses WHERE id = ${businessId}`,
+        staff: await select<BusinessEvidence["staff"][number]>`
+            SELECT s.id, s.role, s.status, s.payee, u.email, u.identity_id IS NOT NULL AS linked
+            FROM staff s JOIN users u ON u.id = s.user_id
+            WHERE s.business_id = ${businessId} ORDER BY s.created_at, s.id`,
+        audits: await select<BusinessEvidence["audits"][number]>`
+            SELECT action, entity_type, entity_id, changes FROM audits
+            WHERE business_id = ${businessId} AND action LIKE 'business.%'
+            ORDER BY created_at, id`,
+    };
 }
 
 const a = strings.auth;

@@ -1,16 +1,12 @@
-import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { fileURLToPath } from "node:url";
-import { promisify } from "node:util";
 import { formatMoney, strings } from "@clientbridge/app-core/public";
 import { demoPerson } from "@clientbridge/config/e2e/demo";
 import { expect, type Locator, type Page } from "@playwright/test";
 
+import { select } from "./db";
 import { requireLocalMail } from "./evidence";
 import { navigate } from "./session";
 import { runEmail, runUrl } from "@clientbridge/config/e2e/run";
-
-const execute = promisify(execFile);
 
 export interface DocumentClient {
     id: string;
@@ -52,23 +48,55 @@ export interface DocumentEvidence {
     bookings: { id: string; status: string; deposit_status: string; invoice_id: string | null }[];
 }
 
+function invoiceEvidence(id: string) {
+    return Promise.all([
+        select<{ data: DocumentRecord }>`
+            SELECT to_jsonb(d) - 'pay_token' - 'view_token' AS data FROM invoices d
+            WHERE id = ${id}`,
+        select<{ data: DocumentLine }>`
+            SELECT to_jsonb(l) AS data FROM lines l WHERE invoice_id = ${id} ORDER BY position`,
+        select<DocumentEvidence["siblings"][number]>`
+            SELECT id, status FROM invoices
+            WHERE client_id = (SELECT client_id FROM invoices WHERE id = ${id}) ORDER BY id`,
+        select<DocumentEvidence["bookings"][number]>`
+            SELECT id, status, deposit_status, invoice_id FROM bookings
+            WHERE id IN (SELECT booking_id FROM lines WHERE invoice_id = ${id})
+                OR invoice_id = ${id}
+            ORDER BY id`,
+    ]);
+}
+
+function estimateEvidence(id: string) {
+    return Promise.all([
+        select<{ data: DocumentRecord }>`
+            SELECT to_jsonb(d) - 'pay_token' - 'view_token' AS data FROM estimates d
+            WHERE id = ${id}`,
+        select<{ data: DocumentLine }>`
+            SELECT to_jsonb(l) AS data FROM lines l WHERE estimate_id = ${id} ORDER BY position`,
+        select<DocumentEvidence["siblings"][number]>`
+            SELECT id, status FROM estimates
+            WHERE client_id = (SELECT client_id FROM estimates WHERE id = ${id}) ORDER BY id`,
+        select<DocumentEvidence["bookings"][number]>`
+            SELECT id, status, deposit_status, invoice_id FROM bookings
+            WHERE id IN (SELECT booking_id FROM lines WHERE estimate_id = ${id}) ORDER BY id`,
+    ]);
+}
+
 export async function documentEvidence(
     kind: "invoice" | "estimate",
     id: string,
 ): Promise<DocumentEvidence> {
-    const { stdout } = await execute(
-        "uv",
-        ["run", "python", "-m", "scripts.e2e_evidence", "--document", kind, id],
-        {
-            cwd: fileURLToPath(new URL("../../../../../backend", import.meta.url)),
-            timeout: 30_000,
-        },
-    );
-    return JSON.parse(stdout) as DocumentEvidence;
+    const [documents, lines, siblings, bookings] = await (kind === "invoice"
+        ? invoiceEvidence(id)
+        : estimateEvidence(id));
+    const [document] = documents;
+    if (documents.length !== 1 || document === undefined)
+        throw new Error(`expected exactly one ${kind} ${id}`);
+    return { document: document.data, lines: lines.map((row) => row.data), siblings, bookings };
 }
 
 export async function createDocumentClient(page: Page): Promise<DocumentClient> {
-    await requireLocalMail();
+    requireLocalMail();
     const api = runUrl("VITE_API_URL");
     if (!["localhost", "127.0.0.1"].includes(new URL(api).hostname)) {
         throw new Error("Document fixtures require a local API and SMTP sink");

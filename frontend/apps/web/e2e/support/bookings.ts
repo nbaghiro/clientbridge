@@ -44,7 +44,7 @@ export async function createBookingFixture(
     page: Page,
     overrides: Record<string, unknown> = {},
 ): Promise<BookingFixture> {
-    await requireLocalMail();
+    requireLocalMail();
     const api = bookingApi();
     const run = randomUUID();
     const clientName = demoPerson(run);

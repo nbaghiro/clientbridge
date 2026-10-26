@@ -8,7 +8,7 @@ async function command(body: string): Promise<string> {
     const python = process.env.SYNC_TEST_PYTHON;
     const cwd = process.env.SYNC_TEST_BACKEND;
     if (!python || !cwd) throw new Error("SYNC_TEST_PYTHON is not set: run make test-sync");
-    return (await promisify(execFile)(python, ["-m", "scripts.sync_hours", body], { cwd })).stdout;
+    return (await promisify(execFile)(python, ["-m", "e2e.sync", "hours", body], { cwd })).stdout;
 }
 
 test("lost command response replays once and the accepted week returns through PowerSync", async ({

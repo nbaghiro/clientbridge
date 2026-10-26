@@ -1,16 +1,12 @@
-import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { demoPerson } from "@clientbridge/config/e2e/demo";
-import { fileURLToPath } from "node:url";
-import { promisify } from "node:util";
 import { formatClock, strings } from "@clientbridge/app-core/public";
 import { expect, type APIRequestContext, type Locator, type Page } from "@playwright/test";
 
 import { mailedCode, newAccount, ownerInvite } from "../identity";
+import { select } from "./db";
 import { requireLocalMail } from "./evidence";
 import { navigate } from "./session";
-
-const execute = promisify(execFile);
 
 interface HoursDay {
     weekday: number;
@@ -44,15 +40,23 @@ export interface HoursEvidence {
 }
 
 export async function hoursEvidence(staffId: string): Promise<HoursEvidence> {
-    const { stdout } = await execute(
-        "uv",
-        ["run", "python", "-m", "scripts.e2e_hours_evidence", staffId],
-        {
-            cwd: fileURLToPath(new URL("../../../../../backend", import.meta.url)),
-            timeout: 30_000,
-        },
-    );
-    return JSON.parse(stdout) as HoursEvidence;
+    const [staff, ...extra] = await select<HoursEvidence["staff"]>`
+        SELECT id, user_id, business_id, hours_revision FROM staff WHERE id = ${staffId}`;
+    if (staff === undefined || extra.length > 0) throw new Error(`expected one staff ${staffId}`);
+    return {
+        staff,
+        hours: await select<HoursDay>`
+            SELECT weekday, available, start_time::text, end_time::text FROM hours
+            WHERE staff_id = ${staffId} AND basis = 'recurring' ORDER BY weekday`,
+        receipts: await select<HoursEvidence["receipts"][number]>`
+            SELECT r.device_id, r.operation_id, r.version, r.result FROM sync_receipts r
+            JOIN staff s ON s.user_id = r.user_id AND s.business_id = r.business_id
+            WHERE s.id = ${staffId} ORDER BY r.id`,
+        audits: await select<HoursEvidence["audits"][number]>`
+            SELECT action, performed_by, changes FROM audits
+            WHERE entity_type = 'staff' AND entity_id = ${staffId} AND action = 'hours.week'
+            ORDER BY id`,
+    };
 }
 
 /** Signs up through an invite link and joins; returns the new member's staff id. */
@@ -98,7 +102,7 @@ export async function joinHoursStaff(
     account: ReturnType<typeof newAccount>;
     cleanup: () => Promise<void>;
 }> {
-    await requireLocalMail();
+    requireLocalMail();
     const account = { ...newAccount("offline-hours"), name: demoPerson(randomUUID()) };
     const invitation = await ownerInvite(request, account.email);
     try {

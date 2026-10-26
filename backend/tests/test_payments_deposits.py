@@ -6,10 +6,9 @@ from uuid import uuid4
 
 import pytest
 import stripe
+from e2e import stripe as deposits
+from e2e.stripe import Manifest, cleanup_intent
 from pydantic import ValidationError
-from scripts import e2e_stripe_deposits as deposits
-from scripts.e2e_stripe_recover import Manifest
-from scripts.e2e_stripe_setup import cleanup_intent
 
 
 def state() -> dict[str, object]:
@@ -173,7 +172,7 @@ def test_deposit_cleanup_and_recovery_refuse_unrelated_intent(changed: dict[str,
 
 
 def test_deposit_resend_requires_exact_booking_lineage() -> None:
-    from scripts.e2e_stripe_delivery import delivery_tags
+    from e2e.stripe import delivery_tags
 
     manifest = state()
     intent: dict[str, object] = {
@@ -202,7 +201,7 @@ def test_deposit_resend_requires_exact_booking_lineage() -> None:
 async def test_deposit_recovery_cancels_only_exact_owned_intent(
     monkeypatch: pytest.MonkeyPatch, case: str
 ) -> None:
-    from scripts.e2e_stripe_recover import recover
+    from e2e.stripe import recover
 
     wrong_booking = case == "wrong_booking"
     raw = state()
@@ -326,7 +325,7 @@ def test_an_enrolment_fixture_may_wait_for_its_booking_but_a_visit_may_not() -> 
 
 
 def test_a_bound_enrolment_resends_only_under_its_enrolment_tags() -> None:
-    from scripts.e2e_stripe_delivery import delivery_tags
+    from e2e.stripe import delivery_tags
 
     manifest = state()
     rows = manifest["deposit_fixtures"]

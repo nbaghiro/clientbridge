@@ -99,7 +99,7 @@ export interface PlanEvidence {
 async function observe<T>(...args: string[]): Promise<T> {
     const { stdout } = await execute(
         "uv",
-        ["run", "python", "-m", "scripts.e2e_outreach_evidence", ...args],
+        ["run", "python", "-m", "e2e.actions", "outreach", ...args],
         {
             cwd: fileURLToPath(new URL("../../../../../backend", import.meta.url)),
             timeout: 30_000,

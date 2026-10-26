@@ -20,10 +20,14 @@ export interface PhotoEvidence {
 }
 
 export async function photoEvidence(clientId: string): Promise<PhotoEvidence[]> {
-    const { stdout } = await execute("uv", ["run", "python", "-m", "scripts.e2e_files", clientId], {
-        cwd: fileURLToPath(new URL("../../../../../backend", import.meta.url)),
-        timeout: 30_000,
-    });
+    const { stdout } = await execute(
+        "uv",
+        ["run", "python", "-m", "e2e.actions", "files", clientId],
+        {
+            cwd: fileURLToPath(new URL("../../../../../backend", import.meta.url)),
+            timeout: 30_000,
+        },
+    );
     return JSON.parse(stdout) as PhotoEvidence[];
 }
 

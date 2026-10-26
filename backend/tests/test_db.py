@@ -9,9 +9,9 @@ import uuid
 from collections.abc import AsyncIterator
 
 import pytest
+from e2e.database import admin, on
 from pydantic import BaseModel
 from scripts.db_access import ADMIN_URL, quote
-from scripts.fresh_database import admin, on
 from scripts.migrate import ALLOW_AHEAD, known_revisions
 from sqlalchemy import delete, insert, select, text
 from sqlalchemy.exc import DBAPIError, IntegrityError

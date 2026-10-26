@@ -1,6 +1,5 @@
 import argparse
 import fcntl
-import importlib.util
 import io
 import json
 import logging
@@ -18,7 +17,6 @@ from contextlib import ExitStack, contextmanager, suppress
 from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from types import ModuleType
 from typing import IO, cast
 from uuid import UUID
 
@@ -27,15 +25,12 @@ import pytest
 import stripe
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
-from fastapi.responses import JSONResponse
-from fastapi.testclient import TestClient
-from pydantic import ValidationError
-from scripts import e2e_stack as functional
-from scripts import e2e_stripe_recover as recovery
-from scripts import e2e_stripe_stack as runner
-from scripts import tier
-from scripts.e2e_namespace import Renamer
-from scripts.e2e_results import (
+from e2e import relay as tier_relay
+from e2e import runner as functional
+from e2e import stripe as stripe_lane
+from e2e import tier
+from e2e.namespace import Renamer
+from e2e.results import (
     BROWSER_CASES,
     REQUIRED_CASES,
     Attempt,
@@ -45,9 +40,12 @@ from scripts.e2e_results import (
     browser_cases,
     validate_native_evidence,
 )
-from scripts.e2e_results import Test as FunctionalTest
-from scripts.e2e_stack import environment, stop
-from scripts.e2e_stripe_recover import Fixture, Manifest, recover
+from e2e.results import Test as FunctionalTest
+from e2e.runner import environment, stop
+from e2e.stripe import Fixture, Manifest, recover
+from fastapi.responses import JSONResponse
+from fastapi.testclient import TestClient
+from pydantic import ValidationError
 from sqlalchemy import (
     ARRAY,
     CheckConstraint,
@@ -843,11 +841,13 @@ def test_provider_runner_retains_cleanup_failures_without_external_services(
     def listener(_runtime: _Runtime, _processes: ExitStack) -> str:
         return "whsec_harness_fixture"
 
-    monkeypatch.setattr(runner, "Stack", stack)
-    monkeypatch.setattr(runner, "Relay", relay)
-    monkeypatch.setattr(runner, "credentials", credentials)
-    monkeypatch.setattr(runner, "listener", listener)
-    monkeypatch.setattr(runner, "source_snapshot", lambda: {"source_sha256": "harness-fixture"})
+    monkeypatch.setattr(stripe_lane, "Stack", stack)
+    monkeypatch.setattr(stripe_lane, "Relay", relay)
+    monkeypatch.setattr(stripe_lane, "stack_credentials", credentials)
+    monkeypatch.setattr(stripe_lane, "listener", listener)
+    monkeypatch.setattr(
+        stripe_lane, "source_snapshot", lambda: {"source_sha256": "harness-fixture"}
+    )
     args = argparse.Namespace(
         configure_only=False,
         credentials="environment",
@@ -858,11 +858,11 @@ def test_provider_runner_retains_cleanup_failures_without_external_services(
         publishable_file=tmp_path / "unused",
     )
     if fault == "none":
-        runner.run(args, tmp_path, tier.Lease(0, "0001"))
+        stripe_lane.run_lane(args, tmp_path, tier.Lease(0, "0001"))
     else:
         error = PermissionError if fault in ("command", "callback") else RuntimeError
         with pytest.raises(error, match="injected"):
-            runner.run(args, tmp_path, tier.Lease(0, "0001"))
+            stripe_lane.run_lane(args, tmp_path, tier.Lease(0, "0001"))
     record = json.loads((tmp_path / "run.json").read_text())
     assert record["provider_cleanup"] == provider
     assert record["process_cleanup"] == process
@@ -1144,16 +1144,16 @@ async def test_recovery_cli_preserves_failed_evidence_and_redacts_credentials(
     def credentials(_mode: str, _profile: str, _merchants: Path) -> dict[str, str]:
         return ENV
 
-    monkeypatch.setattr(recovery, "ROOT", tmp_path)
-    monkeypatch.setattr(recovery, "credentials", credentials)
-    monkeypatch.setattr(sys, "argv", ["recover", "--state", str(state), "--apply"])
-    assert await recovery.main() == (1 if incomplete else 0)
+    monkeypatch.setattr(stripe_lane, "ROOT", tmp_path)
+    monkeypatch.setattr(stripe_lane, "recovery_credentials", credentials)
+    argv = ["--state", str(state), "--apply"]
+    assert await stripe_lane.recover_main(argv) == (1 if incomplete else 0)
     history = json.loads((directory / "provider-recovery.json").read_text())
     assert history[0]["status"] == ("failed" if incomplete else "verified_clean")
     assert history[0]["original_outcome"] == "failed"
     assert boundary.operations == ([] if incomplete else ["cancel"])
     if not incomplete:
-        assert await recovery.main() == 0
+        assert await stripe_lane.recover_main(argv) == 0
         assert boundary.operations == ["cancel"]
         assert len(json.loads((directory / "provider-recovery.json").read_text())) == 2
     assert (state.read_bytes(), original.read_bytes()) == before
@@ -1200,7 +1200,7 @@ def test_functional_first_seed_forwards_only_explicit_anchor(
 
     monkeypatch.setattr(stack, "command", command)
     stack.seed(io.BytesIO())
-    module = [sys.executable, "-m", "scripts.e2e_namespace", "seed", "0420"]
+    module = [sys.executable, "-m", "e2e.namespace", "seed", "0420"]
     expected = [*module, "--output", str(tmp_path / "demo.json")]
     if at is not None:
         expected.extend(["--as-of", at.isoformat()])
@@ -1478,6 +1478,12 @@ def _tier_at(monkeypatch: pytest.MonkeyPatch, path: Path) -> None:
     (path / "slots").mkdir(parents=True)
     (path / "runs").mkdir()
     monkeypatch.setattr(tier, "TIER", path)
+    # these locks live in a temp folder, so the real slot ports may belong to a live run
+    monkeypatch.setattr(tier, "clear_ports", _leave_ports)
+
+
+def _leave_ports(slot: int) -> None:
+    pass
 
 
 def _draws(monkeypatch: pytest.MonkeyPatch, *values: int) -> None:
@@ -1628,14 +1634,27 @@ def test_a_relay_only_change_is_swapped_in_without_a_rebuild(
             assert made == calls
 
 
-def _load_relay() -> ModuleType:
-    spec = importlib.util.spec_from_file_location(
-        "tier_relay", functional.ROOT / "infra" / "test" / "relay.py"
-    )
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+def test_tier_up_swaps_a_relay_only_change_without_a_rebuild(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _tier_at(monkeypatch, tmp_path)
+    made: list[str] = []
+    built = {"migrations": "head", "relay": "old"}
+
+    def refresh() -> None:
+        made.append("refresh")
+        built["relay"] = "new"
+
+    monkeypatch.setattr(tier, "fingerprint", lambda: {"migrations": "head", "relay": "new"})
+    monkeypatch.setattr(tier, "recorded", lambda: dict(built))
+    monkeypatch.setattr(tier, "running", lambda: {"relay"})
+    monkeypatch.setattr(tier, "healthy", lambda: True)
+    monkeypatch.setattr(tier, "refresh_relay", refresh)
+    monkeypatch.setattr(tier, "start", lambda: made.append("start"))
+    monkeypatch.setattr(tier, "destroy", lambda: made.append("destroy"))
+    monkeypatch.setattr(sys, "argv", ["tier", "up"])
+    tier.main()
+    assert made == ["refresh"]
 
 
 @contextmanager
@@ -1654,8 +1673,7 @@ def _serving(handler: type[BaseHTTPRequestHandler]) -> Iterator[str]:
 def test_the_relay_hands_auth_mail_and_key_fetches_to_the_runs_that_own_them(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    relay = _load_relay()
-    monkeypatch.setattr(relay, "RUNS", tmp_path)
+    monkeypatch.setattr(tier_relay, "RUNS", tmp_path)
     received: list[tuple[str, str | None, str | None, str | None, bytes]] = []
     status = [201]
 
@@ -1679,7 +1697,7 @@ def test_the_relay_hands_auth_mail_and_key_fetches_to_the_runs_that_own_them(
         def log_message(self, format: str, *args: object) -> None:
             pass
 
-    handler = cast(type[BaseHTTPRequestHandler], relay.Relay)
+    handler = cast(type[BaseHTTPRequestHandler], tier_relay.Relay)
     with _serving(Api) as api, _serving(handler) as url:
         (tmp_path / "0420.json").write_text(json.dumps({"api": api, "keys": True}))
         (tmp_path / "0421.json").write_text(json.dumps({"api": api, "keys": False}))

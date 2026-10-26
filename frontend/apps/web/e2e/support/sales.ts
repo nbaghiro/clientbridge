@@ -1,17 +1,14 @@
-import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { fileURLToPath } from "node:url";
-import { promisify } from "node:util";
 import { saleNumber, strings } from "@clientbridge/app-core/public";
 import { expect, type Locator, type Page } from "@playwright/test";
 
 import { bookingApi } from "./bookings";
 import { createClient, type ClientFixture } from "./crm";
+import { select } from "./db";
 import { requireLocalMail } from "./evidence";
 import { navigate } from "./session";
 import { runUrl } from "@clientbridge/config/e2e/run";
 
-const execute = promisify(execFile);
 const d = strings.pos.desk;
 
 export interface SaleFixture {
@@ -73,19 +70,90 @@ export interface SaleEvidence {
 }
 
 export async function saleEvidence(itemId: string): Promise<SaleEvidence> {
-    const { stdout } = await execute(
-        "uv",
-        ["run", "python", "-m", "scripts.e2e_sales_evidence", itemId],
-        {
-            cwd: fileURLToPath(new URL("../../../../../backend", import.meta.url)),
-            timeout: 30_000,
-        },
-    );
-    return JSON.parse(stdout) as SaleEvidence;
+    const [item, ...extra] = await select<SaleEvidence["item"]>`
+        SELECT id, stock_on_hand, track_stock FROM items WHERE id = ${itemId}`;
+    if (item === undefined || extra.length > 0) throw new Error(`expected one item ${itemId}`);
+    return {
+        item,
+        orders: await select<SaleEvidence["orders"][number]>`
+            SELECT id, client_id, number, status, source, subtotal_cents, tax_total_cents,
+                total_cents, paid_at IS NOT NULL AS paid
+            FROM orders
+            WHERE id IN (
+                SELECT order_id FROM lines WHERE item_id = ${itemId} AND order_id IS NOT NULL)
+            ORDER BY id`,
+        lines: await select<SaleEvidence["lines"][number]>`
+            SELECT id, order_id, item_id, quantity::float8, unit_amount_cents, amount_cents,
+                tax_class
+            FROM lines WHERE item_id = ${itemId} ORDER BY id`,
+        payments: await select<SaleEvidence["payments"][number]>`
+            SELECT id, order_id, kind, method, provider, status, amount_cents, tendered_cents,
+                tip_cents
+            FROM payments
+            WHERE order_id IN (
+                SELECT order_id FROM lines WHERE item_id = ${itemId} AND order_id IS NOT NULL)
+            ORDER BY id`,
+        refunds: await select<SaleEvidence["refunds"][number]>`
+            SELECT id, parent_payment_id, status, method, provider, amount_cents, credit_note
+            FROM payments
+            WHERE kind = 'refund' AND parent_payment_id IN (
+                SELECT id FROM payments WHERE order_id IN (
+                    SELECT order_id FROM lines
+                    WHERE item_id = ${itemId} AND order_id IS NOT NULL))
+            ORDER BY created_at, id`,
+        entries: await select<SaleEvidence["entries"][number]>`
+            SELECT e.journal_id, e.event, e.amount_cents, a.category, a.code, e.source_id
+            FROM entries e JOIN accounts a ON a.id = e.account_id
+            WHERE e.subject_type = 'order' AND e.subject_id IN (
+                SELECT order_id FROM lines WHERE item_id = ${itemId} AND order_id IS NOT NULL)
+            ORDER BY e.journal_id, e.leg`,
+        movements: await select<SaleEvidence["movements"][number]>`
+            SELECT id, line_id, reason, quantity FROM inventory
+            WHERE item_id = ${itemId} ORDER BY id`,
+    };
+}
+
+export interface PickupEvidence {
+    order: {
+        id: string;
+        number: number;
+        status: string;
+        source: string;
+        pickup_status: string | null;
+        status_token: string;
+        preparing: boolean;
+        ready: boolean;
+        picked_up: boolean;
+        client_name: string;
+    }[];
+    payments: { id: string; kind: string; status: string; amount_cents: number }[];
+    movements: { id: string; reason: string; quantity: number }[];
+    audits: string[];
+}
+
+export async function pickupEvidence(orderId: string): Promise<PickupEvidence> {
+    const audits = await select<{ action: string }>`
+        SELECT action FROM audits WHERE entity_type = 'order' AND entity_id = ${orderId}
+        ORDER BY created_at, id`;
+    return {
+        order: await select<PickupEvidence["order"][number]>`
+            SELECT o.id, o.business_id, o.number, o.status, o.source, o.pickup_status,
+                o.status_token, o.preparing_at IS NOT NULL AS preparing,
+                o.ready_at IS NOT NULL AS ready, o.picked_up_at IS NOT NULL AS picked_up,
+                c.name AS client_name
+            FROM orders o JOIN clients c ON c.id = o.client_id WHERE o.id = ${orderId}`,
+        payments: await select<PickupEvidence["payments"][number]>`
+            SELECT id, kind, status, amount_cents FROM payments
+            WHERE order_id = ${orderId} ORDER BY id`,
+        movements: await select<PickupEvidence["movements"][number]>`
+            SELECT i.id, i.reason, i.quantity FROM inventory i
+            JOIN lines l ON l.id = i.line_id WHERE l.order_id = ${orderId} ORDER BY i.id`,
+        audits: audits.map((row) => row.action),
+    };
 }
 
 export async function createSaleFixture(page: Page): Promise<SaleFixture> {
-    await requireLocalMail();
+    requireLocalMail();
     const client = await createClient(page);
     const api = runUrl("VITE_API_URL");
     const sku = `BB-PB-${randomUUID().slice(0, 8).toUpperCase()}`;

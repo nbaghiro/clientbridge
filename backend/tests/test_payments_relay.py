@@ -12,8 +12,7 @@ from urllib.request import Request, urlopen
 
 import pytest
 import stripe
-from scripts.e2e_stripe_relay import Relay, Target
-from scripts.e2e_stripe_setup import validate_cleanup_fixtures
+from e2e.stripe import Relay, Target, validate_cleanup_fixtures
 
 from clientbridge.core import clock
 

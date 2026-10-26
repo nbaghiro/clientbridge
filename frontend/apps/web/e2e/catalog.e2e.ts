@@ -16,7 +16,7 @@ test("CFG-E2E-01 product validation and opening stock persist across replicas", 
     browser,
 }) => {
     await signIn(page);
-    const fixture = await catalogFixture(page);
+    const fixture = catalogFixture(page);
     const { name } = fixture;
     const editor = await newProduct(page);
     const submit = editor.getByRole("button", { name: s.add, exact: true });
@@ -58,7 +58,7 @@ test("CFG-E2E-02 retry after opening-stock transport failure cannot duplicate a 
     browser,
 }, testInfo) => {
     await signIn(page);
-    const fixture = await catalogFixture(page);
+    const fixture = catalogFixture(page);
     const { name } = fixture;
     const editor = await newProduct(page);
     await fillProduct(editor, name);
@@ -104,7 +104,7 @@ test("CFG-E2E-03 lost committed opening-stock response preserves edited quantity
     browser,
 }, testInfo) => {
     await signIn(page);
-    const fixture = await catalogFixture(page);
+    const fixture = catalogFixture(page);
     const { name } = fixture;
     const editor = await newProduct(page);
     await fillProduct(editor, name);
@@ -177,7 +177,7 @@ test("CFG-E2E-04 lost initial create response replays original command before sa
     browser,
 }, testInfo) => {
     await signIn(page);
-    const fixture = await catalogFixture(page);
+    const fixture = catalogFixture(page);
     const { name } = fixture;
     const editor = await newProduct(page);
     await fillProduct(editor, name);

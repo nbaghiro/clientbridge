@@ -1,17 +1,14 @@
-import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { demoPerson } from "@clientbridge/config/e2e/demo";
-import { fileURLToPath } from "node:url";
-import { promisify } from "node:util";
 import { addDays, combineDayAndTime, strings } from "@clientbridge/app-core/public";
 import { expect, type Page } from "@playwright/test";
 import { bookingApi, cancelOwnedBooking, type BookingFixture } from "./bookings";
 import { createClient, type ClientFixture } from "./crm";
+import { select } from "./db";
 import { requireLocalMail } from "./evidence";
 import { navigate } from "./session";
 import { runEmail, runUrl } from "@clientbridge/config/e2e/run";
 
-const execute = promisify(execFile);
 export interface ClassEvidence {
     slots: { id: string; item_id: string; staff_id: string; capacity: number; status: string }[];
     bookings: {
@@ -31,14 +28,19 @@ export interface ClassFixture extends BookingFixture {
     bookingId: string;
 }
 export async function classEvidence(itemId: string): Promise<ClassEvidence> {
-    const { stdout } = await execute("uv", ["run", "python", "-m", "scripts.e2e_classes", itemId], {
-        cwd: fileURLToPath(new URL("../../../../../backend", import.meta.url)),
-        timeout: 30_000,
-    });
-    return JSON.parse(stdout) as ClassEvidence;
+    return {
+        slots: await select<ClassEvidence["slots"][number]>`
+            SELECT id, item_id, staff_id, capacity, status FROM slots
+            WHERE item_id = ${itemId} ORDER BY id`,
+        bookings: await select<ClassEvidence["bookings"][number]>`
+            SELECT b.id, b.slot_id, b.client_id, b.status, b.deposit_status,
+                b.deposit_amount_cents
+            FROM bookings b JOIN slots s ON s.id = b.slot_id
+            WHERE s.item_id = ${itemId} AND b.deleted_at IS NULL ORDER BY b.id`,
+    };
 }
 export async function classFixture(page: Page): Promise<ClassFixture> {
-    await requireLocalMail();
+    requireLocalMail();
     const api = bookingApi();
     const run = randomUUID();
     const names = new Set<string>();
@@ -192,23 +194,12 @@ export async function classManageUrl(fixture: ClassFixture): Promise<string> {
     const port = process.env.CONNECT_E2E_PORT;
     if (!port || !/^\d+$/.test(port))
         throw new Error("Class journey needs the local Connect server");
-    const { stdout } = await execute(
-        "uv",
-        [
-            "run",
-            "python",
-            "-m",
-            "scripts.e2e_classes",
-            fixture.itemId,
-            "--manage-booking",
-            fixture.bookingId,
-        ],
-        {
-            cwd: fileURLToPath(new URL("../../../../../backend", import.meta.url)),
-            timeout: 30_000,
-        },
-    );
-    const { manage_token: token } = JSON.parse(stdout) as { manage_token: string };
+    const [row] = await select<{ manage_token: string | null }>`
+        SELECT b.manage_token FROM bookings b JOIN slots s ON s.id = b.slot_id
+        WHERE s.item_id = ${fixture.itemId} AND b.id = ${fixture.bookingId}
+            AND b.deleted_at IS NULL`;
+    const token = row?.manage_token;
+    if (!token) throw new Error("owned enrollment has no manage token");
     return `http://book.localhost:${port}/m/${encodeURIComponent(token)}`;
 }
 
@@ -222,24 +213,14 @@ interface SeatDelivery {
     created_at: string;
 }
 
-async function seatDeliveries(fixture: ClassFixture, bookingId: string): Promise<SeatDelivery[]> {
-    const { stdout } = await execute(
-        "uv",
-        [
-            "run",
-            "python",
-            "-m",
-            "scripts.e2e_classes",
-            fixture.itemId,
-            "--seat-deliveries",
-            bookingId,
-        ],
-        {
-            cwd: fileURLToPath(new URL("../../../../../backend", import.meta.url)),
-            timeout: 30_000,
-        },
-    );
-    return (JSON.parse(stdout) as { deliveries: SeatDelivery[] }).deliveries;
+function seatDeliveries(fixture: ClassFixture, bookingId: string): Promise<SeatDelivery[]> {
+    return select<SeatDelivery>`
+        SELECT d.id, d.state, d.error, d.payload->>'channel' AS channel,
+            d.payload->'message'->>'to' AS recipient,
+            d.payload->'message'->>'subject' AS subject, to_jsonb(d.created_at) AS created_at
+        FROM deliveries d JOIN bookings b ON b.id = ${bookingId}
+        JOIN slots s ON s.id = b.slot_id AND s.item_id = ${fixture.itemId}
+        WHERE starts_with(d.key, 'seat:' || s.id || ':' || b.id || ':') ORDER BY d.id`;
 }
 
 // The worker's send_deliveries cron fires at second 15 of every minute (tasks/worker.py).

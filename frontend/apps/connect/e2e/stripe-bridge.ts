@@ -90,7 +90,7 @@ export async function stripeReceiptEvidence(
 ): Promise<{ receipts: { id: string; key: string; state: string; payment_id: string }[] }> {
     const { stdout } = await execute(
         "uv",
-        ["run", "python", "-m", "scripts.e2e_stripe_browser", invoiceId, "--receipts"],
+        ["run", "python", "-m", "e2e.stripe", "browser", invoiceId, "--receipts"],
         {
             cwd: fileURLToPath(new URL("../../../../backend", import.meta.url)),
             timeout: 60_000,

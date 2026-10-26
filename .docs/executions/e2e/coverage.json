@@ -16530,8 +16530,7 @@
       "lane": "pr",
       "implementation": [
         "frontend/apps/web/e2e/finance.e2e.ts",
-        "frontend/apps/web/e2e/support/finance.ts",
-        "backend/scripts/e2e_finance.py"
+        "frontend/apps/web/e2e/support/finance.ts"
       ],
       "setup": "Fresh owner and beauty business via real verified signup/onboarding; uniquely owned customer/service/invoice/payment prerequisites; independently empty starting ledger",
       "actions": [
@@ -16571,8 +16570,7 @@
       "lane": "pr",
       "implementation": [
         "frontend/apps/web/e2e/finance.e2e.ts",
-        "frontend/apps/web/e2e/support/finance.ts",
-        "backend/scripts/e2e_finance.py"
+        "frontend/apps/web/e2e/support/finance.ts"
       ],
       "setup": "Fresh owner and beauty business via real verified signup/onboarding; uniquely owned customer/service/invoice/payment prerequisites; independently empty starting ledger",
       "actions": [
@@ -16649,7 +16647,7 @@
       "lane": "pr",
       "implementation": [
         "frontend/apps/web/e2e/filings.filing.ts",
-        "backend/scripts/e2e_filings_evidence.py"
+        "frontend/apps/web/e2e/support/finance.ts"
       ],
       "setup": "Fresh isolated BC quarterly registered demo seeded at supported current-quarter boundary; browser/API clocks real",
       "actions": [
@@ -16730,8 +16728,7 @@
       "lane": "pr",
       "implementation": [
         "frontend/apps/web/e2e/hours-conflict.e2e.ts",
-        "frontend/apps/web/e2e/support/offline.ts",
-        "backend/scripts/e2e_hours_evidence.py"
+        "frontend/apps/web/e2e/support/offline.ts"
       ],
       "setup": "Fresh invited staff identity, two genuine production web contexts with independent device IDs and revision0",
       "actions": [

@@ -26,6 +26,7 @@ from clientbridge.core.config import Settings
 
 ROOT = Path(__file__).resolve().parents[2]
 BACKEND = ROOT / "backend"
+RELAY = Path(__file__).with_name("relay.py")
 TIER = Path(os.environ.get("TEST_TIER_DIR") or Path.home() / ".cache" / "clientbridge-test")
 PROJECT = "clientbridge-test"
 DATABASE = "clientbridge_test_e2e"
@@ -71,8 +72,8 @@ def every_origin() -> list[str]:
     return [f"http://localhost:{port}" for slot in range(SLOTS) for port in origins(slot)]
 
 
-def database_url(role: str, database: str = DATABASE) -> str:
-    return f"postgresql+asyncpg://{role}:{role}@localhost:{PORTS['postgres']}/{database}"
+def database_url(role: str, database: str = DATABASE, *, driver: str = "postgresql+asyncpg") -> str:
+    return f"{driver}://{role}:{role}@localhost:{PORTS['postgres']}/{database}"
 
 
 def environment(database: str = DATABASE) -> dict[str, str]:
@@ -102,7 +103,8 @@ def digest(*paths: Path) -> str:
         for file in sorted(
             p for p in ([path] if path.is_file() else path.rglob("*")) if p.is_file()
         ):
-            hashed.update(str(file.relative_to(ROOT)).encode())
+            # relative to what was named, so moving a file or folder keeps its fingerprint
+            hashed.update(str(file.relative_to(path) if path.is_dir() else file.name).encode())
             hashed.update(file.read_bytes())
     return hashed.hexdigest()[:16]
 
@@ -121,7 +123,7 @@ def fingerprint() -> dict[str, str]:
         "sync_rules": digest(ROOT / "infra" / "powersync" / "sync-rules.yaml"),
         "auth": digest(*sorted(p for p in (ROOT / "infra" / "auth").iterdir() if p.is_file())),
         "tier": configuration(),
-        "relay": digest(ROOT / "infra" / "test" / "relay.py"),
+        "relay": digest(RELAY),
     }
 
 
@@ -339,7 +341,7 @@ def write_config() -> None:
     (config / "powersync").mkdir(parents=True)
     shutil.copy(ROOT / "infra" / "powersync" / "sync-rules.yaml", config / "powersync")
     (config / "powersync" / "powersync.json").write_text(json.dumps(powersync_config(), indent=2))
-    shutil.copy(ROOT / "infra" / "test" / "relay.py", config / "relay.py")
+    shutil.copy(RELAY, config / "relay.py")
     (TIER / "runs").mkdir(parents=True, exist_ok=True)
     (TIER / "compose.json").write_text(json.dumps(compose_spec(), indent=2))
 
@@ -423,7 +425,7 @@ def destroy() -> None:
 
 def refresh_relay() -> None:
     """Swap in a changed relay without a rebuild; the courier retries mail sent meanwhile."""
-    shutil.copy(ROOT / "infra" / "test" / "relay.py", TIER / "config" / "relay.py")
+    shutil.copy(RELAY, TIER / "config" / "relay.py")
     compose("restart", "relay")
     found = recorded() or {}
     found["relay"] = fingerprint()["relay"]
@@ -636,6 +638,13 @@ def main() -> None:
         return
     TIER.mkdir(parents=True, exist_ok=True)
     with (TIER / "tier.lock").open("a") as handle:
+        # a changed relay alone is swapped in place, as runs do, rather than rebuilding the tier
+        if (
+            args.action == "up"
+            and differences(fingerprint(), recorded()) == ["relay"]
+            and running()
+        ):
+            refresh_relay()
         try:
             fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:

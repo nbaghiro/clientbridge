@@ -66,7 +66,7 @@ services:
   # The auth service (Ory Kratos) owns credentials and sessions, in the separate `auth` database
   # created by `make up` (scripts/db_access.py).
   auth-migrate:
-    image: &auth-image oryd/kratos@sha256:2a13bb8d362c7a7ae33bd7c0f5168aee46921f15c916a06346db91c06dc76643  # the test tier (backend/scripts/tier.py) reads every pin here
+    image: &auth-image oryd/kratos@sha256:2a13bb8d362c7a7ae33bd7c0f5168aee46921f15c916a06346db91c06dc76643  # the test tier (backend/e2e/tier.py) reads every pin here
     depends_on:
       postgres:
         condition: service_healthy

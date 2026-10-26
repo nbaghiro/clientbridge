@@ -1,15 +1,12 @@
-import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { fileURLToPath } from "node:url";
-import { promisify } from "node:util";
 import { strings } from "@clientbridge/app-core/public";
 import { expect, type APIRequestContext, type Page } from "@playwright/test";
 import { createClient, type ClientFixture } from "./crm";
+import { select } from "./db";
 import { requireLocalMail } from "./evidence";
 import { navigate } from "./session";
 import { runUrl } from "@clientbridge/config/e2e/run";
 
-const execute = promisify(execFile);
 const s = strings.messaging;
 export const careMessage =
     "Maple did well with the quieter dryer today.\nPlease brush gently behind her ears this evening.";
@@ -29,18 +26,31 @@ export interface MessageEvidence {
     audits: { action: string; entity_id: string }[];
 }
 export async function messageEvidence(clientId: string): Promise<MessageEvidence> {
-    const { stdout } = await execute(
-        "uv",
-        ["run", "python", "-m", "scripts.e2e_messaging_evidence", clientId],
-        {
-            cwd: fileURLToPath(new URL("../../../../../backend", import.meta.url)),
-            timeout: 30_000,
-        },
-    );
-    return JSON.parse(stdout) as MessageEvidence;
+    return {
+        threads: await select<MessageEvidence["threads"][number]>`
+            SELECT id, client_id, channel, status FROM threads
+            WHERE client_id = ${clientId} ORDER BY id`,
+        messages: await select<MessageEvidence["messages"][number]>`
+            SELECT id, thread_id, direction, channel, body, status, provider_ref, sent_by
+            FROM messages
+            WHERE thread_id IN (SELECT id FROM threads WHERE client_id = ${clientId})
+            ORDER BY id`,
+        deliveries: await select<MessageEvidence["deliveries"][number]>`
+            SELECT id, state FROM deliveries
+            WHERE payload->'message'->'tags'->>'message' IN (
+                SELECT id FROM messages
+                WHERE thread_id IN (SELECT id FROM threads WHERE client_id = ${clientId}))
+            ORDER BY id`,
+        audits: await select<MessageEvidence["audits"][number]>`
+            SELECT action, entity_id FROM audits
+            WHERE entity_id IN (
+                SELECT id FROM messages
+                WHERE thread_id IN (SELECT id FROM threads WHERE client_id = ${clientId}))
+            ORDER BY id`,
+    };
 }
 export async function messageFixture(page: Page): Promise<ClientFixture> {
-    await requireLocalMail();
+    requireLocalMail();
     const client = await createClient(page);
     expect(await messageEvidence(client.id)).toEqual({
         threads: [],

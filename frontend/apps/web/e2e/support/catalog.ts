@@ -1,12 +1,10 @@
-import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { fileURLToPath } from "node:url";
-import { promisify } from "node:util";
 import { strings } from "@clientbridge/app-core/public";
 import { demoPerson } from "@clientbridge/config/e2e/demo";
+import { demoId } from "@clientbridge/config/e2e/run";
 import { expect, type Locator, type Page } from "@playwright/test";
+import { select } from "./db";
 import { requireLocalMail } from "./evidence";
-const execute = promisify(execFile);
 const s = strings.catalog;
 export interface CatalogEvidence {
     audits: { entity_id: string; action: string }[];
@@ -37,15 +35,32 @@ export interface CatalogFixture {
 }
 export async function catalogEvidence(fixture: CatalogFixture): Promise<CatalogEvidence> {
     expect(fixture.createKeys.every((key) => key.length > 0)).toBe(true);
-    const { stdout } = await execute(
-        "uv",
-        ["run", "python", "-m", "scripts.e2e_catalog_evidence", JSON.stringify(fixture.createKeys)],
-        { cwd: fileURLToPath(new URL("../../../../../backend", import.meta.url)), timeout: 30_000 },
-    );
-    return JSON.parse(stdout) as CatalogEvidence;
+    const business = demoId("bz_birchbark");
+    const owned = await select<{ id: string }>`
+        SELECT response->>'id' AS id FROM commands
+        WHERE business_id = ${business} AND scope = 'item.create'
+            AND key = ANY(${fixture.createKeys}::text[])`;
+    const ids = owned.map((row) => row.id);
+    return {
+        items: await select<CatalogEvidence["items"][number]>`
+            SELECT id, name, description, kind, sku, price_cents, cost_cents, track_stock,
+                stock_on_hand
+            FROM items WHERE id = ANY(${ids}::text[]) ORDER BY id`,
+        movements: await select<CatalogEvidence["movements"][number]>`
+            SELECT id, item_id, line_id, reason, quantity, note FROM inventory
+            WHERE item_id = ANY(${ids}::text[]) ORDER BY id`,
+        audits: await select<CatalogEvidence["audits"][number]>`
+            SELECT entity_id, action FROM audits WHERE action = 'item.create'
+                AND entity_id = ANY(${ids}::text[]) ORDER BY id`,
+        receipts: await select<CatalogEvidence["receipts"][number]>`
+            SELECT key, scope, response->>'id' AS item_id FROM commands
+            WHERE scope = 'item.create'
+                AND response->>'id' = ANY(${ids}::text[])
+            ORDER BY id`,
+    };
 }
-export async function catalogFixture(page: Page): Promise<CatalogFixture> {
-    await requireLocalMail();
+export function catalogFixture(page: Page): CatalogFixture {
+    requireLocalMail();
     const fixture = {
         name: `${demoPerson(randomUUID())}'s Gentle Paw Balm`,
         createKeys: [] as string[],

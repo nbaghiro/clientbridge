@@ -1,16 +1,12 @@
-import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { fileURLToPath } from "node:url";
-import { promisify } from "node:util";
 import { strings } from "@clientbridge/app-core/public";
 import { expect, type Page } from "@playwright/test";
 
 import { bookingApi } from "./bookings";
 import { createClient, type ClientFixture } from "./crm";
+import { select } from "./db";
 import { requireLocalMail } from "./evidence";
 import { navigate } from "./session";
-
-const execute = promisify(execFile);
 
 export interface RefundFixture {
     client: ClientFixture;
@@ -41,19 +37,21 @@ export interface RefundEvidence {
 }
 
 export async function refundEvidence(invoiceId: string): Promise<RefundEvidence> {
-    const { stdout } = await execute(
-        "uv",
-        ["run", "python", "-m", "scripts.e2e_refunds", invoiceId],
-        {
-            cwd: fileURLToPath(new URL("../../../../../backend", import.meta.url)),
-            timeout: 30_000,
-        },
-    );
-    return JSON.parse(stdout) as RefundEvidence;
+    return {
+        payments: await select<RefundEvidence["payments"][number]>`
+            SELECT id, kind, status, method, provider, parent_payment_id, amount_cents,
+                credit_note
+            FROM payments WHERE invoice_id = ${invoiceId} ORDER BY created_at, id`,
+        entries: await select<RefundEvidence["entries"][number]>`
+            SELECT e.journal_id, e.event, e.source_id, e.amount_cents, a.category, a.code
+            FROM entries e JOIN accounts a ON a.id = e.account_id
+            WHERE e.subject_type = 'invoice' AND e.subject_id = ${invoiceId}
+            ORDER BY e.journal_id, e.leg`,
+    };
 }
 
 export async function createCashRefundFixture(page: Page): Promise<RefundFixture> {
-    await requireLocalMail();
+    requireLocalMail();
     const api = bookingApi();
     const client = await createClient(page);
     const headers = { Origin: new URL(page.url()).origin, "Idempotency-Key": randomUUID() };

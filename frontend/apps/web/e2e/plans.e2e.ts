@@ -32,7 +32,7 @@ async function member(browser: Browser, origin: string, email: string) {
 }
 
 async function freshTrial(page: Page) {
-    await requireLocalMail();
+    requireLocalMail();
     const account = newAccount("plans");
     await signUp(page, page.request, account);
     const onboarding = page.waitForResponse(
@@ -251,7 +251,7 @@ test("PLN-E2E-03 a lapsed trial blocks new work but still exports, settles, revo
 
     const { stdout } = await execute(
         "uv",
-        ["run", "python", "-m", "scripts.e2e_trial_clock", businessId, account.email],
+        ["run", "python", "-m", "e2e.actions", "trial-clock", businessId, account.email],
         { cwd: fileURLToPath(new URL("../../../../backend", import.meta.url)), timeout: 30_000 },
     );
     expect(JSON.parse(stdout)).toEqual({ id: businessId, plan_status: "trialing", lapsed: true });

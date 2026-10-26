@@ -1,16 +1,12 @@
-import { execFile } from "node:child_process";
 import { randomInt } from "node:crypto";
-import { fileURLToPath } from "node:url";
-import { promisify } from "node:util";
 import { strings } from "@clientbridge/app-core/public";
 import { expect, test } from "@playwright/test";
 import { bookingApi } from "./support/bookings";
 import { createClient } from "./support/crm";
-import { returningFixture, verifyReturning } from "./support/returning";
+import { contactEvidence, returningFixture, verifyReturning } from "./support/returning";
 import { signIn } from "./support/session";
 import { demoSlug } from "@clientbridge/config/e2e/run";
 
-const execute = promisify(execFile);
 test.use({ actionTimeout: 15_000 });
 
 test("CRM-E2E-07 editing verified contact clears proof and keeps conflicting details editable without writes", async ({
@@ -21,31 +17,8 @@ test("CRM-E2E-07 editing verified contact clears proof and keeps conflicting det
     const fixture = await returningFixture(page);
     const other = await createClient(page);
     const phone = `+1250555${String(randomInt(1000, 10000))}`;
-    const evidence = async () => {
-        const { stdout } = await execute(
-            "uv",
-            [
-                "run",
-                "python",
-                "-m",
-                "scripts.e2e_returning_contacts_evidence",
-                fixture.clientEmail,
-                other.email,
-                phone,
-                fixture.itemId,
-            ],
-            {
-                cwd: fileURLToPath(new URL("../../../../backend", import.meta.url)),
-                timeout: 30_000,
-            },
-        );
-        return JSON.parse(stdout) as {
-            clients: { id: string; phone: string | null }[];
-            subjects: { id: string; client_id: string }[];
-            bookings: unknown[];
-            slots: unknown[];
-        };
-    };
+    const evidence = () =>
+        contactEvidence([fixture.clientEmail, other.email], phone, fixture.itemId);
     const unclaimed = await evidence();
     expect(unclaimed.clients.map((c) => c.id).sort()).toEqual([fixture.clientId, other.id].sort());
     expect(unclaimed.clients.every((c) => c.phone !== phone)).toBe(true);

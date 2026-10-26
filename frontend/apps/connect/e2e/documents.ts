@@ -1,12 +1,10 @@
-import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { demoPerson } from "@clientbridge/config/e2e/demo";
-import { fileURLToPath } from "node:url";
-import { promisify } from "node:util";
 import { expect, type APIRequestContext } from "@playwright/test";
 import { demoId, runEmail, runUrl } from "@clientbridge/config/e2e/run";
+import { committed } from "../../web/e2e/support/documents";
+import { requireLocalMail } from "../../web/e2e/support/evidence";
 
-const execute = promisify(execFile);
 export const documentApi = runUrl("VITE_API_URL");
 const auth = runUrl("VITE_AUTH_URL");
 
@@ -47,37 +45,16 @@ export interface EstimateEvidence {
     }[];
 }
 
-async function committed(kind: string, id?: string): Promise<string> {
-    const { stdout } = await execute(
-        "uv",
-        ["run", "python", "-m", "scripts.e2e_documents", kind, ...(id ? [id] : [])],
-        { cwd: fileURLToPath(new URL("../../../../backend", import.meta.url)), timeout: 30_000 },
-    );
-    return stdout;
+export function formEvidence(id: string): Promise<FormEvidence> {
+    return committed<FormEvidence>("form", id);
 }
 
-export async function formEvidence(id: string): Promise<FormEvidence> {
-    const rows = JSON.parse(await committed("form", id)) as FormEvidence[];
-    expect(rows).toHaveLength(1);
-    const row = rows[0];
-    if (!row) throw new Error("committed form response is missing");
-    return row;
+export function contractEvidence(id: string): Promise<ContractEvidence> {
+    return committed<ContractEvidence>("contract", id);
 }
 
-export async function contractEvidence(id: string): Promise<ContractEvidence> {
-    const rows = JSON.parse(await committed("contract", id)) as ContractEvidence[];
-    expect(rows).toHaveLength(1);
-    const row = rows[0];
-    if (!row) throw new Error("committed signature is missing");
-    return row;
-}
-
-export async function estimateEvidence(id: string): Promise<EstimateEvidence> {
-    const rows = JSON.parse(await committed("estimate", id)) as EstimateEvidence[];
-    expect(rows).toHaveLength(1);
-    const row = rows[0];
-    if (!row) throw new Error("committed estimate is missing");
-    return row;
+export function estimateEvidence(id: string): Promise<EstimateEvidence> {
+    return committed<EstimateEvidence>("estimate", id);
 }
 
 export async function documentProvider(request: APIRequestContext) {
@@ -86,7 +63,7 @@ export async function documentProvider(request: APIRequestContext) {
             throw new Error("document e2e requires local API, authentication and SMTP");
         }
     }
-    await committed("check");
+    requireLocalMail();
     const flowResponse = await request.get(`${auth}/self-service/login/api`);
     expect(flowResponse.status()).toBe(200);
     const flow = (await flowResponse.json()) as { id: string };

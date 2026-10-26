@@ -90,7 +90,7 @@ jobs:
             [ -f "$state" ] || continue
             cleanup_status="$(uv run python -c 'import json,sys; print(json.load(open(sys.argv[1])).get("provider_cleanup", "unknown"))' "$(dirname "$state")/run.json")"
             if [ "$cleanup_status" != "passed" ]; then
-              uv run python -m scripts.e2e_stripe_recover --credentials environment --state "$state" --apply
+              uv run python -m e2e.stripe recover --credentials environment --state "$state" --apply
             fi
           done
       - uses: actions/upload-artifact@v7

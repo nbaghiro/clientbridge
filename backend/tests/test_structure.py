@@ -38,7 +38,13 @@ def test_structure_check_accepts_ordinary_comments_and_strings() -> None:
 
 STRICT_CONFIG = {
     "typeCheckingMode": "strict",
-    "include": ["backend/src", "backend/tests", "backend/scripts", "backend/migrations"],
+    "include": [
+        "backend/src",
+        "backend/tests",
+        "backend/scripts",
+        "backend/e2e",
+        "backend/migrations",
+    ],
     "reportMissingTypeStubs": False,
     "reportUnknownMemberType": False,
 }

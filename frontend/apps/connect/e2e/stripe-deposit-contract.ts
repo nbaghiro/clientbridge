@@ -74,8 +74,8 @@ export interface DepositEvidence {
 }
 
 const execute = promisify(execFile);
-async function invoke<T>(module: string, args: string[]): Promise<T> {
-    const { stdout } = await execute("uv", ["run", "python", "-m", module, ...args], {
+async function invoke<T>(args: string[]): Promise<T> {
+    const { stdout } = await execute("uv", ["run", "python", "-m", "e2e.stripe", ...args], {
         cwd: fileURLToPath(new URL("../../../../backend", import.meta.url)),
         timeout: 90_000,
     });
@@ -87,27 +87,21 @@ export async function registerStripeDeposit(input: {
     amountCents: 2000;
     currency: "CAD";
 }): Promise<DepositFixture> {
-    const fixture = await invoke<DepositFixture>("scripts.e2e_stripe_deposits", [
-        "register",
-        input.bookingId,
-    ]);
+    const fixture = await invoke<DepositFixture>(["deposits", "register", input.bookingId]);
     expect(fixture).toMatchObject({ ...input, kind: "booking_deposit" });
     expect(fixture.account).toMatch(/^acct_/);
     return fixture;
 }
 export async function registerEnrolmentClient(clientId: string): Promise<void> {
-    const fixture = await invoke<Omit<DepositFixture, "bookingId"> & { bookingId: null }>(
-        "scripts.e2e_stripe_deposits",
-        ["register-client", clientId],
-    );
+    const fixture = await invoke<Omit<DepositFixture, "bookingId"> & { bookingId: null }>([
+        "deposits",
+        "register-client",
+        clientId,
+    ]);
     expect(fixture).toMatchObject({ kind: "enrolment_deposit", clientId, bookingId: null });
 }
 export async function bindEnrolment(clientId: string, bookingId: string): Promise<DepositFixture> {
-    const fixture = await invoke<DepositFixture>("scripts.e2e_stripe_deposits", [
-        "bind",
-        clientId,
-        bookingId,
-    ]);
+    const fixture = await invoke<DepositFixture>(["deposits", "bind", clientId, bookingId]);
     expect(fixture).toMatchObject({
         kind: "enrolment_deposit",
         clientId,
@@ -121,15 +115,13 @@ export async function linkStripeDepositInvoice(
     fixture: DepositFixture,
     invoiceId: string,
 ): Promise<void> {
-    await invoke<unknown>("scripts.e2e_stripe_deposits", ["link", fixture.bookingId, invoiceId]);
+    await invoke<unknown>(["deposits", "link", fixture.bookingId, invoiceId]);
     const evidence = await depositEvidence(fixture);
     expect(evidence.booking.invoice_id).toBe(invoiceId);
     expect(evidence.invoice?.id).toBe(invoiceId);
 }
 export async function depositEvidence(fixture: DepositFixture): Promise<DepositEvidence> {
-    const result = await invoke<DepositEvidence>("scripts.e2e_deposits_evidence", [
-        fixture.bookingId,
-    ]);
+    const result = await invoke<DepositEvidence>(["deposits-evidence", fixture.bookingId]);
     expect(result.booking.id).toBe(fixture.bookingId);
     return result;
 }

@@ -1,10 +1,6 @@
-import { execFile } from "node:child_process";
-import { fileURLToPath } from "node:url";
-import { promisify } from "node:util";
 import { expect, type APIRequestContext } from "@playwright/test";
-import { runUrl } from "@clientbridge/config/e2e/run";
-
-const execute = promisify(execFile);
+import { runSetting, runUrl } from "@clientbridge/config/e2e/run";
+import { select } from "./db";
 
 export interface PaymentEvidence {
     deliveries: { id: string; state: string }[];
@@ -25,15 +21,21 @@ export interface PaymentEvidence {
 }
 
 export async function paymentEvidence(invoiceId: string): Promise<PaymentEvidence> {
-    const { stdout } = await execute(
-        "uv",
-        ["run", "python", "-m", "scripts.e2e_evidence", invoiceId],
-        {
-            cwd: fileURLToPath(new URL("../../../../../backend", import.meta.url)),
-            timeout: 30_000,
-        },
-    );
-    return JSON.parse(stdout) as PaymentEvidence;
+    return {
+        payments: await select<PaymentEvidence["payments"][number]>`
+            SELECT id, amount_cents, status, method, provider FROM payments
+            WHERE invoice_id = ${invoiceId} ORDER BY id`,
+        entries: await select<PaymentEvidence["entries"][number]>`
+            SELECT e.journal_id, e.event, e.amount_cents, a.category, e.source_id
+            FROM entries e JOIN accounts a ON a.id = e.account_id
+            WHERE e.subject_type = 'invoice' AND e.subject_id = ${invoiceId}
+            ORDER BY e.journal_id, e.leg`,
+        deliveries: await select<PaymentEvidence["deliveries"][number]>`
+            SELECT d.id, d.state FROM deliveries d
+            JOIN payments p ON d.key LIKE 'payment:' || p.id || ':%'
+            WHERE p.invoice_id = ${invoiceId} AND d.payload->>'channel' = 'email'
+            ORDER BY d.id`,
+    };
 }
 
 export async function receiptMessages(
@@ -51,9 +53,9 @@ export async function receiptMessages(
     return body.messages;
 }
 
-export async function requireLocalMail(): Promise<void> {
-    await execute("uv", ["run", "python", "-m", "scripts.e2e_evidence", "--check-local-mail"], {
-        cwd: fileURLToPath(new URL("../../../../../backend", import.meta.url)),
-        timeout: 30_000,
-    });
+/** Refuses to run unless the stack is a dev stack whose mail lands in a local sink. */
+export function requireLocalMail(): void {
+    const smtp = new URL(runSetting("SMTP_URL")).hostname;
+    if (runSetting("ENV") !== "dev" || !["localhost", "127.0.0.1", "mailpit"].includes(smtp))
+        throw new Error("e2e requires dev settings and a local SMTP sink");
 }

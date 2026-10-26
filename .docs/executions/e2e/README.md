@@ -34,9 +34,9 @@ The registry holds 60 required cases. `coverage.json` maps each to the audit fam
 | Customer interfaces | Connect document/Stripe helpers; cross-surface cases use separate anonymous and provider contexts |
 | Demo fixtures | `@clientbridge/config/e2e/demo` creates natural customer names. Pet-care/beauty labels match the actual demo business. IDs and unique recipients carry run identity |
 | Independent evidence | Read-only `backend/scripts/e2e_*.py` observers inspect exact owned records, journals, inventory, delivery rows and provider IDs |
-| Isolated runtime | `e2e_stack.py` owns dynamic ports, PostgreSQL, Redis, auth, PowerSync, object storage, Mailpit, API, worker and browser processes |
-| Acceptance | `e2e_results.py` is the canonical required-case registry; missing cases, failed/skipped required cases, retries and empty reports fail |
-| External provider | `e2e_stripe_stack.py`, setup/delivery/recovery helpers, merchant leases, exact ownership tags and restricted artifacts |
+| Isolated runtime | `backend/e2e/runner.py` owns dynamic ports, PostgreSQL, Redis, auth, PowerSync, object storage, Mailpit, API, worker and browser processes |
+| Acceptance | `backend/e2e/results.py` is the canonical required-case registry; missing cases, failed/skipped required cases, retries and empty reports fail |
+| External provider | `backend/e2e/stripe.py`: the lane runner, setup, delivery and recovery, merchant leases, exact ownership tags and restricted artifacts |
 
 API calls may create explicit prerequisites or perform exact-owned cleanup. They do not count as UI coverage. Cases claiming UI create/pay/refund/submit must perform that action through the real interface. Lost-response injection forwards the genuine request and drops only its response after commit. Expected financial amounts come from scenario arithmetic and independent observations, not the production calculation being tested.
 
@@ -60,7 +60,7 @@ Each isolated run applies the approved existing migration chain through `cb0032`
 
 ## Background worker and scheduler
 
-Every isolated stack starts the arq worker beside the API, and both runners (`e2e_stack.py` and `e2e_stripe_stack.py`) refuse to start browsers until it is alive. They wait for the heartbeat the production liveness probe reads (`arq --check`), then enqueue one cron entry, `cron:prune_receipts`, under its scheduled name and wait for the worker's log to report it finished. That proves the schedule's wiring without changing it. At the end of a run they wait for a job the scheduler fired by itself, then require the worker process and its heartbeat to still be alive. `run.json` records `worker_heartbeat`, `worker_probe`, `worker_schedule`, `worker_final` and the `scheduled_jobs` the log reports, and a failed check fails the run as `WorkerFailed`. A cron job that fails during the run also fails `worker_schedule`.
+Every isolated stack starts the arq worker beside the API, and both runners (`e2e.runner` and `e2e.stripe stack`) refuse to start browsers until it is alive. They wait for the heartbeat the production liveness probe reads (`arq --check`), then enqueue one cron entry, `cron:prune_receipts`, under its scheduled name and wait for the worker's log to report it finished. That proves the schedule's wiring without changing it. At the end of a run they wait for a job the scheduler fired by itself, then require the worker process and its heartbeat to still be alive. `run.json` records `worker_heartbeat`, `worker_probe`, `worker_schedule`, `worker_final` and the `scheduled_jobs` the log reports, and a failed check fails the run as `WorkerFailed`. A cron job that fails during the run also fails `worker_schedule`.
 
 CLS-E2E-01 now proves the worker delivers. The customer cancellation on the manage page commits the promoted client's seat notice to the delivery queue, and nothing in that request sends it. The case waits for the delivery row to become `accepted`, finds exactly one matching message in Mailpit, and checks it arrived within ten seconds after second 15 of a minute, when `send_deliveries` runs. In the qualifying run (`e2e-175f57ee8f6e`) the notice was queued at 18:18:40 UTC and arrived at 18:19:15.
 

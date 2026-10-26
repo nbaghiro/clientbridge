@@ -24,7 +24,7 @@ interface Product {
 
 // $25 a unit with 5% GST and 7% PST, so one unit is $28 at the desk
 async function stockedProduct(page: Page, name: string, units: number): Promise<Product> {
-    await requireLocalMail();
+    requireLocalMail();
     const sku = `BB-${randomUUID().slice(0, 6).toUpperCase()}`;
     const item = await apiCall<{ id: string }>(
         page,

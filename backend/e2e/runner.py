@@ -31,8 +31,8 @@ from arq.connections import RedisSettings, create_pool
 from clientbridge.core import clock
 from clientbridge.core.config import Settings
 from clientbridge.core.zones import zone
-from scripts import tier
-from scripts.e2e_results import (
+from e2e import tier
+from e2e.results import (
     BROWSERS,
     REQUIRED_CASES,
     Report,
@@ -304,7 +304,7 @@ class Stack:
         command = [
             sys.executable,
             "-m",
-            "scripts.e2e_namespace",
+            "e2e.namespace",
             "seed",
             self.namespace,
             "--output",
@@ -329,6 +329,8 @@ class Stack:
         self.env.update(
             {
                 **tier.environment(),
+                # the run's checks read the tier's rows directly, as the API's role
+                "E2E_DATABASE_URL": tier.database_url("clientbridge_api", driver="postgresql"),
                 "RUN_NAMESPACE": self.namespace,
                 "E2E_NAMESPACE": self.namespace,
                 "REDIS_URL": self.lease.redis_url,
@@ -398,8 +400,8 @@ class Stack:
         self.await_worker()
         self.probe_schedule()
         if browser_fixtures:
-            self.command([sys.executable, "-m", "scripts.web_fixtures"], log)
-        self.command([sys.executable, "-m", "scripts.sync_caught_up"], log)
+            self.command([sys.executable, "-m", "e2e.actions", "web-fixtures"], log)
+        self.command([sys.executable, "-m", "e2e.sync", "caught-up"], log)
 
     def grant_platform_access(self) -> None:
         """Own verified operator identities for the admin console, granted before the API starts."""
@@ -532,7 +534,7 @@ def flush_redis(url: str) -> None:
 
 def purge(namespace: str, redis_url: str, record: Path) -> None:
     result = subprocess.run(
-        [sys.executable, "-m", "scripts.e2e_namespace", "purge", namespace],
+        [sys.executable, "-m", "e2e.namespace", "purge", namespace],
         cwd=ROOT / "backend",
         env=environment() | tier.environment(),
         capture_output=True,
@@ -922,7 +924,8 @@ def run_native(
             [
                 sys.executable,
                 "-m",
-                "scripts.e2e_native_push",
+                "e2e.actions",
+                "native-push",
                 f"{request['client_id']}_{stack.namespace}",
                 str(request["preview"]),
             ],

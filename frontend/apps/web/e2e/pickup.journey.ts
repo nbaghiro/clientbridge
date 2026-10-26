@@ -1,47 +1,14 @@
-import { execFile } from "node:child_process";
-import { fileURLToPath } from "node:url";
-import { promisify } from "node:util";
 import { saleNumber, strings } from "@clientbridge/app-core/public";
 import { expect, test } from "@playwright/test";
 
 import { bookingApi } from "./support/bookings";
+import { pickupEvidence } from "./support/sales";
 import { navigate, signIn } from "./support/session";
 import { demoId, runUrl } from "@clientbridge/config/e2e/run";
 
-const execute = promisify(execFile);
 const d = strings.pos.desk;
 const p = strings.publicOrder;
 const ORDER = demoId("ord_demo_ready");
-
-interface PickupEvidence {
-    order: {
-        id: string;
-        number: number;
-        status: string;
-        source: string;
-        pickup_status: string | null;
-        status_token: string;
-        preparing: boolean;
-        ready: boolean;
-        picked_up: boolean;
-        client_name: string;
-    }[];
-    payments: { id: string; kind: string; status: string; amount_cents: number }[];
-    movements: { id: string; reason: string; quantity: number }[];
-    audits: string[];
-}
-
-async function pickupEvidence(orderId: string): Promise<PickupEvidence> {
-    const { stdout } = await execute(
-        "uv",
-        ["run", "python", "-m", "scripts.e2e_pickup_evidence", orderId],
-        {
-            cwd: fileURLToPath(new URL("../../../../backend", import.meta.url)),
-            timeout: 30_000,
-        },
-    );
-    return JSON.parse(stdout) as PickupEvidence;
-}
 
 function shopUrl(): string {
     return runUrl("SHOP_BASE_URL");

@@ -26,7 +26,7 @@ const r = strings.refunds;
 const zone = "America/Vancouver";
 
 async function packageFor(page: Page, client: ClientFixture, coversItemId?: string) {
-    await requireLocalMail();
+    requireLocalMail();
     const item = await apiCall<{ id: string }>(
         page,
         "POST",

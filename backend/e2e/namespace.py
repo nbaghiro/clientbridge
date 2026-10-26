@@ -15,19 +15,20 @@ from typing import cast
 import asyncpg
 import boto3
 import httpx
+from scripts import demo_copy, seed_demo
+from scripts.demo_context import DEMO_BUSINESSES, DEMO_PASSWORD
 from sqlalchemy import CheckConstraint, String, Table, UniqueConstraint, select, text
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from clientbridge.core import clock
 from clientbridge.core.config import get_settings
-from clientbridge.core.db import Base
 from clientbridge.integrations.kratos import get_identity_provider
 from clientbridge.integrations.s3 import S3_CONFIG
+from clientbridge.models import Base
 from clientbridge.models.business import Business, User
 from clientbridge.models.platform import File
-from scripts import demo_copy, seed_demo, tier
-from scripts.demo_context import DEMO_BUSINESSES, DEMO_PASSWORD
-from scripts.fresh_database import admin, on
+from e2e import tier
+from e2e.database import admin, on
 
 TOKEN = re.compile(r"[A-Za-z0-9_]+")
 EMAIL = re.compile(r"([A-Za-z0-9._%+-]+)@([A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,})")

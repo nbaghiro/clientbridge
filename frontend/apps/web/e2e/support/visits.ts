@@ -1,16 +1,13 @@
-import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { fileURLToPath } from "node:url";
-import { promisify } from "node:util";
 import { strings } from "@clientbridge/app-core/public";
 import { demoPerson } from "@clientbridge/config/e2e/demo";
 import { expect, type Locator, type Page, type Response } from "@playwright/test";
 
 import { bookingApi } from "./bookings";
+import { select } from "./db";
 import { pastExtras } from "./scheduling";
 import { runEmail, runPort, runUrl } from "@clientbridge/config/e2e/run";
 
-const execute = promisify(execFile);
 const b = strings.publicBooking;
 
 export interface VisitEvidence {
@@ -111,22 +108,69 @@ export async function visitEvidence(
     keys: readonly string[],
     resource?: string,
 ): Promise<VisitEvidence> {
-    const { stdout } = await execute(
-        "uv",
-        [
-            "run",
-            "python",
-            "-m",
-            "scripts.e2e_visits_evidence",
-            ...keys,
-            ...(resource === undefined ? [] : ["--resource", resource]),
-        ],
-        {
-            cwd: fileURLToPath(new URL("../../../../../backend", import.meta.url)),
-            timeout: 30_000,
-        },
-    );
-    return JSON.parse(stdout) as VisitEvidence;
+    type Evidence = VisitEvidence;
+    const owned = await select<{ id: string }>`
+        SELECT id FROM clients WHERE id = ANY(${keys}::text[]) OR email = ANY(${keys}::text[])`;
+    const clients = owned.map((row) => row.id);
+    const bookings = (
+        await select<{ id: string }>`
+            SELECT id FROM bookings WHERE client_id = ANY(${clients}::text[])`
+    ).map((row) => row.id);
+    const invoices = (
+        await select<{ id: string }>`
+            SELECT id FROM invoices WHERE client_id = ANY(${clients}::text[])
+            UNION SELECT invoice_id FROM bookings
+            WHERE id = ANY(${bookings}::text[]) AND invoice_id IS NOT NULL`
+    ).map((row) => row.id);
+    const result: VisitEvidence = {
+        clients: await select<Evidence["clients"][number]>`
+            SELECT id, name, email FROM clients WHERE id = ANY(${clients}::text[])
+            ORDER BY email`,
+        subjects: await select<Evidence["subjects"][number]>`
+            SELECT id, client_id, name, attributes FROM subjects
+            WHERE client_id = ANY(${clients}::text[]) ORDER BY name`,
+        bookings: await select<Evidence["bookings"][number]>`
+            SELECT b.id, b.client_id, b.subject_id, b.status, b.source, b.staff_id,
+                b.price_cents, b.deposit_amount_cents, b.deposit_status, b.invoice_id,
+                b.package_id, b.slot_id, to_jsonb(s.starts_at) AS starts_at,
+                to_jsonb(s.ends_at) AS ends_at, s.item_id, s.resource_id, s.recurrence_id,
+                s.capacity, s.status AS slot_status
+            FROM bookings b JOIN slots s ON s.id = b.slot_id
+            WHERE b.id = ANY(${bookings}::text[]) ORDER BY s.starts_at, b.id`,
+        addons: await select<Evidence["addons"][number]>`
+            SELECT booking_id, item_id, description, quantity, unit_amount_cents FROM addons
+            WHERE booking_id = ANY(${bookings}::text[]) ORDER BY booking_id, id`,
+        packages: await select<Evidence["packages"][number]>`
+            SELECT id, item_id, subject_id, sessions_total, status, payment_id FROM packages
+            WHERE client_id = ANY(${clients}::text[]) ORDER BY id`,
+        payments: await select<Evidence["payments"][number]>`
+            SELECT id, kind, method, status, amount_cents, invoice_id, booking_id
+            FROM payments WHERE client_id = ANY(${clients}::text[]) ORDER BY id`,
+        invoices: await select<Evidence["invoices"][number]>`
+            SELECT id, client_id, status, number, subtotal_cents, tax_total_cents,
+                total_cents, to_jsonb(due_at) AS due_at
+            FROM invoices WHERE id = ANY(${invoices}::text[]) ORDER BY id`,
+        lines: await select<Evidence["lines"][number]>`
+            SELECT invoice_id, position, description, quantity::float AS quantity,
+                unit_amount_cents, amount_cents, tax_amount_cents, item_id, booking_id
+            FROM lines WHERE invoice_id = ANY(${invoices}::text[])
+            ORDER BY invoice_id, position`,
+        entries: await select<Evidence["entries"][number]>`
+            SELECT e.journal_id, e.event, e.amount_cents, a.category, e.subject_type,
+                e.subject_id, e.source_id
+            FROM entries e JOIN accounts a ON a.id = e.account_id
+            WHERE e.subject_id IN (
+                SELECT id FROM packages WHERE client_id = ANY(${clients}::text[]))
+                OR e.subject_id = ANY(${invoices}::text[])
+                OR e.subject_id = ANY(${bookings}::text[])
+            ORDER BY e.journal_id, e.leg`,
+    };
+    if (resource !== undefined)
+        result.holds = await select<NonNullable<Evidence["holds"]>[number]>`
+            SELECT id, item_id, staff_id, to_jsonb(starts_at) AS starts_at,
+                to_jsonb(ends_at) AS ends_at, status
+            FROM slots WHERE resource_id = ${resource} ORDER BY starts_at, id`;
+    return result;
 }
 
 export const at = (iso: string): number => new Date(iso).getTime();

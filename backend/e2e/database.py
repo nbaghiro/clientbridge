@@ -7,13 +7,13 @@ import secrets
 import subprocess
 import sys
 
+from scripts.db_access import quote
 from sqlalchemy import text
 from sqlalchemy.engine import URL, make_url
 from sqlalchemy.ext.asyncio import create_async_engine
 from tests.clock import FROZEN
 
-from scripts import tier
-from scripts.db_access import quote
+from e2e import tier
 
 # templates other checkouts may still be using; older ones are dropped
 KEPT_TEMPLATES = 4

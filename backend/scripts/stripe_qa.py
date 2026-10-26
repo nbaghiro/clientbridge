@@ -125,7 +125,7 @@ def main() -> int:
         command = [
             sys.executable,
             "-m",
-            "scripts.fresh_database",
+            "e2e.database",
             sys.executable,
             "-m",
             "pytest",

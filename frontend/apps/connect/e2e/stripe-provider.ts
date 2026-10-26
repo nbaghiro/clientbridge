@@ -66,7 +66,7 @@ interface StripeBrowserEvidence {
 async function probe(invoiceId?: string): Promise<string> {
     const { stdout } = await execute(
         "uv",
-        ["run", "python", "-m", "scripts.e2e_stripe_browser", ...(invoiceId ? [invoiceId] : [])],
+        ["run", "python", "-m", "e2e.stripe", "browser", ...(invoiceId ? [invoiceId] : [])],
         { cwd: fileURLToPath(new URL("../../../../backend", import.meta.url)), timeout: 60_000 },
     );
     return stdout;
@@ -120,11 +120,10 @@ export async function registerStripeInvoice(
 ) {
     const ready = await stripeReady();
     // Record exact invoice/client ownership and tag its provider customer before UI creates an intent.
-    await execute(
-        "uv",
-        ["run", "python", "-m", "scripts.e2e_stripe_setup", "register", invoice.id],
-        { cwd: fileURLToPath(new URL("../../../../backend", import.meta.url)), timeout: 60_000 },
-    );
+    await execute("uv", ["run", "python", "-m", "e2e.stripe", "setup", "register", invoice.id], {
+        cwd: fileURLToPath(new URL("../../../../backend", import.meta.url)),
+        timeout: 60_000,
+    });
     const publicResponse = await request.get(`${documentApi}/pay/${invoice.pay_token}`);
     expect(publicResponse.status()).toBe(200);
     expect(await publicResponse.json()).toMatchObject({

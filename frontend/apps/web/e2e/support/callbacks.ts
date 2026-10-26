@@ -1,11 +1,8 @@
-import { execFile } from "node:child_process";
 import { createHmac, randomUUID } from "node:crypto";
-import { fileURLToPath } from "node:url";
-import { promisify } from "node:util";
 import type { APIRequestContext } from "@playwright/test";
 import { demoPhone, runSetting, runUrl } from "@clientbridge/config/e2e/run";
+import { select } from "./db";
 
-const execute = promisify(execFile);
 const api = () => runUrl("VITE_API_URL");
 
 export const BIRCHBARK_NUMBER = demoPhone("+12365550190");
@@ -44,22 +41,29 @@ export async function communicationEvidence(
     clientId: string,
     webhooks: string[] = [],
 ): Promise<CommunicationEvidence> {
-    const { stdout } = await execute(
-        "uv",
-        [
-            "run",
-            "python",
-            "-m",
-            "scripts.e2e_communication",
-            clientId,
-            ...webhooks.flatMap((id) => ["--webhook", id]),
-        ],
-        {
-            cwd: fileURLToPath(new URL("../../../../../backend", import.meta.url)),
-            timeout: 30_000,
-        },
-    );
-    return JSON.parse(stdout) as CommunicationEvidence;
+    type Evidence = CommunicationEvidence;
+    return {
+        threads: await select<Evidence["threads"][number]>`
+            SELECT id, channel FROM threads WHERE client_id = ${clientId} ORDER BY id`,
+        messages: await select<Evidence["messages"][number]>`
+            SELECT m.id, m.thread_id, m.direction, m.channel, m.body, m.status, m.provider_ref
+            FROM messages m JOIN threads t ON t.id = m.thread_id
+            WHERE t.client_id = ${clientId} ORDER BY m.created_at, m.id`,
+        consents: await select<Evidence["consents"][number]>`
+            SELECT channel, status, source FROM consents WHERE client_id = ${clientId}
+            ORDER BY created_at, id`,
+        deliveries: await select<Evidence["deliveries"][number]>`
+            SELECT d.id, d.payload->>'channel' AS channel, d.state, d.error, d.provider_ref,
+                regexp_replace(d.key, ':[0-9a-f]{64}$', '') AS scope,
+                d.payload->'message'->>'to' AS recipient
+            FROM deliveries d JOIN clients c ON c.id = ${clientId}
+                AND d.business_id = c.business_id
+                AND d.payload->'message'->>'to' IN (c.email, c.phone)
+            ORDER BY d.created_at, d.id`,
+        webhooks: await select<Evidence["webhooks"][number]>`
+            SELECT id, provider, event, status, payload FROM webhooks
+            WHERE id = ANY(${webhooks}::text[]) ORDER BY id`,
+    };
 }
 
 /** A North American number outside the 555-01xx range the app treats as fiction. */

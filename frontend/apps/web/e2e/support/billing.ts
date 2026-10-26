@@ -14,7 +14,7 @@ export interface InvoiceFixture {
 }
 
 export async function createInvoice(page: Page): Promise<InvoiceFixture> {
-    await requireLocalMail();
+    requireLocalMail();
     const run = randomUUID();
     const name = demoPerson(run);
     const email = runEmail(`e2e-${run}@example.ca`);

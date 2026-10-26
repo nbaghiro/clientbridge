@@ -1,54 +1,10 @@
-import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { fileURLToPath } from "node:url";
-import { promisify } from "node:util";
 import { formatMoney, strings } from "@clientbridge/app-core/public";
 import { expect, test } from "@playwright/test";
 import { bookingApi } from "./support/bookings";
+import { filingEvidence as evidence } from "./support/finance";
 import { navigate, signIn } from "./support/session";
 import { demoId } from "@clientbridge/config/e2e/run";
-
-interface Evidence {
-    start: string;
-    end: string;
-    filed_on: string;
-    business: {
-        id: string;
-        province: string;
-        timezone: string;
-        tax_registered: boolean;
-        filing_frequency: string;
-    }[];
-    raw_tax: { id: string; amount_cents: number; code: string }[];
-    returns: {
-        journal_id: string;
-        amount_cents: number;
-        category: string;
-        code: string;
-        meta: {
-            family: string;
-            start: string;
-            end: string;
-            itc_cents: number;
-            confirmation: string;
-            filed_on: string;
-        };
-    }[];
-    commands: unknown[];
-    audits: unknown[];
-}
-const execute = promisify(execFile);
-async function evidence(): Promise<Evidence> {
-    const { stdout } = await execute(
-        "uv",
-        ["run", "python", "-m", "scripts.e2e_filings_evidence"],
-        {
-            cwd: fileURLToPath(new URL("../../../../backend", import.meta.url)),
-            timeout: 30_000,
-        },
-    );
-    return JSON.parse(stdout) as Evidence;
-}
 
 test("FIN-RETURN-03 record both completed-quarter filings with exact ledger and replay evidence", async ({
     page,

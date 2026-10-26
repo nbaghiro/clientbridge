@@ -26,7 +26,7 @@ export async function ownBusiness(
     request: APIRequestContext,
     name: string,
 ): Promise<OwnedBusiness> {
-    await requireLocalMail();
+    requireLocalMail();
     const account = { ...newAccount("team-owner"), name: demoPerson(randomUUID()) };
     await signUp(page, request, account);
     const created = page.waitForResponse(
@@ -55,14 +55,14 @@ export async function planView(page: Page): Promise<PlanView> {
     return (await response.json()) as PlanView;
 }
 
-/** Applies a stand-in Stripe subscription through the app's own plan mirror (scripts/e2e_plan). */
+/** Applies a stand-in Stripe subscription through the app's own plan mirror (e2e.actions plan). */
 export async function standInPlan(
     businessId: string,
     status: "active" | "canceled",
 ): Promise<{ plan_status: string; plan: string | null; changed: boolean }> {
     const { stdout } = await execute(
         "uv",
-        ["run", "python", "-m", "scripts.e2e_plan", businessId, status],
+        ["run", "python", "-m", "e2e.actions", "plan", businessId, status],
         {
             cwd: fileURLToPath(new URL("../../../../../backend", import.meta.url)),
             timeout: 30_000,

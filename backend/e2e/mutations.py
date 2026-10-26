@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from clientbridge.core import clock
-from scripts.e2e_results import Report, matches
+from e2e.results import Report, matches
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -81,7 +81,7 @@ def backend_outcomes(tree: Path, cases: list[str], log: Path, report: Path) -> d
             "run",
             "python",
             "-m",
-            "scripts.fresh_database",
+            "e2e.database",
             "pytest",
             "-q",
             "-p",
@@ -114,7 +114,7 @@ def browser_outcomes(
             "run",
             "python",
             "-m",
-            "scripts.e2e_stack",
+            "e2e.runner",
             "--surface",
             surface,
             "--",

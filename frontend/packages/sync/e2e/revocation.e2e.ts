@@ -8,7 +8,7 @@ async function mutate(action: string): Promise<void> {
     const python = process.env.SYNC_TEST_PYTHON;
     const cwd = process.env.SYNC_TEST_BACKEND;
     if (!python || !cwd) throw new Error("SYNC_TEST_PYTHON is not set: run make test-sync");
-    await promisify(execFile)(python, ["-m", "scripts.sync_mutate", action], { cwd });
+    await promisify(execFile)(python, ["-m", "e2e.sync", "mutate", action], { cwd });
 }
 
 test("live renames reach the replica; downgrade, deletion and removal purge its data", async ({

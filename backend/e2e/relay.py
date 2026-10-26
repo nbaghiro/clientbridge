@@ -1,4 +1,4 @@
-"""The test tier's relay: Kratos's courier and PowerSync's key fetches reach the run they belong to."""
+"""The test tier's relay: Kratos's courier and PowerSync's key fetches reach their own run."""
 
 import json
 import re

@@ -1,18 +1,19 @@
-import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { fileURLToPath } from "node:url";
-import { promisify } from "node:util";
+import { readFile } from "node:fs/promises";
+import { basename } from "node:path";
+import { inflateRawSync } from "node:zlib";
 import { formatCredit, formatMoney, strings } from "@clientbridge/app-core/public";
 import { expect, type Page, type TestInfo } from "@playwright/test";
 import { newAccount } from "../identity";
 import { bookingApi } from "./bookings";
 import { createClient } from "./crm";
+import { select } from "./db";
 import { requireLocalMail } from "./evidence";
 import { signUp, openBusiness } from "./onboarding";
 import { openRefund, type RefundFixture } from "./refunds";
 import { navigate } from "./session";
+import { demoId, runSetting } from "@clientbridge/config/e2e/run";
 
-const execute = promisify(execFile);
 const s = strings.reports;
 export interface FinanceFixture extends RefundFixture {
     account: ReturnType<typeof newAccount>;
@@ -68,22 +69,198 @@ interface Artifact {
     members: string[];
     rows: Record<string, string[][]>;
 }
-async function observe<T>(args: string[]): Promise<T> {
-    const { stdout } = await execute(
-        "uv",
-        ["run", "python", "-m", "scripts.e2e_finance", ...args],
-        {
-            cwd: fileURLToPath(new URL("../../../../../backend", import.meta.url)),
-            timeout: 30_000,
-        },
-    );
-    return JSON.parse(stdout) as T;
+export async function financeEvidence(businessId: string): Promise<FinanceEvidence> {
+    type Evidence = FinanceEvidence;
+    return {
+        business: await select<Evidence["business"][number]>`
+            SELECT id, province, timezone, tax_registered FROM businesses WHERE id = ${businessId}`,
+        entries: await select<Evidence["entries"][number]>`
+            SELECT e.id, e.journal_id, e.event, e.subject_type, e.subject_id, e.source_type,
+                e.source_id, e.amount_cents, a.category, a.code, a.owner_type, a.owner_id
+            FROM entries e JOIN accounts a ON a.id = e.account_id
+            WHERE e.business_id = ${businessId} ORDER BY e.id`,
+        invoices: await select<Evidence["invoices"][number]>`
+            SELECT id, status, subtotal_cents, tax_total_cents, total_cents FROM invoices
+            WHERE business_id = ${businessId} ORDER BY id`,
+        payments: await select<Evidence["payments"][number]>`
+            SELECT id, invoice_id, kind, status, method, amount_cents, parent_payment_id,
+                credit_note
+            FROM payments WHERE business_id = ${businessId} ORDER BY id`,
+        lines: await select<Evidence["lines"][number]>`
+            SELECT id, invoice_id, item_id, quantity, amount_cents, tax_amount_cents FROM lines
+            WHERE business_id = ${businessId} ORDER BY id`,
+        commands: await select<Evidence["commands"][number]>`
+            SELECT id, scope, key FROM commands WHERE business_id = ${businessId} ORDER BY id`,
+    };
 }
-export const financeEvidence = (businessId: string): Promise<FinanceEvidence> =>
-    observe(["--business", businessId]);
+
+function csvRows(text: string): string[][] {
+    const rows: string[][] = [];
+    let row: string[] = [];
+    let field = "";
+    let quoted = false;
+    let started = false;
+    const body = text.replace(/^\uFEFF/, "");
+    for (let index = 0; index < body.length; index++) {
+        const char = body.charAt(index);
+        if (quoted) {
+            if (char === '"' && body.charAt(index + 1) === '"') {
+                field += '"';
+                index++;
+            } else if (char === '"') quoted = false;
+            else field += char;
+        } else if (char === '"') {
+            quoted = true;
+            started = true;
+        } else if (char === ",") {
+            row.push(field);
+            field = "";
+            started = true;
+        } else if (char === "\r" || char === "\n") {
+            if (char === "\r" && body.charAt(index + 1) === "\n") index++;
+            rows.push(started || field !== "" ? [...row, field] : []);
+            row = [];
+            field = "";
+            started = false;
+        } else field += char;
+    }
+    if (started || field !== "") rows.push([...row, field]);
+    return rows;
+}
+
+// reads the central directory, so a duplicated member name stays visible in `members`
+function zipMembers(archive: Buffer): { name: string; text: string }[] {
+    const end = archive.lastIndexOf(Buffer.from([0x50, 0x4b, 0x05, 0x06]));
+    if (end < 0) throw new Error("Downloaded archive has no ZIP end record");
+    const count = archive.readUInt16LE(end + 10);
+    let entry = archive.readUInt32LE(end + 16);
+    const members: { name: string; text: string }[] = [];
+    for (let index = 0; index < count; index++) {
+        const method = archive.readUInt16LE(entry + 10);
+        const size = archive.readUInt32LE(entry + 20);
+        const nameLength = archive.readUInt16LE(entry + 28);
+        const skip =
+            nameLength + archive.readUInt16LE(entry + 30) + archive.readUInt16LE(entry + 32);
+        const name = archive.toString("utf8", entry + 46, entry + 46 + nameLength);
+        const local = archive.readUInt32LE(entry + 42);
+        const start =
+            local + 30 + archive.readUInt16LE(local + 26) + archive.readUInt16LE(local + 28);
+        const data = archive.subarray(start, start + size);
+        if (method !== 0 && method !== 8)
+            throw new Error(`Unsupported ZIP method ${String(method)}`);
+        members.push({ name, text: (method === 8 ? inflateRawSync(data) : data).toString("utf8") });
+        entry += 46 + skip;
+    }
+    return members;
+}
+
+async function artifact(path: string): Promise<Artifact> {
+    if (path.endsWith(".zip")) {
+        const members = zipMembers(await readFile(path));
+        return {
+            members: members.map((member) => member.name),
+            rows: Object.fromEntries(members.map((m) => [m.name, csvRows(m.text)])),
+        };
+    }
+    const name = basename(path);
+    return { members: [name], rows: { [name]: csvRows(await readFile(path, "utf8")) } };
+}
+
+export interface FilingEvidence {
+    start: string;
+    end: string;
+    lo: string;
+    hi: string;
+    seed_as_of: string;
+    filed_on: string;
+    business: {
+        id: string;
+        province: string;
+        timezone: string;
+        tax_registered: boolean;
+        filing_frequency: string;
+    }[];
+    raw_tax: { id: string; amount_cents: number; code: string }[];
+    returns: {
+        journal_id: string;
+        amount_cents: number;
+        category: string;
+        code: string;
+        meta: {
+            family: string;
+            start: string;
+            end: string;
+            itc_cents: number;
+            confirmation: string;
+            filed_on: string;
+        };
+    }[];
+    commands: unknown[];
+    audits: unknown[];
+}
+
+/** The seeded business's last completed quarter in Vancouver, its raw tax legs and filings. */
+export async function filingEvidence(): Promise<FilingEvidence> {
+    const zone = "America/Vancouver";
+    const [period] = await select<{
+        start: string;
+        end: string;
+        lo: string;
+        hi: string;
+        anchor: string;
+        filed_on: string;
+    }>`
+        WITH day AS (SELECT (now() AT TIME ZONE ${zone})::date AS today),
+        quarter AS (SELECT today, date_trunc('quarter', today)::date AS first FROM day),
+        bounds AS (
+            SELECT today, first, date_trunc('quarter', first - 1)::date AS start FROM quarter)
+        SELECT start::text AS start, (first - 1)::text AS "end",
+            to_jsonb(start::timestamp AT TIME ZONE ${zone}) AS lo,
+            to_jsonb(first::timestamp AT TIME ZONE ${zone}) AS hi,
+            to_jsonb((first + time '12:00') AT TIME ZONE ${zone}) AS anchor,
+            today::text AS filed_on
+        FROM bounds`;
+    if (period === undefined) throw new Error("the filing period query returned nothing");
+    const seeded = runSetting("E2E_SEED_AS_OF");
+    if (Date.parse(seeded) !== Date.parse(period.anchor))
+        throw new Error("requires the first seed at noon Vancouver on this quarter's first day");
+    const { start, end, lo, hi } = period;
+    const business = demoId("bz_birchbark");
+    return {
+        start,
+        end,
+        lo,
+        hi,
+        seed_as_of: seeded,
+        filed_on: period.filed_on,
+        business: await select<FilingEvidence["business"][number]>`
+            SELECT id, province, timezone, tax_registered, filing_frequency FROM businesses
+            WHERE id = ${business}`,
+        raw_tax: await select<FilingEvidence["raw_tax"][number]>`
+            SELECT e.id, e.journal_id, e.event, e.amount_cents, a.code,
+                to_jsonb(e.occurred_at) AS occurred_at
+            FROM entries e JOIN accounts a ON a.id = e.account_id
+            WHERE e.business_id = ${business} AND a.category = 'tax'
+                AND e.event != 'remittance'
+                AND e.occurred_at >= ${lo}::timestamptz AND e.occurred_at < ${hi}::timestamptz
+            ORDER BY e.id`,
+        returns: await select<FilingEvidence["returns"][number]>`
+            SELECT e.id, e.journal_id, e.ref, e.leg, e.amount_cents, a.category, a.code, e.meta
+            FROM entries e JOIN accounts a ON a.id = e.account_id
+            WHERE e.business_id = ${business} AND e.event = 'remittance'
+                AND e.meta->>'start' <= ${end} AND e.meta->>'end' >= ${start}
+            ORDER BY e.journal_id, e.leg`,
+        commands: await select<{ id: string; scope: string }>`
+            SELECT id, scope FROM commands
+            WHERE business_id = ${business} AND scope = 'tax.remit' ORDER BY id`,
+        audits: await select<{ id: string; action: string; entity_id: string }>`
+            SELECT id, action, entity_id FROM audits
+            WHERE business_id = ${business} AND action = 'tax.remit' ORDER BY id`,
+    };
+}
 
 export async function financeFixture(page: Page, unpaid: boolean): Promise<FinanceFixture> {
-    await requireLocalMail();
+    requireLocalMail();
     const api = bookingApi();
     const account = newAccount("finance");
     await signUp(page, page.request, account);
@@ -402,7 +579,7 @@ export async function downloadReport(
     const path = info.outputPath(`${tag}-${name}`);
     await download.saveAs(path);
     await info.attach(`${tag}-${name}`, { path, contentType: "text/csv" });
-    const parsed = await observe<Artifact>(["--artifact", path]);
+    const parsed = await artifact(path);
     const rows = parsed.rows[parsed.members[0] ?? ""];
     if (rows === undefined) throw new Error("Downloaded CSV has no parsed rows");
     return rows;
@@ -491,5 +668,5 @@ export async function downloadPack(
     const path = info.outputPath(`${tag}.zip`);
     await download.saveAs(path);
     await info.attach(tag, { path, contentType: "application/zip" });
-    return observe(["--artifact", path]);
+    return artifact(path);
 }
