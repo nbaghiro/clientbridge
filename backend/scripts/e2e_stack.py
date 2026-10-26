@@ -275,6 +275,11 @@ class Stack:
             str(directory / "compose.json"),
         ]
         self.env = environment()
+        # per-run callback secrets only: no account SID or API key, so nothing reaches a provider
+        self.env["TWILIO_AUTH_TOKEN"] = secrets.token_urlsafe(24)
+        self.env["RESEND_WEBHOOK_SECRET"] = (
+            f"whsec_{base64.b64encode(secrets.token_bytes(24)).decode()}"
+        )
         self.seed_as_of = seed_as_of
         if seed_as_of is not None:
             if seed_as_of.utcoffset() is None:

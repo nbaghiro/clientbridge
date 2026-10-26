@@ -458,6 +458,19 @@ def test_functional_environment_cannot_inherit_provider_credentials(
     assert "must-not-reach-the-child" not in child.values()
 
 
+def test_functional_stack_signs_callbacks_with_its_own_secrets_and_sends_to_no_provider(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("TWILIO_ACCOUNT_SID", "must-not-reach-the-child")
+    first, second = functional.Stack(tmp_path / "a"), functional.Stack(tmp_path / "b")
+    for name in ("TWILIO_AUTH_TOKEN", "RESEND_WEBHOOK_SECRET"):
+        assert first.env[name]
+        assert first.env[name] != second.env[name]
+    assert first.env["RESEND_WEBHOOK_SECRET"].startswith("whsec_")
+    assert first.env["TWILIO_ACCOUNT_SID"] == ""
+    assert first.env["RESEND_API_KEY"] == ""
+
+
 @pytest.mark.parametrize(
     "failure", ["missing", "empty", "skipped", "retry", "expected_failure", "global_error"]
 )
