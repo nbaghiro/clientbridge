@@ -388,81 +388,83 @@ function MemberDetail({
     const busy = team.busyId === member.id;
     const access = strings.common.titleAndBody(roleLabel(member.role), t.roleAccess[member.role]);
     return (
-        <DeskPanel
-            title={member.name}
-            subtitle={member.title ?? roleLabel(member.role)}
-            leading={
-                <Avatar
-                    name={member.name}
-                    src={photos.staff(member.id)}
-                    size="lg"
-                    color={member.color}
-                />
-            }
-            onClose={onClose}
-        >
-            {team.canManage ? (
-                <DetailSection>
-                    <KeyValueList
-                        rows={[
-                            { label: t.email, value: member.email ?? strings.clients.dash },
-                            { label: t.lastActive, value: member.activeLabel },
-                        ]}
+        <>
+            <DeskPanel
+                title={member.name}
+                subtitle={member.title ?? roleLabel(member.role)}
+                leading={
+                    <Avatar
+                        name={member.name}
+                        src={photos.staff(member.id)}
+                        size="lg"
+                        color={member.color}
                     />
-                </DetailSection>
-            ) : null}
-            {member.userId !== null ? (
-                <PersonPhoto
-                    owner={{ kind: "user", id: member.userId }}
-                    name={member.name}
-                    color={member.color}
-                />
-            ) : null}
-            <DetailSection title={t.changeRole}>
-                {owner ? (
-                    <p className="text-sm text-muted">{t.ownerNote}</p>
-                ) : editable ? (
-                    <div className="flex flex-col gap-3">
-                        <Choice<MemberRole>
-                            layout="cards"
-                            label={t.changeRole}
-                            value={role}
-                            onChange={setRole}
-                            options={roleOptions()}
+                }
+                onClose={onClose}
+            >
+                {team.canManage ? (
+                    <DetailSection>
+                        <KeyValueList
+                            rows={[
+                                { label: t.email, value: member.email ?? strings.clients.dash },
+                                { label: t.lastActive, value: member.activeLabel },
+                            ]}
                         />
-                        <SectionSave
-                            busy={busy}
-                            disabled={role === member.role}
-                            label={busy ? t.saving : t.saveRole}
+                    </DetailSection>
+                ) : null}
+                {member.userId !== null ? (
+                    <PersonPhoto
+                        owner={{ kind: "user", id: member.userId }}
+                        name={member.name}
+                        color={member.color}
+                    />
+                ) : null}
+                <DetailSection title={t.changeRole}>
+                    {owner ? (
+                        <p className="text-sm text-muted">{t.ownerNote}</p>
+                    ) : editable ? (
+                        <div className="flex flex-col gap-3">
+                            <Choice<MemberRole>
+                                layout="cards"
+                                label={t.changeRole}
+                                value={role}
+                                onChange={setRole}
+                                options={roleOptions()}
+                            />
+                            <SectionSave
+                                busy={busy}
+                                disabled={role === member.role}
+                                label={busy ? t.saving : t.saveRole}
+                                onPress={() => {
+                                    team.changeRole(member.id, role);
+                                }}
+                            />
+                        </div>
+                    ) : (
+                        <p className="text-sm text-ink-soft">
+                            {member.isYou && team.canManage
+                                ? strings.common.twoSentences(access, t.selfNote)
+                                : access}
+                        </p>
+                    )}
+                </DetailSection>
+                {team.canManage ? <ProfileSection member={member} /> : null}
+                {team.canManage && pay !== undefined ? <PaySection row={pay} /> : null}
+                {editable ? (
+                    <DetailSection>
+                        <Button
+                            variant="danger"
                             onPress={() => {
-                                team.changeRole(member.id, role);
+                                setRemoving(true);
                             }}
-                        />
-                    </div>
-                ) : (
-                    <p className="text-sm text-ink-soft">
-                        {member.isYou && team.canManage
-                            ? strings.common.twoSentences(access, t.selfNote)
-                            : access}
-                    </p>
-                )}
-            </DetailSection>
-            {team.canManage ? <ProfileSection member={member} /> : null}
-            {team.canManage && pay !== undefined ? <PaySection row={pay} /> : null}
-            {editable ? (
-                <DetailSection>
-                    <Button
-                        variant="danger"
-                        onPress={() => {
-                            setRemoving(true);
-                        }}
-                        icon="trash"
-                    >
-                        {t.remove}
-                    </Button>
-                </DetailSection>
-            ) : null}
-            {team.error !== null ? <Notice tone="danger">{team.error}</Notice> : null}
+                            icon="trash"
+                        >
+                            {t.remove}
+                        </Button>
+                    </DetailSection>
+                ) : null}
+                {team.error !== null ? <Notice tone="danger">{team.error}</Notice> : null}
+            </DeskPanel>
             {removing ? (
                 <RemoveDialog
                     member={member}
@@ -473,7 +475,7 @@ function MemberDetail({
                     onRemoved={onClose}
                 />
             ) : null}
-        </DeskPanel>
+        </>
     );
 }
 
