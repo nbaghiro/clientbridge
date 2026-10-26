@@ -2457,6 +2457,20 @@ describe("app-core SQL against the replica schema", () => {
         ]);
     });
 
+    it("knows whether the business offers classes", () => {
+        expect(run("OFFERS_CLASSES_SQL")).toEqual([{ offers: 1 }]);
+        db.run("DELETE FROM items");
+        db.run("DELETE FROM slots");
+        scoped("items", [
+            { id: "it_cut", kind: "service", name: "Cut", price_cents: 4000, currency: "CAD" },
+        ]);
+        expect(run("OFFERS_CLASSES_SQL")).toEqual([{ offers: 0 }]);
+        scoped("items", [
+            { id: "it_yoga", kind: "class", name: "Yoga", price_cents: 2000, currency: "CAD" },
+        ]);
+        expect(run("OFFERS_CLASSES_SQL")).toEqual([{ offers: 1 }]);
+    });
+
     it("reads programs, their days and who holds a seat, one per sibling", () => {
         scheduleRows();
         scoped("items", [

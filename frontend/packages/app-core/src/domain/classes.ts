@@ -282,6 +282,17 @@ interface ClassBoard {
     messageError: string | null;
 }
 
+export const OFFERS_CLASSES_SQL = `
+SELECT EXISTS (SELECT 1 FROM items WHERE kind = 'class')
+    OR EXISTS (SELECT 1 FROM slots WHERE capacity > 1 AND status != 'canceled') AS offers`;
+
+/** Whether the business runs classes or programs, so Schedule shows their tab; true until known. */
+export function useOffersClasses(): boolean {
+    const rows = useQuery<{ offers: number }>(OFFERS_CLASSES_SQL).data;
+    const row = rows[0];
+    return row === undefined || row.offers === 1;
+}
+
 /** Class sessions coming up with their seats, and the selected session's roster and waitlist. */
 export function useClassBoard(api: ApiLike): ClassBoard {
     const now = useNow();

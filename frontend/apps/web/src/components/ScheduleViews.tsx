@@ -1,4 +1,4 @@
-import { strings } from "@clientbridge/app-core";
+import { strings, useOffersClasses } from "@clientbridge/app-core";
 import { PageHeader, Tabs } from "@clientbridge/ui";
 import type { ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
@@ -15,7 +15,7 @@ const PATH: Record<View, string> = {
     series: "/schedule/series",
 };
 
-/** The Schedule page frame: its title, a tab for the day board, class rosters and repeat visits. */
+/** The Schedule page frame: its title, a tab for the day board, class rosters (when it runs classes) and repeat visits. */
 export function ScheduleFrame({
     active,
     actions,
@@ -26,6 +26,7 @@ export function ScheduleFrame({
     children: ReactNode;
 }) {
     const navigate = useNavigate();
+    const classes = useOffersClasses() || active === "classes";
     return (
         <PageFrame>
             <PageHeader title={strings.navigation.schedule} actions={actions}>
@@ -34,7 +35,7 @@ export function ScheduleFrame({
                         label={s.viewLabel}
                         items={[
                             { key: "board", label: s.viewBoard },
-                            { key: "classes", label: s.viewClasses },
+                            ...(classes ? [{ key: "classes" as const, label: s.viewClasses }] : []),
                             { key: "series", label: s.viewSeries },
                         ]}
                         active={active}

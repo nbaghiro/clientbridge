@@ -128,26 +128,23 @@ export function Classes() {
                             />
                         </div>
                     ) : board.sessions.length === 0 ? (
-                        <div className="flex justify-center px-5 py-12">
-                            <div className="w-[360px]">
-                                <Empty
-                                    variant="card"
-                                    icon="users"
-                                    message={s.emptyClasses}
-                                    body={s.emptyClassesBody}
-                                    actions={
-                                        <Button
-                                            size="sm"
-                                            variant="outline"
-                                            onPress={() => {
-                                                open("catalog");
-                                            }}
-                                        >
-                                            {strings.pos.desk.addCatalog}
-                                        </Button>
-                                    }
-                                />
-                            </div>
+                        <div className="flex justify-center px-5 py-6">
+                            <Empty
+                                icon="users"
+                                message={s.emptyClasses}
+                                body={s.emptyClassesBody}
+                                actions={
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onPress={() => {
+                                            open("catalog");
+                                        }}
+                                    >
+                                        {strings.pos.desk.addCatalog}
+                                    </Button>
+                                }
+                            />
                         </div>
                     ) : (
                         <div className="flex min-h-0 flex-1">
