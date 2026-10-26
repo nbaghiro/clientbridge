@@ -1,4 +1,6 @@
 import argparse
+import fcntl
+import importlib.util
 import io
 import json
 import logging
@@ -9,11 +11,14 @@ import signal
 import socket
 import subprocess
 import sys
+import threading
 import time
-from collections.abc import AsyncIterator, Callable
-from contextlib import ExitStack, suppress
+from collections.abc import AsyncIterator, Callable, Iterator
+from contextlib import ExitStack, contextmanager, suppress
 from datetime import datetime
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from types import ModuleType
 from typing import IO, cast
 from uuid import UUID
 
@@ -28,6 +33,8 @@ from pydantic import ValidationError
 from scripts import e2e_stack as functional
 from scripts import e2e_stripe_recover as recovery
 from scripts import e2e_stripe_stack as runner
+from scripts import tier
+from scripts.e2e_namespace import Renamer
 from scripts.e2e_results import (
     BROWSER_CASES,
     REQUIRED_CASES,
@@ -41,10 +48,21 @@ from scripts.e2e_results import (
 from scripts.e2e_results import Test as FunctionalTest
 from scripts.e2e_stack import environment, stop
 from scripts.e2e_stripe_recover import Fixture, Manifest, recover
-from sqlalchemy import text
+from sqlalchemy import (
+    ARRAY,
+    CheckConstraint,
+    Column,
+    Integer,
+    MetaData,
+    String,
+    Table,
+    UniqueConstraint,
+    text,
+)
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.types import Receive, Scope, Send
 
+from clientbridge.core import ids
 from clientbridge.core.config import Environment
 from clientbridge.core.cors import SplitCors
 from clientbridge.core.deployment import SESSION_COOKIE, public_urls
@@ -423,6 +441,28 @@ def test_new_id_has_prefix() -> None:
     assert new_id("invoice").startswith("inv_")
 
 
+def test_a_run_namespace_ends_every_new_id(monkeypatch: pytest.MonkeyPatch) -> None:
+    plain = new_id("booking")
+    monkeypatch.setattr(ids, "get_settings", lambda: EnvSettings(env="dev", run_namespace="0420"))
+    named = new_id("booking")
+    assert re.fullmatch(r"bk_[0-9A-HJKMNP-TV-Z]{22}0420", named)
+    assert re.fullmatch(r"bk_[0-9A-HJKMNP-TV-Z]{26}", plain)
+    assert len({new_id("line") for _ in range(5000)}) == 5000
+
+
+@pytest.mark.parametrize("value", ["42", "04200", "042a"])
+def test_a_run_namespace_is_four_digits(value: str) -> None:
+    with pytest.raises(ValidationError, match="run_namespace"):
+        EnvSettings(env="dev", run_namespace=value)
+
+
+def test_a_deploy_refuses_a_run_namespace(monkeypatch: pytest.MonkeyPatch) -> None:
+    _deploy(monkeypatch, "staging", "staging.clientbridge.ca")
+    monkeypatch.setenv("RUN_NAMESPACE", "0420")
+    with pytest.raises(ValidationError, match="RUN_NAMESPACE"):
+        EnvSettings()
+
+
 def test_sync_token_requires_auth_even_in_dev() -> None:
     res = client.get("/sync/token")
     assert res.status_code == 401
@@ -462,7 +502,8 @@ def test_functional_stack_signs_callbacks_with_its_own_secrets_and_sends_to_no_p
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     monkeypatch.setenv("TWILIO_ACCOUNT_SID", "must-not-reach-the-child")
-    first, second = functional.Stack(tmp_path / "a"), functional.Stack(tmp_path / "b")
+    first = functional.Stack(tmp_path / "a", tier.Lease(0, "0001"))
+    second = functional.Stack(tmp_path / "b", tier.Lease(1, "0002"))
     for name in ("TWILIO_AUTH_TOKEN", "RESEND_WEBHOOK_SECRET"):
         assert first.env[name]
         assert first.env[name] != second.env[name]
@@ -663,7 +704,7 @@ class _Runtime:
         self.env: dict[str, str] = {}
         self.process_cleanup_failed = False
         self.provider_cleanup_attempted = False
-        self.docker_cleanup_attempted = False
+        self.data_cleanup_attempted = False
         self.browser_report_written = False
         self.worker_checks: dict[str, object] = {"worker_final": "pending"}
 
@@ -736,9 +777,9 @@ class _Runtime:
                 raise RuntimeError("injected provider cleanup failure")
 
     def cleanup(self) -> None:
-        self.docker_cleanup_attempted = True
-        if self.fault == "docker":
-            raise RuntimeError("injected Docker cleanup failure")
+        self.data_cleanup_attempted = True
+        if self.fault == "data":
+            raise RuntimeError("injected data cleanup failure")
 
 
 class _Relay:
@@ -765,13 +806,13 @@ class _Relay:
 
 
 @pytest.mark.parametrize(
-    ("fault", "provider", "process", "docker"),
+    ("fault", "provider", "process", "data"),
     [
         ("none", "passed", "passed", "passed"),
         ("command", "passed", "failed", "passed"),
         ("callback", "passed", "failed", "passed"),
         ("provider", "failed", "passed", "passed"),
-        ("docker", "passed", "passed", "failed"),
+        ("data", "passed", "passed", "failed"),
         ("worker", "passed", "passed", "passed"),
     ],
 )
@@ -781,7 +822,7 @@ def test_provider_runner_retains_cleanup_failures_without_external_services(
     fault: str,
     provider: str,
     process: str,
-    docker: str,
+    data: str,
 ) -> None:
     runtime = _Runtime(tmp_path, fault)
     relays: list[_Relay] = []
@@ -791,7 +832,7 @@ def test_provider_runner_retains_cleanup_failures_without_external_services(
         relays.append(boundary)
         return boundary
 
-    def stack(_directory: Path) -> _Runtime:
+    def stack(_directory: Path, _lease: tier.Lease) -> _Runtime:
         return runtime
 
     def credentials(
@@ -817,26 +858,26 @@ def test_provider_runner_retains_cleanup_failures_without_external_services(
         publishable_file=tmp_path / "unused",
     )
     if fault == "none":
-        runner.run(args, tmp_path)
+        runner.run(args, tmp_path, tier.Lease(0, "0001"))
     else:
         error = PermissionError if fault in ("command", "callback") else RuntimeError
         with pytest.raises(error, match="injected"):
-            runner.run(args, tmp_path)
+            runner.run(args, tmp_path, tier.Lease(0, "0001"))
     record = json.loads((tmp_path / "run.json").read_text())
     assert record["provider_cleanup"] == provider
     assert record["process_cleanup"] == process
-    assert record["docker_cleanup"] == docker
+    assert record["data_cleanup"] == data
     assert record["cleanup"] == ("passed" if fault in ("none", "worker") else "failed")
     assert record["outcome"] == ("passed" if fault == "none" else "failed")
     assert record["worker_final"] == ("failed" if fault == "worker" else "passed")
     if fault == "worker":
         assert record["failure_type"] == "WorkerFailed"
-    if fault == "docker":
+    if fault == "data":
         assert record["failure_type"] == "CleanupFailed"
     assert record["source_stable"] is True
     assert runtime.browser_report_written
     assert runtime.provider_cleanup_attempted
-    assert runtime.docker_cleanup_attempted
+    assert runtime.data_cleanup_attempted
     assert len(relays) == 1
     assert relays[0].manifest == tmp_path / "stripe-fixtures.json"
     assert relays[0].upstream == "http://localhost:1/webhooks/stripe"
@@ -1145,21 +1186,28 @@ def test_functional_first_seed_forwards_only_explicit_anchor(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, value: str | None
 ) -> None:
     at = functional.seed_timestamp(value) if value is not None else None
-    stack = functional.Stack(tmp_path, seed_as_of=at)
-    calls: list[list[str]] = []
+    stack = functional.Stack(tmp_path, tier.Lease(0, "0420"), seed_as_of=at)
+    calls: list[tuple[list[str], dict[str, str] | None]] = []
 
-    def command(arguments: list[str], log: IO[bytes], *, frontend: bool = False) -> None:
-        calls.append(arguments)
+    def command(
+        arguments: list[str],
+        log: IO[bytes],
+        *,
+        frontend: bool = False,
+        env: dict[str, str] | None = None,
+    ) -> None:
+        calls.append((arguments, env))
 
     monkeypatch.setattr(stack, "command", command)
     stack.seed(io.BytesIO())
-    expected = [sys.executable, "-m", "scripts.seed_demo", "--core"]
+    module = [sys.executable, "-m", "scripts.e2e_namespace", "seed", "0420"]
+    expected = [*module, "--output", str(tmp_path / "demo.json")]
     if at is not None:
         expected.extend(["--as-of", at.isoformat()])
         assert stack.env["E2E_SEED_AS_OF"] == at.isoformat()
     else:
         assert "E2E_SEED_AS_OF" not in stack.env
-    assert calls == [expected]
+    assert calls == [(expected, {"RUN_NAMESPACE": ""})]
     assert not any(key.startswith("CLOCK") for key in stack.env)
 
 
@@ -1200,7 +1248,7 @@ def test_functional_invalid_seed_modes_fail_before_infrastructure(
         ("passed", "not_started", "passed"),
     ],
 )
-def test_docker_reaper_preserves_provider_and_process_evidence(
+def test_the_reaper_purges_the_recorded_namespace_and_keeps_provider_and_process_evidence(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     process: str | None,
@@ -1210,12 +1258,12 @@ def test_docker_reaper_preserves_provider_and_process_evidence(
     project = "e2e-123456789abc"
     directory = tmp_path / ".scratchpad" / project
     directory.mkdir(parents=True)
-    (directory / "compose.json").write_text("{}")
+    (directory / "tier.json").write_text(json.dumps({"namespace": "0420", "slot": 2}))
     original: dict[str, object] = {
         "outcome": "failed",
         "failure_type": "OriginalProviderOrBrowserFailure",
         "provider_cleanup_failure": {"type": "OriginalRecoveryFailure"},
-        "docker_cleanup": "pending",
+        "data_cleanup": "pending",
         "cleanup": "failed",
     }
     if process is not None:
@@ -1224,30 +1272,58 @@ def test_docker_reaper_preserves_provider_and_process_evidence(
         original["provider_cleanup"] = provider
     metadata = directory / "run.json"
     metadata.write_text(json.dumps(original))
-    cleaned: list[Path] = []
+    purged: list[tuple[str, str, Path]] = []
 
-    class DockerBoundary:
-        def __init__(self, owned: Path) -> None:
-            self.directory = owned
+    def purge(namespace: str, redis_url: str, record: Path) -> None:
+        purged.append((namespace, redis_url, record))
 
-        def cleanup(self) -> None:
-            cleaned.append(self.directory)
-
+    _tier_at(monkeypatch, tmp_path / "tier")
     monkeypatch.setattr(functional, "ROOT", tmp_path)
-    monkeypatch.setattr(functional, "Stack", DockerBoundary)
+    monkeypatch.setattr(functional, "purge", purge)
     monkeypatch.setattr(sys, "argv", ["e2e_stack", "--cleanup", project])
     functional.main()
     actual = json.loads(metadata.read_text())
-    assert cleaned == [directory]
+    redis = f"redis://localhost:{tier.PORTS['redis']}/3"
+    assert purged == [("0420", redis, directory / "purge.json")]
     assert actual["cleanup"] == expected
-    assert actual["docker_cleanup"] == "passed"
+    assert actual["data_cleanup"] == "passed"
     assert datetime.fromisoformat(actual.pop("reaped_at")).utcoffset() is not None
     preserved = {
-        key: value for key, value in actual.items() if key not in ("cleanup", "docker_cleanup")
+        key: value for key, value in actual.items() if key not in ("cleanup", "data_cleanup")
     }
     assert preserved == {
-        key: value for key, value in original.items() if key not in ("cleanup", "docker_cleanup")
+        key: value for key, value in original.items() if key not in ("cleanup", "data_cleanup")
     }
+
+
+def test_the_reaper_leaves_a_run_that_holds_its_namespace_and_needs_its_record(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    project = "e2e-123456789abc"
+    directory = tmp_path / ".scratchpad" / project
+    directory.mkdir(parents=True)
+    _tier_at(monkeypatch, tmp_path / "tier")
+    monkeypatch.setattr(functional, "ROOT", tmp_path)
+    purged: list[str] = []
+
+    def purge(namespace: str, redis_url: str, record: Path) -> None:
+        purged.append(namespace)
+
+    monkeypatch.setattr(functional, "purge", purge)
+    monkeypatch.setattr(sys, "argv", ["e2e_stack", "--cleanup", project])
+    with pytest.raises(SystemExit) as missing:
+        functional.main()
+    assert missing.value.code == 2
+    (directory / "tier.json").write_text(json.dumps({"namespace": "0420", "slot": 0}))
+    _draws(monkeypatch, 420)
+    with tier.lease() as lease:
+        assert lease.namespace == "0420" and tier.namespace_held("0420")
+        with pytest.raises(SystemExit) as live:
+            functional.main()
+        assert live.value.code == 2
+    assert purged == []
+    functional.main()
+    assert purged == ["0420"]
 
 
 def _worker(stack: functional.Stack, code: str) -> subprocess.Popen[bytes]:
@@ -1264,7 +1340,7 @@ def _log(stack: functional.Stack, *lines: str) -> None:
 def test_functional_browsers_wait_for_a_live_worker_heartbeat(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    stack = functional.Stack(tmp_path)
+    stack = functional.Stack(tmp_path, tier.Lease(0, "0001"))
     beats: list[bool] = [False, True]
     monkeypatch.setattr(stack, "worker_heartbeat", lambda: beats.pop(0))
     exited = _worker(stack, "pass")
@@ -1290,7 +1366,7 @@ def test_functional_probe_runs_a_real_cron_entry_by_its_scheduled_name(
     from clientbridge.tasks.worker import WorkerSettings
 
     enqueued: list[tuple[str, str | None]] = []
-    stack = functional.Stack(tmp_path)
+    stack = functional.Stack(tmp_path, tier.Lease(0, "0001"))
     stack.env["REDIS_URL"] = "redis://localhost:1/0"
 
     class Pool:
@@ -1321,7 +1397,7 @@ def test_functional_probe_runs_a_real_cron_entry_by_its_scheduled_name(
 def test_functional_probe_fails_when_the_cron_job_fails(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    stack = functional.Stack(tmp_path)
+    stack = functional.Stack(tmp_path, tier.Lease(0, "0001"))
     stack.env["REDIS_URL"] = "redis://localhost:1/0"
 
     class Pool:
@@ -1367,7 +1443,7 @@ def test_functional_run_records_the_scheduler_and_a_worker_alive_at_the_end(
     schedule: str,
     final: str,
 ) -> None:
-    stack = functional.Stack(tmp_path)
+    stack = functional.Stack(tmp_path, tier.Lease(0, "0001"))
     stack.worker_checks.update(worker_heartbeat="passed", worker_probe="passed")
     monkeypatch.setattr(stack, "worker_heartbeat", lambda: alive)
     _log(stack, *lines)
@@ -1387,7 +1463,7 @@ def test_functional_run_records_the_scheduler_and_a_worker_alive_at_the_end(
 
 
 def test_functional_run_without_a_started_worker_keeps_pending_checks(tmp_path: Path) -> None:
-    stack = functional.Stack(tmp_path)
+    stack = functional.Stack(tmp_path, tier.Lease(0, "0001"))
     assert stack.finish_worker(seconds=0) == {
         "worker_heartbeat": "pending",
         "worker_probe": "pending",
@@ -1398,37 +1474,305 @@ def test_functional_run_without_a_started_worker_keeps_pending_checks(tmp_path: 
         stack.require_worker()
 
 
-def test_a_stack_waits_for_a_free_slot_on_the_machine(
+def _tier_at(monkeypatch: pytest.MonkeyPatch, path: Path) -> None:
+    (path / "slots").mkdir(parents=True)
+    (path / "runs").mkdir()
+    monkeypatch.setattr(tier, "TIER", path)
+
+
+def _draws(monkeypatch: pytest.MonkeyPatch, *values: int) -> None:
+    queue = list(values)
+
+    def draw(_stop: int) -> int:
+        return queue.pop(0)
+
+    monkeypatch.setattr(tier.random, "randrange", draw)
+
+
+def test_leases_take_distinct_slots_and_namespaces_and_wait_when_all_are_held(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    monkeypatch.setattr(functional, "SLOTS", tmp_path)
-    monkeypatch.setenv("E2E_STACK_SLOTS", "1")
+    _tier_at(monkeypatch, tmp_path)
+    monkeypatch.setattr(tier, "SLOTS", 2)
+    _draws(monkeypatch, 42, 42, 43)
     waits: list[float] = []
 
     def sleep(seconds: float) -> None:
         waits.append(seconds)
         raise TimeoutError
 
-    with functional.stack_slot() as held:
-        assert held == 0
-        monkeypatch.setattr(functional.time, "sleep", sleep)
-        with pytest.raises(TimeoutError), functional.stack_slot(poll_seconds=0.5):
-            pass
+    with tier.lease() as first:
+        first.register("http://localhost:9999", keys=True)
+        with tier.lease() as second:
+            assert (first.slot, first.namespace, second.slot, second.namespace) == (
+                0,
+                "0042",
+                1,
+                "0043",
+            )
+            assert (second.web_port, second.pseudo_port, second.admin_port) == tier.origins(1)
+            assert second.redis_url == f"redis://localhost:{tier.PORTS['redis']}/2"
+            assert second.bucket == "e2e-0043"
+            assert json.loads((tmp_path / "runs" / "0042.json").read_text()) == {
+                "api": "http://host.docker.internal:9999",
+                "keys": True,
+                "slot": 0,
+                "pid": os.getpid(),
+            }
+            monkeypatch.setattr(tier.time, "sleep", sleep)
+            with pytest.raises(TimeoutError), tier.lease(poll_seconds=0.5):
+                pass
     assert waits == [0.5]
-    with functional.stack_slot() as again:
-        assert again == 0
+    assert list((tmp_path / "runs").iterdir()) == []
+    _draws(monkeypatch, 7)
+    with tier.lease() as again:
+        assert (again.slot, again.namespace) == (0, "0007")
 
 
-def test_the_slot_count_follows_dockers_memory(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("E2E_STACK_SLOTS", raising=False)
+def test_a_crashed_runs_registration_is_stale_even_once_its_slot_is_taken_again(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _tier_at(monkeypatch, tmp_path)
+    crashed = {"api": "http://host.docker.internal:2", "keys": False, "slot": 0, "pid": 1}
+    (tmp_path / "runs" / "0042.json").write_text(json.dumps(crashed))
+    _draws(monkeypatch, 42, 7)
+    with tier.lease() as held:
+        held.register("http://localhost:1")
+        assert (held.slot, held.namespace) == (0, "0007")
+        assert tier.slot_held(0) and tier.namespace_held("0007")
+        assert tier.stale_namespaces() == ["0042"]
+    assert not tier.slot_held(0) and not tier.namespace_held("0007")
 
-    def docker_info(*_: object, **__: object) -> subprocess.CompletedProcess[str]:
-        return subprocess.CompletedProcess([], 0, stdout=str(4 * 1024**3), stderr="")
 
-    monkeypatch.setattr(functional.subprocess, "run", docker_info)
-    assert functional.slot_count() == 2
-    monkeypatch.setenv("E2E_STACK_SLOTS", "3")
-    assert functional.slot_count() == 3
+def test_concurrent_leases_never_share_a_namespace_when_draws_collide(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _tier_at(monkeypatch, tmp_path)
+    _draws(monkeypatch, 42, 42, 43)
+    with tier.lease() as first, tier.lease() as second:
+        assert (first.namespace, second.namespace) == ("0042", "0043")
+        assert (first.slot, second.slot) == (0, 1)
+
+
+def test_differences_name_what_the_tier_was_built_from_differently() -> None:
+    assert tier.differences({"migrations": "a"}, None) == ["the tier has never been started"]
+    current = {"migrations": "a", "auth": "b", "tier": "c"}
+    assert tier.differences(current, {"migrations": "a", "auth": "x"}) == ["auth", "tier"]
+    assert tier.differences(current, dict(current)) == []
+
+
+@pytest.mark.parametrize(
+    ("built", "up", "shared", "calls"),
+    [
+        ("head", True, False, []),
+        (None, False, False, ["start"]),
+        ("old", False, False, ["start"]),
+        ("old", True, False, ["destroy", "start"]),
+        ("head", True, True, ["wait"]),
+        ("old", True, True, None),
+    ],
+)
+def test_holding_the_tier_rebuilds_it_only_when_alone(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    built: str | None,
+    up: bool,
+    shared: bool,
+    calls: list[str] | None,
+) -> None:
+    _tier_at(monkeypatch, tmp_path)
+    made: list[str] = []
+    monkeypatch.setattr(tier, "fingerprint", lambda: {"migrations": "head"})
+    monkeypatch.setattr(tier, "recorded", lambda: None if built is None else {"migrations": built})
+    monkeypatch.setattr(tier, "running", lambda: {"postgres"} if up else set[str]())
+    monkeypatch.setattr(tier, "healthy", lambda: True)
+    monkeypatch.setattr(tier, "wait_healthy", lambda _seconds=120: made.append("wait"))
+    monkeypatch.setattr(tier, "start", lambda: made.append("start"))
+    monkeypatch.setattr(tier, "destroy", lambda: made.append("destroy"))
+    with (tmp_path / "tier.lock").open("a") as other:
+        if shared:
+            fcntl.flock(other, fcntl.LOCK_SH)
+        if calls is None:
+            with pytest.raises(SystemExit, match="built from other code"), tier.hold():
+                pytest.fail("a run must not use a tier built from other code")
+        else:
+            with tier.hold():
+                assert made == calls
+    assert made == (calls or [])
+
+
+@pytest.mark.parametrize(("shared", "calls"), [(False, ["refresh"]), (True, ["refresh", "wait"])])
+def test_a_relay_only_change_is_swapped_in_without_a_rebuild(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, shared: bool, calls: list[str]
+) -> None:
+    _tier_at(monkeypatch, tmp_path)
+    made: list[str] = []
+    built = {"migrations": "head", "relay": "old"}
+
+    def refresh() -> None:
+        made.append("refresh")
+        built["relay"] = "new"
+
+    monkeypatch.setattr(tier, "fingerprint", lambda: {"migrations": "head", "relay": "new"})
+    monkeypatch.setattr(tier, "recorded", lambda: dict(built))
+    monkeypatch.setattr(tier, "running", lambda: {"relay"})
+    monkeypatch.setattr(tier, "healthy", lambda: True)
+    monkeypatch.setattr(tier, "refresh_relay", refresh)
+    monkeypatch.setattr(tier, "wait_healthy", lambda _seconds=120: made.append("wait"))
+    monkeypatch.setattr(tier, "start", lambda: made.append("start"))
+    monkeypatch.setattr(tier, "destroy", lambda: made.append("destroy"))
+    with (tmp_path / "tier.lock").open("a") as other:
+        if shared:
+            fcntl.flock(other, fcntl.LOCK_SH)
+        with tier.hold():
+            assert made == calls
+
+
+def _load_relay() -> ModuleType:
+    spec = importlib.util.spec_from_file_location(
+        "tier_relay", functional.ROOT / "infra" / "test" / "relay.py"
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+@contextmanager
+def _serving(handler: type[BaseHTTPRequestHandler]) -> Iterator[str]:
+    server = ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield f"http://127.0.0.1:{server.server_address[1]}"
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+
+
+def test_the_relay_hands_auth_mail_and_key_fetches_to_the_runs_that_own_them(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    relay = _load_relay()
+    monkeypatch.setattr(relay, "RUNS", tmp_path)
+    received: list[tuple[str, str | None, str | None, str | None, bytes]] = []
+    status = [201]
+
+    class Api(BaseHTTPRequestHandler):
+        def do_POST(self) -> None:
+            body = self.rfile.read(int(self.headers["Content-Length"]))
+            headers = (self.headers["X-Webhook-Secret"], self.headers["Content-Type"])
+            received.append((self.path, *headers, self.headers["Authorization"], body))
+            self.send_response(status[0])
+            self.send_header("Content-Length", "8")
+            self.end_headers()
+            self.wfile.write(b"answered")
+
+        def do_GET(self) -> None:
+            body = json.dumps({"keys": [{"kid": "run-key"}]}).encode()
+            self.send_response(200 if self.path == "/sync/keys" else 404)
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, format: str, *args: object) -> None:
+            pass
+
+    handler = cast(type[BaseHTTPRequestHandler], relay.Relay)
+    with _serving(Api) as api, _serving(handler) as url:
+        (tmp_path / "0420.json").write_text(json.dumps({"api": api, "keys": True}))
+        (tmp_path / "0421.json").write_text(json.dumps({"api": api, "keys": False}))
+        (tmp_path / "0422.json").write_text(json.dumps({"api": "http://127.0.0.1:1", "keys": True}))
+        (tmp_path / "0423.json").write_text("{")
+        body = json.dumps({"to": "pat+0420@example.ca", "template_type": "verification"})
+        headers = {"X-Webhook-Secret": "courier-secret", "Content-Type": "application/json"}
+
+        def courier(content: str) -> httpx.Response:
+            return httpx.post(
+                f"{url}/courier",
+                content=content,
+                headers={**headers, "Authorization": "Bearer kept-back"},
+            )
+
+        delivered = courier(body)
+        assert (delivered.status_code, delivered.content) == (201, b"answered")
+        assert received == [
+            (
+                "/webhooks/auth-email",
+                "courier-secret",
+                "application/json",
+                None,
+                body.encode(),
+            )
+        ]
+        status[0] = 503
+        assert (courier(body).status_code, len(received)) == (503, 2)
+        for stranger in ("pat+9999@example.ca", "pat@example.ca", "pat+0423@example.ca"):
+            assert courier(json.dumps({"to": stranger})).status_code == 202
+        assert courier("not json").status_code == 400
+        assert courier("[]").status_code == 400
+        assert courier(json.dumps({"subject": "no recipient"})).status_code == 400
+        assert courier(json.dumps({"to": "pat+0422@example.ca"})).status_code == 502
+        assert len(received) == 2
+        assert httpx.get(f"{url}/keys").json() == {"keys": [{"kid": "run-key"}]}
+        assert httpx.get(f"{url}/health").status_code == 200
+        assert httpx.get(f"{url}/elsewhere").status_code == 404
+
+
+def _widgets() -> Table:
+    return Table(
+        "widgets",
+        MetaData(),
+        Column("id", String, primary_key=True),
+        Column("business_id", String),
+        Column("code", String, unique=True),
+        Column("kind", String),
+        Column("size", Integer),
+        Column("contact", String),
+        Column("label", String),
+        Column("notes", String),
+        Column("tags", ARRAY(String)),
+        UniqueConstraint("kind", "size"),
+        UniqueConstraint("contact", "label"),
+        UniqueConstraint("business_id", "label"),
+        CheckConstraint("kind IN ('a', 'b')"),
+    )
+
+
+def test_the_renamer_moves_ids_emails_and_globally_unique_values_into_the_namespace() -> None:
+    renamer = Renamer(
+        "0420", ["bz_birchbark", "cl_pat", "us_owner"], {"old-login": str(UUID(int=7))}
+    )
+    assert renamer.text('{"client_id": "cl_pat", "by": "us_owner"} bz_birchbarkish') == (
+        '{"client_id": "cl_pat_0420", "by": "us_owner_0420"} bz_birchbarkish'
+    )
+    assert renamer.text("Pat <pat@birchbark.ca>, also ops+cc@mail.birchbark.ca") == (
+        "Pat <pat+0420@birchbark.ca>, also ops+cc+0420@mail.birchbark.ca"
+    )
+    assert renamer.value("businesses", "slug", "birchbark") == "birchbark-0420"
+    assert renamer.value("businesses", "sms_number", "+16045550123") == "+16040420123"
+    assert renamer.value("users", "identity_id", "old-login") == UUID(int=7)
+    assert renamer.value("files", "s3_key", "bz_birchbark/cl_pat.png") == "bz_birchbark/cl_pat.png"
+    assert renamer.value("clients", "notes", None) is None
+    assert renamer.value("clients", "tags", ["cl_pat", 3]) == ["cl_pat_0420", 3]
+    row = renamer.row(
+        _widgets(),
+        ["cl_pat", "bz_birchbark", "SPRING", "a", 2, "pat@birchbark.ca", "Front", "x", ["vip"]],
+    )
+    assert row == (
+        "cl_pat_0420",
+        "bz_birchbark_0420",
+        "SPRING_0420",
+        "a",
+        2,
+        "pat+0420@birchbark.ca",
+        "Front",
+        "x",
+        ["vip"],
+    )
+    nothing = renamer.row(_widgets(), ["w", "b", None, "b", 1, "front desk", "Front", "y", []])
+    assert nothing == ("w", "b", None, "b", 1, "front desk_0420", "Front", "y", [])
 
 
 def native_junit(*cases: tuple[str, str, str]) -> str:
@@ -1486,8 +1830,11 @@ def test_the_native_link_forwards_until_it_is_cut_and_again_once_restored() -> N
             link.close()
 
 
-def test_ci_builds_the_android_app_the_native_lane_installs() -> None:
+def test_ci_builds_the_android_app_with_the_native_lanes_own_addresses() -> None:
     workflow = (functional.ROOT / ".github" / "workflows" / "ci.yml").read_text()
     build = workflow[workflow.index("  mobile-build:") : workflow.index("  mobile-shard:")]
+    assert 'native_urls("android").items()' in build and '>> "$GITHUB_ENV"' in build
+    config = (functional.MOBILE / "app.config.ts").read_text()
     for name, value in functional.native_urls("android").items():
-        assert f"      {name}: {value}\n" in build
+        assert f"env.{name}" in config
+        assert value not in build

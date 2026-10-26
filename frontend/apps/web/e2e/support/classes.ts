@@ -9,6 +9,7 @@ import { bookingApi, cancelOwnedBooking, type BookingFixture } from "./bookings"
 import { createClient, type ClientFixture } from "./crm";
 import { requireLocalMail } from "./evidence";
 import { navigate } from "./session";
+import { runEmail, runUrl } from "@clientbridge/config/e2e/run";
 
 const execute = promisify(execFile);
 export interface ClassEvidence {
@@ -56,7 +57,7 @@ export async function classFixture(page: Page): Promise<ClassFixture> {
     const team = (await response.json()) as {
         members: { id: string; name: string; email: string }[];
     };
-    const staff = team.members.find((row) => row.email === "hannah@birchbark.example");
+    const staff = team.members.find((row) => row.email === runEmail("hannah@birchbark.example"));
     if (!staff) throw new Error("The Birch & Bark owner fixture is missing");
     const headers = { Origin: new URL(page.url()).origin, "Idempotency-Key": randomUUID() };
     const itemName = `Puppy care for ${first.name}`;
@@ -259,7 +260,7 @@ export async function expectWorkerSentSeatNotice(
     const [delivery] = await seatDeliveries(fixture, bookingId);
     if (!delivery) throw new Error("The seat notice delivery disappeared");
     expect(delivery).toMatchObject({ channel: "email", error: null, recipient: email });
-    const base = process.env.MAILPIT_URL ?? "http://localhost:8715";
+    const base = runUrl("MAILPIT_URL");
     const received = async () => {
         const response = await page.request.get(`${base}/api/v1/search`, {
             params: { query: `to:${email}`, limit: 100 },

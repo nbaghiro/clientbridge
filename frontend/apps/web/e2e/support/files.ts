@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { strings } from "@clientbridge/app-core/public";
 import { expect, type Locator, type Page } from "@playwright/test";
+import { runUrl } from "@clientbridge/config/e2e/run";
 
 const execute = promisify(execFile);
 
@@ -71,5 +72,5 @@ export async function expectPhoto(editor: Locator, page: Page, sha256: string): 
 }
 
 export function filesApi(): string {
-    return process.env.VITE_API_URL ?? "http://localhost:8701";
+    return runUrl("VITE_API_URL");
 }

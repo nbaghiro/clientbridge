@@ -14,7 +14,7 @@ from clientbridge.core.db import SessionLocal, engine
 from clientbridge.integrations.stripe import PlanSubscription, SubscribedItem
 from clientbridge.models.business import Business
 from clientbridge.services.plans import PLAN_PRICES, mirror_plan
-from scripts.demo_context import DEMO_IDS
+from scripts.demo_context import DEMO_IDS, run_id
 
 
 async def stand_in(business_id: str, status: str) -> dict[str, object]:
@@ -25,7 +25,7 @@ async def stand_in(business_id: str, status: str) -> dict[str, object]:
         "mailpit",
     ):
         raise RuntimeError("e2e requires dev settings and a local SMTP sink")
-    if business_id in DEMO_IDS:
+    if business_id in {*DEMO_IDS, *map(run_id, DEMO_IDS)}:
         raise RuntimeError("only a business the run created can stand in for a plan")
     async with SessionLocal() as db:
         business = await db.scalar(

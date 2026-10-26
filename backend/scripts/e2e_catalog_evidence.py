@@ -9,6 +9,7 @@ from sqlalchemy import text
 
 from clientbridge.core.config import get_settings
 from clientbridge.core.db import engine
+from scripts.demo_context import FIXTURE_BUSINESS, run_id
 
 
 async def evidence(create_keys: list[str]) -> dict[str, object]:
@@ -21,8 +22,8 @@ async def evidence(create_keys: list[str]) -> dict[str, object]:
         raise RuntimeError("e2e requires dev settings and a local SMTP sink")
     async with engine.connect() as db:
         await db.execute(text("SET TRANSACTION READ ONLY"))
-        params = {"keys": json.dumps(create_keys)}
-        owned = "SELECT response->>'id' FROM commands WHERE business_id = 'bz_birchbark' "
+        params = {"keys": json.dumps(create_keys), "business": run_id(FIXTURE_BUSINESS)}
+        owned = "SELECT response->>'id' FROM commands WHERE business_id = :business "
         owned += "AND scope = 'item.create' AND key IN "
         owned += "(SELECT jsonb_array_elements_text(CAST(:keys AS jsonb)))"
         items = await db.execute(

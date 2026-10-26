@@ -1,5 +1,6 @@
 import { strings } from "@clientbridge/app-core/public";
 import { expect, test } from "@playwright/test";
+import { runEmail } from "@clientbridge/config/e2e/run";
 
 const r = strings.ui.review;
 const p = strings.previews;
@@ -16,7 +17,7 @@ test("a reminder shows the message before it goes out, and cancelling sends noth
     await page.goto("/today");
     await page
         .getByRole("textbox", { name: strings.auth.email, exact: true })
-        .fill("hannah@birchbark.example");
+        .fill(runEmail("hannah@birchbark.example"));
     await page.getByLabel(strings.auth.password, { exact: true }).fill("demo1234");
     await page.getByRole("button", { name: strings.auth.signIn, exact: true }).click();
     const main = page.getByRole("main");

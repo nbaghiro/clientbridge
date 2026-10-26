@@ -1,5 +1,6 @@
 import { strings } from "@clientbridge/app-core/public";
 import { expect, test } from "@playwright/test";
+import { runEmail } from "@clientbridge/config/e2e/run";
 
 const s = strings.billing;
 
@@ -25,7 +26,7 @@ test("a recorded payment holds the invoice until its new balance reaches this de
     await page.goto("/payments/invoices");
     await page
         .getByRole("textbox", { name: strings.auth.email, exact: true })
-        .fill("hannah@birchbark.example");
+        .fill(runEmail("hannah@birchbark.example"));
     await page.getByLabel(strings.auth.password, { exact: true }).fill("demo1234");
     await page.getByRole("button", { name: strings.auth.signIn, exact: true }).click();
     const main = page.getByRole("main");

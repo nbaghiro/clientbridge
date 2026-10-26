@@ -30,6 +30,7 @@ import {
     teamMember,
     visitEvidence,
 } from "./support/visits";
+import { demoSlug, runEmail } from "@clientbridge/config/e2e/run";
 
 const s = strings.bookings;
 const MIN = 60_000;
@@ -119,7 +120,7 @@ test("SCH-E2E-05 a visit holds its shared table, so an overlapping visit is refu
         },
         201,
     );
-    const diego = await teamMember(page, "diego@birchbark.example");
+    const diego = await teamMember(page, runEmail("diego@birchbark.example"));
     const second = await createClient(page);
     const booker = onlineBooker("Biscuit");
     const owned: string[] = [];
@@ -203,9 +204,12 @@ test("SCH-E2E-05 a visit holds its shared table, so an overlapping visit is refu
         ]);
 
         const date = dateKey(start, first.zone);
-        const controlSlots = await context.request.get(`${bookingApi()}/book/birchbark/slots`, {
-            params: { item_id: control.id, staff_id: "any", date },
-        });
+        const controlSlots = await context.request.get(
+            `${bookingApi()}/book/${demoSlug("birchbark")}/slots`,
+            {
+                params: { item_id: control.id, staff_id: "any", date },
+            },
+        );
         expect(controlSlots.status()).toBe(200);
         // without the table the same time is open with Diego, so only the table hides it
         expect(
@@ -214,7 +218,7 @@ test("SCH-E2E-05 a visit holds its shared table, so an overlapping visit is refu
             ),
         ).toContain(start.getTime());
         const client = await context.newPage();
-        const days = await openConnectService(client, "birchbark", first.itemName);
+        const days = await openConnectService(client, demoSlug("birchbark"), first.itemName);
         await client
             .getByRole("group", { name: strings.publicBooking.with, exact: true })
             .getByRole("button", { name: strings.publicBooking.anyone, exact: true })
@@ -241,7 +245,7 @@ test("SCH-E2E-05 a visit holds its shared table, so an overlapping visit is refu
         await fillConnectDetails(client, booker, "pet");
         const posted = client.waitForResponse(
             (response) =>
-                new URL(response.url()).pathname === "/book/birchbark" &&
+                new URL(response.url()).pathname === `/book/${demoSlug("birchbark")}` &&
                 response.request().method() === "POST",
         );
         await client
@@ -268,7 +272,7 @@ test("SCH-E2E-05 a visit holds its shared table, so an overlapping visit is refu
         expect((await holds()).length).toBe(3);
 
         const latecomer = onlineBooker("Juniper");
-        const taken = await context.request.post(`${bookingApi()}/book/birchbark`, {
+        const taken = await context.request.post(`${bookingApi()}/book/${demoSlug("birchbark")}`, {
             headers: { "Idempotency-Key": randomUUID() },
             data: {
                 item_id: first.itemId,

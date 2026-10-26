@@ -6,11 +6,12 @@ import { expect, test } from "@playwright/test";
 
 import { bookingApi } from "./support/bookings";
 import { navigate, signIn } from "./support/session";
+import { demoId, runUrl } from "@clientbridge/config/e2e/run";
 
 const execute = promisify(execFile);
 const d = strings.pos.desk;
 const p = strings.publicOrder;
-const ORDER = "ord_demo_ready";
+const ORDER = demoId("ord_demo_ready");
 
 interface PickupEvidence {
     order: {
@@ -43,9 +44,7 @@ async function pickupEvidence(orderId: string): Promise<PickupEvidence> {
 }
 
 function shopUrl(): string {
-    const value = process.env.SHOP_BASE_URL;
-    if (!value) throw new Error("SHOP_BASE_URL is unset: run through make test-functional");
-    return value;
+    return runUrl("SHOP_BASE_URL");
 }
 
 test("SALE-E2E-12 a ready online order marked picked up reaches the customer's open page and cannot move back", async ({

@@ -1,9 +1,11 @@
-// A throwaway verified identity, so recovery never changes a demo user's password.
-if (typeof AUTH_ADMIN_URL === "undefined")
-    throw new Error("AUTH_ADMIN_URL is not set: run the flows through the native lane");
+// A throwaway verified identity in the run's namespace, so its reset mail reaches this run.
+if (typeof AUTH_ADMIN_URL === "undefined" || typeof E2E_NAMESPACE === "undefined")
+    throw new Error(
+        "AUTH_ADMIN_URL or E2E_NAMESPACE is not set: run the flows through the native lane",
+    );
 var authAdmin = AUTH_ADMIN_URL;
 var stamp = String(Date.now());
-var email = "recovery-" + stamp + "@example.com";
+var email = "recovery-" + stamp + "+" + E2E_NAMESPACE + "@example.com";
 var created = http.post(authAdmin + "/admin/identities", {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({

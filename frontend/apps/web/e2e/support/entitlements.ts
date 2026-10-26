@@ -8,6 +8,7 @@ import { expect, type Page } from "@playwright/test";
 import { createClient, type ClientFixture } from "./crm";
 import { requireLocalMail } from "./evidence";
 import { navigate } from "./session";
+import { runUrl } from "@clientbridge/config/e2e/run";
 
 const execute = promisify(execFile);
 const w = strings.entitlements;
@@ -59,22 +60,19 @@ export async function entitlementFixture(page: Page, kind: "gift_card" | "packag
     let itemId: string | null = null;
     const itemName = `${client.name} — Three Gentle Grooming Visits`;
     if (kind === "package") {
-        const response = await page.request.post(
-            `${process.env.VITE_API_URL ?? "http://localhost:8701"}/v1/items`,
-            {
-                headers: { Origin: new URL(page.url()).origin, "Idempotency-Key": randomUUID() },
-                data: {
-                    kind: "package",
-                    name: itemName,
-                    sku: `BB-GROOM-${randomUUID().slice(0, 8).toUpperCase()}`,
-                    price_cents: 6001,
-                    tax_class: "exempt",
-                    session_count: 3,
-                    validity_days: 365,
-                    active: true,
-                },
+        const response = await page.request.post(`${runUrl("VITE_API_URL")}/v1/items`, {
+            headers: { Origin: new URL(page.url()).origin, "Idempotency-Key": randomUUID() },
+            data: {
+                kind: "package",
+                name: itemName,
+                sku: `BB-GROOM-${randomUUID().slice(0, 8).toUpperCase()}`,
+                price_cents: 6001,
+                tax_class: "exempt",
+                session_count: 3,
+                validity_days: 365,
+                active: true,
             },
-        );
+        });
         expect(response.status(), await response.text()).toBe(201);
         itemId = ((await response.json()) as { id: string }).id;
     }

@@ -67,7 +67,13 @@ async def test_customer_boundary_persists_lineage_before_ambiguous_provider_writ
     async def create(**kwargs: object) -> stripe.Customer:
         saved = json.loads(path.read_text())
         assert saved["deposit_fixtures"] == [
-            {"booking": "bk_owned", "client": "cl_owned", "amount_cents": 2000, "currency": "CAD"}
+            {
+                "kind": "booking",
+                "booking": "bk_owned",
+                "client": "cl_owned",
+                "amount_cents": 2000,
+                "currency": "CAD",
+            }
         ]
         assert kwargs["metadata"] == deposits.deposit_tags(
             str(manifest["run_id"]), "bk_owned", "cl_owned"

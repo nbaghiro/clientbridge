@@ -8,6 +8,7 @@ import { expect, type Locator, type Page } from "@playwright/test";
 
 import { requireLocalMail } from "./evidence";
 import { navigate } from "./session";
+import { runEmail, runUrl } from "@clientbridge/config/e2e/run";
 
 const execute = promisify(execFile);
 
@@ -68,13 +69,13 @@ export async function documentEvidence(
 
 export async function createDocumentClient(page: Page): Promise<DocumentClient> {
     await requireLocalMail();
-    const api = process.env.VITE_API_URL ?? "http://localhost:8701";
+    const api = runUrl("VITE_API_URL");
     if (!["localhost", "127.0.0.1"].includes(new URL(api).hostname)) {
         throw new Error("Document fixtures require a local API and SMTP sink");
     }
     const run = randomUUID();
     const name = demoPerson(run);
-    const email = `document-${run}@example.ca`;
+    const email = runEmail(`document-${run}@example.ca`);
     const response = await page.request.post(`${api}/v1/clients`, {
         headers: { Origin: new URL(page.url()).origin, "Idempotency-Key": randomUUID() },
         data: { name, email, preferred_channel: "email" },
@@ -187,7 +188,7 @@ export async function documentMail(
     page: Page,
     client: DocumentClient,
 ): Promise<{ ID: string; Subject: string; Snippet: string }[]> {
-    const base = process.env.MAILPIT_URL ?? "http://localhost:8715";
+    const base = runUrl("MAILPIT_URL");
     const response = await page.request.get(`${base}/api/v1/search`, {
         params: { query: `to:${client.email}`, limit: 100 },
     });

@@ -1,5 +1,6 @@
 import { strings } from "@clientbridge/app-core/public";
 import { axeIssues, unmarkedFocus, unreadableHover } from "@clientbridge/config/e2e/accessibility";
+import { demoId, runEmail } from "@clientbridge/config/e2e/run";
 import { expect, type Locator, type Page, test } from "@playwright/test";
 
 import { offsiteLoadFailure } from "./errors";
@@ -12,11 +13,11 @@ import {
     openBooking,
 } from "./support/bookings";
 
-const OWNER = "hannah@birchbark.example";
-const STAFF = "diego@birchbark.example";
+const OWNER = runEmail("hannah@birchbark.example");
+const STAFF = runEmail("diego@birchbark.example");
 const PASSWORD = "demo1234";
 // A seeded visit with a $20 deposit; opening it by link puts its day on the board.
-const DEPOSIT_BOOKING = "bk_015";
+const DEPOSIT_BOOKING = demoId("bk_015");
 
 const PAYMENTS_TABS = {
     invoices: strings.billing.newInvoice,
@@ -530,8 +531,8 @@ test("owner: clients, records, notes, subjects, wallet and merge", async ({ page
         await main.getByRole("button", { name: strings.clients.tidy.select }).click();
         // A seeded near-duplicate with no money or saved cards, so the merge isn't blocked.
         await main.getByRole("checkbox", { name: "Grace Lin", exact: true }).check();
-        await main.getByRole("searchbox").fill("robin@example.com");
-        await expect(main.getByText("robin@example.com", { exact: true })).toBeVisible();
+        await main.getByRole("searchbox").fill(runEmail("robin@example.com"));
+        await expect(main.getByText(runEmail("robin@example.com"), { exact: true })).toBeVisible();
         const duplicate = main.getByRole("checkbox", { name: "Robin Bennett", exact: true });
         await expect(duplicate).toHaveCount(1);
         await duplicate.check();
@@ -557,13 +558,13 @@ test("owner: clients, records, notes, subjects, wallet and merge", async ({ page
 
     await walk.step("record pages", async () => {
         for (const view of ["history", "subjects"]) {
-            await navigate(page, `/clients/cl_amelie/${view}`);
+            await navigate(page, `/clients/${demoId("cl_amelie")}/${view}`);
             await expect(page.getByRole("heading", { name: "Amélie Tremblay" })).toBeVisible();
         }
     });
 
     await walk.step("record: message", async () => {
-        await navigate(page, "/clients/cl_amelie/history");
+        await navigate(page, `/clients/${demoId("cl_amelie")}/history`);
         await main.getByRole("button", { name: r.message, exact: true }).click();
         await expect(page).toHaveURL(/\/inbox$/);
         await expect(
@@ -573,12 +574,12 @@ test("owner: clients, records, notes, subjects, wallet and merge", async ({ page
     });
 
     await walk.step("subjects: add", async () => {
-        await navigate(page, "/clients/cl_marcus/subjects");
+        await navigate(page, `/clients/${demoId("cl_marcus")}/subjects`);
         await openAndClose(page, strings.subjects.add("pet"));
     });
 
     await walk.step("wallet: method actions", async () => {
-        await navigate(page, "/clients?open=cl_amelie", "/clients");
+        await navigate(page, `/clients?open=${demoId("cl_amelie")}`, "/clients");
         await main.getByRole("button", { name: r.manageWallet }).click();
         await main
             .getByRole("button", { name: prefixOf(strings.clients.wallet.more) })
@@ -1112,11 +1113,11 @@ test("staff: today, schedule and clients", async ({ page }) => {
     });
 
     await walk.step("clients: record pages", async () => {
-        await navigate(page, "/clients/cl_amelie/history");
+        await navigate(page, `/clients/${demoId("cl_amelie")}/history`);
         await expect(page.getByRole("heading", { name: "Amélie Tremblay" })).toBeVisible();
-        await navigate(page, "/clients/cl_amelie/subjects");
+        await navigate(page, `/clients/${demoId("cl_amelie")}/subjects`);
         await openAndClose(page, strings.subjects.add("pet"));
-        await navigate(page, "/clients?open=cl_amelie", "/clients");
+        await navigate(page, `/clients?open=${demoId("cl_amelie")}`, "/clients");
         await expect(
             main.getByRole("button", { name: strings.clients.record.manageWallet }),
         ).toHaveCount(0);

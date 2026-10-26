@@ -1,8 +1,6 @@
-appId: '${typeof APP_ID === "undefined" ? "ca.clientbridge.app" : APP_ID}'
+appId: ${APP_ID}
 ---
 - launchApp:
-      arguments:
-          RCT_jsLocation: '${typeof METRO_HOST === "undefined" ? "localhost:8707" : METRO_HOST}'
       # the default "all" pulls the whole APK over adb to read its manifest, which can stall for minutes
       permissions:
           notifications: allow

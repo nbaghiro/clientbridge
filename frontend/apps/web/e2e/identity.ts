@@ -1,7 +1,7 @@
 import { createHmac, randomUUID } from "node:crypto";
 import type { APIRequestContext } from "@playwright/test";
 import { demoPerson } from "@clientbridge/config/e2e/demo";
-import { runEmail, runUrl } from "@clientbridge/config/e2e/run";
+import { demoId, runEmail, runUrl } from "@clientbridge/config/e2e/run";
 
 const API = runUrl("VITE_API_URL");
 const AUTH = runUrl("VITE_AUTH_URL");
@@ -126,8 +126,8 @@ export async function sessionActive(request: APIRequestContext, token: string): 
 }
 
 async function asOwner(request: APIRequestContext): Promise<Record<string, string>> {
-    const token = await nativeSession(request, "hannah@birchbark.example", "demo1234");
-    return { "X-Session-Token": token, "X-Business-Id": "bz_birchbark" };
+    const token = await nativeSession(request, runEmail("hannah@birchbark.example"), "demo1234");
+    return { "X-Session-Token": token, "X-Business-Id": demoId("bz_birchbark") };
 }
 
 /** Invites `email` to the demo business; `cleanup` removes the member or revokes the invite. */

@@ -2,21 +2,20 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { expect, test } from "@playwright/test";
 
-const endpoint = process.env.SYNC_TEST_URL;
-const tokens = JSON.parse(process.env.SYNC_TEST_TOKENS ?? "{}") as Record<string, string>;
+import { endpoint, fixture, token } from "./service";
+
 async function command(body: string): Promise<string> {
     const python = process.env.SYNC_TEST_PYTHON;
     const cwd = process.env.SYNC_TEST_BACKEND;
-    if (!python || !cwd) throw new Error("Run the isolated service harness");
+    if (!python || !cwd) throw new Error("SYNC_TEST_PYTHON is not set: run make test-sync");
     return (await promisify(execFile)(python, ["-m", "scripts.sync_hours", body], { cwd })).stdout;
 }
 
 test("lost command response replays once and the accepted week returns through PowerSync", async ({
     page,
 }) => {
-    test.skip(!endpoint, "Run the isolated service harness");
     let requests = 0;
-    await page.route("**/v1/hours/st_owner/week", async (route) => {
+    await page.route(`**/v1/hours/${fixture("st_owner")}/week`, async (route) => {
         const result = JSON.parse(await command(route.request().postData() ?? "")) as {
             status: number;
             body: string;
@@ -33,7 +32,7 @@ test("lost command response replays once and the accepted week returns through P
     await page.goto("/");
     try {
         const result = await page.evaluate(
-            async ({ endpoint, token }) => {
+            async ({ endpoint, token, ids }) => {
                 const { openReplica, enqueueHours, uploadHoursOnce } = await import("./database");
                 const name = `hours-service-${crypto.randomUUID()}.db`;
                 let db = await openReplica(name);
@@ -45,16 +44,17 @@ test("lost command response replays once and the accepted week returns through P
                     await db.connect(connector);
                     await db.waitForFirstSync(AbortSignal.timeout(20_000));
                     const staff = await db.get<{ hours_revision: number }>(
-                        "SELECT hours_revision FROM staff WHERE id = 'st_owner'",
+                        "SELECT hours_revision FROM staff WHERE id = ?",
+                        [ids.staff],
                     );
                     await db.execute(
                         "INSERT INTO device_prefs (id, value) VALUES ('sync.identity', ?)",
-                        [JSON.stringify(["api", endpoint, "us_owner"])],
+                        [JSON.stringify(["api", endpoint, ids.user])],
                     );
                     await enqueueHours(
                         db,
-                        "st_owner",
-                        "bz_first",
+                        ids.staff,
+                        ids.business,
                         staff.hours_revision,
                         Array.from({ length: 7 }, (_, weekday) => ({
                             weekday,
@@ -76,7 +76,8 @@ test("lost command response replays once and the accepted week returns through P
                     const deadline = Date.now() + 15_000;
                     for (;;) {
                         const row = await db.get<{ hours_revision: number }>(
-                            "SELECT hours_revision FROM staff WHERE id = 'st_owner'",
+                            "SELECT hours_revision FROM staff WHERE id = ?",
+                            [ids.staff],
                         );
                         if (row.hours_revision === staff.hours_revision + 1) break;
                         if (Date.now() > deadline)
@@ -88,7 +89,8 @@ test("lost command response replays once and the accepted week returns through P
                         accepted,
                         pending: await db.getAll("SELECT id FROM hours_outbox"),
                         hours: await db.getAll(
-                            "SELECT weekday, start_time, end_time FROM hours WHERE staff_id = 'st_owner' ORDER BY weekday",
+                            "SELECT weekday, start_time, end_time FROM hours WHERE staff_id = ? ORDER BY weekday",
+                            [ids.staff],
                         ),
                     };
                 } finally {
@@ -96,7 +98,15 @@ test("lost command response replays once and the accepted week returns through P
                     await db.close();
                 }
             },
-            { endpoint: endpoint ?? "", token: tokens.owner ?? "" },
+            {
+                endpoint: endpoint(),
+                token: token("owner"),
+                ids: {
+                    staff: fixture("st_owner"),
+                    business: fixture("bz_first"),
+                    user: fixture("us_owner"),
+                },
+            },
         );
         expect(requests).toBe(2);
         expect(result.accepted).toEqual({

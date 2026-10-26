@@ -1,5 +1,6 @@
 import { strings } from "@clientbridge/app-core/public";
 import { expect, test } from "@playwright/test";
+import { runEmail } from "@clientbridge/config/e2e/run";
 
 test("payment account entrypoints preserve navigation when payment tools are offline", async ({
     page,
@@ -14,7 +15,7 @@ test("payment account entrypoints preserve navigation when payment tools are off
     await page.goto("/setup/getting-paid?manage=account");
     await page
         .getByRole("textbox", { name: strings.auth.email, exact: true })
-        .fill("hannah@birchbark.example");
+        .fill(runEmail("hannah@birchbark.example"));
     await page.getByLabel(strings.auth.password, { exact: true }).fill("demo1234");
     await page.getByRole("button", { name: strings.auth.signIn, exact: true }).click();
     await expect(
@@ -114,7 +115,7 @@ test("payout contents paginate and clear when switching to a manual payout", asy
     await page.goto("/payments/payouts");
     await page
         .getByRole("textbox", { name: strings.auth.email, exact: true })
-        .fill("hannah@birchbark.example");
+        .fill(runEmail("hannah@birchbark.example"));
     await page.getByLabel(strings.auth.password, { exact: true }).fill("demo1234");
     await page.getByRole("button", { name: strings.auth.signIn, exact: true }).click();
     await page.getByRole("button", { name: /12[.]00/ }).click({ timeout: 60_000 });
@@ -167,7 +168,7 @@ test("payout history reaches older pages and returns to the newest page", async 
     await page.goto("/payments/payouts");
     await page
         .getByRole("textbox", { name: strings.auth.email, exact: true })
-        .fill("hannah@birchbark.example");
+        .fill(runEmail("hannah@birchbark.example"));
     await page.getByLabel(strings.auth.password, { exact: true }).fill("demo1234");
     await page.getByRole("button", { name: strings.auth.signIn, exact: true }).click();
     await expect(page.getByText("po_newer", { exact: true })).toBeVisible({ timeout: 60_000 });

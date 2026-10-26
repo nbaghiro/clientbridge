@@ -1,4 +1,4 @@
-appId: '${typeof APP_ID === "undefined" ? "ca.clientbridge.app" : APP_ID}'
+appId: ${APP_ID}
 name: Password recovery
 onFlowComplete:
     - runScript: helpers/forget-recovery-account.js
@@ -6,8 +6,6 @@ onFlowComplete:
 ---
 - runScript: helpers/recovery-account.js
 - launchApp:
-      arguments:
-          RCT_jsLocation: '${typeof METRO_HOST === "undefined" ? "localhost:8707" : METRO_HOST}'
       # the default "all" pulls the whole APK over adb to read its manifest, which can stall for minutes
       permissions:
           notifications: allow
@@ -53,6 +51,7 @@ onFlowComplete:
 - inputText: ${output.recovery.password}
 - hideKeyboard
 - tapOn: "Save password"
+- runFlow: helpers/decline-save-password.yaml
 - extendedWaitUntil:
       visible: "Create your business"
       timeout: 60000

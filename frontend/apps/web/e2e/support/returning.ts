@@ -7,6 +7,7 @@ import { mailedCode } from "../identity";
 import { bookingApi, createBookingFixture, type BookingFixture } from "./bookings";
 import { addPet, type ClientFixture } from "./crm";
 import { pastExtras } from "./scheduling";
+import { demoSlug } from "@clientbridge/config/e2e/run";
 
 const execute = promisify(execFile);
 export interface ReturningFixture extends BookingFixture {
@@ -62,11 +63,13 @@ export async function verifyReturning(
     if (!port) throw new Error("Returning journeys require CONNECT_E2E_PORT");
     const availableDays = () =>
         page.waitForResponse(
-            (r) => new URL(r.url()).pathname === "/book/birchbark/days" && r.status() === 200,
+            (r) =>
+                new URL(r.url()).pathname === `/book/${demoSlug("birchbark")}/days` &&
+                r.status() === 200,
         );
     let loaded = availableDays();
     await page.goto(
-        `http://book.localhost:${port}/birchbark?service=${f.itemId}&staff=${f.staffId}`,
+        `http://book.localhost:${port}/${demoSlug("birchbark")}?service=${f.itemId}&staff=${f.staffId}`,
     );
     await pastExtras(page);
     let response = await loaded;
@@ -102,7 +105,7 @@ export async function verifyReturning(
         .getByRole("textbox", { name: t.code, exact: true })
         .fill(await mailedCode(page.request, f.clientEmail, "booking verification"));
     const verified = page.waitForResponse(
-        (r) => new URL(r.url()).pathname === "/book/birchbark/returning/verify",
+        (r) => new URL(r.url()).pathname === `/book/${demoSlug("birchbark")}/returning/verify`,
     );
     await page.getByRole("button", { name: t.verify, exact: true }).click();
     const result = await verified;

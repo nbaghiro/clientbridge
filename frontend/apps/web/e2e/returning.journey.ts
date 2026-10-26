@@ -4,6 +4,7 @@ import { cancelOwnedBooking } from "./support/bookings";
 import { clientCommand, editClient } from "./support/crm";
 import { returningEvidence, returningFixture, verifyReturning } from "./support/returning";
 import { navigate, signIn } from "./support/session";
+import { demoSlug } from "@clientbridge/config/e2e/run";
 
 test.use({ actionTimeout: 15_000 });
 
@@ -27,7 +28,8 @@ test("CRM-E2E-05 verified returning customer books the selected existing pet and
         ).toHaveValue("");
         const submitted = customer.waitForResponse(
             (r) =>
-                new URL(r.url()).pathname === "/book/birchbark" && r.request().method() === "POST",
+                new URL(r.url()).pathname === `/book/${demoSlug("birchbark")}` &&
+                r.request().method() === "POST",
         );
         await customer
             .getByRole("button", { name: strings.publicBooking.confirm, exact: true })
@@ -132,7 +134,8 @@ test("CRM-E2E-06 archiving a verified customer revokes their proof before public
         expect(before.slots).toEqual([]);
         const submitted = customer.waitForResponse(
             (r) =>
-                new URL(r.url()).pathname === "/book/birchbark" && r.request().method() === "POST",
+                new URL(r.url()).pathname === `/book/${demoSlug("birchbark")}` &&
+                r.request().method() === "POST",
         );
         await customer
             .getByRole("button", { name: strings.publicBooking.confirm, exact: true })

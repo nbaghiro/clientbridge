@@ -12,9 +12,10 @@ from sqlalchemy import text
 from clientbridge.core.config import get_settings
 from clientbridge.core.db import engine
 from clientbridge.integrations.stripe import STRIPE_API_VERSION, close_stripe_client
+from scripts.demo_context import FIXTURE_BUSINESS, run_id
 from scripts.stripe_qa import preflight
 
-BUSINESS = "bz_birchbark"
+BUSINESS = run_id(FIXTURE_BUSINESS)
 
 
 def guard() -> str:

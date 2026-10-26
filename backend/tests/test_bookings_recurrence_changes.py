@@ -2,18 +2,17 @@ from datetime import UTC, date, datetime
 from zoneinfo import ZoneInfo
 
 import httpx
-from sqlalchemy import func, select, update
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.ids import new_id
 from clientbridge.models.business import Business
 from clientbridge.models.catalog import Item
-from clientbridge.models.clients import Client
 from clientbridge.models.platform import Audit
 from clientbridge.models.scheduling import Booking, Recurrence, Slot
 from clientbridge.services.bookings import expand_occurrences
 from tests.conftest import BIZ, Factory, FakeEmailSender, FakeSmsSender
-from tests.helpers import enable_payments, key, settle
+from tests.helpers import enable_payments, key, reachable, settle
 
 VANCOUVER = ZoneInfo("America/Vancouver")
 ST_OWNER = "st_owner"
@@ -132,19 +131,10 @@ async def test_a_shift_needs_its_new_time(as_owner: httpx.AsyncClient, db: Async
     assert res.status_code == 422
 
 
-async def _reachable(db: AsyncSession) -> None:
-    # confirmations are queued deliveries, which refuse the seed's reserved demo addresses
-    await db.execute(
-        update(Client)
-        .where(Client.id == CL_AMELIE)
-        .values(email="amelie@birchbark.ca", phone="+12505551234")
-    )
-
-
 async def test_series_confirmation_is_one_message(
     as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender, sms: FakeSmsSender
 ) -> None:
-    await _reachable(db)
+    await reachable(db, CL_AMELIE)
     await _series(as_owner, db, confirmation="series")
     assert len(email.sent) == 1
     assert email.sent[0].body.count("at ") == 4
@@ -154,7 +144,7 @@ async def test_series_confirmation_is_one_message(
 async def test_each_confirmation_is_one_message_per_visit(
     as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
 ) -> None:
-    await _reachable(db)
+    await reachable(db, CL_AMELIE)
     await _series(as_owner, db, confirmation="each", count=3)
     assert len(email.sent) == 3
 
@@ -162,6 +152,7 @@ async def test_each_confirmation_is_one_message_per_visit(
 async def test_change_all_moves_weekday_time_and_member(
     as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
 ) -> None:
+    await reachable(db, CL_AMELIE)
     body = await _series(as_owner, db)
     rid = str(body["id"])
     res = await as_owner.patch(
@@ -253,6 +244,7 @@ async def test_change_on_a_date_without_a_visit_404(
 async def test_cancel_from_a_date_ends_the_series(
     as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
 ) -> None:
+    await reachable(db, CL_AMELIE)
     rid = str((await _series(as_owner, db))["id"])
     res = await as_owner.post(f"/v1/recurrences/{rid}/cancel", json={"from": "2027-03-15"})
     assert res.status_code == 200, res.text

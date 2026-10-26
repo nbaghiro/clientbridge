@@ -1,8 +1,6 @@
-appId: '${typeof APP_ID === "undefined" ? "ca.clientbridge.app" : APP_ID}'
+appId: ${APP_ID}
 ---
 - launchApp:
-      arguments:
-          RCT_jsLocation: '${typeof METRO_HOST === "undefined" ? "localhost:8707" : METRO_HOST}'
       # the default "all" pulls the whole APK over adb to read its manifest, which can stall for minutes
       permissions:
           notifications: allow
@@ -14,7 +12,7 @@ appId: '${typeof APP_ID === "undefined" ? "ca.clientbridge.app" : APP_ID}'
           visible: "Sign in"
       commands:
           - tapOn: "you@business.ca"
-          - inputText: "hannah@birchbark.example"
+          - inputText: "hannah+${E2E_NAMESPACE}@birchbark.example"
           - tapOn: "••••••••"
           - eraseText
           - inputText: "demo1234"
@@ -22,18 +20,11 @@ appId: '${typeof APP_ID === "undefined" ? "ca.clientbridge.app" : APP_ID}'
           - tapOn:
                 text: "Sign in"
                 below: "Forgot password\\?"
+          - runFlow: decline-save-password.yaml
 - extendedWaitUntil:
       visible: "Today"
       timeout: 60000
-- runFlow:
-      when:
-          visible: "!, Open debugger to view warnings."
-      commands:
-          - tapOn:
-                text: "!, Open debugger to view warnings."
-                point: "94%,50%"
-          - assertNotVisible: "!, Open debugger to view warnings."
-# a development build may wait on Metro to rebuild changed modules before Today renders
+# the viewer's name arrives with the replica's first sync, after Today renders
 - extendedWaitUntil:
       visible: "Good .*, Hannah"
       timeout: 90000

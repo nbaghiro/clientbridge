@@ -11,6 +11,7 @@ import { expect, type Page } from "@playwright/test";
 
 import { requireLocalMail } from "./evidence";
 import { navigate } from "./session";
+import { runEmail, runUrl } from "@clientbridge/config/e2e/run";
 
 export interface BookingFixture {
     clientId: string;
@@ -32,7 +33,7 @@ export interface BookingRecord {
 }
 
 export function bookingApi(): string {
-    const base = process.env.VITE_API_URL ?? "http://localhost:8701";
+    const base = runUrl("VITE_API_URL");
     if (!["localhost", "127.0.0.1"].includes(new URL(base).hostname)) {
         throw new Error("Booking fixtures require a local API and SMTP sink");
     }
@@ -47,7 +48,7 @@ export async function createBookingFixture(
     const api = bookingApi();
     const run = randomUUID();
     const clientName = demoPerson(run);
-    const clientEmail = `booking-${run}@example.ca`;
+    const clientEmail = runEmail(`booking-${run}@example.ca`);
     const itemName = `Coat care for ${clientName}`;
     const headers = { Origin: new URL(page.url()).origin, "Idempotency-Key": randomUUID() };
     const team = await page.request.get(`${api}/v1/staff/team`);
@@ -55,7 +56,7 @@ export async function createBookingFixture(
     const { members } = (await team.json()) as {
         members: { id: string; email: string; name: string; status: string }[];
     };
-    const staff = members.find((member) => member.email === "hannah@birchbark.example");
+    const staff = members.find((member) => member.email === runEmail("hannah@birchbark.example"));
     expect(staff?.status).toBe("active");
     if (!staff) throw new Error("The Birch & Bark owner fixture is missing");
     const client = await page.request.post(`${api}/v1/clients`, {

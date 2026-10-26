@@ -3,31 +3,35 @@
     "workspaces": {
         "apps/web": {
             "ignoreDependencies": ["@journeyapps/wa-sqlite"],
-            "entry": ["scripts/service-worker.js"],
-            "playwright": {
-                "config": [
-                    "playwright.config.ts",
-                    "playwright.journeys.config.ts",
-                    "playwright.filings.config.ts"
-                ]
-            }
+            "entry": [
+                "scripts/service-worker.js",
+                "playwright.config.ts",
+                "playwright.journeys.config.ts",
+                "playwright.filings.config.ts",
+                "e2e/**/*.e2e.ts",
+                "e2e/**/*.journey.ts",
+                "e2e/**/*.filing.ts"
+            ],
+            "playwright": false
         },
         "apps/connect": {
-            "entry": ["public/embed.js", "src/embedLoader.ts"],
-            "playwright": {
-                "config": [
-                    "playwright.config.ts",
-                    "playwright.stripe.config.ts",
-                    "playwright.smoke.config.ts"
-                ]
-            }
+            "entry": [
+                "public/embed.js",
+                "src/embedLoader.ts",
+                "playwright.config.ts",
+                "playwright.stripe.config.ts",
+                "playwright.smoke.config.ts",
+                "e2e/**/*.e2e.ts",
+                "e2e/**/*.spec.ts",
+                "e2e/smoke/*.smoke.ts"
+            ],
+            "playwright": false
         },
         "apps/site": {
             "entry": ["src/entry-server.tsx", "scripts/*.ts"]
         },
         "apps/mobile": {
             "entry": ["e2e/helpers/*.js"],
-            "ignoreBinaries": ["maestro"],
             "ignoreDependencies": ["@babel/core", "expo-updates"]
         },
         "packages/app-core": {
@@ -38,6 +42,10 @@
         },
         "packages/config": {
             "entry": ["scripts/*.mjs", "*.test.mjs"]
+        },
+        "packages/sync": {
+            "playwright": false,
+            "entry": ["playwright.config.ts", "e2e/**/*.e2e.ts"]
         }
     },
     "ignore": ["packages/api-client/src/generated.ts"]

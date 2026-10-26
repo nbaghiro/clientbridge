@@ -13,6 +13,7 @@ import {
 import { joinHoursStaff } from "./support/offline";
 import { navigate, signIn } from "./support/session";
 import { apiCall, visitEvidence } from "./support/visits";
+import { runUrl } from "@clientbridge/config/e2e/run";
 const w = strings.entitlements;
 
 test("ENT-E2E-01 cash gift card partial redemption rejects overspend and exhausts exactly", async ({
@@ -156,7 +157,7 @@ test("ENT-E2E-02 cash package confirmation cancellation preserves sessions and f
         expect(exhausted.packages[0]?.status).toBe("used");
         // API edge supplements the absent UI action after three real UI uses.
         const rejected = await page.request.post(
-            `${process.env.VITE_API_URL ?? "http://localhost:8701"}/v1/packages/${pack.id}/consume`,
+            `${runUrl("VITE_API_URL")}/v1/packages/${pack.id}/consume`,
             {
                 headers: { Origin: new URL(page.url()).origin, "Idempotency-Key": randomUUID() },
             },
@@ -318,7 +319,7 @@ test("ENT-E2E-03 a package for one pet covers that pet's visit at the desk and i
         );
 
         const refused = await page.request.post(
-            `${process.env.VITE_API_URL ?? "http://localhost:8701"}/v1/packages/${pack.id}/cover`,
+            `${runUrl("VITE_API_URL")}/v1/packages/${pack.id}/cover`,
             {
                 headers: { Origin: new URL(page.url()).origin, "Idempotency-Key": randomUUID() },
                 data: { booking_id: sibling.id },

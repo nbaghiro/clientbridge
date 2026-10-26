@@ -8,11 +8,12 @@ import json
 import os
 import random
 import shutil
+import signal
 import subprocess
 import sys
 import time
 from collections.abc import Iterator
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager, suppress
 from dataclasses import dataclass
 from pathlib import Path
 from typing import IO, cast
@@ -109,8 +110,7 @@ def digest(*paths: Path) -> str:
 def configuration() -> str:
     """The services as configured, so editing this script alone never forces a rebuild."""
     spec = json.dumps([compose_spec(), powersync_config()], sort_keys=True)
-    relay = (ROOT / "infra" / "test" / "relay.py").read_bytes()
-    return hashlib.sha256(spec.encode() + relay).hexdigest()[:16]
+    return hashlib.sha256(spec.encode()).hexdigest()[:16]
 
 
 def fingerprint() -> dict[str, str]:
@@ -119,8 +119,9 @@ def fingerprint() -> dict[str, str]:
     return {
         "migrations": ",".join(sorted(scripts.get_heads())),
         "sync_rules": digest(ROOT / "infra" / "powersync" / "sync-rules.yaml"),
-        "auth": digest(ROOT / "infra" / "auth"),
+        "auth": digest(*sorted(p for p in (ROOT / "infra" / "auth").iterdir() if p.is_file())),
         "tier": configuration(),
+        "relay": digest(ROOT / "infra" / "test" / "relay.py"),
     }
 
 
@@ -420,6 +421,15 @@ def destroy() -> None:
             path.unlink()
 
 
+def refresh_relay() -> None:
+    """Swap in a changed relay without a rebuild; the courier retries mail sent meanwhile."""
+    shutil.copy(ROOT / "infra" / "test" / "relay.py", TIER / "config" / "relay.py")
+    compose("restart", "relay")
+    found = recorded() or {}
+    found["relay"] = fingerprint()["relay"]
+    (TIER / "fingerprint.json").write_text(json.dumps(found, indent=2))
+
+
 def differences(current: dict[str, str], found: dict[str, str] | None) -> list[str]:
     if found is None:
         return ["the tier has never been started"]
@@ -432,6 +442,8 @@ def hold() -> Iterator[None]:
     TIER.mkdir(parents=True, exist_ok=True)
     with (TIER / "tier.lock").open("a") as handle:
         current = fingerprint()
+        if differences(current, recorded()) == ["relay"] and running():
+            refresh_relay()
         try:
             fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
             alone = True
@@ -492,11 +504,17 @@ class Lease:
         """Tell the relay where this run's API answers, so its auth mail reaches it."""
         record = {"api": api.replace("localhost", "host.docker.internal"), "keys": keys}
         path = TIER / "runs" / f"{self.namespace}.json"
-        path.write_text(json.dumps({**record, "slot": self.slot, "pid": os.getpid()}))
+        # written whole and renamed, so the relay never reads half a record
+        partial = path.with_suffix(".tmp")
+        partial.write_text(json.dumps({**record, "slot": self.slot, "pid": os.getpid()}))
+        partial.replace(path)
 
 
-def slot_held(slot: int) -> bool:
-    with (TIER / "slots" / f"{slot}.lock").open("a") as handle:
+def held(path: Path) -> bool:
+    """Whether a live process holds this lock file; a crashed holder's lock is released."""
+    if not path.exists():
+        return False
+    with path.open("a") as handle:
         try:
             fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
@@ -505,42 +523,88 @@ def slot_held(slot: int) -> bool:
         return False
 
 
+def slot_held(slot: int) -> bool:
+    return held(TIER / "slots" / f"{slot}.lock")
+
+
+def namespace_held(namespace: str) -> bool:
+    return held(TIER / "namespaces" / f"{namespace}.lock")
+
+
 def stale_namespaces() -> list[str]:
-    """Namespaces whose run no longer holds its slot: it ended without cleaning up."""
-    found: list[str] = []
-    for path in (TIER / "runs").glob("*.json"):
-        record = cast(dict[str, object], json.loads(path.read_text()))
-        if not slot_held(int(cast(int, record["slot"]))):
-            found.append(path.stem)
-    return found
+    """Registered namespaces no live run holds: their run ended without cleaning up."""
+    return [path.stem for path in (TIER / "runs").glob("*.json") if not namespace_held(path.stem)]
+
+
+def listeners(port: int) -> list[int]:
+    found = subprocess.run(
+        ["lsof", "-nP", "-t", f"-iTCP:{port}", "-sTCP:LISTEN"], capture_output=True, text=True
+    )
+    return [int(pid) for pid in found.stdout.split()]
+
+
+def clear_ports(slot: int) -> None:
+    """Free a slot's fixed origins: the slot lock proves no live run owns what listens there."""
+    for port in origins(slot):
+        for pid in listeners(port):
+            command = subprocess.run(
+                ["ps", "-o", "command=", "-p", str(pid)], capture_output=True, text=True
+            ).stdout.strip()
+            # only a web server an interrupted run left behind; anything else is a person's to stop
+            if "vite" not in command or "clientbridge" not in command:
+                raise RuntimeError(f"port {port} of test slot {slot} is held by: {command}")
+            print(f"Stopping a leftover web server on :{port}: {command}", file=sys.stderr)
+            with suppress(ProcessLookupError):
+                os.killpg(os.getpgid(pid), signal.SIGTERM)
+        deadline = time.monotonic() + 10
+        while listeners(port) and time.monotonic() < deadline:
+            time.sleep(0.2)
+        for pid in listeners(port):
+            with suppress(ProcessLookupError):
+                os.killpg(os.getpgid(pid), signal.SIGKILL)
+
+
+def claim(handle: IO[str]) -> bool:
+    try:
+        fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        return False
+    return True
 
 
 @contextmanager
 def lease(*, poll_seconds: float = 5) -> Iterator[Lease]:
-    """Hold one of the tier's run slots and a namespace no live run uses."""
-    (TIER / "slots").mkdir(parents=True, exist_ok=True)
-    (TIER / "runs").mkdir(parents=True, exist_ok=True)
+    """Hold one of the tier's run slots and a namespace, each locked for the run's whole life."""
+    for folder in ("slots", "runs", "namespaces"):
+        (TIER / folder).mkdir(parents=True, exist_ok=True)
     waiting = False
     while True:
         for slot in range(SLOTS):
-            handle = (TIER / "slots" / f"{slot}.lock").open("a")
-            try:
-                fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            except BlockingIOError:
-                handle.close()
-                continue
-            taken = {path.stem for path in (TIER / "runs").glob("*.json")}
-            namespace = next(
-                candidate
-                for candidate in (f"{random.randrange(10_000):04d}" for _ in range(1000))
-                if candidate not in taken
-            )
-            try:
-                yield Lease(slot, namespace)
-            finally:
-                (TIER / "runs" / f"{namespace}.json").unlink(missing_ok=True)
-                handle.close()
-            return
+            with ExitStack() as held_locks:
+                handle = held_locks.enter_context((TIER / "slots" / f"{slot}.lock").open("a"))
+                if not claim(handle):
+                    continue
+                namespace = ""
+                for _ in range(1000):
+                    candidate = f"{random.randrange(10_000):04d}"
+                    # a registered namespace may be a crashed run's data, purged only by its reaper
+                    if (TIER / "runs" / f"{candidate}.json").exists():
+                        continue
+                    lock = held_locks.enter_context(
+                        (TIER / "namespaces" / f"{candidate}.lock").open("a")
+                    )
+                    if claim(lock):
+                        namespace = candidate
+                        break
+                if not namespace:
+                    raise RuntimeError("no free namespace; reap the stale ones")
+                clear_ports(slot)
+                try:
+                    yield Lease(slot, namespace)
+                finally:
+                    (TIER / "runs" / f"{namespace}.json").unlink(missing_ok=True)
+                    clear_ports(slot)
+                return
         if not waiting:
             print(
                 f"Waiting for one of the test tier's {SLOTS} run slots", file=sys.stderr, flush=True

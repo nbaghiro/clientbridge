@@ -4,6 +4,7 @@ import { expect, test } from "@playwright/test";
 import { openClient } from "./support/crm";
 import { expectOwnerUnchanged, expectRefused, prepareSecurityFixture } from "./support/security";
 import { navigate, signIn } from "./support/session";
+import { demoId, runEmail } from "@clientbridge/config/e2e/run";
 
 test("SEC-E2E-01 authenticated staff cannot read invoice details, record invoice payments or refund", async ({
     page,
@@ -17,7 +18,7 @@ test("SEC-E2E-01 authenticated staff cannot read invoice details, record invoice
     });
     try {
         const staff = await staffContext.newPage();
-        await signIn(staff, { email: "diego@birchbark.example", password: "demo1234" });
+        await signIn(staff, { email: runEmail("diego@birchbark.example"), password: "demo1234" });
         await expect(staff.getByText(strings.staff.roleStaff, { exact: true })).toBeVisible();
         const record = await openClient(staff, fixture.client);
         await expect(
@@ -70,7 +71,10 @@ test("SEC-E2E-02 another business cannot read or mutate client, invoice or payme
     });
     try {
         const foreign = await foreignContext.newPage();
-        await signIn(foreign, { email: "owner@cedarcoast.example", password: "demo1234" });
+        await signIn(foreign, {
+            email: runEmail("owner@cedarcoast.example"),
+            password: "demo1234",
+        });
         await navigate(foreign, `/clients/${fixture.client.id}/history`);
         await expect(
             foreign.getByText(strings.clients.record.goneBody, { exact: true }),
@@ -106,14 +110,14 @@ test("SEC-E2E-02 another business cannot read or mutate client, invoice or payme
             reason: "other",
             notify: false,
         });
-        await expectRefused(foreign, history, "GET", 403, undefined, "bz_birchbark");
+        await expectRefused(foreign, history, "GET", 403, undefined, demoId("bz_birchbark"));
         await expectRefused(
             foreign,
             `clients/${fixture.client.id}`,
             "PATCH",
             403,
             { name: "Avery Patel" },
-            "bz_birchbark",
+            demoId("bz_birchbark"),
         );
         await expectOwnerUnchanged(page, fixture);
         await testInfo.attach("unchanged-committed-payment-evidence", {

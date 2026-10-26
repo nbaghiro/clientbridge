@@ -12,6 +12,7 @@ import {
 } from "./support/scheduling";
 import { inboxMail } from "./support/messaging";
 import { navigate, signIn } from "./support/session";
+import { demoSlug, runUrl } from "@clientbridge/config/e2e/run";
 
 test("SCH-E2E-03 two real clients race for one time without loser side effects", async ({
     page,
@@ -71,7 +72,7 @@ test("SCH-E2E-03 two real clients race for one time without loser side effects",
                 const contact = contacts[index];
                 if (!contact) throw new Error("Race contact is missing");
                 await raceDetails(client, contact);
-                await client.route("**/book/birchbark", async (route: Route) => {
+                await client.route(`**/book/${demoSlug("birchbark")}`, async (route: Route) => {
                     if (route.request().method() !== "POST") return route.continue();
                     attempts.push({
                         index,
@@ -85,14 +86,17 @@ test("SCH-E2E-03 two real clients race for one time without loser side effects",
         );
         clients.forEach((client, index) => {
             client.on("response", (response) => {
-                if (response.url().includes("/book/birchbark/slots?") && response.ok())
+                if (
+                    response.url().includes(`/book/${demoSlug("birchbark")}/slots?`) &&
+                    response.ok()
+                )
                     refreshedSlots[index]?.push(response);
             });
         });
         const responses = clients.map((client) =>
             client.waitForResponse(
                 (response) =>
-                    new URL(response.url()).pathname === "/book/birchbark" &&
+                    new URL(response.url()).pathname === `/book/${demoSlug("birchbark")}` &&
                     response.request().method() === "POST",
             ),
         );
@@ -206,7 +210,7 @@ test("SCH-E2E-03 two real clients race for one time without loser side effects",
         await expect.poll(async () => (await acknowledgments()).length).toBe(1);
         const winnerMail = await acknowledgments();
         const message = await page.request.get(
-            `${process.env.MAILPIT_URL ?? "http://localhost:8715"}/api/v1/message/${winnerMail[0]?.ID}`,
+            `${runUrl("MAILPIT_URL")}/api/v1/message/${winnerMail[0]?.ID}`,
         );
         expect(message.status()).toBe(200);
         expect(

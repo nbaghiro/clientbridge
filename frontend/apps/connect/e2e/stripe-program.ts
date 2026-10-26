@@ -22,6 +22,7 @@ import {
     registerEnrolmentClient,
     type DepositFixture,
 } from "./stripe-deposit-contract";
+import { demoSlug, runEmail } from "@clientbridge/config/e2e/run";
 
 const b = strings.publicBooking;
 const ZONE = "America/Vancouver";
@@ -41,7 +42,7 @@ interface Scheduled {
 // API prerequisites; the client's sandbox customer is registered before Connect opens its deposit
 export async function prepareProgram(owner: Page) {
     await stripeReady();
-    const member = await teamMember(owner, "hannah@birchbark.example");
+    const member = await teamMember(owner, runEmail("hannah@birchbark.example"));
     const run = randomUUID().slice(0, 6).toUpperCase();
     const camp = await apiCall<{ id: string; name: string }>(
         owner,
@@ -111,9 +112,9 @@ export async function enrolWithCardDeposit(
     try {
         const page = await context.newPage();
         const listed = page.waitForResponse(
-            (r) => r.url().includes("/book/birchbark/programs?") && r.ok(),
+            (r) => r.url().includes(`/book/${demoSlug("birchbark")}/programs?`) && r.ok(),
         );
-        await page.goto(connectUrl("birchbark"));
+        await page.goto(connectUrl(demoSlug("birchbark")));
         await page
             .getByRole("button")
             .filter({ has: page.getByText(setup.camp.name, { exact: true }) })
@@ -125,7 +126,8 @@ export async function enrolWithCardDeposit(
         await fillConnectDetails(page, setup.booker, "pet");
         const posted = page.waitForResponse(
             (r) =>
-                new URL(r.url()).pathname === "/book/birchbark" && r.request().method() === "POST",
+                new URL(r.url()).pathname === `/book/${demoSlug("birchbark")}` &&
+                r.request().method() === "POST",
         );
         await page
             .getByRole("button", {

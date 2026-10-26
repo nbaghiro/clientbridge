@@ -100,6 +100,8 @@ def main(command: list[str]) -> int:
         asyncio.run(admin(f"CREATE DATABASE {quote(database)} TEMPLATE {quote(template)}"))
         try:
             env = os.environ | tier.environment(database)
+            # the suite builds deployed Settings from this environment, which refuse a dev mailer
+            env.pop("SMTP_URL")
             return subprocess.run(command, env=env, check=False).returncode
         finally:
             asyncio.run(admin(f"DROP DATABASE IF EXISTS {quote(database)} WITH (FORCE)"))

@@ -1,16 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { demoPerson } from "@clientbridge/config/e2e/demo";
 import { type APIRequestContext, expect, test } from "@playwright/test";
+import { demoSlug, runEmail, runUrl } from "@clientbridge/config/e2e/run";
 
-function required(name: string): string {
-    const value = process.env[name];
-    if (!value) throw new Error(`${name} is unset: run through make test-functional`);
-    return value;
-}
-
-const SITE = required("VITE_SITE_URL");
-const MAILPIT = required("MAILPIT_URL");
-const PAGE = required("BUSINESS_PAGE_URL");
+const SITE = runUrl("VITE_SITE_URL");
+const MAILPIT = runUrl("MAILPIT_URL");
+const PAGE = runUrl("BUSINESS_PAGE_URL");
 const TEAM = "hello@clientbridge.ca";
 
 interface Mailed {
@@ -36,7 +31,7 @@ test("OPS-E2E-04 the marketing site's contact form mails the team once and drops
 }) => {
     const run = randomUUID().slice(0, 8);
     const name = `${demoPerson(run)} ${run}`;
-    const email = `contact-${run}@example.com`;
+    const email = runEmail(`contact-${run}@example.com`);
     const message = "We run two grooming vans in Halifax. Can we book both from one calendar?";
     await page.goto(`${SITE}/contact`);
     await page.locator("#contact-name").fill(name);
@@ -143,8 +138,8 @@ test("OPS-E2E-05 the marketing site's demo links open the seeded demo businesses
     page,
 }) => {
     const pages: [string, string, string][] = [
-        ["/", "birchbark", "Birchbark Pet Studio"],
-        ["/solutions/trades", "northlight", "Northlight Security"],
+        ["/", demoSlug("birchbark"), "Birchbark Pet Studio"],
+        ["/solutions/trades", demoSlug("northlight"), "Northlight Security"],
     ];
     for (const [path, slug, business] of pages) {
         await page.goto(`${SITE}${path}`);

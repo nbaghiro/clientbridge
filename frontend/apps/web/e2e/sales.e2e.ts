@@ -166,12 +166,7 @@ test("SALE-E2E-10 a part refund keeps a desk sale's stock out and the remainder 
     const path = `/v1/payments/${paid.payment_id}/refund`;
     const refundPath = (response: { url: () => string; request: () => { method: () => string } }) =>
         new URL(response.url()).pathname === path && response.request().method() === "POST";
-    let panel = await openRefund(page, {
-        client,
-        invoiceId: order.id,
-        number: order.number,
-        paymentId: paid.payment_id,
-    });
+    let panel = await openRefund(page, { client, paymentId: paid.payment_id });
     await panel.getByRole("button", { name: r.part, exact: true }).click();
     await panel.getByRole("textbox", { name: r.amount, exact: true }).fill("15.00");
     await panel.getByRole("switch", { name: r.notify, exact: true }).uncheck();
@@ -222,12 +217,7 @@ test("SALE-E2E-10 a part refund keeps a desk sale's stock out and the remainder 
     await expect(detail.getByText(d.status.partly_refunded, { exact: true })).toBeVisible();
 
     await page.reload();
-    panel = await openRefund(page, {
-        client,
-        invoiceId: order.id,
-        number: order.number,
-        paymentId: paid.payment_id,
-    });
+    panel = await openRefund(page, { client, paymentId: paid.payment_id });
     await panel
         .getByRole("button", { name: r.full(formatMoney(1500, "CAD")), exact: true })
         .click();

@@ -1,4 +1,4 @@
-.PHONY: infra-bootstrap infra-providers infra-mobile help up down images up-app logs-sync logs-auth install stripe-listen stripe-setup dev-api worker dev-web dev-connect dev-site dev-mobile build build-apps build-site test-site test-web test-connect test-mobile test-staging-smoke lighthouse-site migrate revision seed seed-core gen-api gen-sync-schema gen-themes gen-messages gen-strings gen-zones gen-taxes codegen-check test test-backend test-frontend test-contract test-auth auth-standalone test-e2e stripe-mock lint lint-backend lint-frontend lint-infra test-infra typecheck format format-check format-check-backend format-check-frontend format-check-infra precommit hooks check gen-waitlist-email preview-emails configure-demo-admin dev-admin
+.PHONY: infra-bootstrap infra-providers infra-mobile help up down images up-app logs-sync logs-auth install stripe-listen stripe-setup dev-api worker dev-web dev-connect dev-site dev-mobile build build-apps build-site test-site test-web test-connect test-mobile test-staging-smoke lighthouse-site migrate revision seed seed-core gen-api gen-sync-schema gen-themes gen-messages gen-strings gen-zones gen-taxes codegen-check test test-backend test-frontend test-contract test-auth test-e2e lint lint-backend lint-frontend lint-infra test-infra typecheck format format-check format-check-backend format-check-frontend format-check-infra precommit hooks check gen-waitlist-email preview-emails configure-demo-admin dev-admin
 .DEFAULT_GOAL := help
 
 help:
@@ -25,14 +25,17 @@ help:
 	@echo "build-apps       build every frontend app but the marketing site (what CI's build job runs)"
 	@echo "build-site       build the marketing site to static HTML in frontend/apps/site/dist"
 	@echo "test-site        build the site, then the browser pass (links, images, phone width, a11y)"
-	@echo "test-web         web smoke test: every page and dialog (needs the local stack + seed)"
-	@echo "test-connect     Connect e2e: booking, manage link, shop and every client page (needs the API + seed)"
-	@echo "test-functional  disposable full-stack browser journeys (FUNCTIONAL_ARGS selects surface/project/specs)"
+	@echo "test-tier        start or check the shared test tier every suite and e2e run uses (:8760-8769)"
+	@echo "test-tier-reset  rebuild the shared test tier from scratch"
+	@echo "test-tier-logs   print every test tier service's log"
+	@echo "test-web         the web lane on the test tier (ARGS adds runner options, e.g. --project pseudo)"
+	@echo "test-connect     the Connect lane on the test tier: booking, manage link, shop, client pages"
+	@echo "test-functional  any lane on the test tier, isolated by its own namespace (FUNCTIONAL_ARGS)"
 	@echo "test-stripe-browser  isolated sandbox checkout (STRIPE_BROWSER_ARGS selects credentials mode)"
 	@echo "test-flakes      a functional lane shuffled by FLAKE_SEED and repeated FLAKE_REPEAT times; fails on any flake"
 	@echo "test-mutations   break a few invariants in a throwaway worktree and require their cases to fail"
-	@echo "test-mobile      Maestro native walkthroughs (needs a development build, local stack + seed)"
-	@echo "test-sync        disposable Postgres + PowerSync: replica rows per role, revocation, key rotation"
+	@echo "test-mobile      the native lane on a started device (PLATFORM=ios|android DEVICE=<id>; build it first)"
+	@echo "test-sync        sync streams on the test tier: replica rows per role, revocation, key rotation"
 	@echo "replication-health  local PowerSync readiness, slot, retained WAL and replay lag"
 	@echo "lighthouse-site  Lighthouse budget against the site preview on :8710"
 	@echo "migrate          alembic upgrade head"
@@ -52,11 +55,9 @@ help:
 	@echo "test             test-backend + test-frontend"
 	@echo "test-backend     pytest with the 90% branch-coverage gate, on a freshly seeded database of its own"
 	@echo "test-frontend    the frontend unit tests, with app-core again in three time zones"
-	@echo "test-contract    real StripeGateway vs stripe-mock (starts it; skips locally and fails in CI if it is down)"
-	@echo "test-auth        KratosIdentityProvider vs the local auth service (skips locally, fails in CI if it is down)"
-	@echo "auth-standalone  the auth service on the host network for CI (Postgres as a service container)"
+	@echo "test-contract    real StripeGateway vs the test tier's stripe-mock"
+	@echo "test-auth        KratosIdentityProvider vs the test tier's auth service"
 	@echo "test-e2e         Stripe and Resend test-mode flows (needs STRIPE_TEST_SECRET_KEY, RESEND_TEST_API_KEY and RESEND_TEST_FROM)"
-	@echo "stripe-mock      start the stripe-mock contract-test service on :8708"
 	@echo "lint             lint-backend + lint-frontend"
 	@echo "lint-backend     ruff, pyright and the structure check"
 	@echo "lint-frontend    eslint, the structure check, tsc and the site copy rules"
@@ -135,12 +136,15 @@ test-site:
 	cd frontend && pnpm --filter site build && pnpm --filter site e2e
 
 # The shared test tier every suite and e2e run uses: its own compose project on :8760-8769.
-.PHONY: test-tier test-tier-reset
+.PHONY: test-tier test-tier-reset test-tier-logs
 test-tier:
 	cd backend && uv run python -m scripts.tier up
 
 test-tier-reset:
 	cd backend && uv run python -m scripts.tier reset
+
+test-tier-logs:
+	docker compose -p clientbridge-test logs --no-color --timestamps
 
 .PHONY: test-functional
 test-functional:
@@ -161,12 +165,10 @@ test-mutations:
 	cd backend && uv run python -m scripts.e2e_mutations $(MUTATION_ARGS)
 
 test-web:
-	cd backend && uv run python -m scripts.web_fixtures && uv run python -m scripts.sync_caught_up
-	cd frontend && pnpm --filter web e2e
+	cd backend && uv run python -m scripts.e2e_stack --surface web $(ARGS)
 
 test-connect:
-	links="$$(cd backend && uv run python -m scripts.connect_links)" && \
-		cd frontend && CONNECT_LINKS="$$links" pnpm --filter connect e2e
+	cd backend && uv run python -m scripts.e2e_stack --surface connect $(ARGS)
 
 # Lighthouse budget (desktop >= 95 per category); needs the built site served on :8710 (make dev-site
 # serves source, so run `cd frontend && pnpm --filter site preview` first).
@@ -176,8 +178,10 @@ lighthouse-site:
 dev-mobile:
 	cd frontend && pnpm --filter mobile start -- --port 8707
 
+# The e2e build comes first: make test-functional FUNCTIONAL_ARGS="--build-native ios".
 test-mobile:
-	cd frontend && pnpm --filter mobile e2e
+	@test -n "$(PLATFORM)" -a -n "$(DEVICE)" || { echo "usage: make test-mobile PLATFORM=ios|android DEVICE=<id>"; exit 1; }
+	cd backend && uv run python -m scripts.e2e_stack --surface native --platform $(PLATFORM) --device $(DEVICE) $(ARGS)
 
 migrate:
 	cd backend && uv run python -m scripts.db_access roles
@@ -243,21 +247,13 @@ test-frontend:
 	cd frontend && for tz in America/Vancouver America/Halifax Asia/Tokyo; do \
 		TZ=$$tz pnpm --filter @clientbridge/app-core test || exit 1; done
 
-stripe-mock:
-	docker compose --profile test up -d stripe-mock
-	@echo "stripe-mock on http://localhost:8708"
-
 # Contract tier: real StripeGateway vs the OpenAPI mock; skips locally and fails in CI when it is down.
-test-contract: stripe-mock
-	cd backend && uv run pytest -m contract -q
+test-contract:
+	cd backend && uv run python -m scripts.fresh_database pytest -m contract -q
 
 # Contract tier: the real KratosIdentityProvider vs the local auth service; skips locally, fails in CI when it is down.
 test-auth:
-	cd backend && uv run pytest -m kratos -q
-
-# CI only: the auth service without docker compose, for jobs whose Postgres is a service container.
-auth-standalone:
-	./infra/auth/standalone.sh
+	cd backend && uv run python -m scripts.fresh_database pytest -m kratos -q
 
 # E2E tier: real Stripe test mode. Skips unless STRIPE_TEST_SECRET_KEY is exported.
 test-e2e:

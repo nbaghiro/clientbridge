@@ -12,6 +12,7 @@ import {
     raceTimePicker,
 } from "./support/scheduling";
 import { navigate, signIn } from "./support/session";
+import { demoSlug } from "@clientbridge/config/e2e/run";
 
 test("SCH-E2E-04 lost committed booking response retries once without another acknowledgment", async ({
     page,
@@ -53,7 +54,7 @@ test("SCH-E2E-04 lost committed booking response retries once without another ac
             key: string | undefined;
             response: { booking_id: string; status: string };
         }[] = [];
-        await client.route("**/book/birchbark", async (route) => {
+        await client.route(`**/book/${demoSlug("birchbark")}`, async (route) => {
             if (route.request().method() !== "POST") return route.continue();
             const response = await route.fetch();
             expect(response.status(), await response.text()).toBe(200);

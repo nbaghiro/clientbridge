@@ -1,5 +1,6 @@
 import { strings } from "@clientbridge/app-core/public";
 import { expect, test } from "@playwright/test";
+import { runEmail } from "@clientbridge/config/e2e/run";
 
 test(
     "the production shell restores its replica offline and locks expired offline access without deleting it",
@@ -9,7 +10,7 @@ test(
         await page.goto("/");
         await page
             .getByRole("textbox", { name: strings.auth.email, exact: true })
-            .fill("hannah@birchbark.example");
+            .fill(runEmail("hannah@birchbark.example"));
         await page.getByLabel(strings.auth.password, { exact: true }).fill("demo1234");
         await page.getByRole("button", { name: strings.auth.signIn, exact: true }).click();
         await expect(page.getByRole("heading", { level: 1 })).toContainText("Hannah", {

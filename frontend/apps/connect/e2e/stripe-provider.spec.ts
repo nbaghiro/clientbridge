@@ -24,6 +24,7 @@ import {
 
 import { documentApi } from "./documents";
 import { receiptMessages } from "../../web/e2e/support/evidence";
+import { runPort } from "@clientbridge/config/e2e/run";
 
 const authenticatedCard = "4000000000003220";
 
@@ -161,10 +162,10 @@ test("STRIPE-BROWSER-05 owner issues an invoice and emailed card checkout reache
     browser,
 }, info) => {
     const ownerContext = await browser.newContext({
-        baseURL: `http://localhost:${process.env.WEB_E2E_PORT ?? "8721"}`,
+        baseURL: `http://localhost:${String(runPort("WEB_E2E_PORT"))}`,
     });
     const replicaContext = await browser.newContext({
-        baseURL: `http://localhost:${process.env.WEB_E2E_PORT ?? "8721"}`,
+        baseURL: `http://localhost:${String(runPort("WEB_E2E_PORT"))}`,
     });
     const customerContext = await browser.newContext();
     try {
@@ -229,10 +230,10 @@ test("STRIPE-BROWSER-06 held genuine settlement leaves durable invoice unpaid un
     browser,
 }, info) => {
     const ownerContext = await browser.newContext({
-        baseURL: `http://localhost:${process.env.WEB_E2E_PORT ?? "8721"}`,
+        baseURL: `http://localhost:${String(runPort("WEB_E2E_PORT"))}`,
     });
     const replicaContext = await browser.newContext({
-        baseURL: `http://localhost:${process.env.WEB_E2E_PORT ?? "8721"}`,
+        baseURL: `http://localhost:${String(runPort("WEB_E2E_PORT"))}`,
     });
     const customerContext = await browser.newContext();
     try {

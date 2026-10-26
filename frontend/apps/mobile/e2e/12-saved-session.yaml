@@ -1,4 +1,4 @@
-appId: '${typeof APP_ID === "undefined" ? "ca.clientbridge.app" : APP_ID}'
+appId: ${APP_ID}
 name: NATIVE-IOS-01 The saved session survives a relaunch and sign-out removes it
 tags:
     - lane

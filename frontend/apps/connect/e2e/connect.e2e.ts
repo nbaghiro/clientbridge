@@ -5,6 +5,7 @@ import { type ConsoleMessage, expect, type Page, test } from "@playwright/test";
 import { on } from "./hosts";
 import { links } from "./links";
 import { ownAddress } from "./network";
+import { demoSlug, runEmail, runUrl } from "@clientbridge/config/e2e/run";
 
 test.beforeEach(async ({ context }, info) => {
     await ownAddress(context, info);
@@ -78,7 +79,7 @@ async function bookVisit(
     await page.getByRole("textbox", { name: b.phone }).fill(`2507${fresh}`);
     await page
         .getByRole("textbox", { name: new RegExp(`^${b.email}`) })
-        .fill(`robin.${fresh}@example.com`);
+        .fill(runEmail(`robin.${fresh}@example.com`));
     await page.getByRole("button", { name: b.confirm, exact: true }).click();
 }
 
@@ -107,7 +108,7 @@ test("a new client's online booking waits for approval and opens the manage link
 
 test("a client books a confirmed visit where new clients need no approval", async ({ page }) => {
     const errors = watchErrors(page);
-    await bookVisit(page, "cedarcoast", /^Dog Walk, 30 minutes/, "no extras");
+    await bookVisit(page, demoSlug("cedarcoast"), /^Dog Walk, 30 minutes/, "no extras");
     await expect(
         page.getByRole("heading", { name: strings.publicBooking.doneTitle }),
     ).toBeVisible();
@@ -414,8 +415,7 @@ test("every client page explains an invalid link without offering a transaction"
     page.on("pageerror", (error) => errors.push(error.message));
     page.on("request", (request) => {
         if (
-            new URL(request.url()).origin ===
-                new URL(process.env.VITE_API_URL ?? "http://127.0.0.1:8701").origin &&
+            new URL(request.url()).origin === new URL(runUrl("VITE_API_URL")).origin &&
             ["POST", "PUT", "PATCH", "DELETE"].includes(request.method())
         ) {
             writes.push(`${request.method()} ${new URL(request.url()).pathname}`);

@@ -21,6 +21,7 @@ import {
     teamMember,
     visitEvidence,
 } from "./support/visits";
+import { demoSlug, runEmail } from "@clientbridge/config/e2e/run";
 
 const b = strings.publicBooking;
 
@@ -36,7 +37,7 @@ async function composerStaff(page: Page, fixture: BookingFixture): Promise<strin
 }
 
 async function connectChoices(page: Page, itemName: string): Promise<string[]> {
-    await openConnectService(page, "birchbark", itemName);
+    await openConnectService(page, demoSlug("birchbark"), itemName);
     return choiceKeys(page.getByRole("group", { name: b.with, exact: true }));
 }
 
@@ -59,8 +60,8 @@ test("SCH-E2E-06 only the staff chosen for a service are offered on Connect and 
     try {
         await signIn(page);
         const fixture = await createBookingFixture(page, { online_bookable: true });
-        const diego = await teamMember(page, "diego@birchbark.example");
-        const everyone = (await connectStaff(page, "birchbark", fixture.itemId)) ?? [];
+        const diego = await teamMember(page, runEmail("diego@birchbark.example"));
+        const everyone = (await connectStaff(page, demoSlug("birchbark"), fixture.itemId)) ?? [];
         expect(everyone).toEqual(expect.arrayContaining([fixture.staffId, diego.id, member.id]));
 
         await page.goto("/setup/services");
@@ -97,7 +98,7 @@ test("SCH-E2E-06 only the staff chosen for a service are offered on Connect and 
         await expect
             .poll(() => composerStaff(page, asDiego), { timeout: 60_000 })
             .toEqual([diego.id, member.id].sort());
-        expect(await connectStaff(page, "birchbark", fixture.itemId)).toEqual(
+        expect(await connectStaff(page, demoSlug("birchbark"), fixture.itemId)).toEqual(
             [diego.id, member.id].sort(),
         );
         expect(await connectChoices(await anonymous.newPage(), fixture.itemName)).toEqual(
@@ -105,22 +106,28 @@ test("SCH-E2E-06 only the staff chosen for a service are offered on Connect and 
         );
 
         const date = dateKey(addDays(new Date(), 14, fixture.zone), fixture.zone);
-        const unoffered = await anonymous.request.get(`${bookingApi()}/book/birchbark/slots`, {
-            params: { item_id: fixture.itemId, staff_id: fixture.staffId, date },
-        });
+        const unoffered = await anonymous.request.get(
+            `${bookingApi()}/book/${demoSlug("birchbark")}/slots`,
+            {
+                params: { item_id: fixture.itemId, staff_id: fixture.staffId, date },
+            },
+        );
         expect(unoffered.status(), await unoffered.text()).toBe(422);
         expect(((await unoffered.json()) as { error: string }).error).toBe("service_not_offered");
         const outsider = onlineBooker("Clover");
-        const refused = await anonymous.request.post(`${bookingApi()}/book/birchbark`, {
-            headers: { "Idempotency-Key": randomUUID() },
-            data: {
-                item_id: fixture.itemId,
-                staff_id: fixture.staffId,
-                starts_at: new Date(`${date}T18:00:00Z`).toISOString(),
-                client: { name: outsider.name, email: outsider.email },
-                subject_name: outsider.subject,
+        const refused = await anonymous.request.post(
+            `${bookingApi()}/book/${demoSlug("birchbark")}`,
+            {
+                headers: { "Idempotency-Key": randomUUID() },
+                data: {
+                    item_id: fixture.itemId,
+                    staff_id: fixture.staffId,
+                    starts_at: new Date(`${date}T18:00:00Z`).toISOString(),
+                    client: { name: outsider.name, email: outsider.email },
+                    subject_name: outsider.subject,
+                },
             },
-        });
+        );
         expect(refused.status(), await refused.text()).toBe(422);
         expect(((await refused.json()) as { error: string }).error).toBe("service_not_offered");
         expect(await visitEvidence([outsider.email])).toMatchObject({ clients: [], bookings: [] });
@@ -131,7 +138,7 @@ test("SCH-E2E-06 only the staff chosen for a service are offered on Connect and 
         });
         expect(removal.status(), await removal.text()).toBe(200);
         removed = true;
-        expect(await connectStaff(page, "birchbark", fixture.itemId)).toEqual([diego.id]);
+        expect(await connectStaff(page, demoSlug("birchbark"), fixture.itemId)).toEqual([diego.id]);
         expect(await connectChoices(await anonymous.newPage(), fixture.itemName)).toEqual(
             ["any", diego.id].sort(),
         );
@@ -141,7 +148,7 @@ test("SCH-E2E-06 only the staff chosen for a service are offered on Connect and 
             .toEqual([diego.id]);
 
         const client = await anonymous.newPage();
-        const days = await openConnectService(client, "birchbark", fixture.itemName);
+        const days = await openConnectService(client, demoSlug("birchbark"), fixture.itemName);
         await client
             .getByRole("group", { name: b.with, exact: true })
             .getByRole("button", { name: b.anyone, exact: true })
@@ -163,7 +170,7 @@ test("SCH-E2E-06 only the staff chosen for a service are offered on Connect and 
         await fillConnectDetails(client, booker, "pet");
         const posted = client.waitForResponse(
             (response) =>
-                new URL(response.url()).pathname === "/book/birchbark" &&
+                new URL(response.url()).pathname === `/book/${demoSlug("birchbark")}` &&
                 response.request().method() === "POST",
         );
         await client.getByRole("button", { name: b.confirm, exact: true }).click();

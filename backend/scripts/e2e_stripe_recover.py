@@ -9,11 +9,10 @@ import re
 import sys
 import tomllib
 from pathlib import Path
-from typing import Literal
 from uuid import UUID
 
 import stripe
-from pydantic import BaseModel, ConfigDict, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from clientbridge.core import clock
 from clientbridge.integrations.stripe import STRIPE_API_VERSION, close_stripe_client
@@ -34,7 +33,7 @@ class Manifest(BaseModel):
     run_id: UUID
     account: str
     platform: str
-    business: Literal["bz_birchbark"]
+    business: str = Field(pattern=r"^bz_birchbark(_\d{4})?$")
     database: dict[str, object]
     fixtures: list[Fixture]
     deposit_fixtures: list[DepositFixture] = []

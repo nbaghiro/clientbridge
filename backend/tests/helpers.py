@@ -166,6 +166,18 @@ async def client_id(db: AsyncSession, *, business_id: str = BIZ, email: str | No
     return cid
 
 
+async def reachable(
+    db: AsyncSession,
+    client: str,
+    *,
+    email: str = "amelie@birchbark.ca",
+    phone: str = "+12505551234",
+) -> None:
+    """Real-looking contacts for a seeded client: queued deliveries skip reserved ones."""
+    await db.execute(update(Client).where(Client.id == client).values(email=email, phone=phone))
+    await db.flush()
+
+
 async def new_client(
     db: AsyncSession,
     *,

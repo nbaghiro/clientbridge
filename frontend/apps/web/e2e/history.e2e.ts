@@ -2,6 +2,7 @@ import { strings } from "@clientbridge/app-core/public";
 import { type Page, expect, test } from "@playwright/test";
 
 import { offsiteLoadFailure } from "./errors";
+import { demoId, runEmail } from "@clientbridge/config/e2e/run";
 
 const m = strings.messaging;
 
@@ -23,14 +24,14 @@ test("history older than the device window is read from the API", async ({ page 
     await page.goto("/");
     await page
         .getByRole("textbox", { name: strings.auth.email, exact: true })
-        .fill("hannah@birchbark.example");
+        .fill(runEmail("hannah@birchbark.example"));
     await page.getByLabel(strings.auth.password, { exact: true }).fill("demo1234");
     await page.getByRole("button", { name: strings.auth.signIn, exact: true }).click();
     await expect(page.getByRole("heading", { level: 1 })).toContainText("Hannah", {
         timeout: 60_000,
     });
     const visits = page.waitForResponse((r) => r.url().includes("/v1/bookings/visits"));
-    await navigate(page, "/clients/cl_amelie/history");
+    await navigate(page, `/clients/${demoId("cl_amelie")}/history`);
     expect((await visits).status()).toBe(200);
 
     await navigate(page, "/inbox");

@@ -10,6 +10,7 @@ import {
     openStaffPay,
     staffPayEvidence,
 } from "./support/staff-pay";
+import { runUrl } from "@clientbridge/config/e2e/run";
 
 const s = strings.earnings;
 
@@ -19,7 +20,7 @@ test("PAY-E2E-01 approve owned service earnings and record payment once after re
     request,
 }, testInfo) => {
     test.setTimeout(180_000);
-    const auth = new URL(process.env.VITE_AUTH_URL ?? "http://localhost:8713");
+    const auth = new URL(runUrl("VITE_AUTH_URL"));
     if (!["localhost", "127.0.0.1"].includes(auth.hostname))
         throw new Error("Staff-pay prerequisites require isolated local auth");
     await signIn(page);

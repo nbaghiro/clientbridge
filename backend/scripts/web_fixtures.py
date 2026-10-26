@@ -30,7 +30,6 @@ from scripts.demo_context import (
     run_id,
 )
 
-API = os.environ.get("API_URL", "http://localhost:8701")
 # a near-duplicate with no money or saved cards, so the merge flow is not blocked
 DUPLICATE = "Robin Bennett"
 DUPLICATE_EMAIL = "robin@example.com"
@@ -213,7 +212,7 @@ async def main(seeded: str) -> None:
     await engine.dispose()
 
     added: list[str] = []
-    async with httpx.AsyncClient(base_url=API, timeout=30) as http:
+    async with httpx.AsyncClient(base_url=os.environ["API_URL"], timeout=30) as http:
         owner = run_email(demo_business(seeded).owner_login)
         http.headers["X-Session-Token"] = await sign_in(http, email=owner, password=DEMO_PASSWORD)
         http.headers["X-Business-Id"] = biz

@@ -66,7 +66,7 @@ async def _book(api: httpx.AsyncClient, starts: str = OPENING, item: str = "it_g
             "item_id": item,
             "staff_id": "st_owner",
             "starts_at": starts,
-            "client": {"name": "Web Booker", "email": "web@example.com"},
+            "client": {"name": "Web Booker", "email": "web@example.ca"},
         },
     )
     assert res.status_code == 200, res.text

@@ -10,7 +10,7 @@ from pathlib import Path
 RUNS = Path("/runs")
 # every address an e2e run writes ends its local part in +<the run's four digits>
 NAMESPACE = re.compile(r"\+(\d{4})@")
-FORWARDED = ("Authorization", "Content-Type")
+FORWARDED = ("X-Webhook-Secret", "Content-Type")
 
 
 def runs() -> dict[str, dict[str, str]]:
@@ -53,7 +53,7 @@ class Relay(BaseHTTPRequestHandler):
         body = self.rfile.read(int(self.headers.get("Content-Length") or 0))
         try:
             recipient = str(json.loads(body)["to"])
-        except (ValueError, KeyError):
+        except (ValueError, KeyError, TypeError):
             self.reply(400, b"the courier body names no recipient")
             return
         match = NAMESPACE.search(recipient)

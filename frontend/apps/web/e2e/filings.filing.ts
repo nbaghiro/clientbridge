@@ -6,6 +6,7 @@ import { formatMoney, strings } from "@clientbridge/app-core/public";
 import { expect, test } from "@playwright/test";
 import { bookingApi } from "./support/bookings";
 import { navigate, signIn } from "./support/session";
+import { demoId } from "@clientbridge/config/e2e/run";
 
 interface Evidence {
     start: string;
@@ -58,7 +59,7 @@ test("FIN-RETURN-03 record both completed-quarter filings with exact ledger and 
     const baseline = await evidence();
     expect(baseline.business).toEqual([
         {
-            id: "bz_birchbark",
+            id: demoId("bz_birchbark"),
             province: "BC",
             timezone: "America/Vancouver",
             tax_registered: true,

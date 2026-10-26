@@ -10,6 +10,7 @@ import { acceptInvite } from "./support/offline";
 import { navigate } from "./support/session";
 import { ownBusiness, planView, standInPlan } from "./support/team";
 import { apiCall, visitEvidence } from "./support/visits";
+import { runEmail } from "@clientbridge/config/e2e/run";
 
 const t = strings.staff.team;
 const p = strings.plans;
@@ -252,7 +253,10 @@ test("FLOW-08-B a lapsed plan keeps records readable, refuses new work on the se
         },
     });
     const book = async (day: number) => {
-        const booker = { name: demoPerson(randomUUID()), email: `${randomUUID()}@example.ca` };
+        const booker = {
+            name: demoPerson(randomUUID()),
+            email: runEmail(`${randomUUID()}@example.ca`),
+        };
         const response = await anonymous.request.post(`${bookingApi()}/book/${business.slug}`, {
             headers: { "Idempotency-Key": randomUUID() },
             data: {

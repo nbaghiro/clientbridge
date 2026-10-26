@@ -13,21 +13,6 @@ jobs:
   mutations:
     runs-on: ubuntu-24.04
     timeout-minutes: 90
-    services:
-      postgres:
-        image: postgres:16@sha256:1a6ab3f5345eb6dbe04a1349529caabdb0ab09293a09590fad07b2246bfa4b54 # the docker-compose.yml pin
-        env:
-          POSTGRES_USER: clientbridge
-          POSTGRES_PASSWORD: clientbridge
-          POSTGRES_DB: clientbridge_test_ci
-        ports: ["8702:5432"]
-        options: >-
-          --health-cmd "pg_isready -U clientbridge" --health-interval 5s
-          --health-timeout 3s --health-retries 15
-    env:
-      ADMIN_DATABASE_URL: postgresql+asyncpg://clientbridge:clientbridge@localhost:8702/clientbridge_test_ci
-      MIGRATION_DATABASE_URL: postgresql+asyncpg://clientbridge_migrator:clientbridge_migrator@localhost:8702/clientbridge_test_ci
-      DATABASE_URL: postgresql+asyncpg://clientbridge_api:clientbridge_api@localhost:8702/clientbridge_test_ci
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v10.3.0
@@ -45,6 +30,7 @@ jobs:
         working-directory: frontend
       - run: pnpm --filter web exec playwright install --with-deps chromium
         working-directory: frontend
+      - run: make test-tier
       - name: break each invariant in a copy and require its case to fail
         run: make test-mutations
       - uses: actions/upload-artifact@v7

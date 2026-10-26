@@ -54,12 +54,12 @@ def namespaced(namespace: str) -> list[ExecutableOption]:
     return options
 
 
-def confine_to_namespace(namespace: str) -> None:
-    """Every ORM statement in this process, a run's worker, sees only that run's businesses."""
+def confine_to_namespace(namespace: str, target: Session | type[Session] = Session) -> None:
+    """ORM statements on the target, by default every session, see only the namespace's rows."""
     options = namespaced(namespace)
 
     def confine(state: ORMExecuteState) -> None:
         if state.is_select or state.is_update or state.is_delete:
             state.statement = state.statement.options(*options)
 
-    event.listen(Session, "do_orm_execute", confine)
+    event.listen(target, "do_orm_execute", confine)

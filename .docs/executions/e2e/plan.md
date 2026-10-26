@@ -48,10 +48,30 @@ The tier records a fingerprint of the Alembic head, `sync-rules.yaml` and the Kr
 
 Every suite moves onto it: backend pytest and the Kratos tier, the contract tests, sync e2e (its key-rotation drill keeps a per-run key route through the relay), web, Connect, journeys, filings, pseudo-locale, Firefox and WebKit, the Stripe browser lane, native, flakes and mutations. CI jobs start the tier with the same `make test-tier` before their lane, so the local and hosted paths stay the same.
 
+## Layout of the test code
+
+Checks against the database are plain read-only SQL in the tests themselves: one `support/db.ts` connection on the run's tier URL, and each domain's queries beside its helpers in `apps/web/e2e/support/<domain>.ts`. They stay independent of the application because they read the tables directly. The harness and the setup actions live in a flat `backend/e2e/` package (`tier`, `relay`, `runner`, `namespace`, `results`, `mutations`, `stripe`, `actions`), so `backend/scripts/` holds only product and operations scripts. Stripe-side checks stay in Python with the provider lane.
+
+## Where a test goes
+
+E2e files follow the same one-name-per-concept rule as the rest of the code, so a developer finds the file from the concept they changed: the app-core domain file, the strings group, the service and the page share its name.
+
+| What changed | File to extend |
+| --- | --- |
+| One concept's provider behaviour (rules, states, rejections) | `apps/web/e2e/<concept>.e2e.ts`, e.g. `clients`, `billing`, `pos`, `earnings`, `reports` |
+| A public page | `apps/connect/e2e/<publicConcept>.e2e.ts`, e.g. `publicBooking`, `publicPay`, `publicShop` |
+| A mobile-only screen or native behaviour | `apps/mobile/e2e/<concept>.yaml`; `shards.json` sets the order |
+| Something whose consequences cross concepts, devices or the worker | the matching anchor journey in `apps/web/e2e/journeys/<flow>.journey.ts` (`visit`, `estimate`, `stock`, `client`, `documents`, `communication`, `entitlements`, `team`, `device`, `operations`) |
+| A new concept | a new `<concept>.e2e.ts`; the structure check rejects a name that isn't a concept |
+
+A few cross-cutting files keep their own names, as the backend's `test_flows_*` do: `auth`, `offline`, `sync`, `security`, `shell` (the page-and-dialog walk), `accessibility` and `pseudo`. Each new case also gets an ID registered in `results.py` and the audit families it covers in `coverage.json`; the runner fails a lane whose registry and files disagree.
+
+`check-structure.mjs` enforces the names for web, Connect and native e2e files, and `.docs/engineering.md` holds this table for everyday use.
+
 ## Execution
 
 1. **Integrate.** The platform and native branches are merged, and the work in progress from areas-a, areas-b, flows-a, flows-b and residuals is committed on this branch.
-2. **Build the tier** and move every suite onto it, with harness tests for the slot lease, namespacing, relay routing, job scoping, fingerprint checks and cleanup.
+2. **Build the tier** and move every suite onto it, then move the observers into the tests and the harness into `backend/e2e/`, rename the e2e files to their concepts and add the structure check, with harness tests for the slot lease, namespacing, relay routing, job scoping, fingerprint checks and cleanup.
 3. **Qualify the merged branch** on the tier: finish the work-in-progress cases, then run every lane strictly.
 4. **Cover the families**, one category at a time with P0 first. Each family gets a case written to its full audit assertions, a strict run and an independent review before it moves to `verified`. Product defects a case finds are reproduced and fixed with backend tests.
 5. **Close the known boundaries:** Connect showing paid before the payment event, hard-kill and browser-phase recovery, iOS and release-build qualification, and hosted runs of the flake and mutation workflows.

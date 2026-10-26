@@ -7,6 +7,7 @@ import { demoPerson } from "@clientbridge/config/e2e/demo";
 import { expect, type Page } from "@playwright/test";
 import { bookingApi } from "./bookings";
 import { requireLocalMail } from "./evidence";
+import { demoSlug, runEmail } from "@clientbridge/config/e2e/run";
 
 const execute = promisify(execFile);
 export interface RaceContact {
@@ -40,7 +41,7 @@ export interface RaceEvidence {
 }
 export function raceContact(pet: string): RaceContact {
     const run = randomUUID();
-    return { name: demoPerson(run), email: `booking-${run}@example.ca`, pet };
+    return { name: demoPerson(run), email: runEmail(`booking-${run}@example.ca`), pet };
 }
 export async function raceEvidence(
     fixture: RaceFixture,
@@ -74,7 +75,7 @@ export async function raceFixture(page: Page): Promise<RaceFixture> {
     const { members } = (await team.json()) as {
         members: { id: string; email: string; name: string }[];
     };
-    const staff = members.find((member) => member.email === "hannah@birchbark.example");
+    const staff = members.find((member) => member.email === runEmail("hannah@birchbark.example"));
     if (!staff) throw new Error("The Birch & Bark owner fixture is missing");
     const itemName = `Paw care with ${demoPerson(randomUUID())}`;
     const item = await page.request.post(`${api}/v1/items`, {
@@ -94,7 +95,7 @@ export async function raceFixture(page: Page): Promise<RaceFixture> {
         itemName,
         staffId: staff.id,
         staffName: staff.name,
-        url: `http://book.localhost:${port}/birchbark`,
+        url: `http://book.localhost:${port}/${demoSlug("birchbark")}`,
     };
 }
 // a service with add-ons offers them in its own step before the time
@@ -122,7 +123,7 @@ export async function raceTimePicker(
     await pastExtras(page);
     const staffDays = page.waitForResponse(
         (response) =>
-            response.url().includes("/book/birchbark/days?") &&
+            response.url().includes(`/book/${demoSlug("birchbark")}/days?`) &&
             new URL(response.url()).searchParams.get("staff_id") === fixture.staffId &&
             response.ok(),
     );
@@ -135,7 +136,7 @@ export async function raceTimePicker(
     for (let week = 0; week < weeksAhead; week++) {
         const loaded = page.waitForResponse(
             (response) =>
-                response.url().includes("/book/birchbark/days?") &&
+                response.url().includes(`/book/${demoSlug("birchbark")}/days?`) &&
                 new URL(response.url()).searchParams.get("staff_id") === fixture.staffId &&
                 response.ok(),
         );

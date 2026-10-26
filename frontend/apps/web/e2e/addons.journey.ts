@@ -24,11 +24,12 @@ import {
     visitEvidence,
     watchOpenings,
 } from "./support/visits";
+import { demoSlug, runEmail } from "@clientbridge/config/e2e/run";
 
 const b = strings.publicBooking;
 const MIN = 60_000;
 const ZONE = "America/Vancouver";
-const NORTHLIGHT = { email: "owner@northlight.example", password: "demo1234" };
+const NORTHLIGHT = { email: runEmail("owner@northlight.example"), password: "demo1234" };
 
 interface Slot {
     starts_at: string;
@@ -42,7 +43,7 @@ async function slots(
     date: string,
     extra: number,
 ): Promise<Slot[]> {
-    const response = await request.get(`${bookingApi()}/book/northlight/slots`, {
+    const response = await request.get(`${bookingApi()}/book/${demoSlug("northlight")}/slots`, {
         params: { item_id: itemId, staff_id: staffId, date, extra_min: extra },
     });
     expect(response.status(), await response.text()).toBe(200);
@@ -55,7 +56,7 @@ test("SCH-E2E-07 an add-on that lengthens the visit narrows the times Connect of
 }, testInfo) => {
     test.setTimeout(240_000);
     await signIn(page, NORTHLIGHT);
-    const owner = await teamMember(page, "owner@northlight.example");
+    const owner = await teamMember(page, runEmail("owner@northlight.example"));
     const run = randomUUID().slice(0, 6).toUpperCase();
     const service = await apiCall<{ id: string; name: string }>(
         page,
@@ -111,8 +112,8 @@ test("SCH-E2E-07 an add-on that lengthens the visit narrows the times Connect of
         for (const slot of plain) expect(at(slot.ends_at) - at(slot.starts_at)).toBe(60 * MIN);
 
         const client = await context.newPage();
-        const days = watchOpenings(client, "northlight");
-        await client.goto(connectUrl("northlight"));
+        const days = watchOpenings(client, demoSlug("northlight"));
+        await client.goto(connectUrl(demoSlug("northlight")));
         await client
             .getByRole("button")
             .filter({ has: client.getByText(service.name, { exact: true }) })
@@ -163,7 +164,7 @@ test("SCH-E2E-07 an add-on that lengthens the visit narrows the times Connect of
         ).toBeVisible();
         const posted = client.waitForResponse(
             (response) =>
-                new URL(response.url()).pathname === "/book/northlight" &&
+                new URL(response.url()).pathname === `/book/${demoSlug("northlight")}` &&
                 response.request().method() === "POST",
         );
         await client.getByRole("button", { name: b.confirm, exact: true }).click();
@@ -206,18 +207,21 @@ test("SCH-E2E-07 an add-on that lengthens the visit narrows the times Connect of
         ]);
 
         const tooLate = onlineBooker("Shop cameras");
-        const refused = await context.request.post(`${bookingApi()}/book/northlight`, {
-            headers: { "Idempotency-Key": randomUUID() },
-            data: {
-                item_id: service.id,
-                staff_id: owner.id,
-                starts_at: last.toISOString(),
-                client: { name: tooLate.name, email: tooLate.email },
-                subject_name: tooLate.subject,
-                subject_address: "455 Granville Street, Vancouver",
-                addons: [{ item_id: mount.id, quantity: 1 }],
+        const refused = await context.request.post(
+            `${bookingApi()}/book/${demoSlug("northlight")}`,
+            {
+                headers: { "Idempotency-Key": randomUUID() },
+                data: {
+                    item_id: service.id,
+                    staff_id: owner.id,
+                    starts_at: last.toISOString(),
+                    client: { name: tooLate.name, email: tooLate.email },
+                    subject_name: tooLate.subject,
+                    subject_address: "455 Granville Street, Vancouver",
+                    addons: [{ item_id: mount.id, quantity: 1 }],
+                },
             },
-        });
+        );
         expect(refused.status(), await refused.text()).toBe(409);
         expect(((await refused.json()) as { error: string }).error).toBe("slot_unavailable");
         expect(await visitEvidence([tooLate.email])).toMatchObject({

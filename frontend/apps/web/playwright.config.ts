@@ -1,7 +1,8 @@
 import { defineConfig } from "@playwright/test";
+import { runBuild, runPort } from "@clientbridge/config/e2e/run";
 
-const port = Number(process.env.WEB_E2E_PORT ?? "8721");
-const pseudoPort = Number(process.env.WEB_PSEUDO_E2E_PORT ?? "8724");
+const port = runPort("WEB_E2E_PORT");
+const pseudoPort = runPort("WEB_PSEUDO_E2E_PORT");
 const baseURL = `http://localhost:${String(port)}`;
 
 export const chromium = process.env.CI ? {} : { channel: "chrome" };
@@ -47,7 +48,7 @@ export default defineConfig({
         {
             // CI tests the production bundle; locally the dev server keeps edits live
             command: process.env.CI
-                ? `pnpm exec vite build && pnpm exec vite preview --port ${String(port)} --strictPort`
+                ? runBuild("web", port)
                 : `pnpm exec vite --port ${String(port)} --strictPort`,
             url: `http://localhost:${String(port)}/`,
             reuseExistingServer: !process.env.CI,
@@ -62,7 +63,7 @@ export default defineConfig({
             ? [
                   {
                       command: process.env.CI
-                          ? `pnpm --filter admin exec vite build && pnpm --filter admin exec vite preview --port ${new URL(adminUrl).port} --strictPort`
+                          ? runBuild("admin", new URL(adminUrl).port)
                           : `pnpm --filter admin exec vite --port ${new URL(adminUrl).port} --strictPort`,
                       url: `${adminUrl}/`,
                       reuseExistingServer: !process.env.CI,

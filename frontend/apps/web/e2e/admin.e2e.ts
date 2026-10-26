@@ -6,15 +6,10 @@ import { bookingApi } from "./support/bookings";
 import { createClient, openClient } from "./support/crm";
 import { businessEvidence, openBusiness, signUp } from "./support/onboarding";
 import { signIn } from "./support/session";
+import { demoId, runUrl } from "@clientbridge/config/e2e/run";
 
-function required(name: string): string {
-    const value = process.env[name];
-    if (!value) throw new Error(`${name} is unset: run through make test-functional`);
-    return value;
-}
-
-const ADMIN = required("VITE_ADMIN_URL");
-const AUTH_ADMIN = required("AUTH_ADMIN_URL");
+const ADMIN = runUrl("VITE_ADMIN_URL");
+const AUTH_ADMIN = runUrl("AUTH_ADMIN_URL");
 const ad = strings.admin;
 
 function operator(role: "console" | "lapse"): { email: string; password: string } {
@@ -86,7 +81,7 @@ test("OPS-E2E-01 only a granted operator reaches the admin ops, and every page s
         expect(denied.status(), path).toBe(403);
         expect(await denied.json()).toMatchObject({ error: "platform_access_required" });
     }
-    const ownerWrite = await setEdition(page, "bz_birchbark", "vehicle");
+    const ownerWrite = await setEdition(page, demoId("bz_birchbark"), "vehicle");
     expect(ownerWrite.status()).toBe(403);
     expect(ownerReads.length).toBeGreaterThan(0);
     for (const read of ownerReads)
@@ -117,11 +112,11 @@ test("OPS-E2E-01 only a granted operator reaches the admin ops, and every page s
         await nav.getByRole("link", { name: ad.access, exact: true }).click();
         await expect(ops.getByText(operator("console").email, { exact: true })).toBeVisible();
         await expect(ops.getByText(ad.configuredGrant, { exact: true })).toBeVisible();
-        await ops.goto(`${ADMIN}/businesses/bz_birchbark`);
+        await ops.goto(`${ADMIN}/businesses/${demoId("bz_birchbark")}`);
         await expect(ops.getByText("Birchbark Pet Studio", { exact: true })).toBeVisible({
             timeout: 60_000,
         });
-        await expect(ops.getByText("bz_birchbark", { exact: true }).first()).toBeVisible();
+        await expect(ops.getByText(demoId("bz_birchbark"), { exact: true }).first()).toBeVisible();
         const loaded = reads.filter((r) => r.request().method() === "GET");
         expect(loaded.length).toBeGreaterThan(8);
         for (const response of loaded) {
@@ -233,14 +228,14 @@ test("OPS-E2E-03 an operator whose email stops being verified loses the console 
     const ops = await operatorConsole(browser, "lapse");
     try {
         const nav = ops.getByRole("navigation", { name: ad.navigation });
-        await ops.goto(`${ADMIN}/businesses/bz_birchbark`);
+        await ops.goto(`${ADMIN}/businesses/${demoId("bz_birchbark")}`);
         await expect(ops.getByText("Birchbark Pet Studio").first()).toBeVisible({
             timeout: 60_000,
         });
         const access = (await (
             await ops.request.get(`${bookingApi()}/admin/v1/access`)
         ).json()) as { identity_id: string };
-        const before = await businessEvidence("bz_birchbark");
+        const before = await businessEvidence(demoId("bz_birchbark"));
         const lapse = async (verified: boolean): Promise<void> => {
             const patched = await ops.request.patch(
                 `${AUTH_ADMIN}/admin/identities/${access.identity_id}`,
@@ -260,9 +255,9 @@ test("OPS-E2E-03 an operator whose email stops being verified loses the console 
         const read = await ops.request.get(`${bookingApi()}/admin/v1/businesses`);
         expect(read.status()).toBe(403);
         expect(await read.json()).toMatchObject({ error: "platform_access_required" });
-        const write = await setEdition(ops, "bz_birchbark", "vehicle");
+        const write = await setEdition(ops, demoId("bz_birchbark"), "vehicle");
         expect(write.status()).toBe(403);
-        expect(await businessEvidence("bz_birchbark")).toEqual(before);
+        expect(await businessEvidence(demoId("bz_birchbark"))).toEqual(before);
         await expect(ops.getByText("Birchbark Pet Studio").first()).toBeVisible();
 
         await ops.evaluate(() => window.dispatchEvent(new Event("focus")));
@@ -278,7 +273,7 @@ test("OPS-E2E-03 an operator whose email stops being verified loses the console 
         await expect(ops.getByText("Birchbark Pet Studio").first()).toBeVisible({
             timeout: 60_000,
         });
-        expect(await businessEvidence("bz_birchbark")).toEqual(before);
+        expect(await businessEvidence(demoId("bz_birchbark"))).toEqual(before);
     } finally {
         await ops.context().close();
     }

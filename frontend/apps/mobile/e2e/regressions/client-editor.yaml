@@ -1,4 +1,4 @@
-appId: '${typeof APP_ID === "undefined" ? "ca.clientbridge.app" : APP_ID}'
+appId: ${APP_ID}
 name: Client record opens its editor
 ---
 - runFlow: ../helpers/owner.yaml

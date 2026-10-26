@@ -9,6 +9,7 @@ import { bookingApi } from "./bookings";
 import { createClient, type ClientFixture } from "./crm";
 import { requireLocalMail } from "./evidence";
 import { navigate } from "./session";
+import { runUrl } from "@clientbridge/config/e2e/run";
 
 const execute = promisify(execFile);
 const d = strings.pos.desk;
@@ -86,7 +87,7 @@ export async function saleEvidence(itemId: string): Promise<SaleEvidence> {
 export async function createSaleFixture(page: Page): Promise<SaleFixture> {
     await requireLocalMail();
     const client = await createClient(page);
-    const api = process.env.VITE_API_URL ?? "http://localhost:8701";
+    const api = runUrl("VITE_API_URL");
     const sku = `BB-PB-${randomUUID().slice(0, 8).toUpperCase()}`;
     const name = "Oatmeal Paw Balm";
     const headers = { Origin: new URL(page.url()).origin, "Idempotency-Key": randomUUID() };

@@ -1,5 +1,7 @@
 """Prefixed-ULID identifiers. See .docs/architecture.md for the prefix catalog."""
 
+import secrets
+
 from ulid import ULID
 
 from clientbridge.core.config import get_settings
@@ -54,11 +56,15 @@ PREFIXES: dict[str, str] = {
     "sync_receipt": "sur",
 }
 
+CROCKFORD = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
+
 
 def new_id(entity: str) -> str:
     """Generate a sortable, prefixed id, e.g. new_id('booking') -> 'bk_01J...'."""
     value = str(ULID())
     namespace = get_settings().run_namespace
     if namespace:
-        value = value[: -len(namespace)] + namespace
+        # fresh randomness: ULIDs within one millisecond differ only in the tail the namespace takes
+        random = "".join(secrets.choice(CROCKFORD) for _ in range(16 - len(namespace)))
+        value = value[:10] + random + namespace
     return f"{PREFIXES[entity]}_{value}"

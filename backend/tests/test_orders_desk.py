@@ -225,11 +225,12 @@ async def test_receipt_by_email_or_text_after_payment(
     ).json()
     assert (sent["receipt_channel"], sent["receipt_email"]) == ("email", "pat@example.ca")
     mail = next(e for e in email.sent if e.to == "pat@example.ca")
-    assert mail.reply_to == "hello@birchbark.example" and mail.tags == {"business": BIZ}
+    assert mail.reply_to == "hello@birchbark.example"
+    assert mail.tags == {"business": BIZ, "delivery": mail.idempotency_key}
     token = mail.body.rsplit("/r/", 1)[1].strip()
     ok(
         await as_owner.post(
-            f"/v1/orders/{sale['id']}/receipt", json={"channel": "sms", "to": "(250) 555-0101"}
+            f"/v1/orders/{sale['id']}/receipt", json={"channel": "sms", "to": "(250) 555-1234"}
         )
     )
     assert any("/r/" in s.body for s in sms.sent)

@@ -16,6 +16,7 @@ import {
     planEvidence,
 } from "./support/outreach";
 import { navigate, signIn } from "./support/session";
+import { demoId, runEmail } from "@clientbridge/config/e2e/run";
 
 const execute = promisify(execFile);
 const p = strings.plans;
@@ -56,8 +57,8 @@ test("PLN-E2E-01 only the owner reads or changes the plan, in their own business
 }) => {
     await signIn(page);
     const origin = new URL(page.url()).origin;
-    const birchbark = await planEvidence("bz_birchbark");
-    const cedarBefore = await planEvidence("bz_demo_second");
+    const birchbark = await planEvidence(demoId("bz_birchbark"));
+    const cedarBefore = await planEvidence(demoId("bz_demo_second"));
     expect(birchbark.business).toMatchObject({ plan: "team", plan_status: "active" });
     expect(cedarBefore.business).toMatchObject({ plan_status: "trialing" });
     const own = await page.request.get(`${apiBase()}/v1/plan`);
@@ -68,12 +69,12 @@ test("PLN-E2E-01 only the owner reads or changes the plan, in their own business
         timeout: 60_000,
     });
     const foreign = await page.request.get(`${apiBase()}/v1/plan`, {
-        headers: { "X-Business-Id": "bz_demo_second" },
+        headers: { "X-Business-Id": demoId("bz_demo_second") },
     });
     expect(foreign.status()).toBe(403);
     const foreignCheckout = await page.request.post(`${apiBase()}/v1/plan/checkout`, {
         data: { plan: "team", interval: "month" },
-        headers: { ...headers(page), "X-Business-Id": "bz_demo_second" },
+        headers: { ...headers(page), "X-Business-Id": demoId("bz_demo_second") },
     });
     expect(foreignCheckout.status()).toBe(403);
     const active = await page.request.post(`${apiBase()}/v1/plan/checkout`, {
@@ -83,7 +84,10 @@ test("PLN-E2E-01 only the owner reads or changes the plan, in their own business
     expect(active.status()).toBe(409);
     expect(await active.json()).toMatchObject({ error: "plan_active" });
 
-    for (const email of ["admin@birchbark.example", "diego@birchbark.example"]) {
+    for (const email of [
+        runEmail("admin@birchbark.example"),
+        runEmail("diego@birchbark.example"),
+    ]) {
         const other = await member(browser, origin, email);
         try {
             const calls = [
@@ -113,7 +117,7 @@ test("PLN-E2E-01 only the owner reads or changes the plan, in their own business
         }
     }
 
-    const cedarOwner = await member(browser, origin, "owner@cedarcoast.example");
+    const cedarOwner = await member(browser, origin, runEmail("owner@cedarcoast.example"));
     try {
         const trial = await cedarOwner.page.request.get(`${apiBase()}/v1/plan`);
         expect(trial.status(), await trial.text()).toBe(200);
@@ -132,8 +136,8 @@ test("PLN-E2E-01 only the owner reads or changes the plan, in their own business
     } finally {
         await cedarOwner.context.close();
     }
-    expect(await planEvidence("bz_birchbark")).toEqual(birchbark);
-    expect(await planEvidence("bz_demo_second")).toEqual(cedarBefore);
+    expect(await planEvidence(demoId("bz_birchbark"))).toEqual(birchbark);
+    expect(await planEvidence(demoId("bz_demo_second"))).toEqual(cedarBefore);
 });
 
 test("PLN-E2E-02 a trial fills its last seat once, refuses the next invite and frees a seat on revoke", async ({
@@ -142,7 +146,7 @@ test("PLN-E2E-02 a trial fills its last seat once, refuses the next invite and f
     test.setTimeout(300_000);
     const { businessId } = await freshTrial(page);
     const run = randomUUID().slice(0, 8);
-    const address = (n: number) => `team-${run}-${String(n)}@example.ca`;
+    const address = (n: number) => runEmail(`team-${run}-${String(n)}@example.ca`);
     for (let n = 1; n < SEAT_CAP; n++) {
         const response = await invite(page, address(n));
         expect(response.status(), await response.text()).toBe(201);
@@ -163,7 +167,11 @@ test("PLN-E2E-02 a trial fills its last seat once, refuses the next invite and f
     expect(invited).toHaveLength(SEAT_CAP);
     expect(invited.every((s) => s.status === "invited" && s.invited)).toBe(true);
     const plan = await page.request.get(`${apiBase()}/v1/plan`);
-    expect(await plan.json()).toMatchObject({ access: "trial", seats: SEAT_CAP, seat_cap: SEAT_CAP });
+    expect(await plan.json()).toMatchObject({
+        access: "trial",
+        seats: SEAT_CAP,
+        seat_cap: SEAT_CAP,
+    });
 
     await navigate(page, "/setup/team");
     await page.getByRole("button", { name: t.inviteMember, exact: true }).click();
@@ -175,12 +183,15 @@ test("PLN-E2E-02 a trial fills its last seat once, refuses the next invite and f
     await dialog.getByRole("button", { name: strings.common.cancel, exact: true }).click();
 
     const first = page.getByText(address(1), { exact: true });
-    const row = page.locator("div").filter({ has: first }).filter({
-        has: page.getByRole("button", { name: t.revoke, exact: true }),
-    });
+    const row = page
+        .locator("div")
+        .filter({ has: first })
+        .filter({
+            has: page.getByRole("button", { name: t.revoke, exact: true }),
+        });
     await row.last().getByRole("button", { name: t.revoke, exact: true }).click();
-    const revoked = page.waitForResponse(
-        (r) => /\/v1\/staff\/invites\/[^/]+\/revoke$/.test(new URL(r.url()).pathname),
+    const revoked = page.waitForResponse((r) =>
+        /\/v1\/staff\/invites\/[^/]+\/revoke$/.test(new URL(r.url()).pathname),
     );
     await page
         .getByRole("alertdialog")
@@ -218,7 +229,7 @@ test("PLN-E2E-03 a lapsed trial blocks new work but still exports, settles, revo
     });
     expect(address.status(), await address.text()).toBe(200);
     const contact = await createContact(page, { consent: true, tags: ["regulars"] });
-    const pending = await invite(page, `front-desk-${randomUUID()}@example.ca`);
+    const pending = await invite(page, runEmail(`front-desk-${randomUUID()}@example.ca`));
     expect(pending.status(), await pending.text()).toBe(201);
     const inviteId = ((await pending.json()) as { id: string }).id;
     const scheduled = await page.request.post(`${apiBase()}/v1/broadcasts`, {
@@ -227,7 +238,11 @@ test("PLN-E2E-03 a lapsed trial blocks new work but still exports, settles, revo
             channel: "email",
             body: "We're open late on Thursdays this spring.",
             audience: { tags: ["regulars"] },
-            scheduled_at: combineDayAndTime(addDays(new Date(), 2, ZONE), "10:00", ZONE).toISOString(),
+            scheduled_at: combineDayAndTime(
+                addDays(new Date(), 2, ZONE),
+                "10:00",
+                ZONE,
+            ).toISOString(),
         },
         headers: headers(page),
     });
@@ -250,7 +265,7 @@ test("PLN-E2E-03 a lapsed trial blocks new work but still exports, settles, revo
 
     const blocked = [
         await page.request.post(`${apiBase()}/v1/clients`, {
-            data: { name: "Noor Haddad", email: `noor-${randomUUID()}@example.ca` },
+            data: { name: "Noor Haddad", email: runEmail(`noor-${randomUUID()}@example.ca`) },
             headers: headers(page),
         }),
         await page.request.patch(`${apiBase()}/v1/clients/${contact.id}`, {
@@ -261,7 +276,7 @@ test("PLN-E2E-03 a lapsed trial blocks new work but still exports, settles, revo
             data: { name: "Late offer", channel: "email", body: "Ten percent off", audience: {} },
             headers: headers(page),
         }),
-        await invite(page, `another-${randomUUID()}@example.ca`),
+        await invite(page, runEmail(`another-${randomUUID()}@example.ca`)),
     ];
     for (const response of blocked) {
         expect(response.status()).toBe(402);
@@ -271,7 +286,7 @@ test("PLN-E2E-03 a lapsed trial blocks new work but still exports, settles, revo
     expect(readable.status()).toBe(200);
 
     const settings = await page.request.patch(`${apiBase()}/v1/business`, {
-        data: { billing_email: `billing-${randomUUID()}@example.ca` },
+        data: { billing_email: runEmail(`billing-${randomUUID()}@example.ca`) },
         headers: headers(page),
     });
     const exported = await page.request.post(`${apiBase()}/v1/consents/export`, {

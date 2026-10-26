@@ -16,6 +16,7 @@ import {
 } from "./stripe-deposit";
 import { expectDepositStage } from "./stripe-deposit-oracle";
 import { enrolWithCardDeposit, PROGRAM, prepareProgram, webBaseUrl } from "./stripe-program";
+import { runPort } from "@clientbridge/config/e2e/run";
 
 async function outstanding(
     page: Page,
@@ -44,7 +45,7 @@ test("FIN-DEPOSIT-04 real deposit refund reopens invoice debt while ordinary cas
     browser,
 }, info) => {
     test.setTimeout(300_000);
-    const baseURL = `http://localhost:${process.env.WEB_E2E_PORT ?? "8721"}`;
+    const baseURL = `http://localhost:${String(runPort("WEB_E2E_PORT"))}`;
     const ownedContexts: BrowserContext[] = [];
     const failures: unknown[] = [];
     const checkpoints: Record<string, DepositEvidence> = {};

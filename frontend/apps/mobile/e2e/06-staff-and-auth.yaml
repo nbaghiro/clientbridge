@@ -1,4 +1,4 @@
-appId: '${typeof APP_ID === "undefined" ? "ca.clientbridge.app" : APP_ID}'
+appId: ${APP_ID}
 name: Authentication and staff boundaries
 onFlowComplete:
     - runFlow: helpers/restore-owner.yaml
@@ -29,8 +29,8 @@ onFlowComplete:
 - takeScreenshot: password-reset
 - tapOn: "Back to sign in"
 - tapOn: "you@business.ca"
-- inputText: "diego@birchbark.example"
-- assertVisible: "diego@birchbark.example"
+- inputText: "diego+${E2E_NAMESPACE}@birchbark.example"
+- assertVisible: "diego+${E2E_NAMESPACE}@birchbark.example"
 - tapOn: "••••••••"
 - eraseText
 - inputText: "demo1234"
@@ -38,6 +38,7 @@ onFlowComplete:
 - tapOn:
       text: "Sign in"
       below: "Forgot password\\?"
+- runFlow: helpers/decline-save-password.yaml
 - extendedWaitUntil:
       visible: "Today"
       timeout: 60000

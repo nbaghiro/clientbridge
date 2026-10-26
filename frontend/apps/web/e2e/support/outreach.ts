@@ -6,10 +6,11 @@ import { demoPerson } from "@clientbridge/config/e2e/demo";
 import { strings } from "@clientbridge/app-core/public";
 import { expect, type APIRequestContext, type APIResponse, type Page } from "@playwright/test";
 import { navigate } from "./session";
+import { demoPhone, runEmail, runSetting, runUrl } from "@clientbridge/config/e2e/run";
 
 const execute = promisify(execFile);
-export const BIRCHBARK_SMS = "+12365550190";
-export const CEDAR_SMS = "+16045550199";
+export const BIRCHBARK_SMS = demoPhone("+12365550190");
+export const CEDAR_SMS = demoPhone("+16045550199");
 
 export interface Contact {
     id: string;
@@ -122,17 +123,11 @@ export const broadcastEvidence = (...ids: string[]) =>
 export const planEvidence = (businessId: string) => observe<PlanEvidence>("plan", businessId);
 
 export function apiBase(): string {
-    return required("VITE_API_URL");
+    return runUrl("VITE_API_URL");
 }
 
 export function mailpitBase(): string {
-    return required("MAILPIT_URL");
-}
-
-function required(name: string): string {
-    const value = process.env[name];
-    if (!value) throw new Error(`${name} is not set; run this case through the e2e stack`);
-    return value;
+    return runUrl("MAILPIT_URL");
 }
 
 export function headers(page: Page): Record<string, string> {
@@ -148,12 +143,18 @@ export function freshPhone(): string {
 
 export async function createContact(
     page: Page,
-    input: { name?: string; email?: string; phone?: string; consent?: boolean; tags?: string[] } = {},
+    input: {
+        name?: string;
+        email?: string;
+        phone?: string;
+        consent?: boolean;
+        tags?: string[];
+    } = {},
 ): Promise<Contact> {
     const run = randomUUID();
     const contact = {
         name: input.name ?? demoPerson(run),
-        email: input.email ?? `outreach-${run}@example.ca`,
+        email: input.email ?? runEmail(`outreach-${run}@example.ca`),
         phone: input.phone ?? freshPhone(),
     };
     const response = await page.request.post(`${apiBase()}/v1/clients`, {
@@ -190,8 +191,8 @@ export async function postInboundSms(
     sms: InboundSms,
     signing: "valid" | "wrong" | "missing" = "valid",
 ): Promise<{ response: APIResponse; sid: string | null }> {
-    const token = required("TWILIO_AUTH_TOKEN");
-    const base = required("API_BASE_URL");
+    const token = runSetting("TWILIO_AUTH_TOKEN");
+    const base = runUrl("API_BASE_URL");
     const sid = sms.sid === undefined ? `SM${randomUUID().replaceAll("-", "")}` : sms.sid;
     const form: Record<string, string> = { From: sms.from, To: sms.to, Body: sms.body };
     if (sid !== null) form.MessageSid = sid;
@@ -223,7 +224,7 @@ export async function postEmailEvent(
     event: EmailEvent,
     options: { id?: string; at?: Date; signing?: "valid" | "wrong" } = {},
 ): Promise<{ response: APIResponse; id: string }> {
-    const secret = required("RESEND_WEBHOOK_SECRET");
+    const secret = runSetting("RESEND_WEBHOOK_SECRET");
     const id = options.id ?? `msg_${randomUUID().replaceAll("-", "")}`;
     const timestamp = String(Math.floor((options.at ?? new Date()).getTime() / 1000));
     const body = JSON.stringify(event);

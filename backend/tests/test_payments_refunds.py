@@ -475,10 +475,12 @@ async def test_used_package_cannot_be_refunded(
     await ledger.post_payment(db, payment)
     for _ in range(2):
         await ledger.post_consumption(db, package)
-    res = await as_owner.post(f"/v1/payments/{payment.id}/refund", json={}, headers=retry_key())
+    # the refused refund rolls back, which expires the loaded payment
+    url = f"/v1/payments/{payment.id}"
+    res = await as_owner.post(f"{url}/refund", json={}, headers=retry_key())
     assert res.status_code == 409
     assert res.json()["error"] == "package_used"
-    preview = ok(await as_owner.get(f"/v1/payments/{payment.id}/refund-preview")).json()
+    preview = ok(await as_owner.get(f"{url}/refund-preview")).json()
     assert preview["blocked"] == "package_used"
     assert preview["refund_cents"] == 0 and preview["parts"] == []
 

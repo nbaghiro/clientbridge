@@ -15,6 +15,7 @@ import { formatMoneyWithCurrency, strings } from "@clientbridge/app-core/public"
 
 import { documentApi, documentProvider } from "./documents";
 import { on } from "./hosts";
+import { demoId } from "@clientbridge/config/e2e/run";
 
 const execute = promisify(execFile);
 
@@ -450,7 +451,7 @@ export async function settledStripeInvoice(
         }
         for (const total of journalTotals.values()) expect(total).toBe(0);
         const businessEntries = saved.entries.filter(
-            (entry) => entry.owner_type === "business" && entry.owner_id === "bz_birchbark",
+            (entry) => entry.owner_type === "business" && entry.owner_id === demoId("bz_birchbark"),
         );
         const total = (category: string): number =>
             businessEntries

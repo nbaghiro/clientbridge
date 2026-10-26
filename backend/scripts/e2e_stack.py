@@ -885,6 +885,8 @@ def run_native(
         "-e",
         f"APP_ID={NATIVE_APP_ID}",
         "-e",
+        f"E2E_NAMESPACE={stack.namespace}",
+        "-e",
         f"MAILPIT_URL={stack.env['MAILPIT_URL']}",
         "-e",
         f"AUTH_ADMIN_URL={stack.env['AUTH_ADMIN_URL']}",
@@ -912,13 +914,14 @@ def run_native(
     processes.callback(link.close)
 
     def message_push(body: bytes) -> None:
+        # a flow names the seeded client; the run holds its own namespaced copy
         request = json.loads(body)
         payload = subprocess.run(
             [
                 sys.executable,
                 "-m",
                 "scripts.e2e_native_push",
-                str(request["client_id"]),
+                f"{request['client_id']}_{stack.namespace}",
                 str(request["preview"]),
             ],
             cwd=ROOT / "backend",
@@ -1104,10 +1107,8 @@ def reap(parser: argparse.ArgumentParser, name: str) -> None:
     if not (directory / "tier.json").is_file():
         parser.error("the recorded run configuration is missing")
     held = json.loads((directory / "tier.json").read_text())
-    if tier.slot_held(int(held["slot"])) and held["namespace"] not in tier.stale_namespaces():
-        found = json.loads((tier.TIER / "runs" / f"{held['namespace']}.json").read_text())
-        if found.get("pid") and group_alive(int(found["pid"])):
-            parser.error("that run is still going")
+    if tier.namespace_held(held["namespace"]):
+        parser.error("that run is still going")
     purge(
         held["namespace"],
         tier.Lease(int(held["slot"]), held["namespace"]).redis_url,

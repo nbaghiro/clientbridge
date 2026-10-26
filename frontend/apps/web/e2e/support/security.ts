@@ -6,6 +6,7 @@ import { createInvoice, openInvoice, type InvoiceFixture } from "./billing";
 import { editClient, type ClientFixture } from "./crm";
 import { paymentEvidence, type PaymentEvidence } from "./evidence";
 import { documentEvidence, type DocumentEvidence } from "./invoices";
+import { runUrl } from "@clientbridge/config/e2e/run";
 
 export interface SecurityFixture {
     invoice: InvoiceFixture;
@@ -62,7 +63,7 @@ export async function expectRefused(
     data?: Record<string, string | number | boolean>,
     businessId?: string,
 ): Promise<void> {
-    const api = process.env.VITE_API_URL ?? "http://localhost:8701";
+    const api = runUrl("VITE_API_URL");
     const response = await page.request.fetch(`${api}/v1/${path}`, {
         method,
         data,

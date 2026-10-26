@@ -3,16 +3,12 @@ import { createHmac, randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import type { APIRequestContext } from "@playwright/test";
+import { demoPhone, runSetting, runUrl } from "@clientbridge/config/e2e/run";
 
 const execute = promisify(execFile);
-function stackUrl(name: "VITE_API_URL" | "API_BASE_URL"): string {
-    const value = process.env[name];
-    if (!value) throw new Error(`${name} is not set; run the case through the e2e stack`);
-    return value;
-}
-const api = () => stackUrl("VITE_API_URL");
+const api = () => runUrl("VITE_API_URL");
 
-export const BIRCHBARK_NUMBER = "+12365550190";
+export const BIRCHBARK_NUMBER = demoPhone("+12365550190");
 
 export interface CommunicationEvidence {
     threads: { id: string; channel: string }[];
@@ -72,12 +68,6 @@ export function clientPhone(): string {
     return `+1778${digits.startsWith("55501") ? `6${digits.slice(1)}` : digits}`;
 }
 
-function secret(name: "TWILIO_AUTH_TOKEN" | "RESEND_WEBHOOK_SECRET"): string {
-    const value = process.env[name];
-    if (!value) throw new Error(`${name} is not set; run the case through the e2e stack`);
-    return value;
-}
-
 /** Posts an inbound text the way Twilio signs it, for the run's own auth token. */
 export async function inboundText(
     request: APIRequestContext,
@@ -90,13 +80,13 @@ export async function inboundText(
         ["To", message.to ?? BIRCHBARK_NUMBER],
         ["Body", message.body],
     ];
-    const url = `${stackUrl("API_BASE_URL")}/webhooks/sms`;
+    const url = `${runUrl("API_BASE_URL")}/webhooks/sms`;
     const signed = [...params]
         .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
         .reduce((text, [name, value]) => text + name + value, url);
     const signature =
         message.signature ??
-        createHmac("sha1", secret("TWILIO_AUTH_TOKEN")).update(signed).digest("base64");
+        createHmac("sha1", runSetting("TWILIO_AUTH_TOKEN")).update(signed).digest("base64");
     const response = await request.post(`${api()}/webhooks/sms`, {
         headers: {
             "Content-Type": "application/x-www-form-urlencoded",
@@ -139,7 +129,7 @@ export async function emailEvent(
     const key = Buffer.from(
         options.forged
             ? Buffer.from(randomUUID()).toString("base64")
-            : secret("RESEND_WEBHOOK_SECRET").replace(/^whsec_/, ""),
+            : runSetting("RESEND_WEBHOOK_SECRET").replace(/^whsec_/, ""),
         "base64",
     );
     const signature = createHmac("sha256", key)

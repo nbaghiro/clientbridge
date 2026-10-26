@@ -16,6 +16,7 @@ import {
     type DocumentRecord,
 } from "./support/invoices";
 import { signIn } from "./support/session";
+import { demoId, runEmail, runUrl } from "@clientbridge/config/e2e/run";
 
 test.use({ actionTimeout: 15_000 });
 
@@ -351,14 +352,14 @@ test("BILL-DOC-03 editing a visit's draft invoice keeps its visit, staff and dep
     page,
 }) => {
     // a seeded upcoming large-dog groom (25% of $110 held as a deposit) no other case touches
-    const visit = "bk_rex_2";
+    const visit = demoId("bk_rex_2");
     const deposit = 2750;
     await signIn(page);
-    const api = process.env.VITE_API_URL ?? "http://localhost:8701";
+    const api = runUrl("VITE_API_URL");
     const headers = { Origin: new URL(page.url()).origin };
     const addon = await page.request.post(`${api}/v1/bookings/${visit}/addons`, {
         headers,
-        data: { item_id: "it_brush", quantity: 1 },
+        data: { item_id: demoId("it_brush"), quantity: 1 },
     });
     expect(addon.status(), await addon.text()).toBe(201);
     const created = await page.request.post(`${api}/v1/invoices/from-booking/${visit}`, {
@@ -371,9 +372,13 @@ test("BILL-DOC-03 editing a visit's draft invoice keeps its visit, staff and dep
     const refs = draft.lines.map((l) => [l.booking_id, l.staff_id]);
     expect(refs).toEqual([
         [visit, null],
-        [visit, "st_diego"],
+        [visit, demoId("st_diego")],
     ]);
-    const client = { id: "cl_marcus", name: "Marcus Bennett", email: "marcus.b@example.test" };
+    const client = {
+        id: demoId("cl_marcus"),
+        name: "Marcus Bennett",
+        email: runEmail("marcus.b@example.test"),
+    };
     expect(draft.client_id).toBe(client.id);
 
     const detail = await openDocument(page, client, "invoice", draft.id);

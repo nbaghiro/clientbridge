@@ -20,10 +20,11 @@ import {
     type EmailEvent,
 } from "./support/outreach";
 import { navigate, signIn } from "./support/session";
+import { demoId, runEmail } from "@clientbridge/config/e2e/run";
 
 const s = strings.messaging;
 const ZONE = "America/Vancouver";
-const cedar = { email: "owner@cedarcoast.example", password: "demo1234" };
+const cedar = { email: runEmail("owner@cedarcoast.example"), password: "demo1234" };
 
 async function signedInContext(browser: Browser, origin: string, as?: typeof cedar) {
     const context = await browser.newContext({
@@ -79,7 +80,7 @@ test("MSG-E2E-10 a text sent from the composer and its signed reply share one th
     expect(afterSend.threads).toEqual([
         {
             id: expect.any(String),
-            business_id: "bz_birchbark",
+            business_id: demoId("bz_birchbark"),
             client_id: contact.id,
             channel: "sms",
             status: "open",
@@ -89,14 +90,14 @@ test("MSG-E2E-10 a text sent from the composer and its signed reply share one th
     expect(afterSend.messages).toEqual([
         {
             id: expect.any(String),
-            business_id: "bz_birchbark",
+            business_id: demoId("bz_birchbark"),
             client_id: contact.id,
             direction: "out",
             channel: "sms",
             body: outgoing,
             status: "sent",
             provider_ref: null,
-            sent_by: "us_dev",
+            sent_by: demoId("us_dev"),
             broadcast_id: null,
         },
     ]);
@@ -113,7 +114,7 @@ test("MSG-E2E-10 a text sent from the composer and its signed reply share one th
     expect(replied.messages.slice(1)).toEqual([
         {
             id: expect.any(String),
-            business_id: "bz_birchbark",
+            business_id: demoId("bz_birchbark"),
             client_id: contact.id,
             direction: "in",
             channel: "sms",
@@ -135,7 +136,7 @@ test("MSG-E2E-10 a text sent from the composer and its signed reply share one th
                 from: contact.phone,
                 to: BIRCHBARK_SMS,
                 matched: true,
-                business_id: "bz_birchbark",
+                business_id: demoId("bz_birchbark"),
                 opt_out: false,
             },
         },
@@ -246,24 +247,25 @@ test("MSG-E2E-11 inbound texts route only to the number's business and unsigned 
             status: "processed",
             payload: { from, to, matched: false, business_id: null, opt_out: optOut },
         });
-        expect(await webhookRows(`twilio_${unknown.sid ?? ""}`, `twilio_${ambiguous.sid ?? ""}`))
-            .toEqual(
-                [
-                    unmatched(unknown.sid, "+12365550191", false, shared),
-                    unmatched(ambiguous.sid, BIRCHBARK_SMS, true, twin),
-                ].sort((a, b) => a.id.localeCompare(b.id)),
-            );
+        expect(
+            await webhookRows(`twilio_${unknown.sid ?? ""}`, `twilio_${ambiguous.sid ?? ""}`),
+        ).toEqual(
+            [
+                unmatched(unknown.sid, "+12365550191", false, shared),
+                unmatched(ambiguous.sid, BIRCHBARK_SMS, true, twin),
+            ].sort((a, b) => a.id.localeCompare(b.id)),
+        );
 
         const sid = `SM${randomUUID().replaceAll("-", "")}`;
         const toUs = { from: shared, to: BIRCHBARK_SMS, body: "Running five minutes late", sid };
         expect((await postInboundSms(page.request, toUs)).response.status()).toBe(200);
         const routed = await clientOutreach(...ids);
         expect(routed.threads.map((t) => [t.business_id, t.client_id, t.channel])).toEqual([
-            ["bz_birchbark", ours.id, "sms"],
+            [demoId("bz_birchbark"), ours.id, "sms"],
         ]);
-        expect(routed.messages.map((m) => [m.business_id, m.client_id, m.direction, m.body])).toEqual(
-            [["bz_birchbark", ours.id, "in", toUs.body]],
-        );
+        expect(
+            routed.messages.map((m) => [m.business_id, m.client_id, m.direction, m.body]),
+        ).toEqual([[demoId("bz_birchbark"), ours.id, "in", toUs.body]]);
         const replay = await postInboundSms(page.request, { ...toUs, body: "STOP" });
         expect(replay.response.status()).toBe(200);
         expect(await clientOutreach(...ids)).toEqual(routed);
@@ -277,22 +279,22 @@ test("MSG-E2E-11 inbound texts route only to the number's business and unsigned 
         const both = await clientOutreach(...ids);
         expect(both.threads.map((t) => [t.business_id, t.client_id]).sort()).toEqual(
             [
-                ["bz_birchbark", ours.id],
-                ["bz_demo_second", theirs.id],
+                [demoId("bz_birchbark"), ours.id],
+                [demoId("bz_demo_second"), theirs.id],
             ].sort(),
         );
-        expect(
-            both.messages.filter((m) => m.client_id === theirs.id).map((m) => m.body),
-        ).toEqual(["Can Biscuit's walk move to noon?"]);
+        expect(both.messages.filter((m) => m.client_id === theirs.id).map((m) => m.body)).toEqual([
+            "Can Biscuit's walk move to noon?",
+        ]);
         expect(both.consents).toEqual([]);
 
         const row = await openConversation(page, ours, "all");
         await row.click({ timeout: 60_000 });
         const log = page.locator('[aria-live="polite"]');
         await expect(log.getByText(toUs.body, { exact: true })).toHaveCount(1);
-        await expect(log.getByText("Can Biscuit's walk move to noon?", { exact: true })).toHaveCount(
-            0,
-        );
+        await expect(
+            log.getByText("Can Biscuit's walk move to noon?", { exact: true }),
+        ).toHaveCount(0);
         await expect(page.getByText(s.textsOffShort, { exact: true })).toHaveCount(0);
         const theirRow = await openConversation(cedarOwner.page, theirs, "all");
         await theirRow.click({ timeout: 60_000 });
@@ -319,7 +321,7 @@ test("MSG-E2E-12 signed email events settle the message once and a complaint opt
     browser,
 }) => {
     await signIn(page);
-    const mailbox = `outreach-${randomUUID()}@example.ca`;
+    const mailbox = runEmail(`outreach-${randomUUID()}@example.ca`);
     const flagged = await createContact(page, { email: mailbox, consent: true });
     const sharing = await createContact(page, { email: mailbox.toUpperCase(), consent: true });
     const cedarOwner = await signedInContext(browser, new URL(page.url()).origin, cedar);
@@ -336,7 +338,9 @@ test("MSG-E2E-12 signed email events settle the message once and a complaint opt
                 .sort(),
         );
         const dialog = await composeMessage(page, flagged);
-        await dialog.getByRole("textbox", { name: s.newMessageTitle, exact: true }).fill(careMessage);
+        await dialog
+            .getByRole("textbox", { name: s.newMessageTitle, exact: true })
+            .fill(careMessage);
         await dialog.getByRole("button", { name: s.sendMessage, exact: true }).click();
         await expect(dialog).toBeHidden();
         const sent = await clientOutreach(...ids);
@@ -345,21 +349,21 @@ test("MSG-E2E-12 signed email events settle the message once and a complaint opt
         expect(sent.messages).toEqual([
             {
                 id: expect.any(String),
-                business_id: "bz_birchbark",
+                business_id: demoId("bz_birchbark"),
                 client_id: flagged.id,
                 direction: "out",
                 channel: "email",
                 body: careMessage,
                 status: "sent",
                 provider_ref: null,
-                sent_by: "us_dev",
+                sent_by: demoId("us_dev"),
                 broadcast_id: null,
             },
         ]);
         expect((await deliveredMail(page.request, mailbox)).map((m) => m.text)).toEqual([
             careMessage,
         ]);
-        const tags = { business: "bz_birchbark", message: message.id };
+        const tags = { business: demoId("bz_birchbark"), message: message.id };
         const emailId = `re_${randomUUID()}`;
         const event = (type: string, extra: Partial<EmailEvent["data"]> = {}): EmailEvent => ({
             type,
@@ -377,7 +381,7 @@ test("MSG-E2E-12 signed email events settle the message once and a complaint opt
         expect(await webhookRows(`resend_${stale.id}`, `resend_${forged.id}`)).toEqual([]);
         expect(await clientOutreach(...ids)).toEqual(sent);
 
-        const missing = { business: "bz_birchbark", message: `message_${randomUUID()}` };
+        const missing = { business: demoId("bz_birchbark"), message: `message_${randomUUID()}` };
         const pending = await postEmailEvent(page.request, {
             type: "email.delivered",
             created_at: new Date().toISOString(),
@@ -409,7 +413,11 @@ test("MSG-E2E-12 signed email events settle the message once and a complaint opt
         const bounced = await postEmailEvent(
             page.request,
             event("email.bounced", {
-                bounce: { type: "Permanent", subType: "General", message: "Mailbox does not exist" },
+                bounce: {
+                    type: "Permanent",
+                    subType: "General",
+                    message: "Mailbox does not exist",
+                },
             }),
         );
         const late = await postEmailEvent(page.request, event("email.delivered"));
@@ -419,7 +427,10 @@ test("MSG-E2E-12 signed email events settle the message once and a complaint opt
         const crossed = await postEmailEvent(page.request, {
             type: "email.complained",
             created_at: new Date(Date.now() - 20 * 60_000).toISOString(),
-            data: { to: [mailbox], tags: { business: "bz_demo_second", client: flagged.id } },
+            data: {
+                to: [mailbox],
+                tags: { business: demoId("bz_demo_second"), client: flagged.id },
+            },
         });
         expect(crossed.response.status()).toBe(200);
         expect((await clientOutreach(...ids)).consents).toEqual(consented);
@@ -433,7 +444,7 @@ test("MSG-E2E-12 signed email events settle the message once and a complaint opt
         ).toEqual(
             [flagged.id, sharing.id]
                 .map((client) => ({
-                    business_id: "bz_birchbark",
+                    business_id: demoId("bz_birchbark"),
                     client_id: client,
                     channel: "email",
                     status: "withdrawn",
@@ -504,11 +515,11 @@ test("MSG-E2E-13 staff message and read like everyone, while broadcasts, cancels
     const broadcast = (await scheduled.json()) as { id: string; status: string };
     expect(broadcast.status).toBe("scheduled");
     const staff = await signedInContext(browser, origin, {
-        email: "diego@birchbark.example",
+        email: runEmail("diego@birchbark.example"),
         password: "demo1234",
     });
     const admin = await signedInContext(browser, origin, {
-        email: "admin@birchbark.example",
+        email: runEmail("admin@birchbark.example"),
         password: "demo1234",
     });
     const cedarOwner = await signedInContext(browser, origin, cedar);
@@ -527,12 +538,14 @@ test("MSG-E2E-13 staff message and read like everyone, while broadcasts, cancels
             staff.page.getByRole("tab", { name: strings.navigation.inboxSegments.broadcasts }),
         ).toHaveCount(0);
         const dialog = await composeMessage(staff.page, contact);
-        await dialog.getByRole("textbox", { name: s.newMessageTitle, exact: true }).fill(careMessage);
+        await dialog
+            .getByRole("textbox", { name: s.newMessageTitle, exact: true })
+            .fill(careMessage);
         await dialog.getByRole("button", { name: s.sendMessage, exact: true }).click();
         await expect(dialog).toBeHidden();
         const own = await clientOutreach(contact.id);
         expect(own.messages.map((m) => [m.direction, m.channel, m.status, m.sent_by])).toEqual([
-            ["out", "email", "sent", "us_diego"],
+            ["out", "email", "sent", demoId("us_diego")],
         ]);
         const row = await openConversation(staff.page, contact, "all");
         await row.click({ timeout: 60_000 });
@@ -603,10 +616,10 @@ test("MSG-E2E-13 staff message and read like everyone, while broadcasts, cancels
         ]);
         expect(final.messages).toEqual([]);
         expect(final.audits.map((a) => [a.action, a.performed_by])).toEqual([
-            ["broadcast.send", "us_dev"],
+            ["broadcast.send", demoId("us_dev")],
             ["broadcast.cancel", expect.any(String)],
         ]);
-        expect(final.audits[1]?.performed_by).not.toBe("us_dev");
+        expect(final.audits[1]?.performed_by).not.toBe(demoId("us_dev"));
     } finally {
         await staff.context.close();
         await admin.context.close();
@@ -645,7 +658,7 @@ test("MSG-E2E-16 a broadcast scheduled from the composer counts its audience and
     expect(before.broadcasts).toEqual([
         {
             id: scheduled.id,
-            business_id: "bz_birchbark",
+            business_id: demoId("bz_birchbark"),
             name,
             channel: "email",
             status: "scheduled",
@@ -665,17 +678,18 @@ test("MSG-E2E-16 a broadcast scheduled from the composer counts its audience and
     expect(again.status()).toBe(409);
     await page.reload();
     await navigate(page, "/inbox?segment=broadcasts");
-    await expect(
-        page.getByRole("button").filter({ hasText: name }).first(),
-    ).toContainText(strings.broadcasts.status.canceled, { timeout: 60_000 });
+    await expect(page.getByRole("button").filter({ hasText: name }).first()).toContainText(
+        strings.broadcasts.status.canceled,
+        { timeout: 60_000 },
+    );
     const after = await broadcastEvidence(scheduled.id);
     expect(after.broadcasts.map((b) => [b.status, b.recipient_count, b.excluded_count])).toEqual([
         ["canceled", 2, 1],
     ]);
     expect(after.messages).toEqual([]);
     expect(after.audits.map((a) => [a.action, a.performed_by])).toEqual([
-        ["broadcast.send", "us_dev"],
-        ["broadcast.cancel", "us_dev"],
+        ["broadcast.send", demoId("us_dev")],
+        ["broadcast.cancel", demoId("us_dev")],
     ]);
     for (const contact of [...agreed, unasked]) {
         expect(await deliveredMail(page.request, contact.email)).toEqual([]);

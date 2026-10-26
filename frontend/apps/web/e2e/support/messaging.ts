@@ -7,6 +7,7 @@ import { expect, type APIRequestContext, type Page } from "@playwright/test";
 import { createClient, type ClientFixture } from "./crm";
 import { requireLocalMail } from "./evidence";
 import { navigate } from "./session";
+import { runUrl } from "@clientbridge/config/e2e/run";
 
 const execute = promisify(execFile);
 const s = strings.messaging;
@@ -68,10 +69,9 @@ export async function inboxMail(
     request: APIRequestContext,
     email: string,
 ): Promise<{ ID: string; Subject: string }[]> {
-    const response = await request.get(
-        `${process.env.MAILPIT_URL ?? "http://localhost:8715"}/api/v1/search`,
-        { params: { query: `to:"${email}"`, limit: 100 } },
-    );
+    const response = await request.get(`${runUrl("MAILPIT_URL")}/api/v1/search`, {
+        params: { query: `to:"${email}"`, limit: 100 },
+    });
     expect(response.status()).toBe(200);
     return ((await response.json()) as { messages: { ID: string; Subject: string }[] }).messages;
 }
@@ -85,7 +85,7 @@ export async function deliveredMail(
     request: APIRequestContext,
     email: string,
 ): Promise<DeliveredMail[]> {
-    const base = process.env.MAILPIT_URL ?? "http://localhost:8715";
+    const base = runUrl("MAILPIT_URL");
     const found = await inboxMail(request, email);
     return Promise.all(
         found.reverse().map(async ({ ID }) => {
@@ -113,9 +113,7 @@ export async function expectMail(request: APIRequestContext, email: string): Pro
     const message = (await inboxMail(request, email))[0];
     if (message === undefined) throw new Error("SMTP message missing");
     expect(message.Subject).toBe("Birchbark Pet Studio");
-    const response = await request.get(
-        `${process.env.MAILPIT_URL ?? "http://localhost:8715"}/api/v1/message/${message.ID}`,
-    );
+    const response = await request.get(`${runUrl("MAILPIT_URL")}/api/v1/message/${message.ID}`);
     expect(response.status()).toBe(200);
     const mail = (await response.json()) as { Text: string; To: { Address: string }[] };
     expect(mail.To.map((to) => to.Address)).toEqual([email]);
@@ -164,7 +162,7 @@ export async function expectMessageReplica(page: Page, client: ClientFixture): P
     ).toHaveValue("");
 }
 export async function readdress(page: Page, client: ClientFixture, email: string): Promise<void> {
-    const api = process.env.VITE_API_URL ?? "http://localhost:8701";
+    const api = runUrl("VITE_API_URL");
     const response = await page.request.patch(`${api}/v1/clients/${client.id}`, {
         data: { email },
         headers: { "Idempotency-Key": randomUUID(), Origin: new URL(page.url()).origin },

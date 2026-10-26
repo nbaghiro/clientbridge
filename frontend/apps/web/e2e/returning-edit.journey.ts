@@ -8,6 +8,7 @@ import { bookingApi } from "./support/bookings";
 import { createClient } from "./support/crm";
 import { returningFixture, verifyReturning } from "./support/returning";
 import { signIn } from "./support/session";
+import { demoSlug } from "@clientbridge/config/e2e/run";
 
 const execute = promisify(execFile);
 test.use({ actionTimeout: 15_000 });
@@ -67,7 +68,8 @@ test("CRM-E2E-07 editing verified contact clears proof and keeps conflicting det
             .fill(phone);
         const submitting = customer.waitForResponse(
             (r) =>
-                new URL(r.url()).pathname === "/book/birchbark" && r.request().method() === "POST",
+                new URL(r.url()).pathname === `/book/${demoSlug("birchbark")}` &&
+                r.request().method() === "POST",
         );
         await customer
             .getByRole("button", { name: strings.publicBooking.confirm, exact: true })

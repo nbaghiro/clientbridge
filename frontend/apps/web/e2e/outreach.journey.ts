@@ -24,6 +24,7 @@ import {
     type Contact,
 } from "./support/outreach";
 import { navigate, signIn } from "./support/session";
+import { demoId } from "@clientbridge/config/e2e/run";
 
 const s = strings.messaging;
 const p = strings.publicPreferences;
@@ -119,7 +120,7 @@ test("MSG-E2E-14 a STOP that arrives after a seat notice is queued keeps the wor
         const stopped = await clientOutreach(fixture.waiting.id);
         expect(stopped.consents).toEqual([
             {
-                business_id: "bz_birchbark",
+                business_id: demoId("bz_birchbark"),
                 client_id: fixture.waiting.id,
                 channel: "sms",
                 status: "withdrawn",
@@ -216,7 +217,8 @@ test("MSG-E2E-15 a STOP holds against the staff toggle and the preferences page 
         await expect(prefs.sms).not.toBeChecked();
         await prefs.sms.check();
         const saved = prefs.client.waitForResponse(
-            (r) => new URL(r.url()).pathname.startsWith("/prefs/") && r.request().method() === "POST",
+            (r) =>
+                new URL(r.url()).pathname.startsWith("/prefs/") && r.request().method() === "POST",
         );
         await prefs.client.getByRole("button", { name: p.save, exact: true }).click();
         const response = await saved;
@@ -233,13 +235,17 @@ test("MSG-E2E-15 a STOP holds against the staff toggle and the preferences page 
         await page.getByRole("button", { name: s.newShort, exact: true }).click();
         const dialog = page.getByRole("dialog");
         await dialog.getByRole("combobox", { name: s.clientLabel, exact: true }).fill(contact.name);
-        await page.locator(`[role="option"][data-value="${contact.id}"]`).click({ timeout: 60_000 });
+        await page
+            .locator(`[role="option"][data-value="${contact.id}"]`)
+            .click({ timeout: 60_000 });
         await dialog
             .getByRole("group", { name: s.channelLabel, exact: true })
             .getByRole("button", { name: s.channels.sms, exact: true })
             .click();
         await expect(dialog.getByText(s.smsBlockedNew, { exact: true })).toBeVisible();
-        await expect(dialog.getByRole("button", { name: s.sendMessage, exact: true })).toBeDisabled();
+        await expect(
+            dialog.getByRole("button", { name: s.sendMessage, exact: true }),
+        ).toBeDisabled();
         const blocked = await page.request.post(`${apiBase()}/v1/messages`, {
             data: { client_id: contact.id, channel: "sms", body: "Are you free Friday?" },
             headers: headers(page),

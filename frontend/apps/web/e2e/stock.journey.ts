@@ -9,6 +9,7 @@ import { openRefund } from "./support/refunds";
 import { ringUpCash, saleEvidence, type SaleEvidence } from "./support/sales";
 import { customerContext, signIn } from "./support/session";
 import { apiCall, shopUrl, visitEvidence } from "./support/visits";
+import { demoSlug, runEmail } from "@clientbridge/config/e2e/run";
 
 test.use({ actionTimeout: 15_000 });
 
@@ -157,11 +158,14 @@ test("FLOW-03-A an online shopper loses the last unit to a desk sale and sees it
     await signIn(page);
     const product = await stockedProduct(page, "Cedar Paw Balm", 1);
     const walkIn = await createClient(page);
-    const online = { name: demoPerson(randomUUID()), email: `shop-${randomUUID()}@example.ca` };
+    const online = {
+        name: demoPerson(randomUUID()),
+        email: runEmail(`shop-${randomUUID()}@example.ca`),
+    };
     const context = await customerContext(browser);
     try {
         const shopper = await context.newPage();
-        await shopper.goto(shopUrl("birchbark"));
+        await shopper.goto(shopUrl(demoSlug("birchbark")));
         const offered = card(shopper, product);
         await expect(offered.getByText(shop.lowStock(1), { exact: true })).toBeVisible();
         await offered.getByRole("button", { name: shop.addNamed(product.name) }).click();
@@ -188,7 +192,7 @@ test("FLOW-03-A an online shopper loses the last unit to a desk sale and sees it
 
         const placing = shopper.waitForResponse(
             (response) =>
-                new URL(response.url()).pathname === "/book/birchbark/shop/orders" &&
+                new URL(response.url()).pathname === `/book/${demoSlug("birchbark")}/shop/orders` &&
                 response.request().method() === "POST",
         );
         await summary.getByRole("button", { name: shop.continuePay, exact: true }).click();
@@ -205,7 +209,7 @@ test("FLOW-03-A an online shopper loses the last unit to a desk sale and sees it
         expect(await saleEvidence(product.id)).toEqual(sold);
         expect((await visitEvidence([online.email])).clients).toEqual([]);
 
-        await shopper.goto(shopUrl("birchbark"));
+        await shopper.goto(shopUrl(demoSlug("birchbark")));
         await expect(card(shopper, product).getByText(shop.soldOut, { exact: true })).toBeVisible();
         await expect(
             card(shopper, product).getByRole("button", { name: shop.addNamed(product.name) }),
@@ -262,7 +266,7 @@ test("FLOW-03-B a part refund leaves the units sold, and refunding the rest retu
     const context = await customerContext(browser);
     try {
         const shopper = await context.newPage();
-        await shopper.goto(shopUrl("birchbark"));
+        await shopper.goto(shopUrl(demoSlug("birchbark")));
         await expect(card(shopper, product).getByText(shop.soldOut, { exact: true })).toBeVisible();
 
         await refundAtDesk(page, client, paymentId, 2800, true);

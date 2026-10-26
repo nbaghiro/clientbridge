@@ -1,6 +1,7 @@
 import { defineConfig } from "@playwright/test";
 
 import { PORTS, on } from "./e2e/hosts";
+import { runBuild } from "@clientbridge/config/e2e/run";
 
 const port = PORTS.default;
 const pseudoPort = PORTS.pseudo;
@@ -52,7 +53,7 @@ export default defineConfig({
         {
             // CI tests the production bundle; locally the dev server keeps edits live
             command: process.env.CI
-                ? `pnpm exec vite build && pnpm exec vite preview --port ${String(port)} --strictPort`
+                ? runBuild("connect", port)
                 : `pnpm exec vite --port ${String(port)} --strictPort`,
             url: `http://localhost:${String(port)}/`,
             reuseExistingServer: !process.env.CI,

@@ -4,6 +4,7 @@ import { strings } from "@clientbridge/app-core/public";
 import { expect, type Locator, type Page, type Response } from "@playwright/test";
 
 import { navigate } from "./session";
+import { runEmail, runUrl } from "@clientbridge/config/e2e/run";
 
 export interface ClientFixture {
     id: string;
@@ -73,8 +74,8 @@ export async function createClient(
     emailRun = randomUUID(),
 ): Promise<ClientFixture> {
     const run = randomUUID();
-    const api = process.env.VITE_API_URL ?? "http://localhost:8701";
-    const input = { name, email: `crm-${emailRun}-${run}@example.ca` };
+    const api = runUrl("VITE_API_URL");
+    const input = { name, email: runEmail(`crm-${emailRun}-${run}@example.ca`) };
     const response = await page.request.post(`${api}/v1/clients`, {
         data: { ...input, preferred_channel: "email" },
         headers: { "Idempotency-Key": randomUUID(), Origin: new URL(page.url()).origin },

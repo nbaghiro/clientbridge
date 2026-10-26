@@ -2,6 +2,7 @@ import { execFile } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { expect, type APIRequestContext } from "@playwright/test";
+import { runUrl } from "@clientbridge/config/e2e/run";
 
 const execute = promisify(execFile);
 
@@ -39,7 +40,7 @@ export async function receiptMessages(
     request: APIRequestContext,
     email: string,
 ): Promise<{ ID: string; Subject: string; Snippet: string }[]> {
-    const base = process.env.MAILPIT_URL ?? "http://localhost:8715";
+    const base = runUrl("MAILPIT_URL");
     const response = await request.get(`${base}/api/v1/search`, {
         params: { query: `to:${email} subject:receipt`, limit: 100 },
     });

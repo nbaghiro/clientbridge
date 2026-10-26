@@ -18,6 +18,7 @@ import { expectPhoto, filesApi, photoEvidence, portrait } from "./support/files"
 import { returningEvidence, returningFixture, verifyReturning } from "./support/returning";
 import { customerContext, navigate, signIn } from "./support/session";
 import { apiCall, visitEvidence } from "./support/visits";
+import { demoSlug, runEmail } from "@clientbridge/config/e2e/run";
 
 test.use({ actionTimeout: 15_000 });
 
@@ -133,7 +134,8 @@ test("FLOW-04-A a verified returning client's pet, note, photo and booking stay 
         await verifyReturning(visitor, fixture, 0);
         const submitted = visitor.waitForResponse(
             (r) =>
-                new URL(r.url()).pathname === "/book/birchbark" && r.request().method() === "POST",
+                new URL(r.url()).pathname === `/book/${demoSlug("birchbark")}` &&
+                r.request().method() === "POST",
         );
         await visitor
             .getByRole("button", { name: strings.publicBooking.confirm, exact: true })
@@ -252,7 +254,7 @@ test("FLOW-04-B a merge moves a duplicate's pet, note and visit onto the kept ti
     const team = await page.request.get(`${bookingApi()}/v1/staff/team`);
     const owner = (
         (await team.json()) as { members: { id: string; email: string }[] }
-    ).members.find((member) => member.email === "hannah@birchbark.example");
+    ).members.find((member) => member.email === runEmail("hannah@birchbark.example"));
     if (owner === undefined) throw new Error("The Birch & Bark owner is missing");
     const bookingId = await bookVisit(page, duplicate, petId, service.id, owner.id);
     const invoice = await apiCall<{ id: string; total_cents: number }>(

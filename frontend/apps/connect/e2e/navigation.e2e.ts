@@ -4,12 +4,14 @@ import { strings } from "@clientbridge/app-core/public";
 import { type Route, expect, test } from "@playwright/test";
 
 import { on } from "./hosts";
+import { demoId, demoSlug, runEmail, runUrl } from "@clientbridge/config/e2e/run";
 
-const slug = "birchbark";
+const slug = demoSlug("birchbark");
+const otherSlug = demoSlug("cedarcoast");
 const home = on(slug, "/");
 const booking = `/${slug}`;
 const shopPage = on("shop", `/${slug}`);
-const api = process.env.VITE_API_URL ?? "http://127.0.0.1:8701";
+const api = runUrl("VITE_API_URL");
 const run = Date.now().toString();
 
 type Json = Record<string, unknown>;
@@ -108,7 +110,7 @@ test(
         await page.getByLabel(strings.publicShop.name, { exact: true }).fill("Morgan Ellis");
         await page
             .getByLabel(strings.publicShop.email, { exact: false })
-            .fill("navigation@example.test");
+            .fill(runEmail("navigation@example.test"));
         const nav = page.getByRole("navigation", { name: strings.publicLanding.navigation });
         await nav.locator("summary").click();
         await nav.getByRole("link", { name: strings.publicLanding.home, exact: true }).click();
@@ -134,7 +136,7 @@ test(
             .getByRole("button", { name: strings.publicShop.continue, exact: true })
             .click();
         await expect(page.getByLabel(strings.publicShop.email, { exact: false })).toHaveValue(
-            "navigation@example.test",
+            runEmail("navigation@example.test"),
         );
     },
 );
@@ -187,14 +189,14 @@ test("the shop adds from the grid, changes quantities and checks out in steps", 
     await summary.getByRole("button", { name: shop.continuePay, exact: true }).click();
     await expect(page.getByText(shop.incomplete)).toBeVisible();
     await page.getByLabel(shop.name, { exact: true }).fill("Avery Laurent");
-    await page.getByLabel(shop.email, { exact: false }).fill("stepper@example.test");
+    await page.getByLabel(shop.email, { exact: false }).fill(runEmail("stepper@example.test"));
     await summary.getByRole("button", { name: shop.continuePay, exact: true }).click();
     await expect(page.getByRole("heading", { name: shop.sectionPay })).toBeFocused();
     await expect(page.getByText(shop.payBody("$52.50"))).toBeVisible();
     await expect(summary.getByRole("button", { name: shop.remove })).toHaveCount(0);
     expect(placed).toMatchObject({
-        client: { name: "Avery Laurent", email: "stepper@example.test", phone: null },
-        lines: [{ item_id: "it_shampoo", quantity: 1 }],
+        client: { name: "Avery Laurent", email: runEmail("stepper@example.test"), phone: null },
+        lines: [{ item_id: demoId("it_shampoo"), quantity: 1 }],
     });
 });
 
@@ -245,7 +247,7 @@ test(
         await expect(page.getByRole("heading", { name: shop.sectionPickup })).toBeVisible();
         await summary.getByRole("button", { name: shop.continue, exact: true }).click();
         await page.getByLabel(shop.name, { exact: true }).fill("Avery Laurent");
-        await page.getByLabel(shop.email, { exact: false }).fill("resume@example.test");
+        await page.getByLabel(shop.email, { exact: false }).fill(runEmail("resume@example.test"));
         await summary.getByRole("button", { name: shop.continuePay, exact: true }).click();
         await expect.poll(() => keys.length).toBe(1);
         await expect(page.getByRole("alert").getByText(shop.orderError)).toBeVisible();
@@ -327,21 +329,22 @@ test(
     async ({ page }) => {
         // drafts live in book.'s session storage, so they are written on that origin first
         await page.goto("/nowhere");
-        await page.evaluate(() => {
-            sessionStorage.setItem(
-                "connect-booking:birchbark",
-                JSON.stringify({
+        await page.evaluate(
+            ({ ours, theirs, saved }) => {
+                sessionStorage.setItem(ours, JSON.stringify(saved));
+                sessionStorage.setItem(theirs, JSON.stringify({ name: "Other Client" }));
+            },
+            {
+                ours: `connect-booking:${slug}`,
+                theirs: `connect-booking:${otherSlug}`,
+                saved: {
                     name: "Booking Draft",
-                    email: "draft@example.test",
-                    itemId: "it_bath",
+                    email: runEmail("draft@example.test"),
+                    itemId: demoId("it_bath"),
                     note: "Saved note",
-                }),
-            );
-            sessionStorage.setItem(
-                "connect-booking:cedarcoast",
-                JSON.stringify({ name: "Other Client" }),
-            );
-        });
+                },
+            },
+        );
         await page.goto(on("book", booking));
         await expect(
             page.getByRole("heading", { name: strings.publicBooking.stepTime }),
@@ -353,20 +356,17 @@ test(
             page.getByRole("heading", { name: strings.publicBooking.stepTime }),
         ).toBeVisible();
         const draft = await page.evaluate(
-            () =>
-                JSON.parse(sessionStorage.getItem("connect-booking:birchbark") ?? "{}") as Record<
-                    string,
-                    string
-                >,
+            (key) => JSON.parse(sessionStorage.getItem(key) ?? "{}") as Record<string, string>,
+            `connect-booking:${slug}`,
         );
         expect(draft.name).toBe("Booking Draft");
-        expect(draft.email).toBe("draft@example.test");
+        expect(draft.email).toBe(runEmail("draft@example.test"));
         expect(draft.returningToken).toBeUndefined();
         await page.reload();
         await expect(
             page.getByRole("heading", { name: strings.publicBooking.stepTime }),
         ).toBeVisible();
-        await page.goto("/cedarcoast");
+        await page.goto(`/${otherSlug}`);
         await expect(page.getByRole("button", { name: /^Dog Walk, 30 minutes/ })).toBeVisible();
         await expect(
             page
@@ -374,16 +374,16 @@ test(
                 .getByRole("link", { name: /Cedar Coast/ }),
         ).toBeVisible();
         const other = await page.evaluate(
-            () =>
-                JSON.parse(sessionStorage.getItem("connect-booking:cedarcoast") ?? "{}") as Record<
-                    string,
-                    string
-                >,
+            (key) => JSON.parse(sessionStorage.getItem(key) ?? "{}") as Record<string, string>,
+            `connect-booking:${otherSlug}`,
         );
         expect(other.name).toBe("Other Client");
         expect(other.email).toBeUndefined();
         expect(
-            await page.evaluate(() => sessionStorage.getItem("connect-booking:cedarcoast")),
+            await page.evaluate(
+                (key) => sessionStorage.getItem(key),
+                `connect-booking:${otherSlug}`,
+            ),
         ).toContain("Other Client");
     },
 );

@@ -187,7 +187,9 @@ async def test_a_repeated_cancel_or_reschedule_sends_each_notice_once(
     ok(await as_owner.patch(path, json={"status": "canceled"}))
     ok(await as_owner.patch(path, json={"status": "canceled"}))
     canceled = [
-        m for m in email.sent if m.to == "moved-twice@example.ca" and "cancel" in m.body.lower()
+        m
+        for m in email.sent
+        if m.to == "moved-twice@example.ca" and "canceled" in m.subject.lower()
     ]
     assert len(canceled) == 1
 

@@ -4,10 +4,11 @@ import { demoPerson } from "@clientbridge/config/e2e/demo";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { expect, type APIRequestContext } from "@playwright/test";
+import { demoId, runEmail, runUrl } from "@clientbridge/config/e2e/run";
 
 const execute = promisify(execFile);
-export const documentApi = process.env.VITE_API_URL ?? "http://localhost:8701";
-const auth = process.env.VITE_AUTH_URL ?? "http://localhost:8713";
+export const documentApi = runUrl("VITE_API_URL");
+const auth = runUrl("VITE_AUTH_URL");
 
 export interface FormEvidence {
     id: string;
@@ -92,7 +93,7 @@ export async function documentProvider(request: APIRequestContext) {
     const login = await request.post(`${auth}/self-service/login?flow=${flow.id}`, {
         data: {
             method: "password",
-            identifier: "hannah@birchbark.example",
+            identifier: runEmail("hannah@birchbark.example"),
             password: "demo1234",
         },
     });
@@ -100,12 +101,16 @@ export async function documentProvider(request: APIRequestContext) {
     const session = (await login.json()) as { session_token: string };
     const headers = {
         "X-Session-Token": session.session_token,
-        "X-Business-Id": "bz_birchbark",
+        "X-Business-Id": demoId("bz_birchbark"),
     };
     const name = demoPerson(randomUUID());
     const clientResponse = await request.post(`${documentApi}/v1/clients`, {
         headers: { ...headers, "Idempotency-Key": randomUUID() },
-        data: { name, email: `document-${randomUUID()}@example.ca`, preferred_channel: "email" },
+        data: {
+            name,
+            email: runEmail(`document-${randomUUID()}@example.ca`),
+            preferred_channel: "email",
+        },
     });
     expect(clientResponse.status(), await clientResponse.text()).toBe(201);
     const client = (await clientResponse.json()) as { id: string };

@@ -20,10 +20,11 @@ import {
     teamMember,
     visitEvidence,
 } from "./support/visits";
+import { demoSlug, runEmail } from "@clientbridge/config/e2e/run";
 
 const b = strings.publicBooking;
 const ZONE = "America/Vancouver";
-const CEDAR = { email: "owner@cedarcoast.example", password: "demo1234" };
+const CEDAR = { email: runEmail("owner@cedarcoast.example"), password: "demo1234" };
 
 interface ScheduledProgram {
     id: string;
@@ -43,7 +44,7 @@ test("CLS-E2E-02 a client enrols in a three-day camp on Connect and every day, w
 }, testInfo) => {
     test.setTimeout(240_000);
     await signIn(page, CEDAR);
-    const owner = await teamMember(page, "owner@cedarcoast.example");
+    const owner = await teamMember(page, runEmail("owner@cedarcoast.example"));
     const run = randomUUID().slice(0, 6).toUpperCase();
     const camp = await apiCall<{ id: string; name: string }>(
         page,
@@ -92,9 +93,12 @@ test("CLS-E2E-02 a client enrols in a three-day camp on Connect and every day, w
         },
     });
     const runs = async (): Promise<Program[]> => {
-        const response = await context.request.get(`${bookingApi()}/book/cedarcoast/programs`, {
-            params: { item_id: camp.id, staff_id: "any" },
-        });
+        const response = await context.request.get(
+            `${bookingApi()}/book/${demoSlug("cedarcoast")}/programs`,
+            {
+                params: { item_id: camp.id, staff_id: "any" },
+            },
+        );
         expect(response.status(), await response.text()).toBe(200);
         return ((await response.json()) as { programs: Program[] }).programs;
     };
@@ -112,9 +116,11 @@ test("CLS-E2E-02 a client enrols in a three-day camp on Connect and every day, w
 
         const client = await context.newPage();
         const listed = client.waitForResponse(
-            (response) => response.url().includes("/book/cedarcoast/programs?") && response.ok(),
+            (response) =>
+                response.url().includes(`/book/${demoSlug("cedarcoast")}/programs?`) &&
+                response.ok(),
         );
-        await client.goto(connectUrl("cedarcoast"));
+        await client.goto(connectUrl(demoSlug("cedarcoast")));
         await client
             .getByRole("button")
             .filter({ has: client.getByText(camp.name, { exact: true }) })
@@ -128,7 +134,7 @@ test("CLS-E2E-02 a client enrols in a three-day camp on Connect and every day, w
         await fillConnectDetails(client, booker, "pet");
         const posted = client.waitForResponse(
             (response) =>
-                new URL(response.url()).pathname === "/book/cedarcoast" &&
+                new URL(response.url()).pathname === `/book/${demoSlug("cedarcoast")}` &&
                 response.request().method() === "POST",
         );
         await client.getByRole("button", { name: b.confirm, exact: true }).click();
@@ -233,7 +239,7 @@ test("CLS-E2E-02 a client enrols in a three-day camp on Connect and every day, w
 
         const after = await runs();
         expect(after.map((p) => p.seats_left)).toEqual([1]);
-        const again = await context.request.post(`${bookingApi()}/book/cedarcoast`, {
+        const again = await context.request.post(`${bookingApi()}/book/${demoSlug("cedarcoast")}`, {
             headers: { "Idempotency-Key": randomUUID() },
             data: {
                 item_id: camp.id,
@@ -246,16 +252,19 @@ test("CLS-E2E-02 a client enrols in a three-day camp on Connect and every day, w
         expect(again.status(), await again.text()).toBe(409);
         expect(((await again.json()) as { error: string }).error).toBe("already_enrolled");
         const midway = onlineBooker("Hazel");
-        const second = await context.request.post(`${bookingApi()}/book/cedarcoast`, {
-            headers: { "Idempotency-Key": randomUUID() },
-            data: {
-                item_id: camp.id,
-                staff_id: "any",
-                starts_at: program.sessions[1]?.starts_at,
-                client: { name: midway.name, email: midway.email },
-                subject_name: midway.subject,
+        const second = await context.request.post(
+            `${bookingApi()}/book/${demoSlug("cedarcoast")}`,
+            {
+                headers: { "Idempotency-Key": randomUUID() },
+                data: {
+                    item_id: camp.id,
+                    staff_id: "any",
+                    starts_at: program.sessions[1]?.starts_at,
+                    client: { name: midway.name, email: midway.email },
+                    subject_name: midway.subject,
+                },
             },
-        });
+        );
         expect(second.status(), await second.text()).toBe(409);
         expect(((await second.json()) as { error: string }).error).toBe("slot_unavailable");
         expect(await visitEvidence([midway.email])).toMatchObject({ clients: [], bookings: [] });

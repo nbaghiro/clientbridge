@@ -1,8 +1,9 @@
 import { defineConfig } from "@playwright/test";
 
 import base, { chromium } from "./playwright.config";
+import { runBuild, runPort } from "@clientbridge/config/e2e/run";
 
-const webPort = Number(process.env.WEB_E2E_PORT ?? "8721");
+const webPort = runPort("WEB_E2E_PORT");
 
 export default defineConfig({
     ...base,
@@ -12,7 +13,7 @@ export default defineConfig({
     ],
     webServer: [
         {
-            command: `pnpm exec vite build && pnpm exec vite preview --port ${String(webPort)} --strictPort`,
+            command: runBuild("web", webPort),
             url: `http://localhost:${String(webPort)}/`,
             reuseExistingServer: false,
         },

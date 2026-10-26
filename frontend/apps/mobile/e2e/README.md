@@ -1,10 +1,10 @@
 # Native walkthroughs
 
-These Maestro flows open the actual Clientbridge iOS/Android development build against the local API and PowerSync replica. They are separate from the React Native Web component previews. The current verified device and results are recorded in the [mobile surface map](../../../../.docs/reviews/product/mobile.md).
+These Maestro flows open a release build of the Clientbridge iOS/Android app against a run's own API on the shared test tier. They are separate from the React Native Web component previews. The current verified device and results are recorded in the [mobile surface map](../../../../.docs/reviews/product/mobile.md).
 
 ## Run
 
-The native lane runs every flow on a release build against its own disposable stack, the same one the browser lanes use. Build the e2e app once per native change (about 8 minutes for iOS and 10 for Android here), then run the lane on a device that is already started:
+The native lane runs every flow on a release build against the shared test tier (`make test-tier`), under the run's own namespace, the same way the browser lanes do. Build the e2e app once per native change (about 8 minutes for iOS and 10 for Android here), then run the lane on a device that is already started:
 
 ```sh
 make test-functional FUNCTIONAL_ARGS="--build-native ios"
@@ -13,15 +13,15 @@ make test-functional FUNCTIONAL_ARGS="--build-native android"
 make test-functional FUNCTIONAL_ARGS="--surface native --platform android --device emulator-5554"
 ```
 
-Name flow files after the arguments to run only those, for example `... --device <udid> functional-client.yaml`. The build is `ca.clientbridge.app.e2e` ("Clientbridge E2E"), so a development build and its data stay untouched; the lane installs it fresh, and uninstalls it when it finishes. The build has `127.0.0.1` (iOS) or the emulator's `10.0.2.2` (Android) on ports 8761, 8763 and 8764 compiled in, and the lane forwards those to the run's API, auth and PowerSync, so no `adb reverse` is needed. Because those ports and Maestro's driver port 8767 are fixed, one native run at a time holds them. The lane never starts, boots or shuts down a device.
+Name flow files after the arguments to run only those, for example `... --device <udid> functional-client.yaml`. The build is `ca.clientbridge.app.e2e` ("Clientbridge E2E"), so a development build and its data stay untouched; the lane installs it fresh, and uninstalls it when it finishes. The build has `127.0.0.1` (iOS) or the emulator's `10.0.2.2` (Android) on ports 8794, 8795 and 8796 compiled in, and the lane forwards those to the run's API and the tier's auth and PowerSync, so no `adb reverse` is needed. Because those ports and Maestro's driver port 8797 are fixed, one native run at a time holds them. The lane never starts, boots or shuts down a device.
 
-Flows tagged `lane` call `helpers/control.js`, which asks the lane to cut the forwarded services (`offline`), restore them (`online`) or deliver a push (`push`). Going offline this way leaves the device's own network alone, unlike airplane mode, so a shared emulator stays usable. Flows tagged `ios` run only on iOS. The lane passes `APP_ID`, `MAILPIT_URL`, `AUTH_ADMIN_URL` and `CONTROL_URL`; the helpers stop with an error when one is missing.
+Flows tagged `lane` call `helpers/control.js`, which asks the lane to cut the forwarded services (`offline`), restore them (`online`) or deliver a push (`push`). Going offline this way leaves the device's own network alone, unlike airplane mode, so a shared emulator stays usable. Flows tagged `ios` run only on iOS. The lane passes `APP_ID`, `E2E_NAMESPACE`, `MAILPIT_URL`, `AUTH_ADMIN_URL` and `CONTROL_URL`; the flows stop with an error when one is missing. Every run has its own copy of the core demo businesses, so the logins carry its namespace (`hannah+<namespace>@birchbark.example`), and a throwaway recovery login does too, which is how the tier routes its reset mail to the run.
 
 The reports land in `.scratchpad/e2e-<id>/`: `native-results.xml` (JUnit, checked against the required cases in `backend/scripts/e2e_results.py`), `native-artifacts/` screenshots, `native-debug/` Maestro and XCUITest logs, and `control.log`.
 
 On iOS the lane restarts the simulator's pasteboard daemon first. A stuck `pasted` blocks the app's main thread whenever a text field takes focus, which Maestro reports as `Unable to perform work on main run loop, process main thread busy for 30.0s`; that was the earlier iOS keyboard failure, not an app fault.
 
-For a development build against `make dev-mobile` (Metro on 8707) and the local stack, `make test-mobile` runs the flows that don't need the lane. Expo Go cannot load the required native SQLite/Stripe modules. The demo users are Hannah (owner) and Diego (staff), both using `demo1234`.
+`make test-mobile PLATFORM=ios DEVICE=<udid>` runs the same lane. The demo users are Hannah (owner) and Diego (staff), both using `demo1234`.
 
 ## Coverage
 
@@ -63,6 +63,6 @@ These are navigation and composition walkthroughs, not exhaustive transaction te
 
 ## Sync startup regression
 
-`07-sync-startup.yaml` verifies saved-session restoration, selection of the scoped business, and the recurring-hours editor on the actual native app without submitting a business change. Run it against the existing simulator/emulator; it neither clears application storage nor reseeds the server. The owner helper waits for the asynchronously loaded viewer name.
+`07-sync-startup.yaml` verifies saved-session restoration, selection of the scoped business, and the recurring-hours editor on the actual native app without submitting a business change. The owner helper waits for the asynchronously loaded viewer name.
 
 Use normal simulator signing when building iOS. A build produced with signing disabled can make SecureStore fail with a missing Keychain entitlement before the replica opens. Rebuilding/installing the same bundle with normal signing preserves app data; deleting the database does not resolve this credential-storage failure.

@@ -8,6 +8,7 @@ import { expect, type Locator, type Page, type Response } from "@playwright/test
 
 import { bookingApi } from "./bookings";
 import { pastExtras } from "./scheduling";
+import { runEmail, runPort, runUrl } from "@clientbridge/config/e2e/run";
 
 const execute = promisify(execFile);
 const b = strings.publicBooking;
@@ -158,17 +159,12 @@ export async function teamMember(page: Page, email: string): Promise<{ id: strin
 }
 
 export function connectUrl(slug: string, query = ""): string {
-    const port = process.env.CONNECT_E2E_PORT;
-    if (!port || !/^\d+$/.test(port))
-        throw new Error("This journey needs the local Connect server");
-    return `http://book.localhost:${port}/${slug}${query}`;
+    return `http://book.localhost:${String(runPort("CONNECT_E2E_PORT"))}/${slug}${query}`;
 }
 
 /** A stack-provided base URL, such as `PAY_BASE_URL`, with no local fallback. */
 export function stackUrl(name: string): URL {
-    const value = process.env[name];
-    if (value === undefined || value === "") throw new Error(`${name} is not set by the e2e stack`);
-    return new URL(value);
+    return new URL(runUrl(name));
 }
 
 export function shopUrl(slug: string): string {
@@ -177,7 +173,7 @@ export function shopUrl(slug: string): string {
 
 export function onlineBooker(subject: string): { name: string; email: string; subject: string } {
     const run = randomUUID();
-    return { name: demoPerson(run), email: `visit-${run}@example.ca`, subject };
+    return { name: demoPerson(run), email: runEmail(`visit-${run}@example.ca`), subject };
 }
 
 export interface Openings {

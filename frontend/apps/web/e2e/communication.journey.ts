@@ -27,6 +27,7 @@ import {
     messageFixture,
 } from "./support/messaging";
 import { signIn } from "./support/session";
+import { demoId, demoPhone } from "@clientbridge/config/e2e/run";
 
 const s = strings.messaging;
 const zone = "America/Vancouver";
@@ -169,9 +170,9 @@ test("FLOW-06-A a seat notice queued for the worker honours a STOP that arrives 
                 status: "processed",
                 payload: {
                     from: phone,
-                    to: "+12365550190",
+                    to: demoPhone("+12365550190"),
                     matched: true,
-                    business_id: "bz_birchbark",
+                    business_id: demoId("bz_birchbark"),
                     opt_out: true,
                 },
             },
@@ -227,7 +228,7 @@ test("FLOW-06-A a seat notice queued for the worker honours a STOP that arrives 
             type: "email.delivered" as const,
             emailId,
             to: waiting.email,
-            tags: { delivery: email.id, business: "bz_birchbark", client: waiting.id },
+            tags: { delivery: email.id, business: demoId("bz_birchbark"), client: waiting.id },
         };
         expect((await emailEvent(page.request, delivered, { forged: true })).status).toBe(401);
         expect(
@@ -251,7 +252,7 @@ test("FLOW-06-A a seat notice queued for the worker honours a STOP that arrives 
                     to: waiting.email,
                     detail: "",
                     matched: true,
-                    business_id: "bz_birchbark",
+                    business_id: demoId("bz_birchbark"),
                 },
             },
         ]);
@@ -325,7 +326,7 @@ test("FLOW-06-B an accepted email reads Sent until the provider confirms it, and
             await expect(bubble(log, careMessage)).not.toContainText(s.thread.status.delivered);
         }
 
-        const tags = { business: "bz_birchbark", client: client.id, message: first.id };
+        const tags = { business: demoId("bz_birchbark"), client: client.id, message: first.id };
         const firstId = `re_${randomUUID()}`;
         const delivered = {
             type: "email.delivered" as const,

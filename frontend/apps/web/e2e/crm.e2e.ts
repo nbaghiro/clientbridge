@@ -14,6 +14,7 @@ import {
     openClient,
 } from "./support/crm";
 import { navigate, signIn } from "./support/session";
+import { runEmail } from "@clientbridge/config/e2e/run";
 
 test("CRM-E2E-01 create, edit, archive and restore persist across independent replicas", async ({
     page,
@@ -21,7 +22,7 @@ test("CRM-E2E-01 create, edit, archive and restore persist across independent re
 }, testInfo) => {
     test.setTimeout(180_000);
     const run = randomUUID();
-    const original = { name: demoPerson(run), email: `crm-${run}@example.ca` };
+    const original = { name: demoPerson(run), email: runEmail(`crm-${run}@example.ca`) };
     await signIn(page);
     const observer = await browser.newContext({
         baseURL: new URL(page.url()).origin,
@@ -63,7 +64,7 @@ test("CRM-E2E-01 create, edit, archive and restore persist across independent re
         const updated = {
             ...client,
             name: demoPerson(`${run}:updated`),
-            email: `edited-${run}@example.ca`,
+            email: runEmail(`edited-${run}@example.ca`),
         };
         await test.step("edit contact fields through the UI and verify reload", async () => {
             const editor = await editClient(page, client);

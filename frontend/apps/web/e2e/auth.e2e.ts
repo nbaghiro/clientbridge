@@ -14,6 +14,7 @@ import {
 } from "./identity";
 
 import { signUp, openBusiness } from "./support/onboarding";
+import { runEmail } from "@clientbridge/config/e2e/run";
 
 const a = strings.auth;
 
@@ -94,7 +95,7 @@ test("existing business never flashes onboarding during sign-in or a slow reload
     await page.goto("/");
     await page
         .getByRole("textbox", { name: a.email, exact: true })
-        .fill("hannah@birchbark.example");
+        .fill(runEmail("hannah@birchbark.example"));
     await page.getByLabel(a.password, { exact: true }).fill("demo1234");
     await page.getByRole("button", { name: a.signIn, exact: true }).click();
     await expect(

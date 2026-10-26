@@ -11,6 +11,7 @@ from sqlalchemy import text
 from clientbridge.core import clock, zones
 from clientbridge.core.config import get_settings
 from clientbridge.core.db import engine
+from scripts.demo_context import FIXTURE_BUSINESS, run_id
 
 
 async def evidence() -> dict[str, object]:
@@ -33,19 +34,19 @@ async def evidence() -> dict[str, object]:
     hi = datetime.combine(quarter, time(), zone).astimezone(UTC)
     queries = {
         "business": "SELECT id, province, timezone, tax_registered, filing_frequency FROM "
-        "businesses WHERE id = 'bz_birchbark'",
+        "businesses WHERE id = :business",
         "raw_tax": "SELECT e.id, e.journal_id, e.event, e.amount_cents, a.code, e.occurred_at "
         "FROM entries e JOIN accounts a ON a.id = e.account_id WHERE e.business_id = "
-        "'bz_birchbark' AND a.category = 'tax' AND e.event != 'remittance' AND "
+        ":business AND a.category = 'tax' AND e.event != 'remittance' AND "
         "e.occurred_at >= :lo AND e.occurred_at < :hi ORDER BY e.id",
         "returns": "SELECT e.id, e.journal_id, e.ref, e.leg, e.amount_cents, a.category, a.code, "
         "e.meta FROM entries e JOIN accounts a ON a.id = e.account_id WHERE "
-        "e.business_id = 'bz_birchbark' AND e.event = 'remittance' AND "
+        "e.business_id = :business AND e.event = 'remittance' AND "
         "e.meta->>'start' <= :end AND e.meta->>'end' >= :start ORDER BY e.journal_id, "
         "e.leg",
-        "commands": "SELECT id, scope FROM commands WHERE business_id = 'bz_birchbark' AND "
+        "commands": "SELECT id, scope FROM commands WHERE business_id = :business AND "
         "scope = 'tax.remit' ORDER BY id",
-        "audits": "SELECT id, action, entity_id FROM audits WHERE business_id = 'bz_birchbark' "
+        "audits": "SELECT id, action, entity_id FROM audits WHERE business_id = :business "
         "AND action = 'tax.remit' ORDER BY id",
     }
     async with engine.connect() as db:
@@ -60,7 +61,14 @@ async def evidence() -> dict[str, object]:
         }
         for key, query in queries.items():
             rows = await db.execute(
-                text(query), {"lo": lo, "hi": hi, "start": str(start), "end": str(end)}
+                text(query),
+                {
+                    "lo": lo,
+                    "hi": hi,
+                    "start": str(start),
+                    "end": str(end),
+                    "business": run_id(FIXTURE_BUSINESS),
+                },
             )
             result[key] = [dict(row) for row in rows.mappings()]
         return result

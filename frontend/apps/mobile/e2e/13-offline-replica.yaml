@@ -1,4 +1,4 @@
-appId: '${typeof APP_ID === "undefined" ? "ca.clientbridge.app" : APP_ID}'
+appId: ${APP_ID}
 name: NATIVE-IOS-02 The device replica opens a client record with no server reachable
 tags:
     - lane
@@ -11,7 +11,7 @@ onFlowComplete:
 - runFlow: helpers/owner.yaml
 - tapOn: "Clients"
 - tapOn: "Search name, phone, email or pet"
-- inputText: "olivia.m@example.test"
+- inputText: "olivia.m+${E2E_NAMESPACE}@example.test"
 - hideKeyboard
 - extendedWaitUntil:
       visible: ".*Olivia Martin.*"
@@ -30,7 +30,7 @@ onFlowComplete:
 - assertNotVisible: "Sign in"
 - tapOn: "Clients"
 - tapOn: "Search name, phone, email or pet"
-- inputText: "olivia.m@example.test"
+- inputText: "olivia.m+${E2E_NAMESPACE}@example.test"
 - hideKeyboard
 - extendedWaitUntil:
       visible: ".*Olivia Martin.*"

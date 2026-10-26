@@ -5,6 +5,7 @@ import { expect, type Page } from "@playwright/test";
 
 import { requireLocalMail } from "./evidence";
 import { navigate } from "./session";
+import { runEmail, runUrl } from "@clientbridge/config/e2e/run";
 
 export interface InvoiceFixture {
     id: string;
@@ -16,8 +17,8 @@ export async function createInvoice(page: Page): Promise<InvoiceFixture> {
     await requireLocalMail();
     const run = randomUUID();
     const name = demoPerson(run);
-    const email = `e2e-${run}@example.ca`;
-    const api = process.env.VITE_API_URL ?? "http://localhost:8701";
+    const email = runEmail(`e2e-${run}@example.ca`);
+    const api = runUrl("VITE_API_URL");
     if (!["localhost", "127.0.0.1"].includes(new URL(api).hostname)) {
         throw new Error("The billing pilot requires a local API and SMTP sink");
     }

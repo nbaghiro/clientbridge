@@ -2,11 +2,13 @@
 
 import argparse
 import json
+import re
 import secrets
 import shutil
 import subprocess
 import sys
 import tempfile
+import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -71,28 +73,41 @@ def apply(tree: Path, mutation: Mutation) -> None:
     path.write_text(source.replace(mutation.old, mutation.new))
 
 
-def caught(tree: Path, mutation: Mutation, log: Path) -> dict[str, object]:
-    """Run the case against the broken source; only that case failing counts as caught."""
-    if mutation.surface is None:
-        code = run(
-            [
-                "uv",
-                "run",
-                "python",
-                "-m",
-                "scripts.fresh_database",
-                "pytest",
-                "-q",
-                "-p",
-                "no:cacheprovider",
-                mutation.case,
-            ],
-            tree / "backend",
-            log,
-        )
-        # pytest exits 1 when a test failed; anything else is an error or a missing test
-        return {"exit": code, "caught": code == 1}
+def backend_outcomes(tree: Path, cases: list[str], log: Path, report: Path) -> dict[str, str]:
+    """Run backend cases on their own seeded database, and read each case's outcome back."""
+    run(
+        [
+            "uv",
+            "run",
+            "python",
+            "-m",
+            "scripts.fresh_database",
+            "pytest",
+            "-q",
+            "-p",
+            "no:cacheprovider",
+            f"--junitxml={report}",
+            *cases,
+        ],
+        tree / "backend",
+        log,
+    )
+    found: dict[str, str] = {}
+    if report.is_file():
+        for case in ET.parse(report).iter("testcase"):
+            node = f"{case.get('classname', '').replace('.', '/')}.py::{case.get('name')}"
+            kinds = [child.tag for child in case]
+            found[node] = next((k for k in ("failure", "error", "skipped") if k in kinds), "passed")
+    report.unlink(missing_ok=True)
+    return {case: found.get(case, "not run") for case in cases}
+
+
+def browser_outcomes(
+    tree: Path, surface: str, cases: list[str], log: Path
+) -> tuple[int, str | None, dict[str, list[str]]]:
+    """Run a surface's cases in one lane, and return each case's attempt statuses."""
     before = set((tree / ".scratchpad").glob("e2e-*"))
+    pattern = "|".join(f"{re.escape(case)}( |$)" for case in cases)
     code = run(
         [
             "uv",
@@ -101,29 +116,81 @@ def caught(tree: Path, mutation: Mutation, log: Path) -> dict[str, object]:
             "-m",
             "scripts.e2e_stack",
             "--surface",
-            mutation.surface,
+            surface,
+            "--",
             "--grep",
-            mutation.case,
+            pattern,
         ],
         tree / "backend",
         log,
     )
-    (directory,) = set((tree / ".scratchpad").glob("e2e-*")) - before
-    report = directory / "browser-results" / "results.json"
-    outcome: dict[str, object] = {"exit": code, "run": directory.name, "caught": False}
-    if not report.is_file():
-        outcome["reason"] = "no browser report: the stack failed before the case ran"
-        return outcome
-    cases = [
-        case
-        for suite in Report.model_validate_json(report.read_text()).suites
-        for case in suite.cases()
-        if matches(case.title, mutation.case)
-    ]
-    statuses = [result.status for case in cases for test in case.tests for result in test.results]
-    outcome["statuses"] = statuses
-    outcome["caught"] = code != 0 and bool(statuses) and "passed" not in statuses
+    created = set((tree / ".scratchpad").glob("e2e-*")) - before
+    directory = created.pop() if len(created) == 1 else None
+    report = directory / "browser-results" / "results.json" if directory else None
+    statuses: dict[str, list[str]] = {case: [] for case in cases}
+    if report is not None and report.is_file():
+        for spec in (
+            spec
+            for suite in Report.model_validate_json(report.read_text()).suites
+            for spec in suite.cases()
+        ):
+            for case in cases:
+                if matches(spec.title, case):
+                    statuses[case] += [r.status for t in spec.tests for r in t.results]
+    return code, directory.name if directory else None, statuses
+
+
+def baseline(tree: Path, chosen: list[Mutation], log: Path) -> dict[str, object]:
+    """Every chosen case must pass on the unbroken source, or a failure later proves nothing."""
+    outcome: dict[str, object] = {}
+    backend = [m.case for m in chosen if m.surface is None]
+    if backend:
+        found = backend_outcomes(tree, backend, log, log.parent / "baseline-backend.xml")
+        outcome["backend"] = found
+        broken = [case for case, status in found.items() if status != "passed"]
+        if broken:
+            raise BaselineFailed(f"backend cases did not pass unbroken: {', '.join(broken)}")
+    for surface in sorted({m.surface for m in chosen if m.surface is not None}):
+        cases = [m.case for m in chosen if m.surface == surface]
+        code, directory, statuses = browser_outcomes(tree, surface, cases, log)
+        outcome[surface] = {"exit": code, "run": directory, "statuses": statuses}
+        broken = [case for case, found in statuses.items() if not found or "passed" not in found]
+        if code != 0 or broken:
+            raise BaselineFailed(
+                f"the {surface} lane did not pass unbroken (exit {code}; "
+                f"cases without a pass: {', '.join(broken) or 'none'}); see {directory}"
+            )
     return outcome
+
+
+def caught(tree: Path, mutation: Mutation, log: Path) -> dict[str, object]:
+    """Run the case against the broken source; only that case failing counts as caught."""
+    if mutation.surface is None:
+        report = log.parent / f"{mutation.name}.xml"
+        status = backend_outcomes(tree, [mutation.case], log, report)[mutation.case]
+        # a test error or a case that never ran is a broken environment, not a caught mutation
+        return {"status": status, "caught": status == "failure"}
+    code, directory, statuses = browser_outcomes(tree, mutation.surface, [mutation.case], log)
+    found = statuses[mutation.case]
+    outcome: dict[str, object] = {"exit": code, "run": directory, "statuses": found}
+    if not found:
+        outcome["reason"] = "no result for the case: the lane failed before it ran"
+    outcome["caught"] = code != 0 and bool(found) and "passed" not in found
+    return outcome
+
+
+class BaselineFailed(RuntimeError):
+    pass
+
+
+def keep(tree: Path, run_name: str, target: Path) -> None:
+    """Copy a lane's record out of the copy, which is deleted when the harness ends."""
+    for name in ("run.json", "browser-results/results.json"):
+        source = tree / ".scratchpad" / run_name / name
+        if source.is_file():
+            destination = target / run_name / name
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy(source, destination)
 
 
 def main() -> int:
@@ -153,6 +220,14 @@ def main() -> int:
         ):
             if run(command, tree / where, log):
                 raise RuntimeError(f"installing {where} dependencies in the copy failed")
+        try:
+            summary["baseline"] = baseline(tree, chosen, log)
+        except BaselineFailed as error:
+            summary["baseline"] = {"failed": str(error)}
+            raise
+        finally:
+            for found in (tree / ".scratchpad").glob("e2e-*"):
+                keep(tree, found.name, summary_dir / "baseline")
         for mutation in chosen:
             apply(tree, mutation)
             try:
@@ -163,13 +238,8 @@ def main() -> int:
                 raise RuntimeError(f"{mutation.name}: the copy did not restore cleanly")
             results.append({"name": mutation.name, "case": mutation.case, **outcome})
             print(json.dumps(results[-1]), flush=True)
-            for name in ("run.json", "browser-results/results.json"):
-                if "run" in outcome:
-                    source = tree / ".scratchpad" / str(outcome["run"]) / name
-                    if source.is_file():
-                        target = summary_dir / mutation.name / name
-                        target.parent.mkdir(parents=True, exist_ok=True)
-                        shutil.copy(source, target)
+            if outcome.get("run"):
+                keep(tree, str(outcome["run"]), summary_dir / mutation.name)
     finally:
         git("worktree", "remove", "--force", str(tree))
         shutil.rmtree(tree.parent, ignore_errors=True)

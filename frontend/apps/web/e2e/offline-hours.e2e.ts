@@ -10,6 +10,7 @@ import {
     type HoursCommand,
 } from "./support/offline";
 import { navigate, signIn } from "./support/session";
+import { runUrl } from "@clientbridge/config/e2e/run";
 
 test(
     "OFF-E2E-01 working-hours command survives offline reload and reconnects exactly once",
@@ -110,7 +111,7 @@ test(
                     changes: { revision: 1 },
                 },
             ]);
-            const api = process.env.VITE_API_URL ?? "http://localhost:8701";
+            const api = runUrl("VITE_API_URL");
             const replay = await page.request.post(`${api}/v1/hours/${staff.id}/week`, {
                 data: command,
                 headers: { Origin: new URL(page.url()).origin },

@@ -1,17 +1,15 @@
 import { expect, test } from "@playwright/test";
 
 import { on } from "./hosts";
+import { demoSlug } from "@clientbridge/config/e2e/run";
 
 test("presentation demo: catalog photos load in the shop and booking page", async ({
     page,
 }, testInfo) => {
     test.skip(process.env.DEMO_E2E !== "1", "Requires the standard local demo catalog");
-    await page.route("http://localhost:8701/**", (route) =>
-        route.continue({ url: route.request().url().replace("localhost", "127.0.0.1") }),
-    );
     for (const width of [1280, 390]) {
         await page.setViewportSize({ width, height: 900 });
-        await page.goto(on("shop", "/birchbark"));
+        await page.goto(on("shop", `/${demoSlug("birchbark")}`));
         for (const name of [
             "Oatmeal Soothe Shampoo (500ml)",
             "Self-Cleaning Slicker Brush",
@@ -33,7 +31,7 @@ test("presentation demo: catalog photos load in the shop and booking page", asyn
             path: testInfo.outputPath(`shop-${String(width)}.png`),
             fullPage: true,
         });
-        await page.goto("/birchbark");
+        await page.goto(`/${demoSlug("birchbark")}`);
         await expect(page.locator('img[src*="fl_img_"]').first()).toBeVisible();
         await expect
             .poll(() =>
