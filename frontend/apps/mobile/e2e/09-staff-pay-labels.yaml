@@ -1,4 +1,4 @@
-appId: ca.clientbridge.app
+appId: '${typeof APP_ID === "undefined" ? "ca.clientbridge.app" : APP_ID}'
 name: Staff pay totals retain their labels
 ---
 - runFlow: helpers/owner.yaml

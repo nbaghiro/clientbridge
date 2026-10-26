@@ -1,5 +1,5 @@
-appId: ca.clientbridge.app
-name: Native client creation and editing survive process restarts
+appId: '${typeof APP_ID === "undefined" ? "ca.clientbridge.app" : APP_ID}'
+name: NATIVE-CRM-01 Native client creation and editing survive process restarts
 ---
 - evalScript: ${output.clientRun = String(Date.now()) + String(Math.floor(Math.random() * 100000))}
 - evalScript: ${output.clientName = "Sophie Bennett"}

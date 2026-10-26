@@ -4,54 +4,40 @@ These Maestro flows open the actual Clientbridge iOS/Android development build a
 
 ## Run
 
-Install the [Maestro CLI](https://docs.maestro.dev/get-started/installing-maestro), the frontend dependencies and the platform's native build tools. The reviewed runs use Maestro 2.11.0, an iPhone 17 Pro simulator on iOS 26.5, and the Shared Pixel emulator on Android 14 / API 34.
-
-Start the local stack and API using the [engineering guide](../../../../.docs/engineering.md). Use a development database with the demo seed; do not reset a database containing work you need to keep. The flows expect Hannah's seeded business and Olivia Martin's client record. Demo users are Hannah (owner) and Diego (staff), both using `demo1234`.
-
-Install the native build with `pnpm --filter mobile ios` or `pnpm --filter mobile android` from `frontend/`, then run Metro on the app's configured port:
+The native lane runs every flow on a release build against its own disposable stack, the same one the browser lanes use. Build the e2e app once per native change (about 8 minutes for iOS and 10 for Android here), then run the lane on a device that is already started:
 
 ```sh
-make dev-mobile
+make test-functional FUNCTIONAL_ARGS="--build-native ios"
+make test-functional FUNCTIONAL_ARGS="--surface native --platform ios --device <simulator-udid>"
+make test-functional FUNCTIONAL_ARGS="--build-native android"
+make test-functional FUNCTIONAL_ARGS="--surface native --platform android --device emulator-5554"
 ```
 
-Expo Go cannot load the required native SQLite/Stripe modules. A physical device or Android emulator also needs `API_URL` and `POWERSYNC_URL` set to reachable hosts when building/configuring the app; the localhost defaults work for the reviewed iOS simulator. If Metro reports that a file is missing even though it exists, restart it with `pnpm --filter mobile exec expo start --port 8707 --clear` from `frontend/`.
+Name flow files after the arguments to run only those, for example `... --device <udid> functional-client.yaml`. The build is `ca.clientbridge.app.e2e` ("Clientbridge E2E"), so a development build and its data stay untouched; the lane installs it fresh, and uninstalls it when it finishes. The build has `127.0.0.1` (iOS) or the emulator's `10.0.2.2` (Android) on ports 8761, 8763 and 8764 compiled in, and the lane forwards those to the run's API, auth and PowerSync, so no `adb reverse` is needed. Because those ports and Maestro's driver port 8767 are fixed, one native run at a time holds them. The lane never starts, boots or shuts down a device.
 
-For an Android development build configured with localhost endpoints, forward the services to the host (substitute the device ID as needed):
+Flows tagged `lane` call `helpers/control.js`, which asks the lane to cut the forwarded services (`offline`), restore them (`online`) or deliver a push (`push`). Going offline this way leaves the device's own network alone, unlike airplane mode, so a shared emulator stays usable. Flows tagged `ios` run only on iOS. The lane passes `APP_ID`, `MAILPIT_URL`, `AUTH_ADMIN_URL` and `CONTROL_URL`; the helpers stop with an error when one is missing.
 
-```sh
-adb -s emulator-5554 reverse tcp:8701 tcp:8701
-adb -s emulator-5554 reverse tcp:8704 tcp:8704
-adb -s emulator-5554 reverse tcp:8707 tcp:8707
-# If the installed build requests Metro on its default port:
-adb -s emulator-5554 reverse tcp:8081 tcp:8707
-```
+The reports land in `.scratchpad/e2e-<id>/`: `native-results.xml` (JUnit, checked against the required cases in `backend/scripts/e2e_results.py`), `native-artifacts/` screenshots, `native-debug/` Maestro and XCUITest logs, and `control.log`.
 
-Start signed out or signed in as the demo owner. With one target device available, run from the repo root:
+On iOS the lane restarts the simulator's pasteboard daemon first. A stuck `pasted` blocks the app's main thread whenever a text field takes focus, which Maestro reports as `Unable to perform work on main run loop, process main thread busy for 30.0s`; that was the earlier iOS keyboard failure, not an app fault.
 
-```sh
-make test-mobile
-```
-
-To choose a particular simulator, run from `frontend/apps/mobile/`:
-
-```sh
-maestro --device <simulator-udid> test e2e \
-  --test-output-dir test-results --format HTML --output test-results/index.html
-```
-
-The report and per-flow screenshots live under the ignored `test-results/` directory. A normal directory run discovers the top-level flow files; `helpers/` and `regressions/` are not independent suite entries. See Maestro's [workspace discovery rules](https://docs.maestro.dev/reference/workspace-configuration).
+For a development build against `make dev-mobile` (Metro on 8707) and the local stack, `make test-mobile` runs the flows that don't need the lane. Expo Go cannot load the required native SQLite/Stripe modules. The demo users are Hannah (owner) and Diego (staff), both using `demo1234`.
 
 ## Coverage
 
-| Flow                     | Checks                                                                                                                                                                  |
-| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `01-workday.yaml`        | Today, search, notifications, schedule, classes, repeating bookings, booking composer, clients and add-client sheet.                                                    |
-| `02-setup.yaml`          | All eight setup destinations, plus Inventory, weekly hours and online-booking add-on/policy tabs.                                                                       |
-| `03-payments.yaml`       | All eight payment areas; invoice/estimate composers; sales register/orders/history; credit notes and disputes.                                                          |
-| `04-inbox.yaml`          | All five Inbox areas; message composer, new-form editor/settings and contract composer.                                                                                 |
-| `05-client-record.yaml`  | Seeded client detail, history, wallet and pets.                                                                                                                         |
-| `06-staff-and-auth.yaml` | Sign-in/signup/reset entry and Google unavailable state; real staff login; reduced Payments/Inbox/Setup surfaces and own hours. Completion restores the owner session.  |
-| `11-recovery.yaml`       | Password recovery end to end: the code from Mailpit, a new password, signed in at onboarding. Uses a throwaway auth identity it deletes; completion restores the owner. |
+| Flow                      | Checks                                                                                                                                                                  |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `01-workday.yaml`         | Today, search, notifications, schedule, classes, repeating bookings, booking composer, clients and add-client sheet.                                                    |
+| `02-setup.yaml`           | All eight setup destinations, plus Inventory, weekly hours and online-booking add-on/policy tabs.                                                                       |
+| `03-payments.yaml`        | All eight payment areas; invoice/estimate composers; sales register/orders/history; credit notes and disputes.                                                          |
+| `04-inbox.yaml`           | All five Inbox areas; message composer, new-form editor/settings and contract composer.                                                                                 |
+| `05-client-record.yaml`   | Seeded client detail, history, wallet and pets.                                                                                                                         |
+| `06-staff-and-auth.yaml`  | Sign-in/signup/reset entry and Google unavailable state; real staff login; reduced Payments/Inbox/Setup surfaces and own hours. Completion restores the owner session.  |
+| `11-recovery.yaml`        | Password recovery end to end: the code from Mailpit, a new password, signed in at onboarding. Uses a throwaway auth identity it deletes; completion restores the owner. |
+| `12-saved-session.yaml`   | NATIVE-IOS-01: the session in SecureStore (the Keychain on iOS) reopens Today after a relaunch, and signing out removes it, so the next launch asks to sign in.         |
+| `13-offline-replica.yaml` | NATIVE-IOS-02: with every service cut, a relaunch opens Today and Olivia Martin's record from the device's SQLite replica.                                              |
+| `14-push-tap.yaml`        | NATIVE-IOS-03 (iOS only): the push a client's message sends staff, delivered by the simulator, opens that client's conversation when tapped.                            |
+| `functional-client.yaml`  | NATIVE-CRM-01: creates and edits a client through the app, with a relaunch after each, and checks both survive.                                                         |
 
 Flows assert meaningful visible controls/content, then capture screenshots. The modal checks protect the regression where the accessible backdrop parent hid every sheet descendant from iOS's accessibility tree. The Inbox entry also relies on its explicit accessible name.
 

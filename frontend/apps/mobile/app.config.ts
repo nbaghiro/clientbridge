@@ -58,7 +58,7 @@ const config: ExpoConfig = {
     locales: { en: "./locales/en.json" },
     // the fingerprint covers every native input, so an update reaches only builds it can run on
     runtimeVersion: { policy: "fingerprint" },
-    updates: { url: `https://u.expo.dev/${EAS_PROJECT_ID}`, enabled: APP_ID !== undefined },
+    updates: { url: `https://u.expo.dev/${EAS_PROJECT_ID}`, enabled: BASE_DOMAIN !== undefined },
     ios: {
         supportsTablet: true,
         bundleIdentifier: appId,
