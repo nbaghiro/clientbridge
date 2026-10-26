@@ -4007,9 +4007,6 @@
     "resources.save": {
         "message": "[Šåṽé one]"
     },
-    "resources.rename": {
-        "message": "[Ŕéñåɱé one]"
-    },
     "resources.turnOff": {
         "message": "[Ţûŕñ öƒƒ one]"
     },
@@ -4024,6 +4021,33 @@
     },
     "resources.offUpcoming": {
         "message": "[Ţûŕñéð öƒƒ. {count,plural,one{# ûþçöɱîñĝ ṽîšîţ šţîļļ ûšéš îţ} other{# ûþçöɱîñĝ ṽîšîţš šţîļļ ûšé îţ}} ûñţîļ ɱöṽéð. one two three four five six]"
+    },
+    "resources.summary": {
+        "message": "[{n,plural,one{# ŕööɱ öŕ þîéçé öƒ éǫûîþɱéñţ} other{# ŕööɱš åñð éǫûîþɱéñţ}}{off,plural,other{ · # ţûŕñéð öƒƒ} =0{}} one two three four]"
+    },
+    "resources.colUsedBy": {
+        "message": "[Ûšéð ƀý one]"
+    },
+    "resources.usedByNone": {
+        "message": "[Ñö šéŕṽîçéš ýéţ one two]"
+    },
+    "resources.servicesTitle": {
+        "message": "[Šéŕṽîçéš ţĥåţ ñééð îţ one two]"
+    },
+    "resources.servicesHint": {
+        "message": "[Çĥööšé ţĥé ŕööɱš åñð éǫûîþɱéñţ å šéŕṽîçé ñééðš öñ ţĥé šéŕṽîçé îţšéļƒ, ûñðéŕ Ñééðš. one two three four five six]"
+    },
+    "resources.openServices": {
+        "message": "[Öþéñ šéŕṽîçéš one two]"
+    },
+    "resources.usedByMore": {
+        "message": "[{first}, {second} åñð {more,plural,one{# ɱöŕé} other{# ɱöŕé}} one two]"
+    },
+    "resources.addShort": {
+        "message": "[Åðð one]"
+    },
+    "resources.newTitle": {
+        "message": "[Ñéŵ ŕööɱ öŕ éǫûîþɱéñţ one two]"
     },
     "resources.colUpcoming": {
         "message": "[Ûþçöɱîñĝ ṽîšîţš one two]"

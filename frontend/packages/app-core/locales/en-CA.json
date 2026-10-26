@@ -4359,9 +4359,6 @@
     "resources.save": {
         "message": "Save"
     },
-    "resources.rename": {
-        "message": "Rename"
-    },
     "resources.turnOff": {
         "message": "Turn off"
     },
@@ -4378,6 +4375,35 @@
     "resources.offUpcoming": {
         "message": "Turned off. {count, plural, one {# upcoming visit still uses it} other {# upcoming visits still use it}} until moved.",
         "args": ["count"]
+    },
+    "resources.summary": {
+        "message": "{n, plural, one {# room or piece of equipment} other {# rooms and equipment}}{off, plural, =0 {} other { · # turned off}}",
+        "args": ["n", "off"]
+    },
+    "resources.colUsedBy": {
+        "message": "Used by"
+    },
+    "resources.usedByNone": {
+        "message": "No services yet"
+    },
+    "resources.servicesTitle": {
+        "message": "Services that need it"
+    },
+    "resources.servicesHint": {
+        "message": "Choose the rooms and equipment a service needs on the service itself, under Needs."
+    },
+    "resources.openServices": {
+        "message": "Open services"
+    },
+    "resources.usedByMore": {
+        "message": "{first}, {second} and {more, plural, one {# more} other {# more}}",
+        "args": ["first", "second", "more"]
+    },
+    "resources.addShort": {
+        "message": "Add"
+    },
+    "resources.newTitle": {
+        "message": "New room or equipment"
     },
     "resources.colUpcoming": {
         "message": "Upcoming visits"
