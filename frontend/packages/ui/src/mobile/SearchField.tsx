@@ -77,9 +77,10 @@ const styles = StyleSheet.create({
         minWidth: 0,
         paddingVertical: 11,
         color: c.ink,
+        fontFamily: theme.fonts.ui,
         fontSize: 15,
     },
-    inputLarge: { fontSize: 17 },
+    inputLarge: { fontFamily: theme.fonts.ui, fontSize: 17 },
     clear: {
         width: 18,
         height: 18,

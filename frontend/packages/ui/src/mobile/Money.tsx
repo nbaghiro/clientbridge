@@ -27,6 +27,11 @@ export function Money({
 }
 
 const styles = StyleSheet.create({
-    money: { fontSize: 14, fontWeight: "500", fontVariant: ["tabular-nums"] },
+    money: {
+        fontFamily: theme.fonts.ui,
+        fontSize: 14,
+        fontWeight: "500",
+        fontVariant: ["tabular-nums"],
+    },
     strong: { fontWeight: "700" },
 });

@@ -178,7 +178,7 @@ const styles = StyleSheet.create({
     },
     flex: { flex: 1, minWidth: 0 },
     brand: { flexDirection: "row", alignItems: "center", gap: 8, flexShrink: 1 },
-    bizName: { color: c.ink, fontSize: 12, fontWeight: "700" },
+    bizName: { color: c.ink, fontFamily: theme.fonts.ui, fontSize: 12, fontWeight: "700" },
     inverse: { color: ON_DATA },
     inverseSoft: { color: tintHex(ON_DATA, 75) },
     headRow: {
@@ -188,7 +188,13 @@ const styles = StyleSheet.create({
         gap: 8,
     },
     right: { alignItems: "flex-end" },
-    title: { fontSize: 15, fontWeight: "800", letterSpacing: 2, textTransform: "uppercase" },
+    title: {
+        fontFamily: theme.fonts.ui,
+        fontSize: 15,
+        fontWeight: "800",
+        letterSpacing: 2,
+        textTransform: "uppercase",
+    },
     rule: { height: 2, borderRadius: 1, marginTop: 12, marginBottom: 14 },
     band: {
         marginHorizontal: -18,
@@ -198,7 +204,12 @@ const styles = StyleSheet.create({
         gap: 8,
         marginBottom: 14,
     },
-    bandTitle: { fontSize: 13, fontWeight: "700", textTransform: "uppercase" },
+    bandTitle: {
+        fontFamily: theme.fonts.ui,
+        fontSize: 13,
+        fontWeight: "700",
+        textTransform: "uppercase",
+    },
     headline: {
         flexDirection: "row",
         alignItems: "center",
@@ -210,6 +221,7 @@ const styles = StyleSheet.create({
     },
     big: {
         color: c.ink,
+        fontFamily: theme.fonts.ui,
         fontSize: 24,
         fontWeight: "800",
         fontVariant: ["tabular-nums"],
@@ -227,18 +239,20 @@ const styles = StyleSheet.create({
     },
     cap: {
         color: c.muted,
+        fontFamily: theme.fonts.ui,
         fontSize: 8.5,
         fontWeight: "700",
         letterSpacing: 0.6,
         textTransform: "uppercase",
         marginBottom: 2,
     },
-    strong: { color: c.ink, fontSize: 10.5, fontWeight: "600" },
-    body: { color: c.inkSoft, fontSize: 10, lineHeight: 14 },
-    small: { color: c.muted, fontSize: 9.5, lineHeight: 13 },
-    tiny: { color: c.muted, fontSize: 8.5, marginTop: 2 },
+    strong: { color: c.ink, fontFamily: theme.fonts.ui, fontSize: 10.5, fontWeight: "600" },
+    body: { color: c.inkSoft, fontFamily: theme.fonts.ui, fontSize: 10, lineHeight: 14 },
+    small: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 9.5, lineHeight: 13 },
+    tiny: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 8.5, marginTop: 2 },
     message: {
         color: c.inkSoft,
+        fontFamily: theme.fonts.ui,
         fontSize: 10,
         lineHeight: 14,
         backgroundColor: c.bg,
@@ -273,6 +287,7 @@ const styles = StyleSheet.create({
     },
     stampText: {
         color: c.success,
+        fontFamily: theme.fonts.ui,
         fontSize: 20,
         fontWeight: "800",
         letterSpacing: 3,

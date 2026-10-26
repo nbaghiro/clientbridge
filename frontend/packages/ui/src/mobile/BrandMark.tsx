@@ -26,7 +26,7 @@ export function BrandMark({ method, brand, size = "md", style }: NativeProps<Bra
                     numberOfLines={1}
                     style={[
                         styles.word,
-                        { fontSize: (sm ? 9 : 10) - (long ? 2 : 0) },
+                        { fontFamily: theme.fonts.ui, fontSize: (sm ? 9 : 10) - (long ? 2 : 0) },
                         long ? styles.tight : null,
                     ]}
                 >

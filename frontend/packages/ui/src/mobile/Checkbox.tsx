@@ -59,5 +59,5 @@ const styles = StyleSheet.create({
     },
     on: { backgroundColor: c.accent, borderColor: c.accent },
     dash: { width: 10, height: 2, borderRadius: 1, backgroundColor: c.accentInk },
-    label: { color: c.ink, fontSize: 15 },
+    label: { color: c.ink, fontFamily: theme.fonts.ui, fontSize: 15 },
 });

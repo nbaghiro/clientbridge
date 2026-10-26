@@ -46,6 +46,7 @@ export function Avatar({
                     style={[
                         styles.text,
                         {
+                            fontFamily: theme.fonts.ui,
                             fontSize: Math.round(px * 0.34),
                             color: color ? shadeHex(color, 25) : c.accent,
                         },

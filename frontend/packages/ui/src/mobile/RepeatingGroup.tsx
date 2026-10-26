@@ -59,8 +59,8 @@ const styles = StyleSheet.create({
         borderTopColor: c.borderSoft,
         borderTopWidth: StyleSheet.hairlineWidth,
     },
-    title: { color: c.ink, fontSize: 15, fontWeight: "700" },
-    hint: { color: c.muted, fontSize: 12, lineHeight: 17 },
+    title: { color: c.ink, fontFamily: theme.fonts.ui, fontSize: 15, fontWeight: "700" },
+    hint: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 12, lineHeight: 17 },
     item: {
         marginTop: 12,
         padding: 12,
@@ -70,5 +70,5 @@ const styles = StyleSheet.create({
     },
     head: { flexDirection: "row", alignItems: "center", gap: 8 },
     add: { marginTop: 12 },
-    label: { flex: 1, minWidth: 0, color: c.ink, fontSize: 15 },
+    label: { flex: 1, minWidth: 0, color: c.ink, fontFamily: theme.fonts.ui, fontSize: 15 },
 });

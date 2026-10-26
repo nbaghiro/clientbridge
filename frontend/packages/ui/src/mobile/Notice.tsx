@@ -33,7 +33,7 @@ export function Notice({ tone, banner = false, children, style }: NativeProps<No
 }
 
 const styles = StyleSheet.create({
-    line: { fontSize: 13, marginTop: 8, lineHeight: 18 },
+    line: { fontFamily: theme.fonts.ui, fontSize: 13, marginTop: 8, lineHeight: 18 },
     box: { borderRadius: theme.radius, paddingHorizontal: 12, paddingVertical: 10, marginTop: 10 },
-    boxText: { fontSize: 13, lineHeight: 18 },
+    boxText: { fontFamily: theme.fonts.ui, fontSize: 13, lineHeight: 18 },
 });

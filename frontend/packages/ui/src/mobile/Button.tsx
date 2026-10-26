@@ -144,7 +144,7 @@ const INVERSE_PRESSED_TEXT = StyleSheet.create({
 });
 
 const TEXT_SIZE = StyleSheet.create({
-    sm: { fontSize: 13 },
-    md: { fontSize: 14 },
-    lg: { fontSize: 15 },
+    sm: { fontFamily: theme.fonts.ui, fontSize: 13 },
+    md: { fontFamily: theme.fonts.ui, fontSize: 14 },
+    lg: { fontFamily: theme.fonts.ui, fontSize: 15 },
 });

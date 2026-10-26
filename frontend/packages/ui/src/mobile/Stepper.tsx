@@ -53,9 +53,10 @@ const styles = StyleSheet.create({
         justifyContent: "center",
     },
     off: { opacity: 0.4 },
-    stepText: { color: c.inkSoft, fontSize: 17 },
+    stepText: { color: c.inkSoft, fontFamily: theme.fonts.ui, fontSize: 17 },
     value: {
         color: c.ink,
+        fontFamily: theme.fonts.ui,
         fontSize: 15,
         minWidth: 22,
         textAlign: "center",

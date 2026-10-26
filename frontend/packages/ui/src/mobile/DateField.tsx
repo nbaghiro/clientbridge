@@ -332,7 +332,13 @@ export function DateTimeField({
 }
 
 const styles = StyleSheet.create({
-    sheetTitle: { color: c.ink, fontSize: 18, fontWeight: "700", marginBottom: 12 },
+    sheetTitle: {
+        color: c.ink,
+        fontFamily: theme.fonts.ui,
+        fontSize: 18,
+        fontWeight: "700",
+        marginBottom: 12,
+    },
     head: {
         flexDirection: "row",
         alignItems: "center",
@@ -347,12 +353,13 @@ const styles = StyleSheet.create({
         paddingVertical: 6,
         borderRadius: theme.radius,
     },
-    titleText: { color: c.ink, fontSize: 16, fontWeight: "700" },
+    titleText: { color: c.ink, fontFamily: theme.fonts.ui, fontSize: 16, fontWeight: "700" },
     week: { flexDirection: "row" },
     weekday: {
         flex: 1,
         textAlign: "center",
         color: c.muted,
+        fontFamily: theme.fonts.ui,
         fontSize: 11,
         fontWeight: "700",
         textTransform: "uppercase",
@@ -368,7 +375,12 @@ const styles = StyleSheet.create({
         borderRadius: theme.radius,
     },
     dayPressed: { backgroundColor: c.bg },
-    dayText: { color: c.ink, fontSize: 15, fontVariant: ["tabular-nums"] },
+    dayText: {
+        color: c.ink,
+        fontFamily: theme.fonts.ui,
+        fontSize: 15,
+        fontVariant: ["tabular-nums"],
+    },
     outside: { color: c.muted },
     today: { color: c.accent, fontWeight: "700" },
     off: { opacity: 0.35 },
@@ -391,7 +403,12 @@ const styles = StyleSheet.create({
         alignItems: "center",
         borderRadius: theme.radius,
     },
-    yearText: { color: c.inkSoft, fontSize: 15, fontVariant: ["tabular-nums"] },
+    yearText: {
+        color: c.inkSoft,
+        fontFamily: theme.fonts.ui,
+        fontSize: 15,
+        fontVariant: ["tabular-nums"],
+    },
     foot: {
         flexDirection: "row",
         justifyContent: "space-between",

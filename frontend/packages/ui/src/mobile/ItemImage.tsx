@@ -35,7 +35,12 @@ export function ItemImage({ src, name, color, size = 40, style }: NativeProps<It
                 style,
             ]}
         >
-            <Text style={[styles.initial, { color: tone, fontSize: size * 0.42 }]}>
+            <Text
+                style={[
+                    styles.initial,
+                    { color: tone, fontFamily: theme.fonts.ui, fontSize: size * 0.42 },
+                ]}
+            >
                 {name.trim().charAt(0).toUpperCase()}
             </Text>
         </View>

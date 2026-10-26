@@ -63,6 +63,7 @@ export function BarChart({ bars, label, height = 140, style }: NativeProps<BarCh
 const styles = StyleSheet.create({
     readout: {
         color: c.ink,
+        fontFamily: theme.fonts.ui,
         fontSize: 13,
         fontWeight: "600",
         marginBottom: 8,
@@ -87,5 +88,11 @@ const styles = StyleSheet.create({
     partial: { opacity: 0.5 },
     picked: { backgroundColor: c.accentStrong },
     axis: { flexDirection: "row", gap: 2, marginTop: 5 },
-    tick: { flex: 1, textAlign: "center", color: c.muted, fontSize: 11 },
+    tick: {
+        flex: 1,
+        textAlign: "center",
+        color: c.muted,
+        fontFamily: theme.fonts.ui,
+        fontSize: 11,
+    },
 });

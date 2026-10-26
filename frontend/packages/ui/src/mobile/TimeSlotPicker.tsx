@@ -89,6 +89,7 @@ export function TimeSlotPicker({
 const styles = StyleSheet.create({
     wrap: { gap: 16 },
     group: {
+        fontFamily: theme.fonts.ui,
         fontSize: 12,
         fontWeight: "700",
         color: c.muted,
@@ -110,8 +111,14 @@ const styles = StyleSheet.create({
     },
     on: { backgroundColor: c.accent, borderColor: c.accent },
     taken: { backgroundColor: c.bg, borderColor: c.borderSoft },
-    label: { fontSize: 15, fontWeight: "600", color: c.ink, fontVariant: ["tabular-nums"] },
+    label: {
+        fontFamily: theme.fonts.ui,
+        fontSize: 15,
+        fontWeight: "600",
+        color: c.ink,
+        fontVariant: ["tabular-nums"],
+    },
     takenText: { color: c.muted, textDecorationLine: "line-through" },
-    hint: { fontSize: 11, color: c.muted, marginTop: 1 },
+    hint: { fontFamily: theme.fonts.ui, fontSize: 11, color: c.muted, marginTop: 1 },
     textOn: { color: c.accentInk },
 });

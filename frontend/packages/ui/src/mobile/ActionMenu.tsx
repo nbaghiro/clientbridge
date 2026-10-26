@@ -257,6 +257,7 @@ const styles = StyleSheet.create({
     },
     title: {
         color: c.muted,
+        fontFamily: theme.fonts.ui,
         fontSize: 12,
         fontWeight: "700",
         letterSpacing: 0.5,
@@ -274,7 +275,7 @@ const styles = StyleSheet.create({
         borderRadius: theme.radius,
     },
     tileIcon: { height: 36, alignItems: "center", justifyContent: "center" },
-    tileLabel: { color: c.ink, fontSize: 13, fontWeight: "600" },
+    tileLabel: { color: c.ink, fontFamily: theme.fonts.ui, fontSize: 13, fontWeight: "600" },
     row: {
         flexDirection: "row",
         alignItems: "center",
@@ -285,8 +286,8 @@ const styles = StyleSheet.create({
     },
     rowIcon: { width: 24, alignItems: "center" },
     rowText: { flex: 1 },
-    rowLabel: { color: c.ink, fontSize: 16, fontWeight: "600" },
-    rowHint: { color: c.muted, fontSize: 13, marginTop: 1 },
+    rowLabel: { color: c.ink, fontFamily: theme.fonts.ui, fontSize: 16, fontWeight: "600" },
+    rowHint: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 13, marginTop: 1 },
     pressed: { backgroundColor: c.bg },
     dim: { backgroundColor: c.ink, opacity: 0.5 },
     spoke: { position: "absolute" },
@@ -306,7 +307,7 @@ const styles = StyleSheet.create({
         elevation: 4,
     },
     roundPressed: { backgroundColor: c.bg },
-    roundLabel: { color: c.inkSoft, fontSize: 10, fontWeight: "600" },
+    roundLabel: { color: c.inkSoft, fontFamily: theme.fonts.ui, fontSize: 10, fontWeight: "600" },
     dismiss: {
         position: "absolute",
         width: 52,

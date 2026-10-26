@@ -46,7 +46,15 @@ export function Lockup({
     return (
         <View style={[{ flexDirection: "row", alignItems: "center", gap: LOGO.gap }, style]}>
             <Logo height={fontSize * LOGO.heightPerFontSize} color={markColor} />
-            <Text style={{ color: textColor, fontSize, fontWeight: "700", letterSpacing: -0.3 }}>
+            <Text
+                style={{
+                    color: textColor,
+                    fontFamily: theme.fonts.ui,
+                    fontSize,
+                    fontWeight: "700",
+                    letterSpacing: -0.3,
+                }}
+            >
                 {strings.common.appName}
             </Text>
         </View>

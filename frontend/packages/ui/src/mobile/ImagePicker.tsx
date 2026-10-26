@@ -88,7 +88,7 @@ const styles = StyleSheet.create({
         justifyContent: "center",
     },
     side: { flex: 1, minWidth: 0, gap: 8 },
-    hint: { color: c.muted, fontSize: 12.5, lineHeight: 17 },
+    hint: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 12.5, lineHeight: 17 },
     actions: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
     action: { maxWidth: "100%" },
 });

@@ -139,8 +139,8 @@ const styles = StyleSheet.create({
     },
     headMain: { flexDirection: "row", alignItems: "center", gap: 12, flex: 1 },
     headText: { flex: 1 },
-    title: { color: c.ink, fontSize: 18, fontWeight: "700" },
-    subtitle: { color: c.muted, fontSize: 13, marginTop: 2 },
+    title: { color: c.ink, fontFamily: theme.fonts.ui, fontSize: 18, fontWeight: "700" },
+    subtitle: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 13, marginTop: 2 },
     body: { flexGrow: 0, flexShrink: 1 },
     bodyContent: { paddingBottom: 20 },
     footer: {
@@ -165,6 +165,7 @@ const styles = StyleSheet.create({
     },
     sectionLabel: {
         color: c.muted,
+        fontFamily: theme.fonts.ui,
         fontSize: 11,
         fontWeight: "600",
         textTransform: "uppercase",

@@ -48,7 +48,10 @@ export function OptionCard({
                     <Text
                         style={[
                             styles.title,
-                            { fontSize: size === "lg" ? 16 : size === "sm" ? 14 : 15 },
+                            {
+                                fontFamily: theme.fonts.ui,
+                                fontSize: size === "lg" ? 16 : size === "sm" ? 14 : 15,
+                            },
                         ]}
                     >
                         {title}
@@ -89,8 +92,14 @@ const styles = StyleSheet.create({
     content: { flexDirection: "row", alignItems: "flex-start", gap: 12, flex: 1, minWidth: 0 },
     copy: { flex: 1, minWidth: 0 },
     title: { fontWeight: "600", color: c.ink },
-    subtitle: { marginTop: 2, fontSize: 13, color: c.muted },
-    detail: { marginTop: 6, fontSize: 13, lineHeight: 20, color: c.inkSoft },
+    subtitle: { marginTop: 2, fontFamily: theme.fonts.ui, fontSize: 13, color: c.muted },
+    detail: {
+        marginTop: 6,
+        fontFamily: theme.fonts.ui,
+        fontSize: 13,
+        lineHeight: 20,
+        color: c.inkSoft,
+    },
     footer: { marginTop: 8 },
     selected: { borderColor: c.accent, backgroundColor: c.accentWeak },
     dim: { opacity: 0.6 },

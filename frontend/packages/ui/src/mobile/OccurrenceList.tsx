@@ -95,6 +95,7 @@ const styles = StyleSheet.create({
     index: {
         width: 20,
         textAlign: "right",
+        fontFamily: theme.fonts.ui,
         fontSize: 12,
         color: c.muted,
         paddingTop: 2,
@@ -103,13 +104,13 @@ const styles = StyleSheet.create({
     dot: { width: 8, height: 8, borderRadius: 4, marginTop: 6 },
     main: { flex: 1, minWidth: 0 },
     line: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", columnGap: 8, rowGap: 4 },
-    date: { fontSize: 15, fontWeight: "600", color: c.ink },
+    date: { fontFamily: theme.fonts.ui, fontSize: 15, fontWeight: "600", color: c.ink },
     struck: { color: c.muted, textDecorationLine: "line-through" },
-    time: { fontSize: 14, color: c.muted },
+    time: { fontFamily: theme.fonts.ui, fontSize: 14, color: c.muted },
     badge: { marginLeft: "auto" },
     flag: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 3 },
-    flagText: { fontSize: 12, color: c.accent },
-    note: { fontSize: 12.5, color: c.muted, marginTop: 3 },
+    flagText: { fontFamily: theme.fonts.ui, fontSize: 12, color: c.accent },
+    note: { fontFamily: theme.fonts.ui, fontSize: 12.5, color: c.muted, marginTop: 3 },
     warn: { color: c.warnFg },
     actions: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 8 },
     chip: {
@@ -121,6 +122,6 @@ const styles = StyleSheet.create({
         backgroundColor: c.surface,
     },
     chipOn: { borderColor: c.accent, backgroundColor: c.accentWeak },
-    chipText: { fontSize: 13, fontWeight: "600", color: c.inkSoft },
+    chipText: { fontFamily: theme.fonts.ui, fontSize: 13, fontWeight: "600", color: c.inkSoft },
     chipTextOn: { color: c.accentStrong },
 });

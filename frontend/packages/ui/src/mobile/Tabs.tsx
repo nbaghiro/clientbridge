@@ -86,7 +86,12 @@ const styles = StyleSheet.create({
         borderColor: "transparent",
     },
     tabOn: { borderColor: theme.colors.accent },
-    label: { color: theme.colors.muted, fontSize: 14, fontWeight: "600" },
+    label: {
+        color: theme.colors.muted,
+        fontFamily: theme.fonts.ui,
+        fontSize: 14,
+        fontWeight: "600",
+    },
     labelOn: { color: theme.colors.ink },
     pillBar: { flexGrow: 0, flexShrink: 0 },
     pillRow: { paddingHorizontal: 20, paddingVertical: 4 },

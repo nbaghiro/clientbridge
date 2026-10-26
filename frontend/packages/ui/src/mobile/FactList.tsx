@@ -29,6 +29,6 @@ const styles = StyleSheet.create({
     list: { gap: 12 },
     row: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
     text: { flex: 1, minWidth: 0 },
-    title: { color: c.ink, fontSize: 14, fontWeight: "600" },
-    detail: { color: c.muted, fontSize: 12, marginTop: 1 },
+    title: { color: c.ink, fontFamily: theme.fonts.ui, fontSize: 14, fontWeight: "600" },
+    detail: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 12, marginTop: 1 },
 });

@@ -1,12 +1,11 @@
 import { type CopyFieldProps, formatList, strings, useFlash } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
-import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { Icon } from "./Icon";
 import type { NativeProps } from "./props";
 
 const c = theme.colors;
-const MONO = Platform.select({ ios: "Menlo", default: "monospace" });
 
 // React Native has no clipboard of its own, so onCopy does the copying.
 export function CopyField({
@@ -66,8 +65,14 @@ export function CopyField({
 }
 
 const styles = StyleSheet.create({
-    emphasis: { fontSize: 20, fontWeight: "700", letterSpacing: 2 },
-    label: { color: c.inkSoft, fontSize: 13, fontWeight: "600", marginBottom: 6 },
+    emphasis: { fontFamily: theme.fonts.ui, fontSize: 20, fontWeight: "700", letterSpacing: 2 },
+    label: {
+        color: c.inkSoft,
+        fontFamily: theme.fonts.ui,
+        fontSize: 13,
+        fontWeight: "600",
+        marginBottom: 6,
+    },
     box: {
         flexDirection: "row",
         alignItems: "center",
@@ -86,8 +91,8 @@ const styles = StyleSheet.create({
         paddingVertical: 10,
         paddingRight: 12,
     },
-    value: { flex: 1, fontSize: 14, color: c.ink, fontFamily: MONO },
-    code: { fontSize: 11.5, lineHeight: 17, color: c.inkSoft },
+    value: { flex: 1, fontSize: 14, color: c.ink, fontFamily: theme.fonts.mono },
+    code: { fontFamily: theme.fonts.ui, fontSize: 11.5, lineHeight: 17, color: c.inkSoft },
     btn: {
         flexDirection: "row",
         alignItems: "center",
@@ -97,7 +102,13 @@ const styles = StyleSheet.create({
         borderRadius: theme.radius,
     },
     btnMulti: { alignSelf: "flex-end", paddingHorizontal: 0, paddingBottom: 0 },
-    btnText: { color: c.accent, fontSize: 14, fontWeight: "600" },
+    btnText: { color: c.accent, fontFamily: theme.fonts.ui, fontSize: 14, fontWeight: "600" },
     done: { color: c.okFg },
-    hint: { color: c.muted, fontSize: 12, marginTop: 6, lineHeight: 17 },
+    hint: {
+        color: c.muted,
+        fontFamily: theme.fonts.ui,
+        fontSize: 12,
+        marginTop: 6,
+        lineHeight: 17,
+    },
 });
