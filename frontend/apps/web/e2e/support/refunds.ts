@@ -95,7 +95,7 @@ export async function createCashRefundFixture(page: Page): Promise<RefundFixture
     return { client, invoiceId: invoice.id, number: invoice.number, paymentId: payment.payment_id };
 }
 
-export async function openRefund(page: Page, fixture: RefundFixture) {
+export async function openRefund(page: Page, fixture: Pick<RefundFixture, "client" | "paymentId">) {
     await navigate(page, `/payments/refunds?open=${fixture.paymentId}`);
     const panel = page.getByRole("complementary", { name: fixture.client.name, exact: true });
     await expect(

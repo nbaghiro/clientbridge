@@ -59,7 +59,7 @@ async def evidence(item_id: str) -> dict[str, object]:
         )
         entries = await db.execute(
             text(
-                "SELECT e.journal_id, e.event, e.amount_cents, a.category, e.source_id "
+                "SELECT e.journal_id, e.event, e.amount_cents, a.category, a.code, e.source_id "
                 "FROM entries e JOIN accounts a ON a.id = e.account_id "
                 f"WHERE e.subject_type = 'order' AND e.subject_id IN ({order_ids}) "
                 "ORDER BY e.journal_id, e.leg"

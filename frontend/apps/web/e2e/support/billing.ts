@@ -82,3 +82,32 @@ export async function expectPaid(page: Page): Promise<void> {
         dialog.getByRole("button", { name: strings.billing.recordPayment, exact: true }),
     ).toHaveCount(0);
 }
+
+/** Records a manual payment through the invoice's dialog, for part of the balance when given. */
+export async function recordPayment(
+    page: Page,
+    method: "cash" | "etransfer",
+    label: string,
+    part?: string,
+): Promise<string> {
+    const r = strings.billing.rec;
+    await page.getByRole("button", { name: strings.billing.recordPayment, exact: true }).click();
+    const dialog = page.getByRole("dialog").filter({ hasText: r.title });
+    await dialog
+        .getByRole("group", { name: r.howPaid, exact: true })
+        .getByRole("button")
+        .filter({ hasText: method === "cash" ? r.cash : r.etransfer })
+        .click();
+    if (part !== undefined) {
+        await dialog
+            .getByRole("group", { name: r.amount, exact: true })
+            .getByRole("button", { name: r.partial, exact: true })
+            .click();
+        await dialog.getByRole("textbox", { name: r.amount, exact: true }).fill(part);
+    }
+    await dialog.getByRole("button", { name: r.record(label), exact: true }).click();
+    await expect(dialog.getByText(r.doneTitle, { exact: true })).toBeVisible();
+    const summary = await dialog.innerText();
+    await dialog.getByRole("button", { name: strings.common.done, exact: true }).click();
+    return summary;
+}

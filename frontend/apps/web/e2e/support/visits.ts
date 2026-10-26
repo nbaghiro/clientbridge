@@ -164,6 +164,17 @@ export function connectUrl(slug: string, query = ""): string {
     return `http://book.localhost:${port}/${slug}${query}`;
 }
 
+/** A stack-provided base URL, such as `PAY_BASE_URL`, with no local fallback. */
+export function stackUrl(name: string): URL {
+    const value = process.env[name];
+    if (value === undefined || value === "") throw new Error(`${name} is not set by the e2e stack`);
+    return new URL(value);
+}
+
+export function shopUrl(slug: string): string {
+    return `${stackUrl("SHOP_BASE_URL").origin}/${slug}`;
+}
+
 export function onlineBooker(subject: string): { name: string; email: string; subject: string } {
     const run = randomUUID();
     return { name: demoPerson(run), email: `visit-${run}@example.ca`, subject };

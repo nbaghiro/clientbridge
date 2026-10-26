@@ -186,3 +186,19 @@ export async function expectConversation(
     await expect(log.getByText(careMessage, { exact: true })).toHaveCount(statuses.length);
     for (const status of statuses) await expect(log).toContainText(status);
 }
+/** Every link mailed to `email` whose path starts with `path`, waiting until `count` arrive. */
+export async function mailedLinks(
+    request: APIRequestContext,
+    email: string,
+    path: string,
+    count = 1,
+): Promise<URL[]> {
+    const find = async (): Promise<URL[]> => {
+        const links = (await deliveredMail(request, email))
+            .flatMap((mail) => mail.text.match(/https?:\/\/[^\s<>"')\]]+/g) ?? [])
+            .filter((link) => new URL(link).pathname.startsWith(path));
+        return [...new Set(links)].map((link) => new URL(link));
+    };
+    await expect.poll(async () => (await find()).length, { timeout: 30_000 }).toBe(count);
+    return find();
+}

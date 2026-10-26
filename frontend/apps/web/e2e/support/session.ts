@@ -1,5 +1,6 @@
+import { randomUUID } from "node:crypto";
 import { strings } from "@clientbridge/app-core/public";
-import { expect, type Page } from "@playwright/test";
+import { expect, type Browser, type BrowserContext, type Page } from "@playwright/test";
 
 export interface Credentials {
     email: string;
@@ -24,4 +25,12 @@ export async function navigate(page: Page, path: string): Promise<void> {
         history.pushState({}, "", to);
         dispatchEvent(new PopStateEvent("popstate"));
     }, path);
+}
+
+/** A signed-out customer's browser with its own address, so its public request budget is its own. */
+export function customerContext(browser: Browser): Promise<BrowserContext> {
+    const groups = randomUUID().replaceAll("-", "").slice(0, 16).match(/.{4}/g) ?? [];
+    return browser.newContext({
+        extraHTTPHeaders: { "X-Forwarded-For": `2001:db8:${groups.join(":")}::1` },
+    });
 }

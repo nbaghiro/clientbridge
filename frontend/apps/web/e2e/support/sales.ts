@@ -65,6 +65,7 @@ export interface SaleEvidence {
         event: string;
         amount_cents: number;
         category: string;
+        code: string | null;
         source_id: string;
     }[];
     movements: { id: string; line_id: string | null; reason: string; quantity: number }[];
@@ -118,23 +119,36 @@ export async function createSaleFixture(page: Page): Promise<SaleFixture> {
     return { client, item: { ...item, name, sku } };
 }
 
-export async function prepareCashSale(page: Page, fixture: SaleFixture): Promise<Locator> {
+export interface DeskSale {
+    sku: string;
+    name: string;
+    stock: number;
+    units: number;
+    charge: string;
+    given: string;
+}
+
+/** Rings units of one product up for a client at the desk, ready to take the cash given. */
+export async function ringUpCash(
+    page: Page,
+    client: ClientFixture,
+    sale: DeskSale,
+): Promise<Locator> {
     await navigate(page, "/payments/sales");
-    await page.getByRole("searchbox", { name: d.searchShort, exact: true }).fill(fixture.item.sku);
-    const tile = page.getByRole("button", { name: fixture.item.name, exact: true });
-    await expect(tile).toContainText(d.inStock(5), { timeout: 60_000 });
+    await page.getByRole("searchbox", { name: d.searchShort, exact: true }).fill(sale.sku);
+    const tile = page.getByRole("button", { name: sale.name, exact: true });
+    await expect(tile).toContainText(d.inStock(sale.stock), { timeout: 60_000 });
     await tile.click();
-    await page
-        .getByRole("button", { name: strings.ui.onTicket(fixture.item.name, 1), exact: true })
-        .click();
+    for (let count = 1; count < sale.units; count++)
+        await page
+            .getByRole("button", { name: strings.ui.onTicket(sale.name, count), exact: true })
+            .click();
     const ticket = page.getByRole("complementary", { name: d.ticket, exact: true });
     await ticket.getByRole("button").filter({ hasText: d.chooseClient }).click();
-    await ticket
-        .getByRole("searchbox", { name: d.clientSearch, exact: true })
-        .fill(fixture.client.email);
-    await ticket.getByRole("button").filter({ hasText: fixture.client.name }).click();
-    await expect(ticket).toContainText(fixture.client.name);
-    await ticket.getByRole("button", { name: d.charge("$30.00"), exact: true }).click();
+    await ticket.getByRole("searchbox", { name: d.clientSearch, exact: true }).fill(client.email);
+    await ticket.getByRole("button").filter({ hasText: client.name }).click();
+    await expect(ticket).toContainText(client.name);
+    await ticket.getByRole("button", { name: d.charge(sale.charge), exact: true }).click();
     const payment = page.getByRole("dialog", { name: d.payTitle, exact: true });
     await payment
         .getByRole("group", { name: d.tip, exact: true })
@@ -145,8 +159,18 @@ export async function prepareCashSale(page: Page, fixture: SaleFixture): Promise
         .getByRole("button")
         .filter({ hasText: d.methodCash })
         .click();
-    await payment.getByRole("textbox", { name: d.cashGiven, exact: true }).fill("40.00");
+    await payment.getByRole("textbox", { name: d.cashGiven, exact: true }).fill(sale.given);
     return payment;
+}
+
+export function prepareCashSale(page: Page, fixture: SaleFixture): Promise<Locator> {
+    return ringUpCash(page, fixture.client, {
+        ...fixture.item,
+        stock: 5,
+        units: 2,
+        charge: "$30.00",
+        given: "40.00",
+    });
 }
 
 export async function expectSaleCommitted(fixture: SaleFixture): Promise<SaleEvidence> {
