@@ -152,15 +152,39 @@ async def test_onboard_keeps_a_valid_timezone(
     assert res.json()["timezone"] == "America/Halifax"
 
 
-async def test_onboard_defaults_timezone(
-    api: httpx.AsyncClient, factory: Factory, identities: FakeIdentityProvider
+@pytest.mark.parametrize(
+    ("province", "expected"),
+    [
+        ("ON", "America/Toronto"),
+        ("BC", "America/Vancouver"),
+        ("AB", "America/Edmonton"),
+        ("SK", "America/Regina"),
+        ("MB", "America/Winnipeg"),
+        ("NS", "America/Halifax"),
+        ("NB", "America/Halifax"),
+        ("PE", "America/Halifax"),
+        ("NL", "America/St_Johns"),
+        ("QC", "America/Toronto"),
+        ("YT", "America/Whitehorse"),
+        ("NT", "America/Edmonton"),
+        ("NU", "America/Toronto"),
+    ],
+)
+async def test_onboard_defaults_to_the_provinces_timezone(
+    api: httpx.AsyncClient,
+    factory: Factory,
+    identities: FakeIdentityProvider,
+    province: str,
+    expected: str,
 ) -> None:
     user = await factory.user()
     await _auth(api, factory, identities, user.id)
     res = await api.post(
-        "/v1/onboarding", json={"name": "D", "slug": "tz-def", "province": "ON", "subject": "pet"}
+        "/v1/onboarding",
+        json={"name": "D", "slug": f"tz-{province.lower()}", "province": province, "subject": None},
     )
-    assert res.json()["timezone"] == "America/Toronto"
+    assert res.status_code == 201, res.text
+    assert res.json()["timezone"] == expected
 
 
 async def test_onboard_unknown_timezone_422_no_partial(

@@ -5,6 +5,10 @@ import { PORTS, on } from "./e2e/hosts";
 const port = PORTS.default;
 const pseudoPort = PORTS.pseudo;
 const chromium = process.env.CI ? {} : { channel: "chrome" };
+// the marketing site runs only where the functional stack names its URL and the API
+const siteUrl = process.env.VITE_SITE_URL;
+const apiUrl = process.env.VITE_API_URL;
+const pageUrl = process.env.BUSINESS_PAGE_URL;
 
 // Needs the API on :8701 over a migrated, seeded Postgres: `make up migrate seed dev-api` first.
 export default defineConfig({
@@ -59,5 +63,16 @@ export default defineConfig({
             url: `http://localhost:${String(pseudoPort)}/`,
             reuseExistingServer: !process.env.CI,
         },
+        ...(siteUrl && apiUrl && pageUrl
+            ? [
+                  {
+                      // the marketing site, whose contact form the host hands to the API
+                      command: `pnpm --filter site exec vite --port ${new URL(siteUrl).port} --strictPort`,
+                      env: { CONTACT_UPSTREAM: apiUrl, VITE_PAGE_URL: pageUrl },
+                      url: `${siteUrl}/`,
+                      reuseExistingServer: !process.env.CI,
+                  },
+              ]
+            : []),
     ],
 });

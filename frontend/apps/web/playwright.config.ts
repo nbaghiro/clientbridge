@@ -5,6 +5,8 @@ const pseudoPort = Number(process.env.WEB_PSEUDO_E2E_PORT ?? "8724");
 const baseURL = `http://localhost:${String(port)}`;
 
 export const chromium = process.env.CI ? {} : { channel: "chrome" };
+// the admin console runs only where the functional stack grants an operator and names its URL
+const adminUrl = process.env.VITE_ADMIN_URL;
 
 // Needs the local stack (API, PowerSync, seeded Postgres): `make up migrate seed dev-api` first.
 export default defineConfig({
@@ -56,5 +58,16 @@ export default defineConfig({
             url: `http://localhost:${String(pseudoPort)}/`,
             reuseExistingServer: !process.env.CI,
         },
+        ...(adminUrl
+            ? [
+                  {
+                      command: process.env.CI
+                          ? `pnpm --filter admin exec vite build && pnpm --filter admin exec vite preview --port ${new URL(adminUrl).port} --strictPort`
+                          : `pnpm --filter admin exec vite --port ${new URL(adminUrl).port} --strictPort`,
+                      url: `${adminUrl}/`,
+                      reuseExistingServer: !process.env.CI,
+                  },
+              ]
+            : []),
     ],
 });

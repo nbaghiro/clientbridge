@@ -42,6 +42,7 @@ from scripts.e2e_results import (
 ROOT = Path(__file__).resolve().parents[2]
 WORKER_SETTINGS = "clientbridge.tasks.worker.WorkerSettings"
 PROBE_JOB = "prune_receipts"
+PLATFORM_OPERATORS = ("console", "lapse")
 COMPLETED_JOB = re.compile(r"← cron:(\w+) ●")
 FAILED_JOB = re.compile(r"! cron:(\w+) failed")
 # Mailpit refuses only the reserved .invalid domain, so a case can meet a real provider refusal
@@ -289,6 +290,7 @@ class Stack:
             free_port() for _ in range(4)
         )
         self.connect_port, self.connect_pseudo_port = free_port(), free_port()
+        self.admin_port, self.site_port = free_port(), free_port()
         self.api = f"http://localhost:{self.api_port}"
         self.web = f"http://localhost:{self.web_port}"
         self.pseudo = f"http://localhost:{self.pseudo_port}"
@@ -528,6 +530,12 @@ class Stack:
                 "CORS_ALLOW_ORIGINS": f"{self.web},{self.pseudo}",
                 "VITE_STRIPE_PUBLISHABLE_KEY": "",
                 "CONNECT_E2E_PORT": str(self.connect_port),
+                "ADMIN_E2E_PORT": str(self.admin_port),
+                "ADMIN_BASE_URL": f"http://localhost:{self.admin_port}",
+                "VITE_ADMIN_URL": f"http://localhost:{self.admin_port}",
+                "VITE_WEB_URL": self.app,
+                "SITE_E2E_PORT": str(self.site_port),
+                "VITE_SITE_URL": f"http://localhost:{self.site_port}",
                 "CONNECT_PSEUDO_E2E_PORT": str(self.connect_pseudo_port),
                 "BUSINESS_PAGE_URL": f"http://{{slug}}.localhost:{public_port}",
                 "BOOK_BASE_URL": f"http://book.localhost:{public_port}",
@@ -557,6 +565,7 @@ class Stack:
         )
         wait_for(f"{self.env['AUTH_ADMIN_URL']}/admin/health/ready")
         self.seed(log)
+        self.grant_platform_access()
         if before_api is not None:
             before_api()
         for name, command in {
@@ -593,6 +602,30 @@ class Stack:
         if browser_fixtures:
             self.command([sys.executable, "-m", "scripts.web_fixtures"], log)
         self.command([sys.executable, "-m", "scripts.sync_caught_up"], log)
+
+    def grant_platform_access(self) -> None:
+        """Own verified operator identities for the admin console, granted before the API starts."""
+        granted: list[str] = []
+        for role in PLATFORM_OPERATORS:
+            email = f"operator-{role}-{secrets.token_hex(6)}@example.com"
+            password = secrets.token_urlsafe(24)
+            response = httpx.post(
+                f"{self.env['AUTH_ADMIN_URL']}/admin/identities",
+                json={
+                    "schema_id": "default",
+                    "traits": {"email": email, "name": "Platform operator"},
+                    "credentials": {"password": {"config": {"password": password}}},
+                    "verifiable_addresses": [
+                        {"value": email, "via": "email", "verified": True, "status": "completed"}
+                    ],
+                },
+                timeout=10,
+            )
+            response.raise_for_status()
+            granted.append(str(response.json()["id"]))
+            self.env[f"E2E_OPERATOR_{role.upper()}_EMAIL"] = email
+            self.env[f"E2E_OPERATOR_{role.upper()}_PASSWORD"] = password
+        self.env["PLATFORM_ADMIN_IDENTITY_IDS"] = ",".join(granted)
 
     def worker_heartbeat(self) -> bool:
         """The liveness probe production runs: `arq --check` reads the worker's heartbeat key."""

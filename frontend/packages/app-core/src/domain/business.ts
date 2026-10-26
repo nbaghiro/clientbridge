@@ -633,7 +633,7 @@ interface OnboardingForm {
     submit: () => void;
 }
 
-// the server gives a new business this zone, so its first tax day is read there
+// the preview's tax day; the server gives the business its province's zone, hours from this one
 const NEW_BUSINESS_ZONE = "America/Toronto";
 
 export function useOnboardingForm(

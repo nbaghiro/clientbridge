@@ -1,6 +1,53 @@
+import { execFile } from "node:child_process";
+import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
 import { strings } from "@clientbridge/app-core/public";
 import { type APIRequestContext, type Page, expect } from "@playwright/test";
 import { mailedCode } from "../identity";
+
+const execute = promisify(execFile);
+
+export interface BusinessEvidence {
+    business: {
+        id: string;
+        name: string;
+        slug: string;
+        province: string | null;
+        timezone: string;
+        subject: string | null;
+        status: string;
+        plan: string | null;
+        plan_status: string;
+        tax_registered: boolean;
+        trial_seconds: number;
+    }[];
+    staff: {
+        id: string;
+        role: string;
+        status: string;
+        payee: boolean;
+        email: string;
+        linked: boolean;
+    }[];
+    audits: {
+        action: string;
+        entity_type: string;
+        entity_id: string;
+        changes: Record<string, unknown>;
+    }[];
+}
+
+export async function businessEvidence(businessId: string): Promise<BusinessEvidence> {
+    const { stdout } = await execute(
+        "uv",
+        ["run", "python", "-m", "scripts.e2e_business_evidence", businessId],
+        {
+            cwd: fileURLToPath(new URL("../../../../../backend", import.meta.url)),
+            timeout: 30_000,
+        },
+    );
+    return JSON.parse(stdout) as BusinessEvidence;
+}
 
 const a = strings.auth;
 
@@ -25,6 +72,7 @@ export async function openBusiness(
     page: Page,
     name: string,
     industry: Parameters<typeof strings.business.onboarding.industry>[0] = "beauty",
+    province = strings.business.onboarding.provinceBC,
 ): Promise<void> {
     const o = strings.business.onboarding;
     await expect(page.getByRole("heading", { name: o.title })).toBeVisible();
@@ -32,7 +80,7 @@ export async function openBusiness(
     await page.getByRole("combobox", { name: o.province }).click();
     await page
         .getByRole("listbox", { name: o.province })
-        .getByRole("option", { name: o.provinceBC, exact: true })
+        .getByRole("option", { name: province, exact: true })
         .click();
     await page.getByRole("combobox", { name: o.industryLabel }).click();
     await page

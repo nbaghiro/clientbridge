@@ -49,6 +49,14 @@ async def evidence(item_id: str) -> dict[str, object]:
             ),
             params,
         )
+        refunds = await db.execute(
+            text(
+                "SELECT id, parent_payment_id, status, method, provider, amount_cents, "
+                "credit_note FROM payments WHERE kind = 'refund' AND parent_payment_id IN "
+                f"(SELECT id FROM payments WHERE order_id IN ({order_ids})) ORDER BY created_at, id"
+            ),
+            params,
+        )
         entries = await db.execute(
             text(
                 "SELECT e.journal_id, e.event, e.amount_cents, a.category, e.source_id "
@@ -70,6 +78,7 @@ async def evidence(item_id: str) -> dict[str, object]:
             "orders": [dict(row) for row in orders.mappings()],
             "lines": [dict(row) for row in lines.mappings()],
             "payments": [dict(row) for row in payments.mappings()],
+            "refunds": [dict(row) for row in refunds.mappings()],
             "entries": [dict(row) for row in entries.mappings()],
             "movements": [dict(row) for row in movements.mappings()],
         }

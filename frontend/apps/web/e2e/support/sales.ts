@@ -5,6 +5,7 @@ import { promisify } from "node:util";
 import { saleNumber, strings } from "@clientbridge/app-core/public";
 import { expect, type Locator, type Page } from "@playwright/test";
 
+import { bookingApi } from "./bookings";
 import { createClient, type ClientFixture } from "./crm";
 import { requireLocalMail } from "./evidence";
 import { navigate } from "./session";
@@ -49,6 +50,15 @@ export interface SaleEvidence {
         amount_cents: number;
         tendered_cents: number;
         tip_cents: number;
+    }[];
+    refunds: {
+        id: string;
+        parent_payment_id: string;
+        status: string;
+        method: string;
+        provider: string;
+        amount_cents: number;
+        credit_note: string | null;
     }[];
     entries: {
         journal_id: string;
@@ -233,4 +243,115 @@ export async function expectSaleReplica(
     await expect(detail.getByText(fixture.item.name, { exact: true })).toBeVisible();
     await expect(detail.getByText(d.status.paid, { exact: true })).toBeVisible();
     await expect(detail).toContainText("$30.00");
+}
+
+export interface StockedProduct {
+    id: string;
+    name: string;
+    sku: string;
+}
+
+export async function stockProduct(
+    page: Page,
+    product: { name: string; prefix: string; priceCents: number; taxClass: string; stock: number },
+): Promise<StockedProduct> {
+    const api = bookingApi();
+    const sku = `${product.prefix}-${randomUUID().slice(0, 8).toUpperCase()}`;
+    const headers = (): Record<string, string> => ({
+        Origin: new URL(page.url()).origin,
+        "Idempotency-Key": randomUUID(),
+    });
+    const created = await page.request.post(`${api}/v1/items`, {
+        headers: headers(),
+        data: {
+            kind: "product",
+            name: product.name,
+            sku,
+            price_cents: product.priceCents,
+            tax_class: product.taxClass,
+            track_stock: true,
+            active: true,
+        },
+    });
+    expect(created.status(), await created.text()).toBe(201);
+    const item = (await created.json()) as { id: string };
+    const stocked = await page.request.post(`${api}/v1/items/${item.id}/restock`, {
+        headers: headers(),
+        data: { quantity: product.stock, note: "Opening shelf count" },
+    });
+    expect(stocked.status(), await stocked.text()).toBe(200);
+    return { id: item.id, name: product.name, sku };
+}
+
+/** Rings `taps` of the product for the client and opens cash payment with `given` received. */
+export async function ringCash(
+    page: Page,
+    sale: {
+        product: StockedProduct;
+        stock: number;
+        taps: number;
+        client: ClientFixture;
+        charge: string;
+        given: string;
+    },
+): Promise<Locator> {
+    await navigate(page, "/payments/sales");
+    await page.getByRole("searchbox", { name: d.searchShort, exact: true }).fill(sale.product.sku);
+    const tile = page.getByRole("button", { name: sale.product.name, exact: true });
+    await expect(tile).toContainText(d.inStock(sale.stock), { timeout: 60_000 });
+    await tile.click();
+    for (let count = 1; count < sale.taps; count++)
+        await page
+            .getByRole("button", {
+                name: strings.ui.onTicket(sale.product.name, count),
+                exact: true,
+            })
+            .click();
+    await expect(
+        page.getByRole("button", {
+            name: strings.ui.onTicket(sale.product.name, sale.taps),
+            exact: true,
+        }),
+    ).toBeVisible();
+    const ticket = page.getByRole("complementary", { name: d.ticket, exact: true });
+    await ticket.getByRole("button").filter({ hasText: d.chooseClient }).click();
+    await ticket
+        .getByRole("searchbox", { name: d.clientSearch, exact: true })
+        .fill(sale.client.email);
+    await ticket.getByRole("button").filter({ hasText: sale.client.name }).click();
+    await expect(ticket).toContainText(sale.client.name);
+    await ticket.getByRole("button", { name: d.charge(sale.charge), exact: true }).click();
+    const payment = page.getByRole("dialog", { name: d.payTitle, exact: true });
+    await payment
+        .getByRole("group", { name: d.tip, exact: true })
+        .getByRole("button", { name: d.tipNone, exact: true })
+        .click();
+    await payment
+        .getByRole("group", { name: d.howPaying, exact: true })
+        .getByRole("button")
+        .filter({ hasText: d.methodCash })
+        .click();
+    await payment.getByRole("textbox", { name: d.cashGiven, exact: true }).fill(sale.given);
+    return payment;
+}
+
+export async function payCash(
+    page: Page,
+    payment: Locator,
+    charge: string,
+): Promise<{ payment_id: string; amount_cents: number; change_cents: number }> {
+    const paid = page.waitForResponse(
+        (response) =>
+            /\/v1\/orders\/[^/]+\/cash$/.test(response.url()) &&
+            response.request().method() === "POST",
+    );
+    await payment.getByRole("button", { name: d.charge(charge), exact: true }).click();
+    const response = await paid;
+    expect(response.status(), await response.text()).toBe(200);
+    await expect(page.getByRole("heading", { name: d.paidTitle, exact: true })).toBeVisible();
+    return (await response.json()) as {
+        payment_id: string;
+        amount_cents: number;
+        change_cents: number;
+    };
 }
