@@ -2,7 +2,7 @@
 
 This plan carries the desktop design we settled on (Today, Schedule, Clients, Inbox and the Payments tabs) across every remaining page, then brings the mobile app to the same standard. It also lists what to test first, page by page, so each batch starts from a known state.
 
-Snapshot: `origin/main` at `c97e5eb7` on October 24, 2026. Line numbers below refer to that commit. The local web app (:8700) and API (:8701) run from the `clientbridge-latest` worktree at that commit, and the local database is at the head migration. Every web route was screenshotted at 1440 × 900 as the Birchbark, Harbourside and Lakeside owners, with no console errors.
+Snapshot: `origin/main` at `c97e5eb7` on October 24, 2026, rebased onto `a9366132` on October 25. Line numbers below refer to `c97e5eb7`. The work runs on the `design-pass` branch in the main checkout, which the local stack (web :8700, API :8701, Connect :8709) serves.
 
 ## What changed on main since the last review
 
@@ -14,8 +14,6 @@ The previous review read `eea0e1cb`. Twelve commits have landed since.
 | `74c5ee74` (#57) | The new booking draft scrolls into view late in the day | Small `ScheduleGrid` change. |
 | `c634c659` | Day-dependent e2e steps | Tests only. |
 | `34b021af` and seven others | Foreign key indexes, Firebase push keys, staging seed, Gateway route, uvicorn keep-alive | Infra and CI only. The Firebase file for mobile is no longer in git (`frontend/apps/mobile/.gitignore`). |
-
-The shared checkout (`/Users/naib/Documents/code/clientbridge`) is still on `eea0e1cb` with another agent's uncommitted work (142 files, 9 of them conflict with main). It was left untouched; a backup is in its `.scratchpad/backups/pre-pull-20261024-214629/`.
 
 ## The patterns every page should use
 
@@ -57,7 +55,7 @@ Check these before or during the batches. Only F1 is confirmed in code; the rest
 
 ## Batches
 
-Each batch is one commit to `main` with `--no-verify`, after typecheck, eslint and `make gen-strings` on the changed files, as agreed for design work. Each lists what changes, then what to test. Mobile changes stay in Batch 7 unless a shared twin changes.
+Each batch is one commit on `design-pass`, after typecheck, eslint and `make gen-strings` on the changed files; the branch merges as one PR. Each lists what changes, then what to test. Mobile changes stay in Batch 7 unless a shared twin changes.
 
 ### Batch 0. Test the reference pages first
 
