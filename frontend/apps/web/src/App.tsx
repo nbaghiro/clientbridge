@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { type CSSProperties, type ReactNode, useState } from "react";
 import {
     BusinessZoneContext,
     checkSession,
@@ -249,9 +249,19 @@ function AppRoutes({
     );
 }
 
+// Each startup stage mounts a loader; the page clock keeps one unbroken turn, already moving.
+const LOGO_TURN_MS = 3200;
+
 function Splash() {
+    const [phase] = useState(
+        () => `-${String(Math.round((performance.now() + LOGO_TURN_MS / 4) % LOGO_TURN_MS))}ms`,
+    );
     return (
-        <div role="status" className="flex min-h-screen flex-col items-center justify-center bg-bg">
+        <div
+            role="status"
+            style={{ "--logo-turn-phase": phase } as CSSProperties}
+            className="flex min-h-screen flex-col items-center justify-center bg-bg"
+        >
             <Logo className="loading-logo h-16 w-auto text-accent" />
             <span className="sr-only">{strings.common.loading}</span>
         </div>

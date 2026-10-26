@@ -23,7 +23,7 @@ body {
         linear-gradient(150deg, var(--accent) 0%, #2a3a4f 55%, #1b232e 100%);
 }
 
-/* Turn the two open rings around their shared circle centre, then rest as the mark. */
+/* Turn the two open rings around their shared circle centre, without a still pause. */
 .loading-logo {
     overflow: visible;
 }
@@ -31,6 +31,7 @@ body {
 .loading-logo path {
     transform-origin: 14.4px 14.4px;
     animation: loading-logo-turn 3.2s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+    animation-delay: var(--logo-turn-phase, 0ms);
 }
 
 .loading-logo path:nth-child(2) {
@@ -38,12 +39,10 @@ body {
 }
 
 @keyframes loading-logo-turn {
-    0%,
-    12% {
+    from {
         transform: rotate(0deg);
     }
-    88%,
-    100% {
+    to {
         transform: rotate(360deg);
     }
 }
