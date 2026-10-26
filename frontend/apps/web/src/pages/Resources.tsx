@@ -1,11 +1,21 @@
 import { strings, useResourceForm, useResourceSettings } from "@clientbridge/app-core";
-import { Button, Empty, ListRow, Notice, PageHeader, Panel, TextField } from "@clientbridge/ui";
+import {
+    Button,
+    ListPage,
+    Notice,
+    PageHeader,
+    Panel,
+    StatusPill,
+    TextField,
+} from "@clientbridge/ui";
 import { useState } from "react";
 
 import { api } from "../lib/api";
 import { Loaded } from "../components/Loaded";
 
 const s = strings.resources;
+const GRID =
+    "grid grid-cols-[minmax(0,2fr)_minmax(0,1.2fr)_minmax(0,1fr)_11rem] items-center gap-4";
 
 /** The rooms and equipment services book: add, rename, and turn one off without losing its visits. */
 export function Resources() {
@@ -36,55 +46,60 @@ export function Resources() {
                 }
             />
             <Loaded load={r.load} loading={s.loading} failed={s.loadError} rows={3}>
-                <Panel flush>
-                    {editing === "new" ? (
+                {editing === "new" ? (
+                    <Panel flush>
                         <ResourceEditor resource={null} onDone={done} onCancel={cancel} />
-                    ) : null}
-                    {r.entries.length === 0 && editing !== "new" ? (
-                        <Empty icon="door" message={s.empty} body={s.emptyHint} variant="inline" />
-                    ) : null}
-                    {r.entries.map((e) =>
+                    </Panel>
+                ) : null}
+                <ListPage
+                    head={
+                        r.entries.length === 0 ? undefined : (
+                            <div className={GRID}>
+                                <span>{s.name}</span>
+                                <span>{s.colUpcoming}</span>
+                                <span>{s.colStatus}</span>
+                                <span />
+                            </div>
+                        )
+                    }
+                    rows={r.entries}
+                    rowKey={(e) => e.id}
+                    empty={{ message: s.empty, body: s.emptyHint, icon: "door" }}
+                    renderRow={(e) =>
                         editing === e.id ? (
-                            <ResourceEditor
-                                key={e.id}
-                                resource={e}
-                                onDone={done}
-                                onCancel={cancel}
-                            />
+                            <ResourceEditor resource={e} onDone={done} onCancel={cancel} />
                         ) : (
-                            <ListRow
-                                key={e.id}
-                                icon="door"
-                                title={e.name}
-                                detail={e.detail}
-                                intent={e.intent}
-                                trailing={
-                                    <div className="flex gap-2">
-                                        <Button
-                                            size="sm"
-                                            variant="outline"
-                                            onPress={() => {
-                                                setEditing(e.id);
-                                            }}
-                                        >
-                                            {s.rename}
-                                        </Button>
-                                        <Button
-                                            size="sm"
-                                            variant="outline"
-                                            busy={r.toggling === e.id}
-                                            onPress={() => {
-                                                r.toggle(e.id);
-                                            }}
-                                        >
-                                            {e.toggleLabel}
-                                        </Button>
-                                    </div>
-                                }
-                            />
-                        ),
-                    )}
-                </Panel>
+                            <div className={GRID}>
+                                <span className="truncate font-medium text-ink">{e.name}</span>
+                                <span className="truncate text-sm text-ink-soft">{e.upcoming}</span>
+                                <span>
+                                    <StatusPill status={e.status} intent={e.intent} />
+                                </span>
+                                <div className="flex justify-end gap-2">
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onPress={() => {
+                                            setEditing(e.id);
+                                        }}
+                                    >
+                                        {s.rename}
+                                    </Button>
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        busy={r.toggling === e.id}
+                                        onPress={() => {
+                                            r.toggle(e.id);
+                                        }}
+                                    >
+                                        {e.toggleLabel}
+                                    </Button>
+                                </div>
+                            </div>
+                        )
+                    }
+                />
                 {r.error !== null ? <Notice tone="danger">{r.error}</Notice> : null}
             </Loaded>
         </div>
@@ -103,7 +118,7 @@ function ResourceEditor({
     const f = useResourceForm(api, resource, onDone);
     return (
         <form
-            className="flex items-end gap-3 border-b border-line-soft p-4"
+            className="flex items-end gap-3 p-4"
             onSubmit={(e) => {
                 e.preventDefault();
                 f.submit();

@@ -104,6 +104,8 @@ interface ResourceEntry {
     name: string;
     active: boolean;
     detail: string;
+    upcoming: string;
+    status: string;
     intent: Intent;
     toggleLabel: string;
 }
@@ -140,6 +142,8 @@ export function useResourceSettings(api: ApiLike): ResourceSettings {
                 : r.upcoming > 0
                   ? s.offUpcoming(r.upcoming)
                   : s.off,
+            upcoming: s.upcoming(r.upcoming),
+            status: r.active ? s.inService : s.turnedOff,
             intent: r.active ? "neutral" : "warning",
             toggleLabel: r.active ? s.turnOff : s.turnOn,
         })),

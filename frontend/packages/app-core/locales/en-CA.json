@@ -4379,6 +4379,18 @@
         "message": "Turned off. {count, plural, one {# upcoming visit still uses it} other {# upcoming visits still use it}} until moved.",
         "args": ["count"]
     },
+    "resources.colUpcoming": {
+        "message": "Upcoming visits"
+    },
+    "resources.colStatus": {
+        "message": "Status"
+    },
+    "resources.inService": {
+        "message": "In service"
+    },
+    "resources.turnedOff": {
+        "message": "Turned off"
+    },
     "resources.empty": {
         "message": "No rooms or equipment yet"
     },

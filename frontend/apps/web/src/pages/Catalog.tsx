@@ -217,9 +217,9 @@ function CatalogList() {
                         </div>
                         <div className="mt-5 space-y-6">
                             {view.sections.length === 0 ? (
-                                <div className="rounded-lg border border-line bg-surface">
+                                <Panel flush>
                                     <Empty message={view.empty} />
-                                </div>
+                                </Panel>
                             ) : null}
                             {view.sections.map((sec, index) => (
                                 <section key={sec.key}>

@@ -4025,6 +4025,18 @@
     "resources.offUpcoming": {
         "message": "[Ţûŕñéð öƒƒ. {count,plural,one{# ûþçöɱîñĝ ṽîšîţ šţîļļ ûšéš îţ} other{# ûþçöɱîñĝ ṽîšîţš šţîļļ ûšé îţ}} ûñţîļ ɱöṽéð. one two three four five six]"
     },
+    "resources.colUpcoming": {
+        "message": "[Ûþçöɱîñĝ ṽîšîţš one two]"
+    },
+    "resources.colStatus": {
+        "message": "[Šţåţûš one]"
+    },
+    "resources.inService": {
+        "message": "[Îñ šéŕṽîçé one two]"
+    },
+    "resources.turnedOff": {
+        "message": "[Ţûŕñéð öƒƒ one two]"
+    },
     "resources.empty": {
         "message": "[Ñö ŕööɱš öŕ éǫûîþɱéñţ ýéţ one two three]"
     },

@@ -31,7 +31,6 @@ import {
     confirm,
     CopyField,
     DetailSection,
-    DetailView,
     Empty,
     FactList,
     Field,
@@ -53,6 +52,7 @@ import { useState } from "react";
 
 import { api } from "../lib/api";
 import { useViewer } from "../lib/auth";
+import { DeskPanel } from "../components/Desk";
 import { Loaded } from "../components/Loaded";
 import { PersonPhoto } from "../components/PersonPhoto";
 
@@ -388,8 +388,7 @@ function MemberDetail({
     const busy = team.busyId === member.id;
     const access = strings.common.titleAndBody(roleLabel(member.role), t.roleAccess[member.role]);
     return (
-        <DetailView
-            open
+        <DeskPanel
             title={member.name}
             subtitle={member.title ?? roleLabel(member.role)}
             leading={
@@ -474,7 +473,7 @@ function MemberDetail({
                     onRemoved={onClose}
                 />
             ) : null}
-        </DetailView>
+        </DeskPanel>
     );
 }
 

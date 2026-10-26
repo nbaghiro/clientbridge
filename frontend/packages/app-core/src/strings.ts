@@ -1454,6 +1454,10 @@ interface Strings {
         readonly off: string;
         readonly upcoming: (count: number) => string;
         readonly offUpcoming: (count: number) => string;
+        readonly colUpcoming: string;
+        readonly colStatus: string;
+        readonly inService: string;
+        readonly turnedOff: string;
         readonly empty: string;
         readonly emptyHint: string;
         readonly loading: string;
