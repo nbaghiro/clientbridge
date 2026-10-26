@@ -8615,6 +8615,27 @@
     "refunds.wholeOnly": {
         "message": "[Ĝîƒţ çåŕð åñð þåçķåĝé þûŕçĥåšéš åŕé ŕéƒûñðéð îñ ƒûļļ öñļý. one two three four]"
     },
+    "refunds.blocked.not_succeeded": {
+        "message": "[Öñļý å þåýɱéñţ ţĥåţ ŵéñţ ţĥŕöûĝĥ çåñ ƀé ŕéƒûñðéð. one two three four]"
+    },
+    "refunds.blocked.already_refunded": {
+        "message": "[Ţĥîš þåýɱéñţ ĥåš åļŕéåðý ƀééñ ŕéƒûñðéð îñ ƒûļļ. one two three four]"
+    },
+    "refunds.blocked.gift_card_expired": {
+        "message": "[Ţĥîš ĝîƒţ çåŕð ĥåš éẋþîŕéð, šö îţš þûŕçĥåšé çåñ'ţ ƀé ŕéƒûñðéð. one two three four]"
+    },
+    "refunds.blocked.gift_card_redeemed": {
+        "message": "[Þåŕţ öƒ ţĥîš ĝîƒţ çåŕð ĥåš ƀééñ šþéñţ, šö îţš þûŕçĥåšé çåñ'ţ ƀé ŕéƒûñðéð. one two three four five]"
+    },
+    "refunds.blocked.package_expired": {
+        "message": "[Ţĥîš þåçķåĝé ĥåš éẋþîŕéð, šö îţš þûŕçĥåšé çåñ'ţ ƀé ŕéƒûñðéð. one two three four]"
+    },
+    "refunds.blocked.package_used": {
+        "message": "[Šéššîöñš ƒŕöɱ ţĥîš þåçķåĝé ĥåṽé ƀééñ ûšéð, šö îţš þûŕçĥåšé çåñ'ţ ƀé ŕéƒûñðéð. one two three four five]"
+    },
+    "refunds.blocked.whole_only": {
+        "message": "[Þåŕţ öƒ ţĥîš þåýɱéñţ ĥåš åļŕéåðý ƀééñ ŕéƒûñðéð, åñð ţĥé ŕéšţ çåñ'ţ ƀé ŕéƒûñðéð šéþåŕåţéļý. one two three four five six]"
+    },
     "refunds.history": {
         "message": "[Ŕéƒûñðš öñ ţĥîš þåýɱéñţ one two]"
     },

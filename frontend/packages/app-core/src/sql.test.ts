@@ -1495,6 +1495,7 @@ describe("app-core SQL against the replica schema", () => {
                 "sessions_used",
                 "balance_cents",
                 "method_last4",
+                "deferred_paid_cents",
             ),
         ).toEqual([
             {
@@ -1503,6 +1504,7 @@ describe("app-core SQL against the replica schema", () => {
                 sessions_used: 2,
                 balance_cents: 0,
                 method_last4: null,
+                deferred_paid_cents: null,
             },
             {
                 kind: "membership",
@@ -1510,6 +1512,7 @@ describe("app-core SQL against the replica schema", () => {
                 sessions_used: null,
                 balance_cents: null,
                 method_last4: "1111",
+                deferred_paid_cents: null,
             },
             {
                 kind: "gift_card",
@@ -1517,6 +1520,7 @@ describe("app-core SQL against the replica schema", () => {
                 sessions_used: null,
                 balance_cents: 3000,
                 method_last4: null,
+                deferred_paid_cents: null,
             },
         ]);
         expect(pick(run("ENTITLEMENT_HISTORY_SQL", ["package", "pk_1"]), "event", "cents")).toEqual(

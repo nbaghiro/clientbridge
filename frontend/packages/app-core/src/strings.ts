@@ -3150,6 +3150,15 @@ interface Strings {
         readonly confirmTitle: (amount: string) => string;
         readonly confirmBody: (note: string) => string;
         readonly wholeOnly: string;
+        readonly blocked: {
+            readonly not_succeeded: string;
+            readonly already_refunded: string;
+            readonly gift_card_expired: string;
+            readonly gift_card_redeemed: string;
+            readonly package_expired: string;
+            readonly package_used: string;
+            readonly whole_only: string;
+        } & Labels;
         readonly history: string;
         readonly paymentEvent: string;
         readonly refundEvent: (note: string) => string;

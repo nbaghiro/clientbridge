@@ -22,6 +22,7 @@ from tests.helpers import (
     client_id,
     column,
     enable_payments,
+    ok,
     payment_by_ref,
     sent_invoice,
     stripe_event,
@@ -476,7 +477,10 @@ async def test_used_package_cannot_be_refunded(
         await ledger.post_consumption(db, package)
     res = await as_owner.post(f"/v1/payments/{payment.id}/refund", json={}, headers=retry_key())
     assert res.status_code == 409
-    assert res.json()["message"] == "can't refund a package with sessions already used"
+    assert res.json()["error"] == "package_used"
+    preview = ok(await as_owner.get(f"/v1/payments/{payment.id}/refund-preview")).json()
+    assert preview["blocked"] == "package_used"
+    assert preview["refund_cents"] == 0 and preview["parts"] == []
 
 
 async def test_pending_refund_posts_only_when_succeeded(

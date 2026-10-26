@@ -9260,9 +9260,9 @@ export interface components {
             whole_only?: string | null;
             /**
              * Blocked
-             * @description Why nothing can be refunded
+             * @description Why nothing can be refunded, as a code the client renders
              */
-            blocked?: string | null;
+            blocked?: ("not_succeeded" | "already_refunded" | "gift_card_expired" | "gift_card_redeemed" | "package_expired" | "package_used" | "whole_only") | null;
             /**
              * By Hand
              * @description Money goes back outside Stripe (cash, cheque, e-Transfer)

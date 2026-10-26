@@ -74,6 +74,7 @@ from clientbridge.schemas.payments import (
     PayoutTransactionOut,
     PublicCredit,
     PublicPaymentSetup,
+    RefundBlock,
     RefundOut,
     RefundPart,
     RefundPreview,
@@ -126,6 +127,12 @@ class WebhookOutcome:
     notify: WebhookNotice
     target_id: str
     business_id: str | None = None
+
+
+class RefundRefused(Conflict):
+    def __init__(self, message: str, block: RefundBlock) -> None:
+        super().__init__(message, code=block)
+        self.block: RefundBlock = block
 
 
 @dataclass(frozen=True)
@@ -671,18 +678,18 @@ class PaymentService:
         refunded = await _refunded_cents(self.db, payment)
         left = max(0, payment.amount_cents - refunded)
         whole_only: str | None = None
-        blocked: str | None = None
+        blocked: RefundBlock | None = None
         if payment.status != "succeeded":
-            blocked = "only a succeeded payment can be refunded"
+            blocked = "not_succeeded"
         elif left <= 0:
-            blocked = "this payment was already refunded"
+            blocked = "already_refunded"
         else:
             try:
                 whole_only = await self._whole_refund_only(payment)
-            except Conflict as exc:
-                blocked = exc.message
+            except RefundRefused as exc:
+                blocked = exc.block
             if whole_only is not None and refunded > 0:
-                blocked = whole_only
+                blocked = "whole_only"
         amount = left if amount_cents is None or whole_only is not None else amount_cents
         if blocked is None and (amount <= 0 or amount > left):
             raise Conflict("invalid refund amount")
@@ -720,9 +727,12 @@ class PaymentService:
         ).scalar_one_or_none()
         if card is not None:
             if card.status == "expired":
-                raise Conflict("can't refund an expired gift card")
+                raise RefundRefused("can't refund an expired gift card", "gift_card_expired")
             if await ledger.gift_card_balance(self.db, card) < card.initial_cents:
-                raise Conflict("can't refund a gift card that has already been partly redeemed")
+                raise RefundRefused(
+                    "can't refund a gift card that has already been partly redeemed",
+                    "gift_card_redeemed",
+                )
             return "a gift card purchase is refunded in full"
         pkg = (
             await self.db.execute(
@@ -731,9 +741,11 @@ class PaymentService:
         ).scalar_one_or_none()
         if pkg is not None:
             if pkg.status == "expired":
-                raise Conflict("can't refund an expired package")
+                raise RefundRefused("can't refund an expired package", "package_expired")
             if await ledger.sessions_used(self.db, pkg) > 0:
-                raise Conflict("can't refund a package with sessions already used")
+                raise RefundRefused(
+                    "can't refund a package with sessions already used", "package_used"
+                )
             return "a package purchase is refunded in full"
         if payment.booking_id is not None and payment.kind == "deposit":
             booking = await self.db.get(Booking, payment.booking_id)

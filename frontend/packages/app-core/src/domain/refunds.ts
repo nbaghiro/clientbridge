@@ -193,6 +193,8 @@ interface RefundPart {
     cents: number;
 }
 
+type RefundBlock = keyof typeof s.blocked;
+
 interface RefundPreview {
     payment_id: string;
     amount_cents: number;
@@ -201,7 +203,7 @@ interface RefundPreview {
     fee_cents: number;
     refund_cents: number;
     whole_only: string | null;
-    blocked: string | null;
+    blocked: RefundBlock | null;
     by_hand: boolean;
     next_credit_note: string;
     parts: RefundPart[];
@@ -283,7 +285,7 @@ export function useRefundComposer(
         `${p.id}${query}${String(p.refunded_cents)}`,
     );
     const data = preview.data;
-    const blocked = data?.blocked ?? null;
+    const blocked = data?.blocked == null ? null : (s.blocked[data.blocked] ?? null);
     const wholeOnly = data !== null && data.whole_only !== null;
     const backTo = s.backTo(summary.method);
     const lines: DocTotalLine[] =

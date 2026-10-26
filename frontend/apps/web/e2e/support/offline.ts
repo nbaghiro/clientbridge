@@ -55,6 +55,40 @@ export async function hoursEvidence(staffId: string): Promise<HoursEvidence> {
     return JSON.parse(stdout) as HoursEvidence;
 }
 
+/** Signs up through an invite link and joins; returns the new member's staff id. */
+export async function acceptInvite(
+    page: Page,
+    request: APIRequestContext,
+    token: string,
+    account: { email: string; password: string; name: string },
+): Promise<string> {
+    await page.goto(`/accept-invite?token=${token}`);
+    await expect(
+        page.getByText(strings.staff.inviteFor(account.email), { exact: false }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: strings.staff.inviteSignUp, exact: true }).click();
+    await page.getByLabel(strings.auth.name, { exact: true }).fill(account.name);
+    await page.getByRole("textbox", { name: strings.auth.email, exact: true }).fill(account.email);
+    await page.getByLabel(strings.auth.newPassword, { exact: true }).fill(account.password);
+    await page.getByRole("button", { name: strings.auth.createAccount, exact: true }).click();
+    await expect(page.getByRole("heading", { name: strings.auth.verifyTitle })).toBeVisible();
+    await page
+        .getByLabel(strings.auth.code, { exact: true })
+        .fill(await mailedCode(request, account.email, "verification"));
+    await page.getByRole("button", { name: strings.auth.verify, exact: true }).click();
+    const joining = page.waitForResponse(
+        (response) =>
+            new URL(response.url()).pathname === "/v1/staff/invites/accept" &&
+            response.request().method() === "POST",
+    );
+    await page.getByRole("button", { name: strings.staff.inviteJoin, exact: true }).click();
+    const joined = await joining;
+    expect(joined.status(), await joined.text()).toBe(200);
+    const body = (await joined.json()) as { staff_id: string };
+    await expect(page).toHaveURL(/\/today$/, { timeout: 60_000 });
+    return body.staff_id;
+}
+
 export async function joinHoursStaff(
     page: Page,
     request: APIRequestContext,
@@ -68,33 +102,8 @@ export async function joinHoursStaff(
     const account = { ...newAccount("offline-hours"), name: demoPerson(randomUUID()) };
     const invitation = await ownerInvite(request, account.email);
     try {
-        await page.goto(`/accept-invite?token=${invitation.token}`);
-        await expect(
-            page.getByText(strings.staff.inviteFor(account.email), { exact: false }),
-        ).toBeVisible();
-        await page.getByRole("button", { name: strings.staff.inviteSignUp, exact: true }).click();
-        await page.getByLabel(strings.auth.name, { exact: true }).fill(account.name);
-        await page
-            .getByRole("textbox", { name: strings.auth.email, exact: true })
-            .fill(account.email);
-        await page.getByLabel(strings.auth.newPassword, { exact: true }).fill(account.password);
-        await page.getByRole("button", { name: strings.auth.createAccount, exact: true }).click();
-        await expect(page.getByRole("heading", { name: strings.auth.verifyTitle })).toBeVisible();
-        await page
-            .getByLabel(strings.auth.code, { exact: true })
-            .fill(await mailedCode(request, account.email, "verification"));
-        await page.getByRole("button", { name: strings.auth.verify, exact: true }).click();
-        const joining = page.waitForResponse(
-            (response) =>
-                new URL(response.url()).pathname === "/v1/staff/invites/accept" &&
-                response.request().method() === "POST",
-        );
-        await page.getByRole("button", { name: strings.staff.inviteJoin, exact: true }).click();
-        const joined = await joining;
-        expect(joined.status(), await joined.text()).toBe(200);
-        const body = (await joined.json()) as { staff_id: string };
-        await expect(page).toHaveURL(/\/today$/, { timeout: 60_000 });
-        return { id: body.staff_id, name: account.name, account, cleanup: invitation.cleanup };
+        const id = await acceptInvite(page, request, invitation.token, account);
+        return { id, name: account.name, account, cleanup: invitation.cleanup };
     } catch (error) {
         await invitation.cleanup();
         throw error;

@@ -432,6 +432,9 @@ async def test_refund_partially_redeemed_gift_card_blocked(
         f"/v1/payments/{body['payment_id']}/refund", json={}, headers=retry_key()
     )
     assert refunded.status_code == 409
+    assert refunded.json()["error"] == "gift_card_redeemed"
+    preview = await as_owner.get(f"/v1/payments/{body['payment_id']}/refund-preview")
+    assert preview.status_code == 200 and preview.json()["blocked"] == "gift_card_redeemed"
 
 
 async def test_redeem_replays_on_the_same_key(

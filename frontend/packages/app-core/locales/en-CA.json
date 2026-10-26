@@ -9282,6 +9282,27 @@
     "refunds.wholeOnly": {
         "message": "Gift card and package purchases are refunded in full only."
     },
+    "refunds.blocked.not_succeeded": {
+        "message": "Only a payment that went through can be refunded."
+    },
+    "refunds.blocked.already_refunded": {
+        "message": "This payment has already been refunded in full."
+    },
+    "refunds.blocked.gift_card_expired": {
+        "message": "This gift card has expired, so its purchase can't be refunded."
+    },
+    "refunds.blocked.gift_card_redeemed": {
+        "message": "Part of this gift card has been spent, so its purchase can't be refunded."
+    },
+    "refunds.blocked.package_expired": {
+        "message": "This package has expired, so its purchase can't be refunded."
+    },
+    "refunds.blocked.package_used": {
+        "message": "Sessions from this package have been used, so its purchase can't be refunded."
+    },
+    "refunds.blocked.whole_only": {
+        "message": "Part of this payment has already been refunded, and the rest can't be refunded separately."
+    },
     "refunds.history": {
         "message": "Refunds on this payment"
     },
