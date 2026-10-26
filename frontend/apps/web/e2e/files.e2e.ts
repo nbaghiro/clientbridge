@@ -1,7 +1,6 @@
 import { strings } from "@clientbridge/app-core/public";
 import { expect, test } from "@playwright/test";
-
-import { createClient, editClient } from "./support/crm";
+import { createClient, editClient } from "./support/clients";
 import { expectPhoto, filesApi, photoEvidence, portrait } from "./support/files";
 import { signIn } from "./support/session";
 

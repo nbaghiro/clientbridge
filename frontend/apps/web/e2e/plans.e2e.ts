@@ -4,9 +4,9 @@ import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { addDays, combineDayAndTime, strings } from "@clientbridge/app-core/public";
 import { expect, test, type Browser, type Page } from "@playwright/test";
-import { newAccount } from "./identity";
+import { newAccount } from "./support/auth";
 import { requireLocalMail } from "./support/evidence";
-import { openBusiness, signUp } from "./support/onboarding";
+import { openBusiness, signUp } from "./support/business";
 import {
     apiBase,
     broadcastEvidence,
@@ -14,7 +14,7 @@ import {
     createContact,
     headers,
     planEvidence,
-} from "./support/outreach";
+} from "./support/messaging";
 import { navigate, signIn } from "./support/session";
 import { demoId, runEmail } from "@clientbridge/config/e2e/run";
 

@@ -3,7 +3,6 @@ import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { strings } from "@clientbridge/app-core/public";
 import { expect, type Page } from "@playwright/test";
-
 import {
     composeDocument,
     createDocumentClient,
@@ -13,7 +12,7 @@ import {
     openDocument,
     saveDocument,
     type DocumentClient,
-} from "../../web/e2e/support/invoices";
+} from "../../web/e2e/support/billing";
 import { paymentEvidence, receiptMessages } from "../../web/e2e/support/evidence";
 import { on } from "./hosts";
 import { registerStripeInvoice, stripeReady } from "./stripe-provider";

@@ -806,8 +806,8 @@
       "source_sha256": "4adfcb119e2399538a8517a5bd1de133cc4a857cf4504f814cb6fa9c82057c6c",
       "executed_by_this_audit": false
     },
-    "frontend/apps/mobile/e2e/11-recovery.yaml": {
-      "file": "frontend/apps/mobile/e2e/11-recovery.yaml",
+    "frontend/apps/mobile/e2e/auth.recovery.yaml": {
+      "file": "frontend/apps/mobile/e2e/auth.recovery.yaml",
       "line": 1,
       "test": "11-recovery",
       "layer": "native",
@@ -917,8 +917,8 @@
       "source_sha256": "b777ee2a1589339f6767034c6431cf96d8187245f681c170af9cc352dbdb93f4",
       "executed_by_this_audit": false
     },
-    "frontend/apps/web/e2e/web.e2e.ts::owner: setup sections and their dialogs": {
-      "file": "frontend/apps/web/e2e/web.e2e.ts",
+    "frontend/apps/web/e2e/shell.e2e.ts::owner: setup sections and their dialogs": {
+      "file": "frontend/apps/web/e2e/shell.e2e.ts",
       "line": 793,
       "test": "owner: setup sections and their dialogs",
       "layer": "browser",
@@ -4492,8 +4492,8 @@
       "source_sha256": "9245710ed43d69013ec1e54e4b5bd8463aea06031971b4150b944f2ec28e3abc",
       "executed_by_this_audit": false
     },
-    "frontend/apps/web/e2e/history.e2e.ts::history older than the device window is read from the API": {
-      "file": "frontend/apps/web/e2e/history.e2e.ts",
+    "frontend/apps/web/e2e/sync.e2e.ts::history older than the device window is read from the API": {
+      "file": "frontend/apps/web/e2e/sync.e2e.ts",
       "line": 16,
       "test": "history older than the device window is read from the API",
       "layer": "browser",
@@ -5552,8 +5552,8 @@
       "source_sha256": "7584926b1b8a5ffc430f39d01ad09839bcd3b0862be2123025976e480418fe2b",
       "executed_by_this_audit": false
     },
-    "frontend/apps/connect/e2e/connect.e2e.ts::a client reads an estimate and a receipt": {
-      "file": "frontend/apps/connect/e2e/connect.e2e.ts",
+    "frontend/apps/connect/e2e/publicEstimate.e2e.ts::a client reads an estimate and a receipt": {
+      "file": "frontend/apps/connect/e2e/publicEstimate.e2e.ts",
       "line": 254,
       "test": "a client reads an estimate and a receipt",
       "layer": "browser",
@@ -5710,8 +5710,8 @@
       "source_sha256": "aa1d48ad869b3eb310c49f1d4c70e3dc43682dd57f1a19fbd44cce5b079ecf85",
       "executed_by_this_audit": false
     },
-    "frontend/apps/web/e2e/web.e2e.ts::owner: payments desk, records and their dialogs": {
-      "file": "frontend/apps/web/e2e/web.e2e.ts",
+    "frontend/apps/web/e2e/shell.e2e.ts::owner: payments desk, records and their dialogs": {
+      "file": "frontend/apps/web/e2e/shell.e2e.ts",
       "line": 550,
       "test": "owner: payments desk, records and their dialogs",
       "layer": "browser",
@@ -7835,8 +7835,8 @@
       "source_sha256": "752c9a7c061fa3ff4be2371540ccea1b864642dd42fa552e2208e2f37093face",
       "executed_by_this_audit": false
     },
-    "frontend/apps/web/e2e/paymentAccount.e2e.ts::payment account entrypoints preserve navigation when payment tools are offline": {
-      "file": "frontend/apps/web/e2e/paymentAccount.e2e.ts",
+    "frontend/apps/web/e2e/payouts.e2e.ts::payment account entrypoints preserve navigation when payment tools are offline": {
+      "file": "frontend/apps/web/e2e/payouts.e2e.ts",
       "line": 4,
       "test": "payment account entrypoints preserve navigation when payment tools are offline",
       "layer": "browser",
@@ -7898,8 +7898,8 @@
       "source_sha256": "9ec56e1305437ce767e24bc1f8152b81159c53503df3529ebc10d7ebd583561a",
       "executed_by_this_audit": false
     },
-    "frontend/apps/web/e2e/paymentAccount.e2e.ts::payout contents paginate and clear when switching to a manual payout": {
-      "file": "frontend/apps/web/e2e/paymentAccount.e2e.ts",
+    "frontend/apps/web/e2e/payouts.e2e.ts::payout contents paginate and clear when switching to a manual payout": {
+      "file": "frontend/apps/web/e2e/payouts.e2e.ts",
       "line": 61,
       "test": "payout contents paginate and clear when switching to a manual payout",
       "layer": "browser",
@@ -10614,8 +10614,8 @@
       "source_sha256": "cfb7789e8eec41212697ada2e3f37e79ace0c36118762742fe604decd35939d2",
       "executed_by_this_audit": false
     },
-    "frontend/apps/web/e2e/web.e2e.ts::owner: inbox messages, reviews, broadcasts, forms and contracts": {
-      "file": "frontend/apps/web/e2e/web.e2e.ts",
+    "frontend/apps/web/e2e/shell.e2e.ts::owner: inbox messages, reviews, broadcasts, forms and contracts": {
+      "file": "frontend/apps/web/e2e/shell.e2e.ts",
       "line": 717,
       "test": "owner: inbox messages, reviews, broadcasts, forms and contracts",
       "layer": "browser",
@@ -11818,8 +11818,8 @@
       "source_sha256": "79850dd1759993d327c86c52429f08f84ff478d8df10fe6657da00905ff61dc8",
       "executed_by_this_audit": false
     },
-    "frontend/apps/connect/e2e/connect.e2e.ts::a client starts a form and a contract": {
-      "file": "frontend/apps/connect/e2e/connect.e2e.ts",
+    "frontend/apps/connect/e2e/publicForm.e2e.ts::a client starts a form and a contract": {
+      "file": "frontend/apps/connect/e2e/publicForm.e2e.ts",
       "line": 266,
       "test": "a client starts a form and a contract",
       "layer": "browser",
@@ -12425,8 +12425,8 @@
       "source_sha256": "118cef4f213477ee363f19de3b97a3f642b7f5f3a9db1ce4a45b126c3e72ad11",
       "executed_by_this_audit": false
     },
-    "frontend/apps/web/e2e/web.e2e.ts::Google Reviews distinguishes unavailable, unlinked and empty profiles": {
-      "file": "frontend/apps/web/e2e/web.e2e.ts",
+    "frontend/apps/web/e2e/shell.e2e.ts::Google Reviews distinguishes unavailable, unlinked and empty profiles": {
+      "file": "frontend/apps/web/e2e/shell.e2e.ts",
       "line": 1292,
       "test": "Google Reviews distinguishes unavailable, unlinked and empty profiles",
       "layer": "browser",
@@ -15065,8 +15065,8 @@
       "source_sha256": "c7b080e837f33895954ef602cc7d190ab82a3e35fbb97dcfe2b3955c28301fce",
       "executed_by_this_audit": false
     },
-    "frontend/apps/connect/e2e/connect.e2e.ts::the single-script booking drawer opens, closes and restores focus": {
-      "file": "frontend/apps/connect/e2e/connect.e2e.ts",
+    "frontend/apps/connect/e2e/embed.e2e.ts::the single-script booking drawer opens, closes and restores focus": {
+      "file": "frontend/apps/connect/e2e/embed.e2e.ts",
       "line": 430,
       "test": "the single-script booking drawer opens, closes and restores focus",
       "layer": "browser",
@@ -16144,7 +16144,7 @@
         "frontend/packages/app-core/src/domain/clients.ts:489",
         "frontend/packages/app-core/src/domain/clients.ts:991",
         "frontend/packages/app-core/src/domain/clients.ts:1159",
-        "frontend/apps/web/e2e/history.e2e.ts:15"
+        "frontend/apps/web/e2e/sync.e2e.ts:17"
       ]
     },
     "CRM-R03": {
@@ -16773,7 +16773,7 @@
       "detail": "Arrival expectations disappear on reload and after120 seconds. Correctness must come from authoritative command/idempotency/domain invariants, not this indicator. Delay replication across reload and verify actual effects for high-risk features.",
       "evidence": [
         "frontend/packages/app-core/src/domain/sync.ts:130",
-        "frontend/apps/web/e2e/catchUp.e2e.ts:6"
+        "frontend/apps/web/e2e/sync.e2e.ts:51"
       ]
     },
     "SYN-R03": {

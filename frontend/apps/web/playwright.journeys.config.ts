@@ -8,7 +8,7 @@ const connectPort = runPort("CONNECT_E2E_PORT");
 
 export default defineConfig({
     ...base,
-    testMatch: "*.journey.ts",
+    testMatch: "journeys/*.journey.ts",
     projects: [
         { name: "default", use: { ...chromium, baseURL: `http://localhost:${String(webPort)}` } },
     ],

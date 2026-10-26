@@ -869,6 +869,13 @@ def build_native(platform: str) -> None:
     )
 
 
+def native_flows(tests: list[str]) -> list[str]:
+    """The named flows, or every walkthrough in the order e2e/shards.json lists them."""
+    shards = cast(list[dict[str, object]], json.loads((MOBILE / "e2e" / "shards.json").read_text()))
+    names = tests or [str(flow) for shard in shards for flow in cast(list[object], shard["flows"])]
+    return [str(Path("e2e") / name) for name in names]
+
+
 def run_native(
     stack: Stack, args: argparse.Namespace, processes: ExitStack, log: IO[bytes]
 ) -> None:
@@ -877,7 +884,7 @@ def run_native(
         raise RuntimeError(f"no e2e build at {build}; run with --build-native {args.platform}")
     stack.start(processes, log, browser_fixtures=False)
     report = stack.directory / "native-results.xml"
-    flows = [str(Path("e2e") / flow) for flow in args.tests] or ["e2e"]
+    flows = native_flows(args.tests)
     command = [
         "maestro",
         "--device",

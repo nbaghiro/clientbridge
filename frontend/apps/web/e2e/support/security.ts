@@ -1,11 +1,15 @@
 import { randomUUID } from "node:crypto";
 import { strings } from "@clientbridge/app-core/public";
 import { expect, type Page } from "@playwright/test";
-
-import { createInvoice, openInvoice, type InvoiceFixture } from "./billing";
-import { editClient, type ClientFixture } from "./crm";
+import {
+    createInvoice,
+    openInvoice,
+    type InvoiceFixture,
+    documentEvidence,
+    type DocumentEvidence,
+} from "./billing";
+import { editClient, type ClientFixture } from "./clients";
 import { paymentEvidence, type PaymentEvidence } from "./evidence";
-import { documentEvidence, type DocumentEvidence } from "./invoices";
 import { runUrl } from "@clientbridge/config/e2e/run";
 
 export interface SecurityFixture {

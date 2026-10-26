@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 
-import type { BrowserContext, TestInfo } from "@playwright/test";
+import type { BrowserContext, Route, TestInfo } from "@playwright/test";
 import { runUrl } from "@clientbridge/config/e2e/run";
 
 const runKey = Date.now().toString();
@@ -17,4 +17,13 @@ export async function ownAddress(context: BrowserContext, info: TestInfo): Promi
             headers: { ...route.request().headers(), "X-Forwarded-For": address },
         });
     });
+}
+
+export type Json = Record<string, unknown>;
+
+export async function rewrite(route: Route, change: (body: Json) => Json): Promise<void> {
+    const response = await route.fetch();
+    const body = (await response.json().catch(() => null)) as Json | null;
+    // null when the page dropped the request (a refetch), so there is nothing left to answer
+    if (body !== null) await route.fulfill({ json: change(body) });
 }

@@ -29,11 +29,11 @@ The registry holds 60 required cases. `coverage.json` maps each to the audit fam
 
 | Concern | Location and responsibility |
 | --- | --- |
-| Scenarios | Web `*.e2e.ts`, cross-surface `*.journey.ts`, Connect document cases and dedicated `stripe-provider.spec.ts` |
-| Domain building blocks | `frontend/apps/web/e2e/support/`: sessions, clients/pets, bookings, billing, refunds, inventory, entitlements, messaging, files and payroll |
+| Scenarios | Web `<concept>.e2e.ts`, cross-surface `journeys/<flow>.journey.ts`, Connect `<publicPage>.e2e.ts` and the Stripe lane's `stripe-*.spec.ts`; [engineering.md](../../engineering.md#where-an-e2e-test-goes) says which file a case belongs in |
+| Domain building blocks | `frontend/apps/web/e2e/support/<concept>.ts`: sessions, clients and pets, bookings, billing, refunds, the point of sale, entitlements, messaging, files and earnings |
 | Customer interfaces | Connect document/Stripe helpers; cross-surface cases use separate anonymous and provider contexts |
 | Demo fixtures | `@clientbridge/config/e2e/demo` creates natural customer names. Pet-care/beauty labels match the actual demo business. IDs and unique recipients carry run identity |
-| Independent evidence | Read-only `backend/scripts/e2e_*.py` observers inspect exact owned records, journals, inventory, delivery rows and provider IDs |
+| Independent evidence | Read-only SQL in `frontend/apps/web/e2e/support/<concept>.ts`, over the one connection in `support/db.ts`, reads the exact owned records, journals, inventory and delivery rows. Stripe-side checks are in `backend/e2e/stripe.py` (`e2e.stripe`) and stored-file checks in `backend/e2e/actions.py` (`e2e.actions`) |
 | Isolated runtime | `backend/e2e/runner.py` owns dynamic ports, PostgreSQL, Redis, auth, PowerSync, object storage, Mailpit, API, worker and browser processes |
 | Acceptance | `backend/e2e/results.py` is the canonical required-case registry; missing cases, failed/skipped required cases, retries and empty reports fail |
 | External provider | `backend/e2e/stripe.py`: the lane runner, setup, delivery and recovery, merchant leases, exact ownership tags and restricted artifacts |

@@ -3,7 +3,7 @@ import { demoPerson } from "@clientbridge/config/e2e/demo";
 import { addDays, combineDayAndTime, strings } from "@clientbridge/app-core/public";
 import { expect, type Page } from "@playwright/test";
 import { bookingApi, cancelOwnedBooking, type BookingFixture } from "./bookings";
-import { createClient, type ClientFixture } from "./crm";
+import { createClient, type ClientFixture } from "./clients";
 import { select } from "./db";
 import { requireLocalMail } from "./evidence";
 import { navigate } from "./session";

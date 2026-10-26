@@ -726,7 +726,7 @@
       ],
       "related_evidence": [
         {
-          "test_key": "frontend/apps/mobile/e2e/11-recovery.yaml",
+          "test_key": "frontend/apps/mobile/e2e/auth.recovery.yaml",
           "coverage": "partial_related_assertions_only",
           "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
         }
@@ -819,7 +819,7 @@
           "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
         },
         {
-          "test_key": "frontend/apps/web/e2e/web.e2e.ts::owner: setup sections and their dialogs",
+          "test_key": "frontend/apps/web/e2e/shell.e2e.ts::owner: setup sections and their dialogs",
           "coverage": "partial_related_assertions_only",
           "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
         }
@@ -876,7 +876,7 @@
           "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
         },
         {
-          "test_key": "frontend/apps/web/e2e/web.e2e.ts::owner: setup sections and their dialogs",
+          "test_key": "frontend/apps/web/e2e/shell.e2e.ts::owner: setup sections and their dialogs",
           "coverage": "partial_related_assertions_only",
           "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
         }
@@ -1177,7 +1177,7 @@
           "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
         },
         {
-          "test_key": "frontend/apps/web/e2e/web.e2e.ts::owner: setup sections and their dialogs",
+          "test_key": "frontend/apps/web/e2e/shell.e2e.ts::owner: setup sections and their dialogs",
           "coverage": "partial_related_assertions_only",
           "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
         }
@@ -1556,7 +1556,7 @@
           "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
         },
         {
-          "test_key": "frontend/apps/web/e2e/web.e2e.ts::owner: setup sections and their dialogs",
+          "test_key": "frontend/apps/web/e2e/shell.e2e.ts::owner: setup sections and their dialogs",
           "coverage": "partial_related_assertions_only",
           "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
         }
@@ -3746,7 +3746,7 @@
         "evidence": [
           "frontend/packages/app-core/src/domain/clients.ts:489",
           "frontend/packages/app-core/src/domain/clients.ts:991",
-          "frontend/apps/web/e2e/history.e2e.ts:15"
+          "frontend/apps/web/e2e/sync.e2e.ts:17"
         ]
       },
       "required_layers": [
@@ -3771,7 +3771,7 @@
           "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
         },
         {
-          "test_key": "frontend/apps/web/e2e/history.e2e.ts::history older than the device window is read from the API",
+          "test_key": "frontend/apps/web/e2e/sync.e2e.ts::history older than the device window is read from the API",
           "coverage": "partial_related_assertions_only",
           "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
         }
@@ -4695,7 +4695,7 @@
       ],
       "related_evidence": [
         {
-          "test_key": "frontend/apps/connect/e2e/connect.e2e.ts::a client reads an estimate and a receipt",
+          "test_key": "frontend/apps/connect/e2e/publicEstimate.e2e.ts::a client reads an estimate and a receipt",
           "coverage": "partial_related_assertions_only",
           "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
         }
@@ -4793,7 +4793,7 @@
           "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
         },
         {
-          "test_key": "frontend/apps/web/e2e/history.e2e.ts::history older than the device window is read from the API",
+          "test_key": "frontend/apps/web/e2e/sync.e2e.ts::history older than the device window is read from the API",
           "coverage": "partial_related_assertions_only",
           "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
         }
@@ -4856,7 +4856,7 @@
           "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
         },
         {
-          "test_key": "frontend/apps/web/e2e/web.e2e.ts::owner: payments desk, records and their dialogs",
+          "test_key": "frontend/apps/web/e2e/shell.e2e.ts::owner: payments desk, records and their dialogs",
           "coverage": "partial_related_assertions_only",
           "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
         }
@@ -5142,7 +5142,7 @@
           "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
         },
         {
-          "test_key": "frontend/apps/web/e2e/web.e2e.ts::owner: payments desk, records and their dialogs",
+          "test_key": "frontend/apps/web/e2e/shell.e2e.ts::owner: payments desk, records and their dialogs",
           "coverage": "partial_related_assertions_only",
           "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
         }
@@ -6715,7 +6715,7 @@
           "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
         },
         {
-          "test_key": "frontend/apps/web/e2e/paymentAccount.e2e.ts::payment account entrypoints preserve navigation when payment tools are offline",
+          "test_key": "frontend/apps/web/e2e/payouts.e2e.ts::payment account entrypoints preserve navigation when payment tools are offline",
           "coverage": "partial_related_assertions_only",
           "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
         }
@@ -6921,7 +6921,7 @@
       ],
       "related_evidence": [
         {
-          "test_key": "frontend/apps/web/e2e/paymentAccount.e2e.ts::payout contents paginate and clear when switching to a manual payout",
+          "test_key": "frontend/apps/web/e2e/payouts.e2e.ts::payout contents paginate and clear when switching to a manual payout",
           "coverage": "partial_related_assertions_only",
           "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
         },
@@ -8996,7 +8996,7 @@
       ],
       "related_evidence": [
         {
-          "test_key": "frontend/apps/web/e2e/web.e2e.ts::owner: payments desk, records and their dialogs",
+          "test_key": "frontend/apps/web/e2e/shell.e2e.ts::owner: payments desk, records and their dialogs",
           "coverage": "partial_related_assertions_only",
           "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
         },
@@ -9771,7 +9771,7 @@
           "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
         },
         {
-          "test_key": "frontend/apps/web/e2e/web.e2e.ts::owner: inbox messages, reviews, broadcasts, forms and contracts",
+          "test_key": "frontend/apps/web/e2e/shell.e2e.ts::owner: inbox messages, reviews, broadcasts, forms and contracts",
           "coverage": "partial_related_assertions_only",
           "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
         }
@@ -10920,7 +10920,7 @@
           "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
         },
         {
-          "test_key": "frontend/apps/connect/e2e/connect.e2e.ts::a client starts a form and a contract",
+          "test_key": "frontend/apps/connect/e2e/publicForm.e2e.ts::a client starts a form and a contract",
           "coverage": "partial_related_assertions_only",
           "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
         }
@@ -11612,7 +11612,7 @@
           "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
         },
         {
-          "test_key": "frontend/apps/web/e2e/web.e2e.ts::Google Reviews distinguishes unavailable, unlinked and empty profiles",
+          "test_key": "frontend/apps/web/e2e/shell.e2e.ts::Google Reviews distinguishes unavailable, unlinked and empty profiles",
           "coverage": "partial_related_assertions_only",
           "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
         }
@@ -13861,7 +13861,7 @@
       ],
       "related_evidence": [
         {
-          "test_key": "frontend/apps/web/e2e/history.e2e.ts::history older than the device window is read from the API",
+          "test_key": "frontend/apps/web/e2e/sync.e2e.ts::history older than the device window is read from the API",
           "coverage": "partial_related_assertions_only",
           "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
         }
@@ -14859,7 +14859,7 @@
       ],
       "related_evidence": [
         {
-          "test_key": "frontend/apps/connect/e2e/connect.e2e.ts::the single-script booking drawer opens, closes and restores focus",
+          "test_key": "frontend/apps/connect/e2e/embed.e2e.ts::the single-script booking drawer opens, closes and restores focus",
           "coverage": "partial_related_assertions_only",
           "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
         }
@@ -14899,7 +14899,7 @@
       ],
       "related_evidence": [
         {
-          "test_key": "frontend/apps/connect/e2e/connect.e2e.ts::the single-script booking drawer opens, closes and restores focus",
+          "test_key": "frontend/apps/connect/e2e/embed.e2e.ts::the single-script booking drawer opens, closes and restores focus",
           "coverage": "partial_related_assertions_only",
           "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
         }
@@ -15200,7 +15200,7 @@
       "layer": "browser",
       "lane": "pr",
       "implementation": [
-        "frontend/apps/web/e2e/crm.e2e.ts"
+        "frontend/apps/web/e2e/clients.e2e.ts"
       ],
       "actions": [
         "UI create, edit, archive and restore"
@@ -15230,7 +15230,7 @@
       "layer": "browser",
       "lane": "pr",
       "implementation": [
-        "frontend/apps/web/e2e/crm.e2e.ts"
+        "frontend/apps/web/e2e/clients.e2e.ts"
       ],
       "actions": [
         "UI create, pin, unpin and delete care note"
@@ -15259,7 +15259,7 @@
       "layer": "browser",
       "lane": "pr",
       "implementation": [
-        "frontend/apps/web/e2e/crm.e2e.ts"
+        "frontend/apps/web/e2e/clients.e2e.ts"
       ],
       "actions": [
         "UI add, validate, edit and remove pet"
@@ -15289,7 +15289,7 @@
       "layer": "browser",
       "lane": "pr",
       "implementation": [
-        "frontend/apps/web/e2e/crm.e2e.ts"
+        "frontend/apps/web/e2e/clients.e2e.ts"
       ],
       "actions": [
         "UI choose merge direction and confirm"
@@ -15348,7 +15348,7 @@
       "layer": "browser",
       "lane": "pr",
       "implementation": [
-        "frontend/apps/web/e2e/invoices.e2e.ts"
+        "frontend/apps/web/e2e/billing.e2e.ts"
       ],
       "actions": [
         "UI compose, edit, send and void discounted mixed-tax invoice"
@@ -15380,7 +15380,7 @@
       "layer": "browser",
       "lane": "pr",
       "implementation": [
-        "frontend/apps/web/e2e/invoices.e2e.ts"
+        "frontend/apps/web/e2e/billing.e2e.ts"
       ],
       "actions": [
         "UI send, approve and convert estimate"
@@ -15469,7 +15469,7 @@
       "layer": "browser",
       "lane": "pr",
       "implementation": [
-        "frontend/apps/connect/e2e/documents.e2e.ts"
+        "frontend/apps/connect/e2e/publicForm.e2e.ts"
       ],
       "actions": [
         "Public form validation, consent and submission"
@@ -15500,7 +15500,7 @@
       "layer": "browser",
       "lane": "pr",
       "implementation": [
-        "frontend/apps/connect/e2e/documents.e2e.ts"
+        "frontend/apps/connect/e2e/publicContract.e2e.ts"
       ],
       "actions": [
         "Public typed signing and attempted reversal"
@@ -15531,7 +15531,7 @@
       "layer": "browser",
       "lane": "pr",
       "implementation": [
-        "frontend/apps/connect/e2e/documents.e2e.ts"
+        "frontend/apps/connect/e2e/publicContract.e2e.ts"
       ],
       "actions": [
         "Public decline with stale signing tab"
@@ -15560,7 +15560,7 @@
       "layer": "browser",
       "lane": "pr",
       "implementation": [
-        "frontend/apps/connect/e2e/documents.e2e.ts"
+        "frontend/apps/connect/e2e/publicContract.e2e.ts"
       ],
       "actions": [
         "Public changed terms require review and renewed consent"
@@ -15589,7 +15589,7 @@
       "layer": "browser",
       "lane": "pr",
       "implementation": [
-        "frontend/apps/connect/e2e/documents.e2e.ts"
+        "frontend/apps/connect/e2e/publicContract.e2e.ts"
       ],
       "actions": [
         "Public drawn signature clear and replacement"
@@ -15618,7 +15618,7 @@
       "lane": "pr",
       "risk": "critical",
       "implementation": [
-        "frontend/apps/web/e2e/offline-hours.e2e.ts"
+        "frontend/apps/web/e2e/offline.e2e.ts"
       ],
       "setup": "Real invitation, UI staff registration and local email verification; unique staff record",
       "actions": [
@@ -15653,7 +15653,7 @@
       "lane": "pr",
       "risk": "high",
       "implementation": [
-        "frontend/apps/mobile/e2e/functional-client.yaml"
+        "frontend/apps/mobile/e2e/clients.yaml"
       ],
       "actions": [
         "Create Sophie Bennett through Android UI",
@@ -15686,7 +15686,7 @@
       "layer": "browser",
       "lane": "pr",
       "implementation": [
-        "frontend/apps/web/e2e/sales.e2e.ts"
+        "frontend/apps/web/e2e/pos.e2e.ts"
       ],
       "setup": "Create owned product/client prerequisites and stock five units",
       "actions": [
@@ -15721,7 +15721,7 @@
       "layer": "browser",
       "lane": "pr",
       "implementation": [
-        "frontend/apps/web/e2e/sales.e2e.ts"
+        "frontend/apps/web/e2e/pos.e2e.ts"
       ],
       "setup": "Fresh owned stocked product and client",
       "actions": [
@@ -15938,7 +15938,7 @@
       "layer": "browser",
       "lane": "pr",
       "implementation": [
-        "frontend/apps/web/e2e/staff-pay.e2e.ts"
+        "frontend/apps/web/e2e/earnings.e2e.ts"
       ],
       "setup": "Fresh natural staff identity via real signup/verification/invite acceptance; owned booking and settled CAD100 service sale yielding CAD60 commission",
       "actions": [
@@ -16203,7 +16203,7 @@
       "layer": "browser",
       "lane": "pr",
       "implementation": [
-        "frontend/apps/web/e2e/classes.journey.ts"
+        "frontend/apps/web/e2e/journeys/entitlements.journey.ts"
       ],
       "setup": "Owned class with capacity two and initial enrollment through API; fresh natural clients",
       "actions": [
@@ -16355,7 +16355,7 @@
       "layer": "browser",
       "lane": "pr",
       "implementation": [
-        "frontend/apps/web/e2e/returning.journey.ts"
+        "frontend/apps/web/e2e/journeys/client.journey.ts"
       ],
       "setup": "Owned client with two pets and online no-deposit service; actual Mailpit verification code",
       "actions": [
@@ -16390,7 +16390,7 @@
       "layer": "browser",
       "lane": "pr",
       "implementation": [
-        "frontend/apps/web/e2e/returning.journey.ts"
+        "frontend/apps/web/e2e/journeys/client.journey.ts"
       ],
       "setup": "Owned verified customer and public form prepared before archival",
       "actions": [
@@ -16424,7 +16424,7 @@
       "layer": "browser",
       "lane": "pr",
       "implementation": [
-        "frontend/apps/web/e2e/returning-edit.journey.ts"
+        "frontend/apps/web/e2e/journeys/client.journey.ts"
       ],
       "setup": "Two owned clients, controlled phone assigned only to second client, first customer verified with selected pet",
       "actions": [
@@ -16460,7 +16460,7 @@
       "layer": "browser",
       "lane": "pr",
       "implementation": [
-        "frontend/apps/web/e2e/scheduling.journey.ts"
+        "frontend/apps/web/e2e/journeys/visit.journey.ts"
       ],
       "setup": "Two anonymous browser contexts with different owned contacts selecting same available service/staff/time",
       "actions": [
@@ -16494,7 +16494,7 @@
       "layer": "browser",
       "lane": "pr",
       "implementation": [
-        "frontend/apps/web/e2e/scheduling-retry.journey.ts"
+        "frontend/apps/web/e2e/journeys/visit.journey.ts"
       ],
       "setup": "Owned no-deposit service and unique contact, actual local mail and worker",
       "actions": [
@@ -16529,8 +16529,8 @@
       "layer": "browser",
       "lane": "pr",
       "implementation": [
-        "frontend/apps/web/e2e/finance.e2e.ts",
-        "frontend/apps/web/e2e/support/finance.ts"
+        "frontend/apps/web/e2e/reports.e2e.ts",
+        "frontend/apps/web/e2e/support/reports.ts"
       ],
       "setup": "Fresh owner and beauty business via real verified signup/onboarding; uniquely owned customer/service/invoice/payment prerequisites; independently empty starting ledger",
       "actions": [
@@ -16569,8 +16569,8 @@
       "layer": "browser",
       "lane": "pr",
       "implementation": [
-        "frontend/apps/web/e2e/finance.e2e.ts",
-        "frontend/apps/web/e2e/support/finance.ts"
+        "frontend/apps/web/e2e/reports.e2e.ts",
+        "frontend/apps/web/e2e/support/reports.ts"
       ],
       "setup": "Fresh owner and beauty business via real verified signup/onboarding; uniquely owned customer/service/invoice/payment prerequisites; independently empty starting ledger",
       "actions": [
@@ -16646,8 +16646,8 @@
       "layer": "browser",
       "lane": "pr",
       "implementation": [
-        "frontend/apps/web/e2e/filings.filing.ts",
-        "frontend/apps/web/e2e/support/finance.ts"
+        "frontend/apps/web/e2e/remittances.filing.ts",
+        "frontend/apps/web/e2e/support/reports.ts"
       ],
       "setup": "Fresh isolated BC quarterly registered demo seeded at supported current-quarter boundary; browser/API clocks real",
       "actions": [
@@ -16727,8 +16727,8 @@
       "layer": "browser",
       "lane": "pr",
       "implementation": [
-        "frontend/apps/web/e2e/hours-conflict.e2e.ts",
-        "frontend/apps/web/e2e/support/offline.ts"
+        "frontend/apps/web/e2e/hours.e2e.ts",
+        "frontend/apps/web/e2e/support/hours.ts"
       ],
       "setup": "Fresh invited staff identity, two genuine production web contexts with independent device IDs and revision0",
       "actions": [
@@ -16767,7 +16767,7 @@
       "layer": "browser",
       "lane": "pr",
       "implementation": [
-        "frontend/apps/web/e2e/security-revocation.e2e.ts"
+        "frontend/apps/web/e2e/security.e2e.ts"
       ],
       "setup": "Fresh invited member, two genuine authenticated web contexts, separate authorized owner and exact owned financial controls",
       "actions": [
@@ -16807,7 +16807,7 @@
       "layer": "browser",
       "lane": "pr",
       "implementation": [
-        "frontend/apps/connect/e2e/connect.e2e.ts",
+        "frontend/apps/connect/e2e/embed.e2e.ts",
         "frontend/apps/connect/src/embed.ts"
       ],
       "setup": "Host page on the book origin with a tall spacer above an inline shop widget from the shop origin",
@@ -16841,7 +16841,7 @@
       "layer": "browser",
       "lane": "pr",
       "implementation": [
-        "frontend/apps/connect/e2e/documents.e2e.ts"
+        "frontend/apps/connect/e2e/publicEstimate.e2e.ts"
       ],
       "setup": "Sent estimate with an optional add-on and a 10% document discount, created through the authenticated API",
       "actions": [
@@ -16877,7 +16877,7 @@
       "layer": "browser",
       "lane": "pr",
       "implementation": [
-        "frontend/apps/web/e2e/invoices.e2e.ts"
+        "frontend/apps/web/e2e/billing.e2e.ts"
       ],
       "setup": "Seeded booking bk_rex_2 with a collected 2750 deposit and an API-added add-on, invoiced as a draft",
       "actions": [
@@ -16914,7 +16914,7 @@
       "layer": "browser",
       "lane": "pr",
       "implementation": [
-        "frontend/apps/web/e2e/resources.journey.ts"
+        "frontend/apps/web/e2e/journeys/visit.journey.ts"
       ],
       "depends_on": [],
       "setup": "Birchbark with a grooming table created in the test",
@@ -16954,7 +16954,7 @@
       "layer": "browser",
       "lane": "pr",
       "implementation": [
-        "frontend/apps/web/e2e/staff.journey.ts"
+        "frontend/apps/web/e2e/journeys/visit.journey.ts"
       ],
       "depends_on": [],
       "setup": "Birchbark with a newly joined member",
@@ -16990,7 +16990,7 @@
       "layer": "browser",
       "lane": "pr",
       "implementation": [
-        "frontend/apps/web/e2e/addons.journey.ts"
+        "frontend/apps/web/e2e/journeys/visit.journey.ts"
       ],
       "depends_on": [],
       "setup": "Northlight with its own service and a 30-minute add-on",
@@ -17026,7 +17026,7 @@
       "layer": "browser",
       "lane": "pr",
       "implementation": [
-        "frontend/apps/web/e2e/programs.journey.ts"
+        "frontend/apps/web/e2e/journeys/entitlements.journey.ts"
       ],
       "depends_on": [],
       "setup": "Cedar Coast three-day camp without a deposit",
@@ -17095,7 +17095,7 @@
       "layer": "browser",
       "lane": "pr",
       "implementation": [
-        "frontend/apps/web/e2e/vehicles.e2e.ts"
+        "frontend/apps/web/e2e/clients.e2e.ts"
       ],
       "depends_on": [],
       "setup": "A new business signed up as mobile car detailing",
@@ -17212,7 +17212,7 @@
       "layer": "browser",
       "lane": "pr",
       "implementation": [
-        "frontend/apps/connect/e2e/navigation.e2e.ts"
+        "frontend/apps/connect/e2e/publicShop.e2e.ts"
       ],
       "setup": "Seeded shop with its order endpoint answered by the test: the first request is dropped, the second fulfilled with a stub order",
       "actions": [

@@ -130,7 +130,7 @@ To refresh only the existing local demo catalog from the current assets, run fro
 
 This requires the existing Birchbark catalog and the normal local development database/storage. It uploads the files before committing their metadata and updates only travel-shampoo catalog details and its opening stock unit cost. It preserves all other demo records and keeps previous image files available for existing references. Running it again does not create duplicate image rows.
 
-The read-only browser regression covers loaded shop/booking photos and the travel price at desktop and narrow viewport sizes. Run `DEMO_E2E=1 pnpm exec playwright test e2e/demo-media.e2e.ts --workers=1` from `frontend/apps/connect/`. Local API requests explicitly use IPv4 to reach Clientbridge when another development process occupies IPv6 port 8701.
+The read-only browser regression covers loaded shop/booking photos and the travel price at desktop and narrow viewport sizes. Run `DEMO_E2E=1 pnpm exec playwright test e2e/shell.e2e.ts --grep "presentation demo" --workers=1` from `frontend/apps/connect/`. Local API requests explicitly use IPv4 to reach Clientbridge when another development process occupies IPv6 port 8701.
 
 ## Lakeside Learning Studio
 

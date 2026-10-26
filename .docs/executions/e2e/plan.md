@@ -54,19 +54,7 @@ Checks against the database are plain read-only SQL in the tests themselves: one
 
 ## Where a test goes
 
-E2e files follow the same one-name-per-concept rule as the rest of the code, so a developer finds the file from the concept they changed: the app-core domain file, the strings group, the service and the page share its name.
-
-| What changed | File to extend |
-| --- | --- |
-| One concept's provider behaviour (rules, states, rejections) | `apps/web/e2e/<concept>.e2e.ts`, e.g. `clients`, `billing`, `pos`, `earnings`, `reports` |
-| A public page | `apps/connect/e2e/<publicConcept>.e2e.ts`, e.g. `publicBooking`, `publicPay`, `publicShop` |
-| A mobile-only screen or native behaviour | `apps/mobile/e2e/<concept>.yaml`; `shards.json` sets the order |
-| Something whose consequences cross concepts, devices or the worker | the matching anchor journey in `apps/web/e2e/journeys/<flow>.journey.ts` (`visit`, `estimate`, `stock`, `client`, `documents`, `communication`, `entitlements`, `team`, `device`, `operations`) |
-| A new concept | a new `<concept>.e2e.ts`; the structure check rejects a name that isn't a concept |
-
-A few cross-cutting files keep their own names, as the backend's `test_flows_*` do: `auth`, `offline`, `sync`, `security`, `shell` (the page-and-dialog walk), `accessibility` and `pseudo`. Each new case also gets an ID registered in `results.py` and the audit families it covers in `coverage.json`; the runner fails a lane whose registry and files disagree.
-
-`check-structure.mjs` enforces the names for web, Connect and native e2e files, and `.docs/engineering.md` holds this table for everyday use.
+The table of which file a test belongs in, and the names the structure check accepts, now live in [engineering.md](../../engineering.md#where-an-e2e-test-goes).
 
 ## Execution
 

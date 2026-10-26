@@ -1,6 +1,5 @@
 import { strings } from "@clientbridge/app-core/public";
 import { expect, test } from "@playwright/test";
-
 import {
     checkoutDiagnostics,
     enterStripeCard,
@@ -12,7 +11,6 @@ import {
     submitStripeCard,
     unpaidStripeInvoice,
 } from "./stripe-provider";
-
 import { signIn } from "../../web/e2e/support/session";
 import { expectPaid, openInvoice } from "../../web/e2e/support/billing";
 import {
@@ -21,7 +19,6 @@ import {
     stripeReceipt,
     stripeReceiptEvidence,
 } from "./stripe-bridge";
-
 import { documentApi } from "./documents";
 import { receiptMessages } from "../../web/e2e/support/evidence";
 import { runPort } from "@clientbridge/config/e2e/run";

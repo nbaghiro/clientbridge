@@ -1,6 +1,5 @@
 import { strings } from "@clientbridge/app-core/public";
 import { type Page, expect, test } from "@playwright/test";
-
 import {
     deleteIdentity,
     mailedCode,
@@ -11,9 +10,8 @@ import {
     ownerInvite,
     sessionActive,
     totp,
-} from "./identity";
-
-import { signUp, openBusiness } from "./support/onboarding";
+} from "./support/auth";
+import { signUp, openBusiness } from "./support/business";
 import { runEmail } from "@clientbridge/config/e2e/run";
 
 const a = strings.auth;

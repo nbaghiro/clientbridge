@@ -229,6 +229,22 @@ untested code — the matrix above is the standard; don't chase the number with 
 > toolchain) but lower on 3.12/3.13 (a PEP 649 annotation-measurement artifact, not real gaps) — hence the
 > `.python-version` + CI pin to 3.14.
 
+### Where an e2e test goes
+
+The browser and device suites follow the same one-name-per-concept rule as the rest of the code, so the file for a test is the one named after the concept you changed: the app-core domain file, the strings group, the service and the page share that name.
+
+| What changed                                                       | File to extend                                                                                                                                                                          |
+| ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| One concept's provider behaviour (rules, states, rejections)       | `apps/web/e2e/<concept>.e2e.ts`, for example `clients`, `billing`, `pos`, `earnings` or `reports`                                                                                       |
+| A public page                                                      | `apps/connect/e2e/<publicPage>.e2e.ts`, for example `publicBooking`, `publicPay` or `publicShop`                                                                                        |
+| A mobile-only screen or native behaviour                           | `apps/mobile/e2e/<concept>.yaml`, or `<concept>.<aspect>.yaml` when the concept has more than one flow; `shards.json` sets the order                                                    |
+| Something whose consequences cross concepts, devices or the worker | the anchor journey in `apps/web/e2e/journeys/<flow>.journey.ts`: `visit`, `estimate`, `stock`, `client`, `documents`, `communication`, `entitlements`, `team`, `device` or `operations` |
+| A new concept                                                      | a new `<concept>.e2e.ts`                                                                                                                                                                |
+
+Pages named by their nav label use their concept's name here too, so Invoices tests live in `billing`, Inbox in `messaging`, Team in `staff` and Schedule in `bookings`. A few cross-cutting suites keep their own names, as the backend's `test_flows_*` do: `auth`, `offline`, `sync`, `security`, `shell` (the page-and-dialog walk), `accessibility` and `pseudo`, plus `embed` and `site` in Connect. A mobile flow may also take the name of a screen with no domain of its own, such as `setup`. The completed-quarter filing case is `remittances.filing.ts`, and the Stripe lane's files start with `stripe-`.
+
+Helpers live in `apps/web/e2e/support/<concept>.ts`, and their database checks are read-only SQL over the one connection in `support/db.ts`. `check-structure.mjs` fails on a spec, journey or flow named any other way, or a helper outside `support/`; it reads the concepts from `app-core/src/domain/` and Connect's pages from `apps/connect/src/pages/`. Each new case also gets an ID in `backend/e2e/results.py` and its audit families in `.docs/executions/e2e/coverage.json`. A lane fails when a case its registry requires doesn't run, and `test_harness.py` checks that every registered ID is written in its lane's files.
+
 ---
 
 ## Shipping method — vertical product slices
@@ -869,7 +885,7 @@ The scenario works around what the product does not do yet. A visit holds one ca
 
 The signing key, its key ID and the rotation procedure are in [operations](operations.md#powersync-signing-keys).
 
-Offline regression coverage includes month rollover, cancellation after session timeout, access removal after an accepted hours edit, seven-day offline access expiry, static-only service-worker caching, and Android offline hours across a process restart (`07-sync-startup.yaml`). Run `make test-sync` with a stable source tree: Vite reloads the test page if a source edit lands mid-test.
+Offline regression coverage includes month rollover, cancellation after session timeout, access removal after an accepted hours edit, seven-day offline access expiry, static-only service-worker caching, and Android offline hours across a process restart (`offline.hours.yaml`). Run `make test-sync` with a stable source tree: Vite reloads the test page if a source edit lands mid-test.
 
 ### Local platform admin demo
 

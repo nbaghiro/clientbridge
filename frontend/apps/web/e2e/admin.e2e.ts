@@ -1,10 +1,9 @@
 import { strings } from "@clientbridge/app-core/public";
 import { type Browser, type Page, type Response, expect, test } from "@playwright/test";
-
-import { newAccount } from "./identity";
+import { newAccount } from "./support/auth";
 import { bookingApi } from "./support/bookings";
-import { createClient, openClient } from "./support/crm";
-import { businessEvidence, openBusiness, signUp } from "./support/onboarding";
+import { createClient, openClient } from "./support/clients";
+import { businessEvidence, openBusiness, signUp } from "./support/business";
 import { signIn } from "./support/session";
 import { demoId, runUrl } from "@clientbridge/config/e2e/run";
 

@@ -1,8 +1,7 @@
 import { strings } from "@clientbridge/app-core/public";
 import { expect, type Page } from "@playwright/test";
-
 import { select } from "./db";
-import { type DocumentClient } from "./invoices";
+import { type DocumentClient } from "./billing";
 
 export interface FormEvidence {
     id: string;

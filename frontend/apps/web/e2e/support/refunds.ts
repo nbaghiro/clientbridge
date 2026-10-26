@@ -1,9 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { strings } from "@clientbridge/app-core/public";
 import { expect, type Page } from "@playwright/test";
-
 import { bookingApi } from "./bookings";
-import { createClient, type ClientFixture } from "./crm";
+import { createClient, type ClientFixture } from "./clients";
 import { select } from "./db";
 import { requireLocalMail } from "./evidence";
 import { navigate } from "./session";

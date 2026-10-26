@@ -1,8 +1,8 @@
 import { strings } from "@clientbridge/app-core/public";
-import { type Frame, expect, test } from "@playwright/test";
-
+import { expect, test, type Frame } from "@playwright/test";
 import { on } from "./hosts";
 import { links } from "./links";
+import { ownAddress } from "./network";
 
 interface Spoof {
     source: string;
@@ -20,6 +20,72 @@ function post(frame: Frame, message: Spoof): Promise<void> {
         window.parent.postMessage(data, "*");
     }, message);
 }
+
+test.beforeEach(async ({ context }, info) => {
+    await ownAddress(context, info);
+});
+
+test("the single-script booking drawer opens, closes and restores focus", async ({ page }) => {
+    await page.goto(`/c/${links.slug}`);
+    await page.evaluate((slug) => {
+        document.body.replaceChildren();
+        const script = document.createElement("script");
+        script.src = "/embed.js";
+        script.dataset.slug = slug;
+        script.dataset.label = "Book a visit";
+        document.body.append(script);
+    }, links.slug);
+    const launch = page.getByRole("button", { name: "Book a visit" });
+    await launch.click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+    const widget = page.frameLocator("connect-booking iframe");
+    await expect(
+        widget.getByRole("button", { name: new RegExp(strings.publicBooking.guided.first) }),
+    ).toBeVisible();
+    await widget
+        .getByRole("button", { name: new RegExp(strings.publicBooking.guided.first) })
+        .click();
+    await expect(
+        widget.getByRole("heading", { name: strings.publicBooking.stepService, exact: true }),
+    ).toBeVisible();
+    await expect(page.locator("connect-booking iframe")).toHaveAttribute("allow", "payment");
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog")).not.toBeVisible();
+    await expect(launch).toBeFocused();
+    await launch.click();
+    await page.getByRole("button", { name: "Close", exact: true }).click();
+    await expect(launch).toBeFocused();
+});
+
+test("EMBED-E2E-01 an inline widget below the fold sizes to its content before it is scrolled into view", async ({
+    page,
+}) => {
+    await page.goto(`/c/${links.slug}`);
+    await page.evaluate((slug) => {
+        const spacer = document.createElement("div");
+        spacer.style.height = "2400px";
+        const shop = document.createElement("connect-shop");
+        shop.setAttribute("slug", slug);
+        const script = document.createElement("script");
+        script.src = "/embed.js";
+        document.body.replaceChildren(spacer, shop, script);
+    }, links.slug);
+    const frame = page.locator("connect-shop iframe");
+    await expect(frame).toHaveAttribute("src", on("shop", `/${links.slug}?embed=1`));
+    await expect(
+        frame.contentFrame().getByRole("heading", { name: strings.publicShop.title, level: 1 }),
+    ).toBeAttached();
+    const gap = async (): Promise<number> => {
+        const content = await frame
+            .contentFrame()
+            .locator("body")
+            .evaluate((body) => Math.ceil(body.getBoundingClientRect().height));
+        return Math.abs(((await frame.boundingBox())?.height ?? 0) - content);
+    };
+    await expect.poll(async () => (await frame.boundingBox())?.height ?? 0).toBeGreaterThan(300);
+    await expect.poll(gap).toBeLessThan(2);
+    expect(await page.evaluate(() => window.scrollY)).toBe(0);
+});
 
 test("OPS-E2E-06 the embed loader trusts only its widget's own window and origin, and renders brand as text", async ({
     page,

@@ -1,7 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { formatMoney, strings } from "@clientbridge/app-core/public";
 import { expect, test } from "@playwright/test";
-
 import { openInvoice } from "./support/billing";
 import { bookingApi } from "./support/bookings";
 import {

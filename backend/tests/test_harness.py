@@ -582,6 +582,36 @@ def test_every_browser_case_is_tagged_and_named_once() -> None:
     assert sources.count('tag: "@browsers"') == len(identities)
 
 
+LANE_FILES = {
+    "web": ("web", "*.e2e.ts"),
+    "connect": ("connect", "*.e2e.ts"),
+    "journeys": ("web", "journeys/*.journey.ts"),
+    "filings": ("web", "*.filing.ts"),
+    "stripe": ("connect", "stripe-*.spec.ts"),
+}
+
+
+def test_every_required_case_is_written_in_its_lanes_files() -> None:
+    apps = functional.ROOT / "frontend" / "apps"
+    for lane, (surface, pattern) in LANE_FILES.items():
+        sources = "\n".join(path.read_text() for path in (apps / surface / "e2e").glob(pattern))
+        for identity in REQUIRED_CASES[lane]:
+            assert f'"{identity} ' in sources, f"{lane}: {identity}"
+    flows = "\n".join(path.read_text() for path in (functional.MOBILE / "e2e").glob("*.yaml"))
+    for platform in ("ios", "android"):
+        for identity in REQUIRED_CASES[f"native-{platform}"]:
+            assert f"name: {identity} " in flows, identity
+
+
+def test_the_native_lane_runs_every_walkthrough_once_in_shard_order() -> None:
+    flows = functional.native_flows([])
+    present = sorted(path.name for path in (functional.MOBILE / "e2e").glob("*.yaml"))
+    assert sorted(Path(flow).name for flow in flows) == present
+    shards = json.loads((functional.MOBILE / "e2e" / "shards.json").read_text())
+    assert flows == [f"e2e/{flow}" for shard in shards for flow in shard["flows"]]
+    assert functional.native_flows(["clients.yaml"]) == ["e2e/clients.yaml"]
+
+
 def test_first_attempts_separate_flakes_from_failures() -> None:
     report = Report(
         errors=[],
@@ -607,7 +637,7 @@ def test_first_attempts_separate_flakes_from_failures() -> None:
 def test_a_shuffled_lane_imports_every_listed_file_in_its_seeded_order(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    listed = ["auth.e2e.ts", "billing.e2e.ts", "crm.e2e.ts", "sales.e2e.ts"]
+    listed = ["auth.e2e.ts", "billing.e2e.ts", "clients.e2e.ts", "pos.e2e.ts"]
 
     def listing(*_: object, **__: object) -> subprocess.CompletedProcess[str]:
         suites = [{"file": name} for name in reversed(listed)]

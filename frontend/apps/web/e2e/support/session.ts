@@ -10,7 +10,10 @@ export interface Credentials {
 
 export async function signIn(
     page: Page,
-    credentials: Credentials = { email: runEmail("hannah@birchbark.example"), password: "demo1234" },
+    credentials: Credentials = {
+        email: runEmail("hannah@birchbark.example"),
+        password: "demo1234",
+    },
 ): Promise<void> {
     await page.goto("/");
     await page

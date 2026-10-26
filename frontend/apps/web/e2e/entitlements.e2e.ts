@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { combineDayAndTime, dateKey, formatTime, strings } from "@clientbridge/app-core/public";
 import { expect, test } from "@playwright/test";
-import { addPet } from "./support/crm";
+import { addPet } from "./support/clients";
 import {
     entitlementEvidence,
     entitlementFixture,
@@ -10,10 +10,11 @@ import {
     redeemGift,
     sellEntitlement,
 } from "./support/entitlements";
-import { joinHoursStaff } from "./support/offline";
+import { joinHoursStaff } from "./support/hours";
 import { navigate, signIn } from "./support/session";
-import { apiCall, visitEvidence } from "./support/visits";
+import { apiCall, visitEvidence } from "./support/visit";
 import { runUrl } from "@clientbridge/config/e2e/run";
+
 const w = strings.entitlements;
 
 test("ENT-E2E-01 cash gift card partial redemption rejects overspend and exhausts exactly", async ({

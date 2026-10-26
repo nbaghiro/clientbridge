@@ -7,7 +7,6 @@ import {
     strings,
 } from "@clientbridge/app-core/public";
 import { expect, type Browser, type Frame, type Page } from "@playwright/test";
-
 import { bookingApi } from "../../web/e2e/support/bookings";
 import {
     apiCall,
@@ -15,7 +14,7 @@ import {
     fillConnectDetails,
     onlineBooker,
     teamMember,
-} from "../../web/e2e/support/visits";
+} from "../../web/e2e/support/visit";
 import { enterStripeCard, stripeReady } from "./stripe-provider";
 import {
     bindEnrolment,
