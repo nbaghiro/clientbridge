@@ -225,7 +225,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        project: [default, pseudo]
+        # Firefox and WebKit run only the cases tagged @browsers; CI keeps them on Linux
+        project: [default, pseudo, firefox, webkit]
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v10.3.0
@@ -241,7 +242,7 @@ jobs:
         working-directory: backend
       - run: pnpm install --frozen-lockfile --ignore-scripts
         working-directory: frontend
-      - run: pnpm --filter connect exec playwright install --with-deps chromium
+      - run: pnpm --filter connect exec playwright install --with-deps ${{ contains(fromJSON('["firefox", "webkit"]'), matrix.project) && matrix.project || 'chromium' }}
         working-directory: frontend
       - name: run isolated functional browsers
         run: make test-functional FUNCTIONAL_ARGS="--surface connect --project ${{ matrix.project }}"
@@ -327,7 +328,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        project: [default, pseudo]
+        # Firefox and WebKit run only the cases tagged @browsers; CI keeps them on Linux
+        project: [default, pseudo, firefox, webkit]
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v10.3.0
@@ -343,7 +345,7 @@ jobs:
         working-directory: backend
       - run: pnpm install --frozen-lockfile --ignore-scripts
         working-directory: frontend
-      - run: pnpm --filter web exec playwright install --with-deps chromium
+      - run: pnpm --filter web exec playwright install --with-deps ${{ contains(fromJSON('["firefox", "webkit"]'), matrix.project) && matrix.project || 'chromium' }}
         working-directory: frontend
       - name: run isolated functional browsers
         run: make test-functional FUNCTIONAL_ARGS="--surface web --project ${{ matrix.project }}"

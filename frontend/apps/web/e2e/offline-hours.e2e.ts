@@ -11,121 +11,127 @@ import {
 } from "./support/offline";
 import { navigate, signIn } from "./support/session";
 
-test("OFF-E2E-01 working-hours command survives offline reload and reconnects exactly once", async ({
-    page,
-    context,
-    request,
-    browser,
-}, testInfo) => {
-    test.skip(!process.env.CI, "Requires the production service worker");
-    test.setTimeout(240_000);
-    const staff = await joinHoursStaff(page, request);
-    const observer = await browser.newContext({
-        baseURL: new URL(page.url()).origin,
-        viewport: { width: 1440, height: 900 },
-    });
-    try {
-        const owner = await observer.newPage();
-        await signIn(owner);
-        const baseline = await hoursEvidence(staff.id);
-        expect(baseline.staff.hours_revision).toBe(0);
-        expect(baseline.hours).toEqual([]);
-        expect(baseline.receipts).toEqual([]);
-        expect(baseline.audits).toEqual([]);
-        await page.evaluate(() => navigator.serviceWorker.ready.then(() => undefined));
-        await page.reload();
-        await openHours(page, staff.name);
-        await context.setOffline(true);
-        const editor = page.getByRole("dialog", {
-            name: strings.hours.editHoursFor(staff.name),
-            exact: true,
+test(
+    "OFF-E2E-01 working-hours command survives offline reload and reconnects exactly once",
+    { tag: "@browsers" },
+    async ({ page, context, request, browser }, testInfo) => {
+        test.skip(!process.env.CI, "Requires the production service worker");
+        test.setTimeout(240_000);
+        const staff = await joinHoursStaff(page, request);
+        const observer = await browser.newContext({
+            baseURL: new URL(page.url()).origin,
+            viewport: { width: 1440, height: 900 },
         });
-        await selectHoursTime(page, editor, strings.ui.startOf(strings.hours.monday), "10:00");
-        await selectHoursTime(page, editor, strings.ui.endOf(strings.hours.monday), "16:00");
-        for (const day of [
-            strings.hours.tuesday,
-            strings.hours.wednesday,
-            strings.hours.thursday,
-            strings.hours.friday,
-        ]) {
-            await editor.getByRole("switch", { name: day, exact: true }).uncheck();
+        try {
+            const owner = await observer.newPage();
+            await signIn(owner);
+            const baseline = await hoursEvidence(staff.id);
+            expect(baseline.staff.hours_revision).toBe(0);
+            expect(baseline.hours).toEqual([]);
+            expect(baseline.receipts).toEqual([]);
+            expect(baseline.audits).toEqual([]);
+            await page.evaluate(() => navigator.serviceWorker.ready.then(() => undefined));
+            await page.reload();
+            await openHours(page, staff.name);
+            await context.setOffline(true);
+            const editor = page.getByRole("dialog", {
+                name: strings.hours.editHoursFor(staff.name),
+                exact: true,
+            });
+            await selectHoursTime(page, editor, strings.ui.startOf(strings.hours.monday), "10:00");
+            await selectHoursTime(page, editor, strings.ui.endOf(strings.hours.monday), "16:00");
+            for (const day of [
+                strings.hours.tuesday,
+                strings.hours.wednesday,
+                strings.hours.thursday,
+                strings.hours.friday,
+            ]) {
+                await editor.getByRole("switch", { name: day, exact: true }).uncheck();
+            }
+            await editor
+                .getByRole("button", { name: strings.hours.saveHours, exact: true })
+                .click();
+            await expect(
+                editor.getByText(strings.hours.savedLocally, { exact: true }),
+            ).toBeVisible();
+            expect(await hoursEvidence(staff.id)).toEqual(baseline);
+            await page.reload();
+            const restored = await openHours(page, staff.name);
+            await expectMondayOnly(restored);
+            await expect(
+                restored.getByText(strings.hours.savedLocally, { exact: true }),
+            ).toBeVisible();
+            expect(await hoursEvidence(staff.id)).toEqual(baseline);
+            const confirmed = page.waitForResponse(
+                (response) =>
+                    new URL(response.url()).pathname === `/v1/hours/${staff.id}/week` &&
+                    response.request().method() === "POST" &&
+                    response.status() === 200,
+                { timeout: 60_000 },
+            );
+            await context.setOffline(false);
+            const response = await confirmed;
+            const command = response.request().postDataJSON() as HoursCommand;
+            expect(command.expected_revision).toBe(0);
+            expect(await response.json()).toEqual({ revision: 1, stranded: [] });
+            await expect(
+                restored.getByText(strings.hours.savedLocally, { exact: true }),
+            ).toHaveCount(0, { timeout: 60_000 });
+            await navigate(owner, "/setup/team");
+            await expect(
+                owner
+                    .getByRole("row", { name: strings.hours.rowLabel(staff.name), exact: true })
+                    .getByText(strings.hours.perWeek(6), { exact: true }),
+            ).toBeVisible({ timeout: 60_000 });
+            const independent = await openHours(owner, staff.name);
+            await expectMondayOnly(independent);
+            const expectedDays = Array.from({ length: 7 }, (_, weekday) => ({
+                weekday,
+                available: weekday === 0,
+                start_time: weekday === 0 ? "10:00:00" : null,
+                end_time: weekday === 0 ? "16:00:00" : null,
+            }));
+            expect(command.days).toEqual(expectedDays);
+            const committed = await hoursEvidence(staff.id);
+            expect(committed.staff.hours_revision).toBe(1);
+            expect(committed.hours).toEqual(expectedDays);
+            expect(committed.receipts).toEqual([
+                {
+                    device_id: command.request.device_id,
+                    operation_id: command.request.operation_id,
+                    version: 2,
+                    result: { revision: 1 },
+                },
+            ]);
+            expect(committed.audits).toEqual([
+                {
+                    action: "hours.week",
+                    performed_by: baseline.staff.user_id,
+                    changes: { revision: 1 },
+                },
+            ]);
+            const api = process.env.VITE_API_URL ?? "http://localhost:8701";
+            const replay = await page.request.post(`${api}/v1/hours/${staff.id}/week`, {
+                data: command,
+                headers: { Origin: new URL(page.url()).origin },
+            });
+            expect(replay.status(), await replay.text()).toBe(200);
+            expect(await replay.json()).toEqual({ revision: 1, stranded: [] });
+            expect(await hoursEvidence(staff.id)).toEqual(committed);
+            await page.reload();
+            const final = await openHours(page, staff.name);
+            await expectMondayOnly(final);
+            await expect(final.getByText(strings.hours.savedLocally, { exact: true })).toHaveCount(
+                0,
+            );
+            await testInfo.attach("committed-hours-evidence", {
+                body: JSON.stringify(committed),
+                contentType: "application/json",
+            });
+        } finally {
+            await context.setOffline(false);
+            await observer.close();
+            await staff.cleanup();
         }
-        await editor.getByRole("button", { name: strings.hours.saveHours, exact: true }).click();
-        await expect(editor.getByText(strings.hours.savedLocally, { exact: true })).toBeVisible();
-        expect(await hoursEvidence(staff.id)).toEqual(baseline);
-        await page.reload();
-        const restored = await openHours(page, staff.name);
-        await expectMondayOnly(restored);
-        await expect(restored.getByText(strings.hours.savedLocally, { exact: true })).toBeVisible();
-        expect(await hoursEvidence(staff.id)).toEqual(baseline);
-        const confirmed = page.waitForResponse(
-            (response) =>
-                new URL(response.url()).pathname === `/v1/hours/${staff.id}/week` &&
-                response.request().method() === "POST" &&
-                response.status() === 200,
-            { timeout: 60_000 },
-        );
-        await context.setOffline(false);
-        const response = await confirmed;
-        const command = response.request().postDataJSON() as HoursCommand;
-        expect(command.expected_revision).toBe(0);
-        expect(await response.json()).toEqual({ revision: 1, stranded: [] });
-        await expect(restored.getByText(strings.hours.savedLocally, { exact: true })).toHaveCount(
-            0,
-            { timeout: 60_000 },
-        );
-        await navigate(owner, "/setup/team");
-        await expect(
-            owner
-                .getByRole("row", { name: strings.hours.rowLabel(staff.name), exact: true })
-                .getByText(strings.hours.perWeek(6), { exact: true }),
-        ).toBeVisible({ timeout: 60_000 });
-        const independent = await openHours(owner, staff.name);
-        await expectMondayOnly(independent);
-        const expectedDays = Array.from({ length: 7 }, (_, weekday) => ({
-            weekday,
-            available: weekday === 0,
-            start_time: weekday === 0 ? "10:00:00" : null,
-            end_time: weekday === 0 ? "16:00:00" : null,
-        }));
-        expect(command.days).toEqual(expectedDays);
-        const committed = await hoursEvidence(staff.id);
-        expect(committed.staff.hours_revision).toBe(1);
-        expect(committed.hours).toEqual(expectedDays);
-        expect(committed.receipts).toEqual([
-            {
-                device_id: command.request.device_id,
-                operation_id: command.request.operation_id,
-                version: 2,
-                result: { revision: 1 },
-            },
-        ]);
-        expect(committed.audits).toEqual([
-            {
-                action: "hours.week",
-                performed_by: baseline.staff.user_id,
-                changes: { revision: 1 },
-            },
-        ]);
-        const api = process.env.VITE_API_URL ?? "http://localhost:8701";
-        const replay = await page.request.post(`${api}/v1/hours/${staff.id}/week`, {
-            data: command,
-            headers: { Origin: new URL(page.url()).origin },
-        });
-        expect(replay.status(), await replay.text()).toBe(200);
-        expect(await replay.json()).toEqual({ revision: 1, stranded: [] });
-        expect(await hoursEvidence(staff.id)).toEqual(committed);
-        await page.reload();
-        const final = await openHours(page, staff.name);
-        await expectMondayOnly(final);
-        await expect(final.getByText(strings.hours.savedLocally, { exact: true })).toHaveCount(0);
-        await testInfo.attach("committed-hours-evidence", {
-            body: JSON.stringify(committed),
-            contentType: "application/json",
-        });
-    } finally {
-        await context.setOffline(false);
-        await observer.close();
-        await staff.cleanup();
-    }
-});
+    },
+);

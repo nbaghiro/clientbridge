@@ -3,6 +3,7 @@ import io
 import json
 import logging
 import os
+import re
 import select as readiness
 import signal
 import socket
@@ -13,7 +14,7 @@ from collections.abc import AsyncIterator, Callable
 from contextlib import ExitStack, suppress
 from datetime import datetime
 from pathlib import Path
-from typing import IO
+from typing import IO, cast
 from uuid import UUID
 
 import httpx
@@ -27,7 +28,15 @@ from pydantic import ValidationError
 from scripts import e2e_stack as functional
 from scripts import e2e_stripe_recover as recovery
 from scripts import e2e_stripe_stack as runner
-from scripts.e2e_results import REQUIRED_CASES, Attempt, Report, Spec, Suite
+from scripts.e2e_results import (
+    BROWSER_CASES,
+    REQUIRED_CASES,
+    Attempt,
+    Report,
+    Spec,
+    Suite,
+    browser_cases,
+)
 from scripts.e2e_results import Test as FunctionalTest
 from scripts.e2e_stack import environment, stop
 from scripts.e2e_stripe_recover import Fixture, Manifest, recover
@@ -477,6 +486,99 @@ def test_functional_evidence_cannot_certify_missing_or_unclean_work(failure: str
         report.validate_evidence(required)
 
 
+def _run(project: str, *statuses: str) -> list[FunctionalTest]:
+    return [
+        FunctionalTest(
+            expectedStatus="passed",
+            status="expected" if status == "passed" else "unexpected",
+            results=[Attempt(status=status, retry=0)],
+            projectName=project,
+        )
+        for status in statuses
+    ]
+
+
+def test_browser_evidence_needs_each_case_in_each_browser() -> None:
+    title = "sign up, confirm the email with the mailed code, then open a business"
+    report = Report(
+        errors=[],
+        suites=[Suite(specs=[Spec(title=title, tests=_run("firefox", "passed"))])],
+    )
+    report.validate_evidence([], {"firefox": [title]})
+    with pytest.raises(ValueError, match="in webkit"):
+        report.validate_evidence([], {"firefox": [title], "webkit": [title]})
+    with pytest.raises(ValueError, match="missing"):
+        report.validate_evidence(["sign up"])
+
+
+def test_every_browser_case_is_tagged_and_named_once() -> None:
+    root = Path(__file__).resolve().parents[2] / "frontend" / "apps"
+    sources = "\n".join(
+        path.read_text()
+        for app in ("web", "connect")
+        for path in (root / app / "e2e").glob("*.ts")
+        if "@browsers" in path.read_text()
+    )
+    identities = [identity for cases in BROWSER_CASES.values() for identity in cases.values()]
+    assert len(identities) == len(set(identities))
+    assert len(set(BROWSER_CASES["web"]) | set(BROWSER_CASES["connect"])) == len(
+        BROWSER_CASES["web"]
+    ) + len(BROWSER_CASES["connect"])
+    for identity in identities:
+        assert re.search(rf'test\(\s*"{re.escape(identity)}[ "]', sources), identity
+    assert sources.count('tag: "@browsers"') == len(identities)
+
+
+def test_first_attempts_separate_flakes_from_failures() -> None:
+    report = Report(
+        errors=[],
+        suites=[
+            Suite(
+                specs=[
+                    Spec(title="CASE-01 steady", tests=_run("default", "passed", "passed")),
+                    Spec(title="CASE-02 shaky", tests=_run("default", "passed", "failed")),
+                    Spec(title="CASE-03 broken", tests=_run("webkit", "timedOut", "failed")),
+                ]
+            )
+        ],
+    )
+    assert [(o["case"], o["verdict"]) for o in report.first_attempts()] == [
+        ("CASE-01 steady", "stable"),
+        ("CASE-02 shaky", "flaky"),
+        ("CASE-03 broken", "failing"),
+    ]
+    with pytest.raises(ValueError):
+        report.validate_evidence([])
+
+
+def test_a_shuffled_lane_imports_every_listed_file_in_its_seeded_order(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    listed = ["auth.e2e.ts", "billing.e2e.ts", "crm.e2e.ts", "sales.e2e.ts"]
+
+    def listing(*_: object, **__: object) -> subprocess.CompletedProcess[str]:
+        suites = [{"file": name} for name in reversed(listed)]
+        return subprocess.CompletedProcess([], 0, json.dumps({"suites": suites}), "")
+
+    monkeypatch.setattr(functional, "ROOT", tmp_path)
+    monkeypatch.setattr(functional.subprocess, "run", listing)
+    stack = argparse.Namespace(project="e2e-000000000000", env={}, directory=tmp_path)
+    args = argparse.Namespace(surface="web", project="default", tests=[])
+    config = Path(functional.shuffled_config(cast(functional.Stack, stack), args, 7))
+    wrappers = sorted((config.parent / "cases").iterdir())
+    order = [path.read_text().split("/")[-1].removesuffix('";\n') for path in wrappers]
+    assert sorted(order) == listed
+    assert order == json.loads((tmp_path / "shuffle.json").read_text())["files"]
+    again = functional.shuffled_config(
+        cast(functional.Stack, argparse.Namespace(**{**vars(stack), "project": "e2e-1"})), args, 7
+    )
+    assert [p.name for p in sorted((Path(again).parent / "cases").iterdir())] == [
+        p.name for p in wrappers
+    ]
+    assert 'testMatch: "*.ts"' in config.read_text()
+    assert str(tmp_path / "frontend" / "apps" / "web") in config.read_text()
+
+
 def test_functional_cleanup_kills_a_descendant_after_its_leader_exits() -> None:
     child = (
         "import os, signal, socket, time; "
@@ -585,12 +687,23 @@ class _Runtime:
                 status="expected",
                 results=[Attempt(status="passed", retry=0)],
             )
+            browsers = browser_cases("stripe")
             report = Report(
                 errors=[],
                 suites=[
                     Suite(
                         specs=[
-                            Spec(title=f"{identity} harness fixture", tests=[result])
+                            Spec(
+                                title=f"{identity} harness fixture",
+                                tests=[
+                                    result,
+                                    *(
+                                        result.model_copy(update={"projectName": project})
+                                        for project, cases in browsers.items()
+                                        if identity in cases
+                                    ),
+                                ],
+                            )
                             for identity in REQUIRED_CASES["stripe"]
                         ]
                     )

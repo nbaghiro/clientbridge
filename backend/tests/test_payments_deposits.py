@@ -192,13 +192,23 @@ def test_deposit_resend_requires_exact_booking_lineage() -> None:
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("wrong_booking", [False, True])
+@pytest.mark.parametrize("case", ["visit", "wrong_booking", "enrolment", "unbound_enrolment"])
 async def test_deposit_recovery_cancels_only_exact_owned_intent(
-    monkeypatch: pytest.MonkeyPatch, wrong_booking: bool
+    monkeypatch: pytest.MonkeyPatch, case: str
 ) -> None:
     from scripts.e2e_stripe_recover import recover
 
-    manifest = Manifest.model_validate(state())
+    wrong_booking = case == "wrong_booking"
+    raw = state()
+    if case.endswith("enrolment"):
+        rows = raw["deposit_fixtures"]
+        assert isinstance(rows, list)
+        row = rows[0]
+        assert isinstance(row, dict)
+        row["kind"] = "enrolment"
+        if case == "unbound_enrolment":
+            del row["booking"]
+    manifest = Manifest.model_validate(raw)
     env = {
         "STRIPE_TEST_PLATFORM": "acct_platform",
         "STRIPE_TEST_CONNECTED_ACCOUNT": "acct_owned",
@@ -244,7 +254,10 @@ async def test_deposit_recovery_cancels_only_exact_owned_intent(
             {
                 "id": identity,
                 "livemode": False,
-                "metadata": deposits.deposit_tags(str(manifest.run_id), "bk_owned", "cl_owned"),
+                "metadata": deposits.fixture_tags(
+                    str(manifest.run_id), manifest.deposit_fixtures[0]
+                )
+                | {"clientbridge_qa_environment": "local"},
             },
             None,
         )
@@ -270,7 +283,11 @@ async def test_deposit_recovery_cancels_only_exact_owned_intent(
     monkeypatch.setattr(stripe.PaymentIntent, "list_async", intents)
     monkeypatch.setattr(stripe.PaymentIntent, "retrieve_async", intent)
     monkeypatch.setattr(stripe.PaymentIntent, "cancel_async", cancel)
-    if wrong_booking:
+    if case == "unbound_enrolment":
+        with pytest.raises(ValueError, match="unbound"):
+            await recover(manifest, env, "local", apply=True)
+        assert operations == []
+    elif wrong_booking:
         with pytest.raises(ValueError, match="unrelated"):
             await recover(manifest, env, "local", apply=True)
         assert operations == []
@@ -287,3 +304,36 @@ async def test_deposit_recovery_cancels_only_exact_owned_intent(
             {"intent": "pi_owned", "status": "already_canceled"}
         ]
         assert operations == ["pi_owned"]
+
+
+def test_an_enrolment_fixture_may_wait_for_its_booking_but_a_visit_may_not() -> None:
+    manifest = state()
+    manifest["deposit_fixtures"] = [
+        {"kind": "enrolment", "client": "cl_owned", "customer": "cus_owned"}
+    ]
+    (fixture,) = deposits.deposit_fixtures(manifest, complete=True)
+    assert deposits.fixture_tags("run", fixture) == deposits.enrolment_tags("run", "cl_owned")
+    assert "clientbridge_qa_booking" not in deposits.fixture_tags("run", fixture)
+    manifest["deposit_fixtures"] = [{"client": "cl_owned", "customer": "cus_owned"}]
+    with pytest.raises(ValueError, match="names its booking"):
+        deposits.deposit_fixtures(manifest)
+
+
+def test_a_bound_enrolment_resends_only_under_its_enrolment_tags() -> None:
+    from scripts.e2e_stripe_delivery import delivery_tags
+
+    manifest = state()
+    rows = manifest["deposit_fixtures"]
+    assert isinstance(rows, list)
+    row = rows[0]
+    assert isinstance(row, dict)
+    row["kind"] = "enrolment"
+    intent: dict[str, object] = {
+        "customer": "cus_owned",
+        "amount": 2000,
+        "currency": "cad",
+        "metadata": {"booking_id": "bk_owned", "business_id": "bz_birchbark"},
+    }
+    assert delivery_tags(manifest, intent) == deposits.enrolment_tags(
+        str(manifest["run_id"]), "cl_owned"
+    )

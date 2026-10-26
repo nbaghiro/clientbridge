@@ -4,6 +4,7 @@ import { PORTS, on } from "./e2e/hosts";
 
 const port = PORTS.default;
 const pseudoPort = PORTS.pseudo;
+const chromium = process.env.CI ? {} : { channel: "chrome" };
 
 // Needs the API on :8701 over a migrated, seeded Postgres: `make up migrate seed dev-api` first.
 export default defineConfig({
@@ -23,19 +24,25 @@ export default defineConfig({
         viewport: { width: 1280, height: 900 },
         trace: "retain-on-failure",
         screenshot: "only-on-failure",
-        ...(process.env.CI ? {} : { channel: "chrome" }),
     },
     projects: [
         {
             name: "default",
             testIgnore: "pseudo.e2e.ts",
-            use: { baseURL: on("book", "") },
+            use: { ...chromium, baseURL: on("book", "") },
         },
         {
             name: "pseudo",
             testMatch: "pseudo.e2e.ts",
-            use: { baseURL: on("book", "", "pseudo") },
+            use: { ...chromium, baseURL: on("book", "", "pseudo") },
         },
+        // the cases tagged @browsers carry the storage, navigation and payment risk
+        ...(["firefox", "webkit"] as const).map((browserName) => ({
+            name: browserName,
+            testIgnore: "pseudo.e2e.ts",
+            grep: /@browsers/,
+            use: { browserName, baseURL: on("book", "") },
+        })),
     ],
     webServer: [
         {

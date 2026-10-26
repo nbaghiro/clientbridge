@@ -1498,3 +1498,111 @@ def test_google_business_resources_are_gated_and_use_a_separate_key() -> None:
     assert "mybusiness.googleapis.com" in enabled_apis
     assert "mybusinessaccountmanagement.googleapis.com" in enabled_apis
     assert "mybusinessbusinessinformation.googleapis.com" in enabled_apis
+
+
+STRIPE_SANDBOX = {
+    "clientbridge:stripeTestSecretKey": "sk_test_sandbox",
+    "clientbridge:stripeTestPublishableKey": "pk_test_sandbox",
+    "clientbridge:stripeTestPlatform": "acct_platform",
+    "clientbridge:stripeTestConnectedAccount": "acct_merchant_a",
+    "clientbridge:stripeTestOtherAccount": "acct_merchant_b",
+}
+
+
+@pytest.fixture(scope="module")
+def with_stripe() -> Built:
+    return build_cloud(STRIPE_SANDBOX)
+
+
+def _sandbox(built: Built, kind: str) -> list[Registered]:
+    return [
+        each for each in of_type(built, kind) if dig(each.inputs, "environment") == "stripe-sandbox"
+    ]
+
+
+def test_the_stripe_sandbox_waits_for_its_configuration(cloud: Built) -> None:
+    assert not _sandbox(cloud, "github:index/repositoryEnvironment:RepositoryEnvironment")
+    assert not _sandbox(cloud, "github:index/actionsEnvironmentSecret:ActionsEnvironmentSecret")
+
+
+def test_the_stripe_sandbox_hands_main_its_test_keys_and_merchants(with_stripe: Built) -> None:
+    (environment,) = _sandbox(
+        with_stripe, "github:index/repositoryEnvironment:RepositoryEnvironment"
+    )
+    assert dig(environment.inputs, "deploymentBranchPolicy") == {
+        "protectedBranches": False,
+        "customBranchPolicies": True,
+    }
+    (policy,) = _sandbox(
+        with_stripe,
+        "github:index/repositoryEnvironmentDeploymentPolicy:RepositoryEnvironmentDeploymentPolicy",
+    )
+    assert dig(policy.inputs, "branchPattern") == "main"
+    secrets = _sandbox(
+        with_stripe, "github:index/actionsEnvironmentSecret:ActionsEnvironmentSecret"
+    )
+    assert {str(dig(each.inputs, "secretName")) for each in secrets} == {
+        "STRIPE_TEST_SECRET_KEY",
+        "STRIPE_TEST_PUBLISHABLE_KEY",
+    }
+    assert all(list(secret_values(each.inputs)) for each in secrets)
+    variables = {
+        str(dig(each.inputs, "variableName")): dig(each.inputs, "value")
+        for each in _sandbox(
+            with_stripe, "github:index/actionsEnvironmentVariable:ActionsEnvironmentVariable"
+        )
+    }
+    assert variables == {
+        "STRIPE_TEST_PLATFORM": "acct_platform",
+        "STRIPE_TEST_CONNECTED_ACCOUNT": "acct_merchant_a",
+        "STRIPE_TEST_OTHER_ACCOUNT": "acct_merchant_b",
+    }
+    assert not with_stripe.secret_outputs
+    # the workflow reads exactly these names, and only from main, which the policy also requires
+    jobs = dig(workflow("stripe-qa.yml"), "jobs")
+    assert isinstance(jobs, dict)
+    for job in jobs.values():
+        assert dig(job, "environment") == "stripe-sandbox"
+        assert dig(job, "if") == "github.ref == 'refs/heads/main'"
+        env = dig(job, "env")
+        assert isinstance(env, dict)
+        read = {
+            str(value).removeprefix("${{ ").removesuffix(" }}")
+            for value in env.values()
+            if str(value).startswith("${{ ")
+        }
+        assert read <= {
+            f"secrets.{name}" for name in ("STRIPE_TEST_SECRET_KEY", "STRIPE_TEST_PUBLISHABLE_KEY")
+        } | {f"vars.{name}" for name in variables}
+
+
+@pytest.mark.parametrize(
+    ("change", "message"),
+    [
+        ({"clientbridge:stripeTestOtherAccount": None}, "needs every key"),
+        ({"clientbridge:stripeTestOtherAccount": "acct_merchant_a"}, "must all differ"),
+        ({"clientbridge:stripeTestPlatform": "platform"}, "acct_"),
+    ],
+)
+def test_a_partial_or_mistaken_stripe_sandbox_stops_the_stack(
+    change: dict[str, str | None], message: str
+) -> None:
+    config = {key: value for key, value in (STRIPE_SANDBOX | change).items() if value is not None}
+    pulumi.runtime.set_all_config(config)
+    with pytest.raises(ValueError, match=message):
+        environments.stripe_sandbox(pulumi.Config("clientbridge"))
+
+
+@pytest.mark.parametrize(
+    ("value", "prefixes"), [("sk_live_x", ("sk_test_", "rk_test_")), ("pk_live_x", ("pk_test_",))]
+)
+def test_the_stripe_sandbox_refuses_a_live_key(value: str, prefixes: tuple[str, ...]) -> None:
+    with pytest.raises(ValueError, match="test-mode"):
+        environments.stripe_test_key(value, prefixes, "stripeTestSecretKey")
+
+
+def test_the_stripe_sandbox_keys_are_only_ever_committed_encrypted() -> None:
+    stack = yaml.safe_load((PROGRAM / "Pulumi.cloud.yaml").read_text())["config"]
+    for name in environments.STRIPE_SANDBOX_SECRETS:
+        value = stack.get(f"clientbridge:{name}")
+        assert value is None or set(value) == {"secure"}, name

@@ -22,7 +22,7 @@ from dotenv import dotenv_values
 
 from clientbridge.core import clock
 from clientbridge.integrations.stripe import STRIPE_API_VERSION
-from scripts.e2e_results import REQUIRED_CASES, Report
+from scripts.e2e_results import REQUIRED_CASES, Report, browser_cases
 from scripts.e2e_stack import ROOT, Stack, owned_processes, source_snapshot, stack_slot, stop
 from scripts.e2e_stripe_relay import Relay
 from scripts.stripe_qa import environment, preflight
@@ -267,7 +267,7 @@ def run(args: argparse.Namespace, directory: Path) -> None:
                         )
                     report = directory / "browser-results" / "results.json"
                     Report.model_validate_json(report.read_text()).validate_evidence(
-                        REQUIRED_CASES["stripe"]
+                        REQUIRED_CASES["stripe"], browser_cases("stripe")
                     )
                 finally:
                     record.update(stack.finish_worker())

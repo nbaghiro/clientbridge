@@ -7,8 +7,10 @@ import fcntl
 import hashlib
 import json
 import os
+import random
 import re
 import secrets
+import shutil
 import signal
 import socket
 import subprocess
@@ -26,7 +28,7 @@ from arq.connections import RedisSettings, create_pool
 from clientbridge.core import clock
 from clientbridge.core.config import Settings
 from clientbridge.core.zones import zone
-from scripts.e2e_results import REQUIRED_CASES, Report
+from scripts.e2e_results import BROWSERS, REQUIRED_CASES, Report, browser_cases
 
 ROOT = Path(__file__).resolve().parents[2]
 WORKER_SETTINGS = "clientbridge.tasks.worker.WorkerSettings"
@@ -664,6 +666,70 @@ def owned_processes(record: dict[str, object]) -> Iterator[ExitStack]:
             record["process_cleanup"] = "passed"
 
 
+def playwright_app(surface: str) -> str:
+    return "web" if surface in ("journeys", "filings") else surface
+
+
+def playwright_config(surface: str) -> str:
+    return (
+        f"playwright.{surface}.config.ts"
+        if surface in ("journeys", "filings")
+        else "playwright.config.ts"
+    )
+
+
+def shuffled_config(stack: "Stack", args: argparse.Namespace, seed: int) -> str:
+    """Order the lane's spec files by seed: Playwright runs files by name, so numbered wrappers."""
+    app = ROOT / "frontend" / "apps" / playwright_app(args.surface)
+    listing = subprocess.run(
+        [
+            "pnpm",
+            "exec",
+            "playwright",
+            "test",
+            f"--config={playwright_config(args.surface)}",
+            f"--project={args.project}",
+            "--list",
+            "--reporter=json",
+            *args.tests,
+        ],
+        cwd=app,
+        env=stack.env,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    suites = cast(list[dict[str, object]], json.loads(listing.stdout).get("suites", []))
+    files = sorted({str(suite["file"]) for suite in suites})
+    if not files:
+        raise ValueError("the shuffled lane selected no spec files")
+    random.Random(seed).shuffle(files)
+    directory = app / "test-results" / f"shuffle-{stack.project}"
+    cases = directory / "cases"
+    cases.mkdir(parents=True)
+    for rank, name in enumerate(files):
+        target = os.path.relpath(app / "e2e" / name, cases)
+        (cases / f"{rank:03d}-{Path(name).name}").write_text(f'import "{target}";\n')
+    config = directory / "playwright.config.ts"
+    config.write_text(
+        f'import base from "{os.path.relpath(app / playwright_config(args.surface), directory)}";\n'
+        "export default {\n"
+        "    ...base,\n"
+        '    testDir: "cases",\n'
+        "    projects: (base.projects ?? []).map((project) => ({\n"
+        '        ...project, testDir: "cases", testMatch: "*.ts", testIgnore: [],\n'
+        "    })),\n"
+        "    webServer: [base.webServer ?? []].flat().map((server) => ({\n"
+        f"        ...server, cwd: {json.dumps(str(app))},\n"
+        "    })),\n"
+        "};\n"
+    )
+    (stack.directory / "shuffle.json").write_text(
+        json.dumps({"seed": seed, "files": files}, indent=2) + "\n"
+    )
+    return str(config)
+
+
 def run_browsers(
     stack: Stack, args: argparse.Namespace, processes: ExitStack, log: IO[bytes]
 ) -> None:
@@ -675,26 +741,41 @@ def run_browsers(
             env=stack.env,
             text=True,
         )
+    measuring = args.repeat_each > 1 or args.shuffle_seed is not None
+    config = (
+        shuffled_config(stack, args, args.shuffle_seed)
+        if args.shuffle_seed is not None
+        else playwright_config(args.surface)
+    )
     command = [
         "pnpm",
         "--filter",
-        "web" if args.surface in ("journeys", "filings") else args.surface,
+        playwright_app(args.surface),
         "exec",
         "playwright",
         "test",
-        *(
-            [f"--config=playwright.{args.surface}.config.ts"]
-            if args.surface in ("journeys", "filings")
-            else []
-        ),
+        f"--config={config}",
         f"--project={args.project}",
+        *(["--fully-parallel", f"--repeat-each={args.repeat_each}"] if measuring else []),
         *args.tests,
     ]
-    with (stack.directory / "browser.log").open("wb") as browser_log:
-        stack.command(command, browser_log, frontend=True)
-    report = stack.directory / "browser-results" / "results.json"
-    required = [] if args.tests or args.project != "default" else REQUIRED_CASES[args.surface]
-    Report.model_validate_json(report.read_text()).validate_evidence(required)
+    report_path = stack.directory / "browser-results" / "results.json"
+    try:
+        with (stack.directory / "browser.log").open("wb") as browser_log:
+            stack.command(command, browser_log, frontend=True)
+    finally:
+        if args.shuffle_seed is not None:
+            shutil.rmtree(Path(config).parent)
+        if measuring and report_path.is_file():
+            outcomes = Report.model_validate_json(report_path.read_text()).first_attempts()
+            (stack.directory / "flakes.json").write_text(json.dumps(outcomes, indent=2) + "\n")
+    report = Report.model_validate_json(report_path.read_text())
+    if args.tests or measuring or args.project == "pseudo":
+        report.validate_evidence([])
+    elif args.project in BROWSERS:
+        report.validate_evidence([], {args.project: browser_cases(args.surface)[args.project]})
+    else:
+        report.validate_evidence(REQUIRED_CASES[args.surface])
 
 
 def main() -> None:
@@ -705,8 +786,10 @@ def main() -> None:
         "--surface", choices=("web", "connect", "journeys", "filings"), default="web"
     )
     parser.add_argument("--seed-as-of", type=seed_timestamp)
-    parser.add_argument("--project", choices=("default", "pseudo"), default="default")
+    parser.add_argument("--project", choices=("default", "pseudo", *BROWSERS), default="default")
     parser.add_argument("--allow-source-changes", action="store_true")
+    parser.add_argument("--repeat-each", type=int, default=1)
+    parser.add_argument("--shuffle-seed", type=int)
     parser.add_argument("tests", nargs=argparse.REMAINDER)
     args = parser.parse_args()
     if args.tests[:1] == ["--"]:
@@ -715,6 +798,10 @@ def main() -> None:
         parser.error("CI cannot accept source changes during a run")
     if args.surface in ("journeys", "filings") and args.project != "default":
         parser.error("journeys and filings use the default project")
+    if args.project in BROWSERS and args.surface not in ("web", "connect"):
+        parser.error("only the web and Connect lanes have Firefox and WebKit projects")
+    if args.repeat_each < 1:
+        parser.error("repeat-each must be at least 1")
     if args.cleanup and args.seed_as_of is not None:
         parser.error("cleanup cannot override a recorded seed date")
     if args.cleanup:
@@ -751,7 +838,7 @@ def main() -> None:
     anchor = args.seed_as_of
     if anchor is None and args.surface == "filings":
         anchor = filing_seed_anchor(clock.wall())
-    stack = Stack(directory, args.project, seed_as_of=anchor)
+    stack = Stack(directory, "pseudo" if args.project == "pseudo" else "default", seed_as_of=anchor)
     stack.configure()
     print(f"E2E project and diagnostics: {directory}", flush=True)
     if args.configure_only:
@@ -763,6 +850,12 @@ def main() -> None:
         "seed_as_of": anchor.isoformat() if anchor is not None else None,
         "browser_project": args.project,
         "tests": args.tests,
+        # a repeated or shuffled run measures flakes; it never qualifies a lane
+        "measurement": (
+            {"repeat_each": args.repeat_each, "shuffle_seed": args.shuffle_seed}
+            if args.repeat_each > 1 or args.shuffle_seed is not None
+            else None
+        ),
         "source": source_snapshot(),
         "outcome": "running",
         "cleanup": "pending",

@@ -166,119 +166,123 @@ function gridBookings(main: Locator): Locator {
     return main.getByRole("button", { name: /^\d{1,2}:\d{2} [ap]\.m\. – \d/ });
 }
 
-test("owner: shell, today, create menu, search, notifications and account menu", async ({
-    page,
-}) => {
-    const walk = await signIn(page, OWNER);
-    const { main } = walk;
-    const sidebar = page.locator("aside");
-    const n = strings.navigation;
+test(
+    "owner: shell, today, create menu, search, notifications and account menu",
+    { tag: "@browsers" },
+    async ({ page }) => {
+        const walk = await signIn(page, OWNER);
+        const { main } = walk;
+        const sidebar = page.locator("aside");
+        const n = strings.navigation;
 
-    await walk.step("today", async () => {
-        await expect(main.getByText(strings.today.schedule)).toBeVisible();
-        await expect(main.getByText(strings.today.needsYou)).toBeVisible();
-        await expect(main.getByText(strings.today.booked, { exact: true })).toBeVisible();
-        await main.getByRole("button", { name: strings.today.openSchedule }).click();
-        await expect(page).toHaveURL(/\/schedule$/);
-        await sidebar.getByRole("link", { name: n.today }).click();
-        await expect(page).toHaveURL(/\/today$/);
-    });
+        await walk.step("today", async () => {
+            await expect(main.getByText(strings.today.schedule)).toBeVisible();
+            await expect(main.getByText(strings.today.needsYou)).toBeVisible();
+            await expect(main.getByText(strings.today.booked, { exact: true })).toBeVisible();
+            await main.getByRole("button", { name: strings.today.openSchedule }).click();
+            await expect(page).toHaveURL(/\/schedule$/);
+            await sidebar.getByRole("link", { name: n.today }).click();
+            await expect(page).toHaveURL(/\/today$/);
+        });
 
-    await walk.step("create menu", async () => {
-        await sidebar.getByRole("button", { name: n.createMenu }).click();
-        const menu = page.getByRole("menu", { name: n.createMenu });
-        await expect(menu.getByRole("menuitem")).toHaveCount(7);
-        await page.keyboard.press("c");
-        await expect(page).toHaveURL(/\/clients$/);
-        await expect(page.getByRole("dialog")).toBeVisible();
-        await escapeDialog(page);
-    });
-
-    const create = async (label: string): Promise<void> => {
-        await navigate(page, "/today");
-        await sidebar.getByRole("button", { name: n.createMenu }).click();
-        await page
-            .getByRole("menu", { name: n.createMenu })
-            .getByRole("menuitem", { name: startsWith(label) })
-            .click();
-    };
-    const c = n.createActions;
-    await walk.step("create: booking", async () => {
-        await create(c.booking.label);
-        const composer = page.getByRole("form", { name: strings.bookings.newBooking });
-        await expect(composer).toBeVisible();
-        await composer.getByRole("button", { name: strings.common.close }).click();
-        await expect(composer).toBeHidden();
-    });
-    await walk.step("create: sale", async () => {
-        await create(c.sale.label);
-        await expect(page).toHaveURL(/\/payments\/sales$/);
-        await expect(main.getByText(strings.pos.desk.ticket, { exact: true })).toBeVisible();
-    });
-    for (const [key, path] of [
-        ["invoice", /\/payments\/invoices$/],
-        ["estimate", /\/payments\/invoices\?doc=estimates$/],
-        ["client", /\/clients$/],
-        ["message", /\/inbox$/],
-    ] as const) {
-        await walk.step(`create: ${key}`, async () => {
-            await create(c[key].label);
-            await expect(page).toHaveURL(path);
+        await walk.step("create menu", async () => {
+            await sidebar.getByRole("button", { name: n.createMenu }).click();
+            const menu = page.getByRole("menu", { name: n.createMenu });
+            await expect(menu.getByRole("menuitem")).toHaveCount(7);
+            await page.keyboard.press("c");
+            await expect(page).toHaveURL(/\/clients$/);
             await expect(page.getByRole("dialog")).toBeVisible();
             await escapeDialog(page);
         });
-    }
-    await walk.step("create: time off", async () => {
-        await create(c.timeOff.label);
-        await expect(page).toHaveURL(/\/setup\/team$/);
-        await expect(main.getByRole("button", { name: strings.hours.addTimeOff })).toBeVisible();
-    });
 
-    await walk.step("search", async () => {
-        await page.keyboard.press("ControlOrMeta+k");
-        const palette = page.getByRole("dialog");
-        await expect(palette.getByText(strings.search.jumpTo)).toBeVisible();
-        await page.keyboard.type("ma");
-        await expect(
-            palette.getByText(strings.search.clients, { exact: true }).first(),
-        ).toBeVisible();
-        await escapeDialog(page);
-    });
+        const create = async (label: string): Promise<void> => {
+            await navigate(page, "/today");
+            await sidebar.getByRole("button", { name: n.createMenu }).click();
+            await page
+                .getByRole("menu", { name: n.createMenu })
+                .getByRole("menuitem", { name: startsWith(label) })
+                .click();
+        };
+        const c = n.createActions;
+        await walk.step("create: booking", async () => {
+            await create(c.booking.label);
+            const composer = page.getByRole("form", { name: strings.bookings.newBooking });
+            await expect(composer).toBeVisible();
+            await composer.getByRole("button", { name: strings.common.close }).click();
+            await expect(composer).toBeHidden();
+        });
+        await walk.step("create: sale", async () => {
+            await create(c.sale.label);
+            await expect(page).toHaveURL(/\/payments\/sales$/);
+            await expect(main.getByText(strings.pos.desk.ticket, { exact: true })).toBeVisible();
+        });
+        for (const [key, path] of [
+            ["invoice", /\/payments\/invoices$/],
+            ["estimate", /\/payments\/invoices\?doc=estimates$/],
+            ["client", /\/clients$/],
+            ["message", /\/inbox$/],
+        ] as const) {
+            await walk.step(`create: ${key}`, async () => {
+                await create(c[key].label);
+                await expect(page).toHaveURL(path);
+                await expect(page.getByRole("dialog")).toBeVisible();
+                await escapeDialog(page);
+            });
+        }
+        await walk.step("create: time off", async () => {
+            await create(c.timeOff.label);
+            await expect(page).toHaveURL(/\/setup\/team$/);
+            await expect(
+                main.getByRole("button", { name: strings.hours.addTimeOff }),
+            ).toBeVisible();
+        });
 
-    await walk.step("notifications", async () => {
-        await sidebar.getByRole("button", { name: strings.notifications.title }).click();
-        const bell = page.getByRole("dialog", { name: strings.notifications.title });
-        await expect(bell).toBeVisible();
-        await page.keyboard.press("Escape");
-        await expect(bell).toBeHidden();
-    });
+        await walk.step("search", async () => {
+            await page.keyboard.press("ControlOrMeta+k");
+            const palette = page.getByRole("dialog");
+            await expect(palette.getByText(strings.search.jumpTo)).toBeVisible();
+            await page.keyboard.type("ma");
+            await expect(
+                palette.getByText(strings.search.clients, { exact: true }).first(),
+            ).toBeVisible();
+            await escapeDialog(page);
+        });
 
-    await walk.step("sidebar links", async () => {
-        await sidebar.getByRole("link", { name: n.schedule }).click();
-        await expect(page).toHaveURL(/\/schedule$/);
-        await sidebar.getByRole("link", { name: n.businessMenu }).click();
-        await expect(page).toHaveURL(/\/setup\/business$/);
-        await sidebar.getByRole("link", { name: n.today }).click();
-        await expect(page).toHaveURL(/\/today$/);
-    });
+        await walk.step("notifications", async () => {
+            await sidebar.getByRole("button", { name: strings.notifications.title }).click();
+            const bell = page.getByRole("dialog", { name: strings.notifications.title });
+            await expect(bell).toBeVisible();
+            await page.keyboard.press("Escape");
+            await expect(bell).toBeHidden();
+        });
 
-    await walk.step("account menu: your hours", async () => {
-        await sidebar.getByRole("button", { name: n.accountMenu }).click();
-        const account = page.getByRole("menu");
-        await expect(account.getByRole("menuitem", { name: n.signOut })).toBeVisible();
-        await account.getByRole("menuitem", { name: n.yourHours }).click();
-        await expect(page).toHaveURL(/\/setup\/team$/);
-        await expect(account).toBeHidden();
-    });
+        await walk.step("sidebar links", async () => {
+            await sidebar.getByRole("link", { name: n.schedule }).click();
+            await expect(page).toHaveURL(/\/schedule$/);
+            await sidebar.getByRole("link", { name: n.businessMenu }).click();
+            await expect(page).toHaveURL(/\/setup\/business$/);
+            await sidebar.getByRole("link", { name: n.today }).click();
+            await expect(page).toHaveURL(/\/today$/);
+        });
 
-    await walk.step("account menu: sign out", async () => {
-        await sidebar.getByRole("button", { name: n.accountMenu }).click();
-        await page.getByRole("menuitem", { name: n.signOut }).click();
-        await expect(page.locator('input[type="email"]')).toBeVisible();
-    });
+        await walk.step("account menu: your hours", async () => {
+            await sidebar.getByRole("button", { name: n.accountMenu }).click();
+            const account = page.getByRole("menu");
+            await expect(account.getByRole("menuitem", { name: n.signOut })).toBeVisible();
+            await account.getByRole("menuitem", { name: n.yourHours }).click();
+            await expect(page).toHaveURL(/\/setup\/team$/);
+            await expect(account).toBeHidden();
+        });
 
-    walk.expectNoErrors();
-});
+        await walk.step("account menu: sign out", async () => {
+            await sidebar.getByRole("button", { name: n.accountMenu }).click();
+            await page.getByRole("menuitem", { name: n.signOut }).click();
+            await expect(page.locator('input[type="email"]')).toBeVisible();
+        });
+
+        walk.expectNoErrors();
+    },
+);
 
 test("owner: schedule, booking panel, classes and repeat visits", async ({ page }) => {
     const walk = await signIn(page, OWNER);

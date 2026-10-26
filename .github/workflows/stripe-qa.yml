@@ -133,7 +133,7 @@ jobs:
         working-directory: backend
       - run: pnpm install --frozen-lockfile --ignore-scripts
         working-directory: frontend
-      - run: pnpm --filter connect exec playwright install --with-deps chromium
+      - run: pnpm --filter connect exec playwright install --with-deps chromium firefox webkit
         working-directory: frontend
       - name: install verified Stripe CLI
         run: |

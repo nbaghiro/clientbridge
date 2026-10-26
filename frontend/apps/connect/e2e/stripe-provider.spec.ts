@@ -27,15 +27,16 @@ import { receiptMessages } from "../../web/e2e/support/evidence";
 
 const authenticatedCard = "4000000000003220";
 
-test("STRIPE-BROWSER-01 customer pays a CAD invoice through Stripe.js and signed settlement persists", async ({
-    page,
-    request,
-}, info) => {
-    const { invoice, payment } = await openStripeInvoice(page, request);
-    await enterStripeCard(payment, "4242424242424242");
-    await submitStripeCard(page, info);
-    await settledStripeInvoice(page, request, invoice, info);
-});
+test(
+    "STRIPE-BROWSER-01 customer pays a CAD invoice through Stripe.js and signed settlement persists",
+    { tag: "@browsers" },
+    async ({ page, request }, info) => {
+        const { invoice, payment } = await openStripeInvoice(page, request);
+        await enterStripeCard(payment, "4242424242424242");
+        await submitStripeCard(page, info);
+        await settledStripeInvoice(page, request, invoice, info);
+    },
+);
 
 test("STRIPE-BROWSER-02 declined card stays unpaid then corrected card settles the same payment once", async ({
     page,
@@ -76,34 +77,37 @@ test("STRIPE-BROWSER-02 declined card stays unpaid then corrected card settles t
     expect(paid.stripe[0]?.id).toBe(failed.stripe[0]?.id);
 });
 
-test("STRIPE-BROWSER-03 completing a real 3DS challenge settles only after authentication", async ({
-    page,
-    request,
-}, info) => {
-    const { invoice, payment } = await openStripeInvoice(page, request);
-    await enterStripeCard(payment, authenticatedCard);
-    await submitStripeCard(page, info);
-    const challenge = await stripeChallenge(page);
-    await expect(page.getByRole("heading", { name: strings.publicPay.paidTitle })).toHaveCount(0);
-    const pending = await unpaidStripeInvoice(request, invoice);
-    expect(pending.payments[0]?.status).toBe("pending");
-    expect(pending.stripe[0]).toMatchObject({
-        status: "requires_action",
-        next_action_type: "use_stripe_sdk",
-    });
-    await info.attach("before-authentication", {
-        body: JSON.stringify(pending),
-        contentType: "application/json",
-    });
-    await challenge.getByRole("button", { name: "Complete", exact: true }).click();
-    const paid = await settledStripeInvoice(page, request, invoice, info);
-    expect(paid.stripe[0]?.three_d_secure).toMatchObject({
-        result: "authenticated",
-        authentication_flow: "challenge",
-    });
-    expect(paid.payments[0]?.id).toBe(pending.payments[0]?.id);
-    expect(paid.stripe[0]?.id).toBe(pending.stripe[0]?.id);
-});
+test(
+    "STRIPE-BROWSER-03 completing a real 3DS challenge settles only after authentication",
+    { tag: "@browsers" },
+    async ({ page, request }, info) => {
+        const { invoice, payment } = await openStripeInvoice(page, request);
+        await enterStripeCard(payment, authenticatedCard);
+        await submitStripeCard(page, info);
+        const challenge = await stripeChallenge(page);
+        await expect(page.getByRole("heading", { name: strings.publicPay.paidTitle })).toHaveCount(
+            0,
+        );
+        const pending = await unpaidStripeInvoice(request, invoice);
+        expect(pending.payments[0]?.status).toBe("pending");
+        expect(pending.stripe[0]).toMatchObject({
+            status: "requires_action",
+            next_action_type: "use_stripe_sdk",
+        });
+        await info.attach("before-authentication", {
+            body: JSON.stringify(pending),
+            contentType: "application/json",
+        });
+        await challenge.getByRole("button", { name: "Complete", exact: true }).click();
+        const paid = await settledStripeInvoice(page, request, invoice, info);
+        expect(paid.stripe[0]?.three_d_secure).toMatchObject({
+            result: "authenticated",
+            authentication_flow: "challenge",
+        });
+        expect(paid.payments[0]?.id).toBe(pending.payments[0]?.id);
+        expect(paid.stripe[0]?.id).toBe(pending.stripe[0]?.id);
+    },
+);
 
 test("STRIPE-BROWSER-04 closing a real 3DS challenge leaves the invoice unpaid after reload", async ({
     page,

@@ -6,9 +6,10 @@ import pulumi
 import pulumi_github as github
 
 from cloud.identity import Ci
-from environments import Environment
+from environments import Environment, StripeSandbox
 
 DEPLOY_BRANCH = "main"
+STRIPE_SANDBOX = "stripe-sandbox"
 
 
 def create(
@@ -20,6 +21,7 @@ def create(
     envs: Sequence[Environment],
     state_url: str,
     google_services: Mapping[str, pulumi.Output[str]],
+    stripe: StripeSandbox | None,
 ) -> None:
     """Everything deploy.yml reads, applied with the administrator's GITHUB_TOKEN."""
     owner, name = repository.split("/", 1)
@@ -79,5 +81,53 @@ def create(
             environment=environment.environment,
             secret_name="GOOGLE_SERVICES",
             value=google_services[env.name],
+            opts=opts,
+        )
+    if stripe is not None:
+        sandbox(name, stripe, opts)
+
+
+def sandbox(repository: str, stripe: StripeSandbox, opts: pulumi.ResourceOptions) -> None:
+    """stripe-qa.yml's environment: only main reaches its test keys and CI merchants."""
+    environment = github.RepositoryEnvironment(
+        "environment-stripe-sandbox",
+        repository=repository,
+        environment=STRIPE_SANDBOX,
+        deployment_branch_policy={"protected_branches": False, "custom_branch_policies": True},
+        opts=opts,
+    )
+    github.RepositoryEnvironmentDeploymentPolicy(
+        "environment-stripe-sandbox-branch",
+        repository=repository,
+        environment=environment.environment,
+        branch_pattern=DEPLOY_BRANCH,
+        opts=opts,
+    )
+    secrets = {
+        "STRIPE_TEST_SECRET_KEY": stripe.secret_key,
+        # a secret only so Actions masks it, like the Firebase file
+        "STRIPE_TEST_PUBLISHABLE_KEY": stripe.publishable_key,
+    }
+    for key, value in secrets.items():
+        github.ActionsEnvironmentSecret(
+            f"environment-stripe-sandbox-{key.lower()}",
+            repository=repository,
+            environment=environment.environment,
+            secret_name=key,
+            value=value,
+            opts=opts,
+        )
+    variables = {
+        "STRIPE_TEST_PLATFORM": stripe.platform,
+        "STRIPE_TEST_CONNECTED_ACCOUNT": stripe.connected_account,
+        "STRIPE_TEST_OTHER_ACCOUNT": stripe.other_account,
+    }
+    for key, value in variables.items():
+        github.ActionsEnvironmentVariable(
+            f"environment-stripe-sandbox-{key.lower()}",
+            repository=repository,
+            environment=environment.environment,
+            variable_name=key,
+            value=value,
             opts=opts,
         )

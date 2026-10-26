@@ -53,6 +53,7 @@ class Manifest(BaseModel):
                 raise ValueError("duplicate fixture ownership")
         for field in ("booking", "client", "customer"):
             values = [getattr(fixture, field) for fixture in self.deposit_fixtures]
+            values = [value for value in values if value is not None or field != "booking"]
             if len(values) != len(set(values)):
                 raise ValueError("duplicate deposit fixture ownership")
         for field in ("client", "customer"):
@@ -122,7 +123,7 @@ async def recover(
             or (await stripe.Balance.retrieve_async(stripe_account=account)).livemode
         ):
             raise ValueError("merchant ownership or test mode mismatch")
-    owned: list[tuple[stripe.PaymentIntent, dict[str, str]]] = []
+    owned: list[tuple[stripe.PaymentIntent, dict[str, str], str, str]] = []
     for fixture in [*manifest.fixtures, *manifest.deposit_fixtures]:
         if fixture.customer is None:
             raise ValueError("incomplete customer lineage")
@@ -134,7 +135,10 @@ async def recover(
         }
         source = "booking" if isinstance(fixture, DepositFixture) else "invoice"
         target = fixture.booking if isinstance(fixture, DepositFixture) else fixture.invoice
-        expected[f"clientbridge_qa_{source}"] = target
+        if isinstance(fixture, DepositFixture) and fixture.kind == "enrolment":
+            expected["clientbridge_qa_enrolment"] = fixture.client
+        elif target is not None:
+            expected[f"clientbridge_qa_{source}"] = target
         customer = await stripe.Customer.retrieve_async(
             fixture.customer, stripe_account=manifest.account
         )
@@ -148,6 +152,8 @@ async def recover(
             customer=customer.id, stripe_account=manifest.account
         )
         async for intent in intents.auto_paging_iter():
+            if target is None:
+                raise ValueError("an unbound enrolment's customer has an intent; cannot prove it")
             if isinstance(fixture, DepositFixture):
                 validate_deposit_intent(intent, fixture)
             metadata = intent.to_dict().get("metadata", {})
@@ -161,17 +167,17 @@ async def recover(
                 or intent.currency != "cad"
             ):
                 raise ValueError("registered customer has an intent outside this exact fixture")
-            owned.append((intent, expected))
+            owned.append((intent, expected, source, target))
     # Validate every fixture before the first mutation, so conflicting ownership fails closed.
     results = actions if actions is not None else []
     plans = [
         await cleanup_intent(manifest.account, intent, metadata, apply=False)
-        for intent, metadata in owned
+        for intent, metadata, _, _ in owned
     ]
     if not apply:
         results.extend(plans)
         return results
-    for intent, metadata in owned:
+    for intent, metadata, source, target in owned:
         current = await stripe.PaymentIntent.retrieve_async(
             intent.id, stripe_account=manifest.account
         )
@@ -181,11 +187,8 @@ async def recover(
             or current.customer != intent.customer
             or current.amount != intent.amount
             or current.currency != intent.currency
-            or current_tags.get(
-                "booking_id" if "clientbridge_qa_booking" in metadata else "invoice_id"
-            )
-            != metadata.get("clientbridge_qa_booking", metadata.get("clientbridge_qa_invoice"))
-            or ("clientbridge_qa_booking" in metadata and current_tags.get("invoice_id"))
+            or current_tags.get(f"{source}_id") != target
+            or (source == "booking" and current_tags.get("invoice_id"))
             or current_tags.get("business_id") != manifest.business
         ):
             raise ValueError("owned intent identity changed during recovery")

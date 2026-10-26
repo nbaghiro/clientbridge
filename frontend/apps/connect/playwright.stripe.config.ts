@@ -27,6 +27,14 @@ export default defineConfig({
         video: "off",
         screenshot: "off",
     },
+    projects: [
+        { name: "default" },
+        ...(["firefox", "webkit"] as const).map((browserName) => ({
+            name: browserName,
+            grep: /@browsers/,
+            use: { browserName },
+        })),
+    ],
     webServer: [
         {
             command: `pnpm exec vite build && pnpm exec vite preview --port ${String(PORTS.default)} --strictPort`,

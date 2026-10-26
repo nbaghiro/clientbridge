@@ -66,10 +66,11 @@ async def provision(
     prepare: bool = False,
     bank: bool = False,
     environment: str = "local",
+    onboarding: bool = False,
 ) -> dict[str, object]:
     if environment not in ("local", "ci"):
         raise ValueError("merchant environment must be local or ci")
-    if (prepare or bank) and not apply:
+    if (prepare or bank or onboarding) and not apply:
         raise ValueError("sandbox mutations require --apply")
     config = tomllib.loads((Path.home() / ".config/stripe/config.toml").read_text())
     selected = config[profile]
@@ -183,8 +184,25 @@ async def provision(
             account = await stripe.Account.retrieve_async(account.id)
         status = account_status_from(account.id, data)
         output[variable] = account.id
+        link: str | None = None
+        if onboarding and not (account.charges_enabled and account.payouts_enabled):
+            # Stripe-hosted onboarding accepts the terms, which no API call does for the account
+            created_link = await client.v2.core.account_links.create_async(
+                {
+                    "account": account.id,
+                    "use_case": {
+                        "type": "account_onboarding",
+                        "account_onboarding": {
+                            "refresh_url": "https://accessible.stripe.com",
+                            "return_url": "https://accessible.stripe.com",
+                        },
+                    },
+                }
+            )
+            link = created_link.url
         rows.append(
             {
+                "onboarding_url": link,
                 "slot": slot,
                 "id": account.id,
                 "charges_enabled": account.charges_enabled,
@@ -215,20 +233,35 @@ async def main() -> None:
         "--bank", action="store_true", help="attach documented CA test bank; requires --apply"
     )
     parser.add_argument(
+        "--onboarding-links",
+        action="store_true",
+        help="print a Stripe-hosted onboarding link for each unready merchant; requires --apply",
+    )
+    parser.add_argument(
+        "--output", type=Path, help="also write the merchant manifest here, readable only by you"
+    )
+    parser.add_argument(
         "--prepare",
         action="store_true",
         help="prefill synthetic identity/profile values; requires --apply; no terms or bank writes",
     )
     args = parser.parse_args()
     try:
-        print(
-            json.dumps(
-                await provision(
-                    args.profile, args.apply, args.prepare, args.bank, args.environment
-                ),
-                indent=2,
-            )
+        manifest = json.dumps(
+            await provision(
+                args.profile,
+                args.apply,
+                args.prepare,
+                args.bank,
+                args.environment,
+                args.onboarding_links,
+            ),
+            indent=2,
         )
+        print(manifest)
+        if args.output is not None:
+            args.output.write_text(manifest + "\n")
+            args.output.chmod(0o600)
     finally:
         await close_stripe_client()
 

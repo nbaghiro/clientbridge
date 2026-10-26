@@ -4,7 +4,7 @@ import { promisify } from "node:util";
 import { expect } from "@playwright/test";
 
 export interface DepositFixture {
-    kind: "booking_deposit";
+    kind: "booking_deposit" | "enrolment_deposit";
     bookingId: string;
     clientId: string;
     account: string;
@@ -27,6 +27,8 @@ interface DepositEntry {
 }
 export interface DepositEvidence {
     businessId: string;
+    owned_bookings: { id: string }[];
+    documents: { id: string }[];
     booking: { id: string; invoice_id: string | null; deposit_status: string };
     invoice: {
         id: string;
@@ -91,6 +93,28 @@ export async function registerStripeDeposit(input: {
     ]);
     expect(fixture).toMatchObject({ ...input, kind: "booking_deposit" });
     expect(fixture.account).toMatch(/^acct_/);
+    return fixture;
+}
+export async function registerEnrolmentClient(clientId: string): Promise<void> {
+    const fixture = await invoke<Omit<DepositFixture, "bookingId"> & { bookingId: null }>(
+        "scripts.e2e_stripe_deposits",
+        ["register-client", clientId],
+    );
+    expect(fixture).toMatchObject({ kind: "enrolment_deposit", clientId, bookingId: null });
+}
+export async function bindEnrolment(clientId: string, bookingId: string): Promise<DepositFixture> {
+    const fixture = await invoke<DepositFixture>("scripts.e2e_stripe_deposits", [
+        "bind",
+        clientId,
+        bookingId,
+    ]);
+    expect(fixture).toMatchObject({
+        kind: "enrolment_deposit",
+        clientId,
+        bookingId,
+        amountCents: 2000,
+        currency: "CAD",
+    });
     return fixture;
 }
 export async function linkStripeDepositInvoice(

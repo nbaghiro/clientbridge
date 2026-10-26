@@ -29,6 +29,8 @@ help:
 	@echo "test-connect     Connect e2e: booking, manage link, shop and every client page (needs the API + seed)"
 	@echo "test-functional  disposable full-stack browser journeys (FUNCTIONAL_ARGS selects surface/project/specs)"
 	@echo "test-stripe-browser  isolated sandbox checkout (STRIPE_BROWSER_ARGS selects credentials mode)"
+	@echo "test-flakes      a functional lane shuffled by FLAKE_SEED and repeated FLAKE_REPEAT times; fails on any flake"
+	@echo "test-mutations   break a few invariants in a throwaway worktree and require their cases to fail"
 	@echo "test-mobile      Maestro native walkthroughs (needs a development build, local stack + seed)"
 	@echo "test-sync        disposable Postgres + PowerSync: replica rows per role, revocation, key rotation"
 	@echo "replication-health  local PowerSync readiness, slot, retained WAL and replay lag"
@@ -135,6 +137,20 @@ test-site:
 .PHONY: test-functional
 test-functional:
 	cd backend && uv run python -m scripts.e2e_stack $(FUNCTIONAL_ARGS)
+
+FLAKE_REPEAT ?= 3
+FLAKE_SEED ?= $(shell date +%s)
+FLAKE_ARGS ?= --surface web
+
+# Measures flakes, never qualifies a lane: the report is in the run's flakes.json.
+.PHONY: test-flakes
+test-flakes:
+	cd backend && uv run python -m scripts.e2e_stack --repeat-each $(FLAKE_REPEAT) --shuffle-seed $(FLAKE_SEED) $(FLAKE_ARGS)
+
+# Works on a committed revision in a temporary worktree, so the checkout is never changed.
+.PHONY: test-mutations
+test-mutations:
+	cd backend && uv run python -m scripts.e2e_mutations $(MUTATION_ARGS)
 
 test-web:
 	cd backend && uv run python -m scripts.web_fixtures && uv run python -m scripts.sync_caught_up

@@ -10,7 +10,7 @@ from sqlalchemy import text
 from clientbridge.core.db import engine
 from clientbridge.integrations.stripe import close_stripe_client
 from scripts.e2e_stripe_browser import BUSINESS, guard
-from scripts.e2e_stripe_deposits import DepositFixture, deposit_tags, load_deposit
+from scripts.e2e_stripe_deposits import DepositFixture, fixture_tags, load_deposit
 from scripts.e2e_stripe_setup import identity, state_path
 
 
@@ -73,9 +73,7 @@ async def provider_evidence(account: str, fixture: DepositFixture, run: str) -> 
     if fixture.customer is None:
         raise ValueError("deposit customer must be registered before observation")
     customer = await stripe.Customer.retrieve_async(fixture.customer, stripe_account=account)
-    if customer.livemode or customer.to_dict().get("metadata") != deposit_tags(
-        run, fixture.booking, fixture.client
-    ):
+    if customer.livemode or customer.to_dict().get("metadata") != fixture_tags(run, fixture):
         raise ValueError("deposit customer ownership mismatch")
     intents: list[dict[str, object]] = []
     refunds: list[dict[str, object]] = []
@@ -182,7 +180,7 @@ async def evidence(booking_id: str) -> dict[str, object]:
         )
         if ready != 1:
             raise ValueError("registered provider customer and local business do not match")
-    result = await raw_evidence(BUSINESS, fixture.client, fixture.booking, fixture.invoice)
+    result = await raw_evidence(BUSINESS, fixture.client, booking_id, fixture.invoice)
     result["provider"] = await provider_evidence(account, fixture, str(expected["run_id"]))
     return result
 

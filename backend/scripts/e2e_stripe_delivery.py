@@ -10,7 +10,7 @@ import stripe
 
 from clientbridge.integrations.stripe import close_stripe_client
 from scripts.e2e_stripe_browser import guard
-from scripts.e2e_stripe_deposits import deposit_tags, load_deposit
+from scripts.e2e_stripe_deposits import fixture_tags, load_deposit
 from scripts.e2e_stripe_setup import identity, state_path, tags
 
 
@@ -23,7 +23,7 @@ def delivery_tags(state: dict[str, object], intent: dict[str, object]) -> dict[s
         if metadata.get("invoice_id") or not deposit.customer:
             raise ValueError("ambiguous deposit event lineage")
         customer = deposit.customer
-        expected = deposit_tags(str(state["run_id"]), deposit.booking, deposit.client)
+        expected = fixture_tags(str(state["run_id"]), deposit)
     else:
         rows = state.get("fixtures")
         if not isinstance(rows, list):

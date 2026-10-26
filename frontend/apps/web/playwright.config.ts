@@ -2,6 +2,9 @@ import { defineConfig } from "@playwright/test";
 
 const port = Number(process.env.WEB_E2E_PORT ?? "8721");
 const pseudoPort = Number(process.env.WEB_PSEUDO_E2E_PORT ?? "8724");
+const baseURL = `http://localhost:${String(port)}`;
+
+export const chromium = process.env.CI ? {} : { channel: "chrome" };
 
 // Needs the local stack (API, PowerSync, seeded Postgres): `make up migrate seed dev-api` first.
 export default defineConfig({
@@ -22,19 +25,21 @@ export default defineConfig({
         trace: "retain-on-failure",
         video: process.env.E2E_RECORD === "1" ? "on" : "off",
         screenshot: "only-on-failure",
-        ...(process.env.CI ? {} : { channel: "chrome" }),
     },
     projects: [
-        {
-            name: "default",
-            testIgnore: "pseudo.e2e.ts",
-            use: { baseURL: `http://localhost:${String(port)}` },
-        },
+        { name: "default", testIgnore: "pseudo.e2e.ts", use: { ...chromium, baseURL } },
         {
             name: "pseudo",
             testMatch: "pseudo.e2e.ts",
-            use: { baseURL: `http://localhost:${String(pseudoPort)}` },
+            use: { ...chromium, baseURL: `http://localhost:${String(pseudoPort)}` },
         },
+        // the cases tagged @browsers carry the auth, storage, navigation and payment risk
+        ...(["firefox", "webkit"] as const).map((browserName) => ({
+            name: browserName,
+            testIgnore: "pseudo.e2e.ts",
+            grep: /@browsers/,
+            use: { browserName, baseURL },
+        })),
     ],
     webServer: [
         {

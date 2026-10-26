@@ -152,6 +152,36 @@ thin event destinations, API versions, payment domains, Dashboard setup and sand
 The [credentials table](payments.md#credentials-and-runtime-settings) maps Stripe settings to their roles;
 this document remains the reference for Secret Manager, infrastructure and deployment procedures.
 
+### Stripe sandbox for hosted CI
+
+`stripe-qa.yml` runs the backend sandbox suite and the real Stripe browser lane by hand, from `main` only. Both jobs read the protected GitHub environment `stripe-sandbox`: the secrets `STRIPE_TEST_SECRET_KEY` and `STRIPE_TEST_PUBLISHABLE_KEY`, and the variables `STRIPE_TEST_PLATFORM`, `STRIPE_TEST_CONNECTED_ACCOUNT` and `STRIPE_TEST_OTHER_ACCOUNT`. The cloud stack creates that environment from its config once all five keys are set, with a deployment branch policy that admits only `main`, the same rule the workflow's `if` applies. Until then it creates nothing, and a partly set group stops the stack.
+
+CI uses its own pair of merchants, tagged `clientbridge_qa_environment=ci`, so a hosted run never shares a merchant lease with a local one. To create them, with the local `clientbridge` Stripe CLI profile on the sandbox platform:
+
+```sh
+cd backend
+uv run python -m scripts.stripe_qa_accounts --environment ci   # read-only: shows what exists
+uv run python -m scripts.stripe_qa_accounts --environment ci --apply --prepare --bank \
+  --onboarding-links --output ../.scratchpad/stripe-ci-merchants.json
+```
+
+The second command creates the two accounts if they're missing (its idempotency keys make a rerun safe), fills in Stripe's documented test identity, attaches the Canadian test bank account and prints a Stripe-hosted onboarding link for each merchant that can't take charges yet. Opening each link accepts the terms, which no API call does for these accounts. Rerun the read-only command until both merchants show `charges_enabled` and `payouts_enabled` with nothing currently due.
+
+Then set the stack config from the manifest and apply the cloud stack:
+
+```sh
+cd infra/pulumi
+pulumi stack select cloud
+pulumi config set --secret stripeTestSecretKey      # the sandbox platform's sk_test_ or rk_test_ key
+pulumi config set --secret stripeTestPublishableKey # its pk_test_ key
+pulumi config set stripeTestPlatform acct_…
+pulumi config set stripeTestConnectedAccount acct_… # slot a in the manifest
+pulumi config set stripeTestOtherAccount acct_…     # slot b
+pulumi up
+```
+
+The two keys are stored encrypted in `Pulumi.cloud.yaml`, and `tests/test_program.py` fails if either is committed in plain text. After `pulumi up`, run `stripe-qa` from `main` in the Actions tab; its preflight refuses merchants that aren't ready or aren't tagged for CI.
+
 ### Resend
 
 Each environment sends from its own domain: `EMAIL_FROM` is `Clientbridge <no-reply@D>`, so staging needs `staging.clientbridge.ca` as a second Resend domain.

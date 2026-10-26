@@ -121,86 +121,98 @@ test("existing business never flashes onboarding during sign-in or a slow reload
     expect(await page.evaluate(() => sessionStorage.getItem("onboarding-flashed"))).toBeNull();
 });
 
-test("sign up, confirm the email with the mailed code, then open a business", async ({
-    page,
-    request,
-}) => {
-    const account = newAccount("signup");
-    await signUp(page, request, account);
-    await openBusiness(page, `${account.name}'s Beauty Studio`);
-});
+test(
+    "sign up, confirm the email with the mailed code, then open a business",
+    { tag: "@browsers" },
+    async ({ page, request }) => {
+        const account = newAccount("signup");
+        await signUp(page, request, account);
+        await openBusiness(page, `${account.name}'s Beauty Studio`);
+    },
+);
 
-test("recover a forgotten password with an emailed code, staying signed in only here", async ({
-    page,
-    request,
-}) => {
-    const account = newAccount("recover");
-    await signUp(page, request, account);
-    await expect(
-        page.getByRole("heading", { name: strings.business.onboarding.title }),
-    ).toBeVisible();
-    const otherDevice = await nativeSession(request, account.email, account.password);
-    await page.context().clearCookies();
-    await page.goto("/login");
-    await page.getByRole("button", { name: a.forgot, exact: true }).click();
-    await expect(page.getByRole("heading", { name: a.resetTitle })).toBeVisible();
-    await page.getByRole("textbox", { name: a.email, exact: true }).fill(account.email);
-    await page.getByRole("button", { name: a.sendCode, exact: true }).click();
-    await page
-        .getByLabel(a.code, { exact: true })
-        .fill(await mailedCode(request, account.email, "password reset"));
-    await page.getByRole("button", { name: a.checkCode, exact: true }).click();
-    await expect(page.getByRole("heading", { name: a.resetPasswordTitle })).toBeVisible();
-    await page.getByLabel(a.newPassword, { exact: true }).fill(`${account.password}-new`);
-    await page.getByRole("button", { name: a.savePassword, exact: true }).click();
-    await expect(
-        page.getByRole("heading", { name: strings.business.onboarding.title }),
-    ).toBeVisible();
-    expect(await sessionActive(request, otherDevice)).toBe(false);
-});
+test(
+    "recover a forgotten password with an emailed code, staying signed in only here",
+    { tag: "@browsers" },
+    async ({ page, request }) => {
+        const account = newAccount("recover");
+        await signUp(page, request, account);
+        await expect(
+            page.getByRole("heading", { name: strings.business.onboarding.title }),
+        ).toBeVisible();
+        const otherDevice = await nativeSession(request, account.email, account.password);
+        await page.context().clearCookies();
+        await page.goto("/login");
+        await page.getByRole("button", { name: a.forgot, exact: true }).click();
+        await expect(page.getByRole("heading", { name: a.resetTitle })).toBeVisible();
+        await page.getByRole("textbox", { name: a.email, exact: true }).fill(account.email);
+        await page.getByRole("button", { name: a.sendCode, exact: true }).click();
+        await page
+            .getByLabel(a.code, { exact: true })
+            .fill(await mailedCode(request, account.email, "password reset"));
+        await page.getByRole("button", { name: a.checkCode, exact: true }).click();
+        await expect(page.getByRole("heading", { name: a.resetPasswordTitle })).toBeVisible();
+        await page.getByLabel(a.newPassword, { exact: true }).fill(`${account.password}-new`);
+        await page.getByRole("button", { name: a.savePassword, exact: true }).click();
+        await expect(
+            page.getByRole("heading", { name: strings.business.onboarding.title }),
+        ).toBeVisible();
+        expect(await sessionActive(request, otherDevice)).toBe(false);
+    },
+);
 
-test("changing the password signs out every other device", async ({ page, request }) => {
-    const account = newAccount("password");
-    await signUp(page, request, account);
-    await openBusiness(page, `${account.name}'s Beauty Studio`);
-    const otherDevice = await nativeSession(request, account.email, account.password);
-    expect(await sessionActive(request, otherDevice)).toBe(true);
+test(
+    "changing the password signs out every other device",
+    { tag: "@browsers" },
+    async ({ page, request }) => {
+        const account = newAccount("password");
+        await signUp(page, request, account);
+        await openBusiness(page, `${account.name}'s Beauty Studio`);
+        const otherDevice = await nativeSession(request, account.email, account.password);
+        expect(await sessionActive(request, otherDevice)).toBe(true);
 
-    await page.goto("/setup/security");
-    await page.getByLabel(a.securityNewPassword, { exact: true }).fill(`${account.password}-new`);
-    await page.getByRole("button", { name: a.securityChangePassword, exact: true }).click();
-    await expect(page.getByText(a.flowMessages[1050001], { exact: true })).toBeVisible();
+        await page.goto("/setup/security");
+        await page
+            .getByLabel(a.securityNewPassword, { exact: true })
+            .fill(`${account.password}-new`);
+        await page.getByRole("button", { name: a.securityChangePassword, exact: true }).click();
+        await expect(page.getByText(a.flowMessages[1050001], { exact: true })).toBeVisible();
 
-    expect(await sessionActive(request, otherDevice)).toBe(false);
-    await page.reload();
-    await expect(page.getByRole("heading", { name: a.securityTitle })).toBeVisible();
-});
+        expect(await sessionActive(request, otherDevice)).toBe(false);
+        await page.reload();
+        await expect(page.getByRole("heading", { name: a.securityTitle })).toBeVisible();
+    },
+);
 
-test("turn on an authenticator app, then sign in with its code", async ({ page, request }) => {
-    const account = newAccount("totp");
-    await signUp(page, request, account);
-    await openBusiness(page, `${account.name}'s Beauty Studio`);
-    await page.goto("/setup/security");
-    const key = page.getByText(/^Or enter this key: /);
-    const secret = ((await key.textContent()) ?? "").replace("Or enter this key: ", "").trim();
-    await page.getByLabel(a.code, { exact: true }).fill(totp(secret));
-    await page.getByRole("button", { name: a.securityTurnOn, exact: true }).click();
-    await expect(page.getByText(a.securityTotpOn, { exact: true })).toBeVisible();
+test(
+    "turn on an authenticator app, then sign in with its code",
+    { tag: "@browsers" },
+    async ({ page, request }) => {
+        const account = newAccount("totp");
+        await signUp(page, request, account);
+        await openBusiness(page, `${account.name}'s Beauty Studio`);
+        await page.goto("/setup/security");
+        const key = page.getByText(/^Or enter this key: /);
+        const secret = ((await key.textContent()) ?? "").replace("Or enter this key: ", "").trim();
+        await page.getByLabel(a.code, { exact: true }).fill(totp(secret));
+        await page.getByRole("button", { name: a.securityTurnOn, exact: true }).click();
+        await expect(page.getByText(a.securityTotpOn, { exact: true })).toBeVisible();
 
-    await page.context().clearCookies();
-    await page.goto("/login");
-    await page.getByRole("textbox", { name: a.email, exact: true }).fill(account.email);
-    await page.getByLabel(a.password, { exact: true }).fill(account.password);
-    await page.getByRole("button", { name: a.signIn, exact: true }).click();
-    await expect(page.getByRole("heading", { name: a.mfaTitle })).toBeVisible();
-    await page.getByLabel(a.mfaTotp, { exact: true }).fill(totp(secret));
-    await page.getByRole("button", { name: a.confirm, exact: true }).click();
-    await expect(
-        page
-            .locator("aside")
-            .getByRole("link", { name: strings.navigation.businessMenu, exact: true }),
-    ).toBeVisible({ timeout: 60_000 });
-});
+        await page.context().clearCookies();
+        await page.goto("/login");
+        await page.getByRole("textbox", { name: a.email, exact: true }).fill(account.email);
+        await page.getByLabel(a.password, { exact: true }).fill(account.password);
+        await page.getByRole("button", { name: a.signIn, exact: true }).click();
+        await expect(page.getByRole("heading", { name: a.mfaTitle })).toBeVisible();
+        await page.getByLabel(a.mfaTotp, { exact: true }).fill(totp(secret));
+        await page.getByRole("button", { name: a.confirm, exact: true }).click();
+        await expect(
+            page
+                .locator("aside")
+                .getByRole("link", { name: strings.navigation.businessMenu, exact: true }),
+        ).toBeVisible({ timeout: 60_000 });
+    },
+);
 
 test("an invite joins the account that signs up with the invited email", async ({
     page,
