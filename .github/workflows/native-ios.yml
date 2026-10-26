@@ -1,0 +1,66 @@
+# The native lane on the iOS simulator, by hand. GitHub's macOS runners can't run Docker, which the
+# lane's disposable stack needs, so this runs on a self-hosted Mac with Docker, Xcode 26.6, Maestro
+# 2.11.0 and the named simulator already booted.
+name: native-ios
+
+on:
+  workflow_dispatch:
+    inputs:
+      device:
+        description: Booted simulator UDID on the runner
+        required: true
+        type: string
+
+concurrency:
+  group: native-ios
+  cancel-in-progress: false
+
+jobs:
+  native-ios:
+    runs-on: [self-hosted, macOS, ARM64]
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.0
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 9
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - run: uv sync --frozen
+        working-directory: backend
+      - run: pnpm install --frozen-lockfile
+        working-directory: frontend
+      - name: build the e2e app
+        run: make test-functional FUNCTIONAL_ARGS="--build-native ios"
+      - name: run the walkthroughs
+        env:
+          DEVICE: ${{ inputs.device }}
+        run: make test-functional FUNCTIONAL_ARGS="--surface native --platform ios --device $DEVICE"
+      - name: reap run-owned services after interruption
+        if: always()
+        working-directory: backend
+        run: |
+          for config in ../.scratchpad/e2e-*/compose.json; do
+            [ -f "$config" ] || continue
+            project="$(basename "$(dirname "$config")")"
+            uv run python -m scripts.e2e_stack --cleanup "$project"
+          done
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: native-ios
+          include-hidden-files: true
+          path: |
+            .scratchpad/e2e-*/run.json
+            .scratchpad/e2e-*/native-*
+            .scratchpad/e2e-*/native.log
+            .scratchpad/e2e-*/control.log
+            .scratchpad/e2e-*/setup.log
+            .scratchpad/e2e-*/api.log
+            .scratchpad/e2e-*/worker.log
+            .scratchpad/native/ClientbridgeE2E.app.log
+          retention-days: 7
