@@ -24,6 +24,7 @@ import {
     IconButton,
     Modal,
     Notice,
+    Panel,
     SearchSelect,
     Select,
     StatusPill,
@@ -140,7 +141,7 @@ export function DocEditor({ kind, draft, onClose, onSent }: DocEditorProps) {
                                         <p className="text-xs text-muted">{c.rateNote}</p>
                                     </div>
                                     {c.lines.map((l) => (
-                                        <div key={l.key} className="space-y-3 rounded-lg bg-bg p-3">
+                                        <Panel key={l.key}>
                                             <div className="flex items-center gap-2">
                                                 <div className="min-w-0 flex-1">
                                                     <TextField
@@ -269,41 +270,31 @@ export function DocEditor({ kind, draft, onClose, onSent }: DocEditorProps) {
                                             {l.error !== null ? (
                                                 <Notice tone="danger">{l.error}</Notice>
                                             ) : null}
-                                        </div>
+                                        </Panel>
                                     ))}
-                                    <div className="flex flex-wrap items-end gap-2">
-                                        {catalog.length > 0 ? (
-                                            <div className="min-w-0 flex-1">
-                                                <Select
-                                                    name={s.addFromCatalog}
-                                                    value=""
-                                                    options={[
-                                                        { key: "", label: s.addFromCatalog },
-                                                        ...catalog.map((i) => ({
-                                                            key: i.id,
-                                                            label: formatParts([
-                                                                i.name,
-                                                                formatMoney(
-                                                                    i.price_cents,
-                                                                    BUSINESS_CURRENCY,
-                                                                ),
-                                                            ]),
-                                                        })),
-                                                    ]}
-                                                    onChange={(id) => {
-                                                        const item = catalog.find(
-                                                            (i) => i.id === id,
-                                                        );
-                                                        if (item !== undefined)
-                                                            c.addCatalogItem(item);
-                                                    }}
-                                                />
-                                            </div>
-                                        ) : null}
-                                        <Button variant="outline" icon="plus" onPress={c.addLine}>
-                                            {s.addCustomLine}
-                                        </Button>
-                                    </div>
+                                    {catalog.length > 0 ? (
+                                        <SearchSelect
+                                            name={s.addFromCatalog}
+                                            value=""
+                                            placeholder={s.addFromCatalog}
+                                            options={[
+                                                ...catalog.map((i) => ({
+                                                    key: i.id,
+                                                    label: formatParts([
+                                                        i.name,
+                                                        formatMoney(
+                                                            i.price_cents,
+                                                            BUSINESS_CURRENCY,
+                                                        ),
+                                                    ]),
+                                                })),
+                                            ]}
+                                            onChange={(id) => {
+                                                const item = catalog.find((i) => i.id === id);
+                                                if (item !== undefined) c.addCatalogItem(item);
+                                            }}
+                                        />
+                                    ) : null}
                                     {c.linesError !== null ? (
                                         <Notice tone="danger">{c.linesError}</Notice>
                                     ) : null}
@@ -321,19 +312,29 @@ export function DocEditor({ kind, draft, onClose, onSent }: DocEditorProps) {
                                             }}
                                         />
                                     ) : (
-                                        <Button
-                                            variant="link"
-                                            size="sm"
-                                            icon="percent"
-                                            disabled={c.discountBaseCents <= 0}
-                                            onPress={() => {
-                                                setDiscounting("doc");
-                                            }}
-                                        >
-                                            {c.docDiscount !== null
-                                                ? s.discountedBy(discountLabel(c.docDiscount))
-                                                : s.discountTitle}
-                                        </Button>
+                                        <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+                                            <Button
+                                                variant="link"
+                                                size="sm"
+                                                icon="plus"
+                                                onPress={c.addLine}
+                                            >
+                                                {s.addCustomLine}
+                                            </Button>
+                                            <Button
+                                                variant="link"
+                                                size="sm"
+                                                icon="percent"
+                                                disabled={c.discountBaseCents <= 0}
+                                                onPress={() => {
+                                                    setDiscounting("doc");
+                                                }}
+                                            >
+                                                {c.docDiscount !== null
+                                                    ? s.discountedBy(discountLabel(c.docDiscount))
+                                                    : s.discountTitle}
+                                            </Button>
+                                        </div>
                                     )}
                                 </section>
 

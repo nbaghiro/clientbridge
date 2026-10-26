@@ -1581,7 +1581,7 @@ export function useDocComposer(
 ): DocComposer {
     const [clientId, setClientId] = useState(draft?.clientId ?? "");
     const [lines, setLines] = useState(() =>
-        draft !== undefined && draft.lines.length > 0 ? draft.lines.map(keyed) : [blankLine()],
+        draft !== undefined ? draft.lines.map(keyed) : [],
     );
     const [message, setMessage] = useState(draft?.notes ?? "");
     const [docDiscount, setDocDiscountState] = useState<SaleDiscount | null>(
@@ -1815,7 +1815,7 @@ export function useDocComposer(
         },
         removeLine: (key) => {
             touch();
-            setLines((ls) => (ls.length > 1 ? ls.filter((l) => l.key !== key) : [blankLine()]));
+            setLines((ls) => ls.filter((l) => l.key !== key));
         },
         setLineDiscount: (key, discount) => {
             touch();
@@ -1883,7 +1883,7 @@ export function useDocComposer(
             setMessage("");
             setDocDiscountState(null);
             setDocDiscountTouched(false);
-            setLines([blankLine()]);
+            setLines([]);
             keyRef.current = null;
         },
         preview: (client, letterhead, fallbackColor) => {

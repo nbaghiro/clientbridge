@@ -30,6 +30,7 @@ import {
     Notice,
     Panel,
     PrintedDocument,
+    SearchSelect,
     Select,
     SheetHeader,
     TextField,
@@ -268,11 +269,11 @@ export function DocEditor({ kind, draft, onClose }: DocEditorProps) {
                             </Panel>
                         ))}
                         {catalog.length > 0 ? (
-                            <Select
+                            <SearchSelect
                                 name={s.addFromCatalog}
                                 value=""
+                                placeholder={s.addFromCatalog}
                                 options={[
-                                    { key: "", label: s.addFromCatalog },
                                     ...catalog.map((i) => ({
                                         key: i.id,
                                         label: formatParts([
