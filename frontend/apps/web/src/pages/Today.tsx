@@ -84,14 +84,14 @@ function MoneyStrip({ today }: { today: OwnerToday }) {
     if (moneyLoad.state === "loading") return <KpiStripLoading />;
     if (moneyLoad.state === "error")
         return (
-            <div className="rounded-lg border border-line bg-surface shadow-card">
+            <Panel flush>
                 <LoadFailed
                     message={t.numbersError}
                     body={t.numbersErrorBody}
                     onRetry={moneyLoad.retry}
                     retrying={moneyLoad.retrying}
                 />
-            </div>
+            </Panel>
         );
     return (
         <KpiStrip
@@ -376,7 +376,7 @@ function StaffTodayPage() {
                     </div>
 
                     <div className="space-y-6">
-                        <div className="rounded-lg border border-line bg-surface p-5 shadow-card">
+                        <Panel>
                             <p className="text-xs font-medium text-muted">{t.staff.earnings}</p>
                             <p className="mt-1 font-display text-2xl font-bold tabular-nums text-success">
                                 {formatMoney(day.earnedCents, BUSINESS_CURRENCY)}
@@ -393,7 +393,7 @@ function StaffTodayPage() {
                                     ]}
                                 />
                             </div>
-                        </div>
+                        </Panel>
                         <Panel flush title={t.staff.messagesForYou}>
                             {view.attention.length === 0 ? (
                                 <p className="px-4 py-6 text-center text-sm text-muted">
@@ -441,12 +441,10 @@ function NextClient({
     const kind = useSubjectKind();
     const action = visitAction(item, kind);
     return (
-        <section
-            aria-label={t.staff.nextClient}
-            className="overflow-hidden rounded-lg border border-line bg-surface shadow-card"
-        >
-            <div className="flex items-center justify-between border-b border-line-soft px-5 py-3">
-                <h2 className="font-display text-sm font-bold text-ink">{t.staff.nextClient}</h2>
+        <Panel
+            flush
+            title={t.staff.nextClient}
+            actions={
                 <StatusPill
                     status={
                         item.checkedIn
@@ -459,7 +457,8 @@ function NextClient({
                     }
                     intent={item.checkedIn || item.state === "now" ? "success" : "accent"}
                 />
-            </div>
+            }
+        >
             <div className="flex flex-wrap items-start gap-5 p-5">
                 <Avatar
                     name={item.clientName}
@@ -522,6 +521,6 @@ function NextClient({
                     </span>
                 )}
             </div>
-        </section>
+        </Panel>
     );
 }
