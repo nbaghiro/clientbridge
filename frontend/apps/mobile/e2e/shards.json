@@ -7,13 +7,19 @@
             "01-workday.yaml",
             "07-sync-startup.yaml",
             "09-staff-pay-labels.yaml",
-            "08-estimate-shortcut.yaml"
+            "08-estimate-shortcut.yaml",
+            "12-saved-session.yaml"
         ]
     },
     {
         "id": "b",
         "name": "setup, payments, recovery",
-        "flows": ["02-setup.yaml", "03-payments.yaml", "11-recovery.yaml"]
+        "flows": [
+            "02-setup.yaml",
+            "03-payments.yaml",
+            "11-recovery.yaml",
+            "13-offline-replica.yaml"
+        ]
     },
     {
         "id": "c",
@@ -22,7 +28,8 @@
             "10-inbox-navigation.yaml",
             "04-inbox.yaml",
             "05-client-record.yaml",
-            "functional-client.yaml"
+            "functional-client.yaml",
+            "14-push-tap.yaml"
         ]
     }
 ]

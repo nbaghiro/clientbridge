@@ -1,7 +1,12 @@
-appId: ca.clientbridge.app
+appId: '${typeof APP_ID === "undefined" ? "ca.clientbridge.app" : APP_ID}'
 name: Offline hours survive a process restart
+tags:
+    - lane
 onFlowComplete:
-    - setAirplaneMode: disabled
+    - runScript:
+          file: helpers/control.js
+          env:
+              ACTION: online
 ---
 - runFlow: helpers/owner.yaml
 - tapOn: "Setup"
@@ -15,7 +20,10 @@ onFlowComplete:
 - assertNotVisible: "This didn't load."
 - takeScreenshot: scoped-hours-ready
 
-- setAirplaneMode: enabled
+- runScript:
+      file: helpers/control.js
+      env:
+          ACTION: offline
 - tapOn: "Save hours"
 - extendedWaitUntil:
       visible: "Saved on this device.*"
@@ -32,7 +40,10 @@ onFlowComplete:
 - scrollUntilVisible:
       element: "Saved on this device.*"
       direction: DOWN
-- setAirplaneMode: disabled
+- runScript:
+      file: helpers/control.js
+      env:
+          ACTION: online
 - extendedWaitUntil:
       notVisible: "Saved on this device.*"
       timeout: 60000

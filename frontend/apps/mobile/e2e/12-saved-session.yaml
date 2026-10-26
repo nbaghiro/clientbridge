@@ -1,0 +1,35 @@
+appId: '${typeof APP_ID === "undefined" ? "ca.clientbridge.app" : APP_ID}'
+name: NATIVE-IOS-01 The saved session survives a relaunch and sign-out removes it
+tags:
+    - lane
+onFlowComplete:
+    - runFlow: helpers/restore-owner.yaml
+---
+- runFlow: helpers/owner.yaml
+- stopApp
+- launchApp:
+      permissions:
+          notifications: allow
+- extendedWaitUntil:
+      visible: "Good .*, Hannah"
+      timeout: 60000
+- assertNotVisible: "Sign in"
+- takeScreenshot: session-restored
+- tapOn: "Setup"
+- scrollUntilVisible:
+      element: "Sign out"
+      direction: DOWN
+- tapOn: "Sign out"
+- extendedWaitUntil:
+      visible: "Sign in"
+      timeout: 30000
+- stopApp
+- launchApp:
+      permissions:
+          notifications: allow
+- extendedWaitUntil:
+      visible: "Sign in"
+      timeout: 60000
+- assertNotVisible: "Today"
+- assertVisible: "you@business.ca"
+- takeScreenshot: session-removed

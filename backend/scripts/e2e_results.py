@@ -3,6 +3,7 @@
 import argparse
 from collections.abc import Mapping
 from pathlib import Path
+from xml.etree import ElementTree
 
 from pydantic import BaseModel, Field
 
@@ -66,6 +67,8 @@ REQUIRED_CASES = {
         "CLS-E2E-02",
     ],
     "filings": ["FIN-RETURN-03"],
+    "native-ios": ["NATIVE-CRM-01", "NATIVE-IOS-01", "NATIVE-IOS-02", "NATIVE-IOS-03"],
+    "native-android": ["NATIVE-CRM-01", "NATIVE-IOS-01", "NATIVE-IOS-02"],
     "stripe": [
         "STRIPE-BROWSER-01",
         "STRIPE-BROWSER-02",
@@ -214,6 +217,22 @@ class Report(BaseModel):
                     }
                 )
         return outcomes
+
+
+def validate_native_evidence(junit: str, required: list[str]) -> None:
+    """Every Maestro flow passed on its only attempt, and every required case ran."""
+    cases = ElementTree.fromstring(junit).findall("./testsuite/testcase")
+    if not cases:
+        raise ValueError("the native run has no flows")
+    names = [case.get("name", "") for case in cases]
+    missing = [i for i in required if not any(name.startswith(f"{i} ") for name in names)]
+    if missing:
+        raise ValueError(f"required native cases are missing: {', '.join(missing)}")
+    if len(set(names)) != len(names):
+        raise ValueError("a native flow ran more than once")
+    for case in cases:
+        if case.get("status") != "SUCCESS" or len(case):
+            raise ValueError(f"native flow did not pass: {case.get('name')}")
 
 
 def main() -> None:

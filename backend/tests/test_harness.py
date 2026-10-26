@@ -36,6 +36,7 @@ from scripts.e2e_results import (
     Spec,
     Suite,
     browser_cases,
+    validate_native_evidence,
 )
 from scripts.e2e_results import Test as FunctionalTest
 from scripts.e2e_stack import environment, stop
@@ -1415,3 +1416,65 @@ def test_the_slot_count_follows_dockers_memory(monkeypatch: pytest.MonkeyPatch) 
     assert functional.slot_count() == 2
     monkeypatch.setenv("E2E_STACK_SLOTS", "3")
     assert functional.slot_count() == 3
+
+
+def native_junit(*cases: tuple[str, str, str]) -> str:
+    rows = "".join(
+        f'<testcase name="{name}" status="{status}">{child}</testcase>'
+        for name, status, child in cases
+    )
+    return f"<testsuites><testsuite>{rows}</testsuite></testsuites>"
+
+
+@pytest.mark.parametrize("failure", ["missing", "failed", "error_child", "repeated", "empty"])
+def test_native_evidence_cannot_certify_missing_or_unclean_flows(failure: str) -> None:
+    passed = ("NATIVE-CRM-01 client lifecycle", "SUCCESS", "")
+    validate_native_evidence(native_junit(passed), ["NATIVE-CRM-01"])
+    required = ["NATIVE-CRM-01"]
+    cases = [passed]
+    if failure == "missing":
+        required.append("NATIVE-IOS-01")
+    elif failure == "failed":
+        cases = [("NATIVE-CRM-01 client lifecycle", "ERROR", "")]
+    elif failure == "error_child":
+        cases = [("NATIVE-CRM-01 client lifecycle", "SUCCESS", "<failure>stalled</failure>")]
+    elif failure == "repeated":
+        cases = [passed, passed]
+    else:
+        cases = []
+    with pytest.raises(ValueError):
+        validate_native_evidence(native_junit(*cases), required)
+
+
+def test_the_native_link_forwards_until_it_is_cut_and_again_once_restored() -> None:
+    with socket.socket() as upstream:
+        upstream.bind(("127.0.0.1", 0))
+        upstream.listen()
+        listen = functional.free_port()
+        link = functional.NativeLink({listen: upstream.getsockname()[1]})
+        try:
+            link.online()
+            with socket.create_connection(("127.0.0.1", listen), timeout=5) as app:
+                served, _ = upstream.accept()
+                with served:
+                    app.sendall(b"ping")
+                    assert served.recv(4) == b"ping"
+                    link.offline()
+                    assert app.recv(4) == b""
+            with pytest.raises(ConnectionRefusedError):
+                socket.create_connection(("127.0.0.1", listen), timeout=5)
+            link.online()
+            with socket.create_connection(("127.0.0.1", listen), timeout=5) as app:
+                served, _ = upstream.accept()
+                with served:
+                    served.sendall(b"pong")
+                    assert app.recv(4) == b"pong"
+        finally:
+            link.close()
+
+
+def test_ci_builds_the_android_app_the_native_lane_installs() -> None:
+    workflow = (functional.ROOT / ".github" / "workflows" / "ci.yml").read_text()
+    build = workflow[workflow.index("  mobile-build:") : workflow.index("  mobile-shard:")]
+    for name, value in functional.native_urls("android").items():
+        assert f"      {name}: {value}\n" in build

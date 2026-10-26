@@ -1,4 +1,4 @@
-appId: ca.clientbridge.app
+appId: '${typeof APP_ID === "undefined" ? "ca.clientbridge.app" : APP_ID}'
 name: Owner workday surfaces
 ---
 - runFlow: helpers/owner.yaml
