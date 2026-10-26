@@ -145,6 +145,11 @@ async function escapeDialog(page: Page): Promise<void> {
     await expect(page.getByRole("dialog")).toBeHidden();
 }
 
+async function escapeToDrawer(page: Page): Promise<void> {
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog")).toHaveCount(1);
+}
+
 async function openAndClose(page: Page, opener: string | RegExp): Promise<void> {
     await page.locator("main").getByRole("button", { name: opener }).first().click();
     await expect(page.getByRole("dialog")).toBeVisible();
@@ -727,10 +732,16 @@ test("owner: payments desk, records and their dialogs", async ({ page }) => {
     });
 
     await walk.step("sales: orders and history", async () => {
-        await main.getByRole("tab", { name: d.ordersTitle }).click();
+        await main
+            .getByRole("group", { name: d.title })
+            .getByRole("button", { name: d.ordersTitle, exact: true })
+            .click();
         await expect(main.getByText(d.openTickets)).toBeVisible();
         await openAndClose(page, d.details);
-        await main.getByRole("tab", { name: d.history }).click();
+        await main
+            .getByRole("group", { name: d.title })
+            .getByRole("button", { name: d.history, exact: true })
+            .click();
         await expect(main.getByText(d.todaySales)).toBeVisible();
         await main.getByRole("searchbox", { name: d.historySearch, exact: true }).fill(TAP_CLIENT);
         await main
@@ -802,7 +813,7 @@ test("owner: inbox messages, reviews, broadcasts, forms and contracts", async ({
         await navigate(page, "/inbox?segment=broadcasts");
         await main.getByRole("button", { name: strings.broadcasts.newBroadcast }).first().click();
         await expect(page.getByText(strings.broadcasts.optOutNote)).toBeVisible();
-        await main.getByRole("button", { name: strings.broadcasts.back }).first().click();
+        await escapeDialog(page);
         const delivered = strings.broadcasts.delivered(0).replace("0", "\\d+");
         await main
             .getByRole("button", { name: new RegExp(delivered) })
@@ -824,8 +835,8 @@ test("owner: inbox messages, reviews, broadcasts, forms and contracts", async ({
         await expect(
             page.getByRole("dialog", { name: prefixOf(strings.forms.sendTitle) }),
         ).toBeVisible();
+        await escapeToDrawer(page);
         await escapeDialog(page);
-        await main.getByRole("button", { name: strings.forms.library, exact: true }).click();
         await main.getByRole("button", { name: strings.forms.newForm }).first().click();
         await expect(main.getByRole("button", { name: strings.forms.addQuestion })).toBeVisible();
     });
@@ -834,12 +845,14 @@ test("owner: inbox messages, reviews, broadcasts, forms and contracts", async ({
         await navigate(page, "/inbox?segment=contracts");
         await openAndClose(page, strings.contracts.newContract);
         await main.locator("button.block").first().click();
-        await openAndClose(page, strings.contracts.signedCopy);
+        await main.getByRole("button", { name: strings.contracts.signedCopy }).first().click();
+        await expect(page.getByRole("dialog")).toHaveCount(2);
+        await escapeToDrawer(page);
         await main.getByRole("button", { name: strings.contracts.send }).click();
         await expect(
             page.getByRole("dialog", { name: prefixOf(strings.contracts.sendTitle) }),
         ).toBeVisible();
-        await escapeDialog(page);
+        await escapeToDrawer(page);
         await main.getByRole("button", { name: strings.contracts.editText }).click();
         await main.getByRole("button", { name: strings.contracts.cancel, exact: true }).click();
         await expect(main.getByRole("button", { name: strings.contracts.editText })).toBeVisible();
@@ -1149,7 +1162,11 @@ test("staff: payments, inbox and setup show only what staff can use", async ({ p
         for (const tab of MANAGER_PAYMENTS_TABS) {
             await expect(main.getByRole("tab", { name: tab, exact: true })).toHaveCount(0);
         }
-        await expect(main.getByRole("tab", { name: d.history })).toHaveCount(0);
+        await expect(
+            main
+                .getByRole("group", { name: d.title })
+                .getByRole("button", { name: d.history, exact: true }),
+        ).toHaveCount(0);
     });
 
     await walk.step("payments: owner-only links land on sales", async () => {
@@ -1163,7 +1180,10 @@ test("staff: payments, inbox and setup show only what staff can use", async ({ p
         await main.getByRole("button", { name: d.sellGiftCard, exact: true }).click();
         await expect(page.getByRole("dialog")).toBeVisible();
         await escapeDialog(page);
-        await main.getByRole("tab", { name: d.ordersTitle }).click();
+        await main
+            .getByRole("group", { name: d.title })
+            .getByRole("button", { name: d.ordersTitle, exact: true })
+            .click();
         await expect(main.getByText(d.openTickets)).toBeVisible();
     });
 
