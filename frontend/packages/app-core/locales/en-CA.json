@@ -2093,7 +2093,7 @@
         "message": "Sales you ring up at the front desk and online orders appear here."
     },
     "pos.desk.historyFilterEmpty": {
-        "message": "Nothing here right now."
+        "message": "No sales match this filter."
     },
     "pos.desk.dayTotal": {
         "message": "{n, plural, one {# sale} other {# sales}} · {money}",

@@ -148,7 +148,11 @@ export function SalesHistory({ onResume }: { onResume: (order: OrderOut) => void
     const history = useSalesHistory();
     const [open, setOpen] = useState<string | null>(null);
     const t = history.today;
-    const none = history.load.state !== "loading" && history.days.length === 0 && history.q === "";
+    const none =
+        history.load.state !== "loading" &&
+        history.days.length === 0 &&
+        history.q === "" &&
+        history.filter === "all";
     return (
         <View style={styles.stack}>
             {history.load.state === "ready" && !none ? (
@@ -191,13 +195,17 @@ export function SalesHistory({ onResume }: { onResume: (order: OrderOut) => void
                 <Skeleton variant="row" count={6} label={d.loadingSales} />
             ) : history.load.state === "error" ? (
                 <LoadFailed variant="card" message={d.salesError} />
-            ) : history.days.length === 0 ? (
+            ) : none ? (
                 <Empty
                     variant="card"
                     icon="receipt"
-                    message={history.q === "" ? d.historyEmptyTitle : history.empty}
-                    {...(history.q === "" ? { body: history.empty } : {})}
+                    message={d.historyEmptyTitle}
+                    body={history.empty}
                 />
+            ) : history.days.length === 0 ? (
+                <Panel flush>
+                    <Empty message={history.empty} />
+                </Panel>
             ) : (
                 history.days.map((day) => (
                     <View key={day.key} style={styles.stack}>

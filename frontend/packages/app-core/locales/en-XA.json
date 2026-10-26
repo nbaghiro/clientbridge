@@ -1923,7 +1923,7 @@
         "message": "[Šåļéš ýöû ŕîñĝ ûþ åţ ţĥé ƒŕöñţ ðéšķ åñð öñļîñé öŕðéŕš åþþéåŕ ĥéŕé. one two three four five]"
     },
     "pos.desk.historyFilterEmpty": {
-        "message": "[Ñöţĥîñĝ ĥéŕé ŕîĝĥţ ñöŵ. one two]"
+        "message": "[Ñö šåļéš ɱåţçĥ ţĥîš ƒîļţéŕ. one two three]"
     },
     "pos.desk.dayTotal": {
         "message": "[{n,plural,one{# šåļé} other{# šåļéš}} · {money} one two]"

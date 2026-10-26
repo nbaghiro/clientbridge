@@ -30,6 +30,7 @@ import {
     ListRow,
     LoadFailed,
     Notice,
+    Panel,
     SearchField,
     Skeleton,
     Stat,
@@ -201,7 +202,11 @@ export function SalesHistory({ onResume }: { onResume: (order: OrderOut) => void
             .catch(() => undefined);
     };
     const t = history.today;
-    const none = history.load.state !== "loading" && history.days.length === 0 && history.q === "";
+    const none =
+        history.load.state !== "loading" &&
+        history.days.length === 0 &&
+        history.q === "" &&
+        history.filter === "all";
     const figure = (cents: number): { cents: number | null; currency: string } => ({
         cents: history.load.state === "ready" ? cents : null,
         currency: BUSINESS_CURRENCY,
@@ -242,13 +247,17 @@ export function SalesHistory({ onResume }: { onResume: (order: OrderOut) => void
                     </section>
                 ) : history.load.state === "error" ? (
                     <LoadFailed message={d.salesError} />
-                ) : history.days.length === 0 ? (
+                ) : none ? (
                     <Empty
                         variant="card"
                         icon="receipt"
-                        message={history.q === "" ? d.historyEmptyTitle : history.empty}
-                        {...(history.q === "" ? { body: history.empty } : {})}
+                        message={d.historyEmptyTitle}
+                        body={history.empty}
                     />
+                ) : history.days.length === 0 ? (
+                    <Panel flush>
+                        <Empty message={history.empty} />
+                    </Panel>
                 ) : (
                     history.days.map((day) => (
                         <section key={day.key}>
