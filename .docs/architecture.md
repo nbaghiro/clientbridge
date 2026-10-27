@@ -1023,7 +1023,7 @@ Signed-in pages are built from a few layouts. New work composes one of them rath
 | Setup section            | `PageHeader` › `Panel`s at the full width of the section column, with an optional preview column                                               | Setup sections                                                                              |
 | Record                   | `ClientRecordView` (inline or drawer) on `DetailView`                                                                                          | Clients, Inbox "Open record"                                                                |
 
-Tablets (mobile at 900pt and wider, `useTabletLayout()`) reuse the phone screens. The shared components change
+Tablets in landscape (mobile windows at least 900pt wide and wider than tall, `useTabletLayout()`) reuse the phone screens; portrait and Split View keep the phone layout. The shared components change
 their layout: the tab bar becomes a sidebar fed by `DESTINATIONS`, `PageFrame` becomes a centred card, records,
 editors and flows open in a right-hand panel, and small sheets become centred cards.
 
