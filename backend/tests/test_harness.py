@@ -1040,6 +1040,7 @@ def test_provider_runner_retains_cleanup_failures_without_external_services(
         configure_only=False,
         credentials="environment",
         activation="pointer",
+        payout_case=False,
         allow_source_changes=False,
         profile="unused",
         merchants=tmp_path / "unused",

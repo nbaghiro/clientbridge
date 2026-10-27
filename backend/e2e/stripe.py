@@ -2241,6 +2241,7 @@ def run_lane(args: argparse.Namespace, directory: Path, lease: tier.Lease) -> No
         "surface": "connect-stripe",
         "credentials_mode": args.credentials,
         "activation": args.activation,
+        "payout_case": args.payout_case,
         "source": source_snapshot(),
         "outcome": "running",
         "provider_cleanup": "not_started",
@@ -2271,6 +2272,7 @@ def run_lane(args: argparse.Namespace, directory: Path, lease: tier.Lease) -> No
                     {
                         "STRIPE_BROWSER_E2E": "1",
                         "STRIPE_BROWSER_ACTIVATION": args.activation,
+                        "STRIPE_PAYOUT_CASE": "1" if args.payout_case else "",
                         "STRIPE_BROWSER_RUN_ID": str(uuid4()),
                         "STRIPE_BROWSER_STATE_FILE": str(directory / "stripe-fixtures.json"),
                     }
@@ -2393,6 +2395,8 @@ def stack_main(argv: list[str]) -> int:
     parser.add_argument("--configure-only", action="store_true")
     parser.add_argument("--activation", choices=("pointer", "keyboard"), default="pointer")
     parser.add_argument("--allow-source-changes", action="store_true")
+    # pays out of slot a's available balance, which cleanup refunds and lost disputes can drain
+    parser.add_argument("--payout-case", action="store_true")
     parser.add_argument("tests", nargs=argparse.REMAINDER)
     args = parser.parse_args(argv)
     if args.tests[:1] == ["--"]:
