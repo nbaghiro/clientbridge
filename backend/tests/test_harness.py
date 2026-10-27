@@ -2144,3 +2144,14 @@ def test_bundle_sources_follow_the_app_code_and_not_its_tests(
     assert functional.bundle_sources() == before
     write("frontend/apps/web/src/main.tsx", "render(app);")
     assert functional.bundle_sources() != before
+
+
+def test_a_digest_leaves_out_bytecode(tmp_path: Path) -> None:
+    (tmp_path / "versions").mkdir()
+    (tmp_path / "versions" / "cb0001.py").write_text("upgrade()")
+    before = tier.digest(tmp_path)
+    (tmp_path / "versions" / "__pycache__").mkdir()
+    (tmp_path / "versions" / "__pycache__" / "cb0001.cpython-314.pyc").write_bytes(b"\x00")
+    assert tier.digest(tmp_path) == before
+    (tmp_path / "versions" / "cb0001.py").write_text("upgrade(); downgrade()")
+    assert tier.digest(tmp_path) != before

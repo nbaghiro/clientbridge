@@ -68,6 +68,7 @@ jobs:
           uv run python -m e2e.results ../chromium/*/e2e-*/browser-results/results.json --surface web \
             --seconds ../chromium-seconds.json
       - name: require every journey across the journeys shards
+        if: success() || failure()
         working-directory: backend
         run: |
           uv run python -m e2e.results ../journeys/*/e2e-*/browser-results/results.json --surface journeys \

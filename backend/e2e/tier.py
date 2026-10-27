@@ -101,7 +101,10 @@ def digest(*paths: Path) -> str:
     hashed = hashlib.sha256()
     for path in paths:
         for file in sorted(
-            p for p in ([path] if path.is_file() else path.rglob("*")) if p.is_file()
+            p
+            for p in ([path] if path.is_file() else path.rglob("*"))
+            # bytecode carries the checkout's file times, which differ between machines
+            if p.is_file() and "__pycache__" not in p.parts
         ):
             # relative to what was named, so moving a file or folder keeps its fingerprint
             hashed.update(str(file.relative_to(path) if path.is_dir() else file.name).encode())
