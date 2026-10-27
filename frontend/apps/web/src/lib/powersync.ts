@@ -10,7 +10,6 @@ const { apiUrl, powersyncUrl } = config;
 const VFS = {
     indexeddb: WASQLiteVFS.IDBBatchAtomicVFS,
     opfs: WASQLiteVFS.OPFSCoopSyncVFS,
-    memory: WASQLiteVFS.InMemoryVfs,
 } satisfies Record<ReplicaStorage, WASQLiteVFS>;
 
 function opfsSyncAccess(): Promise<boolean> {

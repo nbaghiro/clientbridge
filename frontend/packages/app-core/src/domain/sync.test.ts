@@ -31,9 +31,9 @@ describe("replicaStorage", () => {
         expect(probe).toHaveBeenCalledTimes(1);
     });
 
-    it("opens WebKit's replica in memory when OPFS sync access is refused", async () => {
+    it("keeps WebKit's replica in IndexedDB when OPFS sync access is refused", async () => {
         expect(await replicaStorage("Apple Computer, Inc.", () => Promise.resolve(false))).toBe(
-            "memory",
+            "indexeddb",
         );
     });
 });

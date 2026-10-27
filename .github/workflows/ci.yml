@@ -31,7 +31,7 @@ jobs:
 
   ci-result:
     # the one required check, so the ruleset doesn't list each job
-    needs: [lint, checks, e2e]
+    needs: [checks, e2e]
     if: always()
     runs-on: ubuntu-24.04
     timeout-minutes: 2

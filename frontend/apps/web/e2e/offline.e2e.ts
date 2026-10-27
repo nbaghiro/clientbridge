@@ -194,10 +194,10 @@ test(
 );
 
 test(
-    "XB-E2E-17 a private window keeps the replica in memory when WebKit refuses OPFS, and in IndexedDB elsewhere",
+    "XB-E2E-17 a private window keeps the replica in IndexedDB and reopens it after a reload",
     { tag: "@browsers" },
-    async ({ browser, baseURL, browserName }) => {
-        // a plain Playwright context browses privately, unlike the WebKit profile the other cases use
+    async ({ browser, baseURL }) => {
+        // a plain Playwright context browses privately, where WebKit refuses OPFS
         const privateWindow = await browser.newContext({
             ...(baseURL === undefined ? {} : { baseURL }),
             viewport: { width: 1440, height: 900 },
@@ -212,10 +212,12 @@ test(
                 );
             await signIn(page);
             await expect(page.getByRole("heading", { level: 1 })).toContainText("Hannah");
-            expect(await replicas()).toHaveLength(browserName === "webkit" ? 0 : 1);
+            const opened = await replicas();
+            expect(opened).toHaveLength(1);
             await page.reload();
             await expect(page).toHaveURL(/\/today$/, { timeout: 60_000 });
-            expect(await replicas()).toHaveLength(browserName === "webkit" ? 0 : 1);
+            await expect(page.getByRole("heading", { level: 1 })).toContainText("Hannah");
+            expect(await replicas()).toEqual(opened);
         } finally {
             await privateWindow.close();
         }
