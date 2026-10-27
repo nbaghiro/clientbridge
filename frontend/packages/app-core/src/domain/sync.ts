@@ -452,6 +452,7 @@ export function useReplicaSession(options: ReplicaSessionOptions) {
                     if (next && next !== "unverified") options.onReady?.();
                 }
             } catch (error) {
+                console.error("DBGAPP restore failed", performance.now().toFixed(0), String(error));
                 cancelled = true;
                 if (current === generation.current) {
                     setFailed(

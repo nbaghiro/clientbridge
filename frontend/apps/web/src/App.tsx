@@ -56,6 +56,7 @@ const lifecycle = {
         };
     },
     restore: async (stale: () => boolean) => {
+        console.error("DBGAPP restore start", performance.now().toFixed(0));
         const session = sessionExpected()
             ? await checkSession(api.forBusiness(null), getUserId(), verifiedAt())
             : { state: "none" as const };
@@ -65,9 +66,13 @@ const lifecycle = {
             await replica.pause();
             return session.state === "unverified" ? "unverified" : null;
         }
+        console.error("DBGAPP session", performance.now().toFixed(0), session.state);
         await rememberUser(session.userId, session.verifiedAt);
+        console.error("DBGAPP remembered", performance.now().toFixed(0));
         if (stale()) return null;
-        return connectPowerSync(api);
+        const opened = await connectPowerSync(api);
+        console.error("DBGAPP connected", performance.now().toFixed(0));
+        return opened;
     },
     pause: () => replica.pause(),
     discard: async () => {

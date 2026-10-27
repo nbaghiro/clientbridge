@@ -1,3 +1,6 @@
+window.addEventListener("error", (e) => { console.error("DBGERR", e.message); });
+window.addEventListener("unhandledrejection", (e) => { console.error("DBGREJ", String(e.reason)); });
+window.addEventListener("pagehide", (e) => { console.error("DBGPAGEHIDE", e.persisted); });
 import React from "react";
 import { activeLocale, setMediaBase, setPseudoLocale } from "@clientbridge/app-core";
 import { configureStripe } from "@clientbridge/ui";
