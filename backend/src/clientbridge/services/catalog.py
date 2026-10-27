@@ -166,10 +166,12 @@ class CatalogService:
         if item.track_stock and item.stock_on_hand is None:
             item.stock_on_hand = 0
         _assert_shape(item)
-        await self._assert_covers(item)
-        await self._assert_variant(item)
-        await self._assert_staff([s for s in item.staff_ids if s not in offered_before])
-        await self._assert_resources([r for r in item.resource_ids if r not in pool_before])
+        # the checks' queries would flush the edit early, so a taken SKU must wait for _save
+        with self.db.no_autoflush:
+            await self._assert_covers(item)
+            await self._assert_variant(item)
+            await self._assert_staff([s for s in item.staff_ids if s not in offered_before])
+            await self._assert_resources([r for r in item.resource_ids if r not in pool_before])
         await self._save(item)
         return item
 
