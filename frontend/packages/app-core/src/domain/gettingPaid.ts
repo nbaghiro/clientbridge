@@ -34,11 +34,12 @@ function useConnectStatus(
         setStatus(null);
         if (!enabled) return;
         let active = true;
-        // a refresh asks Stripe directly, in case its account events were late
+        const stored = () => api.get<ConnectStatus>("/v1/connect/status");
+        // a refresh asks Stripe in case its events were late, or shows what's stored if it can't
         const read =
             reloadKey > 0
-                ? api.post<ConnectStatus>("/v1/connect/refresh", {})
-                : api.get<ConnectStatus>("/v1/connect/status");
+                ? api.post<ConnectStatus>("/v1/connect/refresh", {}).catch(stored)
+                : stored();
         read.then((value) => {
             if (active) setStatus(value);
         }).catch(() => {

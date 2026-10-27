@@ -309,9 +309,6 @@ class PlanService:
         self._assert_owner()
         now = clock.now()
         business = await self._business()
-        if business.stripe_account_id is not None and plan_access(business, now) not in _LIVE:
-            # the Checkout return lands here, so a paid plan shows even if its webhook is late
-            business = await self._adopted()
         subscription_id = business.stripe_subscription_id
         sub = (
             await self.gateway.get_plan_subscription(subscription_id)

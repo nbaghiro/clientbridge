@@ -918,15 +918,13 @@ async def test_checkout_adopts_a_paid_subscription_whose_webhook_was_missed(
     ok(await as_owner.post("/v1/plan/portal"))
 
 
-async def test_the_plan_page_adopts_a_paid_subscription_on_the_checkout_return(
+async def test_reading_the_plan_leaves_a_paid_subscription_to_the_commands_and_replay(
     as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
 ) -> None:
     await _paid_but_unseen(db, gateway)
     body = ok(await as_owner.get("/v1/plan")).json()
-    assert (body["access"], body["plan"], body["managed"]) == ("active", "premium", True)
-    again = ok(await as_owner.get("/v1/plan")).json()
-    assert again == body
-    assert (await _business(db)).stripe_subscription_id == SUB
+    assert (body["access"], body["managed"]) == ("trial", False)
+    assert (await _business(db)).stripe_subscription_id is None
 
 
 async def test_the_portal_adopts_a_paid_subscription_whose_webhook_was_missed(

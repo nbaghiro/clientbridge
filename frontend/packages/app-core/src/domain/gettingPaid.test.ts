@@ -288,4 +288,29 @@ describe("useGettingPaid", () => {
         });
         expect(posted).toEqual(["/v1/connect/refresh"]);
     });
+
+    it("shows the stored account when Stripe can't be reached on a refresh", async () => {
+        const base = connected({ kyc_status: "enabled" });
+        const read: string[] = [];
+        const api: ApiLike = {
+            ...base,
+            get: <T>(path: string) => {
+                read.push(path);
+                return base.get<T>(path);
+            },
+            post: () => Promise.reject(new Error("payments_not_configured")),
+        };
+        const { result } = renderHook(() => useGettingPaid(api), { wrapper });
+        await waitFor(() => {
+            expect(result.current.phase).toBe("enabled");
+        });
+        const before = read.filter((path) => path === "/v1/connect/status").length;
+        result.current.refresh();
+        await waitFor(() => {
+            expect(read.filter((path) => path === "/v1/connect/status")).toHaveLength(before + 1);
+        });
+        await waitFor(() => {
+            expect(result.current.phase).toBe("enabled");
+        });
+    });
 });
