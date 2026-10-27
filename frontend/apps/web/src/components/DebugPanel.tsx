@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Modal } from "@clientbridge/ui";
 
 import { api } from "../lib/api";
-import { connectPowerSync, powersyncUrl } from "../lib/powersync";
+import { connectPowerSync, powersyncUrl, storageFacts } from "../lib/powersync";
 import { createClient, debugFacts, useClientState } from "@clientbridge/app-core";
 
 // Hidden developer overlay. Open by typing "debug" anywhere, or ⌘/Ctrl+Shift+D. Esc closes.
@@ -159,6 +159,7 @@ function Overlay({ onClose }: { onClose: () => void }) {
                         <Row key={f.label} k={f.label} v={f.value} tone={f.tone} />
                     ))}
                     <Row k="powersync" v={powersyncUrl} />
+                    <StorageRows />
                 </div>
 
                 {mode === "query" ? (
@@ -199,6 +200,47 @@ function Overlay({ onClose }: { onClose: () => void }) {
                 )}
             </aside>
         </Modal>
+    );
+}
+
+function StorageRows() {
+    const [facts, setFacts] = useState<Awaited<ReturnType<typeof storageFacts>>>(null);
+    const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        const read = (): void => {
+            storageFacts()
+                .then((next) => {
+                    setFacts(next);
+                    setError(null);
+                })
+                .catch((e: unknown) => {
+                    setError(e instanceof Error ? e.message : String(e));
+                });
+        };
+        read();
+        const id = setInterval(read, 1500);
+        return () => {
+            clearInterval(id);
+        };
+    }, []);
+
+    if (error) return <Row k="storage" v={error} tone="bad" />;
+    if (!facts) return <Row k="storage" v="not open" />;
+    const locks = (names: string[]): string => (names.length ? names.join(", ") : "none");
+    return (
+        <>
+            <Row k="storage" v={facts.storage} />
+            <Row k="enableMultiTabs" v={String(facts.multiTabs)} />
+            <Row
+                k="persisted()"
+                v={String(facts.persisted)}
+                tone={facts.persisted ? "good" : "plain"}
+            />
+            <Row k="replica size" v={`${(facts.bytes / 1_048_576).toFixed(1)} MB`} />
+            <Row k="locks held" v={locks(facts.held)} />
+            <Row k="locks pending" v={locks(facts.pending)} />
+        </>
     );
 }
 

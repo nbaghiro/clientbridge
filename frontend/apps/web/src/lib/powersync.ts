@@ -1,7 +1,7 @@
 import type { Session } from "@clientbridge/api-client";
 import { AppSchema, createConnector, ReplicaController } from "@clientbridge/sync";
 import { type ReplicaStorage, replicaStorage } from "@clientbridge/app-core";
-import { PowerSyncDatabase, WASQLiteVFS } from "@powersync/web";
+import { type DBAdapter, PowerSyncDatabase, WASQLiteVFS, type WebDBAdapter } from "@powersync/web";
 import { beforeSessionReplace, getUserId } from "./auth";
 import { config } from "../config";
 
@@ -37,13 +37,12 @@ function replicaStorageKind(): Promise<ReplicaStorage> {
     return storage;
 }
 
-export const replica = new ReplicaController(
-    (dbFilename) =>
-        new PowerSyncDatabase({
-            schema: AppSchema,
-            database: { dbFilename, vfs },
-        }),
-);
+let opened: PowerSyncDatabase | null = null;
+
+export const replica = new ReplicaController((dbFilename) => {
+    opened = new PowerSyncDatabase({ schema: AppSchema, database: { dbFilename, vfs } });
+    return opened;
+});
 
 beforeSessionReplace(() => replica.pause());
 
@@ -55,11 +54,56 @@ export async function connectPowerSync(api: Session) {
         { userId, apiUrl, powersyncUrl },
         createConnector({ powersyncUrl, authFetch: api.forBusiness(null).authFetchFor(userId) }),
     );
-    // without persistence the browser may evict the replica, and unsent edits with it
-    if ("storage" in navigator) {
-        navigator.storage.persist().catch(() => undefined);
-    }
+    db.waitForFirstSync()
+        .then(askToPersistOnce)
+        .catch(() => undefined);
     return db;
+}
+
+const PERSIST_ASKED = "cb_persist_asked";
+
+// without persistence the browser may evict the replica; Firefox prompts, so each profile is asked once
+async function askToPersistOnce(): Promise<void> {
+    if (!("storage" in navigator) || (await navigator.storage.persisted())) return;
+    if (localStorage.getItem(PERSIST_ASKED) !== null) return;
+    localStorage.setItem(PERSIST_ASKED, "1");
+    await navigator.storage.persist();
+}
+
+function isWebAdapter(adapter: DBAdapter): adapter is WebDBAdapter {
+    return "getConfiguration" in adapter;
+}
+
+interface StorageFacts {
+    storage: ReplicaStorage;
+    multiTabs: boolean;
+    persisted: boolean;
+    bytes: number;
+    held: string[];
+    pending: string[];
+}
+
+export async function storageFacts(): Promise<StorageFacts | null> {
+    const db = opened;
+    if (!db || !storage) return null;
+    const [kind, persisted, size, locks] = await Promise.all([
+        storage,
+        navigator.storage.persisted(),
+        db.get<{ bytes: number }>(
+            "SELECT page_count * page_size AS bytes FROM pragma_page_count(), pragma_page_size()",
+        ),
+        navigator.locks.query(),
+    ]);
+    const names = (list: LockInfo[] | undefined): string[] =>
+        (list ?? []).map((lock) => lock.name ?? "");
+    return {
+        storage: kind,
+        multiTabs: isWebAdapter(db.database) && db.database.getConfiguration().enableMultiTabs,
+        persisted,
+        bytes: size.bytes,
+        held: names(locks.held),
+        pending: names(locks.pending),
+    };
 }
 
 export function signOut(): Promise<void> {
