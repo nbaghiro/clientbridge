@@ -4,6 +4,7 @@ import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { runtimeConfig } from "@clientbridge/config/vite/runtime-config";
 import { defineConfig } from "vite";
+import { precacheAssets } from "./scripts/precache";
 
 export default defineConfig({
     plugins: [
@@ -23,14 +24,7 @@ export default defineConfig({
             name: "offline-shell",
             apply: "build",
             generateBundle(_, bundle) {
-                const assets = [
-                    ...new Set([
-                        "/index.html",
-                        ...Object.keys(bundle)
-                            .filter((name) => !name.endsWith(".map"))
-                            .map((name) => `/${name}`),
-                    ]),
-                ];
+                const assets = precacheAssets(Object.keys(bundle));
                 const revision = createHash("sha256")
                     .update(JSON.stringify(assets))
                     .digest("hex")

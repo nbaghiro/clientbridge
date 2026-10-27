@@ -65,6 +65,8 @@ test(
         const shell = (path: string) =>
             ["/index.html", "/config.js"].includes(path) || path.startsWith("/assets/");
         expect(cached.every(shell)).toBe(true);
+        expect(cached.some((path) => /^\/assets\/wa-sqlite-[\w-]{8}\.wasm$/.test(path))).toBe(true);
+        expect(cached.filter((path) => path.includes("mc-wa-sqlite"))).toEqual([]);
     },
 );
 
