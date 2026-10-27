@@ -112,7 +112,7 @@ export interface LoadFailedProps {
 
 export interface ModalProps {
     flow?: boolean | undefined;
-    // "drawer" slides in from the right on web for create and edit flows; phones keep their sheet.
+    // "drawer" slides in from the right on web and tablets (as do xl and flow); phones keep their sheet.
     variant?: "dialog" | "drawer" | undefined;
     open?: boolean | undefined;
     onClose: () => void;
