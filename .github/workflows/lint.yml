@@ -1,0 +1,51 @@
+name: lint
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+# The fast checks; ci.yml starts the test groups only once all of them pass.
+jobs:
+  backend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+        with:
+          uv: backend
+      - run: make format-check-backend lint-backend
+
+  frontend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+        with:
+          pnpm: "true"
+      - run: make format-check-frontend lint-frontend
+
+  infra:
+    # The Pulumi program, built for the cloud, staging and prod stacks against Pulumi's mocks.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+        with:
+          uv: infra/pulumi
+      - run: make format-check-infra lint-infra test-infra
+
+  codegen:
+    # Fails when a generated file is stale; run its gen-* target and commit the result.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+        with:
+          uv: backend
+          pnpm: "true"
+      - run: make codegen-check

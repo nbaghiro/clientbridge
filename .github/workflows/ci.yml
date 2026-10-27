@@ -14,180 +14,30 @@ concurrency:
 
 # Jobs pin ubuntu-24.04 so that ubuntu-latest moving to Ubuntu 26.04 (from 2026-10-19) is an explicit upgrade.
 jobs:
-  backend:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 25
-    steps:
-      - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v10.3.0
-      - run: uv sync
-        working-directory: backend
-      - run: make format-check-backend lint-backend
-      - run: make test-tier
-      # the seeded template is the same for the same migrations, seed and frozen instant, so its dump is kept
-      - id: template
-        run: echo "name=$(uv run python -m e2e.database template-name)" >> "$GITHUB_OUTPUT"
-        working-directory: backend
-      - uses: actions/cache@v6
-        with:
-          path: ~/.cache/clientbridge-test/templates
-          key: ${{ steps.template.outputs.name }}
-      - run: make test-backend
-      - run: make test-auth # KratosIdentityProvider against the tier's auth service
-      - if: failure()
-        run: make test-tier-logs
+  lint:
+    uses: ./.github/workflows/lint.yml
 
-  infra:
-    # The Pulumi program, built for the cloud, staging and prod stacks against Pulumi's mocks.
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v10.3.0
-      - run: uv sync --frozen
-        working-directory: infra/pulumi
-      - run: make format-check-infra lint-infra test-infra
-
-  contract:
-    # The Stripe contract tier: the real StripeGateway against the tier's OpenAPI mock. Marker-gated
-    # out of the default suite, so they run as their own job here.
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v10.3.0
-      - run: uv sync
-        working-directory: backend
-      - run: make test-tier
-      - run: make test-contract
-      - if: failure()
-        run: make test-tier-logs
-
-  frontend:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
-        with:
-          version: 9
-      - uses: actions/setup-node@v7
-        with:
-          node-version-file: .nvmrc
-          cache: pnpm
-          cache-dependency-path: frontend/pnpm-lock.yaml
-      - run: pnpm install --frozen-lockfile --ignore-scripts
-        working-directory: frontend
-      - run: make format-check-frontend lint-frontend test-frontend
-
-  build:
-    # A broken Vite or tsc -b bundle must fail CI, not just tsc --noEmit; runs beside the frontend job.
-    # The site job builds the marketing site, so this job leaves it out.
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
-        with:
-          version: 9
-      - uses: actions/setup-node@v7
-        with:
-          node-version-file: .nvmrc
-          cache: pnpm
-          cache-dependency-path: frontend/pnpm-lock.yaml
-      - run: pnpm install --frozen-lockfile --ignore-scripts
-        working-directory: frontend
-      - run: make build-apps
-
-  images:
-    # Builds the backend and web prod images without pushing, so a broken Dockerfile fails CI.
-    runs-on: ubuntu-24.04
-    timeout-minutes: 20
-    strategy:
-      matrix:
-        include:
-          - image: backend
-            server: python --version
-          - image: frontend
-            server: caddy version
-    steps:
-      - uses: actions/checkout@v7
-      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
-      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
-        with:
-          context: .
-          file: ${{ matrix.image }}/Dockerfile
-          target: prod
-          push: false
-          load: true
-          tags: clientbridge-${{ matrix.image }}:ci
-          cache-from: type=gha,scope=${{ matrix.image }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.image }}
-      # the pods drop every capability and forbid escalation, which refuses binaries carrying file capabilities
-      - name: start the server binary as the cluster runs it
-        env:
-          IMAGE: clientbridge-${{ matrix.image }}:ci
-          SERVER: ${{ matrix.server }}
-        run: docker run --rm --cap-drop ALL --security-opt no-new-privileges --entrypoint /bin/sh "$IMAGE" -c "$SERVER"
-
-  site:
-    # The marketing site's browser pass over a fresh build: links, images, layout at phone width and
-    # accessibility. Its copy rules and unit tests run in the frontend job.
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
-        with:
-          version: 9
-      - uses: actions/setup-node@v7
-        with:
-          node-version-file: .nvmrc
-          cache: pnpm
-          cache-dependency-path: frontend/pnpm-lock.yaml
-      - run: pnpm install --frozen-lockfile --ignore-scripts
-        working-directory: frontend
-      - uses: ./.github/actions/playwright
-        with:
-          app: site
-      - run: make test-site
-
-  codegen-drift:
-    # The generated api-client + PowerSync client schema come from the backend — fail if either is
-    # stale. (run `make gen-api` / `make gen-sync-schema` and commit the result.)
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v10.3.0
-      - uses: pnpm/action-setup@v6
-        with:
-          version: 9
-      - uses: actions/setup-node@v7
-        with:
-          node-version-file: .nvmrc
-          cache: pnpm
-          cache-dependency-path: frontend/pnpm-lock.yaml
-      - run: uv sync
-        working-directory: backend
-      - run: pnpm install --frozen-lockfile --ignore-scripts
-        working-directory: frontend
-      - run: make codegen-check
+  checks:
+    needs: lint
+    uses: ./.github/workflows/checks.yml
 
   e2e:
+    needs: lint
     uses: ./.github/workflows/e2e.yml
     permissions:
       contents: read
       # the Android lanes look up the prepare job's artifact while it may still be uploading
       actions: read
 
-  e2e-result:
-    # the one required check for every end-to-end lane, so the ruleset doesn't list each job
-    needs: e2e
+  ci-result:
+    # the one required check, so the ruleset doesn't list each job
+    needs: [lint, checks, e2e]
     if: always()
     runs-on: ubuntu-24.04
     timeout-minutes: 2
     steps:
       - env:
-          RESULT: ${{ needs.e2e.result }}
-        run: test "$RESULT" = success
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "$RESULTS"
+          for result in $RESULTS; do test "$result" = success; done

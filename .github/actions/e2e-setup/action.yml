@@ -15,21 +15,10 @@ inputs:
 runs:
   using: composite
   steps:
-    - uses: astral-sh/setup-uv@v10.3.0
-    - uses: pnpm/action-setup@v6
+    - uses: ./.github/actions/setup
       with:
-        version: 9
-    - uses: actions/setup-node@v7
-      with:
-        node-version-file: .nvmrc
-        cache: pnpm
-        cache-dependency-path: frontend/pnpm-lock.yaml
-    - run: uv sync --frozen
-      shell: bash
-      working-directory: backend
-    - run: pnpm install --frozen-lockfile --ignore-scripts
-      shell: bash
-      working-directory: frontend
+        uv: backend
+        pnpm: "true"
     - if: inputs.app != ''
       uses: ./.github/actions/playwright
       with:
