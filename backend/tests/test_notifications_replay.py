@@ -128,11 +128,13 @@ async def test_a_route_sends_what_its_command_queued_and_a_replay_sends_nothing_
     first = ok(await as_owner.post(path, headers=headers)).json()
     link = f"/i/{first['pay_token']}"
     assert _mailed(email, "invoice-queued@example.ca", link) == 1
-    sent = list(
-        await db.scalars(
+    sent = [
+        row
+        for row in await db.scalars(
             select(Delivery).where(Delivery.key.startswith(f"invoice-sent:{draft['id']}:"))
         )
-    )
+        if row.payload["channel"] == "email"
+    ]
     assert [row.state for row in sent] == ["accepted"]
     sent[0].state, sent[0].next_at = "queued", clock.now()
     await db.commit()
