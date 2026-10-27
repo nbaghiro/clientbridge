@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Header, Query, Response
+from fastapi import APIRouter, Header, Query
 
 from clientbridge.core.deps import (
     CurrentPrincipal,
@@ -42,9 +42,7 @@ async def account_session(
     principal: CurrentPrincipal,
     db: DbSession,
     gateway: GatewayDep,
-    response: Response,
 ) -> ConnectSessionOut:
-    response.headers["Cache-Control"] = "no-store"
     return await PaymentService(db, principal, gateway).account_session(body.component)
 
 
@@ -96,9 +94,7 @@ async def create_pad_link(
     principal: CurrentPrincipal,
     db: DbSession,
     gateway: GatewayDep,
-    response: Response,
 ) -> PaymentSetupLinkOut:
-    response.headers["Cache-Control"] = "no-store"
     return await PaymentService(db, principal, gateway).create_pad_link(client_id)
 
 

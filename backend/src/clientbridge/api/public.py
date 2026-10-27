@@ -496,7 +496,6 @@ SetupToken = Annotated[str, Header(alias="X-Payment-Setup-Token", pattern=r"^[A-
 async def public_payment_setup(
     token: SetupToken, db: DbSession, gateway: GatewayDep, response: Response, _: BookingRateLimited
 ) -> PublicPaymentSetup:
-    response.headers["Cache-Control"] = "no-store"
     response.headers["Referrer-Policy"] = "no-referrer"
     return await PublicPaymentSetupService(db, gateway).view(token)
 
@@ -505,6 +504,5 @@ async def public_payment_setup(
 async def public_payment_setup_start(
     token: SetupToken, db: DbSession, gateway: GatewayDep, response: Response, _: BookingRateLimited
 ) -> PublicPaymentSetup:
-    response.headers["Cache-Control"] = "no-store"
     response.headers["Referrer-Policy"] = "no-referrer"
     return await PublicPaymentSetupService(db, gateway).view(token, start=True)
