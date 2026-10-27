@@ -4,13 +4,37 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 # Every end-to-end lane, grouped by surface; each job starts its own test tier.
 jobs:
+  prepare:
+    # Seeds the core demo businesses once and builds web, Connect and admin once, for the browser lanes
+    # to restore and preview instead of each doing both.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/e2e-setup
+      - run: make test-prepare
+      - id: tier
+        run: echo "dir=$HOME/.cache/clientbridge-test" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: e2e-prepared
+          if-no-files-found: error
+          path: |
+            ${{ steps.tier.outputs.dir }}/snapshots/*.dump
+            ${{ steps.tier.outputs.dir }}/snapshots/*.json
+            ${{ steps.tier.outputs.dir }}/builds
+          retention-days: 1
+
   web:
+    needs: prepare
     uses: ./.github/workflows/e2e-web.yml
 
   connect:
+    needs: prepare
     uses: ./.github/workflows/e2e-connect.yml
 
   mobile:

@@ -14,14 +14,18 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { name: chromium (1/3), artifact: web-chromium-1, browser: chromium, args: --surface web --shard 1/3 }
-          - { name: chromium (2/3), artifact: web-chromium-2, browser: chromium, args: --surface web --shard 2/3 }
-          - { name: chromium (3/3), artifact: web-chromium-3, browser: chromium, args: --surface web --shard 3/3 }
+          # the runner splits a sharded lane's cases by their measured seconds (apps/web/e2e/case-seconds.json)
+          - { name: chromium (1/5), artifact: web-chromium-1, browser: chromium, args: --surface web --shard 1/5 }
+          - { name: chromium (2/5), artifact: web-chromium-2, browser: chromium, args: --surface web --shard 2/5 }
+          - { name: chromium (3/5), artifact: web-chromium-3, browser: chromium, args: --surface web --shard 3/5 }
+          - { name: chromium (4/5), artifact: web-chromium-4, browser: chromium, args: --surface web --shard 4/5 }
+          - { name: chromium (5/5), artifact: web-chromium-5, browser: chromium, args: --surface web --shard 5/5 }
           - { name: pseudo-locale, artifact: web-pseudo, browser: chromium, args: --surface web --project pseudo }
           # Firefox and WebKit run only the cases tagged @browsers; CI keeps them on Linux
           - { name: firefox, artifact: web-firefox, browser: firefox, args: --surface web --project firefox }
           - { name: webkit, artifact: web-webkit, browser: webkit, args: --surface web --project webkit }
-          - { name: journeys, artifact: web-journeys, browser: chromium, args: --surface journeys }
+          - { name: journeys (1/2), artifact: web-journeys-1, browser: chromium, args: --surface journeys --shard 1/2 }
+          - { name: journeys (2/2), artifact: web-journeys-2, browser: chromium, args: --surface journeys --shard 2/2 }
           - { name: filings, artifact: web-filings, browser: chromium, args: --surface filings }
     steps:
       - uses: actions/checkout@v7
@@ -29,6 +33,7 @@ jobs:
         with:
           app: web
           browser: ${{ matrix.browser }}
+          prepared: "true"
       - name: run the lane on the test tier
         env:
           ARGS: ${{ matrix.args }}
@@ -39,7 +44,7 @@ jobs:
           name: ${{ matrix.artifact }}
 
   result:
-    # passes only when every lane passed and the Chromium shards together ran every required case
+    # passes only when every lane passed and each sharded lane's shards together ran its required cases
     needs: lane
     if: always()
     runs-on: ubuntu-24.04
@@ -52,10 +57,32 @@ jobs:
       - uses: actions/download-artifact@v8
         with:
           pattern: web-chromium-*
-          path: shards
+          path: chromium
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: web-journeys-*
+          path: journeys
       - name: require every web case across the Chromium shards
         working-directory: backend
-        run: uv run python -m e2e.results ../shards/*/e2e-*/browser-results/results.json --surface web
+        run: |
+          uv run python -m e2e.results ../chromium/*/e2e-*/browser-results/results.json --surface web \
+            --seconds ../chromium-seconds.json
+      - name: require every journey across the journeys shards
+        if: success() || failure()
+        working-directory: backend
+        run: |
+          uv run python -m e2e.results ../journeys/*/e2e-*/browser-results/results.json --surface journeys \
+            --seconds ../journeys-seconds.json
+      # each case's measured seconds, merged into apps/web/e2e/case-seconds.json to rebalance the shards
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: web-case-seconds
+          if-no-files-found: ignore
+          path: |
+            chromium-seconds.json
+            journeys-seconds.json
+          retention-days: 7
       - env:
           RESULT: ${{ needs.lane.result }}
         run: test "$RESULT" = success

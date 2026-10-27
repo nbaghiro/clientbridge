@@ -1,4 +1,4 @@
-"""Run a command against its own copy of a migrated database seeded at the frozen instant."""
+"""Run a command against its own copies of a migrated database seeded at the frozen instant."""
 
 import asyncio
 import fcntl
@@ -6,6 +6,7 @@ import os
 import secrets
 import subprocess
 import sys
+from pathlib import Path
 
 from scripts.db_access import quote
 from sqlalchemy import text
@@ -17,6 +18,8 @@ from e2e import tier
 
 # templates other checkouts may still be using; older ones are dropped
 KEPT_TEMPLATES = 4
+# each template's dump, which CI caches by the template's name
+TEMPLATES = tier.TIER / "templates"
 
 
 async def admin(statement: str) -> None:
@@ -44,23 +47,52 @@ def run(command: list[str], env: dict[str, str]) -> None:
     subprocess.run(command, env=env, check=True, stdout=sys.stderr)
 
 
+def seed_sources() -> list[Path]:
+    """What a seeded database is built from: the migrations and the demo seed's code and assets."""
+    scripts = tier.BACKEND / "scripts"
+    return [
+        tier.BACKEND / "migrations",
+        *sorted(scripts.glob("demo_*.py")),
+        scripts / "seed_demo.py",
+        scripts / "demo_assets",
+    ]
+
+
 def template_name() -> str:
     """One seeded template per migrations, seed code and frozen instant."""
-    scripts = tier.BACKEND / "scripts"
-    seed = [*sorted(scripts.glob("demo_*.py")), scripts / "seed_demo.py", scripts / "demo_assets"]
-    found = tier.digest(tier.BACKEND / "migrations", tier.BACKEND / "tests" / "clock.py", *seed)
+    found = tier.digest(*seed_sources(), tier.BACKEND / "tests" / "clock.py")
     return f"clientbridge_test_tpl_{found[:12]}"
 
 
 def build_template(name: str) -> None:
+    """Restore the template from its dump, or seed it and keep the dump for the next tier."""
     python = [sys.executable, "-m"]
     env = os.environ | tier.environment(name)
+    dump = TEMPLATES / f"{name}.dump"
     asyncio.run(admin(f"CREATE DATABASE {quote(name)}"))
     try:
-        run([*python, "scripts.db_access", "roles"], env)
-        run([*python, "alembic", "upgrade", "head"], env)
-        run([*python, "scripts.db_access", "grants"], env)
-        run([*python, "scripts.seed_demo", "--core", "--as-of", FROZEN.isoformat()], env)
+        if dump.is_file():
+            with dump.open("rb") as saved:
+                tier.postgres(
+                    "pg_restore",
+                    "--exit-on-error",
+                    "--disable-triggers",
+                    "--dbname",
+                    name,
+                    stdin=saved,
+                )
+            # the seed's own upload is what puts its assets, and the bucket, in the tier's storage
+            run([*python, "e2e.snapshot", "assets"], env)
+        else:
+            run([*python, "scripts.db_access", "roles"], env)
+            run([*python, "alembic", "upgrade", "head"], env)
+            run([*python, "scripts.db_access", "grants"], env)
+            run([*python, "scripts.seed_demo", "--core", "--as-of", FROZEN.isoformat()], env)
+            TEMPLATES.mkdir(parents=True, exist_ok=True)
+            partial = dump.with_suffix(".partial")
+            with partial.open("wb") as out:
+                tier.postgres("pg_dump", "--format=custom", "--dbname", name, stdout=out)
+            partial.replace(dump)
     except BaseException:
         asyncio.run(admin(f"DROP DATABASE IF EXISTS {quote(name)} WITH (FORCE)"))
         raise
@@ -79,6 +111,7 @@ def prune_templates(current: str) -> None:
     for name in [found for found in names if found != current][KEPT_TEMPLATES - 1 :]:
         asyncio.run(admin(f"ALTER DATABASE {quote(name)} WITH IS_TEMPLATE false"))
         asyncio.run(admin(f"DROP DATABASE IF EXISTS {quote(name)} WITH (FORCE)"))
+        (TEMPLATES / f"{name}.dump").unlink(missing_ok=True)
 
 
 def ensure_template() -> str:
@@ -92,20 +125,44 @@ def ensure_template() -> str:
     return name
 
 
+def worker_count() -> int:
+    """One pytest-xdist worker per core, up to eight, unless TEST_WORKERS names a count."""
+    return int(os.environ.get("TEST_WORKERS") or min(os.cpu_count() or 1, 8))
+
+
+async def copy_databases(template: str, names: list[str]) -> None:
+    await asyncio.gather(
+        *(admin(f"CREATE DATABASE {quote(name)} TEMPLATE {quote(template)}") for name in names)
+    )
+
+
+async def drop_databases(names: list[str]) -> None:
+    await asyncio.gather(
+        *(admin(f"DROP DATABASE IF EXISTS {quote(name)} WITH (FORCE)") for name in names)
+    )
+
+
 def main(command: list[str]) -> int:
     with tier.hold():
         template = ensure_template()
-        # its own copy, so other suites and e2e runs on this machine cannot touch it
+        # its own copies, so other suites and e2e runs on this machine cannot touch them
         database = f"clientbridge_test_{secrets.token_hex(4)}"
-        asyncio.run(admin(f"CREATE DATABASE {quote(database)} TEMPLATE {quote(template)}"))
+        workers = worker_count()
+        # each pytest-xdist worker opens <database>_gw<n> (tests/__init__.py)
+        copies = [database, *(f"{database}_gw{index}" for index in range(workers))]
         try:
+            asyncio.run(copy_databases(template, copies))
             env = os.environ | tier.environment(database)
+            env["PYTEST_XDIST_AUTO_NUM_WORKERS"] = str(workers)
             # the suite builds deployed Settings from this environment, which refuse a dev mailer
             env.pop("SMTP_URL")
             return subprocess.run(command, env=env, check=False).returncode
         finally:
-            asyncio.run(admin(f"DROP DATABASE IF EXISTS {quote(database)} WITH (FORCE)"))
+            asyncio.run(drop_databases(copies))
 
 
 if __name__ == "__main__":
+    if sys.argv[1:] == ["template-name"]:
+        print(template_name())
+        sys.exit(0)
     sys.exit(main(sys.argv[1:]))

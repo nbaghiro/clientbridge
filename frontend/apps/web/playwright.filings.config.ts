@@ -1,7 +1,7 @@
 import { defineConfig } from "@playwright/test";
 
 import base, { chromium } from "./playwright.config";
-import { runBuild, runPort } from "@clientbridge/config/e2e/run";
+import { runPreview, runPort } from "@clientbridge/config/e2e/run";
 
 const webPort = runPort("WEB_E2E_PORT");
 
@@ -13,7 +13,7 @@ export default defineConfig({
     ],
     webServer: [
         {
-            command: runBuild("web", webPort),
+            command: runPreview("web", webPort),
             url: `http://localhost:${String(webPort)}/`,
             reuseExistingServer: false,
         },

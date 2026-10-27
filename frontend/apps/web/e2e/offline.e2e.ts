@@ -61,9 +61,10 @@ test(
             return keys;
         });
         expect(cached).toContain("/index.html");
-        expect(cached.every((path) => path === "/index.html" || path.startsWith("/assets/"))).toBe(
-            true,
-        );
+        expect(cached).toContain("/config.js");
+        const shell = (path: string) =>
+            ["/index.html", "/config.js"].includes(path) || path.startsWith("/assets/");
+        expect(cached.every(shell)).toBe(true);
     },
 );
 

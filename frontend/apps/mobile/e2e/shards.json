@@ -1,30 +1,27 @@
 [
     {
         "id": "a",
-        "name": "auth, workday, sync",
-        "flows": [
-            "staff.yaml",
-            "today.yaml",
-            "offline.hours.yaml",
-            "earnings.yaml",
-            "billing.yaml",
-            "auth.session.yaml"
-        ]
+        "name": "staff, inbox",
+        "flows": ["staff.yaml", "messaging.yaml", "notifications.yaml"]
     },
     {
         "id": "b",
-        "name": "setup, payments, recovery",
-        "flows": ["setup.yaml", "payments.yaml", "auth.recovery.yaml", "offline.yaml"]
+        "name": "clients, session",
+        "flows": ["clients.yaml", "auth.session.yaml", "earnings.yaml"]
     },
     {
         "id": "c",
-        "name": "inbox, clients",
-        "flows": [
-            "messaging.navigation.yaml",
-            "messaging.yaml",
-            "clients.record.yaml",
-            "clients.yaml",
-            "notifications.yaml"
-        ]
+        "name": "inbox tabs, workday",
+        "flows": ["messaging.navigation.yaml", "today.yaml", "billing.yaml"]
+    },
+    {
+        "id": "d",
+        "name": "setup, payments",
+        "flows": ["setup.yaml", "payments.yaml", "clients.record.yaml"]
+    },
+    {
+        "id": "e",
+        "name": "recovery, offline",
+        "flows": ["auth.recovery.yaml", "offline.hours.yaml", "offline.yaml"]
     }
 ]

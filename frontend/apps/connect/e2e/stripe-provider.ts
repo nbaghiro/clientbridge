@@ -79,7 +79,7 @@ export async function stripeEvidence(invoiceId: string): Promise<StripeBrowserEv
 export async function stripeReady(): Promise<{ ready: boolean; account: string }> {
     if (
         process.env.STRIPE_BROWSER_E2E !== "1" ||
-        !process.env.VITE_STRIPE_PUBLISHABLE_KEY?.startsWith("pk_test_")
+        !process.env.STRIPE_PUBLISHABLE_KEY?.startsWith("pk_test_")
     ) {
         throw new Error(
             "requires the dedicated isolated Stripe browser lane and test publishable key",

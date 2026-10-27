@@ -109,6 +109,10 @@ jobs:
     needs: [shards, build]
     name: android (${{ matrix.shard.name }})
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      # to see when the prepare job's snapshot is uploaded
+      actions: read
     timeout-minutes: 40
     strategy:
       fail-fast: false
@@ -165,6 +169,26 @@ jobs:
             ~/.android/adbkey*
           key: ${{ steps.emulator.outputs.key }}
       - run: make test-tier
+      # e2e.yml's prepare job runs beside the mobile build, so its seed snapshot is normally uploaded by now;
+      # without it the lane seeds its own
+      - name: wait for the prepared seed snapshot
+        id: prepared
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for _ in $(seq 60); do
+            found=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts?name=e2e-prepared" --jq .total_count)
+            if [ "$found" = 1 ]; then echo "found=true" >> "$GITHUB_OUTPUT"; exit 0; fi
+            sleep 5
+          done
+          echo "::warning::no prepared seed snapshot after five minutes; the lane seeds its own"
+      - if: steps.prepared.outputs.found == 'true'
+        uses: actions/download-artifact@v8
+        with:
+          name: e2e-prepared
+          path: ${{ runner.temp }}/prepared
+      - if: steps.prepared.outputs.found == 'true'
+        run: mkdir -p ~/.cache/clientbridge-test && cp -R "$RUNNER_TEMP/prepared/snapshots" ~/.cache/clientbridge-test/
       - name: run the walkthroughs
         run: |
           frontend/apps/mobile/scripts/ci-emulator.sh start

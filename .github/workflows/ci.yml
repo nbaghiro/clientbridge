@@ -24,6 +24,14 @@ jobs:
         working-directory: backend
       - run: make format-check-backend lint-backend
       - run: make test-tier
+      # the seeded template is the same for the same migrations, seed and frozen instant, so its dump is kept
+      - id: template
+        run: echo "name=$(uv run python -m e2e.database template-name)" >> "$GITHUB_OUTPUT"
+        working-directory: backend
+      - uses: actions/cache@v6
+        with:
+          path: ~/.cache/clientbridge-test/templates
+          key: ${{ steps.template.outputs.name }}
       - run: make test-backend
       - run: make test-auth # KratosIdentityProvider against the tier's auth service
       - if: failure()
@@ -139,8 +147,9 @@ jobs:
           cache-dependency-path: frontend/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile --ignore-scripts
         working-directory: frontend
-      - run: pnpm --filter site exec playwright install --with-deps chromium
-        working-directory: frontend
+      - uses: ./.github/actions/playwright
+        with:
+          app: site
       - run: make test-site
 
   codegen-drift:
@@ -167,6 +176,10 @@ jobs:
 
   e2e:
     uses: ./.github/workflows/e2e.yml
+    permissions:
+      contents: read
+      # the Android lanes look up the prepare job's artifact while it may still be uploading
+      actions: read
 
   e2e-result:
     # the one required check for every end-to-end lane, so the ruleset doesn't list each job

@@ -861,14 +861,19 @@ Everything else — SQL, mutations, validation, status→`Intent` decisions, cop
   Team → staff, Schedule → bookings, Gift cards → entitlements, Onboarding → business).
 - **Two entrypoints:** `index.ts` (full) and **`public.ts`** — the PowerSync-free lean subpath the Connect
   app imports.
-- **Runtime URLs:** web and Connect load `/config.js` before their bundle. The web image serves it with
-  `window.__CLIENTBRIDGE_CONFIG__ = { baseDomain, stripePublishableKey }`, and `runtimeConfig()`
-  (`runtime.ts`) derives the API (`api.`) and the auth service (`api.<base>/auth`), PowerSync (`sync.`) and
-  Connect's four URLs from it: the business page template (`https://{slug}.<base>`), `book.`, `shop.` and
-  `pay.`, so one image serves staging and production. `runtime.ts` also builds every Connect link from them
-  (`businessPageUrl`, `bookingPageUrl`, `shopPageUrl`) and tells Connect which site an origin serves
-  (`connectSite`). The dev servers ship an empty
-  `public/config.js`, and each app's `config.ts` then falls back to its `VITE_*` values.
+- **Runtime URLs:** web, Connect and admin load `/config.js` before their bundle and read every URL from
+  it through `runtimeConfig()` (`runtime.ts`); no URL is compiled into a bundle. The web image's Caddy
+  serves it from `BASE_DOMAIN`, `STRIPE_PUBLISHABLE_KEY` and any of `API_URL`, `AUTH_URL`, `SYNC_URL`,
+  `APP_URL`, `ADMIN_URL`, `PAGE_URL`, `BOOK_URL`, `SHOP_URL` and `PAY_URL` that are set, and
+  `runtimeConfig()` derives the rest from the base domain: the API (`api.`), the auth service
+  (`api.<base>/auth`), PowerSync (`sync.`) and Connect's four URLs, the business page template
+  (`https://{slug}.<base>`), `book.`, `shop.` and `pay.`, so one image serves staging and production. In dev
+  and in e2e previews the Vite plugin in `packages/config/vite/runtime-config.ts` serves the same script from
+  the same variables, taken from the process environment and the app's committed `.env.development`, and
+  refuses to start when one the app needs is missing. Reading a URL that is neither set nor derivable throws,
+  so a misconfigured server fails at once. The web app's service worker keeps the last `/config.js` for
+  offline starts. `runtime.ts` also builds every Connect link from these URLs (`businessPageUrl`,
+  `bookingPageUrl`, `shopPageUrl`) and tells Connect which site an origin serves (`connectSite`).
 - **One checkout.** Every sale (deposit, gift card, package, subscription) runs through `useCheckout`
   (saved card or new card, one idempotency key per attempt), and saving a card through
   `useAddPaymentMethod`. Only chargeable saved methods are offered (`checkoutMethods`): cards, and bank
