@@ -68,8 +68,8 @@ import type { RootStackParamList, TabParamList } from "../navigation";
 
 const c = theme.colors;
 const s = strings.bookings;
-const HOUR = 64;
-const PX = HOUR / 60;
+const MIN_HOUR = 64;
+const GRID_PAD = 32;
 const GUTTER = 44;
 
 export function ScheduleScreen() {
@@ -88,6 +88,7 @@ export function ScheduleScreen() {
     const [dragging, setDragging] = useState(false);
     const [lanesWidth, setLanesWidth] = useState(0);
     const scroll = useRef<ScrollView>(null);
+    const [viewport, setViewport] = useState(0);
     const form = useBookingComposer(api, composer, board, () => {
         setComposer(null);
     });
@@ -100,7 +101,10 @@ export function ScheduleScreen() {
         day.date,
         zone,
     );
-    const draftTop = draft === null ? 0 : minuteTop(draft.start, startHour, PX, zone);
+    // Like the web grid, hours stretch to fill a tall screen and scroll once they reach the minimum.
+    const hourPx = Math.max(MIN_HOUR, (viewport - GRID_PAD) / Math.max(1, endHour - startHour));
+    const px = hourPx / 60;
+    const draftTop = draft === null ? 0 : minuteTop(draft.start, startHour, px, zone);
     const [moving, setMoving] = useState(false);
     const hours = hourMarks(startHour, endHour);
     const waiting = board.load.state === "loading" || board.load.state === "error";
@@ -116,7 +120,7 @@ export function ScheduleScreen() {
         });
     };
     const tapLane = (staffId: string, y: number): void => {
-        const at = minutesInto(day.date, startHour * 60 + Math.floor(y / PX / 15) * 15, zone);
+        const at = minutesInto(day.date, startHour * 60 + Math.floor(y / px / 15) * 15, zone);
         if (composer) {
             form.place(staffId, at);
             return;
@@ -257,6 +261,9 @@ export function ScheduleScreen() {
                 <ScrollView
                     ref={scroll}
                     scrollEnabled={!dragging}
+                    onLayout={(e) => {
+                        setViewport(e.nativeEvent.layout.height);
+                    }}
                     contentContainerStyle={[
                         styles.gridWrap,
                         composer ? { paddingBottom: expanded ? 560 : 200 } : null,
@@ -285,10 +292,10 @@ export function ScheduleScreen() {
                             )}
                         </View>
                     ) : null}
-                    <View style={[styles.grid, { height: (endHour - startHour) * HOUR }]}>
+                    <View style={[styles.grid, { height: (endHour - startHour) * hourPx }]}>
                         <View style={{ width: GUTTER }}>
                             {hours.map((h, i) => (
-                                <Text key={h} style={[styles.hour, { top: i * HOUR - 7 }]}>
+                                <Text key={h} style={[styles.hour, { top: i * hourPx - 7 }]}>
                                     {i === 0 ? "" : formatHour(h)}
                                 </Text>
                             ))}
@@ -315,8 +322,8 @@ export function ScheduleScreen() {
                                             style={[
                                                 styles.off,
                                                 {
-                                                    top: sp.from * PX,
-                                                    height: (sp.to - sp.from) * PX,
+                                                    top: sp.from * px,
+                                                    height: (sp.to - sp.from) * px,
                                                 },
                                             ]}
                                         />
@@ -325,7 +332,7 @@ export function ScheduleScreen() {
                                         <View
                                             key={h}
                                             pointerEvents="none"
-                                            style={[styles.line, { top: i * HOUR }]}
+                                            style={[styles.line, { top: i * hourPx }]}
                                         />
                                     ))}
                                     {lane.blocks.map((b) => {
@@ -334,7 +341,7 @@ export function ScheduleScreen() {
                                             day.date,
                                             startHour,
                                             endHour,
-                                            PX,
+                                            px,
                                             zone,
                                         );
                                         const job = b.kind === "job" ? (b.bookingId ?? null) : null;
@@ -370,7 +377,7 @@ export function ScheduleScreen() {
                                             </View>
                                         );
                                     })}
-                                    {placeEvents(lane.events, day.date, startHour, PX, zone).map(
+                                    {placeEvents(lane.events, day.date, startHour, px, zone).map(
                                         (p) => (
                                             <View
                                                 key={p.event.id}
@@ -431,8 +438,9 @@ export function ScheduleScreen() {
                                     lane={draftLane}
                                     lanes={day.lanes.length}
                                     top={draftTop}
-                                    height={((+draft.end - +draft.start) / 60_000) * PX}
+                                    height={((+draft.end - +draft.start) / 60_000) * px}
                                     laneWidth={lanesWidth / Math.max(1, day.lanes.length)}
+                                    pxPerMin={px}
                                     onPlace={(lane, start) => {
                                         const id = day.lanes[lane]?.id;
                                         if (id !== undefined) form.place(id, start);
@@ -447,7 +455,7 @@ export function ScheduleScreen() {
                                 style={[
                                     styles.now,
                                     {
-                                        top: minuteTop(board.now, startHour, PX, zone),
+                                        top: minuteTop(board.now, startHour, px, zone),
                                         left: GUTTER - 4,
                                     },
                                 ]}
@@ -524,6 +532,7 @@ function DraftCard({
     top,
     height,
     laneWidth,
+    pxPerMin,
     onPlace,
     onDragging,
 }: {
@@ -533,11 +542,12 @@ function DraftCard({
     top: number;
     height: number;
     laneWidth: number;
+    pxPerMin: number;
     onPlace: (lane: number, start: Date) => void;
     onDragging: (on: boolean) => void;
 }) {
-    const latest = useRef({ draft, lane, lanes, laneWidth, onPlace, onDragging });
-    latest.current = { draft, lane, lanes, laneWidth, onPlace, onDragging };
+    const latest = useRef({ draft, lane, lanes, laneWidth, pxPerMin, onPlace, onDragging });
+    latest.current = { draft, lane, lanes, laneWidth, pxPerMin, onPlace, onDragging };
     const origin = useRef<{ lane: number; start: Date; last: string } | null>(null);
     const end = (): void => {
         origin.current = null;
@@ -558,7 +568,7 @@ function DraftCard({
                 if (o === null) return;
                 const shift = l.laneWidth === 0 ? 0 : Math.round(g.dx / l.laneWidth);
                 const target = Math.max(0, Math.min(l.lanes - 1, o.lane + shift));
-                const minutes = Math.round(g.dy / PX / 15) * 15;
+                const minutes = Math.round(g.dy / l.pxPerMin / 15) * 15;
                 const key = `${String(target)}|${String(minutes)}`;
                 if (key === o.last) return;
                 o.last = key;
