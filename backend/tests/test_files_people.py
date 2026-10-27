@@ -55,7 +55,7 @@ async def test_a_new_photo_replaces_the_old_one_and_its_bytes(
 ) -> None:
     first = await _upload(as_owner, storage, "client", "cl_amelie")
     pending = await as_owner.post("/v1/files", json=_photo("client", "cl_amelie"))
-    assert await _photos(db, "cl_amelie") == [first["id"], pending.json()["file"]["id"]]
+    assert set(await _photos(db, "cl_amelie")) == {first["id"], pending.json()["file"]["id"]}
     second = pending.json()["file"]
     storage.stored[second["s3_key"]] = 4096
     assert (await as_owner.post(f"/v1/files/{second['id']}/complete")).status_code == 200

@@ -21,6 +21,7 @@ ADMIN_URL = os.environ.get(
     "ADMIN_DATABASE_URL",
     "postgresql+asyncpg://clientbridge:clientbridge@localhost:8702/clientbridge",
 )
+ROLES_LOCK = 72_010_001
 
 
 class Login(NamedTuple):
@@ -325,6 +326,20 @@ async def application_database(admin_url: str) -> None:
 async def main(phase: str) -> None:
     if phase not in ("roles", "grants"):
         raise SystemExit("usage: python -m scripts.db_access roles|grants")
+    if phase == "grants":
+        await apply(phase)
+        return
+    # roles belong to the whole server, so runs against different databases change them in turn
+    server = create_async_engine(
+        make_url(ADMIN_URL).set(database="postgres"), isolation_level="AUTOCOMMIT"
+    )
+    async with server.connect() as held:
+        await held.execute(text("SELECT pg_advisory_lock(:k)"), {"k": ROLES_LOCK})
+        await apply(phase)
+    await server.dispose()
+
+
+async def apply(phase: str) -> None:
     found = logins()
     url = make_url(ADMIN_URL)
     if phase == "roles":
