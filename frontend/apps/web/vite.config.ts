@@ -2,12 +2,23 @@ import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
+import { runtimeConfig } from "@clientbridge/config/vite/runtime-config";
 import { defineConfig } from "vite";
 
 export default defineConfig({
     plugins: [
         react(),
         tailwindcss(),
+        runtimeConfig([
+            "adminUrl",
+            "apiUrl",
+            "authUrl",
+            "syncUrl",
+            "pageUrl",
+            "bookUrl",
+            "shopUrl",
+            "payUrl",
+        ]),
         {
             name: "offline-shell",
             apply: "build",

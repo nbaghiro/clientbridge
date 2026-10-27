@@ -14,7 +14,8 @@
         "./e2e/pseudo": "./e2e/pseudo.ts",
         "./vitest/config": "./vitest/config.ts",
         "./e2e/demo": "./e2e/demo.ts",
-        "./e2e/run": "./e2e/run.ts"
+        "./e2e/run": "./e2e/run.ts",
+        "./vite/runtime-config": "./vite/runtime-config.ts"
     },
     "dependencies": {
         "@axe-core/playwright": "^4.13.0",
@@ -29,6 +30,7 @@
     "devDependencies": {
         "@playwright/test": "^1.63.0",
         "@types/node": "^24.0.0",
+        "vite": "^8.3.2",
         "vitest": "^5.0.3"
     }
 }

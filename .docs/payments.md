@@ -379,8 +379,7 @@ If you reset the local demo database later, rerun linking; you do not need to re
 | `STRIPE_PLATFORM_WEBHOOK_SECRET`    | Platform plan-subscription endpoint signing secret.                               |
 | `STRIPE_PORTAL_CONFIGURATION`       | Platform Billing Portal configuration ID.                                         |
 | `STRIPE_CONNECT_COUNTRY`            | Connected-account country; defaults to `CA`.                                      |
-| `VITE_STRIPE_PUBLISHABLE_KEY`       | Local web and Connect apps.                                                       |
-| `STRIPE_PUBLISHABLE_KEY`            | Mobile configuration; deployed web receives runtime configuration from the stack. |
+| `STRIPE_PUBLISHABLE_KEY`            | Mobile configuration, and the web, Connect and admin `/config.js` in every environment. |
 | `clientbridge:stripePublishableKey` | Per-environment Pulumi stack setting for deployed clients.                        |
 
 Secret and publishable keys must refer to the same mode/platform account. Local CLI signing secrets
