@@ -87,6 +87,8 @@ interface Strings {
         readonly seatLimit: string;
         readonly planActive: string;
         readonly planNotManaged: string;
+        readonly skuTaken: string;
+        readonly invoiceHasPayments: string;
         readonly businessUnavailable: string;
         readonly packageOtherSubject: string;
         readonly serviceNotOffered: string;

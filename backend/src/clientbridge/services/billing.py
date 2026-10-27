@@ -184,8 +184,10 @@ class BillingService:
         invoice = await self._invoice(invoice_id)
         status, _ = await ledger.invoice_state(self.db, invoice)
         cash, _ = await ledger.collected(self.db, invoice.business_id, "invoice", invoice.id)
-        if status in ("paid", "refunded", "void") or cash != 0:
+        if status in ("paid", "refunded", "void"):
             raise Conflict(f"a {status} invoice can't be voided")
+        if cash != 0:
+            raise Conflict("money was taken on this invoice", code="invoice_has_payments")
 
         async def run(cmd: Command) -> InvoiceOut:
             if await payment_pending(self.db, invoice):

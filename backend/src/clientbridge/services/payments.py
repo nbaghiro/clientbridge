@@ -125,7 +125,7 @@ class WebhookOutcome:
     target_id: str
 
 
-class RefundRefused(Conflict):
+class RefundBlocked(Conflict):
     def __init__(self, message: str, block: RefundBlock) -> None:
         super().__init__(message, code=block)
         self.block: RefundBlock = block
@@ -595,7 +595,7 @@ class PaymentService:
         if payment.kind == "refund":
             raise Conflict("a refund can't be refunded")
         if payment.status != "succeeded":
-            raise Conflict("only a succeeded payment can be refunded")
+            raise RefundBlocked("only a succeeded payment can be refunded", "not_succeeded")
         by_hand = refunded_by_hand(payment)
         if not by_hand and (business.stripe_account_id is None or payment.provider_ref is None):
             raise Conflict("payment has no connected charge to refund")
@@ -630,11 +630,11 @@ class PaymentService:
             left = payment.amount_cents - refunded
             amount = left if amount_cents is None else amount_cents
             if left <= 0:
-                raise Conflict("this payment was already refunded")
+                raise RefundBlocked("this payment was already refunded", "already_refunded")
             if amount <= 0 or amount > left:
                 raise Conflict("invalid refund amount")
             if whole_only and (refunded > 0 or amount != payment.amount_cents):
-                raise Conflict(whole_only)
+                raise RefundBlocked("this payment is refunded in full only", "whole_only")
             attempt_key = hash_token(idempotency_key) if idempotency_key else str(attempts)
             refund = await create_refund(
                 self.db,
@@ -669,7 +669,7 @@ class PaymentService:
             raise Conflict("a refund can't be refunded")
         refunded = await _refunded_cents(self.db, payment)
         left = max(0, payment.amount_cents - refunded)
-        whole_only: str | None = None
+        whole_only = False
         blocked: RefundBlock | None = None
         if payment.status != "succeeded":
             blocked = "not_succeeded"
@@ -678,11 +678,11 @@ class PaymentService:
         else:
             try:
                 whole_only = await self._whole_refund_only(payment)
-            except RefundRefused as exc:
+            except RefundBlocked as exc:
                 blocked = exc.block
-            if whole_only is not None and refunded > 0:
+            if whole_only and refunded > 0:
                 blocked = "whole_only"
-        amount = left if amount_cents is None or whole_only is not None else amount_cents
+        amount = left if amount_cents is None or whole_only else amount_cents
         if blocked is None and (amount <= 0 or amount > left):
             raise Conflict("invalid refund amount")
         parts: dict[tuple[str, str], int] = {}
@@ -708,8 +708,8 @@ class PaymentService:
             ],
         )
 
-    async def _whole_refund_only(self, payment: Payment) -> str | None:
-        """Why this payment can only be refunded in full, or None."""
+    async def _whole_refund_only(self, payment: Payment) -> bool:
+        """Whether this payment can only be refunded in full; raises when it can't be at all."""
         card = (
             await self.db.execute(
                 scoped(GiftCard, self.biz)
@@ -719,13 +719,13 @@ class PaymentService:
         ).scalar_one_or_none()
         if card is not None:
             if card.status == "expired":
-                raise RefundRefused("can't refund an expired gift card", "gift_card_expired")
+                raise RefundBlocked("can't refund an expired gift card", "gift_card_expired")
             if await ledger.gift_card_balance(self.db, card) < card.initial_cents:
-                raise RefundRefused(
+                raise RefundBlocked(
                     "can't refund a gift card that has already been partly redeemed",
                     "gift_card_redeemed",
                 )
-            return "a gift card purchase is refunded in full"
+            return True
         pkg = (
             await self.db.execute(
                 scoped(Package, self.biz).where(Package.payment_id == payment.id).with_for_update()
@@ -733,19 +733,19 @@ class PaymentService:
         ).scalar_one_or_none()
         if pkg is not None:
             if pkg.status == "expired":
-                raise RefundRefused("can't refund an expired package", "package_expired")
+                raise RefundBlocked("can't refund an expired package", "package_expired")
             if await ledger.sessions_used(self.db, pkg) > 0:
-                raise RefundRefused(
+                raise RefundBlocked(
                     "can't refund a package with sessions already used", "package_used"
                 )
-            return "a package purchase is refunded in full"
+            return True
         if payment.booking_id is not None and payment.kind == "deposit":
             booking = await self.db.get(Booking, payment.booking_id)
             if booking is not None and booking.deposit_status == "forfeited":
-                return "a forfeited deposit is refunded in full"
+                return True
             if booking is not None and await ledger.applied_invoices(self.db, booking):
-                return "a deposit applied to an invoice is refunded in full"
-        return None
+                return True
+        return False
 
     def _assert_admin(self) -> None:
         assert_role(

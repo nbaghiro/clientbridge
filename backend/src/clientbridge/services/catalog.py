@@ -140,8 +140,7 @@ class CatalogService:
                 request=data,
             )
         except IntegrityError as exc:
-            if "ux_items_business_sku" in str(exc.orig):
-                raise Conflict("another item already uses that SKU") from exc
+            _raise_if_sku_taken(exc)
             raise
 
     async def update(self, item_id: str, data: ItemUpdate) -> Item:
@@ -269,9 +268,15 @@ class CatalogService:
             await self.db.flush()
         except IntegrityError as exc:
             await self.db.rollback()
-            raise Conflict("another item already uses that SKU") from exc
+            _raise_if_sku_taken(exc)
+            raise
         await self.db.refresh(item)
         await self.db.commit()
+
+
+def _raise_if_sku_taken(exc: IntegrityError) -> None:
+    if "ux_items_business_sku" in str(exc.orig):
+        raise Conflict("another item already uses that SKU", code="sku_taken") from exc
 
 
 async def load_item(

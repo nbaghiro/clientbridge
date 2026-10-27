@@ -235,7 +235,7 @@ async def test_refunding_an_applied_deposit_reopens_the_invoice(
         f"/v1/payments/{pay_id}/refund", json={"amount_cents": 500}, headers=retry_key()
     )
     assert partial.status_code == 409
-    assert partial.json()["message"] == "a deposit applied to an invoice is refunded in full"
+    assert partial.json()["error"] == "whole_only"
     assert (
         await as_owner.post(f"/v1/payments/{pay_id}/refund", json={}, headers=retry_key())
     ).status_code == 200

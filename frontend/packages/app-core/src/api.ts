@@ -124,6 +124,8 @@ const FAILURES: Record<string, (detail: FailureDetail) => string> = {
     class_schedule: () => strings.api.classSchedule,
     addon_length_in_use: (d) => strings.api.addonLengthInUse(detailCount(d)),
     enrolment_paid: () => strings.api.enrolmentPaid,
+    sku_taken: () => strings.api.skuTaken,
+    invoice_has_payments: () => strings.api.invoiceHasPayments,
 };
 
 /** The catalog message for a failure the server named, else the action's own message. */

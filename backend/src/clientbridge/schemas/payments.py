@@ -121,7 +121,7 @@ class RefundPreview(BaseModel):
     left_cents: int
     fee_cents: int
     refund_cents: int = Field(description="What this preview refunds")
-    whole_only: str | None = Field(default=None, description="Why only a full refund is allowed")
+    whole_only: bool = Field(description="Only a full refund is allowed")
     blocked: RefundBlock | None = Field(
         default=None, description="Why nothing can be refunded, as a code the client renders"
     )
