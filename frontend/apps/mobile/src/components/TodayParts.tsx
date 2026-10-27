@@ -456,7 +456,10 @@ export function AgendaRows({
                 return (
                     <View key={item.id} style={[styles.agendaRow, i > 0 && styles.divider]}>
                         <View style={styles.agendaTime}>
-                            <Text style={[styles.agendaClock, done && styles.muted]}>
+                            <Text
+                                style={[styles.agendaClock, done && styles.muted]}
+                                numberOfLines={1}
+                            >
                                 {item.time}
                             </Text>
                         </View>
@@ -673,7 +676,7 @@ const styles = StyleSheet.create({
         paddingVertical: 11,
         paddingHorizontal: 14,
     },
-    agendaTime: { width: 74 },
+    agendaTime: { width: 86 },
     agendaClock: {
         color: c.ink,
         fontFamily: theme.fonts.ui,
