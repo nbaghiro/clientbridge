@@ -14,8 +14,12 @@ name: Owner setup surfaces
 - takeScreenshot: business
 - tapOn: "Back|Go back|Navigate up"
 - tapOn: "Services & products"
-- assertVisible: "Inventory"
+- assertVisible: "Packages & memberships"
 - takeScreenshot: catalog
+- swipe:
+      from:
+          text: "Packages & memberships"
+      direction: LEFT
 - tapOn: "Inventory"
 - assertVisible: "Products you track stock for."
 - takeScreenshot: inventory
