@@ -306,13 +306,12 @@ test("SALE-E2E-11 front-desk staff may sell past zero stock but cannot refund, v
         const done = staffPage.getByRole("dialog", { name: d.paidTitle, exact: true });
         await expect(done.getByRole("button", { name: d.refund, exact: true })).toHaveCount(0);
         await navigate(staffPage, "/payments/sales?view=history");
-        const views = staffPage.getByRole("tablist", { name: d.title, exact: true });
-        await expect(views.getByRole("tab")).toHaveCount(2);
-        await expect(views.getByRole("tab", { name: d.history, exact: true })).toHaveCount(0);
-        await expect(views.getByRole("tab", { name: d.newSaleTitle, exact: true })).toHaveAttribute(
-            "aria-selected",
-            "true",
-        );
+        const views = staffPage.getByRole("group", { name: d.title, exact: true });
+        await expect(views.getByRole("button")).toHaveCount(2);
+        await expect(views.getByRole("button", { name: d.history, exact: true })).toHaveCount(0);
+        await expect(
+            views.getByRole("button", { name: d.newSaleTitle, exact: true }),
+        ).toHaveAttribute("aria-pressed", "true");
         await expect(
             staffPage.getByRole("searchbox", { name: d.historySearch, exact: true }),
         ).toHaveCount(0);
