@@ -9,6 +9,7 @@ import {
 import { demoPerson } from "@clientbridge/config/e2e/demo";
 import { expect, type Page } from "@playwright/test";
 
+import { select } from "./db";
 import { requireLocalMail } from "./evidence";
 import { navigate } from "./session";
 import { runEmail, runUrl } from "@clientbridge/config/e2e/run";
@@ -136,6 +137,21 @@ export async function pickBookingTime(
         .click();
 }
 
+async function staffBooked(fixture: BookingFixture, start: Date): Promise<boolean> {
+    const rows = await select<{ id: string }>`
+        SELECT b.id FROM bookings b
+        JOIN slots s ON s.id = b.slot_id
+        JOIN items i ON i.id = ${fixture.itemId}
+        WHERE s.staff_id = ${fixture.staffId}
+          AND b.deleted_at IS NULL
+          AND b.status NOT IN ('canceled', 'waitlisted')
+          AND s.status <> 'canceled'
+          AND s.starts_at < ${start.toISOString()}::timestamptz + i.duration_min * interval '1 minute'
+          AND s.ends_at > ${start.toISOString()}::timestamptz
+        LIMIT 1`;
+    return rows.length > 0;
+}
+
 export async function chooseFreeBookingTime(page: Page, fixture: BookingFixture): Promise<void> {
     const submit = page.getByRole("button", { name: strings.bookings.composerBook, exact: true });
     for (let offset = 14; offset < 21; offset++) {
@@ -143,7 +159,9 @@ export async function chooseFreeBookingTime(page: Page, fixture: BookingFixture)
         await pickBookingDay(page, day, fixture.zone);
         for (const time of ["10:00", "11:00", "13:00", "14:00", "15:00"]) {
             await pickBookingTime(page, day, time, fixture.zone);
-            if (await submit.isEnabled()) return;
+            // the replica may not hold every visit yet, so the server's calendar decides too
+            const start = combineDayAndTime(day, time, fixture.zone);
+            if ((await submit.isEnabled()) && !(await staffBooked(fixture, start))) return;
         }
     }
     throw new Error("No free owner appointment found in the fixture window");
