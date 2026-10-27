@@ -273,7 +273,8 @@ export function syncNotice(sync: NoticeInput, now: number): SyncNotice | null {
     return null;
 }
 
-const STORAGE_FULL = /SQLITE_FULL|disk is full|QuotaExceeded|quota/i;
+// OPFSCoopSyncVFS reports a write past the origin's quota as SQLITE_IOERR_WRITE, "disk I/O error".
+const STORAGE_FULL = /SQLITE_FULL|disk is full|disk I\/O error|QuotaExceeded|quota/i;
 
 /** Whether a sync error came from the device running out of space rather than the network. */
 export function isStorageFull(error: unknown): boolean {
