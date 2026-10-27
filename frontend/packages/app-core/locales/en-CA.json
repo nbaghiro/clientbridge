@@ -338,6 +338,10 @@
         "message": "The payment provider couldn't complete this request. Please try again in a few minutes.",
         "description": "The payment provider refused or failed a request for a reason the app doesn't name."
     },
+    "api.unsupportedCurrency": {
+        "message": "Prices and sales can only be in Canadian dollars.",
+        "description": "Refusing an item price or sale in a currency other than the business currency (CAD)."
+    },
     "api.addonLengthInUse": {
         "message": "{count, plural, one {This add-on's length can't change while a visit carries it. Remove it from # upcoming visit first, or wait until it's done.} other {This add-on's length can't change while visits carry it. Remove it from # upcoming visits first, or wait until they're done.}}",
         "description": "Refusing a change to an add-on product's length: count is how many upcoming, unbilled visits carry it",

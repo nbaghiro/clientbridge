@@ -91,7 +91,7 @@ export async function stripeReady(): Promise<{ ready: boolean; account: string }
     return ready;
 }
 
-async function stripeInvoice(request: APIRequestContext) {
+export async function stripeInvoice(request: APIRequestContext) {
     await stripeReady();
     const provider = await documentProvider(request);
     const response = await request.post(`${documentApi}/v1/invoices`, {

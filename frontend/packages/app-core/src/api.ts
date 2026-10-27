@@ -129,6 +129,7 @@ const FAILURES: Record<string, (detail: FailureDetail) => string> = {
     amount_too_small: () => strings.api.amountTooSmall,
     idempotency_mismatch: () => strings.api.idempotencyMismatch,
     payment_provider_error: () => strings.api.paymentProviderError,
+    unsupported_currency: () => strings.api.unsupportedCurrency,
 };
 
 /** The catalog message for a failure the server named, else the action's own message. */

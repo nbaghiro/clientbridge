@@ -118,6 +118,7 @@ interface Strings {
         readonly amountTooSmall: string;
         readonly idempotencyMismatch: string;
         readonly paymentProviderError: string;
+        readonly unsupportedCurrency: string;
         readonly addonLengthInUse: (count: number) => string;
     };
     readonly previews: {

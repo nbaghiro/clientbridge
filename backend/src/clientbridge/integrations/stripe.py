@@ -1266,8 +1266,12 @@ class StripeGateway:
 
     @_keyed
     async def create_setup_intent(self, account_id: str, *, customer_id: str) -> SetupIntentResult:
+        # "Add card" saves a card; other methods the merchant has on can't be charged off-session
         intent = await stripe.SetupIntent.create_async(
-            customer=customer_id, usage="off_session", stripe_account=account_id
+            customer=customer_id,
+            usage="off_session",
+            allowed_payment_method_types=["card"],
+            stripe_account=account_id,
         )
         return SetupIntentResult(id=str(intent.id), client_secret=str(intent.client_secret))
 

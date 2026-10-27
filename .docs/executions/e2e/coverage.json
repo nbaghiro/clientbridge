@@ -17245,6 +17245,385 @@
         ".scratchpad/e2e-79929fd68d1a/browser-results/results.json"
       ],
       "runtime_scope": "Local isolated stack, strict unchanged source for the run; not hosted CI"
+    },
+    {
+      "id": "STR-E01",
+      "status": "implemented",
+      "risk": "critical",
+      "layer": "browser",
+      "lane": "scheduled",
+      "implementation": [
+        "frontend/apps/connect/e2e/stripe-payouts.spec.ts"
+      ],
+      "setup": "Run-owned CAD 20.00 invoice registered before any intent; leased slot-a QA merchant",
+      "actions": [
+        "Pay on Connect pay. through the real Payment Element with 4000000000000077, whose funds skip the pending balance",
+        "Read the charge's balance transaction from Stripe"
+      ],
+      "expected": [
+        "One succeeded CAD 2000 payment and balanced journals",
+        "Stripe net equals the stripe leg; processing plus platform fee equals the balance transaction fee",
+        "The balance transaction is available, so a payout could include it"
+      ],
+      "boundaries": [
+        "Opening the run's own payout contents is not possible: Stripe lists a payout's transactions for automatic payouts only, and the merchant's automatic schedule has a 7-day delay",
+        "The manual payout half is STR-E08, which is opt-in"
+      ],
+      "related_audit_families": [
+        "PAY-E01",
+        "FIN06"
+      ],
+      "evidence": [
+        ".scratchpad/e2e-8454e453d9f1/run.json",
+        ".scratchpad/e2e-8454e453d9f1/browser-results/results.json"
+      ],
+      "runtime_scope": "Local isolated Chromium, targeted Stripe lane run 4/4 with provider, process and Docker cleanup passed; source changed during the run because another session edited the worktree, so not yet a strict qualification"
+    },
+    {
+      "id": "STR-E05",
+      "status": "implemented",
+      "risk": "high",
+      "layer": "browser",
+      "lane": "scheduled",
+      "implementation": [
+        "frontend/apps/connect/e2e/stripe-desk.spec.ts"
+      ],
+      "setup": "Run-owned CAD 20.00 exempt product; owner in the web app; walk-in sale",
+      "actions": [
+        "Choose Enter card and charge, which opens a real Stripe intent",
+        "Cancel the card form",
+        "Take CAD 20.00 cash"
+      ],
+      "expected": [
+        "POST checkout/cancel answers 200 and the Stripe intent is canceled with no charge",
+        "The card payment row is canceled and a manual cash payment succeeds",
+        "Only cash and revenue journals for the order"
+      ],
+      "boundaries": [
+        "Card-not-present desk path; Terminal simulated readers are not exercised",
+        "An intent left open by a failed run is not in the run manifest, since walk-in intents have no tagged customer"
+      ],
+      "related_audit_families": [
+        "SALE-E01"
+      ],
+      "evidence": [
+        ".scratchpad/e2e-8454e453d9f1/run.json",
+        ".scratchpad/e2e-8454e453d9f1/browser-results/results.json"
+      ],
+      "runtime_scope": "Local isolated Chromium, targeted Stripe lane run 4/4 with provider, process and Docker cleanup passed; source changed during the run because another session edited the worktree, so not yet a strict qualification"
+    },
+    {
+      "id": "STR-E06",
+      "status": "implemented",
+      "risk": "critical",
+      "layer": "browser",
+      "lane": "scheduled",
+      "implementation": [
+        "frontend/apps/connect/e2e/stripe-tabs.spec.ts"
+      ],
+      "setup": "Run-owned CAD 20.00 invoice registered before any intent; two tabs in one browser context",
+      "actions": [
+        "Decline 4000000000000002 in the first tab",
+        "Open card payment in the second tab",
+        "Pay 4242 in the first tab, then in the second"
+      ],
+      "expected": [
+        "Opening the second tab cancels the declined intent (D2)",
+        "The first tab's retry is refused and charges nothing",
+        "One succeeded payment, balance zero, fee journals match Stripe"
+      ],
+      "boundaries": [
+        "Both tabs share one browser context"
+      ],
+      "related_audit_families": [
+        "PAY-E01"
+      ],
+      "evidence": [
+        ".scratchpad/e2e-8454e453d9f1/run.json",
+        ".scratchpad/e2e-8454e453d9f1/browser-results/results.json"
+      ],
+      "runtime_scope": "Local isolated Chromium, targeted Stripe lane run 4/4 with provider, process and Docker cleanup passed; source changed during the run because another session edited the worktree, so not yet a strict qualification"
+    },
+    {
+      "id": "STR-E08",
+      "status": "needs_decision",
+      "risk": "high",
+      "layer": "browser",
+      "lane": "scheduled",
+      "implementation": [
+        "frontend/apps/connect/e2e/stripe-payouts.spec.ts"
+      ],
+      "setup": "Opt-in with STRIPE_PAYOUT_CASE=1 after STR-E01 funds an available charge",
+      "actions": [
+        "Switch the schedule to Manual in Stripe's embedded payouts component",
+        "Pay out the run's own net amount",
+        "Wait for Stripe to report paid",
+        "Download Bank deposits"
+      ],
+      "expected": [
+        "Payout amount equals the run's net and is manual",
+        "transit + / stripe - on payout.created, bank + / transit - on payout.paid",
+        "Deposited leaves it out while in transit and includes it once paid",
+        "Bank deposits lists the paid journal",
+        "The schedule is restored to its original interval"
+      ],
+      "boundaries": [
+        "Blocked on the shared slot-a merchant: its available balance is negative (CAD -192.14 on 2026-10-27) because cleanup refunds draw on the available balance while the 4242 charges they reverse stay pending for 7 days, and lost disputes withdraw funds",
+        "Payouts can't be undone, so the case never pays out more than the run's own net"
+      ],
+      "related_audit_families": [
+        "FIN06"
+      ],
+      "evidence": [
+        ".scratchpad/e2e-aeb486891444/browser-results/results.json"
+      ],
+      "runtime_scope": "Not passed: the balance check refused the payout in e2e-aeb486891444"
+    },
+    {
+      "id": "STR-E09",
+      "status": "implemented",
+      "risk": "high",
+      "layer": "browser",
+      "lane": "scheduled",
+      "implementation": [
+        "frontend/apps/connect/e2e/stripe-payouts.spec.ts",
+        "backend/e2e/merchant.py"
+      ],
+      "setup": "The harness mirrors a payouts-paused account (payouts off, external_account past due) onto the run's business",
+      "actions": [
+        "Open Getting paid",
+        "Press Check again"
+      ],
+      "expected": [
+        "Payouts are paused, the no-date body and the bank requirement show",
+        "POST /v1/connect/refresh returns Stripe's real status and the page shows ready",
+        "The business mirror matches Stripe again"
+      ],
+      "boundaries": [
+        "The paused state is a mirrored local state: a real past-due disposable account needs Stripe-hosted onboarding, which shows an hCaptcha, and the API refuses terms acceptance when Stripe collects requirements",
+        "Both QA merchants stay healthy"
+      ],
+      "related_audit_families": [
+        "FIN06"
+      ],
+      "evidence": [
+        ".scratchpad/e2e-cc11f92c7677/browser-results/results.json",
+        ".scratchpad/e2e-8454e453d9f1/run.json",
+        ".scratchpad/e2e-8454e453d9f1/browser-results/results.json"
+      ],
+      "runtime_scope": "Local isolated Chromium, targeted Stripe lane run 4/4 with provider, process and Docker cleanup passed; source changed during the run because another session edited the worktree, so not yet a strict qualification"
+    },
+    {
+      "id": "STR-E10",
+      "status": "implemented",
+      "risk": "medium",
+      "layer": "browser",
+      "lane": "pr",
+      "implementation": [
+        "frontend/apps/web/e2e/catalog.e2e.ts"
+      ],
+      "setup": "Owner web UI on the isolated core seed",
+      "actions": [
+        "Create a product whose request carries USD",
+        "Save it in CAD",
+        "Edit its price with a USD request"
+      ],
+      "expected": [
+        "422 unsupported_currency on create and update, shown with the api.unsupportedCurrency copy",
+        "Nothing saved on refusal; the item stays CAD"
+      ],
+      "boundaries": [
+        "The editor only offers the business currency, so the browser request is rewritten to USD in flight"
+      ],
+      "related_audit_families": [
+        "CFG01"
+      ],
+      "evidence": [
+        ".scratchpad/e2e-109e0cec097a/run.json"
+      ],
+      "runtime_scope": "Targeted web lane run 1/1, cleanup passed"
+    },
+    {
+      "id": "STR-E02",
+      "status": "implemented",
+      "risk": "critical",
+      "layer": "browser",
+      "lane": "scheduled",
+      "implementation": [
+        "frontend/apps/connect/e2e/stripe-disputes.spec.ts",
+        "backend/e2e/stripe.py"
+      ],
+      "setup": "Owner-issued CAD 20.00 exempt invoice registered before any intent; leased slot-a QA merchant",
+      "actions": [
+        "Pay on Connect with the inquiry card 4000000000001976",
+        "Refund CAD 5.00 in the web app while the inquiry is open",
+        "Escalate the inquiry with escalate_inquiry_evidence",
+        "Lose the dispute with losing_evidence"
+      ],
+      "expected": [
+        "Stripe fails the pending refund and the app reverses it",
+        "Refunds are blocked while disputed and after the loss",
+        "Revenue, receivable and loss end at zero",
+        "The business's Stripe balance equals the net of Stripe's charge, refund, refund failure and dispute transactions"
+      ],
+      "boundaries": [
+        "4000000000000259 opens its dispute during confirmation, so a refund that stays settled before a lost dispute (C1's loss path) cannot be produced in the sandbox"
+      ],
+      "related_audit_families": [
+        "PAY-E01"
+      ],
+      "evidence": [
+        ".scratchpad/e2e-b4d02740e1fd/run.json",
+        ".scratchpad/e2e-b4d02740e1fd/browser-results/results.json"
+      ],
+      "runtime_scope": "Local isolated Chromium, targeted Stripe lane run with provider, process and Docker cleanup passed; source changed during the run because another session edited the worktree, so not yet a strict qualification"
+    },
+    {
+      "id": "STR-E03",
+      "status": "implemented",
+      "risk": "high",
+      "layer": "browser",
+      "lane": "scheduled",
+      "implementation": [
+        "frontend/apps/connect/e2e/stripe-disputes.spec.ts",
+        "backend/e2e/stripe.py"
+      ],
+      "setup": "Run-registered client customer; owner in the web app",
+      "actions": [
+        "Sell a CAD 20.00 gift card by card 4000000000000259",
+        "Redeem CAD 8.00 at the desk",
+        "Lose the dispute"
+      ],
+      "expected": [
+        "The card is void at zero",
+        "Revenue keeps CAD 8.00 and loss holds CAD 8.00",
+        "The Stripe balance matches Stripe's transactions"
+      ],
+      "boundaries": [
+        "The dispute opens at purchase, before the redemption"
+      ],
+      "related_audit_families": [
+        "PAY-E01"
+      ],
+      "evidence": [
+        ".scratchpad/e2e-b4d02740e1fd/run.json",
+        ".scratchpad/e2e-b4d02740e1fd/browser-results/results.json"
+      ],
+      "runtime_scope": "Local isolated Chromium, targeted Stripe lane run with provider, process and Docker cleanup passed; source changed during the run because another session edited the worktree, so not yet a strict qualification"
+    },
+    {
+      "id": "STR-E04",
+      "status": "implemented",
+      "risk": "high",
+      "layer": "browser",
+      "lane": "scheduled",
+      "implementation": [
+        "frontend/apps/connect/e2e/stripe-disputes.spec.ts",
+        "backend/e2e/stripe.py"
+      ],
+      "setup": "Two started visits with a CAD 20.00 deposit, booked through the API at a past time in the owner's hours",
+      "actions": [
+        "Collect the first deposit at the desk with 4000000000000259, mark the visit a no-show, lose the dispute",
+        "Open the second deposit from the manage link, send the visit's invoice, then pay the deposit"
+      ],
+      "expected": [
+        "The forfeit is taken back and the deposit ends refunded with every category at zero",
+        "The late deposit is refunded in full and never applied to the invoice"
+      ],
+      "boundaries": [
+        "The late payment path is the refund, not intent cancellation, because settling by invoice does not cancel the intent"
+      ],
+      "related_audit_families": [
+        "PAY-E01"
+      ],
+      "evidence": [
+        ".scratchpad/e2e-b4d02740e1fd/run.json",
+        ".scratchpad/e2e-b4d02740e1fd/browser-results/results.json"
+      ],
+      "runtime_scope": "Local isolated Chromium, targeted Stripe lane run with provider, process and Docker cleanup passed; source changed during the run because another session edited the worktree, so not yet a strict qualification"
+    },
+    {
+      "id": "STR-E07",
+      "status": "implemented",
+      "risk": "high",
+      "layer": "browser",
+      "lane": "scheduled",
+      "implementation": [
+        "frontend/apps/connect/e2e/stripe-memberships.spec.ts",
+        "backend/e2e/stripe.py"
+      ],
+      "setup": "Client registered on a sandbox test clock; daily CAD 20.00 exempt membership item",
+      "actions": [
+        "Save a card in the client's wallet and start the membership",
+        "Advance the clock one day",
+        "Swap the card for pm_card_chargeCustomerFail and advance twice",
+        "Lapse the plan in the database and cancel from the wallet"
+      ],
+      "expected": [
+        "Each paid renewal books Stripe's fee including the platform share",
+        "One past-due notice per failed invoice",
+        "The membership cancels while the plan is lapsed"
+      ],
+      "boundaries": [
+        "The plan lapse is set directly, so the lapse email path is not driven",
+        "No PAD membership"
+      ],
+      "related_audit_families": [
+        "PAY-E01"
+      ],
+      "evidence": [
+        ".scratchpad/e2e-b4d02740e1fd/run.json",
+        ".scratchpad/e2e-b4d02740e1fd/browser-results/results.json"
+      ],
+      "runtime_scope": "Local isolated Chromium, targeted Stripe lane run with provider, process and Docker cleanup passed; source changed during the run because another session edited the worktree, so not yet a strict qualification"
+    },
+    {
+      "id": "STR-E11",
+      "status": "deferred",
+      "risk": "medium",
+      "layer": "provider",
+      "lane": "scheduled",
+      "implementation": [],
+      "setup": "None",
+      "actions": [],
+      "expected": [],
+      "boundaries": [
+        "delivery_success=false lists events only a registered endpoint failed; the sandbox's staging endpoints answer 200, and adding a failing endpoint would also drive staging's replay job. Backend tests cover G1 and G2"
+      ],
+      "related_audit_families": [
+        "PAY-E01"
+      ],
+      "evidence": [],
+      "runtime_scope": "Sandbox query on 2026-10-27 returned no undelivered events for the platform or slot a"
+    },
+    {
+      "id": "STR-E12",
+      "status": "implemented",
+      "risk": "high",
+      "layer": "provider",
+      "lane": "scheduled",
+      "implementation": [
+        "frontend/apps/connect/e2e/stripe-reconciliation.spec.ts",
+        "backend/e2e/stripe.py"
+      ],
+      "setup": "Runs after the other cases; the run's business reconciles from a cursor recorded at prepare",
+      "actions": [
+        "Run reconcile_stripe_transactions for the run's business"
+      ],
+      "expected": [
+        "No active finding on any charge, refund, dispute or payout the run created"
+      ],
+      "boundaries": [
+        "Findings on other runs' sources and the account-balance residual are reported, not judged, because the shared merchant carries earlier runs' money"
+      ],
+      "related_audit_families": [
+        "PAY-E01"
+      ],
+      "evidence": [
+        ".scratchpad/e2e-b4d02740e1fd/run.json",
+        ".scratchpad/e2e-b4d02740e1fd/browser-results/results.json"
+      ],
+      "runtime_scope": "Local isolated Chromium, targeted Stripe lane run with provider, process and Docker cleanup passed; source changed during the run because another session edited the worktree, so not yet a strict qualification"
     }
   ],
   "coverage_summary": {

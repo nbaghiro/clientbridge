@@ -947,6 +947,7 @@ def test_provider_runner_retains_cleanup_failures_without_external_services(
         profile="unused",
         merchants=tmp_path / "unused",
         publishable_file=tmp_path / "unused",
+        tests=[],
     )
     if fault == "none":
         stripe_lane.run_lane(args, tmp_path, tier.Lease(0, "0001"))
@@ -1209,6 +1210,99 @@ def test_recovery_refuses_incomplete_manifest_lineage() -> None:
             database={},
             fixtures=[Fixture(invoice="inv_a", client="cl_a")],
         )
+
+
+class _Disputes:
+    def __init__(self, monkeypatch: pytest.MonkeyPatch, boundary: _Stripe, status: str) -> None:
+        boundary.charge["disputed"] = True
+        self.boundary = boundary
+        self.dispute = stripe.Dispute.construct_from(
+            {
+                "id": "du_a",
+                "object": "dispute",
+                "livemode": False,
+                "charge": "ch_a",
+                "amount": 2000,
+                "status": status,
+            },
+            "sk_test_fixture",
+        )
+        monkeypatch.setattr(stripe.Dispute, "list_async", self.list)
+        monkeypatch.setattr(stripe.Dispute, "modify_async", self.modify)
+
+    async def list(self, **options: object) -> _Page[stripe.Dispute]:
+        assert options == {"charge": "ch_a", "stripe_account": "acct_a"}
+        return _Page([self.dispute])
+
+    async def modify(self, dispute_id: str, **options: object) -> stripe.Dispute:
+        assert dispute_id == "du_a" and options["submit"] is True
+        assert options["evidence"] == {"uncategorized_text": "losing_evidence"}
+        self.boundary.operations.append("lose")
+        self.dispute.status = "lost"
+        return self.dispute
+
+
+async def test_recovery_leaves_a_lost_dispute_unrefunded(monkeypatch: pytest.MonkeyPatch) -> None:
+    boundary = _Stripe(monkeypatch, "succeeded")
+    _Disputes(monkeypatch, boundary, "lost")
+    planned = await recover(_manifest(), ENV, "local", apply=False)
+    applied = await recover(_manifest(), ENV, "local", apply=True)
+    assert planned[0]["status"] == applied[0]["status"] == "dispute_lost"
+    assert boundary.operations == []
+
+
+async def test_recovery_loses_an_open_dispute_before_proving_the_charge_clean(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    boundary = _Stripe(monkeypatch, "succeeded")
+    _Disputes(monkeypatch, boundary, "needs_response")
+    planned = await recover(_manifest(), ENV, "local", apply=False)
+    assert planned[0]["status"] == "planned_dispute_loss"
+    assert boundary.operations == []
+    applied = await recover(_manifest(), ENV, "local", apply=True)
+    assert applied[0]["status"] == "dispute_lost"
+    assert boundary.operations == ["lose"]
+
+
+async def test_recovery_refunds_a_charge_whose_dispute_was_won(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    boundary = _Stripe(monkeypatch, "succeeded")
+    _Disputes(monkeypatch, boundary, "won")
+    applied = await recover(_manifest(), ENV, "local", apply=True)
+    assert applied[0]["status"] == "succeeded"
+    assert boundary.operations == ["refund"]
+
+
+def test_client_fixtures_cannot_share_a_customer_with_another_fixture() -> None:
+    manifest = _manifest().model_dump(mode="json")
+    manifest["client_fixtures"] = [{"client": "cl_b", "customer": "cus_a"}]
+    with pytest.raises(ValidationError, match="ownership overlaps"):
+        Manifest.model_validate(manifest)
+    manifest["client_fixtures"] = [{"client": "cl_b"}]
+    with pytest.raises(ValidationError, match="incomplete registered customer lineage"):
+        Manifest.model_validate(manifest)
+    with pytest.raises(ValueError, match="duplicate client fixture"):
+        stripe_lane.client_fixtures(
+            {
+                "client_fixtures": [
+                    {"client": "cl_b", "clock": "clock_a"},
+                    {"client": "cl_c", "clock": "clock_a"},
+                ]
+            }
+        )
+
+
+def test_only_a_registered_customer_owns_a_redelivered_event() -> None:
+    state: dict[str, object] = {
+        "run_id": RUN,
+        "fixtures": [{"invoice": "inv_a", "client": "cl_a", "customer": "cus_a"}],
+        "client_fixtures": [{"client": "cl_b", "customer": "cus_b"}],
+    }
+    assert stripe_lane.registered_tags(state, "cus_a")["clientbridge_qa_invoice"] == "inv_a"
+    assert stripe_lane.registered_tags(state, "cus_b")["clientbridge_qa_purchaser"] == "cl_b"
+    with pytest.raises(ValueError, match="not a registered fixture"):
+        stripe_lane.registered_tags(state, "cus_someone_else")
 
 
 @pytest.mark.parametrize("incomplete", [False, True])

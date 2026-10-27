@@ -1342,7 +1342,8 @@ export function useSale(
         ratesReady,
         canCharge: lines.length > 0 && ratesReady,
         charge,
-        checkout,
+        // the card form's own cancel must also cancel the intent the server opened
+        checkout: { ...checkout, cancel: cancelCheckout },
         terminal,
         cancelCheckout,
         markPaid,

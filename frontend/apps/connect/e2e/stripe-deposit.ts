@@ -39,6 +39,7 @@ export async function prepareDepositBooking(page: Page) {
 export async function collectDepositUi(
     page: Page,
     booking: Awaited<ReturnType<typeof prepareDepositBooking>>,
+    card = "4242424242424242",
 ) {
     await openBooking(page, booking.booking, booking.visit.id);
     await page.getByRole("button", { name: strings.bookings.collectNow, exact: true }).click();
@@ -79,7 +80,7 @@ export async function collectDepositUi(
         )
         .toBe(true);
     if (!cardFrame) throw new Error("real Stripe PaymentElement did not load");
-    await enterStripeCard(cardFrame, "4242424242424242");
+    await enterStripeCard(cardFrame, card);
     const submit = page.getByRole("button", {
         name: strings.checkout.charge(formatMoney(2000, "CAD")),
         exact: true,

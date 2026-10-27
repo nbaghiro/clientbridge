@@ -5,7 +5,15 @@ import { runBuild, runPort } from "@clientbridge/config/e2e/run";
 
 export default defineConfig({
     testDir: "e2e",
-    testMatch: ["stripe-provider.spec.ts", "stripe-deposit.spec.ts"],
+    testMatch: [
+        "stripe-provider.spec.ts",
+        "stripe-deposit.spec.ts",
+        "stripe-disputes.spec.ts",
+        "stripe-memberships.spec.ts",
+        "stripe-payouts.spec.ts",
+        "stripe-desk.spec.ts",
+        "stripe-tabs.spec.ts",
+    ],
     outputDir: process.env.E2E_OUTPUT_DIR ?? "test-results/stripe-provider",
     timeout: 180_000,
     forbidOnly: true,
@@ -35,6 +43,12 @@ export default defineConfig({
             grep: /@browsers/,
             use: { browserName },
         })),
+        // reconciliation checks every source the other cases made, so it runs after all of them
+        {
+            name: "reconciliation",
+            testMatch: "stripe-reconciliation.spec.ts",
+            dependencies: ["default", "firefox", "webkit"],
+        },
     ],
     webServer: [
         {

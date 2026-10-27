@@ -371,6 +371,20 @@ describe("canceling a sale's checkout", () => {
         expect(result.current.error).toBeNull();
     });
 
+    it("cancels the open checkout on the server when the card form is canceled", async () => {
+        const api = saleApi(null);
+        const { result } = renderHook(() => useSale(api, { platform: "web" }), { wrapper });
+        act(() => {
+            result.current.resume(held, []);
+        });
+        await act(async () => {
+            result.current.checkout.cancel();
+            await Promise.resolve();
+        });
+        expect(api.posted).toEqual(["/v1/orders/ord_1/checkout/cancel"]);
+        expect(result.current.checkout.clientSecret).toBeNull();
+    });
+
     it("says so when the card already went through", async () => {
         const api = saleApi({ code: "checkout_paid" });
         const { result } = renderHook(() => useSale(api, { platform: "web" }), { wrapper });

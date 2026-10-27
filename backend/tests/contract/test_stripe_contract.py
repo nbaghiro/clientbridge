@@ -43,9 +43,14 @@ async def test_lists_undelivered_events(contract_gateway: StripeGateway) -> None
     assert all(e.id.startswith("evt_") and e.object_id for e in missed)
 
 
-async def test_create_setup_intent(contract_gateway: StripeGateway) -> None:
+async def test_create_setup_intent(
+    contract_gateway: StripeGateway, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    sent = _recorded(monkeypatch, stripe.SetupIntent)
     result = await contract_gateway.create_setup_intent(ACCT, customer_id=CUS)
     assert result.id.startswith("seti_") and result.client_secret
+    (params,) = sent
+    assert params["allowed_payment_method_types"] == ["card"]
 
 
 async def test_create_price(contract_gateway: StripeGateway) -> None:

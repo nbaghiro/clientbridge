@@ -308,6 +308,9 @@
     "api.paymentProviderError": {
         "message": "[Ţĥé þåýɱéñţ þŕöṽîðéŕ çöûļðñ'ţ çöɱþļéţé ţĥîš ŕéǫûéšţ. Þļéåšé ţŕý åĝåîñ îñ å ƒéŵ ɱîñûţéš. one two three four five six]"
     },
+    "api.unsupportedCurrency": {
+        "message": "[Þŕîçéš åñð šåļéš çåñ öñļý ƀé îñ Çåñåðîåñ ðöļļåŕš. one two three four]"
+    },
     "api.addonLengthInUse": {
         "message": "[{count,plural,one{Ţĥîš åðð-öñ'š ļéñĝţĥ çåñ'ţ çĥåñĝé ŵĥîļé å ṽîšîţ çåŕŕîéš îţ. Ŕéɱöṽé îţ ƒŕöɱ # ûþçöɱîñĝ ṽîšîţ ƒîŕšţ, öŕ ŵåîţ ûñţîļ îţ'š ðöñé.} other{Ţĥîš åðð-öñ'š ļéñĝţĥ çåñ'ţ çĥåñĝé ŵĥîļé ṽîšîţš çåŕŕý îţ. Ŕéɱöṽé îţ ƒŕöɱ # ûþçöɱîñĝ ṽîšîţš ƒîŕšţ, öŕ ŵåîţ ûñţîļ ţĥéý'ŕé ðöñé.}} one two three four five six seven eight nine ten one two three four]"
     },
