@@ -18,6 +18,8 @@ from e2e import tier
 
 # templates other checkouts may still be using; older ones are dropped
 KEPT_TEMPLATES = 4
+# each template's dump, which CI caches by the template's name
+TEMPLATES = tier.TIER / "templates"
 
 
 async def admin(statement: str) -> None:
@@ -63,14 +65,32 @@ def template_name() -> str:
 
 
 def build_template(name: str) -> None:
+    """Restore the template from its dump, or seed it and keep the dump for the next tier."""
     python = [sys.executable, "-m"]
     env = os.environ | tier.environment(name)
+    dump = TEMPLATES / f"{name}.dump"
     asyncio.run(admin(f"CREATE DATABASE {quote(name)}"))
     try:
-        run([*python, "scripts.db_access", "roles"], env)
-        run([*python, "alembic", "upgrade", "head"], env)
-        run([*python, "scripts.db_access", "grants"], env)
-        run([*python, "scripts.seed_demo", "--core", "--as-of", FROZEN.isoformat()], env)
+        if dump.is_file():
+            with dump.open("rb") as saved:
+                tier.postgres(
+                    "pg_restore",
+                    "--exit-on-error",
+                    "--disable-triggers",
+                    "--dbname",
+                    name,
+                    stdin=saved,
+                )
+        else:
+            run([*python, "scripts.db_access", "roles"], env)
+            run([*python, "alembic", "upgrade", "head"], env)
+            run([*python, "scripts.db_access", "grants"], env)
+            run([*python, "scripts.seed_demo", "--core", "--as-of", FROZEN.isoformat()], env)
+            TEMPLATES.mkdir(parents=True, exist_ok=True)
+            partial = dump.with_suffix(".partial")
+            with partial.open("wb") as out:
+                tier.postgres("pg_dump", "--format=custom", "--dbname", name, stdout=out)
+            partial.replace(dump)
     except BaseException:
         asyncio.run(admin(f"DROP DATABASE IF EXISTS {quote(name)} WITH (FORCE)"))
         raise
@@ -89,6 +109,7 @@ def prune_templates(current: str) -> None:
     for name in [found for found in names if found != current][KEPT_TEMPLATES - 1 :]:
         asyncio.run(admin(f"ALTER DATABASE {quote(name)} WITH IS_TEMPLATE false"))
         asyncio.run(admin(f"DROP DATABASE IF EXISTS {quote(name)} WITH (FORCE)"))
+        (TEMPLATES / f"{name}.dump").unlink(missing_ok=True)
 
 
 def ensure_template() -> str:
@@ -139,4 +160,7 @@ def main(command: list[str]) -> int:
 
 
 if __name__ == "__main__":
+    if sys.argv[1:] == ["template-name"]:
+        print(template_name())
+        sys.exit(0)
     sys.exit(main(sys.argv[1:]))

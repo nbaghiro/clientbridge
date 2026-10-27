@@ -23,7 +23,15 @@ jobs:
       - run: uv sync
         working-directory: backend
       - run: make format-check-backend lint-backend
-      - uses: ./.github/actions/test-tier
+      - run: make test-tier
+      # the seeded template is the same for the same migrations, seed and frozen instant, so its dump is kept
+      - id: template
+        run: echo "name=$(uv run python -m e2e.database template-name)" >> "$GITHUB_OUTPUT"
+        working-directory: backend
+      - uses: actions/cache@v6
+        with:
+          path: ~/.cache/clientbridge-test/templates
+          key: ${{ steps.template.outputs.name }}
       - run: make test-backend
       - run: make test-auth # KratosIdentityProvider against the tier's auth service
       - if: failure()
@@ -50,7 +58,7 @@ jobs:
       - uses: astral-sh/setup-uv@v10.3.0
       - run: uv sync
         working-directory: backend
-      - uses: ./.github/actions/test-tier
+      - run: make test-tier
       - run: make test-contract
       - if: failure()
         run: make test-tier-logs

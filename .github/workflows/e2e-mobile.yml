@@ -164,7 +164,7 @@ jobs:
             ~/.android/avd
             ~/.android/adbkey*
           key: ${{ steps.emulator.outputs.key }}
-      - uses: ./.github/actions/test-tier
+      - run: make test-tier
       - name: run the walkthroughs
         run: |
           frontend/apps/mobile/scripts/ci-emulator.sh start

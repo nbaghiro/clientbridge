@@ -4,13 +4,11 @@ import asyncio
 import fcntl
 import json
 import secrets
-import subprocess
 from collections.abc import Iterator
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import IO
 
 from scripts import demo_copy, seed_demo
 from scripts.demo_context import DEMO_BUSINESSES
@@ -66,16 +64,6 @@ def prune(directory: Path) -> None:
         stale.unlink()
 
 
-def postgres(
-    *arguments: str, stdin: IO[bytes] | None = None, stdout: IO[bytes] | None = None
-) -> None:
-    """A Postgres client tool in the tier's own container, so its version always matches."""
-    command = tier.compose_command(
-        "exec", "-T", "postgres", *arguments, "--username", "clientbridge"
-    )
-    subprocess.run(command, cwd=tier.TIER, stdin=stdin, stdout=stdout, check=True)
-
-
 def core_businesses() -> list[str]:
     return [business.id for business in DEMO_BUSINESSES if business.core]
 
@@ -108,7 +96,7 @@ async def build(directory: Path, as_of: datetime) -> Snapshot:
         stem = directory / f"{inputs()}-{as_of.strftime('%Y%m%dT%H%M%S%z')}"
         partial = stem.with_suffix(".partial")
         with partial.open("wb") as out:
-            postgres("pg_dump", "--format=custom", "--dbname", name, stdout=out)
+            tier.postgres("pg_dump", "--format=custom", "--dbname", name, stdout=out)
         partial.replace(stem.with_suffix(".dump"))
         stem.with_suffix(".json").write_text(json.dumps({"as_of": as_of.isoformat()}))
     finally:
@@ -132,7 +120,7 @@ async def ensure(at: datetime | None) -> Snapshot:
 def restore(snapshot: Snapshot, database: str) -> None:
     """Load a snapshot into an empty database; triggers stay off, since its ledger is complete."""
     with snapshot.dump.open("rb") as dump:
-        postgres(
+        tier.postgres(
             "pg_restore", "--exit-on-error", "--disable-triggers", "--dbname", database, stdin=dump
         )
 

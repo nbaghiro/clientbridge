@@ -12,9 +12,6 @@ inputs:
   prepared:
     description: Restore the prepare job's snapshot and builds into the tier's folder.
     default: "false"
-  save-images:
-    description: Save the tier's images to the cache when they were not there.
-    default: "false"
 runs:
   using: composite
   steps:
@@ -38,9 +35,8 @@ runs:
       with:
         app: ${{ inputs.app }}
         browser: ${{ inputs.browser }}
-    - uses: ./.github/actions/test-tier
-      with:
-        save-images: ${{ inputs.save-images }}
+    - run: make test-tier
+      shell: bash
     - id: tier
       run: echo "dir=$HOME/.cache/clientbridge-test" >> "$GITHUB_OUTPUT"
       shell: bash
