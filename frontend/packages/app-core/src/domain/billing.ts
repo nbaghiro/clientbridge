@@ -1580,9 +1580,7 @@ export function useDocComposer(
     onDone?: (id: string) => void,
 ): DocComposer {
     const [clientId, setClientId] = useState(draft?.clientId ?? "");
-    const [lines, setLines] = useState(() =>
-        draft !== undefined ? draft.lines.map(keyed) : [],
-    );
+    const [lines, setLines] = useState(() => (draft !== undefined ? draft.lines.map(keyed) : []));
     const [message, setMessage] = useState(draft?.notes ?? "");
     const [docDiscount, setDocDiscountState] = useState<SaleDiscount | null>(
         draft?.discount ?? null,
