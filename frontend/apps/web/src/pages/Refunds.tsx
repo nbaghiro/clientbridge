@@ -28,6 +28,7 @@ import { useState } from "react";
 import { DeskBar, DeskPanel } from "../components/Desk";
 import { RefundPanel } from "../components/RefundPanel";
 import { api } from "../lib/api";
+import { useLinkIntent } from "../lib/links";
 
 const s = strings.refunds;
 type Tab = "payments" | "notes" | "disputes";
@@ -43,6 +44,12 @@ export function Refunds() {
     const [tab, setTab] = useState<Tab>("payments");
     const desk = useRefundDesk();
     const notes = useCreditNotes(desk.refunds);
+    useLinkIntent({
+        onOpen: (id) => {
+            setTab("payments");
+            desk.select(id);
+        },
+    });
     const disputes = useDisputes();
     const account = usePaymentAccount(api);
 

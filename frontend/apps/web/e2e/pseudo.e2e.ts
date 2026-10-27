@@ -11,7 +11,7 @@ const PAGES = [
     "/clients",
     `/clients/${AMELIE}/history`,
     "/setup/business",
-    "/setup/plan",
+    "/setup/security",
     "/payments/invoices",
 ];
 

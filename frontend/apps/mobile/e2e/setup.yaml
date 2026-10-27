@@ -40,7 +40,7 @@ name: Owner setup surfaces
 - assertVisible: "What you charge, and the numbers that go on invoices and receipts."
 - takeScreenshot: taxes
 - tapOn: "Back|Go back|Navigate up"
-- tapOn: "Online booking"
+- tapOn: "Booking page & rules"
 - assertVisible: "Add-ons"
 - takeScreenshot: online-booking
 - tapOn: "Add-ons"
@@ -49,6 +49,6 @@ name: Owner setup surfaces
 - assertVisible: "Let clients move or cancel from their confirmation link, within your rules."
 - takeScreenshot: booking-policy
 - tapOn: "Back|Go back|Navigate up"
-- tapOn: "Reminders"
+- tapOn: "Messages & reminders"
 - assertVisible: "What clients hear before a visit, and closing visits when the day is over."
 - takeScreenshot: reminders

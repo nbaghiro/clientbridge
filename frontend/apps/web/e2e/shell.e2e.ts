@@ -60,7 +60,6 @@ const MANAGER_SETUP_SECTIONS = [
     strings.navigation.setupSections.business,
     strings.navigation.setupSections.services,
     strings.navigation.setupSections.gettingPaid,
-    strings.navigation.setupSections.plan,
     strings.navigation.setupSections.taxes,
     strings.navigation.setupSections.onlineBooking,
     strings.navigation.setupSections.reminders,
@@ -985,7 +984,7 @@ const ACCESSIBLE_PAGES = [
     "/inbox",
     "/setup/business",
     "/setup/services",
-    "/setup/plan",
+    "/setup/security",
 ];
 
 test("owner: key pages and records pass axe, show keyboard focus and keep hovered text readable", async ({
