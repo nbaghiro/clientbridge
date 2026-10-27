@@ -66,7 +66,7 @@ async def enqueue(
                 "delivery key was reused for different content", code="idempotency_key_reused"
             )
         identity = existing.id
-    db.info.setdefault(_QUEUED, []).append(identity)
+    db.info.setdefault(_QUEUED, {})[identity] = key
     return identity
 
 
@@ -77,11 +77,14 @@ async def send_queued(
     push: PushSender,
     *,
     transport_override: bool = False,
+    leave: tuple[str, ...] = (),
 ) -> int:
-    """Send what this session queued since the last call; a replay queues nothing, so sends none."""
-    queued: list[str] = db.info.pop(_QUEUED, [])
+    """Send what this session queued since the last call; `leave` kinds wait for the worker."""
+    queued: dict[str, str] = db.info.pop(_QUEUED, {})
     sent = 0
-    for identity in dict.fromkeys(queued):
+    for identity, key in queued.items():
+        if key.split(":", 1)[0] in leave:
+            continue
         sent += await dispatch(
             db, identity, email, sms, push, transport_override=transport_override
         )

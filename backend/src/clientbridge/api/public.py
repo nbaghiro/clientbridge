@@ -444,7 +444,8 @@ async def manage_cancel(
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key", min_length=8)] = None,
 ) -> ManageCancelResult:
     result = await PublicManageService(db, gateway).cancel(token, idempotency_key)
-    await send_queued(db, email, sms, push)
+    # a client's cancel never sends another client's seat notice itself; the worker does
+    await send_queued(db, email, sms, push, leave=("seat",))
     return result
 
 

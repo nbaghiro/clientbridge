@@ -19,7 +19,9 @@ async function opfsSyncAccess(): Promise<boolean> {
     }
 }
 
-opfsSyncAccess()
+// the page sweeps probe files left by a terminated worker only while no probe holds this lock
+navigator.locks
+    .request(".clientbridge-opfs-probe", { mode: "shared" }, opfsSyncAccess)
     .then((granted) => {
         postMessage(granted);
     })

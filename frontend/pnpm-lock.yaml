@@ -170,11 +170,11 @@ importers:
         specifier: ^18.2.5
         version: 18.2.5(react-native@0.86.3(@babel/core@7.29.7)(@react-native-community/cli@13.6.9)(@types/react@19.2.18)(react@19.2.3))(react@19.2.3)
       '@powersync/react':
-        specifier: ^2.0.2
-        version: 2.0.2(@powersync/common@2.3.1)(react@19.2.3)
+        specifier: ^2.1.0
+        version: 2.1.0(@powersync/common@2.4.0)(react@19.2.3)
       '@powersync/react-native':
-        specifier: ^2.3.1
-        version: 2.3.1(@op-engineering/op-sqlite@18.2.5(react-native@0.86.3(@babel/core@7.29.7)(@react-native-community/cli@13.6.9)(@types/react@19.2.18)(react@19.2.3))(react@19.2.3))(@powersync/common@2.3.1)(react-native@0.86.3(@babel/core@7.29.7)(@react-native-community/cli@13.6.9)(@types/react@19.2.18)(react@19.2.3))(react@19.2.3)
+        specifier: ^2.3.3
+        version: 2.3.3(@op-engineering/op-sqlite@18.2.5(react-native@0.86.3(@babel/core@7.29.7)(@react-native-community/cli@13.6.9)(@types/react@19.2.18)(react@19.2.3))(react@19.2.3))(@powersync/common@2.4.0)(react-native@0.86.3(@babel/core@7.29.7)(@react-native-community/cli@13.6.9)(@types/react@19.2.18)(react@19.2.3))(react@19.2.3)
       '@react-navigation/bottom-tabs':
         specifier: ^7.20.0
         version: 7.20.0(@react-navigation/native@7.5.0(react-native@0.86.3(@babel/core@7.29.7)(@react-native-community/cli@13.6.9)(@types/react@19.2.18)(react@19.2.3))(react@19.2.3))(react-native-safe-area-context@5.7.0(react-native@0.86.3(@babel/core@7.29.7)(@react-native-community/cli@13.6.9)(@types/react@19.2.18)(react@19.2.3))(react@19.2.3))(react-native-screens@4.26.2(react-native@0.86.3(@babel/core@7.29.7)(@react-native-community/cli@13.6.9)(@types/react@19.2.18)(react@19.2.3))(react@19.2.3))(react-native@0.86.3(@babel/core@7.29.7)(@react-native-community/cli@13.6.9)(@types/react@19.2.18)(react@19.2.3))(react@19.2.3)
@@ -372,15 +372,12 @@ importers:
       '@clientbridge/ui':
         specifier: workspace:*
         version: link:../../packages/ui
-      '@journeyapps/wa-sqlite':
-        specifier: 2.0.10
-        version: 2.0.10
       '@powersync/react':
-        specifier: ^2.0.2
-        version: 2.0.2(@powersync/common@2.3.1)(react@19.2.3)
+        specifier: ^2.1.0
+        version: 2.1.0(@powersync/common@2.4.0)(react@19.2.3)
       '@powersync/web':
-        specifier: ^2.4.2
-        version: 2.4.2(@powersync/common@2.3.1)(@powersync/shared-internals@1.3.1(@powersync/common@2.3.1))
+        specifier: ^2.5.0
+        version: 2.5.0(@powersync/common@2.4.0)(@powersync/shared-internals@1.4.0(@powersync/common@2.4.0))
       '@stripe/react-stripe-js':
         specifier: ^7.0.0
         version: 7.0.0(@stripe/stripe-js@10.0.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
@@ -443,8 +440,8 @@ importers:
   packages/app-core:
     dependencies:
       '@powersync/react':
-        specifier: ^2.0.2
-        version: 2.0.2(@powersync/common@2.3.1)(react@19.2.3)
+        specifier: ^2.1.0
+        version: 2.1.0(@powersync/common@2.4.0)(react@19.2.3)
       intl-messageformat:
         specifier: 12.1.2
         version: 12.1.2
@@ -459,8 +456,8 @@ importers:
         specifier: workspace:*
         version: link:../sync
       '@powersync/common':
-        specifier: ^2.3.1
-        version: 2.3.1
+        specifier: ^2.4.0
+        version: 2.4.0
       '@testing-library/react':
         specifier: ^16.3.3
         version: 16.3.3(@testing-library/dom@10.4.2)(@types/react-dom@19.2.7(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
@@ -520,8 +517,8 @@ importers:
   packages/sync:
     dependencies:
       '@powersync/common':
-        specifier: ^2.3.1
-        version: 2.3.1
+        specifier: ^2.4.0
+        version: 2.4.0
     devDependencies:
       '@clientbridge/api-client':
         specifier: workspace:*
@@ -530,8 +527,8 @@ importers:
         specifier: ^1.63.0
         version: 1.63.0
       '@powersync/web':
-        specifier: ^2.4.2
-        version: 2.4.2(@powersync/common@2.3.1)(@powersync/shared-internals@1.3.1(@powersync/common@2.3.1))
+        specifier: ^2.5.0
+        version: 2.5.0(@powersync/common@2.4.0)(@powersync/shared-internals@1.4.0(@powersync/common@2.4.0))
       '@types/node':
         specifier: ^24.0.0
         version: 24.19.1
@@ -1734,34 +1731,34 @@ packages:
     engines: {node: '>=20'}
     hasBin: true
 
-  '@powersync/common@2.3.1':
-    resolution: {integrity: sha512-9ZUJt6TW448+WqCXV7cgwTUrHTiIWn4lWCfXHhjqpccJ7jYtJkXbmHwJXISju88oBbjp2WoMS9q7SrUQk+1g8w==}
+  '@powersync/common@2.4.0':
+    resolution: {integrity: sha512-ngVogy+B8NQeI5l+0Es8qMxnGozUie8Q6R4+0/AHA3oBAhDG5UmeYw/LquTzZJSOPnCmvGgFSqovblV+JKzxKQ==}
 
-  '@powersync/react-native@2.3.1':
-    resolution: {integrity: sha512-Yk5l4BGPWCtysjYP/bhiTPmzNXBOS6HxKnetN9ZXJp4RWQa4WpSTiHGw9T2iJrGhJ6aRbxlIp06KsVw3QK7GAg==}
+  '@powersync/react-native@2.3.3':
+    resolution: {integrity: sha512-8Cf5/DG7Xc7cNu9rMUL+2cGweCGxZnewMlINTGwgXgeAJDbVPqpTllFKKQq2h8x+Ya39aV8RVxDFmYqct01C+w==}
     peerDependencies:
       '@op-engineering/op-sqlite': '>=17.1.0 <19.0.0'
-      '@powersync/common': ^2.3.1
+      '@powersync/common': ^2.4.0
       react: '*'
       react-native: '*'
 
-  '@powersync/react@2.0.2':
-    resolution: {integrity: sha512-Azz9OrFVG50pPENbG1WfKApCbC67BxEIc9W48PhNzNRTVZG8hQmXTY8CI3Wmzrcp4+1TXP7Or5ZI6DpRXViLCA==}
+  '@powersync/react@2.1.0':
+    resolution: {integrity: sha512-ADIpakSLhstv0F9xrUIF+oCArFnAQPrcB9mNql6xH0Nup9EgBug38Ks+mv3yqbc33z60pBm9tuHs8uSIbkhuqg==}
     peerDependencies:
-      '@powersync/common': ^2.3.1
+      '@powersync/common': ^2.4.0
       react: '*'
 
-  '@powersync/shared-internals@1.3.1':
-    resolution: {integrity: sha512-C6zpNSEeiL2+C+Jd+DPxB6ltoTBfLIdFp2fP1sz88VcSL5Y6DimrUe3p1NglXa+kKZgG7Nm3Hn0M9AVIJZx21Q==}
+  '@powersync/shared-internals@1.4.0':
+    resolution: {integrity: sha512-OiqqDuW6tePW4Ed7C5IWutBKrtcqKuTMlVMQNwUZtKtqr7ZrqKlb+YP5l4niuz8mpqDYo3/HNU0dpc+3mneSBQ==}
     peerDependencies:
-      '@powersync/common': ^2.3.1
+      '@powersync/common': ^2.4.0
 
-  '@powersync/web@2.4.2':
-    resolution: {integrity: sha512-N+ZbrV0kVGcRfnBQXIzzFilPRJmndzV5VgHma78yiSHsg5Uh2l57nrQEwYb7x5HIgEimVbsohYR+6GQgmB2Sfw==}
+  '@powersync/web@2.5.0':
+    resolution: {integrity: sha512-/K2ZUjIdqvtFeoLfPetPcE+uioShBWzrTrOa8hpoZ7i62S8wgj47i+VPnKTXI7WQmXuxTGGZFUFnahinf6wjPg==}
     hasBin: true
     peerDependencies:
-      '@powersync/common': ^2.3.1
-      '@powersync/shared-internals': ^1.3.1
+      '@powersync/common': ^2.4.0
+      '@powersync/shared-internals': ^1.4.0
 
   '@puppeteer/browsers@3.2.3':
     resolution: {integrity: sha512-2Bt3m6dDAJqmZehn0wiXSYyQmuhyiHHZ7FjvrVaS1W2RoFGV6eCK71UvKYkNJjkwC1Q9nobjhvTMhLQztFVINA==}
@@ -3823,8 +3820,8 @@ packages:
     resolution: {integrity: sha512-ONPnazC96VKDntab9j9JKwIWhZ4ZUceB4A9Epu4Ssg0hYFmtHZSeQ+n15nIwTFmcBUKtExOer8WTJ4GF9MO64A==}
     hasBin: true
 
-  legacy-javascript@0.0.3:
-    resolution: {integrity: sha512-1r6MT4dVaJyXt4G07Cm2cQ0AUaLJdefiEp4SmIAylA++gnEQ82YvmzE58RkM5EP0fk5hROLCslUPGnwIYdZQVA==}
+  legacy-javascript@0.0.4:
+    resolution: {integrity: sha512-UTmeKBVxnfJcpmpOvzzNnLsQT99BXHpPlc/ZKddIRmWmrR0fw6335I3lq4+sJoP60UTbBNaYsGYVPc65YB1x3A==}
 
   leven@3.1.0:
     resolution: {integrity: sha512-qsda+H8jTaUaN/x5vzW2rzc+8Rw4TAQ/4KjB46IwK5VH+IlVeeeje/EoZRpiXvIqjFgK84QffqPztGI3VBLG1A==}
@@ -6901,38 +6898,38 @@ snapshots:
 
   '@paulirish/trace_engine@0.0.65':
     dependencies:
-      legacy-javascript: 0.0.3
+      legacy-javascript: 0.0.4
       third-party-web: 0.30.0
 
   '@playwright/test@1.63.0':
     dependencies:
       playwright: 1.63.0
 
-  '@powersync/common@2.3.1': {}
+  '@powersync/common@2.4.0': {}
 
-  '@powersync/react-native@2.3.1(@op-engineering/op-sqlite@18.2.5(react-native@0.86.3(@babel/core@7.29.7)(@react-native-community/cli@13.6.9)(@types/react@19.2.18)(react@19.2.3))(react@19.2.3))(@powersync/common@2.3.1)(react-native@0.86.3(@babel/core@7.29.7)(@react-native-community/cli@13.6.9)(@types/react@19.2.18)(react@19.2.3))(react@19.2.3)':
+  '@powersync/react-native@2.3.3(@op-engineering/op-sqlite@18.2.5(react-native@0.86.3(@babel/core@7.29.7)(@react-native-community/cli@13.6.9)(@types/react@19.2.18)(react@19.2.3))(react@19.2.3))(@powersync/common@2.4.0)(react-native@0.86.3(@babel/core@7.29.7)(@react-native-community/cli@13.6.9)(@types/react@19.2.18)(react@19.2.3))(react@19.2.3)':
     dependencies:
       '@op-engineering/op-sqlite': 18.2.5(react-native@0.86.3(@babel/core@7.29.7)(@react-native-community/cli@13.6.9)(@types/react@19.2.18)(react@19.2.3))(react@19.2.3)
-      '@powersync/common': 2.3.1
-      '@powersync/react': 2.0.2(@powersync/common@2.3.1)(react@19.2.3)
-      '@powersync/shared-internals': 1.3.1(@powersync/common@2.3.1)
+      '@powersync/common': 2.4.0
+      '@powersync/react': 2.1.0(@powersync/common@2.4.0)(react@19.2.3)
+      '@powersync/shared-internals': 1.4.0(@powersync/common@2.4.0)
       react: 19.2.3
       react-native: 0.86.3(@babel/core@7.29.7)(@react-native-community/cli@13.6.9)(@types/react@19.2.18)(react@19.2.3)
 
-  '@powersync/react@2.0.2(@powersync/common@2.3.1)(react@19.2.3)':
+  '@powersync/react@2.1.0(@powersync/common@2.4.0)(react@19.2.3)':
     dependencies:
-      '@powersync/common': 2.3.1
+      '@powersync/common': 2.4.0
       react: 19.2.3
 
-  '@powersync/shared-internals@1.3.1(@powersync/common@2.3.1)':
+  '@powersync/shared-internals@1.4.0(@powersync/common@2.4.0)':
     dependencies:
-      '@powersync/common': 2.3.1
+      '@powersync/common': 2.4.0
 
-  '@powersync/web@2.4.2(@powersync/common@2.3.1)(@powersync/shared-internals@1.3.1(@powersync/common@2.3.1))':
+  '@powersync/web@2.5.0(@powersync/common@2.4.0)(@powersync/shared-internals@1.4.0(@powersync/common@2.4.0))':
     dependencies:
       '@journeyapps/wa-sqlite': 2.0.10
-      '@powersync/common': 2.3.1
-      '@powersync/shared-internals': 1.3.1(@powersync/common@2.3.1)
+      '@powersync/common': 2.4.0
+      '@powersync/shared-internals': 1.4.0(@powersync/common@2.4.0)
       comlink: 4.4.2
       commander: 12.1.0
 
@@ -9326,7 +9323,7 @@ snapshots:
 
   lan-network@0.2.1: {}
 
-  legacy-javascript@0.0.3: {}
+  legacy-javascript@0.0.4: {}
 
   leven@3.1.0: {}
 

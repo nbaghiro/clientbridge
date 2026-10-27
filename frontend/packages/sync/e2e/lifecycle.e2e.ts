@@ -1,4 +1,5 @@
-import { expect, test } from "@playwright/test";
+import { expect } from "@playwright/test";
+import { test } from "./engines";
 
 test("reauthentication preserves edits and account/environment switches isolate replicas", async ({
     page,
@@ -125,4 +126,128 @@ test("tabs opening the same fresh replica at once both claim it", async ({ conte
         ),
     );
     expect(results).toEqual(["claimed", "claimed"]);
+});
+
+test("close keeps the replica file and the next activation reopens it", async ({ page }) => {
+    await page.goto("/");
+    const result = await page.evaluate(
+        async (userId) => {
+            const { ReplicaController, replicaDatabase, replicaFiles, enqueueHours } =
+                await import("./database");
+            let name = "";
+            const manager = new ReplicaController((filename) => {
+                name = filename;
+                return replicaDatabase(filename);
+            });
+            const identity = {
+                userId,
+                apiUrl: "https://api.test",
+                powersyncUrl: "https://sync.test",
+            };
+            const connector = {
+                fetchCredentials: () => Promise.resolve(null),
+                uploadData: () => Promise.resolve(),
+            };
+            const db = await manager.activate(identity, connector);
+            await db.execute("INSERT INTO device_prefs (id, value) VALUES ('note.kept', 'kept')");
+            const days = Array.from({ length: 7 }, (_, weekday) => ({
+                weekday,
+                available: false,
+                start_time: null,
+                end_time: null,
+            }));
+            await enqueueHours(db, "kept-staff", "bz_kept", 0, days, days);
+            await manager.close();
+            const closed = db.closed;
+            const files = await replicaFiles(name);
+            const reopened = await manager.activate(identity, connector);
+            const notes = await reopened.getAll(
+                "SELECT id FROM device_prefs WHERE id LIKE 'note.%'",
+            );
+            const pending = (await reopened.getAll("SELECT id FROM hours_outbox")).length;
+            await manager.discard();
+            return { name, closed, files, notes, pending, fresh: reopened !== db };
+        },
+        `close-${String(Date.now())}`,
+    );
+    expect(result).toEqual({
+        name: result.name,
+        closed: true,
+        files: [result.name, `${result.name}-journal`, `${result.name}-wal`],
+        notes: [{ id: "note.kept" }],
+        pending: 1,
+        fresh: true,
+    });
+});
+
+test("discard with removeReplicaFiles leaves no file of the replica", async ({ page }) => {
+    await page.goto("/");
+    const result = await page.evaluate(
+        async (userId) => {
+            const { ReplicaController, replicaDatabase, replicaFiles, removeReplicaFiles } =
+                await import("./database");
+            let name = "";
+            const removed: boolean[] = [];
+            const manager = new ReplicaController(
+                (filename) => {
+                    name = filename;
+                    return replicaDatabase(filename);
+                },
+                async (filename) => {
+                    removed.push(await removeReplicaFiles(filename));
+                },
+            );
+            const db = await manager.activate(
+                { userId, apiUrl: "https://api.test", powersyncUrl: "https://sync.test" },
+                {
+                    fetchCredentials: () => Promise.resolve(null),
+                    uploadData: () => Promise.resolve(),
+                },
+            );
+            await db.execute("INSERT INTO device_prefs (id, value) VALUES ('note.gone', 'gone')");
+            const before = await replicaFiles(name);
+            await manager.discard();
+            return { before: before.length, removed, after: await replicaFiles(name) };
+        },
+        `discard-${String(Date.now())}`,
+    );
+    expect(result).toEqual({ before: 3, removed: [true], after: [] });
+});
+
+test("replica files are removed only once no page holds them", async ({ context }) => {
+    const [holder, remover] = [await context.newPage(), await context.newPage()];
+    for (const tab of [holder, remover]) await tab.goto("/");
+    const name = await holder.evaluate(
+        async (userId) => {
+            const { ReplicaController, replicaDatabase } = await import("./database");
+            let opened = "";
+            const manager = new ReplicaController((filename) => {
+                opened = filename;
+                return replicaDatabase(filename);
+            });
+            const db = await manager.activate(
+                { userId, apiUrl: "https://api.test", powersyncUrl: "https://sync.test" },
+                {
+                    fetchCredentials: () => Promise.resolve(null),
+                    uploadData: () => Promise.resolve(),
+                },
+            );
+            await db.execute("INSERT INTO device_prefs (id, value) VALUES ('note.held', 'held')");
+            Object.assign(window, { closeHeld: () => manager.close() });
+            return opened;
+        },
+        `held-${String(Date.now())}`,
+    );
+    const remove = () =>
+        remover.evaluate(async (filename) => {
+            const { removeReplicaFiles, replicaFiles } = await import("./database");
+            const removed = await removeReplicaFiles(filename);
+            return { removed, files: await replicaFiles(filename) };
+        }, name);
+    const files = [name, `${name}-journal`, `${name}-wal`];
+    expect(await remove()).toEqual({ removed: false, files });
+    await holder.evaluate(() =>
+        (window as unknown as { closeHeld: () => Promise<void> }).closeHeld(),
+    );
+    expect(await remove()).toEqual({ removed: true, files: [] });
 });

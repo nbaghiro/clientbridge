@@ -9,6 +9,18 @@ interface ReplicaIdentity {
     powersyncUrl: string;
 }
 
+function identityKey(identity: ReplicaIdentity): string {
+    return JSON.stringify([
+        identity.apiUrl.replace(/\/$/, ""),
+        identity.powersyncUrl.replace(/\/$/, ""),
+        identity.userId,
+    ]);
+}
+
+export function replicaFilename(identity: ReplicaIdentity): string {
+    return filename(identityKey(identity));
+}
+
 function filename(identity: string): string {
     let first = 0x811c9dc5;
     let second = 0x9e3779b9;
@@ -25,9 +37,13 @@ export class ReplicaController {
     private stopUploads: (() => Promise<void>) | null = null;
     private history: SyncStreamSubscription[] = [];
     private stopHistory: (() => void) | null = null;
-    private active: { db: CommonPowerSyncDatabase; identity: string } | null = null;
+    private active: { db: CommonPowerSyncDatabase; identity: string; filename: string } | null =
+        null;
 
-    constructor(private readonly open: (filename: string) => CommonPowerSyncDatabase) {}
+    constructor(
+        private readonly open: (filename: string) => CommonPowerSyncDatabase,
+        private readonly remove?: (filename: string) => Promise<void>,
+    ) {}
 
     private serialize<T>(action: () => Promise<T>): Promise<T> {
         const next = this.tail.then(action);
@@ -38,16 +54,28 @@ export class ReplicaController {
         return next;
     }
 
+    private async stop(): Promise<void> {
+        this.stopHistory?.();
+        this.stopHistory = null;
+        await this.stopUploads?.();
+        this.stopUploads = null;
+        for (const subscription of this.history) subscription.unsubscribe();
+        this.history = [];
+    }
+
+    private async release(): Promise<void> {
+        if (!this.active) return;
+        await this.active.db.disconnect();
+        await this.active.db.close();
+        this.active = null;
+    }
+
     activate(
         identity: ReplicaIdentity,
         connector: ManagedConnector,
     ): Promise<CommonPowerSyncDatabase> {
         const generation = ++this.generation;
-        const key = JSON.stringify([
-            identity.apiUrl.replace(/\/$/, ""),
-            identity.powersyncUrl.replace(/\/$/, ""),
-            identity.userId,
-        ]);
+        const key = identityKey(identity);
         return this.serialize(async () => {
             if (generation !== this.generation) throw new Error("replica activation superseded");
             this.stopHistory?.();
@@ -58,11 +86,10 @@ export class ReplicaController {
                 if (this.active) {
                     for (const subscription of this.history) subscription.unsubscribe();
                     this.history = [];
-                    await this.active.db.disconnect();
-                    await this.active.db.close();
-                    this.active = null;
+                    await this.release();
                 }
-                const db = this.open(filename(key));
+                const name = filename(key);
+                const db = this.open(name);
                 try {
                     await db.init();
                     // Other tabs open the same replica, so the claim is one write transaction.
@@ -82,7 +109,7 @@ export class ReplicaController {
                         return key;
                     });
                     if (owner !== key) throw new Error("replica ownership mismatch");
-                    this.active = { db, identity: key };
+                    this.active = { db, identity: key, filename: name };
                 } catch (error) {
                     await db.close();
                     throw error;
@@ -123,20 +150,25 @@ export class ReplicaController {
         });
     }
 
+    /** Disconnects and closes the replica but keeps its file, so the next activate reopens it. */
+    close(): Promise<void> {
+        ++this.generation;
+        return this.serialize(async () => {
+            await this.stop();
+            await this.release();
+        });
+    }
+
     discard(): Promise<void> {
         ++this.generation;
         return this.serialize(async () => {
-            this.stopHistory?.();
-            this.stopHistory = null;
-            await this.stopUploads?.();
-            this.stopUploads = null;
-            for (const subscription of this.history) subscription.unsubscribe();
-            this.history = [];
-            if (this.active) {
-                await this.active.db.disconnectAndClear();
-                await this.active.db.close();
-                this.active = null;
-            }
+            await this.stop();
+            if (!this.active) return;
+            const { db, filename: name } = this.active;
+            await db.disconnectAndClear();
+            await db.close();
+            this.active = null;
+            await this.remove?.(name);
         });
     }
 }

@@ -13,12 +13,9 @@ import {
 } from "@clientbridge/ui";
 
 import { api } from "../lib/api";
+import { leave } from "../lib/powersync";
 
 const p = strings.plans;
-
-function leave(url: string): void {
-    window.location.assign(url);
-}
 
 function Tiers({ plan }: { plan: PlanView }) {
     return (

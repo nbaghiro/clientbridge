@@ -25,7 +25,13 @@ import {
     rememberUser,
     sessionExpected,
 } from "./lib/auth";
-import { connectPowerSync, replica, signOut } from "./lib/powersync";
+import {
+    connectPowerSync,
+    onPageRestored,
+    replica,
+    signOut,
+    sweepSignedOut,
+} from "./lib/powersync";
 import { AcceptInvite } from "./pages/AcceptInvite";
 import { Schedule } from "./pages/Schedule";
 import { Classes } from "./pages/Classes";
@@ -62,7 +68,9 @@ const lifecycle = {
         // A replaced restore (development runs effects twice) must not touch the replica.
         if (stale()) return null;
         if (session.state !== "user") {
-            await replica.pause();
+            // closed, not paused, so a sign-out in another tab can delete the file
+            await replica.close();
+            await sweepSignedOut().catch(() => undefined);
             return session.state === "unverified" ? "unverified" : null;
         }
         await rememberUser(session.userId, session.verifiedAt);
@@ -76,7 +84,10 @@ const lifecycle = {
     },
     subscribe: onSignedOut,
     clearCredentials: endSession,
-    subscribeChanged: onSessionChanged,
+    subscribeChanged: (handler: () => void) => {
+        onSessionChanged(handler);
+        onPageRestored(handler);
+    },
 };
 
 export function App() {
@@ -105,7 +116,14 @@ export function App() {
             ) : failed ? (
                 <>
                     <LoadFailed
-                        message={failed === "offline" ? strings.sync.offlineExpired : undefined}
+                        message={
+                            failed === "offline"
+                                ? strings.sync.offlineExpired
+                                : failed === "stuck"
+                                  ? strings.sync.openStuckTitle
+                                  : undefined
+                        }
+                        body={failed === "stuck" ? strings.sync.openStuckBody : undefined}
                         variant="page"
                         onRetry={() => {
                             retry();

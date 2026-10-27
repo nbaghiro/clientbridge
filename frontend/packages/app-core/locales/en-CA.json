@@ -14300,6 +14300,12 @@
     "sync.offlineExpired": {
         "message": "Connect to verify your access before opening this device’s saved data. Your unsent changes are still on this device."
     },
+    "sync.openStuckTitle": {
+        "message": "Your saved data didn’t open"
+    },
+    "sync.openStuckBody": {
+        "message": "Close other Clientbridge tabs and try again. If it still doesn’t open, quit and reopen your browser. Unsent changes are still on this device."
+    },
     "sync.awaitingTitle": {
         "message": "Waiting for updated data"
     },

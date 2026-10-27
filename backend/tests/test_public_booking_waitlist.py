@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.ids import new_id
 from clientbridge.models.catalog import Item
+from clientbridge.models.messaging import Delivery
 from clientbridge.models.scheduling import Booking, BookingStatus, Slot
 from tests.conftest import BIZ, Factory
 from tests.helpers import key, queued_subjects
@@ -128,6 +129,10 @@ async def test_a_seat_canceled_online_goes_to_the_first_person_waiting(
     assert await queued_subjects(db, f"seat:{slot_id}:{waiting['booking_id']}") == [
         f"A seat opened up in {CLASS}"
     ]
+    notices = await db.scalars(
+        select(Delivery.state).where(Delivery.key.startswith(f"seat:{slot_id}:"))
+    )
+    assert set(notices) == {"queued"}
     still = (await api.get(f"/manage/{later['manage_token']}")).json()
     assert still["status"] == "waitlisted" and still["waitlist_position"] == 1
     slots = await api.get(

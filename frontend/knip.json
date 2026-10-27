@@ -2,7 +2,6 @@
     "$schema": "https://unpkg.com/knip@6/schema.json",
     "workspaces": {
         "apps/web": {
-            "ignoreDependencies": ["@journeyapps/wa-sqlite"],
             "entry": [
                 "scripts/service-worker.js",
                 "playwright.config.ts",
@@ -45,7 +44,8 @@
         },
         "packages/sync": {
             "playwright": false,
-            "entry": ["playwright.config.ts", "e2e/**/*.e2e.ts"]
+            "entry": ["playwright.config.ts", "e2e/**/*.e2e.ts", "bench/*.ts"],
+            "ignoreBinaries": ["safaridriver"]
         }
     },
     "ignore": ["packages/api-client/src/generated.ts"]

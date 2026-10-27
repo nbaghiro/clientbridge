@@ -273,7 +273,8 @@ export function syncNotice(sync: NoticeInput, now: number): SyncNotice | null {
     return null;
 }
 
-const STORAGE_FULL = /SQLITE_FULL|disk is full|QuotaExceeded|quota/i;
+// OPFSCoopSyncVFS reports a write past the origin's quota as SQLITE_IOERR_WRITE, "disk I/O error".
+const STORAGE_FULL = /SQLITE_FULL|disk is full|disk I\/O error|QuotaExceeded|quota/i;
 
 /** Whether a sync error came from the device running out of space rather than the network. */
 export function isStorageFull(error: unknown): boolean {
@@ -437,12 +438,38 @@ function bounded<T>(work: Promise<T>): Promise<T> {
     });
 }
 
+/** Rejects with `replica_stuck` when the replica hasn't opened in 20 seconds, as when a dead page kept its file locks. */
+export function boundedOpen<T>(open: Promise<T>): Promise<T> {
+    let timer: ReturnType<typeof setTimeout>;
+    const timeout = new Promise<never>((_, reject) => {
+        timer = setTimeout(() => {
+            reject(Object.assign(new Error("replica open timed out"), { code: "replica_stuck" }));
+        }, 20_000);
+    });
+    return Promise.race([open, timeout]).finally(() => {
+        clearTimeout(timer);
+    });
+}
+
+type SessionFailure = "load" | "discard" | "reauthenticate" | "offline" | "stuck";
+
+function sessionFailure(
+    error: unknown,
+    action: "load" | "discard" | "reauthenticate",
+): SessionFailure {
+    const code =
+        error !== null && typeof error === "object" && "code" in error ? error.code : undefined;
+    return code === "offline_access_expired"
+        ? "offline"
+        : code === "replica_stuck"
+          ? "stuck"
+          : action;
+}
+
 export function useReplicaSession(options: ReplicaSessionOptions) {
     const [db, setDb] = useState<CommonPowerSyncDatabase | null>(null);
     const [loading, setLoading] = useState(true);
-    const [failed, setFailed] = useState<"load" | "discard" | "reauthenticate" | "offline" | null>(
-        null,
-    );
+    const [failed, setFailed] = useState<SessionFailure | null>(null);
     // The API refuses the live session until its email is verified; sign-in must not probe it.
     const [unverified, setUnverified] = useState(false);
     const generation = useRef(0);
@@ -471,14 +498,7 @@ export function useReplicaSession(options: ReplicaSessionOptions) {
             } catch (error) {
                 cancelled = true;
                 if (current === generation.current) {
-                    setFailed(
-                        error !== null &&
-                            typeof error === "object" &&
-                            "code" in error &&
-                            error.code === "offline_access_expired"
-                            ? "offline"
-                            : action,
-                    );
+                    setFailed(sessionFailure(error, action));
                     options.pause().catch(() => undefined);
                 }
             } finally {
