@@ -15,17 +15,19 @@ jobs:
       matrix:
         include:
           # the runner splits a sharded lane's cases by their measured seconds (apps/web/e2e/case-seconds.json)
-          - { name: chromium (1/5), artifact: web-chromium-1, browser: chromium, args: --surface web --shard 1/5 }
-          - { name: chromium (2/5), artifact: web-chromium-2, browser: chromium, args: --surface web --shard 2/5 }
-          - { name: chromium (3/5), artifact: web-chromium-3, browser: chromium, args: --surface web --shard 3/5 }
-          - { name: chromium (4/5), artifact: web-chromium-4, browser: chromium, args: --surface web --shard 4/5 }
-          - { name: chromium (5/5), artifact: web-chromium-5, browser: chromium, args: --surface web --shard 5/5 }
+          - { name: chromium (1/6), artifact: web-chromium-1, browser: chromium, args: --surface web --shard 1/6 }
+          - { name: chromium (2/6), artifact: web-chromium-2, browser: chromium, args: --surface web --shard 2/6 }
+          - { name: chromium (3/6), artifact: web-chromium-3, browser: chromium, args: --surface web --shard 3/6 }
+          - { name: chromium (4/6), artifact: web-chromium-4, browser: chromium, args: --surface web --shard 4/6 }
+          - { name: chromium (5/6), artifact: web-chromium-5, browser: chromium, args: --surface web --shard 5/6 }
+          - { name: chromium (6/6), artifact: web-chromium-6, browser: chromium, args: --surface web --shard 6/6 }
           - { name: pseudo-locale, artifact: web-pseudo, browser: chromium, args: --surface web --project pseudo }
           # Firefox and WebKit run only the cases tagged @browsers; CI keeps them on Linux
           - { name: firefox, artifact: web-firefox, browser: firefox, args: --surface web --project firefox }
           - { name: webkit, artifact: web-webkit, browser: webkit, args: --surface web --project webkit }
-          - { name: journeys (1/2), artifact: web-journeys-1, browser: chromium, args: --surface journeys --shard 1/2 }
-          - { name: journeys (2/2), artifact: web-journeys-2, browser: chromium, args: --surface journeys --shard 2/2 }
+          - { name: journeys (1/3), artifact: web-journeys-1, browser: chromium, args: --surface journeys --shard 1/3 }
+          - { name: journeys (2/3), artifact: web-journeys-2, browser: chromium, args: --surface journeys --shard 2/3 }
+          - { name: journeys (3/3), artifact: web-journeys-3, browser: chromium, args: --surface journeys --shard 3/3 }
           - { name: filings, artifact: web-filings, browser: chromium, args: --surface filings }
     steps:
       - uses: actions/checkout@v7
