@@ -81,11 +81,15 @@ test.describe("payouts", () => {
             ).toBeGreaterThanOrEqual(net);
             const original = await merchant<PayoutSchedule>("schedule");
             expect(original.interval).not.toBe("manual");
-            const before = new Set(
-                (await merchant<{ payouts: { id: string }[] }>("payouts")).payouts.map(
-                    (row) => row.id,
-                ),
-            );
+            const earlier = (
+                await merchant<{ payouts: { id: string; arrival_date: number }[] }>("payouts")
+            ).payouts;
+            // Stripe's payouts component hides the schedule and Pay out while a payout is on its way
+            expect(
+                earlier.filter((row) => row.arrival_date * 1000 > Date.now()).map((row) => row.id),
+                "an earlier payout must have arrived before this case can make another",
+            ).toEqual([]);
+            const before = new Set(earlier.map((row) => row.id));
             const context = await webContext(browser);
             try {
                 const page = await context.newPage();
@@ -105,13 +109,18 @@ test.describe("payouts", () => {
                 await expect
                     .poll(async () => (await merchant<PayoutSchedule>("schedule")).interval)
                     .toBe("manual");
+                await (
+                    await stripeFrame(page, /^Done$/, true)
+                )
+                    .getByRole("button", { name: "Done", exact: true })
+                    .click();
 
                 await (
                     await stripeFrame(page, /^Pay out$/)
                 )
                     .getByRole("button", { name: "Pay out", exact: true })
                     .click();
-                const payoutDialog = await stripeFrame(page, /^(Pay out|Confirm|Send)/);
+                const payoutDialog = await stripeFrame(page, /^(Pay out|Confirm|Send)/, true);
                 await info.attach("payout-dialog", {
                     body: await page.screenshot({ fullPage: true }),
                     contentType: "image/png",
@@ -131,6 +140,12 @@ test.describe("payouts", () => {
                 }).toPass({ timeout: 60_000 });
                 const created = await merchant<StripePayout>("payout", payoutId);
                 expect(created).toMatchObject({ amount: net, currency: "cad", automatic: false });
+                await (
+                    await stripeFrame(page, /^(Done|Close)$/, true)
+                )
+                    .getByRole("button", { name: /^(Done|Close)$/ })
+                    .first()
+                    .click();
                 await page
                     .getByRole("button", { name: strings.paymentAccount.close, exact: true })
                     .click();

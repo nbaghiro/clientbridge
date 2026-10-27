@@ -36,13 +36,15 @@ export interface PayoutSchedule {
 }
 
 /** The Stripe-hosted frame (embedded component or its dialog layer) showing this button. */
-export async function stripeFrame(page: Page, button: RegExp): Promise<Frame> {
+export async function stripeFrame(page: Page, button: RegExp, overlay = false): Promise<Frame> {
     let found: Frame | undefined;
     await expect
         .poll(
             async () => {
                 for (const frame of page.frames()) {
                     if (!frame.url().startsWith("https://connect-js.stripe.com/")) continue;
+                    // a component's dialogs open in its accessory layer, apart from the component
+                    if (overlay && !frame.url().includes("accessory_layer")) continue;
                     if (
                         await frame
                             .getByRole("button", { name: button })

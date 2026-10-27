@@ -90,7 +90,12 @@ async def payouts() -> dict[str, object]:
     listed = await stripe.Payout.list_async(limit=20, stripe_account=account)
     if any(item.livemode for item in listed.data):
         raise ValueError("live payout evidence is forbidden")
-    return {"payouts": [{"id": item.id, "status": item.status} for item in listed.data]}
+    return {
+        "payouts": [
+            {"id": item.id, "status": item.status, "arrival_date": item.arrival_date}
+            for item in listed.data
+        ]
+    }
 
 
 async def schedule() -> dict[str, object]:

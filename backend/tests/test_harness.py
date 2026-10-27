@@ -844,7 +844,8 @@ def test_functional_cleanup_kills_a_descendant_after_its_leader_exits() -> None:
             try:
                 with socket.create_connection(("127.0.0.1", port), timeout=0.1):
                     pass
-            except ConnectionRefusedError:
+            # macOS resets a connection to a listener that is closing, rather than refusing it
+            except (ConnectionRefusedError, ConnectionResetError):
                 break
             assert time.monotonic() < deadline, "owned descendant survived cleanup"
             time.sleep(0.01)
