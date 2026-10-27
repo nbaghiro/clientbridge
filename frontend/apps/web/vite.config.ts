@@ -53,6 +53,6 @@ export default defineConfig({
         strictPort: true,
     },
     preview: { port: 8700 },
-    optimizeDeps: { exclude: ["@journeyapps/wa-sqlite", "@powersync/web"] },
+    optimizeDeps: { exclude: ["@powersync/web"] },
     worker: { format: "es" },
 });
