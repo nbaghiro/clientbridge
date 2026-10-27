@@ -1,0 +1,116 @@
+name: storage-bench
+on:
+  workflow_dispatch:
+    inputs:
+      runs:
+        description: timing runs per storage and context (medians)
+        default: "10"
+      tab_runs:
+        description: two-tab writing runs per storage and context
+        default: "20"
+      reloads:
+        description: reloads in a row per storage and context
+        default: "20"
+      crash_runs:
+        description: script navigations during the first checkpoint, on Chrome and Edge for Windows
+        default: "30"
+permissions:
+  contents: read
+concurrency:
+  group: storage-bench-${{ github.ref }}
+  cancel-in-progress: false
+defaults:
+  run:
+    shell: bash
+# Measures the web replica's storage on each OS; it never gates a merge.
+jobs:
+  bench:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-24.04, label: linux, browser: chromium, web: true }
+          - { os: ubuntu-24.04, label: linux, browser: firefox }
+          - { os: ubuntu-24.04, label: linux, browser: webkit }
+          - { os: macos-latest, label: macos, browser: chromium }
+          - { os: macos-latest, label: macos, browser: firefox }
+          - { os: macos-latest, label: macos, browser: webkit }
+          - { os: macos-latest, label: macos, browser: safari }
+          - { os: windows-latest, label: windows, browser: chromium }
+          - { os: windows-latest, label: windows, browser: firefox }
+          - { os: windows-latest, label: windows, browser: chrome, crash: true }
+          - { os: windows-latest, label: windows, browser: msedge, crash: true }
+    env:
+      OUT: ${{ github.workspace }}/.scratchpad/bench/${{ matrix.label }}-${{ matrix.browser }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+        with:
+          pnpm: "true"
+      - name: install the browser
+        if: contains(fromJSON('["chromium","firefox","webkit"]'), matrix.browser)
+        working-directory: frontend
+        run: |
+          if [ "$RUNNER_OS" = "Linux" ]; then deps=--with-deps; else deps=; fi
+          pnpm --filter @clientbridge/sync exec playwright install $deps ${{ matrix.browser }}
+      - name: build the web app for its wasm sizes
+        if: matrix.web
+        working-directory: frontend
+        run: pnpm --filter web build
+      - name: run the bench
+        if: matrix.browser != 'safari'
+        working-directory: frontend/packages/sync
+        run: >-
+          node bench/run.ts
+          --browser ${{ matrix.browser }}
+          --label ${{ matrix.label }}
+          --out "$OUT"
+          --runs ${{ inputs.runs || '10' }}
+          --tab-runs ${{ inputs.tab_runs || '20' }}
+          --reloads ${{ inputs.reloads || '20' }}
+          ${{ matrix.crash && format('--crash-runs {0} --headed', inputs.crash_runs || '30') || '' }}
+          ${{ matrix.web && '--web-dist ../../apps/web/dist' || '' }}
+      - name: run the bench in Safari
+        if: matrix.browser == 'safari'
+        working-directory: frontend/packages/sync
+        run: |
+          sudo safaridriver --enable
+          node bench/safari.ts --label ${{ matrix.label }} --out "$OUT" \
+            --runs ${{ inputs.runs || '10' }} --reloads ${{ inputs.reloads || '20' }}
+      - name: summary
+        if: always()
+        run: cat "$OUT/tables.md" >> "$GITHUB_STEP_SUMMARY" || true
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: bench-${{ matrix.label }}-${{ matrix.browser }}
+          include-hidden-files: true
+          if-no-files-found: error
+          path: ${{ env.OUT }}
+          retention-days: 30
+
+  tables:
+    needs: bench
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: bench-*
+          path: results
+      - name: one report for every OS and browser
+        run: |
+          node frontend/packages/sync/bench/tables.ts results > tables.md
+          cat tables.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: storage-bench-tables
+          path: tables.md
+          retention-days: 90

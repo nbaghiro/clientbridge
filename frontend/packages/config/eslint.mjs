@@ -144,8 +144,8 @@ export default tseslint.config(
         },
     },
     {
-        // Tests and e2e suites (fixture data) are not product copy.
-        files: ["**/*.test.{ts,tsx}", "**/e2e/**/*.ts"],
+        // Tests, e2e suites (fixture data) and the storage bench are not product copy.
+        files: ["**/*.test.{ts,tsx}", "**/e2e/**/*.ts", "**/packages/sync/bench/*.ts"],
         rules: {
             "local/no-composed-copy": "off",
             "local/no-error-message-copy": "off",
