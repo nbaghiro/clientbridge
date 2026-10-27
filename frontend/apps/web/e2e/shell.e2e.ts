@@ -122,8 +122,9 @@ async function signIn(page: Page, email: string): Promise<Walk> {
     await page.fill('input[type="email"]', email);
     await page.fill('input[type="password"]', PASSWORD);
     await page.getByRole("button", { name: strings.auth.signIn, exact: true }).click();
-    await expect(walk.main.getByRole("heading", { level: 1 })).toBeVisible({ timeout: 60_000 });
-    await expect(page).toHaveURL(/\/today$/);
+    // the sign-in page has a heading too, so the first sync's budget waits on the landing page
+    await expect(page).toHaveURL(/\/today$/, { timeout: 60_000 });
+    await expect(walk.main.getByRole("heading", { level: 1 })).toBeVisible();
     // The replica needs a moment to sync before the pages have rows to open.
     await page.waitForTimeout(6000);
     return walk;
