@@ -180,7 +180,9 @@ test(
 
         expect(await sessionActive(request, otherDevice)).toBe(false);
         await page.reload();
-        await expect(page.getByRole("heading", { name: a.securityTitle })).toBeVisible();
+        await expect(
+            page.getByRole("heading", { name: strings.navigation.setupSections.security }),
+        ).toBeVisible();
     },
 );
 

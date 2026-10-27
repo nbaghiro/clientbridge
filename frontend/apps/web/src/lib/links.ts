@@ -2,7 +2,7 @@ import { type ShellTarget, clearTasks, openTask, taskFor } from "@clientbridge/a
 import { createContext, useCallback, useContext, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
-// `new` opens a new message and `open` one record; pages read both with useLinkIntent.
+// `new` opens a page's own create form and `open` one record; pages read both with useLinkIntent.
 const PATHS: Record<ShellTarget, string> = {
     today: "/today",
     schedule: "/schedule",

@@ -116,7 +116,7 @@ export function Schedule() {
             start: suggestedStart(day.date, board.now, board.window, zone),
         });
     };
-    useLinkIntent({ onOpen: setLinked });
+    useLinkIntent({ onCreate: openNew, onOpen: setLinked });
     const { setAnchor, select: selectId } = board;
     useEffect(() => {
         if (linked === null || linkedStart === null) return;

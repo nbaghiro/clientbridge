@@ -71,7 +71,15 @@ type Composing = { kind: "invoice" | "estimate"; id: string | null } | null;
 export function Invoices() {
     const [composing, setComposing] = useState<Composing>(null);
     const [openId, setOpenId] = useState<string | null>(null);
-    const params = useLinkIntent({ onOpen: setOpenId });
+    const params = useLinkIntent({
+        onCreate: () => {
+            setComposing({
+                kind: params.get("doc") === "estimates" ? "estimate" : "invoice",
+                id: null,
+            });
+        },
+        onOpen: setOpenId,
+    });
     const [doc, setDoc] = useState<DocKind>(
         params.get("doc") === "estimates" ? "estimates" : "invoices",
     );
