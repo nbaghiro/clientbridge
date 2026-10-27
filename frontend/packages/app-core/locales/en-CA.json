@@ -243,6 +243,12 @@
     "api.planNotManaged": {
         "message": "This business has no plan to change."
     },
+    "api.skuTaken": {
+        "message": "Another item already uses that SKU. Choose a different one."
+    },
+    "api.invoiceHasPayments": {
+        "message": "Money has been taken on this invoice, so it can't be voided."
+    },
     "api.businessUnavailable": {
         "message": "This business isn't taking bookings or orders right now."
     },

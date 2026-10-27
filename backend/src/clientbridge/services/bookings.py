@@ -92,6 +92,7 @@ from clientbridge.services import ledger
 from clientbridge.services.business import business_tz, load_staff, staff_name, staff_names
 from clientbridge.services.catalog import assert_offers, deposit_cents, load_item
 from clientbridge.services.clients import load_client
+from clientbridge.services.deliveries import delivery_key
 from clientbridge.services.lines import crew_ids, crew_note, fetch_lines
 from clientbridge.services.messaging import dispatch_message, open_thread
 from clientbridge.services.notifications import (
@@ -205,11 +206,6 @@ async def seats_closed(db: AsyncSession, slot_id: str) -> bool:
     return bool(await db.scalar(select(seats_closed_expr()).where(Slot.id == slot_id)))
 
 
-def change_scope(booking_id: str) -> str:
-    """Each change is its own delivery, so a booking's later change notices are never merged."""
-    return f"booking:{booking_id}:{new_id('delivery')}"
-
-
 def _change_notice(before: str, after: str, moved: bool) -> BookingNotice | None:
     if after != before and after == "canceled":
         return "canceled"
@@ -218,11 +214,6 @@ def _change_notice(before: str, after: str, moved: bool) -> BookingNotice | None
     if moved and after in ("pending", "confirmed"):
         return "rescheduled"
     return None
-
-
-def seat_scope(slot_id: str, booking_id: str | None = None) -> str:
-    """The delivery scope of the seat notices a class session sends, or of one of them."""
-    return f"seat:{slot_id}" if booking_id is None else f"seat:{slot_id}:{booking_id}"
 
 
 async def waitlist_position(db: AsyncSession, booking: Booking) -> int | None:
@@ -286,9 +277,9 @@ async def fill_freed_seats(
             )
         )
         await db.flush()
-        await queued_notifier(db, seat_scope(slot.id, first.id), slot.business_id).on_seat_opened(
-            db, first.id
-        )
+        await queued_notifier(
+            db, slot.business_id, delivery_key("seat", f"{slot.id}:{first.id}")
+        ).on_seat_opened(db, first.id)
         seated.append(first.id)
     return seated
 
@@ -864,7 +855,7 @@ class BookingService:
             cmd.record("booking.create", entity_type="booking", entity_id=booking.id)
             if data.notify:
                 await queued_notifier(
-                    self.db, f"booking:{booking.id}", self.biz
+                    self.db, self.biz, delivery_key("booking", booking.id)
                 ).on_booking_confirmed(self.db, booking.id)
             return await booking_out(self.db, booking, slot)
 
@@ -983,7 +974,8 @@ class BookingService:
             await self.db.flush()
             notice = _change_notice(status_then, booking.status, starts_then != slot.starts_at)
             if notice is not None and (notice != "rescheduled" or data.notify):
-                notifier = queued_notifier(self.db, change_scope(booking.id), self.biz)
+                key = delivery_key("booking", booking.id, each=True)
+                notifier = queued_notifier(self.db, self.biz, key)
                 await {
                     "canceled": notifier.on_booking_canceled,
                     "confirmed": notifier.on_booking_confirmed,
@@ -1310,7 +1302,7 @@ class BookingService:
                 await self.db.flush()
                 cmd.record("booking.depart", entity_type="booking", entity_id=booking.id)
                 await queued_notifier(
-                    self.db, f"booking:{booking.id}:depart", self.biz
+                    self.db, self.biz, delivery_key("booking", f"{booking.id}:depart")
                 ).on_booking_departed(self.db, booking.id)
             return await booking_out(self.db, booking, slot)
 
@@ -2230,15 +2222,6 @@ def expand_occurrences(
     return dates
 
 
-def series_scope(recurrence_id: str) -> str:
-    return f"recurrence:{recurrence_id}"
-
-
-def series_change_scope(recurrence_id: str) -> str:
-    """Each change to a series is its own delivery, so a later change's notice always goes."""
-    return f"{series_scope(recurrence_id)}:{new_id('delivery')}"
-
-
 class RecurrenceService:
     def __init__(self, db: AsyncSession, principal: Principal) -> None:
         self.db = db
@@ -2337,7 +2320,7 @@ class RecurrenceService:
             cmd.record("recurrence.create", entity_type="recurrence", entity_id=recurrence.id)
             await self.db.flush()
             booked = [o.booking_id for o in occurrences if o.booking_id is not None]
-            notifier = queued_notifier(self.db, series_scope(recurrence.id), self.biz)
+            notifier = queued_notifier(self.db, self.biz, delivery_key("recurrence", recurrence.id))
             if data.confirmation == "series":
                 await notifier.on_series_booked(self.db, booked, "booked")
             elif data.confirmation == "each":
@@ -2465,7 +2448,7 @@ class RecurrenceService:
             cmd.record("recurrence.change", entity_type="recurrence", entity_id=recurrence.id)
             if data.notify:
                 await queued_notifier(
-                    self.db, series_change_scope(recurrence.id), self.biz
+                    self.db, self.biz, delivery_key("recurrence", recurrence.id, each=True)
                 ).on_series_booked(self.db, moved, "moved")
             return RecurrenceChangeOut(id=recurrence.id, moved=moved, skipped=skipped)
 
@@ -2517,7 +2500,7 @@ class RecurrenceService:
             cmd.record("recurrence.cancel", entity_type="recurrence", entity_id=recurrence.id)
             if data.notify:
                 await queued_notifier(
-                    self.db, series_change_scope(recurrence.id), self.biz
+                    self.db, self.biz, delivery_key("recurrence", recurrence.id, each=True)
                 ).on_series_booked(self.db, canceled, "canceled")
             return RecurrenceCancelOut(
                 id=recurrence.id,
@@ -2701,7 +2684,7 @@ class ClassService:
             action = "class.waitlist" if full else "class.add"
             cmd.record(action, entity_type="booking", entity_id=booking.id)
             if data.notify:
-                notifier = queued_notifier(self.db, f"booking:{booking.id}", self.biz)
+                notifier = queued_notifier(self.db, self.biz, delivery_key("booking", booking.id))
                 if full:
                     await notifier.on_waitlist_joined(self.db, booking.id)
                 else:
@@ -2759,7 +2742,7 @@ class ClassService:
                 seat_booking(booking)
                 await self.db.flush()
                 await queued_notifier(
-                    self.db, seat_scope(slot.id, booking.id), self.biz
+                    self.db, self.biz, delivery_key("seat", f"{slot.id}:{booking.id}")
                 ).on_seat_opened(self.db, booking.id)
             await self.db.flush()
             cmd.record(f"class.{data.action}", entity_type="booking", entity_id=booking.id)
@@ -3276,9 +3259,9 @@ async def _close_past_waitlists(
             )
         )
         await db.flush()
-        await queued_notifier(db, f"waitlist:{booking.id}", business_id).on_waitlist_closed(
-            db, booking.id
-        )
+        await queued_notifier(
+            db, business_id, delivery_key("waitlist", booking.id)
+        ).on_waitlist_closed(db, booking.id)
         closed += 1
     return closed
 

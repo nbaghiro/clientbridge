@@ -37,14 +37,8 @@ from clientbridge.services.business import (
     businesses_at_hour,
     postal_address,
 )
-from clientbridge.services.deliveries import (
-    DeliveryQueue,
-    QueuedEmail,
-    QueuedPush,
-    QueuedSms,
-    dispatch,
-)
-from clientbridge.services.notifications import Notifier, plan_link
+from clientbridge.services.deliveries import delivery_key, send_queued
+from clientbridge.services.notifications import Notifier, plan_link, queued_notifier
 
 _log = logging.getLogger(__name__)
 
@@ -210,13 +204,19 @@ def _tier_of(sub: PlanSubscription) -> tuple[Plan | None, PlanInterval | None]:
     return _PRODUCT_TIERS.get(item.product), _INTERVALS.get(item.interval)
 
 
-async def sync_seats(gateway: PaymentGateway, business: Business, seats: int) -> None:
+async def sync_seats(
+    gateway: PaymentGateway,
+    business: Business,
+    seats: int,
+    sub: PlanSubscription | None = None,
+) -> None:
     """Set a Premium subscription's seat quantity; absolute, so a retry sets the same number."""
     if business.plan != "premium" or business.stripe_subscription_id is None:
         return
     if business.plan_status not in _LIVE:
         return
-    sub = await gateway.get_plan_subscription(business.stripe_subscription_id)
+    if sub is None:
+        sub = await gateway.get_plan_subscription(business.stripe_subscription_id)
     tier, interval = _tier_of(sub)
     if tier is None or interval is None or _seats_of(sub) == seats:
         return
@@ -305,7 +305,7 @@ class PlanService:
         return business
 
     async def status(self) -> PlanOut:
-        """The plan as Stripe has it now, so a refresh repairs an event that never arrived."""
+        """The stored plan with Stripe's billing details; webhooks and the daily sync update it."""
         self._assert_owner()
         now = clock.now()
         business = await self._business()
@@ -318,13 +318,6 @@ class PlanService:
             if subscription_id is not None
             else None
         )
-        if sub is not None:
-            business = await self._business(lock=True)
-            if business.stripe_subscription_id == subscription_id and await _refresh(
-                self.db, business, sub
-            ):
-                await self.db.commit()
-                business = await self._business()
         seats = await billed_seats(self.db, business.id, now)
         return _out(business, seats, now, sub)
 
@@ -453,7 +446,7 @@ class PlanService:
         return PlanLink(url=url)
 
 
-def mirror_plan(business: Business, sub: PlanSubscription) -> bool:
+def apply_plan_subscription(business: Business, sub: PlanSubscription) -> bool:
     """Take the plan and its status from Stripe's copy of the subscription; True if either moved."""
     status = _mirrored_status(business, sub)
     if status is None:
@@ -559,13 +552,13 @@ async def _mirror(
         return
     await _refresh(db, business, sub)
     if created:
-        await sync_seats(gateway, business, await billed_seats(db, business.id, clock.now()))
+        await sync_seats(gateway, business, await billed_seats(db, business.id, clock.now()), sub)
 
 
 async def _refresh(db: AsyncSession, business: Business, sub: PlanSubscription) -> bool:
     """Mirror the plan from Stripe and warn the owner when it lapses with memberships still live."""
     lapsing = _mirrored_status(business, sub) == "lapsed" and business.plan_status != "lapsed"
-    moved = mirror_plan(business, sub)
+    moved = apply_plan_subscription(business, sub)
     await db.flush()
     if lapsing and business.stripe_subscription_id is not None:
         await _warn_live_memberships(db, business, business.stripe_subscription_id, sub.status)
@@ -585,9 +578,10 @@ async def _warn_live_memberships(
     )
     if not live:
         return
-    queue = DeliveryQueue(db, f"plan-lapsed:{business.id}:{subscription_id}:{stripe_status}")
-    queued = Notifier(QueuedEmail(queue), QueuedSms(queue), QueuedPush(queue), raise_errors=True)
-    await queued.on_plan_lapsed_with_memberships(db, business.id, int(live))
+    key = delivery_key("plan-lapsed", f"{business.id}:{subscription_id}:{stripe_status}")
+    await queued_notifier(db, business.id, key).on_plan_lapsed_with_memberships(
+        db, business.id, int(live)
+    )
 
 
 async def _adopt_paid(db: AsyncSession, gateway: PaymentGateway, business: Business) -> None:
@@ -618,7 +612,7 @@ async def run_sync_plans(db: AsyncSession, gateway: PaymentGateway, now: datetim
             if business is not None and business.stripe_subscription_id is not None:
                 sub = await gateway.get_plan_subscription(business.stripe_subscription_id)
                 await _refresh(db, business, sub)
-                await sync_seats(gateway, business, await billed_seats(db, business.id, now))
+                await sync_seats(gateway, business, await billed_seats(db, business.id, now), sub)
                 synced += 1
             await db.commit()
         except Exception:
@@ -643,16 +637,11 @@ async def run_trial_reminders(db: AsyncSession, notifier: Notifier, now: datetim
             last_day = False
         else:
             continue
-        queue = DeliveryQueue(
-            db,
-            f"trial:{business.id}:{business.trial_ends_at.isoformat()}:{today.isoformat()}",
-            business.id,
+        ends_on = business.trial_ends_at.isoformat()
+        key = delivery_key("trial", f"{business.id}:{ends_on}:{today.isoformat()}")
+        await queued_notifier(db, business.id, key).on_trial_ending(
+            db, business.id, last_day=last_day
         )
-        queued = Notifier(
-            QueuedEmail(queue), QueuedSms(queue), QueuedPush(queue), raise_errors=True
-        )
-        await queued.on_trial_ending(db, business.id, last_day=last_day)
         await db.commit()
-        for identity in queue.ids:
-            sent += await dispatch(db, identity, notifier.email, notifier.sms, notifier.push)
+        sent += await send_queued(db, notifier.email, notifier.sms, notifier.push)
     return sent

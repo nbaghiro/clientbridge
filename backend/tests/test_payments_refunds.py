@@ -163,6 +163,24 @@ async def test_over_refund_and_bad_amounts_409(
     assert await _refunds(db, pay_id) == 2
 
 
+async def test_a_refused_refund_names_the_code_its_preview_shows(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    _, pay_id = await _paid_invoice(as_owner, db)
+    ok(await as_owner.post(f"/v1/payments/{pay_id}/refund", json={}, headers=retry_key()))
+    preview = ok(await as_owner.get(f"/v1/payments/{pay_id}/refund-preview")).json()
+    again = await as_owner.post(f"/v1/payments/{pay_id}/refund", json={}, headers=retry_key())
+    assert preview["blocked"] == again.json()["error"] == "already_refunded"
+    assert again.status_code == 409
+    failed = await _entitlement_payment(db, 5000)
+    failed.status = "failed"
+    await db.flush()
+    preview = ok(await as_owner.get(f"/v1/payments/{failed.id}/refund-preview")).json()
+    refused = await as_owner.post(f"/v1/payments/{failed.id}/refund", json={}, headers=retry_key())
+    assert preview["blocked"] == refused.json()["error"] == "not_succeeded"
+    assert refused.status_code == 409 and preview["whole_only"] is False
+
+
 async def test_refund_replay_does_not_refund_twice(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
@@ -292,7 +310,7 @@ async def test_gift_card_purchase_refunds_in_full_only(
         f"/v1/payments/{pay_id}/refund", json={"amount_cents": 1000}, headers=retry_key()
     )
     assert part.status_code == 409
-    assert part.json()["message"] == "a gift card purchase is refunded in full"
+    assert part.json()["error"] == "whole_only"
     full = await as_owner.post(f"/v1/payments/{pay_id}/refund", json={}, headers=retry_key())
     assert full.status_code == 200, full.text
     card = (await db.execute(select(GiftCard).where(GiftCard.id == card_id))).scalar_one()
@@ -325,7 +343,7 @@ async def test_package_purchase_refunds_in_full_only(
         f"/v1/payments/{pay_id}/refund", json={"amount_cents": 1000}, headers=retry_key()
     )
     assert part.status_code == 409
-    assert part.json()["message"] == "a package purchase is refunded in full"
+    assert part.json()["error"] == "whole_only"
     assert (
         await as_owner.post(f"/v1/payments/{pay_id}/refund", json={}, headers=retry_key())
     ).status_code == 200
@@ -367,7 +385,7 @@ async def test_forfeited_deposit_refunds_in_full_only(
         f"/v1/payments/{deposit.id}/refund", json={"amount_cents": 500}, headers=retry_key()
     )
     assert res.status_code == 409
-    assert res.json()["message"] == "a forfeited deposit is refunded in full"
+    assert res.json()["error"] == "whole_only"
 
 
 def _refund_event(

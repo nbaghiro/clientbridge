@@ -60,7 +60,7 @@ export async function planView(page: Page): Promise<PlanView> {
     return (await response.json()) as PlanView;
 }
 
-/** Applies a stand-in Stripe subscription through the app's own plan mirror (e2e.actions plan). */
+/** Applies a stand-in Stripe subscription through the app's own plan code (e2e.actions plan). */
 export async function standInPlan(
     businessId: string,
     status: "active" | "canceled",

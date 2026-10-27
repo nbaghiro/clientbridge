@@ -14,7 +14,13 @@ from clientbridge.integrations.twilio import Sms
 from clientbridge.models.messaging import Delivery
 from clientbridge.schemas.deliveries import DeliveryPayload, EmailDelivery, SmsDelivery
 from clientbridge.services.consents import record_text_reply
-from clientbridge.services.deliveries import dispatch, enqueue, run_deliveries
+from clientbridge.services.deliveries import (
+    delivery_key,
+    dispatch,
+    enqueue,
+    run_deliveries,
+    send_queued,
+)
 from tests.conftest import BIZ, Factory, FakeEmailSender, FakePushSender, FakeSmsSender
 
 
@@ -96,6 +102,25 @@ async def test_delivery_key_replays_same_content_and_rejects_a_different_request
     with pytest.raises(Unprocessable):
         await enqueue(db, mail("Different"), key="receipt:test", business_id=BIZ)
     assert len(list(await db.scalars(select(Delivery).where(Delivery.key == "receipt:test")))) == 1
+
+
+def test_a_delivery_key_dedupes_by_subject_unless_each_call_sends() -> None:
+    assert delivery_key("payment", "pay_1") == "payment:pay_1"
+    first, second = (delivery_key("invoice-sent", "inv_1", each=True) for _ in range(2))
+    assert first.startswith("invoice-sent:inv_1:dlv_") and first != second
+
+
+async def test_send_queued_sends_what_the_session_queued_once_and_then_forgets_it(
+    db: AsyncSession, email: FakeEmailSender, sms: FakeSmsSender, push: FakePushSender
+) -> None:
+    await send_queued(db, email, sms, push)
+    first = await enqueue(db, mail(), key="receipt:collected", business_id=BIZ)
+    assert await enqueue(db, mail(), key="receipt:collected", business_id=BIZ) == first
+    await enqueue(db, mail("Other"), key="receipt:other", business_id=BIZ)
+    await db.commit()
+    assert await send_queued(db, email, sms, push) == 2
+    assert await send_queued(db, email, sms, push) == 0
+    assert len(email.sent) == 2
 
 
 async def test_connection_failure_is_retried_once_and_accepted_delivery_is_not_resent(

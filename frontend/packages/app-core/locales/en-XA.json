@@ -218,6 +218,12 @@
     "api.planNotManaged": {
         "message": "[Ţĥîš ƀûšîñéšš ĥåš ñö þļåñ ţö çĥåñĝé. one two three]"
     },
+    "api.skuTaken": {
+        "message": "[Åñöţĥéŕ îţéɱ åļŕéåðý ûšéš ţĥåţ ŠĶÛ. Çĥööšé å ðîƒƒéŕéñţ öñé. one two three four]"
+    },
+    "api.invoiceHasPayments": {
+        "message": "[Ṁöñéý ĥåš ƀééñ ţåķéñ öñ ţĥîš îñṽöîçé, šö îţ çåñ'ţ ƀé ṽöîðéð. one two three four]"
+    },
     "api.businessUnavailable": {
         "message": "[Ţĥîš ƀûšîñéšš îšñ'ţ ţåķîñĝ ƀööķîñĝš öŕ öŕðéŕš ŕîĝĥţ ñöŵ. one two three four]"
     },

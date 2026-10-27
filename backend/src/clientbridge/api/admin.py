@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query, Response
+from fastapi import APIRouter, Depends, Query
 
 from clientbridge.core.deps import DbSession, PlatformIdentity
 from clientbridge.integrations.resend import EmailSender, get_test_email_sender
@@ -35,12 +35,7 @@ from clientbridge.schemas.admin import (
 from clientbridge.services.admin import AdminService
 from clientbridge.services.email_samples import samples
 
-
-def no_store(response: Response) -> None:
-    response.headers["Cache-Control"] = "no-store"
-
-
-router = APIRouter(prefix="/admin/v1", tags=["admin"], dependencies=[Depends(no_store)])
+router = APIRouter(prefix="/admin/v1", tags=["admin"])
 
 
 def service(db: DbSession, identity: PlatformIdentity) -> AdminService:

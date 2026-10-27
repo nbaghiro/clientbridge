@@ -32,6 +32,13 @@ from clientbridge.services.consents import emails_withdrawn, stopped_clients
 _LEASE = timedelta(minutes=5)
 _RETRY = timedelta(minutes=1)
 _RETRY_WINDOW = timedelta(hours=23)
+_QUEUED = "queued_deliveries"
+
+
+def delivery_key(kind: str, subject_id: str, *, each: bool = False) -> str:
+    """A notice's delivery key: one send per subject, or with `each` a new send every call."""
+    key = f"{kind}:{subject_id}"
+    return f"{key}:{new_id('delivery')}" if each else key
 
 
 async def enqueue(
@@ -52,14 +59,33 @@ async def enqueue(
         .on_conflict_do_nothing(index_elements=["key"])
         .returning(Delivery.id)
     )
-    if identity is not None:
-        return identity
-    existing = (await db.scalars(select(Delivery).where(Delivery.key == key))).one()
-    if existing.business_id != business_id or existing.payload != body:
-        raise Unprocessable(
-            "delivery key was reused for different content", code="idempotency_key_reused"
+    if identity is None:
+        existing = (await db.scalars(select(Delivery).where(Delivery.key == key))).one()
+        if existing.business_id != business_id or existing.payload != body:
+            raise Unprocessable(
+                "delivery key was reused for different content", code="idempotency_key_reused"
+            )
+        identity = existing.id
+    db.info.setdefault(_QUEUED, []).append(identity)
+    return identity
+
+
+async def send_queued(
+    db: AsyncSession,
+    email: EmailSender,
+    sms: SmsSender,
+    push: PushSender,
+    *,
+    transport_override: bool = False,
+) -> int:
+    """Send what this session queued since the last call; a replay queues nothing, so sends none."""
+    queued: list[str] = db.info.pop(_QUEUED, [])
+    sent = 0
+    for identity in dict.fromkeys(queued):
+        sent += await dispatch(
+            db, identity, email, sms, push, transport_override=transport_override
         )
-    return existing.id
+    return sent
 
 
 async def dispatch(
@@ -183,10 +209,9 @@ async def _texts_stopped(db: AsyncSession, business_id: str, payload: DeliveryPa
 
 async def _emails_withdrawn(db: AsyncSession, business_id: str, payload: DeliveryPayload) -> bool:
     """An email the client can opt out of stays unsent once they have, even after it queued."""
-    if not isinstance(payload, EmailDelivery) or not payload.message.opt_out:
+    if not isinstance(payload, EmailDelivery) or not payload.opt_out or payload.client_id is None:
         return False
-    client_id = payload.message.tags.get("client")
-    return client_id is not None and await emails_withdrawn(db, business_id, client_id)
+    return await emails_withdrawn(db, business_id, payload.client_id)
 
 
 def _reserved(payload: DeliveryPayload) -> bool:
@@ -216,26 +241,28 @@ async def run_deliveries(
 
 
 class DeliveryQueue:
-    def __init__(self, db: AsyncSession, scope: str, business_id: str | None = None) -> None:
-        self.db, self.scope, self.business_id = db, scope, business_id
-        self.ids: list[str] = []
+    def __init__(self, db: AsyncSession, key: str, business_id: str | None = None) -> None:
+        self.db, self.key, self.business_id = db, key, business_id
 
     async def add(self, payload: DeliveryPayload, business_id: str | None = None) -> str:
         body = json.dumps(payload.model_dump(mode="json"), sort_keys=True, separators=(",", ":"))
-        key = f"{self.scope}:{hashlib.sha256(body.encode()).hexdigest()}"
-        identity = await enqueue(
-            self.db, payload, key=key, business_id=business_id or self.business_id
+        return await enqueue(
+            self.db,
+            payload,
+            key=f"{self.key}:{hashlib.sha256(body.encode()).hexdigest()}",
+            business_id=business_id or self.business_id,
         )
-        self.ids.append(identity)
-        return identity
 
 
 class QueuedEmail:
     def __init__(self, queue: DeliveryQueue) -> None:
         self.queue = queue
 
-    async def send(self, email: Email) -> str:
-        return await self.queue.add(EmailDelivery(message=email), email.tags.get("business"))
+    async def send(
+        self, email: Email, *, client_id: str | None = None, opt_out: bool = False
+    ) -> str:
+        delivery = EmailDelivery(message=email, client_id=client_id, opt_out=opt_out)
+        return await self.queue.add(delivery, email.tags.get("business"))
 
 
 class QueuedSms:
@@ -252,16 +279,3 @@ class QueuedPush:
 
     async def send(self, push: Push) -> None:
         await self.queue.add(PushDelivery(message=push))
-
-
-async def dispatch_scope(
-    db: AsyncSession, scope: str, email: EmailSender, sms: SmsSender, push: PushSender
-) -> None:
-    ids = list(
-        await db.scalars(
-            select(Delivery.id).where(Delivery.key.startswith(f"{scope}:", autoescape=True))
-        )
-    )
-    await db.commit()
-    for identity in ids:
-        await dispatch(db, identity, email, sms, push)

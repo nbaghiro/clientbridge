@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header, Request, Response
+from fastapi import APIRouter, Depends, Header, Request
 from starlette.routing import compile_path
 
 from clientbridge.core import clock
@@ -74,10 +74,8 @@ async def checkout(
     principal: CurrentPrincipal,
     db: DbSession,
     gateway: GatewayDep,
-    response: Response,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> PlanLink:
-    response.headers["Cache-Control"] = "no-store"
     return await PlanService(db, principal, gateway).checkout(body, idempotency_key)
 
 
@@ -93,8 +91,5 @@ async def change(
 
 
 @router.post("/portal", response_model=PlanLink)
-async def portal(
-    principal: CurrentPrincipal, db: DbSession, gateway: GatewayDep, response: Response
-) -> PlanLink:
-    response.headers["Cache-Control"] = "no-store"
+async def portal(principal: CurrentPrincipal, db: DbSession, gateway: GatewayDep) -> PlanLink:
     return await PlanService(db, principal, gateway).portal()

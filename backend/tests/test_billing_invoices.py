@@ -6,7 +6,7 @@ from clientbridge.core.ids import new_id
 from clientbridge.models.billing import Invoice
 from clientbridge.models.business import Business
 from tests.conftest import Factory, FakeEmailSender
-from tests.helpers import client_id
+from tests.helpers import client_id, key, ok
 
 BIZ = "bz_birchbark"
 
@@ -38,6 +38,40 @@ async def test_create_invoice_computes_tax(as_owner: httpx.AsyncClient, db: Asyn
     assert body["balance_cents"] == 11200
     assert body["lines"][0]["amount_cents"] == 10000
     assert body["lines"][0]["tax_amount_cents"] == 1200
+
+
+async def test_a_send_or_reminder_key_reused_on_another_invoice_is_refused(
+    as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
+) -> None:
+    cid = await client_id(db, email="two-invoices@example.ca")
+    first, second = [
+        ok(
+            await as_owner.post("/v1/invoices", json={"client_id": cid, "lines": [_line()]}), 201
+        ).json()["id"]
+        for _ in range(2)
+    ]
+    sent = key()
+    ok(await as_owner.post(f"/v1/invoices/{first}/send", headers=sent))
+    reused = await as_owner.post(f"/v1/invoices/{second}/send", headers=sent)
+    assert reused.status_code == 422 and reused.json()["error"] == "idempotency_key_reused"
+    ok(await as_owner.post(f"/v1/invoices/{second}/send", headers=key()))
+    remind = key()
+    ok(await as_owner.post(f"/v1/invoices/{first}/remind", headers=remind))
+    reused = await as_owner.post(f"/v1/invoices/{second}/remind", headers=remind)
+    assert reused.status_code == 422 and reused.json()["error"] == "idempotency_key_reused"
+    assert len(email.sent) == 3
+
+
+async def test_an_invoice_with_money_taken_cannot_be_voided(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    cid = await client_id(db, email="part-paid@example.ca")
+    body = {"client_id": cid, "lines": [_line()], "send": True}
+    inv = ok(await as_owner.post("/v1/invoices", json=body), 201).json()
+    cash = {"method": "cash", "amount_cents": 1000}
+    ok(await as_owner.post(f"/v1/invoices/{inv['id']}/payments", json=cash), 201)
+    refused = await as_owner.post(f"/v1/invoices/{inv['id']}/void")
+    assert refused.status_code == 409 and refused.json()["error"] == "invoice_has_payments"
 
 
 async def test_send_assigns_number_and_emails(

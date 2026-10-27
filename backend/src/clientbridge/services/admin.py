@@ -58,7 +58,7 @@ from clientbridge.schemas.admin import (
 )
 from clientbridge.schemas.deliveries import EmailDelivery
 from clientbridge.services.business import staff_name
-from clientbridge.services.deliveries import dispatch, enqueue
+from clientbridge.services.deliveries import enqueue, send_queued
 
 _send_limit = RateLimiter(5, 60)
 
@@ -485,8 +485,8 @@ class AdminService:
             business_id=None,
         )
         await self.db.commit()
-        await dispatch(
-            self.db, identity, sender, get_sms_sender(), get_push_sender(), transport_override=True
+        await send_queued(
+            self.db, sender, get_sms_sender(), get_push_sender(), transport_override=True
         )
         delivery = await self.db.get(Delivery, identity)
         assert delivery is not None

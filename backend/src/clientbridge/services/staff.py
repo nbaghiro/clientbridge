@@ -62,6 +62,7 @@ from clientbridge.services.bookings import (
 )
 from clientbridge.services.business import load_staff, staff_names
 from clientbridge.services.catalog import NOT_OFFERED, load_item, offers
+from clientbridge.services.deliveries import delivery_key
 from clientbridge.services.lines import crew_note
 from clientbridge.services.notifications import (
     Notice,
@@ -95,10 +96,6 @@ def _fit_rate_unit(staff: Staff, data: StaffPayUpdate) -> None:
 
 
 _log = logging.getLogger(__name__)
-
-
-def removal_scope(staff_id: str) -> str:
-    return f"staff-removal:{staff_id}"
 
 
 class StaffService:
@@ -572,7 +569,7 @@ class StaffService:
                 },
             )
             notifier = queued_notifier(
-                self.db, f"{removal_scope(member.id)}:{new_id('delivery')}", biz
+                self.db, biz, delivery_key("staff-removal", member.id, each=True)
             )
             await notifier.on_visits_reassigned(self.db, out.moved)
             await notifier.on_visits_canceled(self.db, out.canceled)

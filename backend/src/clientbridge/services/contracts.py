@@ -18,11 +18,8 @@ from clientbridge.schemas.contracts import (
     ContractVersionCreate,
     SignatureOut,
 )
+from clientbridge.services.deliveries import delivery_key
 from clientbridge.services.notifications import queued_notifier
-
-
-def signature_scope(signature_id: str) -> str:
-    return f"signature:{signature_id}"
 
 
 class ContractService:
@@ -66,8 +63,8 @@ class ContractService:
         )
 
     async def _queue(self, signature_id: str) -> None:
-        scope = f"{signature_scope(signature_id)}:{new_id('delivery')}"
-        await queued_notifier(self.db, scope, self.biz).on_contract_sent(self.db, signature_id)
+        key = delivery_key("signature", signature_id, each=True)
+        await queued_notifier(self.db, self.biz, key).on_contract_sent(self.db, signature_id)
 
     async def create_contract(
         self, data: ContractCreate, idempotency_key: str | None

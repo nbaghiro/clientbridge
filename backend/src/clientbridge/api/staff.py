@@ -26,8 +26,8 @@ from clientbridge.schemas.staff import (
     StaffUpdate,
     TeamOut,
 )
-from clientbridge.services.deliveries import dispatch_scope
-from clientbridge.services.staff import StaffService, removal_scope
+from clientbridge.services.deliveries import send_queued
+from clientbridge.services.staff import StaffService
 
 router = APIRouter(prefix="/staff", tags=["staff"])
 
@@ -117,5 +117,5 @@ async def remove_member(
     result = await StaffService(db).remove(
         principal, staff_id, body, gateway=gateway, idempotency_key=idempotency_key
     )
-    await dispatch_scope(db, removal_scope(staff_id), email, sms, push)
+    await send_queued(db, email, sms, push)
     return result

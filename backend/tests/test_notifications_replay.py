@@ -29,12 +29,12 @@ def _offline(email: FakeEmailSender, monkeypatch: pytest.MonkeyPatch) -> None:
 
 async def _retry_later(
     db: AsyncSession,
-    scope: str,
+    prefix: str,
     email: FakeEmailSender,
     sms: FakeSmsSender,
     push: FakePushSender,
 ) -> list[str]:
-    rows = list(await db.scalars(select(Delivery).where(Delivery.key.startswith(scope))))
+    rows = list(await db.scalars(select(Delivery).where(Delivery.key.startswith(prefix))))
     states = [row.state for row in rows]
     for row in rows:
         row.next_at = clock.now()
@@ -111,6 +111,35 @@ async def test_a_replayed_send_or_reminder_mails_once_and_a_new_send_mails_again
     ok(await as_owner.post(f"{path}/remind", headers=remind))
     ok(await as_owner.post(f"{path}/remind", headers=remind))
     assert _mailed(email, "invoice-resend@example.ca", link) == 3
+
+
+async def test_a_route_sends_what_its_command_queued_and_a_replay_sends_nothing_new(
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    email: FakeEmailSender,
+    sms: FakeSmsSender,
+    push: FakePushSender,
+) -> None:
+    cid = await client_id(db, email="invoice-queued@example.ca")
+    draft = ok(
+        await as_owner.post("/v1/invoices", json={"client_id": cid, "lines": [LINE]}), 201
+    ).json()
+    path, headers = f"/v1/invoices/{draft['id']}/send", key()
+    first = ok(await as_owner.post(path, headers=headers)).json()
+    link = f"/i/{first['pay_token']}"
+    assert _mailed(email, "invoice-queued@example.ca", link) == 1
+    sent = list(
+        await db.scalars(
+            select(Delivery).where(Delivery.key.startswith(f"invoice-sent:{draft['id']}:"))
+        )
+    )
+    assert [row.state for row in sent] == ["accepted"]
+    sent[0].state, sent[0].next_at = "queued", clock.now()
+    await db.commit()
+    ok(await as_owner.post(path, headers=headers))
+    assert _mailed(email, "invoice-queued@example.ca", link) == 1
+    await run_deliveries(db, email, sms, push)
+    assert _mailed(email, "invoice-queued@example.ca", link) == 2
 
 
 async def test_an_invoice_the_provider_missed_goes_on_the_next_run(

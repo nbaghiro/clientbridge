@@ -39,7 +39,7 @@ from clientbridge.models.payments import Payment
 from clientbridge.models.scheduling import Recurrence, Slot
 from clientbridge.services.consents import prefs_url
 from clientbridge.services.notifications import inbound_message_alert_text
-from clientbridge.services.plans import PLAN_PRICES, mirror_plan
+from clientbridge.services.plans import PLAN_PRICES, apply_plan_subscription
 
 
 async def stand_in(business_id: str, status: str) -> dict[str, object]:
@@ -63,7 +63,7 @@ async def stand_in(business_id: str, status: str) -> dict[str, object]:
         ):
             raise RuntimeError("the business is not one this run signed up without a plan")
         team = PLAN_PRICES["team_month"]
-        changed = mirror_plan(
+        changed = apply_plan_subscription(
             business,
             PlanSubscription(
                 id=f"sub_e2e_{business_id}",

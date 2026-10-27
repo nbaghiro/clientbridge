@@ -10,7 +10,7 @@ from clientbridge.core import clock
 from clientbridge.core.config import get_settings
 from clientbridge.core.db import SessionLocal
 from clientbridge.core.logs import configure_logging
-from clientbridge.core.scoping import confine_to_namespace
+from clientbridge.core.namespaces import confine_to_namespace
 from clientbridge.integrations.expo import get_push_sender
 from clientbridge.integrations.google_business import (
     get_google_business_gateway,

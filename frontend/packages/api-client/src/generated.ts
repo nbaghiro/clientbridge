@@ -9362,9 +9362,9 @@ export interface components {
             refund_cents: number;
             /**
              * Whole Only
-             * @description Why only a full refund is allowed
+             * @description Only a full refund is allowed
              */
-            whole_only?: string | null;
+            whole_only: boolean;
             /**
              * Blocked
              * @description Why nothing can be refunded, as a code the client renders

@@ -53,6 +53,7 @@ from clientbridge.schemas.forms import FormDefinition
 from clientbridge.services import ledger
 from clientbridge.services.business import reply_address, staff_names
 from clientbridge.services.consents import emails_withdrawn, prefs_url, texts_stopped
+from clientbridge.services.deliveries import DeliveryQueue, QueuedEmail, QueuedPush, QueuedSms
 from clientbridge.services.files import media_url
 from clientbridge.services.lines import LineParent, fetch_lines, issued_at
 from clientbridge.services.subjects import place_address
@@ -1847,7 +1848,13 @@ class Notifier:
         if client.email and channel != "sms" and business is not None:
             brand = await business_brand(db, business)
             mail = client_email(business, brand, client.email, notice, client=client)
-            sent.append(await self._safe(self.email.send(replace(mail, opt_out=opt_out))))
+            # a direct send checked consent just now; a queued one checks it again as it goes
+            sending = (
+                self.email.send(mail, client_id=client.id, opt_out=opt_out)
+                if isinstance(self.email, QueuedEmail)
+                else self.email.send(mail)
+            )
+            sent.append(await self._safe(sending))
         number = e164(client.phone) if client.phone else None
         if (
             number
@@ -1961,8 +1968,7 @@ async def run_prune_devices(db: AsyncSession, now: datetime) -> int:
     return len(devices)
 
 
-def queued_notifier(db: AsyncSession, scope: str, business_id: str) -> Notifier:
-    from clientbridge.services.deliveries import DeliveryQueue, QueuedEmail, QueuedPush, QueuedSms
-
-    queue = DeliveryQueue(db, scope, business_id)
+def queued_notifier(db: AsyncSession, business_id: str | None, key: str) -> Notifier:
+    """A notifier that queues its messages under the delivery key instead of sending them."""
+    queue = DeliveryQueue(db, key, business_id)
     return Notifier(QueuedEmail(queue), QueuedSms(queue), QueuedPush(queue), raise_errors=True)

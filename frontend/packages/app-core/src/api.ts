@@ -130,6 +130,8 @@ const FAILURES: Record<string, (detail: FailureDetail) => string> = {
     idempotency_mismatch: () => strings.api.idempotencyMismatch,
     payment_provider_error: () => strings.api.paymentProviderError,
     unsupported_currency: () => strings.api.unsupportedCurrency,
+    sku_taken: () => strings.api.skuTaken,
+    invoice_has_payments: () => strings.api.invoiceHasPayments,
 };
 
 /** The catalog message for a failure the server named, else the action's own message. */
