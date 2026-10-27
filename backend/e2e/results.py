@@ -272,14 +272,23 @@ def validate_native_evidence(junit: str, required: list[str]) -> None:
             raise ValueError(f"native flow did not pass: {case.get('name')}")
 
 
+def merged(paths: list[Path]) -> Report:
+    """One report from a lane's shards, so its required cases are checked across all of them."""
+    reports = [Report.model_validate_json(path.read_text()) for path in paths]
+    return Report(
+        errors=[error for report in reports for error in report.errors],
+        suites=[suite for report in reports for suite in report.suites],
+    )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("report", type=Path)
+    parser.add_argument("reports", type=Path, nargs="+")
     parser.add_argument("--required", nargs="*", default=[])
     parser.add_argument("--surface", choices=tuple(REQUIRED_CASES))
     args = parser.parse_args()
     required = REQUIRED_CASES.get(args.surface, []) + args.required
-    Report.model_validate_json(args.report.read_text()).validate_evidence(required)
+    merged(args.reports).validate_evidence(required)
     print("Functional evidence passed: no missing required cases, skipped cases or retries.")
 
 

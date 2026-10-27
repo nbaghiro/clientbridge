@@ -38,6 +38,7 @@ from e2e.results import (
     Spec,
     Suite,
     browser_cases,
+    merged,
     validate_native_evidence,
 )
 from e2e.results import Test as FunctionalTest
@@ -549,6 +550,33 @@ def _run(project: str, *statuses: str) -> list[FunctionalTest]:
         )
         for status in statuses
     ]
+
+
+def test_shard_reports_are_checked_together_for_the_lanes_required_cases(tmp_path: Path) -> None:
+    paths: list[Path] = []
+    for case in ("FLOW-01 first half", "FLOW-02 second half"):
+        report = Report(
+            errors=[], suites=[Suite(specs=[Spec(title=case, tests=_run("default", "passed"))])]
+        )
+        paths.append(tmp_path / f"{case[:7]}.json")
+        paths[-1].write_text(report.model_dump_json())
+    with pytest.raises(ValueError, match="FLOW-02"):
+        merged(paths[:1]).validate_evidence(["FLOW-01", "FLOW-02"])
+    merged(paths).validate_evidence(["FLOW-01", "FLOW-02"])
+    failing = Report(
+        errors=[], suites=[Suite(specs=[Spec(title="FLOW-03", tests=_run("default", "failed"))])]
+    )
+    paths.append(tmp_path / "failing.json")
+    paths[-1].write_text(failing.model_dump_json())
+    with pytest.raises(ValueError, match="FLOW-03"):
+        merged(paths).validate_evidence(["FLOW-01", "FLOW-02"])
+
+
+def test_a_shard_is_an_index_within_its_total() -> None:
+    assert functional.shard("2/3") == "2/3"
+    for value in ("0/3", "4/3", "2", "a/b"):
+        with pytest.raises(argparse.ArgumentTypeError):
+            functional.shard(value)
 
 
 def test_browser_evidence_needs_each_case_in_each_browser() -> None:
@@ -1916,8 +1944,8 @@ def test_the_native_link_forwards_until_it_is_cut_and_again_once_restored() -> N
 
 
 def test_ci_builds_the_android_app_with_the_native_lanes_own_addresses() -> None:
-    workflow = (functional.ROOT / ".github" / "workflows" / "ci.yml").read_text()
-    build = workflow[workflow.index("  mobile-build:") : workflow.index("  mobile-shard:")]
+    workflow = (functional.ROOT / ".github" / "workflows" / "e2e-mobile.yml").read_text()
+    build = workflow[workflow.index("  build:") : workflow.index("  android:")]
     assert 'native_urls("android").items()' in build and '>> "$GITHUB_ENV"' in build
     config = (functional.MOBILE / "app.config.ts").read_text()
     for name, value in functional.native_urls("android").items():
