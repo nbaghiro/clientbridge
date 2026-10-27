@@ -48,6 +48,7 @@ from clientbridge.schemas.reviews import (
     ReviewRequestOut,
 )
 from clientbridge.services.business import businesses_at_hour
+from clientbridge.services.deliveries import delivery_key
 from clientbridge.services.notifications import Notifier, queued_notifier
 from clientbridge.services.plans import plan_access
 
@@ -131,9 +132,9 @@ class ReviewService:
             self.db.add(request)
             await self.db.flush()
             cmd.record("review.request", entity_type="review_request", entity_id=request.id)
-            await queued_notifier(self.db, f"review:{request.id}", self.biz).on_review_requested(
-                self.db, request.id, link
-            )
+            await queued_notifier(
+                self.db, self.biz, delivery_key("review", request.id)
+            ).on_review_requested(self.db, request.id, link)
             return ReviewRequestOut.model_validate(request, from_attributes=True)
 
         return await run_command(
@@ -187,7 +188,7 @@ async def run_review_requests(db: AsyncSession, notifier: Notifier, now: datetim
         await db.flush()
         for request, link in requests:
             await queued_notifier(
-                db, f"review:{request.id}", request.business_id
+                db, request.business_id, delivery_key("review", request.id)
             ).on_review_requested(db, request.id, link)
         await db.commit()
         count += len(requests)

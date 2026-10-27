@@ -31,6 +31,7 @@ from clientbridge.schemas.orders import VisitReceipt
 from clientbridge.services import ledger
 from clientbridge.services.bookings import apply_deposit, hold_estimate, is_program, unapply_deposit
 from clientbridge.services.business import business_tz, businesses_at_hour
+from clientbridge.services.deliveries import delivery_key
 from clientbridge.services.ledger import invoice_status_expr
 from clientbridge.services.lines import (
     LineParent,
@@ -127,8 +128,8 @@ class BillingService:
 
     async def _queue_send(self, invoice_id: str) -> None:
         """Each send is its own delivery, so a replay sends nothing new and a resend sends again."""
-        scope = f"{sent_scope(invoice_id)}:{new_id('delivery')}"
-        await queued_notifier(self.db, scope, self.biz).on_invoice_sent(self.db, invoice_id)
+        key = delivery_key("invoice-sent", invoice_id, each=True)
+        await queued_notifier(self.db, self.biz, key).on_invoice_sent(self.db, invoice_id)
 
     async def send_invoice(self, invoice_id: str, idempotency_key: str | None) -> InvoiceOut:
         self._assert_admin()
@@ -164,8 +165,8 @@ class BillingService:
 
         async def run(cmd: Command) -> InvoiceOut:
             cmd.record("invoice.remind", entity_type="invoice", entity_id=invoice.id)
-            scope = f"{reminder_scope(invoice.id)}:{new_id('delivery')}"
-            await queued_notifier(self.db, scope, self.biz).on_invoice_reminder(self.db, invoice.id)
+            key = delivery_key("invoice-reminder", invoice.id, each=True)
+            await queued_notifier(self.db, self.biz, key).on_invoice_reminder(self.db, invoice.id)
             return await invoice_out(self.db, invoice, await self._lines("invoice", invoice.id))
 
         return await run_command(
@@ -263,8 +264,8 @@ class BillingService:
         )
 
     async def _queue_estimate(self, estimate_id: str) -> None:
-        scope = f"{estimate_scope(estimate_id)}:{new_id('delivery')}"
-        await queued_notifier(self.db, scope, self.biz).on_estimate_sent(self.db, estimate_id)
+        key = delivery_key("estimate", estimate_id, each=True)
+        await queued_notifier(self.db, self.biz, key).on_estimate_sent(self.db, estimate_id)
 
     async def send_estimate(self, estimate_id: str, idempotency_key: str | None) -> EstimateOut:
         self._assert_admin()
@@ -393,8 +394,8 @@ class BillingService:
                 estimate.decline_reason = reason
             await self.db.flush()
             cmd.record(f"estimate.{status}", entity_type="estimate", entity_id=estimate.id)
-            scope = f"{estimate_scope(estimate.id)}:{new_id('delivery')}"
-            notifier = queued_notifier(self.db, scope, self.biz)
+            key = delivery_key("estimate", estimate.id, each=True)
+            notifier = queued_notifier(self.db, self.biz, key)
             if status == "accepted":
                 await notifier.on_estimate_accepted(self.db, estimate.id)
             else:
@@ -735,18 +736,6 @@ def _estimate_out(estimate: Estimate, lines: list[Line], today: date) -> Estimat
         discount_cents=discount_total(lines),
         lines=[line_out(ln) for ln in lines],
     )
-
-
-def estimate_scope(estimate_id: str) -> str:
-    return f"estimate:{estimate_id}"
-
-
-def sent_scope(invoice_id: str) -> str:
-    return f"invoice-sent:{invoice_id}"
-
-
-def reminder_scope(invoice_id: str) -> str:
-    return f"invoice-reminder:{invoice_id}"
 
 
 async def run_overdue_sweep(db: AsyncSession, notifier: Notifier, now: datetime) -> int:

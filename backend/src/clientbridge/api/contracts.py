@@ -10,8 +10,8 @@ from clientbridge.schemas.contracts import (
     ContractVersionCreate,
     SignatureOut,
 )
-from clientbridge.services.contracts import ContractService, signature_scope
-from clientbridge.services.deliveries import dispatch_scope
+from clientbridge.services.contracts import ContractService
+from clientbridge.services.deliveries import send_queued
 
 router = APIRouter(prefix="/contracts", tags=["contracts"])
 signatures_router = APIRouter(prefix="/signatures", tags=["contracts"])
@@ -28,7 +28,7 @@ async def send_contract(
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> SignatureOut:
     result = await ContractService(db, principal).send_contract(body, idempotency_key)
-    await dispatch_scope(db, signature_scope(result.id), email, sms, push)
+    await send_queued(db, email, sms, push)
     return result
 
 
@@ -64,5 +64,5 @@ async def resend_signature_request(
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> SignatureOut:
     result = await ContractService(db, principal).resend(signature_id, idempotency_key)
-    await dispatch_scope(db, signature_scope(result.id), email, sms, push)
+    await send_queued(db, email, sms, push)
     return result

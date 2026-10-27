@@ -1,10 +1,9 @@
 import hashlib
 import logging
 import secrets
-from collections.abc import Awaitable, Callable
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from datetime import UTC, datetime, time, timedelta
-from typing import TYPE_CHECKING, Literal
+from typing import Literal
 
 from sqlalchemy import BigInteger, Integer, cast, func, select
 from sqlalchemy.dialects.postgresql import insert
@@ -89,6 +88,7 @@ from clientbridge.services.business import (
     kyc_status,
     merchant_account,
 )
+from clientbridge.services.deliveries import delivery_key
 from clientbridge.services.earnings import (
     ensure_earnings,
     ensure_order_earning,
@@ -98,11 +98,8 @@ from clientbridge.services.earnings import (
 from clientbridge.services.inventory import assert_parent_stock, sync_parent_stock
 from clientbridge.services.ledger import BUSINESS_CURRENCY
 from clientbridge.services.lines import allocate, apply_totals, worker_shares
+from clientbridge.services.notifications import Notifier, queued_notifier
 from clientbridge.services.tax import tax_for_amount, tax_within
-
-if TYPE_CHECKING:
-    from clientbridge.services.notifications import Notifier
-
 
 _log = logging.getLogger(__name__)
 _ORPHAN_GRACE = timedelta(hours=1)
@@ -122,11 +119,10 @@ type WebhookNotice = Literal[
 
 @dataclass(frozen=True)
 class WebhookOutcome:
-    """A post-commit client notification the webhook route fires (mirrors the receipt path)."""
+    """The client notice a Stripe event queues in its own commit."""
 
     notify: WebhookNotice
     target_id: str
-    business_id: str | None = None
 
 
 class RefundRefused(Conflict):
@@ -353,10 +349,8 @@ class PaymentService:
             await _sync_parent(self.db, payment)
             cmd.record("payment.record", entity_type="payment", entity_id=payment.id)
             if data.send_receipt:
-                from clientbridge.services.notifications import queued_notifier
-
                 await queued_notifier(
-                    self.db, f"payment:{payment.id}", self.biz
+                    self.db, self.biz, delivery_key("payment", payment.id)
                 ).on_payment_succeeded(self.db, payment.id)
             return InvoicePaymentOut(
                 payment_id=payment.id,
@@ -405,10 +399,8 @@ class PaymentService:
             )
             cmd.record("payment.intent", entity_type="payment", entity_id=payment.id)
             if data.send_receipt and payment.status == "succeeded":
-                from clientbridge.services.notifications import queued_notifier
-
                 await queued_notifier(
-                    self.db, f"payment:{payment.id}", self.biz
+                    self.db, self.biz, delivery_key("payment", payment.id)
                 ).on_payment_succeeded(self.db, payment.id)
             return InvoicePaymentOut(
                 payment_id=payment.id,
@@ -1588,19 +1580,16 @@ async def process_stripe_event(
     gateway: PaymentGateway,
     payload: bytes,
     signature: str,
-    notify: Callable[[WebhookOutcome], Awaitable[None]] | None = None,
-) -> WebhookOutcome | None:
-    """Verify, dedupe and apply a Stripe webhook; returns the notification to send after commit."""
-    event = gateway.verify_webhook(payload, signature)
-    return await apply_stripe_event(db, gateway, event, notify)
+) -> None:
+    """Verify, dedupe and apply a Stripe webhook, queueing its client notice in the same commit."""
+    await apply_stripe_event(db, gateway, gateway.verify_webhook(payload, signature))
 
 
 async def apply_stripe_event(
     db: AsyncSession,
     gateway: PaymentGateway,
     event: GatewayEvent,
-    notify: Callable[[WebhookOutcome], Awaitable[None]] | None = None,
-) -> WebhookOutcome | None:
+) -> None:
     if not event.thin and event.api_version != STRIPE_API_VERSION:
         _log.warning(
             "rejected Stripe event %s (%s) rendered at API version %s; handlers parse %s",
@@ -1612,7 +1601,7 @@ async def apply_stripe_event(
         raise WebhookVersionError(str(event.api_version))
     record = await db.get(Webhook, event.id)
     if record is not None and record.status != "failed":
-        return None
+        return
     if record is None:
         record = Webhook(
             id=event.id, provider="stripe", event=event.type, payload=event.data, status="pending"
@@ -1623,31 +1612,19 @@ async def apply_stripe_event(
     try:
         async with transaction(db):
             outcome = await _dispatch(db, gateway, event)
-            if outcome is not None and notify is not None:
-                model = (
-                    GiftCard
-                    if outcome.notify == "gift_card_issued"
-                    else Subscription
-                    if outcome.notify in ("subscription_past_due", "subscription_canceled")
-                    else Payment
-                )
-                target = await db.get(model, outcome.target_id)
-                if target is None:
-                    raise NotFound("notification source not found")
-                outcome = replace(outcome, business_id=target.business_id)
-                await notify(outcome)
+            if outcome is not None:
+                await queue_payment_outcome(db, outcome)
             record.status = "processed"
             record.processed_at = clock.now()
             record.payload = None
     except Exception as exc:
         if _lost_event_race(exc):
-            return None
+            return
         if isinstance(exc, AppError) and exc.code == "retry_later":
             _log.info("stripe webhook %s (%s) deferred: %s", event.id, event.type, exc)
             raise
         await record_failed_delivery(db, event, exc)
         raise
-    return outcome
 
 
 def _lost_event_race(exc: Exception) -> bool:
@@ -2079,13 +2056,9 @@ async def _apply_refund(db: AsyncSession, refund: Payment, payment: Payment) -> 
     await _sync_parent(db, payment)
     if await _fully_refunded(db, payment):
         await _reverse_entitlement(db, payment)
-    from clientbridge.services.deliveries import DeliveryQueue, QueuedEmail, QueuedPush, QueuedSms
-    from clientbridge.services.notifications import Notifier
-
-    queue = DeliveryQueue(db, f"refund:{refund.id}", refund.business_id)
-    await Notifier(
-        QueuedEmail(queue), QueuedSms(queue), QueuedPush(queue), raise_errors=True
-    ).on_refund(db, refund.id)
+    await queued_notifier(db, refund.business_id, delivery_key("refund", refund.id)).on_refund(
+        db, refund.id
+    )
 
 
 async def _unapply_refund(db: AsyncSession, refund: Payment, payment: Payment) -> None:
@@ -3112,9 +3085,6 @@ async def booking_refund_status(
 
 
 async def queue_payment_outcome(db: AsyncSession, outcome: WebhookOutcome) -> None:
-    from clientbridge.services.deliveries import DeliveryQueue, QueuedEmail, QueuedPush, QueuedSms
-    from clientbridge.services.notifications import Notifier
-
     model = (
         GiftCard
         if outcome.notify == "gift_card_issued"
@@ -3125,9 +3095,8 @@ async def queue_payment_outcome(db: AsyncSession, outcome: WebhookOutcome) -> No
     target = await db.get(model, outcome.target_id)
     if target is None:
         raise NotFound("notification source not found")
-    queue = DeliveryQueue(db, f"stripe:{outcome.notify}:{outcome.target_id}", target.business_id)
-    notifier = Notifier(QueuedEmail(queue), QueuedSms(queue), QueuedPush(queue), raise_errors=True)
-    await notify_payment_outcome(notifier, db, outcome)
+    key = delivery_key(f"stripe:{outcome.notify}", outcome.target_id)
+    await notify_payment_outcome(queued_notifier(db, target.business_id, key), db, outcome)
 
 
 async def _notify_recovery(

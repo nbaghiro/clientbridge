@@ -22,26 +22,14 @@ from clientbridge.integrations.resend import valid_resend_signature
 from clientbridge.integrations.stripe import WebhookVerificationError, WebhookVersionError
 from clientbridge.integrations.twilio import valid_twilio_signature
 from clientbridge.schemas.auth import AuthEmailIn
-from clientbridge.services.deliveries import (
-    DeliveryQueue,
-    QueuedEmail,
-    QueuedPush,
-    QueuedSms,
-    dispatch,
-    dispatch_scope,
-)
+from clientbridge.services.deliveries import send_queued
 from clientbridge.services.messaging import (
     EmailEventPending,
-    inbound_scope,
     process_email_event,
     process_inbound_sms,
 )
-from clientbridge.services.notifications import Notifier, send_auth_email
-from clientbridge.services.payments import (
-    WebhookOutcome,
-    notify_payment_outcome,
-    process_stripe_event,
-)
+from clientbridge.services.notifications import send_auth_email
+from clientbridge.services.payments import process_stripe_event
 
 router = APIRouter(prefix="/webhooks", tags=["webhooks"])
 
@@ -56,23 +44,11 @@ async def stripe_webhook(
     push: PushDep,
     stripe_signature: Annotated[str, Header(alias="Stripe-Signature")] = "",
 ) -> Response:
-    payload = await request.body()
-    queue = DeliveryQueue(db, "stripe")
-    notifier = Notifier(QueuedEmail(queue), QueuedSms(queue), QueuedPush(queue), raise_errors=True)
-
-    async def notify(outcome: WebhookOutcome) -> None:
-        queue.scope = f"stripe:{outcome.notify}:{outcome.target_id}"
-        queue.business_id = outcome.business_id
-        await notify_payment_outcome(notifier, db, outcome)
-
     try:
-        outcome = await process_stripe_event(db, gateway, payload, stripe_signature, notify)
+        await process_stripe_event(db, gateway, await request.body(), stripe_signature)
     except (WebhookVerificationError, WebhookVersionError):
         return Response(status_code=400)
-    for identity in queue.ids:
-        await dispatch(db, identity, email, sms, push)
-    if outcome is not None and outcome.notify == "refund":
-        await dispatch_scope(db, f"refund:{outcome.target_id}", email, sms, push)
+    await send_queued(db, email, sms, push)
     return Response(status_code=200)
 
 
@@ -95,15 +71,14 @@ async def sms_webhook(
     sid = fields.get("MessageSid", "")
     if not sid:
         return Response(status_code=400)
-    message_id = await process_inbound_sms(
+    await process_inbound_sms(
         db,
         from_phone=fields.get("From", ""),
         to_phone=fields.get("To", ""),
         body=fields.get("Body", ""),
         message_sid=sid,
     )
-    if message_id is not None:
-        await dispatch_scope(db, inbound_scope(message_id), email, sms, push)
+    await send_queued(db, email, sms, push)
     return Response(status_code=200)
 
 

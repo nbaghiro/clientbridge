@@ -87,7 +87,7 @@ from clientbridge.schemas.public import (
 )
 from clientbridge.schemas.public_profiles import PublicNextOpenings, PublicServiceOpening
 from clientbridge.services import ledger
-from clientbridge.services.billing import estimate_scope, estimate_status
+from clientbridge.services.billing import estimate_status
 from clientbridge.services.bookings import (
     ALREADY_IN_CLASS,
     OVERLAP,
@@ -95,7 +95,6 @@ from clientbridge.services.bookings import (
     addon_minutes,
     booked_count_expr,
     carry_crew,
-    change_scope,
     create_booking_core,
     crew_problem,
     crew_rows,
@@ -127,6 +126,7 @@ from clientbridge.services.consents import (
     latest_consents,
     set_channel_consent,
 )
+from clientbridge.services.deliveries import delivery_key
 from clientbridge.services.files import (
     confirm_upload,
     item_images,
@@ -147,7 +147,7 @@ from clientbridge.services.lines import (
     replace_lines,
     worker_shares,
 )
-from clientbridge.services.messaging import inbound_scope, open_thread
+from clientbridge.services.messaging import open_thread
 from clientbridge.services.notifications import queued_notifier
 from clientbridge.services.orders import next_order_number, pickup_setting, pickup_windows
 from clientbridge.services.payments import (
@@ -449,7 +449,8 @@ class PublicBookingService:
         self, business: Business, result: PublicBookingResult
     ) -> PublicBookingResult:
         # queued in the booking's own command, so a replayed request never sends it twice
-        notifier = queued_notifier(self.db, f"booking-created:{result.booking_id}", business.id)
+        key = delivery_key("booking-created", result.booking_id)
+        notifier = queued_notifier(self.db, business.id, key)
         if result.status == "pending":
             await notifier.on_booking_requested(self.db, result.booking_id)
         elif len(result.booking_ids) > 1:
@@ -575,9 +576,9 @@ class PublicBookingService:
             self._extras(business, booking, data, addons)
             await self.db.flush()
             cmd.record(_WAITLIST_SCOPE, entity_type="booking", entity_id=booking.id)
-            await queued_notifier(self.db, f"booking:{booking.id}", business.id).on_waitlist_joined(
-                self.db, booking.id
-            )
+            await queued_notifier(
+                self.db, business.id, delivery_key("booking", booking.id)
+            ).on_waitlist_joined(self.db, booking.id)
             return PublicBookingResult(
                 booking_id=booking.id,
                 status=booking.status,
@@ -973,10 +974,6 @@ class PublicManageService:
         self.db = db
         self.gateway = gateway
 
-    async def booking_id(self, token: str) -> str:
-        booking, _, _ = await self._resolve(token)
-        return booking.id
-
     async def view(self, token: str) -> ManagedBooking:
         booking, slot, business = await self._resolve(token)
         return await self._view(booking, slot, business)
@@ -1103,7 +1100,7 @@ class PublicManageService:
             await carry_crew(self.db, business.id, booking, slot)
             if moved:
                 await queued_notifier(
-                    self.db, change_scope(booking.id), business.id
+                    self.db, business.id, delivery_key("booking", booking.id, each=True)
                 ).on_booking_rescheduled(self.db, booking.id)
             out = await self._view(booking, slot, business)
             cmd.record(_MOVE_SCOPE, entity_type="booking", entity_id=booking.id)
@@ -1147,7 +1144,7 @@ class PublicManageService:
             await self.db.flush()
             cmd.record("booking.message", entity_type="booking", entity_id=booking.id)
             await queued_notifier(
-                self.db, inbound_scope(message.id), business.id
+                self.db, business.id, delivery_key("inbound", message.id)
             ).on_inbound_message(self.db, message.id)
             return ManageMessageResult(id=message.id)
 
@@ -1170,7 +1167,7 @@ class PublicManageService:
         async def notify(canceled: list[str]) -> None:
             if canceled:
                 await queued_notifier(
-                    self.db, change_scope(booking.id), business.id
+                    self.db, business.id, delivery_key("booking", booking.id, each=True)
                 ).on_visits_canceled(self.db, canceled)
 
         async def run(cmd: Command) -> ManageCancelResult:
@@ -1989,8 +1986,8 @@ class PublicEstimateService:
 
     async def _queue_answer(self, estimate: Estimate) -> None:
         await self.db.flush()
-        scope = f"{estimate_scope(estimate.id)}:{new_id('delivery')}"
-        notifier = queued_notifier(self.db, scope, estimate.business_id)
+        key = delivery_key("estimate", estimate.id, each=True)
+        notifier = queued_notifier(self.db, estimate.business_id, key)
         if estimate.status == "accepted":
             await notifier.on_estimate_accepted(self.db, estimate.id)
         else:

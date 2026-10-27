@@ -51,10 +51,8 @@ from clientbridge.schemas.public import (
     PublicSlots,
 )
 from clientbridge.schemas.public_profiles import PublicNextOpenings, PublicProfile
-from clientbridge.services.billing import estimate_scope
-from clientbridge.services.deliveries import dispatch_scope
+from clientbridge.services.deliveries import send_queued
 from clientbridge.services.files import public_media_location
-from clientbridge.services.messaging import inbound_scope
 from clientbridge.services.payments import PublicPaymentSetupService
 from clientbridge.services.public import (
     PublicBookingService,
@@ -130,9 +128,8 @@ async def public_estimate_accept(
     push: PushDep,
     _: RateLimited,
 ) -> PublicEstimate:
-    service = PublicEstimateService(db)
-    result = await service.accept(token, data)
-    await dispatch_scope(db, estimate_scope(await service.estimate_id(token)), email, sms, push)
+    result = await PublicEstimateService(db).accept(token, data)
+    await send_queued(db, email, sms, push)
     return result
 
 
@@ -146,9 +143,8 @@ async def public_estimate_decline(
     push: PushDep,
     _: RateLimited,
 ) -> PublicEstimate:
-    service = PublicEstimateService(db)
-    result = await service.decline(token, data)
-    await dispatch_scope(db, estimate_scope(await service.estimate_id(token)), email, sms, push)
+    result = await PublicEstimateService(db).decline(token, data)
+    await send_queued(db, email, sms, push)
     return result
 
 
@@ -328,7 +324,7 @@ async def public_book(
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key", min_length=8)] = None,
 ) -> PublicBookingResult:
     result = await PublicBookingService(db, gateway).book(slug, body, idempotency_key)
-    await dispatch_scope(db, f"booking-created:{result.booking_id}", email, sms, push)
+    await send_queued(db, email, sms, push)
     return result
 
 
@@ -345,7 +341,7 @@ async def public_join_waitlist(
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key", min_length=8)] = None,
 ) -> PublicBookingResult:
     result = await PublicBookingService(db, gateway).join_waitlist(slug, body, idempotency_key)
-    await dispatch_scope(db, f"booking:{result.booking_id}", email, sms, push)
+    await send_queued(db, email, sms, push)
     return result
 
 
@@ -431,9 +427,8 @@ async def manage_reschedule(
     _: BookingRateLimited,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key", min_length=8)] = None,
 ) -> ManagedBooking:
-    service = PublicManageService(db, gateway)
-    result = await service.reschedule(token, body, idempotency_key)
-    await dispatch_scope(db, f"booking:{await service.booking_id(token)}", email, sms, push)
+    result = await PublicManageService(db, gateway).reschedule(token, body, idempotency_key)
+    await send_queued(db, email, sms, push)
     return result
 
 
@@ -448,9 +443,8 @@ async def manage_cancel(
     _: BookingRateLimited,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key", min_length=8)] = None,
 ) -> ManageCancelResult:
-    service = PublicManageService(db, gateway)
-    result = await service.cancel(token, idempotency_key)
-    await dispatch_scope(db, f"booking:{await service.booking_id(token)}", email, sms, push)
+    result = await PublicManageService(db, gateway).cancel(token, idempotency_key)
+    await send_queued(db, email, sms, push)
     return result
 
 
@@ -490,7 +484,7 @@ async def public_manage_message(
     idempotency_key: Annotated[str, Header(alias="Idempotency-Key")],
 ) -> ManageMessageResult:
     result = await PublicManageService(db, gateway).message(token, data, idempotency_key)
-    await dispatch_scope(db, inbound_scope(result.id), email, sms, push)
+    await send_queued(db, email, sms, push)
     return result
 
 

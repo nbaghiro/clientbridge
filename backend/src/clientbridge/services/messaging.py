@@ -52,6 +52,7 @@ from clientbridge.services.consents import (
     stopped_clients,
     texts_stopped,
 )
+from clientbridge.services.deliveries import delivery_key
 from clientbridge.services.notifications import (
     Notice,
     broadcast_notice,
@@ -353,23 +354,18 @@ async def route_inbound_sms(db: AsyncSession, number: str, destination: str) -> 
     return clients[0] if len(clients) == 1 else None
 
 
-def inbound_scope(message_id: str) -> str:
-    return f"inbound:{message_id}"
-
-
 async def process_inbound_sms(
     db: AsyncSession, *, from_phone: str, to_phone: str, body: str, message_sid: str
-) -> str | None:
+) -> None:
     """Route a signed inbound SMS only within the destination number's business."""
     event_id = f"twilio_{message_sid}"
     seen = (await db.execute(select(Webhook.id).where(Webhook.id == event_id))).scalar_one_or_none()
     if seen is not None:
-        return None
+        return
     number = e164(from_phone)
     destination = e164(to_phone)
     client = await route_inbound_sms(db, number, destination) if number and destination else None
     keyword = body.strip().upper()
-    message_id: str | None = None
     if client is not None:
         if keyword in STOP_WORDS or keyword in START_WORDS:
             await record_text_reply(db, client, stop=keyword in STOP_WORDS)
@@ -386,10 +382,9 @@ async def process_inbound_sms(
         )
         db.add(message)
         await db.flush()
-        message_id = message.id
-        await queued_notifier(db, inbound_scope(message.id), client.business_id).on_inbound_message(
-            db, message.id
-        )
+        await queued_notifier(
+            db, client.business_id, delivery_key("inbound", message.id)
+        ).on_inbound_message(db, message.id)
     db.add(
         Webhook(
             id=event_id,
@@ -412,8 +407,6 @@ async def process_inbound_sms(
         await db.rollback()
         if not is_duplicate(exc):  # only a redelivery race may be dropped; anything else must retry
             raise
-        return None
-    return message_id
 
 
 async def run_due_broadcasts(

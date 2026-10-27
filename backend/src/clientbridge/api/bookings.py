@@ -50,10 +50,8 @@ from clientbridge.services.bookings import (
     OnlineBookingService,
     RecurrenceService,
     TimeOffService,
-    seat_scope,
-    series_scope,
 )
-from clientbridge.services.deliveries import dispatch_scope
+from clientbridge.services.deliveries import send_queued
 
 router = APIRouter(prefix="/bookings", tags=["bookings"])
 
@@ -70,8 +68,7 @@ async def create_booking(
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> BookingOut:
     result = await BookingService(db, principal, gateway).create(body, idempotency_key)
-    if body.notify:
-        await dispatch_scope(db, f"booking:{result.id}", email, sms, push)
+    await send_queued(db, email, sms, push)
     return result
 
 
@@ -87,9 +84,7 @@ async def patch_booking(
     push: PushDep,
 ) -> BookingOut:
     result = await BookingService(db, principal, gateway).patch(booking_id, body)
-    await dispatch_scope(db, f"booking:{result.id}", email, sms, push)
-    if result.status in ("canceled", "no_show"):
-        await dispatch_scope(db, seat_scope(result.slot_id), email, sms, push)
+    await send_queued(db, email, sms, push)
     return result
 
 
@@ -253,7 +248,7 @@ async def create_recurrence(
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> RecurrenceOut:
     result = await RecurrenceService(db, principal).create(body, idempotency_key)
-    await dispatch_scope(db, series_scope(result.id), email, sms, push)
+    await send_queued(db, email, sms, push)
     return result
 
 
@@ -268,7 +263,7 @@ async def change_recurrence(
     push: PushDep,
 ) -> RecurrenceChangeOut:
     result = await RecurrenceService(db, principal).change(recurrence_id, body)
-    await dispatch_scope(db, series_scope(result.id), email, sms, push)
+    await send_queued(db, email, sms, push)
     return result
 
 
@@ -284,7 +279,7 @@ async def cancel_recurrence(
     push: PushDep,
 ) -> RecurrenceCancelOut:
     result = await RecurrenceService(db, principal).cancel(recurrence_id, body, gateway)
-    await dispatch_scope(db, series_scope(result.id), email, sms, push)
+    await send_queued(db, email, sms, push)
     return result
 
 
@@ -322,8 +317,7 @@ async def add_to_class(
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> RosterEntry:
     result = await ClassService(db, principal, gateway).add(slot_id, body, idempotency_key)
-    if body.notify:
-        await dispatch_scope(db, f"booking:{result.booking_id}", email, sms, push)
+    await send_queued(db, email, sms, push)
     return result
 
 
@@ -340,7 +334,7 @@ async def update_class_roster(
     push: PushDep,
 ) -> RosterEntry:
     result = await ClassService(db, principal, gateway).act(slot_id, booking_id, body)
-    await dispatch_scope(db, seat_scope(slot_id), email, sms, push)
+    await send_queued(db, email, sms, push)
     return result
 
 

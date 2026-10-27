@@ -28,7 +28,7 @@ from clientbridge.schemas.payments import (
     SetupIntentOut,
     TaxFilings,
 )
-from clientbridge.services.deliveries import dispatch_scope
+from clientbridge.services.deliveries import send_queued
 from clientbridge.services.orders import OrderService
 from clientbridge.services.payments import PaymentService
 from clientbridge.services.remittances import RemittanceService
@@ -144,8 +144,7 @@ async def refund_payment(
     out = await PaymentService(db, principal, gateway).refund_payment(
         payment_id, body.amount_cents, idempotency_key, body.reason, body.notify
     )
-    if body.notify and out.status == "succeeded":
-        await dispatch_scope(db, f"refund:{out.refund_id}", email, sms, push)
+    await send_queued(db, email, sms, push)
     return out
 
 

@@ -439,11 +439,11 @@ async def delete_bookings(session: AsyncSession, booking_ids: list[str]) -> None
     await session.execute(delete(Slot).where(Slot.id.in_(slots)))
 
 
-async def queued_subjects(db: AsyncSession, scope: str) -> list[str]:
-    """The subjects of the emails queued under a delivery scope, oldest first."""
+async def queued_subjects(db: AsyncSession, key: str) -> list[str]:
+    """The subjects of the emails queued under a delivery key, oldest first."""
     rows = await db.scalars(
         select(Delivery)
-        .where(Delivery.key.startswith(f"{scope}:"))
+        .where(Delivery.key.startswith(f"{key}:"))
         .order_by(Delivery.created_at, Delivery.id)
     )
     payloads = [DELIVERY_PAYLOAD.validate_python(d.payload) for d in rows.all()]

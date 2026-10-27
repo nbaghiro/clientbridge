@@ -53,6 +53,7 @@ from clientbridge.schemas.forms import FormDefinition
 from clientbridge.services import ledger
 from clientbridge.services.business import reply_address, staff_names
 from clientbridge.services.consents import emails_withdrawn, prefs_url, texts_stopped
+from clientbridge.services.deliveries import DeliveryQueue, QueuedEmail, QueuedPush, QueuedSms
 from clientbridge.services.files import media_url
 from clientbridge.services.lines import LineParent, fetch_lines, issued_at
 from clientbridge.services.subjects import place_address
@@ -1900,8 +1901,7 @@ async def run_prune_devices(db: AsyncSession, now: datetime) -> int:
     return len(devices)
 
 
-def queued_notifier(db: AsyncSession, scope: str, business_id: str) -> Notifier:
-    from clientbridge.services.deliveries import DeliveryQueue, QueuedEmail, QueuedPush, QueuedSms
-
-    queue = DeliveryQueue(db, scope, business_id)
+def queued_notifier(db: AsyncSession, business_id: str | None, key: str) -> Notifier:
+    """A notifier that queues its messages under the delivery key instead of sending them."""
+    queue = DeliveryQueue(db, key, business_id)
     return Notifier(QueuedEmail(queue), QueuedSms(queue), QueuedPush(queue), raise_errors=True)

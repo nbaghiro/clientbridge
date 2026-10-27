@@ -34,7 +34,7 @@ from clientbridge.schemas.forms import (
     TreatmentNotes,
 )
 from clientbridge.services.business import staff_names
-from clientbridge.services.deliveries import dispatch_scope
+from clientbridge.services.deliveries import delivery_key
 from clientbridge.services.notifications import Notifier, Outcome, queued_notifier
 from clientbridge.services.plans import serving
 
@@ -49,9 +49,7 @@ class FormService:
         self.principal = principal
         self.biz = principal.business_id
 
-    async def send_form(
-        self, data: FormSend, idempotency_key: str | None, notify: Notifier
-    ) -> FormResponseOut:
+    async def send_form(self, data: FormSend, idempotency_key: str | None) -> FormResponseOut:
         self._assert_admin()
         form = await self._form(data.form_id)
         await self._client(data.client_id)
@@ -72,12 +70,12 @@ class FormService:
             except IntegrityError as exc:
                 raise Conflict("could not mint a unique form link") from exc
             cmd.record("form.send", entity_type="form_response", entity_id=response.id)
-            await queued_notifier(self.db, f"form:{response.id}", self.biz).on_form_sent(
-                self.db, response.id
-            )
+            await queued_notifier(
+                self.db, self.biz, delivery_key("form", response.id)
+            ).on_form_sent(self.db, response.id)
             return _response_out(response)
 
-        result = await run_command(
+        return await run_command(
             self.db,
             self.principal,
             action="form.send",
@@ -86,9 +84,6 @@ class FormService:
             idempotency_key=idempotency_key,
             request=data,
         )
-
-        await dispatch_scope(self.db, f"form:{result.id}", notify.email, notify.sms, notify.push)
-        return result
 
     async def create_form(self, data: FormSave, idempotency_key: str | None) -> FormOut:
         self._assert_admin()

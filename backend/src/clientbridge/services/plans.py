@@ -36,14 +36,8 @@ from clientbridge.services.business import (
     businesses_at_hour,
     postal_address,
 )
-from clientbridge.services.deliveries import (
-    DeliveryQueue,
-    QueuedEmail,
-    QueuedPush,
-    QueuedSms,
-    dispatch,
-)
-from clientbridge.services.notifications import Notifier, plan_link
+from clientbridge.services.deliveries import delivery_key, send_queued
+from clientbridge.services.notifications import Notifier, plan_link, queued_notifier
 
 _log = logging.getLogger(__name__)
 
@@ -554,16 +548,11 @@ async def run_trial_reminders(db: AsyncSession, notifier: Notifier, now: datetim
             last_day = False
         else:
             continue
-        queue = DeliveryQueue(
-            db,
-            f"trial:{business.id}:{business.trial_ends_at.isoformat()}:{today.isoformat()}",
-            business.id,
+        ends_on = business.trial_ends_at.isoformat()
+        key = delivery_key("trial", f"{business.id}:{ends_on}:{today.isoformat()}")
+        await queued_notifier(db, business.id, key).on_trial_ending(
+            db, business.id, last_day=last_day
         )
-        queued = Notifier(
-            QueuedEmail(queue), QueuedSms(queue), QueuedPush(queue), raise_errors=True
-        )
-        await queued.on_trial_ending(db, business.id, last_day=last_day)
         await db.commit()
-        for identity in queue.ids:
-            sent += await dispatch(db, identity, notifier.email, notifier.sms, notifier.push)
+        sent += await send_queued(db, notifier.email, notifier.sms, notifier.push)
     return sent

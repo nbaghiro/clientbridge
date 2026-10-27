@@ -42,6 +42,7 @@ from clientbridge.services.business import (
     merchant_account,
     postal_address,
 )
+from clientbridge.services.deliveries import delivery_key
 from clientbridge.services.inventory import assert_parent_stock
 from clientbridge.services.lines import (
     apply_totals,
@@ -67,15 +68,6 @@ from clientbridge.services.tax import tax_for_lines
 
 _PICKUP_STEPS = {"unfulfilled": 0, "preparing": 1, "ready": 2, "picked_up": 3}
 # a wrong PIN locks the desk out for a while, so four digits can't be guessed in a minute
-
-
-def order_scope(order_id: str) -> str:
-    return f"order:{order_id}"
-
-
-def notice_scope(order_id: str) -> str:
-    """Each receipt or pickup notice is its own delivery, so asking again sends again."""
-    return f"{order_scope(order_id)}:{new_id('delivery')}"
 
 
 class OrderService:
@@ -297,9 +289,9 @@ class OrderService:
             await ledger.post_payment(self.db, payment)
             await sync_order(self.db, order.id)
             cmd.record("order.cash", entity_type="payment", entity_id=payment.id)
-            await queued_notifier(self.db, f"payment:{payment.id}", self.biz).on_payment_succeeded(
-                self.db, payment.id
-            )
+            await queued_notifier(
+                self.db, self.biz, delivery_key("payment", payment.id)
+            ).on_payment_succeeded(self.db, payment.id)
             return OrderCashOut(
                 payment_id=payment.id,
                 amount_cents=amount,
@@ -390,9 +382,9 @@ class OrderService:
             order.receipt_token = order.receipt_token or secrets.token_urlsafe(16)
             await self.db.flush()
             cmd.record("order.receipt", entity_type="order", entity_id=order.id)
-            await queued_notifier(self.db, notice_scope(order.id), self.biz).on_order_receipt(
-                self.db, order.id
-            )
+            await queued_notifier(
+                self.db, self.biz, delivery_key("order", order.id, each=True)
+            ).on_order_receipt(self.db, order.id)
             lines = await fetch_lines(self.db, self.biz, "order", order.id)
             return await order_out(self.db, order, lines)
 
@@ -433,9 +425,9 @@ class OrderService:
             await self.db.flush()
             cmd.record("order.pickup", entity_type="order", entity_id=order.id)
             if data.status == "ready":
-                await queued_notifier(self.db, notice_scope(order.id), self.biz).on_order_ready(
-                    self.db, order.id
-                )
+                await queued_notifier(
+                    self.db, self.biz, delivery_key("order", order.id, each=True)
+                ).on_order_ready(self.db, order.id)
             lines = await fetch_lines(self.db, self.biz, "order", order.id)
             return await order_out(self.db, order, lines)
 
