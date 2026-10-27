@@ -21,6 +21,17 @@ import { strings } from "../strings";
 
 export const DEVICE_PREF_SQL = "SELECT value FROM device_prefs WHERE id = ?";
 
+type ReplicaStorage = "indexeddb" | "opfs";
+
+/** WebKit's IndexedDB can stall reopening the replica after a reload, so WebKit keeps it in OPFS. */
+export function replicaStorage(vendor: string): ReplicaStorage {
+    const webkit: EngineVendor = "Apple Computer, Inc.";
+    return vendor === webkit ? "opfs" : "indexeddb";
+}
+
+// the fixed navigator.vendor of each engine; Firefox reports an empty string
+type EngineVendor = "Apple Computer, Inc." | "Google Inc." | "";
+
 /** A small value kept on this device only (recent searches, read marks); null until set. */
 export function useDevicePref(key: string): [string | null, (value: string | null) => void] {
     const db = usePowerSync();

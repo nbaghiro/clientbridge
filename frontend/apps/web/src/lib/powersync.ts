@@ -1,16 +1,23 @@
 import type { Session } from "@clientbridge/api-client";
 import { AppSchema, createConnector, ReplicaController } from "@clientbridge/sync";
-import { PowerSyncDatabase } from "@powersync/web";
+import { replicaStorage } from "@clientbridge/app-core";
+import { PowerSyncDatabase, WASQLiteVFS } from "@powersync/web";
 import { beforeSessionReplace, getUserId } from "./auth";
 import { config } from "../config";
 
 const { apiUrl, powersyncUrl } = config;
 
+// navigator.vendor names the engine: every WebKit browser, iOS ones included, reports Apple
+const vfs =
+    replicaStorage(navigator.vendor) === "opfs"
+        ? WASQLiteVFS.OPFSCoopSyncVFS
+        : WASQLiteVFS.IDBBatchAtomicVFS;
+
 export const replica = new ReplicaController(
     (dbFilename) =>
         new PowerSyncDatabase({
             schema: AppSchema,
-            database: { dbFilename },
+            database: { dbFilename, vfs },
         }),
 );
 
