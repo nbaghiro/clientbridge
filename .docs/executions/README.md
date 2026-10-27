@@ -22,3 +22,4 @@ Use a new folder for a separate execution. Record tested behavior, remaining wor
 
 - [Connect hosts](connect-hosts/plan.md): one host per kind of Connect page and a subdomain per business page, on `connect-hosts`; [QA checklist](connect-hosts/qa.md).
 - [End to end testing](e2e/README.md): the audit families still to cover, with the [coverage catalogue](e2e/coverage.json) and [decisions to review](e2e/decisions.md).
+- [Web replica storage](web-storage/plan.md): the web replica on OPFS in every browser, with the open decisions listed in the plan.
