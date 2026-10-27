@@ -212,9 +212,9 @@ function Sidebar({ state, navigation }: BottomTabBarProps) {
             style={[
                 styles.side,
                 {
-                    paddingTop: insets.top + 12,
-                    paddingBottom: insets.bottom + 8,
-                    paddingLeft: insets.left,
+                    marginTop: insets.top + theme.layout.gutter / 2,
+                    marginBottom: insets.bottom + theme.layout.gutter / 2,
+                    marginLeft: insets.left + theme.layout.gutter / 2,
                 },
             ]}
         >
@@ -436,11 +436,16 @@ const styles = StyleSheet.create({
         shadowRadius: 6,
         shadowOffset: { width: 0, height: 3 },
     },
+    // A card below the status bar, matching the page card, so the bar sits on one even background.
     side: {
         width: theme.layout.sidebar,
+        paddingTop: 12,
+        paddingBottom: 8,
         backgroundColor: c.surface,
-        borderRightColor: c.border,
-        borderRightWidth: StyleSheet.hairlineWidth,
+        borderColor: c.border,
+        borderWidth: StyleSheet.hairlineWidth,
+        borderRadius: theme.radius,
+        overflow: "hidden",
     },
     sidePad: { paddingHorizontal: 12, gap: 12 },
     fill: { flex: 1, minWidth: 0 },
