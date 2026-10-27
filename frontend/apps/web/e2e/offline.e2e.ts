@@ -214,23 +214,8 @@ test(
             await expect(page.getByRole("heading", { level: 1 })).toContainText("Hannah");
             const opened = await replicas();
             expect(opened).toHaveLength(1);
-            test.setTimeout(400_000);
             await page.reload();
             await expect(page).toHaveURL(/\/today$/, { timeout: 60_000 });
-            const started = Date.now();
-            const trail: string[] = [];
-            for (let i = 0; i < 60; i++) {
-                const heading = await page.getByRole("heading", { level: 1 }).textContent();
-                const locks = await page.evaluate(async () =>
-                    JSON.stringify(await navigator.locks.query()),
-                );
-                trail.push(`${String(Date.now() - started)} ${heading ?? ""} ${locks}`);
-                if (heading?.includes("Hannah")) break;
-                await page.waitForTimeout(5000);
-            }
-            await test
-                .info()
-                .attach("dbg-wait", { body: trail.join("\n"), contentType: "text/plain" });
             await expect(page.getByRole("heading", { level: 1 })).toContainText("Hannah");
             expect(await replicas()).toEqual(opened);
         } finally {
