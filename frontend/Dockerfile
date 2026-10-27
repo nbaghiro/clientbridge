@@ -1,36 +1,39 @@
 # syntax=docker/dockerfile:1.7
 # Build from the repo root: docker build -f frontend/Dockerfile .
-FROM node:24.21.0-slim@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20 AS build
+FROM node:24.21.0-slim@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20 AS node
 ENV PNPM_HOME=/pnpm \
     PATH=/pnpm:$PATH \
     COREPACK_ENABLE_DOWNLOAD_PROMPT=0 \
     TURBO_TELEMETRY_DISABLED=1
 RUN corepack enable
-WORKDIR /app/frontend
-COPY frontend/package.json frontend/pnpm-lock.yaml frontend/pnpm-workspace.yaml frontend/.npmrc ./
-RUN corepack install
+
+# Only the package manifests, so the install below stays cached until a dependency changes.
+FROM node AS manifests
+WORKDIR /src
 COPY frontend ./
+RUN mkdir /manifests && \
+    find . -name node_modules -prune -o -type f \( -name package.json -o -name pnpm-lock.yaml \
+        -o -name pnpm-workspace.yaml -o -name .npmrc \) -print | tar -cf - -T - | tar -xf - -C /manifests
+
+FROM node AS dependencies
+WORKDIR /app/frontend
+COPY --from=manifests /manifests ./
+RUN corepack install
 # The hoisted linker ignores --filter, so the mobile importer is dropped to skip its native packages.
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
     awk '/^  apps\/mobile:/{skip=1;next} skip&&/^(  )?[^ ]/{skip=0} !skip' pnpm-lock.yaml > /tmp/lock && \
     mv /tmp/lock pnpm-lock.yaml && \
     pnpm config set store-dir /pnpm/store && \
     pnpm install --frozen-lockfile --ignore-scripts
-# The site ships static HTML, so it is built for a placeholder domain that `serve` replaces at start.
-ARG BASE_DOMAIN=base.invalid
-ARG VITE_API_URL=https://api.${BASE_DOMAIN}
-ARG VITE_AUTH_URL=https://api.${BASE_DOMAIN}/auth
-ARG VITE_POWERSYNC_URL=https://sync.${BASE_DOMAIN}
-ARG VITE_PAY_URL=https://pay.${BASE_DOMAIN}
-ARG VITE_STRIPE_PUBLISHABLE_KEY
+
+FROM dependencies AS build
+COPY frontend ./
+# The site ships static HTML, so it is built for a placeholder domain that `serve` replaces at start;
+# web, Connect and admin read their URLs from the /config.js Caddy serves.
 ENV BASE_DOMAIN=base.invalid \
     VITE_SITE_URL=https://base.invalid \
     VITE_APP_URL=https://app.base.invalid \
-    VITE_PAGE_URL=https://{slug}.base.invalid \
-    VITE_API_URL=$VITE_API_URL \
-    VITE_AUTH_URL=$VITE_AUTH_URL \
-    VITE_POWERSYNC_URL=$VITE_POWERSYNC_URL \
-    VITE_PAY_URL=$VITE_PAY_URL
+    VITE_PAGE_URL=https://{slug}.base.invalid
 RUN pnpm exec turbo run build --concurrency=1 --filter=web --filter=connect --filter=site --filter=admin
 
 FROM caddy:2.11.7-alpine@sha256:d8542f48d34a9cf4e4c11a478865229840e87e4c96ea3f439101f31a5d35f75f AS prod
