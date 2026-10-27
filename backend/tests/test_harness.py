@@ -1890,6 +1890,42 @@ def test_holding_the_tier_rebuilds_it_only_when_alone(
     assert made == (calls or [])
 
 
+@pytest.mark.parametrize(
+    ("built", "shared", "calls"),
+    [
+        ({"migrations": "other", "tier": "same"}, False, []),
+        ({"migrations": "other", "tier": "same"}, True, ["wait"]),
+        ({"migrations": "head", "tier": "older"}, True, None),
+    ],
+)
+def test_the_backend_suite_uses_a_tier_built_from_other_migrations(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    built: dict[str, str],
+    shared: bool,
+    calls: list[str] | None,
+) -> None:
+    _tier_at(monkeypatch, tmp_path)
+    made: list[str] = []
+    monkeypatch.setattr(tier, "fingerprint", lambda: {"migrations": "head", "tier": "same"})
+    monkeypatch.setattr(tier, "recorded", lambda: built)
+    monkeypatch.setattr(tier, "running", lambda: set(tier.SERVICES))
+    monkeypatch.setattr(tier, "healthy", lambda: True)
+    monkeypatch.setattr(tier, "wait_healthy", lambda _seconds=120: made.append("wait"))
+    monkeypatch.setattr(tier, "start", lambda: made.append("start"))
+    monkeypatch.setattr(tier, "destroy", lambda: made.append("destroy"))
+    with (tmp_path / "tier.lock").open("a") as other:
+        if shared:
+            fcntl.flock(other, fcntl.LOCK_SH)
+        if calls is None:
+            with pytest.raises(SystemExit, match="built from other code"), tier.hold(("tier",)):
+                pytest.fail("the suite must not use a tier whose services are configured otherwise")
+        else:
+            with tier.hold(("tier",)):
+                assert made == calls
+    assert made == (calls or [])
+
+
 def test_mirroring_config_keeps_the_mounted_directory(tmp_path: Path) -> None:
     source, target = tmp_path / "source", tmp_path / "target"
     (source / "courier").mkdir(parents=True)

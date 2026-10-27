@@ -275,7 +275,7 @@ A run leases one of six slots, which fixes its web, pseudo-locale and admin orig
 
 Each run has a short namespace (`RUN_NAMESPACE`, refused outside dev). Every ID the run's API creates ends in it, the seed writes the core demo businesses into it with run-specific emails such as `hannah+<namespace>@birchbark.example`, and the run's worker sees only that namespace's rows (`core/namespaces.py`). Cleanup purges the namespace's businesses, users, Kratos identities, bucket and Redis index, and a reaper clears namespaces whose run has no live process.
 
-The tier records a fingerprint of the Alembic head, `sync-rules.yaml` and the Kratos configuration. A checkout with a different fingerprint stops before seeding and names the difference; `make test-tier-reset` rebuilds the tier for the current checkout. Pytest copies a seeded template per fingerprint of the migrations, the seed and `FROZEN`, so each worker starts from a fresh database in a second or two.
+The tier records a fingerprint of the Alembic head, `sync-rules.yaml` and the Kratos configuration. A browser, journey or native run from a checkout with a different fingerprint stops before seeding and names the difference; `make test-tier-reset` rebuilds the tier for the current checkout. Pytest copies a seeded template per fingerprint of the migrations, the seed and `FROZEN`, so each worker starts from a fresh database in a second or two. Because the suite brings its own schema, it checks only the tier's service configuration: worktrees on branches with different migrations or sync rules run their backend suites, and the pre-commit gate, side by side without waiting for each other or rebuilding the tier.
 
 ### What an e2e case proves
 

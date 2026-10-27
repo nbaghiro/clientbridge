@@ -12,7 +12,7 @@ import signal
 import subprocess
 import sys
 import time
-from collections.abc import Iterator
+from collections.abc import Collection, Iterator
 from contextlib import ExitStack, contextmanager, suppress
 from dataclasses import dataclass
 from pathlib import Path
@@ -116,6 +116,10 @@ def configuration() -> str:
     """The services as configured, so editing this script alone never forces a rebuild."""
     spec = json.dumps([compose_spec(), powersync_config()], sort_keys=True)
     return hashlib.sha256(spec.encode()).hexdigest()[:16]
+
+
+# the backend suite needs only "tier": it seeds its own template database per migrations
+BUILT_FROM = ("migrations", "sync_rules", "auth", "tier", "relay")
 
 
 def fingerprint() -> dict[str, str]:
@@ -488,11 +492,11 @@ def differences(current: dict[str, str], found: dict[str, str] | None) -> list[s
 
 
 @contextmanager
-def hold() -> Iterator[None]:
-    """Use the tier: start or rebuild it when nobody else is, otherwise require it to match."""
+def hold(needs: Collection[str] = BUILT_FROM) -> Iterator[None]:
+    """Use the tier: start or rebuild it when nobody else is, otherwise require what it needs."""
     TIER.mkdir(parents=True, exist_ok=True)
     with (TIER / "tier.lock").open("a") as handle:
-        current = fingerprint()
+        current = {name: value for name, value in fingerprint().items() if name in needs}
         if differences(current, recorded()) == ["relay"] and running():
             refresh_relay()
         try:
