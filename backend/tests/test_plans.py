@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from clientbridge.api.plans import LAPSED_WRITES
 from clientbridge.core import clock
 from clientbridge.core.db import engine
-from clientbridge.core.errors import Unprocessable
+from clientbridge.core.errors import PaymentsNotConfigured, Unprocessable
 from clientbridge.core.ids import new_id
 from clientbridge.integrations.stripe import PlanItem, PlanSubscription
 from clientbridge.main import app
@@ -934,6 +934,22 @@ async def test_the_portal_adopts_a_paid_subscription_whose_webhook_was_missed(
     ok(await as_owner.post("/v1/plan/portal"))
     assert gateway.portal_sessions == [ACCOUNT]
     assert (await _business(db)).plan_status == "active"
+
+
+async def test_the_portal_without_payments_set_up_has_no_plan_to_manage(
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    gateway: FakePaymentGateway,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    await _trial(db, timedelta(days=5), stripe_account_id=ACCOUNT)
+
+    async def unconfigured(account_id: str) -> PlanSubscription | None:
+        raise PaymentsNotConfigured("card payments are not set up on this server")
+
+    monkeypatch.setattr(gateway, "paid_plan_subscription", unconfigured)
+    res = await as_owner.post("/v1/plan/portal")
+    assert res.status_code == 409 and res.json()["error"] == "plan_not_managed"
 
 
 async def test_a_paid_subscription_for_another_business_is_never_adopted(

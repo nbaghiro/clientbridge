@@ -10,7 +10,13 @@ from clientbridge.core import clock
 from clientbridge.core.command import Command, request_hash, run_command
 from clientbridge.core.config import get_settings
 from clientbridge.core.deps import Principal, assert_role
-from clientbridge.core.errors import AppError, Conflict, NotFound, Unprocessable
+from clientbridge.core.errors import (
+    AppError,
+    Conflict,
+    NotFound,
+    PaymentsNotConfigured,
+    Unprocessable,
+)
 from clientbridge.core.locale import message
 from clientbridge.core.scoping import scoped
 from clientbridge.core.zones import zone
@@ -585,7 +591,10 @@ async def _adopt_paid(db: AsyncSession, gateway: PaymentGateway, business: Busin
     """Mirror a plan Checkout has already started billing, when its platform webhook was missed."""
     if business.stripe_account_id is None or plan_access(business, clock.now()) in _LIVE:
         return
-    paid = await gateway.paid_plan_subscription(business.stripe_account_id)
+    try:
+        paid = await gateway.paid_plan_subscription(business.stripe_account_id)
+    except PaymentsNotConfigured:
+        return  # without Stripe there is no Checkout whose webhook could have been missed
     if paid is None or paid.customer_account != business.stripe_account_id:
         return
     await _mirror(db, gateway, business, paid.id, named=paid.business_id, created=True)
