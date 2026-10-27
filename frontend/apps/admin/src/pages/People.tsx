@@ -109,7 +109,6 @@ function Clients({ business }: { business: string }) {
                                         </>
                                     ),
                                 },
-                                { label: strings.admin.email, render: (c) => c.email },
                                 {
                                     label: strings.admin.business,
                                     render: (c) => (

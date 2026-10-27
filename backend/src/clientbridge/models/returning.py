@@ -8,7 +8,7 @@ from clientbridge.models.base import BusinessScoped, PKMixin
 
 
 class ReturningChallenge(PKMixin, BusinessScoped, Base):
-    """Server-only mailbox proof; neither verification codes nor session secrets are stored raw."""
+    """Server-only phone proof; neither verification codes nor session secrets are stored raw."""
 
     __tablename__ = "returning_challenges"
     __table_args__ = (

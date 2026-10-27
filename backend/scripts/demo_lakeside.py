@@ -550,7 +550,7 @@ PLAN_BODY = "\n\n".join(
         "about your recourse rights if a debit doesn't follow this agreement.",
         "Missed lessons\nA lesson missed with 24 hours' notice is made up within the month. "
         "Lessons aren't carried over to the next month.",
-        "Cancelling\nYou can cancel with 30 days' notice by email or in person. The last "
+        "Cancelling\nYou can cancel with 30 days' notice by text or in person. The last "
         "charge covers the final month of lessons.",
     )
 )
@@ -574,7 +574,6 @@ class Family:
     kids: tuple[Kid, ...]
     # days since the family first came; None for families whose assessment is in the history
     since: int | None = None
-    channel: str = "email"
     tags: tuple[str, ...] = ()
 
 
@@ -668,7 +667,6 @@ FAMILIES: tuple[Family, ...] = (
             ),
         ),
         since=-300,
-        channel="sms",
     ),
     Family(
         "kowalski",
@@ -703,7 +701,7 @@ FAMILIES: tuple[Family, ...] = (
         ),
         since=-330,
     ),
-    Family("park", "Daniel Park", (Kid("Jason Park", 12, GLEBE),), since=-200, channel="sms"),
+    Family("park", "Daniel Park", (Kid("Jason Park", 12, GLEBE),), since=-200),
     Family("sullivan", "Brendan Sullivan", (Kid("Fiona Sullivan", 5, HOPEWELL),)),
     Family("gill", "Navdeep Gill", (Kid("Arjun Gill", 10, NEPEAN),), since=-250),
     Family("leblanc", "Marc Leblanc", (Kid("Chloé Leblanc", 11, IMMACULATA),)),
@@ -754,7 +752,6 @@ FAMILIES: tuple[Family, ...] = (
                 "comes to collect Liam.",
             ),
         ),
-        channel="sms",
     ),
     Family(
         "khoury",
@@ -801,7 +798,7 @@ FAMILIES: tuple[Family, ...] = (
         (Kid("Juliette Lefebvre", 11, DELASALLE),),
         since=-240,
     ),
-    Family("yusuf", "Fadumo Yusuf", (Kid("Mohamed Yusuf", 8, BROADVIEW),), channel="sms"),
+    Family("yusuf", "Fadumo Yusuf", (Kid("Mohamed Yusuf", 8, BROADVIEW),)),
     Family("reyes", "Carmen Reyes", (Kid("Isabella Reyes", 6, CORPUS),), since=-270),
     Family("bergeron", "Annie Bergeron", (Kid("Félix Bergeron", 3, MUTCHMOR),)),
     Family(
@@ -866,7 +863,7 @@ FAMILIES: tuple[Family, ...] = (
     Family("vo", "Hoa Vo", (Kid("Kim Vo", 3, MUTCHMOR),)),
     Family("campbell", "Erin Campbell", (Kid("Ben Campbell", 8, HOPEWELL),), since=-210),
     Family("novak", "Petra Novak", (Kid("Ivan Novak", 10, IMMACULATA),)),
-    Family("jean", "Roseline Jean", (Kid("Wesley Jean", 6, CORPUS),), channel="sms"),
+    Family("jean", "Roseline Jean", (Kid("Wesley Jean", 6, CORPUS),)),
     Family("thompson", "Mark Thompson", (Kid("Ava Thompson", 9, NEPEAN),), since=-300),
     Family("fraser", "Alison Fraser", (Kid("Hazel Fraser", 4, ELMDALE),)),
     Family("akhtar", "Saima Akhtar", (Kid("Zain Akhtar", 12, LISGAR),), since=-400),
@@ -1158,7 +1155,7 @@ SPEC = BusinessSpec(
         Stage(
             "Term-end thread and next term registration",
             "desrosiers",
-            ("th_ls_desrosiers_email", "fr_ls_reregister_desrosiers"),
+            ("th_ls_desrosiers", "fr_ls_reregister_desrosiers"),
         ),
         Stage("Overdue invoice", "sullivan", ("inv_ls_sullivan_overdue",)),
         Stage("No-show", "park", ("bk_ls_park_extra",)),
@@ -1219,10 +1216,8 @@ class Lakeside(Demo):
             self.client(
                 family.key,
                 family.parent,
-                f"{handle}@example.test",
                 f"+1613555{100 + number:04}",
                 tags=list(family.tags),
-                channel="sms" if family.channel == "sms" else "email",
                 fields={"source": ("school newsletter", "referral", "google")[number % 3]},
                 since=None if family.since is None else self.at(family.since, 10),
             )
@@ -1728,7 +1723,7 @@ class Lakeside(Demo):
             "school": kid.school,
             "parent_name": family.parent,
             "parent_phone": client.phone or "",
-            "parent_email": client.email or "",
+            "parent_email": f"{key}@example.test",
             "subjects": lessons,
             "learning_needs": kid.note
             or "Doing fine at school, but would like more confidence before tests.",
@@ -1901,14 +1896,14 @@ class Lakeside(Demo):
 
     def engagement(self) -> None:
         self.consents()
-        self.withdraw("obrien", "email", self.at(-20, 21))
+        self.withdraw("obrien", self.at(-20, 21))
         self.broadcast(
             "fall_term",
             "Fall term lessons start next week",
             "Fall lessons start next week. Weekly lessons keep the same day, time and tutor as "
             "last term unless we've told you otherwise, and the schedule is in your booking "
             "emails. SAT prep starts on a Saturday in late September and has eight seats. If "
-            "your child's after-school schedule has changed, reply to this email and we'll find "
+            "your child's after-school schedule has changed, reply to this text and we'll find "
             "a new time.",
             self.at(-49, 10),
         )
@@ -1932,7 +1927,7 @@ class Lakeside(Demo):
         assessment = ctx.get(Booking, "bk_ls_nwosu_assessment")
         local = self.local(assessment.starts_at)
         when = assessment.created_at + timedelta(minutes=40)
-        thread = self.thread("nwosu", "email", when)
+        thread = self.thread("nwosu", when)
         self.say(
             thread,
             "Hello, I booked an assessment for my son Chidi online. Should he bring anything? "
@@ -1952,7 +1947,7 @@ class Lakeside(Demo):
         makeup = ctx.get(Booking, "bk_ls_ahmed_makeup")
         assert missed.canceled_at is not None
         when = missed.canceled_at
-        thread = self.thread("ahmed", "sms", when)
+        thread = self.thread("ahmed", when)
         self.say(
             thread,
             "Hi, Zara has a fever and won't make her lesson tomorrow. Sorry for the short notice.",
@@ -1975,7 +1970,7 @@ class Lakeside(Demo):
         feedback = ctx.get(Booking, self.last_lesson("bianchi").id)
         assert feedback.completed_at is not None
         when = min(feedback.completed_at + timedelta(hours=27), self.now - timedelta(hours=2))
-        thread = self.thread("bianchi", "email", when)
+        thread = self.thread("bianchi", when)
         self.say(
             thread,
             "Thank you for the lesson notes, Sofia. Luca has been practising every day this "
@@ -1990,13 +1985,13 @@ class Lakeside(Demo):
             when + timedelta(hours=3),
         )
         when = self.now - timedelta(days=2, hours=3)
-        thread = self.thread("desrosiers", "email", when)
+        thread = self.thread("desrosiers", when)
         self.say(
             thread,
             "Hi Nadège, the fall term ends in four weeks. Maëlle has made good progress: her "
             "essays now have a clear thesis and paragraphs that support it, and Julien says "
             "she's working faster on timed writing. We'd suggest keeping her Wednesday time "
-            "next term. The registration form for next term is in this email; please let us "
+            "next term. The registration form for next term is linked below; please let us "
             "know by the end of the month.",
             when,
             sender=LAKESIDE_OWNER,
@@ -2016,11 +2011,11 @@ class Lakeside(Demo):
         overdue = ctx.get(Invoice, "inv_ls_sullivan_overdue")
         if overdue.overdue_notified_at is not None:
             when = overdue.overdue_notified_at + timedelta(hours=2)
-            thread = self.thread("sullivan", "email", when)
+            thread = self.thread("sullivan", when)
             self.say(
                 thread,
                 f"Hi Brendan, invoice {overdue.number} for Fiona's English lesson is now past "
-                "due. You can pay by card from the link in the invoice email, or by e-Transfer "
+                "due. You can pay by card from the invoice link, or by e-Transfer "
                 "to hello@lakeside.example.",
                 when,
             )
@@ -2033,7 +2028,7 @@ class Lakeside(Demo):
         gill = ctx.get(Booking, self.last_lesson("gill").id)
         assert gill.completed_at is not None
         when = min(gill.completed_at + timedelta(hours=30), self.now - timedelta(hours=2))
-        thread = self.thread("gill", "email", when)
+        thread = self.thread("gill", when)
         self.say(
             thread,
             "Hi Navdeep, thank you for the feedback. You're right that Arjun's time moved "
@@ -2051,7 +2046,7 @@ class Lakeside(Demo):
         )
         extra = ctx.get(Booking, "bk_ls_park_extra")
         when = extra.starts_at + timedelta(minutes=20)
-        thread = self.thread("park", "sms", when)
+        thread = self.thread("park", when)
         local = self.local(extra.starts_at)
         self.say(
             thread,
@@ -2074,7 +2069,7 @@ class Lakeside(Demo):
         )
         session = ctx.get(Slot, "ses_ls_sat_3")
         when = min(session.starts_at - timedelta(days=4), self.now - timedelta(hours=5))
-        thread = self.thread("kowalski", "email", when)
+        thread = self.thread("kowalski", when)
         self.say(
             thread,
             "Hi, Adam's friend wants to join the SAT prep class. Is there still room?",
@@ -2089,12 +2084,12 @@ class Lakeside(Demo):
         )
         mensah = ctx.get(Booking, "bk_ls_mensah_0")
         when = mensah.starts_at - timedelta(days=5)
-        thread = self.thread("mensah", "email", when)
+        thread = self.thread("mensah", when)
         self.say(
             thread,
             "Hi Yaw, Ama's monthly plan is set up. Four science lessons a month with Samuel "
             "at the same time each week, $260 a month by pre-authorized debit from your RBC "
-            "account ending in 4417. You'll get a receipt by email after each debit.",
+            "account ending in 4417. You'll get a receipt by text after each debit.",
             when,
             sender=LAKESIDE_OWNER,
         )
@@ -2112,7 +2107,7 @@ class Lakeside(Demo):
         )
         local = self.local(today.starts_at)
         when = min(today.starts_at - timedelta(hours=20), self.now - timedelta(hours=1))
-        thread = self.thread("li", "email", when)
+        thread = self.thread("li", when)
         self.say(
             thread,
             f"Hi Jun, a reminder that Emma's piano lesson with Sofia is on {local:%A} at "

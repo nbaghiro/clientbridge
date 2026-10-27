@@ -1,6 +1,5 @@
 """Riverbend Driving School: a five-person driving school in Winnipeg, on the demo engine."""
 
-import unicodedata
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
 
@@ -766,13 +765,6 @@ def _clock(when: datetime) -> str:
     return f"{when:%I:%M %p}".removeprefix("0")
 
 
-def _email(name: str) -> str:
-    plain = "".join(
-        c for c in unicodedata.normalize("NFKD", name.lower()) if c.isalpha() or c == " "
-    )
-    return f"{plain.replace(' ', '.')}@example.test"
-
-
 def _generated() -> list[Household]:
     found: list[Household] = []
     for index, (first, last, kid) in enumerate(PARENTS):
@@ -848,9 +840,7 @@ class Riverbend(Demo):
             self.client(
                 household.key,
                 household.name,
-                _email(household.name),
                 f"+1204555{100 + number:04}",
-                channel="sms" if number % 3 else "email",
                 fields={"source": ("google", "referral", "school newsletter")[number % 3]},
             )
             for index, student in enumerate(household.learners()):
@@ -1432,7 +1422,7 @@ class Riverbend(Demo):
 
     def engagement(self) -> None:
         self.consents()
-        self.withdraw("adult_03", "email", self.now - timedelta(days=28))
+        self.withdraw("adult_03", self.now - timedelta(days=28))
         self.broadcast(
             "summer",
             "Summer lesson times",
@@ -1446,7 +1436,7 @@ class Riverbend(Demo):
             "Winter driving lessons",
             "The first snow is on its way. A winter lesson covers braking on ice, clearing the "
             "car properly and keeping your distance on Portage and the Perimeter. Book one online "
-            "or reply to this email.",
+            "or reply to this message.",
             self.at(-9, 10),
         )
         self.reviews()
@@ -1507,7 +1497,7 @@ class Riverbend(Demo):
         ctx = self.ctx
         ramos = ctx.get(Booking, "bk_rb_ramos")
         when = ramos.created_at + timedelta(hours=1)
-        thread = self.thread("ramos", "email", when)
+        thread = self.thread("ramos", when)
         self.say(
             thread,
             "Hi, I booked Bianca's first lesson online. Can you pick her up at Garden City after "
@@ -1523,7 +1513,7 @@ class Riverbend(Demo):
         )
         navjot = ctx.get(Booking, "bk_rb_navjot")
         if navjot.departed_at is not None:
-            thread = self.thread("navjot", "sms", navjot.departed_at)
+            thread = self.thread("navjot", navjot.departed_at)
             self.say(
                 thread,
                 "Hi Navjot, it's Linda from Riverbend. I'm on my way and will be there in about 20 "
@@ -1539,7 +1529,7 @@ class Riverbend(Demo):
             )
         test = ctx.get(Booking, "bk_rb_rohan_roadtest")
         when = test.created_at + timedelta(minutes=30)
-        thread = self.thread("patel", "email", when)
+        thread = self.thread("patel", when)
         local = self.local(test.starts_at)
         self.say(
             thread,
@@ -1551,7 +1541,7 @@ class Riverbend(Demo):
         caleb = ctx.get(FormResponse, "fr_rb_feedback_caleb")
         if caleb.submitted_at is not None:
             when = caleb.submitted_at + timedelta(hours=2)
-            thread = self.thread("dueck", "email", when)
+            thread = self.thread("dueck", when)
             self.say(
                 thread,
                 "Hi Tanya, thank you for the feedback, and sorry Caleb was left waiting. The "
@@ -1563,22 +1553,22 @@ class Riverbend(Demo):
         overdue = ctx.get(Invoice, "inv_rb_brayden_missed")
         if overdue.overdue_notified_at is not None:
             when = overdue.overdue_notified_at + timedelta(hours=3)
-            thread = self.thread("thiessen", "email", when)
+            thread = self.thread("thiessen", when)
             self.say(
                 thread,
                 f"Hi Shawn, invoice {overdue.number} for Brayden's missed lesson is past due. You "
-                "can pay by card from the invoice email or by e-Transfer to "
+                "can pay by card from the invoice link or by e-Transfer to "
                 "hello@riverbend.example.",
                 when,
             )
         course = ctx.get(Invoice, f"inv_rb_course_{COURSE_OWING}")
         if course.overdue_notified_at is not None:
             when = course.overdue_notified_at + timedelta(hours=2)
-            thread = self.thread(COURSE_OWING, "email", when)
+            thread = self.thread(COURSE_OWING, when)
             self.say(
                 thread,
                 f"Hi Ricardo, a reminder that invoice {course.number} for Mateo's classroom course "
-                "was due on the first evening. You can pay it by card from the invoice email.",
+                "was due on the first evening. You can pay it by card from the invoice link.",
                 when,
             )
             self.say(

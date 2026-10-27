@@ -385,12 +385,11 @@ export function ClientRecordView({
                 />
             }
         >
-            {c.tags.length > 0 || c.email !== null ? (
+            {c.tags.length > 0 ? (
                 <div className="flex flex-wrap items-center gap-2 text-sm text-muted">
                     {c.tags.map((tag) => (
                         <Badge key={tag} label={tag} intent="accent" />
                     ))}
-                    <span>{formatParts([c.email, r.prefers(c.channel)])}</span>
                 </div>
             ) : null}
             {record.textsStopped !== null ? (

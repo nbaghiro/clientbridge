@@ -7,9 +7,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from clientbridge.core.db import Base
 from clientbridge.models.base import BusinessScoped, PKMixin, TimestampMixin, enum_check
-from clientbridge.models.clients import Channel
 
-ThreadChannel = Literal["sms", "email"]
 ThreadStatus = Literal["open"]
 Direction = Literal["in", "out"]
 MessageStatus = Literal["draft", "queued", "sent", "delivered", "read", "failed"]
@@ -19,14 +17,12 @@ BroadcastStatus = Literal["draft", "scheduled", "sending", "sent", "canceled"]
 class Thread(PKMixin, BusinessScoped, TimestampMixin, Base):
     __tablename__ = "threads"
     __table_args__ = (
-        enum_check("threads", "channel", ThreadChannel),
         enum_check("threads", "status", ThreadStatus),
-        UniqueConstraint("business_id", "client_id", "channel", name="uq_threads_client_channel"),
+        UniqueConstraint("business_id", "client_id", name="uq_threads_client"),
         Index("ix_threads_client_id", "client_id"),
     )
 
     client_id: Mapped[str] = mapped_column(ForeignKey("clients.id"), nullable=False)
-    channel: Mapped[ThreadChannel] = mapped_column(String, nullable=False)
     status: Mapped[ThreadStatus] = mapped_column(String, default="open", nullable=False)
 
 
@@ -47,7 +43,6 @@ class Message(PKMixin, BusinessScoped, TimestampMixin, Base):
 
     thread_id: Mapped[str] = mapped_column(ForeignKey("threads.id"), nullable=False)
     direction: Mapped[Direction] = mapped_column(String, nullable=False)
-    channel: Mapped[Channel] = mapped_column(String, nullable=False)
     sent_by: Mapped[str | None] = mapped_column(ForeignKey("users.id"))
     body: Mapped[str | None] = mapped_column(String)
     status: Mapped[MessageStatus] = mapped_column(String, default="queued", nullable=False)
@@ -58,7 +53,6 @@ class Message(PKMixin, BusinessScoped, TimestampMixin, Base):
 class Broadcast(PKMixin, BusinessScoped, TimestampMixin, Base):
     __tablename__ = "broadcasts"
     __table_args__ = (
-        enum_check("broadcasts", "channel", Channel),
         enum_check("broadcasts", "status", BroadcastStatus),
         Index("ix_broadcasts_status", "business_id", "status"),
         Index("ix_broadcasts_created_by", "created_by"),
@@ -66,7 +60,6 @@ class Broadcast(PKMixin, BusinessScoped, TimestampMixin, Base):
 
     created_by: Mapped[str | None] = mapped_column(ForeignKey("users.id"))
     name: Mapped[str] = mapped_column(String, nullable=False)
-    channel: Mapped[Channel] = mapped_column(String, nullable=False)
     body: Mapped[str | None] = mapped_column(
         String
     )  # rendered at send (kept for a scheduled fan-out)

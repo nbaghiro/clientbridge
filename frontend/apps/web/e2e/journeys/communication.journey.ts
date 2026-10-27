@@ -5,7 +5,6 @@ import { bookingApi } from "../support/bookings";
 import {
     clientPhone,
     communicationEvidence,
-    emailEvent,
     inboundText,
     type CommunicationEvidence,
 } from "../support/communication";
@@ -19,25 +18,18 @@ import {
 } from "../support/classes";
 import { openClient, type ClientFixture, clientCommand, editClient } from "../support/clients";
 import {
-    careMessage,
-    composeMessage,
-    expectMail,
-    expectMessageCommitted,
-    inboxMail,
-    messageFixture,
     BIRCHBARK_SMS,
     apiBase,
     awayFromDeliveryTick,
     clientOutreach,
     createContact,
     deliveryRows,
-    freshPhone,
     headers,
-    mailpitBase,
     postInboundSms,
     prefsLink,
     type Contact,
 } from "../support/messaging";
+import { freshPhone, textsTo } from "../support/auth";
 import { signIn, navigate } from "../support/session";
 import { demoId, demoPhone } from "@clientbridge/config/e2e/run";
 
@@ -79,12 +71,7 @@ async function openThread(page: Page, client: ClientFixture): Promise<Locator> {
     return page.locator('[aria-live="polite"]');
 }
 
-// the message text and its status line share one column
-function bubble(log: Locator, body: string): Locator {
-    return log.getByText(body, { exact: true }).last().locator("..");
-}
-
-test("FLOW-06-A a seat notice queued for the worker honours a STOP that arrives first, and its email counts as delivered only after the signed callback", async ({
+test("FLOW-06-A a seat notice queued for the worker honours a STOP that arrives first, and every device shows texts are off", async ({
     page,
     browser,
 }, testInfo) => {
@@ -111,7 +98,6 @@ test("FLOW-06-A a seat notice queued for the worker honours a STOP that arrives 
         expect(before.consents).toEqual([]);
         expect(before.threads).toEqual([]);
         expect(seatDeliveries(before, fixture.slotId, waitingId)).toEqual([]);
-        const mailBefore = (await inboxMail(page.request, waiting.email)).map((m) => m.ID);
 
         const client = await clientContext.newPage();
         const manageUrl = await classManageUrl(fixture);
@@ -138,17 +124,8 @@ test("FLOW-06-A a seat notice queued for the worker honours a STOP that arrives 
         const webhookId = `twilio_${stop.sid}`;
 
         const held = await communicationEvidence(waiting.id, [webhookId]);
-        // both halves of the notice are still waiting for the worker when the STOP commits
+        // the notice is still waiting for the worker when the STOP commits
         expect(seatDeliveries(held, fixture.slotId, waitingId)).toEqual([
-            {
-                id: expect.any(String),
-                channel: "email",
-                state: "queued",
-                error: null,
-                provider_ref: null,
-                scope: `seat:${fixture.slotId}:${waitingId}`,
-                recipient: waiting.email,
-            },
             {
                 id: expect.any(String),
                 channel: "sms",
@@ -159,14 +136,13 @@ test("FLOW-06-A a seat notice queued for the worker honours a STOP that arrives 
                 recipient: phone,
             },
         ]);
-        expect(held.consents).toEqual([{ channel: "sms", status: "withdrawn", source: "reply" }]);
-        expect(held.threads).toEqual([{ id: expect.any(String), channel: "sms" }]);
+        expect(held.consents).toEqual([{ status: "withdrawn", source: "reply" }]);
+        expect(held.threads).toEqual([{ id: expect.any(String) }]);
         expect(held.messages).toEqual([
             {
                 id: expect.any(String),
                 thread_id: held.threads[0]?.id,
                 direction: "in",
-                channel: "sms",
                 body: "STOP",
                 status: "delivered",
                 provider_ref: stop.sid,
@@ -203,7 +179,7 @@ test("FLOW-06-A a seat notice queued for the worker honours a STOP that arrives 
         expect(afterNoise.consents).toEqual(held.consents);
         expect(afterNoise.messages).toEqual(held.messages);
 
-        await test.step("the worker sends the email half and refuses the stopped text", async () => {
+        await test.step("the worker refuses the stopped text", async () => {
             await expect
                 .poll(
                     async () =>
@@ -214,66 +190,14 @@ test("FLOW-06-A a seat notice queued for the worker honours a STOP that arrives 
                         ).map((row) => [row.channel, row.state, row.error]),
                     { timeout: 100_000, intervals: [2_000] },
                 )
-                .toEqual([
-                    ["email", "accepted", null],
-                    ["sms", "failed", "consent_withdrawn"],
-                ]);
+                .toEqual([["sms", "failed", "consent_withdrawn"]]);
         });
-        // the intake form cron may also mail the new client while this runs
-        const fresh = async () =>
-            (await inboxMail(page.request, waiting.email)).filter(
-                (m) =>
-                    !mailBefore.includes(m.ID) &&
-                    m.Subject === `A seat opened up in ${fixture.itemName}`,
-            );
-        await expect.poll(async () => (await fresh()).length).toBe(1);
-        const [mail] = await fresh();
-        const accepted = seatDeliveries(
+        const refused = seatDeliveries(
             await communicationEvidence(waiting.id),
             fixture.slotId,
             waitingId,
         );
-        const email = accepted[0];
-        if (email === undefined || mail === undefined) throw new Error("The seat notice is gone");
-
-        const emailId = `re_${randomUUID()}`;
-        const delivered = {
-            type: "email.delivered" as const,
-            emailId,
-            to: waiting.email,
-            tags: { delivery: email.id, business: demoId("bz_birchbark"), client: waiting.id },
-        };
-        expect((await emailEvent(page.request, delivered, { forged: true })).status).toBe(401);
-        expect(
-            seatDeliveries(await communicationEvidence(waiting.id), fixture.slotId, waitingId),
-        ).toEqual(accepted);
-        const confirmed = await emailEvent(page.request, delivered);
-        expect(confirmed.status).toBe(200);
-        const settled = await communicationEvidence(waiting.id, [`resend_${confirmed.id}`]);
-        expect(seatDeliveries(settled, fixture.slotId, waitingId)).toEqual([
-            { ...email, state: "delivered", provider_ref: emailId },
-            accepted[1],
-        ]);
-        expect(settled.webhooks).toEqual([
-            {
-                id: `resend_${confirmed.id}`,
-                provider: "resend",
-                event: "email.delivered",
-                status: "processed",
-                payload: {
-                    email_id: emailId,
-                    to: waiting.email,
-                    detail: "",
-                    matched: true,
-                    business_id: demoId("bz_birchbark"),
-                },
-            },
-        ]);
-        expect((await emailEvent(page.request, delivered, { id: confirmed.id })).status).toBe(200);
-        expect(await communicationEvidence(waiting.id, [`resend_${confirmed.id}`])).toEqual(
-            settled,
-        );
-        expect(await fresh()).toHaveLength(1);
+        expect(await textsTo(page.request, phone)).toEqual([]);
 
         const other = await observer.newPage();
         await signIn(other);
@@ -285,159 +209,19 @@ test("FLOW-06-A a seat notice queued for the worker honours a STOP that arrives 
                     exact: true,
                 }),
             ).toBeVisible();
-            // a stopped number leaves the reply composer on email
-            await expect(
-                replica
-                    .getByRole("group", { name: s.channelLabel, exact: true })
-                    .getByRole("button", { name: s.channels.email, exact: true }),
-            ).toHaveAttribute("aria-pressed", "true");
-            await expect(
-                replica.getByRole("textbox", { name: s.replyPlaceholder("email"), exact: true }),
-            ).toBeVisible();
             const record = await openClient(replica, waiting);
             await expect(record).toContainText(
                 strings.clients.record.textsStopped(formatDate(stoppedAt, zone)),
             );
         }
         await testInfo.attach("seat-notice-delivery", {
-            body: JSON.stringify({ held, settled, mail }),
+            body: JSON.stringify({ held, refused }),
             contentType: "application/json",
         });
     } finally {
         await observer.close();
         await clientContext.close();
         await cleanupClass(page, fixture);
-    }
-});
-
-test("FLOW-06-B an accepted email reads Sent until the provider confirms it, and a later bounce reads Not delivered on both devices", async ({
-    page,
-    browser,
-}, testInfo) => {
-    test.setTimeout(240_000);
-    await signIn(page);
-    const client = await messageFixture(page);
-    const dialog = await composeMessage(page, client);
-    await dialog.getByRole("textbox", { name: s.newMessageTitle, exact: true }).fill(careMessage);
-    await dialog.getByRole("button", { name: s.sendMessage, exact: true }).click();
-    await expect(dialog).toBeHidden();
-    const committed = await expectMessageCommitted(client);
-    await expectMail(page.request, client.email);
-    const first = committed.messages[0];
-    if (first === undefined) throw new Error("The sent message is missing");
-
-    const observer = await browser.newContext({
-        baseURL: new URL(page.url()).origin,
-        viewport: { width: 1440, height: 900 },
-    });
-    try {
-        const other = await observer.newPage();
-        await signIn(other);
-        const logs = [await openThread(page, client), await openThread(other, client)];
-        for (const log of logs) {
-            await expect(bubble(log, careMessage)).toContainText(s.thread.status.sent);
-            await expect(bubble(log, careMessage)).not.toContainText(s.thread.status.delivered);
-        }
-
-        const tags = { business: demoId("bz_birchbark"), client: client.id, message: first.id };
-        const firstId = `re_${randomUUID()}`;
-        const delivered = {
-            type: "email.delivered" as const,
-            emailId: firstId,
-            to: client.email,
-            tags,
-        };
-        expect((await emailEvent(page.request, delivered, { forged: true })).status).toBe(401);
-        expect((await communicationEvidence(client.id)).messages).toEqual([
-            expect.objectContaining({ id: first.id, status: "sent", provider_ref: null }),
-        ]);
-        const confirmed = await emailEvent(page.request, delivered);
-        expect(confirmed.status).toBe(200);
-        for (const log of logs)
-            await expect(bubble(log, careMessage)).toContainText(s.thread.status.delivered, {
-                timeout: 60_000,
-            });
-        const afterDelivery = await communicationEvidence(client.id, [`resend_${confirmed.id}`]);
-        expect(afterDelivery.messages).toEqual([
-            expect.objectContaining({ id: first.id, status: "delivered", provider_ref: firstId }),
-        ]);
-        expect(afterDelivery.webhooks).toEqual([
-            expect.objectContaining({ event: "email.delivered", status: "processed" }),
-        ]);
-        expect((await emailEvent(page.request, delivered, { id: confirmed.id })).status).toBe(200);
-        expect(await communicationEvidence(client.id, [`resend_${confirmed.id}`])).toEqual(
-            afterDelivery,
-        );
-
-        const followUp = "Maple's next visit is booked. Please bring her lead and favourite treat.";
-        await page
-            .getByRole("textbox", { name: s.replyPlaceholder("email"), exact: true })
-            .fill(followUp);
-        const sending = page.waitForResponse(
-            (response) =>
-                new URL(response.url()).pathname === "/v1/messages" &&
-                response.request().method() === "POST",
-        );
-        await page.getByRole("button", { name: s.send, exact: true }).click();
-        const sent = await sending;
-        expect(sent.status(), await sent.text()).toBe(200);
-        const second = (await sent.json()) as { id: string; status: string };
-        expect(second.status).toBe("sent");
-        await expect.poll(async () => (await inboxMail(page.request, client.email)).length).toBe(2);
-        for (const log of logs)
-            await expect(bubble(log, followUp)).toContainText(s.thread.status.sent, {
-                timeout: 60_000,
-            });
-
-        const secondId = `re_${randomUUID()}`;
-        const bounce = await emailEvent(page.request, {
-            type: "email.bounced",
-            emailId: secondId,
-            to: client.email,
-            tags: { ...tags, message: second.id },
-        });
-        expect(bounce.status).toBe(200);
-        const late = await emailEvent(page.request, {
-            type: "email.delivered",
-            emailId: secondId,
-            to: client.email,
-            tags: { ...tags, message: second.id },
-        });
-        expect(late.status).toBe(200);
-        const final = await communicationEvidence(client.id, [
-            `resend_${bounce.id}`,
-            `resend_${late.id}`,
-        ]);
-        expect(final.messages).toEqual([
-            expect.objectContaining({ id: first.id, status: "delivered", provider_ref: firstId }),
-            expect.objectContaining({ id: second.id, status: "failed", provider_ref: secondId }),
-        ]);
-        expect(final.webhooks.map((row) => [row.event, row.status]).sort()).toEqual([
-            ["email.bounced", "processed"],
-            ["email.delivered", "processed"],
-        ]);
-        expect(final.deliveries).toEqual(
-            [first.id, second.id].map((id) =>
-                expect.objectContaining({ scope: `message:${id}`, state: "accepted" }),
-            ),
-        );
-        for (const [index, replica] of [page, other].entries()) {
-            const log = logs[index];
-            if (log === undefined) throw new Error("A conversation is missing");
-            await expect(bubble(log, followUp)).toContainText(s.thread.status.failed, {
-                timeout: 60_000,
-            });
-            await replica.reload();
-            const reloaded = await openThread(replica, client);
-            await expect(bubble(reloaded, careMessage)).toContainText(s.thread.status.delivered);
-            await expect(bubble(reloaded, followUp)).toContainText(s.thread.status.failed);
-        }
-        await testInfo.attach("message-delivery-callbacks", {
-            body: JSON.stringify(final),
-            contentType: "application/json",
-        });
-    } finally {
-        await observer.close();
     }
 });
 
@@ -522,10 +306,9 @@ test("MSG-E2E-14 a STOP that arrives after a seat notice is queued keeps the wor
         expect(stop.response.status()).toBe(200);
         const queued = await deliveryRows(scope);
         expect(queued.map((d) => [d.channel, d.state, d.error, d.recipient])).toEqual([
-            ["email", "queued", null, fixture.waiting.email],
             ["sms", "queued", null, phone],
         ]);
-        expect(queued[1]?.from_number).toBe(BIRCHBARK_SMS);
+        expect(queued[0]?.from_number).toBe(BIRCHBARK_SMS);
         await expectClassState(fixture, [
             { ...first, status: "canceled" },
             second,
@@ -536,38 +319,21 @@ test("MSG-E2E-14 a STOP that arrives after a seat notice is queued keeps the wor
             {
                 business_id: demoId("bz_birchbark"),
                 client_id: fixture.waiting.id,
-                channel: "sms",
                 status: "withdrawn",
                 source: "reply",
                 recorded_by: null,
             },
         ]);
-        expect(stopped.messages.map((m) => [m.direction, m.channel, m.body])).toEqual([
-            ["in", "sms", "STOP"],
-        ]);
+        expect(stopped.messages.map((m) => [m.direction, m.body])).toEqual([["in", "STOP"]]);
 
         await expect
             .poll(async () => (await deliveryRows(scope)).map((d) => [d.state, d.error]), {
                 timeout: 100_000,
                 intervals: [2_000],
             })
-            .toEqual([
-                ["accepted", null],
-                ["failed", "consent_withdrawn"],
-            ]);
-        const [email, text] = await deliveryRows(scope);
-        if (!email || !text) throw new Error("The seat notices disappeared");
-        const search = await page.request.get(`${mailpitBase()}/api/v1/search`, {
-            params: { query: `to:${fixture.waiting.email}`, limit: 100 },
-        });
-        const mail = (
-            (await search.json()) as { messages: { Subject: string; Created: string }[] }
-        ).messages.filter((m) => m.Subject === email.subject);
-        expect(mail).toHaveLength(1);
-        const arrived = new Date(mail[0]?.Created ?? "");
-        expect(arrived.getTime()).toBeGreaterThan(new Date(email.created_at).getTime() - 1_000);
-        expect(arrived.getUTCSeconds()).toBeGreaterThanOrEqual(15);
-        expect(arrived.getUTCSeconds()).toBeLessThan(25);
+            .toEqual([["failed", "consent_withdrawn"]]);
+        const settled = await deliveryRows(scope);
+        expect(await textsTo(page.request, phone)).toEqual([]);
         expect(await clientOutreach(fixture.waiting.id)).toEqual(stopped);
 
         const log = await openInboxThread(page, fixture.waiting);
@@ -578,7 +344,7 @@ test("MSG-E2E-14 a STOP that arrives after a seat notice is queued keeps the wor
             }),
         ).toBeVisible({ timeout: 60_000 });
         await testInfo.attach("stop-after-queue", {
-            body: JSON.stringify({ queued, settled: [email, text], mail }),
+            body: JSON.stringify({ queued, settled }),
             contentType: "application/json",
         });
     } finally {
@@ -602,17 +368,15 @@ test("MSG-E2E-15 a STOP holds against the staff toggle and the preferences page 
     test.setTimeout(300_000);
     await signIn(page);
     const contact = await createContact(page);
-    const consents = (rows: { channel: string; status: string; source: string }[]) =>
-        rows.map((c) => [c.channel, c.status, c.source]);
+    const consents = (rows: { status: string; source: string }[]) =>
+        rows.map((c) => [c.status, c.source]);
     const stop = await postInboundSms(page.request, {
         from: contact.phone,
         to: BIRCHBARK_SMS,
         body: "arrêt",
     });
     expect(stop.response.status()).toBe(200);
-    expect(consents((await clientOutreach(contact.id)).consents)).toEqual([
-        ["sms", "withdrawn", "reply"],
-    ]);
+    expect(consents((await clientOutreach(contact.id)).consents)).toEqual([["withdrawn", "reply"]]);
 
     const editor = await editClient(page, contact);
     const toggle = editor.getByRole("switch", { name: strings.clients.edit.consentLabel });
@@ -621,10 +385,8 @@ test("MSG-E2E-15 a STOP holds against the staff toggle and the preferences page 
     const saving = clientCommand(page, `/${contact.id}`, "PATCH");
     await editor.getByRole("button", { name: strings.clients.edit.save, exact: true }).click();
     expect((await saving).status()).toBe(200);
-    expect(consents((await clientOutreach(contact.id)).consents)).toEqual([
-        ["sms", "withdrawn", "reply"],
-        ["email", "granted", "in_person"],
-    ]);
+    // only the client's own START lifts a STOP, so the staff toggle records nothing
+    expect(consents((await clientOutreach(contact.id)).consents)).toEqual([["withdrawn", "reply"]]);
 
     const prefs = await prefsPage(page, contact);
     try {
@@ -637,12 +399,11 @@ test("MSG-E2E-15 a STOP holds against the staff toggle and the preferences page 
         await prefs.client.getByRole("button", { name: p.save, exact: true }).click();
         const response = await saved;
         expect(response.status()).toBe(200);
-        expect(await response.json()).toMatchObject({ email: true, sms: false });
+        expect(await response.json()).toMatchObject({ sms: false });
         await prefs.client.reload();
         await expect(prefs.sms).not.toBeChecked();
         expect(consents((await clientOutreach(contact.id)).consents)).toEqual([
-            ["sms", "withdrawn", "reply"],
-            ["email", "granted", "in_person"],
+            ["withdrawn", "reply"],
         ]);
 
         await navigate(page, "/inbox");
@@ -652,16 +413,12 @@ test("MSG-E2E-15 a STOP holds against the staff toggle and the preferences page 
         await page
             .locator(`[role="option"][data-value="${contact.id}"]`)
             .click({ timeout: 60_000 });
-        await dialog
-            .getByRole("group", { name: s.channelLabel, exact: true })
-            .getByRole("button", { name: s.channels.sms, exact: true })
-            .click();
         await expect(dialog.getByText(s.smsBlockedNew, { exact: true })).toBeVisible();
         await expect(
             dialog.getByRole("button", { name: s.sendMessage, exact: true }),
         ).toBeDisabled();
         const blocked = await page.request.post(`${apiBase()}/v1/messages`, {
-            data: { client_id: contact.id, channel: "sms", body: "Are you free Friday?" },
+            data: { client_id: contact.id, body: "Are you free Friday?" },
             headers: headers(page),
         });
         expect(blocked.status()).toBe(409);
@@ -677,9 +434,8 @@ test("MSG-E2E-15 a STOP holds against the staff toggle and the preferences page 
         });
         expect(start.response.status()).toBe(200);
         expect(consents((await clientOutreach(contact.id)).consents)).toEqual([
-            ["sms", "withdrawn", "reply"],
-            ["email", "granted", "in_person"],
-            ["sms", "granted", "reply"],
+            ["withdrawn", "reply"],
+            ["granted", "reply"],
         ]);
         await prefs.client.reload();
         await expect(prefs.sms).toBeChecked();
@@ -689,7 +445,7 @@ test("MSG-E2E-15 a STOP holds against the staff toggle and the preferences page 
         await expect(
             page.getByText(s.textsOffTitle(contact.name.split(" ")[0] ?? ""), { exact: true }),
         ).toHaveCount(0, { timeout: 60_000 });
-        const reply = page.getByRole("textbox", { name: s.replyPlaceholder("sms"), exact: true });
+        const reply = page.getByRole("textbox", { name: s.replyPlaceholder, exact: true });
         await reply.fill("Thanks for coming back. Friday at 10 works.");
         const sent = page.waitForResponse(
             (r) => new URL(r.url()).pathname === "/v1/messages" && r.request().method() === "POST",
@@ -697,7 +453,7 @@ test("MSG-E2E-15 a STOP holds against the staff toggle and the preferences page 
         await page.getByRole("button", { name: s.send, exact: true }).click();
         const delivered = await sent;
         expect(delivered.status()).toBe(200);
-        expect(await delivered.json()).toMatchObject({ channel: "sms", status: "sent" });
+        expect(await delivered.json()).toMatchObject({ status: "sent" });
         expect(
             (await clientOutreach(contact.id)).messages.map((m) => [m.direction, m.body, m.status]),
         ).toEqual([

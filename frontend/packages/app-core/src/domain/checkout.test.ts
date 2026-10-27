@@ -1,7 +1,35 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { strings } from "../strings";
-import { paymentErrorMessage } from "./checkout";
+import { createPublicPaymentSetupClient, paymentErrorMessage } from "./checkout";
+
+describe("createPublicPaymentSetupClient", () => {
+    it("sends the payer email only in the Stripe setup start request", async () => {
+        const fetch = vi.fn().mockResolvedValue(
+            new Response(JSON.stringify({ status: "requires_payment_method" }), {
+                status: 200,
+            }),
+        );
+        vi.stubGlobal("fetch", fetch);
+        try {
+            const client = createPublicPaymentSetupClient("https://connect.example");
+            await client.start("setup-token", "payer@example.test");
+            expect(fetch).toHaveBeenCalledWith(
+                "https://connect.example/payment-method/start",
+                expect.objectContaining({
+                    method: "POST",
+                    headers: {
+                        "X-Payment-Setup-Token": "setup-token",
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({ email: "payer@example.test" }),
+                }),
+            );
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+});
 
 describe("paymentErrorMessage", () => {
     it("names the missing Stripe setup when the server answers 503", () => {

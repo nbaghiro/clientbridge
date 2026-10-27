@@ -12,7 +12,7 @@ from clientbridge.main import app
 from clientbridge.models.documents import Form, FormField, FormResponse
 from clientbridge.models.platform import File
 from clientbridge.services.forms import snapshot_form
-from tests.conftest import Factory, FakeEmailSender, FakeFileStorage
+from tests.conftest import Factory, FakeEmailSender, FakeFileStorage, FakeSmsSender
 from tests.helpers import client_id, new_client
 
 BIZ = "bz_birchbark"
@@ -38,7 +38,7 @@ async def _a_response(db: AsyncSession, *, form_id: str = SATISFACTION) -> str:
 
 
 async def test_send_creates_draft_and_notifies(
-    as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
+    as_owner: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender
 ) -> None:
     cid = await new_client(db)
     res = await as_owner.post("/v1/forms/send", json={"form_id": SATISFACTION, "client_id": cid})
@@ -47,13 +47,13 @@ async def test_send_creates_draft_and_notifies(
     assert body["status"] == "draft" and body["token"]
     row = (await db.execute(select(FormResponse).where(FormResponse.id == body["id"]))).scalar_one()
     assert row.business_id == BIZ and row.status == "draft"
-    assert any(f"/form/{body['token']}" in m.body for m in email.sent)
+    assert any(f"/form/{body['token']}" in m.body for m in sms.sent)
 
 
 async def test_send_retry_notifies_once(
-    as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
+    as_owner: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender
 ) -> None:
-    # A same-key retry replays the cached response inside run_command → the client isn't re-emailed.
+    # A same-key retry replays the cached response inside run_command without sending twice.
     cid = await new_client(db)
     headers = {"Idempotency-Key": "form-send-retry-1"}
     first = await as_owner.post(
@@ -64,7 +64,7 @@ async def test_send_retry_notifies_once(
     )
     assert first.status_code == 201 and second.json()["id"] == first.json()["id"]
     token = first.json()["token"]
-    assert sum(f"/form/{token}" in m.body for m in email.sent) == 1
+    assert sum(f"/form/{token}" in m.body for m in sms.sent) == 1
 
 
 async def test_send_unknown_form_404(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
@@ -320,20 +320,21 @@ async def test_form_delivery_survives_provider_connection_failure(
     as_owner: httpx.AsyncClient,
     db: AsyncSession,
     email: FakeEmailSender,
+    sms: FakeSmsSender,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from clientbridge.core import clock
-    from clientbridge.integrations.resend import Email
+    from clientbridge.integrations.twilio import Sms
     from clientbridge.models.messaging import Delivery
     from clientbridge.services.deliveries import run_deliveries
-    from tests.conftest import FakePushSender, FakeSmsSender
+    from tests.conftest import FakePushSender
 
-    original = email.send
+    original = sms.send
 
-    async def offline(_: Email) -> str | None:
+    async def offline(_: Sms) -> str | None:
         raise httpx.ConnectError("provider unavailable")
 
-    monkeypatch.setattr(email, "send", offline)
+    monkeypatch.setattr(sms, "send", offline)
     response = await as_owner.post(
         "/v1/forms/send",
         json={
@@ -349,17 +350,16 @@ async def test_form_delivery_survives_provider_connection_failure(
         )
     )
     assert deliveries and any(row.state == "queued" for row in deliveries)
-    monkeypatch.setattr(email, "send", original)
+    monkeypatch.setattr(sms, "send", original)
     for row in deliveries:
         if row.state == "queued":
             row.next_at = clock.now()
     await db.commit()
-    ours = {row.id for row in deliveries}
 
     def delivered() -> int:
-        return sum(m.tags.get("delivery") in ours for m in email.sent)
+        return len(sms.sent)
 
-    await run_deliveries(db, email, FakeSmsSender(), FakePushSender())
+    await run_deliveries(db, email, sms, FakePushSender())
     assert delivered() == 1
-    await run_deliveries(db, email, FakeSmsSender(), FakePushSender())
+    await run_deliveries(db, email, sms, FakePushSender())
     assert delivered() == 1

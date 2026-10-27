@@ -488,7 +488,7 @@ async def test_customer_creation_has_a_stable_provider_key(
     for name in ("Robin", "Robin Updated"):
         assert (
             await gateway.create_customer(
-                "acct_business", name=name, email=None, idempotency_key="customer:bz_one:cl_one"
+                "acct_business", name=name, idempotency_key="customer:bz_one:cl_one"
             )
             == "cus_client"
         )

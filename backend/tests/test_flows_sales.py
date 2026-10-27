@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.models.catalog import GiftCard, Item, Package
 from clientbridge.services.entitlements import run_expiry_sweeps
-from tests.conftest import FakeEmailSender
+from tests.conftest import FakeSmsSender
 from tests.helpers import (
     business_balance,
     earning_status,
@@ -42,7 +42,7 @@ async def _stock(db: AsyncSession, item_id: str) -> int:
 
 
 async def test_pos_sale_moves_stock_pays_commission_and_refunds(
-    as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
+    as_owner: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender
 ) -> None:
     api = as_owner
     await enable_payments(db)
@@ -57,7 +57,7 @@ async def test_pos_sale_moves_stock_pays_commission_and_refunds(
             "/v1/orders",
             json={
                 "lines": [_line(SHAMPOO, 2400, quantity=2), _line(BATH, 4500)],
-                "receipt_email": "walkin-flow@example.ca",
+                "receipt_phone": "+15145550223",
             },
         ),
         201,
@@ -73,7 +73,7 @@ async def test_pos_sale_moves_stock_pays_commission_and_refunds(
     assert await _stock(db, SHAMPOO) == opening_stock + 3
     [commission] = await earnings(db, "order", sale["id"])
     assert await earning_status(db, commission) == "pending"
-    (receipt,) = [m for m in email.sent if m.to == "walkin-flow@example.ca"]
+    (receipt,) = [m for m in sms.sent if m.to == "+15145550223"]
     assert "it_shampoo x2  $48.00" in receipt.body
 
     await settle(api, db, charge["payment_id"])  # a redelivered settlement changes nothing
@@ -121,7 +121,7 @@ async def test_package_sell_consume_and_expire(
 
 
 async def test_gift_card_sell_redeem_and_expire(
-    as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
+    as_owner: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender
 ) -> None:
     api = as_owner
     await enable_payments(db)
@@ -132,7 +132,7 @@ async def test_gift_card_sell_redeem_and_expire(
                 "amount_cents": 5000,
                 "purchaser_client_id": MARCUS,
                 "payment_method_id": "default",
-                "recipient": "gift-flow@example.ca",
+                "recipient": "+15145550233",
             },
         ),
         201,
@@ -145,7 +145,7 @@ async def test_gift_card_sell_redeem_and_expire(
 
     await settle(api, db, sold["payment_id"])
     assert await gift_card(db, gid) == ("active", 5000)
-    assert any(sold["code"] in m.body for m in email.sent if m.to == "gift-flow@example.ca")
+    assert any(sold["code"] in m.body for m in sms.sent if m.to == "+15145550233")
 
     redeemed = ok(
         await api.post("/v1/gift-cards/redeem", json={"code": sold["code"], "amount_cents": 2000})

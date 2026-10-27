@@ -20,7 +20,6 @@ from sqlalchemy.orm import Mapped, mapped_column
 from clientbridge.core.db import Base
 from clientbridge.models.base import BusinessScoped, PKMixin, TimestampMixin, enum_check
 from clientbridge.models.catalog import TaxClass
-from clientbridge.models.clients import Channel
 
 DiscountKind = Literal["percent", "amount"]
 InvoiceStatus = Literal["draft", "sent", "void"]
@@ -102,7 +101,6 @@ class Order(PKMixin, BusinessScoped, TimestampMixin, Discounted, Base):
         Index("ix_orders_status", "business_id", "status"),
         UniqueConstraint("business_id", "number", name="uq_orders_business_number"),
         enum_check("orders", "discount_kind", DiscountKind, nullable=True),
-        enum_check("orders", "receipt_channel", Channel, nullable=True),
         Index("ix_orders_client", "client_id"),
         Index("ix_orders_staff", "staff_id"),
     )
@@ -115,8 +113,7 @@ class Order(PKMixin, BusinessScoped, TimestampMixin, Discounted, Base):
     subtotal_cents: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
     tax_total_cents: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
     total_cents: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
-    receipt_email: Mapped[str | None] = mapped_column(String)  # where a walk-in's receipt goes
-    receipt_phone: Mapped[str | None] = mapped_column(String)
+    receipt_phone: Mapped[str | None] = mapped_column(String)  # where a walk-in's receipt goes
     source: Mapped[OrderSource] = mapped_column(String, default="pos", nullable=False)
     pickup_status: Mapped[PickupStatus | None] = mapped_column(
         String
@@ -133,7 +130,6 @@ class Order(PKMixin, BusinessScoped, TimestampMixin, Discounted, Base):
     note: Mapped[str | None] = mapped_column(String)  # why a sale was held
     status_token: Mapped[str | None] = mapped_column(String, unique=True)
     receipt_token: Mapped[str | None] = mapped_column(String, unique=True)  # public receipt key
-    receipt_channel: Mapped[Channel | None] = mapped_column(String)
     receipt_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 

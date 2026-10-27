@@ -1,16 +1,20 @@
 import hashlib
 import json
+import logging
 import secrets
 from dataclasses import replace
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 
 import httpx
+from pydantic import ValidationError
 from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
 from clientbridge.core.config import get_settings
+from clientbridge.core.db import is_duplicate
 from clientbridge.core.emails import reserved_email
 from clientbridge.core.errors import AppError, Undelivered, Unprocessable
 from clientbridge.core.ids import new_id
@@ -28,18 +32,26 @@ from clientbridge.integrations.resend import (
 from clientbridge.integrations.twilio import ConsoleSmsSender, Sms, SmsSender
 from clientbridge.models.clients import Client
 from clientbridge.models.messaging import Delivery, DeliveryState, Message, MessageStatus
+from clientbridge.models.platform import Webhook, WebhookStatus
 from clientbridge.schemas.deliveries import (
     DELIVERY_PAYLOAD,
     DeliveryPayload,
     EmailDelivery,
+    EmailEventBody,
+    EmailEventData,
     PushDelivery,
     SmsDelivery,
 )
-from clientbridge.services.consents import emails_withdrawn, stopped_clients
+from clientbridge.services.consents import stopped_clients
 
+_log = logging.getLogger(__name__)
 _LEASE = timedelta(minutes=5)
 _RETRY = timedelta(minutes=1)
 _RETRY_WINDOW = timedelta(hours=23)
+_EMAIL_FAILURES = frozenset(
+    {"email.bounced", "email.failed", "email.suppressed", "email.complained"}
+)
+_EVENT_GRACE = timedelta(minutes=10)
 _QUEUED = "queued_deliveries"
 # the worker function a request wakes for the deliveries it leaves
 DELIVERIES_JOB = "send_deliveries"
@@ -147,10 +159,7 @@ async def dispatch(
         await _follow(db, row, payload)
         await db.commit()
         return False
-    if row.business_id is not None and (
-        await _texts_stopped(db, row.business_id, payload)
-        or await _emails_withdrawn(db, row.business_id, payload)
-    ):
+    if row.business_id is not None and await _texts_stopped(db, row.business_id, payload):
         row.state, row.error, row.next_at = "failed", "consent_withdrawn", None
         await _follow(db, row, payload)
         await db.commit()
@@ -231,7 +240,11 @@ _MESSAGE_STATUS: dict[DeliveryState, MessageStatus] = {
 async def _follow(db: AsyncSession, row: Delivery, payload: DeliveryPayload) -> None:
     """The inbox message a delivery carries takes its outcome, never undoing a later one."""
     status = _MESSAGE_STATUS.get(row.state)
-    if isinstance(payload, PushDelivery) or payload.message_id is None or row.business_id is None:
+    if (
+        not isinstance(payload, SmsDelivery)
+        or payload.message_id is None
+        or row.business_id is None
+    ):
         return
     if status is None:  # still queued for a retry
         return
@@ -258,13 +271,6 @@ async def _texts_stopped(db: AsyncSession, business_id: str, payload: DeliveryPa
         )
     )
     return bool(holders) and bool(await stopped_clients(db, business_id, holders))
-
-
-async def _emails_withdrawn(db: AsyncSession, business_id: str, payload: DeliveryPayload) -> bool:
-    """An email the client can opt out of stays unsent once they have, even after it queued."""
-    if not isinstance(payload, EmailDelivery) or not payload.opt_out or payload.client_id is None:
-        return False
-    return await emails_withdrawn(db, business_id, payload.client_id)
 
 
 def _local_sink(
@@ -322,11 +328,8 @@ class QueuedEmail:
     def __init__(self, queue: DeliveryQueue) -> None:
         self.queue = queue
 
-    async def send(
-        self, email: Email, *, client_id: str | None = None, opt_out: bool = False
-    ) -> str:
-        delivery = EmailDelivery(message=email, client_id=client_id, opt_out=opt_out)
-        return await self.queue.add(delivery, email.tags.get("business"))
+    async def send(self, email: Email) -> str:
+        return await self.queue.add(EmailDelivery(message=email), email.tags.get("business"))
 
 
 class QueuedSms:
@@ -343,3 +346,113 @@ class QueuedPush:
 
     async def send(self, push: Push) -> None:
         await self.queue.add(PushDelivery(message=push))
+
+
+class EmailEventPending(Exception):
+    """Resend reported on a send whose transaction has not committed yet; Svix must retry."""
+
+
+def _is_recent(created_at: datetime | None) -> bool:
+    if created_at is None:
+        return False
+    if created_at.tzinfo is None:
+        created_at = created_at.replace(tzinfo=UTC)
+    return clock.wall() - created_at < _EVENT_GRACE
+
+
+async def _record_event(
+    db: AsyncSession,
+    event_id: str,
+    *,
+    event: str,
+    payload: dict[str, object],
+    status: WebhookStatus,
+) -> bool:
+    """Commit the event row with whatever it changed; False when a twin delivery got there first."""
+    db.add(
+        Webhook(
+            id=event_id,
+            provider="resend",
+            event=event,
+            payload=payload,
+            status=status,
+            processed_at=clock.now(),
+        )
+    )
+    try:
+        await db.commit()
+    except IntegrityError as exc:
+        await db.rollback()
+        if not is_duplicate(exc):  # only a redelivery race may be dropped; anything else must retry
+            raise
+        return False
+    return True
+
+
+async def process_email_event(db: AsyncSession, *, svix_id: str, payload: bytes) -> bool:
+    """Record a Resend event on the delivery it reports; True when it changed the delivery."""
+    event_id = f"resend_{svix_id}"
+    seen = (await db.execute(select(Webhook.id).where(Webhook.id == event_id))).scalar_one_or_none()
+    if seen is not None:
+        return False
+    try:
+        event = EmailEventBody.model_validate_json(payload)
+    except ValidationError as exc:
+        _log.warning("unparseable resend event %s: %s", svix_id, exc)
+        failure: dict[str, object] = {"error": str(exc)[:500]}
+        await _record_event(db, event_id, event="unparsed", payload=failure, status="failed")
+        return False
+    data = event.data or EmailEventData()
+    recipients = [data.to] if isinstance(data.to, str) else list(data.to or [])
+    tags = data.tags or {}
+    email_id = data.email_id or ""
+    delivery = None
+    if tags.get("delivery"):
+        delivery = await db.scalar(
+            select(Delivery)
+            .where(Delivery.id == tags["delivery"])
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+        if delivery is None and _is_recent(event.created_at):
+            raise EmailEventPending(tags["delivery"])
+    elif email_id:
+        delivery = await db.scalar(
+            select(Delivery)
+            .where(Delivery.provider_ref == email_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+    changed = False
+    if (
+        delivery is not None
+        and delivery.payload.get("channel") == "email"
+        and delivery.provider_ref in (None, email_id)
+    ):
+        if event.type == "email.delivered" and delivery.state != "failed":
+            delivery.state, delivery.error = "delivered", None
+            changed = True
+        elif event.type in _EMAIL_FAILURES:
+            delivery.state, delivery.error = "failed", event.type
+            changed = True
+        elif event.type == "email.sent" and delivery.state in ("queued", "sending", "ambiguous"):
+            delivery.state, delivery.error = "accepted", None
+            changed = True
+        if changed:
+            delivery.provider_ref = email_id or delivery.provider_ref
+            delivery.next_at, delivery.claim = None, None
+    detail = ""
+    if data.bounce is not None:
+        detail = data.bounce.sub_type
+    elif data.failed is not None:
+        detail = data.failed.reason
+    summary: dict[str, object] = {
+        "email_id": email_id or None,
+        "to": recipients[0] if recipients else None,
+        "detail": detail,
+        "matched": delivery is not None,
+        "business_id": tags.get("business"),
+    }
+    if not await _record_event(db, event_id, event=event.type, payload=summary, status="processed"):
+        return False
+    return changed

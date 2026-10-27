@@ -7,12 +7,14 @@ import httpx
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core.config import get_settings
+from clientbridge.core.errors import AppError
 from clientbridge.integrations.resend import Email, SmtpEmailSender
-from clientbridge.integrations.twilio import Sms
+from clientbridge.integrations.twilio import Sms, SmtpSmsSender
 from clientbridge.models.messaging import Delivery
 from clientbridge.schemas.deliveries import EmailDelivery, SmsDelivery
 from clientbridge.services.deliveries import dispatch, enqueue
-from tests.conftest import BIZ, FakePushSender, FakeSmsSender
+from tests.conftest import BIZ, FakeEmailSender, FakePushSender, FakeSmsSender
 
 LOOPBACK = str(socket.getaddrinfo(None, 0, socket.AF_INET, socket.SOCK_STREAM)[0][4][0])
 MAIL = EmailDelivery(message=Email(to="pat@example.ca", subject="Payment", body="Receipt"))
@@ -119,3 +121,21 @@ async def test_a_text_the_provider_never_received_is_retried(
     await dispatch(db, identity, sender, sms, push)
     row = await db.get(Delivery, identity)
     assert row is not None and (row.state, row.error) == ("queued", "connection_unavailable")
+
+
+async def test_a_dev_text_lands_in_its_numbers_inbox_under_the_run(
+    email: FakeEmailSender, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    sender = SmtpSmsSender(email)
+    await sender.send(Sms(to="+1 (250) 555-1234", body="Code 123456", from_number="+12365550190"))
+    monkeypatch.setattr(get_settings(), "run_namespace", "0042")
+    await sender.send(Sms(to="+12505551234", body="Reminder", from_number="+12365550190"))
+    await sender.send(Sms(to="+12505550142", body="Fiction", from_number="+12365550190"))
+    assert [(m.to, m.body) for m in email.sent] == [
+        ("12505551234@sms.test", "Code 123456"),
+        ("12505551234+0042@sms.test", "Reminder"),
+        ("12505550142+0042@sms.invalid", "Fiction"),
+    ]
+    with pytest.raises(AppError) as unassigned:
+        await sender.send(Sms(to="+12505551234", body="Hi"))
+    assert unassigned.value.code == "sms_unassigned"

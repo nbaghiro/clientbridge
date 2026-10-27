@@ -1,6 +1,5 @@
 import {
     type DiscountEditor,
-    type ReceiptChannel,
     type SaleDiscount,
     type SalePayMethod,
     type SaleTicket,
@@ -90,7 +89,7 @@ function ClientPicker({ sale }: { sale: SaleTicket }) {
                             density="compact"
                             leading={<Avatar name={c.name} src={photos.client(c.id)} size="sm" />}
                             title={c.name}
-                            detail={formatPhone(c.phone) || (c.email ?? "")}
+                            detail={formatPhone(c.phone)}
                             onPress={() => {
                                 sale.setClientId(c.id);
                                 setSearching(false);
@@ -796,15 +795,13 @@ function MethodDetail({ sale }: { sale: SaleTicket }) {
 
 function ReceiptChooser({ sale }: { sale: SaleTicket }) {
     const r = sale.receipt;
-    const [channel, setChannel] = useState<ReceiptChannel>(
-        sale.client?.phone != null ? "sms" : "email",
+    const [choice, setChoice] = useState<"sms" | "none">(
+        sale.client?.phone != null ? "sms" : "none",
     );
     if (r.sent !== null) {
         return (
             <Notice tone="success" banner>
-                {r.sent === "none"
-                    ? d.receiptSkipped
-                    : d.receiptSent(r.sent === "email" ? r.email : r.phone)}
+                {r.sent === "none" ? d.receiptSkipped : d.receiptSent(r.phone)}
             </Notice>
         );
     }
@@ -815,13 +812,12 @@ function ReceiptChooser({ sale }: { sale: SaleTicket }) {
                 label={d.receiptTitle}
                 options={[
                     { key: "sms", label: d.receiptText },
-                    { key: "email", label: d.receiptEmail },
                     { key: "none", label: d.receiptNone },
                 ]}
-                value={channel}
-                onChange={setChannel}
+                value={choice}
+                onChange={setChoice}
             />
-            {channel === "none" ? (
+            {choice === "none" ? (
                 <Button
                     variant="outline"
                     onPress={() => {
@@ -833,30 +829,21 @@ function ReceiptChooser({ sale }: { sale: SaleTicket }) {
             ) : (
                 <div className="flex items-end gap-2">
                     <div className="flex-1">
-                        {channel === "email" ? (
-                            <TextField
-                                label={d.receiptEmailTo}
-                                type="email"
-                                value={r.email}
-                                onChange={r.setEmail}
-                            />
-                        ) : (
-                            <TextField
-                                label={d.receiptPhoneTo}
-                                type="tel"
-                                value={r.phone}
-                                onChange={r.setPhone}
-                            />
-                        )}
+                        <TextField
+                            label={d.receiptPhoneTo}
+                            type="tel"
+                            value={r.phone}
+                            onChange={r.setPhone}
+                        />
                     </div>
                     <Button
                         variant="outline"
                         busy={r.busy}
                         onPress={() => {
-                            r.send(channel);
+                            r.send(choice);
                         }}
                     >
-                        {channel === "email" ? d.sendEmail : d.sendText}
+                        {d.sendText}
                     </Button>
                 </div>
             )}

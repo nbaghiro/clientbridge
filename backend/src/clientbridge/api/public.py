@@ -26,11 +26,7 @@ from clientbridge.schemas.billing import (
     PublicEstimateAccept,
     PublicEstimateDecline,
 )
-from clientbridge.schemas.consents import (
-    PublicPreferences,
-    PublicPreferencesUpdate,
-    PublicUnsubscribe,
-)
+from clientbridge.schemas.consents import PublicPreferences, PublicPreferencesUpdate
 from clientbridge.schemas.contracts import PublicContractContext, PublicContractSign
 from clientbridge.schemas.files import PublicFileComplete, PublicFileCreate, PublicFileUpload
 from clientbridge.schemas.forms import PublicFormContext, PublicFormSubmit
@@ -40,6 +36,7 @@ from clientbridge.schemas.payments import (
     PublicInvoice,
     PublicPayIn,
     PublicPaymentSetup,
+    PublicPaymentSetupStart,
 )
 from clientbridge.schemas.public import (
     ManageCancelResult,
@@ -239,10 +236,8 @@ async def public_preferences_save(
 
 
 @prefs_router.post("/{token}/unsubscribe", response_model=PublicPreferences)
-async def public_unsubscribe(
-    token: str, body: PublicUnsubscribe, db: DbSession, _: PrefsRateLimited
-) -> PublicPreferences:
-    return await PublicPreferencesService(db).unsubscribe(token, body.channel)
+async def public_unsubscribe(token: str, db: DbSession, _: PrefsRateLimited) -> PublicPreferences:
+    return await PublicPreferencesService(db).unsubscribe(token)
 
 
 booking_router = APIRouter(prefix="/book", tags=["public-booking"])
@@ -518,7 +513,12 @@ async def public_payment_setup(
 
 @payment_setup_router.post("/start", response_model=PublicPaymentSetup)
 async def public_payment_setup_start(
-    token: SetupToken, db: DbSession, gateway: GatewayDep, response: Response, _: BookingRateLimited
+    token: SetupToken,
+    body: PublicPaymentSetupStart,
+    db: DbSession,
+    gateway: GatewayDep,
+    response: Response,
+    _: BookingRateLimited,
 ) -> PublicPaymentSetup:
     response.headers["Referrer-Policy"] = "no-referrer"
-    return await PublicPaymentSetupService(db, gateway).view(token, start=True)
+    return await PublicPaymentSetupService(db, gateway).view(token, payer_email=body.email)

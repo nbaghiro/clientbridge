@@ -156,7 +156,7 @@ interface BookingInput {
     itemId: string;
     staffId: string;
     startsAt: string;
-    client: { name: string; email: string | null; phone: string | null };
+    client: { name: string; phone: string | null };
     subjectName: string;
     subjectAddress: string;
     note: string;
@@ -525,23 +525,20 @@ export function addsLabel(addon: PublicAddon): string | null {
     return minutes > 0 ? s.addsTime(durationLabel(minutes)) : null;
 }
 
-const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
 /** The details step's problems; the subject is asked for only when the business books one. */
 export function detailErrors(
-    d: { name: string; phone: string; email: string; subjectName: string; subjectAddress: string },
+    d: { name: string; phone: string; subjectName: string; subjectAddress: string },
     kind: SubjectKind | null,
     existingSubject: boolean,
-): Record<"name" | "contact" | "email" | "subject" | "address", string | null> {
+): Record<"name" | "contact" | "subject" | "address", string | null> {
     return {
         name: d.name.trim() === "" ? s.nameRequired : null,
         contact:
-            d.phone.trim() === "" && d.email.trim() === ""
+            d.phone.trim() === ""
                 ? s.contactRequired
-                : d.phone.trim() !== "" && normalizePhone(d.phone) === null
+                : normalizePhone(d.phone) === null
                   ? s.phoneInvalid
                   : null,
-        email: d.email.trim() !== "" && !EMAIL.test(d.email.trim()) ? s.emailInvalid : null,
         subject: kind !== null && d.subjectName.trim() === "" ? s.subjectRequired(kind) : null,
         address:
             kind !== null && isPlace(kind) && !existingSubject && d.subjectAddress.trim() === ""
@@ -593,7 +590,6 @@ export function usePublicBookingFlow(
     const [addons, setAddons] = useState<Record<string, number>>({});
     const [name, setName] = useState(draft.name ?? "");
     const [phone, setPhone] = useState(draft.phone ?? "");
-    const [email, setEmail] = useState(draft.email ?? "");
     const [subjectName, setSubjectName] = useState(draft.subjectName ?? "");
     const [subjectAddress, setSubjectAddress] = useState(draft.subjectAddress ?? "");
     const [returningToken, setReturningToken] = useState<string | null>(null);
@@ -617,7 +613,6 @@ export function usePublicBookingFlow(
                       startsAt,
                       name,
                       phone,
-                      email,
                       subjectName,
                       subjectAddress,
                       note,
@@ -632,7 +627,6 @@ export function usePublicBookingFlow(
         startsAt,
         name,
         phone,
-        email,
         subjectName,
         subjectAddress,
         note,
@@ -783,7 +777,7 @@ export function usePublicBookingFlow(
     const currency = service?.currency ?? BUSINESS_CURRENCY;
 
     const errors = detailErrors(
-        { name, phone, email, subjectName, subjectAddress },
+        { name, phone, subjectName, subjectAddress },
         kind,
         subjectId !== null,
     );
@@ -832,7 +826,6 @@ export function usePublicBookingFlow(
             startsAt: slot.starts_at,
             client: {
                 name: name.trim(),
-                email: email.trim() || null,
                 phone: normalizePhone(phone),
             },
             subjectName: kind === null ? "" : subjectName.trim(),
@@ -1054,11 +1047,6 @@ export function usePublicBookingFlow(
                 setPhone(value);
                 clearReturning();
             },
-            email,
-            setEmail: (value: string): void => {
-                setEmail(value);
-                clearReturning();
-            },
             subjectName,
             setSubjectName: (value: string): void => {
                 setSubjectName(value);
@@ -1075,9 +1063,7 @@ export function usePublicBookingFlow(
         },
         kind,
         notePlaceholder: s.notePlaceholder(kind ?? NO_SUBJECT),
-        errors: touched
-            ? errors
-            : { name: null, contact: null, email: null, subject: null, address: null },
+        errors: touched ? errors : { name: null, contact: null, subject: null, address: null },
         totals: {
             service: formatMoney(serviceCents, currency),
             addons: formatMoney(addonsCents, currency),

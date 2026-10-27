@@ -134,7 +134,7 @@ export function SendReview({ request, document, onResolve }: SendReviewProps) {
 
 function Outgoing({ preview }: { preview: OutgoingPreview }) {
     const s = strings.ui.review;
-    if (preview.email === null && preview.text === null)
+    if (preview.text === null)
         return (
             <Notice tone="info" banner>
                 {s.nothingSent}
@@ -142,25 +142,10 @@ function Outgoing({ preview }: { preview: OutgoingPreview }) {
         );
     return (
         <div className="space-y-3">
-            {preview.email !== null ? (
-                <div className="overflow-hidden rounded-lg border border-line">
-                    <div className="border-b border-line bg-head px-4 py-2.5">
-                        <p className="text-xs text-muted">{s.emailTo(preview.email.to)}</p>
-                        <p className="text-sm font-semibold text-ink">{preview.email.subject}</p>
-                    </div>
-                    <p className="whitespace-pre-line px-4 py-3 text-sm leading-relaxed text-ink-soft">
-                        {preview.email.body}
-                    </p>
-                </div>
-            ) : null}
-            {preview.text !== null ? (
-                <div className="rounded-lg bg-bg p-4">
-                    <p className="mb-2 text-xs text-muted">
-                        {s.textTo(formatPhone(preview.text.to))}
-                    </p>
-                    <MessageBubble direction="out" width="full" body={preview.text.body} />
-                </div>
-            ) : null}
+            <div className="rounded-lg bg-bg p-4">
+                <p className="mb-2 text-xs text-muted">{s.textTo(formatPhone(preview.text.to))}</p>
+                <MessageBubble direction="out" width="full" body={preview.text.body} />
+            </div>
         </div>
     );
 }

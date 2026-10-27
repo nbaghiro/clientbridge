@@ -9,6 +9,7 @@ import {
 import { demoPerson } from "@clientbridge/config/e2e/demo";
 import { expect, type Page } from "@playwright/test";
 
+import { freshPhone } from "./auth";
 import { select } from "./db";
 import { requireLocalMail } from "./evidence";
 import { navigate } from "./session";
@@ -17,7 +18,7 @@ import { runEmail, runUrl } from "@clientbridge/config/e2e/run";
 export interface BookingFixture {
     clientId: string;
     clientName: string;
-    clientEmail: string;
+    clientPhone: string;
     itemId: string;
     itemName: string;
     staffId: string;
@@ -49,7 +50,7 @@ export async function createBookingFixture(
     const api = bookingApi();
     const run = randomUUID();
     const clientName = demoPerson(run);
-    const clientEmail = runEmail(`booking-${run}@example.ca`);
+    const clientPhone = freshPhone();
     const itemName = `Coat care for ${clientName}`;
     const headers = { Origin: new URL(page.url()).origin, "Idempotency-Key": randomUUID() };
     const team = await page.request.get(`${api}/v1/staff/team`);
@@ -62,7 +63,7 @@ export async function createBookingFixture(
     if (!staff) throw new Error("The Birch & Bark owner fixture is missing");
     const client = await page.request.post(`${api}/v1/clients`, {
         headers,
-        data: { name: clientName, email: clientEmail, preferred_channel: "email" },
+        data: { name: clientName, phone: clientPhone },
     });
     expect(client.status(), await client.text()).toBe(201);
     const item = await page.request.post(`${api}/v1/items`, {
@@ -81,7 +82,7 @@ export async function createBookingFixture(
     return {
         clientId: ((await client.json()) as { id: string }).id,
         clientName,
-        clientEmail,
+        clientPhone,
         itemId: ((await item.json()) as { id: string }).id,
         itemName,
         staffId: staff.id,
@@ -93,7 +94,7 @@ export async function createBookingFixture(
 export async function fillBookingComposer(page: Page, fixture: BookingFixture): Promise<void> {
     await navigate(page, "/schedule?new=1");
     const form = page.getByRole("form", { name: strings.bookings.composerTitle });
-    await form.getByRole("searchbox").fill(fixture.clientEmail);
+    await form.getByRole("searchbox").fill(fixture.clientName);
     await form
         .getByRole("button")
         .filter({ has: page.getByText(fixture.clientName, { exact: true }) })

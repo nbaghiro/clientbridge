@@ -597,68 +597,68 @@ FEEDBACK_FIELDS: tuple[DocField, ...] = (
     ("book_again", "checkbox", "I'd get tattooed here again", None, False, ()),
 )
 
-# key, name, preferred channel, days since they first came in (None: dated by their bookings)
-CLIENTS: tuple[tuple[str, str, str, int | None], ...] = (
-    ("noor", "Noor El Amrani", "email", None),
-    ("tomas", "Tomás Castillo", "sms", None),
-    ("brady", "Brady Kowalski", "sms", None),
-    ("anika", "Anika Sharma", "sms", -430),
-    ("kenji", "Kenji Nakamura", "sms", -260),
-    ("jordan", "Jordan Hale", "sms", None),
-    ("lucia", "Lucía Ortega", "email", -310),
-    ("hana", "Hana Park", "sms", None),
-    ("olu", "Oluwaseun Adeyemi", "email", -390),
-    ("graham", "Graham Fraser", "email", None),
-    ("aiden", "Aiden Murphy", "sms", -520),
-    ("mateo", "Mateo Silva", "sms", -350),
-    ("jaspreet", "Jaspreet Gill", "sms", -470),
-    ("harjot", "Harjot Dhaliwal", "sms", -290),
-    ("linh", "Linh Tran", "sms", -400),
-    ("minh", "Minh Nguyen", "sms", -330),
-    ("rosa", "Rosa Ibarra", "email", -560),
-    ("camille", "Camille Tremblay", "email", -480),
-    ("ethan", "Ethan Lau", "sms", -240),
-    ("chloe", "Chloe Lam", "sms", -300),
-    ("farid", "Farid Azizi", "email", -540),
-    ("shirin", "Shirin Moradi", "sms", -270),
-    ("marisol", "Marisol Cruz", "sms", -450),
-    ("joel", "Joel Santos", "sms", -380),
-    ("kai", "Kai Thompson", "sms", None),
-    ("tala", "Tala Joseph", "sms", -320),
-    ("dev", "Dev Kapoor", "sms", None),
-    ("simran", "Simran Bains", "sms", -260),
-    ("yuna", "Yuna Kim", "sms", -230),
-    ("jihoon", "Ji-hoon Choi", "sms", -410),
-    ("isabel", "Isabel Cruz", "email", -360),
-    ("nathan", "Nathan Bergeron", "sms", -500),
-    ("sofia", "Sofia Petrov", "sms", -280),
-    ("emeka", "Emeka Okeke", "sms", -440),
-    ("zoe", "Zoe Lachance", "email", -510),
-    ("liam", "Liam Byrne", "sms", -340),
-    ("maya", "Maya Goldstein", "email", -420),
-    ("arjun", "Arjun Rao", "sms", -390),
-    ("amelia", "Amelia Hughes", "email", -460),
-    ("ronan", "Ronan Fitzgerald", "sms", None),
-    ("bea", "Beatriz Lopes", "sms", None),
-    ("wei", "Wei Tan", "sms", -370),
-    ("xin", "Xinyi Liu", "sms", -250),
-    ("leon", "Leon Fischer", "email", -490),
-    ("parisa", "Parisa Ahmadi", "sms", -300),
-    ("dante", "Dante Morales", "sms", -530),
-    ("ivy", "Ivy Chan", "email", -550),
-    ("omar", "Omar Nasser", "sms", -310),
-    ("jessie", "Jessie Tsang", "sms", -240),
-    ("ruby", "Ruby Arora", "sms", -220),
-    ("cole", "Cole Anderson", "sms", -280),
-    ("naomi", "Naomi Ito", "email", -430),
-    ("ana", "Ana Mendoza", "sms", None),
-    ("theo", "Theo Russo", "sms", -500),
-    ("kiana", "Kiana Wilson", "sms", None),
-    ("raj", "Raj Patel", "sms", -360),
-    ("eli", "Eli Cohen", "sms", None),
-    ("mira", "Mira Novak", "sms", None),
-    ("sam", "Sam Okoro", "sms", None),
-    ("tess", "Tess MacDonald", "sms", None),
+# key, name, days since they first came in (None: dated by their bookings)
+CLIENTS: tuple[tuple[str, str, int | None], ...] = (
+    ("noor", "Noor El Amrani", None),
+    ("tomas", "Tomás Castillo", None),
+    ("brady", "Brady Kowalski", None),
+    ("anika", "Anika Sharma", -430),
+    ("kenji", "Kenji Nakamura", -260),
+    ("jordan", "Jordan Hale", None),
+    ("lucia", "Lucía Ortega", -310),
+    ("hana", "Hana Park", None),
+    ("olu", "Oluwaseun Adeyemi", -390),
+    ("graham", "Graham Fraser", None),
+    ("aiden", "Aiden Murphy", -520),
+    ("mateo", "Mateo Silva", -350),
+    ("jaspreet", "Jaspreet Gill", -470),
+    ("harjot", "Harjot Dhaliwal", -290),
+    ("linh", "Linh Tran", -400),
+    ("minh", "Minh Nguyen", -330),
+    ("rosa", "Rosa Ibarra", -560),
+    ("camille", "Camille Tremblay", -480),
+    ("ethan", "Ethan Lau", -240),
+    ("chloe", "Chloe Lam", -300),
+    ("farid", "Farid Azizi", -540),
+    ("shirin", "Shirin Moradi", -270),
+    ("marisol", "Marisol Cruz", -450),
+    ("joel", "Joel Santos", -380),
+    ("kai", "Kai Thompson", None),
+    ("tala", "Tala Joseph", -320),
+    ("dev", "Dev Kapoor", None),
+    ("simran", "Simran Bains", -260),
+    ("yuna", "Yuna Kim", -230),
+    ("jihoon", "Ji-hoon Choi", -410),
+    ("isabel", "Isabel Cruz", -360),
+    ("nathan", "Nathan Bergeron", -500),
+    ("sofia", "Sofia Petrov", -280),
+    ("emeka", "Emeka Okeke", -440),
+    ("zoe", "Zoe Lachance", -510),
+    ("liam", "Liam Byrne", -340),
+    ("maya", "Maya Goldstein", -420),
+    ("arjun", "Arjun Rao", -390),
+    ("amelia", "Amelia Hughes", -460),
+    ("ronan", "Ronan Fitzgerald", None),
+    ("bea", "Beatriz Lopes", None),
+    ("wei", "Wei Tan", -370),
+    ("xin", "Xinyi Liu", -250),
+    ("leon", "Leon Fischer", -490),
+    ("parisa", "Parisa Ahmadi", -300),
+    ("dante", "Dante Morales", -530),
+    ("ivy", "Ivy Chan", -550),
+    ("omar", "Omar Nasser", -310),
+    ("jessie", "Jessie Tsang", -240),
+    ("ruby", "Ruby Arora", -220),
+    ("cole", "Cole Anderson", -280),
+    ("naomi", "Naomi Ito", -430),
+    ("ana", "Ana Mendoza", None),
+    ("theo", "Theo Russo", -500),
+    ("kiana", "Kiana Wilson", None),
+    ("raj", "Raj Patel", -360),
+    ("eli", "Eli Cohen", None),
+    ("mira", "Mira Novak", None),
+    ("sam", "Sam Okoro", None),
+    ("tess", "Tess MacDonald", None),
 )
 SOURCES = ("instagram", "a friend", "google", "walk-in", "instagram")
 # each artist's regular custom clients
@@ -806,11 +806,6 @@ CONDITIONS: dict[str, tuple[list[str], str, list[str], str]] = {
     "graham": ([], "Low-dose aspirin, daily.", [], ""),
     "hana": ([], "None.", ["Nickel or other metals"], ""),
 }
-
-
-def _email(name: str) -> str:
-    plain = name.translate(str.maketrans("áí", "ai")).replace("'", "").replace("-", "")
-    return ".".join(plain.lower().split()) + "@example.test"
 
 
 def _clock(when: datetime) -> str:
@@ -1062,13 +1057,11 @@ class Inkwell(Demo):
         )
 
     def clients(self) -> None:
-        for index, (key, name, channel, since) in enumerate(CLIENTS):
+        for index, (key, name, since) in enumerate(CLIENTS):
             self.client(
                 key,
                 name,
-                _email(name),
                 f"+1672555{100 + index:04}",
-                channel="email" if channel == "email" else "sms",
                 fields={"source": SOURCES[index % len(SOURCES)]},
                 since=None if since is None else self.at(since, 12),
             )
@@ -1556,11 +1549,11 @@ class Inkwell(Demo):
         )
         due = self.ctx.get(Invoice, booking.invoice_id or "").due_at
         assert due is not None
-        thread = self.thread("mateo", "sms", due + timedelta(days=2, hours=2))
+        thread = self.thread("mateo", due + timedelta(days=2, hours=2))
         self.say(
             thread,
             "Hi Mateo, it's Harleen at Inkwell. The balance for your session with Kieran is now "
-            "past due. You can pay it by card from the link in your invoice email, or by "
+            "past due. You can pay it by card from the invoice link, or by "
             "e-transfer to hello@inkwell.example.",
             due + timedelta(days=2, hours=2),
         )
@@ -1786,7 +1779,7 @@ class Inkwell(Demo):
 
     def engagement(self) -> None:
         self.consents()
-        self.withdraw("liam", "email", self.at(-40, 9))
+        self.withdraw("liam", self.at(-40, 9))
         flash = self.ctx.get(Booking, "bk_iw_flashday_jordan")
         day = self.local(flash.starts_at)
         self.broadcast(
@@ -1806,7 +1799,7 @@ class Inkwell(Demo):
         consult = ctx.get(Booking, "bk_iw_noor_consult")
         assert consult.completed_at is not None
         when = consult.completed_at + timedelta(hours=20)
-        thread = self.thread("noor", "email", when)
+        thread = self.thread("noor", when)
         self.say(
             thread,
             "Hi, thanks for the consultation yesterday. How soon could Mei start? I'm free most "
@@ -1823,7 +1816,7 @@ class Inkwell(Demo):
         )
         tomas = ctx.get(Booking, "bk_iw_tomas")
         first = tomas.created_at + timedelta(days=2)
-        thread = self.thread("tomas", "sms", first)
+        thread = self.thread("tomas", first)
         self.say(
             thread,
             "Hi, it's Tomás. Something came up for my session with Kieran. Is there anything a "
@@ -1840,7 +1833,7 @@ class Inkwell(Demo):
         self.say(thread, "Perfect, thank you.", first + timedelta(minutes=25), sender=None)
         brady = ctx.get(Booking, "bk_iw_brady")
         when = brady.starts_at + timedelta(minutes=30)
-        thread = self.thread("brady", "sms", when)
+        thread = self.thread("brady", when)
         self.say(
             thread,
             f"Hi Brady, we had you booked with Sasha at {_clock(self.local(brady.starts_at))} "
@@ -1851,7 +1844,7 @@ class Inkwell(Demo):
         anika = ctx.get(Booking, "bk_iw_anika_2")
         if anika.completed_at is not None:
             when = anika.completed_at + timedelta(hours=18)
-            thread = self.thread("anika", "sms", when)
+            thread = self.thread("anika", when)
             self.say(
                 thread,
                 "Thank you, Sasha. It's healing well and the film came off this morning. See you "
@@ -1868,7 +1861,7 @@ class Inkwell(Demo):
             )
         kenji = ctx.get(Booking, "bk_iw_kenji")
         when = min(kenji.starts_at - timedelta(hours=26), self.now - timedelta(hours=3))
-        thread = self.thread("kenji", "sms", when)
+        thread = self.thread("kenji", when)
         self.say(
             thread,
             f"Hi Kenji, a reminder of your four-hour session with "
@@ -1885,7 +1878,7 @@ class Inkwell(Demo):
         self.say(thread, "Of course. See you then.", when + timedelta(minutes=48))
         hana = ctx.get(Booking, "bk_iw_hana_touchup")
         when = hana.created_at - timedelta(minutes=30)
-        thread = self.thread("hana", "sms", when)
+        thread = self.thread("hana", when)
         self.say(
             thread,
             "Hi, two petals on my ankle look a bit patchy now that it's healed. Is the touch-up "
@@ -1902,7 +1895,7 @@ class Inkwell(Demo):
         graham = next((r for r in ctx.all(FormResponse) if r.id == "fr_iw_feedback_graham"), None)
         if graham is not None and graham.submitted_at is not None:
             when = graham.submitted_at + timedelta(hours=5)
-            thread = self.thread("graham", "email", when)
+            thread = self.thread("graham", when)
             self.say(
                 thread,
                 "Thank you for the kind words about the piece, Graham, and for telling us about "

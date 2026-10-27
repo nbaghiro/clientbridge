@@ -34,7 +34,7 @@ async def _online(api: httpx.AsyncClient, db: AsyncSession, item_id: str) -> dic
         "item_id": item_id,
         "staff_id": "any",
         "starts_at": FIRST,
-        "client": {"name": "Rosa Diaz", "email": "rosa@clients.test"},
+        "client": {"name": "Rosa Diaz", "phone": "+16045550174"},
         "subject_name": "Biscuit",
     }
     res = await api.post("/book/birchbark", json=body, headers=key())

@@ -4,7 +4,6 @@ from typing import Annotated
 from fastapi import APIRouter, Query
 
 from clientbridge.core.deps import CurrentPrincipal, DbSession
-from clientbridge.models.billing import Channel
 from clientbridge.schemas.previews import OutgoingPreview
 from clientbridge.services.previews import PreviewService
 
@@ -35,12 +34,11 @@ async def estimate_send(
 @router.get("/orders/{order_id}/receipt", response_model=OutgoingPreview)
 async def order_receipt(
     order_id: str,
-    channel: Channel,
-    to: Annotated[str, Query(min_length=3, max_length=200)],
+    to: Annotated[str, Query(min_length=7, max_length=20)],
     principal: CurrentPrincipal,
     db: DbSession,
 ) -> OutgoingPreview:
-    return await PreviewService(db, principal).order_receipt(order_id, channel, to)
+    return await PreviewService(db, principal).order_receipt(order_id, to)
 
 
 @router.get("/orders/{order_id}/ready", response_model=OutgoingPreview)

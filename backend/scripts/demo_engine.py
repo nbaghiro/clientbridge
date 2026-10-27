@@ -24,7 +24,7 @@ from clientbridge.models.catalog import (
     Subscription,
     SubscriptionStatus,
 )
-from clientbridge.models.clients import Channel, Client, Consent, Note, NoteParent, Subject
+from clientbridge.models.clients import Client, Consent, Note, NoteParent, Subject
 from clientbridge.models.documents import (
     Contract,
     Form,
@@ -401,11 +401,9 @@ class Demo:
         self,
         key: str,
         name: str,
-        email: str | None,
         phone: str | None,
         *,
         tags: list[str] | None = None,
-        channel: Channel = "sms",
         fields: dict[str, object] | None = None,
         subject: str | None = None,
         attributes: dict[str, object] | None = None,
@@ -417,11 +415,9 @@ class Demo:
             business_id=self.spec.id,
             created_by=self.spec.owner,
             name=name,
-            email=email,
             phone=phone,
             tags=tags or [],
             status="active",
-            preferred_channel=channel,
             custom_fields=fields or {},
         )
         if since is not None:
@@ -1262,7 +1258,6 @@ class Demo:
             source="pos",
             paid_at=paid,
             receipt_token=f"demo_receipt_ord_{self.code}_{key}",
-            receipt_channel="email",
             receipt_sent_at=paid + timedelta(minutes=1),
             created_at=created,
             updated_at=paid,
@@ -1469,32 +1464,29 @@ class Demo:
     def consents(self) -> None:
         ctx = self.ctx
         for index, client in enumerate(sorted(ctx.all(Client), key=lambda c: c.id)):
+            if index % 3 == 2:
+                continue
             online = any(b.source == "online" for b in ctx.all(Booking) if b.client_id == client.id)
-            for channel, wanted in (("email", index % 5 != 4), ("sms", index % 3 != 2)):
-                if not wanted:
-                    continue
-                ctx.add(
-                    Consent(
-                        id=f"cns_{client.id}_{channel}",
-                        business_id=self.spec.id,
-                        client_id=client.id,
-                        channel=channel,
-                        status="granted",
-                        source="online_booking" if online else "in_person",
-                        recorded_by=None if online else self.spec.owner,
-                        created_at=client.created_at,
-                        updated_at=client.created_at,
-                    )
+            ctx.add(
+                Consent(
+                    id=f"cns_{client.id}",
+                    business_id=self.spec.id,
+                    client_id=client.id,
+                    status="granted",
+                    source="online_booking" if online else "in_person",
+                    recorded_by=None if online else self.spec.owner,
+                    created_at=client.created_at,
+                    updated_at=client.created_at,
                 )
+            )
 
-    def withdraw(self, client_key: str, channel: Channel, when: datetime) -> None:
+    def withdraw(self, client_key: str, when: datetime) -> None:
         client_id = self.client_id(client_key)
         self.ctx.add(
             Consent(
-                id=f"cns_{client_id}_{channel}_withdrawn",
+                id=f"cns_{client_id}_withdrawn",
                 business_id=self.spec.id,
                 client_id=client_id,
-                channel=channel,
                 status="withdrawn",
                 source="unsubscribe",
                 created_at=when,
@@ -1502,15 +1494,14 @@ class Demo:
             )
         )
 
-    def thread(self, client_key: str, channel: Channel, when: datetime) -> Thread:
-        thread_id = f"th_{self.code}_{client_key}_{channel}"
+    def thread(self, client_key: str, when: datetime) -> Thread:
+        thread_id = f"th_{self.code}_{client_key}"
         found = next((t for t in self.ctx.all(Thread) if t.id == thread_id), None)
         if found is None:
             found = Thread(
                 id=thread_id,
                 business_id=self.spec.id,
                 client_id=self.client_id(client_key),
-                channel=channel,
                 status="open",
                 created_at=when,
                 updated_at=when,
@@ -1540,7 +1531,6 @@ class Demo:
                 business_id=self.spec.id,
                 thread_id=thread.id,
                 direction="in" if incoming else "out",
-                channel=thread.channel,
                 sent_by=sender,
                 body=body,
                 status="read" if incoming else "delivered",
@@ -1553,16 +1543,14 @@ class Demo:
         thread.updated_at = max(thread.updated_at, when)
 
     def broadcast(self, key: str, name: str, body: str, when: datetime) -> Broadcast:
-        """An email to every client whose consent allowed marketing at the time."""
+        """A text to every client whose SMS consent allowed marketing at the time."""
         ctx = self.ctx
         opened = self.at(self.spec.catalog_day)
-        candidates = [c for c in ctx.all(Client) if (c.created_at or opened) <= when and c.email]
+        candidates = [c for c in ctx.all(Client) if (c.created_at or opened) <= when and c.phone]
         recipients: list[Client] = []
         for client in candidates:
             history = [
-                c
-                for c in ctx.all(Consent)
-                if c.client_id == client.id and c.channel == "email" and c.created_at <= when
+                c for c in ctx.all(Consent) if c.client_id == client.id and c.created_at <= when
             ]
             consent = max(history, key=lambda c: (c.created_at, c.id), default=None)
             if allows_marketing(consent, when):
@@ -1572,7 +1560,6 @@ class Demo:
             business_id=self.spec.id,
             created_by=self.spec.owner,
             name=name,
-            channel="email",
             body=body,
             audience={"all": True},
             status="sent",
@@ -1584,7 +1571,7 @@ class Demo:
         )
         ctx.add(broadcast)
         for index, client in enumerate(sorted(recipients, key=lambda c: c.id)):
-            thread = self.thread(client.id.removeprefix(f"cl_{self.code}_"), "email", when)
+            thread = self.thread(client.id.removeprefix(f"cl_{self.code}_"), when)
             self.say(
                 thread,
                 body,

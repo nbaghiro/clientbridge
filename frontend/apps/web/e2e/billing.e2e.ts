@@ -1,4 +1,4 @@
-import { strings } from "@clientbridge/app-core/public";
+import { formatPhone, strings } from "@clientbridge/app-core/public";
 import { expect } from "@playwright/test";
 import {
     createInvoice,
@@ -19,7 +19,7 @@ import {
 import { paymentEvidence, receiptMessages } from "./support/evidence";
 import { signIn, test } from "./support/session";
 import { randomUUID } from "node:crypto";
-import { demoId, runEmail, runUrl } from "@clientbridge/config/e2e/run";
+import { demoId, runUrl } from "@clientbridge/config/e2e/run";
 
 test("BILL-PILOT-01 cash payment persists and reaches an independent replica", async ({
     page,
@@ -87,9 +87,9 @@ test("BILL-PILOT-01 cash payment persists and reaches an independent replica", a
                     .reduce((sum, entry) => sum + entry.amount_cents, 0),
             ).toBe(0);
             await expect
-                .poll(async () => (await receiptMessages(page.request, invoice.email)).length)
+                .poll(async () => (await receiptMessages(page.request, invoice.phone)).length)
                 .toBe(1);
-            expect((await receiptMessages(page.request, invoice.email))[0]?.Snippet).toContain(
+            expect((await receiptMessages(page.request, invoice.phone))[0]?.Snippet).toContain(
                 "$10.00",
             );
         });
@@ -155,9 +155,9 @@ test.describe(() => {
                     .reduce((sum, entry) => sum + entry.amount_cents, 0),
             ).toBe(600);
             await expect
-                .poll(async () => (await receiptMessages(page.request, invoice.email)).length)
+                .poll(async () => (await receiptMessages(page.request, invoice.phone)).length)
                 .toBe(1);
-            expect((await receiptMessages(page.request, invoice.email))[0]?.Snippet).toContain(
+            expect((await receiptMessages(page.request, invoice.phone))[0]?.Snippet).toContain(
                 "$4.00",
             );
             await testInfo.attach("committed-evidence", {
@@ -309,7 +309,9 @@ test.describe(() => {
             const review = page.getByRole("dialog").filter({
                 has: page.getByRole("heading", { name: strings.previews.title, exact: true }),
             });
-            await expect(review.getByText(client.email, { exact: false }).first()).toBeVisible();
+            await expect(
+                review.getByText(formatPhone(client.phone), { exact: false }).first(),
+            ).toBeVisible();
             await review.getByRole("button", { name: strings.common.cancel, exact: true }).click();
             expect((await documentEvidence("invoice", draft.id)).document.status).toBe("draft");
             expect((await paymentEvidence(draft.id)).entries).toEqual([]);
@@ -557,7 +559,7 @@ test.describe(() => {
         const client = {
             id: demoId("cl_marcus"),
             name: "Marcus Bennett",
-            email: runEmail("marcus.b@example.test"),
+            phone: "+12505550181",
         };
         expect(draft.client_id).toBe(client.id);
 

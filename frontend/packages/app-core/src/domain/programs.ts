@@ -84,7 +84,7 @@ WHERE r.client_id IS NULL AND r.status = 'active' AND s.status != 'canceled'`;
 
 export const PROGRAM_SEATS_SQL = `
 SELECT b.id AS booking_id, b.slot_id, s.recurrence_id, s.starts_at, b.client_id, b.subject_id,
-       c.name AS client_name, c.phone AS client_phone, c.email AS client_email,
+       c.name AS client_name, c.phone AS client_phone,
        sj.name AS subject_name, sj.attributes AS subject_attributes, b.status, b.checked_in_at,
        b.deposit_status, b.price_cents
 FROM bookings b JOIN slots s ON s.id = b.slot_id JOIN recurrences r ON r.id = s.recurrence_id

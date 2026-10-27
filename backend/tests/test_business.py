@@ -15,7 +15,6 @@ from clientbridge.services.business import (
     business_tax_registered,
     postal_address,
     quiet_hours,
-    reply_address,
 )
 from tests.conftest import FakePaymentGateway
 
@@ -289,19 +288,6 @@ def test_quiet_hours_run_from_nine_at_night_to_nine_in_the_morning() -> None:
     assert after_quiet_hours(evening, zone) == nine
     assert after_quiet_hours(early, zone) == nine
     assert after_quiet_hours(noon, zone) == noon
-
-
-def test_replies_go_to_the_brand_email_and_fall_back_to_billing() -> None:
-    business = Business(
-        brand={"email": " hi@birchbark.example "}, billing_email="bill@birchbark.example"
-    )
-    assert reply_address(business) == "hi@birchbark.example"
-    business.brand = {"email": ""}
-    assert reply_address(business) == "bill@birchbark.example"
-    business.billing_email = None
-    assert reply_address(business) is None
-    business.billing_email = "not an address"
-    assert reply_address(business) is None
 
 
 async def test_a_junk_billing_email_is_refused(as_owner: httpx.AsyncClient) -> None:

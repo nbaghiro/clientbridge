@@ -101,9 +101,9 @@ async def test_promote_gives_an_open_seat_and_tells_the_client(
     res = await as_owner.patch(f"/v1/classes/{sid}/roster/{waiting}", json={"action": "promote"})
     assert res.status_code == 200, res.text
     assert res.json()["status"] == "confirmed"
-    assert await queued_subjects(db, f"seat:{sid}:{waiting}") == [
-        "A seat opened up in Puppy Socialization (group)"
-    ]
+    [notice] = await queued_subjects(db, f"seat:{sid}:{waiting}")
+    assert notice.startswith("A seat opened up in Puppy Socialization (group) with")
+    assert "so you're booked" in notice
     booking = await db.get(Booking, str(waiting), populate_existing=True)
     assert booking is not None and booking.manage_token is not None
 

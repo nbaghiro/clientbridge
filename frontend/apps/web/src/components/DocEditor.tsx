@@ -454,7 +454,7 @@ function ClientPicker({
     error,
     onChange,
 }: {
-    clients: readonly { id: string; name: string; email: string | null }[];
+    clients: readonly { id: string; name: string }[];
     value: string;
     editing: boolean;
     error: string | null;
@@ -470,9 +470,6 @@ function ClientPicker({
                     <Avatar name={chosen.name} src={photos.client(chosen.id)} size="sm" />
                     <div className="min-w-0">
                         <p className="truncate font-medium text-ink">{chosen.name}</p>
-                        {chosen.email !== null ? (
-                            <p className="truncate text-xs text-muted">{chosen.email}</p>
-                        ) : null}
                     </div>
                 </div>
             </section>
@@ -487,7 +484,6 @@ function ClientPicker({
             options={clients.map((x) => ({
                 key: x.id,
                 label: x.name,
-                detail: x.email ?? undefined,
                 media: personMedia(x.name, null, photos.client(x.id)),
             }))}
             onChange={onChange}

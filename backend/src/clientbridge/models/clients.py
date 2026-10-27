@@ -9,7 +9,6 @@ from clientbridge.core.db import Base
 from clientbridge.models.base import BusinessScoped, PKMixin, SoftDelete, TimestampMixin, enum_check
 
 ClientStatus = Literal["active", "inactive"]
-Channel = Literal["sms", "email"]
 NoteParent = Literal["client", "subject", "booking"]
 ConsentStatus = Literal["granted", "implied", "withdrawn"]
 ConsentSource = Literal[
@@ -19,7 +18,6 @@ ConsentSource = Literal[
     "reply",
     "unsubscribe",
     "preferences",
-    "complaint",
 ]
 
 
@@ -27,8 +25,6 @@ class Client(PKMixin, BusinessScoped, TimestampMixin, SoftDelete, Base):
     __tablename__ = "clients"
     __table_args__ = (
         enum_check("clients", "status", ClientStatus),
-        enum_check("clients", "preferred_channel", Channel),
-        Index("ix_clients_business_email", "business_id", "email"),
         Index("ix_clients_business_phone", "business_id", "phone"),
         Index("ix_clients_created_by", "created_by"),
         Index("ix_clients_user", "user_id"),
@@ -36,7 +32,6 @@ class Client(PKMixin, BusinessScoped, TimestampMixin, SoftDelete, Base):
 
     created_by: Mapped[str | None] = mapped_column(ForeignKey("users.id"))
     name: Mapped[str] = mapped_column(String, nullable=False)
-    email: Mapped[str | None] = mapped_column(String)
     phone: Mapped[str | None] = mapped_column(String)
     user_id: Mapped[str | None] = mapped_column(ForeignKey("users.id"))
     tags: Mapped[list[str]] = mapped_column(ARRAY(String), default=list, nullable=False)
@@ -45,9 +40,6 @@ class Client(PKMixin, BusinessScoped, TimestampMixin, SoftDelete, Base):
     stripe_customer_id: Mapped[str | None] = mapped_column(
         String
     )  # Customer on the connected account
-    preferred_channel: Mapped[Channel] = mapped_column(
-        String, default="sms", server_default="sms", nullable=False
-    )
     # an archived client is also inactive, so pickers that read the status leave them out
     archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
@@ -82,20 +74,18 @@ class Note(PKMixin, BusinessScoped, TimestampMixin, Base):
 
 
 class Consent(PKMixin, BusinessScoped, TimestampMixin, Base):
-    """One row per change to a client's consent to marketing on a channel; the newest one holds."""
+    """One row per change to a client's consent to marketing texts; the newest one holds."""
 
     __tablename__ = "consents"
     __table_args__ = (
-        enum_check("consents", "channel", Channel),
         enum_check("consents", "status", ConsentStatus),
         enum_check("consents", "source", ConsentSource),
-        Index("ix_consents_client", "business_id", "client_id", "channel", "created_at"),
+        Index("ix_consents_client", "business_id", "client_id", "created_at"),
         Index("ix_consents_recorded_by", "recorded_by"),
         Index("ix_consents_client_id", "client_id"),
     )
 
     client_id: Mapped[str] = mapped_column(ForeignKey("clients.id"), nullable=False)
-    channel: Mapped[Channel] = mapped_column(String, nullable=False)
     status: Mapped[ConsentStatus] = mapped_column(String, nullable=False)
     source: Mapped[ConsentSource] = mapped_column(String, nullable=False)
     recorded_by: Mapped[str | None] = mapped_column(ForeignKey("users.id"))

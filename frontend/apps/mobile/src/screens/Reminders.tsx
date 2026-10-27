@@ -7,17 +7,7 @@ import {
     formatWeekdayTime,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
-import {
-    Button,
-    Choice,
-    LoadFailed,
-    MessageBubble,
-    Notice,
-    Skeleton,
-    Stat,
-    Panel,
-} from "@clientbridge/ui";
-import { useState } from "react";
+import { Button, LoadFailed, MessageBubble, Notice, Panel, Skeleton, Stat } from "@clientbridge/ui";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { api } from "../lib/api";
@@ -28,7 +18,6 @@ const s = strings.reminders;
 /** The reminder every visit gets, word for word, and the visits still open at the end of the day. */
 export function RemindersScreen() {
     const r = useReminderSettings(api);
-    const [channel, setChannel] = useState<"sms" | "email">("sms");
     return (
         <ScrollView style={styles.screen} contentContainerStyle={styles.body}>
             <Text style={styles.muted}>{s.subtitle}</Text>
@@ -47,22 +36,7 @@ export function RemindersScreen() {
                         <Text style={styles.soft}>{s.rule}</Text>
                         {r.manageLink ? <Text style={styles.soft}>{s.includeLink}</Text> : null}
                     </Panel>
-                    <Panel
-                        style={styles.card}
-                        title={s.preview}
-                        actions={
-                            <Choice
-                                layout="segmented"
-                                label={s.preview}
-                                options={[
-                                    { key: "sms" as const, label: s.channelSms },
-                                    { key: "email" as const, label: s.channelEmail },
-                                ]}
-                                value={channel}
-                                onChange={setChannel}
-                            />
-                        }
-                    >
+                    <Panel style={styles.card} title={s.preview}>
                         {r.previewLoading ? (
                             <Skeleton variant="line" count={3} label={s.loading} />
                         ) : r.preview === null ? (
@@ -70,20 +44,12 @@ export function RemindersScreen() {
                         ) : (
                             <>
                                 <Text style={styles.muted}>{s.previewVisit(r.preview.who)}</Text>
-                                {channel === "sms" ? (
-                                    <MessageBubble
-                                        direction="in"
-                                        width="full"
-                                        body={r.preview.body}
-                                        meta={r.preview.sendsAt}
-                                    />
-                                ) : (
-                                    <View style={styles.email}>
-                                        <Text style={styles.value}>{r.preview.subject}</Text>
-                                        <Text style={styles.soft}>{r.preview.body}</Text>
-                                        <Text style={styles.muted}>{r.preview.sendsAt}</Text>
-                                    </View>
-                                )}
+                                <MessageBubble
+                                    direction="in"
+                                    width="full"
+                                    body={r.preview.body}
+                                    meta={r.preview.sendsAt}
+                                />
                             </>
                         )}
                     </Panel>
@@ -176,13 +142,6 @@ const styles = StyleSheet.create({
     soft: { color: c.inkSoft, fontFamily: theme.fonts.ui, fontSize: 14, lineHeight: 20 },
     value: { color: c.ink, fontFamily: theme.fonts.ui, fontSize: 14, fontWeight: "600" },
     rowGap: { flexDirection: "row", alignItems: "center", gap: 12 },
-    email: {
-        borderWidth: theme.borderWidth,
-        borderColor: c.border,
-        borderRadius: theme.radius,
-        padding: 12,
-        gap: 6,
-    },
     visit: {
         borderTopWidth: StyleSheet.hairlineWidth,
         borderTopColor: c.border,

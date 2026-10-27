@@ -1,10 +1,8 @@
 import {
-    type Channel,
     INBOX_FILTERS,
     type InboxSegmentKey,
     type InboxThread,
     type ThreadComposer,
-    channelLabel,
     formatPhone,
     strings,
     useConversation,
@@ -14,7 +12,6 @@ import {
     usePeoplePhotos,
     useThreadComposer,
     visibleInboxSegments,
-    formatParts,
     quickReplies,
     kindWord,
     useSubjectKind,
@@ -53,7 +50,6 @@ import { Reviews } from "./Reviews";
 import { FILL } from "../lib/layout";
 
 const s = strings.messaging;
-const CHANNELS: Channel[] = ["sms", "email"];
 
 export function Inbox() {
     const segments = visibleInboxSegments(useRole());
@@ -226,8 +222,6 @@ function Messages({
                                             preview={t.last_body ?? ""}
                                             at={t.ago}
                                             unread={t.unread_count}
-                                            channel={t.channelKind}
-                                            channelLabel={channelLabel(t.channel)}
                                             selected={t.id === open?.id}
                                             tag={rowFlag(t)}
                                             onPress={() => {
@@ -308,8 +302,6 @@ function Thread({
     useEffect(() => {
         end.current?.scrollIntoView({ block: "end" });
     }, [newest, thread.id]);
-    const contact = thread.channel === "email" ? thread.email : formatPhone(thread.phone);
-
     return (
         <>
             <section className="flex min-w-0 flex-1 flex-col bg-bg">
@@ -319,9 +311,7 @@ function Thread({
                         <h2 className="truncate font-display text-base font-bold text-ink">
                             {thread.title}
                         </h2>
-                        <p className="truncate text-xs text-muted">
-                            {formatParts([channelLabel(thread.channel), contact])}
-                        </p>
+                        <p className="truncate text-xs text-muted">{formatPhone(thread.phone)}</p>
                     </div>
                     {wide ? null : (
                         <Button
@@ -410,22 +400,15 @@ function Composer({ composer }: { composer: ThreadComposer }) {
             <TextField
                 multiline
                 rows={2}
-                name={s.replyPlaceholder(composer.channel)}
+                name={s.replyPlaceholder}
                 value={composer.body}
                 onChange={composer.setBody}
-                placeholder={s.replyPlaceholder(composer.channel)}
+                placeholder={s.replyPlaceholder}
                 disabled={composer.smsBlocked}
             />
             {composer.error !== null ? <Notice tone="danger">{composer.error}</Notice> : null}
             <div className="flex flex-wrap items-center gap-3">
-                <Choice
-                    layout="segmented"
-                    label={s.channelLabel}
-                    options={CHANNELS.map((c) => ({ key: c, label: s.channels[c] }))}
-                    value={composer.channel}
-                    onChange={composer.setChannel}
-                />
-                {composer.channel === "sms" && composer.body.length > 0 ? (
+                {composer.body.length > 0 ? (
                     <span className="text-xs text-muted">
                         {s.smsCount(composer.segments.chars, composer.segments.segments)}
                     </span>
@@ -471,22 +454,15 @@ function NewThread({
                 <TextField
                     multiline
                     rows={2}
-                    name={s.replyPlaceholder(msg.channel)}
+                    name={s.replyPlaceholder}
                     value={msg.body}
                     onChange={msg.setBody}
-                    placeholder={s.replyPlaceholder(msg.channel)}
+                    placeholder={s.replyPlaceholder}
                     disabled={msg.smsBlocked}
                 />
                 {msg.error !== null ? <Notice tone="danger">{msg.error}</Notice> : null}
                 <div className="flex flex-wrap items-center gap-3">
-                    <Choice
-                        layout="segmented"
-                        label={s.channelLabel}
-                        options={CHANNELS.map((c) => ({ key: c, label: s.channels[c] }))}
-                        value={msg.channel}
-                        onChange={msg.setChannel}
-                    />
-                    {msg.channel === "sms" && msg.body.length > 0 ? (
+                    {msg.body.length > 0 ? (
                         <span className="text-xs text-muted">
                             {s.smsCount(msg.segments.chars, msg.segments.segments)}
                         </span>
@@ -528,13 +504,6 @@ function NewMessageDialog({
                     options={msg.clients}
                     onChange={msg.setClientId}
                 />
-                <Choice
-                    layout="segmented"
-                    label={s.channelLabel}
-                    options={CHANNELS.map((c) => ({ key: c, label: s.channels[c] }))}
-                    value={msg.channel}
-                    onChange={msg.setChannel}
-                />
                 {msg.smsBlocked ? <Notice tone="danger">{s.smsBlockedNew}</Notice> : null}
                 <TextField
                     label={s.newMessageTitle}
@@ -545,7 +514,7 @@ function NewMessageDialog({
                     placeholder={s.newMessagePlaceholder}
                     disabled={msg.smsBlocked}
                 />
-                {msg.channel === "sms" && msg.body.length > 0 ? (
+                {msg.body.length > 0 ? (
                     <p className="text-xs text-muted">
                         {s.smsCount(msg.segments.chars, msg.segments.segments)}
                     </p>

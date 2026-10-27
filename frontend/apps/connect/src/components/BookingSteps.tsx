@@ -336,21 +336,12 @@ export function DetailsForm({ flow }: { flow: PublicBookingFlow }) {
                 <TextField
                     label={s.phone}
                     type="tel"
+                    required
                     value={f.phone}
                     onChange={f.setPhone}
                     placeholder={s.phonePlaceholder}
                     autoComplete="tel"
                     error={flow.errors.contact}
-                />
-                <TextField
-                    label={s.email}
-                    type="email"
-                    value={f.email}
-                    onChange={f.setEmail}
-                    placeholder={s.emailPlaceholder}
-                    autoComplete="email"
-                    optional
-                    error={flow.errors.email}
                 />
             </div>
             <TextField

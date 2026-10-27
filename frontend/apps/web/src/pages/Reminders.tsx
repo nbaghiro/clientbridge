@@ -6,17 +6,7 @@ import {
     formatParts,
     formatWeekdayTime,
 } from "@clientbridge/app-core";
-import {
-    Button,
-    Choice,
-    MessageBubble,
-    Notice,
-    PageHeader,
-    Panel,
-    Skeleton,
-    Stat,
-} from "@clientbridge/ui";
-import { useState } from "react";
+import { Button, MessageBubble, Notice, PageHeader, Panel, Skeleton, Stat } from "@clientbridge/ui";
 
 import { api } from "../lib/api";
 import { Loaded } from "../components/Loaded";
@@ -26,7 +16,6 @@ const s = strings.reminders;
 /** The reminder every visit gets, word for word, and the visits still open at the end of the day. */
 export function Reminders() {
     const r = useReminderSettings(api);
-    const [channel, setChannel] = useState<"sms" | "email">("sms");
 
     return (
         <div className="space-y-6">
@@ -67,24 +56,12 @@ export function Reminders() {
                             subtitle={
                                 r.preview !== null ? s.previewVisit(r.preview.who) : undefined
                             }
-                            actions={
-                                <Choice
-                                    layout="segmented"
-                                    label={s.preview}
-                                    options={[
-                                        { key: "sms" as const, label: s.channelSms },
-                                        { key: "email" as const, label: s.channelEmail },
-                                    ]}
-                                    value={channel}
-                                    onChange={setChannel}
-                                />
-                            }
                         >
                             {r.previewLoading ? (
                                 <Skeleton variant="line" count={3} label={s.loading} />
                             ) : r.preview === null ? (
                                 <p className="text-sm text-muted">{s.previewNone}</p>
-                            ) : channel === "sms" ? (
+                            ) : (
                                 <div className="rounded-lg bg-bg p-4">
                                     <MessageBubble
                                         direction="in"
@@ -92,18 +69,6 @@ export function Reminders() {
                                         body={r.preview.body}
                                         meta={r.preview.sendsAt}
                                     />
-                                </div>
-                            ) : (
-                                <div className="overflow-hidden rounded-lg border border-line">
-                                    <p className="border-b border-line bg-head px-4 py-2.5 text-sm font-semibold text-ink">
-                                        {r.preview.subject}
-                                    </p>
-                                    <p className="px-4 py-4 text-sm leading-relaxed text-ink-soft">
-                                        {r.preview.body}
-                                    </p>
-                                    <p className="border-t border-line px-4 py-2 text-xs text-muted">
-                                        {r.preview.sendsAt}
-                                    </p>
                                 </div>
                             )}
                         </Panel>

@@ -52,7 +52,6 @@ export interface RosterRow {
     subject_id: string | null;
     client_name: string;
     client_phone: string | null;
-    client_email: string | null;
     subject_name: string | null;
     subject_attributes: string | null;
     status: string;
@@ -72,8 +71,7 @@ ORDER BY s.starts_at`;
 
 export const CLASS_ROSTER_SQL = `
 SELECT b.id AS booking_id, b.slot_id, b.client_id, b.subject_id, c.name AS client_name,
-       c.phone AS client_phone,
-       c.email AS client_email, sj.name AS subject_name, sj.attributes AS subject_attributes, b.status,
+       c.phone AS client_phone, sj.name AS subject_name, sj.attributes AS subject_attributes, b.status,
        b.checked_in_at, b.deposit_status, b.deposit_amount_cents
 FROM bookings b JOIN slots s ON s.id = b.slot_id JOIN clients c ON c.id = b.client_id
 LEFT JOIN subjects sj ON sj.id = b.subject_id

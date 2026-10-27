@@ -14,7 +14,7 @@ from clientbridge.models.catalog import Item
 from clientbridge.models.clients import Client
 from clientbridge.models.payments import Payment
 from clientbridge.models.scheduling import Booking, Hours, Slot
-from tests.conftest import BIZ, Factory, FakeEmailSender
+from tests.conftest import BIZ, Factory, FakeEmailSender, FakeSmsSender
 from tests.helpers import enable_payments
 
 SLUG = "birchbark"
@@ -41,7 +41,7 @@ def _body(
         "item_id": item,
         "staff_id": staff,
         "starts_at": starts,
-        "client": _client(**client) if client else _client(email="web@example.ca"),
+        "client": _client(**client) if client else _client(phone="+16045550001"),
     }
 
 
@@ -222,11 +222,9 @@ async def test_slots_bad_date_422(api: httpx.AsyncClient) -> None:
 
 
 async def test_book_creates_online_booking_and_notifies(
-    api: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
+    api: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender, sms: FakeSmsSender
 ) -> None:
-    res = await api.post(
-        f"/book/{SLUG}", json=_body("2027-03-02T18:50:00Z", email="lee@example.ca")
-    )
+    res = await api.post(f"/book/{SLUG}", json=_body("2027-03-02T18:50:00Z", phone="+16045550277"))
     assert res.status_code == 200, res.text
     body = res.json()
     assert body["deposit_client_secret"] is None
@@ -235,11 +233,10 @@ async def test_book_creates_online_booking_and_notifies(
     ).scalar_one()
     assert booking.source == "online"
     assert booking.business_id == BIZ
-    created = (
-        await db.execute(select(Client).where(Client.email == "lee@example.ca"))
-    ).scalar_one()
+    created = (await db.execute(select(Client).where(Client.phone == "+16045550277"))).scalar_one()
     assert created.business_id == BIZ
-    assert len(email.sent) == 1  # booking-confirmed to the client
+    assert email.sent == []
+    assert [message.to for message in sms.sent] == ["+16045550277"]
 
 
 async def test_book_outside_hours_409(api: httpx.AsyncClient) -> None:
@@ -299,9 +296,11 @@ async def test_book_deposit_required_returns_secret(
 
 
 async def test_book_find_or_create_reuses_client(api: httpx.AsyncClient, db: AsyncSession) -> None:
-    first = await api.post(f"/book/{SLUG}", json=_body("2027-03-02T18:50:00Z", email="repeat@x.ca"))
+    first = await api.post(
+        f"/book/{SLUG}", json=_body("2027-03-02T18:50:00Z", phone="+16045550288")
+    )
     second = await api.post(
-        f"/book/{SLUG}", json=_body("2027-03-02T20:15:00Z", email="repeat@x.ca")
+        f"/book/{SLUG}", json=_body("2027-03-02T20:15:00Z", phone="+16045550288")
     )
     assert first.status_code == 200 and second.status_code == 200
     b1 = (
@@ -310,9 +309,9 @@ async def test_book_find_or_create_reuses_client(api: httpx.AsyncClient, db: Asy
     b2 = (
         await db.execute(select(Booking).where(Booking.id == second.json()["booking_id"]))
     ).scalar_one()
-    assert b1.client_id == b2.client_id  # one client, reused by email
+    assert b1.client_id == b2.client_id
     count = len(
-        (await db.execute(select(Client).where(Client.email == "repeat@x.ca"))).scalars().all()
+        (await db.execute(select(Client).where(Client.phone == "+16045550288"))).scalars().all()
     )
     assert count == 1
 

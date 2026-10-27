@@ -748,14 +748,13 @@ CLIENTS = [
 
 
 def seed_clients(owner: str) -> None:
-    for cid, name, email, phone, tags, _ltv, status, pets, note in CLIENTS:
+    for cid, name, _email, phone, tags, _ltv, status, pets, note in CLIENTS:
         rows.append(
             Client(
                 id=cid,
                 business_id=BIZ,
                 created_by=owner,
                 name=name,
-                email=email,
                 phone=phone,
                 tags=tags,
                 status=status,
@@ -2016,7 +2015,7 @@ FIRST_VISITS = [
 
 def seed_first_visits() -> None:
     """New clients' first online bookings, which wait for approval under the booking policy."""
-    for index, (cid, name, email, phone, pid, pet, breed, kg, d, item_id, member) in enumerate(
+    for index, (cid, name, _email, phone, pid, pet, breed, kg, d, item_id, member) in enumerate(
         FIRST_VISITS
     ):
         item = next(x for x in ITEMS if x[0] == item_id)
@@ -2027,7 +2026,6 @@ def seed_first_visits() -> None:
                 id=cid,
                 business_id=BIZ,
                 name=name,
-                email=email,
                 phone=phone,
                 tags=["new"],
                 status="active",

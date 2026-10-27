@@ -2,14 +2,13 @@ import { randomUUID } from "node:crypto";
 import { demoPerson } from "@clientbridge/config/e2e/demo";
 import { addDays, combineDayAndTime, strings } from "@clientbridge/app-core/public";
 import { expect, test, type Page } from "@playwright/test";
-import { newAccount } from "../support/auth";
+import { freshPhone, newAccount } from "../support/auth";
 import { bookingApi } from "../support/bookings";
 import { createClient } from "../support/clients";
 import { acceptInvite } from "../support/hours";
 import { navigate } from "../support/session";
 import { lapsedNotice, ownBusiness, planView, standInPlan } from "../support/plans";
 import { apiCall, visitEvidence } from "../support/visit";
-import { runEmail } from "@clientbridge/config/e2e/run";
 
 const t = strings.staff.team;
 const p = strings.plans;
@@ -269,7 +268,6 @@ test("FLOW-08-B a lapsed plan keeps records readable, refuses new work on the se
         "/v1/broadcasts",
         {
             name: "Winter hours",
-            channel: "email",
             body: "We open at ten on weekdays through the winter.",
             audience: { all: true },
             scheduled_at: later.toISOString(),
@@ -293,7 +291,7 @@ test("FLOW-08-B a lapsed plan keeps records readable, refuses new work on the se
     const book = async (day: number) => {
         const booker = {
             name: demoPerson(randomUUID()),
-            email: runEmail(`${randomUUID()}@example.ca`),
+            phone: freshPhone(),
         };
         const response = await anonymous.request.post(`${bookingApi()}/book/${business.slug}`, {
             headers: { "Idempotency-Key": randomUUID() },
@@ -349,7 +347,7 @@ test("FLOW-08-B a lapsed plan keeps records readable, refuses new work on the se
         expect(((await closed.response.json()) as { error: string }).error).toBe(
             "business_unavailable",
         );
-        expect((await visitEvidence([closed.booker.email])).bookings).toEqual([]);
+        expect((await visitEvidence([closed.booker.phone])).bookings).toEqual([]);
 
         const canceled = await write(`/v1/broadcasts/${broadcast.id}/cancel`, {});
         expect(canceled.status(), await canceled.text()).toBe(200);
@@ -374,7 +372,7 @@ test("FLOW-08-B a lapsed plan keeps records readable, refuses new work on the se
         const reopened = await book(6);
         expect(reopened.response.status(), await reopened.response.text()).toBe(200);
         // a new business doesn't ask to approve first-time clients, so the booking confirms
-        expect((await visitEvidence([reopened.booker.email])).bookings).toEqual([
+        expect((await visitEvidence([reopened.booker.phone])).bookings).toEqual([
             expect.objectContaining({ status: "confirmed", source: "online", staff_id: owner.id }),
         ]);
         await testInfo.attach("plan-lapse", {

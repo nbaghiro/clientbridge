@@ -28,7 +28,7 @@ async def _owner_email(db: AsyncSession) -> None:
 
 
 async def _sent_estimate(api: httpx.AsyncClient, db: AsyncSession) -> dict[str, object]:
-    cid = await client_id(db, email="client@example.ca")
+    cid = await client_id(db)
     lines = [_line("De-shedding Treatment", 6000), _line("Nail trim", 2000, optional=True)]
     res = await api.post("/v1/estimates", json={"client_id": cid, "lines": lines, "send": True})
     body: dict[str, object] = ok(res, 201).json()
@@ -72,7 +72,7 @@ async def test_accept_with_an_addon_ticked(
 async def test_a_ticked_addon_is_quoted_with_the_estimate_discount_as_it_is_accepted(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    cid = await client_id(db, email="client@example.ca")
+    cid = await client_id(db)
     lines = [_line("Deep clean", 10000), _line("Window wash", 10000, optional=True)]
     discount = {"kind": "percent", "value": 10, "reason": "Returning client"}
     created = await as_owner.post(
@@ -115,7 +115,7 @@ async def _discounted(
     api: httpx.AsyncClient, db: AsyncSession, discount_cents: int
 ) -> tuple[str, str, str]:
     """A taxed main line and a GST-only add-on, under a fixed document discount."""
-    cid = await client_id(db, email="client@example.ca")
+    cid = await client_id(db)
     lines = [
         {**_line("Deep clean", 6000), "tax_class": "standard"},
         _line("Window wash", 3000, optional=True),
@@ -264,7 +264,7 @@ async def test_estimate_tax_is_labelled_at_the_rates_its_amounts_use(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     await db.execute(update(Business).where(Business.id == BIZ).values(province="NS"))
-    cid = await client_id(db, email="ns@example.ca")
+    cid = await client_id(db)
     line = {"description": "Groom", "quantity": 1, "unit_amount_cents": 10_000}
     res = await as_owner.post(
         "/v1/estimates", json={"client_id": cid, "lines": [line], "send": True}
@@ -289,7 +289,7 @@ async def test_staff_accept_quotes_tax_registered_after_the_estimate_was_sent(
     await db.execute(
         update(Business).where(Business.id == BIZ).values(province="ON", tax_registered=False)
     )
-    cid = await client_id(db, email="on@example.ca")
+    cid = await client_id(db)
     line = {"description": "Groom", "quantity": 1, "unit_amount_cents": 10_000}
     res = await as_owner.post(
         "/v1/estimates", json={"client_id": cid, "lines": [line], "send": True}

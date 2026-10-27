@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { strings } from "@clientbridge/app-core/public";
 import { demoPerson } from "@clientbridge/config/e2e/demo";
 import { expect, type Locator, type Page, type Response } from "@playwright/test";
+import { freshPhone } from "./auth";
 import { bookingApi } from "./bookings";
 import { select } from "./db";
 import { runEmail, runPort, runUrl, demoSlug } from "@clientbridge/config/e2e/run";
@@ -10,7 +11,7 @@ import { requireLocalMail } from "./evidence";
 const b = strings.publicBooking;
 
 export interface VisitEvidence {
-    clients: { id: string; name: string; email: string }[];
+    clients: { id: string; name: string; phone: string }[];
     subjects: {
         id: string;
         client_id: string;
@@ -102,14 +103,14 @@ export interface VisitEvidence {
     }[];
 }
 
-/** Clients are named by id or email, so a Connect booker is found before the app knows its id. */
+/** Clients are named by id or phone, so a Connect booker is found before the app knows its id. */
 export async function visitEvidence(
     keys: readonly string[],
     resource?: string,
 ): Promise<VisitEvidence> {
     type Evidence = VisitEvidence;
     const owned = await select<{ id: string }>`
-        SELECT id FROM clients WHERE id = ANY(${keys}::text[]) OR email = ANY(${keys}::text[])`;
+        SELECT id FROM clients WHERE id = ANY(${keys}::text[]) OR phone = ANY(${keys}::text[])`;
     const clients = owned.map((row) => row.id);
     const bookings = (
         await select<{ id: string }>`
@@ -123,8 +124,8 @@ export async function visitEvidence(
     ).map((row) => row.id);
     const result: VisitEvidence = {
         clients: await select<Evidence["clients"][number]>`
-            SELECT id, name, email FROM clients WHERE id = ANY(${clients}::text[])
-            ORDER BY email`,
+            SELECT id, name, phone FROM clients WHERE id = ANY(${clients}::text[])
+            ORDER BY phone`,
         subjects: await select<Evidence["subjects"][number]>`
             SELECT id, client_id, name, attributes FROM subjects
             WHERE client_id = ANY(${clients}::text[]) ORDER BY name`,
@@ -214,9 +215,9 @@ export function shopUrl(slug: string): string {
     return `${stackUrl("SHOP_BASE_URL").origin}/${slug}`;
 }
 
-export function onlineBooker(subject: string): { name: string; email: string; subject: string } {
+export function onlineBooker(subject: string): { name: string; phone: string; subject: string } {
     const run = randomUUID();
-    return { name: demoPerson(run), email: runEmail(`visit-${run}@example.ca`), subject };
+    return { name: demoPerson(run), phone: freshPhone(), subject };
 }
 
 export interface Openings {
@@ -302,7 +303,7 @@ export async function openConnectDay(
 
 export async function fillConnectDetails(
     page: Page,
-    booker: { name: string; email: string; subject: string },
+    booker: { name: string; phone: string; subject: string },
     kind: "pet" | "site" | "vehicle",
     address?: string,
 ): Promise<void> {
@@ -313,7 +314,7 @@ export async function fillConnectDetails(
     await page.getByRole("textbox", { name: b.subject(kind), exact: true }).fill(booker.subject);
     if (address !== undefined)
         await page.getByRole("textbox", { name: b.address, exact: true }).fill(address);
-    await page.getByRole("textbox", { name: new RegExp(`^${b.email}`) }).fill(booker.email);
+    await page.getByRole("textbox", { name: new RegExp(`^${b.phone}`) }).fill(booker.phone);
 }
 
 export async function choiceKeys(group: Locator): Promise<string[]> {
@@ -340,7 +341,7 @@ export async function connectStaff(
 
 export interface RaceContact {
     name: string;
-    email: string;
+    phone: string;
     pet: string;
 }
 export interface RaceFixture {
@@ -363,26 +364,26 @@ export interface RaceEvidence {
         deposit_status: string;
         deposit_amount_cents: number;
     }[];
-    clients: { id: string; name: string; email: string }[];
+    clients: { id: string; name: string; phone: string }[];
     subjects: { id: string; client_id: string; name: string }[];
     payments: { id: string }[];
 }
 export function raceContact(pet: string): RaceContact {
     const run = randomUUID();
-    return { name: demoPerson(run), email: runEmail(`booking-${run}@example.ca`), pet };
+    return { name: demoPerson(run), phone: freshPhone(), pet };
 }
 export async function raceEvidence(
     fixture: RaceFixture,
     contacts: readonly RaceContact[],
 ): Promise<RaceEvidence> {
     const item = fixture.itemId;
-    const first = contacts[0]?.email;
+    const first = contacts[0]?.phone;
     if (first === undefined) throw new Error("race evidence needs at least one contact");
-    const second = contacts[1]?.email ?? first;
+    const second = contacts[1]?.phone ?? first;
     return {
         deliveries: await select<RaceEvidence["deliveries"][number]>`
             SELECT id, state, payload->'message'->>'to' AS recipient FROM deliveries
-            WHERE payload->>'channel' = 'email'
+            WHERE payload->>'channel' = 'sms'
                 AND payload->'message'->>'to' IN (${first}, ${second})
             ORDER BY id`,
         slots: await select<RaceEvidence["slots"][number]>`
@@ -394,17 +395,17 @@ export async function raceEvidence(
             FROM bookings b JOIN slots s ON s.id = b.slot_id
             WHERE s.item_id = ${item} ORDER BY b.id`,
         clients: await select<RaceEvidence["clients"][number]>`
-            SELECT id, name, email FROM clients WHERE email IN (${first}, ${second}) ORDER BY id`,
+            SELECT id, name, phone FROM clients WHERE phone IN (${first}, ${second}) ORDER BY id`,
         subjects: await select<RaceEvidence["subjects"][number]>`
             SELECT s.id, s.client_id, s.name FROM subjects s
             JOIN clients c ON c.id = s.client_id
-            WHERE c.email IN (${first}, ${second}) ORDER BY s.id`,
+            WHERE c.phone IN (${first}, ${second}) ORDER BY s.id`,
         payments: await select<RaceEvidence["payments"][number]>`
             SELECT p.id FROM payments p
             LEFT JOIN clients c ON c.id = p.client_id
             LEFT JOIN bookings b ON b.id = p.booking_id
             LEFT JOIN slots s ON s.id = b.slot_id
-            WHERE c.email IN (${first}, ${second}) OR s.item_id = ${item} ORDER BY p.id`,
+            WHERE c.phone IN (${first}, ${second}) OR s.item_id = ${item} ORDER BY p.id`,
     };
 }
 export async function raceFixture(page: Page): Promise<RaceFixture> {
@@ -501,7 +502,7 @@ export async function raceDetails(page: Page, contact: RaceContact): Promise<voi
     await expect(details).toBeVisible();
     await details.fill(contact.name);
     await page.getByRole("textbox", { name: b.subject("pet"), exact: true }).fill(contact.pet);
-    await page.getByRole("textbox", { name: new RegExp(`^${b.email}`) }).fill(contact.email);
+    await page.getByRole("textbox", { name: new RegExp(`^${b.phone}`) }).fill(contact.phone);
 }
 
 export async function acceptedRaceEvidence(

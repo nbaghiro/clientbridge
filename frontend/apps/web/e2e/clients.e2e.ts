@@ -13,8 +13,7 @@ import {
     openClient,
 } from "./support/clients";
 import { navigate, signIn } from "./support/session";
-import { runEmail } from "@clientbridge/config/e2e/run";
-import { newAccount } from "./support/auth";
+import { newAccount, freshPhone } from "./support/auth";
 import {
     bookingApi,
     chooseFreeBookingTime,
@@ -31,7 +30,7 @@ test("CRM-E2E-01 create, edit, archive and restore persist across independent re
 }, testInfo) => {
     test.setTimeout(180_000);
     const run = randomUUID();
-    const original = { name: demoPerson(run), email: runEmail(`crm-${run}@example.ca`) };
+    const original = { name: demoPerson(run), phone: freshPhone() };
     await signIn(page);
     const observer = await browser.newContext({
         baseURL: new URL(page.url()).origin,
@@ -47,12 +46,8 @@ test("CRM-E2E-01 create, edit, archive and restore persist across independent re
             .getByRole("textbox", { name: strings.clients.edit.nameLabel })
             .fill(original.name);
         await add
-            .getByRole("textbox", { name: strings.clients.edit.emailLabel, exact: true })
-            .fill(original.email);
-        await add
-            .getByRole("group", { name: strings.clients.edit.channelLabel })
-            .getByRole("button", { name: strings.clients.edit.channelEmail, exact: true })
-            .click();
+            .getByRole("textbox", { name: strings.clients.edit.phoneLabel, exact: true })
+            .fill(original.phone);
         const creating = clientCommand(page, "", "POST");
         await add.getByRole("button", { name: strings.clients.edit.add, exact: true }).click();
         const created = await creating;
@@ -73,7 +68,7 @@ test("CRM-E2E-01 create, edit, archive and restore persist across independent re
         const updated = {
             ...client,
             name: demoPerson(`${run}:updated`),
-            email: runEmail(`edited-${run}@example.ca`),
+            phone: freshPhone(),
         };
         await test.step("edit contact fields through the UI and verify reload", async () => {
             const editor = await editClient(page, client);
@@ -81,8 +76,8 @@ test("CRM-E2E-01 create, edit, archive and restore persist across independent re
                 .getByRole("textbox", { name: strings.clients.edit.nameLabel })
                 .fill(updated.name);
             await editor
-                .getByRole("textbox", { name: strings.clients.edit.emailLabel, exact: true })
-                .fill(updated.email);
+                .getByRole("textbox", { name: strings.clients.edit.phoneLabel, exact: true })
+                .fill(updated.phone);
             const saving = clientCommand(page, `/${client.id}`, "PATCH");
             await editor
                 .getByRole("button", { name: strings.clients.edit.save, exact: true })
@@ -92,7 +87,7 @@ test("CRM-E2E-01 create, edit, archive and restore persist across independent re
             expect(await saved.json()).toMatchObject({
                 id: client.id,
                 name: updated.name,
-                email: updated.email,
+                phone: updated.phone,
             });
             await openClient(page, updated);
             await openClient(other, updated);
@@ -387,7 +382,9 @@ test("CRM-E2E-04 directional merge preserves notes, pet and note history on the 
 }) => {
     await signIn(page);
     const run = randomUUID();
-    const target = await createClient(page, demoPerson(run), run);
+    // the two numbers share all but their last digit, so one search finds both and nobody else
+    const shared = freshPhone().slice(0, -1);
+    const target = await createClient(page, demoPerson(run), `${shared}1`);
     const otherName = demoPerson(`${run}:source`);
     const sourceName =
         otherName === target.name
@@ -395,7 +392,7 @@ test("CRM-E2E-04 directional merge preserves notes, pet and note history on the 
                 ? "Avery Patel"
                 : "Morgan Ellis"
             : otherName;
-    const source = await createClient(page, sourceName, run);
+    const source = await createClient(page, sourceName, `${shared}2`);
     const pet = "Hazel";
     await addPet(page, source, pet);
     const sourceNote = "Prefers morning appointments and a quiet waiting area.";
@@ -414,7 +411,7 @@ test("CRM-E2E-04 directional merge preserves notes, pet and note history on the 
         await openClient(other, source);
         await navigate(page, "/today");
         await navigate(page, "/clients");
-        await page.getByRole("searchbox").fill(run);
+        await page.getByRole("searchbox").fill(shared.slice(1));
         await page.getByRole("button", { name: strings.clients.tidy.select, exact: true }).click();
         await page.getByRole("checkbox", { name: target.name, exact: true }).check();
         await page.getByRole("checkbox", { name: source.name, exact: true }).check();
@@ -462,7 +459,7 @@ test("CRM-E2E-04 directional merge preserves notes, pet and note history on the 
         expect(await merged.json()).toMatchObject({
             id: target.id,
             name: target.name,
-            email: target.email,
+            phone: target.phone,
         });
         await expect(merge).toHaveCount(0);
         for (const device of [page, other]) {
@@ -490,7 +487,7 @@ test("CRM-E2E-04 directional merge preserves notes, pet and note history on the 
             other.getByText(strings.clients.record.goneBody, { exact: true }),
         ).toBeVisible();
         await navigate(other, "/clients");
-        await other.getByRole("searchbox").fill(source.email);
+        await other.getByRole("searchbox").fill(source.phone.slice(1));
         await expect(other.getByRole("button").filter({ hasText: source.name })).toHaveCount(0);
     } finally {
         await observer.close();
@@ -587,7 +584,7 @@ test("CRM-E2E-08 a detailing business books a client's parked vehicle as the vis
     const fixture = {
         clientId: client.id,
         clientName: client.name,
-        clientEmail: client.email,
+        clientPhone: client.phone,
         itemId: service.id,
         itemName: service.name,
         staffId: owner.id,

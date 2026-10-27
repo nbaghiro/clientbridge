@@ -27,13 +27,13 @@ CUS = "cus_contract"
 
 async def test_create_customer(contract_gateway: StripeGateway) -> None:
     cus = await contract_gateway.create_customer(
-        ACCT, name="Robin Maple", email="robin@x.test", idempotency_key="contract-customer"
+        ACCT, name="Robin Maple", idempotency_key="contract-customer"
     )
     assert cus.startswith("cus_")
 
 
 async def test_update_customer(contract_gateway: StripeGateway) -> None:
-    await contract_gateway.update_customer(ACCT, CUS, name="Robin Oak", email="robin@oak.test")
+    await contract_gateway.update_customer(ACCT, CUS, name="Robin Oak")
 
 
 async def test_lists_undelivered_events(contract_gateway: StripeGateway) -> None:

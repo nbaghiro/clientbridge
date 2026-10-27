@@ -31,7 +31,7 @@ from clientbridge.models.catalog import Item
 from clientbridge.models.clients import Client
 from clientbridge.schemas.auth import AuthEmailIn, AuthEmailType
 from clientbridge.services import notifications as n
-from tests.conftest import FakeEmailSender
+from tests.conftest import FakeEmailSender, FakeSmsSender
 
 BIZ = "bz_birchbark"
 NAME = "Birchbark"
@@ -44,7 +44,7 @@ INPUTS = [
 ]
 MOMENT = datetime(2026, 10, 9, 21, 30, tzinfo=UTC)
 
-Rendered = n.Notice | n.Itemised | str
+Rendered = n.Notice | str
 Render = Callable[[str], Rendered | tuple[Rendered, ...]]
 
 
@@ -67,7 +67,7 @@ def _builders() -> dict[str, Render]:
         return n.auth_email_message(locale, email)
 
     return {
-        "returning_code": lambda c: n.returning_code(c, NAME, "123456", 10),
+        "returning_code": lambda c: n.returning_code(c, "123456", 10),
         "staff_invite": lambda c: n.staff_invite(c, NAME, LINK),
         "waitlist_message": lambda c: (
             n.waitlist_message(c, LINK),
@@ -176,17 +176,10 @@ def _builders() -> dict[str, Render]:
         "series_canceled_message": lambda c: n.series_canceled_message(c, NAME, whens(c)),
         "form_sent_message": lambda c: n.form_sent_message(c, NAME, "Intake", LINK),
         "contract_sent_message": lambda c: n.contract_sent_message(c, NAME, "Waiver", LINK),
-        "review_requested_message": lambda c: n.review_requested_message(c, NAME, LINK, LINK),
+        "review_requested_message": lambda c: n.review_requested_message(c, NAME, LINK),
         "inbound_message_alert_text": lambda c: n.inbound_message_alert_text(c, NAME, "Sale"),
-        "message_notice": lambda c: n.message_notice(c, NAME, "Sale"),
         "visit_note_body": lambda c: n.visit_note_body(c, "Sale", LINK),
-        "broadcast_notice": lambda c: n.broadcast_notice(
-            c, NAME, "Sale", "Sale", LINK, ADDRESS, CONTACT
-        ),
-        "broadcast_text": lambda c: (
-            n.broadcast_text(c, NAME, "sms", "Sale", LINK, ADDRESS, CONTACT),
-            n.broadcast_text(c, NAME, "email", "Sale", LINK, ADDRESS, CONTACT),
-        ),
+        "broadcast_text": lambda c: n.broadcast_text(c, NAME, "Sale"),
     }
 
 
@@ -196,12 +189,9 @@ def _texts(rendered: Rendered | tuple[Rendered, ...]) -> list[str]:
         return [text for part in rendered for text in _texts(part)]
     if isinstance(rendered, str):
         return [rendered]
-    if isinstance(rendered, n.Itemised):
-        # a tax row is labelled with its code, which is data and not copy
-        return [*rendered.lines, *(row.label for row in rendered.rows if row.label not in INPUTS)]
     view = rendered.view
     action = [view.action.label] if view.action else []
-    footer = [*view.footer, *([view.footer_link.label] if view.footer_link else [])]
+    footer = list(view.footer)
     note = [view.note] if view.note else []
     copy = [view.eyebrow, view.heading, *view.paragraphs, *action, *note, *footer]
     # a staff message or broadcast carries the business's own words, which are data and not copy
@@ -235,19 +225,9 @@ def test_english_builders_render_complete_text() -> None:
 
 
 def test_sms_opt_out_keeps_the_carrier_keyword() -> None:
-    assert n.broadcast_text(SOURCE_LOCALE, NAME, "sms", "Sale", LINK, ADDRESS, CONTACT) == (
-        "Birchbark: Sale Reply STOP to opt out."
-    )
-    pseudo_sms = n.broadcast_text(PSEUDO_LOCALE, NAME, "sms", "Sale", LINK, ADDRESS, CONTACT)
+    assert n.broadcast_text(SOURCE_LOCALE, NAME, "Sale") == "Birchbark: Sale Reply STOP to opt out."
+    pseudo_sms = n.broadcast_text(PSEUDO_LOCALE, NAME, "Sale")
     assert " STOP " in pseudo_sms
-
-
-def test_a_broadcast_email_identifies_the_business() -> None:
-    text = n.broadcast_text(SOURCE_LOCALE, NAME, "email", "Sale", LINK, ADDRESS, CONTACT)
-    assert text == (
-        f"Sale\n\nBirchbark\n{ADDRESS}\nContact: {CONTACT}\n"
-        f"Unsubscribe or change what you get: {LINK}"
-    )
 
 
 def test_pseudo_keeps_placeholders_and_grows_the_text() -> None:
@@ -326,6 +306,7 @@ async def test_pseudo_switch_reaches_sent_notifications(
     as_owner: httpx.AsyncClient,
     db: AsyncSession,
     email: FakeEmailSender,
+    sms: FakeSmsSender,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(get_settings(), "pseudo_locale", True)
@@ -339,7 +320,7 @@ async def test_pseudo_switch_reaches_sent_notifications(
         )
     ).scalar_one()
     assert business is not None and client is not None
-    client.email = "pseudo@example.ca"
+    client.phone = "+16045550288"
     await db.flush()
     res = await as_owner.post(
         "/v1/bookings",
@@ -351,8 +332,6 @@ async def test_pseudo_switch_reaches_sent_notifications(
         },
     )
     assert res.status_code == 201, res.text
-    sent = next(m for m in email.sent if m.to == "pseudo@example.ca")
-    assert sent.subject == message(
-        PSEUDO_LOCALE, "booking_confirmed.subject", business=business.name
-    )
-    assert "Šåţûŕðåý, Ṁåý 1 åţ 10:00 å.ɱ." in sent.body
+    assert email.sent == []
+    sent = next(m for m in sms.sent if m.to == "+16045550288")
+    assert "[" in sent.body and "]" in sent.body

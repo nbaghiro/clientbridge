@@ -59,7 +59,7 @@ async def test_online_booking_from_deposit_to_t4a(
                 "item_id": GROOM_LG,
                 "staff_id": "st_owner",
                 "starts_at": "2027-03-02T16:00:00Z",
-                "client": {"name": "Online Flow", "email": "online-flow@example.com"},
+                "client": {"name": "Online Flow", "phone": "+16045550172"},
                 "addons": [{"item_id": BRUSH, "quantity": 1}],
             },
         )

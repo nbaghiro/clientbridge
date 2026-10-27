@@ -16,7 +16,7 @@ const s = strings.publicPreferences;
 export function PublicPreferences() {
     const { token = "" } = useParams<{ token: string }>();
     const [params, setParams] = useSearchParams();
-    const oneClick = params.get("unsubscribe") === "email";
+    const oneClick = params.has("unsubscribe");
     const page = usePreferencesPage(client, token, oneClick);
     const prefs = page.prefs;
 
@@ -68,16 +68,16 @@ export function PublicPreferences() {
                 <div className="text-center">
                     <p className="text-sm font-semibold text-ink-soft">{prefs.business_name}</p>
                     <Icon
-                        name={subscribed ? "mail" : "checkCircle"}
+                        name={subscribed ? "phoneDevice" : "checkCircle"}
                         size={32}
                         className="mx-auto mt-5 block text-ink-soft"
                     />
                     <p className="mt-2 text-sm leading-relaxed text-ink-soft">
                         {subscribed
                             ? s.resubscribedBody(prefs.business_name)
-                            : prefs.email_hint === null
-                              ? s.unsubscribedNoEmail(prefs.business_name)
-                              : s.unsubscribedBody(prefs.business_name, prefs.email_hint)}
+                            : prefs.phone_hint === null
+                              ? s.unsubscribedNoPhone(prefs.business_name)
+                              : s.unsubscribedBody(prefs.business_name, prefs.phone_hint)}
                     </p>
                 </div>
                 {subscribed ? null : (
@@ -125,15 +125,6 @@ export function PublicPreferences() {
                     <h2 className="text-sm font-semibold text-ink">{s.offers}</h2>
                     <p className="mb-3 mt-0.5 text-xs text-muted">{s.offersHint}</p>
                     <div className="space-y-3">
-                        <Toggle
-                            label={
-                                prefs.email_hint === null
-                                    ? s.byEmail
-                                    : s.byEmailTo(prefs.email_hint)
-                            }
-                            value={page.offersEmail}
-                            onChange={page.setOffersEmail}
-                        />
                         <Toggle
                             label={
                                 prefs.phone_hint === null ? s.byText : s.byTextTo(prefs.phone_hint)

@@ -70,7 +70,6 @@ export interface InvoiceRow {
     id: string;
     client_id: string;
     client_name: string | null;
-    client_email: string | null;
     client_phone: string | null;
     number: number | null;
     status: string;
@@ -98,7 +97,6 @@ interface EstimateRow {
     id: string;
     client_id: string;
     client_name: string | null;
-    client_email: string | null;
     client_phone: string | null;
     number: number | null;
     status: string;
@@ -150,7 +148,7 @@ function netTipSql(where: string): string {
 }
 
 const INVOICE_SELECT = `
-SELECT i.id, i.client_id, c.name AS client_name, c.email AS client_email, c.phone AS client_phone,
+SELECT i.id, i.client_id, c.name AS client_name, c.phone AS client_phone,
        i.number, ${invoiceStatusSql("i")} AS status,
        i.subtotal_cents, i.tax_total_cents, i.total_cents,
        CASE WHEN i.status = 'draft' THEN i.total_cents
@@ -173,7 +171,7 @@ ORDER BY COALESCE(i.issued_at, i.created_at) DESC, i.number DESC`;
 export const INVOICE_SQL = `${INVOICE_SELECT} WHERE i.id = ?`;
 
 export const ESTIMATES_SQL = `
-SELECT e.id, e.client_id, c.name AS client_name, c.email AS client_email, c.phone AS client_phone,
+SELECT e.id, e.client_id, c.name AS client_name, c.phone AS client_phone,
        e.number,
        CASE WHEN e.status = 'sent' AND e.valid_until < ? THEN 'expired'
             ELSE e.status END AS status,
@@ -911,10 +909,8 @@ export function useInvoiceActions(api: ApiLike): InvoiceActions {
     };
 }
 
-function partyLines(r: { client_email: string | null; client_phone: string | null }): string[] {
-    return [r.client_email, r.client_phone === null ? null : formatPhone(r.client_phone)].filter(
-        (x): x is string => x !== null && x !== "",
-    );
+function partyLines(r: { client_phone: string | null }): string[] {
+    return r.client_phone === null ? [] : [formatPhone(r.client_phone)].filter((x) => x !== "");
 }
 
 export function printedInvoice(
@@ -1556,7 +1552,7 @@ interface DocComposer {
     send: () => void;
     startOver: () => void;
     preview: (
-        client: { name: string | null; email: string | null; phone: string | null } | null,
+        client: { name: string | null; phone: string | null } | null,
         letterhead: Letterhead,
         fallbackColor: string,
     ) => PrintedDoc;
@@ -1885,13 +1881,7 @@ export function useDocComposer(
                     currency: BUSINESS_CURRENCY,
                     number,
                     partyName: client?.name ?? s.chooseClient,
-                    partyLines:
-                        client === null
-                            ? []
-                            : partyLines({
-                                  client_email: client.email,
-                                  client_phone: client.phone,
-                              }),
+                    partyLines: client === null ? [] : partyLines({ client_phone: client.phone }),
                     meta: [
                         {
                             label: estimate ? p.estimateNumber : p.invoiceNumber,

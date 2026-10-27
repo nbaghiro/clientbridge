@@ -83,7 +83,7 @@ async def test_outside_production_reserved_recipients_are_sent_in_simulation(
     business = await db.get(Business, BIZ)
     assert business is not None
     client = await factory.client(business=business)
-    thread = Thread(id=new_id("thread"), business_id=BIZ, client_id=client.id, channel="sms")
+    thread = Thread(id=new_id("thread"), business_id=BIZ, client_id=client.id)
     db.add(thread)
     await db.flush()
     message = Message(
@@ -91,7 +91,6 @@ async def test_outside_production_reserved_recipients_are_sent_in_simulation(
         business_id=BIZ,
         thread_id=thread.id,
         direction="out",
-        channel="sms",
         body="Reminder",
         status="queued",
     )
@@ -349,7 +348,7 @@ async def test_only_one_worker_sends_and_a_callback_fences_its_completion(
 
     from clientbridge.core.db import SessionLocal
     from clientbridge.models.platform import Webhook
-    from clientbridge.services.messaging import process_email_event
+    from clientbridge.services.deliveries import process_email_event
 
     started, release = asyncio.Event(), asyncio.Event()
     event_id = uuid.uuid4().hex

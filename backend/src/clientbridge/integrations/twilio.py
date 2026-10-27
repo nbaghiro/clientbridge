@@ -1,4 +1,4 @@
-"""SMS: the Twilio sender, and a console no-op until it is configured."""
+"""SMS: the Twilio sender, a dev transport into Mailpit, and a console no-op otherwise."""
 
 import base64
 import hashlib
@@ -9,7 +9,9 @@ from typing import Protocol
 
 from clientbridge.core.config import get_settings
 from clientbridge.core.errors import AppError
+from clientbridge.core.phones import reserved_phone
 from clientbridge.integrations.http import http_session
+from clientbridge.integrations.resend import Email, EmailSender, SmtpEmailSender
 
 _TWILIO_API = "https://api.twilio.com/2010-04-01"
 
@@ -52,8 +54,36 @@ class TwilioSmsSender:
             return str(sid) if sid else None
 
 
+def sms_mailbox(number: str) -> str:
+    """The dev inbox a number's texts land in, namespaced to an e2e run like its addresses."""
+    digits = "".join(ch for ch in number if ch.isdigit())
+    namespace = get_settings().run_namespace
+    # Mailpit refuses .invalid, as a carrier refuses a number set aside for fiction
+    domain = "sms.invalid" if reserved_phone(number) else "sms.test"
+    return f"{digits}+{namespace}@{domain}" if namespace else f"{digits}@{domain}"
+
+
+class SmtpSmsSender:
+    """Dev transport: mails each text to its number's inbox, so a person or a test can read it."""
+
+    def __init__(self, mail: EmailSender) -> None:
+        self._mail = mail
+
+    async def send(self, sms: Sms) -> str | None:
+        if sms.from_number is None:
+            raise AppError(
+                "business has no assigned SMS number", code="sms_unassigned", status_code=503
+            )
+        mail = Email(to=sms_mailbox(sms.to), subject=sms.from_number, body=sms.body)
+        await self._mail.send(mail)
+        return None
+
+
 def get_sms_sender() -> SmsSender:
     s = get_settings()
+    if s.smtp_url:  # local transport wins, as for email: a dev checkout texts nobody real
+        mail = SmtpEmailSender(s.smtp_url, s.email_from or "no-reply@clientbridge.ca")
+        return SmtpSmsSender(mail)
     if s.twilio_account_sid and s.twilio_auth_token:
         return TwilioSmsSender(s.twilio_account_sid, s.twilio_auth_token)
     return ConsoleSmsSender()

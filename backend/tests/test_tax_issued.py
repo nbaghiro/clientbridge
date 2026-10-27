@@ -15,7 +15,7 @@ from clientbridge.models.ledger import Account, Entry
 from clientbridge.models.payments import Payment
 from clientbridge.services import ledger
 from clientbridge.services.tax import TaxComponent, TaxLine, split_fixed
-from tests.conftest import BIZ, FakeEmailSender
+from tests.conftest import BIZ, FakeSmsSender
 from tests.helpers import client_id, enable_payments, key, ok, settle
 
 BC = [TaxComponent("GST", Decimal("0.05")), TaxComponent("PST", Decimal("0.07"))]
@@ -37,11 +37,12 @@ async def _tax_legs(db: AsyncSession, ref: str) -> dict[str, int]:
 
 
 async def test_sale_paid_after_registration_change_books_the_tax_it_charged(
-    as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
+    as_owner: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender
 ) -> None:
     sale = ok(
         await as_owner.post(
-            "/v1/orders", json={"lines": [SHAMPOO], "receipt_email": "walkin@example.ca"}
+            "/v1/orders",
+            json={"lines": [SHAMPOO], "receipt_phone": "+15145550223"},
         ),
         201,
     ).json()
@@ -53,7 +54,7 @@ async def test_sale_paid_after_registration_change_books_the_tax_it_charged(
     assert await _tax_legs(db, f"payment:{pay['payment_id']}") == {"GST": 120, "PST": 168}
     line = (await db.execute(select(Line).where(Line.order_id == sale["id"]))).scalar_one()
     assert line.tax_amount_cents == 288
-    (receipt,) = [m for m in email.sent if m.to == "walkin@example.ca"]
+    (receipt,) = [m for m in sms.sent if m.to == "+15145550223"]
     assert "GST  $1.20" in receipt.body and "PST  $1.68" in receipt.body
     assert "Total  $26.88" in receipt.body
 

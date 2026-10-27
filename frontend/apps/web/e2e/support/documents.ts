@@ -1,4 +1,4 @@
-import { strings } from "@clientbridge/app-core/public";
+import { formatPhone, strings } from "@clientbridge/app-core/public";
 import { expect, type Page } from "@playwright/test";
 import { select } from "./db";
 import { type DocumentClient } from "./billing";
@@ -77,7 +77,7 @@ export async function sendToClient(
     const f = strings.forms;
     await page.getByRole("button", { name: action, exact: true }).click();
     const dialog = page.getByRole("dialog").filter({ hasText: f.sendBody });
-    await dialog.getByRole("combobox", { name: f.client, exact: true }).fill(client.email);
+    await dialog.getByRole("combobox", { name: f.client, exact: true }).fill(client.name);
     await page
         .getByRole("option")
         .filter({ has: page.getByText(client.name, { exact: true }) })
@@ -85,7 +85,7 @@ export async function sendToClient(
     await dialog.getByRole("button", { name: f.sendLink, exact: true }).click();
     // nothing leaves until the owner checks what the client will get
     const review = page.getByRole("dialog", { name: strings.previews.title, exact: true });
-    await expect(review).toContainText(client.email);
+    await expect(review).toContainText(formatPhone(client.phone));
     const sending = page.waitForResponse(
         (response) =>
             new URL(response.url()).pathname === path && response.request().method() === "POST",

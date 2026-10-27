@@ -7,13 +7,11 @@ const clients = new Table(
     {
         created_by: column.text,
         name: column.text,
-        email: column.text,
         phone: column.text,
         user_id: column.text,
         tags: column.text,
         status: column.text,
         custom_fields: column.text,
-        preferred_channel: column.text,
         archived_at: column.text,
         business_id: column.text,
         created_at: column.text,
@@ -22,7 +20,6 @@ const clients = new Table(
     },
     {
         indexes: {
-            clients_business_email: ["email"],
             clients_business_id: ["business_id"],
             clients_business_phone: ["phone"],
             clients_created_by: ["created_by"],
@@ -72,7 +69,6 @@ const notes = new Table(
 const consents = new Table(
     {
         client_id: column.text,
-        channel: column.text,
         status: column.text,
         source: column.text,
         recorded_by: column.text,
@@ -84,7 +80,7 @@ const consents = new Table(
     {
         indexes: {
             consents_business_id: ["business_id"],
-            consents_client: ["client_id", "channel", "created_at"],
+            consents_client: ["client_id", "created_at"],
             consents_client_id: ["client_id"],
             consents_recorded_by: ["recorded_by"],
         },
@@ -316,7 +312,6 @@ const files = new Table(
 const threads = new Table(
     {
         client_id: column.text,
-        channel: column.text,
         status: column.text,
         business_id: column.text,
         created_at: column.text,
@@ -407,7 +402,6 @@ const orders = new Table(
         subtotal_cents: column.integer,
         tax_total_cents: column.integer,
         total_cents: column.integer,
-        receipt_email: column.text,
         receipt_phone: column.text,
         source: column.text,
         pickup_status: column.text,
@@ -419,7 +413,6 @@ const orders = new Table(
         picked_up_at: column.text,
         paid_at: column.text,
         note: column.text,
-        receipt_channel: column.text,
         receipt_sent_at: column.text,
         business_id: column.text,
         created_at: column.text,
@@ -780,7 +773,6 @@ const broadcasts = new Table(
     {
         created_by: column.text,
         name: column.text,
-        channel: column.text,
         body: column.text,
         audience: column.text,
         status: column.text,
@@ -858,7 +850,6 @@ const messages = new Table(
     {
         thread_id: column.text,
         direction: column.text,
-        channel: column.text,
         sent_by: column.text,
         body: column.text,
         status: column.text,

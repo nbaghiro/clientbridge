@@ -1,7 +1,7 @@
 import { execFile } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
-import { strings } from "@clientbridge/app-core/public";
+import { formatPhone, strings } from "@clientbridge/app-core/public";
 import { expect, type Page } from "@playwright/test";
 import {
     composeDocument,
@@ -13,6 +13,7 @@ import {
     saveDocument,
     type DocumentClient,
 } from "../../web/e2e/support/billing";
+import { textInbox } from "../../web/e2e/support/auth";
 import { paymentEvidence, receiptMessages } from "../../web/e2e/support/evidence";
 import { on } from "./hosts";
 import { registerStripeInvoice, stripeReady } from "./stripe-provider";
@@ -32,7 +33,9 @@ export async function issueStripeInvoice(page: Page) {
     const review = page.getByRole("dialog").filter({
         has: page.getByRole("heading", { name: strings.previews.title, exact: true }),
     });
-    await expect(review.getByText(client.email, { exact: false }).first()).toBeVisible();
+    await expect(
+        review.getByText(formatPhone(client.phone), { exact: false }).first(),
+    ).toBeVisible();
     const sent = page.waitForResponse(
         (response) =>
             response.url().endsWith(`/invoices/${draft.id}/send`) &&
@@ -64,18 +67,18 @@ export async function issueStripeInvoice(page: Page) {
     expect(new Set(issued.entries.map((entry) => entry.journal_id)).size).toBe(1);
     await expect.poll(async () => (await documentMail(page, client)).length).toBe(1);
     const message = (await documentMail(page, client))[0];
-    if (!message) throw new Error("Invoice email is absent");
+    if (!message) throw new Error("Invoice text is absent");
     const detail = await page.request.get(
         `${process.env.MAILPIT_URL}/api/v1/message/${message.ID}`,
     );
     expect(detail.status()).toBe(200);
     const mail = (await detail.json()) as { Text: string; To: { Address: string }[] };
-    expect(mail.To.map((recipient) => recipient.Address)).toEqual([client.email]);
+    expect(mail.To.map((recipient) => recipient.Address)).toEqual([textInbox(client.phone)]);
     const links = mail.Text.match(/https?:\/\/[^\s<>"']+/g) ?? [];
     const payLinks = links.filter((link) => new URL(link).pathname.startsWith("/i/"));
     expect(payLinks).toHaveLength(1);
     const url = payLinks[0];
-    if (!url) throw new Error("Invoice email has no payment link");
+    if (!url) throw new Error("Invoice text has no payment link");
     const parsed = new URL(url);
     expect(parsed.origin).toBe(new URL(on("pay", "")).origin);
     expect(parsed.pathname).toMatch(/^\/i\/[^/]+$/);
@@ -119,9 +122,9 @@ export async function stripeReceipt(
                 payment_id: paymentId,
             },
         ]);
-        expect(await receiptMessages(page.request, client.email)).toHaveLength(1);
+        expect(await receiptMessages(page.request, client.phone)).toHaveLength(1);
     }).toPass({ timeout: 60_000 });
-    const message = (await receiptMessages(page.request, client.email))[0];
+    const message = (await receiptMessages(page.request, client.phone))[0];
     if (!message) throw new Error("Payment receipt is absent");
     expect(message.Snippet).toContain("$20.00");
     return { ...evidence, mailId: message.ID };

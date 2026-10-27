@@ -5,7 +5,6 @@ import hmac
 import io
 from collections.abc import Sequence
 from datetime import datetime
-from typing import get_args
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -16,7 +15,7 @@ from clientbridge.core.ids import new_id
 from clientbridge.core.locale import locale_for, message
 from clientbridge.core.scoping import scoped
 from clientbridge.models.business import Business, User
-from clientbridge.models.clients import Channel, Client, Consent, ConsentSource, ConsentStatus
+from clientbridge.models.clients import Client, Consent, ConsentSource, ConsentStatus
 from clientbridge.schemas.consents import ConsentExport
 
 
@@ -25,7 +24,6 @@ async def record_consent(
     business_id: str,
     client_id: str,
     *,
-    channel: Channel,
     status: ConsentStatus,
     source: ConsentSource,
     recorded_by: str | None,
@@ -35,7 +33,6 @@ async def record_consent(
         id=new_id("consent"),
         business_id=business_id,
         client_id=client_id,
-        channel=channel,
         status=status,
         source=source,
         recorded_by=recorded_by,
@@ -47,14 +44,14 @@ async def record_consent(
 
 
 async def latest_consents(
-    db: AsyncSession, business_id: str, client_ids: Sequence[str], channel: Channel
+    db: AsyncSession, business_id: str, client_ids: Sequence[str]
 ) -> dict[str, Consent]:
-    """The newest consent row per client on one channel (no row means never asked)."""
+    """The newest consent row per client (no row means never asked)."""
     rows = (
         (
             await db.execute(
                 scoped(Consent, business_id)
-                .where(Consent.client_id.in_(client_ids), Consent.channel == channel)
+                .where(Consent.client_id.in_(client_ids))
                 .order_by(Consent.client_id, Consent.created_at.desc(), Consent.id.desc())
             )
         )
@@ -78,39 +75,35 @@ def allows_marketing(consent: Consent | None, now: datetime | None = None) -> bo
 async def set_marketing_consent(
     db: AsyncSession, business_id: str, client_id: str, *, agreed: bool, recorded_by: str | None
 ) -> None:
-    """Record an in-person yes or no on both channels, only where it changes the current state."""
-    stopped = await stopped_clients(db, business_id, [client_id])
-    for channel in get_args(Channel):
-        if agreed and channel == "sms" and client_id in stopped:
-            continue  # only the client's own START reply lifts a STOP
-        current = (await latest_consents(db, business_id, [client_id], channel)).get(client_id)
-        if allows_marketing(current) == agreed:
-            continue
-        await record_consent(
-            db,
-            business_id,
-            client_id,
-            channel=channel,
-            status="granted" if agreed else "withdrawn",
-            source="in_person",
-            recorded_by=recorded_by,
-        )
+    """Record an in-person yes or no, only where it changes the current state."""
+    if agreed and await texts_stopped(db, business_id, client_id):
+        return  # only the client's own START reply lifts a STOP
+    current = (await latest_consents(db, business_id, [client_id])).get(client_id)
+    if allows_marketing(current) == agreed:
+        return
+    await record_consent(
+        db,
+        business_id,
+        client_id,
+        status="granted" if agreed else "withdrawn",
+        source="in_person",
+        recorded_by=recorded_by,
+    )
 
 
-async def set_channel_consent(
-    db: AsyncSession, client: Client, channel: Channel, *, agreed: bool, source: ConsentSource
+async def set_consent(
+    db: AsyncSession, client: Client, *, agreed: bool, source: ConsentSource
 ) -> bool:
-    """Record a yes or no on one channel when it changes the current state; True if it did."""
-    if agreed and channel == "sms" and await texts_stopped(db, client.business_id, client.id):
+    """Record a yes or no when it changes the current state; True if it did."""
+    if agreed and await texts_stopped(db, client.business_id, client.id):
         return False
-    current = (await latest_consents(db, client.business_id, [client.id], channel)).get(client.id)
+    current = (await latest_consents(db, client.business_id, [client.id])).get(client.id)
     if allows_marketing(current) == agreed:
         return False
     await record_consent(
         db,
         client.business_id,
         client.id,
-        channel=channel,
         status="granted" if agreed else "withdrawn",
         source=source,
         recorded_by=None,
@@ -126,11 +119,7 @@ async def stopped_clients(
         await db.execute(
             scoped(Consent, business_id)
             .with_only_columns(Consent.client_id, Consent.status)
-            .where(
-                Consent.client_id.in_(client_ids),
-                Consent.channel == "sms",
-                Consent.source == "reply",
-            )
+            .where(Consent.client_id.in_(client_ids), Consent.source == "reply")
             .order_by(Consent.client_id, Consent.created_at.desc(), Consent.id.desc())
         )
     ).all()
@@ -138,11 +127,6 @@ async def stopped_clients(
     for client_id, status in rows:
         newest.setdefault(client_id, status)
     return {client_id for client_id, status in newest.items() if status == "withdrawn"}
-
-
-async def emails_withdrawn(db: AsyncSession, business_id: str, client_id: str) -> bool:
-    latest = (await latest_consents(db, business_id, [client_id], "email")).get(client_id)
-    return latest is not None and latest.status == "withdrawn"
 
 
 async def texts_stopped(db: AsyncSession, business_id: str, client_id: str) -> bool:
@@ -158,26 +142,8 @@ async def record_text_reply(db: AsyncSession, client: Client, *, stop: bool) -> 
         db,
         client.business_id,
         client.id,
-        channel="sms",
         status="withdrawn" if stop else "granted",
         source="reply",
-        recorded_by=None,
-    )
-    return True
-
-
-async def record_complaint(db: AsyncSession, client: Client) -> bool:
-    """A spam complaint withdraws email marketing; True unless one is already on record."""
-    latest = (await latest_consents(db, client.business_id, [client.id], "email")).get(client.id)
-    if latest is not None and latest.status == "withdrawn" and latest.source == "complaint":
-        return False
-    await record_consent(
-        db,
-        client.business_id,
-        client.id,
-        channel="email",
-        status="withdrawn",
-        source="complaint",
         recorded_by=None,
     )
     return True
@@ -213,9 +179,7 @@ def _cell(value: str) -> str:
 def _export_header(locale: str) -> list[str]:
     return [
         message(locale, "consent_csv.client"),
-        message(locale, "consent_csv.email"),
         message(locale, "consent_csv.phone"),
-        message(locale, "consent_csv.channel"),
         message(locale, "consent_csv.status"),
         message(locale, "consent_csv.source"),
         message(locale, "consent_csv.recorded_at"),
@@ -238,7 +202,7 @@ class ConsentService:
         rows = (
             await self.db.execute(
                 scoped(Consent, self.biz)
-                .add_columns(Client.name, Client.email, Client.phone, User.email)
+                .add_columns(Client.name, Client.phone, User.email)
                 .join(Client, Client.id == Consent.client_id)
                 .outerjoin(User, User.id == Consent.recorded_by)
                 .order_by(Client.name, Client.id, Consent.created_at, Consent.id)
@@ -251,13 +215,11 @@ class ConsentService:
         out = io.StringIO()
         writer = csv.writer(out)
         writer.writerow(_export_header(locale))
-        for consent, name, email, phone, recorded_by in rows:
+        for consent, name, phone, recorded_by in rows:
             writer.writerow(
                 [
                     _cell(name),
-                    _cell(email or ""),
                     phone or "",
-                    consent.channel,
                     consent.status,
                     consent.source,
                     consent.created_at.isoformat(),

@@ -1,11 +1,13 @@
 import {
     formatParts,
+    formatPhone,
     strings,
     addDays,
     combineDayAndTime,
     dateKey,
 } from "@clientbridge/app-core/public";
 import { expect, test, type Page } from "@playwright/test";
+import { freshPhone } from "../support/auth";
 import { cancelOwnedBooking, bookingApi } from "../support/bookings";
 import {
     clientCommand,
@@ -23,7 +25,7 @@ import {
 } from "../support/clients";
 import { navigate, signIn, customerContext } from "../support/session";
 import { demoSlug, runEmail } from "@clientbridge/config/e2e/run";
-import { randomInt, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { demoPerson } from "@clientbridge/config/e2e/demo";
 import { expectPhoto, filesApi, photoEvidence, portrait } from "../support/files";
 import { apiCall, visitEvidence } from "../support/visit";
@@ -183,24 +185,25 @@ test("CRM-E2E-07 editing verified contact clears proof and keeps conflicting det
 }) => {
     await signIn(page);
     const fixture = await returningFixture(page);
-    const other = await createClient(page);
-    const phone = `+1250555${String(randomInt(1000, 10000))}`;
-    const evidence = () =>
-        contactEvidence([fixture.clientEmail, other.email], phone, fixture.itemId);
+    // two other clients share the number, so a booking under it cannot pick one of them
+    const others = [await createClient(page), await createClient(page)];
+    const phone = freshPhone();
+    const evidence = () => contactEvidence([fixture.clientPhone, phone], fixture.itemId);
     const unclaimed = await evidence();
-    expect(unclaimed.clients.map((c) => c.id).sort()).toEqual([fixture.clientId, other.id].sort());
-    expect(unclaimed.clients.every((c) => c.phone !== phone)).toBe(true);
-    const assigned = await page.request.patch(`${bookingApi()}/v1/clients/${other.id}`, {
-        headers: { Origin: new URL(page.url()).origin },
-        data: { phone },
-    });
-    expect(assigned.status(), await assigned.text()).toBe(200);
+    expect(unclaimed.clients.map((c) => c.id)).toEqual([fixture.clientId]);
+    for (const other of others) {
+        const assigned = await page.request.patch(`${bookingApi()}/v1/clients/${other.id}`, {
+            headers: { Origin: new URL(page.url()).origin },
+            data: { phone },
+        });
+        expect(assigned.status(), await assigned.text()).toBe(200);
+    }
     const customerContext = await browser.newContext();
     try {
         const customer = await customerContext.newPage();
         await verifyReturning(customer, fixture, 1);
         const baseline = await evidence();
-        expect(baseline.clients).toHaveLength(2);
+        expect(baseline.clients).toHaveLength(3);
         expect(baseline.subjects).toHaveLength(2);
         expect(baseline.bookings).toEqual([]);
         expect(baseline.slots).toEqual([]);
@@ -220,16 +223,13 @@ test("CRM-E2E-07 editing verified contact clears proof and keeps conflicting det
         expect(response.request().postDataJSON()).toMatchObject({
             returning_token: null,
             subject_id: null,
-            client: { name: fixture.clientName, email: fixture.clientEmail, phone },
+            client: { name: fixture.clientName, phone },
         });
         expect(response.status(), await response.text()).toBe(409);
         expect(await response.json()).toMatchObject({ error: "contact_ambiguous" });
         await expect(
             customer.getByText(strings.api.contactAmbiguous, { exact: true }),
         ).toBeVisible();
-        await expect(
-            customer.getByRole("textbox", { name: new RegExp(`^${strings.publicBooking.email}`) }),
-        ).toHaveValue(fixture.clientEmail);
         await expect(
             customer.getByRole("textbox", { name: strings.publicBooking.phone, exact: true }),
         ).toHaveValue(phone);
@@ -562,7 +562,7 @@ test("FLOW-04-B a merge moves a duplicate's pet, note and visit onto the kept ti
         expect(await visitEvidence([kept.id, duplicate.id, paid.id])).toEqual(moved);
         await page.keyboard.press("Escape");
         const record = await openClient(page, paid);
-        await expect(record).toContainText(paid.email);
+        await expect(record).toContainText(formatPhone(paid.phone));
         await testInfo.attach("merge-and-refusal", {
             body: JSON.stringify(moved),
             contentType: "application/json",

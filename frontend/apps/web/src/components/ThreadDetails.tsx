@@ -1,8 +1,8 @@
 import {
-    type Channel,
     type Conversation,
     type InboxThread,
     BUSINESS_CURRENCY,
+    formatPhone,
     consentDetail,
     consentLabel,
     strings,
@@ -18,7 +18,6 @@ import { Avatar, Badge, Button, KeyValueList, Money } from "@clientbridge/ui";
 import { api } from "../lib/api";
 
 const s = strings.messaging;
-const CHANNELS: Channel[] = ["sms", "email"];
 
 /** The open conversation's client beside the thread; Open record shows their full record over the page. */
 export function ThreadDetails({ thread }: { thread: InboxThread }) {
@@ -45,6 +44,8 @@ export function ContextPanel({
     const kind = useSubjectKind();
     const client = conversation.client;
     const balance = client?.balance_cents ?? 0;
+    const consent = consentLabel(conversation.consent);
+    const consentInfo = consentDetail(conversation.consent, zone);
     return (
         <div className="space-y-5">
             <div className="flex items-center gap-3">
@@ -53,7 +54,9 @@ export function ContextPanel({
                     <p className="truncate font-display text-base font-bold text-ink">
                         {thread.title}
                     </p>
-                    <p className="truncate text-xs text-muted">{client?.email}</p>
+                    <p className="truncate text-xs text-muted">
+                        {formatPhone(client?.phone ?? null)}
+                    </p>
                 </div>
             </div>
             <div className="flex gap-2">
@@ -105,29 +108,19 @@ export function ContextPanel({
                     {s.consentTitle}
                 </h3>
                 <ul className="divide-y divide-line-soft rounded-md border border-line">
-                    {CHANNELS.map((ch) => {
-                        const v = conversation.consent[ch];
-                        const state = consentLabel(v);
-                        const detail = consentDetail(v, zone);
-                        return (
-                            <li
-                                key={ch}
-                                className="flex items-start justify-between gap-3 px-3 py-2.5"
-                            >
-                                <div className="min-w-0">
-                                    <div className="text-sm font-medium text-ink">
-                                        {s.consentChannel[ch]}
-                                    </div>
-                                    {detail !== null ? (
-                                        <div className="text-xs text-muted">{detail}</div>
-                                    ) : null}
-                                </div>
-                                <span className="shrink-0">
-                                    <Badge label={state.label} intent={state.intent} />
-                                </span>
-                            </li>
-                        );
-                    })}
+                    <li className="flex items-start justify-between gap-3 px-3 py-2.5">
+                        <div className="min-w-0">
+                            <div className="text-sm font-medium text-ink">
+                                {s.consentChannel.sms}
+                            </div>
+                            {consentInfo !== null ? (
+                                <div className="text-xs text-muted">{consentInfo}</div>
+                            ) : null}
+                        </div>
+                        <span className="shrink-0">
+                            <Badge label={consent.label} intent={consent.intent} />
+                        </span>
+                    </li>
                 </ul>
             </section>
         </div>

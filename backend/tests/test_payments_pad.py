@@ -25,8 +25,6 @@ async def _link(api: httpx.AsyncClient, db: AsyncSession) -> tuple[PaymentSetupL
     cid = "cl_amelie"
     client = await db.get(Client, cid)
     assert client is not None
-    client.email = "pad@example.test"
-    await db.flush()
     response = await api.post(f"/v1/payments/pad-links/{cid}")
     assert response.status_code == 200, response.text
     body = response.json()
@@ -58,8 +56,10 @@ async def _event(
     assert response.status_code == 200, response.text
 
 
-async def _start(api: httpx.AsyncClient, token: str) -> str:
-    response = await api.post("/payment-method/start", headers=_header(token))
+async def _start(api: httpx.AsyncClient, token: str, email: str = "pad@example.test") -> str:
+    response = await api.post(
+        "/payment-method/start", headers=_header(token), json={"email": email}
+    )
     assert response.status_code == 200, response.text
     return str(response.json()["client_secret"]).split("_secret")[0]
 
@@ -114,7 +114,13 @@ async def test_pad_rejects_missing_invalid_expired_and_revoked_tokens(
     link, token = await _link(as_owner, db)
     link.expires_at = clock.now() - timedelta(seconds=1)
     await db.commit()
-    assert (await as_owner.post("/payment-method/start", headers=_header(token))).status_code == 404
+    assert (
+        await as_owner.post(
+            "/payment-method/start",
+            headers=_header(token),
+            json={"email": "pad@example.test"},
+        )
+    ).status_code == 404
     second, token2 = await _link(as_owner, db)
     assert (await as_owner.delete(f"/v1/payments/pad-links/{second.id}")).status_code == 204
     assert (await as_owner.get("/payment-method", headers=_header(token2))).status_code == 404
@@ -139,7 +145,11 @@ async def test_new_link_replaces_old_and_validates_business_customer_identity(
     business.stripe_account_id = "acct_changed"
     await db.commit()
     assert (
-        await as_owner.post("/payment-method/start", headers=_header(token3))
+        await as_owner.post(
+            "/payment-method/start",
+            headers=_header(token3),
+            json={"email": "pad@example.test"},
+        )
     ).status_code == 404
 
 
@@ -157,22 +167,28 @@ async def test_staff_cannot_issue_or_revoke_bank_links(as_staff: httpx.AsyncClie
     assert (await as_staff.delete("/v1/payments/pad-links/nope")).status_code == 403
 
 
-async def test_link_requires_email_and_connected_account(
+async def test_link_does_not_require_a_client_email_and_requires_connected_account(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     await enable_payments(db)
     cid = await client_id(db)
-    client = await db.get(Client, cid)
-    assert client is not None
-    client.email = None
-    await db.commit()
-    assert (await as_owner.post(f"/v1/payments/pad-links/{cid}")).status_code == 409
-    client.email = "pad@example.test"
+    assert (await as_owner.post(f"/v1/payments/pad-links/{cid}")).status_code == 200
     business = await db.get(Business, BIZ)
     assert business is not None
     business.stripe_account_id = None
     await db.commit()
     assert (await as_owner.post(f"/v1/payments/pad-links/{cid}")).status_code == 409
+
+
+async def test_pad_start_requires_a_valid_payer_email(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    _, token = await _link(as_owner, db)
+    assert (await as_owner.post("/payment-method/start", headers=_header(token))).status_code == 422
+    invalid = await as_owner.post(
+        "/payment-method/start", headers=_header(token), json={"email": "not-an-email"}
+    )
+    assert invalid.status_code == 422
 
 
 async def test_attached_bank_is_pending_until_verified_setup_and_mandate(
@@ -242,7 +258,13 @@ async def test_setup_wrong_account_customer_or_mandate_does_not_activate(
         await db.execute(select(PaymentMethod).where(PaymentMethod.provider_ref == "pm_authorized"))
     ).scalar_one_or_none() is None
     gateway.pad_intents[intent] = replace(gateway.pad_intents[intent], customer_id="cus_other")
-    assert (await as_owner.post("/payment-method/start", headers=_header(token))).status_code == 409
+    assert (
+        await as_owner.post(
+            "/payment-method/start",
+            headers=_header(token),
+            json={"email": "pad@example.test"},
+        )
+    ).status_code == 409
 
 
 async def test_revoked_link_cannot_activate_unfinished_setup(
@@ -274,7 +296,13 @@ async def test_microdeposit_verification_and_processing_never_claim_active(
     gateway.pad_intents[intent] = replace(
         gateway.pad_intents[intent], status="processing", verification_url=None
     )
-    data = (await as_owner.post("/payment-method/start", headers=_header(token))).json()
+    data = (
+        await as_owner.post(
+            "/payment-method/start",
+            headers=_header(token),
+            json={"email": "pad@example.test"},
+        )
+    ).json()
     assert data["status"] == "processing" and data["client_secret"] is None
 
 
@@ -282,7 +310,7 @@ async def test_link_requires_enabled_pad_capability(
     as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
 ) -> None:
     await enable_payments(db)
-    cid = await client_id(db, email="pad@example.test")
+    cid = await client_id(db)
     gateway.pad_enabled = False
     response = await as_owner.post(f"/v1/payments/pad-links/{cid}")
     assert response.status_code == 409

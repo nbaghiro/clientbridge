@@ -155,7 +155,7 @@ hand-written role tuple check.
 Every external dependency is an **adapter interface (`typing.Protocol`) + a prod implementation + a `get_*()`
 dependency** that tests override with a recording fake — so the boundary is covered without the network.
 Six adapters in `integrations/`, one per provider so they read apart from our own services:
-`stripe.py` (Stripe Connect + Terminal), `resend.py` (email, the SMTP transport for Mailpit in dev, and the Svix check on the delivery webhook), `twilio.py` (SMS), `expo.py` (push), `identity.py`
+`stripe.py` (Stripe Connect + Terminal), `resend.py` (email, the SMTP transport for Mailpit in dev, and the Svix check on the delivery webhook), `twilio.py` (SMS, and the dev transport that mails texts to Mailpit), `expo.py` (push), `identity.py`
 (the auth service's interface: `Identity`, `Credential`, `IdentityProvider`) with `kratos.py` (its Ory Kratos implementation and `get_identity_provider`), `s3.py` (S3; RustFS locally).
 
 ### Email design

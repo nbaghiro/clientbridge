@@ -1,11 +1,12 @@
-import { randomUUID, createHmac, randomInt } from "node:crypto";
+import { randomUUID, createHmac } from "node:crypto";
 import { strings } from "@clientbridge/app-core/public";
 import { expect, type APIRequestContext, type Page, type APIResponse } from "@playwright/test";
 import { createClient, type ClientFixture } from "./clients";
 import { select } from "./db";
 import { requireLocalMail } from "./evidence";
 import { navigate } from "./session";
-import { runUrl, demoPhone, runEmail, runSetting } from "@clientbridge/config/e2e/run";
+import { runUrl, demoPhone, runSetting } from "@clientbridge/config/e2e/run";
+import { freshPhone, textInbox, textsTo } from "./auth";
 import { execFile } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
@@ -15,12 +16,11 @@ const s = strings.messaging;
 export const careMessage =
     "Maple did well with the quieter dryer today.\nPlease brush gently behind her ears this evening.";
 export interface MessageEvidence {
-    threads: { id: string; client_id: string; channel: string; status: string }[];
+    threads: { id: string; client_id: string; status: string }[];
     messages: {
         id: string;
         thread_id: string;
         direction: string;
-        channel: string;
         body: string;
         status: string;
         provider_ref: string | null;
@@ -32,10 +32,10 @@ export interface MessageEvidence {
 export async function messageEvidence(clientId: string): Promise<MessageEvidence> {
     return {
         threads: await select<MessageEvidence["threads"][number]>`
-            SELECT id, client_id, channel, status FROM threads
+            SELECT id, client_id, status FROM threads
             WHERE client_id = ${clientId} ORDER BY id`,
         messages: await select<MessageEvidence["messages"][number]>`
-            SELECT id, thread_id, direction, channel, body, status, provider_ref, sent_by
+            SELECT id, thread_id, direction, body, status, provider_ref, sent_by
             FROM messages
             WHERE thread_id IN (SELECT id FROM threads WHERE client_id = ${clientId})
             ORDER BY id`,
@@ -62,7 +62,7 @@ export async function messageFixture(page: Page): Promise<ClientFixture> {
         deliveries: [],
         audits: [],
     });
-    expect(await inboxMail(page.request, client.email)).toEqual([]);
+    expect(await textsTo(page.request, client.phone)).toEqual([]);
     return client;
 }
 export async function composeMessage(page: Page, client: ClientFixture) {
@@ -73,46 +73,27 @@ export async function composeMessage(page: Page, client: ClientFixture) {
     const option = page.locator(`[role="option"][data-value="${client.id}"]`);
     await expect(option.getByText(client.name, { exact: true })).toBeVisible({ timeout: 60_000 });
     await option.click();
-    await dialog
-        .getByRole("group", { name: s.channelLabel, exact: true })
-        .getByRole("button", { name: s.channels.email, exact: true })
-        .click();
     return dialog;
 }
-export async function inboxMail(
-    request: APIRequestContext,
-    email: string,
-): Promise<{ ID: string; Subject: string }[]> {
-    const response = await request.get(`${runUrl("MAILPIT_URL")}/api/v1/search`, {
-        params: { query: `to:"${email}"`, limit: 100 },
-    });
-    expect(response.status()).toBe(200);
-    return ((await response.json()) as { messages: { ID: string; Subject: string }[] }).messages;
-}
-export interface DeliveredMail {
+export interface DeliveredText {
     id: string;
-    subject: string;
     to: string[];
     text: string;
 }
-export async function deliveredMail(
+/** The texts this run sent to `phone`, oldest first, read whole from the dev inbox. */
+export async function deliveredTexts(
     request: APIRequestContext,
-    email: string,
-): Promise<DeliveredMail[]> {
+    phone: string,
+): Promise<DeliveredText[]> {
     const base = runUrl("MAILPIT_URL");
-    const found = await inboxMail(request, email);
+    const found = await textsTo(request, phone);
     return Promise.all(
         found.reverse().map(async ({ ID }) => {
             const response = await request.get(`${base}/api/v1/message/${ID}`);
             expect(response.status()).toBe(200);
-            const mail = (await response.json()) as {
-                Subject: string;
-                Text: string;
-                To: { Address: string }[];
-            };
+            const mail = (await response.json()) as { Text: string; To: { Address: string }[] };
             return {
                 id: ID,
-                subject: mail.Subject,
                 to: mail.To.map((to) => to.Address),
                 // SMTP MIME normalizes line endings and adds a terminal newline only.
                 text: mail.Text.replaceAll("\r\n", "\n").replace(/\n$/, ""),
@@ -120,32 +101,26 @@ export async function deliveredMail(
         }),
     );
 }
-export async function expectMail(request: APIRequestContext, email: string): Promise<string> {
+export async function expectText(request: APIRequestContext, phone: string): Promise<string> {
     await expect
-        .poll(async () => (await inboxMail(request, email)).length, { timeout: 30_000 })
+        .poll(async () => (await textsTo(request, phone)).length, { timeout: 30_000 })
         .toBe(1);
-    const message = (await inboxMail(request, email))[0];
-    if (message === undefined) throw new Error("SMTP message missing");
-    expect(message.Subject).toBe("Birchbark Pet Studio");
-    const response = await request.get(`${runUrl("MAILPIT_URL")}/api/v1/message/${message.ID}`);
-    expect(response.status()).toBe(200);
-    const mail = (await response.json()) as { Text: string; To: { Address: string }[] };
-    expect(mail.To.map((to) => to.Address)).toEqual([email]);
-    // SMTP MIME normalizes line endings and adds a terminal newline only.
-    expect(mail.Text.replaceAll("\r\n", "\n").replace(/\n$/, "")).toBe(careMessage);
-    return message.ID;
+    const [text] = await deliveredTexts(request, phone);
+    if (text === undefined) throw new Error("texted message missing");
+    expect(text.to).toEqual([textInbox(phone)]);
+    expect(text.text).toBe(careMessage);
+    return text.id;
 }
 export async function expectMessageCommitted(client: ClientFixture): Promise<MessageEvidence> {
     const evidence = await messageEvidence(client.id);
     expect(evidence.threads).toEqual([
-        { id: expect.any(String), client_id: client.id, channel: "email", status: "open" },
+        { id: expect.any(String), client_id: client.id, status: "open" },
     ]);
     expect(evidence.messages).toEqual([
         {
             id: expect.any(String),
             thread_id: evidence.threads[0]?.id,
             direction: "out",
-            channel: "email",
             body: careMessage,
             status: "sent",
             provider_ref: null,
@@ -170,14 +145,14 @@ export async function expectMessageReplica(page: Page, client: ClientFixture): P
         page.locator('[aria-live="polite"]').getByText(careMessage, { exact: true }),
     ).toHaveCount(1);
     await expect(page.locator('[aria-live="polite"]')).toContainText(s.thread.status.sent);
-    await expect(
-        page.getByRole("textbox", { name: s.replyPlaceholder("email"), exact: true }),
-    ).toHaveValue("");
+    await expect(page.getByRole("textbox", { name: s.replyPlaceholder, exact: true })).toHaveValue(
+        "",
+    );
 }
-export async function readdress(page: Page, client: ClientFixture, email: string): Promise<void> {
+export async function renumber(page: Page, client: ClientFixture, phone: string): Promise<void> {
     const api = runUrl("VITE_API_URL");
     const response = await page.request.patch(`${api}/v1/clients/${client.id}`, {
-        data: { email },
+        data: { phone },
         headers: { "Idempotency-Key": randomUUID(), Origin: new URL(page.url()).origin },
     });
     expect(response.status(), await response.text()).toBe(200);
@@ -197,16 +172,18 @@ export async function expectConversation(
     await expect(log.getByText(careMessage, { exact: true })).toHaveCount(statuses.length);
     for (const status of statuses) await expect(log).toContainText(status);
 }
-/** Every link mailed to `email` whose path starts with `path`, waiting until `count` arrive. */
-export async function mailedLinks(
+/** Every link texted to `phone` whose path starts with `path`, waiting until `count` arrive. */
+export async function textedLinks(
     request: APIRequestContext,
-    email: string,
+    phone: string,
     path: string,
     count = 1,
 ): Promise<URL[]> {
     const find = async (): Promise<URL[]> => {
-        const links = (await deliveredMail(request, email))
-            .flatMap((mail) => mail.text.match(/https?:\/\/[^\s<>"')\]]+/g) ?? [])
+        const links = (await deliveredTexts(request, phone))
+            .flatMap((text) => text.text.match(/https?:\/\/[^\s<>"')\]]+/g) ?? [])
+            // a text can end its sentence right after the link
+            .map((link) => link.replace(/[.,;:!?]+$/, ""))
             .filter((link) => new URL(link).pathname.startsWith(path));
         return [...new Set(links)].map((link) => new URL(link));
     };
@@ -221,14 +198,12 @@ export const CEDAR_SMS = demoPhone("+16045550199");
 export interface Contact {
     id: string;
     name: string;
-    email: string;
     phone: string;
 }
 interface ThreadRow {
     id: string;
     business_id: string;
     client_id: string;
-    channel: string;
     status: string;
 }
 interface MessageRow {
@@ -236,7 +211,6 @@ interface MessageRow {
     business_id: string;
     client_id: string;
     direction: string;
-    channel: string;
     body: string | null;
     status: string;
     provider_ref: string | null;
@@ -246,7 +220,6 @@ interface MessageRow {
 interface ConsentRow {
     business_id: string;
     client_id: string;
-    channel: string;
     status: string;
     source: string;
     recorded_by: string | null;
@@ -280,7 +253,6 @@ export interface BroadcastEvidence {
         id: string;
         business_id: string;
         name: string;
-        channel: string;
         status: string;
         scheduled_at: string | null;
         recipient_count: number;
@@ -332,26 +304,14 @@ export function apiBase(): string {
     return runUrl("VITE_API_URL");
 }
 
-export function mailpitBase(): string {
-    return runUrl("MAILPIT_URL");
-}
-
 export function headers(page: Page): Record<string, string> {
     return { "Idempotency-Key": randomUUID(), Origin: new URL(page.url()).origin };
-}
-
-export function freshPhone(): string {
-    // NANP exchanges 200 to 999 except 555, which the product reserves for fiction
-    let exchange = randomInt(200, 1000);
-    if (exchange === 555) exchange = 556;
-    return `+1250${String(exchange)}${String(randomInt(0, 10_000)).padStart(4, "0")}`;
 }
 
 export async function createContact(
     page: Page,
     input: {
         name?: string;
-        email?: string;
         phone?: string;
         consent?: boolean;
         tags?: string[];
@@ -360,7 +320,6 @@ export async function createContact(
     const run = randomUUID();
     const contact = {
         name: input.name ?? demoPerson(run),
-        email: input.email ?? runEmail(`outreach-${run}@example.ca`),
         phone: input.phone ?? freshPhone(),
     };
     const response = await page.request.post(`${apiBase()}/v1/clients`, {
@@ -414,42 +373,6 @@ export async function postInboundSms(
     return { response, sid };
 }
 
-export interface EmailEvent {
-    type: string;
-    created_at?: string;
-    data: {
-        email_id?: string;
-        to?: string[];
-        tags?: Record<string, string>;
-        bounce?: { type: string; subType: string; message: string };
-    };
-}
-
-export async function postEmailEvent(
-    request: APIRequestContext,
-    event: EmailEvent,
-    options: { id?: string; at?: Date; signing?: "valid" | "wrong" } = {},
-): Promise<{ response: APIResponse; id: string }> {
-    const secret = runSetting("RESEND_WEBHOOK_SECRET");
-    const id = options.id ?? `msg_${randomUUID().replaceAll("-", "")}`;
-    const timestamp = String(Math.floor((options.at ?? new Date()).getTime() / 1000));
-    const body = JSON.stringify(event);
-    const key = Buffer.from(secret.replace(/^whsec_/, ""), "base64");
-    const signed = createHmac("sha256", options.signing === "wrong" ? Buffer.from("x") : key)
-        .update(`${id}.${timestamp}.${body}`)
-        .digest("base64");
-    const response = await request.post(`${apiBase()}/webhooks/email`, {
-        data: body,
-        headers: {
-            "Content-Type": "application/json",
-            "svix-id": id,
-            "svix-timestamp": timestamp,
-            "svix-signature": `v1,${signed}`,
-        },
-    });
-    return { response, id };
-}
-
 // The worker's send_deliveries cron fires at second 15 of every minute (tasks/worker.py).
 export async function awayFromDeliveryTick(): Promise<void> {
     for (;;) {
@@ -468,10 +391,6 @@ export async function scheduleBroadcast(
     await navigate(page, "/inbox?segment=broadcasts");
     await page.getByRole("button", { name: b.newBroadcast, exact: true }).first().click();
     await page.getByRole("textbox", { name: b.nameLabel }).fill(input.name);
-    await page
-        .getByRole("group", { name: b.channelPick, exact: true })
-        .getByRole("button", { name: b.channels.email, exact: true })
-        .click();
     await page
         .getByRole("button", { name: b.tagChip(input.tag, input.matched), exact: true })
         .click({ timeout: 60_000 });

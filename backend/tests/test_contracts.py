@@ -11,7 +11,7 @@ from clientbridge.core.ids import new_id
 from clientbridge.core.ratelimit import RateLimiter, public_contract_rate_limit
 from clientbridge.main import app
 from clientbridge.models.documents import Contract, Signature
-from tests.conftest import Factory, FakeEmailSender
+from tests.conftest import Factory, FakeSmsSender
 from tests.helpers import client_id, new_client
 
 BIZ = "bz_birchbark"
@@ -36,7 +36,7 @@ async def _a_signature(db: AsyncSession, *, contract_id: str = WAIVER) -> str:
 
 
 async def test_send_creates_pending_and_notifies(
-    as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
+    as_owner: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender
 ) -> None:
     cid = await new_client(db)
     res = await as_owner.post("/v1/contracts/send", json={"contract_id": WAIVER, "client_id": cid})
@@ -45,7 +45,7 @@ async def test_send_creates_pending_and_notifies(
     assert body["status"] == "pending" and body["token"]
     row = (await db.execute(select(Signature).where(Signature.id == body["id"]))).scalar_one()
     assert row.business_id == BIZ and row.status == "pending"
-    assert any(f"/contract/{body['token']}" in m.body for m in email.sent)
+    assert any(f"/contract/{body['token']}" in m.body for m in sms.sent)
 
 
 async def test_send_unknown_contract_404(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:

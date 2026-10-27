@@ -3,15 +3,13 @@ import { expect, test, type Browser, type Page } from "@playwright/test";
 import {
     careMessage,
     composeMessage,
-    expectMail,
+    expectText,
     expectMessageCommitted,
     expectConversation,
     expectMessageReplica,
-    inboxMail,
     messageEvidence,
     messageFixture,
-    readdress,
-    deliveredMail,
+    renumber,
     BIRCHBARK_SMS,
     CEDAR_SMS,
     apiBase,
@@ -19,16 +17,14 @@ import {
     cancelScheduledBroadcast,
     clientOutreach,
     createContact,
-    freshPhone,
     headers,
-    postEmailEvent,
     postInboundSms,
     scheduleBroadcast,
     webhookRows,
     type Contact,
-    type EmailEvent,
 } from "./support/messaging";
 import { signIn, navigate } from "./support/session";
+import { freshPhone, textsTo } from "./support/auth";
 import { randomUUID } from "node:crypto";
 import { demoId, runEmail } from "@clientbridge/config/e2e/run";
 
@@ -36,8 +32,8 @@ const s = strings.messaging;
 for (const retry of [false, true]) {
     test(
         retry
-            ? "MSG-E2E-02 retry after committed email response loss sends once"
-            : "MSG-E2E-01 blank input is rejected and composed email persists across replicas",
+            ? "MSG-E2E-02 retry after committed text response loss sends once"
+            : "MSG-E2E-01 blank input is rejected and a composed text persists across replicas",
         async ({ page, browser }, testInfo) => {
             await signIn(page);
             const client = await messageFixture(page);
@@ -54,7 +50,7 @@ for (const retry of [false, true]) {
                     deliveries: [],
                     audits: [],
                 });
-                expect(await inboxMail(page.request, client.email)).toEqual([]);
+                expect(await textsTo(page.request, client.phone)).toEqual([]);
             }
             await input.fill(careMessage);
             const keys: (string | undefined)[] = [];
@@ -73,7 +69,7 @@ for (const retry of [false, true]) {
             if (retry) {
                 await expect(dialog.getByText(s.sendError, { exact: true })).toBeVisible();
                 const committed = await expectMessageCommitted(client);
-                const mailId = await expectMail(page.request, client.email);
+                const textId = await expectText(page.request, client.phone);
                 await submit.click();
                 await expect(dialog).toBeHidden();
                 expect(keys).toHaveLength(2);
@@ -81,10 +77,10 @@ for (const retry of [false, true]) {
                 expect(keys[1]).toBe(keys[0]);
                 expect(bodies[1]).toBe(bodies[0]);
                 expect(await messageEvidence(client.id)).toEqual(committed);
-                expect(await expectMail(page.request, client.email)).toBe(mailId);
+                expect(await expectText(page.request, client.phone)).toBe(textId);
             } else await expect(dialog).toBeHidden();
             const evidence = await expectMessageCommitted(client);
-            await expectMail(page.request, client.email);
+            await expectText(page.request, client.phone);
             const observer = await browser.newContext({
                 baseURL: new URL(page.url()).origin,
                 viewport: { width: 1440, height: 900 },
@@ -98,7 +94,7 @@ for (const retry of [false, true]) {
                 await page.reload();
                 await expectMessageReplica(page, client);
                 expect(await messageEvidence(client.id)).toEqual(evidence);
-                await expectMail(page.request, client.email);
+                await expectText(page.request, client.phone);
                 await testInfo.attach("committed-message", {
                     body: JSON.stringify(evidence),
                     contentType: "application/json",
@@ -115,8 +111,9 @@ test("MSG-E2E-03 a message the provider refused keeps its draft and a retry send
 }) => {
     await signIn(page);
     const client = await messageFixture(page);
-    const refused = client.email.replace(/@.*$/, "@mailbox.invalid");
-    await readdress(page, client, refused);
+    // a number set aside for fiction, which the dev text transport refuses like a carrier
+    const refused = "+12505550142";
+    await renumber(page, client, refused);
     const dialog = await composeMessage(page, client);
     const input = dialog.getByRole("textbox", { name: s.newMessageTitle, exact: true });
     const submit = dialog.getByRole("button", { name: s.sendMessage, exact: true });
@@ -139,9 +136,9 @@ test("MSG-E2E-03 a message the provider refused keeps its draft and a retry send
     const failed = await messageEvidence(client.id);
     expect(failed.messages.map((m) => [m.body, m.status])).toEqual([[careMessage, "failed"]]);
     expect(failed.audits.map((a) => a.action)).toEqual(["message.send"]);
-    expect(await inboxMail(page.request, refused)).toEqual([]);
+    expect(await textsTo(page.request, refused)).toEqual([]);
 
-    await readdress(page, client, client.email);
+    await renumber(page, client, client.phone);
     await submit.click();
     await expect(dialog).toBeHidden();
     await expect.poll(() => sends.length).toBe(2);
@@ -154,7 +151,7 @@ test("MSG-E2E-03 a message the provider refused keeps its draft and a retry send
         [careMessage, "sent"],
     ]);
     expect(evidence.threads).toHaveLength(1);
-    await expectMail(page.request, client.email);
+    await expectText(page.request, client.phone);
     await expectConversation(page, client, [s.thread.status.failed, s.thread.status.sent]);
     await page.reload();
     await expectConversation(page, client, [s.thread.status.failed, s.thread.status.sent]);
@@ -201,10 +198,6 @@ test("MSG-E2E-10 a text sent from the composer and its signed reply share one th
     const dialog = page.getByRole("dialog");
     await dialog.getByRole("combobox", { name: s.clientLabel, exact: true }).fill(contact.name);
     await page.locator(`[role="option"][data-value="${contact.id}"]`).click({ timeout: 60_000 });
-    await dialog
-        .getByRole("group", { name: s.channelLabel, exact: true })
-        .getByRole("button", { name: s.channels.sms, exact: true })
-        .click();
     await dialog.getByRole("textbox", { name: s.newMessageTitle, exact: true }).fill(outgoing);
     const sent = page.waitForResponse(
         (r) => new URL(r.url()).pathname === "/v1/messages" && r.request().method() === "POST",
@@ -212,7 +205,7 @@ test("MSG-E2E-10 a text sent from the composer and its signed reply share one th
     await dialog.getByRole("button", { name: s.sendMessage, exact: true }).click();
     const response = await sent;
     expect(response.status(), await response.text()).toBe(200);
-    expect(await response.json()).toMatchObject({ channel: "sms", status: "sent" });
+    expect(await response.json()).toMatchObject({ status: "sent" });
     await expect(dialog).toBeHidden();
     const afterSend = await clientOutreach(contact.id);
     expect(afterSend.threads).toEqual([
@@ -220,7 +213,6 @@ test("MSG-E2E-10 a text sent from the composer and its signed reply share one th
             id: expect.any(String),
             business_id: demoId("bz_birchbark"),
             client_id: contact.id,
-            channel: "sms",
             status: "open",
         },
     ]);
@@ -231,7 +223,6 @@ test("MSG-E2E-10 a text sent from the composer and its signed reply share one th
             business_id: demoId("bz_birchbark"),
             client_id: contact.id,
             direction: "out",
-            channel: "sms",
             body: outgoing,
             status: "sent",
             provider_ref: null,
@@ -255,7 +246,6 @@ test("MSG-E2E-10 a text sent from the composer and its signed reply share one th
             business_id: demoId("bz_birchbark"),
             client_id: contact.id,
             direction: "in",
-            channel: "sms",
             body: reply,
             status: "delivered",
             provider_ref: inbound.sid,
@@ -398,8 +388,8 @@ test("MSG-E2E-11 inbound texts route only to the number's business and unsigned 
         const toUs = { from: shared, to: BIRCHBARK_SMS, body: "Running five minutes late", sid };
         expect((await postInboundSms(page.request, toUs)).response.status()).toBe(200);
         const routed = await clientOutreach(...ids);
-        expect(routed.threads.map((t) => [t.business_id, t.client_id, t.channel])).toEqual([
-            [demoId("bz_birchbark"), ours.id, "sms"],
+        expect(routed.threads.map((t) => [t.business_id, t.client_id])).toEqual([
+            [demoId("bz_birchbark"), ours.id],
         ]);
         expect(
             routed.messages.map((m) => [m.business_id, m.client_id, m.direction, m.body]),
@@ -445,187 +435,10 @@ test("MSG-E2E-11 inbound texts route only to the number's business and unsigned 
             await expect(await openConversation(page, twinClient, "all")).toHaveCount(0);
         }
         const send = await page.request.post(`${apiBase()}/v1/messages`, {
-            data: { client_id: first.id, channel: "sms", body: "Checking in" },
+            data: { client_id: first.id, body: "Checking in" },
             headers: headers(page),
         });
         expect(send.status(), await send.text()).toBe(200);
-    } finally {
-        await cedarOwner.context.close();
-    }
-});
-
-test("MSG-E2E-12 signed email events settle the message once and a complaint opts out only this business's mailbox", async ({
-    page,
-    browser,
-}) => {
-    await signIn(page);
-    const mailbox = runEmail(`outreach-${randomUUID()}@example.ca`);
-    const flagged = await createContact(page, { email: mailbox, consent: true });
-    const sharing = await createContact(page, { email: mailbox.toUpperCase(), consent: true });
-    const cedarOwner = await signedInContext(browser, new URL(page.url()).origin, cedar);
-    try {
-        const foreign = await createContact(cedarOwner.page, { email: mailbox, consent: true });
-        const ids = [flagged.id, sharing.id, foreign.id];
-        const consented = (await clientOutreach(...ids)).consents;
-        expect(consented.map((c) => [c.client_id, c.channel, c.status, c.source]).sort()).toEqual(
-            ids
-                .flatMap((id) => [
-                    [id, "email", "granted", "in_person"],
-                    [id, "sms", "granted", "in_person"],
-                ])
-                .sort(),
-        );
-        const dialog = await composeMessage(page, flagged);
-        await dialog
-            .getByRole("textbox", { name: s.newMessageTitle, exact: true })
-            .fill(careMessage);
-        await dialog.getByRole("button", { name: s.sendMessage, exact: true }).click();
-        await expect(dialog).toBeHidden();
-        const sent = await clientOutreach(...ids);
-        const [message] = sent.messages;
-        if (!message) throw new Error("The composed email was not recorded");
-        expect(sent.messages).toEqual([
-            {
-                id: expect.any(String),
-                business_id: demoId("bz_birchbark"),
-                client_id: flagged.id,
-                direction: "out",
-                channel: "email",
-                body: careMessage,
-                status: "sent",
-                provider_ref: null,
-                sent_by: demoId("us_dev"),
-                broadcast_id: null,
-            },
-        ]);
-        expect((await deliveredMail(page.request, mailbox)).map((m) => m.text)).toEqual([
-            careMessage,
-        ]);
-        const tags = { business: demoId("bz_birchbark"), message: message.id };
-        const emailId = `re_${randomUUID()}`;
-        const event = (type: string, extra: Partial<EmailEvent["data"]> = {}): EmailEvent => ({
-            type,
-            created_at: new Date().toISOString(),
-            data: { email_id: emailId, to: [mailbox], tags, ...extra },
-        });
-
-        const stale = await postEmailEvent(page.request, event("email.delivered"), {
-            at: new Date(Date.now() - 10 * 60_000),
-        });
-        const forged = await postEmailEvent(page.request, event("email.delivered"), {
-            signing: "wrong",
-        });
-        expect([stale.response.status(), forged.response.status()]).toEqual([401, 401]);
-        expect(await webhookRows(`resend_${stale.id}`, `resend_${forged.id}`)).toEqual([]);
-        expect(await clientOutreach(...ids)).toEqual(sent);
-
-        const missing = { business: demoId("bz_birchbark"), message: `message_${randomUUID()}` };
-        const pending = await postEmailEvent(page.request, {
-            type: "email.delivered",
-            created_at: new Date().toISOString(),
-            data: { to: [mailbox], tags: missing },
-        });
-        expect(pending.response.status()).toBe(503);
-        expect(await webhookRows(`resend_${pending.id}`)).toEqual([]);
-        const settled = await postEmailEvent(page.request, {
-            type: "email.delivered",
-            created_at: new Date(Date.now() - 20 * 60_000).toISOString(),
-            data: { to: [mailbox], tags: missing },
-        });
-        expect(settled.response.status()).toBe(200);
-
-        const delivered = await postEmailEvent(page.request, event("email.delivered"));
-        expect(delivered.response.status()).toBe(200);
-        const replayed = await postEmailEvent(page.request, event("email.bounced"), {
-            id: delivered.id,
-        });
-        expect(replayed.response.status()).toBe(200);
-        const afterDelivered = await clientOutreach(...ids);
-        expect(afterDelivered.messages.map((m) => [m.status, m.provider_ref])).toEqual([
-            ["delivered", emailId],
-        ]);
-        const row = await openConversation(page, flagged, "all");
-        await row.click({ timeout: 60_000 });
-        await expect(page.locator('[aria-live="polite"]')).toContainText(s.thread.status.delivered);
-
-        const bounced = await postEmailEvent(
-            page.request,
-            event("email.bounced", {
-                bounce: {
-                    type: "Permanent",
-                    subType: "General",
-                    message: "Mailbox does not exist",
-                },
-            }),
-        );
-        const late = await postEmailEvent(page.request, event("email.delivered"));
-        expect([bounced.response.status(), late.response.status()]).toEqual([200, 200]);
-        expect((await clientOutreach(...ids)).messages.map((m) => m.status)).toEqual(["failed"]);
-
-        const crossed = await postEmailEvent(page.request, {
-            type: "email.complained",
-            created_at: new Date(Date.now() - 20 * 60_000).toISOString(),
-            data: {
-                to: [mailbox],
-                tags: { business: demoId("bz_demo_second"), client: flagged.id },
-            },
-        });
-        expect(crossed.response.status()).toBe(200);
-        expect((await clientOutreach(...ids)).consents).toEqual(consented);
-        const complained = await postEmailEvent(page.request, event("email.complained"));
-        expect(complained.response.status()).toBe(200);
-        const final = await clientOutreach(...ids);
-        expect(
-            final.consents
-                .slice(consented.length)
-                .sort((a, b) => a.client_id.localeCompare(b.client_id)),
-        ).toEqual(
-            [flagged.id, sharing.id]
-                .map((client) => ({
-                    business_id: demoId("bz_birchbark"),
-                    client_id: client,
-                    channel: "email",
-                    status: "withdrawn",
-                    source: "complaint",
-                    recorded_by: null,
-                }))
-                .sort((a, b) => a.client_id.localeCompare(b.client_id)),
-        );
-        expect(final.messages).toEqual([{ ...message, status: "failed", provider_ref: emailId }]);
-        expect(
-            (
-                await webhookRows(
-                    ...[settled, delivered, bounced, late, crossed, complained].map(
-                        (e) => `resend_${e.id}`,
-                    ),
-                )
-            )
-                .map((w) => [w.id, w.event, w.status, w.payload.matched])
-                .sort(),
-        ).toEqual(
-            [
-                [`resend_${settled.id}`, "email.delivered", "processed", false],
-                [`resend_${delivered.id}`, "email.delivered", "processed", true],
-                [`resend_${bounced.id}`, "email.bounced", "processed", true],
-                [`resend_${late.id}`, "email.delivered", "processed", true],
-                [`resend_${crossed.id}`, "email.complained", "processed", false],
-                [`resend_${complained.id}`, "email.complained", "processed", true],
-            ].sort(),
-        );
-
-        await page.reload();
-        const again = await openConversation(page, flagged, "all");
-        await again.click({ timeout: 60_000 });
-        const log = page.locator('[aria-live="polite"]');
-        await expect(log.getByText(careMessage, { exact: true })).toHaveCount(1);
-        await expect(log).toContainText(s.thread.status.failed);
-        const email = page
-            .getByRole("listitem")
-            .filter({ has: page.getByText(s.consentChannel.email, { exact: true }) });
-        await expect(email).toContainText(s.consentState.opted_out, { timeout: 60_000 });
-        expect((await deliveredMail(page.request, mailbox)).map((m) => m.text)).toEqual([
-            careMessage,
-        ]);
     } finally {
         await cedarOwner.context.close();
     }
@@ -642,7 +455,6 @@ test("MSG-E2E-13 staff message and read like everyone, while broadcasts, cancels
     const scheduled = await page.request.post(`${apiBase()}/v1/broadcasts`, {
         data: {
             name: "Holiday hours",
-            channel: "email",
             body: "We're closed on the holiday Monday.",
             audience: { tags: [`audience-${randomUUID()}`] },
             scheduled_at: noon.toISOString(),
@@ -664,7 +476,7 @@ test("MSG-E2E-13 staff message and read like everyone, while broadcasts, cancels
     try {
         const foreign = await createContact(cedarOwner.page);
         const foreignSend = await cedarOwner.page.request.post(`${apiBase()}/v1/messages`, {
-            data: { client_id: foreign.id, channel: "email", body: "See you Thursday." },
+            data: { client_id: foreign.id, body: "See you Thursday." },
             headers: headers(cedarOwner.page),
         });
         expect(foreignSend.status(), await foreignSend.text()).toBe(200);
@@ -682,8 +494,8 @@ test("MSG-E2E-13 staff message and read like everyone, while broadcasts, cancels
         await dialog.getByRole("button", { name: s.sendMessage, exact: true }).click();
         await expect(dialog).toBeHidden();
         const own = await clientOutreach(contact.id);
-        expect(own.messages.map((m) => [m.direction, m.channel, m.status, m.sent_by])).toEqual([
-            ["out", "email", "sent", demoId("us_diego")],
+        expect(own.messages.map((m) => [m.direction, m.status, m.sent_by])).toEqual([
+            ["out", "sent", demoId("us_diego")],
         ]);
         const row = await openConversation(staff.page, contact, "all");
         await row.click({ timeout: 60_000 });
@@ -702,7 +514,7 @@ test("MSG-E2E-13 staff message and read like everyone, while broadcasts, cancels
 
         const refusals = [
             await staff.page.request.post(`${apiBase()}/v1/broadcasts`, {
-                data: { name: "Staff offer", channel: "email", body: "Half off", audience: {} },
+                data: { name: "Staff offer", body: "Half off", audience: {} },
                 headers: headers(staff.page),
             }),
             await staff.page.request.post(`${apiBase()}/v1/broadcasts/${broadcast.id}/cancel`, {
@@ -715,7 +527,7 @@ test("MSG-E2E-13 staff message and read like everyone, while broadcasts, cancels
         expect(refusals.map((r) => r.status())).toEqual([403, 403, 403]);
         const foreignRefusals = [
             await staff.page.request.post(`${apiBase()}/v1/messages`, {
-                data: { client_id: foreign.id, channel: "email", body: "Wrong business" },
+                data: { client_id: foreign.id, body: "Wrong business" },
                 headers: headers(staff.page),
             }),
             await staff.page.request.post(`${apiBase()}/v1/threads/${foreignThread}/read`, {
@@ -798,7 +610,6 @@ test("MSG-E2E-16 a broadcast scheduled from the composer counts its audience and
             id: scheduled.id,
             business_id: demoId("bz_birchbark"),
             name,
-            channel: "email",
             status: "scheduled",
             scheduled_at: expect.any(String),
             recipient_count: 2,
@@ -830,7 +641,7 @@ test("MSG-E2E-16 a broadcast scheduled from the composer counts its audience and
         ["broadcast.cancel", demoId("us_dev")],
     ]);
     for (const contact of [...agreed, unasked]) {
-        expect(await deliveredMail(page.request, contact.email)).toEqual([]);
+        expect(await textsTo(page.request, contact.phone)).toEqual([]);
         expect((await clientOutreach(contact.id)).messages).toEqual([]);
     }
 });

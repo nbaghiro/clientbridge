@@ -22,7 +22,6 @@ async def _client(db: AsyncSession, business_id: str = BIZ, phone: str | None = 
         id=new_id("client"),
         business_id=business_id,
         name="Maya Chen",
-        email="maya@example.test",
         phone=phone,
         tags=[],
         custom_fields={},

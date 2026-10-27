@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from clientbridge.core.ids import new_id
 from clientbridge.models.business import Business, Staff
 from clientbridge.models.catalog import Item
+from clientbridge.models.clients import Client
 from clientbridge.models.platform import Audit
 from clientbridge.models.scheduling import Booking, Recurrence, Slot
 from clientbridge.services.deliveries import DELIVERIES_JOB, run_deliveries
@@ -55,6 +56,13 @@ async def _visit(api: httpx.AsyncClient, item: str, staff: str, starts: str) -> 
     assert res.status_code == 201, res.text
     booking_id: str = res.json()["id"]
     return booking_id
+
+
+async def _textable_client(db: AsyncSession) -> None:
+    client = await db.get(Client, CL_AMELIE)
+    assert client is not None
+    client.phone = "+16045550223"
+    await db.flush()
 
 
 async def _series(api: httpx.AsyncClient, item: str, staff: str) -> str:
@@ -128,9 +136,9 @@ async def test_removal_without_future_work_needs_no_choice(
 
 
 async def test_removal_reassigns_visits_and_series_to_a_named_member(
-    as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory, email: FakeEmailSender
+    as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory, sms: FakeSmsSender
 ) -> None:
-    await reachable(db, CL_AMELIE)
+    await _textable_client(db)
     item = await _item(db)
     leaving = await _member(db, factory, "Leaving Lee")
     taking = await _member(db, factory, "Taking Tam")
@@ -146,7 +154,7 @@ async def test_removal_reassigns_visits_and_series_to_a_named_member(
     recurrence = await db.get(Recurrence, series, populate_existing=True)
     assert recurrence is not None and recurrence.staff_id == taking
     assert await _status(db, leaving) == "removed"
-    notices = [m for m in email.sent if "Taking Tam" in m.body]
+    notices = [m for m in sms.sent if "Taking Tam" in m.body]
     assert len(notices) == 1 and "now with Taking Tam" in notices[0].body
     actions = await db.scalars(select(Audit.action).where(Audit.entity_id.in_([visit, leaving])))
     assert {"booking.reassign", "staff.remove"} <= set(actions)
@@ -173,9 +181,9 @@ async def test_removal_reassigns_to_any_free_member(
 
 
 async def test_removal_cancels_visits_and_series_and_tells_the_client(
-    as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory, email: FakeEmailSender
+    as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory, sms: FakeSmsSender
 ) -> None:
-    await reachable(db, CL_AMELIE)
+    await _textable_client(db)
     item = await _item(db)
     leaving = await _member(db, factory, "Leaving Lee")
     visit = await _visit(as_owner, item, leaving, FIRST)
@@ -193,7 +201,7 @@ async def test_removal_cancels_visits_and_series_and_tells_the_client(
     assert slot is not None and slot.status == "canceled"
     recurrence = await db.get(Recurrence, series, populate_existing=True)
     assert recurrence is not None and recurrence.status == "canceled"
-    canceled = [m for m in email.sent if "canceled" in m.body]
+    canceled = [m for m in sms.sent if "canceled" in m.body]
     assert len(canceled) == 1 and "These visits" in canceled[0].body
 
 
@@ -210,7 +218,7 @@ async def test_removing_a_member_with_many_clients_sends_one_notice_before_answe
     leaving = await _member(db, factory, "Busy Bea")
     clients = [await new_client(db, name=f"Bulk {each}") for each in range(3)]
     for each, client in enumerate(clients):
-        await reachable(db, client, email=f"bulk{each}@birchbark.ca", phone=f"+1250555123{each}")
+        await reachable(db, client, phone=f"+1250555123{each}")
         res = await as_owner.post(
             "/v1/bookings",
             json={
@@ -223,12 +231,12 @@ async def test_removing_a_member_with_many_clients_sends_one_notice_before_answe
         )
         assert res.status_code == 201, res.text
     jobs.work, jobs.enqueued = False, []
-    email.sent.clear()
+    sms.sent.clear()
     assert (await _remove(as_owner, leaving, future="cancel")).status_code == 200
-    assert len(email.sent) == 1 and jobs.enqueued == [DELIVERIES_JOB]
+    assert len(sms.sent) == 1 and jobs.enqueued == [DELIVERIES_JOB]
     await run_deliveries(db, email, sms, push)
-    told = {m.to for m in email.sent if "canceled" in m.body}
-    assert told == {f"bulk{each}@birchbark.ca" for each in range(3)}
+    told = {m.to for m in sms.sent if "canceled" in m.body}
+    assert told == {f"+1250555123{each}" for each in range(3)}
 
 
 async def test_canceling_a_removed_members_visits_refunds_their_deposits(
@@ -348,8 +356,9 @@ async def test_removal_leaves_other_members_and_businesses_untouched(
 
 
 async def test_a_repeated_removal_replays_without_notifying_again(
-    as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory, email: FakeEmailSender
+    as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory, sms: FakeSmsSender
 ) -> None:
+    await _textable_client(db)
     item = await _item(db)
     leaving = await _member(db, factory, "Leaving Lee")
     await _visit(as_owner, item, leaving, FIRST)
@@ -357,10 +366,10 @@ async def test_a_repeated_removal_replays_without_notifying_again(
     body = {"future": "cancel"}
     first = await as_owner.post(f"/v1/staff/{leaving}/remove", json=body, headers=headers)
     assert first.status_code == 200, first.text
-    sent = len(email.sent)
+    sent = len(sms.sent)
     again = await as_owner.post(f"/v1/staff/{leaving}/remove", json=body, headers=headers)
     assert again.status_code == 200 and again.json() == first.json()
-    assert len(email.sent) == sent
+    assert len(sms.sent) == sent
     changed = await as_owner.post(
         f"/v1/staff/{leaving}/remove",
         json={"future": "reassign", "reassign_to": "any"},

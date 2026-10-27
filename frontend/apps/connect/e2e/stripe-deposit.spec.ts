@@ -20,7 +20,7 @@ import { runPort } from "@clientbridge/config/e2e/run";
 
 async function outstanding(
     page: Page,
-    invoice: { id: string; name: string; email: string },
+    invoice: { id: string; name: string; phone: string },
     cents: number,
 ): Promise<void> {
     await openInvoice(page, invoice);
@@ -135,7 +135,7 @@ test("FIN-DEPOSIT-04 real deposit refund reopens invoice debt while ordinary cas
         await openInvoice(observer, invoice);
         await expectPaid(observer);
         const refundFixture = {
-            client: { id: f.clientId, name: invoice.name, email: invoice.email },
+            client: { id: f.clientId, name: invoice.name, phone: invoice.phone },
             invoiceId: invoice.id,
             number,
             paymentId: depositPaymentId,
@@ -312,13 +312,13 @@ test("FIN-DEPOSIT-10 a card deposit paid while enrolling in a camp on Connect pa
         expect(balance("receivable", invoiceId)).toBe(total - PROGRAM.deposit);
         await outstanding(
             owner,
-            { id: invoiceId, name: setup.booker.name, email: setup.booker.email },
+            { id: invoiceId, name: setup.booker.name, phone: setup.booker.phone },
             total - PROGRAM.deposit,
         );
         await owner.reload();
         await outstanding(
             owner,
-            { id: invoiceId, name: setup.booker.name, email: setup.booker.email },
+            { id: invoiceId, name: setup.booker.name, phone: setup.booker.phone },
             total - PROGRAM.deposit,
         );
         await info.attach("owned-program-deposit", {

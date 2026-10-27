@@ -95,7 +95,7 @@ async def main(biz: str) -> None:
     async with SessionLocal() as db:
         client = (
             await db.execute(
-                select(Client).where(Client.business_id == biz, Client.email.is_not(None)).limit(1)
+                select(Client).where(Client.business_id == biz, Client.phone.is_not(None)).limit(1)
             )
         ).scalar_one()
         business = await db.get(Business, biz)

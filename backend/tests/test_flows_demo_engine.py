@@ -232,7 +232,6 @@ class Probe(Demo):
             self.client(
                 key,
                 key.title(),
-                f"{key}@example.test",
                 f"+1780555{1000 + index}",
                 since=self.at(-120 + index),
             )
@@ -401,9 +400,9 @@ class Probe(Demo):
             },
         )
         self.consents()
-        self.withdraw("away", "email", self.at(-5))
+        self.withdraw("away", self.at(-5))
         self.broadcast("news", "News", "A short note to clients.", self.at(-20, 10))
-        thread = self.thread("tipper", "sms", self.at(-8, 8))
+        thread = self.thread("tipper", self.at(-8, 8))
         self.say(thread, "On my way.", self.at(-8, 8))
         self.say(thread, "Thanks.", self.at(-8, 8, 5), sender=None)
         for key in ("tipper", "cash", "tap"):
@@ -631,7 +630,6 @@ def test_pacing_gives_a_member_their_own_services_and_clients() -> None:
                 self.client(
                     key,
                     key.title(),
-                    f"{key}@example.test",
                     f"+1780555{2000 + index}",
                     since=self.at(-120),
                 )

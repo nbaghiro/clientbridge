@@ -5,7 +5,7 @@ import { afterReview, outgoing } from "./previews";
 import { useMemo, useState } from "react";
 
 import { formatLongDate, parseTimestamp, readDate, useBusinessZone } from "../datetime";
-import { formatList, formatParts, formatPhone } from "../format";
+import { formatList, formatPhone } from "../format";
 import { type Load, useAsyncAction } from "../hooks";
 import { type ClientRow, useClients } from "./clients";
 import { type PublicFormField, optionPair } from "./publicForm";
@@ -441,13 +441,13 @@ export interface SendToClient {
     send: () => void;
 }
 
-/** The client picker's rows: the phone and email tell two people with the same name apart. */
+/** The client picker's rows: the phone tells two people with the same name apart. */
 export function sendOptions(
     clients: ClientRow[],
     photo: (clientId: string) => string | null,
 ): SelectOption<string>[] {
     return clients.map((c) => {
-        const detail = formatParts([formatPhone(c.phone), c.email]);
+        const detail = formatPhone(c.phone);
         return {
             key: c.id,
             label: c.name,

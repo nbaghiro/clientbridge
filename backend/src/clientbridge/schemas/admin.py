@@ -69,7 +69,6 @@ class AdminClient(Mirror):
     id: str
     business_id: str
     name: str
-    email: str | None
     phone: str | None
     status: ClientStatus
     user_id: str | None

@@ -15,18 +15,17 @@ import { type Load, useAsyncAction } from "../hooks";
 import { strings } from "../strings";
 import type { Intent } from "../ui";
 import { useBusinessName } from "./business";
-import type { Channel } from "./messaging";
 import { useReplicaLoad } from "./sync";
 
 const b = strings.broadcasts;
 
-// The newest consent row per client and channel; no row means the client was never asked.
+// The newest consent row per client; no row means the client was never asked.
 export const LATEST_CONSENTS_SQL = `
-SELECT k.client_id, k.channel, k.status, k.source, k.created_at, k.expires_at
+SELECT k.client_id, k.status, k.source, k.created_at, k.expires_at
 FROM consents k
 WHERE NOT EXISTS (
     SELECT 1 FROM consents n
-    WHERE n.client_id = k.client_id AND n.channel = k.channel
+    WHERE n.client_id = k.client_id
       AND (n.created_at > k.created_at OR (n.created_at = k.created_at AND n.id > k.id))
 )`;
 
@@ -34,18 +33,18 @@ WHERE NOT EXISTS (
 export const TEXTS_STOPPED_SQL = `
 SELECT k.client_id, k.created_at
 FROM consents k
-WHERE k.channel = 'sms' AND k.source = 'reply' AND k.status = 'withdrawn' AND NOT EXISTS (
+WHERE k.source = 'reply' AND k.status = 'withdrawn' AND NOT EXISTS (
     SELECT 1 FROM consents n
-    WHERE n.client_id = k.client_id AND n.channel = 'sms' AND n.source = 'reply'
+    WHERE n.client_id = k.client_id AND n.source = 'reply'
       AND (n.created_at > k.created_at OR (n.created_at = k.created_at AND n.id > k.id))
 )`;
 
 export const AUDIENCE_CLIENTS_SQL = `
-SELECT id, name, phone, email, tags FROM clients
+SELECT id, name, phone, tags FROM clients
 WHERE status = 'active' ORDER BY name COLLATE NOCASE`;
 
 export const BROADCASTS_SQL = `
-SELECT b.id, b.name, b.channel, b.body, b.audience, b.status, b.scheduled_at, b.created_at,
+SELECT b.id, b.name, b.body, b.audience, b.status, b.scheduled_at, b.created_at,
        b.recipient_count, b.excluded_count,
        (SELECT COUNT(*) FROM messages m
         WHERE m.broadcast_id = b.id AND m.status IN ('sent', 'delivered', 'read')) AS delivered_count,
@@ -55,14 +54,13 @@ SELECT b.id, b.name, b.channel, b.body, b.audience, b.status, b.scheduled_at, b.
            AS reply_count,
        (SELECT COUNT(DISTINCT k.client_id) FROM consents k
         JOIN threads t ON t.client_id = k.client_id
-        WHERE k.channel = b.channel AND k.status = 'withdrawn' AND k.created_at >= b.created_at
+        WHERE k.status = 'withdrawn' AND k.created_at >= b.created_at
           AND t.id IN (SELECT thread_id FROM messages WHERE broadcast_id = b.id)) AS opt_out_count
 FROM broadcasts b
 ORDER BY COALESCE(b.scheduled_at, b.created_at) DESC`;
 
 interface ConsentRow {
     client_id: string;
-    channel: string;
     status: string;
     source: string;
     created_at: string;
@@ -73,14 +71,12 @@ interface AudienceClient {
     id: string;
     name: string;
     phone: string | null;
-    email: string | null;
     tags: string | null;
 }
 
 interface BroadcastRow {
     id: string;
     name: string;
-    channel: string;
     body: string | null;
     audience: string | null;
     status: string;
@@ -116,9 +112,9 @@ export function consentOf(row: ConsentRow | undefined, now: Date = new Date()): 
 
 const canBroadcast = (c: ChannelConsent): boolean => c.state === "express" || c.state === "implied";
 
-type ConsentMap = Map<string, Record<Channel, ChannelConsent>>;
+type ConsentMap = Map<string, ChannelConsent>;
 
-/** Every client's current consent on both channels. */
+/** Every client's current SMS consent. */
 export function useConsents(): { map: ConsentMap; isLoading: boolean } {
     const rows = useQuery<ConsentRow>(LATEST_CONSENTS_SQL);
     const stopped = useQuery<{ client_id: string; created_at: string }>(TEXTS_STOPPED_SQL);
@@ -126,34 +122,23 @@ export function useConsents(): { map: ConsentMap; isLoading: boolean } {
         const now = new Date();
         const out: ConsentMap = new Map();
         for (const row of rows.data) {
-            const entry = out.get(row.client_id) ?? {
-                sms: consentOf(undefined),
-                email: consentOf(undefined),
-            };
-            if (row.channel === "sms" || row.channel === "email")
-                entry[row.channel] = consentOf(row, now);
-            out.set(row.client_id, entry);
+            out.set(row.client_id, consentOf(row, now));
         }
         for (const stop of stopped.data) {
-            const entry = out.get(stop.client_id) ?? {
-                sms: consentOf(undefined),
-                email: consentOf(undefined),
-            };
-            entry.sms = {
+            out.set(stop.client_id, {
                 state: "opted_out",
                 source: "reply",
                 at: stop.created_at,
                 expiresAt: null,
-            };
-            out.set(stop.client_id, entry);
+            });
         }
         return out;
     }, [rows.data, stopped.data]);
     return { map, isLoading: rows.isLoading || stopped.isLoading };
 }
 
-export function consentFor(map: ConsentMap, clientId: string, channel: Channel): ChannelConsent {
-    return map.get(clientId)?.[channel] ?? consentOf(undefined);
+export function consentFor(map: ConsentMap, clientId: string): ChannelConsent {
+    return map.get(clientId) ?? consentOf(undefined);
 }
 
 function parseList(raw: string | null): string[] {
@@ -218,7 +203,6 @@ function buildAudience(
     clients: AudienceClient[],
     consents: ConsentMap,
     tags: readonly string[],
-    channel: Channel,
     zone: string,
 ): BroadcastAudience {
     const counts = new Map<string, number>();
@@ -228,9 +212,8 @@ function buildAudience(
     const recipients: BroadcastAudience["recipients"] = [];
     const excluded: AudienceExclusion[] = [];
     for (const c of matched) {
-        const consent = consentFor(consents, c.id, channel);
-        const contact = channel === "sms" ? c.phone : c.email;
-        if (contact === null || contact === "")
+        const consent = consentFor(consents, c.id);
+        if (c.phone === null || c.phone === "")
             excluded.push({ id: c.id, name: c.name, reason: "no_contact", detail: "" });
         else if (consent.state === "opted_out")
             excluded.push({
@@ -260,15 +243,12 @@ export interface BroadcastSeed {
     name: string;
     body: string;
     tags: string[];
-    channel: Channel;
 }
 
 export interface BroadcastDraft {
     load: Load;
     name: string;
     setName: (v: string) => void;
-    channel: Channel;
-    setChannel: (v: Channel) => void;
     body: string;
     setBody: (v: string) => void;
     tags: string[];
@@ -325,7 +305,6 @@ export function useBroadcastDraft(api: ApiLike, seed?: BroadcastSeed): Broadcast
     const consents = useConsents();
     const business = useBusinessName();
     const [name, setName] = useState(seed?.name ?? "");
-    const [channel, setChannel] = useState<Channel>(seed?.channel ?? "sms");
     const [body, setBody] = useState(seed?.body ?? "");
     const [tags, setTags] = useState<string[]>(seed?.tags ?? []);
     const [schedule, setSchedule] = useState<"now" | "later">("now");
@@ -335,18 +314,15 @@ export function useBroadcastDraft(api: ApiLike, seed?: BroadcastSeed): Broadcast
     const attempt = useRef<Attempt | null>(null);
     const zone = useBusinessZone();
     const audience = useMemo(
-        () => buildAudience(clients.data, consents.map, tags, channel, zone),
-        [clients.data, consents.map, tags, channel, zone],
+        () => buildAudience(clients.data, consents.map, tags, zone),
+        [clients.data, consents.map, tags, zone],
     );
     const load = useReplicaLoad(
         [clients, { isLoading: consents.isLoading }],
         clients.data.length === 0,
     );
     const text = body.trim() || "…";
-    const preview =
-        channel === "sms"
-            ? b.smsPreview(business, text, b.optOutSms)
-            : b.emailPreview(text, business, b.optOutEmail);
+    const preview = b.smsPreview(business, text, b.optOutSms);
 
     const submit = (): void => {
         if (name.trim() === "") {
@@ -371,7 +347,6 @@ export function useBroadcastDraft(api: ApiLike, seed?: BroadcastSeed): Broadcast
             async () => {
                 const input = {
                     name: name.trim(),
-                    channel,
                     body: body.trim(),
                     audience: tags.length > 0 ? { tags } : { all: true },
                     scheduled_at: at === null ? null : at.toISOString(),
@@ -390,8 +365,6 @@ export function useBroadcastDraft(api: ApiLike, seed?: BroadcastSeed): Broadcast
         load,
         name,
         setName,
-        channel,
-        setChannel,
         body,
         setBody,
         tags,
@@ -408,7 +381,7 @@ export function useBroadcastDraft(api: ApiLike, seed?: BroadcastSeed): Broadcast
         audience,
         business,
         preview,
-        segments: smsSegments(channel === "sms" ? preview : ""),
+        segments: smsSegments(preview),
         busy,
         error,
         sent,
@@ -448,7 +421,6 @@ export function broadcastIntent(status: string): Intent {
 interface ConsentLogRow {
     clientId: string;
     name: string;
-    channel: Channel;
     source: string;
     at: string;
 }
@@ -456,7 +428,7 @@ interface ConsentLogRow {
 export interface BroadcastsHome {
     load: Load;
     broadcasts: BroadcastItem[];
-    reach: { sms: number; email: number; optedOut: number; total: number };
+    reach: { sms: number; optedOut: number; total: number };
     optOuts: ConsentLogRow[];
     implied: (ConsentLogRow & { expires: string })[];
 }
@@ -468,38 +440,29 @@ export function useBroadcastsHome(): BroadcastsHome {
     const load = useReplicaLoad([rows, clients, { isLoading: consents.isLoading }], false);
     const home = useMemo(() => {
         let sms = 0;
-        let email = 0;
         const out = new Set<string>();
         const optOuts: ConsentLogRow[] = [];
         const implied: (ConsentLogRow & { expires: string })[] = [];
         for (const c of clients.data) {
-            for (const ch of ["sms", "email"] as const) {
-                const k = consentFor(consents.map, c.id, ch);
-                const contact = ch === "sms" ? c.phone : c.email;
-                if (canBroadcast(k) && contact !== null && contact !== "") {
-                    if (ch === "sms") sms++;
-                    else email++;
-                }
-                if (k.state === "opted_out") {
-                    out.add(c.id);
-                    optOuts.push({
-                        clientId: c.id,
-                        name: c.name,
-                        channel: ch,
-                        source: b.sources[k.source ?? ""] ?? "",
-                        at: k.at ?? "",
-                    });
-                }
-                if (k.state === "implied" && k.expiresAt !== null)
-                    implied.push({
-                        clientId: c.id,
-                        name: c.name,
-                        channel: ch,
-                        source: b.sources[k.source ?? ""] ?? "",
-                        at: k.at ?? "",
-                        expires: k.expiresAt,
-                    });
+            const k = consentFor(consents.map, c.id);
+            if (canBroadcast(k) && c.phone !== null && c.phone !== "") sms++;
+            if (k.state === "opted_out") {
+                out.add(c.id);
+                optOuts.push({
+                    clientId: c.id,
+                    name: c.name,
+                    source: b.sources[k.source ?? ""] ?? "",
+                    at: k.at ?? "",
+                });
             }
+            if (k.state === "implied" && k.expiresAt !== null)
+                implied.push({
+                    clientId: c.id,
+                    name: c.name,
+                    source: b.sources[k.source ?? ""] ?? "",
+                    at: k.at ?? "",
+                    expires: k.expiresAt,
+                });
         }
         optOuts.sort((x, y) => y.at.localeCompare(x.at));
         implied.sort((x, y) => x.expires.localeCompare(y.expires));
@@ -514,7 +477,7 @@ export function useBroadcastsHome(): BroadcastsHome {
                           ? row.created_at
                           : null,
             })),
-            reach: { sms, email, optedOut: out.size, total: clients.data.length },
+            reach: { sms, optedOut: out.size, total: clients.data.length },
             optOuts,
             implied,
         };

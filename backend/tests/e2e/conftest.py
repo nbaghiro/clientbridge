@@ -100,7 +100,6 @@ class StripeRun:
         identity = await self.gateway.create_customer(
             scope,
             name="QA Customer",
-            email="payments-qa@clientbridge.test",
             idempotency_key=f"{self.namespace}:customer:{len(self.customers)}",
         )
         self.customers.append((scope, identity))

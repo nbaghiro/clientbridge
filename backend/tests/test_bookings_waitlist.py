@@ -132,7 +132,9 @@ async def test_a_canceled_seat_goes_to_the_first_person_waiting(
     [audit] = await _seat_audits(db, early.id)
     assert audit.performed_by == OWNER_USER
     subjects = await queued_subjects(db, f"seat:{slot.id}:{early.id}")
-    assert subjects == [f"A seat opened up in {CLASS}"]
+    assert len(subjects) == 1
+    assert subjects[0].startswith(f"A seat opened up in {CLASS} with")
+    assert "so you're booked" in subjects[0]
     assert await queued_subjects(db, f"seat:{slot.id}:{late.id}") == []
 
 
@@ -255,10 +257,10 @@ async def test_a_staff_added_seat_gets_a_manage_link_and_a_confirmation(
         "waitlisted",
     ]
     [confirmed] = await queued_subjects(db, f"booking:{seated['booking_id']}")
-    assert confirmed.startswith("Booking confirmed")
-    assert await queued_subjects(db, f"booking:{waiting['booking_id']}") == [
-        f"You're on the waitlist for {CLASS}"
-    ]
+    assert confirmed.startswith("You're booked for")
+    [waitlisted] = await queued_subjects(db, f"booking:{waiting['booking_id']}")
+    assert waitlisted.startswith(f"{CLASS} with")
+    assert "you're on the waitlist" in waitlisted
     assert await queued_subjects(db, f"booking:{quiet['booking_id']}") == []
     for body in (seated, waiting, quiet):
         row = await db.get(Booking, str(body["booking_id"]))
@@ -280,17 +282,17 @@ async def test_a_staff_added_seat_owes_its_deposit(
 
 
 async def test_adding_with_the_same_key_replays_the_first_answer(
-    as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
+    as_owner: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender
 ) -> None:
     slot = await _session(db)
     url = f"/v1/classes/{slot.id}/roster"
     headers = {"Idempotency-Key": "roster-add-once"}
     first = await as_owner.post(url, json={"client_id": "cl_amelie"}, headers=headers)
-    sent = len(email.sent)
+    sent = len(sms.sent)
     again = await as_owner.post(url, json={"client_id": "cl_amelie"}, headers=headers)
     assert again.status_code == 201, again.text
     assert again.json()["booking_id"] == first.json()["booking_id"]
-    assert len(email.sent) == sent
+    assert len(sms.sent) == sent
     other = await as_owner.post(url, json={"client_id": "cl_marcus"}, headers=headers)
     assert other.status_code == 422 and other.json()["error"] == "idempotency_key_reused"
 

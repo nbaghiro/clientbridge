@@ -6,7 +6,7 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.ids import new_id
-from clientbridge.integrations.resend import Email
+from clientbridge.integrations.twilio import Sms
 from clientbridge.models.catalog import Item
 from clientbridge.models.scheduling import Booking, Slot
 from clientbridge.services.bookings import run_reminders
@@ -80,7 +80,7 @@ async def test_reminder_preview_matches_what_is_sent(as_owner: httpx.AsyncClient
     res = await as_owner.get(f"/v1/bookings/{bid}/reminder")
     assert res.status_code == 200, res.text
     body = res.json()
-    assert body["subject"].startswith("Appointment reminder")
+    assert body["body"].startswith("Reminder: you have an appointment")
     assert "Change or cancel:" in body["body"]
     assert body["sends_at"].startswith("2027-02-28T18:00")
     assert body["sent_at"] is None
@@ -117,23 +117,23 @@ async def test_unauth_cannot_preview(unauth: httpx.AsyncClient, db: AsyncSession
 
 
 async def test_a_moved_visit_is_reminded_again_before_its_new_time(
-    as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
+    as_owner: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender
 ) -> None:
     bid = await _booking(db, "st_owner")
-    notifier = Notifier(email, FakeSmsSender(), FakePushSender())
+    notifier = Notifier(FakeEmailSender(), sms, FakePushSender())
     first = datetime(2027, 8, 3, 17, tzinfo=UTC)
     assert await run_reminders(db, notifier, first - timedelta(hours=20)) >= 1
     moved = await as_owner.patch(f"/v1/bookings/{bid}", json={"starts_at": "2027-08-10T17:00:00Z"})
     assert moved.status_code == 200, moved.text
     booking = await db.get(Booking, bid, populate_existing=True)
     assert booking is not None and booking.reminded_at is None
-    sent = len(email.sent)
+    sent = len(sms.sent)
     await run_reminders(db, notifier, first + timedelta(days=7) - timedelta(hours=20))
-    assert len(email.sent) > sent
+    assert len(sms.sent) > sent
 
 
 async def test_a_failed_reminder_stays_due_and_goes_on_the_next_run(
-    db: AsyncSession, email: FakeEmailSender
+    db: AsyncSession, sms: FakeSmsSender
 ) -> None:
     bid = await _booking(db, "st_owner")
     at = datetime(2027, 8, 3, 17, tzinfo=UTC) - timedelta(hours=20)
@@ -142,30 +142,30 @@ async def test_a_failed_reminder_stays_due_and_goes_on_the_next_run(
     booking = await db.get(Booking, bid, populate_existing=True)
     assert booking is not None and booking.reminded_at is None
 
-    await run_reminders(db, Notifier(email, FakeSmsSender(), FakePushSender()), at)
+    await run_reminders(db, Notifier(FakeEmailSender(), sms, FakePushSender()), at)
     booking = await db.get(Booking, bid, populate_existing=True)
     assert booking is not None and booking.reminded_at == at
-    assert len(email.sent) >= 1
+    assert len(sms.sent) >= 1
 
 
-class _StopsAfterOne(FakeEmailSender):
-    """Sends one email, then the worker dies mid-run."""
+class _StopsAfterOne(FakeSmsSender):
+    """Sends one text, then the worker dies mid-run."""
 
-    async def send(self, email: Email) -> str | None:
+    async def send(self, sms: Sms) -> str | None:
         if self.sent:
             raise asyncio.CancelledError
-        return await super().send(email)
+        return await super().send(sms)
 
 
 async def test_an_interrupted_run_keeps_what_it_sent_and_never_repeats_it(
-    db: AsyncSession, email: FakeEmailSender
+    db: AsyncSession, sms: FakeSmsSender
 ) -> None:
     first = await _booking(db, "st_owner")
     second = await _booking(db, "st_diego")
     at = datetime(2027, 8, 3, 17, tzinfo=UTC) - timedelta(hours=20)
     dying = _StopsAfterOne()
     with pytest.raises(asyncio.CancelledError):
-        await run_reminders(db, Notifier(dying, FakeSmsSender(), FakePushSender()), at)
+        await run_reminders(db, Notifier(FakeEmailSender(), dying, FakePushSender()), at)
     marked = [
         b.id
         for b in [await db.get(Booking, bid, populate_existing=True) for bid in (first, second)]
@@ -173,8 +173,8 @@ async def test_an_interrupted_run_keeps_what_it_sent_and_never_repeats_it(
     ]
     assert len(marked) == 1
 
-    await run_reminders(db, Notifier(email, FakeSmsSender(), FakePushSender()), at)
-    assert len(email.sent) == 1  # only the visit the interrupted run never reached
+    await run_reminders(db, Notifier(FakeEmailSender(), sms, FakePushSender()), at)
+    assert len(sms.sent) == 1  # only the visit the interrupted run never reached
     for bid in (first, second):
         booking = await db.get(Booking, bid, populate_existing=True)
         assert booking is not None and booking.reminded_at is not None

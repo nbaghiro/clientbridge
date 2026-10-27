@@ -2,13 +2,14 @@ import { randomUUID } from "node:crypto";
 import { formatMoney, strings, saleNumber } from "@clientbridge/app-core/public";
 import { demoPerson } from "@clientbridge/config/e2e/demo";
 import { expect, test, type Locator, type Page } from "@playwright/test";
+import { freshPhone } from "../support/auth";
 import { createClient, type ClientFixture } from "../support/clients";
 import { requireLocalMail } from "../support/evidence";
 import { openRefund } from "../support/refunds";
 import { ringUpCash, saleEvidence, type SaleEvidence, pickupEvidence } from "../support/pos";
 import { customerContext, signIn, navigate } from "../support/session";
 import { apiCall, shopUrl, visitEvidence } from "../support/visit";
-import { demoSlug, runEmail, demoId, runUrl } from "@clientbridge/config/e2e/run";
+import { demoSlug, demoId, runUrl } from "@clientbridge/config/e2e/run";
 import { bookingApi } from "../support/bookings";
 
 test.describe(() => {
@@ -162,7 +163,7 @@ test.describe(() => {
         const walkIn = await createClient(page);
         const online = {
             name: demoPerson(randomUUID()),
-            email: runEmail(`shop-${randomUUID()}@example.ca`),
+            phone: freshPhone(),
         };
         const context = await customerContext(browser);
         try {
@@ -177,7 +178,7 @@ test.describe(() => {
             await expect(shopper.getByRole("heading", { name: shop.sectionPickup })).toBeVisible();
             await summary.getByRole("button", { name: shop.continue, exact: true }).click();
             await shopper.getByLabel(shop.name, { exact: true }).fill(online.name);
-            await shopper.getByLabel(shop.email, { exact: false }).fill(online.email);
+            await shopper.getByLabel(shop.phone, { exact: false }).fill(online.phone);
 
             const paymentId = await sellAtDesk(page, walkIn, product, 1, 1);
             const sold = await saleEvidence(product.id);
@@ -212,7 +213,7 @@ test.describe(() => {
                 0,
             );
             expect(await saleEvidence(product.id)).toEqual(sold);
-            expect((await visitEvidence([online.email])).clients).toEqual([]);
+            expect((await visitEvidence([online.phone])).clients).toEqual([]);
 
             // the session keeps the cart, so the refused line stays in it while the unit is gone
             await shopper.goto(shopUrl(demoSlug("birchbark")));

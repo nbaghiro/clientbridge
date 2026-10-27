@@ -189,19 +189,19 @@ async def clients(ids: list[str]) -> Row:
     messages = "SELECT id FROM threads WHERE client_id = ANY(:ids)"
     return {
         "threads": await _rows(
-            "SELECT id, business_id, client_id, channel, status FROM threads "
-            "WHERE client_id = ANY(:ids) ORDER BY client_id, channel",
+            "SELECT id, business_id, client_id, status FROM threads "
+            "WHERE client_id = ANY(:ids) ORDER BY client_id",
             params,
         ),
         "messages": await _rows(
-            "SELECT m.id, m.business_id, t.client_id, m.direction, m.channel, m.body, m.status, "
+            "SELECT m.id, m.business_id, t.client_id, m.direction, m.body, m.status, "
             "m.provider_ref, m.sent_by, m.broadcast_id FROM messages m "
             f"JOIN threads t ON t.id = m.thread_id WHERE m.thread_id IN ({messages}) "
             "ORDER BY m.created_at, m.id",
             params,
         ),
         "consents": await _rows(
-            "SELECT business_id, client_id, channel, status, source, recorded_by FROM consents "
+            "SELECT business_id, client_id, status, source, recorded_by FROM consents "
             "WHERE client_id = ANY(:ids) ORDER BY created_at, id",
             params,
         ),
@@ -234,7 +234,7 @@ async def broadcasts(ids: list[str]) -> Row:
     params: dict[str, object] = {"ids": ids}
     return {
         "broadcasts": await _rows(
-            "SELECT id, business_id, name, channel, status, scheduled_at, recipient_count, "
+            "SELECT id, business_id, name, status, scheduled_at, recipient_count, "
             "excluded_count FROM broadcasts WHERE id = ANY(:ids) ORDER BY id",
             params,
         ),
@@ -355,7 +355,6 @@ async def files_main(argv: list[str]) -> None:
 
 # a near-duplicate with no money or saved cards, so the merge flow is not blocked
 DUPLICATE = "Robin Bennett"
-DUPLICATE_EMAIL = "robin@example.com"
 
 
 async def _has_series(db: AsyncSession, biz: str) -> bool:
@@ -392,7 +391,7 @@ async def _has_duplicate(db: AsyncSession, biz: str) -> bool:
         select(Client.id)
         .where(
             Client.business_id == biz,
-            Client.email == run_email(DUPLICATE_EMAIL),
+            Client.name == DUPLICATE,
             Client.deleted_at.is_(None),
         )
         .limit(1)
@@ -573,7 +572,7 @@ async def web_fixtures(seeded: str) -> None:
         if need_duplicate:
             client = await http.post(
                 "/v1/clients",
-                json={"name": DUPLICATE, "email": run_email(DUPLICATE_EMAIL)},
+                json={"name": DUPLICATE},
                 headers={"Idempotency-Key": f"web-fixtures-duplicate-{stamp}"},
             )
             client.raise_for_status()

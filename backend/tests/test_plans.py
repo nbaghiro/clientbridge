@@ -531,7 +531,7 @@ async def test_a_lapsed_business_takes_no_public_bookings(
         "item_id": "it_groom_sm",
         "staff_id": "st_owner",
         "starts_at": "2027-03-02T18:50:00Z",
-        "client": {"name": "Web Client", "email": "web@example.com"},
+        "client": {"name": "Web Client", "phone": "+16045550155"},
     }
     res = await api.post(f"/book/{SLUG}", json=body)
     assert res.status_code == 409 and res.json()["error"] == "business_unavailable"

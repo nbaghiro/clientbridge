@@ -1,9 +1,10 @@
 import { strings } from "@clientbridge/app-core/public";
+import { freshPhone } from "../../web/e2e/support/auth";
 import { expect, test } from "@playwright/test";
 import { on } from "./hosts";
 import { links } from "./links";
 import { ownAddress, rewrite, type Json } from "./network";
-import { demoSlug, runEmail, runUrl, demoId } from "@clientbridge/config/e2e/run";
+import { demoSlug, runUrl, demoId } from "@clientbridge/config/e2e/run";
 import { watchErrors } from "./errors";
 
 const slug = demoSlug("birchbark");
@@ -73,9 +74,7 @@ test(
             .getByRole("button", { name: strings.publicShop.continue, exact: true })
             .click();
         await page.getByLabel(strings.publicShop.name, { exact: true }).fill("Morgan Ellis");
-        await page
-            .getByLabel(strings.publicShop.email, { exact: false })
-            .fill(runEmail("navigation@example.test"));
+        await page.getByLabel(strings.publicShop.phone, { exact: false }).fill("+16045550223");
         const nav = page.getByRole("navigation", { name: strings.publicLanding.navigation });
         await nav.locator("summary").click();
         await nav.getByRole("link", { name: strings.publicLanding.home, exact: true }).click();
@@ -100,8 +99,8 @@ test(
         await summary
             .getByRole("button", { name: strings.publicShop.continue, exact: true })
             .click();
-        await expect(page.getByLabel(strings.publicShop.email, { exact: false })).toHaveValue(
-            runEmail("navigation@example.test"),
+        await expect(page.getByLabel(strings.publicShop.phone, { exact: false })).toHaveValue(
+            "+16045550223",
         );
     },
 );
@@ -154,13 +153,13 @@ test("the shop adds from the grid, changes quantities and checks out in steps", 
     await summary.getByRole("button", { name: shop.continuePay, exact: true }).click();
     await expect(page.getByText(shop.incomplete)).toBeVisible();
     await page.getByLabel(shop.name, { exact: true }).fill("Avery Laurent");
-    await page.getByLabel(shop.email, { exact: false }).fill(runEmail("stepper@example.test"));
+    await page.getByLabel(shop.phone, { exact: false }).fill("+16045550224");
     await summary.getByRole("button", { name: shop.continuePay, exact: true }).click();
     await expect(page.getByRole("heading", { name: shop.sectionPay })).toBeFocused();
     await expect(page.getByText(shop.payBody("$52.50"))).toBeVisible();
     await expect(summary.getByRole("button", { name: shop.remove })).toHaveCount(0);
     expect(placed).toMatchObject({
-        client: { name: "Avery Laurent", email: runEmail("stepper@example.test"), phone: null },
+        client: { name: "Avery Laurent", phone: "+16045550224" },
         lines: [{ item_id: demoId("it_shampoo"), quantity: 1 }],
     });
 });
@@ -212,7 +211,7 @@ test(
         await expect(page.getByRole("heading", { name: shop.sectionPickup })).toBeVisible();
         await summary.getByRole("button", { name: shop.continue, exact: true }).click();
         await page.getByLabel(shop.name, { exact: true }).fill("Avery Laurent");
-        await page.getByLabel(shop.email, { exact: false }).fill(runEmail("resume@example.test"));
+        await page.getByLabel(shop.phone, { exact: false }).fill(freshPhone());
         await summary.getByRole("button", { name: shop.continuePay, exact: true }).click();
         await expect.poll(() => keys.length).toBe(1);
         await expect(page.getByRole("alert").getByText(shop.orderError)).toBeVisible();

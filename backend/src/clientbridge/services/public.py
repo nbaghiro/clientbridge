@@ -1,7 +1,6 @@
 import secrets
 from collections.abc import Sequence
 from datetime import UTC, date, datetime, timedelta
-from typing import get_args
 
 from sqlalchemy import ColumnElement, and_, func, select, text
 from sqlalchemy.exc import IntegrityError
@@ -19,7 +18,7 @@ from clientbridge.integrations.stripe import PaymentGateway
 from clientbridge.models.billing import Estimate, Invoice, Line, Order
 from clientbridge.models.business import PLACE_KINDS, Business, Staff
 from clientbridge.models.catalog import BOOKABLE_KINDS, Item
-from clientbridge.models.clients import Channel, Client, Note, Subject
+from clientbridge.models.clients import Client, Note, Subject
 from clientbridge.models.documents import Contract, Form, FormField, FormResponse, Signature
 from clientbridge.models.messaging import Message
 from clientbridge.models.payments import Payment
@@ -124,7 +123,7 @@ from clientbridge.services.consents import (
     allows_marketing,
     client_id_for_prefs,
     latest_consents,
-    set_channel_consent,
+    set_consent,
 )
 from clientbridge.services.deliveries import delivery_key
 from clientbridge.services.files import (
@@ -616,7 +615,7 @@ class PublicBookingService:
         # A client-only business ignores the subject a returning client last booked with.
         chosen = data.subject_id if business.subject is not None else None
         if chosen is not None and data.returning_token is None:
-            raise Unauthorized("verify your email before choosing an existing subject")
+            raise Unauthorized("verify your phone before choosing an existing subject")
         client = (
             await returning.resolve(business.id, data.returning_token)
             if data.returning_token is not None
@@ -717,7 +716,6 @@ class PublicBookingService:
             self.db,
             business_id,
             name=data.name,
-            email=data.email,
             phone=data.phone,
             source="online_booking",
         )
@@ -1128,15 +1126,13 @@ class PublicManageService:
             raise NotFound("client not found")
 
         async def run(cmd: Command) -> ManageMessageResult:
-            channel: Channel = "sms" if client.phone else "email"
-            thread = await open_thread(self.db, business.id, client.id, channel)
+            thread = await open_thread(self.db, business.id, client.id)
             thread.status = "open"
             message = Message(
                 id=new_id("message"),
                 business_id=business.id,
                 thread_id=thread.id,
                 direction="in",
-                channel=channel,
                 body=data.body,
                 status="delivered",
             )
@@ -2233,37 +2229,25 @@ class PublicPreferencesService:
 
     async def save(self, token: str, data: PublicPreferencesUpdate) -> PublicPreferences:
         client, business = await self._resolve(token)
-        await set_channel_consent(self.db, client, "email", agreed=data.email, source="preferences")
-        await set_channel_consent(self.db, client, "sms", agreed=data.sms, source="preferences")
+        await set_consent(self.db, client, agreed=data.sms, source="preferences")
         await self.db.commit()
         return await self._out(client, business)
 
-    async def unsubscribe(self, token: str, channel: Channel | None) -> PublicPreferences:
+    async def unsubscribe(self, token: str) -> PublicPreferences:
         client, business = await self._resolve(token)
-        for each in (channel,) if channel is not None else get_args(Channel):
-            await set_channel_consent(self.db, client, each, agreed=False, source="unsubscribe")
+        await set_consent(self.db, client, agreed=False, source="unsubscribe")
         await self.db.commit()
         return await self._out(client, business)
 
     async def _out(self, client: Client, business: Business) -> PublicPreferences:
-        email = (await latest_consents(self.db, business.id, [client.id], "email")).get(client.id)
-        sms = (await latest_consents(self.db, business.id, [client.id], "sms")).get(client.id)
+        consent = (await latest_consents(self.db, business.id, [client.id])).get(client.id)
         return PublicPreferences(
             business_name=business.name,
             brand=public_brand(business),
             first_name=client.name.split(" ")[0],
-            email_hint=_email_hint(client.email),
             phone_hint=_phone_hint(client.phone),
-            email=allows_marketing(email),
-            sms=allows_marketing(sms),
+            sms=allows_marketing(consent),
         )
-
-
-def _email_hint(email: str | None) -> str | None:
-    if not email or "@" not in email:
-        return None
-    local, _, domain = email.partition("@")
-    return f"{local[:1]}•••@{domain}"
 
 
 def _phone_hint(phone: str | None) -> str | None:
@@ -2489,7 +2473,6 @@ class PublicShopService:
                 self.db,
                 business.id,
                 name=data.client.name,
-                email=data.client.email,
                 phone=data.client.phone,
                 source="online_shop",
             )

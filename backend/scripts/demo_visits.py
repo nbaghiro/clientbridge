@@ -161,7 +161,6 @@ def _tap_to_pay(ctx: DemoContext) -> None:
             total_cents=totals.total_cents,
             paid_at=paid,
             receipt_token="demo_receipt_ord_tap",
-            receipt_channel="email",
             receipt_sent_at=paid + timedelta(minutes=1),
             created_at=paid - timedelta(minutes=5),
             updated_at=paid,

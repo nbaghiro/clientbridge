@@ -1,10 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { demoPerson } from "@clientbridge/config/e2e/demo";
-import { strings } from "@clientbridge/app-core/public";
+import { formatPhone, strings } from "@clientbridge/app-core/public";
 import { expect, type Locator, type Page, type Response } from "@playwright/test";
 import { navigate } from "./session";
-import { runEmail, runUrl, demoSlug } from "@clientbridge/config/e2e/run";
-import { mailedCode } from "./auth";
+import { runUrl, demoSlug } from "@clientbridge/config/e2e/run";
+import { freshPhone, textedCode } from "./auth";
 import { bookingApi, createBookingFixture, type BookingFixture } from "./bookings";
 import { select } from "./db";
 import { pastExtras } from "./visit";
@@ -12,7 +12,7 @@ import { pastExtras } from "./visit";
 export interface ClientFixture {
     id: string;
     name: string;
-    email: string;
+    phone: string;
 }
 
 export function clientCommand(page: Page, path: string, method: string): Promise<Response> {
@@ -34,7 +34,7 @@ export async function openClient(page: Page, client: ClientFixture): Promise<Loc
     await expect(record.getByRole("heading", { name: client.name, exact: true })).toBeVisible({
         timeout: 60_000,
     });
-    await expect(record).toContainText(client.email);
+    await expect(record).toContainText(formatPhone(client.phone));
     return record;
 }
 
@@ -50,8 +50,8 @@ export async function editClient(page: Page, client: ClientFixture): Promise<Loc
         client.name,
     );
     await expect(
-        editor.getByRole("textbox", { name: strings.clients.edit.emailLabel, exact: true }),
-    ).toHaveValue(client.email);
+        editor.getByRole("textbox", { name: strings.clients.edit.phoneLabel, exact: true }),
+    ).toHaveValue(formatPhone(client.phone));
     return editor;
 }
 
@@ -67,7 +67,7 @@ export async function expectClientSegment(
         : strings.clients.edit.segmentActive(0);
     const pattern = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace("0", "[\\d,]+");
     await page.getByRole("button", { name: new RegExp(`^${pattern}$`) }).click();
-    await page.getByRole("searchbox").fill(client.email);
+    await page.getByRole("searchbox").fill(client.name);
     const row = page.getByRole("button").filter({ hasText: client.name });
     await expect(row).toHaveCount(1);
     const opposite = archived
@@ -81,13 +81,12 @@ export async function expectClientSegment(
 export async function createClient(
     page: Page,
     name = demoPerson(randomUUID()),
-    emailRun = randomUUID(),
+    phone = freshPhone(),
 ): Promise<ClientFixture> {
-    const run = randomUUID();
     const api = runUrl("VITE_API_URL");
-    const input = { name, email: runEmail(`crm-${emailRun}-${run}@example.ca`) };
+    const input = { name, phone };
     const response = await page.request.post(`${api}/v1/clients`, {
-        data: { ...input, preferred_channel: "email" },
+        data: input,
         headers: { "Idempotency-Key": randomUUID(), Origin: new URL(page.url()).origin },
     });
     expect(response.status(), await response.text()).toBe(201);
@@ -159,7 +158,7 @@ export interface ReturningFixture extends BookingFixture {
     petId: string;
 }
 interface ReturningEvidence {
-    clients: { id: string; name: string; email: string; phone: string | null; status: string }[];
+    clients: { id: string; name: string; phone: string | null; status: string }[];
     subjects: { id: string; client_id: string; name: string; deleted_at: string | null }[];
     bookings: { id: string; client_id: string; subject_id: string; status: string }[];
     slots: { id: string; item_id: string; staff_id: string }[];
@@ -169,8 +168,8 @@ export async function returningEvidence(f: ReturningFixture): Promise<ReturningE
     type Evidence = ReturningEvidence;
     return {
         clients: await select<Evidence["clients"][number]>`
-            SELECT id, name, email, phone, status, preferred_channel FROM clients
-            WHERE id = ${f.clientId} OR email = ${f.clientEmail} ORDER BY id`,
+            SELECT id, name, phone, status FROM clients
+            WHERE id = ${f.clientId} OR phone = ${f.clientPhone} ORDER BY id`,
         subjects: await select<Evidence["subjects"][number]>`
             SELECT id, client_id, name, to_jsonb(deleted_at) AS deleted_at FROM subjects
             WHERE client_id = ${f.clientId} ORDER BY id`,
@@ -193,7 +192,6 @@ export interface ContactEvidence {
     clients: {
         id: string;
         name: string;
-        email: string | null;
         phone: string | null;
         status: string;
     }[];
@@ -202,25 +200,19 @@ export interface ContactEvidence {
     slots: { id: string; item_id: string }[];
 }
 
-/** Every client either address or the phone matches, and what a booking of `item` left behind. */
+/** Every client either phone matches, and what a booking of `item` left behind. */
 export async function contactEvidence(
-    emails: readonly [string, string],
-    phone: string,
+    phones: readonly [string, string],
     item: string,
 ): Promise<ContactEvidence> {
-    const [first, second] = emails;
+    const [first, second] = phones;
     return {
         clients: await select<ContactEvidence["clients"][number]>`
-            SELECT id, name, email, phone, status FROM clients
-            WHERE id IN (
-                SELECT id FROM clients
-                WHERE email IN (${first}, ${second}) OR phone = ${phone})
-            ORDER BY id`,
+            SELECT id, name, phone, status FROM clients
+            WHERE phone IN (${first}, ${second}) ORDER BY id`,
         subjects: await select<ContactEvidence["subjects"][number]>`
             SELECT id, client_id, name, to_jsonb(deleted_at) AS deleted_at FROM subjects
-            WHERE client_id IN (
-                SELECT id FROM clients
-                WHERE email IN (${first}, ${second}) OR phone = ${phone})
+            WHERE client_id IN (SELECT id FROM clients WHERE phone IN (${first}, ${second}))
             ORDER BY id`,
         bookings: await select<ContactEvidence["bookings"][number]>`
             SELECT b.id, b.client_id, b.subject_id FROM bookings b
@@ -236,7 +228,7 @@ export async function returningFixture(page: Page): Promise<ReturningFixture> {
         data: { online_bookable: true },
     });
     expect(response.status(), await response.text()).toBe(200);
-    const client = { id: f.clientId, name: f.clientName, email: f.clientEmail };
+    const client = { id: f.clientId, name: f.clientName, phone: f.clientPhone };
     await addPet(page, client, "Maple");
     const petId = await addPet(page, client, "Clover");
     return { ...f, client, petId };
@@ -288,11 +280,11 @@ export async function verifyReturning(
     const panel = page
         .locator("section")
         .filter({ has: page.getByRole("heading", { name: t.title, exact: true }) });
-    await panel.getByRole("textbox", { name: t.email, exact: true }).fill(f.clientEmail);
+    await panel.getByRole("textbox", { name: t.contact, exact: true }).fill(f.clientPhone);
     await panel.getByRole("button", { name: t.sendCode, exact: true }).click();
     await page
         .getByRole("textbox", { name: t.code, exact: true })
-        .fill(await mailedCode(page.request, f.clientEmail, "booking verification"));
+        .fill(await textedCode(page.request, f.clientPhone));
     const verified = page.waitForResponse(
         (r) => new URL(r.url()).pathname === `/book/${demoSlug("birchbark")}/returning/verify`,
     );
@@ -300,13 +292,7 @@ export async function verifyReturning(
     const result = await verified;
     expect(result.status(), await result.text()).toBe(200);
     const body = (await result.json()) as { profile: Record<string, unknown> };
-    expect(Object.keys(body.profile).sort()).toEqual([
-        "email",
-        "last_visit",
-        "name",
-        "phone",
-        "subjects",
-    ]);
+    expect(Object.keys(body.profile).sort()).toEqual(["last_visit", "name", "phone", "subjects"]);
     expect(body.profile.last_visit).toBeNull();
     await expect(
         page.getByRole("heading", { name: t.welcome(f.clientName), exact: true }),

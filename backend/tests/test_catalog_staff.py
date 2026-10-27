@@ -56,7 +56,7 @@ def _public(item: str, staff: str, starts: str) -> dict[str, object]:
         "item_id": item,
         "staff_id": staff,
         "starts_at": starts,
-        "client": {"name": "Web Booker", "email": "web-staff@example.com"},
+        "client": {"name": "Web Booker", "phone": "+16045550175"},
     }
 
 

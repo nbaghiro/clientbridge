@@ -3,6 +3,7 @@ import { demoPerson } from "@clientbridge/config/e2e/demo";
 import { expect, type APIRequestContext } from "@playwright/test";
 import { demoId, runEmail, runUrl } from "@clientbridge/config/e2e/run";
 import { committed } from "../../web/e2e/support/documents";
+import { freshPhone } from "../../web/e2e/support/auth";
 import { requireLocalMail } from "../../web/e2e/support/evidence";
 
 export const documentApi = runUrl("VITE_API_URL");
@@ -85,8 +86,7 @@ export async function documentProvider(request: APIRequestContext) {
         headers: { ...headers, "Idempotency-Key": randomUUID() },
         data: {
             name,
-            email: runEmail(`document-${randomUUID()}@example.ca`),
-            preferred_channel: "email",
+            phone: freshPhone(),
         },
     });
     expect(clientResponse.status(), await clientResponse.text()).toBe(201);

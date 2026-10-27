@@ -29,6 +29,7 @@ import {
     useReschedule,
     useSavedCards,
     formatParts,
+    formatPhone,
     formatList,
     BUSINESS_CURRENCY,
     useBusinessZone,
@@ -918,16 +919,6 @@ function MessageSheet({
         <Modal size="lg" onClose={onClose}>
             <View style={styles.sheetBody}>
                 <SheetHeader title={s.messageTitle(name)} onClose={onClose} />
-                <Choice
-                    label={s.messageChannel}
-                    layout="segmented"
-                    options={[
-                        { key: "sms", label: s.messageSms },
-                        { key: "email", label: s.messageEmail },
-                    ]}
-                    value={m.channel}
-                    onChange={m.setChannel}
-                />
                 {m.smsBlocked ? (
                     <Notice tone="danger">{strings.messaging.smsBlockedNew}</Notice>
                 ) : null}
@@ -999,7 +990,7 @@ function ComposerFields({ form }: { form: BookingComposer }) {
                                 }
                                 title={m.client.name}
                                 detail={formatParts([
-                                    m.client.email,
+                                    formatPhone(m.client.phone),
                                     formatList(m.subjects, "unit"),
                                 ])}
                                 onPress={() => {

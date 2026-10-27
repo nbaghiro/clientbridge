@@ -126,7 +126,7 @@ describe("a placed order survives a reload", () => {
         act(() => {
             result.current.setQuantity("it_brush", 1);
             result.current.setName("Robin Bennett");
-            result.current.setEmail("robin@example.ca");
+            result.current.setPhone("+16045550142");
         });
         act(() => {
             result.current.submit();

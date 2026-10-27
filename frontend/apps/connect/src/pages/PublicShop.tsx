@@ -426,17 +426,10 @@ function CheckoutSteps({ shop, takingPayments }: { shop: ShopFlow; takingPayment
                     <TextField
                         label={s.phone}
                         type="tel"
+                        required
                         value={shop.phone}
                         onChange={shop.setPhone}
                         autoComplete="tel"
-                    />
-                    <TextField
-                        label={s.email}
-                        type="email"
-                        value={shop.email}
-                        onChange={shop.setEmail}
-                        autoComplete="email"
-                        optional
                     />
                     <p className="text-xs text-muted sm:col-span-2">{s.reach}</p>
                     <div className="sm:col-span-2">

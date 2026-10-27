@@ -64,7 +64,7 @@ SENDER_PARAMS = {
     "Email": ("to", "subject", "body", "html"),
     "Sms": ("to", "body"),
     "Push": ("tokens", "title", "body", "data"),
-    "dispatch_message": ("sms", "email", "channel", "to", "notice"),
+    "dispatch_message": ("sms", "to", "body"),
 }
 CSV_ROWS = {"writerow": 1, "writerows": 2}
 STORED_COPY = ("description", "interval_description", "product_name")

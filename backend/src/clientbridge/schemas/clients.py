@@ -5,7 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from clientbridge.core.mirrors import Mirror
 from clientbridge.core.phones import Phone
-from clientbridge.models.clients import Channel, Client, ClientStatus, Subject
+from clientbridge.models.clients import Client, ClientStatus, Subject
 
 MergeSide = Literal["kept", "other"]
 
@@ -14,11 +14,9 @@ class ClientBase(Mirror):
     mirrors = Client
 
     name: str = Field(min_length=1)
-    email: str | None = None
     phone: str | None = None
     tags: list[str] = Field(default_factory=list)
     custom_fields: dict[str, object] = Field(default_factory=dict)
-    preferred_channel: Channel = "sms"
 
 
 class FirstSubject(Mirror):
@@ -43,11 +41,9 @@ class ClientUpdate(Mirror):
     model_config = ConfigDict(extra="forbid")
 
     name: str | None = Field(default=None, min_length=1)
-    email: str | None = None
     phone: Phone = None
     tags: list[str] | None = None
     custom_fields: dict[str, object] | None = None
-    preferred_channel: Channel | None = None
     marketing_consent: bool | None = None
 
 
@@ -78,4 +74,4 @@ class BulkResult(BaseModel):
 
 class ClientMerge(BaseModel):
     from_client_id: str
-    fields: dict[Literal["name", "phone", "email"], MergeSide] = Field(default_factory=dict)
+    fields: dict[Literal["name", "phone"], MergeSide] = Field(default_factory=dict)

@@ -26,7 +26,7 @@ from clientbridge.models.billing import Estimate, Invoice, Line, Order
 from clientbridge.models.business import Business, ProvinceCode, Staff, User
 from clientbridge.models.ledger import Account, Entry
 from clientbridge.models.platform import Audit, File
-from clientbridge.schemas.business import BusinessSettingsUpdate, OnboardBody, public_email
+from clientbridge.schemas.business import BusinessSettingsUpdate, OnboardBody
 from clientbridge.schemas.payments import KycStatus
 
 _log = logging.getLogger(__name__)
@@ -548,10 +548,3 @@ class OnboardingService:
         )
         await self.db.commit()
         return biz
-
-
-def reply_address(business: Business) -> str | None:
-    """Where a reply to the business's mail should go: its brand email, else its billing email."""
-    value = (business.brand or {}).get("email")
-    brand_email = public_email(value) if isinstance(value, str) else None
-    return brand_email or public_email(business.billing_email)

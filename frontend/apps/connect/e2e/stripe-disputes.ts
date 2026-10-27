@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { addDays, combineDayAndTime, formatMoney, strings } from "@clientbridge/app-core/public";
 import { expect, type Frame, type Locator, type Page } from "@playwright/test";
-import { runUrl } from "@clientbridge/config/e2e/run";
+import { runPort } from "@clientbridge/config/e2e/run";
 import {
     bookingApi,
     createBookingFixture,
@@ -330,27 +330,11 @@ export async function startedDepositVisit(page: Page, notify: boolean) {
     throw new Error("no free past time in the owner's hours for a started visit");
 }
 
-export async function manageLink(page: Page, email: string): Promise<string> {
-    const base = runUrl("MAILPIT_URL");
-    let link: string | undefined;
-    await expect(async () => {
-        const search = await page.request.get(`${base}/api/v1/search`, {
-            params: { query: `to:${email}`, limit: 20 },
-        });
-        expect(search.status()).toBe(200);
-        const { messages } = (await search.json()) as { messages: { ID: string }[] };
-        for (const message of messages) {
-            const detail = await page.request.get(`${base}/api/v1/message/${message.ID}`);
-            const text = ((await detail.json()) as { Text: string }).Text;
-            link = (text.match(/https?:\/\/[^\s<>"']+/g) ?? []).find((url) =>
-                new URL(url).pathname.startsWith("/m/"),
-            );
-            if (link) return;
-        }
-        throw new Error("the booking confirmation with its manage link has not arrived");
-    }).toPass({ timeout: 60_000 });
-    if (!link) throw new Error("manage link missing");
-    return link;
+export async function manageLink(bookingId: string): Promise<string> {
+    const [row] = await select<{ manage_token: string | null }>`
+        SELECT manage_token FROM bookings WHERE id = ${bookingId} AND deleted_at IS NULL`;
+    if (!row?.manage_token) throw new Error("booking has no manage token");
+    return `http://book.localhost:${String(runPort("CONNECT_E2E_PORT"))}/m/${encodeURIComponent(row.manage_token)}`;
 }
 
 export function payLabel(cents: number): string {

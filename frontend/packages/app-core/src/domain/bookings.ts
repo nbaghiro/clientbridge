@@ -1534,7 +1534,6 @@ interface DetailClientRow {
     id: string;
     name: string;
     phone: string | null;
-    email: string | null;
     tags: string | null;
 }
 
@@ -1570,7 +1569,7 @@ interface VisitStatsRow {
     last_visit: string | null;
 }
 
-export const DETAIL_CLIENT_SQL = "SELECT id, name, phone, email, tags FROM clients WHERE id = ?";
+export const DETAIL_CLIENT_SQL = "SELECT id, name, phone, tags FROM clients WHERE id = ?";
 
 export const DETAIL_SUBJECT_SQL = `
 SELECT sj.id, sj.name, sj.attributes FROM subjects sj

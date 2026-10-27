@@ -35,7 +35,6 @@ import {
     Badge,
     Button,
     ChargeSheet,
-    Choice,
     DetailSection,
     Icon,
     KeyValueList,
@@ -889,16 +888,6 @@ function MessageDialog({
         <Modal size="sm" onClose={onClose}>
             <div className="space-y-4">
                 <h2 className="font-display text-lg font-bold text-ink">{s.messageTitle(name)}</h2>
-                <Choice
-                    label={s.messageChannel}
-                    layout="segmented"
-                    options={[
-                        { key: "sms", label: s.messageSms },
-                        { key: "email", label: s.messageEmail },
-                    ]}
-                    value={m.channel}
-                    onChange={m.setChannel}
-                />
                 {m.smsBlocked ? (
                     <Notice tone="danger">{strings.messaging.smsBlockedNew}</Notice>
                 ) : null}

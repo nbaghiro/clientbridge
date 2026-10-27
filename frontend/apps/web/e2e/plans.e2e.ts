@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { addDays, combineDayAndTime, strings } from "@clientbridge/app-core/public";
 import { expect, test, type Browser, type Page } from "@playwright/test";
-import { newAccount } from "./support/auth";
+import { freshPhone, newAccount } from "./support/auth";
 import { requireLocalMail } from "./support/evidence";
 import { openBusiness, signUp } from "./support/business";
 import {
@@ -236,7 +236,6 @@ test("PLN-E2E-03 a lapsed trial blocks new work but still exports, settles, revo
     const scheduled = await page.request.post(`${apiBase()}/v1/broadcasts`, {
         data: {
             name: "Spring hours",
-            channel: "email",
             body: "We're open late on Thursdays this spring.",
             audience: { tags: ["regulars"] },
             scheduled_at: combineDayAndTime(
@@ -268,7 +267,7 @@ test("PLN-E2E-03 a lapsed trial blocks new work but still exports, settles, revo
 
     const blocked = [
         await page.request.post(`${apiBase()}/v1/clients`, {
-            data: { name: "Noor Haddad", email: runEmail(`noor-${randomUUID()}@example.ca`) },
+            data: { name: "Noor Haddad", phone: freshPhone() },
             headers: headers(page),
         }),
         await page.request.patch(`${apiBase()}/v1/clients/${contact.id}`, {
@@ -276,7 +275,7 @@ test("PLN-E2E-03 a lapsed trial blocks new work but still exports, settles, revo
             headers: headers(page),
         }),
         await page.request.post(`${apiBase()}/v1/broadcasts`, {
-            data: { name: "Late offer", channel: "email", body: "Ten percent off", audience: {} },
+            data: { name: "Late offer", body: "Ten percent off", audience: {} },
             headers: headers(page),
         }),
         await invite(page, runEmail(`another-${randomUUID()}@example.ca`)),

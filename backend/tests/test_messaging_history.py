@@ -15,9 +15,7 @@ async def _thread(db: AsyncSession, business_id: str = BIZ) -> str:
     business = await db.get(Business, business_id)
     assert business is not None
     client = await Factory(db).client(business=business)
-    thread = Thread(
-        id=f"th_{client.id}", business_id=business_id, client_id=client.id, channel="sms"
-    )
+    thread = Thread(id=f"th_{client.id}", business_id=business_id, client_id=client.id)
     db.add(thread)
     await db.flush()
     for n in range(3):
@@ -27,7 +25,6 @@ async def _thread(db: AsyncSession, business_id: str = BIZ) -> str:
                 business_id=business_id,
                 thread_id=thread.id,
                 direction="out" if n % 2 else "in",
-                channel="sms",
                 sent_by="us_dev" if n % 2 else None,
                 body=f"message {n}",
                 status="read",

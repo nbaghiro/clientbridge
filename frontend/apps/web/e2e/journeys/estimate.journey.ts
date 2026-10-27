@@ -13,7 +13,7 @@ import {
 } from "../support/billing";
 import { bookingApi } from "../support/bookings";
 import { paymentEvidence } from "../support/evidence";
-import { mailedLinks } from "../support/messaging";
+import { textedLinks } from "../support/messaging";
 import { openRefund, refundEvidence } from "../support/refunds";
 import { customerContext, signIn } from "../support/session";
 import { apiCall, stackUrl } from "../support/visit";
@@ -97,7 +97,7 @@ function totals(evidence: { entries: { category: string; amount_cents: number }[
     return sums;
 }
 
-test("FLOW-02-A the customer ticks an add-on on the emailed estimate, and the owner converts, edits and issues the exact accepted work", async ({
+test("FLOW-02-A the customer ticks an add-on on the texted estimate, and the owner converts, edits and issues the exact accepted work", async ({
     page,
     browser,
 }, testInfo) => {
@@ -107,7 +107,7 @@ test("FLOW-02-A the customer ticks an add-on on the emailed estimate, and the ow
     const estimate = await sendEstimate(page, client);
     // $100 less 10% plus 5% GST, before the add-on is ticked
     expect(estimate.total_cents).toBe(9450);
-    const [link] = await mailedLinks(page.request, client.email, "/e/");
+    const [link] = await textedLinks(page.request, client.phone, "/e/");
     expect(link?.pathname).toBe(`/e/${estimate.view_token}`);
     expect(link?.host).toBe(stackUrl("PAY_BASE_URL").host);
 
@@ -239,7 +239,7 @@ test("FLOW-02-A the customer ticks an add-on on the emailed estimate, and the ow
     expect(totals(journal)).toEqual({ receivable: 18900, revenue: -18000, tax: -900 });
     expect(journal.payments).toEqual([]);
 
-    const [payLink] = await mailedLinks(page.request, client.email, "/i/");
+    const [payLink] = await textedLinks(page.request, client.phone, "/i/");
     const reader = await customerContext(browser);
     try {
         const customer = await reader.newPage();
@@ -293,7 +293,7 @@ test("FLOW-02-B a converted invoice takes a part payment, a part refund and the 
     expect(issued).toMatchObject({ status: "sent", total_cents: 18900, balance_cents: 18900 });
     const number = issued.number;
     if (number === null) throw new Error("The issued invoice has no number");
-    const [payLink] = await mailedLinks(page.request, client.email, "/i/");
+    const [payLink] = await textedLinks(page.request, client.phone, "/i/");
 
     await openDocument(page, client, "invoice", invoice.id);
     const paying = page.waitForResponse(

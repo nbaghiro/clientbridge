@@ -40,7 +40,7 @@ def _body(item_id: str, name: str = "Rosa Diaz", **extra: object) -> dict[str, o
         "item_id": item_id,
         "staff_id": "any",
         "starts_at": FIRST,
-        "client": {"name": name, "email": f"{name.split()[0].lower()}@clients.ca"},
+        "client": {"name": name, "phone": "+16045550323"},
         "subject_name": "Biscuit",
         **extra,
     }
@@ -114,7 +114,7 @@ async def test_enrolling_online_books_every_day(
     as_owner: httpx.AsyncClient,
     db: AsyncSession,
     unauth: httpx.AsyncClient,
-    email: FakeEmailSender,
+    sms: FakeSmsSender,
 ) -> None:
     item_id = await _program(as_owner, db, deposit=True)
     await _no_approval(db)
@@ -124,7 +124,7 @@ async def test_enrolling_online_books_every_day(
     rows = list(await db.scalars(select(Booking).where(Booking.id.in_(booked))))
     assert sorted(b.price_cents for b in rows) == [0, 0, 30000]
     assert {b.source for b in rows} == {"online"}
-    assert email.sent[-1].subject.startswith("Your visits are booked")
+    assert len(sms.sent) == 1 and sms.sent[-1].to == "+16045550323"
 
 
 async def test_a_new_client_asks_to_enrol_when_the_business_approves_them(
@@ -164,7 +164,7 @@ async def test_the_manage_link_cancels_the_whole_enrolment(
     as_owner: httpx.AsyncClient,
     db: AsyncSession,
     unauth: httpx.AsyncClient,
-    email: FakeEmailSender,
+    sms: FakeSmsSender,
 ) -> None:
     item_id = await _program(as_owner, db)
     await _no_approval(db)
@@ -181,7 +181,7 @@ async def test_the_manage_link_cancels_the_whole_enrolment(
         )
     )
     assert {b.status for b in rows} == {"canceled"}
-    assert email.sent[-1].subject.startswith("Your visits were canceled")
+    assert len(sms.sent) == 2 and sms.sent[-1].to == "+16045550323"
 
 
 async def test_a_run_is_booked_only_from_its_first_day(

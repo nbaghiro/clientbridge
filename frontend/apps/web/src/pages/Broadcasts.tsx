@@ -2,7 +2,6 @@ import {
     type BroadcastDraft,
     type BroadcastItem,
     type BroadcastSeed,
-    type Channel,
     broadcastIntent,
     broadcastAudience,
     broadcastWhen,
@@ -47,20 +46,6 @@ import { api } from "../lib/api";
 import { useOpenLink } from "../lib/links";
 
 const s = strings.broadcasts;
-const CHANNELS: { key: Channel; label: string }[] = [
-    {
-        key: "sms",
-        get label() {
-            return s.channels.sms;
-        },
-    },
-    {
-        key: "email",
-        get label() {
-            return s.channels.email;
-        },
-    },
-];
 const ALL = "__all";
 const grid =
     "grid grid-cols-[minmax(0,2fr)_minmax(0,1.3fr)_minmax(0,1.5fr)_minmax(0,1fr)] items-center gap-4";
@@ -119,7 +104,6 @@ function BroadcastsHome({ onCompose }: { onCompose: (seed: BroadcastSeed) => voi
             name: s.copyOf(item.name),
             body: item.body ?? "",
             tags: item.tags,
-            channel: item.channel === "email" ? "email" : "sms",
         });
     };
     const cancelSend = (item: BroadcastItem): void => {
@@ -138,7 +122,7 @@ function BroadcastsHome({ onCompose }: { onCompose: (seed: BroadcastSeed) => voi
 
     const none = home.load.hasData && home.broadcasts.length === 0;
     const compose = (): void => {
-        onCompose({ name: "", body: "", tags: [], channel: "sms" });
+        onCompose({ name: "", body: "", tags: [] });
     };
 
     return (
@@ -158,15 +142,10 @@ function BroadcastsHome({ onCompose }: { onCompose: (seed: BroadcastSeed) => voi
             <Loaded load={home.load} loading={s.loading} failed={s.loadError}>
                 <div className="space-y-6">
                     {home.reach.total === 0 ? null : (
-                        <div className="grid grid-cols-3 gap-4">
+                        <div className="grid grid-cols-2 gap-4">
                             <Stat
                                 label={s.reachText}
                                 value={String(home.reach.sms)}
-                                hint={s.reachOf(home.reach.total)}
-                            />
-                            <Stat
-                                label={s.reachEmail}
-                                value={String(home.reach.email)}
                                 hint={s.reachOf(home.reach.total)}
                             />
                             <Stat
@@ -214,13 +193,6 @@ function BroadcastsHome({ onCompose }: { onCompose: (seed: BroadcastSeed) => voi
                                             status={s.status[x.status] ?? x.status}
                                             intent={broadcastIntent(x.status)}
                                         />
-                                    </div>
-                                    <div className="mt-0.5 flex items-center gap-1 text-xs text-muted">
-                                        <Icon
-                                            name={x.channel === "sms" ? "phoneDevice" : "mail"}
-                                            size={12}
-                                        />
-                                        {s.viaChannel(x.channel)}
                                     </div>
                                 </div>
                                 <div className="min-w-0">
@@ -277,7 +249,7 @@ function BroadcastsHome({ onCompose }: { onCompose: (seed: BroadcastSeed) => voi
                                     <ul className="divide-y divide-line-soft">
                                         {home.optOuts.map((o) => (
                                             <li
-                                                key={`${o.clientId}-${o.channel}`}
+                                                key={o.clientId}
                                                 className="flex items-center gap-3 px-4 py-2.5"
                                             >
                                                 <Avatar
@@ -296,10 +268,6 @@ function BroadcastsHome({ onCompose }: { onCompose: (seed: BroadcastSeed) => voi
                                                         )}
                                                     </div>
                                                 </div>
-                                                <StatusPill
-                                                    status={s.consentChannel[o.channel]}
-                                                    intent="danger"
-                                                />
                                             </li>
                                         ))}
                                     </ul>
@@ -312,7 +280,7 @@ function BroadcastsHome({ onCompose }: { onCompose: (seed: BroadcastSeed) => voi
                                     <ul className="divide-y divide-line-soft">
                                         {home.implied.map((o) => (
                                             <li
-                                                key={`${o.clientId}-${o.channel}`}
+                                                key={o.clientId}
                                                 className="flex items-center gap-3 px-4 py-2.5"
                                             >
                                                 <Avatar
@@ -325,10 +293,7 @@ function BroadcastsHome({ onCompose }: { onCompose: (seed: BroadcastSeed) => voi
                                                         {o.name}
                                                     </div>
                                                     <div className="truncate text-xs text-muted">
-                                                        {formatParts([
-                                                            s.consentChannel[o.channel],
-                                                            s.endsOn(dateOf(o.expires, zone)),
-                                                        ])}
+                                                        {s.endsOn(dateOf(o.expires, zone))}
                                                     </div>
                                                 </div>
                                             </li>
@@ -343,7 +308,7 @@ function BroadcastsHome({ onCompose }: { onCompose: (seed: BroadcastSeed) => voi
             {open !== null ? (
                 <DeskPanel
                     title={open.name}
-                    subtitle={formatParts([s.viaChannel(open.channel), broadcastWhen(open, zone)])}
+                    subtitle={broadcastWhen(open, zone)}
                     status={{
                         status: s.status[open.status] ?? open.status,
                         intent: broadcastIntent(open.status),
@@ -403,9 +368,7 @@ function BroadcastsHome({ onCompose }: { onCompose: (seed: BroadcastSeed) => voi
                     <DetailSection title={s.messageTitle}>
                         <p className="whitespace-pre-wrap rounded-md border border-line bg-bg px-4 py-3 text-sm leading-relaxed text-ink-soft">
                             {open.body}
-                            <span className="mt-2 block text-xs text-muted">
-                                {open.channel === "sms" ? s.optOutSms : s.optOutEmail}
-                            </span>
+                            <span className="mt-2 block text-xs text-muted">{s.optOutSms}</span>
                         </p>
                     </DetailSection>
                 </DeskPanel>
@@ -457,7 +420,7 @@ function Composer({ seed, onDone }: { seed: BroadcastSeed; onDone: () => void })
                 <div className="space-y-5">
                     <Panel>
                         <div className="space-y-4">
-                            <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto]">
+                            <div>
                                 <TextField
                                     label={s.nameLabel}
                                     hint={s.nameHint}
@@ -465,15 +428,6 @@ function Composer({ seed, onDone }: { seed: BroadcastSeed; onDone: () => void })
                                     onChange={draft.setName}
                                     placeholder={s.namePlaceholder(word)}
                                 />
-                                <Field label={s.channelPick}>
-                                    <Choice
-                                        layout="segmented"
-                                        label={s.channelPick}
-                                        options={CHANNELS}
-                                        value={draft.channel}
-                                        onChange={draft.setChannel}
-                                    />
-                                </Field>
                             </div>
                             <AudiencePicker draft={draft} />
                         </div>
@@ -487,13 +441,9 @@ function Composer({ seed, onDone }: { seed: BroadcastSeed; onDone: () => void })
                                 value={draft.body}
                                 onChange={draft.setBody}
                                 placeholder={s.messagePlaceholder(word)}
-                                hint={
-                                    draft.channel === "sms"
-                                        ? s.smsCount(draft.segments.chars, draft.segments.segments)
-                                        : undefined
-                                }
+                                hint={s.smsCount(draft.segments.chars, draft.segments.segments)}
                             />
-                            <OptOutLine channel={draft.channel} />
+                            <OptOutLine />
                         </div>
                     </Panel>
                     <Panel>
@@ -651,39 +601,22 @@ function AudienceSummary({ draft }: { draft: BroadcastDraft }) {
 }
 
 function MessagePreview({ draft }: { draft: BroadcastDraft }) {
-    const word = kindWord(useSubjectKind());
-    if (draft.channel === "sms")
-        return (
-            <div className="rounded-xl border border-line bg-bg px-4 pb-4 pt-3">
-                <p className="mb-3 text-center text-[11px] text-muted">{draft.business}</p>
-                <MessageBubble body={draft.preview} direction="in" width="full" />
-            </div>
-        );
     return (
-        <div className="overflow-hidden rounded-md border border-line bg-surface text-sm">
-            <div className="space-y-0.5 border-b border-line bg-bg px-4 py-2.5 text-xs text-muted">
-                <div className="font-semibold text-ink-soft">{draft.business}</div>
-                <div className="truncate font-medium text-ink">
-                    {draft.name || s.namePlaceholder(word)}
-                </div>
-            </div>
-            <p className="whitespace-pre-wrap px-4 py-3 leading-relaxed text-ink-soft">
-                {draft.preview}
-            </p>
+        <div className="rounded-xl border border-line bg-bg px-4 pb-4 pt-3">
+            <p className="mb-3 text-center text-[11px] text-muted">{draft.business}</p>
+            <MessageBubble body={draft.preview} direction="in" width="full" />
         </div>
     );
 }
 
-function OptOutLine({ channel }: { channel: Channel }) {
+function OptOutLine() {
     return (
         <div className="flex items-start gap-2 rounded-md border border-dashed border-line bg-bg px-3 py-2 text-xs text-muted">
             <span className="mt-0.5">
                 <Icon name="lock" size={13} />
             </span>
             <span>
-                <span className="font-medium text-ink-soft">
-                    {channel === "sms" ? s.optOutSms : s.optOutEmail}
-                </span>
+                <span className="font-medium text-ink-soft">{s.optOutSms}</span>
                 <span className="block">{s.optOutNote}</span>
             </span>
         </div>

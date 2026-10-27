@@ -1,4 +1,4 @@
-"""cb0034 adds the day a business's GST/HST registration took effect."""
+"""cb0035 adds the day a business's GST/HST registration took effect."""
 
 import os
 import secrets
@@ -24,7 +24,7 @@ _COLUMN = text(
 )
 
 
-async def test_cb0034_adds_a_nullable_registration_date_and_drops_it_on_downgrade() -> None:
+async def test_cb0035_adds_a_nullable_registration_date_and_drops_it_on_downgrade() -> None:
     settings = get_settings()
     database = f"clientbridge_migration_{secrets.token_hex(4)}"
     url = on(settings.migration_database_url, database)
@@ -37,7 +37,7 @@ async def test_cb0034_adds_a_nullable_registration_date_and_drops_it_on_downgrad
     engine = create_async_engine(url)
     try:
         _run(env, "scripts.db_access", "roles")
-        _run(env, "alembic", "upgrade", "cb0033")
+        _run(env, "alembic", "upgrade", "cb0034")
         async with engine.begin() as conn:
             await conn.execute(
                 text(
@@ -47,14 +47,14 @@ async def test_cb0034_adds_a_nullable_registration_date_and_drops_it_on_downgrad
                     " true, '{}', false, false, '{}', 'active', now())"
                 )
             )
-        _run(env, "alembic", "upgrade", "cb0034")
+        _run(env, "alembic", "upgrade", "cb0035")
         async with engine.begin() as conn:
             kept = await conn.scalar(text("SELECT tax_registered_on FROM businesses"))
             assert kept is None
             await conn.execute(text("UPDATE businesses SET tax_registered_on = '2026-10-01'"))
             stored = await conn.scalar(text("SELECT tax_registered_on FROM businesses"))
             assert stored == date(2026, 10, 1)
-        _run(env, "alembic", "downgrade", "cb0033")
+        _run(env, "alembic", "downgrade", "cb0034")
         async with engine.begin() as conn:
             assert await conn.scalar(_COLUMN) == 0
             assert await conn.scalar(text("SELECT tax_registered FROM businesses")) is True

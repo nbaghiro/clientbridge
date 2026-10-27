@@ -23,13 +23,11 @@ const api: ApiLike = {
 const ann: ClientListRow = {
     id: "cl_ann",
     name: "Ann Tremblay",
-    email: "ann@x.test",
-    phone: null,
-    phoneLabel: "",
+    phone: "+16045550001",
+    phoneLabel: "(604) 555-0001",
     archived: false,
     archivedAt: null,
     tags: [],
-    channel: "email",
     subjects: "",
     next: null,
     balanceCents: 0,
@@ -54,7 +52,7 @@ it("fills the form once the directory loads after the editor opened", () => {
     rerender({ rows: [ann] });
     expect(result.current.mode).toBe("edit");
     expect(result.current.draft.name).toBe("Ann Tremblay");
-    expect(result.current.draft.email).toBe("ann@x.test");
+    expect(result.current.draft.phone).toBe("(604) 555-0001");
     expect(result.current.dirty).toBe(false);
 });
 
@@ -63,7 +61,7 @@ it("keeps what the person typed when the record refreshes", () => {
     act(() => {
         result.current.set("name", "Ann T.");
     });
-    rerender({ rows: [{ ...ann, email: "ann@new.test" }] });
+    rerender({ rows: [{ ...ann, phone: "+16045550002" }] });
     expect(result.current.draft.name).toBe("Ann T.");
-    expect(result.current.draft.email).toBe("ann@x.test");
+    expect(result.current.draft.phone).toBe("(604) 555-0001");
 });

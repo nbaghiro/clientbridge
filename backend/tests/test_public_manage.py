@@ -21,7 +21,7 @@ from clientbridge.schemas.public import (
     PublicBookingCreate,
 )
 from clientbridge.services.public import PublicBookingService, PublicManageService
-from tests.conftest import BIZ, FakeEmailSender, FakePaymentGateway, FakePushSender
+from tests.conftest import BIZ, FakePaymentGateway, FakePushSender, FakeSmsSender
 from tests.helpers import delete_bookings, deposit_payment, enable_payments, key, settle
 
 SLUG = "birchbark"
@@ -40,7 +40,7 @@ async def test_one_class_attendee_cannot_move_the_shared_session(
             "item_id": "it_puppy",
             "staff_id": "st_owner",
             "starts_at": OPENING,
-            "client": {"name": "Other Attendee", "email": "attendee@example.com"},
+            "client": {"name": "Other Attendee", "phone": "+16045550269"},
         },
     )
     assert second.status_code == 200, second.text
@@ -66,7 +66,7 @@ async def _book(api: httpx.AsyncClient, starts: str = OPENING, item: str = "it_g
             "item_id": item,
             "staff_id": "st_owner",
             "starts_at": starts,
-            "client": {"name": "Web Booker", "email": "web@example.ca"},
+            "client": {"name": "Web Booker", "phone": "+16045550270"},
         },
     )
     assert res.status_code == 200, res.text
@@ -92,19 +92,19 @@ async def test_view_shows_the_visit_and_what_can_change(api: httpx.AsyncClient) 
 
 
 async def test_client_moves_their_visit(
-    api: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
+    api: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender
 ) -> None:
     token = await _book(api)
     slots = (await api.get(f"/manage/{token}/slots", params={"date": "2026-12-02"})).json()
     target = slots["slots"][0]["starts_at"]
     days = await api.get(f"/manage/{token}/days", params={"from": "2026-12-01", "days": 2})
     assert days.status_code == 200 and len(days.json()["days"]) == 2
-    sent = len(email.sent)
+    sent = len(sms.sent)
     res = await api.post(f"/manage/{token}/reschedule", json={"starts_at": target}, headers=key())
     assert res.status_code == 200, res.text
     assert res.json()["reschedules_used"] == 1
     assert (await _slot(db, token)).starts_at == datetime.fromisoformat(target)
-    assert len(email.sent) == sent + 1
+    assert len(sms.sent) == sent + 1
 
 
 async def test_moves_stop_at_the_policy_limit(api: httpx.AsyncClient, db: AsyncSession) -> None:
@@ -206,7 +206,7 @@ async def test_cancel_refunds_a_paid_deposit_once(
             "item_id": "it_groom_lg",
             "staff_id": "st_owner",
             "starts_at": OPENING,
-            "client": {"name": "Web Booker", "email": "web@example.com"},
+            "client": {"name": "Web Booker", "phone": "+16045550270"},
         },
     )
     body = res.json()
@@ -248,7 +248,7 @@ async def test_unknown_token_404_for_days_and_reschedule(api: httpx.AsyncClient)
 
 
 async def test_reschedule_replays_on_the_same_key(
-    api: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
+    api: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender
 ) -> None:
     token = await _book(api)
     headers = key()
@@ -257,14 +257,14 @@ async def test_reschedule_replays_on_the_same_key(
         f"/manage/{token}/reschedule", json={"starts_at": target}, headers=headers
     )
     assert first.status_code == 200, first.text
-    sent = len(email.sent)
+    sent = len(sms.sent)
     again = await api.post(
         f"/manage/{token}/reschedule", json={"starts_at": target}, headers=headers
     )
     assert again.status_code == 200, again.text
     assert again.json()["starts_at"] == first.json()["starts_at"]
     assert again.json()["reschedules_used"] == 1
-    assert len(email.sent) == sent
+    assert len(sms.sent) == sent
     assert (await _slot(db, token)).starts_at == datetime.fromisoformat(target)
 
 
@@ -395,7 +395,7 @@ async def test_cancel_does_not_claim_an_unsettled_deposit_refund(
             "item_id": "it_groom_lg",
             "staff_id": "st_owner",
             "starts_at": OPENING,
-            "client": {"name": "Refund Client", "email": "refund@example.com"},
+            "client": {"name": "Refund Client", "phone": "+16045550271"},
         },
     )
     booking = response.json()
@@ -451,7 +451,7 @@ async def test_manage_times_include_moves_overlapping_the_visit_and_stop_at_the_
 async def test_two_connections_rescheduling_at_the_limit_move_the_visit_once(
     db: AsyncSession,
 ) -> None:
-    email = "limit-race@example.com"
+    phone = "+16045550242"
     async with SessionLocal() as setup:
         booked = await PublicBookingService(setup, FakePaymentGateway()).book(
             SLUG,
@@ -459,7 +459,7 @@ async def test_two_connections_rescheduling_at_the_limit_move_the_visit_once(
                 item_id="it_groom_sm",
                 staff_id="st_owner",
                 starts_at=datetime(2027, 5, 4, 16, tzinfo=UTC),
-                client=PublicBookingClient(name="Limit Racer", email=email),
+                client=PublicBookingClient(name="Limit Racer", phone=phone),
             ),
         )
         token = booked.manage_token
@@ -496,7 +496,7 @@ async def test_two_connections_rescheduling_at_the_limit_move_the_visit_once(
             assert count == 2
     finally:
         async with SessionLocal() as cleanup:
-            clients = list(await cleanup.scalars(select(Client.id).where(Client.email == email)))
+            clients = list(await cleanup.scalars(select(Client.id).where(Client.phone == phone)))
             bookings = list(
                 await cleanup.scalars(select(Booking.id).where(Booking.client_id.in_(clients)))
             )

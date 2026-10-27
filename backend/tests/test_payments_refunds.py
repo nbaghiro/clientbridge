@@ -16,7 +16,14 @@ from clientbridge.models.scheduling import Booking
 from clientbridge.services import ledger
 from clientbridge.services.payments import next_credit_note
 from clientbridge.services.tax import TaxResult
-from tests.conftest import BIZ, OWNER_USER, Factory, FakeEmailSender, FakePaymentGateway
+from tests.conftest import (
+    BIZ,
+    OWNER_USER,
+    Factory,
+    FakeEmailSender,
+    FakePaymentGateway,
+    FakeSmsSender,
+)
 from tests.helpers import (
     booking_off_the_ledger,
     card_pay,
@@ -611,10 +618,10 @@ def _refund_object(pi: str, status: str) -> dict[str, object]:
 
 
 async def test_a_refund_that_fails_later_retains_its_credit_note_and_tells_the_client(
-    api: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
+    api: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender
 ) -> None:
     await enable_payments(db)
-    cid = await client_id(db, email="bounced@example.ca")
+    cid = await client_id(db)
     inv_id = await sent_invoice(db, number=9100, total=8000)
     payment = await _settled_charge(db, "pi_bounce", client=cid)
     payment.invoice_id = inv_id
@@ -623,14 +630,14 @@ async def test_a_refund_that_fails_later_retains_its_credit_note_and_tells_the_c
     await stripe_event(api, "refund.created", _refund_object("pi_bounce", "succeeded"))
     refund = await payment_by_ref(db, "re_pi_bounce")
     assert refund.credit_note == "CN-9100-1"
-    sent = len(email.sent)
+    sent = len(sms.sent)
     await stripe_event(api, "refund.updated", _refund_object("pi_bounce", "failed"))
     refund = await payment_by_ref(db, "re_pi_bounce")
     assert refund.status == "failed" and refund.credit_note == "CN-9100-1"
     invoice = await db.get(Invoice, inv_id)
     assert invoice is not None and (await ledger.invoice_state(db, invoice))[0] == "paid"
-    assert len(email.sent) == sent + 1
-    assert "Refund not completed" in email.sent[-1].subject
+    assert len(sms.sent) == sent + 1
+    assert sms.sent[-1].body.startswith("Your bank could not complete the refund")
     assert await next_credit_note(db, payment) == "CN-9100-2"
 
 

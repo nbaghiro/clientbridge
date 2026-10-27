@@ -34,8 +34,8 @@ from tests.conftest import (
     FakePushSender,
     FakeSmsSender,
 )
-from tests.google_business import configure_google_review_profile, review_emails
-from tests.helpers import client_id, new_client, sent_invoice
+from tests.google_business import configure_google_review_profile
+from tests.helpers import client_id, new_client, queued_subjects, sent_invoice
 
 BIZ = "bz_birchbark"
 ST_OWNER = "st_owner"
@@ -71,7 +71,7 @@ async def _status(db: AsyncSession, model: type[Invoice] | type[Estimate], row_i
 async def test_overdue_sweep_flags_and_notifies(
     db: AsyncSession, email: FakeEmailSender, sms: FakeSmsSender, push: FakePushSender
 ) -> None:
-    cid = await client_id(db, email="od@example.ca")
+    cid = await client_id(db)
     overdue_id = await sent_invoice(db, client=cid, due_at=NOW - timedelta(days=5))
     current_id = await sent_invoice(db, client=cid, due_at=NOW + timedelta(days=5))
 
@@ -80,13 +80,13 @@ async def test_overdue_sweep_flags_and_notifies(
     assert swept == 1
     assert await _status(db, Invoice, overdue_id) == "overdue"
     assert await _status(db, Invoice, current_id) == "sent"  # not yet due — untouched
-    assert any(m.to == "od@example.ca" and "overdue" in m.body.lower() for m in email.sent)
+    assert any(m.to == "+16045550223" and "overdue" in m.body.lower() for m in sms.sent)
 
 
 async def test_overdue_sweep_is_idempotent(
     db: AsyncSession, email: FakeEmailSender, sms: FakeSmsSender, push: FakePushSender
 ) -> None:
-    cid = await client_id(db, email="od@example.ca")
+    cid = await client_id(db)
     await sent_invoice(db, client=cid, due_at=NOW - timedelta(days=5))
     notifier = _notifier(email, sms, push)
     assert await run_overdue_sweep(db, notifier, OVERDUE_AT) == 1
@@ -98,7 +98,7 @@ async def test_overdue_sweep_is_idempotent(
 async def test_a_failed_overdue_notice_is_sent_on_a_later_morning(
     db: AsyncSession, email: FakeEmailSender, sms: FakeSmsSender, push: FakePushSender
 ) -> None:
-    cid = await client_id(db, email="od@example.ca")
+    cid = await client_id(db)
     invoice_id = await sent_invoice(db, client=cid, due_at=NOW - timedelta(days=5))
     down = Notifier(DownEmailSender(), DownSmsSender(), push)
     assert await run_overdue_sweep(db, down, OVERDUE_AT) == 0
@@ -107,7 +107,7 @@ async def test_a_failed_overdue_notice_is_sent_on_a_later_morning(
 
     next_morning = OVERDUE_AT + timedelta(days=1)
     assert await run_overdue_sweep(db, _notifier(email, sms, push), next_morning) == 1
-    assert any(m.to == "od@example.ca" for m in email.sent)
+    assert any(m.to == "+16045550223" for m in sms.sent)
 
 
 async def test_overdue_sweep_waits_for_each_business_morning(
@@ -148,12 +148,12 @@ async def test_overdue_sweep_is_multi_tenant(
     factory: Factory,
 ) -> None:
     # Two businesses each have an overdue invoice; the one global scan must sweep both
-    cid_a = await client_id(db, email="tenant-a@example.ca")
+    cid_a = await client_id(db, phone="+16045550151")
     inv_a = await sent_invoice(db, client=cid_a, due_at=NOW - timedelta(days=5))
 
     other = await factory.business(name="Second Tenant")
     client_b = await factory.client(business=other, name="B Client")
-    client_b.email = "tenant-b@example.ca"
+    client_b.phone = "+16045550152"
     await db.flush()
     inv_b = await sent_invoice(
         db, client=client_b.id, due_at=NOW - timedelta(days=5), business_id=other.id
@@ -164,9 +164,9 @@ async def test_overdue_sweep_is_multi_tenant(
     assert swept == 2  # the single scan resolved both tenants' rows, not just the seeded one
     assert await _status(db, Invoice, inv_a) == "overdue"
     assert await _status(db, Invoice, inv_b) == "overdue"
-    recipients = {m.to for m in email.sent}
-    assert "tenant-a@example.ca" in recipients
-    assert "tenant-b@example.ca" in recipients  # the second tenant's client was notified per-row
+    recipients = {m.to for m in sms.sent}
+    assert "+16045550151" in recipients
+    assert "+16045550152" in recipients
 
 
 async def test_prune_stale_devices(db: AsyncSession) -> None:
@@ -240,7 +240,7 @@ async def test_review_requests_for_recently_completed(
     assert business is not None
     await configure_google_review_profile(db)
     await db.flush()
-    cid = await client_id(db, email="rev-job@example.ca")
+    cid = await client_id(db)
     bid = await _completed_booking(db, cid, completed_at=NOW)
     notifier = _notifier(email, sms, push)
 
@@ -249,7 +249,9 @@ async def test_review_requests_for_recently_completed(
         await db.execute(select(ReviewRequest).where(ReviewRequest.booking_id == bid))
     ).scalar_one()
     assert req.requested_at == REVIEWS_AT
-    assert any(m.to == "rev-job@example.ca" for m in await review_emails(db))
+    [notice] = await queued_subjects(db, f"review:{req.id}")
+    assert "https://" in notice
+    assert sms.sent == []
     assert await run_review_requests(db, notifier, REVIEWS_AT) == 0  # any existing request dedups
 
 
@@ -298,14 +300,15 @@ async def test_review_requests_ask_each_client_once(
     assert business is not None
     await configure_google_review_profile(db)
     await db.flush()
-    cid = await new_client(db, email="regular@example.ca")
+    cid = await new_client(db, phone="+16045550253")
     await _completed_booking(db, cid, completed_at=NOW - timedelta(days=2))
     latest = await _completed_booking(db, cid, completed_at=NOW)
     notifier = _notifier(email, sms, push)
     assert await run_review_requests(db, notifier, REVIEWS_AT) == 1
     asked = (await db.scalars(select(ReviewRequest).where(ReviewRequest.client_id == cid))).all()
     assert [r.booking_id for r in asked] == [latest]
-    assert sum(m.to == "regular@example.ca" for m in await review_emails(db)) == 1
+    assert len(await queued_subjects(db, f"review:{asked[0].id}")) == 1
+    assert sms.sent == []
     assert await run_review_requests(db, notifier, REVIEWS_AT + timedelta(days=1)) == 0
 
 
@@ -329,7 +332,7 @@ async def test_review_requests_skip_archived_clients(
     assert business is not None
     await configure_google_review_profile(db)
     await db.flush()
-    cid = await new_client(db, email="archived@example.ca")
+    cid = await new_client(db, phone="+16045550154")
     await _completed_booking(db, cid, completed_at=NOW)
     client = await db.get(Client, cid)
     assert client is not None

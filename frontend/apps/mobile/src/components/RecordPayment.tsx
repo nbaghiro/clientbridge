@@ -32,7 +32,7 @@ export function RecordPayment({ rec, onClose }: { rec: InvoiceRecord; onClose: (
         invoiceId: rec.row.id,
         label: rec.title,
         clientId: rec.row.client_id,
-        clientEmail: rec.row.client_email,
+        clientPhone: rec.row.client_phone,
         balanceCents: rec.balanceCents,
     });
     const summary: DocTotalLine[] = [

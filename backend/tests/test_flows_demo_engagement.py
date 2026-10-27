@@ -52,7 +52,6 @@ def engagement() -> DemoContext:
                 id=client_id,
                 business_id=ctx.business_id,
                 name=name,
-                email=f"{slug}@example.com",
                 phone=f"+1250555{index:04d}",
                 status="active",
                 tags=["churn-risk"] if slug == "olivia" else ["regular"],
@@ -229,34 +228,27 @@ def test_broadcasts_have_consent_backed_fanout_and_reconciled_counts(
             consents = [
                 c
                 for c in engagement.all(Consent)
-                if c.client_id == client_id
-                and c.channel == campaign.channel
-                and c.created_at <= message.created_at
+                if c.client_id == client_id and c.created_at <= message.created_at
             ]
             latest = max(consents, key=lambda c: (c.created_at, c.id))
             assert allows_marketing(latest, message.created_at)
             assert message.body == campaign.body and message.created_at <= engagement.now
         assert len(recipients) == len(fanout)
-        assert (
-            "cl_noah" not in recipients
-            if campaign.channel == "sms"
-            else "cl_fatima" not in recipients
-        )
+        assert "cl_noah" not in recipients
     assert {c.status for c in engagement.all(Consent)} == {"granted", "implied", "withdrawn"}
 
 
-def test_conversations_have_distinct_times_channel_identity_and_inbox_states(
+def test_conversations_have_distinct_times_and_inbox_states(
     engagement: DemoContext,
 ) -> None:
     threads, messages = engagement.all(Thread), engagement.all(Message)
     assert len({t.id for t in threads}) == len(threads)
-    assert len({(t.client_id, t.channel) for t in threads}) == len(threads)
+    assert len({t.client_id for t in threads}) == len(threads)
     assert any(m.direction == "in" and m.status != "read" for m in messages)
     assert any(m.status == "failed" for m in messages)
     assert len({m.created_at for m in messages}) > 5
     for message in messages:
         thread = engagement.get(Thread, message.thread_id)
-        assert message.channel == thread.channel
         assert thread.created_at <= message.created_at <= thread.updated_at <= engagement.now
         assert (message.sent_by is None) == (message.direction == "in")
         assert message.provider_ref is None

@@ -3,7 +3,7 @@ import {
     strings,
     usePublicPaymentSetup,
 } from "@clientbridge/app-core/public";
-import { Button, CardForm, Notice } from "@clientbridge/ui";
+import { Button, CardForm, Notice, TextField } from "@clientbridge/ui";
 import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 
@@ -78,9 +78,25 @@ export function PublicPaymentSetup() {
                                 onDone={flow.refresh}
                             />
                         ) : (
-                            <Button busy={flow.busy} onPress={flow.start}>
-                                {s.bankSetupStart}
-                            </Button>
+                            <form
+                                className="space-y-4"
+                                onSubmit={(event) => {
+                                    event.preventDefault();
+                                    flow.start();
+                                }}
+                            >
+                                <TextField
+                                    label={s.payerEmail}
+                                    type="email"
+                                    required
+                                    value={flow.payerEmail}
+                                    onChange={flow.setPayerEmail}
+                                    autoComplete="email"
+                                />
+                                <Button submit busy={flow.busy}>
+                                    {s.bankSetupStart}
+                                </Button>
+                            </form>
                         )}
                     </>
                 )}

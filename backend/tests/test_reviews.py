@@ -12,12 +12,11 @@ from clientbridge.models.clients import Client
 from clientbridge.models.messaging import Delivery
 from clientbridge.models.reviews import ReviewRequest
 from clientbridge.models.scheduling import Booking, Slot
-from clientbridge.schemas.deliveries import DELIVERY_PAYLOAD
-from clientbridge.services.consents import record_consent
+from clientbridge.services.consents import record_consent, record_text_reply
 from clientbridge.services.deliveries import run_deliveries
 from tests.conftest import Factory, FakeEmailSender, FakePushSender, FakeSmsSender
-from tests.google_business import configure_google_review_profile, review_emails, review_texts
-from tests.helpers import client_id, new_client
+from tests.google_business import configure_google_review_profile, review_texts
+from tests.helpers import client_id, new_client, queued_subjects
 
 BIZ = "bz_birchbark"
 ST_OWNER = "st_owner"
@@ -71,10 +70,11 @@ async def _configure(db: AsyncSession, url: str | None = GOOGLE) -> None:
 
 
 async def test_request_creates_invitation_and_links_to_google(
-    as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
+    as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender, sms: FakeSmsSender
 ) -> None:
     await _configure(db)
     cid = await new_client(db)
+    await db.execute(update(Client).where(Client.id == cid).values(phone="+16045550288"))
     headers = {"Idempotency-Key": "google-invitation"}
     first = await as_owner.post("/v1/reviews/request", json={"client_id": cid}, headers=headers)
     assert first.status_code == 201, first.text
@@ -82,10 +82,14 @@ async def test_request_creates_invitation_and_links_to_google(
     assert set(body) == {"id", "business_id", "client_id", "booking_id", "requested_at"}
     request = await db.get(ReviewRequest, body["id"])
     assert request is not None and request.business_id == BIZ
-    assert any(GOOGLE in message.body for message in await review_emails(db))
-    count = len(await review_emails(db))
+    assert any(GOOGLE in message.body for message in await review_texts(db))
+    assert email.sent == []
+    [notice] = await queued_subjects(db, f"review:{body['id']}")
+    assert GOOGLE in notice
+    assert sms.sent == []
+    count = len(await review_texts(db))
     replay = await as_owner.post("/v1/reviews/request", json={"client_id": cid}, headers=headers)
-    assert replay.json() == body and len(await review_emails(db)) == count
+    assert replay.json() == body and len(await review_texts(db)) == count and sms.sent == []
 
 
 async def test_request_waits_thirty_days_per_client(
@@ -107,33 +111,20 @@ async def test_request_waits_thirty_days_per_client(
     assert later.status_code == 201, later.text
 
 
-async def test_invitation_email_carries_an_unsubscribe_link(
-    as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
-) -> None:
-    await _configure(db)
-    cid = await new_client(db, email="unsub-review@example.ca")
-    sent = await as_owner.post("/v1/reviews/request", json={"client_id": cid})
-    assert sent.status_code == 201, sent.text
-    mail = next(m for m in await review_emails(db) if m.to == "unsub-review@example.ca")
-    assert "?unsubscribe=email" in (mail.html or "")
-
-
-async def test_invitation_skips_email_after_opt_out(
+async def test_invitation_skips_text_after_stop(
     as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender, sms: FakeSmsSender
 ) -> None:
     await _configure(db)
-    cid = await new_client(db, email="optout-review@example.ca")
+    cid = await new_client(db)
     await db.execute(update(Client).where(Client.id == cid).values(phone="+16045550188"))
-    await record_consent(
-        db, BIZ, cid, channel="email", status="withdrawn", source="unsubscribe", recorded_by=None
-    )
+    await record_consent(db, BIZ, cid, status="withdrawn", source="reply", recorded_by=None)
     sent = await as_owner.post("/v1/reviews/request", json={"client_id": cid})
     assert sent.status_code == 201, sent.text
-    assert not any(m.to == "optout-review@example.ca" for m in await review_emails(db))
-    assert any(GOOGLE in text.body for text in await review_texts(db))
+    assert email.sent == []
+    assert not any(GOOGLE in text.body for text in await review_texts(db))
 
 
-async def test_a_queued_invitation_email_is_dropped_after_an_opt_out(
+async def test_a_queued_invitation_text_is_dropped_after_a_stop(
     as_owner: httpx.AsyncClient,
     db: AsyncSession,
     email: FakeEmailSender,
@@ -141,13 +132,12 @@ async def test_a_queued_invitation_email_is_dropped_after_an_opt_out(
     push: FakePushSender,
 ) -> None:
     await _configure(db)
-    cid = await new_client(db, email="late-optout@example.ca")
-    await db.execute(update(Client).where(Client.id == cid).values(phone="+16045551289"))
+    cid = await new_client(db, phone="+16045551289")
     sent = await as_owner.post("/v1/reviews/request", json={"client_id": cid})
     assert sent.status_code == 201, sent.text
-    await record_consent(
-        db, BIZ, cid, channel="email", status="withdrawn", source="unsubscribe", recorded_by=None
-    )
+    client = await db.get(Client, cid)
+    assert client is not None
+    await record_text_reply(db, client, stop=True)
     await db.commit()
     await run_deliveries(db, email, sms, push)
     rows = list(
@@ -155,10 +145,8 @@ async def test_a_queued_invitation_email_is_dropped_after_an_opt_out(
             select(Delivery).where(Delivery.key.startswith(f"review:{sent.json()['id']}:"))
         )
     )
-    states = {DELIVERY_PAYLOAD.validate_python(r.payload).channel: (r.state, r.error) for r in rows}
-    assert states == {"email": ("failed", "consent_withdrawn"), "sms": ("accepted", None)}
-    assert not any(m.to == "late-optout@example.ca" for m in email.sent)
-    assert any(t.to == "+16045551289" and GOOGLE in t.body for t in sms.sent)
+    assert [(r.state, r.error) for r in rows] == [("failed", "consent_withdrawn")]
+    assert not any(t.to == "+16045551289" for t in sms.sent)
 
 
 async def test_business_update_no_longer_sets_the_review_link(

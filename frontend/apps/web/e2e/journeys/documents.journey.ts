@@ -3,7 +3,7 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 import { openClient } from "../support/clients";
 import { formEvidence, sendToClient, signatureEvidence } from "../support/documents";
 import { createDocumentClient, type DocumentClient } from "../support/billing";
-import { mailedLinks } from "../support/messaging";
+import { textedLinks } from "../support/messaging";
 import { customerContext, navigate, signIn } from "../support/session";
 import { stackUrl } from "../support/visit";
 
@@ -97,8 +97,8 @@ test("FLOW-05-A a contract signed before the owner publishes new terms keeps its
 
     const first = await sendToClient(page, c.send, "/v1/contracts/send", early);
     const second = await sendToClient(page, c.send, "/v1/contracts/send", late);
-    const [earlyLink] = await mailedLinks(page.request, early.email, "/contract/");
-    const [lateLink] = await mailedLinks(page.request, late.email, "/contract/");
+    const [earlyLink] = await textedLinks(page.request, early.phone, "/contract/");
+    const [lateLink] = await textedLinks(page.request, late.phone, "/contract/");
     expect(earlyLink?.pathname).toBe(`/contract/${first.token}`);
     expect(lateLink?.pathname).toBe(`/contract/${second.token}`);
     expect(earlyLink?.host).toBe(stackUrl("BOOK_BASE_URL").host);
@@ -250,7 +250,7 @@ test("FLOW-05-B a form edited while the client has it open keeps the questions t
     await expectOpened(main, name);
 
     const issued = await sendToClient(page, f.send, "/v1/forms/send", client);
-    const [link] = await mailedLinks(page.request, client.email, "/form/");
+    const [link] = await textedLinks(page.request, client.phone, "/form/");
     expect(link?.pathname).toBe(`/form/${issued.token}`);
     const context = await customerContext(browser);
     try {
@@ -310,7 +310,7 @@ test("FLOW-05-B a form edited while the client has it open keeps the questions t
         await navigate(page, "/inbox?segment=forms");
         await main.getByText(name, { exact: true }).click({ timeout: 60_000 });
         const again = await sendToClient(page, f.send, "/v1/forms/send", client);
-        const links = await mailedLinks(page.request, client.email, "/form/", 2);
+        const links = await textedLinks(page.request, client.phone, "/form/", 2);
         const next = links.find((url) => url.pathname === `/form/${again.token}`);
         expect(next).toBeDefined();
         await customer.goto(next?.href ?? "");

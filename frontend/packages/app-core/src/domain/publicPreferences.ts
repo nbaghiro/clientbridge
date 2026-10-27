@@ -9,16 +9,14 @@ interface PublicPreferences {
     business_name: string;
     brand: PublicBrand;
     first_name: string;
-    email_hint: string | null;
     phone_hint: string | null;
-    email: boolean;
     sms: boolean;
 }
 
 interface PublicPreferencesClient {
     get: (token: string) => Promise<PublicPreferences>;
-    save(token: string, input: { email: boolean; sms: boolean }): Promise<PublicPreferences>;
-    unsubscribe(token: string, channel: "email" | "sms" | null): Promise<PublicPreferences>;
+    save(token: string, input: { sms: boolean }): Promise<PublicPreferences>;
+    unsubscribe(token: string): Promise<PublicPreferences>;
 }
 
 export function createPublicPreferencesClient(baseUrl: string): PublicPreferencesClient {
@@ -37,8 +35,8 @@ export function createPublicPreferencesClient(baseUrl: string): PublicPreference
     return {
         get: (token) => request(`/prefs/${encodeURIComponent(token)}`),
         save: (token, input) => request(`/prefs/${encodeURIComponent(token)}`, post(input)),
-        unsubscribe: (token, channel) =>
-            request(`/prefs/${encodeURIComponent(token)}/unsubscribe`, post({ channel })),
+        unsubscribe: (token) =>
+            request(`/prefs/${encodeURIComponent(token)}/unsubscribe`, post({})),
     };
 }
 
@@ -46,10 +44,7 @@ interface PreferencesPage {
     status: "loading" | "not-found" | "error" | "ready";
     prefs: PublicPreferences | null;
     retry: () => void;
-    // The client used Subscribe again after a one-click unsubscribe.
     resubscribed: boolean;
-    offersEmail: boolean;
-    setOffersEmail: (v: boolean) => void;
     offersSms: boolean;
     setOffersSms: (v: boolean) => void;
     save: () => void;
@@ -67,7 +62,6 @@ export function usePreferencesPage(
     unsubscribeOnOpen: boolean,
 ): PreferencesPage {
     const { status, data, setData, retry } = usePublicResource(client.get, token);
-    const [email, setEmail] = useState<boolean | null>(null);
     const [sms, setSms] = useState<boolean | null>(null);
     const [saved, setSaved] = useState(false);
     const [resubscribed, setResubscribed] = useState(false);
@@ -77,7 +71,6 @@ export function usePreferencesPage(
 
     const apply = (next: PublicPreferences): void => {
         setData(next);
-        setEmail(null);
         setSms(null);
     };
 
@@ -86,7 +79,7 @@ export function usePreferencesPage(
         ran.current = true;
         run(
             async () => {
-                apply(await client.unsubscribe(token, "email"));
+                apply(await client.unsubscribe(token));
             },
             { errorMessage: p.saveError },
         );
@@ -97,11 +90,6 @@ export function usePreferencesPage(
         prefs: data,
         retry,
         resubscribed,
-        offersEmail: email ?? data?.email ?? false,
-        setOffersEmail: (v) => {
-            setSaved(false);
-            setEmail(v);
-        },
         offersSms: sms ?? data?.sms ?? false,
         setOffersSms: (v) => {
             setSaved(false);
@@ -110,12 +98,7 @@ export function usePreferencesPage(
         save: () => {
             run(
                 async () => {
-                    apply(
-                        await client.save(token, {
-                            email: email ?? data?.email ?? false,
-                            sms: sms ?? data?.sms ?? false,
-                        }),
-                    );
+                    apply(await client.save(token, { sms: sms ?? data?.sms ?? false }));
                 },
                 {
                     onSuccess: () => {
@@ -129,7 +112,7 @@ export function usePreferencesPage(
         unsubscribeAll: () => {
             run(
                 async () => {
-                    apply(await client.unsubscribe(token, null));
+                    apply(await client.unsubscribe(token));
                 },
                 {
                     onSuccess: () => {
@@ -142,7 +125,7 @@ export function usePreferencesPage(
         resubscribe: () => {
             run(
                 async () => {
-                    apply(await client.save(token, { email: true, sms: data?.sms ?? false }));
+                    apply(await client.save(token, { sms: true }));
                     setResubscribed(true);
                 },
                 { errorMessage: p.saveError },

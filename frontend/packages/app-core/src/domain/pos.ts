@@ -144,7 +144,7 @@ function setPickupStatus(
 }
 
 export const PICKUP_ORDERS_SQL = `
-SELECT o.id, o.number, o.client_id, c.name AS client_name, c.phone, c.email, o.pickup_status,
+SELECT o.id, o.number, o.client_id, c.name AS client_name, c.phone, o.pickup_status,
        o.total_cents, o.created_at, o.ready_at, o.picked_up_at, o.pickup_from, o.pickup_to, o.note, o.notify_sms
 FROM orders o LEFT JOIN clients c ON c.id = o.client_id
 WHERE o.source = 'online' AND o.pickup_status IS NOT NULL
@@ -167,7 +167,6 @@ interface PickupRow {
     client_id: string | null;
     client_name: string | null;
     phone: string | null;
-    email: string | null;
     pickup_status: PickupStatus;
     total_cents: number | null;
     created_at: string;
@@ -208,7 +207,6 @@ interface PickupOrder {
     total: string;
     contact: string;
     phone: string | null;
-    email: string | null;
     // Placed, ready since or picked up at, whichever is latest.
     when: string;
     waiting: string;
@@ -253,9 +251,8 @@ export function pickupOrder(
         })),
         itemsLabel: p.items(mine.reduce((n, l) => n + l.quantity, 0)),
         total: row.total_cents === null ? "" : formatMoney(row.total_cents, BUSINESS_CURRENCY),
-        contact: formatParts([row.phone === null ? null : formatPhone(row.phone), row.email]),
+        contact: row.phone === null ? "" : formatPhone(row.phone),
         phone: row.phone,
-        email: row.email,
         when:
             status === "picked_up" && row.picked_up_at !== null
                 ? p.pickedAt(relativeDayTime(parseTimestamp(row.picked_up_at), zone, now))
@@ -677,7 +674,7 @@ export function useDiscountEditor(initial: SaleDiscount | null, baseCents: numbe
 type SalePhase = "cart" | "pay" | "paid";
 export type SalePayMethod = "tap" | "saved" | "card" | "cash";
 type TipSplitMode = "byService" | "one";
-export type ReceiptChannel = "email" | "sms" | "none";
+type ReceiptChannel = "sms" | "none";
 
 interface TipShare {
     staffId: string;
@@ -825,7 +822,6 @@ interface SaleClient {
     id: string;
     name: string;
     detail: string;
-    email: string | null;
     phone: string | null;
 }
 
@@ -940,8 +936,6 @@ interface SaleGiftCard {
 }
 
 interface SaleReceiptForm {
-    email: string;
-    setEmail: (v: string) => void;
     phone: string;
     setPhone: (v: string) => void;
     sent: ReceiptChannel | null;
@@ -971,16 +965,13 @@ function lineFromItem(item: ItemRow, extra: Partial<SaleLine> = {}): SaleLine {
     };
 }
 
-const SALE_EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
-
 interface SaleClientRow {
     id: string;
     name: string;
-    email: string | null;
     phone: string | null;
 }
 
-export const SALE_CLIENT_SQL = "SELECT id, name, email, phone FROM clients WHERE id = ?";
+export const SALE_CLIENT_SQL = "SELECT id, name, phone FROM clients WHERE id = ?";
 export const SALE_CARDS_SQL = `
 SELECT id, client_id, method, brand, last4, preferred, mandate_status FROM payment_methods
 WHERE client_id = ? AND method = 'card' ORDER BY preferred DESC, created_at DESC`;
@@ -1019,7 +1010,6 @@ export function useSale(
     const giftAction = useAsyncAction();
     const client = useQuery<SaleClientRow>(SALE_CLIENT_SQL, [clientId ?? ""]).data[0] ?? null;
     const cards = useQuery<SavedCardRow>(SALE_CARDS_SQL, [clientId ?? ""]).data;
-    const [email, setEmail] = useState("");
     const [phone, setPhone] = useState("");
     const keyRef = useRef<Attempt | null>(null);
     const paymentAttempt = useRef<Attempt | null>(null);
@@ -1079,7 +1069,6 @@ export function useSale(
         setOrder(null);
         setTerminal(null);
         setSent(null);
-        setEmail("");
         setPhone("");
         setPaidCents(0);
         setChangeGiven(null);
@@ -1209,8 +1198,7 @@ export function useSale(
                 : {
                       id: client.id,
                       name: client.name,
-                      detail: formatPhone(client.phone) || (client.email ?? ""),
-                      email: client.email,
+                      detail: formatPhone(client.phone),
                       phone: client.phone,
                   },
         savedCardLabel: saved === null ? null : savedCardLabel(saved),
@@ -1442,8 +1430,6 @@ export function useSale(
             error: giftAction.error,
         },
         receipt: {
-            email: email === "" ? (client?.email ?? "") : email,
-            setEmail,
             phone: phone === "" ? formatPhone(client?.phone) : phone,
             setPhone,
             sent,
@@ -1452,24 +1438,17 @@ export function useSale(
                     setSent("none");
                     return;
                 }
-                const to =
-                    channel === "email"
-                        ? email !== ""
-                            ? email
-                            : (client?.email ?? "")
-                        : phone !== ""
-                          ? phone
-                          : (client?.phone ?? "");
-                if (channel === "email" && !SALE_EMAIL.test(to.trim())) {
-                    receiptAction.setError(d.receiptEmailInvalid);
-                    return;
-                }
-                if (channel === "sms" && phoneDigits(to).length < 10) {
+                const to = phone !== "" ? phone : (client?.phone ?? "");
+                if (phoneDigits(to).length < 10) {
                     receiptAction.setError(d.receiptPhoneInvalid);
                     return;
                 }
                 receiptAction.run(
-                    () => api.post(`/v1/orders/${order.id}/receipt`, { channel, to: to.trim() }),
+                    () =>
+                        api.post(`/v1/orders/${order.id}/receipt`, {
+                            channel: "sms",
+                            to: to.trim(),
+                        }),
                     {
                         onSuccess: () => {
                             setSent(channel);
@@ -2139,10 +2118,10 @@ WHERE a.category = 'tax'
 GROUP BY a.code ORDER BY a.code`;
 
 export const SALE_RECORD_SQL = `
-SELECT o.id, o.number, o.client_id, c.name AS client_name, c.email AS client_email, c.phone AS client_phone,
+SELECT o.id, o.number, o.client_id, c.name AS client_name, c.phone AS client_phone,
        o.source, o.pickup_status, o.created_at, o.subtotal_cents, o.tax_total_cents, o.total_cents,
        o.staff_id, o.note,
-       o.discount_kind, o.discount_value, o.discount_reason, o.receipt_channel, o.receipt_email,
+       o.discount_kind, o.discount_value, o.discount_reason,
        o.receipt_phone, o.receipt_sent_at, ${orderStatusSql("o")} AS status
 FROM orders o LEFT JOIN clients c ON c.id = o.client_id WHERE o.id = ?`;
 
@@ -2151,7 +2130,6 @@ interface SaleRecordRow {
     number: number | null;
     client_id: string | null;
     client_name: string | null;
-    client_email: string | null;
     client_phone: string | null;
     source: string;
     pickup_status: string | null;
@@ -2164,8 +2142,6 @@ interface SaleRecordRow {
     discount_kind: string | null;
     discount_value: number | null;
     discount_reason: string | null;
-    receipt_channel: string | null;
-    receipt_email: string | null;
     receipt_phone: string | null;
     receipt_sent_at: string | null;
     status: string;
@@ -2221,7 +2197,6 @@ interface SaleDetail {
     number: string;
     clientName: string;
     clientId: string | null;
-    clientEmail: string | null;
     clientPhone: string | null;
     status: SaleStatus;
     statusLabel: string;
@@ -2352,7 +2327,6 @@ export function useSaleDetail(
             number: saleNumber(row.number),
             clientName: row.client_name ?? d.walkIn,
             clientId: row.client_id,
-            clientEmail: row.receipt_email ?? row.client_email,
             clientPhone: row.receipt_phone ?? row.client_phone,
             status,
             statusLabel: d.status[status],
@@ -2391,15 +2365,7 @@ export function useSaleDetail(
             paidWith: lastPaid === null ? d.methodCard : (method[lastPaid.method] ?? method.other),
             refundableCents: Math.max(0, paidIn - refunded),
             creditNotes: pays.flatMap((p) => (p.credit_note === null ? [] : [p.credit_note])),
-            receipt:
-                row.receipt_channel === null
-                    ? null
-                    : d.sentBy(
-                          row.receipt_channel,
-                          (row.receipt_channel === "sms"
-                              ? formatPhone(row.receipt_phone)
-                              : row.receipt_email) ?? "",
-                      ),
+            receipt: row.receipt_phone === null ? null : d.sentBy(formatPhone(row.receipt_phone)),
             actions,
         };
     }, [
@@ -2495,20 +2461,18 @@ export function useSaleActions(
                 return;
             }
             if (key === "receipt") {
-                const sms = detail.clientEmail === null && detail.clientPhone !== null;
-                const to = (sms ? detail.clientPhone : detail.clientEmail) ?? "";
-                const channel = sms ? "sms" : "email";
+                const to = detail.clientPhone ?? "";
                 afterReview(
                     {
                         title: strings.previews.title,
                         confirmLabel: strings.previews.send,
-                        load: outgoing.orderReceipt(api, detail.id, channel, to),
+                        load: outgoing.orderReceipt(api, detail.id, to),
                     },
                     () => {
                         go(
                             key,
-                            () => api.post(`/v1/orders/${detail.id}/receipt`, { channel, to }),
-                            d.receiptSent(sms ? formatPhone(to) : to),
+                            () => api.post(`/v1/orders/${detail.id}/receipt`, { to }),
+                            d.receiptSent(formatPhone(to)),
                         );
                     },
                 );

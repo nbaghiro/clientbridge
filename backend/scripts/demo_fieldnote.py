@@ -1,6 +1,5 @@
 """Fieldnote Photography: a portrait and wedding studio in Hamilton, built on the demo engine."""
 
-import unicodedata
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
 
@@ -544,7 +543,6 @@ class Contact:
     photo: bool = False
     tags: tuple[str, ...] = ()
     since: int | None = None
-    email: str | None = None
 
 
 NAMED = (
@@ -571,21 +569,18 @@ NAMED = (
         "Barton & Hess LLP",
         False,
         ("corporate",),
-        email="office.bartonhess@example.test",
     ),
     Contact(
         "ferrovia",
         "Ferrovia Tech Collective",
         False,
         ("corporate",),
-        email="events.ferrovia@example.test",
     ),
     Contact(
         "corktown",
         "Corktown Design Co.",
         False,
         ("corporate",),
-        email="studio.corktown@example.test",
     ),
     Contact("gabriela", "Gabriela Silva", True, since=-500),
     Contact("piotr", "Piotr Zieliński"),
@@ -718,18 +713,6 @@ WEDDINGS = (
     Wedding("sanjay", "Meera Iyer", FULL, 18, "open", WATERFRONT, booked_before=245),
     Wedding("megan", "Connor Walsh", WITH_SECOND, 32, "open", GARDENS, LOFT, booked_before=150),
 )
-
-
-def _ascii(name: str) -> str:
-    return unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode().lower()
-
-
-def _email(contact: Contact) -> str:
-    if contact.email is not None:
-        return contact.email
-    first, last = contact.name.split(" ", 1)
-    clean = "".join(c for c in _ascii(last) if c.isalnum())
-    return f"{''.join(c for c in _ascii(first) if c.isalnum())}.{clean}@example.test"
 
 
 def _offering(row: tuple[str, ItemKind, str, int, int | None, str, str]) -> Offering:
@@ -906,7 +889,7 @@ SPEC = BusinessSpec(
         Stage(
             "Four-star review about delivery time, with a reply",
             "rohan",
-            ("fr_fn_feedback_rohan", "th_fn_rohan_email"),
+            ("fr_fn_feedback_rohan", "th_fn_rohan"),
         ),
         Stage("Team headshots on a 5-session package", "bartonhess", ("pkg_fn_team_bartonhess",)),
         Stage(
@@ -1022,16 +1005,11 @@ class Fieldnote(Demo):
 
     def clients(self) -> None:
         for index, contact in enumerate(CONTACTS):
-            corporate = "corporate" in contact.tags
             self.client(
                 contact.key,
                 contact.name,
-                _email(contact),
                 f"+1905555{100 + index:04}",
                 tags=list(contact.tags),
-                channel="email"
-                if corporate or "wedding" in contact.tags or index % 3 == 0
-                else "sms",
                 fields={"source": ("referral", "google", "instagram", "wedding guest")[index % 4]},
                 since=self.at(contact.since, 11) if contact.since is not None else None,
             )
@@ -1630,7 +1608,7 @@ class Fieldnote(Demo):
 
     def engagement(self) -> None:
         self.consents()
-        self.withdraw("brandon", "email", self.now - timedelta(days=50))
+        self.withdraw("brandon", self.now - timedelta(days=50))
         mini = self.weekday_near(3, 5)
         self.broadcast(
             "fall_mini",
@@ -1639,7 +1617,7 @@ class Fieldnote(Demo):
             "rose garden. Each session is 20 minutes for up to six people, with 10 edited photos "
             "in an online gallery within two weeks. A $100 deposit holds your time, and the rest "
             "is due on the day. Times are first come, first served, and you can book them "
-            "online. Reply to this email with any questions.",
+            "online. Reply with any questions.",
             self.at(-31, 10),
         )
         aaliyah = self.ctx.get(Booking, "bk_fn_aaliyah")
@@ -1699,7 +1677,7 @@ class Fieldnote(Demo):
         ctx = self.ctx
         olivia = ctx.get(Estimate, "est_fn_olivia")
         when = olivia.created_at - timedelta(days=3, hours=2)
-        thread = self.thread("olivia", "email", when)
+        thread = self.thread("olivia", when)
         self.say(
             thread,
             "Hi Amara, we're getting married next August at a farm near Binbrook and love your "
@@ -1727,7 +1705,7 @@ class Fieldnote(Demo):
         )
         sanjay = ctx.get(Booking, "bk_fn_sanjay")
         when = min(sanjay.starts_at - timedelta(days=12), self.now - timedelta(hours=20))
-        thread = self.thread("sanjay", "sms", when)
+        thread = self.thread("sanjay", when)
         self.say(
             thread,
             "Hi Amara, the haldi might start at 10 instead of noon. Is it OK if you come earlier "
@@ -1745,7 +1723,7 @@ class Fieldnote(Demo):
         )
         emma = ctx.get(Invoice, "inv_fn_emma")
         assert emma.issued_at is not None
-        thread = self.thread("emma", "email", emma.issued_at)
+        thread = self.thread("emma", emma.issued_at)
         self.say(
             thread,
             "Hi Emma, thank you both again for Saturday. Your sneak peek is on its way this "
@@ -1763,7 +1741,7 @@ class Fieldnote(Demo):
         kristen = ctx.get(Invoice, "inv_fn_kristen")
         if kristen.overdue_notified_at is not None:
             when = kristen.overdue_notified_at + timedelta(hours=2)
-            thread = self.thread("kristen", "email", when)
+            thread = self.thread("kristen", when)
             self.say(
                 thread,
                 f"Hi Kristen, invoice {kristen.number} for the wedding balance is past due. You "
@@ -1788,7 +1766,7 @@ class Fieldnote(Demo):
         response = ctx.get(FormResponse, "fr_fn_feedback_rohan")
         assert response.submitted_at is not None
         when = response.submitted_at + timedelta(hours=3)
-        thread = self.thread("rohan", "email", when)
+        thread = self.thread("rohan", when)
         self.say(
             thread,
             "Thanks for the honest feedback, Rohan, and I'm sorry the gallery took five weeks. "
@@ -1807,7 +1785,7 @@ class Fieldnote(Demo):
         feedback = ctx.get(FormResponse, "fr_fn_feedback_aaliyah")
         assert feedback.submitted_at is not None
         when = feedback.submitted_at + timedelta(hours=1)
-        thread = self.thread("aaliyah", "email", when)
+        thread = self.thread("aaliyah", when)
         self.say(
             thread,
             "Thank you, Aaliyah. The photo of your grandmother at the head table is one of our "
@@ -1817,7 +1795,7 @@ class Fieldnote(Demo):
         )
         fatima = ctx.get(Booking, "bk_fn_fatima_newborn")
         when = fatima.created_at + timedelta(hours=2)
-        thread = self.thread("fatima", "sms", when)
+        thread = self.thread("fatima", when)
         self.say(
             thread,
             "Hi, I booked the newborn session but I don't know when the baby will come. Is it "
@@ -1833,7 +1811,7 @@ class Fieldnote(Demo):
         )
         james = ctx.get(Booking, "bk_fn_james_today")
         when = min(james.starts_at - timedelta(hours=20), self.now - timedelta(hours=2))
-        thread = self.thread("james", "email", when)
+        thread = self.thread("james", when)
         later = self.local(james.starts_at).date() > self.local(when).date()
         day = "tomorrow" if later else "today"
         self.say(
@@ -1845,7 +1823,7 @@ class Fieldnote(Demo):
         self.say(thread, "Thanks, see you then.", when + timedelta(minutes=50), sender=None)
         chloe = ctx.get(Booking, "bk_fn_fall_mini_chloe")
         when = chloe.created_at + timedelta(minutes=30)
-        thread = self.thread("chloe", "email", when)
+        thread = self.thread("chloe", when)
         self.say(
             thread,
             "We booked the 9:00 mini session. Is it all right if we bring our dog?",
@@ -1860,7 +1838,7 @@ class Fieldnote(Demo):
         )
         brandon = ctx.get(Booking, "bk_fn_brandon_moved")
         when = min(brandon.created_at + timedelta(days=1), self.now - timedelta(hours=4))
-        thread = self.thread("brandon", "sms", when)
+        thread = self.thread("brandon", when)
         self.say(
             thread,
             "Hi, our youngest has a fever. Could we move our family session to the following week?",
@@ -1878,7 +1856,7 @@ class Fieldnote(Demo):
         wei = ctx.get(Booking, "bk_fn_wei_ordering")
         assert wei.completed_at is not None
         when = wei.completed_at + timedelta(hours=3)
-        thread = self.thread("wei", "email", when)
+        thread = self.thread("wei", when)
         self.say(
             thread,
             "Thanks for coming in today, Wei Ling. Your canvas and prints go to the lab on "

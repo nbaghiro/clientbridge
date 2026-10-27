@@ -48,11 +48,14 @@ import {
     connectUrl,
     watchOpenings,
 } from "../support/visit";
-import { inboxMail } from "../support/messaging";
+import { textInbox, textsTo } from "../support/auth";
 import { navigate, signIn } from "../support/session";
 import { demoSlug, runUrl, runEmail } from "@clientbridge/config/e2e/run";
 import { createClient } from "../support/clients";
 import { joinHoursStaff } from "../support/hours";
+
+// how the text acknowledging a booking request begins (booking_requested.body)
+const ACKNOWLEDGMENT = "Birchbark Pet Studio received your request for";
 
 test("SCH-E2E-03 two real clients race for one time without loser side effects", async ({
     page,
@@ -76,7 +79,7 @@ test("SCH-E2E-03 two real clients race for one time without loser side effects",
     });
     const attempts: {
         index: number;
-        body: { item_id: string; staff_id: string; starts_at: string; client: { email: string } };
+        body: { item_id: string; staff_id: string; starts_at: string; client: { phone: string } };
         key: string | undefined;
     }[] = [];
     const pendingResponses: Promise<Response>[] = [];
@@ -91,7 +94,7 @@ test("SCH-E2E-03 two real clients race for one time without loser side effects",
             deliveries: [],
         });
         for (const contact of contacts)
-            expect(await inboxMail(page.request, contact.email)).toEqual([]);
+            expect(await textsTo(page.request, contact.phone)).toEqual([]);
         const clients = await Promise.all(contexts.map((context) => context.newPage()));
         const dayIndexes = await Promise.all(
             clients.map((client) => raceTimePicker(client, fixture)),
@@ -156,7 +159,7 @@ test("SCH-E2E-03 two real clients race for one time without loser side effects",
             expect(attempt.body).toMatchObject({
                 item_id: fixture.itemId,
                 staff_id: fixture.staffId,
-                client: { email: contacts[attempt.index]?.email },
+                client: { phone: contacts[attempt.index]?.phone },
             });
         }
         release(true);
@@ -208,7 +211,7 @@ test("SCH-E2E-03 two real clients race for one time without loser side effects",
                     new Date(attempts[0]?.body.starts_at ?? "").getTime(),
             ),
         ).toBe(false);
-        const committed = await acceptedRaceEvidence(fixture, contacts, winner.email);
+        const committed = await acceptedRaceEvidence(fixture, contacts, winner.phone);
         expect(committed.slots).toHaveLength(1);
         const slot = committed.slots[0];
         expect(slot).toMatchObject({
@@ -220,7 +223,7 @@ test("SCH-E2E-03 two real clients race for one time without loser side effects",
             new Date(attempts[0]?.body.starts_at ?? "").getTime(),
         );
         expect(committed.clients).toEqual([
-            { id: expect.any(String), name: winner.name, email: winner.email },
+            { id: expect.any(String), name: winner.name, phone: winner.phone },
         ]);
         expect(committed.subjects).toEqual([
             { id: expect.any(String), client_id: committed.clients[0]?.id, name: winner.pet },
@@ -239,26 +242,25 @@ test("SCH-E2E-03 two real clients race for one time without loser side effects",
         ]);
         expect(committed.payments).toEqual([]);
         expect(committed.deliveries).toEqual([
-            { id: expect.any(String), state: "accepted", recipient: winner.email },
+            { id: expect.any(String), state: "accepted", recipient: winner.phone },
         ]);
-        const acknowledgment = "Booking request received — Birchbark Pet Studio";
-        // the intake form cron may also mail the new client while this runs
+        // the intake form cron may also text the new client while this runs
         const acknowledgments = async () =>
-            (await inboxMail(page.request, winner.email)).filter(
-                ({ Subject }) => Subject === acknowledgment,
+            (await textsTo(page.request, winner.phone)).filter(({ Snippet }) =>
+                Snippet.startsWith(ACKNOWLEDGMENT),
             );
         await expect.poll(async () => (await acknowledgments()).length).toBe(1);
-        const winnerMail = await acknowledgments();
+        const winnerText = await acknowledgments();
         const message = await page.request.get(
-            `${runUrl("MAILPIT_URL")}/api/v1/message/${winnerMail[0]?.ID}`,
+            `${runUrl("MAILPIT_URL")}/api/v1/message/${winnerText[0]?.ID}`,
         );
         expect(message.status()).toBe(200);
         expect(
             ((await message.json()) as { To: { Address: string }[] }).To.map((to) => to.Address),
-        ).toEqual([winner.email]);
+        ).toEqual([textInbox(winner.phone)]);
         const losingContact = contacts[loserIndex];
         if (!losingContact) throw new Error("Losing contact is missing");
-        expect(await inboxMail(page.request, losingContact.email)).toEqual([]);
+        expect(await textsTo(page.request, losingContact.phone)).toEqual([]);
         const observer = await browser.newContext({ baseURL: new URL(page.url()).origin });
         try {
             const other = await observer.newPage();
@@ -279,10 +281,10 @@ test("SCH-E2E-03 two real clients race for one time without loser side effects",
                 }
             }
             expect(await raceEvidence(fixture, contacts)).toEqual(committed);
-            expect((await acknowledgments()).map(({ ID, Subject }) => ({ ID, Subject }))).toEqual(
-                winnerMail.map(({ ID, Subject }) => ({ ID, Subject })),
+            expect((await acknowledgments()).map(({ ID }) => ID)).toEqual(
+                winnerText.map(({ ID }) => ID),
             );
-            expect(await inboxMail(page.request, losingContact.email)).toEqual([]);
+            expect(await textsTo(page.request, losingContact.phone)).toEqual([]);
             await testInfo.attach("real-last-slot-race", {
                 body: JSON.stringify({
                     attempts,
@@ -328,7 +330,7 @@ test("SCH-E2E-04 lost committed booking response retries once without another ac
             payments: [],
             deliveries: [],
         });
-        expect(await inboxMail(page.request, contact.email)).toEqual([]);
+        expect(await textsTo(page.request, contact.phone)).toEqual([]);
         const client = await clientContext.newPage();
         const day = await raceTimePicker(client, fixture, 4);
         await client
@@ -370,16 +372,15 @@ test("SCH-E2E-04 lost committed booking response retries once without another ac
         await expect(
             client.getByRole("heading", { name: strings.publicBooking.stepDetails, exact: true }),
         ).toBeVisible();
-        const initial = await acceptedRaceEvidence(fixture, [contact], contact.email);
+        const initial = await acceptedRaceEvidence(fixture, [contact], contact.phone);
         expect(initial.bookings).toHaveLength(1);
-        const acknowledgment = "Booking request received — Birchbark Pet Studio";
-        // the intake form cron may also mail the new client while this runs
+        // the intake form cron may also text the new client while this runs
         const acknowledgments = async () =>
-            (await inboxMail(page.request, contact.email)).filter(
-                ({ Subject }) => Subject === acknowledgment,
+            (await textsTo(page.request, contact.phone)).filter(({ Snippet }) =>
+                Snippet.startsWith(ACKNOWLEDGMENT),
             );
         await expect.poll(async () => (await acknowledgments()).length).toBe(1);
-        const firstMail = await acknowledgments();
+        const firstText = await acknowledgments();
         await confirm.click();
         await expect(
             client.getByRole("heading", { name: strings.publicBooking.pendingTitle, exact: true }),
@@ -402,7 +403,7 @@ test("SCH-E2E-04 lost committed booking response retries once without another ac
             capacity: 1,
         });
         expect(committed.clients).toEqual([
-            { id: expect.any(String), name: contact.name, email: contact.email },
+            { id: expect.any(String), name: contact.name, phone: contact.phone },
         ]);
         expect(committed.subjects).toEqual([
             { id: expect.any(String), name: contact.pet, client_id: committed.clients[0]?.id },
@@ -421,7 +422,7 @@ test("SCH-E2E-04 lost committed booking response retries once without another ac
         ]);
         expect(committed.payments).toEqual([]);
         expect(committed.deliveries).toEqual([
-            { id: expect.any(String), state: "accepted", recipient: contact.email },
+            { id: expect.any(String), state: "accepted", recipient: contact.phone },
         ]);
         const observer = await browser.newContext({ baseURL: new URL(page.url()).origin });
         try {
@@ -444,16 +445,13 @@ test("SCH-E2E-04 lost committed booking response retries once without another ac
                     }),
                 ).toBeVisible();
             }
-            const finalMail = await acknowledgments();
+            const finalText = await acknowledgments();
             await testInfo.attach("booking-retry-acknowledgment", {
-                body: JSON.stringify({ attempts, committed, firstMail, finalMail }),
+                body: JSON.stringify({ attempts, committed, firstText, finalText }),
                 contentType: "application/json",
             });
-            expect(finalMail.map(({ ID, Subject }) => ({ ID, Subject }))).toEqual(
-                firstMail.map(({ ID, Subject }) => ({ ID, Subject })),
-            );
-            expect(finalMail).toHaveLength(1);
-            expect(finalMail[0]?.Subject).toBe(acknowledgment);
+            expect(finalText.map(({ ID }) => ID)).toEqual(firstText.map(({ ID }) => ID));
+            expect(finalText).toHaveLength(1);
             expect(await raceEvidence(fixture, [contact])).toEqual(committed);
         } finally {
             await observer.close();
@@ -579,7 +577,7 @@ test("SCH-E2E-05 a visit holds its shared table, so an overlapping visit is refu
             ...first,
             clientId: second.id,
             clientName: second.name,
-            clientEmail: second.email,
+            clientPhone: second.phone,
             staffId: diego.id,
             staffName: diego.name,
         };
@@ -695,7 +693,7 @@ test("SCH-E2E-05 a visit holds its shared table, so an overlapping visit is refu
         await expect(
             client.getByRole("heading", { name: strings.publicBooking.pendingTitle, exact: true }),
         ).toBeVisible();
-        const booked = await visitEvidence([booker.email]);
+        const booked = await visitEvidence([booker.phone]);
         expect(booked.bookings).toEqual([
             expect.objectContaining({
                 id: onlineId,
@@ -715,13 +713,13 @@ test("SCH-E2E-05 a visit holds its shared table, so an overlapping visit is refu
                 item_id: first.itemId,
                 staff_id: "any",
                 starts_at: start.toISOString(),
-                client: { name: latecomer.name, email: latecomer.email },
+                client: { name: latecomer.name, phone: latecomer.phone },
                 subject_name: latecomer.subject,
             },
         });
         expect(taken.status(), await taken.text()).toBe(409);
         expect(((await taken.json()) as { error: string }).error).toBe("slot_unavailable");
-        expect(await visitEvidence([latecomer.email])).toMatchObject({
+        expect(await visitEvidence([latecomer.phone])).toMatchObject({
             clients: [],
             subjects: [],
             bookings: [],
@@ -730,7 +728,7 @@ test("SCH-E2E-05 a visit holds its shared table, so an overlapping visit is refu
         expect((await holds()).length).toBe(3);
         await testInfo.attach("table-holds", {
             body: JSON.stringify(
-                await visitEvidence([first.clientId, second.id, booker.email], table.id),
+                await visitEvidence([first.clientId, second.id, booker.phone], table.id),
             ),
             contentType: "application/json",
         });
@@ -840,14 +838,14 @@ test("SCH-E2E-06 only the staff chosen for a service are offered on Connect and 
                     item_id: fixture.itemId,
                     staff_id: fixture.staffId,
                     starts_at: new Date(`${date}T18:00:00Z`).toISOString(),
-                    client: { name: outsider.name, email: outsider.email },
+                    client: { name: outsider.name, phone: outsider.phone },
                     subject_name: outsider.subject,
                 },
             },
         );
         expect(refused.status(), await refused.text()).toBe(422);
         expect(((await refused.json()) as { error: string }).error).toBe("service_not_offered");
-        expect(await visitEvidence([outsider.email])).toMatchObject({ clients: [], bookings: [] });
+        expect(await visitEvidence([outsider.phone])).toMatchObject({ clients: [], bookings: [] });
 
         const removal = await page.request.post(`${bookingApi()}/v1/staff/${member.id}/remove`, {
             headers: { Origin: new URL(page.url()).origin },
@@ -898,7 +896,7 @@ test("SCH-E2E-06 only the staff chosen for a service are offered on Connect and 
         await expect(
             client.getByRole("heading", { name: b.pendingTitle, exact: true }),
         ).toBeVisible();
-        const booked = await visitEvidence([booker.email]);
+        const booked = await visitEvidence([booker.phone]);
         expect(booked.bookings).toEqual([
             expect.objectContaining({
                 id: onlineId,
@@ -1073,7 +1071,7 @@ test("SCH-E2E-07 an add-on that lengthens the visit narrows the times Connect of
             client.getByRole("heading", { name: b.pendingTitle, exact: true }),
         ).toBeVisible();
 
-        const booked = await visitEvidence([booker.email]);
+        const booked = await visitEvidence([booker.phone]);
         expect(booked.bookings).toEqual([
             expect.objectContaining({
                 id: bookingId,
@@ -1107,7 +1105,7 @@ test("SCH-E2E-07 an add-on that lengthens the visit narrows the times Connect of
                     item_id: service.id,
                     staff_id: owner.id,
                     starts_at: last.toISOString(),
-                    client: { name: tooLate.name, email: tooLate.email },
+                    client: { name: tooLate.name, phone: tooLate.phone },
                     subject_name: tooLate.subject,
                     subject_address: "455 Granville Street, Vancouver",
                     addons: [{ item_id: mount.id, quantity: 1 }],
@@ -1116,7 +1114,7 @@ test("SCH-E2E-07 an add-on that lengthens the visit narrows the times Connect of
         );
         expect(refused.status(), await refused.text()).toBe(409);
         expect(((await refused.json()) as { error: string }).error).toBe("slot_unavailable");
-        expect(await visitEvidence([tooLate.email])).toMatchObject({
+        expect(await visitEvidence([tooLate.phone])).toMatchObject({
             clients: [],
             bookings: [],
             addons: [],
@@ -1129,7 +1127,7 @@ test("SCH-E2E-07 an add-on that lengthens the visit narrows the times Connect of
             {
                 clientId: clientRow.id,
                 clientName: clientRow.name,
-                clientEmail: clientRow.email,
+                clientPhone: clientRow.phone,
                 itemId: service.id,
                 itemName: service.name,
                 staffId: owner.id,
@@ -1159,7 +1157,7 @@ test("SCH-E2E-07 an add-on that lengthens the visit narrows the times Connect of
             tax_total_cents: 2688,
             total_cents: 25088,
         });
-        const invoiced = await visitEvidence([booker.email]);
+        const invoiced = await visitEvidence([booker.phone]);
         const invoiceId = invoiced.bookings[0]?.invoice_id;
         expect(invoiceId).toBeTruthy();
         expect(invoiced.lines).toEqual([

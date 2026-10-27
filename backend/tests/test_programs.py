@@ -9,7 +9,7 @@ from clientbridge.core.ids import new_id
 from clientbridge.models.catalog import Item
 from clientbridge.models.scheduling import Booking, Hours, Recurrence, Slot
 from clientbridge.services.bookings import booked_count
-from tests.conftest import BIZ, Factory, FakeEmailSender
+from tests.conftest import BIZ, Factory, FakeSmsSender
 from tests.helpers import key, reachable
 
 FIRST = "2027-03-02T18:00:00Z"
@@ -234,7 +234,7 @@ async def test_staff_schedule_only_their_own_classes(
 
 
 async def test_enrolling_books_every_day_with_the_price_and_deposit_on_the_first(
-    as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
+    as_owner: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender
 ) -> None:
     await reachable(db, "cl_amelie")
     program_id = await program(as_owner, db, deposit=True)
@@ -245,7 +245,7 @@ async def test_enrolling_books_every_day_with_the_price_and_deposit_on_the_first
     assert [b.deposit_status for b in rows] == ["pending", "none", "none"]
     assert {b.status for b in rows} == {"confirmed"}
     assert {b.subject_id for b in rows} == {"sj_bella"}
-    assert [e.subject for e in email.sent][-1].startswith("Your visits are booked")
+    assert len(sms.sent) == 1
 
 
 async def test_an_enrolment_replays_on_its_idempotency_key(
@@ -322,7 +322,7 @@ async def test_a_full_day_refuses_the_enrolment(
 
 
 async def test_canceling_an_enrolment_releases_every_day(
-    as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
+    as_owner: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender
 ) -> None:
     await reachable(db, "cl_amelie")
     program_id = await program(as_owner, db)
@@ -337,7 +337,7 @@ async def test_canceling_an_enrolment_releases_every_day(
     sessions = await days(db, program_id)
     assert {s.status for s in sessions} == {"scheduled"}
     assert [await booked_count(db, s.id) for s in sessions] == [1, 1, 1]
-    assert email.sent[-1].subject.startswith("Your visits were canceled")
+    assert sms.sent[-1].to == "+12505551234" and "were canceled" in sms.sent[-1].body
     await enrol(as_owner, program_id, "cl_yuki")
 
 

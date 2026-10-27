@@ -182,7 +182,6 @@ function DocForm({ kind, draft, clientId, onClose }: DocFormProps) {
                                 ...clients.map((x) => ({
                                     key: x.id,
                                     label: x.name,
-                                    detail: x.email ?? undefined,
                                 })),
                             ]}
                             onChange={form.setClientId}

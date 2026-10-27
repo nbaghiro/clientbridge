@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { formatMoney, strings } from "@clientbridge/app-core/public";
+import { formatMoney, formatPhone, strings } from "@clientbridge/app-core/public";
 import { runPort } from "@clientbridge/config/e2e/run";
 import { openInvoice } from "../../web/e2e/support/billing";
 import { openBooking } from "../../web/e2e/support/bookings";
@@ -37,13 +37,15 @@ import {
 
 const web = (): string => `http://localhost:${String(runPort("WEB_E2E_PORT"))}`;
 
-async function sendVisitInvoice(page: Page, invoice: { id: string; name: string; email: string }) {
+async function sendVisitInvoice(page: Page, invoice: { id: string; name: string; phone: string }) {
     await openInvoice(page, invoice);
     await page.getByRole("button", { name: strings.billing.sendInvoice, exact: true }).click();
     const review = page
         .getByRole("dialog")
         .filter({ has: page.getByRole("heading", { name: strings.previews.title, exact: true }) });
-    await expect(review.getByText(invoice.email, { exact: false }).first()).toBeVisible();
+    await expect(
+        review.getByText(formatPhone(invoice.phone), { exact: false }).first(),
+    ).toBeVisible();
     const pending = page.waitForResponse(
         (r) =>
             new URL(r.url()).pathname === `/v1/invoices/${invoice.id}/send` &&
@@ -299,7 +301,7 @@ test("STR-E04 a lost dispute takes back a forfeited deposit, and a deposit paid 
             expect([category, totals[category] ?? 0]).toEqual([category, 0]);
 
         const settled = await startedDepositVisit(owner, true);
-        const link = await manageLink(owner, settled.booking.clientEmail);
+        const link = await manageLink(settled.visit.id);
         await customer.goto(link);
         await customer
             .getByRole("button", { name: strings.publicManage.payDeposit, exact: true })

@@ -569,7 +569,7 @@ test("CLS-E2E-01 enrollment, full-class waitlist and cancellation auto-promotion
             await observer.close();
         }
         const notice = await test.step("the background worker sends the seat notice", () =>
-            expectWorkerSentSeatNotice(page, fixture, waitingId, fixture.waiting.email));
+            expectWorkerSentSeatNotice(page, fixture, waitingId, fixture.waiting.phone));
         await testInfo.attach("worker-sent-seat-notice", {
             body: JSON.stringify(notice),
             contentType: "application/json",
@@ -716,7 +716,7 @@ test("CLS-E2E-02 a client enrols in a three-day camp on Connect and every day, w
         expect(enrolled.booking_ids).toHaveLength(3);
         await expect(client.getByRole("heading", { name: b.doneTitle, exact: true })).toBeVisible();
 
-        const evidence = await visitEvidence([booker.email]);
+        const evidence = await visitEvidence([booker.phone]);
         const slotIds = program.sessions.map((session) => session.slot_id);
         expect(evidence.bookings.map((booking) => booking.slot_id)).toEqual(slotIds);
         expect(new Set(evidence.bookings.map((booking) => booking.recurrence_id))).toEqual(
@@ -802,7 +802,7 @@ test("CLS-E2E-02 a client enrols in a three-day camp on Connect and every day, w
                 item_id: camp.id,
                 staff_id: "any",
                 starts_at: program.sessions[0]?.starts_at,
-                client: { name: booker.name, email: booker.email },
+                client: { name: booker.name, phone: booker.phone },
                 subject_name: booker.subject,
             },
         });
@@ -817,19 +817,19 @@ test("CLS-E2E-02 a client enrols in a three-day camp on Connect and every day, w
                     item_id: camp.id,
                     staff_id: "any",
                     starts_at: program.sessions[1]?.starts_at,
-                    client: { name: midway.name, email: midway.email },
+                    client: { name: midway.name, phone: midway.phone },
                     subject_name: midway.subject,
                 },
             },
         );
         expect(second.status(), await second.text()).toBe(409);
         expect(((await second.json()) as { error: string }).error).toBe("slot_unavailable");
-        expect(await visitEvidence([midway.email])).toMatchObject({ clients: [], bookings: [] });
-        expect(await visitEvidence([booker.email])).toEqual(evidence);
+        expect(await visitEvidence([midway.phone])).toMatchObject({ clients: [], bookings: [] });
+        expect(await visitEvidence([booker.phone])).toEqual(evidence);
 
         const clientRow = evidence.clients[0];
         if (clientRow === undefined || invoiceId === null) throw new Error("Enrolment is missing");
-        await openInvoice(page, { id: invoiceId, name: clientRow.name, email: clientRow.email });
+        await openInvoice(page, { id: invoiceId, name: clientRow.name, phone: clientRow.phone });
         const drawer = page.getByRole("dialog");
         await expect(
             drawer.getByText(strings.billing.statusLabel.sent, { exact: true }).first(),

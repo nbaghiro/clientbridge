@@ -63,8 +63,7 @@ it("books a returning client with subjects at a client-only business without a s
             token: "token",
             profile: {
                 name: "Pat",
-                email: "pat@example.com",
-                phone: null,
+                phone: "+12505550123",
                 subjects: [{ id: "sub_old", name: "Rex" }],
                 last_visit: {
                     item_id: "service",
@@ -86,7 +85,7 @@ it("books a returning client with subjects at a client-only business without a s
         expect(result.current.flow.step).toBe("details");
     });
     act(() => {
-        result.current.returning.setContact("pat@example.com");
+        result.current.returning.setContact("+12505550123");
     });
     act(() => {
         result.current.returning.requestCode();

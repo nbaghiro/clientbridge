@@ -156,7 +156,7 @@ async def test_connect_offers_only_times_with_a_free_room(
             "item_id": item,
             "staff_id": "any",
             "starts_at": TEN,
-            "client": {"name": "Web Booker", "email": "rooms@example.com"},
+            "client": {"name": "Web Booker", "phone": "+16045550156"},
         },
     )
     assert online.status_code == 409

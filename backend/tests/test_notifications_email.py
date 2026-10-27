@@ -7,7 +7,7 @@ import pytest
 from pydantic import ValidationError
 
 from clientbridge.core.config import Settings, get_settings
-from clientbridge.core.email_layout import Action, Brand, EmailView, Row, render_html
+from clientbridge.core.email_layout import Action, Brand, EmailView, render_html
 from clientbridge.integrations.resend import (
     ConsoleEmailSender,
     Email,
@@ -119,23 +119,25 @@ def test_the_layout_shows_every_part_of_the_view() -> None:
             paragraphs=("First line.", "Second line."),
             action=Action("Pay invoice", "https://pay.test/i/tok"),
             code="482913",
-            rows=(Row("Groom", "$45.00"), Row("Total", "$50.00 CAD", total=True)),
             note="Small print.",
             footer=("ClientBridge Inc.",),
-            footer_link=Action("Unsubscribe", "https://book.test/prefs/tok"),
         ),
     )
-    for text in ("Invoice #12 for $50.00", "First line.", "Second line.", "482913", "Groom"):
+    for text in ("Invoice #12 for $50.00", "First line.", "Second line.", "482913", "Small print."):
         assert text in page
     assert '<a href="https://pay.test/i/tok"' in page and ">Pay invoice</a>" in page
-    assert '<a href="https://book.test/prefs/tok"' in page and "Unsubscribe" in page
+    assert "ClientBridge Inc." in page
     assert "email/header.png" in page and "email/contours.png" in page
     assert '<html lang="en-CA">' in page and "Preview text" in page
 
 
 def test_every_value_is_escaped() -> None:
     page = _render(
-        Brand(name="<b>Shady</b> & Co", accent="#2F6B4F", sent_with="Sent with Clientbridge"),
+        Brand(
+            name="<b>Shady</b> & Co",
+            header_url="https://clientbridge.test/email/header.png",
+            art_url="https://clientbridge.test/email/contours.png",
+        ),
         EmailView(
             eyebrow="Message",
             heading="<script>alert(1)</script>",
@@ -146,29 +148,6 @@ def test_every_value_is_escaped() -> None:
     assert "<script>" not in page and "<img src=x>" not in page and "<b>Shady" not in page
     assert "&lt;script&gt;" in page and "&amp; Co" in page
     assert 'href="https://x.test/&quot;onmouseover=&quot;steal()"' in page
-
-
-def test_a_business_without_a_usable_logo_shows_its_name() -> None:
-    named = _render(Brand(name="Level Best", accent="#B4572E"), EmailView("News", "Hi", ("x",)))
-    assert "Level Best</span>" in named and "<img" not in named
-    logo = _render(
-        Brand(name="Birchbark", logo_url="https://api.test/media/fl_1"),
-        EmailView("News", "Hi", ("x",)),
-    )
-    assert 'src="https://api.test/media/fl_1"' in logo and 'alt="Birchbark"' in logo
-
-
-def test_the_button_text_stays_readable_on_a_light_brand_colour() -> None:
-    light = _render(
-        Brand(name="Sunny", accent="#F5E663"),
-        EmailView("News", "Hi", ("x",), action=Action("Book", "https://x.test")),
-    )
-    dark = _render(
-        Brand(name="Deep", accent="#1E3A5F"),
-        EmailView("News", "Hi", ("x",), action=Action("Book", "https://x.test")),
-    )
-    assert "color:#191D22;text-decoration:none" in light
-    assert "color:#FFFFFF;text-decoration:none" in dark
 
 
 def test_emails_are_light_like_the_site_and_the_apps() -> None:
@@ -192,7 +171,6 @@ def test_demo_emails_embed_only_referenced_bundled_images() -> None:
         preview = browser_html(mail)
         assert "cid:" not in preview
         assert "data:image/png;base64," in preview
-    assert len(samples()["invoice"].images) == 1
     assert len(samples()["login-code"].images) == 2
 
 

@@ -68,14 +68,13 @@ const s = strings.clients;
 export interface ClientRow {
     id: string;
     name: string;
-    email: string | null;
     phone: string | null;
     status: string;
     lifetime_value_cents: number | null;
 }
 
 export const CLIENTS_SQL = `
-SELECT c.id, c.name, c.email, c.phone, c.status, ${clientValueSql("c.id")} AS lifetime_value_cents
+SELECT c.id, c.name, c.phone, c.status, ${clientValueSql("c.id")} AS lifetime_value_cents
 FROM clients c WHERE c.status = 'active' ORDER BY c.name COLLATE NOCASE`;
 
 export function useClients(): ClientRow[] {
@@ -85,21 +84,15 @@ export function useClients(): ClientRow[] {
 export function filterClients(rows: ClientRow[], q: string): ClientRow[] {
     const t = q.trim().toLowerCase();
     if (!t) return rows;
-    return rows.filter(
-        (c) =>
-            c.name.toLowerCase().includes(t) ||
-            (c.email ?? "").toLowerCase().includes(t) ||
-            (c.phone ?? "").includes(t),
-    );
+    return rows.filter((c) => c.name.toLowerCase().includes(t) || (c.phone ?? "").includes(t));
 }
 
 export function createClient(
     api: ApiLike,
-    input: { name: string; email?: string | null; phone?: string | null },
+    input: { name: string; phone?: string | null },
 ): Promise<{ id: string }> {
     return api.post<{ id: string }>("/v1/clients", {
         name: input.name.trim(),
-        email: blankToNull(input.email),
         phone: normalizePhone(input.phone),
     });
 }
@@ -130,7 +123,7 @@ const nextVisitSql = (clientExpr: string): string => `(SELECT s.starts_at FROM b
     ORDER BY ${utcSql("s.starts_at")} LIMIT 1)`;
 
 const DIRECTORY_SELECT = `
-SELECT c.id, c.name, c.email, c.phone, c.status, c.tags, c.preferred_channel, c.archived_at,
+SELECT c.id, c.name, c.phone, c.status, c.tags, c.archived_at,
        c.created_at, ${clientValueSql("c.id")} AS lifetime_value_cents,
        (SELECT group_concat(sj.name, ', ') FROM subjects sj
           WHERE sj.client_id = c.id AND sj.deleted_at IS NULL) AS subject_names,
@@ -146,11 +139,9 @@ export const CLIENT_SQL = `${DIRECTORY_SELECT} WHERE c.id = ?2`;
 interface DirectoryRow {
     id: string;
     name: string;
-    email: string | null;
     phone: string | null;
     status: string;
     tags: string | null;
-    preferred_channel: string | null;
     archived_at: string | null;
     created_at: string;
     lifetime_value_cents: number | null;
@@ -162,13 +153,11 @@ interface DirectoryRow {
 export interface ClientListRow {
     id: string;
     name: string;
-    email: string | null;
     phone: string | null;
     phoneLabel: string;
     archived: boolean;
     archivedAt: Date | null;
     tags: string[];
-    channel: ContactChannel;
     subjects: string;
     next: Date | null;
     balanceCents: number;
@@ -176,19 +165,15 @@ export interface ClientListRow {
     since: Date;
 }
 
-type ContactChannel = "sms" | "email";
-
 function toListRow(r: DirectoryRow): ClientListRow {
     return {
         id: r.id,
         name: r.name,
-        email: r.email,
         phone: r.phone,
         phoneLabel: formatPhone(r.phone),
         archived: r.status !== "active",
         archivedAt: r.archived_at === null ? null : parseTimestamp(r.archived_at),
         tags: parseTags(r.tags),
-        channel: r.preferred_channel === "email" ? "email" : "sms",
         subjects: r.subject_names ?? "",
         next: r.next_visit_at === null ? null : parseTimestamp(r.next_visit_at),
         balanceCents: r.balance_cents ?? 0,
@@ -197,14 +182,13 @@ function toListRow(r: DirectoryRow): ClientListRow {
     };
 }
 
-/** Search by name, any phone format, email or subject name. */
+/** Search by name, any phone format or subject name. */
 function matchesClient(row: ClientListRow, q: string): boolean {
     const t = fold(q);
     if (t === "") return true;
     const digits = phoneDigits(q);
     return (
         fold(row.name).includes(t) ||
-        (row.email ?? "").toLowerCase().includes(t) ||
         (digits.length >= 3 && phoneDigits(row.phone).includes(digits)) ||
         fold(row.subjects).includes(t) ||
         row.tags.some((tag) => tag.includes(t))
@@ -387,7 +371,7 @@ function toNote(r: NoteDbRow, viewerStaffId: string | null): ClientNote {
 // The client's newest STOP or START reply: a STOP holds until their own START, whatever staff record.
 export const CLIENT_TEXT_REPLY_SQL = `
 SELECT cn.status, cn.created_at FROM consents cn
-WHERE cn.client_id = ? AND cn.channel = 'sms' AND cn.source = 'reply'
+WHERE cn.client_id = ? AND cn.source = 'reply'
 ORDER BY cn.created_at DESC, cn.id DESC LIMIT 1`;
 
 /** "Texts stopped by the client" with the day they replied STOP, or null while texts are allowed. */
@@ -577,14 +561,13 @@ export interface DuplicateMatch {
     reasons: string[];
 }
 
-/** Existing clients that share a phone, an email or the exact name with what is being typed. */
+/** Existing clients that share a phone or the exact name with what is being typed. */
 function findDuplicates(
-    draft: { name: string; phone: string; email: string },
+    draft: { name: string; phone: string },
     rows: readonly ClientListRow[],
     exceptId: string | null,
 ): DuplicateMatch[] {
     const phone = normalizePhone(draft.phone);
-    const email = draft.email.trim().toLowerCase();
     const name = fold(draft.name);
     return rows
         .filter((c) => c.id !== exceptId)
@@ -592,8 +575,6 @@ function findDuplicates(
             const reasons: string[] = [];
             if (phone !== null && normalizePhone(c.phone) === phone)
                 reasons.push(s.edit.reasonPhone);
-            if (email.includes("@") && (c.email ?? "").toLowerCase() === email)
-                reasons.push(s.edit.reasonEmail);
             if (name.length > 3 && fold(c.name) === name) reasons.push(s.edit.reasonName);
             return { client: c, reasons };
         })
@@ -603,30 +584,26 @@ function findDuplicates(
 interface ClientDraft {
     name: string;
     phone: string;
-    email: string;
-    channel: ContactChannel;
     tags: string[];
     consent: boolean;
     subjectName: string;
     subjectDetail: string;
 }
 
-type DraftErrors = Partial<Record<"name" | "phone" | "email" | "contact", string>>;
+type DraftErrors = Partial<Record<"name" | "phone" | "contact", string>>;
 
 function validateDraft(d: ClientDraft): DraftErrors {
     const e: DraftErrors = {};
     if (d.name.trim() === "") e.name = s.edit.nameRequired;
     if (d.phone.trim() !== "" && normalizePhone(d.phone) === null) e.phone = s.edit.phoneInvalid;
-    if (d.email.trim() !== "" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d.email.trim()))
-        e.email = s.edit.emailInvalid;
-    if (d.phone.trim() === "" && d.email.trim() === "") e.contact = s.edit.contactRequired;
+    if (d.phone.trim() === "") e.contact = s.edit.contactRequired;
     return e;
 }
 
 export const CLIENT_CONSENT_SQL = `
 SELECT cn.status, cn.created_at, ${staffNameSql("st")} AS recorded_by_name
 FROM consents cn LEFT JOIN staff st ON st.user_id = cn.recorded_by
-WHERE cn.client_id = ? AND cn.channel = 'sms'
+WHERE cn.client_id = ?
 ORDER BY cn.created_at DESC LIMIT 1`;
 
 export interface ClientEditor {
@@ -654,8 +631,6 @@ function draftFor(client: ClientListRow | null, consent: boolean): ClientDraft {
     return {
         name: client?.name ?? "",
         phone: client === null ? "" : formatPhone(client.phone),
-        email: client?.email ?? "",
-        channel: client?.channel ?? "sms",
         tags: client?.tags ?? [],
         consent,
         subjectName: "",
@@ -697,10 +672,7 @@ export function useClientEditor(
         setError(null);
     };
     const contactChanged =
-        client === null ||
-        draft.name !== initial.name ||
-        draft.phone !== initial.phone ||
-        draft.email !== initial.email;
+        client === null || draft.name !== initial.name || draft.phone !== initial.phone;
     const duplicates = ignored || !contactChanged ? [] : findDuplicates(draft, directory, clientId);
     const dirty = JSON.stringify(draft) !== JSON.stringify(initial);
 
@@ -710,8 +682,6 @@ export function useClientEditor(
         const body = {
             name: draft.name.trim(),
             phone: normalizePhone(draft.phone),
-            email: blankToNull(draft.email),
-            preferred_channel: draft.channel,
             tags: draft.tags,
         };
         const subjectName = draft.subjectName.trim();
@@ -812,7 +782,7 @@ SELECT p.id, p.kind, p.amount_cents, COALESCE(p.paid_at, p.created_at) AS at
 FROM payments p WHERE p.client_id = ? AND p.status = 'succeeded'`;
 
 export const CLIENT_MESSAGES_SQL = `
-SELECT m.id, m.direction, m.channel, m.body, m.created_at AS at
+SELECT m.id, m.direction, m.body, m.created_at AS at
 FROM messages m JOIN threads t ON t.id = m.thread_id
 WHERE t.client_id = ? AND m.broadcast_id IS NULL`;
 
@@ -1039,7 +1009,6 @@ export function useClientHistory(clientId: string, viewerStaffId: string | null)
     const messages = useQuery<{
         id: string;
         direction: string;
-        channel: string;
         body: string | null;
         at: string;
     }>(CLIENT_MESSAGES_SQL, [clientId]);
@@ -1131,14 +1100,7 @@ export function useClientHistory(clientId: string, viewerStaffId: string | null)
         }
         for (const m of messages.data) {
             const inbound = m.direction === "in";
-            const label =
-                m.channel === "email"
-                    ? inbound
-                        ? s.history.emailReceived
-                        : s.history.emailSent
-                    : inbound
-                      ? s.history.textReceived
-                      : s.history.textSent;
+            const label = inbound ? s.history.textReceived : s.history.textSent;
             out.push(
                 entry("message", {
                     key: m.id,
@@ -1450,7 +1412,7 @@ interface FootprintRow {
     methods: number;
 }
 
-type MergeField = "name" | "phone" | "email";
+type MergeField = "name" | "phone";
 type Side = "a" | "b";
 
 export interface ClientMerge {
@@ -1485,8 +1447,8 @@ export function useClientMerge(
     const prints = useQuery<FootprintRow>(CLIENT_FOOTPRINT_SQL, [a.id, b.id]).data;
     const printOf = (id: string): FootprintRow | undefined => prints.find((p) => p.id === id);
     const value = (c: ClientListRow, k: MergeField): string =>
-        k === "phone" ? formatPhone(c.phone) : k === "email" ? (c.email ?? "") : c.name;
-    const fields = (["name", "phone", "email"] as const).map((k) => {
+        k === "phone" ? formatPhone(c.phone) : c.name;
+    const fields = (["name", "phone"] as const).map((k) => {
         const va = value(a, k);
         const vb = value(b, k);
         const kept = keep === "a" ? va : vb;

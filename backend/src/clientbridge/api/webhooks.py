@@ -24,12 +24,12 @@ from clientbridge.integrations.resend import valid_resend_signature
 from clientbridge.integrations.stripe import WebhookVerificationError, WebhookVersionError
 from clientbridge.integrations.twilio import valid_twilio_signature
 from clientbridge.schemas.auth import AuthEmailIn
-from clientbridge.services.deliveries import send_queued
-from clientbridge.services.messaging import (
+from clientbridge.services.deliveries import (
     EmailEventPending,
     process_email_event,
-    process_inbound_sms,
+    send_queued,
 )
+from clientbridge.services.messaging import process_inbound_sms
 from clientbridge.services.notifications import send_auth_email
 from clientbridge.services.payments import process_stripe_event
 

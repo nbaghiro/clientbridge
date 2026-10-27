@@ -1076,8 +1076,6 @@ class Linker:
             self.steps.append(Step("create", f"customer for {client.id}", f"on {account_id}"))
             if self.apply:
                 params = {"name": client.name, "metadata": {CLIENT_TAG: client.id}}
-                if client.email:
-                    params["email"] = client.email
                 customer = str(
                     self.stripe.call(
                         "post",

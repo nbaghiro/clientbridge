@@ -215,7 +215,7 @@
         "message": "A calendar that knows your services and your staff."
     },
     "home.features.0.body": {
-        "message": "Each service carries its own length, price and buffer, so a booking fills the right amount of time. Recurring visits repeat on their own, and reminders go out by email and text before each one."
+        "message": "Each service carries its own length, price and buffer, so a booking fills the right amount of time. Recurring visits repeat on their own, and reminders go out by text before each one."
     },
     "home.features.0.points.0": {
         "message": "Day, week, month and per-staff views"
@@ -278,7 +278,7 @@
         "message": "Clients add a product when they book, and it goes on the visit's invoice"
     },
     "home.features.3.points.2": {
-        "message": "Itemised receipts by email or text, and sales by item for your bookkeeper"
+        "message": "Itemised receipts by text, and sales by item for your bookkeeper"
     },
     "home.features.4.eyebrow": {
         "message": "Your public pages"
@@ -380,7 +380,7 @@
         "message": "Messaging"
     },
     "home.included.items.8.body": {
-        "message": "Two-way text and email with clients, kept in one inbox per client."
+        "message": "Two-way texts with clients, kept in one inbox per client."
     },
     "home.included.items.9.title": {
         "message": "Reviews"
@@ -517,7 +517,7 @@
         "message": "Recurring bookings, classes and capacity"
     },
     "pages.pricingPage.included.groups.0.items.3": {
-        "message": "Reminders by email and text"
+        "message": "Reminders by text"
     },
     "pages.pricingPage.included.groups.1.title": {
         "message": "Getting paid"
@@ -691,7 +691,7 @@
         "message": "Deposits taken at booking and applied to the invoice"
     },
     "pages.featuresPage.groups.bookings.items.4": {
-        "message": "Reminders by email and text"
+        "message": "Reminders by text"
     },
     "pages.featuresPage.groups.bookings.link.label": {
         "message": "See the calendar"
@@ -838,10 +838,10 @@
         "message": "Messaging and reviews"
     },
     "pages.featuresPage.groups.messaging.body": {
-        "message": "Text and email with clients from one inbox, and ask for a review after each visit."
+        "message": "Text clients from one inbox, and ask for a review after each visit."
     },
     "pages.featuresPage.groups.messaging.items.0": {
-        "message": "Two-way text and email"
+        "message": "Two-way texts"
     },
     "pages.featuresPage.groups.messaging.items.1": {
         "message": "Broadcasts to a group of clients"
@@ -949,7 +949,7 @@
         "message": "Client information that a business enters, or that its clients submit through booking, payment, shop, form and contract pages."
     },
     "pages.privacyPage.sections.1.items.4": {
-        "message": "Messages: the emails, text messages and push notifications sent through Clientbridge, with their delivery status, and replies that clients send to a business's text number."
+        "message": "Messages: texts sent to clients, platform emails and push notifications to account holders, with their delivery status, and replies that clients send to a business's text number."
     },
     "pages.privacyPage.sections.1.items.5": {
         "message": "Device and usage information: the IP address, browser or device type, app version and time of each request, which our servers record to keep the service secure and working, and a device token for push notifications if you allow them in the mobile apps."
@@ -964,7 +964,7 @@
         "message": "We use personal information for the following purposes:"
     },
     "pages.privacyPage.sections.2.items.0": {
-        "message": "To provide Clientbridge: to run accounts, show schedules and records, handle bookings, sales and invoices, and send the emails, texts and notifications that a business or its clients ask for."
+        "message": "To provide Clientbridge: to run accounts, show schedules and records, handle bookings, sales and invoices, text clients, and send account emails and notifications."
     },
     "pages.privacyPage.sections.2.items.1": {
         "message": "To process payments, refunds, payouts and plan subscriptions through Stripe."
@@ -991,7 +991,7 @@
         "message": "We collect, use and disclose personal information with your consent. Consent may be express, for example when you join the waitlist or turn on push notifications, or implied by your use of a feature for the purpose it serves. You can withdraw your consent at any time, subject to legal or contractual limits, although some features may then stop working."
     },
     "pages.privacyPage.sections.3.body.1": {
-        "message": "A business that uses Clientbridge is responsible for having the consent it needs from its clients, including consent to receive commercial emails and texts under Canada's Anti-Spam Legislation."
+        "message": "A business that uses Clientbridge is responsible for having the consent it needs from its clients, including consent to receive commercial texts under Canada's Anti-Spam Legislation."
     },
     "pages.privacyPage.sections.3.body.2": {
         "message": "We do not sell personal information, and we do not use a business's client information for our own marketing."
@@ -1314,7 +1314,7 @@
         "message": "Reminders and messaging"
     },
     "solutions.solutionsPage.engine.6.body": {
-        "message": "Reminders by text and email, and two-way messages kept in one inbox per client."
+        "message": "Reminders by text, and two-way messages kept in one inbox per client."
     },
     "solutions.solutionsPage.engine.7.title": {
         "message": "Forms and reviews"
@@ -1596,7 +1596,7 @@
         "message": "Invoices at pickup"
     },
     "trades.pet-grooming.capabilities.2.body": {
-        "message": "The invoice is built from the booking and its add-ons. Send it by text or email, or take payment at the counter when the owner arrives."
+        "message": "The invoice is built from the booking and its add-ons. Send it by text, or take payment at the counter when the owner arrives."
     },
     "trades.pet-grooming.capabilities.3.title": {
         "message": "Tap to Pay or card"
@@ -1626,7 +1626,7 @@
         "message": "Reminders and pickup messages"
     },
     "trades.pet-grooming.capabilities.7.body": {
-        "message": "Reminders go out by text and email before each appointment, and you can tell the owner their dog is ready from the same inbox."
+        "message": "Reminders go out by text before each appointment, and you can tell the owner their dog is ready from the same inbox."
     },
     "trades.pet-grooming.capabilities.8.title": {
         "message": "Vaccination and consent forms"
@@ -1890,7 +1890,7 @@
         "message": "Reminders and messages"
     },
     "trades.salons.capabilities.8.body": {
-        "message": "Reminders go out by text and email before each appointment. Replies and questions come back to one inbox per client."
+        "message": "Reminders go out by text before each appointment. Replies and questions come back to one inbox per client."
     },
     "trades.salons.capabilities.9.title": {
         "message": "Reviews after each visit"
@@ -2112,7 +2112,7 @@
         "message": "Invoices and receipts"
     },
     "trades.fitness.capabilities.3.body": {
-        "message": "Every pack, membership charge and drop-in class has an invoice and a receipt the client can find in their email."
+        "message": "Every pack, membership charge and drop-in class has an invoice and a receipt sent by text."
     },
     "trades.fitness.capabilities.4.title": {
         "message": "Tap to Pay on the gym floor"
@@ -2628,7 +2628,7 @@
         "message": "Reminders to parents"
     },
     "trades.tutoring.capabilities.8.body": {
-        "message": "Reminders go to the parent by text or email before each lesson, and cancellations come back to one inbox."
+        "message": "Reminders go to the parent by text before each lesson, and cancellations come back to one inbox."
     },
     "trades.tutoring.capabilities.9.title": {
         "message": "Reviews from families"
@@ -2715,7 +2715,7 @@
         "message": "Treatments and intake forms, booked together."
     },
     "trades.wellness.lede": {
-        "message": "Each booking shows the practitioner and the treatment, new clients fill in their intake form before the first visit, and every paid visit ends with a receipt by email."
+        "message": "Each booking shows the practitioner and the treatment, new clients fill in their intake form before the first visit, and every paid visit ends with a receipt by text."
     },
     "trades.wellness.photo.alt": {
         "message": "A massage therapist working on a client's shoulder beside a large window"
@@ -2880,7 +2880,7 @@
         "message": "Take a deposit when a new client books, and it is applied to the invoice for that treatment."
     },
     "trades.wellness.capabilities.4.title": {
-        "message": "Receipts by email"
+        "message": "Receipts by text"
     },
     "trades.wellness.capabilities.4.body": {
         "message": "Every paid visit sends a receipt with the treatment, the date and the amount, so clients have it for their records."
@@ -3162,7 +3162,7 @@
         "message": "Messages with clients"
     },
     "trades.photography.capabilities.8.body": {
-        "message": "Keep timings, locations and questions in one message thread per client, by text and email."
+        "message": "Keep timings, locations and questions in one message thread per client, by text."
     },
     "trades.photography.capabilities.9.title": {
         "message": "Reviews"
@@ -3701,7 +3701,7 @@
         "message": "Tap to Pay at the counter, on the phone you already have."
     },
     "pages.paymentsPage.bands.0.body": {
-        "message": "Tap to Pay turns an iPhone or Android phone into a card reader. Charge for a visit or sell products, gift cards and packages, and the receipt goes out by email or text."
+        "message": "Tap to Pay turns an iPhone or Android phone into a card reader. Charge for a visit or sell products, gift cards and packages, and the receipt goes out by text."
     },
     "pages.paymentsPage.bands.0.points.0": {
         "message": "Tap to Pay on iPhone and Android"
@@ -3710,7 +3710,7 @@
         "message": "Visits, products and gift cards on one sale"
     },
     "pages.paymentsPage.bands.0.points.2": {
-        "message": "Itemised receipts by email or text"
+        "message": "Itemised receipts by text"
     },
     "pages.paymentsPage.bands.1.eyebrow": {
         "message": "Online"

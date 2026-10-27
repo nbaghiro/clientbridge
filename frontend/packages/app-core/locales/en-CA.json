@@ -400,16 +400,12 @@
         "message": "To {name}",
         "args": ["name"]
     },
-    "ui.review.emailTo": {
-        "message": "Email to {address}",
-        "args": ["address"]
-    },
     "ui.review.textTo": {
         "message": "Text to {number}",
         "args": ["number"]
     },
     "ui.review.nothingSent": {
-        "message": "There's no email or mobile number on file, so no message goes out."
+        "message": "There's no mobile number on file, so no message goes out."
     },
     "ui.review.loading": {
         "message": "Getting the message ready"
@@ -1101,7 +1097,7 @@
         "args": ["noun"]
     },
     "billing.sentBody": {
-        "message": "{who} gets it by email with a link to open it.",
+        "message": "{who} gets a link by text.",
         "args": ["who"]
     },
     "billing.startAnother": {
@@ -1203,11 +1199,11 @@
         "message": "Seen by staff only"
     },
     "billing.rec.sendReceipt": {
-        "message": "Email a receipt"
+        "message": "Text a receipt"
     },
     "billing.rec.sendReceiptTo": {
-        "message": "To {email}",
-        "args": ["email"]
+        "message": "To {phone}",
+        "args": ["phone"]
     },
     "billing.rec.thisPayment": {
         "message": "This payment"
@@ -1267,8 +1263,8 @@
         "args": ["n", "left"]
     },
     "billing.rec.receiptSent": {
-        "message": "Receipt sent to {email}.",
-        "args": ["email"]
+        "message": "Receipt sent to {phone}.",
+        "args": ["phone"]
     },
     "billing.rec.giveChange": {
         "message": "Give {amount} change.",
@@ -1326,11 +1322,11 @@
         "message": "Back"
     },
     "billing.doc.attachedInvoice": {
-        "message": "Invoice email, {when}",
+        "message": "Invoice text, {when}",
         "args": ["when"]
     },
     "billing.doc.attachedEstimate": {
-        "message": "Estimate email, {when}",
+        "message": "Estimate text, {when}",
         "args": ["when"]
     },
     "billing.doc.attachedVisit": {
@@ -1741,7 +1737,7 @@
         "message": "Send as invoice"
     },
     "pos.desk.invoiceReviewBody": {
-        "message": "{client} gets an invoice for {amount} by email or text, and this sale closes.",
+        "message": "{client} gets an invoice for {amount} by text, and this sale closes.",
         "args": ["client", "amount"]
     },
     "pos.desk.invoicedNotice": {
@@ -1905,23 +1901,14 @@
     "pos.desk.receiptTitle": {
         "message": "Send a receipt"
     },
-    "pos.desk.receiptEmail": {
-        "message": "Email"
-    },
     "pos.desk.receiptText": {
         "message": "Text"
     },
     "pos.desk.receiptNone": {
         "message": "No receipt"
     },
-    "pos.desk.receiptEmailTo": {
-        "message": "Email address"
-    },
     "pos.desk.receiptPhoneTo": {
         "message": "Mobile number"
-    },
-    "pos.desk.sendEmail": {
-        "message": "Email receipt"
     },
     "pos.desk.sendText": {
         "message": "Text receipt"
@@ -1932,9 +1919,6 @@
     },
     "pos.desk.receiptSkipped": {
         "message": "No receipt sent"
-    },
-    "pos.desk.receiptEmailInvalid": {
-        "message": "Enter a valid email address"
     },
     "pos.desk.receiptPhoneInvalid": {
         "message": "Enter a 10-digit mobile number"
@@ -2144,8 +2128,8 @@
         "message": "Receipt"
     },
     "pos.desk.sentBy": {
-        "message": "{channel, select, sms {Texted} other {Emailed}} to {to}",
-        "args": ["channel", "to"]
+        "message": "Texted to {to}",
+        "args": ["to"]
     },
     "pos.desk.noReceipt": {
         "message": "No receipt was sent."
@@ -2325,7 +2309,7 @@
         "args": ["n"]
     },
     "pos.desk.refundBody": {
-        "message": "{money} goes back to {card}. We issue credit note {cn} and email it with the refund.",
+        "message": "{money} goes back to {card}. We issue credit note {cn} and text it with the refund.",
         "args": ["money", "card", "cn"]
     },
     "pos.desk.refundConfirm": {
@@ -2957,7 +2941,7 @@
         "message": "Recipient's name"
     },
     "entitlements.recipientHint": {
-        "message": "Printed on the gift card email"
+        "message": "Printed on the gift card message"
     },
     "entitlements.client": {
         "message": "Client"
@@ -3476,15 +3460,6 @@
     "bookings.messageTitle": {
         "message": "Message {name}",
         "args": ["name"]
-    },
-    "bookings.messageChannel": {
-        "message": "Send by"
-    },
-    "bookings.messageSms": {
-        "message": "Text"
-    },
-    "bookings.messageEmail": {
-        "message": "Email"
     },
     "bookings.messageBody": {
         "message": "Message"
@@ -4323,7 +4298,7 @@
         "args": ["name", "when"]
     },
     "classes.messageClassHint": {
-        "message": "{n, plural, one {Goes to the # client booked, by text when they have a mobile, otherwise by email.} other {Goes to the # clients booked, by text when they have a mobile, otherwise by email.}}",
+        "message": "{n, plural, one {Goes to the # client booked by text.} other {Goes to the # clients booked by text.}}",
         "args": ["n"]
     },
     "classes.messageClassLabel": {
@@ -4641,14 +4616,8 @@
     "reminders.remindersHint": {
         "message": "Every visit gets one reminder a day before, whether it was booked online or by staff."
     },
-    "reminders.channelSms": {
-        "message": "Text"
-    },
-    "reminders.channelEmail": {
-        "message": "Email"
-    },
     "reminders.rule": {
-        "message": "It goes by text when the client has a mobile number, and by email when they have an email address."
+        "message": "It goes by text to the client's mobile number."
     },
     "reminders.includeLink": {
         "message": "It includes a link to change or cancel the visit, within your cancellation rules in Online booking."
@@ -4920,7 +4889,7 @@
         "args": ["form"]
     },
     "forms.sendBody": {
-        "message": "They get a link by email, and by text when they have a number on file."
+        "message": "They get a link by text."
     },
     "forms.client": {
         "message": "Client"
@@ -5354,7 +5323,7 @@
         "message": "Consume"
     },
     "clients.record.searchPlaceholder": {
-        "message": "{kind, select, pet {Search name, phone, email or pet} student {Search name, phone, email or student} property {Search name, phone, email or address} site {Search name, phone, email or address} vehicle {Search name, phone, email or vehicle} other {Search name, phone or email}}",
+        "message": "{kind, select, pet {Search name, phone or pet} student {Search name, phone or student} property {Search name, phone or address} site {Search name, phone or address} vehicle {Search name, phone or vehicle} other {Search name or phone}}",
         "args": ["kind"],
         "description": "kind is what the business books besides the client: pet, student, property, site, vehicle, or none"
     },
@@ -5432,10 +5401,6 @@
     "clients.record.text": {
         "message": "Text"
     },
-    "clients.record.prefers": {
-        "message": "{channel, select, email {Prefers email} other {Prefers text}}",
-        "args": ["channel"]
-    },
     "clients.record.textsStopped": {
         "message": "Texts stopped by the client on {when}. Texts stay off until they reply START.",
         "args": ["when"]
@@ -5511,21 +5476,6 @@
     "clients.edit.phoneHint": {
         "message": "Used for text reminders."
     },
-    "clients.edit.emailLabel": {
-        "message": "Email"
-    },
-    "clients.edit.emailPlaceholder": {
-        "message": "name@example.com"
-    },
-    "clients.edit.channelLabel": {
-        "message": "Preferred contact"
-    },
-    "clients.edit.channelText": {
-        "message": "Text"
-    },
-    "clients.edit.channelEmail": {
-        "message": "Email"
-    },
     "clients.edit.tagsLabel": {
         "message": "Tags"
     },
@@ -5546,10 +5496,7 @@
         "message": "Enter the client's name."
     },
     "clients.edit.contactRequired": {
-        "message": "Add a phone number or an email so you can reach them."
-    },
-    "clients.edit.emailInvalid": {
-        "message": "That email doesn't look right."
+        "message": "Add a phone number so you can reach them."
     },
     "clients.edit.phoneInvalid": {
         "message": "Enter a 10-digit phone number, or + and the country code for a number outside North America."
@@ -5588,9 +5535,6 @@
     },
     "clients.edit.reasonPhone": {
         "message": "phone number"
-    },
-    "clients.edit.reasonEmail": {
-        "message": "email"
     },
     "clients.edit.reasonName": {
         "message": "name"
@@ -6255,12 +6199,6 @@
     "clients.history.textSent": {
         "message": "Text sent"
     },
-    "clients.history.emailReceived": {
-        "message": "Email received"
-    },
-    "clients.history.emailSent": {
-        "message": "Email sent"
-    },
     "clients.history.note": {
         "message": "Note"
     },
@@ -6499,9 +6437,6 @@
     "clients.tidy.field.phone": {
         "message": "Phone"
     },
-    "clients.tidy.field.email": {
-        "message": "Email"
-    },
     "clients.tidy.blockedMoney": {
         "message": "The other record has payment history, so it can't be merged yet. Merging records with payments is coming later."
     },
@@ -6532,12 +6467,6 @@
     "messaging.title": {
         "message": "Inbox"
     },
-    "messaging.channelSms": {
-        "message": "Text"
-    },
-    "messaging.channelEmail": {
-        "message": "Email"
-    },
     "messaging.loading": {
         "message": "Loading conversations"
     },
@@ -6564,7 +6493,7 @@
         "message": "Write your message"
     },
     "messaging.smsBlockedNew": {
-        "message": "This client replied STOP, so texts are off. Send an email instead."
+        "message": "This client replied STOP, so texts are off."
     },
     "messaging.sendMessage": {
         "message": "Send message"
@@ -6584,11 +6513,8 @@
     "messaging.filters.unread": {
         "message": "Unread"
     },
-    "messaging.filters.sms": {
-        "message": "Text"
-    },
-    "messaging.filters.email": {
-        "message": "Email"
+    "messaging.filterLabel": {
+        "message": "Show"
     },
     "messaging.noThreadsFiltered": {
         "message": "Nothing matches. Try another filter or search."
@@ -6597,7 +6523,7 @@
         "message": "No conversations yet"
     },
     "messaging.noThreadsBody": {
-        "message": "When a client replies to a text or an email, it lands here."
+        "message": "When a client replies to a text, it lands here."
     },
     "messaging.noMessagesYet": {
         "message": "No messages with {name} yet. Write the first one below.",
@@ -6633,18 +6559,8 @@
     "messaging.thread.status.queued": {
         "message": "Sending"
     },
-    "messaging.channelLabel": {
-        "message": "Reply by"
-    },
-    "messaging.channels.sms": {
-        "message": "Text"
-    },
-    "messaging.channels.email": {
-        "message": "Email"
-    },
     "messaging.replyPlaceholder": {
-        "message": "{channel, select, sms {Reply by text} email {Reply by email} chat {Reply by chat} other {Reply by {channel}}}",
-        "args": ["channel"]
+        "message": "Reply by text"
     },
     "messaging.send": {
         "message": "Send"
@@ -6682,7 +6598,7 @@
         "args": ["name"]
     },
     "messaging.textsOffBody": {
-        "message": "Texts to this number are off until they reply START. Switch to email to reach them."
+        "message": "Texts to this number are off until they reply START."
     },
     "messaging.textsOffShort": {
         "message": "Texts off (STOP)"
@@ -6713,9 +6629,6 @@
     },
     "messaging.consentChannel.sms": {
         "message": "Texts"
-    },
-    "messaging.consentChannel.email": {
-        "message": "Email"
     },
     "messaging.consentState.express": {
         "message": "Agreed"
@@ -6778,15 +6691,6 @@
         "args": ["kind"],
         "description": "kind is what the business books besides the client: pet, student, property, site, vehicle, or none"
     },
-    "broadcasts.channelPick": {
-        "message": "Send as"
-    },
-    "broadcasts.channels.sms": {
-        "message": "Text"
-    },
-    "broadcasts.channels.email": {
-        "message": "Email"
-    },
     "broadcasts.audienceLabel": {
         "message": "Who gets it"
     },
@@ -6808,16 +6712,9 @@
     "broadcasts.optOutSms": {
         "message": "Reply STOP to opt out."
     },
-    "broadcasts.optOutEmail": {
-        "message": "Unsubscribe or change what you get:"
-    },
     "broadcasts.smsPreview": {
         "message": "{business}: {text} {optOut}",
         "args": ["business", "text", "optOut"]
-    },
-    "broadcasts.emailPreview": {
-        "message": "{text}\n\n{business}\n{optOut} …",
-        "args": ["text", "business", "optOut"]
     },
     "broadcasts.optOutNote": {
         "message": "We add your business name and the opt-out line to every broadcast. The law requires both."
@@ -6956,9 +6853,6 @@
     "broadcasts.reachText": {
         "message": "Can text"
     },
-    "broadcasts.reachEmail": {
-        "message": "Can email"
-    },
     "broadcasts.reachOut": {
         "message": "Opted out"
     },
@@ -7071,12 +6965,6 @@
     "broadcasts.sources.complaint": {
         "message": "Spam complaint"
     },
-    "broadcasts.consentChannel.sms": {
-        "message": "Texts"
-    },
-    "broadcasts.consentChannel.email": {
-        "message": "Email"
-    },
     "broadcasts.resultsTitle": {
         "message": "Results"
     },
@@ -7101,10 +6989,6 @@
     "broadcasts.copyOf": {
         "message": "{name} (copy)",
         "args": ["name"]
-    },
-    "broadcasts.viaChannel": {
-        "message": "{channel, select, sms {By text} email {By email} other {By {channel}}}",
-        "args": ["channel"]
     },
     "broadcasts.recipientsLine": {
         "message": "{n, plural, one {# recipient} other {# recipients}}{out, plural, =0 {} other { · # left out}}",
@@ -9502,7 +9386,7 @@
         "message": "Other"
     },
     "refunds.notify": {
-        "message": "Email the client the credit note"
+        "message": "Text the client the credit note"
     },
     "refunds.reverses": {
         "message": "This refund reverses"
@@ -12099,14 +11983,8 @@
         "args": ["kind"],
         "description": "kind is what the business books besides the client: pet, student, property, site, vehicle, or none"
     },
-    "publicReturning.email": {
-        "message": "Email"
-    },
-    "publicReturning.sms": {
-        "message": "Text message"
-    },
     "publicReturning.contact": {
-        "message": "Email or phone"
+        "message": "Mobile number"
     },
     "publicReturning.sendCode": {
         "message": "Send verification code"
@@ -12121,7 +11999,7 @@
         "message": "Verify and find my visits"
     },
     "publicReturning.changeContact": {
-        "message": "Use a different email or phone"
+        "message": "Use a different number"
     },
     "publicReturning.missing": {
         "message": "No previous client record was found for that contact. Continue with a new booking."
@@ -12144,7 +12022,7 @@
         "description": "kind is what the business books besides the client: pet, student, property, site, vehicle, or none"
     },
     "publicReturning.contactRequired": {
-        "message": "Enter your email address or phone number."
+        "message": "Enter your mobile number."
     },
     "publicReturning.codeRequired": {
         "message": "Enter the six-digit verification code."
@@ -12339,12 +12217,6 @@
     "publicBooking.phonePlaceholder": {
         "message": "(250) 555-0123"
     },
-    "publicBooking.email": {
-        "message": "Email"
-    },
-    "publicBooking.emailPlaceholder": {
-        "message": "you@example.com"
-    },
     "publicBooking.subject": {
         "message": "{kind, select, pet {Pet's name} student {Student's name} property {Property name} site {Site name} vehicle {Vehicle} other {Name}}",
         "args": ["kind"],
@@ -12364,16 +12236,13 @@
         "description": "kind is what the business books besides the client: pet, student, property, site, vehicle, or none"
     },
     "publicBooking.reachHint": {
-        "message": "We text a reminder the day before. Add an email for receipts."
+        "message": "We text a reminder the day before."
     },
     "publicBooking.nameRequired": {
         "message": "Add your name."
     },
     "publicBooking.contactRequired": {
-        "message": "Add a mobile number or an email."
-    },
-    "publicBooking.emailInvalid": {
-        "message": "That email doesn't look right."
+        "message": "Add your mobile number."
     },
     "publicBooking.phoneInvalid": {
         "message": "That phone number doesn't look right. Use 10 digits, or + and the country code."
@@ -12737,11 +12606,8 @@
     "publicShop.phone": {
         "message": "Mobile"
     },
-    "publicShop.email": {
-        "message": "Email"
-    },
     "publicShop.reach": {
-        "message": "We'll text or email you when it's ready for pickup."
+        "message": "We'll text you when it's ready for pickup."
     },
     "publicShop.continuePay": {
         "message": "Continue to payment"
@@ -12780,7 +12646,7 @@
         "message": "Pick up at the front desk"
     },
     "publicShop.incomplete": {
-        "message": "Add your name and a mobile number or email."
+        "message": "Add your name and mobile number."
     },
     "publicShop.phoneInvalid": {
         "message": "That mobile number doesn't look right. Use 10 digits, or + and the country code."
@@ -13479,7 +13345,7 @@
         "message": "Message"
     },
     "navigation.createActions.message.hint": {
-        "message": "Text or email a client"
+        "message": "Text a client"
     },
     "navigation.createActions.timeOff.label": {
         "message": "Time off"
@@ -13757,7 +13623,7 @@
         "args": ["business"]
     },
     "publicPreferences.title": {
-        "message": "Email and text preferences"
+        "message": "Text preferences"
     },
     "publicPreferences.greeting": {
         "message": "Hi {first}, choose what {business} sends you.",
@@ -13768,13 +13634,6 @@
     },
     "publicPreferences.offersHint": {
         "message": "Seasonal specials, new services and studio news. A few times a year."
-    },
-    "publicPreferences.byEmail": {
-        "message": "By email"
-    },
-    "publicPreferences.byEmailTo": {
-        "message": "By email to {email}",
-        "args": ["email"]
     },
     "publicPreferences.byText": {
         "message": "By text"
@@ -13808,11 +13667,11 @@
         "message": "You're unsubscribed"
     },
     "publicPreferences.unsubscribedBody": {
-        "message": "{business} won't send news or offers to {email}. A message already on its way can take up to a day.",
-        "args": ["business", "email"]
+        "message": "{business} won't send news or offers to {phone}. A message already on its way can take up to a day.",
+        "args": ["business", "phone"]
     },
-    "publicPreferences.unsubscribedNoEmail": {
-        "message": "{business} won't send news or offers to your email. A message already on its way can take up to a day.",
+    "publicPreferences.unsubscribedNoPhone": {
+        "message": "{business} won't send news or offers by text.",
         "args": ["business"]
     },
     "publicPreferences.unsubscribedReminders": {
@@ -13829,7 +13688,7 @@
         "args": ["business"]
     },
     "publicPreferences.manageAll": {
-        "message": "Manage text and email preferences"
+        "message": "Manage text preferences"
     },
     "publicPreferences.notFoundTitle": {
         "message": "This link has expired"
@@ -13992,13 +13851,17 @@
         "message": "Revoke link"
     },
     "checkout.bankLinkRequirements": {
-        "message": "Add the client’s email and finish Canadian bank debit setup in Payments. Contact support if this payment method is not enabled."
+        "message": "The payer needs an email for Stripe’s bank debit notices. They can enter it on the secure authorization page. Contact support if this payment method is not enabled."
     },
     "checkout.bankLinkError": {
         "message": "Couldn't load bank authorization. Try again or ask the business for a new link."
     },
     "checkout.bankSetupTitle": {
         "message": "Authorize bank payments"
+    },
+    "checkout.payerEmail": {
+        "message": "Email for bank debit notices",
+        "description": "The payer enters this on the secure authorization page; Clientbridge does not store or use it."
     },
     "checkout.bankSetupBody": {
         "message": "Enter your bank details securely with Stripe and review the pre-authorized debit agreement. No payment is taken now. Stripe may ask you to verify small deposits and send verification and mandate emails."

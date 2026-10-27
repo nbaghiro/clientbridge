@@ -7,7 +7,8 @@ import { createClient, type ClientFixture } from "./clients";
 import { select } from "./db";
 import { requireLocalMail } from "./evidence";
 import { navigate } from "./session";
-import { runEmail, runUrl } from "@clientbridge/config/e2e/run";
+import { runEmail } from "@clientbridge/config/e2e/run";
+import { textsTo } from "./auth";
 
 export interface ClassEvidence {
     slots: { id: string; item_id: string; staff_id: string; capacity: number; status: string }[];
@@ -101,7 +102,7 @@ export async function classFixture(page: Page): Promise<ClassFixture> {
             bookingId: saved.id,
             clientId: first.id,
             clientName: first.name,
-            clientEmail: first.email,
+            clientPhone: first.phone,
             itemId,
             itemName,
             staffId: staff.id,
@@ -209,7 +210,7 @@ interface SeatDelivery {
     error: string | null;
     channel: string;
     recipient: string;
-    subject: string;
+    body: string;
     created_at: string;
 }
 
@@ -217,7 +218,7 @@ function seatDeliveries(fixture: ClassFixture, bookingId: string): Promise<SeatD
     return select<SeatDelivery>`
         SELECT d.id, d.state, d.error, d.payload->>'channel' AS channel,
             d.payload->'message'->>'to' AS recipient,
-            d.payload->'message'->>'subject' AS subject, to_jsonb(d.created_at) AS created_at
+            d.payload->'message'->>'body' AS body, to_jsonb(d.created_at) AS created_at
         FROM deliveries d JOIN bookings b ON b.id = ${bookingId}
         JOIN slots s ON s.id = b.slot_id AND s.item_id = ${fixture.itemId}
         WHERE starts_with(d.key, 'seat:' || s.id || ':' || b.id || ':') ORDER BY d.id`;
@@ -230,7 +231,7 @@ export async function expectWorkerSentSeatNotice(
     page: Page,
     fixture: ClassFixture,
     bookingId: string,
-    email: string,
+    phone: string,
 ) {
     await expect
         .poll(async () => (await seatDeliveries(fixture, bookingId)).map((row) => row.state), {
@@ -240,21 +241,14 @@ export async function expectWorkerSentSeatNotice(
         .toEqual(["accepted"]);
     const [delivery] = await seatDeliveries(fixture, bookingId);
     if (!delivery) throw new Error("The seat notice delivery disappeared");
-    expect(delivery).toMatchObject({ channel: "email", error: null, recipient: email });
-    const base = runUrl("MAILPIT_URL");
-    const received = async () => {
-        const response = await page.request.get(`${base}/api/v1/search`, {
-            params: { query: `to:${email}`, limit: 100 },
-        });
-        expect(response.status()).toBe(200);
-        const body = (await response.json()) as {
-            messages: { ID: string; Subject: string; Created: string }[];
-        };
-        return body.messages.filter((message) => message.Subject === delivery.subject);
-    };
+    expect(delivery).toMatchObject({ channel: "sms", error: null, recipient: phone });
+    const received = async () =>
+        (await textsTo(page.request, phone)).filter((text) =>
+            delivery.body.startsWith(text.Snippet.slice(0, 60)),
+        );
     await expect.poll(async () => (await received()).length).toBe(1);
     const [message] = await received();
-    if (!message) throw new Error("Mailpit lost the seat notice");
+    if (!message) throw new Error("the dev inbox lost the seat notice");
     const queued = new Date(delivery.created_at).getTime();
     const arrived = new Date(message.Created);
     expect(arrived.getTime()).toBeGreaterThanOrEqual(queued - 1_000);

@@ -10,7 +10,7 @@ onFlowComplete:
 ---
 - runFlow: helpers/owner.yaml
 - tapOn: "Clients"
-- tapOn: "Search name, phone, email or pet"
+- tapOn: "Search name, phone or pet"
 - inputText: "olivia.m+${E2E_NAMESPACE}@example.test"
 - hideKeyboard
 - extendedWaitUntil:
@@ -29,7 +29,7 @@ onFlowComplete:
       timeout: 60000
 - assertNotVisible: "Sign in"
 - tapOn: "Clients"
-- tapOn: "Search name, phone, email or pet"
+- tapOn: "Search name, phone or pet"
 - inputText: "olivia.m+${E2E_NAMESPACE}@example.test"
 - hideKeyboard
 - extendedWaitUntil:

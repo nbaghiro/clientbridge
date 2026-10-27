@@ -1,6 +1,5 @@
 """Foothills Lawn and Garden: a four-person lawn and landscaping crew in Calgary."""
 
-import unicodedata
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
 
@@ -1129,11 +1128,6 @@ SPEC = BusinessSpec(
 )
 
 
-def _email(name: str) -> str:
-    plain = "".join(c for c in unicodedata.normalize("NFKD", name.lower()) if c.isascii())
-    return f"{plain.replace(' ', '.').replace('-', '').replace("'", '')}@example.test"
-
-
 def _generated(index: int) -> Yard:
     first, last = PEOPLE[index]
     street, postal = STREETS[index % len(STREETS)]
@@ -1226,10 +1220,8 @@ class Foothills(Demo):
         self.client(
             yard.key,
             yard.name,
-            "board@silverridgecourt.example.test" if tags else _email(yard.name),
             f"+1587555{100 + index:04}",
             tags=tags or [],
-            channel="email" if tags or index % 3 == 0 else "sms",
             fields={"source": ("referral", "google", "lawn sign", "neighbour")[index % 4]},
             subject=yard.address.split(",")[0],
             attributes=_attributes(yard),
@@ -1756,7 +1748,7 @@ class Foothills(Demo):
                 created_at=moved,
             )
         )
-        thread = self.thread("nina", "sms", moved)
+        thread = self.thread("nina", moved)
         self.say(
             thread,
             f"Hi Nina, it's Ravi from Foothills. Rain is forecast all afternoon, so we'd like to "
@@ -1798,7 +1790,7 @@ class Foothills(Demo):
             waited,
         )
         rebooked = self.consult(MISSED, 4, status="confirmed")
-        thread = self.thread(MISSED, "sms", waited)
+        thread = self.thread(MISSED, waited)
         self.say(
             thread,
             f"Hi Ian, it's Ravi from Foothills. I'm at your place for the "
@@ -1981,13 +1973,13 @@ class Foothills(Demo):
 
     def engagement(self) -> None:
         self.consents()
-        self.withdraw("home_05", "email", self.now - timedelta(days=52))
+        self.withdraw("home_05", self.now - timedelta(days=52))
         self.broadcast(
             "fall",
             "Fall cleanups and the snow plan",
             "Fall cleanup bookings are open for October and early November. Each one includes "
             "core aeration, leaves, the last cut and cutting back the perennials. Clients on a "
-            "mowing series can reply to this email and we'll fit it in after your final cut. "
+            "mowing series can reply to this message and we'll fit it in after your final cut. "
             "The winter snow plan is open too: we clear the driveway, front walk and city "
             "sidewalk after every snowfall of 5 cm or more, from November to April. It's "
             "$649 plus GST for the season.",
@@ -2094,7 +2086,7 @@ class Foothills(Demo):
             )
             assert response.submitted_at is not None
             when = response.submitted_at + timedelta(hours=1, minutes=10)
-            thread = self.thread("carol", "email", when)
+            thread = self.thread("carol", when)
             self.say(
                 thread,
                 "Carol, I'm sorry about the gate, and glad Buddy is safe. That's on us. Jonah "
@@ -2121,7 +2113,7 @@ class Foothills(Demo):
         ctx = self.ctx
         lucy = ctx.get(Estimate, "est_fh_lucy")
         when = lucy.created_at + timedelta(minutes=20)
-        thread = self.thread("lucy", "email", when)
+        thread = self.thread("lucy", when)
         self.say(
             thread,
             "Hi Lucy, your fall cleanup estimate is ready. The gutter clearing and the bed "
@@ -2145,7 +2137,7 @@ class Foothills(Demo):
         chloe = ctx.get(Booking, "bk_fh_chloe")
         when = min(chloe.starts_at - timedelta(hours=22), self.now - timedelta(hours=3))
         local = self.local(chloe.starts_at)
-        thread = self.thread("chloe", "sms", when)
+        thread = self.thread("chloe", when)
         self.say(
             thread,
             f"Hi Chloe, Tyler from Foothills is booked for your hedge trim on {local:%A, %B} "
@@ -2161,11 +2153,11 @@ class Foothills(Demo):
         overdue = ctx.get(Invoice, "inv_fh_silverridge_hedges")
         if overdue.overdue_notified_at is not None:
             when = overdue.overdue_notified_at + timedelta(hours=2)
-            thread = self.thread("silverridge", "email", when)
+            thread = self.thread("silverridge", when)
             self.say(
                 thread,
                 f"Hello, invoice {overdue.number} for the hedge trimming on the common grounds "
-                "is past due. You can pay by card from the link in the invoice email, by "
+                "is past due. You can pay by card from the invoice link, by "
                 "e-Transfer to hello@foothills.example, or by cheque as usual.",
                 when,
                 sender=FOOTHILLS_OWNER,
@@ -2180,7 +2172,7 @@ class Foothills(Demo):
         mariana = ctx.get(Booking, "bk_fh_mariana")
         assert mariana.completed_at is not None
         when = mariana.completed_at + timedelta(days=2, hours=3)
-        thread = self.thread("mariana", "email", when)
+        thread = self.thread("mariana", when)
         self.say(
             thread,
             "Thank you all for the new garden. Everything has perked up after the rain. How "
@@ -2199,7 +2191,7 @@ class Foothills(Demo):
         helen = ctx.get(Booking, self.last_of("helen"))
         when = self.now - timedelta(days=2, hours=4)
         local = self.local(helen.starts_at)
-        thread = self.thread("helen", "sms", when)
+        thread = self.thread("helen", when)
         if helen.starts_at < self.now:
             return
         self.say(
@@ -2216,7 +2208,7 @@ class Foothills(Demo):
         )
         linda = ctx.get(Client, "cl_fh_linda")
         when = self.now - timedelta(days=24)
-        thread = self.thread("linda", "email", when)
+        thread = self.thread("linda", when)
         self.say(
             thread,
             "Hi, I saw the email about the snow plan. Does it include the sidewalk in front of "

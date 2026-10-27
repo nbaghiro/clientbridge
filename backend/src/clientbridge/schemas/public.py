@@ -258,13 +258,12 @@ class ManageCancelResult(BaseModel):
 
 class PublicBookingClient(BaseModel):
     name: str
-    email: str | None = None
     phone: Phone = None
 
     @model_validator(mode="after")
     def _contactable(self) -> "PublicBookingClient":
-        if not self.email and not self.phone:
-            raise ValueError("provide an email or phone")
+        if not self.phone:
+            raise ValueError("provide a mobile number")
         return self
 
 

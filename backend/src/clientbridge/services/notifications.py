@@ -1,5 +1,4 @@
 import logging
-import re
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
@@ -13,15 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from clientbridge.core import clock
 from clientbridge.core.config import get_settings
 from clientbridge.core.deps import Principal
-from clientbridge.core.email_layout import (
-    ACCENT,
-    Action,
-    Brand,
-    EmailView,
-    Row,
-    inline_images,
-    render_html,
-)
+from clientbridge.core.email_layout import Action, Brand, EmailView, inline_images, render_html
 from clientbridge.core.ids import new_id
 from clientbridge.core.locale import (
     currency_for,
@@ -41,30 +32,24 @@ from clientbridge.integrations.twilio import Sms, SmsSender
 from clientbridge.models.billing import Estimate, Invoice, Order
 from clientbridge.models.business import Business, Staff, User
 from clientbridge.models.catalog import GiftCard, Item, Subscription
-from clientbridge.models.clients import Client, Subject
+from clientbridge.models.clients import Client
 from clientbridge.models.documents import Contract, FormResponse, Signature
 from clientbridge.models.messaging import Message, Thread
 from clientbridge.models.payments import Payment
-from clientbridge.models.platform import Device, DevicePlatform, File
+from clientbridge.models.platform import Device, DevicePlatform
 from clientbridge.models.reviews import ReviewRequest
 from clientbridge.models.scheduling import Booking, Slot
 from clientbridge.schemas.auth import AuthEmailIn
 from clientbridge.schemas.forms import FormDefinition
 from clientbridge.services import ledger
-from clientbridge.services.business import reply_address, staff_names
-from clientbridge.services.consents import emails_withdrawn, prefs_url, texts_stopped
+from clientbridge.services.business import staff_names
+from clientbridge.services.consents import texts_stopped
 from clientbridge.services.deliveries import DeliveryQueue, QueuedEmail, QueuedPush, QueuedSms
-from clientbridge.services.files import media_url
 from clientbridge.services.lines import LineParent, fetch_lines, issued_at
-from clientbridge.services.subjects import place_address
 from clientbridge.services.tax import issued_tax
 
 _log = logging.getLogger(__name__)
 _PREVIEW_CHARS = 120
-
-_HEX = re.compile(r"#[0-9A-Fa-f]{6}")
-# the image types every major mail app shows; an SVG or WebP logo falls back to the name
-_EMAIL_IMAGES = frozenset({"image/png", "image/jpeg", "image/gif"})
 
 SeriesNotice = Literal["booked", "moved", "canceled"]
 
@@ -79,19 +64,11 @@ class Outcome(Enum):
 
 @dataclass(frozen=True)
 class Notice:
-    """A message to one person: its subject, the text SMS and plain email send, and its design."""
+    """Mail to a business's people or from Clientbridge: its subject, plain text and design."""
 
     subject: str
     body: str
     view: EmailView
-
-
-@dataclass(frozen=True)
-class Itemised:
-    """A receipt's lines, as the plain text lists them and as the email's table shows them."""
-
-    lines: tuple[str, ...]
-    rows: tuple[Row, ...]
 
 
 def _view(
@@ -100,7 +77,6 @@ def _view(
     *paragraphs: str,
     action: Action | None = None,
     code: str | None = None,
-    rows: tuple[Row, ...] = (),
     note: str | None = None,
 ) -> EmailView:
     return EmailView(
@@ -109,7 +85,6 @@ def _view(
         paragraphs=paragraphs,
         action=action,
         code=code,
-        rows=rows,
         note=note,
     )
 
@@ -122,10 +97,6 @@ def _lang(locale: str) -> str:
     return locale.replace("_", "-")
 
 
-def _paragraphs(text: str) -> tuple[str, ...]:
-    return tuple(part.strip() for part in text.split("\n\n") if part.strip())
-
-
 def platform_brand() -> Brand:
     return Brand(
         name="Clientbridge",
@@ -134,93 +105,9 @@ def platform_brand() -> Brand:
     )
 
 
-async def business_brand(db: AsyncSession, business: Business) -> Brand:
-    """A business's look in its emails: its brand colour, and its logo when mail apps show it."""
-    brand = business.brand or {}
-    primary = brand.get("primary")
-    accent = primary if isinstance(primary, str) and _HEX.fullmatch(primary) else ACCENT
-    logo_id = brand.get("logo_file_id")
-    logo = await db.get(File, logo_id) if isinstance(logo_id, str) else None
-    shown = (
-        logo is not None
-        and logo.uploaded_at is not None
-        and logo.business_id == business.id
-        and logo.content_type in _EMAIL_IMAGES
-    )
-    return Brand(
-        name=business.name,
-        accent=accent,
-        logo_url=media_url(logo.id) if shown and logo is not None else None,
-        art_url="cid:clientbridge-contours",
-        sent_with=message(locale_for(business=business), "email.sent_with"),
-    )
-
-
-def _business_line(locale: str, business: Business) -> str:
-    brand = business.brand or {}
-    extra = (brand.get("address"), brand.get("phone"), reply_address(business))
-    parts = [business.name, *(value for value in extra if isinstance(value, str) and value)]
-    return message(locale, "email.footer.separator").join(parts)
-
-
-def _client_footer(locale: str, business: Business) -> tuple[str, ...]:
-    reason = message(locale, "email.footer.client", business=business.name)
-    return (_business_line(locale, business), reason)
-
-
-async def at_the_visit(
-    db: AsyncSession, business: Business, booking: Booking, notice: Notice
-) -> Notice:
-    """A visit notice whose email footer names the place visited, for property and site visits."""
-    subject = await db.get(Subject, booking.subject_id) if booking.subject_id else None
-    place = place_address(business, subject)
-    if place is None:
-        return notice
-    locale = locale_for(business=business)
-    footer = (
-        message(locale, "email.footer.visit_at", address=place),
-        *_client_footer(locale, business),
-    )
-    return replace(notice, view=replace(notice.view, footer=footer))
-
-
 def email_html(brand: Brand, view: EmailView, locale: str) -> str:
     preheader = view.paragraphs[0] if view.paragraphs else view.heading
     return render_html(brand, view, preheader=preheader, lang=_lang(locale))
-
-
-def client_email(
-    business: Business,
-    brand: Brand,
-    to: str,
-    notice: Notice,
-    *,
-    client: Client | None = None,
-    message: Message | None = None,
-) -> Email:
-    """Mail to a client for a business: replies go to the business, tags name who it concerns."""
-    tags = {"business": business.id}
-    if client is not None:
-        tags["client"] = client.id
-    if message is not None:
-        tags["message"] = message.id
-    locale = locale_for(business=business, client=client)
-    view = (
-        notice.view
-        if notice.view.footer
-        else replace(notice.view, footer=_client_footer(locale, business))
-    )
-    html = email_html(brand, view, locale)
-    return Email(
-        to=to,
-        subject=notice.subject,
-        body=notice.body,
-        html=html,
-        images=inline_images(html),
-        reply_to=reply_address(business),
-        idempotency_key=message.id if message is not None else None,
-        tags=tags,
-    )
 
 
 def business_email(business: Business, to: str, notice: Notice) -> Email:
@@ -257,18 +144,8 @@ def account_email(to: str, notice: Notice, *, locale: str) -> Email:
     )
 
 
-def returning_code(locale: str, business_name: str, code: str, minutes: int) -> Notice:
-    return Notice(
-        message(locale, "returning_code.subject", business=business_name),
-        plural(locale, "returning_code.body", minutes, code=code),
-        _view(
-            message(locale, "email.kind.verification"),
-            message(locale, "returning_code.heading"),
-            plural(locale, "returning_code.lead", minutes, business=business_name),
-            code=code,
-            note=message(locale, "returning_code.note"),
-        ),
-    )
+def returning_code(locale: str, code: str, minutes: int) -> str:
+    return plural(locale, "returning_code.body", minutes, code=code)
 
 
 def staff_invite(locale: str, business_name: str, link: str) -> Notice:
@@ -430,29 +307,18 @@ def receipt_message(
     locale: str,
     business_name: str,
     amount: str,
-    itemised: Itemised,
+    itemised: tuple[str, ...],
     *,
     pickup: bool = False,
     order: str | None = None,
-) -> tuple[Notice, str]:
-    """(notice, push) for a payment receipt with its itemised details."""
+) -> tuple[str, str]:
+    """(text, push) for a payment receipt with its itemised details."""
     lead = message(locale, "receipt.body", amount=amount, business=business_name)
     pickup_line = receipt_pickup_line(locale, business_name) if pickup else None
     extra = [line for line in (pickup_line, order) if line]
-    lines = [*itemised.lines, *extra]
-    body = lead + ("\n\n" + "\n".join(lines) if lines else "")
-    view = _view(
-        message(locale, "email.kind.receipt"),
-        message(locale, "receipt.heading"),
-        lead,
-        *([pickup_line] if pickup_line else []),
-        rows=itemised.rows,
-        action=_action(message(locale, "receipt.order_action"), order),
-    )
-    return (
-        Notice(message(locale, "receipt.subject", business=business_name), body, view),
-        message(locale, "receipt.push", amount=amount),
-    )
+    lines = [*itemised, *extra]
+    text = lead + ("\n\n" + "\n".join(lines) if lines else "")
+    return text, message(locale, "receipt.push", amount=amount)
 
 
 def receipt_pickup_line(locale: str, business_name: str) -> str:
@@ -470,59 +336,24 @@ def online_order_alert_message(locale: str, amount: str) -> Notice:
     )
 
 
-def sale_receipt_message(locale: str, business_name: str, number: int | None, link: str) -> Notice:
-    subject = message(locale, "sale_receipt.subject", business=business_name)
+def sale_receipt_message(locale: str, business_name: str, number: int | None, link: str) -> str:
     if number is None:
-        body = message(locale, "sale_receipt.body", business=business_name, link=link)
-        lead = message(locale, "sale_receipt.lead", business=business_name)
-    else:
-        body = message(
-            locale, "sale_receipt.body_numbered", business=business_name, number=number, link=link
-        )
-        lead = message(locale, "sale_receipt.lead_numbered", business=business_name, number=number)
-    return Notice(
-        subject,
-        body,
-        _view(
-            message(locale, "email.kind.receipt"),
-            message(locale, "sale_receipt.heading"),
-            lead,
-            action=Action(message(locale, "sale_receipt.action"), link),
-        ),
+        return message(locale, "sale_receipt.body", business=business_name, link=link)
+    return message(
+        locale, "sale_receipt.body_numbered", business=business_name, number=number, link=link
     )
 
 
-def _order_notice(locale: str, subject: str, body: str, heading: str, link: str | None) -> Notice:
-    return Notice(
-        subject,
-        body + (f"\n{link}" if link else ""),
-        _view(
-            message(locale, "email.kind.order"),
-            heading,
-            body,
-            action=_action(message(locale, "order.action"), link),
-        ),
-    )
+def _order_text(body: str, link: str | None) -> str:
+    return body + (f"\n{link}" if link else "")
 
 
-def order_ready_message(locale: str, business_name: str, link: str | None = None) -> Notice:
-    return _order_notice(
-        locale,
-        message(locale, "order_ready.subject", business=business_name),
-        message(locale, "order_ready.body", business=business_name),
-        message(locale, "order_ready.heading"),
-        link,
-    )
+def order_ready_message(locale: str, business_name: str, link: str | None = None) -> str:
+    return _order_text(message(locale, "order_ready.body", business=business_name), link)
 
 
-def order_reminder_message(locale: str, business_name: str, link: str | None = None) -> Notice:
-    return _order_notice(
-        locale,
-        message(locale, "order_reminder.subject", business=business_name),
-        message(locale, "order_reminder.body", business=business_name),
-        message(locale, "order_reminder.heading"),
-        link,
-    )
+def order_reminder_message(locale: str, business_name: str, link: str | None = None) -> str:
+    return _order_text(message(locale, "order_reminder.body", business=business_name), link)
 
 
 def receipt_detail_lines(
@@ -532,25 +363,17 @@ def receipt_detail_lines(
     taxes: list[tuple[str, str]],
     total: str,
     tip: str | None = None,
-) -> Itemised:
+) -> tuple[str, ...]:
     text = [
         message(locale, "receipt.line", item=name, quantity=quantity, amount=amount)
         for name, quantity, amount in lines
     ]
-    rows = [
-        Row(message(locale, "receipt.item", item=name, quantity=quantity), amount)
-        for name, quantity, amount in lines
-    ]
     text.append(message(locale, "receipt.subtotal", amount=subtotal))
-    rows.append(Row(message(locale, "receipt.subtotal_label"), subtotal))
     text.extend(message(locale, "receipt.tax", tax=code, amount=amount) for code, amount in taxes)
-    rows.extend(Row(code, amount) for code, amount in taxes)
     if tip is not None:
         text.append(message(locale, "receipt.tip", amount=tip))
-        rows.append(Row(message(locale, "receipt.tip_label"), tip))
     text.append(message(locale, "receipt.total", amount=total))
-    rows.append(Row(message(locale, "receipt.total_label"), total, total=True))
-    return Itemised(tuple(text), tuple(rows))
+    return tuple(text)
 
 
 def inbound_message_alert_text(locale: str, client_name: str, body: str) -> str:
@@ -569,86 +392,38 @@ def dispute_inquiry_alert_text(locale: str, amount: str) -> str:
 
 def invoice_sent_message(
     locale: str, number: int | None, amount: str, business_name: str, link: str
-) -> Notice:
+) -> str:
     values = {"number": str(number), "amount": amount, "business": business_name}
-    body = (
-        message(locale, "invoice_sent.body_link", link=link, **values)
-        if link
-        else message(locale, "invoice_sent.body", **values)
-    )
-    return Notice(
-        message(locale, "invoice_sent.subject", **values),
-        body,
-        _view(
-            message(locale, "email.kind.invoice"),
-            message(locale, "invoice_sent.heading", **values),
-            message(locale, "invoice_sent.lead", **values),
-            action=_action(message(locale, "invoice.action"), link),
-        ),
-    )
+    if link:
+        return message(locale, "invoice_sent.body_link", link=link, **values)
+    return message(locale, "invoice_sent.body", **values)
 
 
 def invoice_overdue_message(
     locale: str, number: int | None, amount: str, business_name: str, link: str
-) -> Notice:
+) -> str:
     values = {"number": str(number), "amount": amount, "business": business_name}
-    body = (
-        message(locale, "invoice_overdue.body_link", link=link, **values)
-        if link
-        else message(locale, "invoice_overdue.body", **values)
-    )
-    return Notice(
-        message(locale, "invoice_overdue.subject", **values),
-        body,
-        _view(
-            message(locale, "email.kind.invoice"),
-            message(locale, "invoice_overdue.heading", **values),
-            message(locale, "invoice_overdue.lead", **values),
-            action=_action(message(locale, "invoice.action"), link),
-        ),
-    )
+    if link:
+        return message(locale, "invoice_overdue.body_link", link=link, **values)
+    return message(locale, "invoice_overdue.body", **values)
 
 
 def invoice_reminder_message(
     locale: str, number: int | None, amount: str, business_name: str, link: str
-) -> Notice:
+) -> str:
     values = {"number": str(number), "amount": amount, "business": business_name}
-    body = (
-        message(locale, "invoice_reminder.body_link", link=link, **values)
-        if link
-        else message(locale, "invoice_reminder.body", **values)
-    )
-    return Notice(
-        message(locale, "invoice_reminder.subject", **values),
-        body,
-        _view(
-            message(locale, "email.kind.invoice"),
-            message(locale, "invoice_reminder.heading", **values),
-            message(locale, "invoice_reminder.lead", **values),
-            action=_action(message(locale, "invoice.action"), link),
-        ),
-    )
+    if link:
+        return message(locale, "invoice_reminder.body_link", link=link, **values)
+    return message(locale, "invoice_reminder.body", **values)
 
 
 def estimate_sent_message(
     locale: str, number: int | None, amount: str, business_name: str, link: str
-) -> Notice:
+) -> str:
     values = {"number": str(number), "amount": amount, "business": business_name}
-    body = (
-        message(locale, "estimate_sent.body_link", link=link, **values)
-        if link
-        else message(locale, "estimate_sent.body", **values)
-    )
-    return Notice(
-        message(locale, "estimate_sent.subject", **values),
-        body,
-        _view(
-            message(locale, "email.kind.estimate"),
-            message(locale, "estimate_sent.heading", **values),
-            message(locale, "estimate_sent.lead", **values),
-            action=_action(message(locale, "estimate.action"), link),
-        ),
-    )
+    if link:
+        return message(locale, "estimate_sent.body_link", link=link, **values)
+    return message(locale, "estimate_sent.body", **values)
 
 
 def estimate_accepted_message(locale: str, number: int | None) -> Notice:
@@ -667,69 +442,32 @@ def estimate_declined_message(locale: str, number: int | None, reason: str | Non
     return Notice(subject, body, _view(message(locale, "email.kind.estimate"), subject, body))
 
 
-def _simple(locale: str, eyebrow: str, subject: str, body: str, heading: str) -> Notice:
-    return Notice(subject, body, _view(eyebrow, heading, body))
+def payment_failed_message(locale: str, amount: str, business_name: str) -> str:
+    return message(locale, "payment_failed.body", amount=amount, business=business_name)
 
 
-def payment_failed_message(locale: str, amount: str, business_name: str) -> Notice:
-    return _simple(
-        locale,
-        message(locale, "email.kind.payment"),
-        message(locale, "payment_failed.subject", business=business_name),
-        message(locale, "payment_failed.body", amount=amount, business=business_name),
-        message(locale, "payment_failed.heading"),
-    )
-
-
-def refund_message(locale: str, amount: str, business_name: str, credit_note: str | None) -> Notice:
-    body = (
-        message(
+def refund_message(locale: str, amount: str, business_name: str, credit_note: str | None) -> str:
+    if credit_note:
+        return message(
             locale,
             "refund.body_credit_note",
             amount=amount,
             business=business_name,
             credit_note=credit_note,
         )
-        if credit_note
-        else message(locale, "refund.body", amount=amount, business=business_name)
-    )
-    return _simple(
-        locale,
-        message(locale, "email.kind.refund"),
-        message(locale, "refund.subject", business=business_name),
-        body,
-        message(locale, "refund.heading"),
-    )
+    return message(locale, "refund.body", amount=amount, business=business_name)
 
 
-def refund_failed_message(locale: str, amount: str, business_name: str) -> Notice:
-    return _simple(
-        locale,
-        message(locale, "email.kind.refund"),
-        message(locale, "refund_failed.subject", business=business_name),
-        message(locale, "refund_failed.body", amount=amount, business=business_name),
-        message(locale, "refund_failed.heading"),
-    )
+def refund_failed_message(locale: str, amount: str, business_name: str) -> str:
+    return message(locale, "refund_failed.body", amount=amount, business=business_name)
 
 
-def subscription_past_due_message(locale: str, business_name: str) -> Notice:
-    return _simple(
-        locale,
-        message(locale, "email.kind.subscription"),
-        message(locale, "subscription_past_due.subject", business=business_name),
-        message(locale, "subscription_past_due.body", business=business_name),
-        message(locale, "subscription_past_due.heading"),
-    )
+def subscription_past_due_message(locale: str, business_name: str) -> str:
+    return message(locale, "subscription_past_due.body", business=business_name)
 
 
-def subscription_canceled_message(locale: str, business_name: str) -> Notice:
-    return _simple(
-        locale,
-        message(locale, "email.kind.subscription"),
-        message(locale, "subscription_canceled.subject", business=business_name),
-        message(locale, "subscription_canceled.body", business=business_name),
-        message(locale, "subscription_canceled.heading"),
-    )
+def subscription_canceled_message(locale: str, business_name: str) -> str:
+    return message(locale, "subscription_canceled.body", business=business_name)
 
 
 def trial_ending_message(
@@ -794,297 +532,123 @@ async def _owner_address(db: AsyncSession, business: Business) -> str | None:
     return user.email if user is not None else None
 
 
-def gift_card_issued_message(locale: str, business_name: str, amount: str, code: str) -> Notice:
-    return Notice(
-        message(locale, "gift_card_issued.subject", business=business_name),
-        message(locale, "gift_card_issued.body", amount=amount, business=business_name, code=code),
-        _view(
-            message(locale, "email.kind.gift_card"),
-            message(locale, "gift_card_issued.heading", amount=amount),
-            message(locale, "gift_card_issued.lead", business=business_name),
-            code=code,
-        ),
+def gift_card_issued_message(locale: str, business_name: str, amount: str, code: str) -> str:
+    return message(
+        locale, "gift_card_issued.body", amount=amount, business=business_name, code=code
     )
 
 
-def _visit(
-    locale: str, subject: str, body: str, heading: str, lead: str, link: str | None = None
-) -> Notice:
-    return Notice(
-        subject,
-        body,
-        _view(
-            message(locale, "email.kind.booking"),
-            heading,
-            lead,
-            action=_action(message(locale, "booking.action"), link),
-        ),
-    )
-
-
-def booking_reminder_message(
-    locale: str, business_name: str, when: str, link: str | None
-) -> Notice:
-    lead = message(locale, "booking_reminder.body", business=business_name, when=when)
-    body = (
-        message(locale, "booking_reminder.body_link", business=business_name, when=when, link=link)
-        if link
-        else lead
-    )
-    return _visit(
-        locale,
-        message(locale, "booking_reminder.subject", business=business_name),
-        body,
-        message(locale, "booking_reminder.heading"),
-        lead,
-        link,
-    )
+def booking_reminder_message(locale: str, business_name: str, when: str, link: str | None) -> str:
+    if link:
+        return message(
+            locale, "booking_reminder.body_link", business=business_name, when=when, link=link
+        )
+    return message(locale, "booking_reminder.body", business=business_name, when=when)
 
 
 def booking_confirmed_message(
     locale: str, business_name: str, when: str, link: str | None, deposit: str | None = None
-) -> Notice:
-    lead = message(locale, "booking_confirmed.body", business=business_name, when=when)
+) -> str:
     if deposit is not None and link:
         values = {"business": business_name, "when": when, "amount": deposit, "link": link}
-        return Notice(
-            message(locale, "booking_confirmed.subject", business=business_name),
-            message(locale, "booking_confirmed.body_deposit", **values),
-            _view(
-                message(locale, "email.kind.booking"),
-                message(locale, "booking_confirmed.heading"),
-                lead,
-                message(locale, "booking_confirmed.deposit_due", amount=deposit),
-                action=Action(message(locale, "booking.pay_deposit"), link),
-            ),
+        return message(locale, "booking_confirmed.body_deposit", **values)
+    if link:
+        return message(
+            locale, "booking_confirmed.body_link", business=business_name, when=when, link=link
         )
-    body = (
-        message(locale, "booking_confirmed.body_link", business=business_name, when=when, link=link)
-        if link
-        else lead
-    )
-    return _visit(
-        locale,
-        message(locale, "booking_confirmed.subject", business=business_name),
-        body,
-        message(locale, "booking_confirmed.heading"),
-        lead,
-        link,
-    )
+    return message(locale, "booking_confirmed.body", business=business_name, when=when)
 
 
-def _visit_plain(locale: str, subject: str, body: str, heading: str) -> Notice:
-    return _visit(locale, subject, body, heading, body)
+def booking_rescheduled_message(locale: str, business_name: str, when: str) -> str:
+    return message(locale, "booking_rescheduled.body", business=business_name, when=when)
 
 
-def booking_rescheduled_message(locale: str, business_name: str, when: str) -> Notice:
-    return _visit_plain(
-        locale,
-        message(locale, "booking_rescheduled.subject", business=business_name),
-        message(locale, "booking_rescheduled.body", business=business_name, when=when),
-        message(locale, "booking_rescheduled.heading"),
-    )
-
-
-def booking_canceled_message(locale: str, business_name: str, when: str) -> Notice:
-    return _visit_plain(
-        locale,
-        message(locale, "booking_canceled.subject", business=business_name),
-        message(locale, "booking_canceled.body", business=business_name, when=when),
-        message(locale, "booking_canceled.heading"),
-    )
+def booking_canceled_message(locale: str, business_name: str, when: str) -> str:
+    return message(locale, "booking_canceled.body", business=business_name, when=when)
 
 
 def booking_reassigned_message(
     locale: str, business_name: str, whens: list[str], member: str
-) -> Notice:
+) -> str:
     if len(whens) == 1:
-        return _visit_plain(
-            locale,
-            message(locale, "booking_reassigned.subject", business=business_name),
-            message(
-                locale,
-                "booking_reassigned.body",
-                business=business_name,
-                when=whens[0],
-                member=member,
-            ),
-            message(locale, "booking_reassigned.heading"),
+        return message(
+            locale, "booking_reassigned.body", business=business_name, when=whens[0], member=member
         )
-    return _visit_plain(
+    return message(
         locale,
-        message(locale, "visits_reassigned.subject", business=business_name),
-        message(
-            locale,
-            "visits_reassigned.body",
-            business=business_name,
-            whens=message(locale, "series.separator").join(whens),
-            member=member,
-        ),
-        message(locale, "visits_reassigned.heading"),
+        "visits_reassigned.body",
+        business=business_name,
+        whens=message(locale, "series.separator").join(whens),
+        member=member,
     )
 
 
 def booking_departed_message(
     locale: str, business_name: str, member: str, arrival: str | None
-) -> Notice:
-    body = (
-        message(
+) -> str:
+    if arrival is not None:
+        return message(
             locale, "booking_departed.body", member=member, business=business_name, time=arrival
         )
-        if arrival is not None
-        else message(locale, "booking_departed.body_now", member=member, business=business_name)
-    )
-    return _visit_plain(
-        locale,
-        message(locale, "booking_departed.subject", member=member, business=business_name),
-        body,
-        message(locale, "booking_departed.heading"),
-    )
+    return message(locale, "booking_departed.body_now", member=member, business=business_name)
 
 
-def booking_requested_message(locale: str, business_name: str, when: str) -> Notice:
-    return _visit_plain(
-        locale,
-        message(locale, "booking_requested.subject", business=business_name),
-        message(locale, "booking_requested.body", business=business_name, when=when),
-        message(locale, "booking_requested.heading"),
-    )
+def booking_requested_message(locale: str, business_name: str, when: str) -> str:
+    return message(locale, "booking_requested.body", business=business_name, when=when)
 
 
-def booking_released_message(locale: str, business_name: str, when: str) -> Notice:
-    return _visit_plain(
-        locale,
-        message(locale, "booking_released.subject", business=business_name),
-        message(locale, "booking_released.body", business=business_name, when=when),
-        message(locale, "booking_released.heading"),
-    )
+def booking_released_message(locale: str, business_name: str, when: str) -> str:
+    return message(locale, "booking_released.body", business=business_name, when=when)
 
 
 def seat_opened_message(
     locale: str, business_name: str, class_name: str, when: str, link: str | None
-) -> Notice:
+) -> str:
     names = {"business": business_name, "name": class_name, "when": when}
-    lead = message(locale, "seat_opened.body", **names)
-    body = message(locale, "seat_opened.body_link", **names, link=link) if link else lead
-    return _visit(
-        locale,
-        message(locale, "seat_opened.subject", **names),
-        body,
-        message(locale, "seat_opened.heading"),
-        lead,
-        link,
-    )
+    if link:
+        return message(locale, "seat_opened.body_link", **names, link=link)
+    return message(locale, "seat_opened.body", **names)
 
 
 def waitlist_joined_message(
     locale: str, business_name: str, class_name: str, when: str, link: str | None
-) -> Notice:
+) -> str:
     names = {"business": business_name, "name": class_name, "when": when}
-    lead = message(locale, "waitlist_joined.body", **names)
-    body = message(locale, "waitlist_joined.body_link", **names, link=link) if link else lead
-    return Notice(
-        message(locale, "waitlist_joined.subject", **names),
-        body,
-        _view(
-            message(locale, "email.kind.booking"),
-            message(locale, "waitlist_joined.heading"),
-            lead,
-            action=_action(message(locale, "waitlist_joined.action"), link),
-        ),
+    if link:
+        return message(locale, "waitlist_joined.body_link", **names, link=link)
+    return message(locale, "waitlist_joined.body", **names)
+
+
+def waitlist_closed_message(locale: str, business_name: str, class_name: str, when: str) -> str:
+    return message(
+        locale, "waitlist_closed.body", business=business_name, name=class_name, when=when
     )
 
 
-def waitlist_closed_message(locale: str, business_name: str, class_name: str, when: str) -> Notice:
-    names = {"business": business_name, "name": class_name, "when": when}
-    return _visit_plain(
-        locale,
-        message(locale, "waitlist_closed.subject", **names),
-        message(locale, "waitlist_closed.body", **names),
-        message(locale, "waitlist_closed.heading"),
+def series_booked_message(locale: str, business_name: str, whens: str) -> str:
+    return message(locale, "series_booked.body", business=business_name, whens=whens)
+
+
+def series_moved_message(locale: str, business_name: str, whens: str) -> str:
+    return message(locale, "series_moved.body", business=business_name, whens=whens)
+
+
+def series_canceled_message(locale: str, business_name: str, whens: str) -> str:
+    return message(locale, "series_canceled.body", business=business_name, whens=whens)
+
+
+def form_sent_message(locale: str, business_name: str, form_name: str, link: str) -> str:
+    return message(locale, "form_sent.body", link=link, business=business_name, form=form_name)
+
+
+def contract_sent_message(locale: str, business_name: str, contract_name: str, link: str) -> str:
+    return message(
+        locale, "contract_sent.body", link=link, business=business_name, contract=contract_name
     )
 
 
-def series_booked_message(locale: str, business_name: str, whens: str) -> Notice:
-    return _visit_plain(
-        locale,
-        message(locale, "series_booked.subject", business=business_name),
-        message(locale, "series_booked.body", business=business_name, whens=whens),
-        message(locale, "series_booked.heading"),
-    )
-
-
-def series_moved_message(locale: str, business_name: str, whens: str) -> Notice:
-    return _visit_plain(
-        locale,
-        message(locale, "series_moved.subject", business=business_name),
-        message(locale, "series_moved.body", business=business_name, whens=whens),
-        message(locale, "series_moved.heading"),
-    )
-
-
-def series_canceled_message(locale: str, business_name: str, whens: str) -> Notice:
-    return _visit_plain(
-        locale,
-        message(locale, "series_canceled.subject", business=business_name),
-        message(locale, "series_canceled.body", business=business_name, whens=whens),
-        message(locale, "series_canceled.heading"),
-    )
-
-
-def form_sent_message(locale: str, business_name: str, form_name: str, link: str) -> Notice:
-    values = {"business": business_name, "form": form_name}
-    return Notice(
-        message(locale, "form_sent.subject", **values),
-        message(locale, "form_sent.body", link=link, **values),
-        _view(
-            message(locale, "email.kind.form"),
-            message(locale, "form_sent.heading", **values),
-            message(locale, "form_sent.lead", **values),
-            action=Action(message(locale, "form.action"), link),
-        ),
-    )
-
-
-def contract_sent_message(locale: str, business_name: str, contract_name: str, link: str) -> Notice:
-    values = {"business": business_name, "contract": contract_name}
-    return Notice(
-        message(locale, "contract_sent.subject", **values),
-        message(locale, "contract_sent.body", link=link, **values),
-        _view(
-            message(locale, "email.kind.contract"),
-            message(locale, "contract_sent.heading", **values),
-            message(locale, "contract_sent.lead", **values),
-            action=Action(message(locale, "contract.action"), link),
-        ),
-    )
-
-
-def review_requested_message(locale: str, business_name: str, link: str, prefs_link: str) -> Notice:
-    view = _view(
-        message(locale, "email.kind.review"),
-        message(locale, "review_requested.heading"),
-        message(locale, "review_requested.lead", business=business_name),
-        action=Action(message(locale, "review.action"), link),
-    )
-    return Notice(
-        message(locale, "review_requested.subject", business=business_name),
-        message(locale, "review_requested.body", business=business_name, link=link),
-        replace(view, footer_link=Action(message(locale, "email.unsubscribe"), prefs_link)),
-    )
-
-
-def message_notice(locale: str, business_name: str, body: str) -> Notice:
-    """A message the business's staff wrote to a client; the subject is the business's name."""
-    return Notice(
-        business_name,
-        body,
-        EmailView(
-            eyebrow=message(locale, "email.kind.message"),
-            heading=message(locale, "message.heading", business=business_name),
-            paragraphs=_paragraphs(body),
-        ),
-    )
+def review_requested_message(locale: str, business_name: str, link: str) -> str:
+    return message(locale, "review_requested.body", business=business_name, link=link)
 
 
 def visit_note_body(locale: str, note: str, link: str) -> str:
@@ -1098,59 +662,16 @@ def visit_link(booking: Booking) -> str | None:
     return f"{get_settings().book_base_url}/m/{booking.manage_token}"
 
 
-def broadcast_text(
-    locale: str,
-    business_name: str,
-    channel: str,
-    body: str,
-    prefs_link: str,
-    address: str,
-    contact: str,
-) -> str:
+def broadcast_text(locale: str, business_name: str, body: str) -> str:
     """A broadcast as the client receives it, with the identification and opt-out CASL requires."""
-    if channel == "sms":
-        return message(locale, "broadcast.sms", business=business_name, body=body, keyword="STOP")
-    return message(
-        locale,
-        "broadcast.email",
-        body=body,
-        business=business_name,
-        address=address,
-        contact=contact,
-        link=prefs_link,
-    )
-
-
-def broadcast_notice(
-    locale: str,
-    business_name: str,
-    name: str,
-    body: str,
-    prefs_link: str,
-    address: str,
-    contact: str,
-) -> Notice:
-    """A broadcast email: the business's identification and the opt-out sit in its footer."""
-    text = broadcast_text(locale, business_name, "email", body, prefs_link, address, contact)
-    contact_line = message(locale, "broadcast.contact", contact=contact)
-    return Notice(
-        name,
-        text,
-        EmailView(
-            eyebrow=message(locale, "email.kind.news"),
-            heading=name,
-            paragraphs=_paragraphs(body),
-            footer=tuple(line for line in (business_name, address, contact_line) if line),
-            footer_link=Action(message(locale, "email.unsubscribe"), prefs_link),
-        ),
-    )
+    return message(locale, "broadcast.sms", business=business_name, body=body, keyword="STOP")
 
 
 def _when(locale: str, business: Business, slot: Slot) -> str:
     return format_day_and_time(locale, slot.starts_at, business.timezone)
 
 
-async def reminder_message(db: AsyncSession, booking: Booking) -> Notice | None:
+async def reminder_message(db: AsyncSession, booking: Booking) -> str | None:
     """The reminder a visit gets, word for word, as the job would send it."""
     slot = await db.get(Slot, booking.slot_id)
     business = await db.get(Business, booking.business_id)
@@ -1215,7 +736,7 @@ class Notifier:
         self.push = push
 
     async def on_payment_succeeded(self, db: AsyncSession, payment_id: str) -> None:
-        """Receipt to the client (email + SMS) + a push alert to the provider's staff devices."""
+        """A receipt text to the client + a push alert to the provider's staff devices."""
         payment = await db.get(Payment, payment_id)
         if payment is None or payment.kind == "refund":
             return
@@ -1241,16 +762,14 @@ class Notifier:
         if payment.client_id is not None:
             await self._to_client(db, payment.client_id, notice)
         elif order is not None:
-            await self._to_contact(
-                db, order.receipt_email, order.receipt_phone, notice, business=business
-            )
+            await self._to_contact(order.receipt_phone, notice, business=business)
         await self._alert_staff(
             db, business, push_body, {"type": "payment", "payment_id": payment_id}
         )
 
     async def on_order_ready(self, db: AsyncSession, order_id: str) -> None:
         order = await db.get(Order, order_id)
-        if order is None or order.client_id is None:
+        if order is None or order.client_id is None or not order.notify_sms:
             return
         business = await db.get(Business, order.business_id)
         if business is None:
@@ -1260,13 +779,11 @@ class Notifier:
             business.name,
             order_link(order.status_token) if order.status_token else None,
         )
-        await self._to_client(
-            db, order.client_id, notice, channel=None if order.notify_sms else "email"
-        )
+        await self._to_client(db, order.client_id, notice)
 
     async def on_order_reminder(self, db: AsyncSession, order_id: str) -> None:
         order = await db.get(Order, order_id)
-        if order is None or order.client_id is None:
+        if order is None or order.client_id is None or not order.notify_sms:
             return
         business = await db.get(Business, order.business_id)
         if business is None:
@@ -1276,12 +793,10 @@ class Notifier:
             business.name,
             order_link(order.status_token) if order.status_token else None,
         )
-        await self._to_client(
-            db, order.client_id, notice, channel=None if order.notify_sms else "email"
-        )
+        await self._to_client(db, order.client_id, notice)
 
     async def on_order_receipt(self, db: AsyncSession, order_id: str) -> None:
-        """The receipt link, by the one channel the desk chose."""
+        """The receipt link, texted to the number the desk entered."""
         order = await db.get(Order, order_id)
         if order is None or order.receipt_token is None:
             return
@@ -1294,10 +809,7 @@ class Notifier:
             order.number,
             receipt_link(order.receipt_token),
         )
-        if order.receipt_channel == "email":
-            await self._to_contact(db, order.receipt_email, None, notice, business=business)
-        elif order.receipt_channel == "sms":
-            await self._to_contact(db, None, order.receipt_phone, notice, business=business)
+        await self._to_contact(order.receipt_phone, notice, business=business)
 
     async def on_invoice_sent(self, db: AsyncSession, invoice_id: str) -> None:
         invoice = await db.get(Invoice, invoice_id)
@@ -1522,25 +1034,15 @@ class Notifier:
         locale = locale_for(business=business)
         amount = format_money(locale, card.initial_cents, payment.currency)
         notice = gift_card_issued_message(locale, business.name, amount, card.code)
-        if "@" in card.recipient:
-            brand = await business_brand(db, business)
-            await self._safe(self.email.send(client_email(business, brand, card.recipient, notice)))
-        else:
-            await self._safe(
-                self.sms.send(
-                    Sms(to=card.recipient, body=notice.body, from_number=business.sms_number)
-                )
-            )
+        await self._to_contact(card.recipient, notice, business=business)
 
     async def on_booking_reminder(self, db: AsyncSession, booking_id: str) -> Outcome:
         booking = await db.get(Booking, booking_id)
         if booking is None:
             return Outcome.SKIPPED
         notice = await reminder_message(db, booking)
-        business = await db.get(Business, booking.business_id)
-        if notice is None or business is None:
+        if notice is None:
             return Outcome.SKIPPED
-        notice = await at_the_visit(db, business, booking, notice)
         return await self._to_client(db, booking.client_id, notice)
 
     async def on_booking_confirmed(self, db: AsyncSession, booking_id: str) -> None:
@@ -1561,7 +1063,6 @@ class Notifier:
                 locale, business.name, when, _manage_link(business, booking)
             )
         )
-        notice = await at_the_visit(db, business, booking, notice)
         await self._to_client(db, booking.client_id, notice)
 
     async def on_booking_departed(self, db: AsyncSession, booking_id: str) -> None:
@@ -1579,7 +1080,7 @@ class Notifier:
         ahead = slot.starts_at > clock.now()
         arrival = format_time(locale, slot.starts_at, business.timezone) if ahead else None
         notice = booking_departed_message(locale, business.name, member, arrival)
-        await self._to_client(db, booking.client_id, notice, channel="sms")
+        await self._to_client(db, booking.client_id, notice)
 
     async def on_booking_rescheduled(self, db: AsyncSession, booking_id: str) -> None:
         await self._visit_notice(db, booking_id, booking_rescheduled_message)
@@ -1612,7 +1113,7 @@ class Notifier:
         self,
         db: AsyncSession,
         booking_id: str,
-        build: Callable[[str, str, str, str, str | None], Notice],
+        build: Callable[[str, str, str, str, str | None], str],
     ) -> None:
         """A notice naming the class and its session, with the manage link when there is one."""
         booking = await db.get(Booking, booking_id)
@@ -1626,11 +1127,10 @@ class Notifier:
         locale = locale_for(business=business)
         when = _when(locale, business, slot)
         notice = build(locale, business.name, item.name, when, _manage_link(business, booking))
-        notice = await at_the_visit(db, business, booking, notice)
         await self._to_client(db, booking.client_id, notice)
 
     async def _visit_notice(
-        self, db: AsyncSession, booking_id: str, build: Callable[[str, str, str], Notice]
+        self, db: AsyncSession, booking_id: str, build: Callable[[str, str, str], str]
     ) -> None:
         booking = await db.get(Booking, booking_id)
         if booking is None:
@@ -1641,7 +1141,6 @@ class Notifier:
             return
         locale = locale_for(business=business)
         notice = build(locale, business.name, _when(locale, business, slot))
-        notice = await at_the_visit(db, business, booking, notice)
         await self._to_client(db, booking.client_id, notice)
 
     async def on_series_booked(
@@ -1721,17 +1220,10 @@ class Notifier:
     async def invite_review(
         self, db: AsyncSession, business: Business, client_id: str, link: str
     ) -> Outcome:
-        prefs_link = f"{prefs_url(client_id)}?unsubscribe=email"
-        notice = review_requested_message(
-            locale_for(business=business), business.name, link, prefs_link
-        )
-        # an invitation asks the client for something, so an email opt-out leaves only texts
-        opted_out = await emails_withdrawn(db, business.id, client_id)
-        return await self._to_client(
-            db, client_id, notice, channel="sms" if opted_out else None, opt_out=True
-        )
+        notice = review_requested_message(locale_for(business=business), business.name, link)
+        return await self._to_client(db, client_id, notice)
 
-    async def deliver(self, db: AsyncSession, client_id: str, notice: Notice) -> Outcome:
+    async def deliver(self, db: AsyncSession, client_id: str, notice: str) -> Outcome:
         return await self._to_client(db, client_id, notice)
 
     async def on_form_sent(self, db: AsyncSession, form_response_id: str) -> Outcome:
@@ -1764,7 +1256,7 @@ class Notifier:
         )
         await self._to_client(db, signature.client_id, notice)
 
-    async def _itemised(self, db: AsyncSession, locale: str, payment: Payment) -> Itemised:
+    async def _itemised(self, db: AsyncSession, locale: str, payment: Payment) -> tuple[str, ...]:
         parent: tuple[LineParent, str] | None = (
             ("order", payment.order_id)
             if payment.order_id
@@ -1773,7 +1265,7 @@ class Notifier:
             else None
         )
         if parent is None:
-            return Itemised((), ())
+            return ()
         lines = await fetch_lines(db, payment.business_id, *parent)
         document = (
             await db.get(Order, parent[1])
@@ -1781,7 +1273,7 @@ class Notifier:
             else await db.get(Invoice, parent[1])
         )
         if not lines or document is None:
-            return Itemised((), ())
+            return ()
         tax = await issued_tax(db, payment.business_id, lines, issued_at(document))
         tips = await ledger.document_tips(db, payment.business_id, parent)
         cur = payment.currency
@@ -1804,78 +1296,26 @@ class Notifier:
             format_money(locale, tips, cur) if tips else None,
         )
 
-    async def _to_contact(
-        self,
-        db: AsyncSession,
-        email: str | None,
-        phone: str | None,
-        notice: Notice,
-        *,
-        business: Business,
-    ) -> None:
-        if email:
-            brand = await business_brand(db, business)
-            await self._safe(self.email.send(client_email(business, brand, email, notice)))
+    async def _to_contact(self, phone: str | None, notice: str, *, business: Business) -> None:
         number = e164(phone) if phone else None
         if number:
             await self._safe(
-                self.sms.send(
-                    Sms(
-                        to=number,
-                        body=notice.body,
-                        from_number=business.sms_number if business else None,
-                    )
-                )
+                self.sms.send(Sms(to=number, body=notice, from_number=business.sms_number))
             )
 
-    async def _to_client(
-        self,
-        db: AsyncSession,
-        client_id: str | None,
-        notice: Notice,
-        *,
-        channel: str | None = None,
-        opt_out: bool = False,
-    ) -> Outcome:
-        """Email + SMS to a client (or only the channel asked for), each isolated from the other."""
+    async def _to_client(self, db: AsyncSession, client_id: str | None, notice: str) -> Outcome:
+        """A text to a client, unless they have no mobile number or replied STOP."""
         if client_id is None:
             return Outcome.SKIPPED
         client = await db.get(Client, client_id)
         if client is None:
             return Outcome.SKIPPED
-        business = await db.get(Business, client.business_id)
-        sent: list[bool] = []
-        if client.email and channel != "sms" and business is not None:
-            brand = await business_brand(db, business)
-            mail = client_email(business, brand, client.email, notice, client=client)
-            # a direct send checked consent just now; a queued one checks it again as it goes
-            sending = (
-                self.email.send(mail, client_id=client.id, opt_out=opt_out)
-                if isinstance(self.email, QueuedEmail)
-                else self.email.send(mail)
-            )
-            sent.append(await self._safe(sending))
         number = e164(client.phone) if client.phone else None
-        if (
-            number
-            and channel != "email"
-            and not await texts_stopped(db, client.business_id, client.id)
-        ):
-            sent.append(
-                await self._safe(
-                    self.sms.send(
-                        Sms(
-                            to=number,
-                            body=notice.body,
-                            from_number=business.sms_number if business else None,
-                        )
-                    )
-                )
-            )
-        if not sent:
+        if number is None or await texts_stopped(db, client.business_id, client.id):
             return Outcome.SKIPPED
-        # one channel reaching the client counts, so a retry never repeats the channel that worked
-        return Outcome.DELIVERED if any(sent) else Outcome.FAILED
+        business = await db.get(Business, client.business_id)
+        sms = Sms(to=number, body=notice, from_number=business.sms_number if business else None)
+        return Outcome.DELIVERED if await self._safe(self.sms.send(sms)) else Outcome.FAILED
 
     async def _alert_staff(
         self, db: AsyncSession, business: Business, body: str, data: dict[str, str]

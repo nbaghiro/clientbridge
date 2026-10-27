@@ -515,7 +515,6 @@ HANDOVER_FIELDS: tuple[DocField, ...] = (
 class Household:
     key: str
     name: str
-    email: str
     phone: str
     address: str
     building: Building
@@ -529,7 +528,6 @@ HOMEOWNERS = (
     Household(
         "harper",
         "Harper Sinclair",
-        "harper.sinclair@example.test",
         "+12505550100",
         "1734 Hollywood Crescent, Victoria, BC V8S 1J2",
         "house",
@@ -538,7 +536,6 @@ HOMEOWNERS = (
     Household(
         "rajesh",
         "Rajesh Menon",
-        "rajesh.menon@example.test",
         "+12505550101",
         "4012 Cedar Hill Cross Road, Saanich, BC V8N 2N9",
         "house",
@@ -549,7 +546,6 @@ HOMEOWNERS = (
     Household(
         "claire",
         "Claire Beaumont",
-        "claire.beaumont@example.test",
         "+12505550102",
         "2251 Beach Drive, Oak Bay, BC V8R 6K1",
         "house",
@@ -560,7 +556,6 @@ HOMEOWNERS = (
     Household(
         "owen",
         "Owen Gallagher",
-        "owen.gallagher@example.test",
         "+12505550103",
         "3150 Carey Road, Saanich, BC V8Z 4H1",
         "house",
@@ -571,7 +566,6 @@ HOMEOWNERS = (
     Household(
         "meilin",
         "Mei Lin Zhou",
-        "meilin.zhou@example.test",
         "+12505550104",
         "1462 Westall Avenue, Victoria, BC V8T 2G6",
         "house",
@@ -583,7 +577,6 @@ HOMEOWNERS = (
     Household(
         "sarah",
         "Sarah Whitfield",
-        "sarah.whitfield@example.test",
         "+12505550105",
         "887 Royal Oak Avenue, Saanich, BC V8X 3T4",
         "house",
@@ -594,7 +587,6 @@ HOMEOWNERS = (
     Household(
         "fiona",
         "Fiona MacLeod",
-        "fiona.macleod@example.test",
         "+12505550106",
         "516 Admirals Road, Esquimalt, BC V9A 2N8",
         "house",
@@ -605,7 +597,6 @@ HOMEOWNERS = (
     Household(
         "gordon",
         "Gordon Pike",
-        "gordon.pike@example.test",
         "+12505550107",
         "2930 Glenwood Avenue, Victoria, BC V8T 3A7",
         "house",
@@ -613,7 +604,6 @@ HOMEOWNERS = (
     Household(
         "natalie",
         "Natalie Ferreira",
-        "natalie.ferreira@example.test",
         "+12505550108",
         "1205 Haultain Street, Victoria, BC V8T 1V8",
         "townhouse",
@@ -621,7 +611,6 @@ HOMEOWNERS = (
     Household(
         "kevin",
         "Kevin Brandt",
-        "kevin.brandt@example.test",
         "+12505550109",
         "3478 Tillicum Road, Saanich, BC V8Z 4H6",
         "house",
@@ -631,7 +620,6 @@ HOMEOWNERS = (
     Household(
         "joan",
         "Joan Whitaker",
-        "joan.whitaker@example.test",
         "+12505550110",
         "4471 Cordova Bay Road, Saanich, BC V8X 3V5",
         "house",
@@ -642,7 +630,6 @@ HOMEOWNERS = (
     Household(
         "arjun",
         "Arjun Bhatt",
-        "arjun.bhatt@example.test",
         "+12505550111",
         "1018 Pemberton Road, Victoria, BC V8S 3R5",
         "house",
@@ -652,7 +639,6 @@ HOMEOWNERS = (
     Household(
         "louise",
         "Louise Gagnon",
-        "louise.gagnon@example.test",
         "+12505550112",
         "5 Sea Lion Way, View Royal, BC V9B 6S3",
         "townhouse",
@@ -663,7 +649,6 @@ HOMEOWNERS = (
     Household(
         "tariq",
         "Tariq Haddad",
-        "tariq.haddad@example.test",
         "+12505550113",
         "2766 Shelbourne Street, Victoria, BC V8R 4M3",
         "house",
@@ -673,7 +658,6 @@ HOMEOWNERS = (
     Household(
         "ingrid",
         "Ingrid Solberg",
-        "ingrid.solberg@example.test",
         "+12505550114",
         "1590 Rockland Avenue, Victoria, BC V8S 1W5",
         "house",
@@ -684,7 +668,6 @@ HOMEOWNERS = (
     Household(
         "marco",
         "Marco Rossi",
-        "marco.rossi@example.test",
         "+12505550115",
         "322 Kingston Street, Victoria, BC V8V 1V4",
         "townhouse",
@@ -694,7 +677,6 @@ HOMEOWNERS = (
     Household(
         "hana",
         "Hana Kim",
-        "hana.kim@example.test",
         "+12505550116",
         "1129 Oscar Street, Victoria, BC V8V 2X3",
         "apartment",
@@ -704,7 +686,6 @@ HOMEOWNERS = (
     Household(
         "peter",
         "Peter Nakamura",
-        "peter.nakamura@example.test",
         "+12505550117",
         "3840 Blenkinsop Road, Saanich, BC V8P 3N9",
         "house",
@@ -714,7 +695,6 @@ HOMEOWNERS = (
     Household(
         "rebecca",
         "Rebecca Thornton",
-        "rebecca.thornton@example.test",
         "+12505550118",
         "2041 Lansdowne Road, Oak Bay, BC V8P 1B4",
         "house",
@@ -724,7 +704,6 @@ HOMEOWNERS = (
     Household(
         "colin",
         "Colin McAllister",
-        "colin.mcallister@example.test",
         "+12505550119",
         "715 Ellery Street, Esquimalt, BC V9A 4R5",
         "house",
@@ -734,7 +713,6 @@ HOMEOWNERS = (
     Household(
         "diane",
         "Diane Ostrowski",
-        "diane.ostrowski@example.test",
         "+12505550120",
         "4290 Lindsay Street, Saanich, BC V8N 4C9",
         "house",
@@ -743,7 +721,6 @@ HOMEOWNERS = (
     Household(
         "simon",
         "Simon Leclerc",
-        "simon.leclerc@example.test",
         "+12505550121",
         "2610 Asquith Street, Victoria, BC V8R 3Y6",
         "house",
@@ -754,7 +731,6 @@ HOMEOWNERS = (
     Household(
         "aisha",
         "Aisha Rahman",
-        "aisha.rahman@example.test",
         "+12505550122",
         "1847 Carnarvon Street, Victoria, BC V8R 2V3",
         "house",
@@ -764,7 +740,6 @@ HOMEOWNERS = (
     Household(
         "victor",
         "Victor Almeida",
-        "victor.almeida@example.test",
         "+12505550123",
         "3395 Richmond Road, Saanich, BC V8P 4P7",
         "house",
@@ -772,7 +747,6 @@ HOMEOWNERS = (
     Household(
         "emily",
         "Emily Chow",
-        "emily.chow@example.test",
         "+12505550124",
         "958 Craigflower Road, Esquimalt, BC V9A 2X9",
         "house",
@@ -782,7 +756,6 @@ HOMEOWNERS = (
     Household(
         "graham",
         "Graham Fletcher",
-        "graham.fletcher@example.test",
         "+12505550125",
         "6120 Old West Saanich Road, Saanich, BC V9E 2G8",
         "house",
@@ -793,7 +766,6 @@ HOMEOWNERS = (
     Household(
         "nora",
         "Nora Lindgren",
-        "nora.lindgren@example.test",
         "+12505550126",
         "2875 Colquitz Avenue, Saanich, BC V8Z 1J5",
         "house",
@@ -803,7 +775,6 @@ HOMEOWNERS = (
     Household(
         "patrick",
         "Patrick Doyle",
-        "patrick.doyle@example.test",
         "+12505550127",
         "1432 Fort Street, Victoria, BC V8S 1Z1",
         "house",
@@ -813,7 +784,6 @@ HOMEOWNERS = (
     Household(
         "ruth",
         "Ruth Abernathy",
-        "ruth.abernathy@example.test",
         "+12505550128",
         "14 Cook Street Mews, Victoria, BC V8V 3W8",
         "townhouse",
@@ -823,7 +793,6 @@ HOMEOWNERS = (
     Household(
         "jasmine",
         "Jasmine Oduya",
-        "jasmine.oduya@example.test",
         "+12505550129",
         "3021 Jutland Road, Victoria, BC V8T 5K2",
         "house",
@@ -834,7 +803,6 @@ BUSINESSES = (
     Household(
         "islandstorage",
         "Island Self Storage",
-        "accounts.islandstorage@example.test",
         "+12505550130",
         "2790 Jacklin Road, Langford, BC V9B 3X6",
         "warehouse",
@@ -845,7 +813,6 @@ BUSINESSES = (
     Household(
         "cookdental",
         "Cook Street Dental",
-        "office.cookdental@example.test",
         "+12505550131",
         "1120 Cook Street, Victoria, BC V8V 3Z9",
         "office",
@@ -856,7 +823,6 @@ BUSINESSES = (
     Household(
         "harbourbikes",
         "Harbourline Bikes",
-        "hello.harbourbikes@example.test",
         "+12505550132",
         "530 Herald Street, Victoria, BC V8W 1S6",
         "retail",
@@ -867,7 +833,6 @@ BUSINESSES = (
     Household(
         "gorgeauto",
         "Gorge Road Auto",
-        "service.gorgeauto@example.test",
         "+12505550133",
         "455 Gorge Road East, Victoria, BC V8T 2W1",
         "warehouse",
@@ -879,7 +844,6 @@ BUSINESSES = (
 STORAGE_SAANICH = Household(
     "islandstorage_saanich",
     "Saanich facility",
-    "",
     "",
     "4120 Glanford Avenue, Saanich, BC V8Z 4B6",
     "warehouse",
@@ -1135,7 +1099,6 @@ def _generated_household(index: int) -> Household:
     return Household(
         f"home_{index:02}",
         f"{first} {last}",
-        f"{first.lower()}.{last.lower()}@example.test",
         f"+12505550{134 + index}",
         f"{number} {street}, {city}, BC {postal}",
         building,
@@ -1183,10 +1146,8 @@ class Northlight(Demo):
         self.client(
             home.key,
             home.name,
-            home.email,
             home.phone,
             tags=tags,
-            channel="email" if tags else "sms",
             fields={"source": "referral" if len(home.key) % 3 == 0 else "google"},
             subject=home.address.split(",")[0],
             attributes=_site_attributes(home),
@@ -1923,13 +1884,13 @@ class Northlight(Demo):
 
     def engagement(self) -> None:
         self.consents()
-        self.withdraw("kevin", "email", self.now - timedelta(days=20))
+        self.withdraw("kevin", self.now - timedelta(days=20))
         self.broadcast(
             "spring",
             "Spring camera check",
             "Spring is a good time to check your cameras. Wipe each lens with a soft cloth, trim "
             "plants that block a view, and open the app to confirm every camera shows a live "
-            "picture. If a camera is offline or the picture looks wrong, reply to this email or "
+            "picture. If a camera is offline or the picture looks wrong, reply to this message or "
             "book a service call online.",
             self.at(-185, 10),
         )
@@ -2012,7 +1973,7 @@ class Northlight(Demo):
     def conversations(self) -> None:
         ctx = self.ctx
         when = self.now - timedelta(hours=3)
-        thread = self.thread("harper", "email", when)
+        thread = self.thread("harper", when)
         self.say(
             thread,
             "Hi, I booked a survey online. Do I need to be home for the whole visit? I also "
@@ -2028,7 +1989,7 @@ class Northlight(Demo):
         )
         rajesh = ctx.get(Estimate, "est_nl_rajesh")
         when = rajesh.created_at + timedelta(minutes=10)
-        thread = self.thread("rajesh", "email", when)
+        thread = self.thread("rajesh", when)
         self.say(
             thread,
             "Hi Rajesh, your estimate is ready. The two extra cameras and the larger drive are "
@@ -2064,7 +2025,7 @@ class Northlight(Demo):
             booking = ctx.get(Booking, f"bk_nl_{key}")
             when = min(booking.starts_at - timedelta(hours=20), self.now - timedelta(hours=2))
             local = self.local(booking.starts_at)
-            thread = self.thread(key, "sms", when)
+            thread = self.thread(key, when)
             self.say(
                 thread,
                 f"Hi {ctx.get(Client, booking.client_id).name.split()[0]}, {staff_name} from "
@@ -2076,11 +2037,11 @@ class Northlight(Demo):
         saanich = ctx.get(Invoice, "inv_nl_islandstorage_saanich")
         if saanich.overdue_notified_at is not None:
             when = saanich.overdue_notified_at + timedelta(hours=3)
-            thread = self.thread("islandstorage", "email", when)
+            thread = self.thread("islandstorage", when)
             self.say(
                 thread,
                 f"Hello, invoice {saanich.number} for the Saanich install is past due. You can pay "
-                "by card from the link in the invoice email, or by e-Transfer to "
+                "by card from the invoice link, or by e-Transfer to "
                 "hello@northlight.example.",
                 when,
             )
@@ -2092,7 +2053,7 @@ class Northlight(Demo):
             )
         call = ctx.get(Booking, "bk_nl_fiona_warranty")
         when = min(call.created_at + timedelta(minutes=5), self.now - timedelta(hours=1))
-        thread = self.thread("fiona", "sms", when - timedelta(hours=1))
+        thread = self.thread("fiona", when - timedelta(hours=1))
         self.say(
             thread,
             "Hi, the camera over the driveway keeps going offline at night. Is it still under "
@@ -2108,7 +2069,7 @@ class Northlight(Demo):
         )
         kevin = ctx.get(Booking, "bk_nl_kevin")
         when = kevin.starts_at + timedelta(minutes=50)
-        thread = self.thread("kevin", "sms", when)
+        thread = self.thread("kevin", when)
         self.say(thread, "Is someone still coming today? We were told 9 to 10.", when, sender=None)
         self.say(
             thread,

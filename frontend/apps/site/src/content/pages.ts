@@ -231,8 +231,8 @@ export interface LegalPage {
     };
 }
 
-// the day both legal pages last changed, as a date in Ontario
-const LEGAL_UPDATED = new Date("2026-10-14T12:00:00-04:00");
+const PRIVACY_UPDATED = new Date("2026-10-27T12:00:00-04:00");
+const TERMS_UPDATED = new Date("2026-10-14T12:00:00-04:00");
 
 const legalSections = (
     sections: readonly { title: string; body: readonly string[]; items?: readonly string[] }[],
@@ -254,13 +254,11 @@ export const paymentDisclosure = {
     ],
 };
 
-const updated = s.legal.updated(formatLongDate(LEGAL_UPDATED, "America/Toronto"));
-
 export const privacyPage: LegalPage = {
     paymentDisclosure,
     meta: pageMeta(s.privacyPage.meta),
     title: s.privacyPage.title,
-    updated,
+    updated: s.legal.updated(formatLongDate(PRIVACY_UPDATED, "America/Toronto")),
     intro: s.privacyPage.intro,
     sections: legalSections(s.privacyPage.sections),
     contactTitle: s.legal.contactTitle,
@@ -271,7 +269,7 @@ export const termsPage: LegalPage = {
     paymentDisclosure,
     meta: pageMeta(s.termsPage.meta),
     title: s.termsPage.title,
-    updated,
+    updated: s.legal.updated(formatLongDate(TERMS_UPDATED, "America/Toronto")),
     intro: s.termsPage.intro,
     sections: legalSections(s.termsPage.sections),
     contactTitle: s.legal.contactTitle,

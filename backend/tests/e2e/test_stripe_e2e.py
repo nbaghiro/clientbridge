@@ -142,13 +142,12 @@ async def test_customer_retry_after_rename_stays_on_the_same_account(stripe_run:
     retried = await stripe_run.gateway.create_customer(
         stripe_run.account,
         name="Renamed QA Customer",
-        email="renamed@clientbridge.test",
         idempotency_key=f"{stripe_run.namespace}:customer:0",
     )
     assert retried == customer
     current = await stripe.Customer.retrieve_async(customer, stripe_account=stripe_run.account)
     assert current.name == "Renamed QA Customer"
-    assert current.email == "renamed@clientbridge.test"
+    assert current.email is None
 
 
 async def test_customers_and_methods_cannot_cross_connected_accounts(

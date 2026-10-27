@@ -3,7 +3,7 @@ name: Client record opens its editor
 ---
 - runFlow: ../helpers/owner.yaml
 - tapOn: "Clients"
-- tapOn: "Search name, phone, email or pet"
+- tapOn: "Search name, phone or pet"
 - inputText: "Olivia"
 - hideKeyboard
 - tapOn: ".*Olivia Martin.*"

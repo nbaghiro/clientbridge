@@ -455,7 +455,7 @@ class FakePaymentGateway:
         self.objects: dict[tuple[str | None, str, str], dict[str, object]] = {}
         self.missed: dict[str | None, list[MissedEvent]] = {}
         self.customer_keys: dict[str, str] = {}
-        self.customer_updates: list[tuple[str, str, str | None]] = []
+        self.customer_updates: list[tuple[str, str]] = []
         self.unreadable_accounts: set[str] = set()
         self.terminal_customers: dict[str, str | None] = {}
         self.balances: dict[str, AccountBalance] = {}
@@ -655,16 +655,12 @@ class FakePaymentGateway:
     ) -> list[MissedEvent]:
         return [e for e in self.missed.get(account_id, []) if e.created >= since][:limit]
 
-    async def create_customer(
-        self, account_id: str, *, name: str, email: str | None, idempotency_key: str
-    ) -> str:
+    async def create_customer(self, account_id: str, *, name: str, idempotency_key: str) -> str:
         self._seq += 1
         return self.customer_keys.setdefault(idempotency_key, f"cus_fake{self._seq}")
 
-    async def update_customer(
-        self, account_id: str, customer_id: str, *, name: str, email: str | None
-    ) -> None:
-        self.customer_updates.append((customer_id, name, email))
+    async def update_customer(self, account_id: str, customer_id: str, *, name: str) -> None:
+        self.customer_updates.append((customer_id, name))
 
     async def create_setup_intent(self, account_id: str, *, customer_id: str) -> SetupIntentResult:
         self._seq += 1
