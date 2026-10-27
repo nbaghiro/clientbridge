@@ -13202,6 +13202,12 @@
     "navigation.search": {
         "message": "Search"
     },
+    "navigation.hideSidebar": {
+        "message": "Hide sidebar"
+    },
+    "navigation.showSidebar": {
+        "message": "Show sidebar"
+    },
     "navigation.searchShortcut": {
         "message": "⌘K"
     },

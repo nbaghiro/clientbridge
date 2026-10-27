@@ -76,4 +76,4 @@ export { ActionTile } from "./ActionTile";
 export { DayRail } from "./DayRail";
 export { OptionCard } from "./OptionCard";
 export { SlotChips } from "./SlotChips";
-export { useTabletLayout } from "./layout";
+export { SidebarContext, useTabletLayout } from "./layout";

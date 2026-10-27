@@ -4500,6 +4500,8 @@ interface Strings {
     readonly navigation: {
         readonly createMenu: string;
         readonly search: string;
+        readonly hideSidebar: string;
+        readonly showSidebar: string;
         readonly searchShortcut: string;
         readonly notifications: string;
         readonly businessMenu: string;

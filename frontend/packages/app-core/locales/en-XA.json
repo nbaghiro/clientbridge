@@ -12302,6 +12302,12 @@
     "navigation.search": {
         "message": "[Šéåŕçĥ one]"
     },
+    "navigation.hideSidebar": {
+        "message": "[Ĥîðé šîðéƀåŕ one two]"
+    },
+    "navigation.showSidebar": {
+        "message": "[Šĥöŵ šîðéƀåŕ one two]"
+    },
     "navigation.searchShortcut": {
         "message": "[⌘Ķ one]"
     },

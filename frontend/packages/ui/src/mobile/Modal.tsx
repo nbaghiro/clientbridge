@@ -13,7 +13,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { useTabletLayout } from "./layout";
+import { SidebarContext, useTabletLayout } from "./layout";
 import { useModalLayer, useOverlay } from "./layers";
 import type { NativeProps } from "./props";
 
@@ -76,57 +76,59 @@ export function Modal({
             animationType="fade"
             onRequestClose={onClose}
         >
-            <KeyboardAvoidingView
-                style={styles.fill}
-                behavior={Platform.OS === "ios" ? "padding" : undefined}
-            >
-                <View
-                    style={[
-                        styles.backdrop,
-                        panel ? styles.docked : tablet ? styles.centred : null,
-                    ]}
-                    accessibilityViewIsModal
+            <SidebarContext.Provider value={null}>
+                <KeyboardAvoidingView
+                    style={styles.fill}
+                    behavior={Platform.OS === "ios" ? "padding" : undefined}
                 >
-                    <Pressable
-                        style={StyleSheet.absoluteFill}
-                        onPress={onClose}
-                        accessibilityRole="button"
-                        accessibilityLabel={strings.common.close}
-                    />
-                    {panel ? (
-                        <Animated.View
-                            style={[
-                                styles.panel,
-                                { paddingTop: insets.top, paddingBottom: insets.bottom },
-                                {
-                                    transform: [
-                                        {
-                                            translateX: slide.interpolate({
-                                                inputRange: [0, 1],
-                                                outputRange: [48, 0],
-                                            }),
-                                        },
-                                    ],
-                                },
-                            ]}
-                        >
-                            <FlowContext.Provider value={flow}>{content}</FlowContext.Provider>
-                        </Animated.View>
-                    ) : (
-                        <View
-                            style={[
-                                styles.sheet,
-                                tablet && styles.card,
-                                size === "xl" && styles.tall,
-                                (framed || flow) && styles.surface,
-                            ]}
-                        >
-                            <FlowContext.Provider value={flow}>{content}</FlowContext.Provider>
-                        </View>
-                    )}
-                </View>
-            </KeyboardAvoidingView>
-            {top ? overlay : null}
+                    <View
+                        style={[
+                            styles.backdrop,
+                            panel ? styles.docked : tablet ? styles.centred : null,
+                        ]}
+                        accessibilityViewIsModal
+                    >
+                        <Pressable
+                            style={StyleSheet.absoluteFill}
+                            onPress={onClose}
+                            accessibilityRole="button"
+                            accessibilityLabel={strings.common.close}
+                        />
+                        {panel ? (
+                            <Animated.View
+                                style={[
+                                    styles.panel,
+                                    { paddingTop: insets.top, paddingBottom: insets.bottom },
+                                    {
+                                        transform: [
+                                            {
+                                                translateX: slide.interpolate({
+                                                    inputRange: [0, 1],
+                                                    outputRange: [48, 0],
+                                                }),
+                                            },
+                                        ],
+                                    },
+                                ]}
+                            >
+                                <FlowContext.Provider value={flow}>{content}</FlowContext.Provider>
+                            </Animated.View>
+                        ) : (
+                            <View
+                                style={[
+                                    styles.sheet,
+                                    tablet && styles.card,
+                                    size === "xl" && styles.tall,
+                                    (framed || flow) && styles.surface,
+                                ]}
+                            >
+                                <FlowContext.Provider value={flow}>{content}</FlowContext.Provider>
+                            </View>
+                        )}
+                    </View>
+                </KeyboardAvoidingView>
+                {top ? overlay : null}
+            </SidebarContext.Provider>
         </NativeModal>
     );
 }

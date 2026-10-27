@@ -12,7 +12,7 @@ import {
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
-import { useRef, useState } from "react";
+import { useContext, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
@@ -25,6 +25,7 @@ import {
     Notice,
     SyncBanner,
     confirm,
+    SidebarContext,
     useTabletLayout,
 } from "@clientbridge/ui";
 
@@ -93,7 +94,9 @@ export function ShellBanners() {
 }
 
 export function TabBar(props: BottomTabBarProps) {
-    return useTabletLayout() ? <Sidebar {...props} /> : <BottomBar {...props} />;
+    const sidebar = useContext(SidebarContext);
+    if (!useTabletLayout()) return <BottomBar {...props} />;
+    return sidebar?.hidden === true ? null : <Sidebar {...props} />;
 }
 
 function BottomBar({ state, navigation }: BottomTabBarProps) {
