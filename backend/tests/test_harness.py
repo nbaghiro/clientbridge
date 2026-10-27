@@ -33,6 +33,8 @@ from e2e.namespace import Renamer
 from e2e.results import (
     BROWSER_CASES,
     REQUIRED_CASES,
+    WEBKIT_EXCLUDED,
+    WEBKIT_EXCLUDED_TAG,
     Attempt,
     Report,
     Spec,
@@ -607,7 +609,25 @@ def test_every_browser_case_is_tagged_and_named_once() -> None:
     ) + len(BROWSER_CASES["connect"])
     for identity in identities:
         assert re.search(rf'test\(\s*"{re.escape(identity)}[ "]', sources), identity
-    assert sources.count('tag: "@browsers"') == len(identities)
+    tags = re.findall(r'tag: (\[[^\]]*\]|"[^"]*")', sources)
+    assert sum('"@browsers"' in tag for tag in tags) == len(identities)
+    excluded = [BROWSER_CASES["web"][identity] for identity in sorted(WEBKIT_EXCLUDED)]
+    for title in excluded:
+        assert re.search(
+            rf'test\(\s*"{re.escape(title)}[ "][\s\S]{{0,300}}?{WEBKIT_EXCLUDED_TAG}', sources
+        ), title
+    assert sum(WEBKIT_EXCLUDED_TAG in tag for tag in tags) == len(excluded)
+    config = (root / "web" / "playwright.config.ts").read_text()
+    assert f"grepInvert: /{WEBKIT_EXCLUDED_TAG}/" in config
+
+
+def test_webkit_alone_drops_the_offline_reload_cases() -> None:
+    cases = browser_cases("web")
+    offline = {BROWSER_CASES["web"][identity] for identity in WEBKIT_EXCLUDED}
+    assert offline <= set(cases["firefox"])
+    assert not offline & set(cases["webkit"])
+    assert set(cases["firefox"]) - set(cases["webkit"]) == offline
+    assert browser_cases("connect")["webkit"] == browser_cases("connect")["firefox"]
 
 
 LANE_FILES = {

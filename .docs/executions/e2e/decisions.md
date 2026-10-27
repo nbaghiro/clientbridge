@@ -25,3 +25,11 @@ Where a case met behaviour whose intent wasn't settled, it asserts the current b
 **Chosen.** Current behaviour. The case asserts the Sold out tag, a disabled Increase button and no Add button while the unit is gone, then, after the desk refund, the low-stock tag, an enabled Decrease button and the line still in the order summary.
 
 **Why.** Connect keeps the cart in session storage on purpose, so a reload during checkout resumes the order (the SALE-E2E-03 fix). Dropping a refused line from the cart would be a separate product change.
+
+## XB-E2E-05 and XB-E2E-06: the offline reload cases in WebKit
+
+**Question.** Both cases reload the production shell while the browser is offline and expect the service worker to serve it. In WebKit the reload never reaches the service worker: with `setOffline(true)`, any navigation to a service-worker page fails with "WebKit encountered an internal error", and a `route` that aborts requests blocks the navigation before the worker sees it and misses the page's own API fetches. A ten-line page with a service worker shows the same thing in Playwright 1.63 on macOS and in the Linux Playwright image.
+
+**Chosen.** The two cases carry a `@no-webkit` tag, the web config's WebKit project leaves that tag out with `grepInvert`, and `WEBKIT_EXCLUDED` in `backend/e2e/results.py` drops them from WebKit's required cases. Chromium and Firefox still require and run both.
+
+**Why.** The limit is in Playwright's WebKit offline emulation, so the cases can't pass there whatever the app does. Keeping them required in Chromium and Firefox keeps the offline restore and expiry covered, and `test_harness.py` checks that only these two cases are excluded and that the config excludes the same tag.

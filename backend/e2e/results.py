@@ -148,9 +148,24 @@ BROWSER_CASES = {
 }
 
 
+# Playwright's WebKit can't load a service-worker page offline; Chromium and Firefox run these
+WEBKIT_EXCLUDED = frozenset({"XB-E2E-05", "XB-E2E-06"})
+# the tag that keeps a case out of the WebKit project, matched by its grepInvert
+WEBKIT_EXCLUDED_TAG = "@no-webkit"
+
+
 def browser_cases(surface: str) -> dict[str, list[str]]:
-    cases = list(BROWSER_CASES.get(surface, {}).values())
-    return {project: cases for project in BROWSERS} if cases else {}
+    cases = BROWSER_CASES.get(surface, {})
+    if not cases:
+        return {}
+    return {
+        project: [
+            title
+            for identity, title in cases.items()
+            if project != "webkit" or identity not in WEBKIT_EXCLUDED
+        ]
+        for project in BROWSERS
+    }
 
 
 def matches(title: str, identity: str) -> bool:

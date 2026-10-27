@@ -41,6 +41,8 @@ export default defineConfig({
             name: browserName,
             testIgnore: "pseudo.e2e.ts",
             grep: /@browsers/,
+            // Playwright's WebKit cannot load a service-worker page offline
+            ...(browserName === "webkit" ? { grepInvert: /@no-webkit/ } : {}),
             use: { browserName, baseURL },
         })),
     ],

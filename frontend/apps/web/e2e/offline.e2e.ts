@@ -20,7 +20,7 @@ async function setOffline(context: BrowserContext, browserName: string, offline:
 
 test(
     "the production shell restores its replica offline and locks expired offline access without deleting it",
-    { tag: "@browsers" },
+    { tag: ["@browsers", "@no-webkit"] },
     async ({ page, context, browserName }) => {
         test.skip(!process.env.CI, "Requires the production service worker");
         await page.goto("/");
@@ -69,7 +69,7 @@ test(
 
 test(
     "OFF-E2E-01 working-hours command survives offline reload and reconnects exactly once",
-    { tag: "@browsers" },
+    { tag: ["@browsers", "@no-webkit"] },
     async ({ page, context, request, browser, browserName }, testInfo) => {
         test.skip(!process.env.CI, "Requires the production service worker");
         test.setTimeout(240_000);
