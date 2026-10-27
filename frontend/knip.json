@@ -2,7 +2,6 @@
     "$schema": "https://unpkg.com/knip@6/schema.json",
     "workspaces": {
         "apps/web": {
-            "ignoreDependencies": ["@journeyapps/wa-sqlite"],
             "entry": [
                 "scripts/service-worker.js",
                 "playwright.config.ts",

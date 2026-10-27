@@ -11,12 +11,12 @@
         "typecheck": "tsc --noEmit"
     },
     "peerDependencies": {
-        "@powersync/common": "^2.3.1"
+        "@powersync/common": "^2.4.0"
     },
     "devDependencies": {
         "@clientbridge/api-client": "workspace:*",
         "@playwright/test": "^1.63.0",
-        "@powersync/web": "^2.4.2",
+        "@powersync/web": "^2.5.0",
         "@types/node": "^24.0.0",
         "vite": "^8.3.2"
     }
