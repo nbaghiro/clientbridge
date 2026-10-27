@@ -25,6 +25,7 @@ jobs:
         with:
           app: connect
           browser: ${{ matrix.browser }}
+          prepared: "true"
       - name: run the lane on the test tier
         env:
           PROJECT: ${{ matrix.project }}

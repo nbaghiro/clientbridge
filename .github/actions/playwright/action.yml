@@ -1,0 +1,63 @@
+name: playwright
+description: >
+  Installs a Playwright browser and its system packages from a cache keyed by the Playwright version,
+  so a hit installs the saved packages offline instead of waiting on the Ubuntu mirror.
+inputs:
+  app:
+    description: The pnpm package whose Playwright installs the browser.
+    required: true
+  browser:
+    description: chromium, firefox or webkit.
+    default: chromium
+runs:
+  using: composite
+  steps:
+    - id: version
+      env:
+        APP: ${{ inputs.app }}
+      run: |
+        echo "version=$(pnpm --filter "$APP" exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+        echo "image=$ImageOS" >> "$GITHUB_OUTPUT"
+      shell: bash
+      working-directory: frontend
+    - uses: actions/cache/restore@v6
+      id: cached
+      with:
+        path: |
+          ~/.cache/ms-playwright
+          ~/.cache/playwright-debs
+        key: playwright-${{ steps.version.outputs.image }}-${{ steps.version.outputs.version }}-${{ inputs.browser }}
+    - name: install the saved system packages
+      if: steps.cached.outputs.cache-hit == 'true'
+      env:
+        APP: ${{ inputs.app }}
+        BROWSER: ${{ inputs.browser }}
+      run: |
+        shopt -s nullglob
+        debs=(~/.cache/playwright-debs/*.deb)
+        # a runner image that lacks a dependency the saved set doesn't hold falls back to the mirror
+        if [ ${#debs[@]} -gt 0 ] && ! sudo apt-get install -y --no-download --no-install-recommends "${debs[@]}"; then
+          pnpm --filter "$APP" exec playwright install-deps "$BROWSER"
+        fi
+      shell: bash
+      working-directory: frontend
+    - name: install from the mirror and keep the packages
+      if: steps.cached.outputs.cache-hit != 'true'
+      env:
+        APP: ${{ inputs.app }}
+        BROWSER: ${{ inputs.browser }}
+      run: |
+        echo 'APT::Keep-Downloaded-Packages "true";' | sudo tee /etc/apt/apt.conf.d/99keep-downloads > /dev/null
+        sudo rm -f /var/cache/apt/archives/*.deb
+        pnpm --filter "$APP" exec playwright install --with-deps "$BROWSER"
+        mkdir -p ~/.cache/playwright-debs
+        find /var/cache/apt/archives -maxdepth 1 -name '*.deb' -exec cp {} ~/.cache/playwright-debs/ \;
+      shell: bash
+      working-directory: frontend
+    - uses: actions/cache/save@v6
+      if: steps.cached.outputs.cache-hit != 'true'
+      with:
+        path: |
+          ~/.cache/ms-playwright
+          ~/.cache/playwright-debs
+        key: ${{ steps.cached.outputs.cache-primary-key }}

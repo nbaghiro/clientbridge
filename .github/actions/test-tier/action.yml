@@ -1,0 +1,39 @@
+name: test tier
+description: >
+  Starts the shared test tier, loading its pinned images from the cache when they are there.
+  Expects the backend to be installed.
+inputs:
+  save-images:
+    description: Save the images to the cache when they were not there; one job per run does this.
+    default: "false"
+runs:
+  using: composite
+  steps:
+    - id: images
+      run: |
+        images=$(uv run python -m e2e.tier images | tr '\n' ' ')
+        echo "list=$images" >> "$GITHUB_OUTPUT"
+        echo "key=tier-images-$(echo "$images" | sha256sum | cut -c1-16)" >> "$GITHUB_OUTPUT"
+      shell: bash
+      working-directory: backend
+    - uses: actions/cache/restore@v6
+      id: cached
+      with:
+        path: ${{ runner.temp }}/tier-images.tar
+        key: ${{ steps.images.outputs.key }}
+    - if: steps.cached.outputs.cache-hit == 'true'
+      run: docker load --quiet --input "$RUNNER_TEMP/tier-images.tar"
+      shell: bash
+    - run: make test-tier
+      shell: bash
+    - if: steps.cached.outputs.cache-hit != 'true' && inputs.save-images == 'true'
+      env:
+        IMAGES: ${{ steps.images.outputs.list }}
+      # word splitting is wanted: one argument per image
+      run: docker save --output "$RUNNER_TEMP/tier-images.tar" $IMAGES
+      shell: bash
+    - uses: actions/cache/save@v6
+      if: steps.cached.outputs.cache-hit != 'true' && inputs.save-images == 'true'
+      with:
+        path: ${{ runner.temp }}/tier-images.tar
+        key: ${{ steps.images.outputs.key }}

@@ -23,7 +23,7 @@ jobs:
       - run: uv sync
         working-directory: backend
       - run: make format-check-backend lint-backend
-      - run: make test-tier
+      - uses: ./.github/actions/test-tier
       - run: make test-backend
       - run: make test-auth # KratosIdentityProvider against the tier's auth service
       - if: failure()
@@ -50,7 +50,7 @@ jobs:
       - uses: astral-sh/setup-uv@v10.3.0
       - run: uv sync
         working-directory: backend
-      - run: make test-tier
+      - uses: ./.github/actions/test-tier
       - run: make test-contract
       - if: failure()
         run: make test-tier-logs
@@ -139,8 +139,9 @@ jobs:
           cache-dependency-path: frontend/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile --ignore-scripts
         working-directory: frontend
-      - run: pnpm --filter site exec playwright install --with-deps chromium
-        working-directory: frontend
+      - uses: ./.github/actions/playwright
+        with:
+          app: site
       - run: make test-site
 
   codegen-drift:
