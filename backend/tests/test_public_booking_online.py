@@ -212,7 +212,7 @@ async def test_booking_replays_on_the_same_key(
     assert len(deliveries) == len(email.sent) == 1
     assert deliveries[0].state == "accepted"
     if pending:
-        assert "You'll hear back once it's confirmed." in email.sent[0].body
+        assert "will let you know once it's confirmed." in email.sent[0].body
     else:
         assert f"/m/{first.json()['manage_token']}" in email.sent[0].body
     assert email.sent[0].subject.startswith(
