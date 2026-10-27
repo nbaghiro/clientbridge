@@ -4,6 +4,7 @@ import { Button, Field, Loading, Notice, PageHeader, Panel, TextField } from "@c
 import { PersonPhoto } from "../components/PersonPhoto";
 import { api, identity } from "../lib/api";
 import { getUserId } from "../lib/auth";
+import { leave } from "../lib/powersync";
 import { webauthn } from "../lib/webauthn";
 
 const a = strings.auth;
@@ -15,10 +16,7 @@ export function Security() {
         api,
         ...(webauthn ? { webauthn } : {}),
         returnTo: `${window.location.origin}/setup/security`,
-        openUrl: (url) => {
-            window.location.assign(url);
-            return Promise.resolve(null);
-        },
+        openUrl: (url) => leave(url).then(() => null),
     });
 
     const header = <PageHeader title={strings.navigation.setupSections.security} />;

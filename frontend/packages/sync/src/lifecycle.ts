@@ -9,6 +9,18 @@ interface ReplicaIdentity {
     powersyncUrl: string;
 }
 
+function identityKey(identity: ReplicaIdentity): string {
+    return JSON.stringify([
+        identity.apiUrl.replace(/\/$/, ""),
+        identity.powersyncUrl.replace(/\/$/, ""),
+        identity.userId,
+    ]);
+}
+
+export function replicaFilename(identity: ReplicaIdentity): string {
+    return filename(identityKey(identity));
+}
+
 function filename(identity: string): string {
     let first = 0x811c9dc5;
     let second = 0x9e3779b9;
@@ -63,11 +75,7 @@ export class ReplicaController {
         connector: ManagedConnector,
     ): Promise<CommonPowerSyncDatabase> {
         const generation = ++this.generation;
-        const key = JSON.stringify([
-            identity.apiUrl.replace(/\/$/, ""),
-            identity.powersyncUrl.replace(/\/$/, ""),
-            identity.userId,
-        ]);
+        const key = identityKey(identity);
         return this.serialize(async () => {
             if (generation !== this.generation) throw new Error("replica activation superseded");
             this.stopHistory?.();

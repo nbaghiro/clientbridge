@@ -14,7 +14,10 @@ import { runEmail } from "@clientbridge/config/e2e/run";
 
 // Playwright's WebKit contexts browse privately, where OPFS refuses the replica, so WebKit gets a profile
 export const test = base.extend({
-    context: async ({ browserName, context, playwright, baseURL, viewport }, use) => {
+    context: async (
+        { browserName, context, playwright, baseURL, viewport, serviceWorkers },
+        use,
+    ) => {
         if (browserName !== "webkit") {
             await use(context);
             return;
@@ -23,6 +26,7 @@ export const test = base.extend({
         const persistent = await playwright.webkit.launchPersistentContext(profile, {
             ...(baseURL === undefined ? {} : { baseURL }),
             viewport,
+            serviceWorkers,
         });
         try {
             await use(persistent);
@@ -66,5 +70,14 @@ export function customerContext(browser: Browser): Promise<BrowserContext> {
     const groups = randomUUID().replaceAll("-", "").slice(0, 16).match(/.{4}/g) ?? [];
     return browser.newContext({
         extraHTTPHeaders: { "X-Forwarded-For": `2001:db8:${groups.join(":")}::1` },
+    });
+}
+
+/** Entry names at the root of the page origin's private file system. */
+export function opfsEntries(page: Page): Promise<string[]> {
+    return page.evaluate(async () => {
+        const names: string[] = [];
+        for await (const name of (await navigator.storage.getDirectory()).keys()) names.push(name);
+        return names.sort();
     });
 }

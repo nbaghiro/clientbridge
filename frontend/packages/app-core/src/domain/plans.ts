@@ -270,7 +270,10 @@ function headline(
 }
 
 /** The owner's plan page: the live plan from Stripe, both tiers and the Checkout and portal links. */
-export function usePlan(api: ApiLike, open: (url: string) => void = () => undefined): PlanView {
+export function usePlan(
+    api: ApiLike,
+    open: (url: string) => Promise<void> = () => Promise.resolve(),
+): PlanView {
     const zone = useBusinessZone();
     const businessId = useBusinessId();
     const remote = useRemote(() => api.get<PlanState>("/v1/plan"), businessId ?? "");
@@ -300,7 +303,7 @@ export function usePlan(api: ApiLike, open: (url: string) => void = () => undefi
         action.run(
             async () => {
                 const { url } = await sendAttempt(attempt, { path, body }, send);
-                if (url !== undefined) open(url);
+                if (url !== undefined) await open(url);
             },
             { errorMessage: (e) => failureMessage(e, p.checkoutError) },
         );
@@ -308,7 +311,7 @@ export function usePlan(api: ApiLike, open: (url: string) => void = () => undefi
     const manage = (): void => {
         action.run(
             async () => {
-                open((await api.post<{ url: string }>("/v1/plan/portal", {})).url);
+                await open((await api.post<{ url: string }>("/v1/plan/portal", {})).url);
             },
             { errorMessage: (e) => failureMessage(e, p.portalError) },
         );

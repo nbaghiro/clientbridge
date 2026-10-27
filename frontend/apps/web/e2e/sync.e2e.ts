@@ -1,18 +1,14 @@
 import { strings } from "@clientbridge/app-core/public";
-import { type Page, expect, test } from "@playwright/test";
+import { expect } from "@playwright/test";
+import { newAccount } from "./support/auth";
+import { signUp } from "./support/business";
+import { requireLocalMail } from "./support/evidence";
+import { navigate, opfsEntries, signIn, test } from "./support/session";
 import { offsiteLoadFailure } from "./support/shell";
 import { demoId, runEmail } from "@clientbridge/config/e2e/run";
 
 const m = strings.messaging;
 const s = strings.billing;
-
-// a client-side route change, so the session and replica stay as they are
-async function navigate(page: Page, path: string): Promise<void> {
-    await page.evaluate((to) => {
-        history.pushState({}, "", to);
-        dispatchEvent(new PopStateEvent("popstate"));
-    }, path);
-}
 
 test("history older than the device window is read from the API", async ({ page }) => {
     test.setTimeout(180_000);
@@ -90,3 +86,92 @@ test("a recorded payment holds the invoice until its new balance reaches this de
     await expect(record.getByText(s.settlingLate)).toBeVisible({ timeout: 20_000 });
     await expect(record.getByRole("button", { name: s.recordPayment })).toBeVisible();
 });
+
+test.describe(() => {
+    // WebKit does not route requests from a page its service worker controls
+    test.use({ serviceWorkers: "block" });
+
+    test(
+        "XB-E2E-21 a checkout that leaves the app reopens the replica on the return and on Back",
+        { tag: "@browsers" },
+        async ({ page, baseURL }) => {
+            test.setTimeout(180_000);
+            const back = new URL("/today", baseURL);
+            await page.route("**/v1/plan/checkout", (route) =>
+                route.request().method() === "POST"
+                    ? route.fulfill({
+                          json: { url: back.toString() },
+                          headers: {
+                              "access-control-allow-origin": back.origin,
+                              "access-control-allow-credentials": "true",
+                          },
+                      })
+                    : route.continue(),
+            );
+            await signIn(page, {
+                email: runEmail("owner@cedarcoast.example"),
+                password: "demo1234",
+            });
+            await navigate(page, "/setup/plan");
+            const choose = page.getByRole("button", {
+                name: strings.plans.choose(strings.plans.team),
+                exact: true,
+            });
+            await choose.click({ timeout: 60_000 });
+
+            const stuck = page.getByText(strings.sync.openStuckTitle, { exact: true });
+            await expect(page).toHaveURL(/\/today$/);
+            await expect(page.getByRole("heading", { level: 1 })).toBeVisible({ timeout: 20_000 });
+            await expect(stuck).toHaveCount(0);
+
+            await page.goBack();
+            await expect(page).toHaveURL(/\/setup\/plan$/);
+            await expect(choose).toBeVisible({ timeout: 20_000 });
+            await expect(stuck).toHaveCount(0);
+        },
+    );
+});
+
+test(
+    "XB-E2E-20 sign-out with a second tab open removes the account's replica files, and the next sign-in opens a new one",
+    { tag: "@browsers" },
+    async ({ page, context, request, browserName }) => {
+        test.setTimeout(240_000);
+        requireLocalMail();
+        const account = newAccount("replica");
+        const o = strings.business.onboarding;
+        const opened = async (): Promise<string[]> =>
+            (await opfsEntries(page)).filter((name) => name.startsWith("clientbridge-"));
+        await page.goto("/");
+        const before = await opened();
+        await signUp(page, request, account);
+        const onboarding = page.getByRole("heading", { name: o.title });
+        await expect(onboarding).toBeVisible({ timeout: 60_000 });
+        const files = (await opened()).filter((name) => !before.includes(name));
+        // until every engine keeps the replica in OPFS (web-storage T9), only WebKit has files here
+        if (browserName === "webkit") expect(files.length).toBeGreaterThan(0);
+
+        const second = await context.newPage();
+        await second.goto("/");
+        // WebKit's second tab never gets the open file (web-storage progress, wave 2), so only Chromium and Firefox wait for it
+        if (browserName !== "webkit")
+            await expect(second.getByRole("heading", { name: o.title })).toBeVisible({
+                timeout: 60_000,
+            });
+        await page.getByRole("button", { name: o.signOut, exact: true }).click();
+        const email = page.getByRole("textbox", { name: strings.auth.email, exact: true });
+        await expect(email).toBeVisible({ timeout: 30_000 });
+        await page.reload();
+        await expect(email).toBeVisible();
+        await expect
+            .poll(async () => (await opened()).filter((name) => files.includes(name)))
+            .toEqual([]);
+        expect(await page.evaluate(() => localStorage.getItem("cb_replica_trash"))).toBeNull();
+
+        await email.fill(account.email);
+        await page.getByLabel(strings.auth.password, { exact: true }).fill(account.password);
+        await page.getByRole("button", { name: strings.auth.signIn, exact: true }).click();
+        await expect(onboarding).toBeVisible({ timeout: 60_000 });
+        expect((await opened()).filter((name) => !before.includes(name))).toEqual(files);
+    },
+);
