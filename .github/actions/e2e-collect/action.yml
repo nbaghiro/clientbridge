@@ -1,0 +1,27 @@
+name: e2e collect
+description: Uploads a browser lane's run records and the test tier's logs, pass or fail.
+inputs:
+  name:
+    description: The artifact name.
+    required: true
+runs:
+  using: composite
+  steps:
+    - run: mkdir -p .scratchpad && make test-tier-logs > .scratchpad/tier.log 2>&1 || true
+      shell: bash
+    - uses: actions/upload-artifact@v7
+      with:
+        name: ${{ inputs.name }}
+        include-hidden-files: true
+        if-no-files-found: error
+        path: |
+          .scratchpad/e2e-*/run.json
+          .scratchpad/e2e-*/browser-results
+          .scratchpad/e2e-*/browser-report
+          .scratchpad/e2e-*/browser.log
+          .scratchpad/e2e-*/setup.log
+          .scratchpad/e2e-*/api.log
+          .scratchpad/e2e-*/worker.log
+          .scratchpad/e2e-*/purge.json
+          .scratchpad/tier.log
+        retention-days: 7

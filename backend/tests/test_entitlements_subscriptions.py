@@ -991,6 +991,37 @@ async def test_old_failed_invoice_does_not_mark_recovered_subscription_past_due(
     assert email.sent == []
 
 
+async def test_a_lapsed_business_can_cancel_a_subscription_but_not_start_one(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await enable_payments(db)
+    cid = await client_id(db)
+    item = await _sub_item(db)
+    sub = Subscription(
+        id=new_id("subscription"),
+        business_id=BIZ,
+        client_id=cid,
+        item_id=item.id,
+        status="active",
+        provider_ref="sub_lapsed",
+    )
+    db.add(sub)
+    await db.execute(
+        update(Business)
+        .where(Business.id == BIZ)
+        .values(plan=None, plan_status="trialing", trial_ends_at=clock.now() - timedelta(days=1))
+    )
+    pm = await _saved_method(db, cid)
+    started = await as_owner.post(
+        "/v1/subscriptions", json=_body(cid, item.id, pm.id), headers=key()
+    )
+    assert started.status_code == 402
+    res = await as_owner.post(f"/v1/subscriptions/{sub.id}/cancel", headers=key())
+    assert res.status_code == 200, res.text
+    assert res.json()["status"] == "canceled"
+    assert gateway.canceled_subscriptions.count("sub_lapsed") == 1
+
+
 async def test_a_new_membership_names_the_business_and_client_on_stripe(
     as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
 ) -> None:

@@ -120,6 +120,8 @@ Polyglot monorepo: `backend/` (Python · uv · FastAPI) · `frontend/` (pnpm + t
 - Tests and CI seed only the core demo businesses (`core=True` in `DEMO_BUSINESSES`, `make seed-core`);
   `make seed` and staging seed all of them, and the other editions are checked in memory.
 - CI gate: `pytest --cov=clientbridge --cov-branch --cov-fail-under=90`.
+- E2e files are named by concept; "Where an e2e test goes" in `.docs/engineering.md` says which file a test
+  belongs in, and `check-structure.mjs` rejects any other name.
 
 ## Tooling — run the gate before "done"
 - Backend: **ruff** (4-space · double quotes · line 100 · ANN bans `Any`) + **pyright strict**

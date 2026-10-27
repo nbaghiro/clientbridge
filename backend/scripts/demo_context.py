@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from zoneinfo import ZoneInfo
 
+from clientbridge.core.config import get_settings
 from clientbridge.core.db import Base
 
 DEMO_VERSION = "2026-10-23.5"
@@ -301,6 +302,19 @@ DEMO_IDS = tuple(business.id for business in DEMO_BUSINESSES)
 CORE_IDS = tuple(business.id for business in DEMO_BUSINESSES if business.core)
 # the business the web, Connect and end-to-end fixtures target unless told otherwise
 FIXTURE_BUSINESS = "bz_birchbark"
+
+
+def run_id(seeded: str) -> str:
+    """An e2e run's copy of a seeded id; the id itself outside a run."""
+    namespace = get_settings().run_namespace
+    return f"{seeded}_{namespace}" if namespace else seeded
+
+
+def run_email(seeded: str) -> str:
+    """An e2e run's copy of a seeded address, whose mail the test tier routes to the run."""
+    namespace = get_settings().run_namespace
+    local, _, domain = seeded.rpartition("@")
+    return f"{local}+{namespace}@{domain}" if namespace else seeded
 
 
 def demo_business(business_id: str) -> DemoBusiness:

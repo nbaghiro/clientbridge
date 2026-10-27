@@ -56,6 +56,8 @@ class Settings(BaseSettings):
     # proxies in front of the API that append to X-Forwarded-For (Google's load balancer adds 2)
     trusted_proxy_hops: int = Field(default=0, ge=0)
     pseudo_locale: bool = False  # renders backend text in en_XA; development and tests only
+    # an e2e run's four digits: they end every id this process writes and confine its jobs
+    run_namespace: str = Field(default="", pattern=r"^(\d{4})?$")
     # the API reads and writes data; only migrations and the demo seed change the schema
     database_url: str = (
         "postgresql+asyncpg://clientbridge_api:clientbridge_api@localhost:8702/clientbridge"
@@ -158,6 +160,8 @@ class Settings(BaseSettings):
             self.smtp_url = _DEV_SMTP_URL if self.env == "dev" else ""
         if self.env == "dev":
             return self
+        if self.run_namespace:
+            raise ValueError("RUN_NAMESPACE is for e2e runs; unset it when ENV is not 'dev'")
         if self.smtp_url:
             raise ValueError("SMTP_URL is a development transport; unset it when ENV is not 'dev'")
         defaults = {name: Settings.model_fields[name].default for name in _DEPLOYED}

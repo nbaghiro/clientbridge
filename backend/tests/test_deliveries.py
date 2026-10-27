@@ -13,8 +13,9 @@ from clientbridge.integrations.resend import Email
 from clientbridge.integrations.twilio import Sms
 from clientbridge.models.messaging import Delivery
 from clientbridge.schemas.deliveries import DeliveryPayload, EmailDelivery, SmsDelivery
+from clientbridge.services.consents import record_text_reply
 from clientbridge.services.deliveries import dispatch, enqueue, run_deliveries
-from tests.conftest import BIZ, FakeEmailSender, FakePushSender, FakeSmsSender
+from tests.conftest import BIZ, Factory, FakeEmailSender, FakePushSender, FakeSmsSender
 
 
 def mail(body: str = "Receipt") -> EmailDelivery:
@@ -257,3 +258,32 @@ async def test_rolled_back_delivery_is_never_visible_to_a_worker(
     async with SessionLocal() as worker:
         assert not await dispatch(worker, identity, email, sms, push)
     assert email.sent == []
+
+
+async def test_a_text_queued_before_a_stop_is_skipped_for_consent(
+    db: AsyncSession,
+    factory: Factory,
+    email: FakeEmailSender,
+    sms: FakeSmsSender,
+    push: FakePushSender,
+) -> None:
+    business = await factory.business()
+    client = await factory.client(business=business)
+    client.phone = "(250) 555-1234"
+    other = await factory.business()
+    await db.flush()
+    queued = await enqueue(db, text("+12505551234"), key="notice:stopped", business_id=business.id)
+    elsewhere = await enqueue(
+        db, text("+12505551234"), key="notice:elsewhere", business_id=other.id
+    )
+    await db.commit()
+    await record_text_reply(db, client, stop=True)
+    await db.commit()
+    await run_deliveries(db, email, sms, push)
+    rows = {
+        r.id: r
+        for r in await db.scalars(select(Delivery).where(Delivery.id.in_([queued, elsewhere])))
+    }
+    assert (rows[queued].state, rows[queued].error) == ("failed", "consent_withdrawn")
+    assert rows[elsewhere].state == "accepted"
+    assert len([m for m in sms.sent if m.to == "+12505551234"]) == 1

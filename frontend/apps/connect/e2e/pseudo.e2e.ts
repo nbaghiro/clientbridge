@@ -2,7 +2,8 @@ import { clippedText, englishCopy } from "@clientbridge/config/e2e/pseudo";
 import { expect, test } from "@playwright/test";
 
 import { on } from "./hosts";
-import { links, ownAddress } from "./links";
+import { links } from "./links";
+import { ownAddress } from "./network";
 
 test.beforeEach(async ({ context }, info) => {
     await ownAddress(context, info);

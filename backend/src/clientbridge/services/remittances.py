@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Literal
 from zoneinfo import ZoneInfo
 
@@ -111,8 +111,8 @@ class RemittanceService:
             raise Conflict("this period overlaps a return that was already filed")
         owed = await self._owed(lo, hi, family)
         total = sum(owed.values())
-        if total <= 0:
-            raise Conflict("no tax is owed for this period")
+        if total < 0:
+            raise Conflict("more tax was refunded than collected in this period")
         federal = sum(owed.get(code, 0) for code in FAMILY_CODES["federal"])
         if data.itc_cents > federal:
             raise AppError(
@@ -135,7 +135,10 @@ class RemittanceService:
                 ),
                 Leg("business", self.biz, "itc", -data.itc_cents, credit_code),
                 Leg("business", self.biz, "bank", -paid),
-            ],
+            ]
+            if total
+            else [Leg("business", self.biz, "bank", 0)],
+            keep_zero=total == 0,  # a nil return still records that the period was filed
             meta={
                 "start": data.period_start.isoformat(),
                 "end": data.period_end.isoformat(),
@@ -177,12 +180,9 @@ class RemittanceService:
         today = clock.today(zone(business.timezone))
         filed = await self.filed_returns()
         ranges = await self._ranges(business, today)
+        tz = zone(business.timezone)
         for start, end in ranges:
-            done = any(
-                r.family in (None, "federal") and r.period_start <= end and start <= r.period_end
-                for r in filed
-            )
-            if end < today and not done:
+            if end < today and not await self._filed(start, end, "federal", filed, tz):
                 return due_date(end, business.filing_frequency)
         return due_date(ranges[-1][1], business.filing_frequency) if ranges else None
 
@@ -244,7 +244,7 @@ class RemittanceService:
                     ),
                 )
                 grouped[entry.journal_id] = found
-            if account.category == "tax":
+            if account.category == "tax" and entry.amount_cents:
                 found.by_code[account.code] = entry.amount_cents
             elif account.category == "bank":
                 found.paid_cents = -entry.amount_cents
@@ -263,13 +263,13 @@ class RemittanceService:
         owed = await self._owed(lo, hi, None)
         returns = [r for r in filed if r.period_start <= end and start <= r.period_end]
 
-        def status(family: TaxFamily) -> Literal["open", "due", "filed"]:
-            if any(r.family in (None, family) for r in returns):
+        async def status(family: TaxFamily) -> Literal["open", "due", "filed"]:
+            if await self._filed(start, end, family, returns, tz):
                 return "filed"
             return "open" if end >= today else "due"
 
         provincial_cents = sum(owed.get(c, 0) for c in FAMILY_CODES["provincial"])
-        provincial = status("provincial")
+        provincial = await status("provincial")
         return FilingPeriod(
             start=start,
             end=end,
@@ -278,12 +278,32 @@ class RemittanceService:
             provincial_cents=provincial_cents,
             taxable_cents=await self.reports.taxable_sales(lo, hi),
             provincial_taxable_cents=await self.reports.provincial_base(lo, hi),
-            federal_status=status("federal"),
+            federal_status=await status("federal"),
             provincial_status="none"
             if provincial_cents == 0 and provincial != "filed"
             else provincial,
             returns=returns,
         )
+
+    async def _filed(
+        self, start: date, end: date, family: TaxFamily, filed: list[FiledReturn], tz: ZoneInfo
+    ) -> bool:
+        """A period is filed once its returns leave no day with this family's tax unfiled."""
+        spans = sorted(
+            (max(r.period_start, start), min(r.period_end, end))
+            for r in filed
+            if r.family in (None, family) and r.period_start <= end and start <= r.period_end
+        )
+        if not spans:
+            return False
+        cursor = start
+        for first, last in [*spans, (end + timedelta(days=1), end)]:
+            if first > cursor:
+                lo, hi = period_bounds(cursor, first - timedelta(days=1), tz)
+                if sum((await self._owed(lo, hi, family)).values()) > 0:
+                    return False
+            cursor = max(cursor, last + timedelta(days=1))
+        return True
 
     async def _owed(self, lo: datetime, hi: datetime, family: str | None) -> dict[str, int]:
         stmt = (

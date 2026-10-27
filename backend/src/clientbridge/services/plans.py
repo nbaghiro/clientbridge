@@ -305,18 +305,27 @@ class PlanService:
         return business
 
     async def status(self) -> PlanOut:
+        """The plan as Stripe has it now, so a refresh repairs an event that never arrived."""
         self._assert_owner()
         now = clock.now()
         business = await self._business()
         if business.stripe_account_id is not None and plan_access(business, now) not in _LIVE:
             # the Checkout return lands here, so a paid plan shows even if its webhook is late
             business = await self._adopted()
-        seats = await billed_seats(self.db, business.id, now)
+        subscription_id = business.stripe_subscription_id
         sub = (
-            await self.gateway.get_plan_subscription(business.stripe_subscription_id)
-            if business.stripe_subscription_id is not None
+            await self.gateway.get_plan_subscription(subscription_id)
+            if subscription_id is not None
             else None
         )
+        if sub is not None:
+            business = await self._business(lock=True)
+            if business.stripe_subscription_id == subscription_id and await _refresh(
+                self.db, business, sub
+            ):
+                await self.db.commit()
+                business = await self._business()
+        seats = await billed_seats(self.db, business.id, now)
         return _out(business, seats, now, sub)
 
     async def checkout(self, choice: PlanChoice, idempotency_key: str | None) -> PlanLink:
@@ -444,6 +453,27 @@ class PlanService:
         return PlanLink(url=url)
 
 
+def mirror_plan(business: Business, sub: PlanSubscription) -> bool:
+    """Take the plan and its status from Stripe's copy of the subscription; True if either moved."""
+    status = _mirrored_status(business, sub)
+    if status is None:
+        return False
+    plan = _tier_of(sub)[0] if status != "lapsed" else None
+    if (business.plan_status, business.plan) == (status, plan):
+        return False
+    business.plan_status, business.plan = status, plan
+    return True
+
+
+def _mirrored_status(business: Business, sub: PlanSubscription) -> PlanStatus | None:
+    status = _STRIPE_STATUS.get(sub.status)
+    trialing = plan_access(business, clock.now()) == "trial"
+    # incomplete: Checkout has not collected the first payment; an expired one leaves the trial
+    if status is None or (sub.status == "incomplete_expired" and trialing):
+        return None
+    return status
+
+
 async def apply_subscription_event(
     db: AsyncSession, gateway: PaymentGateway, event: GatewayEvent
 ) -> None:
@@ -524,20 +554,22 @@ async def _mirror(
             if previous.status not in _ENDED:
                 await gateway.cancel_plan_subscription(current)
     business.stripe_subscription_id = subscription_id
-    status = _STRIPE_STATUS.get(sub.status)
-    trialing = plan_access(business, clock.now()) == "trial"
-    # incomplete: Checkout has not collected the first payment; an expired one leaves the trial
-    if status is None or (sub.status == "incomplete_expired" and trialing):
+    if _mirrored_status(business, sub) is None:
         await db.flush()
         return
-    lapsing = status == "lapsed" and business.plan_status != "lapsed"
-    business.plan_status = status
-    business.plan = _tier_of(sub)[0] if status != "lapsed" else None
-    await db.flush()
-    if lapsing:
-        await _warn_live_memberships(db, business, subscription_id, sub.status)
+    await _refresh(db, business, sub)
     if created:
         await sync_seats(gateway, business, await billed_seats(db, business.id, clock.now()))
+
+
+async def _refresh(db: AsyncSession, business: Business, sub: PlanSubscription) -> bool:
+    """Mirror the plan from Stripe and warn the owner when it lapses with memberships still live."""
+    lapsing = _mirrored_status(business, sub) == "lapsed" and business.plan_status != "lapsed"
+    moved = mirror_plan(business, sub)
+    await db.flush()
+    if lapsing and business.stripe_subscription_id is not None:
+        await _warn_live_memberships(db, business, business.stripe_subscription_id, sub.status)
+    return moved
 
 
 async def _warn_live_memberships(
@@ -568,16 +600,10 @@ async def _adopt_paid(db: AsyncSession, gateway: PaymentGateway, business: Busin
     await _mirror(db, gateway, business, paid.id, named=paid.business_id, created=True)
 
 
-async def run_sync_seats(db: AsyncSession, gateway: PaymentGateway, now: datetime) -> int:
-    """Set every Premium subscription's seats to the current count; catches expired invites."""
+async def run_sync_plans(db: AsyncSession, gateway: PaymentGateway, now: datetime) -> int:
+    """Mirror every plan subscription from Stripe, covering any missed event, then its seats."""
     identities = list(
-        await db.scalars(
-            select(Business.id).where(
-                Business.plan == "premium",
-                Business.plan_status.in_(_LIVE),
-                Business.stripe_subscription_id.is_not(None),
-            )
-        )
+        await db.scalars(select(Business.id).where(Business.stripe_subscription_id.is_not(None)))
     )
     await db.commit()
     synced = 0
@@ -589,17 +615,15 @@ async def run_sync_seats(db: AsyncSession, gateway: PaymentGateway, now: datetim
                 .with_for_update(key_share=True)
                 .execution_options(populate_existing=True)
             )
-            if (
-                business is not None
-                and business.plan == "premium"
-                and business.plan_status in _LIVE
-            ):
+            if business is not None and business.stripe_subscription_id is not None:
+                sub = await gateway.get_plan_subscription(business.stripe_subscription_id)
+                await _refresh(db, business, sub)
                 await sync_seats(gateway, business, await billed_seats(db, business.id, now))
                 synced += 1
             await db.commit()
         except Exception:
             await db.rollback()
-            _log.exception("seat sync failed for %s", identity)
+            _log.exception("plan sync failed for %s", identity)
     return synced
 
 

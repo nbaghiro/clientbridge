@@ -522,7 +522,7 @@ every account we create carries ours whichever configuration it starts with.
 - Seats: a member besides the owner who is active, or invited with an unexpired invite. Trial and Team
   allow `PLAN_SEAT_CAP` (50); Premium bills each seat. An invite sets the Stripe seat quantity before it
   commits, so a failed Stripe call fails the invite; removal and revocation lower it afterwards, and
-  `run_sync_seats` (daily) corrects any drift and expired invites. `run_trial_reminders` emails the owner
+  `run_sync_plans` (daily) mirrors each plan from Stripe, warns of a lapse with live memberships, and corrects seat drift and expired invites. `run_trial_reminders` emails the owner
   at the last 9:00 local before the trial ends, while it still runs, and three days earlier.
 - Mobile shows the plan read-only, with no purchase button or link to buy on the web, to stay within App
   Store guideline 3.1.3(f) for companion apps. A lapsed business keeps its data indefinitely.

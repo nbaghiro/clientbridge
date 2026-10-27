@@ -1,0 +1,71 @@
+# The native lane on the iOS simulator, by hand. GitHub's macOS runners can't run Docker, which the
+# shared test tier needs, so this runs on a self-hosted Mac with Docker, Xcode 26.6, Maestro 2.11.0
+# and the named simulator already booted. The tier outlives the job and other runs share it.
+name: native-ios
+
+on:
+  workflow_dispatch:
+    inputs:
+      device:
+        description: Booted simulator UDID on the runner
+        required: true
+        type: string
+
+concurrency:
+  group: native-ios
+  cancel-in-progress: false
+
+jobs:
+  native-ios:
+    runs-on: [self-hosted, macOS, ARM64]
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.0
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 9
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - run: uv sync --frozen
+        working-directory: backend
+      - run: pnpm install --frozen-lockfile
+        working-directory: frontend
+      - name: build the e2e app
+        run: make test-functional FUNCTIONAL_ARGS="--build-native ios"
+      - run: make test-tier
+      - name: run the walkthroughs
+        env:
+          DEVICE: ${{ inputs.device }}
+        run: make test-mobile PLATFORM=ios DEVICE="$DEVICE"
+      # a cancelled job leaves its namespace in the shared tier; the runner records it, so purge it
+      - name: purge the run's namespace after interruption
+        if: cancelled() || failure()
+        working-directory: backend
+        run: |
+          for record in ../.scratchpad/e2e-*/tier.json; do
+            [ -f "$record" ] || continue
+            run="$(basename "$(dirname "$record")")"
+            if [ "$(jq -r .data_cleanup "../.scratchpad/$run/run.json")" != passed ]; then
+              uv run python -m e2e.runner --cleanup "$run"
+            fi
+          done
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: native-ios
+          include-hidden-files: true
+          path: |
+            .scratchpad/e2e-*/run.json
+            .scratchpad/e2e-*/native-*
+            .scratchpad/e2e-*/native.log
+            .scratchpad/e2e-*/control.log
+            .scratchpad/e2e-*/setup.log
+            .scratchpad/e2e-*/api.log
+            .scratchpad/e2e-*/worker.log
+            .scratchpad/e2e-*/purge.json
+            .scratchpad/native/ClientbridgeE2E.app.log
+          retention-days: 7

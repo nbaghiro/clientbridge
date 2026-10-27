@@ -41,7 +41,7 @@ def _body(
         "item_id": item,
         "staff_id": staff,
         "starts_at": starts,
-        "client": _client(**client) if client else _client(email="web@example.com"),
+        "client": _client(**client) if client else _client(email="web@example.ca"),
     }
 
 
@@ -225,7 +225,7 @@ async def test_book_creates_online_booking_and_notifies(
     api: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
 ) -> None:
     res = await api.post(
-        f"/book/{SLUG}", json=_body("2027-03-02T18:50:00Z", email="lee@example.com")
+        f"/book/{SLUG}", json=_body("2027-03-02T18:50:00Z", email="lee@example.ca")
     )
     assert res.status_code == 200, res.text
     body = res.json()
@@ -236,7 +236,7 @@ async def test_book_creates_online_booking_and_notifies(
     assert booking.source == "online"
     assert booking.business_id == BIZ
     created = (
-        await db.execute(select(Client).where(Client.email == "lee@example.com"))
+        await db.execute(select(Client).where(Client.email == "lee@example.ca"))
     ).scalar_one()
     assert created.business_id == BIZ
     assert len(email.sent) == 1  # booking-confirmed to the client

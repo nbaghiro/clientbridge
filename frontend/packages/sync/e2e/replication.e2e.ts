@@ -2,14 +2,12 @@ import { writeFileSync } from "node:fs";
 
 import { expect, test } from "@playwright/test";
 
-const endpoint = process.env.SYNC_TEST_URL;
-const tokens = JSON.parse(process.env.SYNC_TEST_TOKENS ?? "{}") as Record<string, string>;
+import { endpoint, fixture, fixtures, jsonEnv, seeded, token } from "./service";
 
 for (const role of ["owner", "admin", "staff", "contractor", "multi", "foreign"]) {
     test(`${role} receives only authorized businesses through the real service`, async ({
         page,
     }) => {
-        test.skip(!endpoint, "Run make test-sync for disposable source and PowerSync services");
         await page.goto("/");
         const rows = await page.evaluate(
             async ({ endpoint, token, role }) => {
@@ -54,7 +52,7 @@ for (const role of ["owner", "admin", "staff", "contractor", "multi", "foreign"]
                     await db.close();
                 }
             },
-            { endpoint: endpoint ?? "", token: tokens[role] ?? "", role },
+            { endpoint: endpoint(), token: token(role), role },
         );
         const expected =
             role === "multi"
@@ -62,7 +60,7 @@ for (const role of ["owner", "admin", "staff", "contractor", "multi", "foreign"]
                 : role === "foreign"
                   ? ["bz_foreign"]
                   : ["bz_first"];
-        expect(rows.businesses.map((row) => row.id)).toEqual(expected);
+        expect(rows.businesses.map((row) => row.id)).toEqual(fixtures(expected));
         const hours =
             role === "multi"
                 ? ["av_owner", "av_second", "av_staff"]
@@ -73,27 +71,27 @@ for (const role of ["owner", "admin", "staff", "contractor", "multi", "foreign"]
                     : role === "contractor"
                       ? []
                       : ["av_owner", "av_staff"];
-        expect(rows.hours.map((row) => row.id)).toEqual(hours);
+        expect(rows.hours.map((row) => row.id)).toEqual(fixtures(hours));
         expect(rows.leakedInvites).toEqual([]);
         expect(rows.leakedProviders).toEqual([]);
         const team =
             role === "foreign"
                 ? ["foreign"]
                 : ["admin", "contractor", "multi", "owner", "removed", "staff"];
-        expect(rows.users).toEqual(team.map((name) => ({ id: `us_${name}`, name })));
+        expect(rows.users).toEqual(team.map((name) => ({ id: fixture(`us_${name}`), name })));
         expect(rows.leakedAccounts).toEqual([]);
         for (const row of rows.privateBusiness) {
             const limited =
                 role === "staff" ||
                 role === "contractor" ||
-                (role === "multi" && row.id === "bz_second");
+                (role === "multi" && row.id === fixture("bz_second"));
             expect(row.gst_hst_number).toBe(limited ? null : "private-tax-number");
         }
         for (const row of rows.staffPay) {
             const limited =
                 role === "staff" ||
                 role === "contractor" ||
-                (role === "multi" && row.business_id === "bz_second");
+                (role === "multi" && row.business_id === fixture("bz_second"));
             expect(row.rate_cents).toBe(limited ? null : 3456);
         }
     });
@@ -102,10 +100,9 @@ for (const role of ["owner", "admin", "staff", "contractor", "multi", "foreign"]
 test("selected-business queries isolate lists, details and aggregate subqueries", async ({
     page,
 }) => {
-    test.skip(!endpoint, "Run make test-sync for disposable services");
     await page.goto("/");
     const result = await page.evaluate(
-        async ({ endpoint, token }) => {
+        async ({ endpoint, token, ids }) => {
             const { openReplica, businessQuery, selectReplicaBusiness } =
                 await import("./database");
             const db = await openReplica(`scope-${crypto.randomUUID()}.db`);
@@ -119,20 +116,22 @@ test("selected-business queries isolate lists, details and aggregate subqueries"
                     "SELECT id, (SELECT count(*) FROM hours) AS total FROM businesses",
                 );
                 const empty = await db.getAll(query);
-                await selectReplicaBusiness(db, "bz_first");
-                await selectReplicaBusiness(db, "bz_first");
+                await selectReplicaBusiness(db, ids.first);
+                await selectReplicaBusiness(db, ids.first);
                 const first = await db.getAll(query);
-                await selectReplicaBusiness(db, "bz_second");
+                await selectReplicaBusiness(db, ids.second);
                 const second = await db.getAll(query);
                 const foreignDetail = await db.getAll(
                     businessQuery("SELECT id FROM hours WHERE id = ?"),
-                    ["av_owner"],
+                    [ids.ownerHours],
                 );
                 const role = await db.getAll(
-                    businessQuery("SELECT role FROM staff WHERE user_id = 'us_multi'"),
+                    businessQuery("SELECT role FROM staff WHERE user_id = ?"),
+                    [ids.multi],
                 );
                 const plan = await db.getAll(
-                    `EXPLAIN QUERY PLAN ${businessQuery("SELECT id FROM hours WHERE staff_id = 'st_second'")}`,
+                    `EXPLAIN QUERY PLAN ${businessQuery("SELECT id FROM hours WHERE staff_id = ?")}`,
+                    [ids.secondStaff],
                 );
                 return { empty, first, second, foreignDetail, role, plan };
             } finally {
@@ -140,21 +139,26 @@ test("selected-business queries isolate lists, details and aggregate subqueries"
                 await db.close();
             }
         },
-        { endpoint: endpoint ?? "", token: tokens.multi ?? "" },
+        {
+            endpoint: endpoint(),
+            token: token("multi"),
+            ids: {
+                first: fixture("bz_first"),
+                second: fixture("bz_second"),
+                ownerHours: fixture("av_owner"),
+                multi: fixture("us_multi"),
+                secondStaff: fixture("st_second"),
+            },
+        },
     );
     expect(result.empty).toEqual([]);
-    expect(result.first).toEqual([{ id: "bz_first", total: 2 }]);
-    expect(result.second).toEqual([{ id: "bz_second", total: 1 }]);
+    expect(result.first).toEqual([{ id: fixture("bz_first"), total: 2 }]);
+    expect(result.second).toEqual([{ id: fixture("bz_second"), total: 1 }]);
     expect(result.foreignDetail).toEqual([]);
     expect(result.role).toEqual([{ role: "staff" }]);
     expect(JSON.stringify(result.plan)).toContain("INDEX");
 });
 
-const model = JSON.parse(process.env.SYNC_TEST_MODEL ?? "{}") as Record<string, string[]>;
-const projections = JSON.parse(process.env.SYNC_TEST_PROJECTIONS ?? "{}") as Record<
-    string,
-    Record<string, string[]>
->;
 const FULL = [
     "business_shared",
     "business_full",
@@ -220,7 +224,11 @@ const EXPECTED_ROWS: Record<string, Record<string, string[]>> = {
 };
 
 function allowed(role: string, business: string, table: string): Set<string> {
-    const buckets = AUDIENCE[role]?.[business] ?? [];
+    const projections = jsonEnv("SYNC_TEST_PROJECTIONS") as Record<
+        string,
+        Record<string, string[]>
+    >;
+    const buckets = AUDIENCE[role]?.[seeded(business)] ?? [];
     return new Set(["id", ...buckets.flatMap((bucket) => projections[bucket]?.[table] ?? [])]);
 }
 
@@ -237,7 +245,6 @@ for (const role of Object.keys(AUDIENCE)) {
     test(`${role} receives no column outside its reviewed projection in any synced table`, async ({
         page,
     }) => {
-        test.skip(!endpoint, "Run make test-sync for disposable source and PowerSync services");
         await page.goto("/");
         const tables = await page.evaluate(
             async ({ endpoint, token, model }) => {
@@ -263,7 +270,11 @@ for (const role of Object.keys(AUDIENCE)) {
                     await db.close();
                 }
             },
-            { endpoint: endpoint ?? "", token: tokens[role] ?? "", model },
+            {
+                endpoint: endpoint(),
+                token: token(role),
+                model: jsonEnv("SYNC_TEST_MODEL") as Record<string, string[]>,
+            },
         );
         const dump = process.env.SYNC_TEST_DUMP;
         if (dump) writeFileSync(`${dump}/${role}.json`, JSON.stringify(tables, null, 1));
@@ -284,8 +295,8 @@ for (const role of Object.keys(AUDIENCE)) {
         expect(leaks).toEqual([]);
         const ids = (table: string) => (tables[table] ?? []).map((row) => String(row.id));
         for (const [table, expected] of Object.entries(EXPECTED_ROWS[role] ?? {})) {
-            expect(ids(table), table).toEqual(expected);
+            expect(ids(table), table).toEqual(fixtures(expected));
         }
-        expect(ids("users"), "users").toEqual(EXPECTED_USERS[role]);
+        expect(ids("users"), "users").toEqual(fixtures(EXPECTED_USERS[role] ?? []));
     });
 }

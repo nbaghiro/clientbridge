@@ -1,0 +1,70 @@
+appId: ${APP_ID}
+name: NATIVE-CRM-01 Native client creation and editing survive process restarts
+---
+- evalScript: ${output.clientRun = String(Date.now()) + String(Math.floor(Math.random() * 100000))}
+- evalScript: ${output.clientName = "Sophie Bennett"}
+- evalScript: ${output.editedName = "Sophie Laurent"}
+- evalScript: ${output.clientEmail = "sophie." + output.clientRun + "@example.ca"}
+- runFlow: helpers/owner.yaml
+- tapOn: "Clients"
+- tapOn: "Add"
+- assertVisible: "Add client"
+- tapOn: "First and last name"
+- inputText: ${output.clientName}
+- tapOn: "name@example.com"
+- inputText: ${output.clientEmail}
+- hideKeyboard
+- tapOn:
+      text: "Email"
+      below: "Preferred contact"
+- tapOn: "Add"
+- extendedWaitUntil:
+      visible: "Book"
+      timeout: 60000
+- assertVisible: ${output.clientName}
+- takeScreenshot: native-client-created
+- stopApp
+- runFlow: helpers/owner.yaml
+- tapOn: "Clients"
+- tapOn: "Search name, phone, email or pet"
+- inputText: ${output.clientEmail}
+- hideKeyboard
+- extendedWaitUntil:
+      visible: ${".*" + output.clientName + ".*"}
+      timeout: 60000
+- tapOn: ${".*" + output.clientName + ".*"}
+- tapOn: "Edit"
+- extendedWaitUntil:
+      visible: "Edit client"
+      timeout: 15000
+- assertVisible: ${output.clientEmail}
+- tapOn:
+      text: ${output.clientName}
+      point: "95%,50%"
+- eraseText: 100
+- inputText: ${output.editedName}
+- assertVisible: ${output.editedName}
+- hideKeyboard
+- tapOn: "Done"
+- extendedWaitUntil:
+      visible: ${output.editedName}
+      timeout: 60000
+- assertNotVisible: "Edit client"
+- stopApp
+- runFlow: helpers/owner.yaml
+- tapOn: "Clients"
+- tapOn: "Search name, phone, email or pet"
+- inputText: ${output.clientEmail}
+- hideKeyboard
+- extendedWaitUntil:
+      visible: ${".*" + output.editedName + ".*"}
+      timeout: 60000
+- assertNotVisible: ${".*" + output.clientName + ".*"}
+- tapOn: ${".*" + output.editedName + ".*"}
+- assertVisible: "Book"
+- tapOn: "Edit"
+- assertVisible: "Edit client"
+- assertVisible: ${output.clientEmail}
+- assertVisible: ${output.editedName}
+- tapOn: "Cancel"
+- takeScreenshot: native-client-edited-after-restart

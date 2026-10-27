@@ -58,6 +58,7 @@ interface Strings {
         readonly outOfStock: string;
         readonly pickupWindowTaken: string;
         readonly shopNotReady: string;
+        readonly contactAmbiguous: string;
         readonly slotUnavailable: string;
         readonly classSeat: string;
         readonly classMove: string;
@@ -68,6 +69,7 @@ interface Strings {
         readonly visitNotStarted: string;
         readonly estimateBooked: string;
         readonly estimateOnVisit: string;
+        readonly estimateChanged: string;
         readonly depositNotDue: string;
         readonly checkoutPaid: string;
         readonly depositInProgress: string;
@@ -2136,6 +2138,7 @@ interface Strings {
         readonly selectClient: string;
         readonly writeMessage: string;
         readonly sendError: string;
+        readonly notDelivered: string;
     };
     readonly broadcasts: {
         readonly subtitle: string;
@@ -3155,6 +3158,16 @@ interface Strings {
         readonly confirmTitle: (amount: string) => string;
         readonly confirmBody: (note: string) => string;
         readonly wholeOnly: string;
+        readonly blocked: {
+            readonly not_succeeded: string;
+            readonly already_refunded: string;
+            readonly gift_card_expired: string;
+            readonly gift_card_redeemed: string;
+            readonly package_expired: string;
+            readonly package_used: string;
+            readonly payment_disputed: string;
+            readonly whole_only: string;
+        } & Labels;
         readonly history: string;
         readonly paymentEvent: string;
         readonly refundEvent: (note: string) => string;
@@ -4028,6 +4041,7 @@ interface Strings {
         readonly expiredBody: (biz: string) => string;
         readonly downloadPdf: string;
         readonly answerError: string;
+        readonly quoteError: string;
     };
     readonly publicReturning: {
         readonly title: string;

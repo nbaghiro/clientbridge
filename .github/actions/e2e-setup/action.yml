@@ -1,0 +1,36 @@
+name: e2e setup
+description: Installs the backend and frontend, the lane's browser, and starts the test tier.
+inputs:
+  app:
+    description: The pnpm package whose Playwright installs the browser; empty installs none.
+    default: ""
+  browser:
+    description: chromium, firefox or webkit.
+    default: chromium
+runs:
+  using: composite
+  steps:
+    - uses: astral-sh/setup-uv@v10.3.0
+    - uses: pnpm/action-setup@v6
+      with:
+        version: 9
+    - uses: actions/setup-node@v7
+      with:
+        node-version-file: .nvmrc
+        cache: pnpm
+        cache-dependency-path: frontend/pnpm-lock.yaml
+    - run: uv sync --frozen
+      shell: bash
+      working-directory: backend
+    - run: pnpm install --frozen-lockfile --ignore-scripts
+      shell: bash
+      working-directory: frontend
+    - if: inputs.app != ''
+      env:
+        APP: ${{ inputs.app }}
+        BROWSER: ${{ inputs.browser }}
+      run: pnpm --filter "$APP" exec playwright install --with-deps "$BROWSER"
+      shell: bash
+      working-directory: frontend
+    - run: make test-tier
+      shell: bash

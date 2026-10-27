@@ -153,6 +153,7 @@ export function Choice<K extends string>({
                 return (
                     <button
                         key={o.key}
+                        data-value={o.key}
                         type="button"
                         aria-pressed={on}
                         disabled={o.disabled}

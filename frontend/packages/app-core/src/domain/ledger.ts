@@ -44,12 +44,17 @@ export function ownedLiabilitySql(ownerType: string, category: string, idExpr: s
 export function invoiceStatusSql(alias: string): string {
     const paid = collectedSql("invoice", `${alias}.id`);
     const owed = `COALESCE(${subjectNetSql("receivable", "invoice", `${alias}.id`)}, 0)`;
+    // a visit deposit applied to the invoice, and not taken back, pays part of it
+    const applied = `COALESCE(-(SELECT SUM(le.amount_cents) FROM entries le
+        JOIN accounts la ON la.id = le.account_id
+        WHERE la.category = 'receivable' AND le.subject_type = 'invoice' AND le.subject_id = ${alias}.id
+          AND le.ref LIKE 'application:%' AND ${settledSql("le")}), 0)`;
     return `CASE
         WHEN ${alias}.status IN ('draft', 'void') THEN ${alias}.status
         WHEN ${paid} <= 0 AND ${refundedSql("invoice", `${alias}.id`)} AND ${owed} <= 0 THEN 'refunded'
         WHEN ${owed} <= 0 THEN 'paid'
-        WHEN ${paid} > 0 THEN 'partial'
         WHEN ${alias}.overdue_notified_at IS NOT NULL THEN 'overdue'
+        WHEN ${paid} > 0 OR ${applied} > 0 THEN 'partial'
         ELSE 'sent' END`;
 }
 

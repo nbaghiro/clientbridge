@@ -20,7 +20,7 @@ from clientbridge.services.plans import PlanService
 router = APIRouter(prefix="/plan", tags=["plan"])
 
 _SAFE = frozenset({"GET", "HEAD", "OPTIONS"})
-# a lapsed business can still buy a plan, fix its address, export, leave, refund and stop billing
+# a lapsed business can still buy a plan, fix its address, export, leave, settle, refund and stop
 LAPSED_WRITES = frozenset(
     {
         ("POST", "/v1/plan/checkout"),
@@ -40,6 +40,8 @@ LAPSED_WRITES = frozenset(
         ("POST", "/v1/connect/session"),
         ("POST", "/v1/payments/{payment_id}/refund"),
         ("POST", "/v1/subscriptions/{subscription_id}/cancel"),
+        ("POST", "/v1/reviews/google/disconnect"),
+        ("POST", "/v1/broadcasts/{broadcast_id}/cancel"),
     }
 )
 _ALLOWED = [(method, compile_path(path)[0]) for method, path in LAPSED_WRITES]

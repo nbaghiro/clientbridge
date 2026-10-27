@@ -2316,7 +2316,8 @@ export function useSaleDetail(
         const lastPaid = [...pays].reverse().find((p) => p.kind === "payment") ?? null;
         const splits: { staff_id: string; cents: number }[] =
             lastPaid?.tip_split != null
-                ? (JSON.parse(lastPaid.tip_split) as { staff_id: string; cents: number }[])
+                ? ((JSON.parse(lastPaid.tip_split) as
+                      { staff_id: string; cents: number }[] | null) ?? [])
                 : [];
         const actions: SaleDetail["actions"] = [];
         if (status === "open" && row.source !== "online")

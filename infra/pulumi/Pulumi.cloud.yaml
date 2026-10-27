@@ -1,4 +1,4 @@
-# Applied by an administrator. Settings only; secrets live in Secret Manager.
+# Applied by an administrator. Settings and the encrypted Stripe sandbox keys; app secrets live in Secret Manager.
 config:
   gcp:project: clientbridge-platform
   gcp:region: us-east1

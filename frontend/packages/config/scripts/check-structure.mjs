@@ -4,6 +4,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { e2eNameProblems } from "../e2e-names.mjs";
 import { suppressionLines } from "../suppressions.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
@@ -226,6 +227,15 @@ for (const file of tracked.filter((f) => /(^|\/)e2e\/.*\.(ts|js|yaml)$/.test(f))
                 );
         });
 }
+
+problems.push(
+    ...e2eNameProblems(tracked, {
+        concepts: domains,
+        publicPages: new Set(stems("apps/connect/src/pages/", ".tsx").map(lowerFirst)),
+        screens: COMPOSITE_SCREENS,
+        pageConcept: PAGE_CONCEPT,
+    }),
+);
 
 const BASE = "tsconfig.base.json";
 const STRICT_FAMILY = [

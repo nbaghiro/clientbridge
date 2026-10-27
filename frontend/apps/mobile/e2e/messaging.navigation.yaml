@@ -1,0 +1,78 @@
+appId: ${APP_ID}
+name: Inbox tabs and payment access
+---
+- launchApp:
+      # the default "all" pulls the whole APK over adb to read its manifest, which can stall for minutes
+      permissions:
+          notifications: allow
+- extendedWaitUntil:
+      visible: "Today|Sign in"
+      timeout: 60000
+- runFlow:
+      when:
+          visible: "Sign in"
+      file: helpers/owner.yaml
+- tapOn:
+      id: tab-today
+- extendedWaitUntil:
+      visible: "Good .*, Hannah"
+      timeout: 60000
+- assertVisible:
+      id: tab-inbox
+- assertNotVisible:
+      id: tab-payments
+- tapOn: "View all"
+- assertVisible: "Search client or number"
+- tapOn: "Back|Go back|Navigate up"
+- assertVisible:
+      id: tab-today
+- tapOn:
+      id: tab-inbox
+- assertVisible: "Search name, pet or message"
+- tapOn: "Amélie Tremblay.*"
+- assertVisible: "Client details"
+- tapOn:
+      id: tab-today
+- tapOn:
+      id: tab-inbox
+- assertVisible: "Client details"
+- tapOn: "Reviews"
+- assertVisible: "Read and reply to Google reviews.*"
+- tapOn:
+      id: tab-today
+- tapOn:
+      id: tab-inbox
+- assertVisible: "Read and reply to Google reviews.*"
+- tapOn: "Messages"
+- tapOn: "New"
+- assertVisible: "New message"
+- tapOn: "Cancel"
+- assertVisible: "Search name, pet or message"
+- tapOn: "Reviews"
+- tapOn: "Messages"
+- assertNotVisible: "New message"
+- tapOn:
+      id: tab-today
+- tapOn: "Search"
+- tapOn: "Search"
+- inputText: "Ethan"
+- tapOn: "Message Ethan Wright.*"
+- assertVisible: "Ethan Wright"
+- assertVisible: "Client details"
+- tapOn:
+      text: "Inbox"
+      below: "Messages"
+- assertVisible: "Search name, pet or message"
+- tapOn:
+      id: tab-today
+- tapOn: "Notifications.*"
+- scrollUntilVisible:
+      element:
+          text: ".*Message from Sophie Nguyen.*"
+      direction: DOWN
+      timeout: 180000
+      speed: 80
+- tapOn: ".*Message from Sophie Nguyen.*"
+- assertVisible: "Client details"
+- assertVisible: "Sophie Nguyen"
+- takeScreenshot: inbox-navigation

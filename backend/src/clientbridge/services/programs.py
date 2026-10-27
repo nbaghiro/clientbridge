@@ -39,11 +39,13 @@ from clientbridge.services.bookings import (
     lock_bookings,
     lock_staff,
     open_class_slot,
+    series_change_scope,
     slot_problem,
 )
 from clientbridge.services.business import business_tz, load_staff
 from clientbridge.services.catalog import assert_offers, deposit_cents, load_item
 from clientbridge.services.clients import load_client
+from clientbridge.services.notifications import queued_notifier
 from clientbridge.services.payments import cancel_open_deposits, refund_deposit
 from clientbridge.services.resources import choose_resource, lock_resources, lost_race
 
@@ -327,6 +329,10 @@ class ProgramService:
                 cmd=cmd,
             )
             cmd.record("program.enrol", entity_type="recurrence", entity_id=program.id)
+            if data.notify:
+                await queued_notifier(
+                    self.db, series_change_scope(program.id), self.biz
+                ).on_series_booked(self.db, [b.id for b in bookings], "booked")
             return EnrolmentOut(
                 program_id=program.id,
                 client_id=data.client_id,
@@ -367,6 +373,10 @@ class ProgramService:
             ]
             refunded = await withdraw(self.db, gateway, live, cmd)
             cmd.record("program.withdraw", entity_type="recurrence", entity_id=program.id)
+            if data.notify:
+                await queued_notifier(
+                    self.db, series_change_scope(program.id), self.biz
+                ).on_series_booked(self.db, [b.id for b in live], "canceled")
             return EnrolmentCancelOut(
                 program_id=program.id, canceled=[b.id for b in live], refunded_cents=refunded
             )

@@ -13,6 +13,7 @@ from clientbridge.core.ids import new_id
 from clientbridge.models.billing import Invoice, Line, Order
 from clientbridge.models.business import Business, Staff, User
 from clientbridge.models.payments import Payment
+from clientbridge.schemas.reports import ReportSummary
 from clientbridge.services import ledger
 from clientbridge.services.business import business_tz
 from clientbridge.services.ledger import Leg
@@ -405,3 +406,67 @@ async def test_sales_by_item_report(as_owner: httpx.AsyncClient, db: AsyncSessio
     assert float(row["quantity"]) >= 4
     assert int(row["sales_cents"]) >= 9600
     assert int(row["refunded_cents"]) >= 2400
+
+
+async def _summary(api: httpx.AsyncClient, start: str, end: str) -> dict[str, int]:
+    res = await api.get(f"/v1/reports/summary?start={start}&end={end}")
+    assert res.status_code == 200, res.text
+    body = ReportSummary.model_validate(res.json())
+    return {
+        "sales": body.income.sales_cents,
+        "pst": body.income.tax_by_code.get("PST", 0),
+        "taxable": body.gst_hst.taxable_sales_cents,
+        "pst_collected": body.provincial.collected_cents,
+        "pst_taxable": body.provincial.taxable_cents,
+    }
+
+
+async def _lined_invoice(db: AsyncSession, *, number: int, issued_at: datetime) -> None:
+    await _add_invoice(db, number=number, issued_at=issued_at, subtotal=10000, tax={"PST": 700})
+    invoice_id = (
+        await db.execute(
+            select(Invoice.id).where(Invoice.business_id == BIZ, Invoice.number == number)
+        )
+    ).scalar_one()
+    db.add(
+        Line(
+            id=new_id("line"),
+            business_id=BIZ,
+            invoice_id=invoice_id,
+            description="Grooming",
+            unit_amount_cents=10000,
+            amount_cents=10000,
+            tax_amount_cents=700,
+        )
+    )
+    await db.flush()
+
+
+@pytest.mark.parametrize(
+    ("issued", "inside", "outside"),
+    [
+        (datetime(2025, 12, 31, 23, 59, 59, 999999), "2025", "2026"),
+        (datetime(2026, 1, 1), "2026", "2025"),
+    ],
+)
+async def test_every_report_puts_a_year_end_instant_in_the_same_period(
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    issued: datetime,
+    inside: str,
+    outside: str,
+) -> None:
+    tz = await business_tz(db, BIZ)
+    years = {"2025": ("2025-12-01", "2025-12-31"), "2026": ("2026-01-01", "2026-01-31")}
+    before = {year: await _summary(as_owner, *span) for year, span in years.items()}
+    await _lined_invoice(db, number=9701, issued_at=issued.replace(tzinfo=tz).astimezone(UTC))
+    after = {year: await _summary(as_owner, *span) for year, span in years.items()}
+    gained = {k: after[inside][k] - before[inside][k] for k in before[inside]}
+    assert gained == {
+        "sales": 10000,
+        "pst": 700,
+        "taxable": 10000,
+        "pst_collected": 700,
+        "pst_taxable": 10000,
+    }
+    assert after[outside] == before[outside]

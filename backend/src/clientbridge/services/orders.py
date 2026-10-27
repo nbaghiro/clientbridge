@@ -53,7 +53,7 @@ from clientbridge.services.lines import (
     replace_lines,
     set_discount,
 )
-from clientbridge.services.notifications import Notifier
+from clientbridge.services.notifications import Notifier, queued_notifier
 from clientbridge.services.payments import (
     TipTerms,
     cancel_order_intents,
@@ -68,6 +68,15 @@ from clientbridge.services.tax import tax_for_lines
 
 _PICKUP_STEPS = {"unfulfilled": 0, "preparing": 1, "ready": 2, "picked_up": 3}
 # a wrong PIN locks the desk out for a while, so four digits can't be guessed in a minute
+
+
+def order_scope(order_id: str) -> str:
+    return f"order:{order_id}"
+
+
+def notice_scope(order_id: str) -> str:
+    """Each receipt or pickup notice is its own delivery, so asking again sends again."""
+    return f"{order_scope(order_id)}:{new_id('delivery')}"
 
 
 class OrderService:
@@ -315,6 +324,9 @@ class OrderService:
             await ledger.post_payment(self.db, payment)
             await sync_order(self.db, order.id)
             cmd.record("order.cash", entity_type="payment", entity_id=payment.id)
+            await queued_notifier(self.db, f"payment:{payment.id}", self.biz).on_payment_succeeded(
+                self.db, payment.id
+            )
             return OrderCashOut(
                 payment_id=payment.id,
                 amount_cents=amount,
@@ -359,6 +371,7 @@ class OrderService:
             amount = min(balance, due)
             if amount <= 0:
                 raise Conflict("nothing is left to pay on this sale")
+            await assert_parent_stock(self.db, self.biz, "order", order.id)
             await ledger.post_redemption(self.db, card, amount, source=("order", order.id))
             await sync_order(self.db, order.id)
             cmd.record("order.gift_card", entity_type="order", entity_id=order.id)
@@ -384,7 +397,7 @@ class OrderService:
         ]
 
     async def send_receipt(self, order_id: str, data: OrderReceiptIn) -> OrderOut:
-        """Choose where a paid sale's receipt goes; the router sends it once this commits."""
+        """Choose where a paid sale's receipt goes and queue it for the router to send."""
         order = await self._order(order_id)
         if await _status(self.db, order) not in ("paid", "refunded"):
             raise Conflict("a receipt is sent once the sale is paid")
@@ -404,6 +417,9 @@ class OrderService:
             order.receipt_token = order.receipt_token or secrets.token_urlsafe(16)
             await self.db.flush()
             cmd.record("order.receipt", entity_type="order", entity_id=order.id)
+            await queued_notifier(self.db, notice_scope(order.id), self.biz).on_order_receipt(
+                self.db, order.id
+            )
             lines = await fetch_lines(self.db, self.biz, "order", order.id)
             return await order_out(self.db, order, lines)
 
@@ -443,6 +459,10 @@ class OrderService:
                 order.picked_up_at = now
             await self.db.flush()
             cmd.record("order.pickup", entity_type="order", entity_id=order.id)
+            if data.status == "ready":
+                await queued_notifier(self.db, notice_scope(order.id), self.biz).on_order_ready(
+                    self.db, order.id
+                )
             lines = await fetch_lines(self.db, self.biz, "order", order.id)
             return await order_out(self.db, order, lines)
 
@@ -514,7 +534,11 @@ class OrderService:
         """A visit rung up on this sale points at it, so the desk queue knows it is on a ticket."""
         wanted = {ln.booking_id for ln in lines if ln.booking_id}
         linked = await self.db.execute(
-            scoped(Booking, self.biz).where((Booking.order_id == order.id) | Booking.id.in_(wanted))
+            scoped(Booking, self.biz)
+            .where((Booking.order_id == order.id) | Booking.id.in_(wanted))
+            .order_by(Booking.id)
+            .with_for_update(key_share=True)
+            .execution_options(populate_existing=True)
         )
         for booking in linked.scalars().all():
             if booking.id not in wanted:

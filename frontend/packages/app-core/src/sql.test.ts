@@ -1556,6 +1556,7 @@ describe("app-core SQL against the replica schema", () => {
                 "sessions_used",
                 "balance_cents",
                 "method_last4",
+                "deferred_paid_cents",
             ),
         ).toEqual([
             {
@@ -1564,6 +1565,7 @@ describe("app-core SQL against the replica schema", () => {
                 sessions_used: 2,
                 balance_cents: 0,
                 method_last4: null,
+                deferred_paid_cents: null,
             },
             {
                 kind: "membership",
@@ -1571,6 +1573,7 @@ describe("app-core SQL against the replica schema", () => {
                 sessions_used: null,
                 balance_cents: null,
                 method_last4: "1111",
+                deferred_paid_cents: null,
             },
             {
                 kind: "gift_card",
@@ -1578,6 +1581,7 @@ describe("app-core SQL against the replica schema", () => {
                 sessions_used: null,
                 balance_cents: 3000,
                 method_last4: null,
+                deferred_paid_cents: null,
             },
         ]);
         expect(pick(run("ENTITLEMENT_HISTORY_SQL", ["package", "pk_1"]), "event", "cents")).toEqual(
@@ -1798,6 +1802,21 @@ describe("app-core SQL against the replica schema", () => {
             { id: "frm_z", field_count: 0, submitted: 0, waiting: 0 },
         ]);
         expect(run("FORM_QUESTIONS_SQL", ["frm_a"]).map((r) => r.id)).toEqual(["ff_1", "ff_2"]);
+        const [draft] = run("FORM_DRAFT_SQL", ["frm_a"]);
+        expect(pick([draft ?? {}], "name", "require_signature")).toEqual([
+            { name: "Alpha", require_signature: 1 },
+        ]);
+        expect(
+            (JSON.parse(String(draft?.questions)) as { id: string; label: string }[]).map((q) => [
+                q.id,
+                q.label,
+            ]),
+        ).toEqual([
+            ["ff_1", "A"],
+            ["ff_2", "B"],
+        ]);
+        expect(JSON.parse(String(run("FORM_DRAFT_SQL", ["frm_b"])[0]?.questions))).toEqual([]);
+        expect(run("FORM_DRAFT_SQL", ["frm_missing"])).toEqual([]);
         scoped("signatures", [
             {
                 id: "sig_1",

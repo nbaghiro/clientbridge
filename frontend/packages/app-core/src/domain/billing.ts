@@ -88,6 +88,9 @@ export interface InvoiceRow {
     voided_at: string | null;
     pay_token: string | null;
     notes: string | null;
+    discount_kind: string | null;
+    discount_value: number | null;
+    discount_reason: string | null;
     created_at: string;
 }
 
@@ -110,6 +113,9 @@ interface EstimateRow {
     converted_invoice_id: string | null;
     converted_number: number | null;
     notes: string | null;
+    discount_kind: string | null;
+    discount_value: number | null;
+    discount_reason: string | null;
     created_at: string;
     // the live visit booked from this estimate, if the replica holds it
     booking_id: string | null;
@@ -120,6 +126,7 @@ interface LineRow {
     id: string;
     item_id: string | null;
     booking_id: string | null;
+    staff_id: string | null;
     description: string;
     quantity: number;
     unit_amount_cents: number;
@@ -155,7 +162,8 @@ SELECT i.id, i.client_id, c.name AS client_name, c.email AS client_email, c.phon
         WHERE pa.category = 'receivable' AND pe.subject_type = 'invoice' AND pe.subject_id = i.id
           AND pe.amount_cents < 0 AND ${settledSql("pe")}) AS paid_at,
        ${netTipSql("te.subject_type = 'invoice' AND te.subject_id = i.id")} AS tip_cents,
-       i.currency, i.issued_at, i.due_at, i.voided_at, i.pay_token, i.notes, i.created_at
+       i.currency, i.issued_at, i.due_at, i.voided_at, i.pay_token, i.notes,
+       i.discount_kind, i.discount_value, i.discount_reason, i.created_at
 FROM invoices i
 LEFT JOIN clients c ON c.id = i.client_id`;
 
@@ -171,7 +179,8 @@ SELECT e.id, e.client_id, c.name AS client_name, c.email AS client_email, c.phon
             ELSE e.status END AS status,
        e.subtotal_cents, e.tax_total_cents, e.total_cents, e.valid_until, e.accepted_at,
        e.declined_at, e.decline_reason, e.view_token, e.converted_invoice_id,
-       ci.number AS converted_number, e.notes, e.created_at,
+       ci.number AS converted_number, e.notes, e.discount_kind, e.discount_value,
+       e.discount_reason, e.created_at,
        b.id AS booking_id, b.starts_at AS booking_starts_at
 FROM estimates e
 LEFT JOIN clients c ON c.id = e.client_id
@@ -183,7 +192,7 @@ LEFT JOIN bookings b ON b.id = (
 ORDER BY e.created_at DESC`;
 
 export const LINES_SQL = `
-SELECT id, item_id, booking_id, description, quantity, unit_amount_cents, amount_cents,
+SELECT id, item_id, booking_id, staff_id, description, quantity, unit_amount_cents, amount_cents,
        tax_amount_cents, tax_class, optional, selected, position, discount_kind, discount_value,
        discount_reason
 FROM lines WHERE ? IN (invoice_id, estimate_id) ORDER BY position`;
@@ -240,8 +249,9 @@ export function useEstimates(): EstimateRow[] {
     return useQuery<EstimateRow>(ESTIMATES_SQL, [today]).data;
 }
 
-export function useLines(parentId: string): LineRow[] {
-    return useQuery<LineRow>(LINES_SQL, [parentId]).data;
+export function useLines(parentId: string): LineRow[] | null {
+    const query = useQuery<LineRow>(LINES_SQL, [parentId]);
+    return query.isLoading ? null : query.data;
 }
 
 function brandField(brand: string | null, key: string): string | null {
@@ -863,11 +873,15 @@ interface InvoiceActions {
 export function useInvoiceActions(api: ApiLike): InvoiceActions {
     const { busy, error, setError, run } = useAsyncAction();
     const [notice, setNotice] = useState<string | null>(null);
+    const attempt = useRef<Attempt | null>(null);
     const act = (path: string, message: (res: { number: number | null }) => string): void => {
         setNotice(null);
+        const idempotencyKey = attemptKey(attempt, path);
         run(
             async () => {
-                setNotice(message(await api.post<{ number: number | null }>(path, {})));
+                const res = await api.post<{ number: number | null }>(path, {}, { idempotencyKey });
+                attempt.current = null;
+                setNotice(message(res));
             },
             { errorMessage: (e) => failureMessage(e, s.actionError) },
         );
@@ -1284,6 +1298,7 @@ export function useEstimateActions(api: ApiLike): EstimateActions {
     const { busy, error, setError, run } = useAsyncAction();
     const [notice, setNotice] = useState<string | null>(null);
     const convertKey = useRef<Attempt | null>(null);
+    const sendKey = useRef<Attempt | null>(null);
     const act = <T>(
         call: () => Promise<T>,
         message: (res: T) => string,
@@ -1317,13 +1332,18 @@ export function useEstimateActions(api: ApiLike): EstimateActions {
                     document: { kind: "estimate", id: rec.row.id },
                 },
                 () => {
+                    const idempotencyKey = attemptKey(sendKey, rec.row.id);
                     act(
                         () =>
                             api.post<{ number: number | null }>(
                                 `/v1/estimates/${rec.row.id}/send`,
                                 {},
+                                { idempotencyKey },
                             ),
                         (res) => s.estimateSentTo(res.number ?? 0, rec.row.client_name ?? ""),
+                        () => {
+                            sendKey.current = null;
+                        },
                     );
                 },
             );
@@ -1427,6 +1447,9 @@ interface DraftLine {
     quantity: string;
     unit: string;
     itemId: string | null;
+    // the visit and member a line was billed for, kept so an edit can't detach them
+    bookingId: string | null;
+    staffId: string | null;
     taxClass: ItemTaxClass;
     optional: boolean;
     discount: SaleDiscount | null;
@@ -1446,10 +1469,13 @@ export interface DocDraft {
     number: number | null;
     clientId: string;
     notes: string;
+    discount: SaleDiscount | null;
     lines: DraftLine[];
 }
 
-export function lineDiscount(l: LineRow): SaleDiscount | null {
+export function storedDiscount(
+    l: Pick<LineRow, "discount_kind" | "discount_value" | "discount_reason">,
+): SaleDiscount | null {
     const kind = l.discount_kind;
     const value = l.discount_value ?? null;
     if ((kind !== "percent" && kind !== "amount") || value === null || value <= 0) return null;
@@ -1462,14 +1488,17 @@ export function docDraft(row: InvoiceRow | EstimateRow, lines: readonly LineRow[
         number: row.number,
         clientId: row.client_id,
         notes: row.notes ?? "",
+        discount: storedDiscount(row),
         lines: lines.map((l) => ({
             description: l.description,
             quantity: formatNumber(l.quantity, { useGrouping: false }),
             unit: formatAmountInput(l.unit_amount_cents, BUSINESS_CURRENCY),
             itemId: l.item_id,
+            bookingId: l.booking_id,
+            staffId: l.staff_id,
             taxClass: asTaxClass(l.tax_class),
             optional: l.optional === 1,
-            discount: lineDiscount(l),
+            discount: storedDiscount(l),
         })),
     };
 }
@@ -1485,6 +1514,8 @@ const blankLine = (): DraftLine & { key: string } =>
         quantity: "1",
         unit: "",
         itemId: null,
+        bookingId: null,
+        staffId: null,
         taxClass: "standard",
         optional: false,
         discount: null,
@@ -1553,7 +1584,9 @@ export function useDocComposer(
         draft !== undefined && draft.lines.length > 0 ? draft.lines.map(keyed) : [blankLine()],
     );
     const [message, setMessage] = useState(draft?.notes ?? "");
-    const [docDiscount, setDocDiscountState] = useState<SaleDiscount | null>(null);
+    const [docDiscount, setDocDiscountState] = useState<SaleDiscount | null>(
+        draft?.discount ?? null,
+    );
     const [docDiscountTouched, setDocDiscountTouched] = useState(false);
     const [chosenTerms, setTerms] = useState<DocTerms>("d14");
     // an invoice switched to an estimate can't keep the pay-now term, which only invoices offer
@@ -1566,6 +1599,7 @@ export function useDocComposer(
     const save = useAsyncAction();
     const sendAction = useAsyncAction();
     const keyRef = useRef<Attempt | null>(null);
+    const sendKey = useRef<Attempt | null>(null);
     const tax = useTaxSetup();
     const zone = useBusinessZone();
     const rates = docRates(tax.rates, tax.registered);
@@ -1622,6 +1656,8 @@ export function useDocComposer(
                 quantity: qtyOf(l),
                 unit_amount_cents: unitOf(l),
                 item_id: l.itemId,
+                booking_id: l.bookingId,
+                staff_id: l.staffId,
                 tax_class: l.taxClass,
                 discount: l.discount,
                 ...(kind === "estimate" ? { optional: l.optional } : {}),
@@ -1661,9 +1697,11 @@ export function useDocComposer(
         if (!valid) return;
         const key = attemptKey(keyRef, [path, body()]);
         const deliver = (id: string): void => {
+            const idempotencyKey = attemptKey(sendKey, [path, id]);
             sendAction.run(
                 async () => {
-                    await api.post(`${path}/${id}/send`, {});
+                    await api.post(`${path}/${id}/send`, {}, { idempotencyKey });
+                    sendKey.current = null;
                     setSent(s.sentTitle(s.doc.kinds[kind]));
                     onDone?.(id);
                 },
@@ -1797,6 +1835,8 @@ export function useDocComposer(
                 quantity: "1",
                 unit: formatAmountInput(item.price_cents ?? 0, BUSINESS_CURRENCY),
                 itemId: item.id,
+                bookingId: null,
+                staffId: null,
                 taxClass: asTaxClass(item.tax_class),
                 optional: false,
                 discount: null,

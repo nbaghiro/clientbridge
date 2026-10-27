@@ -5157,12 +5157,6 @@ export interface components {
             phone?: string | null;
             /** Tags */
             tags?: string[];
-            /**
-             * Status
-             * @default active
-             * @enum {string}
-             */
-            status: "active" | "inactive";
             /** Custom Fields */
             custom_fields?: {
                 [key: string]: unknown;
@@ -5205,12 +5199,6 @@ export interface components {
             phone?: string | null;
             /** Tags */
             tags?: string[];
-            /**
-             * Status
-             * @default active
-             * @enum {string}
-             */
-            status: "active" | "inactive";
             /** Custom Fields */
             custom_fields?: {
                 [key: string]: unknown;
@@ -5223,6 +5211,11 @@ export interface components {
             preferred_channel: "sms" | "email";
             /** Id */
             id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "active" | "inactive";
             /** Business Id */
             business_id: string;
             /** Archived At */
@@ -5260,8 +5253,6 @@ export interface components {
             phone?: string | null;
             /** Tags */
             tags?: string[] | null;
-            /** Status */
-            status?: ("active" | "inactive") | null;
             /** Custom Fields */
             custom_fields?: {
                 [key: string]: unknown;
@@ -8335,6 +8326,13 @@ export interface components {
             notes: string | null;
             /** Decline Reason */
             decline_reason: string | null;
+            /**
+             * Discount Cents
+             * @description The estimate's own discount over its included lines
+             */
+            discount_cents: number;
+            /** Discount Reason */
+            discount_reason: string | null;
             /** Lines */
             lines: components["schemas"]["PublicEstimateLine"][];
             /** Taxes */
@@ -8347,6 +8345,11 @@ export interface components {
              * @description The optional add-ons the client ticked
              */
             line_ids?: string[];
+            /**
+             * Total Cents
+             * @description The total the client was shown; refused when it has changed
+             */
+            total_cents?: number | null;
         };
         /** PublicEstimateDecline */
         PublicEstimateDecline: {
@@ -9364,9 +9367,9 @@ export interface components {
             whole_only?: string | null;
             /**
              * Blocked
-             * @description Why nothing can be refunded
+             * @description Why nothing can be refunded, as a code the client renders
              */
-            blocked?: string | null;
+            blocked?: ("not_succeeded" | "already_refunded" | "gift_card_expired" | "gift_card_redeemed" | "package_expired" | "package_used" | "whole_only" | "payment_disputed") | null;
             /**
              * By Hand
              * @description Money goes back outside Stripe (cash, cheque, e-Transfer)
@@ -10761,7 +10764,10 @@ export interface operations {
     };
     public_estimate_estimate__token__get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Quote the estimate with these optional add-ons ticked */
+                line_ids?: string[] | null;
+            };
             header?: never;
             path: {
                 token: string;
@@ -12826,6 +12832,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
+                "Idempotency-Key"?: string | null;
                 "x-business-id"?: string;
                 "x-expected-user"?: string;
                 "x-session-token"?: string;
@@ -14397,6 +14404,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
+                "Idempotency-Key"?: string | null;
                 "x-business-id"?: string;
                 "x-expected-user"?: string;
                 "x-session-token"?: string;
@@ -14432,6 +14440,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
+                "Idempotency-Key"?: string | null;
                 "x-business-id"?: string;
                 "x-expected-user"?: string;
                 "x-session-token"?: string;
@@ -14695,6 +14704,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
+                "Idempotency-Key"?: string | null;
                 "x-business-id"?: string;
                 "x-expected-user"?: string;
                 "x-session-token"?: string;

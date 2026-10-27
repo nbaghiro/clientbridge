@@ -60,7 +60,7 @@ export function Toolbar({
 
 function StockRow({ r, onRestock }: { r: StockRowView; onRestock: () => void }) {
     return (
-        <div className="flex items-center gap-4 px-4 py-3">
+        <div data-item-id={r.item.id} className="flex items-center gap-4 px-4 py-3">
             <ItemImage
                 src={mediaUrl(apiBaseUrl, r.item.image_file_id)}
                 name={r.item.name}

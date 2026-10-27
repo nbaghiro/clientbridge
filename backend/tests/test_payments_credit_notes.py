@@ -158,7 +158,7 @@ async def test_preview_rejects_a_bad_amount_and_reports_blocks(
     assert res.status_code == 409
     ok(await as_owner.post(f"/v1/payments/{pay}/refund", json={}, headers=retry_key()))
     done = ok(await as_owner.get(f"/v1/payments/{pay}/refund-preview")).json()
-    assert done["blocked"] == "this payment was already refunded"
+    assert done["blocked"] == "already_refunded"
     assert done["parts"] == []
     refund_id = (
         await db.execute(select(Payment.id).where(Payment.parent_payment_id == pay))

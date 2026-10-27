@@ -3,7 +3,13 @@ import { describe, expect, it, vi } from "vitest";
 import type { ApiLike } from "../api";
 
 import { packageBalance } from "./clients";
-import { type PackageRow, canConsume, consumeSession, sessionsRemaining } from "./entitlements";
+import {
+    type PackageRow,
+    canConsume,
+    consumeSession,
+    nextSessionCents,
+    sessionsRemaining,
+} from "./entitlements";
 
 const pkg = (total: number, used: number, status = "active"): PackageRow => ({
     id: "pk_1",
@@ -35,6 +41,13 @@ describe("packages", () => {
         expect(canConsume(pkg(5, 0, "expired"))).toBe(false);
         expect(canConsume(pkg(5, 0, "pending"))).toBe(false);
     });
+});
+
+it("earns each session from what was paid, not the current price, and the last takes the rest", () => {
+    expect(nextSessionCents(6001, 6001, 2, 0)).toBe(3000);
+    expect(nextSessionCents(6001, 3001, 2, 1)).toBe(3001);
+    expect(nextSessionCents(6001, 1000, 3, 0)).toBe(1000);
+    expect(nextSessionCents(0, 0, 1, 0)).toBe(0);
 });
 
 it("passes a stable attempt key when consuming a package session", async () => {

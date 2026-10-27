@@ -6,8 +6,8 @@ import secrets
 import subprocess
 import sys
 
+from e2e.database import admin, on
 from scripts.db_access import ADMIN_URL, quote
-from scripts.fresh_database import admin, on
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 

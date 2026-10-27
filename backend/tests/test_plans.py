@@ -1008,3 +1008,51 @@ async def test_a_lapse_without_live_memberships_sends_nothing(
     await _deliver(api, _event("customer.subscription.updated"))
     assert (await _business(db)).plan_status == "lapsed"
     assert await _lapse_notices(db) == []
+
+
+async def _plan(db: AsyncSession) -> tuple[str | None, str]:
+    business = await _business(db)
+    return business.plan, business.plan_status
+
+
+@pytest.mark.parametrize("provider", ["canceled", "unpaid"])
+async def test_a_refresh_follows_stripe_when_the_ending_event_never_arrived(
+    provider: str, as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await _subscribed(db, gateway, PlanItem("team_month"))
+    gateway.plan_subscriptions[SUB] = _sub(PlanItem("team_month"), status=provider)
+    ok(await as_owner.post("/v1/clients", json={"name": "Before Refresh"}), 201)
+    refreshed = ok(await as_owner.get("/v1/plan")).json()
+    assert (refreshed["access"], refreshed["plan_status"]) == ("lapsed", "lapsed")
+    assert await _plan(db) == (None, "lapsed")
+    assert (await as_owner.post("/v1/clients", json={"name": "After"})).status_code == 402
+    gateway.plan_subscriptions[SUB] = _sub(PlanItem("team_month"))
+    await _deliver(as_owner, _event("customer.subscription.updated"))
+    assert await _plan(db) == ("team", "active")
+
+
+async def test_the_daily_sync_heals_a_missed_lapse_and_a_missed_recovery(
+    db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await _subscribed(db, gateway, PlanItem("team_month"))
+    gateway.plan_subscriptions[SUB] = _sub(PlanItem("team_month"), status="unpaid")
+    await plans.run_sync_plans(db, gateway, clock.now())
+    assert await _plan(db) == (None, "lapsed")
+    gateway.plan_subscriptions[SUB] = _sub(PlanItem("team_month"))
+    await plans.run_sync_plans(db, gateway, clock.now())
+    assert await _plan(db) == ("team", "active")
+    assert gateway.canceled_plan_subscriptions == []
+
+
+async def test_the_daily_sync_warns_of_a_missed_lapse_once(
+    api: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await _subscribed(db, gateway, PlanItem("team_month"))
+    await _set(db, billing_email="owner@example.ca")
+    gateway.plan_subscriptions[SUB] = _sub(PlanItem("team_month"), status="canceled")
+    await plans.run_sync_plans(db, gateway, clock.now())
+    assert await _plan(db) == (None, "lapsed")
+    await _deliver(api, _event("customer.subscription.deleted"))
+    (notice,) = await _lapse_notices(db)
+    email = notice.payload["message"]
+    assert isinstance(email, dict) and email["to"] == "owner@example.ca"

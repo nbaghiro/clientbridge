@@ -51,9 +51,9 @@ from clientbridge.services.bookings import (
     RecurrenceService,
     TimeOffService,
     seat_scope,
+    series_scope,
 )
 from clientbridge.services.deliveries import dispatch_scope
-from clientbridge.services.notifications import Notifier
 
 router = APIRouter(prefix="/bookings", tags=["bookings"])
 
@@ -86,16 +86,10 @@ async def patch_booking(
     sms: SmsDep,
     push: PushDep,
 ) -> BookingOut:
-    result, notice = await BookingService(db, principal, gateway).patch(booking_id, body)
+    result = await BookingService(db, principal, gateway).patch(booking_id, body)
+    await dispatch_scope(db, f"booking:{result.id}", email, sms, push)
     if result.status in ("canceled", "no_show"):
         await dispatch_scope(db, seat_scope(result.slot_id), email, sms, push)
-    notifier = Notifier(email, sms, push)
-    if notice == "canceled":
-        await notifier.on_booking_canceled(db, result.id)
-    elif notice == "confirmed":
-        await notifier.on_booking_confirmed(db, result.id)
-    elif notice == "rescheduled" and body.notify:
-        await notifier.on_booking_rescheduled(db, result.id)
     return result
 
 
@@ -259,13 +253,7 @@ async def create_recurrence(
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> RecurrenceOut:
     result = await RecurrenceService(db, principal).create(body, idempotency_key)
-    booked = [o.booking_id for o in result.occurrences if o.booking_id is not None]
-    notifier = Notifier(email, sms, push)
-    if body.confirmation == "series":
-        await notifier.on_series_booked(db, booked, "booked")
-    elif body.confirmation == "each":
-        for booking_id in booked:
-            await notifier.on_booking_confirmed(db, booking_id)
+    await dispatch_scope(db, series_scope(result.id), email, sms, push)
     return result
 
 
@@ -280,8 +268,7 @@ async def change_recurrence(
     push: PushDep,
 ) -> RecurrenceChangeOut:
     result = await RecurrenceService(db, principal).change(recurrence_id, body)
-    if body.notify:
-        await Notifier(email, sms, push).on_series_booked(db, result.moved, "moved")
+    await dispatch_scope(db, series_scope(result.id), email, sms, push)
     return result
 
 
@@ -297,8 +284,7 @@ async def cancel_recurrence(
     push: PushDep,
 ) -> RecurrenceCancelOut:
     result = await RecurrenceService(db, principal).cancel(recurrence_id, body, gateway)
-    if body.notify:
-        await Notifier(email, sms, push).on_series_booked(db, result.canceled, "canceled")
+    await dispatch_scope(db, series_scope(result.id), email, sms, push)
     return result
 
 

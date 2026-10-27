@@ -2,6 +2,7 @@
 
 import asyncio
 import base64
+import contextlib
 import hashlib
 import hmac
 import smtplib
@@ -16,6 +17,7 @@ import httpx
 
 from clientbridge.core.config import get_settings
 from clientbridge.core.email_layout import InlineImage
+from clientbridge.core.errors import Undelivered
 from clientbridge.integrations.http import http_session
 
 _RESEND_URL = "https://api.resend.com/emails"
@@ -36,6 +38,7 @@ class Email:
     reply_to: str | None = None
     idempotency_key: str | None = None
     tags: Mapping[str, str] = field(default_factory=dict)
+    opt_out: bool = False  # the client's email opt-out stops it, checked again as it goes
 
 
 class EmailSender(Protocol):
@@ -146,8 +149,39 @@ class SmtpEmailSender:
         return None
 
     def _deliver(self, message: EmailMessage) -> None:
-        with smtplib.SMTP(self._host, self._port, timeout=10) as smtp:
+        smtp = smtplib.SMTP(timeout=10)
+        try:
+            code, reply = smtp.connect(self._host, self._port)
+            if code != 220:
+                raise smtplib.SMTPConnectError(code, reply)
+            smtp.ehlo_or_helo_if_needed()
+        except (OSError, smtplib.SMTPException) as exc:
+            smtp.close()
+            raise Undelivered("connection_unavailable", retry=True) from exc
+        try:
             smtp.send_message(message)
+        except Exception as exc:
+            smtp.close()
+            refusal = _refusal(exc)
+            if refusal is None:
+                raise
+            raise refusal from exc
+        with contextlib.suppress(OSError, smtplib.SMTPException):
+            smtp.quit()
+        smtp.close()
+
+
+def _refusal(exc: Exception) -> Undelivered | None:
+    """A reply refusing the message proves nothing was accepted; a 4xx reply is temporary."""
+    if isinstance(exc, smtplib.SMTPRecipientsRefused):
+        code = min(code for code, _ in exc.recipients.values())
+    elif isinstance(exc, smtplib.SMTPSenderRefused | smtplib.SMTPDataError):
+        code = exc.smtp_code
+    elif isinstance(exc, smtplib.SMTPNotSupportedError):
+        return Undelivered("smtp_unsupported", retry=False)
+    else:
+        return None
+    return Undelivered(f"smtp_{code}", retry=400 <= code < 500)
 
 
 def get_email_sender() -> EmailSender:

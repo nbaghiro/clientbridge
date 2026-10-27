@@ -8,6 +8,7 @@ There is one seeded demo business per vertical the product serves, so each trade
 - **Safe to use:** every email and phone is a reserved address (`.example`, 555-0100 to 0199), so demo emails and texts never leave the app.
 - **Today's visits:** some demos show "checked in" and "on the way" only during their working hours. At other times those visits move to the next working day.
 - **Card payments:** these need the demo linked to the Stripe sandbox ([payments.md](payments.md#local-sandbox-setup)). Without that, use cash or manual payments.
+- **Staging smoke lane:** `make test-staging-smoke` signs in with these logins by default. `SMOKE_PASSWORD` and `SMOKE_OWNERS` (comma-separated emails) override them, and `SMOKE_DOMAIN` or the `SMOKE_*_URL` variables point it at another environment. It only reads, so it leaves the demo data as it was.
 
 ## At a glance
 

@@ -5,9 +5,11 @@ import pytest
 from sqlalchemy import text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core.ids import new_id
 from clientbridge.models.clients import Client
 from clientbridge.models.messaging import Message, Thread
 from tests.conftest import (
+    OWNER_USER,
     STAFF_USER,
     Factory,
     FakeIdentityProvider,
@@ -117,6 +119,24 @@ async def test_create_rejects_blank_name_and_bad_pet_422(as_owner: httpx.AsyncCl
         json={"name": "Odd", "subject": {"name": "X", "attributes": {"weight_kg": -1}}},
     )
     assert res.status_code == 422
+
+
+@pytest.mark.parametrize("member", [STAFF_USER, OWNER_USER])
+async def test_status_changes_only_through_archive_and_restore(
+    member: str, api: httpx.AsyncClient, db: AsyncSession, identities: FakeIdentityProvider
+) -> None:
+    token = await session_token(identities, db, member)
+    api.headers.update({"X-Session-Token": token, "X-Business-Id": BIZ})
+    client = Client(id=new_id("client"), business_id=BIZ, name="Kept Active", tags=[])
+    db.add(client)
+    await db.flush()
+    for status in ("inactive", "active"):
+        res = await api.patch(f"/v1/clients/{client.id}", json={"status": status})
+        assert res.status_code == 422, res.text
+    row = await db.get(Client, client.id, populate_existing=True)
+    assert row is not None and (row.status, row.archived_at) == ("active", None)
+    created = await api.post("/v1/clients", json={"name": "Quiet", "status": "inactive"})
+    assert created.status_code == 422
 
 
 async def test_archive_and_restore(as_owner: httpx.AsyncClient) -> None:

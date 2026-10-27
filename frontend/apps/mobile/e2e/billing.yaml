@@ -1,0 +1,10 @@
+appId: ${APP_ID}
+name: Create Invoice switches to an estimate
+---
+- runFlow: helpers/owner.yaml
+- tapOn: "Create"
+- tapOn: "Invoice.*"
+- tapOn: "Estimate"
+- takeScreenshot: estimate-shortcut
+- assertVisible: "New estimate"
+- assertNotVisible: "New invoice"

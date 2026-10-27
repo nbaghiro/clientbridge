@@ -18,7 +18,11 @@ from clientbridge.schemas.contracts import (
     ContractVersionCreate,
     SignatureOut,
 )
-from clientbridge.services.notifications import Notifier
+from clientbridge.services.notifications import queued_notifier
+
+
+def signature_scope(signature_id: str) -> str:
+    return f"signature:{signature_id}"
 
 
 class ContractService:
@@ -27,9 +31,7 @@ class ContractService:
         self.principal = principal
         self.biz = principal.business_id
 
-    async def send_contract(
-        self, data: ContractSend, idempotency_key: str | None, notify: Notifier
-    ) -> SignatureOut:
+    async def send_contract(self, data: ContractSend, idempotency_key: str | None) -> SignatureOut:
         self._assert_admin()
         contract = await self._contract(data.contract_id)
         await self._client(data.client_id)
@@ -50,8 +52,7 @@ class ContractService:
             except IntegrityError as exc:
                 raise Conflict("could not mint a unique signing link") from exc
             cmd.record("contract.send", entity_type="signature", entity_id=signature.id)
-            # Inside the command so a same-key retry replays the response without re-notifying.
-            await notify.on_contract_sent(self.db, signature.id)
+            await self._queue(signature.id)
             return _signature_out(signature)
 
         return await run_command(
@@ -63,6 +64,10 @@ class ContractService:
             idempotency_key=idempotency_key,
             request=data,
         )
+
+    async def _queue(self, signature_id: str) -> None:
+        scope = f"{signature_scope(signature_id)}:{new_id('delivery')}"
+        await queued_notifier(self.db, scope, self.biz).on_contract_sent(self.db, signature_id)
 
     async def create_contract(
         self, data: ContractCreate, idempotency_key: str | None
@@ -124,9 +129,7 @@ class ContractService:
             request={"contract_id": contract_id, "data": data},
         )
 
-    async def resend(
-        self, signature_id: str, idempotency_key: str | None, notify: Notifier
-    ) -> SignatureOut:
+    async def resend(self, signature_id: str, idempotency_key: str | None) -> SignatureOut:
         self._assert_admin()
         signature = (
             await self.db.execute(scoped(Signature, self.biz).where(Signature.id == signature_id))
@@ -138,7 +141,7 @@ class ContractService:
             if signature.status != "pending":
                 raise Conflict("only a request still waiting for a signature can be resent")
             cmd.record("contract.resend", entity_type="signature", entity_id=signature.id)
-            await notify.on_contract_sent(self.db, signature.id)
+            await self._queue(signature.id)
             return _signature_out(signature)
 
         return await run_command(

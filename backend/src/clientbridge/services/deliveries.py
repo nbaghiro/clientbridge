@@ -11,12 +11,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
 from clientbridge.core.emails import reserved_email
-from clientbridge.core.errors import AppError, Unprocessable
+from clientbridge.core.errors import AppError, Undelivered, Unprocessable
 from clientbridge.core.ids import new_id
-from clientbridge.core.phones import reserved_phone
+from clientbridge.core.phones import e164, reserved_phone, same_phone
+from clientbridge.core.scoping import scoped
 from clientbridge.integrations.expo import Push, PushSender
 from clientbridge.integrations.resend import Email, EmailSender, get_test_email_sender
 from clientbridge.integrations.twilio import Sms, SmsSender
+from clientbridge.models.clients import Client
 from clientbridge.models.messaging import Delivery, DeliveryState
 from clientbridge.schemas.deliveries import (
     DELIVERY_PAYLOAD,
@@ -25,6 +27,7 @@ from clientbridge.schemas.deliveries import (
     PushDelivery,
     SmsDelivery,
 )
+from clientbridge.services.consents import emails_withdrawn, stopped_clients
 
 _LEASE = timedelta(minutes=5)
 _RETRY = timedelta(minutes=1)
@@ -96,6 +99,13 @@ async def dispatch(
         row.state, row.error, row.next_at = "failed", "reserved_address", None
         await db.commit()
         return False
+    if row.business_id is not None and (
+        await _texts_stopped(db, row.business_id, payload)
+        or await _emails_withdrawn(db, row.business_id, payload)
+    ):
+        row.state, row.error, row.next_at = "failed", "consent_withdrawn", None
+        await db.commit()
+        return False
     claim = secrets.token_urlsafe(24)
     row.state, row.claim, row.next_at = "sending", claim, now + _LEASE
     key = row.id
@@ -128,6 +138,8 @@ async def dispatch(
                 await push.send(message)
     except AppError as exc:
         state, error = "failed", exc.code
+    except Undelivered as exc:
+        state, error = "queued" if exc.retry else "failed", exc.code
     except (httpx.ConnectError, httpx.ConnectTimeout, httpx.PoolTimeout):
         state, error = "queued", "connection_unavailable"
     except httpx.HTTPStatusError as exc:
@@ -150,6 +162,31 @@ async def dispatch(
     row.claim = None
     await db.commit()
     return state == "accepted"
+
+
+async def _texts_stopped(db: AsyncSession, business_id: str, payload: DeliveryPayload) -> bool:
+    """A STOP from the number, received after the text was queued, still keeps it from going."""
+    if not isinstance(payload, SmsDelivery):
+        return False
+    number = e164(payload.message.to)
+    if number is None:
+        return False
+    holders = list(
+        await db.scalars(
+            scoped(Client, business_id, soft_delete=True)
+            .with_only_columns(Client.id)
+            .where(same_phone(Client.phone, number))
+        )
+    )
+    return bool(holders) and bool(await stopped_clients(db, business_id, holders))
+
+
+async def _emails_withdrawn(db: AsyncSession, business_id: str, payload: DeliveryPayload) -> bool:
+    """An email the client can opt out of stays unsent once they have, even after it queued."""
+    if not isinstance(payload, EmailDelivery) or not payload.message.opt_out:
+        return False
+    client_id = payload.message.tags.get("client")
+    return client_id is not None and await emails_withdrawn(db, business_id, client_id)
 
 
 def _reserved(payload: DeliveryPayload) -> bool:

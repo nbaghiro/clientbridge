@@ -10,6 +10,7 @@ BACKEND = pathlib.Path(__file__).resolve().parents[1]
 PACKAGE = BACKEND / "src" / "clientbridge"
 TESTS = BACKEND / "tests"
 SCRIPTS = BACKEND / "scripts"
+E2E = BACKEND / "e2e"
 MIGRATIONS = BACKEND / "migrations"
 INFRA = BACKEND.parent / "infra" / "pulumi"
 PYRIGHT_CONFIG = BACKEND.parent / "pyrightconfig.json"
@@ -21,7 +22,13 @@ PYRIGHT_RELAXED = {
     "reportUnknownVariableType",
 }
 PYRIGHT_HIDING = ("ignore", "exclude", "executionEnvironments")
-PYRIGHT_INCLUDE = {"backend/src", "backend/tests", "backend/scripts", "backend/migrations"}
+PYRIGHT_INCLUDE = {
+    "backend/src",
+    "backend/tests",
+    "backend/scripts",
+    "backend/e2e",
+    "backend/migrations",
+}
 CROSS_CUTTING_TESTS = {
     "command",
     "db",
@@ -383,7 +390,10 @@ def main() -> int:
             + zone_problems(path, tree)
             + clock_problems(path, tree)
         )
-    for path in sorted([*TESTS.rglob("*.py"), *SCRIPTS.rglob("*.py")]):
+    for path in sorted(E2E.rglob("*.py")):
+        if path.parent != E2E:
+            problems.append(f"{path}: keep the e2e package flat, one file per concept")
+    for path in sorted([*TESTS.rglob("*.py"), *SCRIPTS.rglob("*.py"), *E2E.rglob("*.py")]):
         problems += comment_problems(path) + clock_problems(path, ast.parse(path.read_text()))
     for path in sorted(INFRA.rglob("*.py")):
         if ".venv" not in path.parts:

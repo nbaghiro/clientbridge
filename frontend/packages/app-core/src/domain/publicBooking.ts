@@ -6,6 +6,7 @@ import {
     type Attempt,
     attemptKey,
     failedStatus,
+    failedCode,
     failureMessage,
     refusal,
     sendAttempt,
@@ -439,7 +440,9 @@ export function visitWeekFrom(start: Date, today: string, zone: string): string 
 /** A refused booking or move: a lost connection, a time just taken, or the action's own message. */
 export function bookingFailure(error: unknown, fallback: string): string {
     if (isConnectionFailure(error)) return s.connectionError;
-    return failedStatus(error) === 409 ? s.slotTaken : failureMessage(error, fallback);
+    return failedStatus(error) === 409 && failedCode(error) !== "contact_ambiguous"
+        ? s.slotTaken
+        : failureMessage(error, fallback);
 }
 
 // the catalog's select word for a business that books only the client
@@ -854,7 +857,8 @@ export function usePublicBookingFlow(
             },
             {
                 errorMessage: (e) => {
-                    if (failedStatus(e) === 409) refreshTimes();
+                    if (failedStatus(e) === 409 && failedCode(e) !== "contact_ambiguous")
+                        refreshTimes();
                     return bookingFailure(e, s.bookError);
                 },
             },

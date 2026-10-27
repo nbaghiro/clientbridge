@@ -29,6 +29,7 @@ from tests.helpers import (
     enable_payments,
     payment,
     provider_ref,
+    reachable,
     stripe_event,
 )
 from tests.helpers import key as retry_key
@@ -1275,8 +1276,9 @@ async def test_global_scan_is_multi_tenant_and_deduped(
 
 
 async def test_a_second_cancel_is_a_no_op_with_no_second_notice(
-    as_owner: httpx.AsyncClient, email: FakeEmailSender
+    as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
 ) -> None:
+    await reachable(db, CL_AMELIE)
     created = await as_owner.post(
         "/v1/bookings",
         json={

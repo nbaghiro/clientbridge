@@ -152,6 +152,36 @@ thin event destinations, API versions, payment domains, Dashboard setup and sand
 The [credentials table](payments.md#credentials-and-runtime-settings) maps Stripe settings to their roles;
 this document remains the reference for Secret Manager, infrastructure and deployment procedures.
 
+### Stripe sandbox for hosted CI
+
+`stripe-qa.yml` runs the backend sandbox suite and the real Stripe browser lane by hand, from `main` only. Both jobs read the protected GitHub environment `stripe-sandbox`: the secrets `STRIPE_TEST_SECRET_KEY` and `STRIPE_TEST_PUBLISHABLE_KEY`, and the variables `STRIPE_TEST_PLATFORM`, `STRIPE_TEST_CONNECTED_ACCOUNT` and `STRIPE_TEST_OTHER_ACCOUNT`. The cloud stack creates that environment from its config once all five keys are set, with a deployment branch policy that admits only `main`, the same rule the workflow's `if` applies. Until then it creates nothing, and a partly set group stops the stack.
+
+CI uses its own pair of merchants, tagged `clientbridge_qa_environment=ci`, so a hosted run never shares a merchant lease with a local one. To create them, with the local `clientbridge` Stripe CLI profile on the sandbox platform:
+
+```sh
+cd backend
+uv run python -m scripts.stripe_qa_accounts --environment ci   # read-only: shows what exists
+uv run python -m scripts.stripe_qa_accounts --environment ci --apply --prepare --bank \
+  --onboarding-links --output ../.scratchpad/stripe-ci-merchants.json
+```
+
+The second command creates the two accounts if they're missing (its idempotency keys make a rerun safe), fills in Stripe's documented test identity, attaches the Canadian test bank account and prints a Stripe-hosted onboarding link for each merchant that can't take charges yet. Opening each link accepts the terms, which no API call does for these accounts. Rerun the read-only command until both merchants show `charges_enabled` and `payouts_enabled` with nothing currently due.
+
+Then set the stack config from the manifest and apply the cloud stack:
+
+```sh
+cd infra/pulumi
+pulumi stack select cloud
+pulumi config set --secret stripeTestSecretKey      # the sandbox platform's sk_test_ or rk_test_ key
+pulumi config set --secret stripeTestPublishableKey # its pk_test_ key
+pulumi config set stripeTestPlatform acct_…
+pulumi config set stripeTestConnectedAccount acct_… # slot a in the manifest
+pulumi config set stripeTestOtherAccount acct_…     # slot b
+pulumi up
+```
+
+The two keys are stored encrypted in `Pulumi.cloud.yaml`, and `tests/test_program.py` fails if either is committed in plain text. After `pulumi up`, run `stripe-qa` from `main` in the Actions tab; its preflight refuses merchants that aren't ready or aren't tagged for CI.
+
 ### Resend
 
 Each environment sends from its own domain: `EMAIL_FROM` is `Clientbridge <no-reply@D>`, so staging needs `staging.clientbridge.ca` as a second Resend domain.
@@ -238,6 +268,8 @@ On every push to `main`, after the `ci` workflow passes, `.github/workflows/depl
 
 Production runs the same job with the same digests after a reviewer approves the `production` environment. The deployer account each job uses can change only its own namespace.
 
+After staging deploys, the `staging-smoke` job in `deploy.yml` runs `make test-staging-smoke`: Playwright checks of the deployed hosts from `frontend/apps/connect/e2e/smoke/`. They read `config.js` and the frame policy on every host, follow the business page to booking and the shop, embed both widgets on another origin (including one below the fold), and sign in as each demo owner. The lane is read-only. A route guard aborts and fails on any write to the environment except signing in and the short-lived Stripe session the payment setup screen opens, so it never books, pays or sends a message. It runs as its own job with only `contents: read`, so the packages it installs never run beside the deployer's credentials, and production does not wait for it.
+
 To inspect a failed deploy: the run's log shows the Pulumi diff and error; `kubectl -n <namespace> get jobs` and `kubectl -n <namespace> logs job/<migrate job> --all-containers` show the migration's output (the deployer Role can read pod logs, so CI can print them too).
 
 Rollback is a manual run with the previous digests and the `rollback` input: `gh workflow run deploy.yml -f environment=<staging|production> -f backend_digest=sha256:… -f web_digest=sha256:… -f rollback=true`. The input passes `clientbridge:allowSchemaAhead=true` to `pulumi up`, which sets `MIGRATE_ALLOW_AHEAD=1` on that run's migrate Job; every other run passes `false`, so the value never carries over, and a rollback without both digests stops. A manual redeploy without `rollback` fails at the migrate step if the database is ahead of the image. Before a production approval, note the running digests with `pulumi stack output images --stack prod`; older ones are in `gcloud artifacts docker images list us-east1-docker.pkg.dev/<project>/clientbridge/backend --include-tags`, where each image carries its commit SHA and, once deployed, `<env>-<short sha>` (the running one also has `<env>-current`). A manual run must start from `main` (`gh workflow run deploy.yml --ref main …`) and never skips an older commit, so it can roll back. The registry cleanup never deletes an image tagged `staging-current` or `prod-…`, keeps `staging-<short sha>` images for 30 days, and keeps the 20 most recent versions of each image whatever their tags; migrations stay backward compatible for one release, so a rollback reaches back at most one migration and never downgrades the schema: the older image's migrate step, allowed by the rollback input, finds the newer revision, leaves the schema, grants and publication as they are, and succeeds. After a baseline squash, the next deploy fails at the migrate step until the database is stamped at the new baseline (`alembic stamp`).
@@ -283,7 +315,7 @@ The worker runs one replica per environment on Spot pods, with the schedule in `
 | `reap_unpaid_orders`        | :05, :20, :35, :50                     | Unpaid shop orders hold stock longer; the next run releases them.                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | `cancel_stale_intents`      | hourly at :45                          | Abandoned desk, gift card and package intents stay open a little longer; the next run cancels them, 200 at a time. One Stripe won't cancel is logged and skipped.                                                                                                                                                                                                                                                                                                                                              |
 | `send_intake_forms`         | :10, :25, :40, :55                     | Forms go out late; the next run sends them.                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| `sync_plan_seats`           | 05:00                                  | Seat counts on plan subscriptions are a day stale; the next run corrects them.                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `sync_plans`                | 05:00                                  | Plan status and Premium seat counts can be a day behind Stripe after a missed event; the next run mirrors them, warns the owner of a lapse with live memberships, and opening Plans repairs status at once. |
 | `send_trial_reminders`      | hourly at :00, for businesses at 09:00 | Same as the overdue sweep: 09:00 local the next day.                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 
 The worker's liveness probe runs `arq --check`, which fails when the worker has not refreshed its health key in Redis within `health_check_interval` (60 seconds in `WorkerSettings`; arq's default is an hour), so a hung worker is restarted. After a Redis restart the key is gone until the worker's next refresh, so the probe may restart a healthy worker once. The cron schedule assumes one worker replica; do not scale it up. Redis has no persistence, so queued jobs are lost when its pod restarts, which is safe because every job here is a cron run that the next tick repeats.
@@ -304,6 +336,7 @@ The seed isn't part of the deploy. Each staging deploy updates the CronJob's ima
 | Web probes           | `/robots.txt`, which Caddy answers for any host                                                                                    |
 | Load balancer health | Gateway health check policies per backend (`kubernetes/gateway.py`), separate from the pods' probes                                |
 | Deploy smoke test    | `api.` `/health` and `/ready`, `sync.` `/probes/liveness`, `app.`, `admin.` and the apex `/`, and `/config.js` on `app.`, `book.`, `shop.`, `pay.` and a business page |
+| Staging browser smoke | `make test-staging-smoke` after each staging deploy: Connect hosts, embeds, frame policy and every demo owner's sign-in, read-only |
 
 Alerts (`cloud/observability.py`) go to the `alertEmail` channel:
 

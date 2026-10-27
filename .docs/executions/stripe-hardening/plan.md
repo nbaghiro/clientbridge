@@ -8,7 +8,7 @@ This execution fixes the findings from the October 26 review of every Stripe flo
 
 ## Principles for this work
 
-- **Test first.** Each finding gets a failing regression before its fix, through the real app and Postgres (`make test-backend`, or `uv run python -m scripts.fresh_database pytest ...` for a targeted run). Fakes stay at the Stripe boundary only.
+- **Test first.** Each finding gets a failing regression before its fix, through the real app and Postgres (`make test-backend`, or `uv run python -m e2e.database pytest ...` for a targeted run). Fakes stay at the Stripe boundary only.
 - **The 4-part matrix** for every new or changed endpoint: happy path, each 4xx, tenant and role isolation, and idempotency or replay.
 - **Layering.** Routers stay thin, services own their queries through `scoped()`, role gates live in the service method, and job bodies live in their concept's service with only the schedule in `tasks/worker.py`. Ledger primitives stay in `services/ledger.py`; Stripe orchestration stays in `services/payments.py`.
 - **One file per concept.** New tests go in the existing concept files (`test_payments_refunds.py`, `test_ledger_drift.py`, `test_payments_disputes.py` if disputes outgrow refunds). No new layer files unless a new concept appears.

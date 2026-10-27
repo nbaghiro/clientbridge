@@ -10,7 +10,7 @@ from clientbridge.models.catalog import Item
 from clientbridge.models.scheduling import Booking, Hours, Recurrence, Slot
 from clientbridge.services.bookings import booked_count
 from tests.conftest import BIZ, Factory, FakeEmailSender
-from tests.helpers import key
+from tests.helpers import key, reachable
 
 FIRST = "2027-03-02T18:00:00Z"
 DAYS = ["TU", "WE", "TH"]
@@ -236,6 +236,7 @@ async def test_staff_schedule_only_their_own_classes(
 async def test_enrolling_books_every_day_with_the_price_and_deposit_on_the_first(
     as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
 ) -> None:
+    await reachable(db, "cl_amelie")
     program_id = await program(as_owner, db, deposit=True)
     made = await enrol(as_owner, program_id, "cl_amelie", "sj_bella")
     rows = await bookings(db, ids(made, "booking_ids"))
@@ -323,6 +324,7 @@ async def test_a_full_day_refuses_the_enrolment(
 async def test_canceling_an_enrolment_releases_every_day(
     as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
 ) -> None:
+    await reachable(db, "cl_amelie")
     program_id = await program(as_owner, db)
     made = await enrol(as_owner, program_id, "cl_amelie")
     await enrol(as_owner, program_id, "cl_liam")

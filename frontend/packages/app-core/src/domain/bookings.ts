@@ -45,9 +45,16 @@ import { strings } from "../strings";
 import type { CalendarEventFlag, Intent, OptionMedia, TimelineEntry } from "../ui";
 import { type Viewer, isManager } from "./auth";
 import { afterReview, outgoing, review } from "./previews";
-import { type ItemRow, bookableItems, idList, offers, useCatalogItems } from "./catalog";
+import {
+    type ItemRow,
+    bookableItems,
+    depositCents,
+    idList,
+    offers,
+    useCatalogItems,
+} from "./catalog";
 import { type Checkout, useCheckout } from "./checkout";
-import { type ClientRow, useClients } from "./clients";
+import { type ClientRow, filterClients, useClients } from "./clients";
 import {
     type Photo,
     bookingPhotoTarget,
@@ -2127,10 +2134,8 @@ export function actorsFor(rows: StaffRow[], viewer: Viewer | null): StaffRow[] {
 }
 
 export function depositOf(item: ItemRow | null): number {
-    if (item === null || item.deposit_type === "none" || item.deposit_value === null) return 0;
-    return item.deposit_type === "fixed"
-        ? item.deposit_value
-        : Math.round(((item.price_cents ?? 0) * item.deposit_value) / 100);
+    if (item === null) return 0;
+    return depositCents(item.price_cents ?? 0, item.deposit_type, item.deposit_value);
 }
 
 /** After the form's day or the board's day changes, which one catches up: the board, the form, or neither. */
@@ -2214,15 +2219,14 @@ export function useBookingComposer(
     const q = query.trim().toLowerCase();
     const subjectsOf = (id: string): SubjectOption[] =>
         kind === null ? [] : allSubjects.filter((p) => p.client_id === id);
+    const matchingClientIds = new Set(filterClients(clients, q).map((c) => c.id));
     const matches = clients
         .filter((c) => c.status === "active")
         .map((c) => ({ client: c, subjects: subjectsOf(c.id).map((p) => p.name) }))
         .filter(
             (x) =>
-                q === "" ||
-                [x.client.name, x.client.phone ?? "", ...x.subjects].some((v) =>
-                    v.toLowerCase().includes(q),
-                ),
+                matchingClientIds.has(x.client.id) ||
+                x.subjects.some((v) => v.toLowerCase().includes(q)),
         )
         .slice(0, 6);
     const now = new Date();

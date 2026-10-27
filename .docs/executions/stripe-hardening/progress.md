@@ -7,7 +7,7 @@
 - Branch `fix/stripe-hardening`, worktree `/Users/naib/Documents/code/clientbridge-stripe`.
 - Schema: S1 (`transit` and `loss` account categories) approved on 2026-10-26 ([schema.md](schema.md)).
 - Decisions: all twelve decided on 2026-10-26; Q4 and Q6 to Q11 took the defaults ([plan](plan.md#decisions)).
-- Harness: `uv run python -m scripts.fresh_database pytest ...` runs in the worktree against the shared Postgres and auth (40 refund and drift tests passed at the base).
+- Harness: `uv run python -m e2e.database pytest ...` runs in the worktree against the shared Postgres and auth (40 refund and drift tests passed at the base).
 
 ## Done
 

@@ -13,7 +13,7 @@ from clientbridge.models.payments import Payment
 from clientbridge.models.scheduling import Addon, Booking
 from clientbridge.services import ledger
 from tests.conftest import BIZ, Factory, FakeEmailSender
-from tests.helpers import enable_payments, settle
+from tests.helpers import enable_payments, reachable, settle
 
 SLUG = "birchbark"
 GOOD = {"Stripe-Signature": "good"}
@@ -181,6 +181,9 @@ async def test_paid_order_notifies_owner_and_client_with_pickup(
 async def test_staff_mark_an_online_order_ready_then_picked_up(
     as_staff: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
 ) -> None:
+    order = await db.get(Order, "ord_web")
+    assert order is not None and order.client_id is not None
+    await reachable(db, order.client_id)
     ready = await as_staff.post("/v1/orders/ord_web/pickup", json={"status": "ready"})
     assert ready.status_code == 200, ready.text
     assert ready.json()["pickup_status"] == "ready"
