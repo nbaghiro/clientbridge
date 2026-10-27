@@ -138,8 +138,9 @@ test("PLN-E2E-01 only the owner reads or changes the plan, in their own business
     } finally {
         await cedarOwner.context.close();
     }
-    expect(await planEvidence(demoId("bz_birchbark"))).toEqual(birchbark);
-    expect(await planEvidence(demoId("bz_demo_second"))).toEqual(cedarBefore);
+    // other cases add staff to these shared businesses, so only the plan itself must be unchanged
+    expect((await planEvidence(demoId("bz_birchbark"))).business).toEqual(birchbark.business);
+    expect((await planEvidence(demoId("bz_demo_second"))).business).toEqual(cedarBefore.business);
 });
 
 test("PLN-E2E-02 a trial fills its last seat once, refuses the next invite and frees a seat on revoke", async ({
