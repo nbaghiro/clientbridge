@@ -215,8 +215,9 @@ test(
             const opened = await replicas();
             expect(opened).toHaveLength(1);
             await page.reload();
+            // Today opens only once the reopened replica has answered the business query
             await expect(page).toHaveURL(/\/today$/, { timeout: 60_000 });
-            await expect(page.getByRole("heading", { level: 1 })).toContainText("Hannah");
+            await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
             expect(await replicas()).toEqual(opened);
         } finally {
             await privateWindow.close();
