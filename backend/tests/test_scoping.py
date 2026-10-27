@@ -5,8 +5,9 @@ from sqlalchemy import Column, MetaData, String, Table, delete, func, select, te
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock, ids
+from clientbridge.core.namespaces import confine_to_namespace
 from clientbridge.core.policies import TABLE_POLICIES, TablePolicy, table_policy_errors
-from clientbridge.core.scoping import confine_to_namespace, scoped, scoped_delete, scoped_update
+from clientbridge.core.scoping import scoped, scoped_delete, scoped_update
 from clientbridge.models import Base
 from clientbridge.models.billing import Line
 from clientbridge.models.business import Business, User
