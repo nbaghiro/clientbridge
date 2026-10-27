@@ -187,6 +187,9 @@ msgstr "[{service} · {client}~~]"
 msgid "datetime.day_at_time"
 msgstr "[{day} åţ {time}~~]"
 
+msgid "dispute.inquiry_push"
+msgstr "[Å çļîéñţ'š ƀåñķ åšķéð åƀöûţ å {amount} þåýɱéñţ. Åñšŵéŕ îţ îñ Þåýɱéñţš ƀéƒöŕé ţĥé ðéåðļîñé šö îţ ðöéšñ'ţ ƀéçöɱé å ðîšþûţé.~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]"
+
 msgid "dispute.push"
 msgstr "[Þåýɱéñţ ðîšþûţéð: {amount}. Ŕéṽîéŵ ţĥé ðîšþûţé ðéţåîļš.~~~~~~~~~~~~~~~~~]"
 
@@ -453,6 +456,26 @@ msgstr "[Þåýɱéñţ ƒåîļéð — {business}~~~~~~]"
 
 msgid "pickup.body"
 msgstr "[Çöļļéçţ ýöûŕ öŕðéŕ åţ {business}. Ŵé'ļļ ļéţ ýöû ķñöŵ ŵĥéñ îţ'š ŕéåðý.~~~~~~~~~~~~~~~~~~~~~]"
+
+msgid "plan_lapsed_memberships.action"
+msgstr "[Öþéñ çļîéñţš~~~~~]"
+
+msgid "plan_lapsed_memberships.body"
+msgstr "[{lead} {how} {link}~]"
+
+msgid "plan_lapsed_memberships.heading"
+msgstr "[Çļîéñţ ɱéɱƀéŕšĥîþš åŕé šţîļļ ƀîļļîñĝ~~~~~~~~~~~~~]"
+
+msgid "plan_lapsed_memberships.how"
+msgstr "[Ţö šţöþ öñé, öþéñ ţĥé çļîéñţ åñð çåñçéļ ţĥé ɱéɱƀéŕšĥîþ. Ýöû çåñ ðö ţĥîš ŵĥîļé ţĥé ƀûšîñéšš îš þåûšéð, öŕ çĥööšé å þļåñ ţö ķééþ éṽéŕýţĥîñĝ ŕûññîñĝ.~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]"
+
+msgid "plan_lapsed_memberships.lead"
+msgid_plural "plan_lapsed_memberships.lead"
+msgstr[0] "[Ţĥé Çļîéñţƀŕîðĝé þļåñ ƒöŕ {business} ĥåš éñðéð, åñð {count} çļîéñţ ɱéɱƀéŕšĥîþ šţîļļ ƀîļļš åûţöɱåţîçåļļý.~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]"
+msgstr[1] "[Ţĥé Çļîéñţƀŕîðĝé þļåñ ƒöŕ {business} ĥåš éñðéð, åñð {count} çļîéñţ ɱéɱƀéŕšĥîþš šţîļļ ƀîļļ åûţöɱåţîçåļļý.~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]"
+
+msgid "plan_lapsed_memberships.subject"
+msgstr "[Ýöûŕ çļîéñţ ɱéɱƀéŕšĥîþš åŕé šţîļļ ƀîļļîñĝ~~~~~~~~~~~~~~~]"
 
 msgid "plans.premium"
 msgstr "[Çļîéñţƀŕîðĝé Þŕéɱîûɱ~~~~~~~]"

@@ -676,7 +676,10 @@ async def settle_deposit(db: AsyncSession, gateway: PaymentGateway, booking_id: 
     booking = await db.get(Booking, booking_id)
     if booking is None:
         return None
-    if booking.status == "canceled":
+    # a visit canceled, or finished without the deposit, no longer wants a deposit paid late
+    if booking.status == "canceled" or (
+        booking.status == "completed" and booking.deposit_status == "none"
+    ):
         booking.deposit_status = "collected"
         await refund_deposit(db, gateway, booking)
         return None
@@ -711,16 +714,37 @@ async def unapply_deposit(db: AsyncSession, booking: Booking, invoice_id: str) -
     await db.flush()
 
 
-async def reverse_deposit(db: AsyncSession, booking_id: str) -> list[str]:
+async def reverse_deposit(db: AsyncSession, booking_id: str, key: str) -> list[str]:
     """Undo a deposit being refunded; returns the invoices it no longer pays."""
     booking = await db.get(Booking, booking_id)
     if booking is None:
         return []
-    await ledger.reverse_forfeit(db, booking)
+    await ledger.reverse_forfeit(db, booking, key)
     invoices = await ledger.applied_invoices(db, booking)
     for invoice_id in invoices:
         await unapply_deposit(db, booking, invoice_id)
     return invoices
+
+
+async def restore_deposit(db: AsyncSession, booking_id: str, key: str) -> str | None:
+    """A refund `key` failed: the forfeit stands again and the deposit goes back on its invoice."""
+    booking = await db.get(Booking, booking_id)
+    if booking is None:
+        return None
+    forfeited = await ledger.restore_forfeit(db, booking, key)
+    if await ledger.deposit_held(db, booking) <= 0:
+        booking.deposit_status = "forfeited" if forfeited else "refunded"
+        await db.flush()
+        return None
+    booking.deposit_status = "collected"
+    invoice = await _open_invoice(db, booking)
+    if invoice is None or await ledger.post_application(db, booking, invoice, again=key) <= 0:
+        await db.flush()
+        return None
+    if await ledger.deposit_held(db, booking) <= 0:
+        booking.deposit_status = "applied"
+    await db.flush()
+    return invoice.id
 
 
 async def deposit_refunded(db: AsyncSession, booking_id: str) -> None:
@@ -929,7 +953,7 @@ class BookingService:
                 booking.status = data.status
                 if data.status == "confirmed":
                     booking.confirmed_at = booking.confirmed_at or clock.now()
-                if data.status == "canceled" and booking.deposit_status == "pending":
+                if data.status in ("canceled", "completed") and booking.deposit_status == "pending":
                     await cancel_open_deposits(self.db, self.gateway, booking)
                 if data.status in ("canceled", "completed") and booking.deposit_status == "pending":
                     booking.deposit_status = "none"  # nothing was collected and none is due now
@@ -1364,7 +1388,8 @@ class BookingService:
                 client=client,
                 amount=booking.deposit_amount_cents,
                 payment_method=pm_ref,
-                idempotency_key="no_show",
+                # per card: a new default card after a decline is a new charge, never a replay
+                idempotency_key=f"no_show_{pm_ref}",
             )
         except (CardDeclined, PaymentActionRequired):
             return  # the no-show still stands; the deposit stays pending to collect by hand

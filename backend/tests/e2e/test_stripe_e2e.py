@@ -131,11 +131,8 @@ async def test_subscription_period_fields_match_current_api(stripe_run: StripeRu
         customer_id=customer.id,
         price_id=price,
         payment_method_id=method.id,
-        metadata={
-            "tax_class": "standard",
-            "tax_registered": "true",
-            "clientbridge_qa": stripe_run.namespace,
-        },
+        metadata={"tax_class": "standard", "clientbridge_qa": stripe_run.namespace},
+        application_fee_percent=0.3,
     )
     assert result.current_period_end > clock.wall()
 

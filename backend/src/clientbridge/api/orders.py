@@ -70,6 +70,13 @@ async def checkout_order(
     return await OrderService(db, principal, gateway).checkout(order_id, data, idempotency_key)
 
 
+@router.post("/{order_id}/checkout/cancel", response_model=OrderOut)
+async def cancel_order_checkout(
+    order_id: str, principal: CurrentPrincipal, db: DbSession, gateway: GatewayDep
+) -> OrderOut:
+    return await OrderService(db, principal, gateway).cancel_checkout(order_id)
+
+
 @router.post("/{order_id}/cash", response_model=OrderCashOut)
 async def pay_order_cash(
     order_id: str,

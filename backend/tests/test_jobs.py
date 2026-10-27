@@ -476,6 +476,15 @@ def test_stripe_recovery_is_not_scheduled() -> None:
     assert "reconcile_ledger" in names
 
 
+def test_ledger_reconciliation_runs_every_hour() -> None:
+    (job,) = [
+        job
+        for job in WorkerSettings.cron_jobs
+        if isinstance(job, CronJob) and job.name == "cron:reconcile_ledger"
+    ]
+    assert (job.hour, job.minute) == (None, 45)
+
+
 pytestmark = pytest.mark.usefixtures("google_review_provider")
 
 

@@ -59,6 +59,7 @@ REQUIRED_CASES = {
         "OPS-E2E-03",
         "SALE-E2E-10",
         "SALE-E2E-11",
+        "STR-E10",
     ],
     "connect": [
         "DOC-E2E-01",
@@ -116,6 +117,15 @@ REQUIRED_CASES = {
         "STRIPE-BROWSER-06",
         "FIN-DEPOSIT-04",
         "FIN-DEPOSIT-10",
+        "STR-E01",
+        "STR-E02",
+        "STR-E03",
+        "STR-E04",
+        "STR-E05",
+        "STR-E06",
+        "STR-E07",
+        "STR-E09",
+        "STR-E12",
     ],
 }
 

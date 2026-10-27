@@ -46,6 +46,13 @@ async def account_session(
     return await PaymentService(db, principal, gateway).account_session(body.component)
 
 
+@connect_router.post("/refresh", response_model=ConnectStatus)
+async def connect_refresh(
+    principal: CurrentPrincipal, db: DbSession, gateway: GatewayDep
+) -> ConnectStatus:
+    return await PaymentService(db, principal, gateway).refresh()
+
+
 @connect_router.get("/status", response_model=ConnectStatus)
 async def connect_status(
     principal: CurrentPrincipal, db: DbSession, gateway: GatewayDep

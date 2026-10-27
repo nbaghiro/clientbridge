@@ -91,7 +91,7 @@ export async function stripeReady(): Promise<{ ready: boolean; account: string }
     return ready;
 }
 
-async function stripeInvoice(request: APIRequestContext) {
+export async function stripeInvoice(request: APIRequestContext) {
     await stripeReady();
     const provider = await documentProvider(request);
     const response = await request.post(`${documentApi}/v1/invoices`, {
@@ -165,6 +165,9 @@ export async function openRegisteredStripeInvoice(
                         cardFrame = frame;
                         return true;
                     }
+                    // Firefox gets the methods collapsed, with none chosen until one is clicked
+                    const card = frame.getByRole("button", { name: "Card", exact: true });
+                    if (await card.isVisible()) await card.click();
                 }
                 return false;
             },

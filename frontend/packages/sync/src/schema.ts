@@ -345,6 +345,7 @@ const businesses = new Table(
         gst_hst_number: column.text,
         qst_number: column.text,
         tax_registered: column.integer,
+        tax_registered_on: column.text,
         pst_number: column.text,
         setup_dismissed_at: column.text,
         review_requests_enabled: column.integer,

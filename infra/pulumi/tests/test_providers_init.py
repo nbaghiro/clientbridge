@@ -1,5 +1,7 @@
 """Turning what providers issue into secrets and DNS records, without calling any provider."""
 
+import subprocess
+from collections.abc import Sequence
 from pathlib import Path
 
 import pytest
@@ -9,6 +11,7 @@ import providers_init as p
 from secrets_init import environment
 
 STAGING = environment("staging")
+PROD = environment("prod")
 
 
 class FakeSecrets:
@@ -115,3 +118,51 @@ def test_a_failed_stripe_setup_prints_no_secret() -> None:
     assert p.redacted(output) == (
         "STRIPE_WEBHOOK_SECRET=whsec_…\nkey sk_test_… and rk_live_…, bpc_… done"
     )
+
+
+class FakeSetup:
+    def __init__(self, stdout: str) -> None:
+        self.stdout = stdout
+        self.calls: list[Sequence[str]] = []
+
+    def __call__(self, args: Sequence[str], **_: object) -> subprocess.CompletedProcess[str]:
+        self.calls.append(args)
+        return subprocess.CompletedProcess(args, 0, self.stdout, "")
+
+
+def test_prod_leaves_stripe_to_the_live_dashboard(monkeypatch: pytest.MonkeyPatch) -> None:
+    setup = FakeSetup("STRIPE_WEBHOOK_SECRET=whsec_sandbox")
+    monkeypatch.setattr(p.subprocess, "run", setup)
+    secrets = FakeSecrets()
+    report = p.Report([])
+    p.stripe(PROD, "clientbridge", secrets, report)
+    assert setup.calls == []
+    assert secrets.added == []
+    assert report.lines == [
+        "stripe: skipped for prod; set up the live account by hand from .docs/payments.md, "
+        '"Staging and production setup"'
+    ]
+
+
+def test_staging_takes_the_secrets_stripe_setup_issues(monkeypatch: pytest.MonkeyPatch) -> None:
+    setup = FakeSetup(
+        "\n".join(
+            [
+                "STRIPE_WEBHOOK_SECRET=whsec_connect",
+                "STRIPE_THIN_WEBHOOK_SECRET=whsec_thin",
+                "STRIPE_PLATFORM_WEBHOOK_SECRET=whsec_platform",
+                "STRIPE_PORTAL_CONFIGURATION=bpc_portal",
+            ]
+        )
+    )
+    monkeypatch.setattr(p.subprocess, "run", setup)
+    secrets = FakeSecrets()
+    p.stripe(STAGING, "clientbridge", secrets, p.Report([]))
+    ((*command,),) = setup.calls
+    assert command[:6] == ["uv", "run", "python", "-m", "scripts.stripe_setup", "--apply"]
+    assert secrets.stored == {
+        "staging-stripe-webhook-secret": "whsec_connect",
+        "staging-stripe-thin-webhook-secret": "whsec_thin",
+        "staging-stripe-platform-webhook-secret": "whsec_platform",
+        "staging-stripe-portal-configuration": "bpc_portal",
+    }

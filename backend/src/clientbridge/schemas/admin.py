@@ -254,3 +254,20 @@ class AdminDriftAcknowledgement(BaseModel):
 
 class AdminDriftResult(BaseModel):
     finding_id: str
+
+
+class AdminDriftAcknowledged(BaseModel):
+    identity_id: str | None
+    reason: str
+    acknowledged_at: datetime
+
+
+class AdminDriftFinding(BaseModel):
+    id: str
+    source: str = Field(description="The Stripe source id, or balance for the account balance")
+    created_at: datetime
+    ledger_cents: int | None
+    stripe_cents: int | None
+    residual_cents: int | None
+    transaction_ids: list[str]
+    acknowledgement: AdminDriftAcknowledged | None

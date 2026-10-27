@@ -873,6 +873,8 @@ export interface SaleTicket {
     charge: (m?: SalePayMethod) => void;
     checkout: Checkout;
     terminal: { orderId: string; clientSecret: string } | null;
+    // stops an unfinished card or Tap to Pay charge, so the sale can change or take cash
+    cancelCheckout: () => void;
     markPaid: () => void;
     busy: boolean;
     error: string | null;
@@ -1163,6 +1165,32 @@ export function useSale(
         );
     };
 
+    const cancelCheckout = (): void => {
+        const orderId = terminal?.orderId ?? order?.id ?? null;
+        const close = (): void => {
+            paymentAttempt.current = null;
+            checkout.cancel();
+            setTerminal(null);
+            setPaidCents(0);
+        };
+        if (orderId === null) {
+            close();
+            return;
+        }
+        run(
+            async () => {
+                try {
+                    await api.post(`/v1/orders/${orderId}/checkout/cancel`, {});
+                } catch (e) {
+                    checkout.setError(failureMessage(e, d.cancelCheckoutError));
+                    throw e;
+                }
+                close();
+            },
+            { errorMessage: (e) => failureMessage(e, d.cancelCheckoutError) },
+        );
+    };
+
     const staffOf = (id: string | null): string | null => {
         const row = id === null ? undefined : staffRows.find((r) => r.id === id);
         return row === undefined ? null : staffName(row);
@@ -1314,8 +1342,10 @@ export function useSale(
         ratesReady,
         canCharge: lines.length > 0 && ratesReady,
         charge,
-        checkout,
+        // the card form's own cancel must also cancel the intent the server opened
+        checkout: { ...checkout, cancel: cancelCheckout },
         terminal,
+        cancelCheckout,
         markPaid,
         busy: busy || checkout.busy || giftAction.busy,
         error: error ?? checkout.error,

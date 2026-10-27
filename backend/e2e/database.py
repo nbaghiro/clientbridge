@@ -143,7 +143,7 @@ async def drop_databases(names: list[str]) -> None:
 
 
 def main(command: list[str]) -> int:
-    with tier.hold():
+    with tier.hold(needs=("tier",)):
         template = ensure_template()
         # its own copies, so other suites and e2e runs on this machine cannot touch them
         database = f"clientbridge_test_{secrets.token_hex(4)}"

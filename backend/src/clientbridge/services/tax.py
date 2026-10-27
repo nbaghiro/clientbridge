@@ -236,7 +236,7 @@ async def tax_within(
     return compute_tax(
         [TaxLine(amount_cents=total_cents, tax_class=tax_class)],
         await _components(db, business_id, at),
-        registered=await business_tax_registered(db, business_id)
+        registered=await business_tax_registered(db, business_id, at)
         if registered is None
         else registered,
         prices_include_tax=True,
@@ -255,7 +255,7 @@ async def tax_breakdown(
     return compute_tax(
         [TaxLine(amount_cents=ln.amount_cents, tax_class=ln.tax_class) for ln in lines],
         await _components(db, business_id, at),
-        registered=await business_tax_registered(db, business_id)
+        registered=await business_tax_registered(db, business_id, at or clock.now())
         if registered is None
         else registered,
     )

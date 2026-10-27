@@ -401,6 +401,11 @@ def plan_link() -> str:
     return f"{get_settings().web_base_url}/setup/plan"
 
 
+def clients_link() -> str:
+    """The client list in the web app, where each client's memberships are managed."""
+    return f"{get_settings().web_base_url}/clients"
+
+
 def pay_link(token: str) -> str:
     """The client's link to pay an invoice: one host for every business."""
     return f"{get_settings().pay_base_url}/i/{token}"
@@ -555,6 +560,11 @@ def inbound_message_alert_text(locale: str, client_name: str, body: str) -> str:
 def dispute_alert_text(locale: str, amount: str) -> str:
     """Staff push body when a charge is disputed: the owner must respond in Stripe."""
     return message(locale, "dispute.push", amount=amount)
+
+
+def dispute_inquiry_alert_text(locale: str, amount: str) -> str:
+    """Staff push body when a client's bank asks about a charge before any chargeback."""
+    return message(locale, "dispute.inquiry_push", amount=amount)
 
 
 def invoice_sent_message(
@@ -749,6 +759,39 @@ def trial_ending_message(
             action=action,
         ),
     )
+
+
+def plan_lapsed_memberships_message(
+    locale: str, business_name: str, count: int, link: str
+) -> Notice:
+    lead = plural(locale, "plan_lapsed_memberships.lead", count, business=business_name)
+    how = message(locale, "plan_lapsed_memberships.how")
+    return Notice(
+        message(locale, "plan_lapsed_memberships.subject"),
+        message(locale, "plan_lapsed_memberships.body", lead=lead, how=how, link=link),
+        _view(
+            message(locale, "email.kind.plan"),
+            message(locale, "plan_lapsed_memberships.heading"),
+            lead,
+            how,
+            action=Action(message(locale, "plan_lapsed_memberships.action"), link),
+        ),
+    )
+
+
+async def _owner_address(db: AsyncSession, business: Business) -> str | None:
+    """The business's billing email, else the earliest active owner's sign-in email."""
+    if business.billing_email:
+        return business.billing_email
+    owner = await db.scalar(
+        scoped(Staff, business.id)
+        .with_only_columns(Staff.user_id)
+        .where(Staff.role == "owner", Staff.status == "active")
+        .order_by(Staff.created_at)
+        .limit(1)
+    )
+    user = await db.get(User, owner) if owner is not None else None
+    return user.email if user is not None else None
 
 
 def gift_card_issued_message(locale: str, business_name: str, amount: str, code: str) -> Notice:
@@ -1340,22 +1383,27 @@ class Notifier:
         business = await db.get(Business, business_id)
         if business is None:
             return
-        to = business.billing_email
-        if not to:
-            owner = await db.scalar(
-                scoped(Staff, business.id)
-                .with_only_columns(Staff.user_id)
-                .where(Staff.role == "owner", Staff.status == "active")
-                .order_by(Staff.created_at)
-                .limit(1)
-            )
-            user = await db.get(User, owner) if owner is not None else None
-            to = user.email if user is not None else None
+        to = await _owner_address(db, business)
         if not to:
             return
         locale = locale_for(business=business)
         when = format_day_and_time(locale, business.trial_ends_at, business.timezone)
         notice = trial_ending_message(locale, business.name, when, plan_link(), last_day=last_day)
+        await self._safe(self.email.send(business_email(business, to, notice)))
+
+    async def on_plan_lapsed_with_memberships(
+        self, db: AsyncSession, business_id: str, count: int
+    ) -> None:
+        """Tell the owner the plan ended while client memberships still charge."""
+        business = await db.get(Business, business_id)
+        if business is None:
+            return
+        to = await _owner_address(db, business)
+        if not to:
+            return
+        notice = plan_lapsed_memberships_message(
+            locale_for(business=business), business.name, count, clients_link()
+        )
         await self._safe(self.email.send(business_email(business, to, notice)))
 
     async def on_refund(self, db: AsyncSession, refund_payment_id: str) -> None:
@@ -1408,6 +1456,19 @@ class Notifier:
         amount = format_money(locale, payment.amount_cents, payment.currency)
         await self._alert_staff(
             db, business, dispute_alert_text(locale, amount), {"type": "dispute"}
+        )
+
+    async def on_dispute_inquiry(self, db: AsyncSession, payment_id: str) -> None:
+        payment = await db.get(Payment, payment_id)
+        if payment is None:
+            return
+        business = await db.get(Business, payment.business_id)
+        if business is None:
+            return
+        locale = locale_for(business=business)
+        amount = format_money(locale, payment.amount_cents, payment.currency)
+        await self._alert_staff(
+            db, business, dispute_inquiry_alert_text(locale, amount), {"type": "dispute"}
         )
 
     async def on_inbound_message(self, db: AsyncSession, message_id: str) -> None:

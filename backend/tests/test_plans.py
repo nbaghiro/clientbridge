@@ -15,13 +15,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from clientbridge.api.plans import LAPSED_WRITES
 from clientbridge.core import clock
 from clientbridge.core.db import engine
-from clientbridge.core.errors import Unprocessable
+from clientbridge.core.errors import PaymentsNotConfigured, Unprocessable
 from clientbridge.core.ids import new_id
 from clientbridge.integrations.stripe import PlanItem, PlanSubscription
 from clientbridge.main import app
 from clientbridge.models.business import Business, Staff
 from clientbridge.models.catalog import Subscription
 from clientbridge.models.clients import Client
+from clientbridge.models.messaging import Delivery
 from clientbridge.models.platform import Audit
 from clientbridge.models.scheduling import Booking
 from clientbridge.services import plans
@@ -695,7 +696,8 @@ async def test_a_second_checkout_expires_the_first_and_a_completed_one_blocks_it
     first = ok(await as_owner.post("/v1/plan/checkout", json=choice)).json()["url"]
     second = ok(await as_owner.post("/v1/plan/checkout", json=choice)).json()["url"]
     assert gateway.expired_checkouts == [first] and gateway.open_checkouts[ACCOUNT] == [second]
-    gateway.paid_checkouts.add(ACCOUNT)
+    gateway.plan_subscriptions[SUB] = _sub(PlanItem("team_month"), status="incomplete")
+    gateway.paid_checkouts[ACCOUNT] = SUB
     res = await as_owner.post("/v1/plan/checkout", json=choice)
     assert res.status_code == 409 and res.json()["error"] == "plan_active"
     assert len(gateway.checkouts) == 2
@@ -874,6 +876,154 @@ async def test_previous_live_subscription_is_cancelled_without_refunding_its_his
     assert (await _business(db)).stripe_subscription_id == SUB
 
 
+async def test_a_retried_event_for_an_ended_subscription_keeps_the_adopted_one(
+    api: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await _subscribed(db, gateway, PlanItem("team_month"), status="canceled")
+    await _set(db, plan=None, plan_status="lapsed")
+    gateway.plan_subscriptions["sub_b"] = _sub(
+        PlanItem("team_month"), sub_id="sub_b", status="incomplete"
+    )
+    await _deliver(api, _event("customer.subscription.created", "sub_b"))
+    assert (await _business(db)).stripe_subscription_id == "sub_b"
+    await _deliver(api, _event("customer.subscription.updated", SUB, event_id="evt_retried"))
+    business = await _business(db)
+    assert (business.stripe_subscription_id, business.plan_status) == ("sub_b", "lapsed")
+    assert gateway.canceled_plan_subscriptions == []
+
+
+async def _paid_but_unseen(
+    db: AsyncSession, gateway: FakePaymentGateway, *, business_id: str = BIZ
+) -> None:
+    await _trial(db, timedelta(days=5), stripe_account_id=ACCOUNT)
+    gateway.plan_subscriptions[SUB] = replace(
+        _sub(PlanItem("premium_month"), status="active"), business_id=business_id
+    )
+    gateway.paid_checkouts[ACCOUNT] = SUB
+
+
+async def test_checkout_adopts_a_paid_subscription_whose_webhook_was_missed(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await _paid_but_unseen(db, gateway)
+    res = await as_owner.post("/v1/plan/checkout", json={"plan": "team", "interval": "month"})
+    assert res.status_code == 409 and res.json()["error"] == "plan_active"
+    business = await _business(db)
+    assert (business.stripe_subscription_id, business.plan, business.plan_status) == (
+        SUB,
+        "premium",
+        "active",
+    )
+    assert gateway.checkouts == []
+    ok(await as_owner.post("/v1/plan/portal"))
+
+
+async def test_reading_the_plan_leaves_a_paid_subscription_to_the_commands_and_replay(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await _paid_but_unseen(db, gateway)
+    body = ok(await as_owner.get("/v1/plan")).json()
+    assert (body["access"], body["managed"]) == ("trial", False)
+    assert (await _business(db)).stripe_subscription_id is None
+
+
+async def test_the_portal_adopts_a_paid_subscription_whose_webhook_was_missed(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await _paid_but_unseen(db, gateway)
+    ok(await as_owner.post("/v1/plan/portal"))
+    assert gateway.portal_sessions == [ACCOUNT]
+    assert (await _business(db)).plan_status == "active"
+
+
+async def test_the_portal_without_payments_set_up_has_no_plan_to_manage(
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    gateway: FakePaymentGateway,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    await _trial(db, timedelta(days=5), stripe_account_id=ACCOUNT)
+
+    async def unconfigured(account_id: str) -> PlanSubscription | None:
+        raise PaymentsNotConfigured("card payments are not set up on this server")
+
+    monkeypatch.setattr(gateway, "paid_plan_subscription", unconfigured)
+    res = await as_owner.post("/v1/plan/portal")
+    assert res.status_code == 409 and res.json()["error"] == "plan_not_managed"
+
+
+async def test_a_paid_subscription_for_another_business_is_never_adopted(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await _paid_but_unseen(db, gateway, business_id="bz_demo_second")
+    body = ok(await as_owner.get("/v1/plan")).json()
+    assert (body["access"], body["managed"]) == ("trial", False)
+    res = await as_owner.post("/v1/plan/portal")
+    assert res.status_code == 409 and res.json()["error"] == "plan_not_managed"
+    assert (await _business(db)).stripe_subscription_id is None
+
+
+async def _membership(db: AsyncSession) -> Subscription:
+    membership = await db.scalar(
+        select(Subscription).where(Subscription.business_id == BIZ, Subscription.status == "active")
+    )
+    assert membership is not None
+    return membership
+
+
+async def test_lapsed_staff_still_cannot_cancel_a_client_membership(
+    as_staff: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await _trial(db, -timedelta(days=1))
+    membership = await _membership(db)
+    refused = await as_staff.post(f"/v1/subscriptions/{membership.id}/cancel", headers=key())
+    assert refused.status_code == 403
+    assert (await _membership(db)).id == membership.id
+
+
+async def test_a_lapsed_owner_can_cancel_a_client_membership(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await _trial(db, -timedelta(days=1))
+    membership = await _membership(db)
+    headers = key()
+    body = ok(await as_owner.post(f"/v1/subscriptions/{membership.id}/cancel", headers=headers))
+    assert body.json()["status"] == "canceled"
+    replayed = await as_owner.post(f"/v1/subscriptions/{membership.id}/cancel", headers=headers)
+    assert replayed.json() == body.json()
+
+
+async def _lapse_notices(db: AsyncSession) -> list[Delivery]:
+    return list(
+        await db.scalars(select(Delivery).where(Delivery.key.startswith(f"plan-lapsed:{BIZ}:")))
+    )
+
+
+async def test_a_lapse_with_live_memberships_emails_the_owner_once(
+    api: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await _subscribed(db, gateway, PlanItem("team_month"), status="canceled")
+    await _set(db, plan_status="past_due", billing_email="owner@example.ca")
+    await _deliver(api, _event("customer.subscription.deleted"))
+    await _deliver(api, _event("customer.subscription.updated", event_id="evt_late_update"))
+    (notice,) = await _lapse_notices(db)
+    email = notice.payload["message"]
+    assert isinstance(email, dict) and email["to"] == "owner@example.ca"
+    assert "/clients" in str(email["body"])
+
+
+async def test_a_lapse_without_live_memberships_sends_nothing(
+    api: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await db.execute(
+        update(Subscription).where(Subscription.business_id == BIZ).values(status="canceled")
+    )
+    await _subscribed(db, gateway, PlanItem("team_month"), status="unpaid")
+    await _deliver(api, _event("customer.subscription.updated"))
+    assert (await _business(db)).plan_status == "lapsed"
+    assert await _lapse_notices(db) == []
+
+
 async def _plan(db: AsyncSession) -> tuple[str | None, str]:
     business = await _business(db)
     return business.plan, business.plan_status
@@ -913,3 +1063,17 @@ async def test_the_daily_sync_heals_a_missed_lapse_and_a_missed_recovery(
     assert await _plan(db) == ("team", "active")
     assert gateway.canceled_plan_subscriptions == []
     assert gateway.plan_item_keys == []
+
+
+async def test_the_daily_sync_warns_of_a_missed_lapse_once(
+    api: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await _subscribed(db, gateway, PlanItem("team_month"))
+    await _set(db, billing_email="owner@example.ca")
+    gateway.plan_subscriptions[SUB] = _sub(PlanItem("team_month"), status="canceled")
+    await plans.run_sync_plans(db, gateway, clock.now())
+    assert await _plan(db) == (None, "lapsed")
+    await _deliver(api, _event("customer.subscription.deleted"))
+    (notice,) = await _lapse_notices(db)
+    email = notice.payload["message"]
+    assert isinstance(email, dict) and email["to"] == "owner@example.ca"

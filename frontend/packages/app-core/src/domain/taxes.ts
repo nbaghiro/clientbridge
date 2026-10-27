@@ -177,7 +177,7 @@ export function filingPeriod(
 
 // services/business.has_issued_tax: a taxed line on an issued document, or any tax ledger leg
 export const TAX_SETTINGS_SQL = `
-SELECT province, tax_registered, gst_hst_number, pst_number, filing_frequency,
+SELECT province, tax_registered, tax_registered_on, gst_hst_number, pst_number, filing_frequency,
        EXISTS (SELECT 1 FROM lines l WHERE l.tax_amount_cents > 0 AND (
                    l.invoice_id IN (SELECT id FROM invoices WHERE status <> 'draft')
                    OR l.estimate_id IN (SELECT id FROM estimates WHERE status <> 'draft')
@@ -189,6 +189,7 @@ FROM businesses LIMIT 1`;
 interface TaxSettingsRow {
     province: ProvinceCode | null;
     tax_registered: number | null;
+    tax_registered_on: string | null;
     gst_hst_number: string | null;
     pst_number: string | null;
     filing_frequency: string | null;
@@ -202,6 +203,9 @@ export interface TaxSettingsForm {
     hasPst: boolean;
     registration: TaxRegistration;
     setRegistration: (r: TaxRegistration) => void;
+    // the "YYYY-MM-DD" day registration took effect, or "" when registered throughout
+    registeredSince: string;
+    setRegisteredSince: (v: string) => void;
     gst: string;
     setGst: (v: string) => void;
     pst: string;
@@ -238,6 +242,7 @@ export function useTaxSettingsForm(
     const initial = useMemo(
         () => ({
             registration: row?.tax_registered === 1 ? ("registered" as const) : ("small" as const),
+            registeredSince: row?.tax_registered_on ?? "",
             gst: row?.gst_hst_number ?? "",
             pst: row?.pst_number ?? "",
             frequency: (row?.filing_frequency ?? "annual") as FilingFrequency,
@@ -284,6 +289,10 @@ export function useTaxSettingsForm(
         setRegistration: (r) => {
             edit({ registration: r });
         },
+        registeredSince: draft.registeredSince,
+        setRegisteredSince: (v) => {
+            edit({ registeredSince: v });
+        },
         gst: draft.gst,
         setGst: (v) => {
             edit({ gst: v });
@@ -314,6 +323,10 @@ export function useTaxSettingsForm(
                 () =>
                     api.patch("/v1/business", {
                         tax_registered: registered,
+                        tax_registered_on:
+                            registered && draft.registeredSince !== ""
+                                ? draft.registeredSince
+                                : null,
                         gst_hst_number: draft.gst.trim(),
                         pst_number: draft.pst.trim(),
                         filing_frequency: draft.frequency,
@@ -418,7 +431,8 @@ export function taxableItemPriceLabel(item: TaxableItem): string {
         : formatMoney(item.price_cents, BUSINESS_CURRENCY);
 }
 
-export const TAX_SETUP_SQL = "SELECT province, tax_registered FROM businesses LIMIT 1";
+export const TAX_SETUP_SQL =
+    "SELECT province, tax_registered, tax_registered_on FROM businesses LIMIT 1";
 
 interface TaxSetup {
     province: string | null;
@@ -428,15 +442,20 @@ interface TaxSetup {
     ready: boolean;
 }
 
-/** The rates this business charges today, and whether it collects tax at all (a small supplier doesn't). */
+/** The rates this business charges today, and whether it collects tax today (a small supplier doesn't). */
 export function useTaxSetup(): TaxSetup {
-    const row = useQuery<{ province: string | null; tax_registered: number | null }>(TAX_SETUP_SQL)
-        .data[0];
+    const row = useQuery<{
+        province: string | null;
+        tax_registered: number | null;
+        tax_registered_on: string | null;
+    }>(TAX_SETUP_SQL).data[0];
     const day = useBusinessDay();
+    const since = row?.tax_registered_on ?? null;
     return {
         province: row?.province ?? null,
         rates: ratesOn(row?.province ?? null, day),
-        registered: row?.tax_registered !== 0,
+        // services/business.registered_on: registered from its day in the business zone
+        registered: row?.tax_registered !== 0 && (since === null || since <= day),
         ready: row !== undefined,
     };
 }

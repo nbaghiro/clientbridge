@@ -90,6 +90,7 @@ PAYMENT_EVENTS = (
     "payout.failed",
     "payout.paid",
     "refund.created",
+    "refund.failed",
     "refund.updated",
     "setup_intent.setup_failed",
     "setup_intent.succeeded",
@@ -112,6 +113,12 @@ type AccountConfiguration = Literal["merchant", "customer"]
 
 
 @dataclass(frozen=True)
+class RequirementError:
+    requirement: str
+    code: str  # such as verification_failed_id_number_match
+
+
+@dataclass(frozen=True)
 class ConnectAccount:
     id: str
     charges_enabled: bool
@@ -122,6 +129,7 @@ class ConnectAccount:
     past_due: list[str]
     card_status: str | None  # card_payments: active, pending, restricted, unsupported or rejected
     current_deadline: int | None = None  # unix time Stripe pauses payouts if currently_due stays
+    requirement_errors: tuple[RequirementError, ...] = ()
 
     @property
     def details_submitted(self) -> bool:
@@ -175,6 +183,7 @@ def account_status_from(account_id: str, data: dict[str, object]) -> ConnectAcco
     card_status = merchant_capability(data, "card_payments").get("status")
     requirements = _dict(data.get("requirements"))
     due: dict[str, list[str]] = {"currently_due": [], "eventually_due": [], "past_due": []}
+    errors: list[RequirementError] = []
     for entry in _rows(requirements.get("entries")):
         code = entry.get("description")
         if not isinstance(code, str) or entry.get("awaiting_action_from") == "stripe":
@@ -182,6 +191,11 @@ def account_status_from(account_id: str, data: dict[str, object]) -> ConnectAcco
         status = _dict(entry.get("minimum_deadline")).get("status")
         if isinstance(status, str) and status in due:
             due[status].append(code)
+        errors += [
+            RequirementError(code, error)
+            for row in _rows(entry.get("errors"))
+            if isinstance(error := row.get("code"), str)
+        ]
     deadline = _dict(_dict(requirements.get("summary")).get("minimum_deadline")).get("time")
     return ConnectAccount(
         id=account_id,
@@ -194,6 +208,7 @@ def account_status_from(account_id: str, data: dict[str, object]) -> ConnectAcco
         past_due=due["past_due"],
         card_status=card_status if isinstance(card_status, str) else None,
         current_deadline=_unix(deadline),
+        requirement_errors=tuple(errors),
     )
 
 
@@ -309,6 +324,12 @@ class SubscriptionResult:
     id: str
     status: str
     current_period_end: datetime
+
+
+@dataclass(frozen=True)
+class InvoicePaid:
+    intent_id: str
+    amount_cents: int
 
 
 @dataclass(frozen=True)
@@ -491,6 +512,18 @@ class TransactionPage:
     next_cursor: str | None
 
 
+@dataclass(frozen=True)
+class MissedEvent:
+    """An event Stripe could not deliver; replay re-fetches its object at the pinned version."""
+
+    id: str
+    type: str
+    account: str | None
+    created: datetime
+    object_type: str
+    object_id: str
+
+
 class PaymentGateway(Protocol):
     async def create_connected_account(
         self,
@@ -534,8 +567,12 @@ class PaymentGateway(Protocol):
         """A hosted Checkout Session that starts the plan subscription; returns its URL."""
         ...
 
-    async def close_plan_checkouts(self, account_id: str, *, keep: str) -> bool:
-        """Expire the account's open plan Checkouts but `keep`'s; True if one already paid."""
+    async def close_plan_checkouts(self, account_id: str, *, keep: str) -> PlanSubscription | None:
+        """Expire the account's open plan Checkouts but `keep`'s; returns one that already pays."""
+        ...
+
+    async def paid_plan_subscription(self, account_id: str) -> PlanSubscription | None:
+        """The subscription a completed plan Checkout started for the account, while it bills."""
         ...
 
     async def cancel_plan_subscription(self, subscription_id: str) -> None: ...
@@ -557,7 +594,16 @@ class PaymentGateway(Protocol):
     async def get_account(self, account_id: str) -> ConnectAccount: ...
     def verify_webhook(self, payload: bytes, signature: str) -> GatewayEvent: ...
 
-    async def balance_transactions(self, account_id: str) -> list[dict[str, object]]: ...
+    async def balance_transactions(
+        self,
+        account_id: str,
+        *,
+        since: int | None = None,
+        source: str | None = None,
+        kind: str | None = None,
+    ) -> list[dict[str, object]]:
+        """Newest first, filtered by `created`, `source` (its primary rows only) and `type`."""
+        ...
 
     async def list_payouts(self, account_id: str, after: str | None = None) -> PayoutPage: ...
 
@@ -569,9 +615,17 @@ class PaymentGateway(Protocol):
         self, account_id: str | None, resource: StripeResource, identity: str
     ) -> dict[str, object]: ...
 
+    async def undelivered_events(
+        self, account_id: str | None, *, since: datetime, limit: int
+    ) -> list[MissedEvent]: ...
+
     async def create_customer(
         self, account_id: str, *, name: str, email: str | None, idempotency_key: str
     ) -> str: ...
+
+    async def update_customer(
+        self, account_id: str, customer_id: str, *, name: str, email: str | None
+    ) -> None: ...
     async def create_setup_intent(self, account_id: str, *, customer_id: str) -> SetupIntentResult:
         """Save a card for later off-session use, without charging now."""
         ...
@@ -617,9 +671,12 @@ class PaymentGateway(Protocol):
         price_id: str,
         payment_method_id: str,
         metadata: dict[str, str],
+        application_fee_percent: float,
         idempotency_key: str | None = None,
     ) -> SubscriptionResult: ...
-    async def cancel_subscription(self, account_id: str, *, subscription_id: str) -> None: ...
+    async def cancel_subscription(
+        self, account_id: str, *, subscription_id: str, at_period_end: bool = False
+    ) -> None: ...
 
     async def create_payment_intent(
         self,
@@ -632,7 +689,11 @@ class PaymentGateway(Protocol):
         metadata: dict[str, str],
         idempotency_key: str,
         payment_method: str | None = None,
-    ) -> PaymentIntentResult: ...
+        mandate: str | None = None,
+    ) -> PaymentIntentResult:
+        """A `mandate` charges a saved PAD account under it; Stripe needs both for acss_debit."""
+        ...
+
     async def cancel_payment_intent(self, account_id: str, *, payment_intent_id: str) -> None:
         """Cancel an unconfirmed intent; Conflict when it already went through."""
         ...
@@ -656,7 +717,7 @@ class PaymentGateway(Protocol):
         self, account_id: str, intent_id: str
     ) -> dict[str, object] | None: ...
 
-    async def get_invoice_payment_intent(self, account_id: str, *, invoice_id: str) -> str | None:
+    async def get_invoice_payment(self, account_id: str, *, invoice_id: str) -> InvoicePaid | None:
         """The PaymentIntent that paid a subscription invoice (no longer on the invoice itself)."""
         ...
 
@@ -668,9 +729,11 @@ class PaymentGateway(Protocol):
         """Detach a saved card from its Customer so it can no longer be charged."""
         ...
 
-    async def create_connection_token(self, account_id: str) -> str:
-        """A short-lived secret the Terminal SDK exchanges to connect a reader."""
+    async def create_connection_token(self, account_id: str, *, location_id: str) -> str:
+        """A short-lived secret the Terminal SDK exchanges to connect a reader at the Location."""
         ...
+
+    async def delete_terminal_location(self, account_id: str, *, location_id: str) -> None: ...
 
     async def create_terminal_location(
         self, account_id: str, *, display_name: str, address: PostalAddress
@@ -909,7 +972,7 @@ class StripeGateway:
         return session.url
 
     @_keyed
-    async def close_plan_checkouts(self, account_id: str, *, keep: str) -> bool:
+    async def close_plan_checkouts(self, account_id: str, *, keep: str) -> PlanSubscription | None:
         opened = await stripe.checkout.Session.list_async(
             customer_account=account_id, status="open", limit=100
         )
@@ -917,6 +980,10 @@ class StripeGateway:
             attempt = _dict(session.to_dict().get("metadata")).get("attempt")
             if session.mode == "subscription" and attempt != keep:
                 await stripe.checkout.Session.expire_async(session.id)
+        return await self.paid_plan_subscription(account_id)
+
+    @_keyed
+    async def paid_plan_subscription(self, account_id: str) -> PlanSubscription | None:
         done = await stripe.checkout.Session.list_async(
             customer_account=account_id, status="complete", limit=10
         )
@@ -927,8 +994,8 @@ class StripeGateway:
                 continue
             current = await stripe.Subscription.retrieve_async(sub_id)
             if current.status in _PAYING:
-                return True
-        return False
+                return plan_subscription_from(current.to_dict())
+        return None
 
     @_keyed
     async def cancel_plan_subscription(self, subscription_id: str) -> None:
@@ -1053,8 +1120,22 @@ class StripeGateway:
         return account_status_from(str(account.id), account.to_dict())
 
     @_keyed
-    async def balance_transactions(self, account_id: str) -> list[dict[str, object]]:
-        result = await stripe.BalanceTransaction.list_async(stripe_account=account_id, limit=100)
+    async def balance_transactions(
+        self,
+        account_id: str,
+        *,
+        since: int | None = None,
+        source: str | None = None,
+        kind: str | None = None,
+    ) -> list[dict[str, object]]:
+        params: BalanceTransactionListParams = {"stripe_account": account_id, "limit": 100}
+        if since is not None:
+            params["created"] = {"gte": since}
+        if source is not None:
+            params["source"] = source
+        if kind is not None:
+            params["type"] = kind
+        result = await stripe.BalanceTransaction.list_async(**params)
         return [cast(dict[str, object], row.to_dict()) async for row in result.auto_paging_iter()]
 
     @_keyed
@@ -1117,7 +1198,7 @@ class StripeGateway:
                 try:
                     value = await stripe.Payout.retrieve_async(identity, stripe_account=account_id)
                 except stripe.InvalidRequestError as exc:
-                    if _missing(exc):
+                    if _missing(exc) or exc.param == "id":
                         raise NotFound("payout not found") from exc
                     raise
             case "invoice":
@@ -1131,6 +1212,35 @@ class StripeGateway:
                     identity, stripe_account=account_id
                 )
         return cast(dict[str, object], value.to_dict())
+
+    @_keyed
+    async def undelivered_events(
+        self, account_id: str | None, *, since: datetime, limit: int
+    ) -> list[MissedEvent]:
+        result = await stripe.Event.list_async(
+            stripe_account=account_id,
+            delivery_success=False,
+            created={"gte": int(since.timestamp())},
+            limit=min(limit, 100),
+        )
+        missed: list[MissedEvent] = []
+        async for row in result.auto_paging_iter():
+            obj = _dict(_dict(row.to_dict().get("data")).get("object"))
+            kind, identity = obj.get("object"), obj.get("id")
+            if isinstance(kind, str) and isinstance(identity, str):
+                missed.append(
+                    MissedEvent(
+                        id=row.id,
+                        type=row.type,
+                        account=account_id,
+                        created=datetime.fromtimestamp(row.created, tz=UTC),
+                        object_type=kind,
+                        object_id=identity,
+                    )
+                )
+            if len(missed) >= limit:
+                break
+        return missed
 
     @_keyed
     async def create_customer(
@@ -1147,9 +1257,21 @@ class StripeGateway:
         return str(customer.id)
 
     @_keyed
+    async def update_customer(
+        self, account_id: str, customer_id: str, *, name: str, email: str | None
+    ) -> None:
+        await stripe.Customer.modify_async(
+            customer_id, stripe_account=account_id, name=name, email=email or ""
+        )
+
+    @_keyed
     async def create_setup_intent(self, account_id: str, *, customer_id: str) -> SetupIntentResult:
+        # "Add card" saves a card; other methods the merchant has on can't be charged off-session
         intent = await stripe.SetupIntent.create_async(
-            customer=customer_id, usage="off_session", stripe_account=account_id
+            customer=customer_id,
+            usage="off_session",
+            allowed_payment_method_types=["card"],
+            stripe_account=account_id,
         )
         return SetupIntentResult(id=str(intent.id), client_secret=str(intent.client_secret))
 
@@ -1171,6 +1293,7 @@ class StripeGateway:
             payment_method_options={
                 "acss_debit": {
                     "currency": "cad",
+                    # a default_for mandate is the one Stripe bills memberships under unprompted
                     "mandate_options": {
                         "default_for": ["invoice", "subscription"],
                         "transaction_type": "personal",
@@ -1295,6 +1418,7 @@ class StripeGateway:
         price_id: str,
         payment_method_id: str,
         metadata: dict[str, str],
+        application_fee_percent: float,
         idempotency_key: str | None = None,
     ) -> SubscriptionResult:
         # Stripe copies this onto every invoice, so each renewal knows how its price was taxed
@@ -1303,6 +1427,7 @@ class StripeGateway:
             items=[{"price": price_id}],
             default_payment_method=payment_method_id,
             metadata=metadata,
+            application_fee_percent=application_fee_percent,
             stripe_account=account_id,
             idempotency_key=idempotency_key,
         )
@@ -1313,9 +1438,16 @@ class StripeGateway:
         )
 
     @_keyed
-    async def cancel_subscription(self, account_id: str, *, subscription_id: str) -> None:
+    async def cancel_subscription(
+        self, account_id: str, *, subscription_id: str, at_period_end: bool = False
+    ) -> None:
         try:
-            await stripe.Subscription.cancel_async(subscription_id, stripe_account=account_id)
+            if at_period_end:
+                await stripe.Subscription.modify_async(
+                    subscription_id, cancel_at_period_end=True, stripe_account=account_id
+                )
+            else:
+                await stripe.Subscription.cancel_async(subscription_id, stripe_account=account_id)
         except stripe.InvalidRequestError as exc:
             if _missing(exc):
                 raise Conflict("this subscription is not on the business's Stripe account") from exc
@@ -1333,6 +1465,7 @@ class StripeGateway:
         metadata: dict[str, str],
         idempotency_key: str,
         payment_method: str | None = None,
+        mandate: str | None = None,
     ) -> PaymentIntentResult:
         # a saved payment_method → charge it off-session now; else return a client_secret to confirm
         params: PaymentIntentCreateParams = {
@@ -1345,6 +1478,8 @@ class StripeGateway:
         }
         if payment_method:
             params.update(payment_method=payment_method, confirm=True, off_session=True)
+        if mandate is not None:
+            params.update(allowed_payment_method_types=["acss_debit"], mandate=mandate)
         if customer_id is not None:  # a walk-in sale has no Customer
             params["customer"] = customer_id
         try:
@@ -1438,14 +1573,16 @@ class StripeGateway:
         return None
 
     @_keyed
-    async def get_invoice_payment_intent(self, account_id: str, *, invoice_id: str) -> str | None:
+    async def get_invoice_payment(self, account_id: str, *, invoice_id: str) -> InvoicePaid | None:
         payments = await stripe.InvoicePayment.list_async(
             invoice=invoice_id, stripe_account=account_id
         )
         for row in payments.data:
             intent = row.payment.payment_intent if row.status == "paid" else None
             if intent is not None:
-                return intent if isinstance(intent, str) else str(intent.id)
+                return InvoicePaid(
+                    intent if isinstance(intent, str) else str(intent.id), row.amount_paid or 0
+                )
         return None
 
     @_keyed
@@ -1469,9 +1606,15 @@ class StripeGateway:
         return balance.available_cents + balance.pending_cents
 
     @_keyed
-    async def create_connection_token(self, account_id: str) -> str:
-        token = await stripe.terminal.ConnectionToken.create_async(stripe_account=account_id)
+    async def create_connection_token(self, account_id: str, *, location_id: str) -> str:
+        token = await stripe.terminal.ConnectionToken.create_async(
+            location=location_id, stripe_account=account_id
+        )
         return str(token.secret)
+
+    @_keyed
+    async def delete_terminal_location(self, account_id: str, *, location_id: str) -> None:
+        await stripe.terminal.Location.delete_async(location_id, stripe_account=account_id)
 
     @_keyed
     async def create_terminal_location(

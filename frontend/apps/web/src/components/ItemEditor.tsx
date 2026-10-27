@@ -594,6 +594,9 @@ function PlanFields({ ed }: { ed: PlanEditor }) {
                 {ed.facts.perYear !== null ? (
                     <p className="mt-0.5 text-sm text-ink-soft">{ed.facts.perYear}</p>
                 ) : null}
+                {ed.facts.priceNote !== null ? (
+                    <p className="mt-1 text-xs text-muted">{ed.facts.priceNote}</p>
+                ) : null}
                 <p className="mt-1 text-xs text-muted">{s.sellsAt}</p>
             </div>
         </>

@@ -178,6 +178,102 @@ describe("useTaxSetup", () => {
         expect(result.current.ready).toBe(true);
         expect(result.current.rates.map((r) => r.code)).toEqual(["GST", "PST"]);
     });
+
+    it("collects tax from the day registration took effect", () => {
+        const wrapper = ({ children }: { children: ReactNode }) =>
+            createElement(BusinessZoneContext.Provider, { value: ZONE }, children);
+        const registered = (since: string | null) => {
+            replica.rows = [{ province: "BC", tax_registered: 1, tax_registered_on: since }];
+            return renderHook(() => useTaxSetup(), { wrapper }).result.current.registered;
+        };
+        expect(registered(null)).toBe(true);
+        expect(registered(DAY)).toBe(true);
+        expect(registered("2026-10-14")).toBe(false);
+    });
+});
+
+describe("useTaxSettingsForm registration date", () => {
+    const wrapper = ({ children }: { children: ReactNode }) =>
+        createElement(BusinessZoneContext.Provider, { value: ZONE }, children);
+    const saving = () => {
+        const bodies: unknown[] = [];
+        const api = {
+            get: () => Promise.resolve({ tax_collected_cents: 0 }),
+            patch: (_path: string, body: unknown) => {
+                bodies.push(body);
+                return Promise.resolve({});
+            },
+        } as unknown as ApiLike;
+        return { api, bodies };
+    };
+
+    it("loads the stored day and sends the one picked", async () => {
+        replica.rows = [
+            {
+                province: "BC",
+                tax_registered: 1,
+                tax_registered_on: "2026-10-01",
+                gst_hst_number: "123456789RT0001",
+                filing_frequency: "annual",
+                province_locked: 0,
+            },
+        ];
+        const { api, bodies } = saving();
+        const { result } = renderHook(() => useTaxSettingsForm(api, (c) => c), { wrapper });
+        expect(result.current.registeredSince).toBe("2026-10-01");
+        expect(result.current.dirty).toBe(false);
+        act(() => {
+            result.current.setRegisteredSince("2026-09-15");
+        });
+        expect(result.current.dirty).toBe(true);
+        act(() => {
+            result.current.submit();
+        });
+        await waitFor(() => {
+            expect(result.current.saved).toBe(true);
+        });
+        expect(bodies).toEqual([
+            expect.objectContaining({ tax_registered: true, tax_registered_on: "2026-09-15" }),
+        ]);
+    });
+
+    it("sends no day when it is left empty or registration is turned off", async () => {
+        replica.rows = [
+            {
+                province: "BC",
+                tax_registered: 1,
+                tax_registered_on: "2026-10-01",
+                gst_hst_number: "123456789RT0001",
+                filing_frequency: "annual",
+                province_locked: 0,
+            },
+        ];
+        const { api, bodies } = saving();
+        const { result } = renderHook(() => useTaxSettingsForm(api, (c) => c), { wrapper });
+        act(() => {
+            result.current.setRegisteredSince("");
+        });
+        act(() => {
+            result.current.submit();
+        });
+        await waitFor(() => {
+            expect(result.current.saved).toBe(true);
+        });
+        act(() => {
+            result.current.setRegisteredSince("2026-09-15");
+            result.current.setRegistration("small");
+        });
+        act(() => {
+            result.current.submit();
+        });
+        await waitFor(() => {
+            expect(bodies).toHaveLength(2);
+        });
+        expect(bodies).toEqual([
+            expect.objectContaining({ tax_registered: true, tax_registered_on: null }),
+            expect.objectContaining({ tax_registered: false, tax_registered_on: null }),
+        ]);
+    });
 });
 
 describe("useTaxSettingsForm", () => {

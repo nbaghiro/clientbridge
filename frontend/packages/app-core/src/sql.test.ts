@@ -608,6 +608,7 @@ function seed(): void {
         account("a_pst", "business", BIZ, "tax", "PST"),
         account("a_stripe", "business", BIZ, "stripe"),
         account("a_bank", "business", BIZ, "bank"),
+        account("a_transit", "business", BIZ, "transit"),
         account("a_deposit", "business", BIZ, "deposit"),
         account("a_cost", "business", BIZ, "staff_cost"),
         account("a_fee", "business", BIZ, "processing_fee"),
@@ -772,37 +773,91 @@ function seed(): void {
         ["a_cost", -700],
         ["a_pay_amy", 700],
     ]);
-    journal(
+    const payout = (id: string, ref: string, legs: [string, number][], at: string): void => {
+        journal(id, ref.endsWith(":failed") ? "reversal" : "payout", ref, legs, {
+            occurred_at: at,
+        });
+    };
+    payout(
         "j_po1",
-        "payout",
         "payout:po_1",
         [
-            ["a_bank", 40000],
+            ["a_transit", 40000],
             ["a_stripe", -40000],
         ],
-        { occurred_at: "2026-06-24T00:00:00Z", available_at: "2026-06-25T00:00:00Z" },
+        "2026-06-24T00:00:00Z",
     );
-    journal(
+    payout(
+        "j_po1p",
+        "payout:po_1:paid",
+        [
+            ["a_bank", 40000],
+            ["a_transit", -40000],
+        ],
+        "2026-06-25T00:00:00Z",
+    );
+    payout(
         "j_po2",
-        "payout",
         "payout:po_2",
         [
-            ["a_bank", 9000],
+            ["a_transit", 9000],
             ["a_stripe", -9000],
         ],
-        { occurred_at: "2026-06-25T00:00:00Z" },
+        "2026-06-25T00:00:00Z",
     );
-    journal(
+    payout(
         "j_po2f",
-        "reversal",
         "payout:po_2:failed",
         [
-            ["a_bank", -9000],
+            ["a_transit", -9000],
             ["a_stripe", 9000],
         ],
-        {
-            occurred_at: "2026-06-25T01:00:00Z",
-        },
+        "2026-06-25T01:00:00Z",
+    );
+    payout(
+        "j_po3",
+        "payout:po_3",
+        [
+            ["a_transit", 7000],
+            ["a_stripe", -7000],
+        ],
+        "2026-06-26T00:00:00Z",
+    );
+    payout(
+        "j_po4",
+        "payout:po_4",
+        [
+            ["a_transit", 3000],
+            ["a_stripe", -3000],
+        ],
+        "2026-06-20T00:00:00Z",
+    );
+    payout(
+        "j_po4p",
+        "payout:po_4:paid",
+        [
+            ["a_bank", 3000],
+            ["a_transit", -3000],
+        ],
+        "2026-06-22T00:00:00Z",
+    );
+    payout(
+        "j_po4f",
+        "payout:po_4:failed",
+        [
+            ["a_transit", -3000],
+            ["a_stripe", 3000],
+        ],
+        "2026-06-23T00:00:00Z",
+    );
+    payout(
+        "j_po4pf",
+        "payout:po_4:paid:failed",
+        [
+            ["a_bank", -3000],
+            ["a_transit", 3000],
+        ],
+        "2026-06-23T00:00:00Z",
     );
     journal("j_remit", "remittance", "remittance:2026-01-01:2026-03-31", [["a_bank", -1200]], {
         meta: JSON.stringify({ start: "2026-01-01", end: "2026-03-31" }),
@@ -1425,6 +1480,12 @@ describe("app-core SQL against the replica schema", () => {
         expect(run("DEPOSITS_SINCE_SQL", ["2026-07-01T00:00:00.000Z"])).toEqual([{ cents: 0 }]);
     });
 
+    it("counts a payout as deposited when it arrives, never while in transit or after failing", () => {
+        expect(run("DEPOSITS_SINCE_SQL", ["2026-06-25T00:00:00.000Z"])).toEqual([{ cents: 40000 }]);
+        expect(run("DEPOSITS_SINCE_SQL", ["2026-06-25T00:00:01.000Z"])).toEqual([{ cents: 0 }]);
+        expect(run("DEPOSITS_SINCE_SQL", ["2026-06-20T00:00:00.000Z"])).toEqual([{ cents: 40000 }]);
+    });
+
     it("feeds today's payments and the payouts", () => {
         expect(run("TODAY_PAYMENTS_SQL", ["2026-06-26T00:00:00.000Z"])).toEqual([
             { id: "pay_1", kind: "payment" },
@@ -1931,7 +1992,9 @@ describe("app-core SQL against the replica schema", () => {
             { id: "stk_2", item_name: "Soap", order_source: "online", by_name: "Owner" },
             { id: "stk_1", item_name: "Soap", order_source: null, by_name: "Groomer" },
         ]);
-        expect(run("TAX_SETUP_SQL")).toEqual([{ province: null, tax_registered: 1 }]);
+        expect(run("TAX_SETUP_SQL")).toEqual([
+            { province: null, tax_registered: 1, tax_registered_on: null },
+        ]);
     });
 
     it("reads a client's record: subjects, visits, notes, methods, plans and history", () => {
@@ -2081,6 +2144,7 @@ describe("app-core SQL against the replica schema", () => {
             {
                 province: "BC",
                 tax_registered: 1,
+                tax_registered_on: null,
                 gst_hst_number: "123456789RT0001",
                 pst_number: "PST12345678",
                 filing_frequency: "quarterly",

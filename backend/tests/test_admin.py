@@ -108,6 +108,7 @@ def admin_headers(
         "emails",
         "emails/invoice",
         "businesses/bz_birchbark",
+        "businesses/bz_birchbark/drift",
         "users/us_dev",
     ],
 )
@@ -135,6 +136,7 @@ async def test_admin_reads_require_platform_grant(
         "emails",
         "emails/invoice",
         "businesses/bz_birchbark",
+        "businesses/bz_birchbark/drift",
         "users/us_dev",
     ],
 )
@@ -453,3 +455,140 @@ async def test_business_owner_cannot_acknowledge_drift(as_owner: httpx.AsyncClie
         json={"reason": "reviewed"},
     )
     assert response.status_code == 403
+
+
+def _audit(
+    audit_id: str,
+    action: str,
+    entity_type: str,
+    entity_id: str,
+    changes: dict[str, object],
+    business_id: str = "bz_birchbark",
+) -> Audit:
+    return Audit(
+        id=audit_id,
+        business_id=business_id,
+        action=action,
+        entity_type=entity_type,
+        entity_id=entity_id,
+        changes=changes,
+    )
+
+
+async def _seed_drift(db: AsyncSession) -> None:
+    tx: dict[str, object] = {
+        "source": "ch_a",
+        "transaction_ids": ["txn_a1"],
+        "ledger_cents": 900,
+        "stripe_cents": 1000,
+    }
+    db.add_all(
+        [
+            _audit("aud_drift_a1", "ledger.transaction_drift", "stripe_source", "ch_a", tx),
+            _audit(
+                "aud_drift_a2",
+                "ledger.transaction_drift",
+                "stripe_source",
+                "ch_a",
+                {**tx, "transaction_ids": ["txn_a1", "txn_a2"], "ledger_cents": 800},
+            ),
+            _audit(
+                "aud_drift_b1",
+                "ledger.transaction_drift",
+                "stripe_source",
+                "ch_b",
+                {"source": "ch_b", "transaction_ids": ["txn_b1"], "ledger_cents": 0},
+            ),
+            _audit("aud_drift_b2", "ledger.drift_resolved", "audit", "aud_drift_b1", {}),
+            _audit(
+                "aud_drift_c1",
+                "ledger.transaction_drift",
+                "stripe_source",
+                "balance",
+                {"residual_cents": 100},
+            ),
+            _audit(
+                "aud_drift_c2",
+                "ledger.drift_acknowledged",
+                "audit",
+                "aud_drift_c1",
+                {"reason": "provider adjustment", "identity_id": "idn_reviewer"},
+            ),
+            _audit(
+                "aud_drift_d1",
+                "ledger.transaction_drift",
+                "stripe_source",
+                "ch_other",
+                {"source": "ch_other", "ledger_cents": 1, "stripe_cents": 2},
+                business_id="bz_demo_second",
+            ),
+        ]
+    )
+    await db.commit()
+
+
+async def test_drift_lists_the_active_finding_per_source(
+    api: httpx.AsyncClient, db: AsyncSession, admin_headers: dict[str, str]
+) -> None:
+    await _seed_drift(db)
+    response = await api.get("/admin/v1/businesses/bz_birchbark/drift", headers=admin_headers)
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["has_more"] is False
+    items = {item["source"]: item for item in body["items"]}
+    assert set(items) == {"ch_a", "balance"}
+    assert items["ch_a"]["id"] == "aud_drift_a2"
+    assert items["ch_a"]["ledger_cents"] == 800
+    assert items["ch_a"]["stripe_cents"] == 1000
+    assert items["ch_a"]["residual_cents"] is None
+    assert items["ch_a"]["transaction_ids"] == ["txn_a1", "txn_a2"]
+    assert items["ch_a"]["acknowledgement"] is None
+    assert items["ch_a"]["created_at"]
+    assert items["balance"]["id"] == "aud_drift_c1"
+    assert items["balance"]["residual_cents"] == 100
+    assert items["balance"]["transaction_ids"] == []
+    acknowledgement = items["balance"]["acknowledgement"]
+    assert acknowledgement["reason"] == "provider adjustment"
+    assert acknowledgement["identity_id"] == "idn_reviewer"
+    assert acknowledgement["acknowledged_at"]
+    other = await api.get("/admin/v1/businesses/bz_demo_second/drift", headers=admin_headers)
+    assert [item["id"] for item in other.json()["items"]] == ["aud_drift_d1"]
+    missing = await api.get("/admin/v1/businesses/bz_missing/drift", headers=admin_headers)
+    assert missing.status_code == 404
+
+
+async def test_drift_acknowledgement_refuses_inactive_findings(
+    api: httpx.AsyncClient, db: AsyncSession, admin_headers: dict[str, str]
+) -> None:
+    await _seed_drift(db)
+    base = "/admin/v1/businesses/bz_birchbark/drift"
+    body = {"reason": "reviewed"}
+    superseded = await api.post(
+        f"{base}/aud_drift_a1/acknowledge", json=body, headers=admin_headers
+    )
+    assert superseded.status_code == 409
+    assert superseded.json()["error"] == "finding_superseded"
+    resolved = await api.post(f"{base}/aud_drift_b1/acknowledge", json=body, headers=admin_headers)
+    assert resolved.status_code == 409
+    assert resolved.json()["error"] == "finding_resolved"
+    assert (
+        await api.post(f"{base}/aud_drift_d1/acknowledge", json=body, headers=admin_headers)
+    ).status_code == 404
+    for _ in range(2):
+        current = await api.post(
+            f"{base}/aud_drift_a2/acknowledge", json=body, headers=admin_headers
+        )
+        assert current.status_code == 200, current.text
+    rows = list(
+        await db.scalars(
+            select(Audit).where(
+                Audit.action == "ledger.drift_acknowledged",
+                Audit.entity_id.in_(["aud_drift_a1", "aud_drift_a2", "aud_drift_b1"]),
+            )
+        )
+    )
+    assert [row.entity_id for row in rows] == ["aud_drift_a2"]
+    listed = (await api.get(base, headers=admin_headers)).json()["items"]
+    assert next(i for i in listed if i["id"] == "aud_drift_a2")["acknowledgement"]["reason"] == (
+        "reviewed"
+    )

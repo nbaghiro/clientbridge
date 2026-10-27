@@ -7,6 +7,7 @@ import {
     type AdminSchemas,
     adminEditionOptions,
     useAdminAccess,
+    useAdminDriftForm,
     useAdminEditionForm,
     useAdminEmailForm,
     useAdminResource,
@@ -256,4 +257,70 @@ it("reports a failed edition save", async () => {
         expect(result.current.outcome).toBe("failed");
     });
     expect(result.current.current).toBe("none");
+});
+
+it("acknowledges a drift finding with a trimmed reason and refreshes the list", async () => {
+    const requests: { url: string; body: string }[] = [];
+    vi.stubGlobal(
+        "fetch",
+        vi.fn((url: string, init: RequestInit) => {
+            requests.push({ url, body: typeof init.body === "string" ? init.body : "" });
+            return Promise.resolve(new Response(JSON.stringify({ finding_id: "aud_one" })));
+        }),
+    );
+    const refreshed = vi.fn();
+    const { result } = renderHook(() => useAdminDriftForm("http://api.test", "bz_one", refreshed));
+    act(() => {
+        result.current.choose("aud_one");
+    });
+    expect(result.current.ready).toBe(false);
+    act(() => {
+        result.current.setReason("  provider adjustment ");
+    });
+    act(() => {
+        result.current.save();
+    });
+    await waitFor(() => {
+        expect(result.current.outcome).toBe("saved");
+    });
+    expect(requests).toEqual([
+        {
+            url: "http://api.test/admin/v1/businesses/bz_one/drift/aud_one/acknowledge",
+            body: JSON.stringify({ reason: "provider adjustment" }),
+        },
+    ]);
+    expect(result.current.findingId).toBeNull();
+    expect(refreshed).toHaveBeenCalledTimes(1);
+});
+
+it("refreshes when a drift finding was replaced and keeps the form on other failures", async () => {
+    const refreshed = vi.fn();
+    const fetch = vi.fn().mockResolvedValue(new Response(null, { status: 409 }));
+    vi.stubGlobal("fetch", fetch);
+    const { result } = renderHook(() => useAdminDriftForm("http://api.test", "bz_one", refreshed));
+    act(() => {
+        result.current.choose("aud_old");
+        result.current.setReason("reviewed");
+    });
+    act(() => {
+        result.current.save();
+    });
+    await waitFor(() => {
+        expect(result.current.outcome).toBe("stale");
+    });
+    expect(result.current.findingId).toBeNull();
+    expect(refreshed).toHaveBeenCalledTimes(1);
+    fetch.mockResolvedValue(new Response(null, { status: 500 }));
+    act(() => {
+        result.current.choose("aud_new");
+        result.current.setReason("reviewed");
+    });
+    act(() => {
+        result.current.save();
+    });
+    await waitFor(() => {
+        expect(result.current.outcome).toBe("failed");
+    });
+    expect(result.current.findingId).toBe("aud_new");
+    expect(refreshed).toHaveBeenCalledTimes(1);
 });

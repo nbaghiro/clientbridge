@@ -142,3 +142,7 @@ export async function expectStockReplica(
         timeout: 60_000,
     });
 }
+export async function itemCurrency(id: string): Promise<string | undefined> {
+    const rows = await select<{ currency: string }>`SELECT currency FROM items WHERE id = ${id}`;
+    return rows[0]?.currency;
+}

@@ -36,13 +36,21 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from clientbridge.core import clock
 from clientbridge.core.config import get_settings
 from clientbridge.core.db import SessionLocal, engine
-from clientbridge.integrations.stripe import STRIPE_API_VERSION, StripeGateway, close_stripe_client
+from clientbridge.core.ids import new_id
+from clientbridge.integrations.stripe import (
+    PAYMENT_EVENTS,
+    STRIPE_API_VERSION,
+    StripeGateway,
+    close_stripe_client,
+)
 from clientbridge.models.billing import Invoice, Line
-from clientbridge.models.business import Business
+from clientbridge.models.business import Business, PlanStatus
 from clientbridge.models.clients import Client
 from clientbridge.models.payments import Payment
+from clientbridge.models.platform import Audit
 from clientbridge.models.scheduling import Booking
 from clientbridge.services.business import apply_account_status
+from clientbridge.services.payments import reconcile_stripe_transactions
 from e2e import tier
 from e2e.results import REQUIRED_CASES, Report, browser_cases
 from e2e.runner import ROOT, Stack, owned_processes, source_snapshot, stop
@@ -646,6 +654,70 @@ def tags(run: str, invoice: str, client: str) -> dict[str, str]:
     }
 
 
+EVIDENCE: dict[Literal["lose", "escalate"], str] = {
+    "lose": "losing_evidence",
+    "escalate": "escalate_inquiry_evidence",
+}
+
+
+async def submit_evidence(
+    account: str, dispute: stripe.Dispute, action: Literal["lose", "escalate"], run: str
+) -> stripe.Dispute:
+    """Stripe's sandbox evidence values decide a test dispute: lose it, or escalate an inquiry."""
+    if dispute.livemode:
+        raise ValueError("live dispute evidence is forbidden")
+    ready = "warning_needs_response" if action == "escalate" else "needs_response"
+    if dispute.status == ready:
+        for attempt in range(10):
+            try:
+                dispute = await stripe.Dispute.modify_async(
+                    dispute.id,
+                    evidence={"uncategorized_text": EVIDENCE[action]},
+                    submit=True,
+                    stripe_account=account,
+                    idempotency_key=f"browser:{run}:{dispute.id}:{action}",
+                )
+                break
+            except stripe.RateLimitError:
+                # Stripe locks a dispute while it processes it; the same key retries safely
+                if attempt == 9:
+                    raise
+                await asyncio.sleep(3)
+    elif action == "escalate" or dispute.status not in ("under_review", "won", "lost"):
+        raise ValueError(f"cannot {action} a dispute that is {dispute.status}")
+    deadline = time.monotonic() + 120
+    while (
+        dispute.status.startswith("warning_")
+        if action == "escalate"
+        else dispute.status not in ("won", "lost")
+    ):
+        if time.monotonic() > deadline:
+            raise TimeoutError("the sandbox dispute did not settle")
+        await asyncio.sleep(2)
+        with suppress(stripe.RateLimitError):
+            dispute = await stripe.Dispute.retrieve_async(dispute.id, stripe_account=account)
+    return dispute
+
+
+async def settle_disputes(
+    account: str, charge_id: str, metadata: dict[str, str], *, apply: bool
+) -> int | None:
+    """What lost disputes took from an owned charge, losing any still open; None if only planned."""
+    listed = await stripe.Dispute.list_async(charge=charge_id, stripe_account=account)
+    disputes = [dispute async for dispute in listed.auto_paging_iter()]
+    if any(dispute.livemode or dispute.charge != charge_id for dispute in disputes):
+        raise ValueError("dispute does not belong to the owned charge")
+    open_disputes = [d for d in disputes if d.status in ("needs_response", "under_review")]
+    if open_disputes and not apply:
+        return None
+    for dispute in open_disputes:
+        disputes.remove(dispute)
+        disputes.append(
+            await submit_evidence(account, dispute, "lose", metadata["clientbridge_qa_run"])
+        )
+    return sum(dispute.amount for dispute in disputes if dispute.status == "lost")
+
+
 async def cleanup_intent(
     account: str,
     intent: stripe.PaymentIntent,
@@ -661,6 +733,11 @@ async def cleanup_intent(
         charge = await stripe.Charge.retrieve_async(intent.latest_charge, stripe_account=account)
         if charge.livemode or charge.payment_intent != intent.id or charge.amount != intent.amount:
             raise ValueError("charge does not match the owned intent")
+        lost = 0
+        if charge.to_dict().get("disputed"):
+            lost = await settle_disputes(account, charge.id, metadata, apply=apply)
+            if lost is None:
+                return {"intent": intent.id, "status": "planned_dispute_loss"}
         refunds = await stripe.Refund.list_async(charge=charge.id, stripe_account=account)
         refunded = 0
         async for refund in refunds.auto_paging_iter():
@@ -668,7 +745,11 @@ async def cleanup_intent(
                 refunded += refund.amount
             elif refund.status not in ("failed", "canceled"):
                 raise ValueError("owned charge has an unsettled refund; retry after settlement")
-        remaining = charge.amount - charge.amount_refunded
+        remaining = charge.amount - charge.amount_refunded - lost
+        if lost and remaining <= 0:
+            if refunded != charge.amount_refunded:
+                raise ValueError("charge and settled refunds disagree")
+            return {"intent": intent.id, "status": "dispute_lost"}
         if remaining == 0:
             if refunded != charge.amount:
                 raise ValueError("fully refunded charge lacks settled refund evidence")
@@ -780,6 +861,7 @@ async def setup_action(action: str, invoice_id: str | None) -> dict[str, object]
                 raise ValueError("v2 merchant is not ready")
             business.stripe_account_id = account
             apply_account_status(business, status)
+            db.add(await reconciled_at_prepare(account))
             await db.commit()
             return {"prepared": True, **expected}
         if business.stripe_account_id != account:
@@ -826,14 +908,29 @@ async def setup_action(action: str, invoice_id: str | None) -> dict[str, object]
         deposit_customers = {fixture.customer for fixture in deposits}
         if invoice_customers & deposit_customers:
             raise ValueError("invoice and deposit fixtures cannot share customers")
+        purchasers = client_fixtures(state, complete=True)
+        client_customers = {fixture.customer for fixture in purchasers}
+        if client_customers & (invoice_customers | deposit_customers):
+            raise ValueError("client fixtures cannot share customers with other fixtures")
+        for purchaser in purchasers:
+            client = await db.get(Client, purchaser.client)
+            if (
+                client is None
+                or client.business_id != BUSINESS
+                or client.stripe_customer_id not in (None, purchaser.customer)
+            ):
+                raise ValueError("client fixture DB ownership changed; refusing provider cleanup")
+            await clean_client(account, run, purchaser, apply=False)
         actions = await cleanup_deposits(db, state, account)
+        for purchaser in purchasers:
+            actions.extend(await clean_client(account, run, purchaser, apply=True))
         seen_customers: set[str] = set()
         customers = await stripe.Customer.list_async(limit=100, stripe_account=account)
         async for customer in customers.auto_paging_iter():
             customer_tags = customer.to_dict().get("metadata", {})
             if customer_tags.get("clientbridge_qa_run") != run:
                 continue
-            if customer.id in deposit_customers:
+            if customer.id in deposit_customers or customer.id in client_customers:
                 continue
             fixture = next(
                 (
@@ -1268,6 +1365,36 @@ def delivery_tags(state: dict[str, object], intent: dict[str, object]) -> dict[s
     return expected
 
 
+async def event_customer(account: str, owned: dict[str, object]) -> str:
+    """The customer behind an event's object; only customer-owned objects can be redelivered."""
+    kind = owned.get("object")
+    if kind in ("payment_intent", "charge", "invoice", "subscription", "setup_intent"):
+        customer = owned.get("customer")
+    elif kind in ("refund", "dispute") and isinstance(intent := owned.get("payment_intent"), str):
+        customer = (
+            await stripe.PaymentIntent.retrieve_async(intent, stripe_account=account)
+        ).customer
+    else:
+        raise ValueError("only events about a registered customer's objects can be redelivered")
+    if not isinstance(customer, str):
+        raise ValueError("event object has no customer")
+    return customer
+
+
+def registered_tags(state: dict[str, object], customer: str) -> dict[str, str]:
+    run = str(state["run_id"])
+    for row in cast(list[dict[str, str]], state.get("fixtures", [])):
+        if row.get("customer") == customer:
+            return tags(run, row["invoice"], row["client"])
+    for deposit in deposit_fixtures(state):
+        if deposit.customer == customer:
+            return fixture_tags(run, deposit)
+    for purchaser in client_fixtures(state):
+        if purchaser.customer == customer:
+            return client_tags(run, purchaser.client)
+    raise ValueError("the customer is not a registered fixture of this run")
+
+
 async def resend(event_id: str) -> None:
     account = guard()
     state = json.loads(state_path().read_text())
@@ -1275,11 +1402,19 @@ async def resend(event_id: str) -> None:
         raise ValueError("delivery manifest belongs to another run")
     event = await stripe.Event.retrieve_async(event_id, stripe_account=account)
     payload = event.to_dict()
-    if event.livemode or event.type != "payment_intent.succeeded":
-        raise ValueError("only a genuine sandbox succeeded event can be redelivered")
-    intent = payload["data"]["object"]
-    expected = delivery_tags(state, intent)
-    customer = await stripe.Customer.retrieve_async(intent["customer"], stripe_account=account)
+    if event.livemode or event.type not in PAYMENT_EVENTS:
+        raise ValueError("only a genuine sandbox payment event can be redelivered")
+    owned = payload["data"]["object"]
+    customer_id = await event_customer(account, owned)
+    expected = registered_tags(state, customer_id)
+    purchasers = {fixture.customer for fixture in client_fixtures(state)}
+    if (
+        owned.get("object") == "payment_intent"
+        and customer_id not in purchasers
+        and delivery_tags(state, owned) != expected
+    ):
+        raise ValueError("event does not belong to the exact registered fixture")
+    customer = await stripe.Customer.retrieve_async(customer_id, stripe_account=account)
     if customer.livemode or customer.to_dict().get("metadata") != expected:
         raise ValueError("event customer does not carry exact run ownership")
     # Stripe defaults to the local CLI endpoint when no registered endpoint is specified.
@@ -1487,6 +1622,179 @@ async def deposits_evidence_main(argv: list[str]) -> None:
         await engine.dispose()
 
 
+class ClientFixture(BaseModel):
+    """A client whose purchases have no invoice or booking: gift cards and memberships."""
+
+    model_config = ConfigDict(extra="forbid")
+    client: str
+    customer: str | None = None
+    clock: str | None = None
+
+
+def client_fixtures(state: dict[str, object], *, complete: bool = False) -> list[ClientFixture]:
+    fixtures = TypeAdapter(list[ClientFixture]).validate_python(state.get("client_fixtures", []))
+    for field in ("client", "customer", "clock"):
+        values = [value for f in fixtures if (value := getattr(f, field)) is not None]
+        if len(values) != len(set(values)):
+            raise ValueError("duplicate client fixture lineage; cannot prove cleanup")
+    if complete and any(f.customer is None for f in fixtures):
+        raise ValueError("incomplete client fixture lineage; cannot prove cleanup")
+    return fixtures
+
+
+def client_tags(run: str, client: str, environment: str | None = None) -> dict[str, str]:
+    return {
+        "clientbridge_qa": "payments",
+        "clientbridge_qa_environment": environment
+        or os.environ.get("STRIPE_BROWSER_ENVIRONMENT", "local"),
+        "clientbridge_qa_run": run,
+        "clientbridge_qa_purchaser": client,
+        "clientbridge_qa_client": client,
+    }
+
+
+def clock_name(run: str, client: str) -> str:
+    return f"clientbridge-qa {run} {client}"
+
+
+async def owned_subscriptions(
+    account: str, fixture: ClientFixture, business: str
+) -> list[stripe.Subscription]:
+    if fixture.customer is None:
+        raise ValueError("client fixture has no customer")
+    listed = await stripe.Subscription.list_async(
+        customer=fixture.customer, status="all", stripe_account=account
+    )
+    owned: list[stripe.Subscription] = []
+    async for subscription in listed.auto_paging_iter():
+        metadata = subscription.to_dict().get("metadata", {})
+        if (
+            subscription.livemode
+            or metadata.get("business_id") != business
+            or metadata.get("client_id") != fixture.client
+        ):
+            raise ValueError("client fixture customer has a subscription outside this run")
+        owned.append(subscription)
+    return owned
+
+
+async def invoice_intents(
+    account: str, subscriptions: list[stripe.Subscription], *, apply: bool = False
+) -> set[str]:
+    """The intents Stripe opened for the owned subscriptions' invoices, voiding unpaid ones."""
+    intents: set[str] = set()
+    for subscription in subscriptions:
+        invoices = await stripe.Invoice.list_async(
+            subscription=subscription.id, stripe_account=account
+        )
+        async for invoice in invoices.auto_paging_iter():
+            # an invoice's own intent can't be canceled; voiding the invoice cancels it
+            if apply and invoice.status == "open":
+                await stripe.Invoice.void_invoice_async(invoice.id, stripe_account=account)
+            payments = await stripe.InvoicePayment.list_async(
+                invoice=invoice.id, stripe_account=account
+            )
+            async for payment in payments.auto_paging_iter():
+                intent = payment.to_dict().get("payment", {}).get("payment_intent")
+                if isinstance(intent, str):
+                    intents.add(intent)
+    return intents
+
+
+async def clean_client(
+    account: str,
+    run: str,
+    fixture: ClientFixture,
+    *,
+    apply: bool,
+    environment: str | None = None,
+    business: str = BUSINESS,
+) -> list[dict[str, object]]:
+    """Cancel the client's subscriptions, refund its charges, archive its prices, end its clock."""
+    if fixture.customer is None:
+        raise ValueError("client fixture has no customer")
+    customer = await stripe.Customer.retrieve_async(fixture.customer, stripe_account=account)
+    details = customer.to_dict()
+    gone = bool(details.get("deleted"))
+    if not gone and (
+        customer.livemode
+        or details.get("metadata") != client_tags(run, fixture.client, environment)
+        or details.get("test_clock") != fixture.clock
+    ):
+        raise ValueError("client fixture customer ownership mismatch")
+    if gone and fixture.clock is None:
+        raise ValueError("a client fixture customer without a clock was deleted")
+    subscriptions = [] if gone else await owned_subscriptions(account, fixture, business)
+    from_invoices = await invoice_intents(account, subscriptions, apply=apply)
+    owned: list[stripe.PaymentIntent] = []
+    listed = await stripe.PaymentIntent.list_async(
+        customer=fixture.customer, stripe_account=account
+    )
+    async for intent in listed.auto_paging_iter():
+        metadata = intent.to_dict().get("metadata", {})
+        if (
+            intent.livemode
+            or intent.customer != fixture.customer
+            or intent.currency != "cad"
+            or not (
+                metadata.get("business_id") == business
+                or intent.id in from_invoices
+                or (gone and intent.status in ("succeeded", "canceled"))
+            )
+        ):
+            raise ValueError("client fixture customer has an intent outside this run")
+        owned.append(intent)
+    tags = client_tags(run, fixture.client, environment)
+    actions: list[dict[str, object]] = []
+    for subscription in subscriptions:
+        if subscription.status in ("canceled", "incomplete_expired"):
+            continue
+        if not apply:
+            actions.append({"subscription": subscription.id, "status": "planned_cancel"})
+            continue
+        ended = await stripe.Subscription.cancel_async(subscription.id, stripe_account=account)
+        actions.append({"subscription": ended.id, "status": ended.status})
+    for intent in owned:
+        if gone:
+            planned = await cleanup_intent(account, intent, tags, apply=False)
+            if not str(planned["status"]).startswith(("already_", "dispute_")):
+                raise ValueError("a deleted clock customer left an unsettled charge")
+            actions.append(planned)
+        else:
+            actions.append(await cleanup_intent(account, intent, tags, apply=apply))
+    prices = {
+        str(item["price"]["id"])
+        for subscription in subscriptions
+        for item in subscription.to_dict().get("items", {}).get("data", [])
+    }
+    for identity in sorted(prices):
+        price = await stripe.Price.retrieve_async(identity, stripe_account=account)
+        if price.livemode or not isinstance(price.product, str):
+            raise ValueError("owned subscription price is not a sandbox product price")
+        if not price.active:
+            continue
+        if not apply:
+            actions.append({"price": price.id, "status": "planned_archive"})
+            continue
+        await stripe.Product.modify_async(
+            price.product, default_price="", active=False, stripe_account=account
+        )
+        await stripe.Price.modify_async(price.id, active=False, stripe_account=account)
+        actions.append({"price": price.id, "product": price.product, "status": "archived"})
+    if fixture.clock is not None and not gone:
+        clock_row = await stripe.test_helpers.TestClock.retrieve_async(
+            fixture.clock, stripe_account=account
+        )
+        if clock_row.livemode or clock_row.name != clock_name(run, fixture.client):
+            raise ValueError("client fixture clock ownership mismatch")
+        if not apply:
+            actions.append({"clock": fixture.clock, "status": "planned_delete"})
+        else:
+            await stripe.test_helpers.TestClock.delete_async(fixture.clock, stripe_account=account)
+            actions.append({"clock": fixture.clock, "status": "deleted"})
+    return actions
+
+
 class Fixture(BaseModel):
     model_config = ConfigDict(extra="forbid")
     invoice: str
@@ -1503,11 +1811,12 @@ class Manifest(BaseModel):
     database: dict[str, object]
     fixtures: list[Fixture]
     deposit_fixtures: list[DepositFixture] = []
+    client_fixtures: list[ClientFixture] = []
     cleanup: list[dict[str, object]] = []
 
     @model_validator(mode="after")
     def complete_lineage(self) -> "Manifest":
-        for fixture in [*self.fixtures, *self.deposit_fixtures]:
+        for fixture in [*self.fixtures, *self.deposit_fixtures, *self.client_fixtures]:
             if not fixture.customer:
                 raise ValueError(
                     "incomplete registered customer lineage; recovery cannot prove clean"
@@ -1523,10 +1832,11 @@ class Manifest(BaseModel):
                 raise ValueError("duplicate deposit fixture ownership")
         for field in ("client", "customer"):
             values = [
-                getattr(fixture, field) for fixture in [*self.fixtures, *self.deposit_fixtures]
+                getattr(fixture, field)
+                for fixture in [*self.fixtures, *self.deposit_fixtures, *self.client_fixtures]
             ]
             if len(values) != len(set(values)):
-                raise ValueError("invoice and deposit fixture ownership overlaps")
+                raise ValueError("invoice, deposit and client fixture ownership overlaps")
         return self
 
 
@@ -1639,9 +1949,32 @@ async def recover(
         await cleanup_intent(manifest.account, intent, metadata, apply=False)
         for intent, metadata, _, _ in owned
     ]
+    run = str(manifest.run_id)
+    for purchaser in manifest.client_fixtures:
+        plans.extend(
+            await clean_client(
+                manifest.account,
+                run,
+                purchaser,
+                apply=False,
+                environment=environment,
+                business=manifest.business,
+            )
+        )
     if not apply:
         results.extend(plans)
         return results
+    for purchaser in manifest.client_fixtures:
+        results.extend(
+            await clean_client(
+                manifest.account,
+                run,
+                purchaser,
+                apply=True,
+                environment=environment,
+                business=manifest.business,
+            )
+        )
     for intent, metadata, source, target in owned:
         current = await stripe.PaymentIntent.retrieve_async(
             intent.id, stripe_account=manifest.account
@@ -1801,7 +2134,7 @@ def listener(stack: Stack, processes: ExitStack) -> str:
             "--events-from",
             "@accounts",
             "--events",
-            "payment_intent.succeeded,payment_intent.payment_failed,refund.created,refund.updated",
+            ",".join(PAYMENT_EVENTS),
             "--forward-to",
             stack.env.get("STRIPE_BROWSER_RELAY_URL", stack.api + "/webhooks/stripe")
             + ("/webhook" if "STRIPE_BROWSER_RELAY_URL" in stack.env else ""),
@@ -1908,6 +2241,7 @@ def run_lane(args: argparse.Namespace, directory: Path, lease: tier.Lease) -> No
         "surface": "connect-stripe",
         "credentials_mode": args.credentials,
         "activation": args.activation,
+        "payout_case": args.payout_case,
         "source": source_snapshot(),
         "outcome": "running",
         "provider_cleanup": "not_started",
@@ -1938,6 +2272,7 @@ def run_lane(args: argparse.Namespace, directory: Path, lease: tier.Lease) -> No
                     {
                         "STRIPE_BROWSER_E2E": "1",
                         "STRIPE_BROWSER_ACTIVATION": args.activation,
+                        "STRIPE_PAYOUT_CASE": "1" if args.payout_case else "",
                         "STRIPE_BROWSER_RUN_ID": str(uuid4()),
                         "STRIPE_BROWSER_STATE_FILE": str(directory / "stripe-fixtures.json"),
                     }
@@ -1973,14 +2308,18 @@ def run_lane(args: argparse.Namespace, directory: Path, lease: tier.Lease) -> No
                                 "playwright",
                                 "test",
                                 "--config=playwright.stripe.config.ts",
+                                *args.tests,
                             ],
                             browser_log,
                             frontend=True,
                         )
                     report = directory / "browser-results" / "results.json"
-                    Report.model_validate_json(report.read_text()).validate_evidence(
-                        REQUIRED_CASES["stripe"], browser_cases("stripe")
-                    )
+                    if args.tests:
+                        Report.model_validate_json(report.read_text()).validate_evidence([])
+                    else:
+                        Report.model_validate_json(report.read_text()).validate_evidence(
+                            REQUIRED_CASES["stripe"], browser_cases("stripe")
+                        )
                 finally:
                     record.update(stack.finish_worker())
                 stack.require_worker()
@@ -2056,7 +2395,12 @@ def stack_main(argv: list[str]) -> int:
     parser.add_argument("--configure-only", action="store_true")
     parser.add_argument("--activation", choices=("pointer", "keyboard"), default="pointer")
     parser.add_argument("--allow-source-changes", action="store_true")
+    # pays out of slot a's available balance, which cleanup refunds and lost disputes can drain
+    parser.add_argument("--payout-case", action="store_true")
+    parser.add_argument("tests", nargs=argparse.REMAINDER)
     args = parser.parse_args(argv)
+    if args.tests[:1] == ["--"]:
+        args.tests = args.tests[1:]
     if args.allow_source_changes and os.environ.get("CI"):
         parser.error("CI cannot accept source changes")
     if args.activation != "pointer" and os.environ.get("CI"):
@@ -2078,6 +2422,430 @@ def stack_main(argv: list[str]) -> int:
     return 0
 
 
+async def reconciled_at_prepare(account: str) -> Audit:
+    """The shared merchant holds earlier runs' money, so the run's business reconciles from now."""
+    now = int(clock.wall().timestamp())
+    newest = await stripe.BalanceTransaction.list_async(
+        limit=1, created={"lte": now}, stripe_account=account
+    )
+    return Audit(
+        id=new_id("audit"),
+        business_id=BUSINESS,
+        action="ledger.reconciled",
+        entity_type="business",
+        entity_id=BUSINESS,
+        changes={"transaction_id": newest.data[0].id if newest.data else "", "created": now},
+    )
+
+
+def run_state(account: str) -> tuple[Path, dict[str, object]]:
+    path = state_path()
+    state: dict[str, object] = json.loads(path.read_text())
+    if any(state.get(key) != value for key, value in identity(account).items()):
+        raise ValueError("fixture manifest belongs to another run/database/merchant")
+    return path, state
+
+
+def save_clients(path: Path, state: dict[str, object], fixtures: list[ClientFixture]) -> None:
+    state["client_fixtures"] = [fixture.model_dump(exclude_none=True) for fixture in fixtures]
+    client_fixtures(state)
+    save(path, state)
+
+
+async def register_purchaser(
+    path: Path, state: dict[str, object], account: str, client_id: str, *, clocked: bool
+) -> ClientFixture:
+    """File a client before the app makes its customer, on a test clock for memberships."""
+    run = str(state["run_id"])
+    fixtures = client_fixtures(state)
+    async with SessionLocal() as db:
+        business = await db.get(Business, BUSINESS)
+        if business is None or business.stripe_account_id != account:
+            raise ValueError("isolated business is not bound to the QA merchant")
+        client = await db.get(Client, client_id)
+        if client is None or client.business_id != BUSINESS or client.deleted_at is not None:
+            raise ValueError("client does not belong to the fixture business")
+        if client.stripe_customer_id is not None:
+            raise ValueError("refusing to adopt a pre-existing provider customer")
+        taken = [
+            *(row.get("client") for row in cast(list[dict[str, str]], state["fixtures"])),
+            *(fixture.client for fixture in deposit_fixtures(state)),
+            *(fixture.client for fixture in fixtures),
+        ]
+        if client_id in taken:
+            raise ValueError("client already belongs to a fixture")
+        fixture = ClientFixture(client=client_id)
+        fixtures.append(fixture)
+        save_clients(path, state, fixtures)  # lineage before any provider write
+        expected = client_tags(run, client_id)
+        key = f"browser:{run}:client:{client_id}"
+        if clocked:
+            created = await stripe.test_helpers.TestClock.create_async(
+                frozen_time=int(clock.wall().timestamp()),
+                name=clock_name(run, client_id),
+                stripe_account=account,
+                idempotency_key=f"{key}:clock",
+            )
+            fixture.clock = created.id
+            save_clients(path, state, fixtures)
+            customer = await stripe.Customer.create_async(
+                name=client.name,
+                email=client.email or "",
+                metadata=expected,
+                test_clock=created.id,
+                stripe_account=account,
+                idempotency_key=f"{key}:customer",
+            )
+        else:
+            customer = await stripe.Customer.create_async(
+                name=client.name,
+                email=client.email or "",
+                metadata=expected,
+                stripe_account=account,
+                idempotency_key=f"{key}:customer",
+            )
+        if customer.livemode or customer.to_dict().get("metadata") != expected:
+            raise ValueError("client fixture customer ownership mismatch")
+        fixture.customer = customer.id
+        save_clients(path, state, fixtures)
+        client.stripe_customer_id = customer.id
+        await db.commit()
+        return fixture
+
+
+async def advance_clock(account: str, run: str, fixture: ClientFixture, seconds: int) -> int:
+    if fixture.clock is None or seconds <= 0:
+        raise ValueError("only a clock-bound client fixture can move forward")
+    current = await stripe.test_helpers.TestClock.retrieve_async(
+        fixture.clock, stripe_account=account
+    )
+    if (
+        current.livemode
+        or current.name != clock_name(run, fixture.client)
+        or current.status != "ready"
+    ):
+        raise ValueError("the client fixture clock is not this run's or is still moving")
+    target = current.frozen_time + seconds
+    await stripe.test_helpers.TestClock.advance_async(
+        fixture.clock, frozen_time=target, stripe_account=account
+    )
+    deadline = time.monotonic() + 300
+    while current.status != "ready" or current.frozen_time != target:
+        if current.status == "internal_failure" or time.monotonic() > deadline:
+            raise TimeoutError("the sandbox test clock did not finish advancing")
+        await asyncio.sleep(2)
+        current = await stripe.test_helpers.TestClock.retrieve_async(
+            fixture.clock, stripe_account=account
+        )
+    return target
+
+
+def transaction_row(row: dict[str, object]) -> dict[str, object]:
+    details = row.get("fee_details")
+    return {
+        **{key: row.get(key) for key in ("id", "type", "reporting_category", "source")},
+        **{key: row.get(key) for key in ("amount", "fee", "net", "created")},
+        "fee_details": [
+            {"type": fee.get("type"), "amount": fee.get("amount")}
+            for fee in cast(list[dict[str, object]], details if isinstance(details, list) else [])
+        ],
+    }
+
+
+async def charge_evidence(account: str, charge_id: str) -> dict[str, object]:
+    """A charge with every balance transaction Stripe booked for it, its refunds and disputes."""
+    charge = await stripe.Charge.retrieve_async(
+        charge_id, expand=["balance_transaction"], stripe_account=account
+    )
+    if charge.livemode:
+        raise ValueError("live charge evidence is forbidden")
+    found = charge.to_dict()
+    transactions: list[dict[str, object]] = []
+    if isinstance(own := found.get("balance_transaction"), dict):
+        transactions.append(transaction_row(cast(dict[str, object], own)))
+    refunds: list[dict[str, object]] = []
+    listed = await stripe.Refund.list_async(charge=charge_id, stripe_account=account)
+    async for refund in listed.auto_paging_iter():
+        details = refund.to_dict()
+        refunds.append(
+            {key: details.get(key) for key in ("id", "amount", "status", "failure_reason")}
+        )
+        for key in ("balance_transaction", "failure_balance_transaction"):
+            if isinstance(identity := details.get(key), str):
+                row = await stripe.BalanceTransaction.retrieve_async(
+                    identity, stripe_account=account
+                )
+                transactions.append(transaction_row(row.to_dict()))
+    disputes: list[dict[str, object]] = []
+    listed_disputes = await stripe.Dispute.list_async(charge=charge_id, stripe_account=account)
+    async for dispute in listed_disputes.auto_paging_iter():
+        details = dispute.to_dict()
+        disputes.append({key: details.get(key) for key in ("id", "status", "amount", "reason")})
+        for row in cast(list[dict[str, object]], details.get("balance_transactions") or []):
+            transactions.append(transaction_row(row))
+    return {
+        "charge": {
+            "id": charge.id,
+            "amount": charge.amount,
+            "amount_refunded": charge.amount_refunded,
+            "disputed": found.get("disputed"),
+            "application_fee_amount": found.get("application_fee_amount"),
+        },
+        "refunds": refunds,
+        "disputes": disputes,
+        "transactions": sorted(transactions, key=lambda row: str(row["id"])),
+        "net_cents": sum(int(cast(int, row["net"])) for row in transactions),
+    }
+
+
+async def owned_intent(account: str, state: dict[str, object], intent_id: str) -> str:
+    """The charge of an intent this run's fixtures own."""
+    intent = await stripe.PaymentIntent.retrieve_async(intent_id, stripe_account=account)
+    if intent.livemode or not isinstance(intent.customer, str):
+        raise ValueError("intent is not a sandbox intent of a customer")
+    registered_tags(state, intent.customer)
+    if not isinstance(intent.latest_charge, str):
+        raise ValueError("the owned intent has no charge")
+    return intent.latest_charge
+
+
+async def client_action(action: str, client_id: str, seconds: int) -> dict[str, object]:
+    account = await validate_context()
+    path, state = run_state(account)
+    run = str(state["run_id"])
+    if action in ("register", "register-clock"):
+        fixture = await register_purchaser(
+            path, state, account, client_id, clocked=action == "register-clock"
+        )
+        return {**fixture.model_dump(), "account": account}
+    matches = [f for f in client_fixtures(state, complete=True) if f.client == client_id]
+    if len(matches) != 1:
+        raise ValueError("client is not one registered client fixture")
+    fixture = matches[0]
+    if action == "advance":
+        return {
+            "clock": fixture.clock,
+            "frozen_time": await advance_clock(account, run, fixture, seconds),
+        }
+    subscriptions = await owned_subscriptions(account, fixture, BUSINESS)
+    if action == "decline":
+        live = [s for s in subscriptions if s.status in ("active", "past_due")]
+        if len(live) != 1 or fixture.customer is None:
+            raise ValueError("the client fixture has no single live membership")
+        # Stripe's always-declining test card stands in for a card the issuer starts refusing
+        method = await stripe.PaymentMethod.attach_async(
+            "pm_card_chargeCustomerFail", customer=fixture.customer, stripe_account=account
+        )
+        updated = await stripe.Subscription.modify_async(
+            live[0].id, default_payment_method=method.id, stripe_account=account
+        )
+        return {"subscription": updated.id, "payment_method": method.id}
+    renewals: list[dict[str, object]] = []
+    for subscription in subscriptions:
+        invoices = await stripe.Invoice.list_async(
+            subscription=subscription.id, stripe_account=account
+        )
+        async for invoice in invoices.auto_paging_iter():
+            details = invoice.to_dict()
+            charges: list[dict[str, object]] = []
+            payments = await stripe.InvoicePayment.list_async(
+                invoice=invoice.id, stripe_account=account
+            )
+            async for payment in payments.auto_paging_iter():
+                intent_id = payment.to_dict().get("payment", {}).get("payment_intent")
+                if not isinstance(intent_id, str):
+                    continue
+                intent = await stripe.PaymentIntent.retrieve_async(
+                    intent_id, stripe_account=account
+                )
+                charge = (
+                    await charge_evidence(account, intent.latest_charge)
+                    if isinstance(intent.latest_charge, str)
+                    else None
+                )
+                charges.append({"intent": intent.id, "status": intent.status, "charge": charge})
+            renewals.append(
+                {
+                    **{key: details.get(key) for key in ("id", "status", "billing_reason")},
+                    **{
+                        key: details.get(key)
+                        for key in ("amount_due", "amount_paid", "attempt_count")
+                    },
+                    **{key: details.get(key) for key in ("period_start", "period_end", "created")},
+                    "subscription": subscription.id,
+                    "payments": charges,
+                }
+            )
+    return {
+        "subscriptions": [{"id": s.id, "status": s.status} for s in subscriptions],
+        "invoices": sorted(renewals, key=lambda row: int(cast(int, row["created"]))),
+    }
+
+
+async def clients_main(argv: list[str]) -> None:
+    """Register a gift card or membership client, move its test clock, or read its renewals."""
+    parser = argparse.ArgumentParser(prog="python -m e2e.stripe clients")
+    parser.add_argument(
+        "action", choices=("register", "register-clock", "advance", "decline", "evidence")
+    )
+    parser.add_argument("client_id")
+    parser.add_argument("--seconds", type=int, default=0)
+    args = parser.parse_args(argv)
+    try:
+        print(json.dumps(await client_action(args.action, args.client_id, args.seconds)))
+    finally:
+        await close_stripe_client()
+        await engine.dispose()
+
+
+async def dispute_action(action: str, intent_id: str) -> dict[str, object]:
+    account = await validate_context()
+    _, state = run_state(account)
+    charge_id = await owned_intent(account, state, intent_id)
+    if action in ("lose", "escalate"):
+        listed = await stripe.Dispute.list_async(charge=charge_id, stripe_account=account)
+        disputes = [dispute async for dispute in listed.auto_paging_iter()]
+        if len(disputes) != 1:
+            raise ValueError("the owned charge does not have exactly one dispute")
+        await submit_evidence(
+            account, disputes[0], "lose" if action == "lose" else "escalate", str(state["run_id"])
+        )
+    return await charge_evidence(account, charge_id)
+
+
+async def disputes_main(argv: list[str]) -> None:
+    """Escalate or lose the dispute on an owned charge with Stripe's evidence values, or read it."""
+    parser = argparse.ArgumentParser(prog="python -m e2e.stripe disputes")
+    parser.add_argument("action", choices=("show", "escalate", "lose"))
+    parser.add_argument("intent_id")
+    args = parser.parse_args(argv)
+    try:
+        print(json.dumps(await dispute_action(args.action, args.intent_id)))
+    finally:
+        await close_stripe_client()
+        await engine.dispose()
+
+
+ACTIVE_FINDINGS = """
+SELECT f.entity_id AS source, f.action, f.changes FROM (
+    SELECT DISTINCT ON (entity_id) id, entity_id, action, changes FROM audits
+    WHERE business_id = :business AND entity_type = 'stripe_source'
+    AND action IN ('ledger.transaction_drift', 'ledger.transaction_failed')
+    ORDER BY entity_id, id DESC
+) f WHERE NOT EXISTS (
+    SELECT 1 FROM audits r WHERE r.business_id = :business AND r.entity_type = 'audit'
+    AND r.action = 'ledger.drift_resolved' AND r.entity_id = f.id
+) ORDER BY f.entity_id
+"""
+
+
+async def run_sources(account: str, state: dict[str, object]) -> set[str]:
+    """Every Stripe source the run created: its customers' charges, refunds and disputes."""
+    customers = [
+        *(row["customer"] for row in cast(list[dict[str, str]], state["fixtures"])),
+        *(f.customer for f in deposit_fixtures(state, complete=True) if f.customer),
+        *(f.customer for f in client_fixtures(state, complete=True) if f.customer),
+    ]
+    sources: set[str] = set()
+    for customer in customers:
+        intents = await stripe.PaymentIntent.list_async(customer=customer, stripe_account=account)
+        async for intent in intents.auto_paging_iter():
+            if not isinstance(intent.latest_charge, str):
+                continue
+            evidence = await charge_evidence(account, intent.latest_charge)
+            sources.add(intent.latest_charge)
+            for kind in ("refunds", "disputes"):
+                sources.update(
+                    str(row["id"]) for row in cast(list[dict[str, object]], evidence[kind])
+                )
+    async with engine.connect() as db:
+        await db.execute(text("SET TRANSACTION READ ONLY"))
+        payouts = await db.scalars(
+            text(
+                "SELECT DISTINCT source_id FROM entries WHERE business_id = :business "
+                "AND source_type = 'stripe_payout'"
+            ),
+            {"business": BUSINESS},
+        )
+        recorded = [str(payout) for payout in payouts]
+    for payout in recorded:
+        # the seeded demo ledger names payouts Stripe never made; only real ones are sources
+        with suppress(stripe.InvalidRequestError):
+            found = await stripe.Payout.retrieve_async(payout, stripe_account=account)
+            if not found.livemode:
+                sources.add(found.id)
+    return sources
+
+
+async def reconcile_run() -> dict[str, object]:
+    """Reconcile the run's business with the job's own code, then judge only the run's sources."""
+    account = await validate_context()
+    _, state = run_state(account)
+    settings = get_settings()
+    gateway = StripeGateway(settings.stripe_secret_key, settings.stripe_webhook_secret, "CA")
+    async with SessionLocal() as db:
+        business = await db.get(Business, BUSINESS)
+        if business is None or business.stripe_account_id != account:
+            raise ValueError("isolated business is not bound to the QA merchant")
+        drifted = await reconcile_stripe_transactions(db, gateway, BUSINESS, account)
+    sources = await run_sources(account, state)
+    async with engine.connect() as db:
+        await db.execute(text("SET TRANSACTION READ ONLY"))
+        findings = [
+            dict(row)
+            for row in (await db.execute(text(ACTIVE_FINDINGS), {"business": BUSINESS})).mappings()
+        ]
+        ledger_cents = await db.scalar(
+            text(
+                "SELECT COALESCE(SUM(e.amount_cents), 0) FROM entries e "
+                "JOIN accounts a ON a.id = e.account_id WHERE a.business_id = :business "
+                "AND a.owner_type = 'business' AND a.owner_id = :business AND a.category = 'stripe'"
+            ),
+            {"business": BUSINESS},
+        )
+    stripe_cents = await gateway.get_balance_cents(account, currency="CAD")
+    return {
+        "drifted": drifted,
+        "sources": sorted(sources),
+        "findings": [row for row in findings if row["source"] in sources],
+        "other_findings": sum(row["source"] not in sources for row in findings),
+        # the shared merchant's balance also holds every earlier run's money
+        "balance": {"stripe_cents": stripe_cents, "ledger_cents": int(ledger_cents or 0)},
+    }
+
+
+async def reconcile_main(argv: list[str]) -> None:
+    """Run reconciliation for the run's business and report findings on the run's own sources."""
+    argparse.ArgumentParser(prog="python -m e2e.stripe reconcile").parse_args(argv)
+    try:
+        print(json.dumps(await reconcile_run(), default=str))
+    finally:
+        await close_stripe_client()
+        await engine.dispose()
+
+
+async def plan_main(argv: list[str]) -> None:
+    """Set the run's business plan status, so a case can lapse it and put it back."""
+    parser = argparse.ArgumentParser(prog="python -m e2e.stripe plan")
+    parser.add_argument("status")
+    args = parser.parse_args(argv)
+    status = TypeAdapter(PlanStatus).validate_python(args.status)
+    try:
+        account = await validate_context()
+        run_state(account)
+        async with SessionLocal() as db:
+            business = await db.get(Business, BUSINESS)
+            if business is None or business.stripe_account_id != account:
+                raise ValueError("isolated business is not bound to the QA merchant")
+            before = business.plan_status
+            business.plan_status = status
+            await db.commit()
+        print(json.dumps({"business": BUSINESS, "before": before, "plan_status": status}))
+    finally:
+        await close_stripe_client()
+        await engine.dispose()
+
+
 COMMANDS: dict[str, Callable[[list[str]], int | None]] = {
     "browser": lambda argv: asyncio.run(browser_main(argv)),
     "setup": lambda argv: asyncio.run(setup_main(argv)),
@@ -2085,6 +2853,10 @@ COMMANDS: dict[str, Callable[[list[str]], int | None]] = {
     "deposits-evidence": lambda argv: asyncio.run(deposits_evidence_main(argv)),
     "delivery": lambda argv: asyncio.run(delivery_main(argv)),
     "recover": lambda argv: asyncio.run(recover_main(argv)),
+    "clients": lambda argv: asyncio.run(clients_main(argv)),
+    "disputes": lambda argv: asyncio.run(disputes_main(argv)),
+    "reconcile": lambda argv: asyncio.run(reconcile_main(argv)),
+    "plan": lambda argv: asyncio.run(plan_main(argv)),
     "stack": stack_main,
 }
 

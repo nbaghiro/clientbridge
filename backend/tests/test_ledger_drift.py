@@ -18,11 +18,12 @@ from clientbridge.integrations.stripe import ChargeFees
 from clientbridge.models.billing import Invoice
 from clientbridge.models.ledger import Entry
 from clientbridge.models.payments import Payment
+from clientbridge.models.platform import Audit
 from clientbridge.schemas.reports import IncomeReport
 from clientbridge.services import ledger
 from clientbridge.services.payments import assert_payable
 from clientbridge.services.reports import ReportService
-from tests.conftest import BIZ, OWNER_USER, FakePaymentGateway, book_invoice
+from tests.conftest import BIZ, OWNER_USER, Factory, FakePaymentGateway, book_invoice
 from tests.helpers import (
     business_balance,
     client_id,
@@ -75,7 +76,7 @@ def _dispute(
     pi: str, status: str, txns: Sequence[Mapping[str, object]], *, amount: int = 8000
 ) -> dict[str, object]:
     return {
-        "id": f"dp_{pi}",
+        "id": f"du_{pi}",
         "payment_intent": pi,
         "amount": amount,
         "status": status,
@@ -87,6 +88,7 @@ async def test_refund_that_fails_after_succeeding_returns_the_money(
     api: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     """Stripe can fail a card refund up to 30 days after it succeeded; the balance gets it back."""
+    await enable_payments(db)
     await _charge(db, "pi_rf")
     before = await business_balance(db, "stripe")
     income = await _income(db)
@@ -190,6 +192,7 @@ async def test_a_lost_dispute_and_a_refund_on_one_invoice_unwind_it_exactly(
     api: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     """Each unwind counts the other, so revenue and tax clear to the cent between them."""
+    await enable_payments(db)
     row = Invoice(
         id=new_id("invoice"),
         business_id=BIZ,
@@ -227,6 +230,7 @@ async def _taxable_sales(as_owner: httpx.AsyncClient) -> int:
 
 PAYOUT_CREATED = datetime(2026, 10, 12, 9, 0, tzinfo=UTC)
 PAYOUT_ARRIVES = datetime(2026, 10, 14, tzinfo=UTC)
+PAYOUT_FAILED = datetime(2026, 10, 15, 8, 30, tzinfo=UTC)
 
 
 def _payout(payout_id: str, status: str) -> dict[str, object]:
@@ -240,27 +244,97 @@ def _payout(payout_id: str, status: str) -> dict[str, object]:
     }
 
 
-async def test_payout_leaves_the_stripe_balance_when_created(
+async def _money(db: AsyncSession) -> tuple[int, int, int]:
+    return (
+        await business_balance(db, "stripe"),
+        await business_balance(db, "transit"),
+        await business_balance(db, "bank"),
+    )
+
+
+async def _dated(api: httpx.AsyncClient, event_type: str, obj: dict[str, object]) -> None:
+    body = {
+        "id": f"evt_{new_id('audit')}",
+        "type": event_type,
+        "account": "acct_test",
+        "created": int(PAYOUT_FAILED.timestamp()),
+        "data": {"object": obj},
+    }
+    res = await api.post("/webhooks/stripe", content=json.dumps(body), headers=STRIPE)
+    assert res.status_code == 200, res.text
+
+
+async def test_payout_moves_to_transit_when_created(
     api: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    """Stripe books the payout's balance transaction at creation, days before it is paid."""
+    """Stripe books the payout's balance transaction at creation, days before the bank has it."""
     await enable_payments(db)
-    before = await business_balance(db, "stripe")
+    stripe, transit, bank = await _money(db)
     await stripe_event(api, "payout.created", _payout("po_new", "pending"))
-    assert await business_balance(db, "stripe") == before - 5000
+    assert await _money(db) == (stripe - 5000, transit + 5000, bank)
     booked = await db.execute(
         select(Entry.occurred_at, Entry.available_at).where(Entry.ref == "payout:po_new").limit(1)
     )
-    assert booked.one() == (PAYOUT_CREATED, PAYOUT_ARRIVES)  # dated now, available on arrival
+    assert booked.one() == (PAYOUT_CREATED, PAYOUT_ARRIVES)
 
 
-async def test_canceled_payout_comes_back(api: httpx.AsyncClient, db: AsyncSession) -> None:
+async def test_a_paid_payout_reaches_the_bank_on_its_arrival_date(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
     await enable_payments(db)
-    before = await business_balance(db, "stripe")
+    stripe, transit, bank = await _money(db)
+    for event_type, status in (
+        ("payout.created", "pending"),
+        ("payout.paid", "paid"),
+        ("payout.paid", "paid"),
+    ):
+        await stripe_event(api, event_type, _payout("po_paid", status))
+    assert await _money(db) == (stripe - 5000, transit, bank + 5000)
+    arrived = await db.scalars(select(Entry.occurred_at).where(Entry.ref == "payout:po_paid:paid"))
+    assert set(arrived) == {PAYOUT_ARRIVES}
+
+
+async def test_a_paid_payout_arriving_before_its_creation_books_both_legs_once(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await enable_payments(db)
+    stripe, transit, bank = await _money(db)
+    await stripe_event(api, "payout.paid", _payout("po_early", "paid"))
+    await stripe_event(api, "payout.created", _payout("po_early", "pending"))
+    assert await _money(db) == (stripe - 5000, transit, bank + 5000)
+
+
+async def test_canceled_payout_comes_back_dated_when_it_was_canceled(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await enable_payments(db)
+    before = await _money(db)
     await stripe_event(api, "payout.created", _payout("po_cxl", "pending"))
-    await stripe_event(api, "payout.canceled", _payout("po_cxl", "canceled"))
+    await _dated(api, "payout.canceled", _payout("po_cxl", "canceled"))
     assert await ledger.journal_for(db, BIZ, "payout:po_cxl") is not None
-    assert await business_balance(db, "stripe") == before
+    assert await _money(db) == before
+    returned = await db.scalars(
+        select(Entry.occurred_at).where(Entry.ref == "payout:po_cxl:failed")
+    )
+    assert set(returned) == {PAYOUT_FAILED}
+
+
+async def test_a_payout_that_fails_after_arriving_leaves_the_bank(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await enable_payments(db)
+    before = await _money(db)
+    await stripe_event(api, "payout.created", _payout("po_bounce", "pending"))
+    await stripe_event(api, "payout.paid", _payout("po_bounce", "paid"))
+    await _dated(api, "payout.failed", _payout("po_bounce", "failed"))
+    await stripe_event(api, "payout.paid", _payout("po_bounce", "paid"))
+    assert await _money(db) == before
+    returned = await db.scalars(
+        select(Entry.occurred_at).where(
+            Entry.ref.in_(("payout:po_bounce:failed", "payout:po_bounce:paid:failed"))
+        )
+    )
+    assert set(returned) == {PAYOUT_FAILED}
 
 
 async def test_a_payout_that_fails_before_its_creation_lands_stays_reversed(
@@ -268,22 +342,23 @@ async def test_a_payout_that_fails_before_its_creation_lands_stays_reversed(
 ) -> None:
     """A retried `payout.created` carries its original snapshot, so it can't tell it failed."""
     await enable_payments(db)
-    before = await business_balance(db, "stripe")
+    before = await _money(db)
     await stripe_event(api, "payout.failed", _payout("po_late", "failed"))
     await stripe_event(api, "payout.created", _payout("po_late", "pending"))
-    assert await business_balance(db, "stripe") == before
+    await stripe_event(api, "payout.paid", _payout("po_late", "paid"))
+    assert await _money(db) == before
 
 
-async def test_a_paid_payout_books_once(api: httpx.AsyncClient, db: AsyncSession) -> None:
+async def test_a_foreign_currency_payout_is_refused_once(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
     await enable_payments(db)
-    before = await business_balance(db, "stripe")
-    for event_type, status in (
-        ("payout.created", "pending"),
-        ("payout.paid", "paid"),
-        ("payout.paid", "paid"),
-    ):
-        await stripe_event(api, event_type, _payout("po_paid", status))
-    assert await business_balance(db, "stripe") == before - 5000
+    before = await _money(db)
+    for event_type in ("payout.created", "payout.paid", "payout.paid"):
+        await stripe_event(api, event_type, {**_payout("po_usd", "paid"), "currency": "usd"})
+    refused = await db.scalars(select(Audit).where(Audit.action == "payout.refused"))
+    assert [audit.changes["id"] for audit in refused] == ["po_usd"]
+    assert await _money(db) == before
 
 
 async def test_charge_without_a_readable_balance_transaction_is_retried(
@@ -305,6 +380,7 @@ async def test_charge_without_a_readable_balance_transaction_is_retried(
         {
             "id": "evt_nofee",
             "type": "payment_intent.succeeded",
+            "account": "acct_test",
             "data": {"object": {"id": "pi_nofee"}},
         }
     )
@@ -312,6 +388,30 @@ async def test_charge_without_a_readable_balance_transaction_is_retried(
     await db.rollback()
     assert res.status_code == 503
     assert (await payment(db, pay_id)).status == "pending"
+
+
+async def test_another_account_cannot_settle_or_refund_this_business_charge(
+    api: httpx.AsyncClient, db: AsyncSession, factory: Factory
+) -> None:
+    await enable_payments(db)
+    pay_id = (await _charge(db, "pi_foreign", status="pending")).id
+    other = await factory.business()
+    other.stripe_account_id = "acct_foreign"
+    await db.commit()
+    for event_type, obj in (
+        ("payment_intent.succeeded", {"id": "pi_foreign"}),
+        ("refund.updated", _refund("pi_foreign", "succeeded")),
+    ):
+        body = {"id": f"evt_{new_id('audit')}", "type": event_type, "account": "acct_foreign"}
+        res = await api.post(
+            "/webhooks/stripe",
+            content=json.dumps({**body, "data": {"object": obj}}),
+            headers=STRIPE,
+        )
+        assert res.status_code == 200, res.text
+    assert (await payment(db, pay_id)).status == "pending"
+    refunds = await db.scalars(select(Payment).where(Payment.provider_ref == "re_pi_foreign"))
+    assert list(refunds) == []
 
 
 async def test_account_balance_cannot_leave_its_entries(db: AsyncSession) -> None:

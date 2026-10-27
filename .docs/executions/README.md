@@ -21,5 +21,6 @@ Use a new folder for a separate execution. Record tested behavior, remaining wor
 - [Demo seed simplification](demo-simplification/plan.md) — on hold until the demo businesses have been tested; eleven fingerprint-proven commits that remove about 600 to 700 lines without changing demo data.
 
 - [Connect hosts](connect-hosts/plan.md): one host per kind of Connect page and a subdomain per business page, on `connect-hosts`; [QA checklist](connect-hosts/qa.md).
+- [Stripe hardening](stripe-hardening/plan.md): fixes for the October 26 review of every Stripe flow, on `fix/stripe-hardening`; [schema proposal](stripe-hardening/schema.md), [task queue](stripe-hardening/tasks.json), [progress](stripe-hardening/progress.md).
 - [End to end testing](e2e/README.md): the audit families still to cover, with the [coverage catalogue](e2e/coverage.json) and [decisions to review](e2e/decisions.md).
 - [Web replica storage](web-storage/plan.md): the web replica on OPFS in every browser, with the open decisions listed in the plan.

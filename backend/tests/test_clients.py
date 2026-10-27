@@ -2,14 +2,21 @@
 
 import httpx
 import pytest
-from sqlalchemy import text
+from sqlalchemy import text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.ids import new_id
 from clientbridge.models.clients import Client
 from clientbridge.models.messaging import Message, Thread
-from tests.conftest import OWNER_USER, STAFF_USER, Factory, FakeIdentityProvider, session_token
-from tests.helpers import key
+from tests.conftest import (
+    OWNER_USER,
+    STAFF_USER,
+    Factory,
+    FakeIdentityProvider,
+    FakePaymentGateway,
+    session_token,
+)
+from tests.helpers import client_id, enable_payments, key
 
 BIZ = "bz_birchbark"
 
@@ -461,3 +468,20 @@ async def test_merge_refuses_pending_money_even_before_ledger_posting(
     assert response.status_code == 409
     client = await db.get(Client, gone)
     assert client is not None and client.deleted_at is None
+
+
+async def test_a_name_or_email_edit_reaches_the_stripe_customer(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await enable_payments(db)
+    cid = await client_id(db)
+    await db.execute(update(Client).where(Client.id == cid).values(stripe_customer_id="cus_sync"))
+    await db.commit()
+    tags = await as_owner.patch(f"/v1/clients/{cid}", json={"tags": ["vip"]})
+    assert tags.status_code == 200
+    assert gateway.customer_updates == []
+    renamed = await as_owner.patch(
+        f"/v1/clients/{cid}", json={"name": "Renamed Client", "email": "renamed@example.ca"}
+    )
+    assert renamed.status_code == 200, renamed.text
+    assert gateway.customer_updates == [("cus_sync", "Renamed Client", "renamed@example.ca")]

@@ -71,6 +71,7 @@ interface Strings {
         readonly estimateOnVisit: string;
         readonly estimateChanged: string;
         readonly depositNotDue: string;
+        readonly checkoutPaid: string;
         readonly depositInProgress: string;
         readonly cardPaymentsUnavailable: string;
         readonly staffHasFutureWork: string;
@@ -115,6 +116,11 @@ interface Strings {
         readonly schedulePast: string;
         readonly classSchedule: string;
         readonly enrolmentPaid: string;
+        readonly paymentDisputed: string;
+        readonly amountTooSmall: string;
+        readonly idempotencyMismatch: string;
+        readonly paymentProviderError: string;
+        readonly unsupportedCurrency: string;
         readonly addonLengthInUse: (count: number) => string;
     };
     readonly previews: {
@@ -615,6 +621,8 @@ interface Strings {
             readonly tapWaiting: string;
             readonly tapWeb: string;
             readonly savedCardCharge: (card: string) => string;
+            readonly cancelCheckout: string;
+            readonly cancelCheckoutError: string;
             readonly payError: string;
             readonly addItemFirst: string;
             readonly backToTicket: string;
@@ -3074,6 +3082,7 @@ interface Strings {
         readonly planSummaryIncomplete: string;
         readonly planSummaryMembership: (money: string, freq: string) => string;
         readonly sellsAt: string;
+        readonly membersKeepPrice: string;
         readonly freqLabel: {
             readonly day: string;
             readonly week: string;
@@ -3159,6 +3168,7 @@ interface Strings {
             readonly gift_card_redeemed: string;
             readonly package_expired: string;
             readonly package_used: string;
+            readonly payment_disputed: string;
             readonly whole_only: string;
         } & Labels;
         readonly history: string;
@@ -3240,6 +3250,8 @@ interface Strings {
         readonly provinceSaveError: string;
         readonly gst: string;
         readonly gstHint: string;
+        readonly registeredSince: string;
+        readonly registeredSinceHint: string;
         readonly gstInvalid: string;
         readonly pst: string;
         readonly pstHint: string;
@@ -3377,6 +3389,19 @@ interface Strings {
         readonly pausedTitle: string;
         readonly pausedBody: (date: string) => string;
         readonly pausedBodyNoDate: string;
+        readonly pausedBodyReview: string;
+        readonly restrictedTitle: string;
+        readonly restrictedBody: string;
+        readonly reqError: {
+            readonly identity: string;
+            readonly documentExpired: string;
+            readonly documentMismatch: string;
+            readonly document: string;
+            readonly address: string;
+            readonly businessNumber: string;
+            readonly website: string;
+            readonly other: string;
+        } & Labels;
         readonly readyTitle: string;
         readonly readyBody: string;
         readonly phaseNotConnected: string;
@@ -5021,6 +5046,21 @@ interface Strings {
         readonly valueSmtp: string;
         readonly valueResend: string;
         readonly searchBusiness: string;
+        readonly drift: string;
+        readonly driftHint: string;
+        readonly driftSource: string;
+        readonly driftBalance: string;
+        readonly driftFound: string;
+        readonly driftLedger: string;
+        readonly driftStripe: string;
+        readonly driftAcknowledged: string;
+        readonly acknowledge: string;
+        readonly acknowledgeReason: string;
+        readonly acknowledgeHint: string;
+        readonly saveAcknowledgement: string;
+        readonly acknowledgementSaved: string;
+        readonly acknowledgementStale: string;
+        readonly acknowledgementError: string;
     };
 }
 

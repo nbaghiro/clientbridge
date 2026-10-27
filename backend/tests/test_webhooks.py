@@ -1,4 +1,5 @@
 import json
+import logging
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -88,6 +89,26 @@ async def test_account_event_mirrors_the_fetched_account(
     assert biz.stripe_charges_enabled is True and kyc_status(biz) == "enabled"
     record = await db.get(Webhook, "evt_1")
     assert record is not None and record.event == kind
+
+
+async def test_a_closed_account_that_cannot_be_read_still_stops_taking_payments(
+    api: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await _connect(db, "acct_gone")
+    await db.execute(
+        update(Business)
+        .where(Business.id == BIZ)
+        .values(stripe_charges_enabled=True, stripe_payouts_enabled=True)
+    )
+    gateway.unreadable_accounts.add("acct_gone")
+    event = _account_event("evt_gone", "acct_gone", "v2.core.account.closed")
+    assert (await api.post("/webhooks/stripe", content=event, headers=GOOD)).status_code == 200
+    biz = (await db.execute(select(Business).where(Business.id == BIZ))).scalar_one()
+    await db.refresh(biz)
+    assert (biz.stripe_charges_enabled, biz.stripe_payouts_enabled) == (False, False)
+    assert kyc_status(biz) == "disabled"
+    other = _account_event("evt_gone_2", "acct_gone")
+    assert (await api.post("/webhooks/stripe", content=other, headers=GOOD)).status_code != 200
 
 
 async def test_account_event_syncs_requirements(
@@ -199,6 +220,7 @@ async def test_payment_method_auto_updated_refreshes_card(
 async def test_refund_created_records_a_dashboard_refund(
     api: httpx.AsyncClient, db: AsyncSession
 ) -> None:
+    await enable_payments(db)
     cid = await client_id(db)
     db.add(
         Payment(
@@ -220,7 +242,7 @@ async def test_refund_created_records_a_dashboard_refund(
         {
             "id": "evt_refunded",
             "type": "refund.created",
-            "account": "acct_r",
+            "account": "acct_test",
             "data": {
                 "object": {
                     "id": "re_dash_1",
@@ -357,8 +379,8 @@ async def test_our_unrecorded_intent_is_retried_not_acknowledged(
     res = await api.post("/webhooks/stripe", content=body, headers=GOOD)
     assert res.status_code == 503
     await db.rollback()  # the request's session closes uncommitted
-    deferred = await db.execute(select(Webhook).where(Webhook.id == "evt_early"))
-    assert deferred.scalar_one_or_none() is None  # a deliberate retry is not a failure
+    deferred = (await db.execute(select(Webhook).where(Webhook.id == "evt_early"))).scalar_one()
+    assert deferred.status == "failed" and deferred.payload is not None  # kept past the retries
     pay_id = await _pending_payment(db, "pi_early")
     assert (await api.post("/webhooks/stripe", content=body, headers=GOOD)).status_code == 200
     status = (await db.execute(select(Payment.status).where(Payment.id == pay_id))).scalar_one()
@@ -515,7 +537,7 @@ async def test_an_inquiry_that_escalates_books_the_dispute(
     opened = _dispute_event("evt_esc", "charge.dispute.created", "pi_esc", "warning_needs_response")
     assert (await api.post("/webhooks/stripe", content=opened, headers=GOOD)).status_code == 200
     assert await _dispute_entries(db, payment.id) == 0
-    assert push.sent == []
+    assert ["bank asked" in p.body for p in push.sent] == [True]
     for event_id, event_type in (
         ("evt_esc_2", "charge.dispute.updated"),
         ("evt_esc_3", "charge.dispute.funds_withdrawn"),
@@ -526,7 +548,7 @@ async def test_an_inquiry_that_escalates_books_the_dispute(
             db, BIZ, owner_type="business", owner_id=BIZ, category="stripe"
         )
         assert before - after == 8000  # booked once, on the escalation
-        assert sum("disput" in p.body.lower() for p in push.sent) == 1
+        assert sum(p.body.startswith("Payment disputed") for p in push.sent) == 1
     await db.refresh(payment)
     assert payment.dispute_status == "needs_response"
     lost = _dispute_event("evt_esc_4", "charge.dispute.closed", "pi_esc", "lost")
@@ -678,4 +700,32 @@ async def test_event_at_another_api_version_is_rejected(
     body["api_version"] = "2026-05-27.dahlia"
     res = await api.post("/webhooks/stripe", content=json.dumps(body), headers=GOOD)
     assert res.status_code == 400
-    assert await db.get(Webhook, "evt_old") is None
+    kept = await db.get(Webhook, "evt_old", populate_existing=True)
+    assert kept is not None and kept.status == "failed" and kept.payload  # kept for replay
+
+
+async def test_a_bad_signature_is_logged_as_an_error(
+    api: httpx.AsyncClient, caplog: pytest.LogCaptureFixture
+) -> None:
+    caplog.set_level(logging.ERROR, logger="clientbridge.api.webhooks")
+    body = _snapshot_event("evt_forged_log")
+    res = await api.post("/webhooks/stripe", content=body, headers={"Stripe-Signature": "bad"})
+    assert res.status_code == 400
+    (record,) = [r for r in caplog.records if r.name == "clientbridge.api.webhooks"]
+    assert record.levelno == logging.ERROR
+    assert record.getMessage() == "webhook rejected signature: bad signature"
+    assert "pi_unknown" not in caplog.text
+
+
+async def test_an_event_at_another_api_version_is_logged_as_an_error(
+    api: httpx.AsyncClient, caplog: pytest.LogCaptureFixture
+) -> None:
+    caplog.set_level(logging.ERROR, logger="clientbridge.api.webhooks")
+    body = json.loads(_snapshot_event("evt_old_log"))
+    body["api_version"] = "2026-05-27.dahlia"
+    res = await api.post("/webhooks/stripe", content=json.dumps(body), headers=GOOD)
+    assert res.status_code == 400
+    (record,) = [r for r in caplog.records if r.name == "clientbridge.api.webhooks"]
+    assert record.levelno == logging.ERROR
+    assert record.getMessage() == "webhook rejected version 2026-05-27.dahlia"
+    assert "pi_unknown" not in caplog.text

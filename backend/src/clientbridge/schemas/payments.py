@@ -18,19 +18,32 @@ class ConnectSessionOut(BaseModel):
     client_secret: str
 
 
+KycStatus = Literal["not_started", "pending", "restricted", "payouts_paused", "enabled", "disabled"]
+
+
+class RequirementErrorOut(BaseModel):
+    requirement: str
+    code: str = Field(
+        description="Stripe's error code, such as verification_failed_id_number_match"
+    )
+
+
 class ConnectStatus(BaseModel):
     connected: bool
     charges_enabled: bool
     payouts_enabled: bool = False
-    kyc_status: str = Field(
+    kyc_status: KycStatus = Field(
         default="not_started",
-        description="not_started, pending, restricted, enabled or disabled",
+        description="restricted: card payments are off; payouts_paused: cards on, payouts held",
     )
     disabled_reason: str | None = None
     currently_due: list[str] = Field(
         default_factory=list, description="What the business must still submit to Stripe"
     )
     past_due: list[str] = Field(default_factory=list)
+    requirement_errors: list[RequirementErrorOut] = Field(
+        default_factory=list, description="Why Stripe rejected details the business sent"
+    )
     current_deadline: datetime | None = Field(
         default=None, description="When Stripe pauses payouts if what is due isn't sent"
     )
@@ -111,6 +124,7 @@ RefundBlock = Literal[
     "package_expired",
     "package_used",
     "whole_only",
+    "payment_disputed",
 ]
 
 

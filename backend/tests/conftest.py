@@ -50,7 +50,9 @@ from clientbridge.integrations.stripe import (
     ConnectAccount,
     ConnectComponent,
     GatewayEvent,
+    InvoicePaid,
     MandateState,
+    MissedEvent,
     PaymentGateway,
     PaymentIntentResult,
     PayoutPage,
@@ -361,6 +363,12 @@ class PlanCheckout:
     trial_end: datetime | None
 
 
+def _primary(row: dict[str, object]) -> bool:
+    """Stripe's `source` filter leaves out a refund failure and a returned application fee."""
+    fee_return = row.get("type") == "adjustment" and row.get("reporting_category") == "fee"
+    return row.get("type") != "refund_failure" and not fee_return
+
+
 class FakePaymentGateway:
     refund_status: str = "succeeded"
 
@@ -378,7 +386,9 @@ class FakePaymentGateway:
         self.portal_sessions: list[str] = []
         self.open_checkouts: dict[str, list[str]] = {}
         self.expired_checkouts: list[str] = []
-        self.paid_checkouts: set[str] = set()  # accounts whose completed Checkout already bills
+        self.paid_checkouts: dict[
+            str, str
+        ] = {}  # account -> subscription a completed Checkout bills
         self.canceled_plan_subscriptions: list[str] = []
         self.refunded_plan_subscriptions: list[str] = []
         self.plan_subscriptions: dict[str, PlanSubscription] = {}
@@ -392,6 +402,10 @@ class FakePaymentGateway:
         self.created_subscriptions: list[str] = []
         self.subscription_metadata: dict[str, dict[str, str]] = {}
         self.canceled_subscriptions: list[str] = []
+        self.period_end_cancels: list[str] = []
+        self.subscription_prices: dict[str, str] = {}
+        self.subscription_fee_percents: dict[str, float] = {}
+        self._sub_methods: dict[str, str] = {}
         self.pad_enabled = True
         self.pad_intents: dict[str, SetupIntentState] = {}
         self.pad_keys: dict[str, str] = {}
@@ -402,20 +416,28 @@ class FakePaymentGateway:
         self.charged_methods: list[str] = []  # off-session payment_methods passed to a charge
         self.created_locations: list[str] = []  # Terminal locations minted
         self.location_addresses: list[PostalAddress] = []
+        self.token_locations: list[str] = []  # the Location each connection token is scoped to
+        self.deleted_locations: list[str] = []
+        self.location_delete_fails = False
         self.accounts: dict[str, ConnectAccount] = {}  # per-account get_account() results
         self.account_status: ConnectAccount | None = None  # override get_account() in a test
         self.payout_transaction_calls: list[tuple[str, str, str | None]] = []
+        self.transaction_calls: list[tuple[str, int | None, str | None]] = []
+        self.mandated_charges: list[tuple[str | None, str]] = []
         self.pending_fees: set[str] = set()
         self.charges: dict[str, tuple[int, int]] = {}  # intent id -> (amount, application fee)
         self.payouts: dict[str, list[dict[str, object]]] = {}
         self.transactions: dict[str, list[dict[str, object]]] = {}
         self.objects: dict[tuple[str | None, str, str], dict[str, object]] = {}
+        self.missed: dict[str | None, list[MissedEvent]] = {}
         self.customer_keys: dict[str, str] = {}
+        self.customer_updates: list[tuple[str, str, str | None]] = []
+        self.unreadable_accounts: set[str] = set()
         self.terminal_customers: dict[str, str | None] = {}
         self.balances: dict[str, AccountBalance] = {}
         self.pending_cents = 0
         self.balance_cents = 0  # get_balance_cents() result
-        self.invoice_intents: dict[str, str] = {}  # Stripe invoice id -> the intent that paid it
+        self.invoice_payments: dict[str, InvoicePaid] = {}  # Stripe invoice id -> what paid it
         self.canceled_intents: list[str] = []
         self.confirmed: set[str] = set()  # intents the payer already confirmed, so uncancelable
 
@@ -469,12 +491,16 @@ class FakePaymentGateway:
             self.open_checkouts.setdefault(account_id, []).append(url)
         return self.checkout_keys[attempt]
 
-    async def close_plan_checkouts(self, account_id: str, *, keep: str) -> bool:
+    async def close_plan_checkouts(self, account_id: str, *, keep: str) -> PlanSubscription | None:
         kept = self.checkout_keys.get(keep)
         opened = self.open_checkouts.get(account_id, [])
         self.expired_checkouts += [url for url in opened if url != kept]
         self.open_checkouts[account_id] = [url for url in opened if url == kept]
-        return account_id in self.paid_checkouts
+        return await self.paid_plan_subscription(account_id)
+
+    async def paid_plan_subscription(self, account_id: str) -> PlanSubscription | None:
+        paid = self.paid_checkouts.get(account_id)
+        return self.plan_subscriptions[paid] if paid is not None else None
 
     async def cancel_plan_subscription(self, subscription_id: str) -> None:
         self.canceled_plan_subscriptions.append(subscription_id)
@@ -513,6 +539,8 @@ class FakePaymentGateway:
         self.payment_domains.setdefault(account_id, set()).update(domains)
 
     async def get_account(self, account_id: str) -> ConnectAccount:
+        if account_id in self.unreadable_accounts:
+            raise Conflict("the account is closed")
         # a freshly-created account: nothing submitted, Stripe wants the hosted KYC details
         return (
             self.accounts.get(account_id)
@@ -551,8 +579,23 @@ class FakePaymentGateway:
             api_version=str(body.get("api_version", STRIPE_API_VERSION)),
         )
 
-    async def balance_transactions(self, account_id: str) -> list[dict[str, object]]:
-        return self.transactions.get(account_id, [])
+    async def balance_transactions(
+        self,
+        account_id: str,
+        *,
+        since: int | None = None,
+        source: str | None = None,
+        kind: str | None = None,
+    ) -> list[dict[str, object]]:
+        if kind is None:
+            self.transaction_calls.append((account_id, since, source))
+        return [
+            row
+            for row in self.transactions.get(account_id, [])
+            if (source is None or (row.get("source") == source and _primary(row)))
+            and (kind is None or row.get("type") == kind)
+            and (since is None or not isinstance(at := row.get("created"), int) or at >= since)
+        ]
 
     async def list_payouts(self, account_id: str, after: str | None = None) -> PayoutPage:
         rows = self.payouts.get(account_id, [])
@@ -583,11 +626,21 @@ class FakePaymentGateway:
             raise NotFound("payout not found")
         return self.objects[(account_id, resource, identity)]
 
+    async def undelivered_events(
+        self, account_id: str | None, *, since: datetime, limit: int
+    ) -> list[MissedEvent]:
+        return [e for e in self.missed.get(account_id, []) if e.created >= since][:limit]
+
     async def create_customer(
         self, account_id: str, *, name: str, email: str | None, idempotency_key: str
     ) -> str:
         self._seq += 1
         return self.customer_keys.setdefault(idempotency_key, f"cus_fake{self._seq}")
+
+    async def update_customer(
+        self, account_id: str, customer_id: str, *, name: str, email: str | None
+    ) -> None:
+        self.customer_updates.append((customer_id, name, email))
 
     async def create_setup_intent(self, account_id: str, *, customer_id: str) -> SetupIntentResult:
         self._seq += 1
@@ -656,14 +709,24 @@ class FakePaymentGateway:
         price_id: str,
         payment_method_id: str,
         metadata: dict[str, str],
+        application_fee_percent: float,
         idempotency_key: str | None = None,
     ) -> SubscriptionResult:
+        if idempotency_key is not None:
+            # Stripe replays a key's first outcome and refuses the key with other parameters
+            first = self._sub_methods.setdefault(idempotency_key, payment_method_id)
+            if first != payment_method_id:
+                raise Conflict("the retry differs from the original request")
+        if payment_method_id == "pm_card_declined":
+            raise CardDeclined("the card was declined")
         if idempotency_key is not None and idempotency_key in self._subs:
             return self._subs[idempotency_key]
         self._seq += 1
         sid = f"sub_fake{self._seq}"
         self.created_subscriptions.append(sid)
         self.subscription_metadata[sid] = metadata
+        self.subscription_prices[sid] = price_id
+        self.subscription_fee_percents[sid] = application_fee_percent
         result = SubscriptionResult(
             id=sid,
             status="active",
@@ -673,16 +736,24 @@ class FakePaymentGateway:
             self._subs[idempotency_key] = result
         return result
 
-    async def cancel_subscription(self, account_id: str, *, subscription_id: str) -> None:
-        self.canceled_subscriptions.append(subscription_id)
+    async def cancel_subscription(
+        self, account_id: str, *, subscription_id: str, at_period_end: bool = False
+    ) -> None:
+        if at_period_end:
+            self.period_end_cancels.append(subscription_id)
+        else:
+            self.canceled_subscriptions.append(subscription_id)
 
     async def invoice_for_payment(
         self, account_id: str, intent_id: str
     ) -> dict[str, object] | None:
         return self.objects.get((account_id, "invoice_payment", intent_id))
 
-    async def get_invoice_payment_intent(self, account_id: str, *, invoice_id: str) -> str | None:
-        return self.invoice_intents.get(invoice_id)
+    def pay_invoice(self, invoice_id: str, intent_id: str, amount_cents: int) -> None:
+        self.invoice_payments[invoice_id] = InvoicePaid(intent_id, amount_cents)
+
+    async def get_invoice_payment(self, account_id: str, *, invoice_id: str) -> InvoicePaid | None:
+        return self.invoice_payments.get(invoice_id)
 
     async def create_payment_intent(
         self,
@@ -695,7 +766,10 @@ class FakePaymentGateway:
         metadata: dict[str, str],
         idempotency_key: str,
         payment_method: str | None = None,
+        mandate: str | None = None,
     ) -> PaymentIntentResult:
+        if mandate is not None:
+            self.mandated_charges.append((payment_method, mandate))
         if payment_method == "pm_card_declined":
             raise CardDeclined("the card was declined")
         if payment_method == "pm_requires_action":
@@ -732,9 +806,15 @@ class FakePaymentGateway:
     async def detach_payment_method(self, account_id: str, *, payment_method_id: str) -> None:
         self.detached.append(payment_method_id)
 
-    async def create_connection_token(self, account_id: str) -> str:
+    async def create_connection_token(self, account_id: str, *, location_id: str) -> str:
         self._seq += 1
+        self.token_locations.append(location_id)
         return f"pst_fake{self._seq}"
+
+    async def delete_terminal_location(self, account_id: str, *, location_id: str) -> None:
+        if self.location_delete_fails:
+            raise Conflict("the location still has readers")
+        self.deleted_locations.append(location_id)
 
     async def create_terminal_location(
         self, account_id: str, *, display_name: str, address: PostalAddress

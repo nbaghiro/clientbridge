@@ -100,6 +100,7 @@ def _builders() -> dict[str, Render]:
             amount(c),
         ),
         "dispute_alert_text": lambda c: n.dispute_alert_text(c, amount(c)),
+        "dispute_inquiry_alert_text": lambda c: n.dispute_inquiry_alert_text(c, amount(c)),
         "invoice_sent_message": lambda c: (
             n.invoice_sent_message(c, 1001, amount(c), NAME, LINK),
             n.invoice_sent_message(c, 1001, amount(c), NAME, ""),
@@ -132,6 +133,10 @@ def _builders() -> dict[str, Render]:
         "trial_ending_message": lambda c: (
             n.trial_ending_message(c, NAME, when(c), LINK, last_day=False),
             n.trial_ending_message(c, NAME, when(c), LINK, last_day=True),
+        ),
+        "plan_lapsed_memberships_message": lambda c: (
+            n.plan_lapsed_memberships_message(c, NAME, 1, LINK),
+            n.plan_lapsed_memberships_message(c, NAME, 3, LINK),
         ),
         "gift_card_issued_message": lambda c: n.gift_card_issued_message(
             c, NAME, amount(c), "GC-1"

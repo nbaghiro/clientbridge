@@ -6,6 +6,7 @@ from alembic.config import Config
 from alembic.script import ScriptDirectory
 from sqlalchemy import Select, and_, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import aliased
 
 from clientbridge.core.command import Command, PublicPrincipal, run_command
 from clientbridge.core.config import get_settings
@@ -34,7 +35,9 @@ from clientbridge.schemas.admin import (
     AdminBusinessDetail,
     AdminClient,
     AdminDelivery,
+    AdminDriftAcknowledged,
     AdminDriftAcknowledgement,
+    AdminDriftFinding,
     AdminDriftResult,
     AdminEdition,
     AdminEmailConfig,
@@ -62,6 +65,44 @@ _send_limit = RateLimiter(5, 60)
 
 def _scope[T: Base](model: type[T], business_id: str | None) -> Select[tuple[T]]:
     return scoped(model, business_id) if business_id else select(model)
+
+
+def _findings(business_id: str) -> Select[tuple[Audit]]:
+    return scoped(Audit, business_id).where(
+        Audit.entity_type == "stripe_source",
+        Audit.action.in_(("ledger.transaction_drift", "ledger.transaction_failed")),
+    )
+
+
+def _finding_notes(business_id: str, action: str) -> Select[tuple[Audit]]:
+    return scoped(Audit, business_id).where(Audit.entity_type == "audit", Audit.action == action)
+
+
+def _cents(changes: dict[str, object], key: str) -> int | None:
+    value = changes.get(key)
+    return value if isinstance(value, int) else None
+
+
+def _drift_finding(finding: Audit, acknowledgement: Audit | None) -> AdminDriftFinding:
+    ids = finding.changes.get("transaction_ids")
+    reason = acknowledgement.changes.get("reason") if acknowledgement else None
+    identity = acknowledgement.changes.get("identity_id") if acknowledgement else None
+    return AdminDriftFinding(
+        id=finding.id,
+        source=finding.entity_id,
+        created_at=finding.created_at,
+        ledger_cents=_cents(finding.changes, "ledger_cents"),
+        stripe_cents=_cents(finding.changes, "stripe_cents"),
+        residual_cents=_cents(finding.changes, "residual_cents"),
+        transaction_ids=[i for i in ids if isinstance(i, str)] if isinstance(ids, list) else [],
+        acknowledgement=AdminDriftAcknowledged(
+            identity_id=identity if isinstance(identity, str) else None,
+            reason=reason if isinstance(reason, str) else "",
+            acknowledged_at=acknowledgement.created_at,
+        )
+        if acknowledgement
+        else None,
+    )
 
 
 class AdminService:
@@ -567,20 +608,63 @@ class AdminService:
             response_model=AdminBusiness,
         )
 
+    async def drift(self, business_id: str, offset: int) -> AdminPage[AdminDriftFinding]:
+        if await self.db.get(Business, business_id) is None:
+            raise NotFound("business not found")
+        latest = aliased(
+            Audit,
+            _findings(business_id)
+            .order_by(Audit.entity_id, Audit.id.desc())
+            .distinct(Audit.entity_id)
+            .subquery(),
+        )
+        acknowledged = aliased(
+            Audit, _finding_notes(business_id, "ledger.drift_acknowledged").subquery()
+        )
+        resolved = (
+            _finding_notes(business_id, "ledger.drift_resolved")
+            .where(Audit.entity_id == latest.id)
+            .exists()
+        )
+        rows = (
+            await self.db.execute(
+                select(latest, acknowledged)
+                .outerjoin(acknowledged, acknowledged.entity_id == latest.id)
+                .where(~resolved)
+                .order_by(latest.id.desc())
+                .offset(offset)
+                .limit(51)
+            )
+        ).tuples()
+        items = [_drift_finding(finding, note) for finding, note in rows]
+        return AdminPage(items=items[:50], has_more=len(items) > 50)
+
     async def acknowledge_drift(
         self, business_id: str, finding_id: str, body: AdminDriftAcknowledgement
     ) -> AdminDriftResult:
         async def run(cmd: Command) -> AdminDriftResult:
             finding = await self.db.scalar(
-                scoped(Audit, business_id)
-                .where(Audit.id == finding_id, Audit.action == "ledger.transaction_drift")
-                .with_for_update()
+                _findings(business_id).where(Audit.id == finding_id).with_for_update()
             )
             if finding is None:
                 raise NotFound("drift finding not found")
+            newer = await self.db.scalar(
+                _findings(business_id)
+                .where(Audit.entity_id == finding.entity_id, Audit.id > finding.id)
+                .limit(1)
+            )
+            if newer is not None:
+                raise Conflict("a newer finding replaces this one", code="finding_superseded")
+            resolved = await self.db.scalar(
+                _finding_notes(business_id, "ledger.drift_resolved")
+                .where(Audit.entity_id == finding_id)
+                .limit(1)
+            )
+            if resolved is not None:
+                raise Conflict("this finding is already resolved", code="finding_resolved")
             existing = await self.db.scalar(
-                scoped(Audit, business_id)
-                .where(Audit.entity_id == finding_id, Audit.action == "ledger.drift_acknowledged")
+                _finding_notes(business_id, "ledger.drift_acknowledged")
+                .where(Audit.entity_id == finding_id)
                 .limit(1)
             )
             if existing is None:

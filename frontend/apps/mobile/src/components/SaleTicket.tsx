@@ -546,7 +546,7 @@ const METHOD_LABEL: Record<SalePayMethod, string> = {
 function Reader({ sale, locationId }: { sale: SaleTicket; locationId: string | null }) {
     const terminal = useTerminalCheckout(locationId);
     const secret = sale.terminal?.clientSecret ?? null;
-    const { ready, charge, phase } = terminal;
+    const { ready, charge, phase, stop } = terminal;
     useEffect(() => {
         if (ready && secret !== null && phase === "ready") charge(secret);
     }, [ready, secret, phase, charge]);
@@ -575,6 +575,18 @@ function Reader({ sale, locationId }: { sale: SaleTicket; locationId: string | n
                     {strings.terminal.retry}
                 </Button>
             ) : null}
+            {sale.error !== null ? <Notice tone="danger">{sale.error}</Notice> : null}
+            <Button
+                variant="quiet"
+                busy={sale.busy}
+                onPress={() => {
+                    stop()
+                        .catch(() => undefined)
+                        .finally(sale.cancelCheckout);
+                }}
+            >
+                {d.cancelCheckout}
+            </Button>
         </View>
     );
 }
@@ -645,7 +657,7 @@ function PayBody({
                 submitLabel={d.charge(formatMoney(sale.paidCents, BUSINESS_CURRENCY))}
                 busyLabel={d.charging}
                 onSubmit={() => undefined}
-                onCancel={sale.checkout.cancel}
+                onCancel={sale.cancelCheckout}
             />
         );
     return (

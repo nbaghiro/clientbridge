@@ -1,11 +1,12 @@
 import { strings } from "@clientbridge/app-core/public";
-import { expect, test } from "@playwright/test";
+import { expect, test, type Route } from "@playwright/test";
 import {
     catalogEvidence,
     catalogFixture,
     expectCatalogCommitted,
     expectStockReplica,
     fillProduct,
+    itemCurrency,
     newProduct,
 } from "./support/catalog";
 import { signIn } from "./support/session";
@@ -246,4 +247,62 @@ test("CFG-E2E-04 lost initial create response replays original command before sa
     } finally {
         await observer.close();
     }
+});
+
+test("STR-E10 a price in another currency is refused with the catalog copy and nothing is saved", async ({
+    page,
+}, testInfo) => {
+    await signIn(page);
+    const fixture = catalogFixture(page);
+    const editor = await newProduct(page);
+    await fillProduct(editor, fixture.name);
+    const refusals: { method: string; status: number; error: unknown }[] = [];
+    // The editor only offers the business currency, so the request carries the foreign one.
+    const inUsd = async (route: Route): Promise<void> => {
+        const body = route.request().postDataJSON() as Record<string, unknown>;
+        const response = await route.fetch({ postData: { ...body, currency: "USD" } });
+        const answer = (await response.json()) as { error?: unknown };
+        refusals.push({
+            method: route.request().method(),
+            status: response.status(),
+            error: answer.error,
+        });
+        await route.fulfill({ response });
+    };
+    await page.route("**/v1/items", inUsd);
+    const submit = editor.getByRole("button", { name: s.add, exact: true });
+    await submit.click();
+    await expect(editor.getByText(strings.api.unsupportedCurrency, { exact: true })).toBeVisible();
+    expect(refusals).toEqual([{ method: "POST", status: 422, error: "unsupported_currency" }]);
+    expect(await catalogEvidence(fixture)).toEqual({
+        items: [],
+        movements: [],
+        audits: [],
+        receipts: [],
+    });
+    await page.unroute("**/v1/items", inUsd);
+    await submit.click();
+    await expect(editor).toBeHidden();
+    const created = await expectCatalogCommitted(fixture, 7, s.openingStockNote);
+    const id = created.items[0]?.id ?? "";
+    expect(await itemCurrency(id)).toBe("CAD");
+
+    await page.route(`**/v1/items/${id}`, inUsd);
+    await page.locator(`button[data-row-key="${id}"]`).click();
+    const edit = page.getByRole("dialog");
+    await edit.getByRole("textbox", { name: s.price, exact: true }).fill("18");
+    const save = edit.getByRole("button", { name: s.save, exact: true });
+    await save.click();
+    await expect(edit.getByText(strings.api.unsupportedCurrency, { exact: true })).toBeVisible();
+    expect(refusals.at(-1)).toEqual({
+        method: "PATCH",
+        status: 422,
+        error: "unsupported_currency",
+    });
+    expect(await catalogEvidence(fixture)).toEqual(created);
+    expect(await itemCurrency(id)).toBe("CAD");
+    await testInfo.attach("currency-refusals", {
+        body: JSON.stringify({ refusals, item: created.items[0] }),
+        contentType: "application/json",
+    });
 });

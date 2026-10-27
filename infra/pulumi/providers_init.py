@@ -311,6 +311,13 @@ def awaiting_number(secrets: Secrets, env: Environment, report: Report) -> None:
 
 def stripe(env: Environment, profile: str, secrets: Secrets, report: Report) -> None:
     """The sandbox's endpoints, billing objects and portal, by the backend's stripe_setup.py."""
+    if env.name == "prod":
+        # stripe_setup.py drives the sandbox; its secrets would overwrite the live account's
+        report.add(
+            "stripe: skipped for prod; set up the live account by hand from .docs/payments.md, "
+            '"Staging and production setup"'
+        )
+        return
     result = subprocess.run(
         [
             "uv",

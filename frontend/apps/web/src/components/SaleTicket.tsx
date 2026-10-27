@@ -986,7 +986,7 @@ export function PaySheet({
                     submitLabel={d.charge(formatMoney(sale.paidCents, BUSINESS_CURRENCY))}
                     busyLabel={d.charging}
                     onSubmit={() => undefined}
-                    onCancel={sale.checkout.cancel}
+                    onCancel={sale.cancelCheckout}
                 />
             </Modal>
         );

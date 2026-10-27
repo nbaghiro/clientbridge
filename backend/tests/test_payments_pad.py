@@ -17,7 +17,7 @@ from clientbridge.models.clients import Client
 from clientbridge.models.payments import PaymentMethod, PaymentSetupLink
 from clientbridge.services.payments import default_method_ref, resolve_saved_method_ref
 from tests.conftest import BIZ, Factory, FakePaymentGateway
-from tests.helpers import client_id, column, enable_payments
+from tests.helpers import client_id, column, enable_payments, sent_invoice
 
 
 async def _link(api: httpx.AsyncClient, db: AsyncSession) -> tuple[PaymentSetupLink, str]:
@@ -312,3 +312,57 @@ async def test_failed_bank_setup_records_the_setup_status(
     assert await column(db, "payment_setup_links", link.id, "setup_status") == (
         "requires_payment_method"
     )
+
+
+async def test_bank_links_and_card_setup_wait_for_card_payments_to_be_on(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await enable_payments(db)
+    cid = await client_id(db)
+    business = await db.get(Business, BIZ)
+    assert business is not None
+    business.stripe_charges_enabled = False
+    await db.commit()
+    assert (await as_owner.post(f"/v1/payments/pad-links/{cid}")).status_code == 409
+    setup = await as_owner.post(f"/v1/payments/setup-intent/{cid}")
+    assert setup.status_code == 409, setup.text
+
+
+async def _active_bank(
+    api: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> tuple[PaymentMethod, str]:
+    link, token = await _link(api, db)
+    intent = await _start(api, token)
+    pm = _authorized(gateway, intent)
+    await _event(api, "payment_method.attached", pm)
+    await _event(api, "setup_intent.succeeded", {"id": intent}, event="evt_verified")
+    method = (
+        await db.execute(select(PaymentMethod).where(PaymentMethod.provider_ref == "pm_authorized"))
+    ).scalar_one()
+    assert method.mandate_status == "active"
+    return method, await sent_invoice(db, client=link.client_id, total=5000)
+
+
+async def _charge(api: httpx.AsyncClient, invoice_id: str, method_id: str) -> httpx.Response:
+    body = {"method": "card", "amount_cents": 4000, "payment_method_id": method_id}
+    return await api.post(f"/v1/invoices/{invoice_id}/payments", json=body)
+
+
+async def test_a_saved_bank_account_is_charged_under_its_mandate(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    """Stripe refuses an off-session PAD debit without the mandate (sandbox check 6)."""
+    method, invoice_id = await _active_bank(as_owner, db, gateway)
+    response = await _charge(as_owner, invoice_id, method.id)
+    assert response.status_code == 201, response.text
+    assert gateway.mandated_charges == [("pm_authorized", "mandate_test")]
+
+
+async def test_a_bank_account_whose_mandate_stripe_no_longer_holds_is_not_charged(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    method, invoice_id = await _active_bank(as_owner, db, gateway)
+    gateway.mandates["mandate_test"] = replace(gateway.mandates["mandate_test"], status="inactive")
+    response = await _charge(as_owner, invoice_id, method.id)
+    assert response.status_code == 409
+    assert gateway.mandated_charges == [] and gateway.charges == {}

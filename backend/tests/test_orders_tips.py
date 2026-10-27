@@ -9,7 +9,7 @@ from clientbridge.models.clients import Client
 from clientbridge.models.ledger import Account, Entry
 from clientbridge.models.payments import Payment
 from clientbridge.services import ledger
-from tests.conftest import FakeEmailSender
+from tests.conftest import FakeEmailSender, FakePaymentGateway
 from tests.helpers import enable_payments, key, ok, payment, sent_invoice, settle, stripe_event
 
 BIZ = "bz_birchbark"
@@ -408,3 +408,18 @@ async def test_a_rebuilt_card_sale_keeps_its_tip_split(
         await db.execute(select(ledger.order_status_expr()).where(Order.id == sale["id"]))
     ).scalar_one()
     assert status == "paid"
+
+
+async def test_the_platform_fee_covers_the_tip_too(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await enable_payments(db)
+    sale = ok(await as_owner.post("/v1/orders", json={"lines": [GROOM]}), 201).json()
+    intent = ok(
+        await as_owner.post(f"/v1/orders/{sale['id']}/pay", json={"tip_cents": 500}, headers=key())
+    ).json()
+    pay = await payment(db, intent["payment_id"])
+    assert pay.provider_ref is not None
+    charged, fee = gateway.charges[pay.provider_ref]
+    assert charged == sale["total_cents"] + 500
+    assert fee == charged * 30 // 10_000

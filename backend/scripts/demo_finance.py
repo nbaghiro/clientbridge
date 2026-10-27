@@ -17,6 +17,7 @@ from clientbridge.models.payments import Payment, PaymentMethod
 from clientbridge.models.scheduling import Booking, Slot
 from clientbridge.schemas.payments import RemittanceIn, TaxFamily
 from clientbridge.services import bookings, earnings, ledger
+from clientbridge.services.business import registered_on
 from clientbridge.services.lines import fetch_lines, included_totals, price_lines
 from clientbridge.services.remittances import RemittanceService
 from clientbridge.services.tax import (
@@ -105,7 +106,9 @@ def _taxed(
             TaxComponent(r.jurisdiction, r.rate)
             for r in rates_on(business.province, on or ctx.now.date())
         ],
-        registered=business.tax_registered,
+        registered=registered_on(
+            business.tax_registered, business.tax_registered_on, on or ctx.now.date()
+        ),
         prices_include_tax=included,
     )
 
@@ -757,18 +760,31 @@ async def seed_payouts(
             await ledger.fail_payout(
                 db, ctx.business_id, payout_id, occurred_at=arrival + timedelta(days=1)
             )
+        else:
+            await ledger.arrive_payout(
+                db,
+                ctx.business_id,
+                payout_id=payout_id,
+                amount=amount,
+                currency="CAD",
+                arrival_at=arrival,
+            )
     # deployed demo businesses link to empty Stripe test accounts, which reconcile_ledger compares
     swept = ctx.now - timedelta(minutes=1)
     remaining = await _stripe_held(db, ctx, swept, available_by=None)
     if remaining > 0:
+        final = f"po_demo_{ctx.business_id}_final"
         await ledger.post_payout(
             db,
             ctx.business_id,
-            payout_id=f"po_demo_{ctx.business_id}_final",
+            payout_id=final,
             amount=remaining,
             currency="CAD",
             arrival_at=swept,
             occurred_at=swept,
+        )
+        await ledger.arrive_payout(
+            db, ctx.business_id, payout_id=final, amount=remaining, currency="CAD", arrival_at=swept
         )
 
 

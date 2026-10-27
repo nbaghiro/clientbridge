@@ -41,7 +41,8 @@ from clientbridge.services.payments import (
     map_subscription_status,
     open_entitlement_payment,
     resolve_saved_method_ref,
-    subscription_tax_terms,
+    subscription_fee_percent,
+    subscription_terms,
 )
 from clientbridge.services.tax import tax_for_amount
 
@@ -119,7 +120,9 @@ class GiftCardService:
             card_id = new_id("gift_card")
             client_secret: str | None = None
             if account_id is None:
-                payment = await _record_cash(self.db, self.biz, client.id, face, "CAD")
+                payment = await _record_cash(
+                    self.db, self.biz, client.id, face, ledger.BUSINESS_CURRENCY
+                )
             else:
                 payment, client_secret = await open_entitlement_payment(
                     self.db,
@@ -128,7 +131,7 @@ class GiftCardService:
                     business_id=self.biz,
                     client=client,
                     amount=face,  # a gift certificate is not taxed at sale (taxed on redemption)
-                    currency="CAD",
+                    currency=ledger.BUSINESS_CURRENCY,
                     entitlement_kind="gift_card",
                     entitlement_id=card_id,
                     payment_method=pm_ref,
@@ -594,6 +597,17 @@ class SubscriptionService:
         pm_ref = pm.provider_ref
 
         async def run(cmd: Command) -> SubscriptionOut:
+            live = await self.db.scalar(
+                scoped(Subscription, self.biz)
+                .with_only_columns(Subscription.id)
+                .where(
+                    Subscription.client_id == data.client_id,
+                    Subscription.item_id == item.id,
+                    Subscription.status != "canceled",
+                )
+            )
+            if live is not None:
+                raise Conflict("a subscription for this client and item already exists")
             customer_id = await ensure_customer(self.db, self.gateway, account_id, client)
             price_id = await ensure_subscription_price(
                 self.db,
@@ -608,8 +622,9 @@ class SubscriptionService:
                 customer_id=customer_id,
                 price_id=price_id,
                 payment_method_id=pm_ref,
-                metadata=await subscription_tax_terms(self.db, item),
-                idempotency_key=f"sub_{self.biz}_{data.client_id}_{item.id}",
+                metadata=subscription_terms(item, data.client_id),
+                application_fee_percent=subscription_fee_percent(pm.method),
+                idempotency_key=f"sub_{self.biz}_{idempotency_key or secrets.token_hex(16)}",
             )
             row = Subscription(
                 id=new_id("subscription"),
@@ -625,6 +640,8 @@ class SubscriptionService:
             try:
                 await self.db.flush()  # unique provider_ref + one-active-per-client+item guards
             except IntegrityError as exc:
+                # a concurrent create won; end the duplicate Stripe just started billing
+                await self.gateway.cancel_subscription(account_id, subscription_id=result.id)
                 raise Conflict("a subscription for this client and item already exists") from exc
             cmd.record("subscription.create", entity_type="subscription", entity_id=row.id)
             return _subscription_out(row)

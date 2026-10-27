@@ -58,6 +58,11 @@ describe("refused requests", () => {
             ["deposit_in_progress", strings.api.depositInProgress],
             ["card_payments_unavailable", strings.api.cardPaymentsUnavailable],
             ["enrolment_paid", strings.api.enrolmentPaid],
+            ["payment_disputed", strings.api.paymentDisputed],
+            ["amount_too_small", strings.api.amountTooSmall],
+            ["idempotency_mismatch", strings.api.idempotencyMismatch],
+            ["payment_provider_error", strings.api.paymentProviderError],
+            ["unsupported_currency", strings.api.unsupportedCurrency],
         ];
         for (const [code, message] of cases)
             expect(failureMessage(refused(409, code), "fallback")).toBe(message);

@@ -4,7 +4,7 @@ from typing import cast
 import pytest
 import stripe
 
-from clientbridge.core.errors import Conflict, PaymentsNotConfigured
+from clientbridge.core.errors import Conflict, NotFound, PaymentsNotConfigured
 from clientbridge.integrations import stripe as stripe_module
 from clientbridge.integrations.stripe import (
     PlanItem,
@@ -414,13 +414,14 @@ async def test_closing_plan_checkouts_expires_other_tabs_and_finds_a_paid_one(
     monkeypatch.setattr(stripe.checkout.Session, "list_async", list_sessions)
     monkeypatch.setattr(stripe.checkout.Session, "expire_async", expire)
     monkeypatch.setattr(stripe.Subscription, "retrieve_async", retrieve)
-    assert await gateway.close_plan_checkouts("acct_paying", keep="b") is True
+    paid = await gateway.close_plan_checkouts("acct_paying", keep="b")
+    assert paid is not None and paid.id == "sub_done"
     assert expired == ["cs_other"]
     listed["complete"] = [session("cs_old", "d", "sub_old")]
-    assert await gateway.close_plan_checkouts("acct_paying", keep="b") is False
+    assert await gateway.close_plan_checkouts("acct_paying", keep="b") is None
     # Stripe stops billing an unpaid subscription, so it does not block a new Checkout
     listed["complete"] = [session("cs_unpaid", "e", "sub_unpaid")]
-    assert await gateway.close_plan_checkouts("acct_paying", keep="b") is False
+    assert await gateway.close_plan_checkouts("acct_paying", keep="b") is None
 
 
 async def test_a_duplicate_plan_subscription_refunds_each_paid_invoice_payment(
@@ -537,6 +538,45 @@ async def test_terminal_charge_attaches_the_business_customer(
         idempotency_key="sale",
         customer_id="cus_client",
     )
+
+
+@pytest.mark.parametrize(
+    "code,param,missing",
+    [("resource_missing", "id", True), (None, "id", True), ("parameter_unknown", "foo", False)],
+)
+async def test_payout_retrieve_maps_only_a_bad_id_to_not_found(
+    gateway: StripeGateway,
+    monkeypatch: pytest.MonkeyPatch,
+    code: str | None,
+    param: str,
+    missing: bool,
+) -> None:
+    async def retrieve(identity: str, **params: object) -> stripe.Payout:
+        raise stripe.InvalidRequestError("refused", param, code=code)
+
+    monkeypatch.setattr(stripe.Payout, "retrieve_async", retrieve)
+    with pytest.raises(NotFound if missing else stripe.InvalidRequestError):
+        await gateway.retrieve("acct_business", "payout", "po_any")
+
+
+async def test_balance_transactions_list_from_a_time_or_for_one_source(
+    gateway: StripeGateway, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls: list[dict[str, object]] = []
+
+    async def listing(**kwargs: object) -> stripe.ListObject[stripe.BalanceTransaction]:
+        calls.append(kwargs)
+        return stripe.ListObject[stripe.BalanceTransaction].construct_from(
+            {"data": [], "has_more": False, "url": "/v1/balance_transactions"}, "sk_test_unit"
+        )
+
+    monkeypatch.setattr(stripe.BalanceTransaction, "list_async", listing)
+    await gateway.balance_transactions("acct_business", since=1700000000)
+    await gateway.balance_transactions("acct_business", source="po_one")
+    assert calls == [
+        {"stripe_account": "acct_business", "limit": 100, "created": {"gte": 1700000000}},
+        {"stripe_account": "acct_business", "limit": 100, "source": "po_one"},
+    ]
 
 
 async def test_payout_list_reads_only_the_recent_page(

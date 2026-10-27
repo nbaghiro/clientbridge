@@ -156,7 +156,7 @@ def _deploy(monkeypatch: pytest.MonkeyPatch, env: Environment, base_domain: str)
         "S3_ACCESS_KEY": "GOOG1EXAMPLE",
         "S3_SECRET_KEY": "hmac-secret",
         "S3_REGION": "us-east1",
-        "STRIPE_SECRET_KEY": "sk_test_x",
+        "STRIPE_SECRET_KEY": "sk_live_x" if env == "prod" else "sk_test_x",
         "STRIPE_WEBHOOK_SECRET": "whsec_connect",
         "STRIPE_THIN_WEBHOOK_SECRET": "whsec_thin",
         "STRIPE_PLATFORM_WEBHOOK_SECRET": "whsec_platform",
@@ -266,7 +266,40 @@ def test_a_refused_start_does_not_echo_a_secret(monkeypatch: pytest.MonkeyPatch)
     with pytest.raises(ValidationError, match="TWILIO_AUTH_TOKEN") as caught:
         EnvSettings()
     assert "do-not-print-me" not in str(caught.value)
-    assert "sk_test_x" not in str(caught.value)
+    assert "sk_live_x" not in str(caught.value)
+
+
+@pytest.mark.parametrize(
+    ("env", "key", "accepted"),
+    [
+        ("prod", "sk_live_x", True),
+        ("prod", "rk_live_x", True),
+        ("prod", "sk_test_x", False),
+        ("prod", "rk_test_x", False),
+        ("staging", "sk_test_x", True),
+        ("staging", "rk_test_x", True),
+        ("staging", "sk_live_x", False),
+        ("staging", "rk_live_x", False),
+    ],
+)
+def test_the_stripe_key_mode_matches_the_environment(
+    monkeypatch: pytest.MonkeyPatch, env: Environment, key: str, accepted: bool
+) -> None:
+    _deploy(monkeypatch, env, "clientbridge.ca" if env == "prod" else "staging.clientbridge.ca")
+    monkeypatch.setenv("STRIPE_SECRET_KEY", key)
+    if accepted:
+        assert EnvSettings().stripe_secret_key == key
+        return
+    with pytest.raises(ValidationError, match="STRIPE_SECRET_KEY") as caught:
+        EnvSettings()
+    assert key not in str(caught.value)
+
+
+@pytest.mark.parametrize("key", ["sk_live_x", "rk_live_x"])
+def test_dev_refuses_a_live_stripe_key(key: str) -> None:
+    with pytest.raises(ValidationError, match="STRIPE_SECRET_KEY"):
+        EnvSettings(env="dev", stripe_secret_key=key)
+    assert EnvSettings(env="dev", stripe_secret_key="sk_test_x").stripe_secret_key == "sk_test_x"
 
 
 def test_an_explicit_url_must_agree_with_the_base_domain(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -811,7 +844,8 @@ def test_functional_cleanup_kills_a_descendant_after_its_leader_exits() -> None:
             try:
                 with socket.create_connection(("127.0.0.1", port), timeout=0.1):
                     pass
-            except ConnectionRefusedError:
+            # macOS resets a connection to a listener that is closing, rather than refusing it
+            except (ConnectionRefusedError, ConnectionResetError):
                 break
             assert time.monotonic() < deadline, "owned descendant survived cleanup"
             time.sleep(0.01)
@@ -1007,10 +1041,12 @@ def test_provider_runner_retains_cleanup_failures_without_external_services(
         configure_only=False,
         credentials="environment",
         activation="pointer",
+        payout_case=False,
         allow_source_changes=False,
         profile="unused",
         merchants=tmp_path / "unused",
         publishable_file=tmp_path / "unused",
+        tests=[],
     )
     if fault == "none":
         stripe_lane.run_lane(args, tmp_path, tier.Lease(0, "0001"))
@@ -1273,6 +1309,99 @@ def test_recovery_refuses_incomplete_manifest_lineage() -> None:
             database={},
             fixtures=[Fixture(invoice="inv_a", client="cl_a")],
         )
+
+
+class _Disputes:
+    def __init__(self, monkeypatch: pytest.MonkeyPatch, boundary: _Stripe, status: str) -> None:
+        boundary.charge["disputed"] = True
+        self.boundary = boundary
+        self.dispute = stripe.Dispute.construct_from(
+            {
+                "id": "du_a",
+                "object": "dispute",
+                "livemode": False,
+                "charge": "ch_a",
+                "amount": 2000,
+                "status": status,
+            },
+            "sk_test_fixture",
+        )
+        monkeypatch.setattr(stripe.Dispute, "list_async", self.list)
+        monkeypatch.setattr(stripe.Dispute, "modify_async", self.modify)
+
+    async def list(self, **options: object) -> _Page[stripe.Dispute]:
+        assert options == {"charge": "ch_a", "stripe_account": "acct_a"}
+        return _Page([self.dispute])
+
+    async def modify(self, dispute_id: str, **options: object) -> stripe.Dispute:
+        assert dispute_id == "du_a" and options["submit"] is True
+        assert options["evidence"] == {"uncategorized_text": "losing_evidence"}
+        self.boundary.operations.append("lose")
+        self.dispute.status = "lost"
+        return self.dispute
+
+
+async def test_recovery_leaves_a_lost_dispute_unrefunded(monkeypatch: pytest.MonkeyPatch) -> None:
+    boundary = _Stripe(monkeypatch, "succeeded")
+    _Disputes(monkeypatch, boundary, "lost")
+    planned = await recover(_manifest(), ENV, "local", apply=False)
+    applied = await recover(_manifest(), ENV, "local", apply=True)
+    assert planned[0]["status"] == applied[0]["status"] == "dispute_lost"
+    assert boundary.operations == []
+
+
+async def test_recovery_loses_an_open_dispute_before_proving_the_charge_clean(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    boundary = _Stripe(monkeypatch, "succeeded")
+    _Disputes(monkeypatch, boundary, "needs_response")
+    planned = await recover(_manifest(), ENV, "local", apply=False)
+    assert planned[0]["status"] == "planned_dispute_loss"
+    assert boundary.operations == []
+    applied = await recover(_manifest(), ENV, "local", apply=True)
+    assert applied[0]["status"] == "dispute_lost"
+    assert boundary.operations == ["lose"]
+
+
+async def test_recovery_refunds_a_charge_whose_dispute_was_won(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    boundary = _Stripe(monkeypatch, "succeeded")
+    _Disputes(monkeypatch, boundary, "won")
+    applied = await recover(_manifest(), ENV, "local", apply=True)
+    assert applied[0]["status"] == "succeeded"
+    assert boundary.operations == ["refund"]
+
+
+def test_client_fixtures_cannot_share_a_customer_with_another_fixture() -> None:
+    manifest = _manifest().model_dump(mode="json")
+    manifest["client_fixtures"] = [{"client": "cl_b", "customer": "cus_a"}]
+    with pytest.raises(ValidationError, match="ownership overlaps"):
+        Manifest.model_validate(manifest)
+    manifest["client_fixtures"] = [{"client": "cl_b"}]
+    with pytest.raises(ValidationError, match="incomplete registered customer lineage"):
+        Manifest.model_validate(manifest)
+    with pytest.raises(ValueError, match="duplicate client fixture"):
+        stripe_lane.client_fixtures(
+            {
+                "client_fixtures": [
+                    {"client": "cl_b", "clock": "clock_a"},
+                    {"client": "cl_c", "clock": "clock_a"},
+                ]
+            }
+        )
+
+
+def test_only_a_registered_customer_owns_a_redelivered_event() -> None:
+    state: dict[str, object] = {
+        "run_id": RUN,
+        "fixtures": [{"invoice": "inv_a", "client": "cl_a", "customer": "cus_a"}],
+        "client_fixtures": [{"client": "cl_b", "customer": "cus_b"}],
+    }
+    assert stripe_lane.registered_tags(state, "cus_a")["clientbridge_qa_invoice"] == "inv_a"
+    assert stripe_lane.registered_tags(state, "cus_b")["clientbridge_qa_purchaser"] == "cl_b"
+    with pytest.raises(ValueError, match="not a registered fixture"):
+        stripe_lane.registered_tags(state, "cus_someone_else")
 
 
 @pytest.mark.parametrize("incomplete", [False, True])
@@ -1758,6 +1887,42 @@ def test_holding_the_tier_rebuilds_it_only_when_alone(
                 pytest.fail("a run must not use a tier built from other code")
         else:
             with tier.hold():
+                assert made == calls
+    assert made == (calls or [])
+
+
+@pytest.mark.parametrize(
+    ("built", "shared", "calls"),
+    [
+        ({"migrations": "other", "tier": "same"}, False, []),
+        ({"migrations": "other", "tier": "same"}, True, ["wait"]),
+        ({"migrations": "head", "tier": "older"}, True, None),
+    ],
+)
+def test_the_backend_suite_uses_a_tier_built_from_other_migrations(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    built: dict[str, str],
+    shared: bool,
+    calls: list[str] | None,
+) -> None:
+    _tier_at(monkeypatch, tmp_path)
+    made: list[str] = []
+    monkeypatch.setattr(tier, "fingerprint", lambda: {"migrations": "head", "tier": "same"})
+    monkeypatch.setattr(tier, "recorded", lambda: built)
+    monkeypatch.setattr(tier, "running", lambda: set(tier.SERVICES))
+    monkeypatch.setattr(tier, "healthy", lambda: True)
+    monkeypatch.setattr(tier, "wait_healthy", lambda _seconds=120: made.append("wait"))
+    monkeypatch.setattr(tier, "start", lambda: made.append("start"))
+    monkeypatch.setattr(tier, "destroy", lambda: made.append("destroy"))
+    with (tmp_path / "tier.lock").open("a") as other:
+        if shared:
+            fcntl.flock(other, fcntl.LOCK_SH)
+        if calls is None:
+            with pytest.raises(SystemExit, match="built from other code"), tier.hold(("tier",)):
+                pytest.fail("the suite must not use a tier whose services are configured otherwise")
+        else:
+            with tier.hold(("tier",)):
                 assert made == calls
     assert made == (calls or [])
 

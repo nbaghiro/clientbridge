@@ -4,16 +4,17 @@ from zoneinfo import ZoneInfo
 
 import httpx
 import pytest
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
 from clientbridge.models.billing import Order
+from clientbridge.models.ledger import Account, Entry
 from clientbridge.models.payments import Payment
 from clientbridge.services.notifications import Notifier
 from clientbridge.services.orders import run_pickup_reminders, run_reap_unpaid_orders
 from tests.conftest import FakeEmailSender, FakePaymentGateway, FakePushSender, FakeSmsSender
-from tests.helpers import column, enable_payments, settle
+from tests.helpers import column, enable_payments, settle, stripe_event
 
 
 async def place(api: httpx.AsyncClient, db: AsyncSession) -> dict[str, str]:
@@ -293,7 +294,7 @@ async def test_pickup_windows_use_a_bounded_number_of_queries(db: AsyncSession) 
 
 
 async def test_stock_corrected_after_checkout_refunds_without_fulfilling(
-    api: httpx.AsyncClient, db: AsyncSession
+    api: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
 ) -> None:
     from clientbridge.models.catalog import Item
 
@@ -323,3 +324,64 @@ async def test_stock_corrected_after_checkout_refunds_without_fulfilling(
     assert product.stock_on_hand == 0
     order = await db.get(Order, payment.order_id)
     assert order is not None and order.status == "void" and order.pickup_status is None
+    assert gateway.refunds[-1][2] is True  # we voided it, so our platform fee goes back too
+    platform_fee = await db.scalar(
+        select(func.coalesce(func.sum(Entry.amount_cents), 0))
+        .join(Account, Account.id == Entry.account_id)
+        .where(
+            Entry.source_id == payment.id,
+            Account.category == "platform_fee",
+            Account.owner_type == "business",
+        )
+    )
+    assert platform_fee == 0
+
+
+async def test_a_void_refund_that_settles_later_still_returns_our_fee(
+    api: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    from clientbridge.models.catalog import Item
+
+    await enable_payments(db)
+    product = await db.get(Item, "it_shampoo")
+    assert product is not None
+    product.track_stock, product.stock_on_hand = True, 1
+    await db.commit()
+    response = await api.post(
+        "/book/birchbark/shop/orders",
+        headers={"Idempotency-Key": uuid.uuid4().hex},
+        json={
+            "client": {"name": "Later", "email": "later@example.ca"},
+            "lines": [{"item_id": product.id, "quantity": 1}],
+        },
+    )
+    payment = (
+        await db.scalars(select(Payment).where(Payment.order_id == response.json()["order_id"]))
+    ).one()
+    product.stock_on_hand = 0
+    gateway.refund_status = "pending"
+    await db.commit()
+    await settle(api, db, payment.id)
+
+    async def platform_fee() -> int:
+        return (
+            await db.scalar(
+                select(func.coalesce(func.sum(Entry.amount_cents), 0))
+                .join(Account, Account.id == Entry.account_id)
+                .where(
+                    Entry.source_id == payment.id,
+                    Account.category == "platform_fee",
+                    Account.owner_type == "business",
+                )
+            )
+            or 0
+        )
+
+    assert await platform_fee() > 0
+    (refund,) = await db.scalars(select(Payment).where(Payment.parent_payment_id == payment.id))
+    assert refund.provider_ref is not None
+    body = {"id": refund.provider_ref, "payment_intent": payment.provider_ref}
+    await stripe_event(
+        api, "refund.updated", body | {"amount": refund.amount_cents, "status": "succeeded"}
+    )
+    assert await platform_fee() == 0

@@ -35,7 +35,11 @@ from clientbridge.services.forms import run_intake_forms
 from clientbridge.services.messaging import run_due_broadcasts
 from clientbridge.services.notifications import Notifier, run_prune_devices
 from clientbridge.services.orders import run_pickup_reminders, run_reap_unpaid_orders
-from clientbridge.services.payments import run_reconcile_payments
+from clientbridge.services.payments import (
+    run_cancel_stale_intents,
+    run_reconcile_payments,
+    run_replay_missed_events,
+)
 from clientbridge.services.plans import run_sync_plans, run_trial_reminders
 from clientbridge.services.receipts import run_prune_receipts
 from clientbridge.services.reviews import run_google_operations, run_review_requests
@@ -87,6 +91,11 @@ async def reconcile_ledger(ctx: Context) -> int:
         return await run_reconcile_payments(db, get_payment_gateway())
 
 
+async def replay_missed_events(ctx: Context) -> int:
+    async with SessionLocal() as db:
+        return await run_replay_missed_events(db, get_payment_gateway())
+
+
 async def process_google_operations(ctx: Context) -> int:
     async with SessionLocal() as db:
         return await run_google_operations(
@@ -112,6 +121,11 @@ async def send_pickup_reminders(ctx: Context) -> int:
 async def reap_unpaid_orders(ctx: Context) -> int:
     async with SessionLocal() as db:
         return await run_reap_unpaid_orders(db, get_payment_gateway(), clock.now())
+
+
+async def cancel_stale_intents(ctx: Context) -> int:
+    async with SessionLocal() as db:
+        return await run_cancel_stale_intents(db, get_payment_gateway(), clock.now())
 
 
 async def prune_receipts(ctx: Context) -> int:
@@ -173,10 +187,12 @@ class WorkerSettings:
         cron(prune_devices, hour=3, minute=30),
         cron(prune_receipts, minute={10, 40}),
         cron(prune_pending_files, minute=20),
-        cron(reconcile_ledger, hour=4, minute=0),
+        cron(reconcile_ledger, minute=45),
+        cron(replay_missed_events, minute=27),
         cron(send_review_requests, minute=0),
         cron(send_pickup_reminders, minute=0),
         cron(reap_unpaid_orders, minute={5, 20, 35, 50}),
+        cron(cancel_stale_intents, minute=45),
         cron(send_intake_forms, minute={10, 25, 40, 55}),
         cron(sync_plans, hour=5, minute=0),
         cron(send_trial_reminders, minute=0),

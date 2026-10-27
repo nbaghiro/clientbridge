@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { formatDate, parseTimestamp, useBusinessZone } from "../datetime";
+import { useNow } from "../hooks";
 import type { PaymentAccountComponent, PaymentAccountProps, PaymentNoticesProps } from "../ui";
 import { useBusinessId } from "./business";
 import { canManagePayments } from "./payments";
@@ -15,12 +16,13 @@ interface ConnectStatus {
     disabled_reason: string | null;
     currently_due: string[];
     past_due: string[];
+    requirement_errors?: { requirement: string; code: string }[];
     current_deadline: string | null;
     available_cents: number | null;
     pending_cents: number | null;
 }
 
-/** `null` while loading, `"error"` if the fetch failed; bump `reloadKey` to refetch. */
+/** `null` while loading, `"error"` if the fetch failed; bump `reloadKey` to refresh from Stripe. */
 function useConnectStatus(
     api: ApiLike,
     reloadKey = 0,
@@ -32,13 +34,17 @@ function useConnectStatus(
         setStatus(null);
         if (!enabled) return;
         let active = true;
-        api.get<ConnectStatus>("/v1/connect/status")
-            .then((value) => {
-                if (active) setStatus(value);
-            })
-            .catch(() => {
-                if (active) setStatus("error");
-            });
+        const stored = () => api.get<ConnectStatus>("/v1/connect/status");
+        // a refresh asks Stripe in case its events were late, or shows what's stored if it can't
+        const read =
+            reloadKey > 0
+                ? api.post<ConnectStatus>("/v1/connect/refresh", {}).catch(stored)
+                : stored();
+        read.then((value) => {
+            if (active) setStatus(value);
+        }).catch(() => {
+            if (active) setStatus("error");
+        });
         return () => {
             active = false;
         };
@@ -103,6 +109,46 @@ export function requirementCopy(key: string): { label: string; why: string } {
     return { label: field?.() ?? g.reqOther, why: "" };
 }
 
+const ERRORS: readonly (readonly [readonly string[], () => string])[] = [
+    [
+        [
+            "verification_failed_id_number_match",
+            "verification_failed_keyed_identity",
+            "verification_document_id_number_mismatch",
+        ],
+        () => g.reqError.identity,
+    ],
+    [["verification_document_expired"], () => g.reqError.documentExpired],
+    [
+        [
+            "verification_document_name_mismatch",
+            "verification_document_dob_mismatch",
+            "verification_document_address_mismatch",
+            "verification_document_photo_mismatch",
+        ],
+        () => g.reqError.documentMismatch,
+    ],
+    [["verification_document_"], () => g.reqError.document],
+    [["verification_failed_address_match", "invalid_address_"], () => g.reqError.address],
+    [
+        [
+            "verification_failed_tax_id_match",
+            "verification_failed_tax_id_not_issued",
+            "verification_failed_business_iec_number",
+        ],
+        () => g.reqError.businessNumber,
+    ],
+    [["invalid_url_"], () => g.reqError.website],
+];
+
+/** Stripe's requirement error codes; a code ending in `_` matches as a prefix. */
+export function requirementErrorCopy(code: string): string {
+    const match = ERRORS.find(([codes]) =>
+        codes.some((c) => code === c || (c.endsWith("_") && code.startsWith(c))),
+    )?.[1];
+    return match?.() ?? g.reqError.other;
+}
+
 type ConnectPhase =
     | "loading"
     | "error"
@@ -110,6 +156,7 @@ type ConnectPhase =
     | "in_progress"
     | "pending"
     | "restricted"
+    | "payouts_paused"
     | "enabled"
     | "disabled";
 
@@ -117,6 +164,7 @@ interface ConnectRequirement {
     key: string;
     label: string;
     why: string;
+    errors: string[];
     pastDue: boolean;
     icon: "bank" | "user";
 }
@@ -127,6 +175,7 @@ export interface GettingPaidView {
     message: string;
     requirements: ConnectRequirement[];
     deadline: Date | null;
+    canFinish: boolean;
     chargesEnabled: boolean;
     payoutsEnabled: boolean;
     availableCents: number | null;
@@ -143,6 +192,7 @@ function phaseOf(status: ConnectStatus): ConnectPhase {
     switch (status.kyc_status) {
         case "pending":
         case "restricted":
+        case "payouts_paused":
         case "enabled":
         case "disabled":
             return status.kyc_status;
@@ -159,6 +209,9 @@ const TITLES: Partial<Record<ConnectPhase, string>> = {
         return g.titlePending;
     },
     get restricted() {
+        return g.restrictedTitle;
+    },
+    get payouts_paused() {
         return g.pausedTitle;
     },
     get enabled() {
@@ -173,6 +226,7 @@ export function useGettingPaid(api: ApiLike): GettingPaidView {
     const [reloadKey, setReloadKey] = useState(0);
     const status = useConnectStatus(api, reloadKey);
     const zone = useBusinessZone();
+    const now = useNow();
 
     const refresh = useCallback(() => {
         setReloadKey((k) => k + 1);
@@ -202,10 +256,15 @@ export function useGettingPaid(api: ApiLike): GettingPaidView {
                 : phase === "disabled"
                   ? g.phaseDisabled
                   : phase === "restricted"
-                    ? deadline === null
-                        ? g.pausedBodyNoDate
-                        : g.pausedBody(formatDate(deadline, zone))
-                    : g.readyBody;
+                    ? g.restrictedBody
+                    : phase === "payouts_paused"
+                      ? keys.length === 0
+                          ? g.pausedBodyReview
+                          : deadline === null || deadline.getTime() <= now.getTime()
+                            ? g.pausedBodyNoDate
+                            : g.pausedBody(formatDate(deadline, zone))
+                      : g.readyBody;
+    const errors = s?.requirement_errors ?? [];
     return {
         phase,
         title: TITLES[phase] ?? "",
@@ -213,10 +272,18 @@ export function useGettingPaid(api: ApiLike): GettingPaidView {
         requirements: keys.map((key) => ({
             key,
             ...requirementCopy(key),
+            errors: [
+                ...new Set(
+                    errors
+                        .filter((e) => e.requirement === key)
+                        .map((e) => requirementErrorCopy(e.code)),
+                ),
+            ],
             pastDue: past.has(key),
             icon: key === "external_account" ? "bank" : "user",
         })),
         deadline,
+        canFinish: canFinish(phase, keys.length),
         chargesEnabled: s?.charges_enabled ?? false,
         payoutsEnabled: s?.payouts_enabled ?? false,
         availableCents: s?.available_cents ?? null,
@@ -231,9 +298,20 @@ export function useGettingPaid(api: ApiLike): GettingPaidView {
     };
 }
 
+/** Whether to offer the onboarding form: always while anything is due, unless only support can help. */
+export function canFinish(phase: ConnectPhase, due: number): boolean {
+    if (phase === "in_progress" || phase === "restricted") return true;
+    return due > 0 && phase !== "disabled" && phase !== "not_connected";
+}
+
 /** Stripe's banner lists requirements due after onboarding and risk reviews, never the first setup. */
 export function noticesNeedAttention(phase: ConnectPhase, due: number): boolean {
-    return phase === "restricted" || phase === "disabled" || (phase === "enabled" && due > 0);
+    return (
+        phase === "restricted" ||
+        phase === "payouts_paused" ||
+        phase === "disabled" ||
+        (phase === "enabled" && due > 0)
+    );
 }
 
 type PaymentNotices = Omit<PaymentNoticesProps, "onReview" | "reviewing">;

@@ -17,6 +17,7 @@ from clientbridge.schemas.catalog import (
     TaxClassChange,
     TaxClassResult,
 )
+from clientbridge.services import ledger
 
 
 class CatalogService:
@@ -295,6 +296,7 @@ async def load_item(
 
 
 def _assert_shape(item: Item) -> None:
+    item.currency = ledger.supported(item.currency)
     if item.online_bookable and item.kind not in BOOKABLE_KINDS:
         raise Unprocessable("only services and classes can be booked online")
     if item.track_stock and item.kind != "product":

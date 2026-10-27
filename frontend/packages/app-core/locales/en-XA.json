@@ -167,6 +167,9 @@
     "api.depositNotDue": {
         "message": "[Ţĥîš ðéþöšîţ îš åļŕéåðý þåîð öŕ ñö ļöñĝéŕ ðûé. one two three]"
     },
+    "api.checkoutPaid": {
+        "message": "[Ţĥé çåŕð þåýɱéñţ åļŕéåðý ŵéñţ ţĥŕöûĝĥ, šö îţ çåñ'ţ ƀé çåñçéļéð. one two three four]"
+    },
     "api.depositInProgress": {
         "message": "[Å þåýɱéñţ ƒöŕ ţĥîš ðéþöšîţ îš åļŕéåðý ĝöîñĝ ţĥŕöûĝĥ. Çĥéçķ ƀåçķ îñ å ƒéŵ ɱîñûţéš. one two three four five]"
     },
@@ -298,6 +301,21 @@
     },
     "api.enrolmentPaid": {
         "message": "[Å þåýɱéñţ ŵåš ţåķéñ öñ ţĥîš éñŕöļɱéñţ'š îñṽöîçé, šö îţ çåñ'ţ ƀé çåñçéļéð ûñţîļ ţĥåţ þåýɱéñţ îš ŕéƒûñðéð. one two three four five six seven]"
+    },
+    "api.paymentDisputed": {
+        "message": "[Ţĥîš þåýɱéñţ ĥåš åñ öþéñ ðîšþûţé, šö îţ çåñ'ţ ƀé ŕéƒûñðéð ûñţîļ ţĥé ðîšþûţé îš ŕéšöļṽéð. one two three four five six]"
+    },
+    "api.amountTooSmall": {
+        "message": "[Ţĥîš åɱöûñţ îš ţöö šɱåļļ ţö çĥåŕĝé ţö å çåŕð. Éñţéŕ å ļåŕĝéŕ åɱöûñţ öŕ ŕéçöŕð ţĥé þåýɱéñţ åñöţĥéŕ ŵåý. one two three four five six seven]"
+    },
+    "api.idempotencyMismatch": {
+        "message": "[Ţĥîš þåýɱéñţ ŵåš åļŕéåðý šéñţ ŵîţĥ ðîƒƒéŕéñţ ðéţåîļš. Ŕéƒŕéšĥ åñð ţŕý åĝåîñ. one two three four five]"
+    },
+    "api.paymentProviderError": {
+        "message": "[Ţĥé þåýɱéñţ þŕöṽîðéŕ çöûļðñ'ţ çöɱþļéţé ţĥîš ŕéǫûéšţ. Þļéåšé ţŕý åĝåîñ îñ å ƒéŵ ɱîñûţéš. one two three four five six]"
+    },
+    "api.unsupportedCurrency": {
+        "message": "[Þŕîçéš åñð šåļéš çåñ öñļý ƀé îñ Çåñåðîåñ ðöļļåŕš. one two three four]"
     },
     "api.addonLengthInUse": {
         "message": "[{count,plural,one{Ţĥîš åðð-öñ'š ļéñĝţĥ çåñ'ţ çĥåñĝé ŵĥîļé å ṽîšîţ çåŕŕîéš îţ. Ŕéɱöṽé îţ ƒŕöɱ # ûþçöɱîñĝ ṽîšîţ ƒîŕšţ, öŕ ŵåîţ ûñţîļ îţ'š ðöñé.} other{Ţĥîš åðð-öñ'š ļéñĝţĥ çåñ'ţ çĥåñĝé ŵĥîļé ṽîšîţš çåŕŕý îţ. Ŕéɱöṽé îţ ƒŕöɱ # ûþçöɱîñĝ ṽîšîţš ƒîŕšţ, öŕ ŵåîţ ûñţîļ ţĥéý'ŕé ðöñé.}} one two three four five six seven eight nine ten one two three four]"
@@ -1696,6 +1714,12 @@
     },
     "pos.desk.savedCardCharge": {
         "message": "[Ŵé'ļļ çĥåŕĝé {card} ñöŵ. one two]"
+    },
+    "pos.desk.cancelCheckout": {
+        "message": "[Çåñçéļ þåýɱéñţ one two]"
+    },
+    "pos.desk.cancelCheckoutError": {
+        "message": "[Ţĥé þåýɱéñţ çöûļð ñöţ ƀé çåñçéļéð. Þļéåšé ţŕý åĝåîñ. one two three four]"
     },
     "pos.desk.payError": {
         "message": "[Ţĥé çåŕð ŵåš ðéçļîñéð. Ţŕý åñöţĥéŕ çåŕð öŕ þåýɱéñţ ɱéţĥöð. one two three four]"
@@ -8417,6 +8441,9 @@
     "catalog.sellsAt": {
         "message": "[Šéļļš ƒŕöɱ Šåļéš, ŵîţĥ îţš öŵñ çĥéçķöûţ. one two three]"
     },
+    "catalog.membersKeepPrice": {
+        "message": "[Çûŕŕéñţ ɱéɱƀéŕš ķééþ ţĥé þŕîçé ţĥéý ĵöîñéð åţ. Å ñéŵ þŕîçé åþþļîéš ţö ñéŵ ɱéɱƀéŕšĥîþš. one two three four five six]"
+    },
     "catalog.freqLabel.day": {
         "message": "[ðåý one]"
     },
@@ -8639,6 +8666,9 @@
     "refunds.blocked.package_used": {
         "message": "[Šéššîöñš ƒŕöɱ ţĥîš þåçķåĝé ĥåṽé ƀééñ ûšéð, šö îţš þûŕçĥåšé çåñ'ţ ƀé ŕéƒûñðéð. one two three four five]"
     },
+    "refunds.blocked.payment_disputed": {
+        "message": "[Ţĥîš þåýɱéñţ îš ðîšþûţéð, šö îţ çåñ'ţ ƀé ŕéƒûñðéð ûñļéšš ţĥé ðîšþûţé îš ŵöñ. one two three four five]"
+    },
     "refunds.blocked.whole_only": {
         "message": "[Þåŕţ öƒ ţĥîš þåýɱéñţ ĥåš åļŕéåðý ƀééñ ŕéƒûñðéð, åñð ţĥé ŕéšţ çåñ'ţ ƀé ŕéƒûñðéð šéþåŕåţéļý. one two three four five six]"
     },
@@ -8848,6 +8878,12 @@
     },
     "taxes.gstHint": {
         "message": "[9 ðîĝîţš, ţĥéñ ŔŢ åñð 4 ðîĝîţš. one two three]"
+    },
+    "taxes.registeredSince": {
+        "message": "[Ŕéĝîšţéŕéð šîñçé one two]"
+    },
+    "taxes.registeredSinceHint": {
+        "message": "[Ţĥé ðåý ýöûŕ ĜŠŢ/ĤŠŢ ŕéĝîšţŕåţîöñ ţööķ éƒƒéçţ. Ļéåṽé îţ éɱþţý îƒ ýöû'ṽé ƀééñ ŕéĝîšţéŕéð ţĥé ŵĥöļé ţîɱé. one two three four five six seven]"
     },
     "taxes.gstInvalid": {
         "message": "[Éñţéŕ îţ ļîķé 84720 1539 ŔŢ0001. one two]"
@@ -9214,6 +9250,39 @@
     },
     "gettingPaid.pausedBodyNoDate": {
         "message": "[Ýöû çåñ šţîļļ ţåķé çåŕð þåýɱéñţš, ƀûţ ýöûŕ þåýöûţš åŕé öñ ĥöļð ûñţîļ ýöû šéñð ŵĥåţ'š ļîšţéð ƀéļöŵ. one two three four five six seven]"
+    },
+    "gettingPaid.pausedBodyReview": {
+        "message": "[Ýöû çåñ šţîļļ ţåķé çåŕð þåýɱéñţš. Þåýöûţš åŕé öñ ĥöļð ŵĥîļé ýöûŕ ðéţåîļš åŕé ƀéîñĝ ṽéŕîƒîéð. one two three four five six]"
+    },
+    "gettingPaid.restrictedTitle": {
+        "message": "[Çåŕð þåýɱéñţš åŕé þåûšéð one two three]"
+    },
+    "gettingPaid.restrictedBody": {
+        "message": "[Çåŕð þåýɱéñţš åŕé öñ ĥöļð ûñţîļ ýöû šéñð ţĥé ɱîššîñĝ ðéţåîļš. Ţĥéý ţûŕñ ƀåçķ öñ öñçé ýöûŕ ðéţåîļš åŕé ṽéŕîƒîéð. one two three four five six seven]"
+    },
+    "gettingPaid.reqError.identity": {
+        "message": "[Ţĥé ñåɱé, ðåţé öƒ ƀîŕţĥ åñð ÎĐ ñûɱƀéŕ ðîðñ'ţ ɱåţçĥ. Çĥéçķ ţĥéɱ åñð šéñð ţĥéɱ åĝåîñ. one two three four five]"
+    },
+    "gettingPaid.reqError.documentExpired": {
+        "message": "[Ţĥîš ðöçûɱéñţ ĥåš éẋþîŕéð. Ûþļöåð öñé ţĥåţ'š šţîļļ ṽåļîð. one two three four]"
+    },
+    "gettingPaid.reqError.documentMismatch": {
+        "message": "[Ţĥé ðöçûɱéñţ ðöéšñ'ţ ɱåţçĥ ţĥé ðéţåîļš ýöû éñţéŕéð. Çĥéçķ ţĥé ðéţåîļš öŕ ûþļöåð å ðîƒƒéŕéñţ ðöçûɱéñţ. one two three four five six seven]"
+    },
+    "gettingPaid.reqError.document": {
+        "message": "[Ţĥé ðöçûɱéñţ çöûļðñ'ţ ƀé ṽéŕîƒîéð. Ûþļöåð å çļéåŕ çöļöûŕ þĥöţö öƒ ţĥé ŵĥöļé ðöçûɱéñţ. one two three four five six]"
+    },
+    "gettingPaid.reqError.address": {
+        "message": "[Ţĥé åððŕéšš çöûļðñ'ţ ƀé ṽéŕîƒîéð. Çĥéçķ îţ åñð šéñð îţ åĝåîñ. one two three four]"
+    },
+    "gettingPaid.reqError.businessNumber": {
+        "message": "[Ţĥé ƀûšîñéšš ñûɱƀéŕ ðîðñ'ţ ɱåţçĥ ţĥé ƀûšîñéšš ñåɱé. Çĥéçķ ƀöţĥ åñð šéñð ţĥéɱ åĝåîñ. one two three four five six]"
+    },
+    "gettingPaid.reqError.website": {
+        "message": "[Ţĥé ŵéƀšîţé çöûļðñ'ţ ƀé ṽéŕîƒîéð. Çĥéçķ ţĥé åððŕéšš åñð ţĥåţ ţĥé šîţé îš ļîṽé. one two three four five]"
+    },
+    "gettingPaid.reqError.other": {
+        "message": "[Ţĥîš ðéţåîļ çöûļðñ'ţ ƀé ṽéŕîƒîéð. Çĥéçķ îţ åñð šéñð îţ åĝåîñ. one two three four]"
     },
     "gettingPaid.readyTitle": {
         "message": "[Ýöû'ŕé šéţ ûþ ţö ĝéţ þåîð one two]"
@@ -13774,6 +13843,51 @@
     },
     "admin.searchBusiness": {
         "message": "[Ɓûšîñéšš ñåɱé, šļûĝ öŕ ÎĐ one two]"
+    },
+    "admin.drift": {
+        "message": "[Ļéðĝéŕ ðŕîƒţ one two]"
+    },
+    "admin.driftHint": {
+        "message": "[Šöûŕçéš ŵĥéŕé ţĥé ļéðĝéŕ åñð Šţŕîþé ðîšåĝŕéé åƒţéŕ ţĥé ñîĝĥţļý ŕéçöñçîļîåţîöñ. Éåçĥ šĥöŵš îţš ļåţéšţ ƒîñðîñĝ. one two three four five six seven]"
+    },
+    "admin.driftSource": {
+        "message": "[Šöûŕçé one]"
+    },
+    "admin.driftBalance": {
+        "message": "[Åççöûñţ ƀåļåñçé one two]"
+    },
+    "admin.driftFound": {
+        "message": "[Ƒöûñð one]"
+    },
+    "admin.driftLedger": {
+        "message": "[Ļéðĝéŕ one]"
+    },
+    "admin.driftStripe": {
+        "message": "[Šţŕîþé one]"
+    },
+    "admin.driftAcknowledged": {
+        "message": "[Åçķñöŵļéðĝéð one two]"
+    },
+    "admin.acknowledge": {
+        "message": "[Åçķñöŵļéðĝé one two]"
+    },
+    "admin.acknowledgeReason": {
+        "message": "[Ŕéåšöñ one]"
+    },
+    "admin.acknowledgeHint": {
+        "message": "[Šåṽéð ŵîţĥ ţĥé ƒîñðîñĝ šö ţĥé ñéẋţ ŕéṽîéŵéŕ çåñ šéé ŵĥý îţ ŵåš åççéþţéð. one two three four five]"
+    },
+    "admin.saveAcknowledgement": {
+        "message": "[Šåṽé åçķñöŵļéðĝéɱéñţ one two]"
+    },
+    "admin.acknowledgementSaved": {
+        "message": "[Åçķñöŵļéðĝéɱéñţ šåṽéð. one two]"
+    },
+    "admin.acknowledgementStale": {
+        "message": "[Ţĥîš ƒîñðîñĝ ĥåš ƀééñ ŕéþļåçéð öŕ ŕéšöļṽéð, šö ţĥé ļîšţ ĥåš ƀééñ ŕéƒŕéšĥéð. one two three four five]"
+    },
+    "admin.acknowledgementError": {
+        "message": "[Ţĥé åçķñöŵļéðĝéɱéñţ çöûļð ñöţ ƀé šåṽéð. Þļéåšé ţŕý åĝåîñ. one two three four]"
     },
     "publicForm.signerName": {
         "message": "[Ƒûļļ ļéĝåļ ñåɱé one two]"

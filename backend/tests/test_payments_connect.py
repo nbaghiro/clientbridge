@@ -15,17 +15,20 @@ from clientbridge.core.db import SessionLocal
 from clientbridge.core.deps import Principal
 from clientbridge.integrations.stripe import (
     AccountConfiguration,
+    ConnectAccount,
     ConnectComponent,
     PostalAddress,
+    RequirementError,
     StripeGateway,
     account_status_from,
     payment_descriptor,
 )
-from clientbridge.models.business import Business
+from clientbridge.models.business import Business, Staff
 from clientbridge.models.platform import Audit, IdempotencyKey
 from clientbridge.services.business import apply_account_status, derive_kyc_status, kyc_status
 from clientbridge.services.payments import PaymentService
-from tests.conftest import Factory, FakePaymentGateway
+from tests.conftest import STAFF_USER, Factory, FakePaymentGateway
+from tests.helpers import enable_payments
 
 BIZ = "bz_birchbark"
 
@@ -77,7 +80,8 @@ async def test_status(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
         "kyc_status",
         "currently_due",
     } <= set(body)
-    assert body["kyc_status"] in {"not_started", "pending", "restricted", "enabled", "disabled"}
+    phases = {"not_started", "pending", "restricted", "payouts_paused", "enabled", "disabled"}
+    assert body["kyc_status"] in phases
 
 
 async def test_onboarding_seeds_kyc_state(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
@@ -145,6 +149,23 @@ async def test_onboarding_registers_the_payment_domains_on_the_account(
     assert gateway.payment_domains == {}
 
 
+async def test_a_failing_domain_registration_still_opens_onboarding(
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    gateway: FakePaymentGateway,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    await enable_payments(db)
+    monkeypatch.setattr(get_settings(), "base_domain", "staging.clientbridge.ca")
+
+    async def refuse(account_id: str, domains: object) -> None:
+        raise stripe.InvalidRequestError("domain refused", param="domain_name")
+
+    monkeypatch.setattr(gateway, "register_payment_domains", refuse)
+    session = await _onboard(as_owner)
+    assert session.status_code == 200, session.text
+
+
 async def test_local_onboarding_registers_no_payment_domain(
     as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
 ) -> None:
@@ -171,6 +192,105 @@ def test_parses_a_v2_account() -> None:
     assert status.eventually_due == ["defaults.profile.product_description"]
     assert status.disabled_reason is None
     assert status.current_deadline == 1_793_491_200
+    assert status.requirement_errors == (
+        RequirementError("identity.individual.id_numbers", "verification_failed_id_number_match"),
+    )
+
+
+def _payouts(status: str, code: str = "", resolution: str = "") -> dict[str, object]:
+    details = [{"code": code, "resolution": resolution}] if code else []
+    return {
+        "merchant": {
+            "capabilities": {
+                "card_payments": {"status": "active", "status_details": []},
+                "stripe_balance": {"payouts": {"status": status, "status_details": details}},
+            }
+        }
+    }
+
+
+def test_active_cards_with_payouts_held_over_a_past_due_bank_account_pause_payouts() -> None:
+    data = _with(_account(), configuration=_payouts("restricted", "requirements_past_due"))
+    status = account_status_from("acct_x", data)
+    assert status.charges_enabled and not status.payouts_enabled
+    assert status.past_due == ["external_account"]
+    assert derive_kyc_status(status) == "payouts_paused"
+
+
+def _kyc(
+    *, charges: bool, payouts: bool, past_due: bool = False, currently_due: bool = False
+) -> ConnectAccount:
+    return ConnectAccount(
+        id="acct_x",
+        charges_enabled=charges,
+        payouts_enabled=payouts,
+        disabled_reason=None,
+        currently_due=["identity.individual.id_numbers"] if currently_due else [],
+        eventually_due=[],
+        past_due=["external_account"] if past_due else [],
+        card_status="active" if charges else "restricted",
+    )
+
+
+@pytest.mark.parametrize(
+    ("charges", "payouts", "past_due", "currently_due", "expected"),
+    [
+        (True, True, False, False, "enabled"),
+        (True, True, False, True, "enabled"),
+        (True, True, True, False, "payouts_paused"),
+        (True, True, True, True, "payouts_paused"),
+        (True, False, False, False, "payouts_paused"),
+        (True, False, False, True, "payouts_paused"),
+        (True, False, True, False, "payouts_paused"),
+        (True, False, True, True, "payouts_paused"),
+        (False, True, False, False, "restricted"),
+        (False, True, True, False, "restricted"),
+        (False, False, False, True, "restricted"),
+        (False, False, True, True, "restricted"),
+    ],
+)
+def test_the_phase_reads_both_capabilities(
+    charges: bool, payouts: bool, past_due: bool, currently_due: bool, expected: str
+) -> None:
+    status = _kyc(charges=charges, payouts=payouts, past_due=past_due, currently_due=currently_due)
+    assert derive_kyc_status(status) == expected
+
+
+def test_requirement_errors_skip_entries_stripe_handles_and_rows_without_a_code() -> None:
+    entries: list[dict[str, object]] = [
+        {
+            "awaiting_action_from": "stripe",
+            "description": "identity.individual.documents.primary_verification",
+            "errors": [{"code": "verification_document_expired"}],
+            "minimum_deadline": {"status": "currently_due"},
+        },
+        {
+            "awaiting_action_from": "user",
+            "description": "identity.individual.address",
+            "errors": [{"description": "no code"}, {"code": "verification_failed_address_match"}],
+            "minimum_deadline": {"status": "past_due"},
+        },
+    ]
+    status = account_status_from("acct_x", _with(_account(), requirements={"entries": entries}))
+    assert status.requirement_errors == (
+        RequirementError("identity.individual.address", "verification_failed_address_match"),
+    )
+
+
+async def test_status_returns_the_mirrored_requirement_errors(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    business = (await db.execute(select(Business).where(Business.id == BIZ))).scalar_one()
+    apply_account_status(business, account_status_from("acct_mirror", _account()))
+    business.stripe_account_id = "acct_mirror"
+    await db.flush()
+    body = (await as_owner.get("/v1/connect/status")).json()
+    assert body["requirement_errors"] == [
+        {
+            "requirement": "identity.individual.id_numbers",
+            "code": "verification_failed_id_number_match",
+        }
+    ]
 
 
 def _with(data: dict[str, object], **changes: object) -> dict[str, object]:
@@ -259,6 +379,7 @@ def _terms(deadline: str) -> dict[str, object]:
         _with(_account(), configuration=_cards("pending", "determining_status", "no_resolution")),
         _with(_account(), configuration=_cards("pending"), requirements=None),
         _with(_account(), configuration=_cards("active")),
+        _with(_account(), configuration=_payouts("restricted", "requirements_past_due")),
         _with(_account(), configuration={"customer": {"applied": True}}, requirements=None),
         _with(_account(), closed=True),
     ],
@@ -287,7 +408,9 @@ def test_an_active_account_is_enabled() -> None:
 
 
 def test_active_cards_with_an_upcoming_requirement_stay_enabled() -> None:
-    data = _with(_account(), configuration=_cards("active"))
+    requirements = cast("dict[str, list[object]]", _account()["requirements"])
+    entries = requirements["entries"][1:]  # drops the past-due bank account
+    data = _with(_account(), configuration=_cards("active"), requirements={"entries": entries})
     status = account_status_from("acct_x", data)
     assert status.currently_due == ["identity.individual.id_numbers"]
     assert derive_kyc_status(status) == "enabled"
@@ -615,3 +738,63 @@ async def test_an_account_never_mirrored_is_not_taken_for_a_payments_account(
         update(Business).where(Business.id == BIZ).values(stripe_requirements=mirrored)
     )
     assert (await as_owner.get("/v1/connect/status")).json()["connected"] is True
+
+
+async def _promote_staff_to_admin(db: AsyncSession) -> None:
+    await db.execute(
+        update(Staff)
+        .where(Staff.business_id == BIZ, Staff.user_id == STAFF_USER)
+        .values(role="admin")
+    )
+    await db.commit()
+
+
+@pytest.mark.parametrize("component", ["onboarding", "account", "payouts", "payments"])
+async def test_an_admin_opens_every_stripe_component(
+    as_staff: httpx.AsyncClient, db: AsyncSession, component: str
+) -> None:
+    await enable_payments(db)
+    await _promote_staff_to_admin(db)
+    res = await as_staff.post(
+        "/v1/connect/session", json={"component": component}, headers={"X-Business-Id": BIZ}
+    )
+    assert res.status_code == 200, res.text
+    payouts = await as_staff.get("/v1/connect/payouts", headers={"X-Business-Id": BIZ})
+    assert payouts.status_code == 200, payouts.text
+
+
+async def test_a_lapsed_business_can_still_finish_payment_setup(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await enable_payments(db)
+    await db.execute(
+        update(Business)
+        .where(Business.id == BIZ)
+        .values(plan_status="lapsed", stripe_subscription_id=None)
+    )
+    await db.commit()
+    res = await _onboard(as_owner)
+    assert res.status_code == 200, res.text
+
+
+async def test_refresh_reads_the_account_from_stripe(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await enable_payments(db)
+    await db.execute(
+        update(Business).where(Business.id == BIZ).values(stripe_payouts_enabled=False)
+    )
+    await db.commit()
+    gateway.accounts["acct_test"] = ConnectAccount(
+        id="acct_test",
+        charges_enabled=True,
+        payouts_enabled=True,
+        currently_due=[],
+        eventually_due=[],
+        past_due=[],
+        disabled_reason=None,
+        card_status="active",
+    )
+    res = await as_owner.post("/v1/connect/refresh")
+    assert res.status_code == 200, res.text
+    assert res.json()["payouts_enabled"] is True

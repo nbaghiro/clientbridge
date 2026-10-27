@@ -1074,6 +1074,7 @@ interface PlanFacts {
     summary: string;
     perVisit: string | null;
     perYear: string | null;
+    priceNote: string | null;
 }
 
 export interface PlanEditor extends Taxed {
@@ -1086,12 +1087,17 @@ export interface PlanEditor extends Taxed {
 const GIFT_CHOICES = [2500, 5000, 7500, 10000, 15000, 20000];
 const PER_YEAR: Record<string, number> = { day: 365, week: 52, month: 12, year: 1 };
 
-function planFacts(v: ItemFormValues, covers: ItemRow | null): PlanFacts {
+function planFacts(v: ItemFormValues, covers: ItemRow | null, editing: boolean): PlanFacts {
     const price = parseCents(v.price, BUSINESS_CURRENCY) ?? 0;
     if (v.kind === "package") {
         const visits = minutesOf(v.sessionCount);
         if (covers === null || visits === 0)
-            return { summary: s.planSummaryIncomplete, perVisit: null, perYear: null };
+            return {
+                summary: s.planSummaryIncomplete,
+                perVisit: null,
+                perYear: null,
+                priceNote: null,
+            };
         const full = (covers.price_cents ?? 0) * visits;
         const saving =
             full > price
@@ -1104,6 +1110,7 @@ function planFacts(v: ItemFormValues, covers: ItemRow | null): PlanFacts {
                 saving,
             ]),
             perYear: null,
+            priceNote: null,
         };
     }
     if (v.kind === "subscription") {
@@ -1120,9 +1127,10 @@ function planFacts(v: ItemFormValues, covers: ItemRow | null): PlanFacts {
                     BUSINESS_CURRENCY,
                 ),
             ),
+            priceNote: editing ? s.membersKeepPrice : null,
         };
     }
-    return { summary: s.giftNote, perVisit: null, perYear: null };
+    return { summary: s.giftNote, perVisit: null, perYear: null, priceNote: null };
 }
 
 /** Packages, memberships and gift cards: the item form plus what a visit covers and what it's worth. */
@@ -1153,7 +1161,7 @@ export function usePlanEditor(
                     : [...v.giftAmounts, cents].sort((a, b) => a - b),
             );
         },
-        facts: planFacts(v, covers),
+        facts: planFacts(v, covers, item !== null),
     };
 }
 

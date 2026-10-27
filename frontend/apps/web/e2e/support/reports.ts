@@ -154,7 +154,7 @@ function zipMembers(archive: Buffer): { name: string; text: string }[] {
     return members;
 }
 
-async function artifact(path: string): Promise<Artifact> {
+export async function artifact(path: string): Promise<Artifact> {
     if (path.endsWith(".zip")) {
         const members = zipMembers(await readFile(path));
         return {

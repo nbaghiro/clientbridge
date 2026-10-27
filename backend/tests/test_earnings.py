@@ -368,12 +368,14 @@ async def test_payout_paid_posts_then_failed_reverses(
         await db.execute(
             select(Account.category, Entry.amount_cents, Entry.business_id)
             .join(Account, Account.id == Entry.account_id)
-            .where(Entry.ref == "payout:po_1")
+            .where(Entry.ref.in_(("payout:po_1", "payout:po_1:paid")))
         )
     ).all()
     assert sorted((kind, cents, biz) for kind, cents, biz in legs) == [
         ("bank", 50000, BIZ),
         ("stripe", -50000, BIZ),
+        ("transit", -50000, BIZ),
+        ("transit", 50000, BIZ),
     ]
     assert await _balances(db) == (bank + 50000, stripe - 50000)
 

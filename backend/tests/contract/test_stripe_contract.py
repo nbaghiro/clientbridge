@@ -1,10 +1,14 @@
 """Every v1 StripeGateway call against stripe-mock; it has no /v2 routes, so v2 calls are e2e."""
 
-from collections.abc import Sequence
+import contextlib
+from collections.abc import Awaitable, Callable, Sequence
 from datetime import UTC, datetime
+from typing import cast
 
 import pytest
+import stripe
 
+from clientbridge.core.errors import Conflict
 from clientbridge.integrations.stripe import (
     ChargeFees,
     ConnectComponent,
@@ -28,9 +32,25 @@ async def test_create_customer(contract_gateway: StripeGateway) -> None:
     assert cus.startswith("cus_")
 
 
-async def test_create_setup_intent(contract_gateway: StripeGateway) -> None:
+async def test_update_customer(contract_gateway: StripeGateway) -> None:
+    await contract_gateway.update_customer(ACCT, CUS, name="Robin Oak", email="robin@oak.test")
+
+
+async def test_lists_undelivered_events(contract_gateway: StripeGateway) -> None:
+    since = datetime(2020, 1, 1, tzinfo=UTC)
+    missed = await contract_gateway.undelivered_events(ACCT, since=since, limit=5)
+    assert len(missed) <= 5
+    assert all(e.id.startswith("evt_") and e.object_id for e in missed)
+
+
+async def test_create_setup_intent(
+    contract_gateway: StripeGateway, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    sent = _recorded(monkeypatch, stripe.SetupIntent)
     result = await contract_gateway.create_setup_intent(ACCT, customer_id=CUS)
     assert result.id.startswith("seti_") and result.client_secret
+    (params,) = sent
+    assert params["allowed_payment_method_types"] == ["card"]
 
 
 async def test_create_price(contract_gateway: StripeGateway) -> None:
@@ -63,6 +83,60 @@ async def test_create_payment_intent(contract_gateway: StripeGateway) -> None:
     assert result.id.startswith("pi_") and result.client_secret
 
 
+async def test_charges_a_saved_bank_account_under_its_mandate(
+    contract_gateway: StripeGateway, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    sent = _recorded(monkeypatch, stripe.PaymentIntent)
+    result = await contract_gateway.create_payment_intent(
+        ACCT,
+        amount_cents=5000,
+        currency="cad",
+        customer_id=CUS,
+        application_fee_cents=50,
+        metadata={"invoice_id": "inv_1"},
+        idempotency_key="contract-pi-pad",
+        payment_method="pm_contract",
+        mandate="mandate_contract",
+    )
+    assert result.id.startswith("pi_")
+    (params,) = sent
+    assert params["allowed_payment_method_types"] == ["acss_debit"]
+    assert params["mandate"] == "mandate_contract"
+    assert "payment_method_types" not in params
+
+
+async def test_pad_setup_asks_for_a_mandate_that_covers_invoices_and_memberships(
+    contract_gateway: StripeGateway, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    sent = _recorded(monkeypatch, stripe.SetupIntent)
+    with contextlib.suppress(Conflict):  # stripe-mock answers with card as the only type
+        await contract_gateway.create_pad_setup_intent(
+            ACCT,
+            customer_id=CUS,
+            idempotency_key="contract-pad-setup",
+        )
+    (params,) = sent
+    options = cast(dict[str, dict[str, object]], params["payment_method_options"])
+    mandate = cast(dict[str, object], options["acss_debit"]["mandate_options"])
+    assert mandate["default_for"] == ["invoice", "subscription"]
+    assert "payment_schedule" not in mandate and "interval_description" not in mandate
+
+
+def _recorded(
+    monkeypatch: pytest.MonkeyPatch, resource: type[stripe.PaymentIntent] | type[stripe.SetupIntent]
+) -> list[dict[str, object]]:
+    """Keep each create's parameters while stripe-mock still validates the request."""
+    sent: list[dict[str, object]] = []
+    create = cast(Callable[..., Awaitable[object]], resource.create_async)
+
+    async def record(**params: object) -> object:
+        sent.append(params)
+        return await create(**params)
+
+    monkeypatch.setattr(resource, "create_async", record)
+    return sent
+
+
 async def test_refund(contract_gateway: StripeGateway) -> None:
     result = await contract_gateway.refund(
         ACCT, payment_intent_id="pi_contract", amount_cents=500, idempotency_key="contract-re-1"
@@ -71,8 +145,12 @@ async def test_refund(contract_gateway: StripeGateway) -> None:
 
 
 async def test_create_connection_token(contract_gateway: StripeGateway) -> None:
-    secret = await contract_gateway.create_connection_token(ACCT)
+    secret = await contract_gateway.create_connection_token(ACCT, location_id="tml_contract")
     assert isinstance(secret, str) and secret
+
+
+async def test_delete_terminal_location(contract_gateway: StripeGateway) -> None:
+    await contract_gateway.delete_terminal_location(ACCT, location_id="tml_contract")
 
 
 async def test_create_terminal_location(contract_gateway: StripeGateway) -> None:
@@ -92,13 +170,17 @@ async def test_create_subscription(contract_gateway: StripeGateway) -> None:
         customer_id=CUS,
         price_id="price_contract",
         payment_method_id="pm_contract",
-        metadata={"tax_class": "standard", "tax_registered": "true"},
+        metadata={"business_id": "bz_contract", "tax_class": "standard"},
+        application_fee_percent=0.3,
     )
     assert result.id.startswith("sub_") and result.status
 
 
-async def test_cancel_subscription(contract_gateway: StripeGateway) -> None:
-    await contract_gateway.cancel_subscription(ACCT, subscription_id="sub_contract")
+@pytest.mark.parametrize("at_period_end", [False, True])
+async def test_cancel_subscription(contract_gateway: StripeGateway, at_period_end: bool) -> None:
+    await contract_gateway.cancel_subscription(
+        ACCT, subscription_id="sub_contract", at_period_end=at_period_end
+    )
 
 
 async def test_detach_payment_method(contract_gateway: StripeGateway) -> None:
@@ -154,7 +236,8 @@ async def test_create_plan_checkout(
 
 
 async def test_close_plan_checkouts(contract_gateway: StripeGateway) -> None:
-    assert isinstance(await contract_gateway.close_plan_checkouts(ACCT, keep="kept"), bool)
+    paid = await contract_gateway.close_plan_checkouts(ACCT, keep="kept")
+    assert paid is None or paid.id.startswith("sub_")
 
 
 async def test_plan_subscription_calls(
@@ -198,6 +281,11 @@ async def test_retrieve_connected_object(
 
 async def test_lists_balance_transactions(contract_gateway: StripeGateway) -> None:
     assert await contract_gateway.balance_transactions(ACCT)
+
+
+async def test_lists_balance_transactions_by_type(contract_gateway: StripeGateway) -> None:
+    rows = await contract_gateway.balance_transactions(ACCT, since=0, kind="refund_failure")
+    assert isinstance(rows, list)
 
 
 async def test_lists_payouts(contract_gateway: StripeGateway) -> None:
