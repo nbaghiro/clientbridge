@@ -542,7 +542,7 @@ export function BookingBody({ detail }: { detail: BookingDetail }) {
                 />
             </View>
             <Departure event={e} />
-            <CheckInCard key={e.id} event={e} />
+            <CheckInCard key={`checkin:${e.id}`} event={e} />
             <DepositDue event={e} />
             {client ? (
                 <DetailSection
@@ -682,16 +682,18 @@ export function BookingBody({ detail }: { detail: BookingDetail }) {
                         </Text>
                     ))}
                     {e.bookingId !== null ? (
-                        <BookingNoteBox key={e.bookingId} bookingId={e.bookingId} />
+                        <BookingNoteBox key={`note:${e.bookingId}`} bookingId={e.bookingId} />
                     ) : null}
                 </DetailSection>
             ) : null}
             <Room key={`room:${e.id}`} event={e} />
             {e.bookingId !== null ? <Photos event={e} /> : null}
             {e.bookingId !== null ? <Addons event={e} /> : null}
-            {e.bookingId !== null ? <Crew key={e.bookingId} event={e} /> : null}
+            {e.bookingId !== null ? <Crew key={`crew:${e.bookingId}`} event={e} /> : null}
             {e.bookingId !== null ? <Documents event={e} /> : null}
-            {e.bookingId !== null ? <BookingTreatmentNotes key={e.bookingId} event={e} /> : null}
+            {e.bookingId !== null ? (
+                <BookingTreatmentNotes key={`notes:${e.bookingId}`} event={e} />
+            ) : null}
             {detail.history.length > 0 ? (
                 <DetailSection title={s.detailHistory}>
                     <ActivityTimeline entries={detail.history} />
