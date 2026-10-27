@@ -1,6 +1,7 @@
 """Reject missing, skipped, retried or unexpectedly failing functional evidence."""
 
 import argparse
+import json
 from collections.abc import Mapping
 from pathlib import Path
 from xml.etree import ElementTree
@@ -143,6 +144,7 @@ BROWSER_CASES = {
         "XB-E2E-06": "OFF-E2E-01",
         "XB-E2E-07": "BILL-PILOT-02",
         "XB-E2E-08": "owner: shell, today, create menu, search, notifications and account menu",
+        "XB-E2E-17": "XB-E2E-17",
     },
     "connect": {
         "XB-E2E-09": "business navigation connects the shop, booking, and homepage sections on "
@@ -158,9 +160,24 @@ BROWSER_CASES = {
 }
 
 
+# Playwright's WebKit can't load a service-worker page offline; Chromium and Firefox run these
+WEBKIT_EXCLUDED = frozenset({"XB-E2E-05", "XB-E2E-06"})
+# the tag that keeps a case out of the WebKit project, matched by its grepInvert
+WEBKIT_EXCLUDED_TAG = "@no-webkit"
+
+
 def browser_cases(surface: str) -> dict[str, list[str]]:
-    cases = list(BROWSER_CASES.get(surface, {}).values())
-    return {project: cases for project in BROWSERS} if cases else {}
+    cases = BROWSER_CASES.get(surface, {})
+    if not cases:
+        return {}
+    return {
+        project: [
+            title
+            for identity, title in cases.items()
+            if project != "webkit" or identity not in WEBKIT_EXCLUDED
+        ]
+        for project in BROWSERS
+    }
 
 
 def matches(title: str, identity: str) -> bool:
@@ -171,6 +188,7 @@ def matches(title: str, identity: str) -> bool:
 class Attempt(BaseModel):
     status: str
     retry: int
+    duration: int = 0
 
 
 class Test(BaseModel):
@@ -183,6 +201,12 @@ class Test(BaseModel):
 class Spec(BaseModel):
     title: str
     tests: list[Test]
+    file: str = ""
+    line: int = 0
+
+    @property
+    def key(self) -> str:
+        return f"{self.file} > {self.title}"
 
 
 class Suite(BaseModel):
@@ -235,6 +259,15 @@ class Report(BaseModel):
                 passed += 1
         if not passed:
             raise ValueError("no functional cases passed")
+
+    def case_seconds(self) -> dict[str, int]:
+        """How long each case's first attempt took, which the next runs' shards are balanced by."""
+        return {
+            case.key: round(sum(t.results[0].duration for t in case.tests if t.results) / 1000)
+            for suite in self.suites
+            for case in suite.cases()
+            if any(t.results for t in case.tests)
+        }
 
     def first_attempts(self) -> list[dict[str, object]]:
         """Each case's first-attempt outcome in every repetition, and whether they agreed."""
@@ -299,9 +332,13 @@ def main() -> None:
     parser.add_argument("reports", type=Path, nargs="+")
     parser.add_argument("--required", nargs="*", default=[])
     parser.add_argument("--surface", choices=tuple(REQUIRED_CASES))
+    parser.add_argument("--seconds", type=Path, help="also write each case's measured seconds here")
     args = parser.parse_args()
     required = REQUIRED_CASES.get(args.surface, []) + args.required
-    merged(args.reports).validate_evidence(required)
+    report = merged(args.reports)
+    if args.seconds is not None:
+        args.seconds.write_text(json.dumps(report.case_seconds(), indent=4, sort_keys=True) + "\n")
+    report.validate_evidence(required)
     print("Functional evidence passed: no missing required cases, skipped cases or retries.")
 
 

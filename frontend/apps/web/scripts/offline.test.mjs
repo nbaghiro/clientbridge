@@ -7,7 +7,7 @@ const { Response } = globalThis;
 
 const worker = readFileSync(new URL("./service-worker.js", import.meta.url), "utf8");
 
-test("the offline shell caches only the build manifest and never intercepts API calls", async () => {
+test("the offline shell caches the build manifest and the served config, and never intercepts API calls", async () => {
     const handlers = new Map();
     const stored = new Map();
     const cache = {
@@ -16,8 +16,13 @@ test("the offline shell caches only the build manifest and never intercepts API 
             return Promise.resolve();
         },
         match: (url) => Promise.resolve(stored.get(url)?.clone()),
+        put: (url, response) => {
+            stored.set(url, response);
+            return Promise.resolve();
+        },
     };
     let offline = false;
+    let fetched = 0;
     runInNewContext(
         worker.replace("const ASSETS = [];", 'const ASSETS = ["/index.html", "/assets/app.js"];'),
         {
@@ -32,7 +37,7 @@ test("the offline shell caches only the build manifest and never intercepts API 
             fetch: () =>
                 offline
                     ? Promise.reject(new Error("offline"))
-                    : Promise.resolve(new Response("online")),
+                    : Promise.resolve(new Response(`online ${String(fetched++)}`)),
         },
     );
     let installed;
@@ -42,7 +47,7 @@ test("the offline shell caches only the build manifest and never intercepts API 
         },
     });
     await installed;
-    assert.deepEqual([...stored.keys()], ["/index.html", "/assets/app.js"]);
+    assert.deepEqual([...stored.keys()], ["/index.html", "/assets/app.js", "/config.js"]);
     const request = async (path, mode = "cors", method = "GET") => {
         let response;
         handlers.get("fetch")({
@@ -53,7 +58,9 @@ test("the offline shell caches only the build manifest and never intercepts API 
         });
         return response;
     };
+    assert.equal(await (await request("/config.js")).text(), "online 0");
     offline = true;
+    assert.equal(await (await request("/config.js")).text(), "online 0");
     assert.equal(await (await request("/schedule", "navigate")).text(), "/index.html");
     assert.equal(await (await request("/assets/app.js")).text(), "/assets/app.js");
     assert.equal(await request("/v1/me"), undefined);

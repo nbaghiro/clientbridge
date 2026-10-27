@@ -101,7 +101,10 @@ def digest(*paths: Path) -> str:
     hashed = hashlib.sha256()
     for path in paths:
         for file in sorted(
-            p for p in ([path] if path.is_file() else path.rglob("*")) if p.is_file()
+            p
+            for p in ([path] if path.is_file() else path.rglob("*"))
+            # bytecode carries the checkout's file times, which differ between machines
+            if p.is_file() and "__pycache__" not in p.parts
         ):
             # relative to what was named, so moving a file or folder keeps its fingerprint
             hashed.update(str(file.relative_to(path) if path.is_dir() else file.name).encode())
@@ -363,8 +366,20 @@ def write_config() -> None:
     (TIER / "compose.json").write_text(json.dumps(compose_spec(), indent=2))
 
 
+def compose_command(*arguments: str) -> list[str]:
+    return ["docker", "compose", "-p", PROJECT, "-f", str(TIER / "compose.json"), *arguments]
+
+
+def postgres(
+    *arguments: str, stdin: IO[bytes] | None = None, stdout: IO[bytes] | None = None
+) -> None:
+    """A Postgres client tool in the tier's own container, so its version always matches."""
+    command = compose_command("exec", "-T", "postgres", *arguments, "--username", "clientbridge")
+    subprocess.run(command, cwd=TIER, stdin=stdin, stdout=stdout, check=True)
+
+
 def compose(*arguments: str, capture: bool = False) -> str:
-    command = ["docker", "compose", "-p", PROJECT, "-f", str(TIER / "compose.json"), *arguments]
+    command = compose_command(*arguments)
     result = subprocess.run(command, cwd=TIER, check=True, text=True, capture_output=capture)
     return result.stdout if capture else ""
 

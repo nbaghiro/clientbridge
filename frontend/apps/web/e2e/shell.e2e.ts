@@ -1,7 +1,8 @@
 import { saleNumber, strings } from "@clientbridge/app-core/public";
 import { axeIssues, unmarkedFocus, unreadableHover } from "@clientbridge/config/e2e/accessibility";
 import { demoId, runEmail, runUrl } from "@clientbridge/config/e2e/run";
-import { expect, type Locator, type Page, test } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
+import { test } from "./support/session";
 import { offsiteLoadFailure } from "./support/shell";
 import { createInvoice, openInvoice } from "./support/billing";
 import {
@@ -20,6 +21,9 @@ const DEPOSIT_BOOKING = demoId("bk_015");
 // Other cases ring up and void sales beside this one, so open the seeded Tap to Pay sale.
 const TAP_SALE = 6;
 const TAP_CLIENT = "Ethan Wright";
+// Other cases refund the newest payments in full, so open yesterday's seeded, part-refunded sale.
+const REFUND_SALE = 2;
+const REFUND_CLIENT = "Noah Schmidt";
 
 const PAYMENTS_TABS = {
     invoices: strings.billing.newInvoice,
@@ -119,8 +123,9 @@ async function signIn(page: Page, email: string): Promise<Walk> {
     await page.fill('input[type="email"]', email);
     await page.fill('input[type="password"]', PASSWORD);
     await page.getByRole("button", { name: strings.auth.signIn, exact: true }).click();
-    await expect(walk.main.getByRole("heading", { level: 1 })).toBeVisible({ timeout: 60_000 });
-    await expect(page).toHaveURL(/\/today$/);
+    // the sign-in page has a heading too, so the first sync's budget waits on the landing page
+    await expect(page).toHaveURL(/\/today$/, { timeout: 60_000 });
+    await expect(walk.main.getByRole("heading", { level: 1 })).toBeVisible();
     // The replica needs a moment to sync before the pages have rows to open.
     await page.waitForTimeout(6000);
     return walk;
@@ -668,9 +673,9 @@ test("owner: payments desk, records and their dialogs", async ({ page }) => {
 
     await walk.step("refunds: payment, refund confirm, credit notes and disputes", async () => {
         await navigate(page, "/payments/refunds");
+        await main.getByRole("searchbox").fill(REFUND_CLIENT);
         await main
-            .getByRole("button", { name: /Invoice #|Sale S-/ })
-            .first()
+            .getByRole("button", { name: new RegExp(`\\b${saleNumber(REFUND_SALE)}\\b`) })
             .click();
         const refund = page.getByRole("dialog");
         await expect(refund.getByText(strings.refunds.reverses)).toBeVisible();

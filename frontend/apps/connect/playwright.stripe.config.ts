@@ -1,7 +1,7 @@
 import { defineConfig } from "@playwright/test";
 
 import { on, PORTS } from "./e2e/hosts";
-import { runBuild, runPort } from "@clientbridge/config/e2e/run";
+import { runPreview, runPort } from "@clientbridge/config/e2e/run";
 
 export default defineConfig({
     testDir: "e2e",
@@ -52,12 +52,12 @@ export default defineConfig({
     ],
     webServer: [
         {
-            command: runBuild("connect", PORTS.default),
+            command: runPreview("connect", PORTS.default),
             url: `http://localhost:${String(PORTS.default)}/`,
             reuseExistingServer: false,
         },
         {
-            command: runBuild("web", runPort("WEB_E2E_PORT")),
+            command: runPreview("web", runPort("WEB_E2E_PORT")),
             url: `http://localhost:${String(runPort("WEB_E2E_PORT"))}/`,
             reuseExistingServer: false,
         },

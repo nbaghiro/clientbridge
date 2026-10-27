@@ -1,5 +1,5 @@
 import { defineConfig } from "@playwright/test";
-import { runBuild, runPort } from "@clientbridge/config/e2e/run";
+import { runPreview, runPort } from "@clientbridge/config/e2e/run";
 
 const port = runPort("WEB_E2E_PORT");
 const pseudoPort = runPort("WEB_PSEUDO_E2E_PORT");
@@ -41,6 +41,8 @@ export default defineConfig({
             name: browserName,
             testIgnore: "pseudo.e2e.ts",
             grep: /@browsers/,
+            // Playwright's WebKit cannot load a service-worker page offline
+            ...(browserName === "webkit" ? { grepInvert: /@no-webkit/ } : {}),
             use: { browserName, baseURL },
         })),
     ],
@@ -48,7 +50,7 @@ export default defineConfig({
         {
             // CI tests the production bundle; locally the dev server keeps edits live
             command: process.env.CI
-                ? runBuild("web", port)
+                ? runPreview("web", port)
                 : `pnpm exec vite --port ${String(port)} --strictPort`,
             url: `http://localhost:${String(port)}/`,
             reuseExistingServer: !process.env.CI,
@@ -63,7 +65,7 @@ export default defineConfig({
             ? [
                   {
                       command: process.env.CI
-                          ? runBuild("admin", new URL(adminUrl).port)
+                          ? runPreview("admin", new URL(adminUrl).port)
                           : `pnpm --filter admin exec vite --port ${new URL(adminUrl).port} --strictPort`,
                       url: `${adminUrl}/`,
                       reuseExistingServer: !process.env.CI,

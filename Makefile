@@ -31,6 +31,7 @@ help:
 	@echo "test-web         the web lane on the test tier (ARGS adds runner options, e.g. --project pseudo)"
 	@echo "test-connect     the Connect lane on the test tier: booking, manage link, shop, client pages"
 	@echo "test-functional  any lane on the test tier, isolated by its own namespace (FUNCTIONAL_ARGS)"
+	@echo "test-prepare     seed the snapshot and build the bundles the lanes after it reuse"
 	@echo "test-stripe-browser  isolated sandbox checkout (STRIPE_BROWSER_ARGS selects credentials mode)"
 	@echo "test-flakes      a functional lane shuffled by FLAKE_SEED and repeated FLAKE_REPEAT times; fails on any flake"
 	@echo "test-mutations   break a few invariants in a throwaway worktree and require their cases to fail"
@@ -53,7 +54,7 @@ help:
 	@echo "gen-taxes        regenerate the frontend's tax rate table and engine parity cases from the backend"
 	@echo "codegen-check    regenerate client, sync schema, themes, messages and strings; fail if stale"
 	@echo "test             test-backend + test-frontend"
-	@echo "test-backend     pytest with the 90% branch-coverage gate, on a freshly seeded database of its own"
+	@echo "test-backend     pytest in parallel with the 90% branch-coverage gate, each worker on a seeded copy of its own"
 	@echo "test-frontend    the frontend unit tests, with app-core again in three time zones"
 	@echo "test-contract    real StripeGateway vs the test tier's stripe-mock"
 	@echo "test-auth        KratosIdentityProvider vs the test tier's auth service"
@@ -146,9 +147,13 @@ test-tier-reset:
 test-tier-logs:
 	docker compose -p clientbridge-test logs --no-color --timestamps
 
-.PHONY: test-functional
+.PHONY: test-functional test-prepare
 test-functional:
 	cd backend && uv run python -m e2e.runner $(FUNCTIONAL_ARGS)
+
+# The seed snapshot and the web, Connect and admin builds that the lanes after it reuse.
+test-prepare:
+	cd backend && uv run python -m e2e.runner --prepare
 
 FLAKE_REPEAT ?= 3
 FLAKE_SEED ?= $(shell date +%s)
@@ -239,7 +244,7 @@ test: test-backend test-frontend test-infra
 
 test-backend:
 	cd backend && uv run python -m e2e.database \
-		pytest --cov=clientbridge --cov-branch --cov-fail-under=90 -q
+		pytest -n auto --cov=clientbridge --cov-branch --cov-fail-under=90 -q
 
 # App-core runs again in three time zones, since displays must follow the business zone, not the device's.
 test-frontend:

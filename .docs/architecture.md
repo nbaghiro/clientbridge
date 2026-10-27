@@ -22,7 +22,7 @@ Canadian tax built in. All user-facing copy is centralized in one place. The cus
 | Web          | **React + Vite + Tailwind** (provider/admin app)                                                                                              |
 | Mobile       | **React Native (Expo)** (provider/admin app)                                                                                                  |
 | Customer     | **React + Vite** (Connect — public, PowerSync-free, embeddable)                                                                               |
-| Offline sync | **PowerSync** — on-device SQLite (web WASM on IndexedDB · Expo op-sqlite), WAL server-push, per-business Sync Streams; writes through FastAPI |
+| Offline sync | **PowerSync** — on-device SQLite (web WASM on IndexedDB, or OPFS in WebKit when it grants sync access · Expo op-sqlite), WAL server-push, per-business Sync Streams; writes through FastAPI |
 | Payments     | **Stripe Connect** (Accounts v2 merchants, direct charges) + PAD/EFT                                                                          |
 | Repo         | **Polyglot monorepo** — backend (uv) + frontend (pnpm + turbo), one root Makefile                                                             |
 
@@ -429,7 +429,7 @@ build + permanent maintenance.)
 
 ### Device storage
 
-Replicas are named per API, PowerSync URL and user, and refuse a database that belongs to another account. When the API says the session is gone, the shell removes the replica from the screen and shows sign-in; the data and pending work stay on the device for the same account, and sign-out clears them. Web caches only build assets and the app shell for offline launches, never API responses. It asks the browser to keep its storage persistent and shows nothing when the browser declines. Offline session restoration requires a server verification within the past seven days; checks also run each minute and on foregrounding. Missing, expired or future verification timestamps require reconnection without deleting pending work. This is a local app access policy, not protection against someone modifying browser storage. A full device shows its own sync problem. Neither platform encrypts the database at the application level: browser storage does not protect against a script running on the same origin, mobile relies on the platform's file protection, the session token is in SecureStore on mobile, and on web the session is an HttpOnly cookie (`localStorage` keeps the user id and last successful verification time).
+The web replica is a wa-sqlite file in IndexedDB (`IDBBatchAtomicVFS`) in Chromium and Firefox and in the origin private file system (`OPFSCoopSyncVFS`) in WebKit, chosen by `replicaStorage` from `navigator.vendor` in `apps/web/src/lib/powersync.ts`; WebKit's IndexedDB open can stall when a reloaded page reopens the replica. Before opening in WebKit, a small worker (`opfsProbe.ts`) checks that OPFS grants a sync access handle. A private window refuses it, so there the replica stays in IndexedDB. `frontend/package.json` overrides `@journeyapps/wa-sqlite` to 2.0.10, past the 2.0.6 that `@powersync/web` 2.4.2 pins, for its IndexedDB and OPFS fixes. Replicas are named per API, PowerSync URL and user, and refuse a database that belongs to another account. When the API says the session is gone, the shell removes the replica from the screen and shows sign-in; the data and pending work stay on the device for the same account, and sign-out clears them. Web caches only build assets and the app shell for offline launches, never API responses. It asks the browser to keep its storage persistent and shows nothing when the browser declines. Offline session restoration requires a server verification within the past seven days; checks also run each minute and on foregrounding. Missing, expired or future verification timestamps require reconnection without deleting pending work. This is a local app access policy, not protection against someone modifying browser storage. A full device shows its own sync problem. Neither platform encrypts the database at the application level: browser storage does not protect against a script running on the same origin, mobile relies on the platform's file protection, the session token is in SecureStore on mobile, and on web the session is an HttpOnly cookie (`localStorage` keeps the user id and last successful verification time).
 
 ### `/sync/token` + JWKS (`sync/auth.py`)
 
@@ -838,7 +838,7 @@ layer.** Only four things differ per platform:
 
 | Seam              | web                                                                                      | mobile                               |
 | ----------------- | ---------------------------------------------------------------------------------------- | ------------------------------------ |
-| **SQLite driver** | `@powersync/web` (wa-sqlite on IndexedDB; no cross-origin isolation, so Stripe.js loads) | `@powersync/op-sqlite` (native)      |
+| **SQLite driver** | `@powersync/web` (wa-sqlite 2.0.10 on IndexedDB in Chromium and Firefox, on OPFS in WebKit when it grants sync access; no cross-origin isolation, so Stripe.js loads) | `@powersync/op-sqlite` (native)      |
 | **Session**       | HttpOnly session cookie (`localStorage` keeps only the signed-in user id)                | Session token in expo-secure-store   |
 | **Config source** | `import.meta.env` (Vite)                                                                 | `Constants.expoConfig.extra`         |
 | **Rendering**     | DOM + Tailwind                                                                           | RN + StyleSheet from the token theme |
@@ -866,14 +866,19 @@ Everything else — SQL, mutations, validation, status→`Intent` decisions, cop
   Team → staff, Schedule → bookings, Gift cards → entitlements, Onboarding → business).
 - **Two entrypoints:** `index.ts` (full) and **`public.ts`** — the PowerSync-free lean subpath the Connect
   app imports.
-- **Runtime URLs:** web and Connect load `/config.js` before their bundle. The web image serves it with
-  `window.__CLIENTBRIDGE_CONFIG__ = { baseDomain, stripePublishableKey }`, and `runtimeConfig()`
-  (`runtime.ts`) derives the API (`api.`) and the auth service (`api.<base>/auth`), PowerSync (`sync.`) and
-  Connect's four URLs from it: the business page template (`https://{slug}.<base>`), `book.`, `shop.` and
-  `pay.`, so one image serves staging and production. `runtime.ts` also builds every Connect link from them
-  (`businessPageUrl`, `bookingPageUrl`, `shopPageUrl`) and tells Connect which site an origin serves
-  (`connectSite`). The dev servers ship an empty
-  `public/config.js`, and each app's `config.ts` then falls back to its `VITE_*` values.
+- **Runtime URLs:** web, Connect and admin load `/config.js` before their bundle and read every URL from
+  it through `runtimeConfig()` (`runtime.ts`); no URL is compiled into a bundle. The web image's Caddy
+  serves it from `BASE_DOMAIN`, `STRIPE_PUBLISHABLE_KEY` and any of `API_URL`, `AUTH_URL`, `SYNC_URL`,
+  `APP_URL`, `ADMIN_URL`, `PAGE_URL`, `BOOK_URL`, `SHOP_URL` and `PAY_URL` that are set, and
+  `runtimeConfig()` derives the rest from the base domain: the API (`api.`), the auth service
+  (`api.<base>/auth`), PowerSync (`sync.`) and Connect's four URLs, the business page template
+  (`https://{slug}.<base>`), `book.`, `shop.` and `pay.`, so one image serves staging and production. In dev
+  and in e2e previews the Vite plugin in `packages/config/vite/runtime-config.ts` serves the same script from
+  the same variables, taken from the process environment and the app's committed `.env.development`, and
+  refuses to start when one the app needs is missing. Reading a URL that is neither set nor derivable throws,
+  so a misconfigured server fails at once. The web app's service worker keeps the last `/config.js` for
+  offline starts. `runtime.ts` also builds every Connect link from these URLs (`businessPageUrl`,
+  `bookingPageUrl`, `shopPageUrl`) and tells Connect which site an origin serves (`connectSite`).
 - **One checkout.** Every sale (deposit, gift card, package, subscription) runs through `useCheckout`
   (saved card or new card, one idempotency key per attempt), and saving a card through
   `useAddPaymentMethod`. Only chargeable saved methods are offered (`checkoutMethods`): cards, and bank

@@ -468,9 +468,9 @@ export interface ThreadComposer {
 
 /** A STOP reply blocks texts; email still reaches the client. */
 export function useThreadComposer(api: ApiLike, thread: InboxThread): ThreadComposer {
-    const [channel, setChannel] = useState<Channel>(
-        thread.textsOff || thread.channel === "email" ? "email" : "sms",
-    );
+    // until the person picks one, the channel follows the thread, whose STOP can sync in after opening
+    const [picked, setChannel] = useState<Channel | null>(null);
+    const channel = picked ?? (thread.textsOff || thread.channel === "email" ? "email" : "sms");
     const [body, setBody] = useState("");
     const { busy, error, setError, run } = useAsyncAction();
     const attempt = useRef<Attempt | null>(null);

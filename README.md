@@ -43,7 +43,7 @@ typed `/v1` command) · command (`POST /v1`) · webhook/public · job. Payments 
 ```
 clientbridge/
 ├── Makefile · docker-compose.yml   root orchestration + local infra (87xx ports)
-├── .github/workflows/ci.yml        CI: backend · contract · frontend · site · codegen-drift
+├── .github/workflows/ci.yml        CI: lint, then checks and e2e, then ci-result
 ├── .githooks/                      versioned git hooks (pre-commit = format-check + lint)
 ├── .docs/                          main docs · design/ · reviews/ · explorations/ · executions/
 ├── backend/                        FastAPI app — src/clientbridge/{api,services,models,core,sync,tasks,integrations}
@@ -102,11 +102,11 @@ make test-site      # site browser pass: every page, links, images, phone width,
 ```
 
 The **pre-commit hook** (`make hooks`) runs format-check, lint and codegen-check on every commit. **CI**
-([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs on every push to `main` + PR, in five
-jobs (all but contract call the same make targets as the local gate): **backend** (lint · type · migrate · seed ·
-pytest 90% branch), **contract** (stripe-mock), **frontend** (lint · type · prettier · copy rules · tests ·
-build), **site** (browser and accessibility pass), and **codegen-drift** (fails if the generated
-api-client / PowerSync schema / themes are stale). Conventions, the gate, and testing live in
+([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs on every push to `main` + PR and calls the
+same make targets as the local gate. A **lint** group (format, lint, types, infra and codegen drift) runs
+first; the **checks** group (backend tests, Stripe contract, frontend tests and build, images, site) and
+the **e2e** group (web, Connect, Android and sync lanes) start only when it passes. **ci-result** is the
+one required check and passes only when all three groups passed. Conventions, the gate, and testing live in
 [`.docs/engineering.md`](.docs/engineering.md).
 
 ## Docs

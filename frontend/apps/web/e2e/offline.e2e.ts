@@ -1,5 +1,5 @@
 import { strings } from "@clientbridge/app-core/public";
-import { type BrowserContext, expect, test } from "@playwright/test";
+import { type BrowserContext, expect } from "@playwright/test";
 import { runEmail, runUrl } from "@clientbridge/config/e2e/run";
 import {
     expectMondayOnly,
@@ -9,7 +9,7 @@ import {
     selectHoursTime,
     type HoursCommand,
 } from "./support/hours";
-import { navigate, signIn } from "./support/session";
+import { navigate, signIn, test } from "./support/session";
 
 // Firefox's emulated offline leaves the replica's token fetch pending, so it drops requests instead
 async function setOffline(context: BrowserContext, browserName: string, offline: boolean) {
@@ -20,7 +20,7 @@ async function setOffline(context: BrowserContext, browserName: string, offline:
 
 test(
     "the production shell restores its replica offline and locks expired offline access without deleting it",
-    { tag: "@browsers" },
+    { tag: ["@browsers", "@no-webkit"] },
     async ({ page, context, browserName }) => {
         test.skip(!process.env.CI, "Requires the production service worker");
         await page.goto("/");
@@ -61,15 +61,16 @@ test(
             return keys;
         });
         expect(cached).toContain("/index.html");
-        expect(cached.every((path) => path === "/index.html" || path.startsWith("/assets/"))).toBe(
-            true,
-        );
+        expect(cached).toContain("/config.js");
+        const shell = (path: string) =>
+            ["/index.html", "/config.js"].includes(path) || path.startsWith("/assets/");
+        expect(cached.every(shell)).toBe(true);
     },
 );
 
 test(
     "OFF-E2E-01 working-hours command survives offline reload and reconnects exactly once",
-    { tag: "@browsers" },
+    { tag: ["@browsers", "@no-webkit"] },
     async ({ page, context, request, browser, browserName }, testInfo) => {
         test.skip(!process.env.CI, "Requires the production service worker");
         test.setTimeout(240_000);
@@ -188,6 +189,52 @@ test(
             await setOffline(context, browserName, false);
             await observer.close();
             await staff.cleanup();
+        }
+    },
+);
+
+test(
+    "XB-E2E-17 a private window keeps the replica in IndexedDB and reopens it after a reload",
+    { tag: "@browsers" },
+    async ({ browser, baseURL }) => {
+        // a plain Playwright context browses privately, where WebKit refuses OPFS
+        const privateWindow = await browser.newContext({
+            ...(baseURL === undefined ? {} : { baseURL }),
+            viewport: { width: 1440, height: 900 },
+        });
+        try {
+            const page = await privateWindow.newPage();
+            const replicas = (): Promise<string[]> =>
+                page.evaluate(async () =>
+                    (await indexedDB.databases())
+                        .map((database) => database.name ?? "")
+                        .filter((name) => name.startsWith("clientbridge-")),
+                );
+            await signIn(page);
+            await expect(page.getByRole("heading", { level: 1 })).toContainText("Hannah");
+            const opened = await replicas();
+            expect(opened).toHaveLength(1);
+            test.setTimeout(400_000);
+            await page.reload();
+            await expect(page).toHaveURL(/\/today$/, { timeout: 60_000 });
+            const started = Date.now();
+            const trail: string[] = [];
+            for (let i = 0; i < 60; i++) {
+                const heading = await page.getByRole("heading", { level: 1 }).textContent();
+                const locks = await page.evaluate(async () =>
+                    JSON.stringify(await navigator.locks.query()),
+                );
+                trail.push(`${String(Date.now() - started)} ${heading ?? ""} ${locks}`);
+                if (heading?.includes("Hannah")) break;
+                await page.waitForTimeout(5000);
+            }
+            await test
+                .info()
+                .attach("dbg-wait", { body: trail.join("\n"), contentType: "text/plain" });
+            await expect(page.getByRole("heading", { level: 1 })).toContainText("Hannah");
+            expect(await replicas()).toEqual(opened);
+        } finally {
+            await privateWindow.close();
         }
     },
 );

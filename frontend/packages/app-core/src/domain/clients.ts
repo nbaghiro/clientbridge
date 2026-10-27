@@ -682,6 +682,12 @@ export function useClientEditor(
     const textsStopped = useTextsStopped(clientId ?? "");
     const initial = useMemo(() => draftFor(client, agreed), [client, agreed]);
     const [draft, setDraft] = useState<ClientDraft>(initial);
+    // the directory can load after the editor opens, so an untouched draft follows the record
+    const [shown, setShown] = useState(initial);
+    if (shown !== initial) {
+        setShown(initial);
+        if (JSON.stringify(draft) === JSON.stringify(shown)) setDraft(initial);
+    }
     const [tried, setTried] = useState(false);
     const [ignored, setIgnored] = useState(false);
     const { busy, error, setError, run } = useAsyncAction();

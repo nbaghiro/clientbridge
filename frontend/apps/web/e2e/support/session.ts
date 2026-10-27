@@ -1,7 +1,37 @@
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { strings } from "@clientbridge/app-core/public";
-import { expect, type Browser, type BrowserContext, type Page } from "@playwright/test";
+import {
+    test as base,
+    expect,
+    type Browser,
+    type BrowserContext,
+    type Page,
+} from "@playwright/test";
 import { runEmail } from "@clientbridge/config/e2e/run";
+
+// Playwright's WebKit contexts browse privately, where OPFS refuses the replica, so WebKit gets a profile
+export const test = base.extend({
+    context: async ({ browserName, context, playwright, baseURL, viewport }, use) => {
+        if (browserName !== "webkit") {
+            await use(context);
+            return;
+        }
+        const profile = await mkdtemp(join(tmpdir(), "webkit-profile-"));
+        const persistent = await playwright.webkit.launchPersistentContext(profile, {
+            ...(baseURL === undefined ? {} : { baseURL }),
+            viewport,
+        });
+        try {
+            await use(persistent);
+        } finally {
+            await persistent.close();
+            await rm(profile, { recursive: true, force: true });
+        }
+    },
+});
 
 export interface Credentials {
     email: string;

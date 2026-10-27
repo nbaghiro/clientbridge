@@ -6,7 +6,6 @@ import json
 import re
 import uuid
 from collections.abc import AsyncIterator, Iterator, Sequence
-from concurrent.futures import ProcessPoolExecutor
 from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
@@ -16,28 +15,22 @@ import asyncpg
 import boto3
 import httpx
 from scripts import demo_copy, seed_demo
-from scripts.demo_context import DEMO_BUSINESSES, DEMO_PASSWORD
+from scripts.demo_context import DEMO_PASSWORD
 from sqlalchemy import CheckConstraint, String, Table, UniqueConstraint, select, text
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from clientbridge.core import clock
 from clientbridge.core.config import get_settings
 from clientbridge.integrations.kratos import get_identity_provider
 from clientbridge.integrations.s3 import S3_CONFIG
 from clientbridge.models import Base
 from clientbridge.models.business import Business, User
-from clientbridge.models.platform import File
-from e2e import tier
+from e2e import snapshot, tier
 from e2e.database import admin, on
 
 TOKEN = re.compile(r"[A-Za-z0-9_]+")
 EMAIL = re.compile(r"([A-Za-z0-9._%+-]+)@([A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,})")
 # the bucket is the run's own, so stored keys stay as the seed wrote them and find their assets
 KEPT = {("files", "s3_key")}
-
-
-def core_businesses() -> list[str]:
-    return [business.id for business in DEMO_BUSINESSES if business.core]
 
 
 def unique_groups(table: Table) -> list[list[str]]:
@@ -118,37 +111,17 @@ def scope(table: Table, business_ids: Sequence[str]) -> tuple[str, list[list[str
 
 
 @asynccontextmanager
-async def scratch_database(namespace: str) -> AsyncIterator[str]:
-    """A migrated empty database beside the tier's, seeded and then copied from."""
+async def scratch_database(namespace: str, seeded: snapshot.Snapshot) -> AsyncIterator[str]:
+    """The seed snapshot restored into a database beside the tier's, to copy from."""
     settings = get_settings()
     name = f"clientbridge_test_seed_{namespace}"
     await admin(f"DROP DATABASE IF EXISTS {demo_copy.quote(name)} WITH (FORCE)")
     await admin(f"CREATE DATABASE {demo_copy.quote(name)} OWNER clientbridge_migrator")
-    url = await demo_copy.prepare(
-        on(settings.migration_database_url, name), settings.migration_database_url
-    )
     try:
-        yield url
+        await asyncio.to_thread(snapshot.restore, seeded, name)
+        yield on(settings.migration_database_url, name)
     finally:
         await admin(f"DROP DATABASE IF EXISTS {demo_copy.quote(name)} WITH (FORCE)")
-
-
-async def seed_scratch(url: str, as_of: datetime) -> None:
-    loop = asyncio.get_running_loop()
-    businesses = core_businesses()
-    with ProcessPoolExecutor(len(businesses), max_tasks_per_child=1) as pool:
-        graphs = list(
-            await asyncio.gather(
-                *(loop.run_in_executor(pool, seed_demo.build_graph, b, as_of) for b in businesses)
-            )
-        )
-        seed_demo.upload_demo_assets([file for graph in graphs for file in graph.ctx.all(File)])
-        outcomes = await asyncio.gather(
-            *(loop.run_in_executor(pool, seed_demo.written, graph, as_of, url) for graph in graphs)
-        )
-    failed = [f"{o.business_id}: {o.error}" for o in outcomes if o.error]
-    if failed:
-        raise SystemExit(f"seeding the scratch database failed: {'; '.join(failed)}")
 
 
 async def link_identities(scratch: asyncpg.Connection, renamer: Renamer) -> dict[str, str]:
@@ -170,7 +143,7 @@ async def copy_into(
     scratch: asyncpg.Connection, target: asyncpg.Connection, renamer: Renamer
 ) -> int:
     """Copy every seeded row into the shared database, renamed, in one transaction."""
-    businesses = core_businesses()
+    businesses = snapshot.core_businesses()
     copied = 0
     async with target.transaction():
         await target.execute("SELECT set_config('clientbridge.ledger_write', 'on', true)")
@@ -219,15 +192,16 @@ async def copy_into(
     return copied
 
 
-async def seed(namespace: str, as_of: datetime) -> dict[str, object]:
+async def seed(namespace: str, as_of: datetime | None) -> dict[str, object]:
     """Write the core demo businesses into the shared database as this namespace's own."""
     settings = get_settings()
-    async with scratch_database(namespace) as url:
-        await seed_scratch(url, as_of)
+    seeded = await snapshot.ensure(as_of)
+    async with scratch_database(namespace, seeded) as url:
         scratch = await demo_copy.connect(url)
         target = await demo_copy.connect(settings.migration_database_url)
         try:
-            stray = await demo_copy.uncovered(scratch, core_businesses(), [])
+            await snapshot.upload_assets(scratch)
+            stray = await demo_copy.uncovered(scratch, snapshot.core_businesses(), [])
             stray = [entry for entry in stray if not entry.startswith("users:")]
             if stray:
                 raise SystemExit(f"seeded rows outside the core businesses: {stray}")
@@ -244,8 +218,9 @@ async def seed(namespace: str, as_of: datetime) -> dict[str, object]:
             await target.close()
     return {
         "namespace": namespace,
+        "as_of": seeded.as_of.isoformat(),
         "rows": rows,
-        "businesses": {business: renamer.id(business) for business in core_businesses()},
+        "businesses": {business: renamer.id(business) for business in snapshot.core_businesses()},
     }
 
 
@@ -339,7 +314,7 @@ def main() -> None:
         print(json.dumps(asyncio.run(purge(args.namespace))))
         return
     seed_demo.validate_seed_target()
-    result = asyncio.run(seed(args.namespace, args.as_of or clock.now()))
+    result = asyncio.run(seed(args.namespace, args.as_of))
     if args.output is not None:
         args.output.write_text(json.dumps(result, indent=2))
     print(json.dumps(result))

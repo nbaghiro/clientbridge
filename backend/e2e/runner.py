@@ -36,6 +36,7 @@ from e2e.results import (
     BROWSERS,
     REQUIRED_CASES,
     Report,
+    Spec,
     browser_cases,
     validate_native_evidence,
 )
@@ -102,6 +103,82 @@ def source_snapshot() -> dict[str, object]:
         "source_sha256": digest.hexdigest(),
         "dirty": bool(subprocess.check_output(["git", "status", "--porcelain"], cwd=ROOT)),
     }
+
+
+BUNDLES = ("web", "connect", "admin")
+BUILDS = tier.TIER / "builds"
+KEPT_BUILDS = 3
+
+
+def bundle_sources() -> str:
+    """What the web, Connect and admin bundles are built from, leaving out tests and other apps."""
+    names = (
+        subprocess.check_output(
+            ["git", "ls-files", "--cached", "--others", "--exclude-standard", "-z", "frontend"],
+            cwd=ROOT,
+        )
+        .decode()
+        .split("\0")
+    )
+    digest = hashlib.sha256()
+    for name in sorted(set(names)):
+        path = ROOT / name
+        skipped = (
+            name.startswith(("frontend/apps/mobile/", "frontend/apps/site/"))
+            or "/e2e/" in name
+            or ".test." in path.name
+            or path.name.startswith("playwright.")
+        )
+        if not name or skipped or not path.is_file():
+            continue
+        digest.update(name.encode())
+        digest.update(hashlib.sha256(path.read_bytes()).digest())
+    return digest.hexdigest()[:16]
+
+
+def ensure_builds(log: IO[bytes] | None = None) -> dict[str, Path]:
+    """One production build per app and source fingerprint, which every lane previews."""
+    BUILDS.mkdir(parents=True, exist_ok=True)
+    key = bundle_sources()
+    built: dict[str, Path] = {}
+    with (BUILDS / "builds.lock").open("a") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        for app in BUNDLES:
+            target = BUILDS / f"{app}-{key}"
+            if not (target / "index.html").is_file():
+                partial = BUILDS / f"{app}-{key}.partial"
+                shutil.rmtree(partial, ignore_errors=True)
+                subprocess.run(
+                    ["pnpm", "--filter", app, "exec", "vite", "build", "--outDir", str(partial)],
+                    cwd=ROOT / "frontend",
+                    stdout=log or sys.stderr,
+                    stderr=subprocess.STDOUT,
+                    check=True,
+                )
+                shutil.rmtree(target, ignore_errors=True)
+                partial.rename(target)
+            built[app] = target
+            older = sorted(
+                (found for found in BUILDS.glob(f"{app}-*") if found != target),
+                key=lambda found: found.stat().st_mtime,
+                reverse=True,
+            )
+            for stale in older[KEPT_BUILDS - 1 :]:
+                shutil.rmtree(stale, ignore_errors=True)
+    return built
+
+
+def prepare() -> None:
+    """Seed the snapshot and build the bundles that the lanes after this one reuse."""
+    with tier.hold():
+        subprocess.run(
+            [sys.executable, "-m", "e2e.snapshot", "fresh"],
+            cwd=ROOT / "backend",
+            env=environment() | tier.environment(),
+            check=True,
+        )
+        for app, path in ensure_builds().items():
+            print(f"{app}: {path}", flush=True)
 
 
 MOBILE = ROOT / "frontend" / "apps" / "mobile"
@@ -300,6 +377,11 @@ class Stack:
             json.dumps({"namespace": self.namespace, "slot": self.lease.slot}, indent=2)
         )
 
+    def seeded_as_of(self) -> str | None:
+        """When the restored seed was made, which a real-time run takes from its snapshot."""
+        demo = self.directory / "demo.json"
+        return str(json.loads(demo.read_text())["as_of"]) if demo.is_file() else None
+
     def seed(self, log: IO[bytes]) -> None:
         command = [
             sys.executable,
@@ -336,18 +418,15 @@ class Stack:
                 "REDIS_URL": self.lease.redis_url,
                 "S3_BUCKET": self.lease.bucket,
                 "API_BASE_URL": self.api,
-                "API_URL": self.api,
                 "VITE_API_URL": self.api,
                 "WEB_BASE_URL": self.app,
                 "WEB_E2E_PORT": str(self.web_port),
                 "WEB_PSEUDO_E2E_PORT": str(self.pseudo_port),
                 "CORS_ALLOW_ORIGINS": f"{self.web},{self.pseudo}",
-                "VITE_STRIPE_PUBLISHABLE_KEY": "",
                 "CONNECT_E2E_PORT": str(self.connect_port),
                 "ADMIN_E2E_PORT": str(self.admin_port),
                 "ADMIN_BASE_URL": f"http://localhost:{self.admin_port}",
                 "VITE_ADMIN_URL": f"http://localhost:{self.admin_port}",
-                "VITE_WEB_URL": self.app,
                 "SITE_E2E_PORT": str(self.site_port),
                 "VITE_SITE_URL": f"http://localhost:{self.site_port}",
                 "CONNECT_PSEUDO_E2E_PORT": str(self.connect_pseudo_port),
@@ -355,8 +434,17 @@ class Stack:
                 "BOOK_BASE_URL": f"http://book.localhost:{public_port}",
                 "SHOP_BASE_URL": f"http://shop.localhost:{public_port}",
                 "PAY_BASE_URL": f"http://pay.localhost:{public_port}",
-                "VITE_PAY_URL": f"http://pay.localhost:{public_port}",
-                "VITE_BOOK_URL": f"http://book.localhost:{public_port}",
+                # what each app's server answers as /config.js, as the web image's Caddy does
+                "API_URL": self.api,
+                "AUTH_URL": tier.environment()["AUTH_PUBLIC_URL"],
+                "SYNC_URL": tier.environment()["POWERSYNC_URL"],
+                "APP_URL": self.app,
+                "ADMIN_URL": f"http://localhost:{self.admin_port}",
+                "PAGE_URL": f"http://{{slug}}.localhost:{public_port}",
+                "BOOK_URL": f"http://book.localhost:{public_port}",
+                "SHOP_URL": f"http://shop.localhost:{public_port}",
+                "PAY_URL": f"http://pay.localhost:{public_port}",
+                "STRIPE_PUBLISHABLE_KEY": "",
                 "E2E_OUTPUT_DIR": str(self.directory / "browser-results"),
                 "PLAYWRIGHT_HTML_OUTPUT_DIR": str(self.directory / "browser-report"),
                 "CI": "1",
@@ -402,6 +490,11 @@ class Stack:
         if browser_fixtures:
             self.command([sys.executable, "-m", "e2e.actions", "web-fixtures"], log)
         self.command([sys.executable, "-m", "e2e.sync", "caught-up"], log)
+
+    def use_builds(self, log: IO[bytes]) -> None:
+        """Point the browser lane's preview servers at the shared production builds."""
+        for app, path in ensure_builds(log).items():
+            self.env[f"E2E_{app.upper()}_BUILD"] = str(path)
 
     def grant_platform_access(self) -> None:
         """Own verified operator identities for the admin console, granted before the API starts."""
@@ -573,9 +666,8 @@ def playwright_config(surface: str) -> str:
     )
 
 
-def shuffled_config(stack: "Stack", args: argparse.Namespace, seed: int) -> str:
-    """Order the lane's spec files by seed: Playwright runs files by name, so numbered wrappers."""
-    app = ROOT / "frontend" / "apps" / playwright_app(args.surface)
+def listed_cases(stack: "Stack", args: argparse.Namespace) -> list[Spec]:
+    """The cases the lane would run, with their files and lines, without running them."""
     listing = subprocess.run(
         [
             "pnpm",
@@ -588,14 +680,63 @@ def shuffled_config(stack: "Stack", args: argparse.Namespace, seed: int) -> str:
             "--reporter=json",
             *args.tests,
         ],
-        cwd=app,
+        cwd=ROOT / "frontend" / "apps" / playwright_app(args.surface),
         env=stack.env,
         capture_output=True,
         text=True,
         check=True,
     )
-    suites = cast(list[dict[str, object]], json.loads(listing.stdout).get("suites", []))
-    files = sorted({str(suite["file"]) for suite in suites})
+    report = Report.model_validate_json(listing.stdout)
+    return [case for suite in report.suites for case in suite.cases()]
+
+
+# the Playwright configs' workers per lane
+WORKERS = 2
+
+
+def shard_seconds(units: dict[str, int], picked: list[str]) -> float:
+    """A shard's expected wall time: workers share its cases, but one file runs on one worker."""
+    files: dict[str, int] = {}
+    for unit in picked:
+        file = unit.rsplit(":", 1)[0]
+        files[file] = files.get(file, 0) + units[unit]
+    return max(sum(files.values()) / WORKERS, max(files.values(), default=0))
+
+
+def balanced(units: dict[str, int], shards: int) -> list[list[str]]:
+    """Longest first, each to the shard whose expected wall time grows the least."""
+    picked: list[list[str]] = [[] for _ in range(shards)]
+    for unit, _ in sorted(units.items(), key=lambda item: (-item[1], item[0])):
+        best = min(range(shards), key=lambda i: (shard_seconds(units, [*picked[i], unit]), i))
+        picked[best].append(unit)
+    return picked
+
+
+def shard_filters(cases: list[Spec], seconds: dict[str, int], shard: str) -> list[str]:
+    """This shard's cases as file:line filters, balanced by each case's measured seconds."""
+    index, total = (int(part) for part in shard.split("/"))
+    known = sorted(seconds.values())
+    usual = known[len(known) // 2] if known else 30
+    units: dict[str, int] = {}
+    for case in cases:
+        # cases declared on one line, such as a loop's, can only be selected together
+        unit = f"e2e/{case.file}:{case.line}"
+        units[unit] = units.get(unit, 0) + seconds.get(case.key, usual)
+    picked = balanced(units, total)[index - 1]
+    if not picked:
+        raise ValueError(f"shard {shard} has no cases; use fewer shards")
+    return sorted(picked)
+
+
+def case_seconds(surface: str) -> dict[str, int]:
+    path = ROOT / "frontend" / "apps" / playwright_app(surface) / "e2e" / "case-seconds.json"
+    return cast(dict[str, int], json.loads(path.read_text())) if path.is_file() else {}
+
+
+def shuffled_config(stack: "Stack", args: argparse.Namespace, seed: int) -> str:
+    """Order the lane's spec files by seed: Playwright runs files by name, so numbered wrappers."""
+    app = ROOT / "frontend" / "apps" / playwright_app(args.surface)
+    files = sorted({case.file for case in listed_cases(stack, args)})
     if not files:
         raise ValueError("the shuffled lane selected no spec files")
     random.Random(seed).shuffle(files)
@@ -629,6 +770,7 @@ def run_browsers(
     stack: Stack, args: argparse.Namespace, processes: ExitStack, log: IO[bytes]
 ) -> None:
     stack.start(processes, log)
+    stack.use_builds(log)
     if args.surface == "connect":
         stack.env["CONNECT_LINKS"] = subprocess.check_output(
             [sys.executable, "-m", "scripts.connect_links"],
@@ -637,6 +779,13 @@ def run_browsers(
             text=True,
         )
     measuring = args.repeat_each > 1 or args.shuffle_seed is not None
+    filters = (
+        shard_filters(listed_cases(stack, args), case_seconds(args.surface), args.shard)
+        if args.shard
+        else []
+    )
+    if filters:
+        (stack.directory / "shard.json").write_text(json.dumps(filters, indent=2) + "\n")
     config = (
         shuffled_config(stack, args, args.shuffle_seed)
         if args.shuffle_seed is not None
@@ -652,8 +801,7 @@ def run_browsers(
         f"--config={config}",
         f"--project={args.project}",
         *(["--fully-parallel", f"--repeat-each={args.repeat_each}"] if measuring else []),
-        *([f"--shard={args.shard}"] if args.shard else []),
-        *args.tests,
+        *(filters or args.tests),
     ]
     report_path = stack.directory / "browser-results" / "results.json"
     try:
@@ -972,6 +1120,7 @@ def shard(value: str) -> str:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--configure-only", action="store_true")
+    parser.add_argument("--prepare", action="store_true")
     parser.add_argument("--cleanup")
     parser.add_argument(
         "--surface", choices=("web", "connect", "journeys", "filings", "native"), default="web"
@@ -993,6 +1142,9 @@ def main() -> None:
         parser.error("CI cannot accept source changes during a run")
     if args.build_native:
         build_native(args.build_native)
+        return
+    if args.prepare:
+        prepare()
         return
     if args.surface in ("journeys", "filings", "native") and args.project != "default":
         parser.error("journeys, filings and native use the default project")
@@ -1086,6 +1238,8 @@ def main() -> None:
             record["failure_type"] = type(error).__name__
         raise
     finally:
+        if stack is not None:
+            record["seeded_as_of"] = stack.seeded_as_of()
         record["finished_at"] = clock.wall().isoformat()
         record["final_source"] = source_snapshot()
         record["source_stable"] = record["source"] == record["final_source"]

@@ -2075,7 +2075,7 @@ def stack_credentials(
 ) -> dict[str, str]:
     if mode == "environment":
         supplied = environment(None)
-        publishable = supplied.get("VITE_STRIPE_PUBLISHABLE_KEY", "")
+        publishable = supplied.get("STRIPE_PUBLISHABLE_KEY", "")
         if not publishable.startswith("pk_test_"):
             raise ValueError("protected environment requires a test publishable key")
         env = {
@@ -2085,7 +2085,7 @@ def stack_credentials(
                 "STRIPE_TEST_PLATFORM",
                 "STRIPE_TEST_CONNECTED_ACCOUNT",
                 "STRIPE_TEST_OTHER_ACCOUNT",
-                "VITE_STRIPE_PUBLISHABLE_KEY",
+                "STRIPE_PUBLISHABLE_KEY",
             )
         }
         env["STRIPE_SECRET_KEY"] = env["STRIPE_TEST_SECRET_KEY"]
@@ -2104,14 +2104,14 @@ def stack_credentials(
     saved = json.loads(merchants.read_text())
     if saved["STRIPE_TEST_PLATFORM"] != selected["account_id"]:
         raise ValueError("merchant manifest and profile platform differ")
-    publishable = dotenv_values(publishable_file).get("VITE_STRIPE_PUBLISHABLE_KEY")
+    publishable = dotenv_values(publishable_file).get("STRIPE_PUBLISHABLE_KEY")
     if not publishable or not publishable.startswith("pk_test_"):
         raise ValueError("Connect environment file must contain a test publishable key")
     env = {
         "STRIPE_BROWSER_ENVIRONMENT": "local",
         "STRIPE_SECRET_KEY": key,
         "STRIPE_TEST_SECRET_KEY": key,
-        "VITE_STRIPE_PUBLISHABLE_KEY": publishable,
+        "STRIPE_PUBLISHABLE_KEY": publishable,
         **{
             name: saved[name]
             for name in (
@@ -2295,6 +2295,7 @@ def run_lane(args: argparse.Namespace, directory: Path, lease: tier.Lease) -> No
             try:
                 try:
                     stack.start(processes, log, before_api=before_api, browser_fixtures=False)
+                    stack.use_builds(log)
                     with (directory / "browser.log").open("wb") as browser_log:
                         stack.command(
                             [

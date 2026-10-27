@@ -41,9 +41,8 @@ export function runPort(name: string): number {
     return Number(runSetting(name));
 }
 
-/** Builds and previews the `app` package in this run's own folder, which no concurrent run rewrites. */
-export function runBuild(app: string, port: number | string): string {
-    const out = `${runSetting("E2E_OUTPUT_DIR")}/../build-${app}`;
-    const vite = `pnpm --filter ${app} exec vite`;
-    return `${vite} build --outDir ${out} --emptyOutDir && ${vite} preview --outDir ${out} --port ${String(port)} --strictPort`;
+/** Previews the shared production build of the `app` package, which the runner built once per source. */
+export function runPreview(app: string, port: number | string): string {
+    const build = runSetting(`E2E_${app.toUpperCase()}_BUILD`);
+    return `pnpm --filter ${app} exec vite preview --outDir ${build} --port ${String(port)} --strictPort`;
 }

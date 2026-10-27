@@ -17,10 +17,8 @@ describe("runtimeConfig", () => {
         delete served.__CLIENTBRIDGE_CONFIG__;
     });
 
-    it("is absent without a served config, so dev keeps its Vite values", () => {
-        expect(runtimeConfig()).toBeNull();
-        served.__CLIENTBRIDGE_CONFIG__ = {};
-        expect(runtimeConfig()).toBeNull();
+    it("fails without a served config", () => {
+        expect(() => runtimeConfig()).toThrow("/config.js did not load");
     });
 
     it.each(["clientbridge.ca", "staging.clientbridge.ca"])("derives every URL from %s", (base) => {
@@ -94,9 +92,12 @@ describe("runtimeConfig", () => {
         });
     });
 
-    it("ignores URLs without a base domain, so dev keeps its Vite values", () => {
-        served.__CLIENTBRIDGE_CONFIG__ = { apiUrl: "http://localhost:8750" };
-        expect(runtimeConfig()).toBeNull();
+    it("takes named URLs without a base domain and fails on one it neither names nor derives", () => {
+        served.__CLIENTBRIDGE_CONFIG__ = { apiUrl: "http://localhost:8750", syncUrl: "" };
+        const config = runtimeConfig();
+        expect(config.apiUrl).toBe("http://localhost:8750");
+        expect(config.authUrl).toBe("http://localhost:8750/auth");
+        expect(() => config.powersyncUrl).toThrow("sets neither syncUrl nor baseDomain");
     });
 
     it("leaves the publishable key unset when the deploy has none", () => {
@@ -104,7 +105,7 @@ describe("runtimeConfig", () => {
             baseDomain: "clientbridge.ca",
             stripePublishableKey: "",
         };
-        expect(runtimeConfig()?.stripePublishableKey).toBeUndefined();
+        expect(runtimeConfig().stripePublishableKey).toBeUndefined();
     });
 });
 

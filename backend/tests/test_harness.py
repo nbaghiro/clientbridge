@@ -14,7 +14,7 @@ import threading
 import time
 from collections.abc import AsyncIterator, Callable, Iterator
 from contextlib import ExitStack, contextmanager, suppress
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import IO, cast
@@ -27,12 +27,14 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from e2e import relay as tier_relay
 from e2e import runner as functional
+from e2e import snapshot, tier
 from e2e import stripe as stripe_lane
-from e2e import tier
 from e2e.namespace import Renamer
 from e2e.results import (
     BROWSER_CASES,
     REQUIRED_CASES,
+    WEBKIT_EXCLUDED,
+    WEBKIT_EXCLUDED_TAG,
     Attempt,
     Report,
     Spec,
@@ -612,6 +614,77 @@ def test_a_shard_is_an_index_within_its_total() -> None:
             functional.shard(value)
 
 
+def _case(file: str, line: int, title: str) -> Spec:
+    return Spec(title=title, tests=[], file=file, line=line)
+
+
+def test_shards_split_cases_by_their_measured_seconds_and_cover_each_once() -> None:
+    cases = [
+        _case("shell.e2e.ts", 10, "owner: one walk"),
+        _case("shell.e2e.ts", 40, "owner: another walk"),
+        _case("billing.e2e.ts", 5, "BILL-01 a long case"),
+        _case("billing.e2e.ts", 30, "BILL-02 a short case"),
+        # a loop declares its cases on one line, so they stay in one shard
+        _case("pos.e2e.ts", 7, "SALE-01 in cash"),
+        _case("pos.e2e.ts", 7, "SALE-01 by card"),
+        _case("new.e2e.ts", 3, "NEW-01 not measured yet"),
+    ]
+    seconds = {
+        "shell.e2e.ts > owner: one walk": 100,
+        "shell.e2e.ts > owner: another walk": 90,
+        "billing.e2e.ts > BILL-01 a long case": 80,
+        "billing.e2e.ts > BILL-02 a short case": 10,
+        "pos.e2e.ts > SALE-01 in cash": 20,
+        "pos.e2e.ts > SALE-01 by card": 20,
+    }
+    shards = [functional.shard_filters(cases, seconds, f"{index}/3") for index in (1, 2, 3)]
+    # the unmeasured case counts as the median, 80 seconds
+    assert shards == [
+        ["e2e/shell.e2e.ts:10"],
+        ["e2e/billing.e2e.ts:30", "e2e/pos.e2e.ts:7", "e2e/shell.e2e.ts:40"],
+        ["e2e/billing.e2e.ts:5", "e2e/new.e2e.ts:3"],
+    ]
+    every = [unit for shard in shards for unit in shard]
+    assert sorted(every) == sorted({f"e2e/{case.file}:{case.line}" for case in cases})
+    assert len(every) == len(set(every))
+    # one file's cases run on one worker, so a shard is as long as its longest file at least
+    one_file = {"a.ts:1": 60, "a.ts:2": 60, "b.ts:1": 30, "c.ts:1": 30}
+    assert functional.balanced(one_file, 2) == [["a.ts:1", "b.ts:1", "c.ts:1"], ["a.ts:2"]]
+    assert functional.shard_seconds(one_file, ["a.ts:1", "a.ts:2"]) == 120
+    assert functional.shard_seconds(one_file, ["a.ts:1", "b.ts:1", "c.ts:1"]) == 60
+    with pytest.raises(ValueError, match="no cases"):
+        functional.shard_filters(cases[:1], seconds, "2/2")
+
+
+def test_case_seconds_come_from_each_cases_first_attempt() -> None:
+    report = Report(
+        errors=[],
+        suites=[
+            Suite(
+                specs=[
+                    Spec(
+                        title="CASE-01 measured",
+                        file="clients.e2e.ts",
+                        line=4,
+                        tests=[
+                            FunctionalTest(
+                                expectedStatus="passed",
+                                status="expected",
+                                results=[
+                                    Attempt(status="failed", retry=0, duration=41_600),
+                                    Attempt(status="passed", retry=1, duration=9_000),
+                                ],
+                            )
+                        ],
+                    ),
+                    Spec(title="CASE-02 never ran", file="clients.e2e.ts", line=9, tests=[]),
+                ]
+            )
+        ],
+    )
+    assert report.case_seconds() == {"clients.e2e.ts > CASE-01 measured": 42}
+
+
 def test_browser_evidence_needs_each_case_in_each_browser() -> None:
     title = "sign up, confirm the email with the mailed code, then open a business"
     report = Report(
@@ -640,7 +713,25 @@ def test_every_browser_case_is_tagged_and_named_once() -> None:
     ) + len(BROWSER_CASES["connect"])
     for identity in identities:
         assert re.search(rf'test\(\s*"{re.escape(identity)}[ "]', sources), identity
-    assert sources.count('tag: "@browsers"') == len(identities)
+    tags = re.findall(r'tag: (\[[^\]]*\]|"[^"]*")', sources)
+    assert sum('"@browsers"' in tag for tag in tags) == len(identities)
+    excluded = [BROWSER_CASES["web"][identity] for identity in sorted(WEBKIT_EXCLUDED)]
+    for title in excluded:
+        assert re.search(
+            rf'test\(\s*"{re.escape(title)}[ "][\s\S]{{0,300}}?{WEBKIT_EXCLUDED_TAG}', sources
+        ), title
+    assert sum(WEBKIT_EXCLUDED_TAG in tag for tag in tags) == len(excluded)
+    config = (root / "web" / "playwright.config.ts").read_text()
+    assert f"grepInvert: /{WEBKIT_EXCLUDED_TAG}/" in config
+
+
+def test_webkit_alone_drops_the_offline_reload_cases() -> None:
+    cases = browser_cases("web")
+    offline = {BROWSER_CASES["web"][identity] for identity in WEBKIT_EXCLUDED}
+    assert offline <= set(cases["firefox"])
+    assert not offline & set(cases["webkit"])
+    assert set(cases["firefox"]) - set(cases["webkit"]) == offline
+    assert browser_cases("connect")["webkit"] == browser_cases("connect")["firefox"]
 
 
 LANE_FILES = {
@@ -701,8 +792,11 @@ def test_a_shuffled_lane_imports_every_listed_file_in_its_seeded_order(
     listed = ["auth.e2e.ts", "billing.e2e.ts", "clients.e2e.ts", "pos.e2e.ts"]
 
     def listing(*_: object, **__: object) -> subprocess.CompletedProcess[str]:
-        suites = [{"file": name} for name in reversed(listed)]
-        return subprocess.CompletedProcess([], 0, json.dumps({"suites": suites}), "")
+        suites = [
+            {"file": name, "specs": [{"title": "a case", "tests": [], "file": name, "line": 3}]}
+            for name in reversed(listed)
+        ]
+        return subprocess.CompletedProcess([], 0, json.dumps({"errors": [], "suites": suites}), "")
 
     monkeypatch.setattr(functional, "ROOT", tmp_path)
     monkeypatch.setattr(functional.subprocess, "run", listing)
@@ -820,6 +914,9 @@ class _Runtime:
         before_api()
         if self.fault == "callback":
             processes.callback(self.failed_callback)
+
+    def use_builds(self, _log: IO[bytes]) -> None:
+        pass
 
     def failed_callback(self) -> None:
         raise PermissionError("injected callback stop failure")
@@ -2088,3 +2185,123 @@ def test_ci_builds_the_android_app_with_the_native_lanes_own_addresses() -> None
     for name, value in functional.native_urls("android").items():
         assert f"env.{name}" in config
         assert value not in build
+
+
+def test_a_snapshot_serves_its_own_instant_or_a_real_time_run_while_fresh_that_day() -> None:
+    # noon in Vancouver
+    made = datetime(2026, 10, 1, 19, 0, tzinfo=UTC)
+    assert snapshot.usable(made, made, made + timedelta(days=2))
+    assert not snapshot.usable(made, made + timedelta(seconds=1), made)
+    assert snapshot.usable(made, None, made + snapshot.FRESH)
+    assert not snapshot.usable(made, None, made + snapshot.FRESH + timedelta(seconds=1))
+    assert not snapshot.usable(made, None, made - timedelta(seconds=1))
+    # five to midnight in Vancouver: ten minutes later is another day there
+    late = datetime(2026, 10, 2, 6, 55, tzinfo=UTC)
+    assert not snapshot.usable(late, None, late + timedelta(minutes=10))
+
+
+async def test_a_run_reuses_a_fitting_snapshot_and_seeds_only_when_none_fits(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    moment = [datetime(2026, 10, 1, 19, 0, tzinfo=UTC)]
+    seeded: list[datetime] = []
+
+    async def build(directory: Path, as_of: datetime) -> snapshot.Snapshot:
+        seeded.append(as_of)
+        stem = directory / f"{snapshot.inputs()}-{len(seeded)}"
+        stem.with_suffix(".dump").write_bytes(b"dump")
+        stem.with_suffix(".json").write_text(json.dumps({"as_of": as_of.isoformat()}))
+        return snapshot.Snapshot(stem.with_suffix(".dump"), as_of)
+
+    monkeypatch.setattr(snapshot, "SNAPSHOTS", tmp_path)
+    monkeypatch.setattr(snapshot.clock, "wall", lambda: moment[0])
+    monkeypatch.setattr(snapshot, "build", build)
+    # another seed's snapshot, and one whose dump never finished, are never restored
+    (tmp_path / "0123456789abcdef-1.json").write_text(json.dumps({"as_of": moment[0].isoformat()}))
+    (tmp_path / f"{snapshot.inputs()}-partial.json").write_text(
+        json.dumps({"as_of": moment[0].isoformat()})
+    )
+    fresh = await snapshot.ensure(None)
+    assert seeded == [moment[0]]
+    moment[0] += timedelta(minutes=10)
+    assert await snapshot.ensure(None) == fresh
+    quarter = datetime(2026, 7, 1, 19, 0, tzinfo=UTC)
+    filing = await snapshot.ensure(quarter)
+    assert (filing.as_of, len(seeded)) == (quarter, 2)
+    assert await snapshot.ensure(quarter) == filing
+    moment[0] += timedelta(minutes=10)
+    assert (await snapshot.ensure(None)).as_of == moment[0]
+    assert len(seeded) == 3
+
+
+def test_only_the_newest_snapshots_are_kept(tmp_path: Path) -> None:
+    for index in range(snapshot.KEPT + 2):
+        dump = tmp_path / f"seed-{index}.dump"
+        dump.write_bytes(b"dump")
+        dump.with_suffix(".json").write_text("{}")
+        os.utime(dump, (1_000 + index, 1_000 + index))
+    snapshot.prune(tmp_path)
+    kept = sorted(int(path.stem.split("-")[1]) for path in tmp_path.glob("*.dump"))
+    assert kept == list(range(2, snapshot.KEPT + 2))
+    assert not (tmp_path / "seed-0.json").exists()
+
+
+def test_bundles_are_built_once_per_source_and_older_ones_pruned(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    key = ["a" * 16]
+    built: list[str] = []
+
+    def build(command: list[str], **_: object) -> subprocess.CompletedProcess[bytes]:
+        out = Path(command[command.index("--outDir") + 1])
+        out.mkdir(parents=True)
+        (out / "index.html").write_text(command[2])
+        built.append(command[2])
+        return subprocess.CompletedProcess(command, 0)
+
+    monkeypatch.setattr(functional, "BUILDS", tmp_path)
+    monkeypatch.setattr(functional, "bundle_sources", lambda: key[0])
+    monkeypatch.setattr(functional.subprocess, "run", build)
+    first = functional.ensure_builds()
+    assert built == list(functional.BUNDLES)
+    assert first["web"] == tmp_path / f"web-{key[0]}"
+    assert functional.ensure_builds() == first
+    assert len(built) == len(functional.BUNDLES)
+    for letter in "bcd":
+        key[0] = letter * 16
+        functional.ensure_builds()
+    kept = sorted(path.name for path in tmp_path.glob("web-*"))
+    assert kept == [f"web-{letter * 16}" for letter in "bcd"]
+
+
+def test_bundle_sources_follow_the_app_code_and_not_its_tests(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    def write(name: str, text: str) -> None:
+        path = tmp_path / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text)
+
+    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+    monkeypatch.setattr(functional, "ROOT", tmp_path)
+    write("frontend/apps/web/src/main.tsx", "render();")
+    before = functional.bundle_sources()
+    write("frontend/apps/web/e2e/clients.e2e.ts", "test();")
+    write("frontend/apps/web/src/format.test.ts", "test();")
+    write("frontend/apps/web/playwright.config.ts", "export default {};")
+    write("frontend/apps/mobile/src/main.tsx", "render();")
+    write("frontend/apps/site/src/main.tsx", "render();")
+    assert functional.bundle_sources() == before
+    write("frontend/apps/web/src/main.tsx", "render(app);")
+    assert functional.bundle_sources() != before
+
+
+def test_a_digest_leaves_out_bytecode(tmp_path: Path) -> None:
+    (tmp_path / "versions").mkdir()
+    (tmp_path / "versions" / "cb0001.py").write_text("upgrade()")
+    before = tier.digest(tmp_path)
+    (tmp_path / "versions" / "__pycache__").mkdir()
+    (tmp_path / "versions" / "__pycache__" / "cb0001.cpython-314.pyc").write_bytes(b"\x00")
+    assert tier.digest(tmp_path) == before
+    (tmp_path / "versions" / "cb0001.py").write_text("upgrade(); downgrade()")
+    assert tier.digest(tmp_path) != before

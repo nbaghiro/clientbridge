@@ -21,6 +21,23 @@ import { strings } from "../strings";
 
 export const DEVICE_PREF_SQL = "SELECT value FROM device_prefs WHERE id = ?";
 
+export type ReplicaStorage = "indexeddb" | "opfs";
+
+/** WebKit keeps the replica in OPFS, since its IndexedDB can stall reopening it after a reload. */
+export async function replicaStorage(
+    vendor: string,
+    opfsSyncAccess: () => Promise<boolean>,
+): Promise<ReplicaStorage> {
+    // Chromium and Firefox pass the OPFS probe too, so the engine still comes from the vendor
+    const webkit: EngineVendor = "Apple Computer, Inc.";
+    if (vendor !== webkit) return "indexeddb";
+    // a private window refuses OPFS sync access, and IndexedDB still keeps its data
+    return (await opfsSyncAccess()) ? "opfs" : "indexeddb";
+}
+
+// the fixed navigator.vendor of each engine; Firefox reports an empty string
+type EngineVendor = "Apple Computer, Inc." | "Google Inc." | "";
+
 /** A small value kept on this device only (recent searches, read marks); null until set. */
 export function useDevicePref(key: string): [string | null, (value: string | null) => void] {
     const db = usePowerSync();
