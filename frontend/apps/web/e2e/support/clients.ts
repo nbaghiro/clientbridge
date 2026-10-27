@@ -23,6 +23,11 @@ export function clientCommand(page: Page, path: string, method: string): Promise
     );
 }
 
+export async function clientTags(id: string): Promise<string[]> {
+    const rows = await select<{ tags: string[] }>`SELECT tags FROM clients WHERE id = ${id}`;
+    return rows.map((row) => row.tags).flat();
+}
+
 export async function openClient(page: Page, client: ClientFixture): Promise<Locator> {
     await navigate(page, `/clients?open=${client.id}`);
     const record = page.getByRole("complementary", { name: client.name, exact: true });
@@ -35,8 +40,10 @@ export async function openClient(page: Page, client: ClientFixture): Promise<Loc
 
 export async function editClient(page: Page, client: ClientFixture): Promise<Locator> {
     const record = await openClient(page, client);
+    // a note's menu button is also named Edit; the record's own button shows the word
     await record
         .getByRole("button", { name: strings.clients.record.editShort, exact: true })
+        .filter({ hasText: strings.clients.record.editShort })
         .click();
     const editor = page.getByRole("dialog", { name: strings.clients.edit.editTitle, exact: true });
     await expect(editor.getByRole("textbox", { name: strings.clients.edit.nameLabel })).toHaveValue(

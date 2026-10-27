@@ -303,12 +303,19 @@ test("SALE-E2E-11 front-desk staff may sell past zero stock but cannot refund, v
         if (order === undefined) throw new Error("The staff sale was not committed");
         expect(order).toMatchObject({ client_id: client.id, total_cents: 3600, paid: true });
 
-        const detail = await openSale(staffPage, client, order.number);
-        await expect(detail.getByText(d.status.paid, { exact: true })).toBeVisible();
+        const done = staffPage.getByRole("dialog", { name: d.paidTitle, exact: true });
+        await expect(done.getByRole("button", { name: d.refund, exact: true })).toHaveCount(0);
+        await navigate(staffPage, "/payments/sales?view=history");
+        const views = staffPage.getByRole("tablist", { name: d.title, exact: true });
+        await expect(views.getByRole("tab")).toHaveCount(2);
+        await expect(views.getByRole("tab", { name: d.history, exact: true })).toHaveCount(0);
+        await expect(views.getByRole("tab", { name: d.newSaleTitle, exact: true })).toHaveAttribute(
+            "aria-selected",
+            "true",
+        );
         await expect(
-            detail.getByRole("button", { name: d.resendReceipt, exact: true }),
-        ).toBeVisible();
-        await expect(detail.getByRole("button", { name: d.refund, exact: true })).toHaveCount(0);
+            staffPage.getByRole("searchbox", { name: d.historySearch, exact: true }),
+        ).toHaveCount(0);
 
         const api = bookingApi();
         const refund = await staffPage.request.post(

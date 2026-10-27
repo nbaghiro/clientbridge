@@ -17,7 +17,7 @@ function operator(): { email: string; password: string } {
 }
 
 async function admin<T>(request: APIRequestContext, token: string, path: string): Promise<T> {
-    const response = await request.get(`${bookingApi()}/v1/admin${path}`, {
+    const response = await request.get(`${bookingApi()}/admin/v1${path}`, {
         headers: { "X-Session-Token": token },
     });
     expect(response.status(), `${path}: ${await response.text()}`).toBe(200);
@@ -43,7 +43,7 @@ test("FLOW-10-A a desk payment is traceable in the operator console's ledger and
         ["receivable", -400],
     ]);
 
-    const denied = await page.request.get(`${bookingApi()}/v1/admin/payments`);
+    const denied = await page.request.get(`${bookingApi()}/admin/v1/payments`);
     expect(denied.status()).toBe(403);
     const credentials = operator();
     const token = await nativeSession(request, credentials.email, credentials.password);

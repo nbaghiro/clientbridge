@@ -62,7 +62,7 @@ export interface SaleEvidence {
         event: string;
         amount_cents: number;
         category: string;
-        code: string | null;
+        code: string;
         source_id: string;
     }[];
     movements: { id: string; line_id: string | null; reason: string; quantity: number }[];

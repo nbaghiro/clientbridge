@@ -372,10 +372,14 @@ test("SCH-E2E-04 lost committed booking response retries once without another ac
         ).toBeVisible();
         const initial = await acceptedRaceEvidence(fixture, [contact], contact.email);
         expect(initial.bookings).toHaveLength(1);
-        await expect
-            .poll(async () => (await inboxMail(page.request, contact.email)).length)
-            .toBe(1);
-        const firstMail = await inboxMail(page.request, contact.email);
+        const acknowledgment = "Booking request received — Birchbark Pet Studio";
+        // the intake form cron may also mail the new client while this runs
+        const acknowledgments = async () =>
+            (await inboxMail(page.request, contact.email)).filter(
+                ({ Subject }) => Subject === acknowledgment,
+            );
+        await expect.poll(async () => (await acknowledgments()).length).toBe(1);
+        const firstMail = await acknowledgments();
         await confirm.click();
         await expect(
             client.getByRole("heading", { name: strings.publicBooking.pendingTitle, exact: true }),
@@ -440,7 +444,7 @@ test("SCH-E2E-04 lost committed booking response retries once without another ac
                     }),
                 ).toBeVisible();
             }
-            const finalMail = await inboxMail(page.request, contact.email);
+            const finalMail = await acknowledgments();
             await testInfo.attach("booking-retry-acknowledgment", {
                 body: JSON.stringify({ attempts, committed, firstMail, finalMail }),
                 contentType: "application/json",
@@ -449,7 +453,7 @@ test("SCH-E2E-04 lost committed booking response retries once without another ac
                 firstMail.map(({ ID, Subject }) => ({ ID, Subject })),
             );
             expect(finalMail).toHaveLength(1);
-            expect(finalMail[0]?.Subject).toBe("Booking request received — Birchbark Pet Studio");
+            expect(finalMail[0]?.Subject).toBe(acknowledgment);
             expect(await raceEvidence(fixture, [contact])).toEqual(committed);
         } finally {
             await observer.close();

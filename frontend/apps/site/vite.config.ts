@@ -16,7 +16,9 @@ const cleanUrls = (): Plugin => ({
     name: "clean-urls",
     configureServer(server) {
         server.middlewares.use((req, _res, next) => {
-            if (req.method !== "POST" && routePath(req) !== null) req.url = "/index.html";
+            // only page loads: Vite's own module paths such as /@vite/client have no extension too
+            const page = req.headers.accept?.includes("text/html") === true;
+            if (req.method === "GET" && page && routePath(req) !== null) req.url = "/index.html";
             next();
         });
     },

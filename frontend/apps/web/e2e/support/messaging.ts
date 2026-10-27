@@ -512,8 +512,7 @@ export async function cancelScheduledBroadcast(page: Page, name: string) {
             r.request().method() === "POST",
     );
     await page
-        .getByRole("alertdialog")
-        .or(page.getByRole("dialog"))
+        .getByRole("dialog", { name: b.cancelScheduleTitle, exact: true })
         .getByRole("button", { name: b.cancelSchedule, exact: true })
         .click();
     return canceled;

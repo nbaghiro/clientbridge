@@ -3,13 +3,19 @@ import { randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { demoPerson } from "@clientbridge/config/e2e/demo";
-import { expect, type APIRequestContext, type Page } from "@playwright/test";
+import { strings } from "@clientbridge/app-core/public";
+import { expect, type APIRequestContext, type Locator, type Page } from "@playwright/test";
 import { newAccount } from "./auth";
 import { bookingApi } from "./bookings";
 import { requireLocalMail } from "./evidence";
 import { openBusiness, signUp } from "./business";
 
 const execute = promisify(execFile);
+
+/** The banner of a lapsed business: its sentence and the plan button share one alert. */
+export function lapsedNotice(page: Page): Locator {
+    return page.getByRole("alert").filter({ hasText: strings.plans.noticeLapsed });
+}
 
 export interface OwnedBusiness {
     account: ReturnType<typeof newAccount>;

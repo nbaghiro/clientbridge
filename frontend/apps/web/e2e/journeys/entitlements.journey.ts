@@ -337,7 +337,7 @@ test("FLOW-07-A a package keeps the benefits it was sold with, covers only its s
     }
 });
 
-test("FLOW-07-B an unused package refunded in full is voided on both devices and can no longer be used", async ({
+test("FLOW-07-B an unused package refunded in full is canceled on both devices and can no longer be used", async ({
     page,
     browser,
     baseURL,
@@ -383,7 +383,7 @@ test("FLOW-07-B an unused package refunded in full is voided on both devices and
         expect(await refunded.json()).toMatchObject({ status: "succeeded" });
 
         const after = await entitlementEvidence(client.id);
-        expect(after.packages).toEqual([{ ...fixture.sold.packages[0], status: "void" }]);
+        expect(after.packages).toEqual([{ ...fixture.sold.packages[0], status: "canceled" }]);
         const deferred = after.entries.filter((entry) => entry.category === "deferred");
         expect(deferred.reduce((sum, entry) => sum + entry.amount_cents, 0)).toBe(0);
         expect(after.entries.filter((entry) => entry.event === "consumption")).toEqual([]);
@@ -397,7 +397,7 @@ test("FLOW-07-B an unused package refunded in full is voided on both devices and
         for (const device of [other, page]) {
             await device.reload();
             await openEntitlement(device, client.name, fixture.packageId);
-            await expect(device.getByRole("dialog")).toContainText(w.statusLabel.void, {
+            await expect(device.getByRole("dialog")).toContainText(w.statusLabel.canceled, {
                 timeout: 60_000,
             });
             await expect(

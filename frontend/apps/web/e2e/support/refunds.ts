@@ -31,7 +31,7 @@ export interface RefundEvidence {
         source_id: string;
         amount_cents: number;
         category: string;
-        code: string | null;
+        code: string;
     }[];
 }
 

@@ -7,7 +7,7 @@ import { bookingApi } from "../support/bookings";
 import { createClient } from "../support/clients";
 import { acceptInvite } from "../support/hours";
 import { navigate } from "../support/session";
-import { ownBusiness, planView, standInPlan } from "../support/plans";
+import { lapsedNotice, ownBusiness, planView, standInPlan } from "../support/plans";
 import { apiCall, visitEvidence } from "../support/visit";
 import { runEmail } from "@clientbridge/config/e2e/run";
 
@@ -43,7 +43,10 @@ test("FLOW-08-A an invited teammate holds a seat, joins, gains admin, and on rem
 
     const account = { ...newAccount("team-member"), name: demoPerson(randomUUID()) };
     await navigate(page, "/setup/team");
-    await page.getByRole("button", { name: t.inviteMember, exact: true }).click();
+    // a team of one shows the invite button in the page header and in its empty state
+    const offers = page.getByRole("button", { name: t.inviteMember, exact: true });
+    await expect(offers).toHaveCount(2);
+    await offers.first().click();
     const invite = page.getByRole("dialog");
     await invite.getByRole("textbox", { name: t.emails, exact: true }).fill(account.email);
     const inviting = page.waitForResponse(
@@ -130,8 +133,14 @@ test("FLOW-08-A an invited teammate holds a seat, joins, gains admin, and on rem
         expect((await member.request.get(`${bookingApi()}/v1/plan`)).status()).toBe(403);
 
         await page.getByRole("button", { name: t.remove, exact: true }).click();
-        const removal = page.getByRole("dialog").last();
-        await expect(removal.getByText(t.removeFuture).first()).toBeVisible();
+        const removal = page.getByRole("dialog", {
+            name: t.removeTitle(account.name),
+            exact: true,
+        });
+        // the dialog lists the visit from this device's replica, which the API booking reaches by sync
+        await expect(
+            removal.getByRole("list", { name: t.removeFuture }).getByRole("listitem"),
+        ).toHaveCount(1, { timeout: 60_000 });
         await removal.locator('button[data-value="reassign"]').click();
         const removing = page.waitForResponse(
             (response) =>
@@ -147,15 +156,22 @@ test("FLOW-08-A an invited teammate holds a seat, joins, gains admin, and on rem
             left: unknown[];
         };
         expect(outcome).toMatchObject({ moved: [visit.id], canceled: [], left: [] });
+        // every visit moved and nothing was left over, so the record closes with no summary
+        await expect(page.getByRole("dialog")).toHaveCount(0);
         await expect(
             page.getByRole("heading", { name: t.removedTitle(account.name), exact: true }),
-        ).toBeVisible();
+        ).toHaveCount(0);
+        await expect(page.getByRole("main").getByText(account.name, { exact: true })).toHaveCount(
+            0,
+            { timeout: 60_000 },
+        );
         const moved = await visitEvidence([client.id]);
         expect(moved.bookings).toEqual([
             expect.objectContaining({ id: visit.id, staff_id: owner.id, status: "confirmed" }),
         ]);
 
         expect(await planView(page)).toMatchObject({ seats: 0 });
+        await navigate(page, "/setup/plan");
         await page.reload();
         await expect(page.getByText(p.seats(0), { exact: true })).toBeVisible({
             timeout: 60_000,
@@ -218,6 +234,29 @@ test("FLOW-08-B a lapsed plan keeps records readable, refuses new work on the se
         },
         201,
     );
+    // a new owner has no working hours, and online booking only offers times inside them
+    await apiCall(
+        page,
+        "POST",
+        `/v1/hours/${owner.id}/week`,
+        {
+            request: {
+                version: 2,
+                business_id: business.id,
+                device_id: randomUUID(),
+                operation_id: randomUUID(),
+                created_at: new Date().toISOString(),
+            },
+            expected_revision: 0,
+            days: [0, 1, 2, 3, 4, 5, 6].map((weekday) => ({
+                weekday,
+                available: true,
+                start_time: "09:00",
+                end_time: "17:00",
+            })),
+        },
+        200,
+    );
     const client = await createClient(page);
     const later = combineDayAndTime(
         addDays(new Date(), 5, business.timezone),
@@ -261,9 +300,10 @@ test("FLOW-08-B a lapsed plan keeps records readable, refuses new work on the se
             data: {
                 item_id: service.id,
                 staff_id: owner.id,
+                // a 45-minute service is offered every 45 minutes from 09:00
                 starts_at: combineDayAndTime(
                     addDays(new Date(), day, business.timezone),
-                    "11:00",
+                    "10:30",
                     business.timezone,
                 ).toISOString(),
                 client: booker,
@@ -286,9 +326,10 @@ test("FLOW-08-B a lapsed plan keeps records readable, refuses new work on the se
         });
         expect(await planView(page)).toMatchObject({ access: "lapsed", plan_status: "lapsed" });
         await page.reload();
-        await expect(page.getByText(p.noticeLapsed, { exact: true })).toBeVisible({
-            timeout: 60_000,
-        });
+        await expect(lapsedNotice(page)).toBeVisible({ timeout: 60_000 });
+        await expect(
+            lapsedNotice(page).getByRole("button", { name: p.noticeChoose, exact: true }),
+        ).toBeVisible();
         await navigate(page, `/clients?open=${client.id}`);
         await expect(
             page.getByRole("complementary", { name: client.name, exact: true }),
@@ -315,8 +356,10 @@ test("FLOW-08-B a lapsed plan keeps records readable, refuses new work on the se
         expect(((await canceled.json()) as { status: string }).status).toBe("canceled");
         const revoked = await write(`/v1/staff/invites/${pending.id}/revoke`, {});
         expect(revoked.status(), await revoked.text()).toBe(204);
-        const google = await write("/v1/reviews/google/disconnect", { generation: 0 });
-        expect(google.status(), await google.text()).toBe(200);
+        // the stack runs without Google, so its configuration check answers rather than the plan gate
+        const google = await write("/v1/reviews/google/disconnect", { generation: 1 });
+        expect(google.status(), await google.text()).toBe(503);
+        expect(await google.json()).toMatchObject({ error: "google_not_configured" });
         expect(await planView(page)).toMatchObject({ seats: 0 });
 
         expect(await standInPlan(business.id, "active")).toEqual({
@@ -326,14 +369,13 @@ test("FLOW-08-B a lapsed plan keeps records readable, refuses new work on the se
         });
         expect(await planView(page)).toMatchObject({ access: "active", plan: "team" });
         await page.reload();
-        await expect(page.getByText(p.noticeLapsed, { exact: true })).toHaveCount(0, {
-            timeout: 60_000,
-        });
+        await expect(lapsedNotice(page)).toHaveCount(0, { timeout: 60_000 });
         expect((await write("/v1/clients", { name: demoPerson(randomUUID()) })).status()).toBe(201);
         const reopened = await book(6);
         expect(reopened.response.status(), await reopened.response.text()).toBe(200);
+        // a new business doesn't ask to approve first-time clients, so the booking confirms
         expect((await visitEvidence([reopened.booker.email])).bookings).toEqual([
-            expect.objectContaining({ status: "pending", source: "online", staff_id: owner.id }),
+            expect.objectContaining({ status: "confirmed", source: "online", staff_id: owner.id }),
         ]);
         await testInfo.attach("plan-lapse", {
             body: JSON.stringify({ business: business.id, broadcast: broadcast.id }),

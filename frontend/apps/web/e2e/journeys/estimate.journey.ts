@@ -368,8 +368,8 @@ test("FLOW-02-B a converted invoice takes a part payment, a part refund and the 
         expect(legs.reduce((sum, entry) => sum + entry.amount_cents, 0)).toBe(0);
         expect(legs.map((entry) => [entry.category, entry.code, entry.amount_cents])).toEqual(
             expect.arrayContaining([
-                ["cash", null, -2100],
-                ["revenue", null, 2000],
+                ["cash", "", -2100],
+                ["revenue", "", 2000],
                 ["tax", "GST", 100],
             ]),
         );

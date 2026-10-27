@@ -146,7 +146,8 @@ export async function emailEvent(
             "svix-timestamp": timestamp,
             "svix-signature": `v1,${signature}`,
         },
-        data: body,
+        // a Buffer goes out byte for byte; Playwright would quote a string that isn't JSON
+        data: Buffer.from(body),
     });
     return { id, status: response.status() };
 }

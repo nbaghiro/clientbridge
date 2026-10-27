@@ -82,11 +82,15 @@ export async function sendToClient(
         .getByRole("option")
         .filter({ has: page.getByText(client.name, { exact: true }) })
         .click();
+    await dialog.getByRole("button", { name: f.sendLink, exact: true }).click();
+    // nothing leaves until the owner checks what the client will get
+    const review = page.getByRole("dialog", { name: strings.previews.title, exact: true });
+    await expect(review).toContainText(client.email);
     const sending = page.waitForResponse(
         (response) =>
             new URL(response.url()).pathname === path && response.request().method() === "POST",
     );
-    await dialog.getByRole("button", { name: f.sendLink, exact: true }).click();
+    await review.getByRole("button", { name: strings.previews.send, exact: true }).click();
     const sent = await sending;
     expect(sent.status(), await sent.text()).toBe(201);
     await expect(dialog.getByText(f.sent(client.name), { exact: true })).toBeVisible();

@@ -79,11 +79,9 @@ async function openThread(page: Page, client: ClientFixture): Promise<Locator> {
     return page.locator('[aria-live="polite"]');
 }
 
+// the message text and its status line share one column
 function bubble(log: Locator, body: string): Locator {
-    return log
-        .locator("div")
-        .filter({ has: log.page().getByText(body, { exact: true }) })
-        .last();
+    return log.getByText(body, { exact: true }).last().locator("..");
 }
 
 test("FLOW-06-A a seat notice queued for the worker honours a STOP that arrives first, and its email counts as delivered only after the signed callback", async ({
@@ -221,9 +219,12 @@ test("FLOW-06-A a seat notice queued for the worker honours a STOP that arrives 
                     ["sms", "failed", "consent_withdrawn"],
                 ]);
         });
+        // the intake form cron may also mail the new client while this runs
         const fresh = async () =>
             (await inboxMail(page.request, waiting.email)).filter(
-                (m) => !mailBefore.includes(m.ID),
+                (m) =>
+                    !mailBefore.includes(m.ID) &&
+                    m.Subject === `A seat opened up in ${fixture.itemName}`,
             );
         await expect.poll(async () => (await fresh()).length).toBe(1);
         const [mail] = await fresh();

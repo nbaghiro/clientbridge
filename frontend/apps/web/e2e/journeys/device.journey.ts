@@ -116,7 +116,11 @@ test("FLOW-09-A a member's write reaches their second device, an offline week su
 
         await navigate(device, "/today");
         await signOut(device);
-        await expect(device).toHaveURL(/\/login/, { timeout: 60_000 });
+        // signing out keeps the address, so the next sign-in returns to it
+        await expect(
+            device.getByRole("heading", { name: strings.auth.signInTitle, exact: true }),
+        ).toBeVisible({ timeout: 60_000 });
+        await expect(device).toHaveURL(/\/today$/);
         await signIn(device);
         await expect(device.getByText(strings.staff.roleOwner, { exact: true })).toBeVisible();
         const filesAfter = await replicaFiles(device);

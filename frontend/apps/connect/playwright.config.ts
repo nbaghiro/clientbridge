@@ -1,7 +1,7 @@
 import { defineConfig } from "@playwright/test";
 
 import { PORTS, on } from "./e2e/hosts";
-import { runBuild } from "@clientbridge/config/e2e/run";
+import { runBuild, runNamespace } from "@clientbridge/config/e2e/run";
 
 const port = PORTS.default;
 const pseudoPort = PORTS.pseudo;
@@ -69,7 +69,11 @@ export default defineConfig({
                   {
                       // the marketing site, whose contact form the host hands to the API
                       command: `pnpm --filter site exec vite --port ${new URL(siteUrl).port} --strictPort`,
-                      env: { CONTACT_UPSTREAM: apiUrl, VITE_PAGE_URL: pageUrl },
+                      env: {
+                          CONTACT_UPSTREAM: apiUrl,
+                          VITE_PAGE_URL: pageUrl,
+                          VITE_DEMO_NAMESPACE: runNamespace(),
+                      },
                       url: `${siteUrl}/`,
                       reuseExistingServer: !process.env.CI,
                   },

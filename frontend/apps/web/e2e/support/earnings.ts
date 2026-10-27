@@ -11,7 +11,7 @@ export interface StaffPayEntry {
     ref: string;
     amount_cents: number;
     category: string;
-    code: string | null;
+    code: string;
     owner_type: string;
     owner_id: string;
 }

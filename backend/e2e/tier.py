@@ -334,11 +334,28 @@ def powersync_config() -> dict[str, object]:
     }
 
 
+def mirror(source: Path, target: Path) -> None:
+    """Copy a directory over in place: running containers bind-mount it, so it's never replaced."""
+    target.mkdir(parents=True, exist_ok=True)
+    wanted = {path.name for path in source.iterdir()}
+    for stale in target.iterdir():
+        if stale.name in wanted:
+            continue
+        if stale.is_dir():
+            shutil.rmtree(stale)
+        else:
+            stale.unlink()
+    for path in source.iterdir():
+        if path.is_dir():
+            mirror(path, target / path.name)
+        else:
+            shutil.copyfile(path, target / path.name)
+
+
 def write_config() -> None:
     config = TIER / "config"
-    shutil.rmtree(config, ignore_errors=True)
-    shutil.copytree(ROOT / "infra" / "auth", config / "auth")
-    (config / "powersync").mkdir(parents=True)
+    mirror(ROOT / "infra" / "auth", config / "auth")
+    (config / "powersync").mkdir(parents=True, exist_ok=True)
     shutil.copy(ROOT / "infra" / "powersync" / "sync-rules.yaml", config / "powersync")
     (config / "powersync" / "powersync.json").write_text(json.dumps(powersync_config(), indent=2))
     shutil.copy(RELAY, config / "relay.py")
@@ -357,6 +374,23 @@ def running() -> set[str]:
         return set()
     listed = compose("ps", "--status", "running", "--services", capture=True)
     return set(listed.split())
+
+
+SERVICES: tuple[str, ...] = (
+    "postgres",
+    "redis",
+    "s3",
+    "mailpit",
+    "stripe-mock",
+    "relay",
+    "auth",
+    "powersync",
+)
+
+
+def missing() -> set[str]:
+    """The long-running services that aren't up, such as one the Docker VM killed for memory."""
+    return set(SERVICES) - running()
 
 
 def healthy() -> bool:
@@ -462,7 +496,7 @@ def hold() -> Iterator[None]:
                 )
                 destroy()
                 start()
-            elif stale or not up or not healthy():
+            elif stale or missing() or not healthy():
                 start()
             fcntl.flock(handle, fcntl.LOCK_SH)
         else:
@@ -661,7 +695,7 @@ def main() -> None:
         elif args.action == "reset":
             destroy()
             start()
-        elif differences(fingerprint(), recorded()) or not running() or not healthy():
+        elif differences(fingerprint(), recorded()) or missing() or not healthy():
             if differences(fingerprint(), recorded()) and running():
                 destroy()
             start()

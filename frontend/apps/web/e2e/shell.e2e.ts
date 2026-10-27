@@ -724,8 +724,11 @@ test("owner: payments desk, records and their dialogs", async ({ page }) => {
         await openAndClose(page, d.details);
         await main.getByRole("tab", { name: d.history }).click();
         await expect(main.getByText(d.todaySales)).toBeVisible();
+        // other cases run beside this one, so take a sale that has a payment, not an open or void one
+        const unpaid = new RegExp(`\\b(${d.status.open}|${d.status.void})\\b`);
         await main
             .getByRole("button", { name: /^S-\d+/ })
+            .filter({ hasNotText: unpaid })
             .first()
             .click();
         await expect(page.getByRole("dialog")).toContainText(d.payments);

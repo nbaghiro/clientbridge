@@ -1620,7 +1620,7 @@ def test_holding_the_tier_rebuilds_it_only_when_alone(
     made: list[str] = []
     monkeypatch.setattr(tier, "fingerprint", lambda: {"migrations": "head"})
     monkeypatch.setattr(tier, "recorded", lambda: None if built is None else {"migrations": built})
-    monkeypatch.setattr(tier, "running", lambda: {"postgres"} if up else set[str]())
+    monkeypatch.setattr(tier, "running", lambda: set(tier.SERVICES) if up else set[str]())
     monkeypatch.setattr(tier, "healthy", lambda: True)
     monkeypatch.setattr(tier, "wait_healthy", lambda _seconds=120: made.append("wait"))
     monkeypatch.setattr(tier, "start", lambda: made.append("start"))
@@ -1637,6 +1637,43 @@ def test_holding_the_tier_rebuilds_it_only_when_alone(
     assert made == (calls or [])
 
 
+def test_mirroring_config_keeps_the_mounted_directory(tmp_path: Path) -> None:
+    source, target = tmp_path / "source", tmp_path / "target"
+    (source / "courier").mkdir(parents=True)
+    (source / "kratos.yml").write_text("new")
+    (source / "courier" / "body.gotmpl").write_text("hello")
+    (target / "old").mkdir(parents=True)
+    (target / "kratos.yml").write_text("old")
+    (target / "gone.json").write_text("{}")
+    mounted = target.stat().st_ino
+    tier.mirror(source, target)
+    assert target.stat().st_ino == mounted
+    assert sorted(p.name for p in target.iterdir()) == ["courier", "kratos.yml"]
+    assert (target / "kratos.yml").read_text() == "new"
+    assert (target / "courier" / "body.gotmpl").read_text() == "hello"
+
+
+@pytest.mark.parametrize("command", ["hold", "up"])
+def test_a_tier_service_that_stopped_is_started_again(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, command: str
+) -> None:
+    _tier_at(monkeypatch, tmp_path)
+    made: list[str] = []
+    monkeypatch.setattr(tier, "fingerprint", lambda: {"migrations": "head"})
+    monkeypatch.setattr(tier, "recorded", lambda: {"migrations": "head"})
+    monkeypatch.setattr(tier, "running", lambda: set(tier.SERVICES) - {"s3"})
+    monkeypatch.setattr(tier, "healthy", lambda: True)
+    monkeypatch.setattr(tier, "start", lambda: made.append("start"))
+    monkeypatch.setattr(tier, "destroy", lambda: made.append("destroy"))
+    if command == "hold":
+        with tier.hold():
+            assert made == ["start"]
+    else:
+        monkeypatch.setattr(sys, "argv", ["tier", "up"])
+        tier.main()
+    assert made == ["start"]
+
+
 @pytest.mark.parametrize(("shared", "calls"), [(False, ["refresh"]), (True, ["refresh", "wait"])])
 def test_a_relay_only_change_is_swapped_in_without_a_rebuild(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, shared: bool, calls: list[str]
@@ -1651,7 +1688,7 @@ def test_a_relay_only_change_is_swapped_in_without_a_rebuild(
 
     monkeypatch.setattr(tier, "fingerprint", lambda: {"migrations": "head", "relay": "new"})
     monkeypatch.setattr(tier, "recorded", lambda: dict(built))
-    monkeypatch.setattr(tier, "running", lambda: {"relay"})
+    monkeypatch.setattr(tier, "running", lambda: set(tier.SERVICES))
     monkeypatch.setattr(tier, "healthy", lambda: True)
     monkeypatch.setattr(tier, "refresh_relay", refresh)
     monkeypatch.setattr(tier, "wait_healthy", lambda _seconds=120: made.append("wait"))
@@ -1677,7 +1714,7 @@ def test_tier_up_swaps_a_relay_only_change_without_a_rebuild(
 
     monkeypatch.setattr(tier, "fingerprint", lambda: {"migrations": "head", "relay": "new"})
     monkeypatch.setattr(tier, "recorded", lambda: dict(built))
-    monkeypatch.setattr(tier, "running", lambda: {"relay"})
+    monkeypatch.setattr(tier, "running", lambda: set(tier.SERVICES))
     monkeypatch.setattr(tier, "healthy", lambda: True)
     monkeypatch.setattr(tier, "refresh_relay", refresh)
     monkeypatch.setattr(tier, "start", lambda: made.append("start"))

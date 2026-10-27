@@ -168,6 +168,11 @@ export interface PendingChange {
     label: string;
 }
 
+interface PendingQueue {
+    count: number;
+    pending: PendingChange[];
+}
+
 interface SyncState {
     online: boolean;
     hasSynced: boolean;
@@ -176,6 +181,8 @@ interface SyncState {
     queueKnown: boolean;
     rejectedCount: number;
     discardRejected: () => Promise<void>;
+    // reads the queue now; null when it can't be read, so a sign-out never acts on a stale poll
+    recheck: () => Promise<PendingQueue | null>;
     pending: PendingChange[];
     lastSynced: string | null;
     problem: "storage" | "full" | "upload" | "download" | null;
@@ -267,6 +274,21 @@ export function syncProblem(
     return uploadFailed ? "upload" : downloadFailed ? "download" : null;
 }
 
+const OUTBOX_PENDING_SQL =
+    "SELECT o.id FROM hours_outbox o LEFT JOIN staff s ON s.id = o.staff_id WHERE o.state != 'accepted' OR s.hours_revision IS NULL OR s.hours_revision < o.result_revision ORDER BY o.sequence LIMIT 50";
+const OUTBOX_TOTAL_SQL =
+    "SELECT count(*) AS count, MIN(o.created_at) AS oldest, COALESCE(SUM(CASE WHEN o.state = 'accepted' THEN 1 ELSE 0 END), 0) AS awaiting, COALESCE(SUM(CASE WHEN o.state = 'rejected' THEN 1 ELSE 0 END), 0) AS failed FROM hours_outbox o LEFT JOIN staff s ON s.id = o.staff_id WHERE o.state != 'accepted' OR s.hours_revision IS NULL OR s.hours_revision < o.result_revision";
+
+async function readOutbox(db: CommonPowerSyncDatabase) {
+    const [outbox, total] = await Promise.all([
+        db.getAll<{ id: string }>(OUTBOX_PENDING_SQL),
+        db.get<{ count: number; failed: number; awaiting: number; oldest: string | null }>(
+            OUTBOX_TOTAL_SQL,
+        ),
+    ]);
+    return { outbox, total };
+}
+
 /** Connection, first sync and the changes this device has not uploaded yet, polled while mounted. */
 export function useSyncState(pollMs = 3000): SyncState {
     const db = usePowerSync();
@@ -293,24 +315,19 @@ export function useSyncState(pollMs = 3000): SyncState {
             clearTimeout(timer);
         };
     }, [hasSynced]);
-    useEffect(() => {
-        let live = true;
-        setQueueKnown(false);
-        setQueueFailed(false);
-        setOutboxFailed(false);
-        setPending([]);
-        setPendingCount(0);
-        const read = (): void => {
-            Promise.all([
-                db.getAll<{ id: string }>(
-                    "SELECT o.id FROM hours_outbox o LEFT JOIN staff s ON s.id = o.staff_id WHERE o.state != 'accepted' OR s.hours_revision IS NULL OR s.hours_revision < o.result_revision ORDER BY o.sequence LIMIT 50",
-                ),
-                db.get<{ count: number; failed: number; awaiting: number; oldest: string | null }>(
-                    "SELECT count(*) AS count, MIN(o.created_at) AS oldest, COALESCE(SUM(CASE WHEN o.state = 'accepted' THEN 1 ELSE 0 END), 0) AS awaiting, COALESCE(SUM(CASE WHEN o.state = 'rejected' THEN 1 ELSE 0 END), 0) AS failed FROM hours_outbox o LEFT JOIN staff s ON s.id = o.staff_id WHERE o.state != 'accepted' OR s.hours_revision IS NULL OR s.hours_revision < o.result_revision",
-                ),
-            ])
-                .then(([outbox, total]) => {
-                    if (!live) return;
+    const current = useRef(true);
+    const read = useCallback(
+        (live: () => boolean): Promise<PendingQueue | null> =>
+            readOutbox(db)
+                .then(({ outbox, total }) => {
+                    const queue = {
+                        count: total.count,
+                        pending: outbox.map((row) => ({
+                            id: row.id,
+                            label: strings.sync.hoursChanged,
+                        })),
+                    };
+                    if (!live()) return queue;
                     if (total.count === 0) pendingSince.current = null;
                     else
                         pendingSince.current =
@@ -322,24 +339,38 @@ export function useSyncState(pollMs = 3000): SyncState {
                     setRejectedCount(total.failed);
                     setQueueKnown(true);
                     setQueueFailed(false);
-                    setPending(
-                        outbox.map((row) => ({ id: row.id, label: strings.sync.hoursChanged })),
-                    );
+                    setPending(queue.pending);
+                    return queue;
                 })
                 .catch(() => {
-                    if (live) {
+                    if (live()) {
                         setQueueKnown(false);
                         setQueueFailed(true);
                     }
-                });
-        };
-        read();
-        const timer = setInterval(read, pollMs);
+                    return null;
+                }),
+        [db],
+    );
+    useEffect(() => {
+        let live = true;
+        const alive = (): boolean => live;
+        current.current = true;
+        setQueueKnown(false);
+        setQueueFailed(false);
+        setOutboxFailed(false);
+        setPending([]);
+        setPendingCount(0);
+        read(alive).catch(() => undefined);
+        const timer = setInterval(() => {
+            read(alive).catch(() => undefined);
+        }, pollMs);
         return () => {
             live = false;
+            current.current = false;
             clearInterval(timer);
         };
-    }, [db, pollMs]);
+    }, [read, pollMs]);
+    const recheck = useCallback(() => read(() => current.current), [read]);
     const last = status.lastSyncedAt;
     const state = {
         online: status.connected,
@@ -349,6 +380,7 @@ export function useSyncState(pollMs = 3000): SyncState {
         queueKnown,
         rejectedCount,
         discardRejected: () => discardRejectedQueue(db),
+        recheck,
         pending,
         lastSynced: last === undefined ? null : formatTime(last, zone),
         problem: syncProblem(

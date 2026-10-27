@@ -15,6 +15,8 @@ import {
     headers,
     planEvidence,
 } from "./support/messaging";
+import { clientTags, openClient } from "./support/clients";
+import { lapsedNotice } from "./support/plans";
 import { navigate, signIn } from "./support/session";
 import { demoId, runEmail } from "@clientbridge/config/e2e/run";
 
@@ -224,6 +226,7 @@ test("PLN-E2E-03 a lapsed trial blocks new work but still exports, settles, revo
             city: "Victoria",
             province: "BC",
             postal_code: "V8S 1Z1",
+            legal_phone: "(250) 555-0142",
         },
         headers: headers(page),
     });
@@ -258,8 +261,10 @@ test("PLN-E2E-03 a lapsed trial blocks new work but still exports, settles, revo
     const lapsed = await planEvidence(businessId);
 
     await page.reload();
-    await expect(page.getByText(p.noticeLapsed, { exact: true })).toBeVisible({ timeout: 60_000 });
-    await expect(page.getByText(p.noticeChoose, { exact: true })).toBeVisible();
+    await expect(lapsedNotice(page)).toBeVisible({ timeout: 60_000 });
+    await expect(
+        lapsedNotice(page).getByRole("button", { name: p.noticeChoose, exact: true }),
+    ).toBeVisible();
     const status = await page.request.get(`${apiBase()}/v1/plan`);
     expect(await status.json()).toMatchObject({ access: "lapsed", seats: 1 });
 
@@ -314,7 +319,7 @@ test("PLN-E2E-03 a lapsed trial blocks new work but still exports, settles, revo
     expect(final.business).toEqual(lapsed.business);
     expect(final.staff.map((s) => s.role)).toEqual(["owner"]);
     expect(final.audits).toEqual([]);
-    const clients = await page.request.get(`${apiBase()}/v1/clients/${contact.id}`);
-    expect(clients.status()).toBe(200);
-    expect(await clients.json()).toMatchObject({ id: contact.id, tags: ["regulars"] });
+    // clients are read from the replica, so a lapsed business still opens the record
+    await openClient(page, contact);
+    expect(await clientTags(contact.id)).toEqual(["regulars"]);
 });

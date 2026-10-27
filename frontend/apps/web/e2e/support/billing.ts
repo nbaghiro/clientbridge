@@ -93,7 +93,7 @@ export async function recordPayment(
 ): Promise<string> {
     const r = strings.billing.rec;
     await page.getByRole("button", { name: strings.billing.recordPayment, exact: true }).click();
-    const dialog = page.getByRole("dialog").filter({ hasText: r.title });
+    const dialog = page.getByRole("dialog", { name: r.title, exact: true });
     await dialog
         .getByRole("group", { name: r.howPaid, exact: true })
         .getByRole("button")

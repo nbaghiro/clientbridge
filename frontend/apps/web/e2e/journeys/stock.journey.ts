@@ -127,7 +127,7 @@ test.describe(() => {
     function sums(evidence: SaleEvidence): Record<string, number> {
         const totals: Record<string, number> = {};
         for (const entry of evidence.entries) {
-            const key = entry.code === null ? entry.category : `${entry.category}:${entry.code}`;
+            const key = entry.code === "" ? entry.category : `${entry.category}:${entry.code}`;
             totals[key] = (totals[key] ?? 0) + entry.amount_cents;
         }
         return totals;
@@ -144,9 +144,10 @@ test.describe(() => {
             );
     }
 
+    // an account without a sub-code holds "", the column's non-null default
     const oneUnit = [
-        ["cash", null, 2800],
-        ["revenue", null, -2500],
+        ["cash", "", 2800],
+        ["revenue", "", -2500],
         ["tax", "GST", -125],
         ["tax", "PST", -175],
     ];
@@ -213,13 +214,16 @@ test.describe(() => {
             expect(await saleEvidence(product.id)).toEqual(sold);
             expect((await visitEvidence([online.email])).clients).toEqual([]);
 
+            // the session keeps the cart, so the refused line stays in it while the unit is gone
             await shopper.goto(shopUrl(demoSlug("birchbark")));
+            const kept = card(shopper, product);
+            await expect(kept.getByText(shop.soldOut, { exact: true })).toBeVisible();
             await expect(
-                card(shopper, product).getByText(shop.soldOut, { exact: true }),
-            ).toBeVisible();
-            await expect(
-                card(shopper, product).getByRole("button", { name: shop.addNamed(product.name) }),
+                kept.getByRole("button", { name: strings.common.increase(product.name) }),
             ).toBeDisabled();
+            await expect(
+                kept.getByRole("button", { name: shop.addNamed(product.name) }),
+            ).toHaveCount(0);
 
             await refundAtDesk(page, walkIn, paymentId, 2800, false);
             const restored = await saleEvidence(product.id);
@@ -241,12 +245,13 @@ test.describe(() => {
             expect(sums(restored)).toEqual({ cash: 0, revenue: 0, "tax:GST": 0, "tax:PST": 0 });
 
             await shopper.reload();
+            const back = card(shopper, product);
+            await expect(back.getByText(shop.lowStock(1), { exact: true })).toBeVisible();
+            await expect(back.getByText(shop.soldOut, { exact: true })).toHaveCount(0);
             await expect(
-                card(shopper, product).getByText(shop.lowStock(1), { exact: true }),
-            ).toBeVisible();
-            await expect(
-                card(shopper, product).getByRole("button", { name: shop.addNamed(product.name) }),
+                back.getByRole("button", { name: strings.common.decrease(product.name) }),
             ).toBeEnabled();
+            await expect(summary.getByText(money(2500)).first()).toBeVisible();
             await testInfo.attach("last-unit", {
                 body: JSON.stringify(restored),
                 contentType: "application/json",
@@ -364,7 +369,8 @@ test.describe(() => {
         try {
             const status = await customer.newPage();
             await status.goto(`${shopUrl()}/order/${order.status_token}`);
-            const current = status.locator('[aria-current="step"]');
+            // the page draws the steps once per screen size and hides the other with CSS
+            const current = status.locator('[aria-current="step"]').filter({ visible: true });
             await expect(current).toContainText(p.ready, { timeout: 30_000 });
 
             await signIn(page);

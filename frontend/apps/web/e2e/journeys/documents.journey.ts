@@ -20,12 +20,19 @@ const secondTerms =
     "Drop-off and pickup\nPlease collect your pet within thirty minutes of our pickup message.";
 const clause = (terms: string): string => terms.split("\n")[1] ?? terms;
 
+// the saved document opens with its name in the panel's title and on the preview below it
+async function expectOpened(main: Locator, name: string): Promise<void> {
+    const headings = main.getByRole("heading", { name, exact: true });
+    await expect(headings).toHaveCount(2, { timeout: 60_000 });
+    for (const heading of await headings.all()) await expect(heading).toBeVisible();
+}
+
 async function openContract(page: Page, name: string): Promise<Locator> {
     await navigate(page, "/today");
     await navigate(page, "/inbox?segment=contracts");
     await page.getByRole("main").getByText(name, { exact: true }).click({ timeout: 60_000 });
     const main = page.getByRole("main");
-    await expect(main.getByRole("heading", { name, exact: true })).toBeVisible();
+    await expectOpened(main, name);
     return main;
 }
 
@@ -78,7 +85,7 @@ test("FLOW-05-A a contract signed before the owner publishes new terms keeps its
     const contract = (await created.json()) as { id: string; version: number; body: string };
     expect(contract).toMatchObject({ version: 1, body: firstTerms });
     const main = page.getByRole("main");
-    await expect(main.getByRole("heading", { name, exact: true })).toBeVisible({ timeout: 60_000 });
+    await expectOpened(main, name);
 
     const first = await sendToClient(page, c.send, "/v1/contracts/send", early);
     const second = await sendToClient(page, c.send, "/v1/contracts/send", late);
@@ -232,7 +239,7 @@ test("FLOW-05-B a form edited while the client has it open keeps the questions t
     });
     const question = form.fields[0];
     if (question === undefined) throw new Error("The saved form has no question");
-    await expect(main.getByRole("heading", { name, exact: true })).toBeVisible({ timeout: 60_000 });
+    await expectOpened(main, name);
 
     const issued = await sendToClient(page, f.send, "/v1/forms/send", client);
     const [link] = await mailedLinks(page.request, client.email, "/form/");

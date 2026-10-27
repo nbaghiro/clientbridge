@@ -518,11 +518,11 @@ test("FLOW-04-B a merge moves a duplicate's pet, note and visit onto the kept ti
         ]);
 
         const merge = await openMerge(page, run, kept, duplicate);
-        await expect(merge.getByText(t.moves.bookings(1), { exact: true })).toBeVisible();
-        await expect(
-            merge.getByText(t.moves.subjects("pet", "Juniper"), { exact: true }),
-        ).toBeVisible();
-        await expect(merge.getByText(t.moves.notes(1), { exact: true })).toBeVisible();
+        // the note is about Juniper, so it moves with the pet rather than counting on its own
+        await expect(merge.getByRole("listitem")).toHaveText([
+            t.moves.bookings(1),
+            t.moves.subjects("pet", "Juniper"),
+        ]);
         await merge.getByRole("button", { name: t.merge(kept.name), exact: true }).click();
         const merging = clientCommand(page, `/${kept.id}/merge`, "POST");
         await page
