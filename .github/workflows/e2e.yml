@@ -4,6 +4,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 # Every end-to-end lane, grouped by surface; each job starts its own test tier.
 jobs:

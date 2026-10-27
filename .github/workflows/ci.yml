@@ -176,6 +176,10 @@ jobs:
 
   e2e:
     uses: ./.github/workflows/e2e.yml
+    permissions:
+      contents: read
+      # the Android lanes look up the prepare job's artifact while it may still be uploading
+      actions: read
 
   e2e-result:
     # the one required check for every end-to-end lane, so the ruleset doesn't list each job

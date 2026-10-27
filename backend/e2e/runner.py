@@ -690,14 +690,25 @@ def listed_cases(stack: "Stack", args: argparse.Namespace) -> list[Spec]:
     return [case for suite in report.suites for case in suite.cases()]
 
 
+# the Playwright configs' workers per lane
+WORKERS = 2
+
+
+def shard_seconds(units: dict[str, int], picked: list[str]) -> float:
+    """A shard's expected wall time: workers share its cases, but one file runs on one worker."""
+    files: dict[str, int] = {}
+    for unit in picked:
+        file = unit.rsplit(":", 1)[0]
+        files[file] = files.get(file, 0) + units[unit]
+    return max(sum(files.values()) / WORKERS, max(files.values(), default=0))
+
+
 def balanced(units: dict[str, int], shards: int) -> list[list[str]]:
-    """Longest first, each to the shard with the least so far."""
-    loads = [0] * shards
+    """Longest first, each to the shard whose expected wall time grows the least."""
     picked: list[list[str]] = [[] for _ in range(shards)]
-    for unit, seconds in sorted(units.items(), key=lambda item: (-item[1], item[0])):
-        lightest = loads.index(min(loads))
-        loads[lightest] += seconds
-        picked[lightest].append(unit)
+    for unit, _ in sorted(units.items(), key=lambda item: (-item[1], item[0])):
+        best = min(range(shards), key=lambda i: (shard_seconds(units, [*picked[i], unit]), i))
+        picked[best].append(unit)
     return picked
 
 

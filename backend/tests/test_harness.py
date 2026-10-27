@@ -605,15 +605,18 @@ def test_shards_split_cases_by_their_measured_seconds_and_cover_each_once() -> N
     shards = [functional.shard_filters(cases, seconds, f"{index}/3") for index in (1, 2, 3)]
     # the unmeasured case counts as the median, 80 seconds
     assert shards == [
-        ["e2e/billing.e2e.ts:30", "e2e/shell.e2e.ts:10"],
-        ["e2e/pos.e2e.ts:7", "e2e/shell.e2e.ts:40"],
+        ["e2e/shell.e2e.ts:10"],
+        ["e2e/billing.e2e.ts:30", "e2e/pos.e2e.ts:7", "e2e/shell.e2e.ts:40"],
         ["e2e/billing.e2e.ts:5", "e2e/new.e2e.ts:3"],
     ]
     every = [unit for shard in shards for unit in shard]
     assert sorted(every) == sorted({f"e2e/{case.file}:{case.line}" for case in cases})
     assert len(every) == len(set(every))
-    loads = functional.balanced({"a": 100, "b": 90, "c": 80, "d": 40, "e": 20, "f": 10}, 3)
-    assert loads == [["a", "f"], ["b", "e"], ["c", "d"]]
+    # one file's cases run on one worker, so a shard is as long as its longest file at least
+    one_file = {"a.ts:1": 60, "a.ts:2": 60, "b.ts:1": 30, "c.ts:1": 30}
+    assert functional.balanced(one_file, 2) == [["a.ts:1", "b.ts:1", "c.ts:1"], ["a.ts:2"]]
+    assert functional.shard_seconds(one_file, ["a.ts:1", "a.ts:2"]) == 120
+    assert functional.shard_seconds(one_file, ["a.ts:1", "b.ts:1", "c.ts:1"]) == 60
     with pytest.raises(ValueError, match="no cases"):
         functional.shard_filters(cases[:1], seconds, "2/2")
 
