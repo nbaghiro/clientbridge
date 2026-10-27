@@ -1,821 +1,1021 @@
 {
-  "business_shared": {
-    "clients": [
-      "created_by",
-      "name",
-      "email",
-      "phone",
-      "user_id",
-      "tags",
-      "status",
-      "custom_fields",
-      "preferred_channel",
-      "archived_at",
-      "id",
-      "business_id",
-      "created_at",
-      "updated_at",
-      "deleted_at"
-    ],
-    "subjects": [
-      "client_id",
-      "name",
-      "attributes",
-      "id",
-      "business_id",
-      "created_at",
-      "updated_at",
-      "deleted_at"
-    ],
-    "notes": [
-      "created_by",
-      "parent_type",
-      "parent_id",
-      "body",
-      "pinned",
-      "id",
-      "business_id",
-      "created_at",
-      "updated_at"
-    ],
-    "consents": [
-      "client_id",
-      "channel",
-      "status",
-      "source",
-      "recorded_by",
-      "expires_at",
-      "id",
-      "business_id",
-      "created_at",
-      "updated_at"
-    ],
-    "hours": [
-      "staff_id",
-      "basis",
-      "weekday",
-      "date",
-      "start_time",
-      "end_time",
-      "available",
-      "note",
-      "starts_at",
-      "ends_at",
-      "reason",
-      "id",
-      "business_id",
-      "created_at",
-      "updated_at"
-    ],
-    "items": [
-      "created_by",
-      "kind",
-      "name",
-      "description",
-      "variant_parent_id",
-      "variant_label",
-      "price_cents",
-      "currency",
-      "duration_min",
-      "capacity",
-      "category",
-      "color",
-      "online_bookable",
-      "sell_online",
-      "buffer_before_min",
-      "buffer_after_min",
-      "deposit_type",
-      "deposit_value",
-      "interval",
-      "frequency",
-      "session_count",
-      "validity_days",
-      "covers_item_id",
-      "visits_per_period",
-      "member_discount_bps",
-      "gift_amounts",
-      "tax_class",
-      "sku",
-      "cost_cents",
-      "track_stock",
-      "stock_on_hand",
-      "low_stock_at",
-      "active",
-      "addon",
-      "addon_for",
-      "staff_ids",
-      "resource_ids",
-      "id",
-      "business_id",
-      "created_at",
-      "updated_at"
-    ],
-    "resources": [
-      "name",
-      "active",
-      "id",
-      "business_id",
-      "created_at",
-      "updated_at"
-    ],
-    "packages": [
-      "client_id",
-      "item_id",
-      "subject_id",
-      "sessions_total",
-      "expires_at",
-      "status",
-      "payment_id",
-      "id",
-      "business_id",
-      "created_at",
-      "updated_at"
-    ],
-    "subscriptions": [
-      "client_id",
-      "item_id",
-      "status",
-      "current_period_end",
-      "payment_method_id",
-      "id",
-      "business_id",
-      "created_at",
-      "updated_at"
-    ],
-    "forms": [
-      "name",
-      "require_signature",
-      "active",
-      "send_on",
-      "id",
-      "business_id",
-      "created_at",
-      "updated_at"
-    ],
-    "fields": [
-      "form_id",
-      "input",
-      "name",
-      "label",
-      "help",
-      "required",
-      "options",
-      "position",
-      "id",
-      "business_id",
-      "created_at",
-      "updated_at"
-    ],
-    "contracts": [
-      "name",
-      "body",
-      "version",
-      "active",
-      "id",
-      "business_id",
-      "created_at",
-      "updated_at"
-    ],
-    "files": [
-      "parent_type",
-      "parent_id",
-      "purpose",
-      "content_type",
-      "size",
-      "uploaded_at",
-      "shared_at",
-      "id",
-      "business_id",
-      "created_at",
-      "updated_at"
-    ],
-    "threads": [
-      "client_id",
-      "channel",
-      "status",
-      "id",
-      "business_id",
-      "created_at",
-      "updated_at"
-    ]
+  "projections": {
+    "business_shared": {
+      "clients": [
+        "created_by",
+        "name",
+        "email",
+        "phone",
+        "user_id",
+        "tags",
+        "status",
+        "custom_fields",
+        "preferred_channel",
+        "archived_at",
+        "id",
+        "business_id",
+        "created_at",
+        "updated_at",
+        "deleted_at"
+      ],
+      "subjects": [
+        "client_id",
+        "name",
+        "attributes",
+        "id",
+        "business_id",
+        "created_at",
+        "updated_at",
+        "deleted_at"
+      ],
+      "notes": [
+        "created_by",
+        "parent_type",
+        "parent_id",
+        "body",
+        "pinned",
+        "id",
+        "business_id",
+        "created_at",
+        "updated_at"
+      ],
+      "consents": [
+        "client_id",
+        "channel",
+        "status",
+        "source",
+        "recorded_by",
+        "expires_at",
+        "id",
+        "business_id",
+        "created_at",
+        "updated_at"
+      ],
+      "hours": [
+        "staff_id",
+        "basis",
+        "weekday",
+        "date",
+        "start_time",
+        "end_time",
+        "available",
+        "note",
+        "starts_at",
+        "ends_at",
+        "reason",
+        "id",
+        "business_id",
+        "created_at",
+        "updated_at"
+      ],
+      "items": [
+        "created_by",
+        "kind",
+        "name",
+        "description",
+        "variant_parent_id",
+        "variant_label",
+        "price_cents",
+        "currency",
+        "duration_min",
+        "capacity",
+        "category",
+        "color",
+        "online_bookable",
+        "sell_online",
+        "buffer_before_min",
+        "buffer_after_min",
+        "deposit_type",
+        "deposit_value",
+        "interval",
+        "frequency",
+        "session_count",
+        "validity_days",
+        "covers_item_id",
+        "visits_per_period",
+        "member_discount_bps",
+        "gift_amounts",
+        "tax_class",
+        "sku",
+        "cost_cents",
+        "track_stock",
+        "stock_on_hand",
+        "low_stock_at",
+        "active",
+        "addon",
+        "addon_for",
+        "staff_ids",
+        "resource_ids",
+        "id",
+        "business_id",
+        "created_at",
+        "updated_at"
+      ],
+      "resources": [
+        "name",
+        "active",
+        "id",
+        "business_id",
+        "created_at",
+        "updated_at"
+      ],
+      "packages": [
+        "client_id",
+        "item_id",
+        "subject_id",
+        "sessions_total",
+        "expires_at",
+        "status",
+        "payment_id",
+        "id",
+        "business_id",
+        "created_at",
+        "updated_at"
+      ],
+      "subscriptions": [
+        "client_id",
+        "item_id",
+        "status",
+        "current_period_end",
+        "payment_method_id",
+        "id",
+        "business_id",
+        "created_at",
+        "updated_at"
+      ],
+      "forms": [
+        "name",
+        "require_signature",
+        "active",
+        "send_on",
+        "id",
+        "business_id",
+        "created_at",
+        "updated_at"
+      ],
+      "fields": [
+        "form_id",
+        "input",
+        "name",
+        "label",
+        "help",
+        "required",
+        "options",
+        "position",
+        "id",
+        "business_id",
+        "created_at",
+        "updated_at"
+      ],
+      "contracts": [
+        "name",
+        "body",
+        "version",
+        "active",
+        "id",
+        "business_id",
+        "created_at",
+        "updated_at"
+      ],
+      "files": [
+        "parent_type",
+        "parent_id",
+        "purpose",
+        "content_type",
+        "size",
+        "uploaded_at",
+        "shared_at",
+        "id",
+        "business_id",
+        "created_at",
+        "updated_at"
+      ],
+      "threads": [
+        "client_id",
+        "channel",
+        "status",
+        "id",
+        "business_id",
+        "created_at",
+        "updated_at"
+      ]
+    },
+    "staff_limited": {
+      "businesses": [
+        "id",
+        "name",
+        "slug",
+        "timezone",
+        "province",
+        "unit",
+        "street_number",
+        "street_name",
+        "city",
+        "postal_code",
+        "legal_phone",
+        "brand",
+        "stripe_account_id",
+        "stripe_charges_enabled",
+        "tax_registered",
+        "tax_registered_on",
+        "setup_dismissed_at",
+        "plan_status",
+        "trial_ends_at",
+        "subject"
+      ],
+      "staff": [
+        "id",
+        "hours_revision",
+        "business_id",
+        "user_id",
+        "role",
+        "title",
+        "color",
+        "status",
+        "invite_email",
+        "invited_at",
+        "created_at",
+        "updated_at"
+      ],
+      "users": [
+        "id",
+        "name"
+      ],
+      "orders": [
+        "id",
+        "business_id",
+        "number",
+        "client_id",
+        "source",
+        "pickup_status",
+        "preparing_at",
+        "ready_at",
+        "picked_up_at",
+        "paid_at",
+        "pickup_from",
+        "pickup_to",
+        "note",
+        "notify_sms",
+        "created_at",
+        "updated_at"
+      ],
+      "lines": [
+        "id",
+        "business_id",
+        "order_id",
+        "item_id",
+        "description",
+        "quantity",
+        "position",
+        "created_at",
+        "updated_at"
+      ]
+    },
+    "staff_self": {
+      "addons": [
+        "booking_id",
+        "staff_id",
+        "item_id",
+        "description",
+        "quantity",
+        "unit_amount_cents",
+        "id",
+        "business_id",
+        "created_at",
+        "updated_at"
+      ],
+      "hours": [
+        "staff_id",
+        "basis",
+        "weekday",
+        "date",
+        "start_time",
+        "end_time",
+        "available",
+        "note",
+        "starts_at",
+        "ends_at",
+        "reason",
+        "id",
+        "business_id",
+        "created_at",
+        "updated_at"
+      ],
+      "recurrences": [
+        "item_id",
+        "staff_id",
+        "client_id",
+        "frequency",
+        "interval",
+        "byday",
+        "monthly_by",
+        "count",
+        "until",
+        "status",
+        "id",
+        "business_id",
+        "created_at",
+        "updated_at"
+      ],
+      "accounts": [
+        "owner_type",
+        "owner_id",
+        "category",
+        "code",
+        "currency",
+        "balance_cents",
+        "id",
+        "business_id",
+        "created_at",
+        "updated_at"
+      ],
+      "entries": [
+        "journal_id",
+        "account_id",
+        "owner_type",
+        "owner_id",
+        "amount_cents",
+        "currency",
+        "event",
+        "source_type",
+        "source_id",
+        "subject_type",
+        "subject_id",
+        "ref",
+        "leg",
+        "meta",
+        "occurred_at",
+        "available_at",
+        "created_at",
+        "id",
+        "business_id"
+      ]
+    },
+    "business_full": {
+      "businesses": [
+        "id",
+        "name",
+        "slug",
+        "timezone",
+        "province",
+        "unit",
+        "street_number",
+        "street_name",
+        "city",
+        "postal_code",
+        "legal_phone",
+        "billing_email",
+        "gst_hst_number",
+        "qst_number",
+        "pst_number",
+        "filing_frequency",
+        "review_requests_enabled",
+        "brand",
+        "stripe_account_id",
+        "stripe_charges_enabled",
+        "tax_registered",
+        "tax_registered_on",
+        "setup_dismissed_at",
+        "plan",
+        "plan_status",
+        "trial_ends_at",
+        "subject"
+      ],
+      "staff": [
+        "id",
+        "hours_revision",
+        "business_id",
+        "user_id",
+        "role",
+        "payee",
+        "rate_type",
+        "rate_bps",
+        "rate_cents",
+        "retail_rate_bps",
+        "title",
+        "color",
+        "status",
+        "invite_email",
+        "invited_at",
+        "created_at",
+        "updated_at"
+      ],
+      "users": [
+        "id",
+        "name"
+      ],
+      "addons": [
+        "booking_id",
+        "staff_id",
+        "item_id",
+        "description",
+        "quantity",
+        "unit_amount_cents",
+        "id",
+        "business_id",
+        "created_at",
+        "updated_at"
+      ],
+      "hours": [
+        "staff_id",
+        "basis",
+        "weekday",
+        "date",
+        "start_time",
+        "end_time",
+        "available",
+        "note",
+        "starts_at",
+        "ends_at",
+        "reason",
+        "id",
+        "business_id",
+        "created_at",
+        "updated_at"
+      ],
+      "recurrences": [
+        "item_id",
+        "staff_id",
+        "client_id",
+        "frequency",
+        "interval",
+        "byday",
+        "monthly_by",
+        "count",
+        "until",
+        "status",
+        "id",
+        "business_id",
+        "created_at",
+        "updated_at"
+      ],
+      "invoices": [
+        "client_id",
+        "number",
+        "status",
+        "currency",
+        "subtotal_cents",
+        "tax_total_cents",
+        "total_cents",
+        "issued_at",
+        "due_at",
+        "overdue_notified_at",
+        "voided_at",
+        "notes",
+        "pay_token",
+        "id",
+        "business_id",
+        "created_at",
+        "updated_at",
+        "discount_kind",
+        "discount_value",
+        "discount_reason"
+      ],
+      "estimates": [
+        "client_id",
+        "number",
+        "status",
+        "subtotal_cents",
+        "tax_total_cents",
+        "total_cents",
+        "valid_until",
+        "accepted_at",
+        "declined_at",
+        "converted_invoice_id",
+        "notes",
+        "decline_reason",
+        "view_token",
+        "id",
+        "business_id",
+        "created_at",
+        "updated_at",
+        "discount_kind",
+        "discount_value",
+        "discount_reason"
+      ],
+      "orders": [
+        "client_id",
+        "staff_id",
+        "number",
+        "status",
+        "currency",
+        "subtotal_cents",
+        "tax_total_cents",
+        "total_cents",
+        "receipt_email",
+        "receipt_phone",
+        "source",
+        "pickup_status",
+        "preparing_at",
+        "pickup_from",
+        "pickup_to",
+        "notify_sms",
+        "ready_at",
+        "picked_up_at",
+        "paid_at",
+        "note",
+        "receipt_channel",
+        "receipt_sent_at",
+        "id",
+        "business_id",
+        "created_at",
+        "updated_at",
+        "discount_kind",
+        "discount_value",
+        "discount_reason"
+      ],
+      "lines": [
+        "estimate_id",
+        "invoice_id",
+        "order_id",
+        "description",
+        "item_id",
+        "booking_id",
+        "quantity",
+        "unit_amount_cents",
+        "amount_cents",
+        "tax_amount_cents",
+        "tax_class",
+        "position",
+        "staff_id",
+        "discount_cents",
+        "sale_discount_cents",
+        "for_pickup",
+        "optional",
+        "selected",
+        "id",
+        "business_id",
+        "created_at",
+        "updated_at",
+        "discount_kind",
+        "discount_value",
+        "discount_reason"
+      ],
+      "inventory": [
+        "item_id",
+        "line_id",
+        "reason",
+        "quantity",
+        "unit_cost_cents",
+        "note",
+        "created_by",
+        "id",
+        "business_id",
+        "created_at",
+        "updated_at"
+      ],
+      "payments": [
+        "client_id",
+        "kind",
+        "parent_payment_id",
+        "invoice_id",
+        "order_id",
+        "booking_id",
+        "amount_cents",
+        "currency",
+        "method",
+        "provider",
+        "reference",
+        "note",
+        "tendered_cents",
+        "status",
+        "paid_at",
+        "reason",
+        "credit_note",
+        "dispute_status",
+        "dispute_reason",
+        "dispute_respond_by",
+        "tip_cents",
+        "tip_split",
+        "id",
+        "business_id",
+        "created_at",
+        "updated_at"
+      ],
+      "payment_methods": [
+        "client_id",
+        "method",
+        "brand",
+        "last4",
+        "preferred",
+        "mandate_status",
+        "exp_month",
+        "exp_year",
+        "holder_name",
+        "bank_name",
+        "id",
+        "business_id",
+        "created_at",
+        "updated_at"
+      ],
+      "accounts": [
+        "owner_type",
+        "owner_id",
+        "category",
+        "code",
+        "currency",
+        "balance_cents",
+        "id",
+        "business_id",
+        "created_at",
+        "updated_at"
+      ],
+      "entries": [
+        "journal_id",
+        "account_id",
+        "owner_type",
+        "owner_id",
+        "amount_cents",
+        "currency",
+        "event",
+        "source_type",
+        "source_id",
+        "subject_type",
+        "subject_id",
+        "ref",
+        "leg",
+        "meta",
+        "occurred_at",
+        "available_at",
+        "created_at",
+        "id",
+        "business_id"
+      ],
+      "broadcasts": [
+        "created_by",
+        "name",
+        "channel",
+        "body",
+        "audience",
+        "status",
+        "scheduled_at",
+        "recipient_count",
+        "excluded_count",
+        "id",
+        "business_id",
+        "created_at",
+        "updated_at"
+      ],
+      "responses": [
+        "form_id",
+        "client_id",
+        "parent_type",
+        "parent_id",
+        "status",
+        "submitted_at",
+        "opened_at",
+        "answers",
+        "id",
+        "business_id",
+        "created_at",
+        "updated_at"
+      ],
+      "signatures": [
+        "contract_id",
+        "client_id",
+        "parent_type",
+        "parent_id",
+        "token",
+        "signed_at",
+        "signed_body",
+        "ip",
+        "status",
+        "contract_version",
+        "opened_at",
+        "method",
+        "signer_name",
+        "strokes",
+        "id",
+        "business_id",
+        "created_at",
+        "updated_at"
+      ],
+      "gift_cards": [
+        "code",
+        "item_id",
+        "initial_cents",
+        "purchaser_client_id",
+        "recipient",
+        "expires_at",
+        "status",
+        "payment_id",
+        "id",
+        "business_id",
+        "created_at",
+        "updated_at"
+      ],
+      "review_requests": [
+        "client_id",
+        "booking_id",
+        "requested_at",
+        "id",
+        "business_id",
+        "created_at",
+        "updated_at"
+      ]
+    },
+    "history_shared": {
+      "messages": [
+        "thread_id",
+        "direction",
+        "channel",
+        "sent_by",
+        "body",
+        "status",
+        "broadcast_id",
+        "id",
+        "business_id",
+        "created_at",
+        "updated_at"
+      ]
+    },
+    "history_self": {
+      "slots": [
+        "item_id",
+        "staff_id",
+        "resource_id",
+        "recurrence_id",
+        "starts_at",
+        "ends_at",
+        "capacity",
+        "status",
+        "id",
+        "business_id",
+        "created_at",
+        "updated_at"
+      ],
+      "bookings": [
+        "slot_id",
+        "starts_at",
+        "staff_id",
+        "client_id",
+        "subject_id",
+        "package_id",
+        "invoice_id",
+        "estimate_id",
+        "status",
+        "source",
+        "price_cents",
+        "deposit_amount_cents",
+        "deposit_status",
+        "confirmed_at",
+        "departed_at",
+        "checked_in_at",
+        "order_id",
+        "charged_at",
+        "completed_at",
+        "canceled_at",
+        "reminded_at",
+        "reschedule_count",
+        "id",
+        "business_id",
+        "created_at",
+        "updated_at",
+        "deleted_at"
+      ]
+    },
+    "history_full": {
+      "slots": [
+        "item_id",
+        "staff_id",
+        "resource_id",
+        "recurrence_id",
+        "starts_at",
+        "ends_at",
+        "capacity",
+        "status",
+        "id",
+        "business_id",
+        "created_at",
+        "updated_at"
+      ],
+      "bookings": [
+        "slot_id",
+        "starts_at",
+        "staff_id",
+        "client_id",
+        "subject_id",
+        "package_id",
+        "invoice_id",
+        "estimate_id",
+        "status",
+        "source",
+        "price_cents",
+        "deposit_amount_cents",
+        "deposit_status",
+        "confirmed_at",
+        "departed_at",
+        "checked_in_at",
+        "order_id",
+        "charged_at",
+        "completed_at",
+        "canceled_at",
+        "reminded_at",
+        "reschedule_count",
+        "id",
+        "business_id",
+        "created_at",
+        "updated_at",
+        "deleted_at"
+      ]
+    }
   },
-  "staff_limited": {
-    "businesses": [
-      "id",
-      "name",
-      "slug",
-      "timezone",
-      "province",
-      "unit",
-      "street_number",
-      "street_name",
-      "city",
-      "postal_code",
-      "legal_phone",
-      "brand",
-      "stripe_account_id",
-      "stripe_charges_enabled",
-      "tax_registered",
-      "tax_registered_on",
-      "setup_dismissed_at",
-      "plan_status",
-      "trial_ends_at",
-      "subject"
-    ],
-    "staff": [
-      "id",
-      "hours_revision",
-      "business_id",
-      "user_id",
-      "role",
-      "title",
-      "color",
-      "status",
-      "invite_email",
-      "invited_at",
-      "created_at",
-      "updated_at"
-    ],
-    "users": [
-      "id",
-      "name"
-    ],
-    "orders": [
-      "id",
-      "business_id",
-      "number",
-      "client_id",
-      "source",
-      "pickup_status",
-      "preparing_at",
-      "ready_at",
-      "picked_up_at",
-      "paid_at",
-      "pickup_from",
-      "pickup_to",
-      "note",
-      "notify_sms",
-      "created_at",
-      "updated_at"
-    ],
-    "lines": [
-      "id",
-      "business_id",
-      "order_id",
-      "item_id",
-      "description",
-      "quantity",
-      "position",
-      "created_at",
-      "updated_at"
-    ]
-  },
-  "staff_self": {
-    "addons": [
-      "booking_id",
-      "staff_id",
-      "item_id",
-      "description",
-      "quantity",
-      "unit_amount_cents",
-      "id",
-      "business_id",
-      "created_at",
-      "updated_at"
-    ],
-    "hours": [
-      "staff_id",
-      "basis",
-      "weekday",
-      "date",
-      "start_time",
-      "end_time",
-      "available",
-      "note",
-      "starts_at",
-      "ends_at",
-      "reason",
-      "id",
-      "business_id",
-      "created_at",
-      "updated_at"
-    ],
-    "recurrences": [
-      "item_id",
-      "staff_id",
-      "client_id",
-      "frequency",
-      "interval",
-      "byday",
-      "monthly_by",
-      "count",
-      "until",
-      "status",
-      "id",
-      "business_id",
-      "created_at",
-      "updated_at"
-    ],
-    "accounts": [
-      "owner_type",
-      "owner_id",
-      "category",
-      "code",
-      "currency",
-      "balance_cents",
-      "id",
-      "business_id",
-      "created_at",
-      "updated_at"
-    ],
-    "entries": [
-      "journal_id",
-      "account_id",
-      "owner_type",
-      "owner_id",
-      "amount_cents",
-      "currency",
-      "event",
-      "source_type",
-      "source_id",
-      "subject_type",
-      "subject_id",
-      "ref",
-      "leg",
-      "meta",
-      "occurred_at",
-      "available_at",
-      "created_at",
-      "id",
-      "business_id"
-    ]
-  },
-  "business_full": {
-    "businesses": [
-      "id",
-      "name",
-      "slug",
-      "timezone",
-      "province",
-      "unit",
-      "street_number",
-      "street_name",
-      "city",
-      "postal_code",
-      "legal_phone",
-      "billing_email",
-      "gst_hst_number",
-      "qst_number",
-      "pst_number",
-      "filing_frequency",
-      "review_requests_enabled",
-      "brand",
-      "stripe_account_id",
-      "stripe_charges_enabled",
-      "tax_registered",
-      "tax_registered_on",
-      "setup_dismissed_at",
-      "plan",
-      "plan_status",
-      "trial_ends_at",
-      "subject"
-    ],
-    "staff": [
-      "id",
-      "hours_revision",
-      "business_id",
-      "user_id",
-      "role",
-      "payee",
-      "rate_type",
-      "rate_bps",
-      "rate_cents",
-      "retail_rate_bps",
-      "title",
-      "color",
-      "status",
-      "invite_email",
-      "invited_at",
-      "created_at",
-      "updated_at"
-    ],
-    "users": [
-      "id",
-      "name"
-    ],
-    "addons": [
-      "booking_id",
-      "staff_id",
-      "item_id",
-      "description",
-      "quantity",
-      "unit_amount_cents",
-      "id",
-      "business_id",
-      "created_at",
-      "updated_at"
-    ],
-    "hours": [
-      "staff_id",
-      "basis",
-      "weekday",
-      "date",
-      "start_time",
-      "end_time",
-      "available",
-      "note",
-      "starts_at",
-      "ends_at",
-      "reason",
-      "id",
-      "business_id",
-      "created_at",
-      "updated_at"
-    ],
-    "recurrences": [
-      "item_id",
-      "staff_id",
-      "client_id",
-      "frequency",
-      "interval",
-      "byday",
-      "monthly_by",
-      "count",
-      "until",
-      "status",
-      "id",
-      "business_id",
-      "created_at",
-      "updated_at"
-    ],
-    "invoices": [
-      "client_id",
-      "number",
-      "status",
-      "currency",
-      "subtotal_cents",
-      "tax_total_cents",
-      "total_cents",
-      "issued_at",
-      "due_at",
-      "overdue_notified_at",
-      "voided_at",
-      "notes",
-      "pay_token",
-      "id",
-      "business_id",
-      "created_at",
-      "updated_at",
-      "discount_kind",
-      "discount_value",
-      "discount_reason"
-    ],
-    "estimates": [
-      "client_id",
-      "number",
-      "status",
-      "subtotal_cents",
-      "tax_total_cents",
-      "total_cents",
-      "valid_until",
-      "accepted_at",
-      "declined_at",
-      "converted_invoice_id",
-      "notes",
-      "decline_reason",
-      "view_token",
-      "id",
-      "business_id",
-      "created_at",
-      "updated_at",
-      "discount_kind",
-      "discount_value",
-      "discount_reason"
-    ],
-    "orders": [
-      "client_id",
-      "staff_id",
-      "number",
-      "status",
-      "currency",
-      "subtotal_cents",
-      "tax_total_cents",
-      "total_cents",
-      "receipt_email",
-      "receipt_phone",
-      "source",
-      "pickup_status",
-      "preparing_at",
-      "pickup_from",
-      "pickup_to",
-      "notify_sms",
-      "ready_at",
-      "picked_up_at",
-      "paid_at",
-      "note",
-      "receipt_channel",
-      "receipt_sent_at",
-      "id",
-      "business_id",
-      "created_at",
-      "updated_at",
-      "discount_kind",
-      "discount_value",
-      "discount_reason"
-    ],
-    "lines": [
-      "estimate_id",
-      "invoice_id",
-      "order_id",
-      "description",
-      "item_id",
-      "booking_id",
-      "quantity",
-      "unit_amount_cents",
-      "amount_cents",
-      "tax_amount_cents",
-      "tax_class",
-      "position",
-      "staff_id",
-      "discount_cents",
-      "sale_discount_cents",
-      "for_pickup",
-      "optional",
-      "selected",
-      "id",
-      "business_id",
-      "created_at",
-      "updated_at",
-      "discount_kind",
-      "discount_value",
-      "discount_reason"
-    ],
-    "inventory": [
-      "item_id",
-      "line_id",
-      "reason",
-      "quantity",
-      "unit_cost_cents",
-      "note",
-      "created_by",
-      "id",
-      "business_id",
-      "created_at",
-      "updated_at"
-    ],
-    "payments": [
-      "client_id",
-      "kind",
-      "parent_payment_id",
-      "invoice_id",
-      "order_id",
-      "booking_id",
-      "amount_cents",
-      "currency",
-      "method",
-      "provider",
-      "reference",
-      "note",
-      "tendered_cents",
-      "status",
-      "paid_at",
-      "reason",
-      "credit_note",
-      "dispute_status",
-      "dispute_reason",
-      "dispute_respond_by",
-      "tip_cents",
-      "tip_split",
-      "id",
-      "business_id",
-      "created_at",
-      "updated_at"
-    ],
-    "payment_methods": [
-      "client_id",
-      "method",
-      "brand",
-      "last4",
-      "preferred",
-      "mandate_status",
-      "exp_month",
-      "exp_year",
-      "holder_name",
-      "bank_name",
-      "id",
-      "business_id",
-      "created_at",
-      "updated_at"
-    ],
-    "accounts": [
-      "owner_type",
-      "owner_id",
-      "category",
-      "code",
-      "currency",
-      "balance_cents",
-      "id",
-      "business_id",
-      "created_at",
-      "updated_at"
-    ],
-    "entries": [
-      "journal_id",
-      "account_id",
-      "owner_type",
-      "owner_id",
-      "amount_cents",
-      "currency",
-      "event",
-      "source_type",
-      "source_id",
-      "subject_type",
-      "subject_id",
-      "ref",
-      "leg",
-      "meta",
-      "occurred_at",
-      "available_at",
-      "created_at",
-      "id",
-      "business_id"
-    ],
-    "broadcasts": [
-      "created_by",
-      "name",
-      "channel",
-      "body",
-      "audience",
-      "status",
-      "scheduled_at",
-      "recipient_count",
-      "excluded_count",
-      "id",
-      "business_id",
-      "created_at",
-      "updated_at"
-    ],
-    "responses": [
-      "form_id",
-      "client_id",
-      "parent_type",
-      "parent_id",
-      "status",
-      "submitted_at",
-      "opened_at",
-      "answers",
-      "id",
-      "business_id",
-      "created_at",
-      "updated_at"
-    ],
-    "signatures": [
-      "contract_id",
-      "client_id",
-      "parent_type",
-      "parent_id",
-      "token",
-      "signed_at",
-      "signed_body",
-      "ip",
-      "status",
-      "contract_version",
-      "opened_at",
-      "method",
-      "signer_name",
-      "strokes",
-      "id",
-      "business_id",
-      "created_at",
-      "updated_at"
-    ],
-    "gift_cards": [
-      "code",
-      "item_id",
-      "initial_cents",
-      "purchaser_client_id",
-      "recipient",
-      "expires_at",
-      "status",
-      "payment_id",
-      "id",
-      "business_id",
-      "created_at",
-      "updated_at"
-    ],
-    "review_requests": [
-      "client_id",
-      "booking_id",
-      "requested_at",
-      "id",
-      "business_id",
-      "created_at",
-      "updated_at"
-    ]
-  },
-  "history_shared": {
-    "messages": [
-      "thread_id",
-      "direction",
-      "channel",
-      "sent_by",
-      "body",
-      "status",
-      "broadcast_id",
-      "id",
-      "business_id",
-      "created_at",
-      "updated_at"
-    ]
-  },
-  "history_self": {
-    "slots": [
-      "item_id",
-      "staff_id",
-      "resource_id",
-      "recurrence_id",
-      "starts_at",
-      "ends_at",
-      "capacity",
-      "status",
-      "id",
-      "business_id",
-      "created_at",
-      "updated_at"
-    ],
-    "bookings": [
-      "slot_id",
-      "starts_at",
-      "staff_id",
-      "client_id",
-      "subject_id",
-      "package_id",
-      "invoice_id",
-      "estimate_id",
-      "status",
-      "source",
-      "price_cents",
-      "deposit_amount_cents",
-      "deposit_status",
-      "confirmed_at",
-      "departed_at",
-      "checked_in_at",
-      "order_id",
-      "charged_at",
-      "completed_at",
-      "canceled_at",
-      "reminded_at",
-      "reschedule_count",
-      "id",
-      "business_id",
-      "created_at",
-      "updated_at",
-      "deleted_at"
-    ]
-  },
-  "history_full": {
-    "slots": [
-      "item_id",
-      "staff_id",
-      "resource_id",
-      "recurrence_id",
-      "starts_at",
-      "ends_at",
-      "capacity",
-      "status",
-      "id",
-      "business_id",
-      "created_at",
-      "updated_at"
-    ],
-    "bookings": [
-      "slot_id",
-      "starts_at",
-      "staff_id",
-      "client_id",
-      "subject_id",
-      "package_id",
-      "invoice_id",
-      "estimate_id",
-      "status",
-      "source",
-      "price_cents",
-      "deposit_amount_cents",
-      "deposit_status",
-      "confirmed_at",
-      "departed_at",
-      "checked_in_at",
-      "order_id",
-      "charged_at",
-      "completed_at",
-      "canceled_at",
-      "reminded_at",
-      "reschedule_count",
-      "id",
-      "business_id",
-      "created_at",
-      "updated_at",
-      "deleted_at"
-    ]
+  "filters": {
+    "business_shared": {
+      "with": {
+        "member": "SELECT business_id FROM staff WHERE user_id = auth.user_id() AND status = 'active'"
+      },
+      "where": {
+        "clients": [
+          "business_id IN member AND deleted_at IS NULL"
+        ],
+        "subjects": [
+          "business_id IN member AND deleted_at IS NULL"
+        ],
+        "notes": [
+          "business_id IN member"
+        ],
+        "consents": [
+          "business_id IN member"
+        ],
+        "hours": [
+          "business_id IN member AND staff_id IS NULL"
+        ],
+        "items": [
+          "business_id IN member"
+        ],
+        "resources": [
+          "business_id IN member"
+        ],
+        "packages": [
+          "business_id IN member"
+        ],
+        "subscriptions": [
+          "business_id IN member"
+        ],
+        "forms": [
+          "business_id IN member"
+        ],
+        "fields": [
+          "business_id IN member"
+        ],
+        "contracts": [
+          "business_id IN member"
+        ],
+        "files": [
+          "business_id IN member"
+        ],
+        "threads": [
+          "business_id IN member"
+        ]
+      }
+    },
+    "staff_limited": {
+      "with": {
+        "limited": "SELECT business_id FROM staff WHERE user_id = auth.user_id() AND status = 'active' AND role != 'owner' AND role != 'admin'"
+      },
+      "where": {
+        "businesses": [
+          "id IN limited"
+        ],
+        "staff": [
+          "business_id IN limited"
+        ],
+        "users": [
+          "id IN (SELECT user_id FROM staff WHERE business_id IN limited)"
+        ],
+        "orders": [
+          "business_id IN limited AND pickup_status IS NOT NULL"
+        ],
+        "lines": [
+          "business_id IN limited AND for_pickup = true"
+        ]
+      }
+    },
+    "staff_self": {
+      "with": {
+        "own": "SELECT id FROM staff WHERE user_id = auth.user_id() AND status = 'active'"
+      },
+      "where": {
+        "addons": [
+          "staff_id IN own"
+        ],
+        "hours": [
+          "staff_id IN own"
+        ],
+        "recurrences": [
+          "staff_id IN own"
+        ],
+        "accounts": [
+          "owner_type = 'staff' AND owner_id IN own"
+        ],
+        "entries": [
+          "owner_type = 'staff' AND owner_id IN own"
+        ]
+      }
+    },
+    "business_full": {
+      "with": {
+        "managed": "SELECT business_id FROM staff WHERE user_id = auth.user_id() AND status = 'active' AND role != 'staff' AND role != 'contractor'"
+      },
+      "where": {
+        "businesses": [
+          "id IN managed"
+        ],
+        "staff": [
+          "business_id IN managed"
+        ],
+        "users": [
+          "id IN (SELECT user_id FROM staff WHERE business_id IN managed)"
+        ],
+        "addons": [
+          "business_id IN managed"
+        ],
+        "hours": [
+          "business_id IN managed"
+        ],
+        "recurrences": [
+          "business_id IN managed"
+        ],
+        "invoices": [
+          "business_id IN managed"
+        ],
+        "estimates": [
+          "business_id IN managed"
+        ],
+        "orders": [
+          "business_id IN managed"
+        ],
+        "lines": [
+          "business_id IN managed"
+        ],
+        "inventory": [
+          "business_id IN managed"
+        ],
+        "payments": [
+          "business_id IN managed"
+        ],
+        "payment_methods": [
+          "business_id IN managed"
+        ],
+        "gift_cards": [
+          "business_id IN managed"
+        ],
+        "accounts": [
+          "business_id IN managed"
+        ],
+        "entries": [
+          "business_id IN managed"
+        ],
+        "review_requests": [
+          "business_id IN managed"
+        ],
+        "broadcasts": [
+          "business_id IN managed"
+        ],
+        "responses": [
+          "business_id IN managed AND token IS NOT NULL"
+        ],
+        "signatures": [
+          "business_id IN managed"
+        ]
+      }
+    },
+    "history_shared": {
+      "with": {
+        "member": "SELECT business_id FROM staff WHERE user_id = auth.user_id() AND status = 'active'"
+      },
+      "where": {
+        "messages": [
+          "business_id IN member AND substring(created_at, 1, 7) IN subscription.parameter('months')"
+        ]
+      }
+    },
+    "history_self": {
+      "with": {
+        "own": "SELECT id FROM staff WHERE user_id = auth.user_id() AND status = 'active'"
+      },
+      "where": {
+        "slots": [
+          "staff_id IN own AND substring(starts_at, 1, 7) IN subscription.parameter('months')"
+        ],
+        "bookings": [
+          "staff_id IN own AND deleted_at IS NULL AND substring(starts_at, 1, 7) IN subscription.parameter('months')"
+        ]
+      }
+    },
+    "history_full": {
+      "with": {
+        "managed": "SELECT business_id FROM staff WHERE user_id = auth.user_id() AND status = 'active' AND role != 'staff' AND role != 'contractor'"
+      },
+      "where": {
+        "slots": [
+          "business_id IN managed AND substring(starts_at, 1, 7) IN subscription.parameter('months')"
+        ],
+        "bookings": [
+          "business_id IN managed AND deleted_at IS NULL AND substring(starts_at, 1, 7) IN subscription.parameter('months')"
+        ]
+      }
+    }
   }
 }

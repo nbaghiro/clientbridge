@@ -48,10 +48,13 @@ def run(command: list[str], env: dict[str, str]) -> None:
 
 
 def seed_sources() -> list[Path]:
-    """What a seeded database is built from: the migrations and the demo seed's code and assets."""
+    """What a seeded database is built from: migrations, grants, publication and the demo seed."""
     scripts = tier.BACKEND / "scripts"
     return [
         tier.BACKEND / "migrations",
+        scripts / "db_access.py",
+        scripts / "gen_sync_schema.py",
+        tier.ROOT / "infra" / "powersync" / "sync-rules.yaml",
         *sorted(scripts.glob("demo_*.py")),
         scripts / "seed_demo.py",
         scripts / "demo_assets",
