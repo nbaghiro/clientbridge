@@ -9,7 +9,8 @@
         "./files": "./src/files.ts"
     },
     "scripts": {
-        "typecheck": "tsc --noEmit"
+        "typecheck": "tsc --noEmit",
+        "bench": "node bench/run.ts"
     },
     "peerDependencies": {
         "@powersync/common": "^2.4.0"

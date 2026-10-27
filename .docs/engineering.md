@@ -152,6 +152,20 @@ Every job runs its full suite on every pull request and on every push to `main`;
 the paths a change touches. With `ENV=dev` the API allows 1000 requests a minute from one address on
 the public endpoints (30 otherwise), since one browser plays every visitor in the e2e suites.
 
+### Storage bench (`.github/workflows/storage-bench.yml`)
+
+The storage bench measures how the web replica's storage behaves in each browser. It lives in `frontend/packages/sync/bench/` and opens a PowerSync database with the app's `AppSchema` and the workspace's `@powersync/web`, then applies one first checkpoint through `powersync_control` with no network. The rows are synthetic, but each table has the row count Cedar Coast Pet Care, the largest core business, syncs. For each storage (IndexedDB, OPFS and memory by default) and each context (a plain Playwright context, which browses privately, and an on-disk profile), it records the OPFS probe, cold open, the first checkpoint, reads, the reopen after a reload and the SQLite file size. It also runs two tabs writing at once, reloads in a row, a relaunch followed by `disconnectAndClear()` and `VACUUM`, and, when asked, a script navigation during the first checkpoint while it watches for a renderer crash. Each run writes `results.json`, `tables.md` and the page logs to `.scratchpad/bench/`.
+
+```
+cd frontend/packages/sync
+node bench/run.ts --browser chromium   # or firefox, webkit, chrome, msedge
+node bench/run.ts --browser chrome --crash-runs 30 --headed
+node bench/safari.ts                   # real Safari; needs "Allow remote automation"
+node bench/tables.ts <results.json or folder>...
+```
+
+The workflow runs only from `workflow_dispatch` and never gates a merge. It runs the bench on Linux (Chromium, Firefox, WebKit), macOS (the same three and Safari through `safaridriver`) and Windows (Chromium, Firefox, Chrome and Edge, with the crash scenario on Chrome and Edge). The Linux Chromium job also builds the web app and records its wasm files. Each job uploads its results and adds its tables to the run summary, and a last job joins every table into `storage-bench-tables`. The bench serves its page on 8795 (`BENCH_PORT`) and drives safaridriver on 8796 (`SAFARI_DRIVER_PORT`).
+
 ---
 
 ## Testing

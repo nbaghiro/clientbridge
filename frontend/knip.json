@@ -44,7 +44,8 @@
         },
         "packages/sync": {
             "playwright": false,
-            "entry": ["playwright.config.ts", "e2e/**/*.e2e.ts"]
+            "entry": ["playwright.config.ts", "e2e/**/*.e2e.ts", "bench/*.ts"],
+            "ignoreBinaries": ["safaridriver"]
         }
     },
     "ignore": ["packages/api-client/src/generated.ts"]
