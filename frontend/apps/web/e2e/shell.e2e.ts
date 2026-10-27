@@ -41,10 +41,10 @@ const SETUP_SECTIONS = [
     "services",
     "team",
     "getting-paid",
-    "plan",
     "taxes",
     "online-booking",
     "reminders",
+    "security",
 ];
 const MANAGER_PAYMENTS_TABS = [
     strings.navigation.paymentsTabs.invoices,
