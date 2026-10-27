@@ -203,13 +203,19 @@ def _tier_of(sub: PlanSubscription) -> tuple[Plan | None, PlanInterval | None]:
     return _PRODUCT_TIERS.get(item.product), _INTERVALS.get(item.interval)
 
 
-async def sync_seats(gateway: PaymentGateway, business: Business, seats: int) -> None:
+async def sync_seats(
+    gateway: PaymentGateway,
+    business: Business,
+    seats: int,
+    sub: PlanSubscription | None = None,
+) -> None:
     """Set a Premium subscription's seat quantity; absolute, so a retry sets the same number."""
     if business.plan != "premium" or business.stripe_subscription_id is None:
         return
     if business.plan_status not in _LIVE:
         return
-    sub = await gateway.get_plan_subscription(business.stripe_subscription_id)
+    if sub is None:
+        sub = await gateway.get_plan_subscription(business.stripe_subscription_id)
     tier, interval = _tier_of(sub)
     if tier is None or interval is None or _seats_of(sub) == seats:
         return
@@ -292,7 +298,7 @@ class PlanService:
         return business
 
     async def status(self) -> PlanOut:
-        """The plan as Stripe has it now, so a refresh repairs an event that never arrived."""
+        """The stored plan with Stripe's billing details; webhooks and the daily sync update it."""
         self._assert_owner()
         now = clock.now()
         business = await self._business()
@@ -302,11 +308,6 @@ class PlanService:
             if subscription_id is not None
             else None
         )
-        if sub is not None:
-            business = await self._business(lock=True)
-            if business.stripe_subscription_id == subscription_id and mirror_plan(business, sub):
-                await self.db.commit()
-                business = await self._business()
         seats = await billed_seats(self.db, business.id, now)
         return _out(business, seats, now, sub)
 
@@ -427,7 +428,7 @@ class PlanService:
         return PlanLink(url=url)
 
 
-def mirror_plan(business: Business, sub: PlanSubscription) -> bool:
+def apply_plan_subscription(business: Business, sub: PlanSubscription) -> bool:
     """Take the plan and its status from Stripe's copy of the subscription; True if either moved."""
     status = _STRIPE_STATUS.get(sub.status)
     trialing = plan_access(business, clock.now()) == "trial"
@@ -498,10 +499,11 @@ async def apply_subscription_event(
         if previous.status not in _ENDED:
             await gateway.cancel_plan_subscription(current)
     business.stripe_subscription_id = subscription_id
-    mirror_plan(business, sub)
+    apply_plan_subscription(business, sub)
     await db.flush()
     if event.type == "customer.subscription.created":
-        await sync_seats(gateway, business, await billed_seats(db, business.id, clock.now()))
+        seats = await billed_seats(db, business.id, clock.now())
+        await sync_seats(gateway, business, seats, sub)
 
 
 async def run_sync_plans(db: AsyncSession, gateway: PaymentGateway, now: datetime) -> int:
@@ -521,9 +523,9 @@ async def run_sync_plans(db: AsyncSession, gateway: PaymentGateway, now: datetim
             )
             if business is not None and business.stripe_subscription_id is not None:
                 sub = await gateway.get_plan_subscription(business.stripe_subscription_id)
-                mirror_plan(business, sub)
+                apply_plan_subscription(business, sub)
                 await db.flush()
-                await sync_seats(gateway, business, await billed_seats(db, business.id, now))
+                await sync_seats(gateway, business, await billed_seats(db, business.id, now), sub)
                 synced += 1
             await db.commit()
         except Exception:
