@@ -11,12 +11,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
 from clientbridge.core.emails import reserved_email
-from clientbridge.core.errors import AppError, Unprocessable
+from clientbridge.core.errors import AppError, Undelivered, Unprocessable
 from clientbridge.core.ids import new_id
-from clientbridge.core.phones import reserved_phone
+from clientbridge.core.phones import e164, reserved_phone, same_phone
+from clientbridge.core.scoping import scoped
 from clientbridge.integrations.expo import Push, PushSender
 from clientbridge.integrations.resend import Email, EmailSender, get_test_email_sender
 from clientbridge.integrations.twilio import Sms, SmsSender
+from clientbridge.models.clients import Client
 from clientbridge.models.messaging import Delivery, DeliveryState
 from clientbridge.schemas.deliveries import (
     DELIVERY_PAYLOAD,
@@ -25,10 +27,18 @@ from clientbridge.schemas.deliveries import (
     PushDelivery,
     SmsDelivery,
 )
+from clientbridge.services.consents import emails_withdrawn, stopped_clients
 
 _LEASE = timedelta(minutes=5)
 _RETRY = timedelta(minutes=1)
 _RETRY_WINDOW = timedelta(hours=23)
+_QUEUED = "queued_deliveries"
+
+
+def delivery_key(kind: str, subject_id: str, *, each: bool = False) -> str:
+    """A notice's delivery key: one send per subject, or with `each` a new send every call."""
+    key = f"{kind}:{subject_id}"
+    return f"{key}:{new_id('delivery')}" if each else key
 
 
 async def enqueue(
@@ -49,14 +59,33 @@ async def enqueue(
         .on_conflict_do_nothing(index_elements=["key"])
         .returning(Delivery.id)
     )
-    if identity is not None:
-        return identity
-    existing = (await db.scalars(select(Delivery).where(Delivery.key == key))).one()
-    if existing.business_id != business_id or existing.payload != body:
-        raise Unprocessable(
-            "delivery key was reused for different content", code="idempotency_key_reused"
+    if identity is None:
+        existing = (await db.scalars(select(Delivery).where(Delivery.key == key))).one()
+        if existing.business_id != business_id or existing.payload != body:
+            raise Unprocessable(
+                "delivery key was reused for different content", code="idempotency_key_reused"
+            )
+        identity = existing.id
+    db.info.setdefault(_QUEUED, []).append(identity)
+    return identity
+
+
+async def send_queued(
+    db: AsyncSession,
+    email: EmailSender,
+    sms: SmsSender,
+    push: PushSender,
+    *,
+    transport_override: bool = False,
+) -> int:
+    """Send what this session queued since the last call; a replay queues nothing, so sends none."""
+    queued: list[str] = db.info.pop(_QUEUED, [])
+    sent = 0
+    for identity in dict.fromkeys(queued):
+        sent += await dispatch(
+            db, identity, email, sms, push, transport_override=transport_override
         )
-    return existing.id
+    return sent
 
 
 async def dispatch(
@@ -96,6 +125,13 @@ async def dispatch(
         row.state, row.error, row.next_at = "failed", "reserved_address", None
         await db.commit()
         return False
+    if row.business_id is not None and (
+        await _texts_stopped(db, row.business_id, payload)
+        or await _emails_withdrawn(db, row.business_id, payload)
+    ):
+        row.state, row.error, row.next_at = "failed", "consent_withdrawn", None
+        await db.commit()
+        return False
     claim = secrets.token_urlsafe(24)
     row.state, row.claim, row.next_at = "sending", claim, now + _LEASE
     key = row.id
@@ -128,6 +164,8 @@ async def dispatch(
                 await push.send(message)
     except AppError as exc:
         state, error = "failed", exc.code
+    except Undelivered as exc:
+        state, error = "queued" if exc.retry else "failed", exc.code
     except (httpx.ConnectError, httpx.ConnectTimeout, httpx.PoolTimeout):
         state, error = "queued", "connection_unavailable"
     except httpx.HTTPStatusError as exc:
@@ -150,6 +188,30 @@ async def dispatch(
     row.claim = None
     await db.commit()
     return state == "accepted"
+
+
+async def _texts_stopped(db: AsyncSession, business_id: str, payload: DeliveryPayload) -> bool:
+    """A STOP from the number, received after the text was queued, still keeps it from going."""
+    if not isinstance(payload, SmsDelivery):
+        return False
+    number = e164(payload.message.to)
+    if number is None:
+        return False
+    holders = list(
+        await db.scalars(
+            scoped(Client, business_id, soft_delete=True)
+            .with_only_columns(Client.id)
+            .where(same_phone(Client.phone, number))
+        )
+    )
+    return bool(holders) and bool(await stopped_clients(db, business_id, holders))
+
+
+async def _emails_withdrawn(db: AsyncSession, business_id: str, payload: DeliveryPayload) -> bool:
+    """An email the client can opt out of stays unsent once they have, even after it queued."""
+    if not isinstance(payload, EmailDelivery) or not payload.opt_out or payload.client_id is None:
+        return False
+    return await emails_withdrawn(db, business_id, payload.client_id)
 
 
 def _reserved(payload: DeliveryPayload) -> bool:
@@ -179,26 +241,28 @@ async def run_deliveries(
 
 
 class DeliveryQueue:
-    def __init__(self, db: AsyncSession, scope: str, business_id: str | None = None) -> None:
-        self.db, self.scope, self.business_id = db, scope, business_id
-        self.ids: list[str] = []
+    def __init__(self, db: AsyncSession, key: str, business_id: str | None = None) -> None:
+        self.db, self.key, self.business_id = db, key, business_id
 
     async def add(self, payload: DeliveryPayload, business_id: str | None = None) -> str:
         body = json.dumps(payload.model_dump(mode="json"), sort_keys=True, separators=(",", ":"))
-        key = f"{self.scope}:{hashlib.sha256(body.encode()).hexdigest()}"
-        identity = await enqueue(
-            self.db, payload, key=key, business_id=business_id or self.business_id
+        return await enqueue(
+            self.db,
+            payload,
+            key=f"{self.key}:{hashlib.sha256(body.encode()).hexdigest()}",
+            business_id=business_id or self.business_id,
         )
-        self.ids.append(identity)
-        return identity
 
 
 class QueuedEmail:
     def __init__(self, queue: DeliveryQueue) -> None:
         self.queue = queue
 
-    async def send(self, email: Email) -> str:
-        return await self.queue.add(EmailDelivery(message=email), email.tags.get("business"))
+    async def send(
+        self, email: Email, *, client_id: str | None = None, opt_out: bool = False
+    ) -> str:
+        delivery = EmailDelivery(message=email, client_id=client_id, opt_out=opt_out)
+        return await self.queue.add(delivery, email.tags.get("business"))
 
 
 class QueuedSms:
@@ -215,16 +279,3 @@ class QueuedPush:
 
     async def send(self, push: Push) -> None:
         await self.queue.add(PushDelivery(message=push))
-
-
-async def dispatch_scope(
-    db: AsyncSession, scope: str, email: EmailSender, sms: SmsSender, push: PushSender
-) -> None:
-    ids = list(
-        await db.scalars(
-            select(Delivery.id).where(Delivery.key.startswith(f"{scope}:", autoescape=True))
-        )
-    )
-    await db.commit()
-    for identity in ids:
-        await dispatch(db, identity, email, sms, push)

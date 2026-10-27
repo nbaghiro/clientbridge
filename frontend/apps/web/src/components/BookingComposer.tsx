@@ -118,7 +118,10 @@ export function BookingComposer({
                                                 />
                                             }
                                             title={m.client.name}
-                                            detail={formatList(m.subjects, "unit")}
+                                            detail={formatParts([
+                                                m.client.email,
+                                                formatList(m.subjects, "unit"),
+                                            ])}
                                             onPress={() => {
                                                 form.pickClient(m.client.id);
                                             }}

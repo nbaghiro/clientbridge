@@ -9,7 +9,7 @@ import httpx
 import pytest
 from fastapi import APIRouter
 from fastapi.routing import APIRoute
-from sqlalchemy import select, text, update
+from sqlalchemy import func, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.api.plans import LAPSED_WRITES
@@ -872,3 +872,44 @@ async def test_previous_live_subscription_is_cancelled_without_refunding_its_his
     assert gateway.canceled_plan_subscriptions == ["sub_previous"]
     assert gateway.refunded_plan_subscriptions == []
     assert (await _business(db)).stripe_subscription_id == SUB
+
+
+async def _plan(db: AsyncSession) -> tuple[str | None, str]:
+    business = await _business(db)
+    return business.plan, business.plan_status
+
+
+@pytest.mark.parametrize("provider", ["canceled", "unpaid"])
+async def test_reading_the_plan_writes_nothing_and_the_daily_sync_applies_a_missed_ending(
+    provider: str, as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await _subscribed(db, gateway, PlanItem("team_month"))
+    gateway.plan_subscriptions[SUB] = _sub(PlanItem("team_month"), status=provider)
+    audits = await db.scalar(select(func.count()).select_from(Audit))
+    read = ok(await as_owner.get("/v1/plan")).json()
+    assert (read["access"], read["plan_status"]) == ("active", "active")
+    assert await _plan(db) == ("team", "active")
+    assert await db.scalar(select(func.count()).select_from(Audit)) == audits
+    ok(await as_owner.post("/v1/clients", json={"name": "Before Sync"}), 201)
+    await plans.run_sync_plans(db, gateway, clock.now())
+    assert await _plan(db) == (None, "lapsed")
+    assert (await as_owner.post("/v1/clients", json={"name": "After"})).status_code == 402
+    gateway.plan_subscriptions[SUB] = _sub(PlanItem("team_month"))
+    await _deliver(as_owner, _event("customer.subscription.updated"))
+    assert await _plan(db) == ("team", "active")
+
+
+async def test_the_daily_sync_heals_a_missed_lapse_and_a_missed_recovery(
+    db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await _subscribed(db, gateway, PlanItem("team_month"))
+    gateway.plan_subscriptions[SUB] = _sub(PlanItem("team_month"), status="unpaid")
+    await plans.run_sync_plans(db, gateway, clock.now())
+    assert await _plan(db) == (None, "lapsed")
+    gateway.plan_subscriptions[SUB] = _sub(PlanItem("team_month"))
+    await plans.run_sync_plans(db, gateway, clock.now())
+    assert await _plan(db) == ("team", "active")
+    await plans.run_sync_plans(db, gateway, clock.now())
+    assert await _plan(db) == ("team", "active")
+    assert gateway.canceled_plan_subscriptions == []
+    assert gateway.plan_item_keys == []

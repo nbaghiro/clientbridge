@@ -113,6 +113,7 @@ export function OptionList<K extends string>({
                                 key={o.key}
                                 id={optionId(o.key)}
                                 role="option"
+                                data-value={o.key}
                                 aria-selected={selected}
                                 aria-disabled={o.disabled === true || undefined}
                                 onMouseDown={(e) => {

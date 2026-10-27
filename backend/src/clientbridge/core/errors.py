@@ -78,6 +78,15 @@ class TooManyRequests(AppError):
     code = "too_many_requests"
 
 
+class Undelivered(Exception):
+    """A provider provably never accepted the message; `retry` when a later attempt may succeed."""
+
+    def __init__(self, code: str, *, retry: bool) -> None:
+        self.code = code
+        self.retry = retry
+        super().__init__(code)
+
+
 async def app_error_handler(_: Request, exc: Exception) -> JSONResponse:
     # Registered only for AppError; the signature matches Starlette's expected handler type.
     if not isinstance(exc, AppError):

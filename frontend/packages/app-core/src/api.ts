@@ -70,6 +70,7 @@ const FAILURES: Record<string, (detail: FailureDetail) => string> = {
     shop_not_ready: () => strings.api.shopNotReady,
     mixed_currencies: () => strings.api.mixedCurrencies,
     slot_unavailable: () => strings.api.slotUnavailable,
+    contact_ambiguous: () => strings.api.contactAmbiguous,
     class_seat: () => strings.api.classSeat,
     class_move: () => strings.api.classMove,
     recurrence_too_long: () => strings.api.recurrenceTooLong,
@@ -78,6 +79,7 @@ const FAILURES: Record<string, (detail: FailureDetail) => string> = {
     visit_not_started: () => strings.api.visitNotStarted,
     estimate_booked: () => strings.api.estimateBooked,
     estimate_on_visit: () => strings.api.estimateOnVisit,
+    estimate_changed: () => strings.api.estimateChanged,
     deposit_not_due: () => strings.api.depositNotDue,
     deposit_in_progress: () => strings.api.depositInProgress,
     card_payments_unavailable: () => strings.api.cardPaymentsUnavailable,
@@ -122,6 +124,8 @@ const FAILURES: Record<string, (detail: FailureDetail) => string> = {
     class_schedule: () => strings.api.classSchedule,
     addon_length_in_use: (d) => strings.api.addonLengthInUse(detailCount(d)),
     enrolment_paid: () => strings.api.enrolmentPaid,
+    sku_taken: () => strings.api.skuTaken,
+    invoice_has_payments: () => strings.api.invoiceHasPayments,
 };
 
 /** The catalog message for a failure the server named, else the action's own message. */

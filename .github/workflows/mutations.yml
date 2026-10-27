@@ -1,0 +1,43 @@
+name: mutations
+on:
+  schedule:
+    - cron: "0 9 * * 0"
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: mutations
+  cancel-in-progress: false
+# Breaks a few invariants in a temporary worktree and requires the case that owns each to fail.
+jobs:
+  mutations:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.0
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 9
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - run: uv sync --frozen
+        working-directory: backend
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+        working-directory: frontend
+      - run: pnpm --filter web exec playwright install --with-deps chromium
+        working-directory: frontend
+      - run: make test-tier
+      - name: break each invariant in a copy and require its case to fail
+        run: make test-mutations
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: mutations
+          include-hidden-files: true
+          if-no-files-found: error
+          path: .scratchpad/mutations-*
+          retention-days: 14

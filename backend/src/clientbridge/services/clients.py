@@ -86,7 +86,6 @@ class ClientService:
                 email=data.email,
                 phone=data.phone,
                 tags=clean_tags(data.tags),
-                status=data.status,
                 custom_fields=data.custom_fields,
                 preferred_channel=data.preferred_channel,
             )

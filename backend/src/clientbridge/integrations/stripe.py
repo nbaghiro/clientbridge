@@ -582,7 +582,6 @@ class PaymentGateway(Protocol):
         *,
         customer_id: str,
         idempotency_key: str,
-        interval_description: str,
         email: str | None = None,
     ) -> SetupIntentResult:
         """Save a Canadian pre-authorized debit (ACSS) mandate for later off-session pulls."""
@@ -1161,7 +1160,6 @@ class StripeGateway:
         *,
         customer_id: str,
         idempotency_key: str,
-        interval_description: str,
         email: str | None = None,
     ) -> SetupIntentResult:
         if email is not None:
@@ -1174,8 +1172,6 @@ class StripeGateway:
                 "acss_debit": {
                     "currency": "cad",
                     "mandate_options": {
-                        "payment_schedule": "interval",
-                        "interval_description": interval_description,
                         "default_for": ["invoice", "subscription"],
                         "transaction_type": "personal",
                     },

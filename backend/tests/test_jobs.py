@@ -440,6 +440,29 @@ def test_the_worker_schedules_every_service_job() -> None:
     assert scheduled == jobs
 
 
+def test_every_cron_entry_is_a_worker_job_that_fires_at_least_daily() -> None:
+    from dataclasses import replace
+
+    from clientbridge.tasks import worker
+
+    start = datetime(2026, 10, 13, 17, 0, 0, 1, tzinfo=UTC)
+    names: list[str] = []
+    for job in WorkerSettings.cron_jobs:
+        assert isinstance(job, CronJob)
+        name = job.name.removeprefix("cron:")
+        names.append(name)
+        assert job.name == f"cron:{name}"
+        assert getattr(worker, name) is job.coroutine
+        assert inspect.iscoroutinefunction(job.coroutine)
+        assert list(inspect.signature(job.coroutine).parameters) == ["ctx"]
+        assert not job.run_at_startup
+        probe = replace(job, next_run=None)
+        probe.calculate_next(start)
+        assert probe.next_run is not None
+        assert start < probe.next_run <= start + timedelta(days=1)
+    assert len(names) == len(set(names))
+
+
 def test_the_worker_heartbeat_is_fresh_enough_for_the_liveness_probe() -> None:
     assert WorkerSettings.health_check_interval == 60
 

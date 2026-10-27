@@ -36,14 +36,8 @@ from clientbridge.services.business import (
     businesses_at_hour,
     postal_address,
 )
-from clientbridge.services.deliveries import (
-    DeliveryQueue,
-    QueuedEmail,
-    QueuedPush,
-    QueuedSms,
-    dispatch,
-)
-from clientbridge.services.notifications import Notifier, plan_link
+from clientbridge.services.deliveries import delivery_key, send_queued
+from clientbridge.services.notifications import Notifier, plan_link, queued_notifier
 
 _log = logging.getLogger(__name__)
 
@@ -209,13 +203,19 @@ def _tier_of(sub: PlanSubscription) -> tuple[Plan | None, PlanInterval | None]:
     return _PRODUCT_TIERS.get(item.product), _INTERVALS.get(item.interval)
 
 
-async def sync_seats(gateway: PaymentGateway, business: Business, seats: int) -> None:
+async def sync_seats(
+    gateway: PaymentGateway,
+    business: Business,
+    seats: int,
+    sub: PlanSubscription | None = None,
+) -> None:
     """Set a Premium subscription's seat quantity; absolute, so a retry sets the same number."""
     if business.plan != "premium" or business.stripe_subscription_id is None:
         return
     if business.plan_status not in _LIVE:
         return
-    sub = await gateway.get_plan_subscription(business.stripe_subscription_id)
+    if sub is None:
+        sub = await gateway.get_plan_subscription(business.stripe_subscription_id)
     tier, interval = _tier_of(sub)
     if tier is None or interval is None or _seats_of(sub) == seats:
         return
@@ -298,15 +298,17 @@ class PlanService:
         return business
 
     async def status(self) -> PlanOut:
+        """The stored plan with Stripe's billing details; webhooks and the daily sync update it."""
         self._assert_owner()
         now = clock.now()
         business = await self._business()
-        seats = await billed_seats(self.db, business.id, now)
+        subscription_id = business.stripe_subscription_id
         sub = (
-            await self.gateway.get_plan_subscription(business.stripe_subscription_id)
-            if business.stripe_subscription_id is not None
+            await self.gateway.get_plan_subscription(subscription_id)
+            if subscription_id is not None
             else None
         )
+        seats = await billed_seats(self.db, business.id, now)
         return _out(business, seats, now, sub)
 
     async def checkout(self, choice: PlanChoice, idempotency_key: str | None) -> PlanLink:
@@ -426,6 +428,20 @@ class PlanService:
         return PlanLink(url=url)
 
 
+def apply_plan_subscription(business: Business, sub: PlanSubscription) -> bool:
+    """Take the plan and its status from Stripe's copy of the subscription; True if either moved."""
+    status = _STRIPE_STATUS.get(sub.status)
+    trialing = plan_access(business, clock.now()) == "trial"
+    # incomplete: Checkout has not collected the first payment; an expired one leaves the trial
+    if status is None or (sub.status == "incomplete_expired" and trialing):
+        return False
+    plan = _tier_of(sub)[0] if status != "lapsed" else None
+    if (business.plan_status, business.plan) == (status, plan):
+        return False
+    business.plan_status, business.plan = status, plan
+    return True
+
+
 async def apply_subscription_event(
     db: AsyncSession, gateway: PaymentGateway, event: GatewayEvent
 ) -> None:
@@ -483,29 +499,17 @@ async def apply_subscription_event(
         if previous.status not in _ENDED:
             await gateway.cancel_plan_subscription(current)
     business.stripe_subscription_id = subscription_id
-    status = _STRIPE_STATUS.get(sub.status)
-    trialing = plan_access(business, clock.now()) == "trial"
-    # incomplete: Checkout has not collected the first payment; an expired one leaves the trial
-    if status is None or (sub.status == "incomplete_expired" and trialing):
-        await db.flush()
-        return
-    business.plan_status = status
-    business.plan = _tier_of(sub)[0] if status != "lapsed" else None
+    apply_plan_subscription(business, sub)
     await db.flush()
     if event.type == "customer.subscription.created":
-        await sync_seats(gateway, business, await billed_seats(db, business.id, clock.now()))
+        seats = await billed_seats(db, business.id, clock.now())
+        await sync_seats(gateway, business, seats, sub)
 
 
-async def run_sync_seats(db: AsyncSession, gateway: PaymentGateway, now: datetime) -> int:
-    """Set every Premium subscription's seats to the current count; catches expired invites."""
+async def run_sync_plans(db: AsyncSession, gateway: PaymentGateway, now: datetime) -> int:
+    """Mirror every plan subscription from Stripe, covering any missed event, then its seats."""
     identities = list(
-        await db.scalars(
-            select(Business.id).where(
-                Business.plan == "premium",
-                Business.plan_status.in_(_LIVE),
-                Business.stripe_subscription_id.is_not(None),
-            )
-        )
+        await db.scalars(select(Business.id).where(Business.stripe_subscription_id.is_not(None)))
     )
     await db.commit()
     synced = 0
@@ -517,17 +521,16 @@ async def run_sync_seats(db: AsyncSession, gateway: PaymentGateway, now: datetim
                 .with_for_update(key_share=True)
                 .execution_options(populate_existing=True)
             )
-            if (
-                business is not None
-                and business.plan == "premium"
-                and business.plan_status in _LIVE
-            ):
-                await sync_seats(gateway, business, await billed_seats(db, business.id, now))
+            if business is not None and business.stripe_subscription_id is not None:
+                sub = await gateway.get_plan_subscription(business.stripe_subscription_id)
+                apply_plan_subscription(business, sub)
+                await db.flush()
+                await sync_seats(gateway, business, await billed_seats(db, business.id, now), sub)
                 synced += 1
             await db.commit()
         except Exception:
             await db.rollback()
-            _log.exception("seat sync failed for %s", identity)
+            _log.exception("plan sync failed for %s", identity)
     return synced
 
 
@@ -547,16 +550,11 @@ async def run_trial_reminders(db: AsyncSession, notifier: Notifier, now: datetim
             last_day = False
         else:
             continue
-        queue = DeliveryQueue(
-            db,
-            f"trial:{business.id}:{business.trial_ends_at.isoformat()}:{today.isoformat()}",
-            business.id,
+        ends_on = business.trial_ends_at.isoformat()
+        key = delivery_key("trial", f"{business.id}:{ends_on}:{today.isoformat()}")
+        await queued_notifier(db, business.id, key).on_trial_ending(
+            db, business.id, last_day=last_day
         )
-        queued = Notifier(
-            QueuedEmail(queue), QueuedSms(queue), QueuedPush(queue), raise_errors=True
-        )
-        await queued.on_trial_ending(db, business.id, last_day=last_day)
         await db.commit()
-        for identity in queue.ids:
-            sent += await dispatch(db, identity, notifier.email, notifier.sms, notifier.push)
+        sent += await send_queued(db, notifier.email, notifier.sms, notifier.push)
     return sent

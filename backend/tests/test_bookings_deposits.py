@@ -2,6 +2,7 @@ import httpx
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.models.billing import Invoice
 from clientbridge.models.catalog import Item
 from clientbridge.models.clients import Client
@@ -13,6 +14,7 @@ from tests.helpers import (
     card_pay,
     deposit_payment,
     enable_payments,
+    ok,
     payment,
     provider_ref,
     settle,
@@ -100,6 +102,28 @@ async def test_deposit_amount_computed_from_item(
     assert res.json()["deposit_amount_cents"] == 1000  # 20% of $50
 
 
+async def test_deposit_rounds_half_to_even_and_never_exceeds_the_price(
+    as_owner: httpx.AsyncClient, api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    cid, iid = await _client_and_item(db)
+    listed_id = "it_groom_lg"
+    cases = [("percent", 50, 101, 50), ("percent", 50, 103, 52), ("fixed", 200, 101, 101)]
+    for day, (kind, value, price, owed) in enumerate(cases, start=10):
+        await db.execute(
+            update(Item)
+            .where(Item.id.in_((iid, listed_id)))
+            .values(price_cents=price, deposit_type=kind, deposit_value=value)
+        )
+        await db.flush()
+        listed = (await api.get("/book/birchbark/services")).json()["services"]
+        assert next(s for s in listed if s["id"] == listed_id)["deposit_amount_cents"] == owed
+        res = await as_owner.post(
+            "/v1/bookings", json=_booking(cid, iid, f"2027-04-{day}T17:00:00Z")
+        )
+        assert res.status_code == 201, res.text
+        assert res.json()["deposit_amount_cents"] == owed, (kind, value, price)
+
+
 GOOD = {"Stripe-Signature": "good"}
 
 
@@ -151,7 +175,30 @@ async def test_sending_the_invoice_applies_the_deposit(
     invoice = (await db.execute(select(Invoice).where(Invoice.id == inv_id))).scalar_one()
     assert (status, held) == ("applied", 0)
     assert balance == invoice.total_cents - 2000
-    assert invoice.status == "sent"
+    assert (await ledger.invoice_state(db, invoice))[0] == "partial"
+    invoice.overdue_notified_at = clock.now()
+    await db.flush()
+    assert (await ledger.invoice_state(db, invoice))[0] == "overdue"
+
+
+async def test_a_visit_invoice_edited_with_its_line_references_still_takes_the_deposit(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    bid, _ = await _collected(as_owner, db, "2027-07-04T10:00:00Z")
+    draft = ok(await as_owner.post(f"/v1/invoices/from-booking/{bid}"), 201).json()
+    kept = ("description", "quantity", "unit_amount_cents", "item_id", "booking_id", "staff_id")
+    lines = [{k: ln[k] for k in kept} for ln in draft["lines"]]
+    assert {ln["booking_id"] for ln in lines} == {bid}
+    edited = await as_owner.patch(
+        f"/v1/invoices/{draft['id']}", json={"notes": "Thanks for coming in", "lines": lines}
+    )
+    assert [{k: ln[k] for k in kept} for ln in ok(edited).json()["lines"]] == lines
+    ok(await as_owner.post(f"/v1/invoices/{draft['id']}/send"))
+    status, held, balance = await _state(db, bid, draft["id"])
+    assert (status, held) == ("applied", 0)
+    assert balance == draft["total_cents"] - 2000
+    visit = await db.get(Booking, bid, populate_existing=True)
+    assert visit is not None and visit.invoice_id == draft["id"]
 
 
 async def test_deposit_settled_after_the_invoice_is_applied(
@@ -188,13 +235,14 @@ async def test_refunding_an_applied_deposit_reopens_the_invoice(
         f"/v1/payments/{pay_id}/refund", json={"amount_cents": 500}, headers=retry_key()
     )
     assert partial.status_code == 409
-    assert partial.json()["message"] == "a deposit applied to an invoice is refunded in full"
+    assert partial.json()["error"] == "whole_only"
     assert (
         await as_owner.post(f"/v1/payments/{pay_id}/refund", json={}, headers=retry_key())
     ).status_code == 200
     invoice = (await db.execute(select(Invoice).where(Invoice.id == inv_id))).scalar_one()
     status, held, balance = await _state(db, bid, inv_id)
     assert (status, held, balance) == ("refunded", 0, invoice.total_cents)
+    assert (await ledger.invoice_state(db, invoice))[0] == "sent"
 
 
 async def test_void_with_a_payment_in_progress_409(

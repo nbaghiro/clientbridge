@@ -244,7 +244,10 @@ SELECT 'package' AS kind, p.id, p.client_id, i.name AS item_name, p.status, p.se
        NULL AS recipient, i.price_cents AS price_cents,
        ${ownedLiabilitySql("package", "deferred", "p.id")} AS balance_cents,
        NULL AS period_end, NULL AS method_brand, NULL AS method_last4, p.payment_id,
-       pay.amount_cents AS paid_cents, p.created_at AS created_at, sj.name AS subject_name
+       pay.amount_cents AS paid_cents, p.created_at AS created_at, sj.name AS subject_name,
+       (SELECT -SUM(de.amount_cents) FROM entries de JOIN accounts da ON da.id = de.account_id
+        WHERE da.category = 'deferred' AND de.event = 'payment'
+          AND de.subject_type = 'package' AND de.subject_id = p.id) AS deferred_paid_cents
 FROM packages p LEFT JOIN items i ON i.id = p.item_id
 LEFT JOIN payments pay ON pay.id = p.payment_id
 LEFT JOIN subjects sj ON sj.id = p.subject_id
@@ -252,7 +255,7 @@ WHERE ${pkg}
 UNION ALL
 SELECT 'membership', s.id, s.client_id, i.name, s.status, NULL, NULL, NULL, NULL, NULL,
        i.price_cents, NULL, s.current_period_end, pm.brand, pm.last4, NULL, NULL, s.created_at,
-       NULL
+       NULL, NULL
 FROM subscriptions s LEFT JOIN items i ON i.id = s.item_id
 LEFT JOIN payment_methods pm ON pm.id = s.payment_method_id
 WHERE ${sub}
@@ -260,7 +263,7 @@ UNION ALL
 SELECT 'gift_card', g.id, g.purchaser_client_id, NULL, g.status, NULL, NULL, g.expires_at,
        g.code, g.recipient, g.initial_cents,
        ${ownedLiabilitySql("gift_card", "gift_card", "g.id")}, NULL, NULL, NULL,
-       g.payment_id, pay.amount_cents, g.created_at, NULL
+       g.payment_id, pay.amount_cents, g.created_at, NULL, NULL
 FROM gift_cards g LEFT JOIN payments pay ON pay.id = g.payment_id
 WHERE ${gift}`;
 
@@ -296,6 +299,7 @@ interface WalletRow {
     paid_cents: number | null;
     created_at: string;
     subject_name: string | null;
+    deferred_paid_cents: number | null;
 }
 
 export const ENTITLEMENT_ICON: Record<WalletKind, IconName> = {
@@ -517,6 +521,17 @@ export interface EntitlementDetail {
     run: (action: EntitlementActionKey) => void;
 }
 
+/** What the next session moves to revenue, as the server posts it: the last takes what's left. */
+export function nextSessionCents(
+    paidCents: number,
+    balanceCents: number,
+    total: number,
+    used: number,
+): number {
+    if (used + 1 >= total) return balanceCents;
+    return Math.min(balanceCents, Math.floor(paidCents / Math.max(1, total)));
+}
+
 /** One package, plan or gift card: facts, what happened to its money, and what staff can do next. */
 export function useEntitlementDetail(
     api: ApiLike,
@@ -537,7 +552,9 @@ export function useEntitlementDetail(
     if (r.kind === "package") {
         const total = r.sessions_total ?? 1;
         const used = r.sessions_used ?? 0;
-        const share = Math.floor((r.price_cents ?? 0) / Math.max(1, total));
+        const paid = r.deferred_paid_cents ?? 0;
+        const share = Math.floor(paid / Math.max(1, total));
+        const next = nextSessionCents(paid, r.balance_cents ?? 0, total, used);
         if (r.paid_cents !== null)
             facts.push({ label: w.factPaid, value: formatMoney(r.paid_cents, BUSINESS_CURRENCY) });
         facts.push({
@@ -545,7 +562,7 @@ export function useEntitlementDetail(
             value: formatMoney(r.balance_cents, BUSINESS_CURRENCY),
         });
         if (summary.status === "active" && used < total)
-            facts.push({ label: w.factNextSession, value: formatMoney(share, BUSINESS_CURRENCY) });
+            facts.push({ label: w.factNextSession, value: formatMoney(next, BUSINESS_CURRENCY) });
         if (r.expires_at !== null)
             facts.push({ label: w.factExpires, value: day(r.expires_at, zone) });
         ledgerNote = w.ledgerPackage(formatMoney(share, BUSINESS_CURRENCY));

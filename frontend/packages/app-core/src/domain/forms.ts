@@ -5,10 +5,10 @@ import { afterReview, outgoing } from "./previews";
 import { useMemo, useRef, useState } from "react";
 
 import { formatLongDate, formatTime, parseTimestamp, readDate, useBusinessZone } from "../datetime";
-import { formatList, formatParts } from "../format";
+import { formatList, formatParts, formatPhone } from "../format";
 import { type Load, useAsyncAction } from "../hooks";
 import type { Viewer } from "./auth";
-import { useClients } from "./clients";
+import { type ClientRow, useClients } from "./clients";
 import { canManagePayments } from "./payments";
 import { type FormAnswer, type PublicFormField, isAnswered, optionPair } from "./publicForm";
 import { useReplicaLoad } from "./sync";
@@ -96,6 +96,23 @@ ORDER BY f.active DESC, f.name COLLATE NOCASE`;
 export const FORM_QUESTIONS_SQL = `
 SELECT id, input, name, label, help, required, options, position
 FROM fields WHERE form_id = ? ORDER BY position`;
+
+// one statement reads the form and its questions together, so the editor never opens on half a sync
+export const FORM_DRAFT_SQL = `
+SELECT f.name, f.require_signature, f.send_on, f.active,
+       (SELECT json_group_array(json_object('id', q.id, 'input', q.input, 'name', q.name,
+                 'label', q.label, 'help', q.help, 'required', q.required, 'options', q.options,
+                 'position', q.position))
+          FROM (SELECT * FROM fields WHERE form_id = f.id ORDER BY position) q) AS questions
+FROM forms f WHERE f.id = ?`;
+
+interface FormDraftRow {
+    name: string;
+    require_signature: number;
+    send_on: string;
+    active: number;
+    questions: string;
+}
 
 interface QuestionRow {
     id: string;
@@ -187,17 +204,20 @@ function parseOptions(raw: string | null): string[] {
 
 /** The saved form as an editable draft; null until its questions have loaded. */
 export function useFormDraft(formId: string): FormDraft | null {
-    const forms = useQuery<FormSummary>(FORM_LIBRARY_SQL);
-    const questions = useQuery<QuestionRow>(FORM_QUESTIONS_SQL, [formId]);
+    const draft = useQuery<FormDraftRow>(FORM_DRAFT_SQL, [formId]);
     if (formId === NEW_FORM) return EMPTY_DRAFT;
-    const form = forms.data.find((f) => f.id === formId);
-    if (form === undefined || questions.isLoading) return null;
+    const form = draft.data[0];
+    return form === undefined ? null : toFormDraft(form);
+}
+
+function toFormDraft(form: FormDraftRow): FormDraft {
+    const questions = JSON.parse(form.questions) as QuestionRow[];
     return {
         name: form.name,
         requireSignature: form.require_signature === 1,
         sendOn: form.send_on === "booking" ? "booking" : "manual",
         active: form.active === 1,
-        fields: questions.data.map((q) => ({
+        fields: questions.map((q) => ({
             key: q.id,
             id: q.id,
             input: q.input,
@@ -423,6 +443,22 @@ export interface SendToClient {
     send: () => void;
 }
 
+/** The client picker's rows: the phone and email tell two people with the same name apart. */
+export function sendOptions(
+    clients: ClientRow[],
+    photo: (clientId: string) => string | null,
+): SelectOption<string>[] {
+    return clients.map((c) => {
+        const detail = formatParts([formatPhone(c.phone), c.email]);
+        return {
+            key: c.id,
+            label: c.name,
+            ...(detail === "" ? {} : { detail }),
+            media: personMedia(c.name, null, photo(c.id)),
+        };
+    });
+}
+
 /** One link by email, and by text when the client has a number; the server records the request. */
 export function useSendToClient(
     api: ApiLike,
@@ -435,11 +471,7 @@ export function useSendToClient(
     const [sentTo, setSentTo] = useState<string | null>(null);
     const { busy, error, setError, run } = useAsyncAction();
     return {
-        clients: clients.map((c) => ({
-            key: c.id,
-            label: c.name,
-            media: personMedia(c.name, null, photos.client(c.id)),
-        })),
+        clients: sendOptions(clients, photos.client),
         clientId,
         setClientId: (id) => {
             setClientIdRaw(id);

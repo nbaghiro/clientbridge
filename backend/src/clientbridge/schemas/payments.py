@@ -103,6 +103,17 @@ class RefundPart(BaseModel):
     cents: int
 
 
+RefundBlock = Literal[
+    "not_succeeded",
+    "already_refunded",
+    "gift_card_expired",
+    "gift_card_redeemed",
+    "package_expired",
+    "package_used",
+    "whole_only",
+]
+
+
 class RefundPreview(BaseModel):
     payment_id: str
     amount_cents: int
@@ -110,8 +121,10 @@ class RefundPreview(BaseModel):
     left_cents: int
     fee_cents: int
     refund_cents: int = Field(description="What this preview refunds")
-    whole_only: str | None = Field(default=None, description="Why only a full refund is allowed")
-    blocked: str | None = Field(default=None, description="Why nothing can be refunded")
+    whole_only: bool = Field(description="Only a full refund is allowed")
+    blocked: RefundBlock | None = Field(
+        default=None, description="Why nothing can be refunded, as a code the client renders"
+    )
     by_hand: bool = Field(description="Money goes back outside Stripe (cash, cheque, e-Transfer)")
     next_credit_note: str
     parts: list[RefundPart]

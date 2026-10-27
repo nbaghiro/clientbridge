@@ -9,6 +9,7 @@ import {
     UPLOAD_NOTICE_AFTER_MS,
     arrivalState,
     isStorageFull,
+    replicaStorage,
     syncNotice,
     syncProblem,
     useSyncStatus,
@@ -19,6 +20,22 @@ import {
 afterEach(() => {
     cleanup();
     vi.useRealTimers();
+});
+
+describe("replicaStorage", () => {
+    it("keeps WebKit's replica in OPFS and every other engine's in IndexedDB", async () => {
+        const probe = vi.fn(() => Promise.resolve(true));
+        expect(await replicaStorage("Apple Computer, Inc.", probe)).toBe("opfs");
+        expect(await replicaStorage("Google Inc.", probe)).toBe("indexeddb");
+        expect(await replicaStorage("", probe)).toBe("indexeddb");
+        expect(probe).toHaveBeenCalledTimes(1);
+    });
+
+    it("keeps WebKit's replica in IndexedDB when OPFS sync access is refused", async () => {
+        expect(await replicaStorage("Apple Computer, Inc.", () => Promise.resolve(false))).toBe(
+            "indexeddb",
+        );
+    });
 });
 
 describe("sync health", () => {

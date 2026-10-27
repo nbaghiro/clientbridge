@@ -90,7 +90,7 @@ async def test_online_booking_from_deposit_to_t4a(
     ]
     assert draft["status"] == "draft" and draft["subtotal_cents"] == 11000 + 2900
     sent = ok(await api.post(f"/v1/invoices/{draft['id']}/send")).json()
-    assert sent["status"] == "sent" and sent["number"] is not None
+    assert sent["status"] == "partial" and sent["number"] is not None
     assert (await booking(db, bid)).deposit_status == "applied"
     assert await deposit_held(db, bid) == 0
     opened = await invoice(db, draft["id"])

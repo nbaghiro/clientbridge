@@ -11,7 +11,7 @@ from clientbridge.schemas.contracts import (
     SignatureOut,
 )
 from clientbridge.services.contracts import ContractService
-from clientbridge.services.notifications import Notifier
+from clientbridge.services.deliveries import send_queued
 
 router = APIRouter(prefix="/contracts", tags=["contracts"])
 signatures_router = APIRouter(prefix="/signatures", tags=["contracts"])
@@ -27,9 +27,9 @@ async def send_contract(
     push: PushDep,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> SignatureOut:
-    return await ContractService(db, principal).send_contract(
-        body, idempotency_key, Notifier(email, sms, push)
-    )
+    result = await ContractService(db, principal).send_contract(body, idempotency_key)
+    await send_queued(db, email, sms, push)
+    return result
 
 
 @router.post("", response_model=ContractOut, status_code=201)
@@ -63,6 +63,6 @@ async def resend_signature_request(
     push: PushDep,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> SignatureOut:
-    return await ContractService(db, principal).resend(
-        signature_id, idempotency_key, Notifier(email, sms, push)
-    )
+    result = await ContractService(db, principal).resend(signature_id, idempotency_key)
+    await send_queued(db, email, sms, push)
+    return result

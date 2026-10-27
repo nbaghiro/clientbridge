@@ -119,7 +119,7 @@ def main() -> None:
         }
         command = ["pytest", "-m", "kratos", "-q", "tests/test_auth_kratos.py"]
         subprocess.run(
-            [sys.executable, "-m", "scripts.fresh_database", *command],
+            [sys.executable, "-m", "e2e.database", *command],
             cwd=ROOT / "backend",
             env=contract,
             check=True,

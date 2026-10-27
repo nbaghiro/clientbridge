@@ -1,0 +1,45 @@
+# Product decisions taken by e2e cases
+
+Where a case met behaviour whose intent wasn't settled, it asserts the current behaviour, or the behaviour the findings 1 to 16 fixes chose, and the choice is listed here for review before merge.
+
+## SALE-E2E-11: what front-desk staff see after a sale
+
+**Question.** The case expected a staff member to open their own sale from the sales history and find a receipt resend but no refund. The web app shows the History view and sale details only to roles that can manage payments, so staff never reach that panel.
+
+**Chosen.** Current behaviour. The case checks that the payment confirmation offers no refund, that `?view=history` leaves staff on New sale with only New sale and Orders on offer, and that the API refuses their refund, restock and void with 403.
+
+**Why.** `useSalesViews` and the Orders board gate sale details with `canManagePayments` on purpose, and the server refuses the same actions, so a read-only sale panel for staff would be a new feature.
+
+## FLOW-04-B: what the merge preview counts as a note
+
+**Question.** The duplicate's note is about its pet, Juniper. The merge preview lists "1 booking" and "Pets: Juniper" but no note, because its footprint counts only notes on the client itself. The client record shows both kinds under Notes.
+
+**Chosen.** Current behaviour. The case asserts the preview lists exactly the booking and the pet, then checks that the note arrives on the kept client's timeline with the pet, after the merge and after a reload.
+
+**Why.** A note about a pet belongs to the pet and moves with it, and the app-core SQL test pins the client-only count. Counting pet notes in the preview is a reasonable change, but it's a product choice rather than a defect.
+
+## FLOW-03-A: a sold-out line in a kept shop cart
+
+**Question.** The shopper's order for the last unit is refused once a desk sale takes it. When they go back to the shop, the session still holds their cart, so the card shows "Sold out" with a quantity stepper at 1 rather than a disabled Add button.
+
+**Chosen.** Current behaviour. The case asserts the Sold out tag, a disabled Increase button and no Add button while the unit is gone, then, after the desk refund, the low-stock tag, an enabled Decrease button and the line still in the order summary.
+
+**Why.** Connect keeps the cart in session storage on purpose, so a reload during checkout resumes the order (the SALE-E2E-03 fix). Dropping a refused line from the cart would be a separate product change.
+
+## XB-E2E-05 and XB-E2E-06: the offline reload cases in WebKit
+
+**Question.** Both cases reload the production shell while the browser is offline and expect the service worker to serve it. In WebKit the reload never reaches the service worker: with `setOffline(true)`, any navigation to a service-worker page fails with "WebKit encountered an internal error", and a `route` that aborts requests blocks the navigation before the worker sees it and misses the page's own API fetches. A ten-line page with a service worker shows the same thing in Playwright 1.63 on macOS and in the Linux Playwright image.
+
+**Chosen.** The two cases carry a `@no-webkit` tag, the web config's WebKit project leaves that tag out with `grepInvert`, and `WEBKIT_EXCLUDED` in `backend/e2e/results.py` drops them from WebKit's required cases. Chromium and Firefox still require and run both.
+
+**Why.** The limit is in Playwright's WebKit offline emulation, so the cases can't pass there whatever the app does. Keeping them required in Chromium and Firefox keeps the offline restore and expiry covered, and `test_harness.py` checks that only these two cases are excluded and that the config excludes the same tag.
+
+## XB-E2E-03 and XB-E2E-04: the web replica's storage in WebKit
+
+**Question.** In Linux WebKit, both cases stalled on "Loading…" after a reload or a fresh sign-in on the same device. Logging the restore path and `navigator.locks.query()` in CI showed where. The replica got as far as `db.init()` and never returned. For the whole wait the new page's database worker held `open-wasqlite-db` and `db-lock-<file>`, with no lock pending. On the first open in the same test, the worker moved on within about a second to wa-sqlite's IndexedDB access lock. After the reload it never reached it, so the open was stuck inside wa-sqlite's IndexedDB layer rather than waiting on another page's lock.
+
+**Chosen.** WebKit keeps the replica in the origin private file system with `OPFSCoopSyncVFS`, the file system PowerSync recommends for Safari. Chromium and Firefox stay on `IDBBatchAtomicVFS`. `replicaStorage` in app-core picks the storage from `navigator.vendor`, which every WebKit browser reports as Apple, iOS browsers included. `apps/web/src/lib/powersync.ts` passes the result to PowerSync, the one place the web replica is opened. There's no migration: the app is pre-launch, and a replica already stored in IndexedDB resyncs from the server.
+
+**Why.** The stall is in WebKit's IndexedDB path, which the app can't work around, and PowerSync's documentation names `OPFSCoopSyncVFS` as the most reliable option on Safari. Sign-out and the replica wipe go through PowerSync's `disconnectAndClear`, so they clear OPFS the same way. The service worker already precaches every built asset, including the OPFS file system's script and the synchronous wa-sqlite build it loads. PowerSync notes known OPFS issues in Safari's private browsing mode, and Playwright's WebKit contexts browse privately: there, `createSyncAccessHandle` fails with "UnknownError", the database worker gives up after three attempts and the app shows "This didn't load". The WebKit lane therefore runs its cases in a profile on disk (`test` in `support/session.ts`), the way a regular Safari window keeps its data.
+
+For a private window, the replica stays in IndexedDB. Before opening in WebKit, a small worker (`apps/web/src/lib/opfsProbe.ts`) creates and closes a sync access handle in OPFS. `replicaStorage` picks OPFS only when that works, so a private window opens on IndexedDB straight away, without PowerSync's three one-second retries. IndexedDB keeps the outbox across reloads, which an in-memory replica would not. To lower the chance of the original stall there, `frontend/package.json` overrides `@journeyapps/wa-sqlite` to 2.0.10, past the 2.0.6 that `@powersync/web` 2.4.2 pins. The newer releases stop IndexedDB writes overlapping stored blocks, make journal deletion durable, make `close()` wait for IndexedDB, fix an OPFS hang under concurrent opens and retry an OPFS handle that is still held. XB-E2E-17 signs in from a plain Playwright context, which WebKit treats as private, checks that Today opens on an IndexedDB replica, reloads once and checks the same replica reopens. Chromium and Firefox run the same case. In one CI run, a private WebKit window's queries after the reload waited about 30 seconds behind the sync's write lock before they answered. The case therefore checks that Today opens on the reopened replica, not how quickly every panel fills.

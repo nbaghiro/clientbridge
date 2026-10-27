@@ -2,12 +2,13 @@
 
 import httpx
 import pytest
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.ids import new_id
+from clientbridge.models.billing import Order
 from clientbridge.models.business import Business
-from clientbridge.models.catalog import GiftCard, Item
+from clientbridge.models.catalog import GiftCard, Item, StockMovement
 from clientbridge.models.payments import Payment
 from clientbridge.services import ledger
 from clientbridge.services.ledger import Leg
@@ -431,6 +432,9 @@ async def test_refund_partially_redeemed_gift_card_blocked(
         f"/v1/payments/{body['payment_id']}/refund", json={}, headers=retry_key()
     )
     assert refunded.status_code == 409
+    assert refunded.json()["error"] == "gift_card_redeemed"
+    preview = await as_owner.get(f"/v1/payments/{body['payment_id']}/refund-preview")
+    assert preview.status_code == 200 and preview.json()["blocked"] == "gift_card_redeemed"
 
 
 async def test_redeem_replays_on_the_same_key(
@@ -576,3 +580,40 @@ async def test_editing_a_sale_gives_its_gift_card_credit_back(
     assert again.status_code == 200, again.text
     assert again.json()["status"] == "paid"
     assert await _balance(db, card) == 1000 - again.json()["total_cents"]
+
+
+async def test_a_gift_card_cannot_settle_a_unit_an_online_checkout_holds(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await enable_payments(db)
+    shampoo = await db.get(Item, "it_shampoo")
+    assert shampoo is not None
+    shampoo.track_stock, shampoo.stock_on_hand = True, 1
+    online = await as_owner.post(
+        "/book/birchbark/shop/orders",
+        json={
+            "client": {"name": "Online Shopper", "email": "shopper@example.ca"},
+            "lines": [{"item_id": shampoo.id, "quantity": 1}],
+        },
+        headers=key(),
+    )
+    assert online.status_code == 200, online.text
+    line = {"description": "Shampoo", "unit_amount_cents": 2400, "item_id": shampoo.id}
+    desk = await as_owner.post("/v1/orders", json={"lines": [line]})
+    assert desk.status_code == 201, desk.text
+    card = await _active_card(db, code="GIFTHELD", balance=10000)
+    item_id, order_id = shampoo.id, online.json()["order_id"]
+    sold = select(func.count()).select_from(StockMovement).where(StockMovement.item_id == item_id)
+    movements = await db.scalar(sold)
+    await db.commit()  # the 409 below rolls the request back; keep the setup
+    refused = await _apply(as_owner, desk.json()["id"], "GIFTHELD")
+    assert refused.status_code == 409, refused.text
+    assert refused.json()["error"] == "out_of_stock"
+    await db.refresh(card)
+    assert await _balance(db, card) == 10000
+    sale = await db.get(Order, desk.json()["id"])
+    assert sale is not None and (await ledger.order_state(db, sale))[0] == "open"
+    hold = await db.scalar(select(Payment.status).where(Payment.order_id == order_id))
+    assert hold == "pending"
+    assert await db.scalar(sold) == movements
+    assert await db.scalar(select(Item.stock_on_hand).where(Item.id == item_id)) == 1

@@ -775,9 +775,6 @@ msgstr "[Ýöû'ṽé ƀééñ îñṽîţéð ţö ĵöîñ ţĥé {business} �
 msgid "staff_invite.subject"
 msgstr "[Ýöû'ŕé îñṽîţéð ţö Çļîéñţƀŕîðĝé~~~~~~~~~~~]"
 
-msgid "stripe.pad_interval_description"
-msgstr "[Ŵĥéñ åñ îñṽöîçé öŕ å šçĥéðûļéð ɱéɱƀéŕšĥîþ þåýɱéñţ îš ðûé~~~~~~~~~~~~~~~~~~~~]"
-
 msgid "stripe.subscription_product"
 msgstr "[Šûƀšçŕîþţîöñ~~~~~]"
 

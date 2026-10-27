@@ -171,6 +171,24 @@ def after_quiet_hours(at: datetime, tz: ZoneInfo) -> datetime:
     return datetime.combine(day, QUIET_UNTIL, tzinfo=tz).astimezone(UTC)
 
 
+# the supported zone that matches each province's most populous area; owners elsewhere pick theirs
+PROVINCE_ZONES: dict[ProvinceCode, str] = {
+    "AB": "America/Edmonton",
+    "BC": "America/Vancouver",
+    "MB": "America/Winnipeg",
+    "NB": "America/Halifax",
+    "NL": "America/St_Johns",
+    "NS": "America/Halifax",
+    "NT": "America/Edmonton",
+    "NU": "America/Toronto",
+    "ON": "America/Toronto",
+    "PE": "America/Halifax",
+    "QC": "America/Toronto",
+    "SK": "America/Regina",
+    "YT": "America/Whitehorse",
+}
+
+
 def valid_timezone(name: str | None) -> str:
     if name is None or name not in SUPPORTED_ZONES:
         raise Unprocessable("timezone must be a supported time zone", code="invalid_timezone")
@@ -456,7 +474,7 @@ class OnboardingService:
             name=data.name,
             slug=data.slug,
             province=data.province,
-            timezone=valid_timezone(data.timezone or "America/Toronto"),
+            timezone=valid_timezone(data.timezone or PROVINCE_ZONES[data.province]),
             subject=data.subject,
         )
         self.db.add(biz)

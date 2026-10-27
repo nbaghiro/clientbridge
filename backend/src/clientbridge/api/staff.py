@@ -26,7 +26,7 @@ from clientbridge.schemas.staff import (
     StaffUpdate,
     TeamOut,
 )
-from clientbridge.services.notifications import Notifier
+from clientbridge.services.deliveries import send_queued
 from clientbridge.services.staff import StaffService
 
 router = APIRouter(prefix="/staff", tags=["staff"])
@@ -114,11 +114,8 @@ async def remove_member(
     push: PushDep,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> StaffRemoveOut:
-    result, fresh = await StaffService(db).remove(
+    result = await StaffService(db).remove(
         principal, staff_id, body, gateway=gateway, idempotency_key=idempotency_key
     )
-    if fresh:
-        notifier = Notifier(email, sms, push)
-        await notifier.on_visits_reassigned(db, result.moved)
-        await notifier.on_visits_canceled(db, result.canceled)
+    await send_queued(db, email, sms, push)
     return result

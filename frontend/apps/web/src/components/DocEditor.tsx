@@ -448,6 +448,7 @@ function ClientPicker({
             options={clients.map((x) => ({
                 key: x.id,
                 label: x.name,
+                detail: x.email ?? undefined,
                 media: personMedia(x.name, null, photos.client(x.id)),
             }))}
             onChange={onChange}

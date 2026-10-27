@@ -92,6 +92,7 @@ from clientbridge.services import ledger
 from clientbridge.services.business import business_tz, load_staff, staff_name, staff_names
 from clientbridge.services.catalog import assert_offers, deposit_cents, load_item
 from clientbridge.services.clients import load_client
+from clientbridge.services.deliveries import delivery_key
 from clientbridge.services.lines import crew_ids, crew_note, fetch_lines
 from clientbridge.services.messaging import dispatch_message, open_thread
 from clientbridge.services.notifications import (
@@ -205,9 +206,14 @@ async def seats_closed(db: AsyncSession, slot_id: str) -> bool:
     return bool(await db.scalar(select(seats_closed_expr()).where(Slot.id == slot_id)))
 
 
-def seat_scope(slot_id: str, booking_id: str | None = None) -> str:
-    """The delivery scope of the seat notices a class session sends, or of one of them."""
-    return f"seat:{slot_id}" if booking_id is None else f"seat:{slot_id}:{booking_id}"
+def _change_notice(before: str, after: str, moved: bool) -> BookingNotice | None:
+    if after != before and after == "canceled":
+        return "canceled"
+    if (before, after) == ("pending", "confirmed"):
+        return "confirmed"
+    if moved and after in ("pending", "confirmed"):
+        return "rescheduled"
+    return None
 
 
 async def waitlist_position(db: AsyncSession, booking: Booking) -> int | None:
@@ -271,9 +277,9 @@ async def fill_freed_seats(
             )
         )
         await db.flush()
-        await queued_notifier(db, seat_scope(slot.id, first.id), slot.business_id).on_seat_opened(
-            db, first.id
-        )
+        await queued_notifier(
+            db, slot.business_id, delivery_key("seat", f"{slot.id}:{first.id}")
+        ).on_seat_opened(db, first.id)
         seated.append(first.id)
     return seated
 
@@ -729,7 +735,10 @@ async def _open_invoice(db: AsyncSession, booking: Booking) -> Invoice | None:
     rows = await db.execute(
         scoped(Invoice, booking.business_id)
         .join(Line, Line.invoice_id == Invoice.id)
-        .where(Line.booking_id == booking.id, ledger.invoice_status_expr().in_(("sent", "partial")))
+        .where(
+            Line.booking_id == booking.id,
+            ledger.invoice_status_expr().in_(("sent", "partial", "overdue")),
+        )
         .order_by(Invoice.issued_at.desc())
         .limit(1)
     )
@@ -822,7 +831,7 @@ class BookingService:
             cmd.record("booking.create", entity_type="booking", entity_id=booking.id)
             if data.notify:
                 await queued_notifier(
-                    self.db, f"booking:{booking.id}", self.biz
+                    self.db, self.biz, delivery_key("booking", booking.id)
                 ).on_booking_confirmed(self.db, booking.id)
             return await booking_out(self.db, booking, slot)
 
@@ -836,15 +845,13 @@ class BookingService:
             request=data,
         )
 
-    async def patch(
-        self, booking_id: str, data: BookingPatch
-    ) -> tuple[BookingOut, BookingNotice | None]:
-        """Apply the change; also names the notice the client is owed for it, if any."""
+    async def patch(self, booking_id: str, data: BookingPatch) -> BookingOut:
+        """Apply the change and queue the notice the client is owed for it, if any."""
         booking = await self._booking(booking_id)
         self._assert_can_act_as(booking.staff_id)
         slot = await self._slot(booking.slot_id)
         moving = self._moves(data, slot)
-        before, starts_before = booking.status, slot.starts_at
+        before = booking.status
 
         # A terminal booking is frozen — only an idempotent re-set of the same status is allowed.
         if booking.status in _TERMINAL and (
@@ -872,6 +879,7 @@ class BookingService:
                 await lock_bookings(self.db, self.biz, [booking.id])
                 if booking.status in _TERMINAL and data.status != booking.status:
                     raise Conflict(f"a {booking.status} booking can't be modified")
+            status_then, starts_then = booking.status, slot.starts_at
             if target is not None:
                 staff_id, starts_at, ends_at = target
                 crew = await crew_ids(self.db, self.biz, booking.id)
@@ -880,6 +888,7 @@ class BookingService:
                 await self.db.refresh(slot)
                 if booking.status in _TERMINAL:
                     raise Conflict(f"a {booking.status} booking can't be modified")
+                status_then, starts_then = booking.status, slot.starts_at
                 item = await self._item(slot.item_id, require_active=False)
                 problem = await slot_problem(
                     self.db,
@@ -939,23 +948,24 @@ class BookingService:
                 if program_day and before == "pending" and data.status in ("confirmed", "canceled"):
                     await self._answer_enrolment(cmd, booking, slot, data.status)
             await self.db.flush()
+            notice = _change_notice(status_then, booking.status, starts_then != slot.starts_at)
+            if notice is not None and (notice != "rescheduled" or data.notify):
+                key = delivery_key("booking", booking.id, each=True)
+                notifier = queued_notifier(self.db, self.biz, key)
+                await {
+                    "canceled": notifier.on_booking_canceled,
+                    "confirmed": notifier.on_booking_confirmed,
+                    "rescheduled": notifier.on_booking_rescheduled,
+                }[notice](self.db, booking.id)
             return await booking_out(self.db, booking, slot)
 
-        out = await run_command(
+        return await run_command(
             self.db,
             self.principal,
             action="booking.patch",
             run=run,
             response_model=BookingOut,
         )
-        notice: BookingNotice | None = None
-        if out.status != before and out.status == "canceled":
-            notice = "canceled"
-        elif out.status != before and (before, out.status) == ("pending", "confirmed"):
-            notice = "confirmed"
-        elif out.starts_at != starts_before and out.status in ("pending", "confirmed"):
-            notice = "rescheduled"
-        return out, notice
 
     async def check(self, booking_id: str, data: BookingMove) -> BookingCheck:
         """What the server would say to this move or resize, without making it."""
@@ -1268,7 +1278,7 @@ class BookingService:
                 await self.db.flush()
                 cmd.record("booking.depart", entity_type="booking", entity_id=booking.id)
                 await queued_notifier(
-                    self.db, f"booking:{booking.id}:depart", self.biz
+                    self.db, self.biz, delivery_key("booking", f"{booking.id}:depart")
                 ).on_booking_departed(self.db, booking.id)
             return await booking_out(self.db, booking, slot)
 
@@ -2283,6 +2293,14 @@ class RecurrenceService:
                     )
 
             cmd.record("recurrence.create", entity_type="recurrence", entity_id=recurrence.id)
+            await self.db.flush()
+            booked = [o.booking_id for o in occurrences if o.booking_id is not None]
+            notifier = queued_notifier(self.db, self.biz, delivery_key("recurrence", recurrence.id))
+            if data.confirmation == "series":
+                await notifier.on_series_booked(self.db, booked, "booked")
+            elif data.confirmation == "each":
+                for booking_id in booked:
+                    await notifier.on_booking_confirmed(self.db, booking_id)
             return RecurrenceOut(
                 id=recurrence.id,
                 business_id=self.biz,
@@ -2403,6 +2421,10 @@ class RecurrenceService:
                 recurrence.byday = [_WEEKDAY_NAMES[data.weekday]]
             await self.db.flush()
             cmd.record("recurrence.change", entity_type="recurrence", entity_id=recurrence.id)
+            if data.notify:
+                await queued_notifier(
+                    self.db, self.biz, delivery_key("recurrence", recurrence.id, each=True)
+                ).on_series_booked(self.db, moved, "moved")
             return RecurrenceChangeOut(id=recurrence.id, moved=moved, skipped=skipped)
 
         return await run_command(
@@ -2451,6 +2473,10 @@ class RecurrenceService:
                 recurrence.status = "canceled"
             await self.db.flush()
             cmd.record("recurrence.cancel", entity_type="recurrence", entity_id=recurrence.id)
+            if data.notify:
+                await queued_notifier(
+                    self.db, self.biz, delivery_key("recurrence", recurrence.id, each=True)
+                ).on_series_booked(self.db, canceled, "canceled")
             return RecurrenceCancelOut(
                 id=recurrence.id,
                 status=recurrence.status,
@@ -2633,7 +2659,7 @@ class ClassService:
             action = "class.waitlist" if full else "class.add"
             cmd.record(action, entity_type="booking", entity_id=booking.id)
             if data.notify:
-                notifier = queued_notifier(self.db, f"booking:{booking.id}", self.biz)
+                notifier = queued_notifier(self.db, self.biz, delivery_key("booking", booking.id))
                 if full:
                     await notifier.on_waitlist_joined(self.db, booking.id)
                 else:
@@ -2691,7 +2717,7 @@ class ClassService:
                 seat_booking(booking)
                 await self.db.flush()
                 await queued_notifier(
-                    self.db, seat_scope(slot.id, booking.id), self.biz
+                    self.db, self.biz, delivery_key("seat", f"{slot.id}:{booking.id}")
                 ).on_seat_opened(self.db, booking.id)
             await self.db.flush()
             cmd.record(f"class.{data.action}", entity_type="booking", entity_id=booking.id)
@@ -3208,9 +3234,9 @@ async def _close_past_waitlists(
             )
         )
         await db.flush()
-        await queued_notifier(db, f"waitlist:{booking.id}", business_id).on_waitlist_closed(
-            db, booking.id
-        )
+        await queued_notifier(
+            db, business_id, delivery_key("waitlist", booking.id)
+        ).on_waitlist_closed(db, booking.id)
         closed += 1
     return closed
 

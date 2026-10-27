@@ -1,16 +1,19 @@
 """The tenant scoping helpers all apply the same business and soft-delete guard."""
 
 import pytest
-from sqlalchemy import Column, MetaData, String, Table
+from sqlalchemy import Column, MetaData, String, Table, delete, func, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from clientbridge.core import clock
+from clientbridge.core import clock, ids
+from clientbridge.core.namespaces import confine_to_namespace
 from clientbridge.core.policies import TABLE_POLICIES, TablePolicy, table_policy_errors
 from clientbridge.core.scoping import scoped, scoped_delete, scoped_update
 from clientbridge.models import Base
 from clientbridge.models.billing import Line
+from clientbridge.models.business import Business, User
 from clientbridge.models.clients import Client
 from tests.conftest import Factory
+from tests.helpers import EnvSettings
 
 
 def test_scoped_update_filters_business_and_soft_delete() -> None:
@@ -114,3 +117,35 @@ def test_table_policy_guard_requires_tenant_root_primary_key(has_id: bool) -> No
     errors = table_policy_errors(metadata, {"businesses": TABLE_POLICIES["businesses"]})
     expected = "tenant root key must be primary" if has_id else "missing tenant key 'id'"
     assert errors == (f"businesses: {expected}",)
+
+
+async def test_a_namespace_confines_reads_joins_and_writes_to_its_businesses(
+    db: AsyncSession, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    f = Factory(db)
+    owned: list[str] = []
+    for namespace in ("1111", "2222"):
+        settings = EnvSettings(env="dev", run_namespace=namespace)
+        monkeypatch.setattr(ids, "get_settings", lambda settings=settings: settings)
+        business = await f.business(name=namespace)
+        await f.client(business=business, name="Pat")
+        await f.client(business=business, name="Sam")
+        owned.append(business.id)
+    mine, theirs = owned
+    users = await db.scalar(select(func.count()).select_from(User))
+    confine_to_namespace("1111", db.sync_session)
+    assert set(await db.scalars(select(Business.id))) == {mine}
+    assert set(await db.scalars(select(Client.business_id))) == {mine}
+    joined = await db.execute(
+        select(Business.id, Client.name).join(Client, Client.business_id == Business.id)
+    )
+    assert sorted(joined.tuples()) == [(mine, "Pat"), (mine, "Sam")]
+    await db.execute(update(Client).where(Client.name == "Pat").values(name="Renamed"))
+    await db.execute(delete(Client).where(Client.name == "Sam"))
+    assert await db.scalar(select(func.count()).select_from(User)) == users
+    conn = await db.connection()
+    left = await conn.execute(
+        text("SELECT business_id, name FROM clients WHERE business_id IN (:a, :b) ORDER BY 1, 2"),
+        {"a": mine, "b": theirs},
+    )
+    assert sorted(left.tuples()) == sorted([(mine, "Renamed"), (theirs, "Pat"), (theirs, "Sam")])

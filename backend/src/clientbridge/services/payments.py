@@ -1,10 +1,9 @@
 import hashlib
 import logging
 import secrets
-from collections.abc import Awaitable, Callable
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from datetime import UTC, datetime, time, timedelta
-from typing import TYPE_CHECKING, Literal
+from typing import Literal
 
 from sqlalchemy import BigInteger, Integer, cast, func, select
 from sqlalchemy.dialects.postgresql import insert
@@ -74,6 +73,7 @@ from clientbridge.schemas.payments import (
     PayoutTransactionOut,
     PublicCredit,
     PublicPaymentSetup,
+    RefundBlock,
     RefundOut,
     RefundPart,
     RefundPreview,
@@ -88,6 +88,7 @@ from clientbridge.services.business import (
     kyc_status,
     merchant_account,
 )
+from clientbridge.services.deliveries import delivery_key
 from clientbridge.services.earnings import (
     ensure_earnings,
     ensure_order_earning,
@@ -97,11 +98,8 @@ from clientbridge.services.earnings import (
 from clientbridge.services.inventory import assert_parent_stock, sync_parent_stock
 from clientbridge.services.ledger import BUSINESS_CURRENCY
 from clientbridge.services.lines import allocate, apply_totals, worker_shares
+from clientbridge.services.notifications import Notifier, queued_notifier
 from clientbridge.services.tax import tax_for_amount, tax_within
-
-if TYPE_CHECKING:
-    from clientbridge.services.notifications import Notifier
-
 
 _log = logging.getLogger(__name__)
 _ORPHAN_GRACE = timedelta(hours=1)
@@ -121,11 +119,16 @@ type WebhookNotice = Literal[
 
 @dataclass(frozen=True)
 class WebhookOutcome:
-    """A post-commit client notification the webhook route fires (mirrors the receipt path)."""
+    """The client notice a Stripe event queues in its own commit."""
 
     notify: WebhookNotice
     target_id: str
-    business_id: str | None = None
+
+
+class RefundBlocked(Conflict):
+    def __init__(self, message: str, block: RefundBlock) -> None:
+        super().__init__(message, code=block)
+        self.block: RefundBlock = block
 
 
 @dataclass(frozen=True)
@@ -345,6 +348,10 @@ class PaymentService:
             await ledger.post_payment(self.db, payment)
             await _sync_parent(self.db, payment)
             cmd.record("payment.record", entity_type="payment", entity_id=payment.id)
+            if data.send_receipt:
+                await queued_notifier(
+                    self.db, self.biz, delivery_key("payment", payment.id)
+                ).on_payment_succeeded(self.db, payment.id)
             return InvoicePaymentOut(
                 payment_id=payment.id,
                 status=payment.status,
@@ -391,6 +398,10 @@ class PaymentService:
                 idempotency_key=idempotency_key,
             )
             cmd.record("payment.intent", entity_type="payment", entity_id=payment.id)
+            if data.send_receipt and payment.status == "succeeded":
+                await queued_notifier(
+                    self.db, self.biz, delivery_key("payment", payment.id)
+                ).on_payment_succeeded(self.db, payment.id)
             return InvoicePaymentOut(
                 payment_id=payment.id,
                 status=payment.status,
@@ -584,7 +595,7 @@ class PaymentService:
         if payment.kind == "refund":
             raise Conflict("a refund can't be refunded")
         if payment.status != "succeeded":
-            raise Conflict("only a succeeded payment can be refunded")
+            raise RefundBlocked("only a succeeded payment can be refunded", "not_succeeded")
         by_hand = refunded_by_hand(payment)
         if not by_hand and (business.stripe_account_id is None or payment.provider_ref is None):
             raise Conflict("payment has no connected charge to refund")
@@ -619,11 +630,11 @@ class PaymentService:
             left = payment.amount_cents - refunded
             amount = left if amount_cents is None else amount_cents
             if left <= 0:
-                raise Conflict("this payment was already refunded")
+                raise RefundBlocked("this payment was already refunded", "already_refunded")
             if amount <= 0 or amount > left:
                 raise Conflict("invalid refund amount")
             if whole_only and (refunded > 0 or amount != payment.amount_cents):
-                raise Conflict(whole_only)
+                raise RefundBlocked("this payment is refunded in full only", "whole_only")
             attempt_key = hash_token(idempotency_key) if idempotency_key else str(attempts)
             refund = await create_refund(
                 self.db,
@@ -658,20 +669,20 @@ class PaymentService:
             raise Conflict("a refund can't be refunded")
         refunded = await _refunded_cents(self.db, payment)
         left = max(0, payment.amount_cents - refunded)
-        whole_only: str | None = None
-        blocked: str | None = None
+        whole_only = False
+        blocked: RefundBlock | None = None
         if payment.status != "succeeded":
-            blocked = "only a succeeded payment can be refunded"
+            blocked = "not_succeeded"
         elif left <= 0:
-            blocked = "this payment was already refunded"
+            blocked = "already_refunded"
         else:
             try:
                 whole_only = await self._whole_refund_only(payment)
-            except Conflict as exc:
-                blocked = exc.message
-            if whole_only is not None and refunded > 0:
-                blocked = whole_only
-        amount = left if amount_cents is None or whole_only is not None else amount_cents
+            except RefundBlocked as exc:
+                blocked = exc.block
+            if whole_only and refunded > 0:
+                blocked = "whole_only"
+        amount = left if amount_cents is None or whole_only else amount_cents
         if blocked is None and (amount <= 0 or amount > left):
             raise Conflict("invalid refund amount")
         parts: dict[tuple[str, str], int] = {}
@@ -697,8 +708,8 @@ class PaymentService:
             ],
         )
 
-    async def _whole_refund_only(self, payment: Payment) -> str | None:
-        """Why this payment can only be refunded in full, or None."""
+    async def _whole_refund_only(self, payment: Payment) -> bool:
+        """Whether this payment can only be refunded in full; raises when it can't be at all."""
         card = (
             await self.db.execute(
                 scoped(GiftCard, self.biz)
@@ -708,10 +719,13 @@ class PaymentService:
         ).scalar_one_or_none()
         if card is not None:
             if card.status == "expired":
-                raise Conflict("can't refund an expired gift card")
+                raise RefundBlocked("can't refund an expired gift card", "gift_card_expired")
             if await ledger.gift_card_balance(self.db, card) < card.initial_cents:
-                raise Conflict("can't refund a gift card that has already been partly redeemed")
-            return "a gift card purchase is refunded in full"
+                raise RefundBlocked(
+                    "can't refund a gift card that has already been partly redeemed",
+                    "gift_card_redeemed",
+                )
+            return True
         pkg = (
             await self.db.execute(
                 scoped(Package, self.biz).where(Package.payment_id == payment.id).with_for_update()
@@ -719,17 +733,19 @@ class PaymentService:
         ).scalar_one_or_none()
         if pkg is not None:
             if pkg.status == "expired":
-                raise Conflict("can't refund an expired package")
+                raise RefundBlocked("can't refund an expired package", "package_expired")
             if await ledger.sessions_used(self.db, pkg) > 0:
-                raise Conflict("can't refund a package with sessions already used")
-            return "a package purchase is refunded in full"
+                raise RefundBlocked(
+                    "can't refund a package with sessions already used", "package_used"
+                )
+            return True
         if payment.booking_id is not None and payment.kind == "deposit":
             booking = await self.db.get(Booking, payment.booking_id)
             if booking is not None and booking.deposit_status == "forfeited":
-                return "a forfeited deposit is refunded in full"
+                return True
             if booking is not None and await ledger.applied_invoices(self.db, booking):
-                return "a deposit applied to an invoice is refunded in full"
-        return None
+                return True
+        return False
 
     def _assert_admin(self) -> None:
         assert_role(
@@ -1564,19 +1580,16 @@ async def process_stripe_event(
     gateway: PaymentGateway,
     payload: bytes,
     signature: str,
-    notify: Callable[[WebhookOutcome], Awaitable[None]] | None = None,
-) -> WebhookOutcome | None:
-    """Verify, dedupe and apply a Stripe webhook; returns the notification to send after commit."""
-    event = gateway.verify_webhook(payload, signature)
-    return await apply_stripe_event(db, gateway, event, notify)
+) -> None:
+    """Verify, dedupe and apply a Stripe webhook, queueing its client notice in the same commit."""
+    await apply_stripe_event(db, gateway, gateway.verify_webhook(payload, signature))
 
 
 async def apply_stripe_event(
     db: AsyncSession,
     gateway: PaymentGateway,
     event: GatewayEvent,
-    notify: Callable[[WebhookOutcome], Awaitable[None]] | None = None,
-) -> WebhookOutcome | None:
+) -> None:
     if not event.thin and event.api_version != STRIPE_API_VERSION:
         _log.warning(
             "rejected Stripe event %s (%s) rendered at API version %s; handlers parse %s",
@@ -1588,7 +1601,7 @@ async def apply_stripe_event(
         raise WebhookVersionError(str(event.api_version))
     record = await db.get(Webhook, event.id)
     if record is not None and record.status != "failed":
-        return None
+        return
     if record is None:
         record = Webhook(
             id=event.id, provider="stripe", event=event.type, payload=event.data, status="pending"
@@ -1599,31 +1612,19 @@ async def apply_stripe_event(
     try:
         async with transaction(db):
             outcome = await _dispatch(db, gateway, event)
-            if outcome is not None and notify is not None:
-                model = (
-                    GiftCard
-                    if outcome.notify == "gift_card_issued"
-                    else Subscription
-                    if outcome.notify in ("subscription_past_due", "subscription_canceled")
-                    else Payment
-                )
-                target = await db.get(model, outcome.target_id)
-                if target is None:
-                    raise NotFound("notification source not found")
-                outcome = replace(outcome, business_id=target.business_id)
-                await notify(outcome)
+            if outcome is not None:
+                await queue_payment_outcome(db, outcome)
             record.status = "processed"
             record.processed_at = clock.now()
             record.payload = None
     except Exception as exc:
         if _lost_event_race(exc):
-            return None
+            return
         if isinstance(exc, AppError) and exc.code == "retry_later":
             _log.info("stripe webhook %s (%s) deferred: %s", event.id, event.type, exc)
             raise
         await record_failed_delivery(db, event, exc)
         raise
-    return outcome
 
 
 def _lost_event_race(exc: Exception) -> bool:
@@ -2055,13 +2056,9 @@ async def _apply_refund(db: AsyncSession, refund: Payment, payment: Payment) -> 
     await _sync_parent(db, payment)
     if await _fully_refunded(db, payment):
         await _reverse_entitlement(db, payment)
-    from clientbridge.services.deliveries import DeliveryQueue, QueuedEmail, QueuedPush, QueuedSms
-    from clientbridge.services.notifications import Notifier
-
-    queue = DeliveryQueue(db, f"refund:{refund.id}", refund.business_id)
-    await Notifier(
-        QueuedEmail(queue), QueuedSms(queue), QueuedPush(queue), raise_errors=True
-    ).on_refund(db, refund.id)
+    await queued_notifier(db, refund.business_id, delivery_key("refund", refund.id)).on_refund(
+        db, refund.id
+    )
 
 
 async def _unapply_refund(db: AsyncSession, refund: Payment, payment: Payment) -> None:
@@ -2931,9 +2928,6 @@ class PublicPaymentSetupService:
                 link.account_id,
                 customer_id=link.customer_id,
                 idempotency_key=f"pad_setup_{link.id}",
-                interval_description=message(
-                    locale_for(client=client), "stripe.pad_interval_description"
-                ),
                 email=client.email,
             )
             link.setup_intent_id = intent.id
@@ -3091,9 +3085,6 @@ async def booking_refund_status(
 
 
 async def queue_payment_outcome(db: AsyncSession, outcome: WebhookOutcome) -> None:
-    from clientbridge.services.deliveries import DeliveryQueue, QueuedEmail, QueuedPush, QueuedSms
-    from clientbridge.services.notifications import Notifier
-
     model = (
         GiftCard
         if outcome.notify == "gift_card_issued"
@@ -3104,9 +3095,8 @@ async def queue_payment_outcome(db: AsyncSession, outcome: WebhookOutcome) -> No
     target = await db.get(model, outcome.target_id)
     if target is None:
         raise NotFound("notification source not found")
-    queue = DeliveryQueue(db, f"stripe:{outcome.notify}:{outcome.target_id}", target.business_id)
-    notifier = Notifier(QueuedEmail(queue), QueuedSms(queue), QueuedPush(queue), raise_errors=True)
-    await notify_payment_outcome(notifier, db, outcome)
+    key = delivery_key(f"stripe:{outcome.notify}", outcome.target_id)
+    await notify_payment_outcome(queued_notifier(db, target.business_id, key), db, outcome)
 
 
 async def _notify_recovery(

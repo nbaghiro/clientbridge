@@ -17,6 +17,15 @@ const COMMONJS_GLOBALS = {
 };
 const MAESTRO_GLOBALS = {
     ...readonly(["http", "json", "maestro", "encodeURIComponent", "EMAIL", "PASSWORD"]),
+    // what the native lane passes every flow, and the control helper's own arguments
+    ...readonly([
+        "E2E_NAMESPACE",
+        "MAILPIT_URL",
+        "AUTH_ADMIN_URL",
+        "CONTROL_URL",
+        "ACTION",
+        "PAYLOAD",
+    ]),
     output: "writable",
 };
 

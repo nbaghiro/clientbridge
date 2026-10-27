@@ -150,7 +150,7 @@ function Composer({
         composing.kind === "invoice"
             ? invoices.find((r) => r.id === composing.id)
             : estimates.find((r) => r.id === composing.id);
-    if (row === undefined) return null;
+    if (row === undefined || lines === null) return null;
     return <DocEditor kind={composing.kind} draft={docDraft(row, lines)} onClose={onClose} />;
 }
 

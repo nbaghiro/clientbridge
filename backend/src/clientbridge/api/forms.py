@@ -14,8 +14,8 @@ from clientbridge.schemas.forms import (
     TreatmentNoteOut,
     TreatmentNotes,
 )
+from clientbridge.services.deliveries import send_queued
 from clientbridge.services.forms import FormService, TreatmentNoteService
-from clientbridge.services.notifications import Notifier
 
 router = APIRouter(prefix="/forms", tags=["forms"])
 
@@ -30,9 +30,9 @@ async def send_form(
     push: PushDep,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> FormResponseOut:
-    return await FormService(db, principal).send_form(
-        body, idempotency_key, Notifier(email, sms, push)
-    )
+    result = await FormService(db, principal).send_form(body, idempotency_key)
+    await send_queued(db, email, sms, push)
+    return result
 
 
 @router.post("", response_model=FormOut, status_code=201)

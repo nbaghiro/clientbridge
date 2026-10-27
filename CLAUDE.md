@@ -120,6 +120,8 @@ Polyglot monorepo: `backend/` (Python · uv · FastAPI) · `frontend/` (pnpm + t
 - Tests and CI seed only the core demo businesses (`core=True` in `DEMO_BUSINESSES`, `make seed-core`);
   `make seed` and staging seed all of them, and the other editions are checked in memory.
 - CI gate: `pytest --cov=clientbridge --cov-branch --cov-fail-under=90`.
+- E2e files are named by concept; "Where an e2e test goes" in `.docs/engineering.md` says which file a test
+  belongs in, and `check-structure.mjs` rejects any other name.
 
 ## Tooling — run the gate before "done"
 - Backend: **ruff** (4-space · double quotes · line 100 · ANN bans `Any`) + **pyright strict**
@@ -135,7 +137,7 @@ Polyglot monorepo: `backend/` (Python · uv · FastAPI) · `frontend/` (pnpm + t
   both. Change a rule only in `packages/config/eslint.mjs`, scoped to its files.
 - Gate: `make check` (lint + codegen-check + test); the pre-commit hook runs `make precommit`
   (format-check + the same gate). CI's jobs call the same make targets (`lint-backend`, `test-backend`,
-  `lint-frontend`, `test-frontend`, `lint-infra`, `test-infra`, `build` in its own job, `test-site`, `codegen-check`), so the two can't drift.
+  `lint-frontend`, `test-frontend`, `build-apps`, `lint-infra`, `test-infra`, `test-site`, `codegen-check`), so the two can't drift.
 - **Milestone audit (do this at every slice/phase boundary, before starting the next).** Review the
   changeset against these principles and fix High/Medium findings *then*, not later: layering (thin
   router → service; routers never query; every tenant query goes through

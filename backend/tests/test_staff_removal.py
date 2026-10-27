@@ -8,7 +8,7 @@ from clientbridge.models.catalog import Item
 from clientbridge.models.platform import Audit
 from clientbridge.models.scheduling import Booking, Recurrence, Slot
 from tests.conftest import BIZ, Factory, FakeEmailSender
-from tests.helpers import enable_payments, key, settle
+from tests.helpers import enable_payments, key, reachable, settle
 
 CL_AMELIE = "cl_amelie"
 FIRST = "2027-03-02T19:00:00Z"
@@ -129,6 +129,7 @@ async def test_removal_without_future_work_needs_no_choice(
 async def test_removal_reassigns_visits_and_series_to_a_named_member(
     as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory, email: FakeEmailSender
 ) -> None:
+    await reachable(db, CL_AMELIE)
     item = await _item(db)
     leaving = await _member(db, factory, "Leaving Lee")
     taking = await _member(db, factory, "Taking Tam")
@@ -173,6 +174,7 @@ async def test_removal_reassigns_to_any_free_member(
 async def test_removal_cancels_visits_and_series_and_tells_the_client(
     as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory, email: FakeEmailSender
 ) -> None:
+    await reachable(db, CL_AMELIE)
     item = await _item(db)
     leaving = await _member(db, factory, "Leaving Lee")
     visit = await _visit(as_owner, item, leaving, FIRST)

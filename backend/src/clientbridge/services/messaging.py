@@ -52,6 +52,7 @@ from clientbridge.services.consents import (
     stopped_clients,
     texts_stopped,
 )
+from clientbridge.services.deliveries import delivery_key
 from clientbridge.services.notifications import (
     Notice,
     broadcast_notice,
@@ -59,6 +60,7 @@ from clientbridge.services.notifications import (
     business_brand,
     client_email,
     message_notice,
+    queued_notifier,
     visit_link,
     visit_note_body,
 )
@@ -156,6 +158,13 @@ async def broadcast_recipients(
     if not audience.get("all") and isinstance(tags, list) and tags:
         query = query.where(Client.tags.overlap([str(tag) for tag in tags]))
     clients = (await db.execute(query.order_by(Client.id))).scalars().all()
+    out = await _reachable(db, business_id, channel, clients)
+    return out[:_BROADCAST_CAP], len(clients) - len(out[:_BROADCAST_CAP])
+
+
+async def _reachable(
+    db: AsyncSession, business_id: str, channel: Channel, clients: Sequence[Client]
+) -> list[tuple[Client, str]]:
     ids = [c.id for c in clients]
     consents = await latest_consents(db, business_id, ids, channel)
     stopped = await stopped_clients(db, business_id, ids) if channel == "sms" else set()
@@ -165,7 +174,22 @@ async def broadcast_recipients(
         to = contact_for(client, channel)
         if to and client.id not in stopped and allows_marketing(consents.get(client.id), now):
             out.append((client, to))
-    return out[:_BROADCAST_CAP], len(clients) - len(out[:_BROADCAST_CAP])
+    return out
+
+
+async def _still_reachable(db: AsyncSession, broadcast: Broadcast, client_id: str) -> str | None:
+    """Where the recipient can be reached now, as consent may have changed since the audience."""
+    client = (
+        await db.execute(
+            scoped(Client, broadcast.business_id, soft_delete=True)
+            .where(Client.id == client_id, Client.status == "active")
+            .execution_options(populate_existing=True)
+        )
+    ).scalar_one_or_none()
+    if client is None:
+        return None
+    reachable = await _reachable(db, broadcast.business_id, broadcast.channel, [client])
+    return reachable[0][1] if reachable else None
 
 
 def _mailing_address(business: Business) -> str:
@@ -223,10 +247,7 @@ async def _claim_broadcast(db: AsyncSession, broadcast_id: str) -> Broadcast | N
     ).scalar_one_or_none()
 
 
-async def _queue_recipient(
-    db: AsyncSession, broadcast: Broadcast, client_id: str
-) -> Message | None:
-    """Record the recipient's message before sending, so a retry never messages them twice."""
+async def _already_messaged(db: AsyncSession, broadcast: Broadcast, client_id: str) -> bool:
     already = (
         await db.execute(
             scoped(Message, broadcast.business_id)
@@ -236,8 +257,11 @@ async def _queue_recipient(
             .limit(1)
         )
     ).scalar_one_or_none()
-    if already is not None:
-        return None
+    return already is not None
+
+
+async def _queue_recipient(db: AsyncSession, broadcast: Broadcast, client_id: str) -> Message:
+    """Record the recipient's message before sending, so a retry never messages them twice."""
     thread = await open_thread(db, broadcast.business_id, client_id, broadcast.channel)
     message = Message(
         id=new_id("message"),
@@ -278,19 +302,26 @@ async def _send_broadcast(
     broadcast.excluded_count = excluded
     name, channel, subject, body = business.name, broadcast.channel, broadcast.name, broadcast.body
     targets = [
-        (client.id, to, locale_for(business=business, client=client)) for client, to in recipients
+        (client.id, locale_for(business=business, client=client)) for client, _ in recipients
     ]
     brand = await business_brand(db, business)
     await db.commit()
-    for client_id, to, locale in targets:
+    for client_id, locale in targets:
         claimed = await _claim_broadcast(db, broadcast_id)
         if claimed is None:
             await db.commit()
             return False
+        if await _already_messaged(db, claimed, client_id):
+            await db.commit()
+            continue
+        to = await _still_reachable(db, claimed, client_id)
+        if to is None:
+            claimed.recipient_count -= 1
+            claimed.excluded_count += 1
+            await db.commit()
+            continue
         message = await _queue_recipient(db, claimed, client_id)
         await db.commit()
-        if message is None:
-            continue
         link = f"{prefs_url(client_id)}?unsubscribe=email"
         notice = broadcast_notice(locale, name, subject, body or "", link, address, contact)
         if channel == "sms":
@@ -325,17 +356,16 @@ async def route_inbound_sms(db: AsyncSession, number: str, destination: str) -> 
 
 async def process_inbound_sms(
     db: AsyncSession, *, from_phone: str, to_phone: str, body: str, message_sid: str
-) -> str | None:
+) -> None:
     """Route a signed inbound SMS only within the destination number's business."""
     event_id = f"twilio_{message_sid}"
     seen = (await db.execute(select(Webhook.id).where(Webhook.id == event_id))).scalar_one_or_none()
     if seen is not None:
-        return None
+        return
     number = e164(from_phone)
     destination = e164(to_phone)
     client = await route_inbound_sms(db, number, destination) if number and destination else None
     keyword = body.strip().upper()
-    message_id: str | None = None
     if client is not None:
         if keyword in STOP_WORDS or keyword in START_WORDS:
             await record_text_reply(db, client, stop=keyword in STOP_WORDS)
@@ -352,7 +382,9 @@ async def process_inbound_sms(
         )
         db.add(message)
         await db.flush()
-        message_id = message.id
+        await queued_notifier(
+            db, client.business_id, delivery_key("inbound", message.id)
+        ).on_inbound_message(db, message.id)
     db.add(
         Webhook(
             id=event_id,
@@ -375,8 +407,6 @@ async def process_inbound_sms(
         await db.rollback()
         if not is_duplicate(exc):  # only a redelivery race may be dropped; anything else must retry
             raise
-        return None
-    return message_id
 
 
 async def run_due_broadcasts(

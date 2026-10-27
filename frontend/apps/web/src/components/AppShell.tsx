@@ -124,8 +124,14 @@ export function AppShell({ onSignOut }: { onSignOut: () => void }) {
     }, [location.pathname, location.search]);
 
     const signOut = (): void => {
-        if (!sync.queueKnown || sync.pendingCount > 0) setLeaving(true);
-        else onSignOut();
+        sync.recheck()
+            .then((queue) => {
+                if (queue?.count === 0) onSignOut();
+                else setLeaving(true);
+            })
+            .catch(() => {
+                setLeaving(true);
+            });
     };
     const nextStep = nav.setup.steps.find((s) => !s.done);
 

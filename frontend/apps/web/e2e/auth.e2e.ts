@@ -1,6 +1,6 @@
 import { strings } from "@clientbridge/app-core/public";
-import { type APIRequestContext, type Page, expect, test } from "@playwright/test";
-
+import { type Page, expect } from "@playwright/test";
+import { test } from "./support/session";
 import {
     deleteIdentity,
     mailedCode,
@@ -11,7 +11,9 @@ import {
     ownerInvite,
     sessionActive,
     totp,
-} from "./identity";
+} from "./support/auth";
+import { signUp, openBusiness } from "./support/business";
+import { runEmail } from "@clientbridge/config/e2e/run";
 
 const a = strings.auth;
 
@@ -92,7 +94,7 @@ test("existing business never flashes onboarding during sign-in or a slow reload
     await page.goto("/");
     await page
         .getByRole("textbox", { name: a.email, exact: true })
-        .fill("hannah@birchbark.example");
+        .fill(runEmail("hannah@birchbark.example"));
     await page.getByLabel(a.password, { exact: true }).fill("demo1234");
     await page.getByRole("button", { name: a.signIn, exact: true }).click();
     await expect(
@@ -119,125 +121,98 @@ test("existing business never flashes onboarding during sign-in or a slow reload
     expect(await page.evaluate(() => sessionStorage.getItem("onboarding-flashed"))).toBeNull();
 });
 
-async function signUp(
-    page: Page,
-    request: APIRequestContext,
-    account: { email: string; password: string; name: string },
-): Promise<void> {
-    if (!page.url().includes("/signup")) await page.goto("/signup");
-    await page.getByLabel(a.name, { exact: true }).fill(account.name);
-    await page.getByRole("textbox", { name: a.email, exact: true }).fill(account.email);
-    await page.getByLabel(a.newPassword, { exact: true }).fill(account.password);
-    await page.getByRole("button", { name: a.createAccount, exact: true }).click();
-    await expect(page.getByRole("heading", { name: a.verifyTitle })).toBeVisible();
-    await page
-        .getByLabel(a.code, { exact: true })
-        .fill(await mailedCode(request, account.email, "verification"));
-    await page.getByRole("button", { name: a.verify, exact: true }).click();
-}
+test(
+    "sign up, confirm the email with the mailed code, then open a business",
+    { tag: "@browsers" },
+    async ({ page, request }) => {
+        const account = newAccount("signup");
+        await signUp(page, request, account);
+        await openBusiness(page, `${account.name}'s Beauty Studio`);
+    },
+);
 
-async function openBusiness(page: Page, name: string): Promise<void> {
-    const o = strings.business.onboarding;
-    await expect(page.getByRole("heading", { name: o.title })).toBeVisible();
-    await page.getByLabel(o.businessName, { exact: true }).fill(name);
-    await page.getByRole("combobox", { name: o.province }).click();
-    await page
-        .getByRole("listbox", { name: o.province })
-        .getByRole("option", { name: o.provinceBC, exact: true })
-        .click();
-    await page.getByRole("combobox", { name: o.industryLabel }).click();
-    await page
-        .getByRole("listbox", { name: o.industryLabel })
-        .getByRole("option", { name: o.industry("beauty"), exact: true })
-        .click();
-    await page.getByRole("button", { name: o.createBusiness, exact: true }).click();
-    await expect(
-        page
-            .locator("aside")
-            .getByRole("link", { name: strings.navigation.businessMenu, exact: true }),
-    ).toBeVisible({ timeout: 60_000 });
-}
+test(
+    "recover a forgotten password with an emailed code, staying signed in only here",
+    { tag: "@browsers" },
+    async ({ page, request }) => {
+        const account = newAccount("recover");
+        await signUp(page, request, account);
+        await expect(
+            page.getByRole("heading", { name: strings.business.onboarding.title }),
+        ).toBeVisible();
+        const otherDevice = await nativeSession(request, account.email, account.password);
+        await page.context().clearCookies();
+        await page.goto("/login");
+        await page.getByRole("button", { name: a.forgot, exact: true }).click();
+        await expect(page.getByRole("heading", { name: a.resetTitle })).toBeVisible();
+        await page.getByRole("textbox", { name: a.email, exact: true }).fill(account.email);
+        await page.getByRole("button", { name: a.sendCode, exact: true }).click();
+        await page
+            .getByLabel(a.code, { exact: true })
+            .fill(await mailedCode(request, account.email, "password reset"));
+        await page.getByRole("button", { name: a.checkCode, exact: true }).click();
+        await expect(page.getByRole("heading", { name: a.resetPasswordTitle })).toBeVisible();
+        await page.getByLabel(a.newPassword, { exact: true }).fill(`${account.password}-new`);
+        await page.getByRole("button", { name: a.savePassword, exact: true }).click();
+        await expect(
+            page.getByRole("heading", { name: strings.business.onboarding.title }),
+        ).toBeVisible();
+        expect(await sessionActive(request, otherDevice)).toBe(false);
+    },
+);
 
-test("sign up, confirm the email with the mailed code, then open a business", async ({
-    page,
-    request,
-}) => {
-    const account = newAccount("signup");
-    await signUp(page, request, account);
-    await openBusiness(page, `Signup Studio ${account.email.slice(7, 15)}`);
-});
+test(
+    "changing the password signs out every other device",
+    { tag: "@browsers" },
+    async ({ page, request }) => {
+        const account = newAccount("password");
+        await signUp(page, request, account);
+        await openBusiness(page, `${account.name}'s Beauty Studio`);
+        const otherDevice = await nativeSession(request, account.email, account.password);
+        expect(await sessionActive(request, otherDevice)).toBe(true);
 
-test("recover a forgotten password with an emailed code, staying signed in only here", async ({
-    page,
-    request,
-}) => {
-    const account = newAccount("recover");
-    await signUp(page, request, account);
-    await expect(
-        page.getByRole("heading", { name: strings.business.onboarding.title }),
-    ).toBeVisible();
-    const otherDevice = await nativeSession(request, account.email, account.password);
-    await page.context().clearCookies();
-    await page.goto("/login");
-    await page.getByRole("button", { name: a.forgot, exact: true }).click();
-    await expect(page.getByRole("heading", { name: a.resetTitle })).toBeVisible();
-    await page.getByRole("textbox", { name: a.email, exact: true }).fill(account.email);
-    await page.getByRole("button", { name: a.sendCode, exact: true }).click();
-    await page
-        .getByLabel(a.code, { exact: true })
-        .fill(await mailedCode(request, account.email, "password reset"));
-    await page.getByRole("button", { name: a.checkCode, exact: true }).click();
-    await expect(page.getByRole("heading", { name: a.resetPasswordTitle })).toBeVisible();
-    await page.getByLabel(a.newPassword, { exact: true }).fill(`${account.password}-new`);
-    await page.getByRole("button", { name: a.savePassword, exact: true }).click();
-    await expect(
-        page.getByRole("heading", { name: strings.business.onboarding.title }),
-    ).toBeVisible();
-    expect(await sessionActive(request, otherDevice)).toBe(false);
-});
+        await openSecurity(page);
+        await page
+            .getByLabel(a.securityNewPassword, { exact: true })
+            .fill(`${account.password}-new`);
+        await page.getByRole("button", { name: a.securityChangePassword, exact: true }).click();
+        await expect(page.getByText(a.flowMessages[1050001], { exact: true })).toBeVisible();
 
-test("changing the password signs out every other device", async ({ page, request }) => {
-    const account = newAccount("password");
-    await signUp(page, request, account);
-    await openBusiness(page, `Password Studio ${account.email.slice(9, 17)}`);
-    const otherDevice = await nativeSession(request, account.email, account.password);
-    expect(await sessionActive(request, otherDevice)).toBe(true);
+        expect(await sessionActive(request, otherDevice)).toBe(false);
+        await page.reload();
+        await expect(page.getByRole("heading", { name: a.securityTitle })).toBeVisible();
+    },
+);
 
-    await page.goto("/setup/security");
-    await page.getByLabel(a.securityNewPassword, { exact: true }).fill(`${account.password}-new`);
-    await page.getByRole("button", { name: a.securityChangePassword, exact: true }).click();
-    await expect(page.getByText(a.flowMessages[1050001], { exact: true })).toBeVisible();
+test(
+    "turn on an authenticator app, then sign in with its code",
+    { tag: "@browsers" },
+    async ({ page, request }) => {
+        const account = newAccount("totp");
+        await signUp(page, request, account);
+        await openBusiness(page, `${account.name}'s Beauty Studio`);
+        await openSecurity(page);
+        const key = page.getByText(/^Or enter this key: /);
+        const secret = ((await key.textContent()) ?? "").replace("Or enter this key: ", "").trim();
+        await page.getByLabel(a.code, { exact: true }).fill(totp(secret));
+        await page.getByRole("button", { name: a.securityTurnOn, exact: true }).click();
+        await expect(page.getByText(a.securityTotpOn, { exact: true })).toBeVisible();
 
-    expect(await sessionActive(request, otherDevice)).toBe(false);
-    await page.reload();
-    await expect(page.getByRole("heading", { name: a.securityTitle })).toBeVisible();
-});
-
-test("turn on an authenticator app, then sign in with its code", async ({ page, request }) => {
-    const account = newAccount("totp");
-    await signUp(page, request, account);
-    await openBusiness(page, `Totp Studio ${account.email.slice(5, 13)}`);
-    await page.goto("/setup/security");
-    const key = page.getByText(/^Or enter this key: /);
-    const secret = ((await key.textContent()) ?? "").replace("Or enter this key: ", "").trim();
-    await page.getByLabel(a.code, { exact: true }).fill(totp(secret));
-    await page.getByRole("button", { name: a.securityTurnOn, exact: true }).click();
-    await expect(page.getByText(a.securityTotpOn, { exact: true })).toBeVisible();
-
-    await page.context().clearCookies();
-    await page.goto("/login");
-    await page.getByRole("textbox", { name: a.email, exact: true }).fill(account.email);
-    await page.getByLabel(a.password, { exact: true }).fill(account.password);
-    await page.getByRole("button", { name: a.signIn, exact: true }).click();
-    await expect(page.getByRole("heading", { name: a.mfaTitle })).toBeVisible();
-    await page.getByLabel(a.mfaTotp, { exact: true }).fill(totp(secret));
-    await page.getByRole("button", { name: a.confirm, exact: true }).click();
-    await expect(
-        page
-            .locator("aside")
-            .getByRole("link", { name: strings.navigation.businessMenu, exact: true }),
-    ).toBeVisible({ timeout: 60_000 });
-});
+        await page.context().clearCookies();
+        await page.goto("/login");
+        await page.getByRole("textbox", { name: a.email, exact: true }).fill(account.email);
+        await page.getByLabel(a.password, { exact: true }).fill(account.password);
+        await page.getByRole("button", { name: a.signIn, exact: true }).click();
+        await expect(page.getByRole("heading", { name: a.mfaTitle })).toBeVisible();
+        await page.getByLabel(a.mfaTotp, { exact: true }).fill(totp(secret));
+        await page.getByRole("button", { name: a.confirm, exact: true }).click();
+        await expect(
+            page
+                .locator("aside")
+                .getByRole("link", { name: strings.navigation.businessMenu, exact: true }),
+        ).toBeVisible({ timeout: 60_000 });
+    },
+);
 
 test("an invite joins the account that signs up with the invited email", async ({
     page,
@@ -281,6 +256,14 @@ test("an invite refuses an account with a different email", async ({ page, reque
     }
 });
 
+async function openSecurity(page: Page): Promise<void> {
+    await page.goto("/setup/security");
+    // the photo control appears once the replica knows the viewer's role and pushes the form down
+    await expect(
+        page.getByRole("button", { name: strings.files.addPhoto, exact: true }),
+    ).toBeVisible();
+}
+
 async function startSignUp(
     page: Page,
     account: { email: string; password: string; name: string },
@@ -307,7 +290,7 @@ test("an account whose identity was recreated confirms its email instead of loop
 }) => {
     const account = newAccount("relink");
     await signUp(page, request, account);
-    await openBusiness(page, `Relink Studio ${account.email.slice(7, 15)}`);
+    await openBusiness(page, `${account.name}'s Beauty Studio`);
     await deleteIdentity(request, account.email);
     await page.goto("/signup");
     await expect(page.getByRole("heading", { name: a.signUpTitle })).toBeVisible();

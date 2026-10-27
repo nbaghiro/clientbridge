@@ -23,6 +23,7 @@ from clientbridge.api.returning import router as returning_router
 from clientbridge.api.router import api_router
 from clientbridge.api.site import router as site_router
 from clientbridge.api.webhooks import router as webhooks_router
+from clientbridge.core.caching import NoStoreByDefault
 from clientbridge.core.config import get_settings
 from clientbridge.core.cors import SplitCors
 from clientbridge.core.db import engine
@@ -59,6 +60,7 @@ def create_app() -> FastAPI:
     app.add_middleware(UnhandledErrors)  # added first, so it runs inside CORS
 
     app.add_middleware(UploadSizeLimit)
+    app.add_middleware(NoStoreByDefault)
 
     app.add_middleware(SplitCors, settings=settings)
     app.add_middleware(RequestLog)  # outermost, so the logged status is the one sent

@@ -23,8 +23,10 @@ from clientbridge.schemas.payments import (
     InvoicePaymentIn,
     InvoicePaymentOut,
 )
-from clientbridge.services.billing import BillingService
-from clientbridge.services.notifications import Notifier
+from clientbridge.services.billing import (
+    BillingService,
+)
+from clientbridge.services.deliveries import send_queued
 from clientbridge.services.payments import PaymentService
 
 estimates_router = APIRouter(prefix="/estimates", tags=["estimates"])
@@ -41,8 +43,7 @@ async def create_estimate(
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> EstimateOut:
     result = await BillingService(db, principal).create_estimate(body, idempotency_key)
-    if body.send:
-        await Notifier(email, sms, push).on_estimate_sent(db, result.id)
+    await send_queued(db, email, sms, push)
     return result
 
 
@@ -61,9 +62,10 @@ async def send_estimate(
     email: EmailDep,
     sms: SmsDep,
     push: PushDep,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> EstimateOut:
-    result = await BillingService(db, principal).send_estimate(estimate_id)
-    await Notifier(email, sms, push).on_estimate_sent(db, result.id)
+    result = await BillingService(db, principal).send_estimate(estimate_id, idempotency_key)
+    await send_queued(db, email, sms, push)
     return result
 
 
@@ -77,7 +79,7 @@ async def accept_estimate(
     push: PushDep,
 ) -> EstimateOut:
     result = await BillingService(db, principal).accept_estimate(estimate_id)
-    await Notifier(email, sms, push).on_estimate_accepted(db, result.id)
+    await send_queued(db, email, sms, push)
     return result
 
 
@@ -93,7 +95,7 @@ async def decline_estimate(
 ) -> EstimateOut:
     reason = body.reason if body is not None else None
     result = await BillingService(db, principal).decline_estimate(estimate_id, reason)
-    await Notifier(email, sms, push).on_estimate_declined(db, result.id)
+    await send_queued(db, email, sms, push)
     return result
 
 
@@ -121,8 +123,7 @@ async def create_invoice(
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> InvoiceOut:
     result = await BillingService(db, principal).create_invoice(body, idempotency_key)
-    if body.send:
-        await Notifier(email, sms, push).on_invoice_sent(db, result.id)
+    await send_queued(db, email, sms, push)
     return result
 
 
@@ -153,9 +154,10 @@ async def send_invoice(
     email: EmailDep,
     sms: SmsDep,
     push: PushDep,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> InvoiceOut:
-    result = await BillingService(db, principal).send_invoice(invoice_id)
-    await Notifier(email, sms, push).on_invoice_sent(db, result.id)
+    result = await BillingService(db, principal).send_invoice(invoice_id, idempotency_key)
+    await send_queued(db, email, sms, push)
     return result
 
 
@@ -167,9 +169,10 @@ async def remind_invoice(
     email: EmailDep,
     sms: SmsDep,
     push: PushDep,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> InvoiceOut:
-    result = await BillingService(db, principal).remind_invoice(invoice_id)
-    await Notifier(email, sms, push).on_invoice_reminder(db, result.id)
+    result = await BillingService(db, principal).remind_invoice(invoice_id, idempotency_key)
+    await send_queued(db, email, sms, push)
     return result
 
 
@@ -193,6 +196,5 @@ async def record_invoice_payment(
     result = await PaymentService(db, principal, gateway).record_invoice_payment(
         invoice_id, body, idempotency_key
     )
-    if body.send_receipt and result.status == "succeeded":
-        await Notifier(email, sms, push).on_payment_succeeded(db, result.payment_id)
+    await send_queued(db, email, sms, push)
     return result

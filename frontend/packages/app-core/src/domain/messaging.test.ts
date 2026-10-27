@@ -2,6 +2,7 @@
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ApiLike } from "../api";
+import { strings } from "../strings";
 import { type InboxThread, resolveInboxTarget, useThreadComposer } from "./messaging";
 
 const threads = [
@@ -43,30 +44,35 @@ describe("inbox navigation", () => {
 
 afterEach(cleanup);
 
+const thread: InboxThread = {
+    id: "th_1",
+    client_id: "cl_1",
+    channel: "sms",
+    status: "open",
+    client_name: "Pat",
+    phone: null,
+    email: null,
+    last_message_at: null,
+    unread_count: 0,
+    last_body: null,
+    subject_names: null,
+    title: "Pat",
+    ago: "",
+    subjects: [],
+    textsOff: false,
+    channelKind: "sms",
+};
+
+function apiWith(post: ApiLike["post"]): ApiLike {
+    return { get: vi.fn(), getText: vi.fn(), post, patch: vi.fn(), delete: vi.fn() };
+}
+
 it("retries a message with the same key after an ambiguous transport failure", async () => {
     const post = vi
         .fn()
         .mockRejectedValueOnce(new TypeError("lost response"))
-        .mockResolvedValue({});
-    const api: ApiLike = { get: vi.fn(), getText: vi.fn(), post, patch: vi.fn(), delete: vi.fn() };
-    const thread: InboxThread = {
-        id: "th_1",
-        client_id: "cl_1",
-        channel: "sms",
-        status: "open",
-        client_name: "Pat",
-        phone: null,
-        email: null,
-        last_message_at: null,
-        unread_count: 0,
-        last_body: null,
-        subject_names: null,
-        title: "Pat",
-        ago: "",
-        subjects: [],
-        textsOff: false,
-        channelKind: "sms",
-    };
+        .mockResolvedValue({ status: "sent" });
+    const api = apiWith(post);
     const { result } = renderHook(() => useThreadComposer(api, thread));
     act(() => {
         result.current.setBody("Hello");
@@ -94,4 +100,47 @@ it("retries a message with the same key after an ambiguous transport failure", a
         expect(post).toHaveBeenCalledTimes(3);
     });
     expect(post.mock.calls[2]?.[2]).not.toEqual(post.mock.calls[0]?.[2]);
+});
+
+it("keeps the draft and says so when the provider refused the message", async () => {
+    const post = vi
+        .fn()
+        .mockResolvedValueOnce({ status: "failed" })
+        .mockResolvedValue({ status: "sent" });
+    const { result } = renderHook(() => useThreadComposer(apiWith(post), thread));
+    act(() => {
+        result.current.setBody("Hello");
+    });
+    act(() => {
+        result.current.submit();
+    });
+    await waitFor(() => {
+        expect(result.current.error).toBe(strings.messaging.notDelivered);
+    });
+    expect(result.current.body).toBe("Hello");
+    act(() => {
+        result.current.submit();
+    });
+    await waitFor(() => {
+        expect(result.current.body).toBe("");
+    });
+    expect(result.current.error).toBeNull();
+    expect(post).toHaveBeenCalledTimes(2);
+    expect(post.mock.calls[1]?.[2]).not.toEqual(post.mock.calls[0]?.[2]);
+});
+
+it("moves an untouched reply to email when the thread's STOP arrives after opening", () => {
+    const api = apiWith(vi.fn());
+    const { result, rerender } = renderHook(({ t }) => useThreadComposer(api, t), {
+        initialProps: { t: thread },
+    });
+    expect(result.current.channel).toBe("sms");
+    rerender({ t: { ...thread, textsOff: true } });
+    expect(result.current.channel).toBe("email");
+    act(() => {
+        result.current.setChannel("sms");
+    });
+    rerender({ t: { ...thread, textsOff: true, last_body: "STOP" } });
+    expect(result.current.channel).toBe("sms");
+    expect(result.current.smsBlocked).toBe(true);
 });

@@ -2,6 +2,9 @@
 
 from ulid import ULID
 
+from clientbridge.core.config import get_settings
+from clientbridge.core.namespaces import in_namespace
+
 PREFIXES: dict[str, str] = {
     "business": "bz",
     "user": "us",
@@ -55,4 +58,8 @@ PREFIXES: dict[str, str] = {
 
 def new_id(entity: str) -> str:
     """Generate a sortable, prefixed id, e.g. new_id('booking') -> 'bk_01J...'."""
-    return f"{PREFIXES[entity]}_{ULID()}"
+    value = str(ULID())
+    namespace = get_settings().run_namespace
+    if namespace:
+        value = in_namespace(value, namespace)
+    return f"{PREFIXES[entity]}_{value}"

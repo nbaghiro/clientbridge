@@ -1,0 +1,32 @@
+name: setup
+description: Installs a Python project with uv and the frontend workspace with pnpm, each when asked.
+inputs:
+  uv:
+    description: The directory to run uv sync in (backend or infra/pulumi); empty skips Python.
+    default: ""
+  pnpm:
+    description: Install the frontend workspace.
+    default: "false"
+runs:
+  using: composite
+  steps:
+    - if: inputs.uv != ''
+      uses: astral-sh/setup-uv@v10.3.0
+    - if: inputs.uv != ''
+      run: uv sync --frozen
+      shell: bash
+      working-directory: ${{ inputs.uv }}
+    - if: inputs.pnpm == 'true'
+      uses: pnpm/action-setup@v6
+      with:
+        version: 9
+    - if: inputs.pnpm == 'true'
+      uses: actions/setup-node@v7
+      with:
+        node-version-file: .nvmrc
+        cache: pnpm
+        cache-dependency-path: frontend/pnpm-lock.yaml
+    - if: inputs.pnpm == 'true'
+      run: pnpm install --frozen-lockfile --ignore-scripts
+      shell: bash
+      working-directory: frontend

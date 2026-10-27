@@ -400,11 +400,13 @@ export function PhotoGrid({
 function BookingAddons({ event }: { event: ScheduleEvent }) {
     const viewer = useViewer();
     const addons = useBookingAddons(api, event, viewer);
+    const hasAddons = addons.addons.length > 0;
     const canAdd = addons.canEdit && addons.choices.length > 0;
-    if (addons.addons.length === 0 && !canAdd) return null;
+    const quiet = !addons.canInvoice && addons.invoiceId === null && addons.error === null;
+    if (!hasAddons && !canAdd && quiet) return null;
     return (
-        <DetailSection title={s.detailAddons}>
-            {addons.addons.length > 0 ? (
+        <DetailSection title={hasAddons || canAdd ? s.detailAddons : s.invoiceVisit}>
+            {hasAddons ? (
                 <ul className="divide-y divide-line-soft rounded-md border border-line">
                     {addons.addons.map((a) => (
                         <li key={a.id} className="flex items-center gap-3 px-3 py-2 text-sm">
@@ -444,9 +446,11 @@ function BookingAddons({ event }: { event: ScheduleEvent }) {
                 </div>
             ) : null}
             <div className="mt-1.5 flex items-center justify-between gap-2">
-                <p className="text-xs text-muted">
-                    {s.addonsTotal(formatMoney(addons.totalCents, BUSINESS_CURRENCY))}
-                </p>
+                {hasAddons ? (
+                    <p className="text-xs text-muted">
+                        {s.addonsTotal(formatMoney(addons.totalCents, BUSINESS_CURRENCY))}
+                    </p>
+                ) : null}
                 {addons.invoiceId !== null ? (
                     <span className="text-xs text-muted">{s.visitInvoiced}</span>
                 ) : addons.canInvoice ? (

@@ -9,11 +9,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
 from clientbridge.core.ids import new_id
+from clientbridge.integrations.resend import Email
 from clientbridge.integrations.twilio import Sms
 from clientbridge.models.business import Business
-from clientbridge.models.clients import Client
+from clientbridge.models.clients import Channel, Client
 from clientbridge.models.messaging import Broadcast, Message
-from clientbridge.services.consents import prefs_token, record_consent
+from clientbridge.services.consents import prefs_token, record_consent, record_text_reply
 from clientbridge.services.messaging import open_thread, run_due_broadcasts
 from tests.conftest import Factory, FakeEmailSender, FakeSmsSender
 from tests.helpers import key, local_hour, ok
@@ -463,3 +464,79 @@ async def test_a_recipient_with_a_message_already_is_skipped(
     await db.flush()
     await run_due_broadcasts(db, sms, email, now)
     assert [m.to for m in sms.sent] == ["+15145557001"]
+
+
+async def _withdraw(db: AsyncSession, client: Client, channel: Channel) -> None:
+    if channel == "sms":
+        await record_text_reply(db, client, stop=True)
+        return
+    await record_consent(
+        db,
+        BIZ,
+        client.id,
+        channel="email",
+        status="withdrawn",
+        source="unsubscribe",
+        recorded_by=None,
+    )
+
+
+@pytest.mark.parametrize(
+    ("channel", "reached"), [("sms", "+15145558000"), ("email", "agreed@example.ca")]
+)
+async def test_consent_withdrawn_after_the_audience_is_chosen_skips_that_recipient(
+    channel: Channel,
+    reached: str,
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    sms: FakeSmsSender,
+    email: FakeEmailSender,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    ids = await _audience(db)
+    now = await local_hour(db, 12)
+    out = ok(await as_owner.post("/v1/broadcasts", json=_promo(channel=channel))).json()
+    assert (out["recipient_count"], out["excluded_count"]) == (2, 2)
+    implied = await db.get(Client, ids["implied"])
+    assert implied is not None
+    send_sms, send_email = sms.send, email.send
+
+    async def texted_then_stopped(message: Sms) -> str | None:
+        await _withdraw(db, implied, "sms")
+        monkeypatch.setattr(sms, "send", send_sms)
+        return await send_sms(message)
+
+    async def mailed_then_unsubscribed(message: Email) -> str | None:
+        await _withdraw(db, implied, "email")
+        monkeypatch.setattr(email, "send", send_email)
+        return await send_email(message)
+
+    monkeypatch.setattr(sms, "send", texted_then_stopped)
+    monkeypatch.setattr(email, "send", mailed_then_unsubscribed)
+    assert await run_due_broadcasts(db, sms, email, now) >= 1
+    assert [m.to for m in [*sms.sent, *email.sent]] == [reached]
+    row = (
+        await db.execute(
+            select(Broadcast)
+            .where(Broadcast.id == out["id"])
+            .execution_options(populate_existing=True)
+        )
+    ).scalar_one()
+    assert (row.recipient_count, row.excluded_count, row.status) == (1, 3, "sent")
+    statuses = await db.scalars(select(Message.status).where(Message.broadcast_id == out["id"]))
+    assert list(statuses) == ["sent"]
+
+
+async def test_a_lapsed_business_can_cancel_a_scheduled_broadcast_but_not_send_one(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    bid = await _scheduled(db)
+    await db.execute(
+        update(Business)
+        .where(Business.id == BIZ)
+        .values(plan=None, plan_status="trialing", trial_ends_at=clock.now() - timedelta(days=1))
+    )
+    assert (await as_owner.post("/v1/broadcasts", json=_promo())).status_code == 402
+    canceled = await as_owner.post(f"/v1/broadcasts/{bid}/cancel")
+    assert canceled.status_code == 200, canceled.text
+    assert canceled.json()["status"] == "canceled"

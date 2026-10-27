@@ -10,7 +10,7 @@ from clientbridge.core import clock
 from clientbridge.core.email_layout import ACCENT
 from clientbridge.core.ids import new_id
 from clientbridge.core.locale import SOURCE_LOCALE
-from clientbridge.models.business import Staff
+from clientbridge.models.business import Business, Staff
 from clientbridge.models.catalog import Item
 from clientbridge.models.clients import Client
 from clientbridge.models.messaging import Message
@@ -399,6 +399,10 @@ async def test_estimate_decline_notifies_business(
     db: AsyncSession,
     email: FakeEmailSender,
 ) -> None:
+    # queued deliveries skip the seed's reserved address
+    await db.execute(
+        update(Business).where(Business.id == BIZ).values(billing_email="hello@birchbark.ca")
+    )
     cid = (
         (await db.execute(select(Client.id).where(Client.business_id == BIZ).limit(1)))
         .scalars()
@@ -411,9 +415,7 @@ async def test_estimate_decline_notifies_business(
     email.sent.clear()
     declined = await as_owner.post(f"/v1/estimates/{est['id']}/decline")
     assert declined.status_code == 200, declined.text
-    assert any(
-        m.to == "hello@birchbark.example" and "declined" in m.body.lower() for m in email.sent
-    )
+    assert any(m.to == "hello@birchbark.ca" and "declined" in m.body.lower() for m in email.sent)
 
 
 async def test_booking_noncancel_patch_sends_no_cancel_notice(
@@ -443,6 +445,10 @@ async def test_estimate_accept_notifies_business(
     db: AsyncSession,
     email: FakeEmailSender,
 ) -> None:
+    # queued deliveries skip the seed's reserved address
+    await db.execute(
+        update(Business).where(Business.id == BIZ).values(billing_email="hello@birchbark.ca")
+    )
     cid = (
         (await db.execute(select(Client.id).where(Client.business_id == BIZ).limit(1)))
         .scalars()
@@ -455,9 +461,7 @@ async def test_estimate_accept_notifies_business(
     email.sent.clear()
     accepted = await as_owner.post(f"/v1/estimates/{est['id']}/accept")
     assert accepted.status_code == 200, accepted.text
-    assert any(
-        m.to == "hello@birchbark.example" and "accepted" in m.body.lower() for m in email.sent
-    )
+    assert any(m.to == "hello@birchbark.ca" and "accepted" in m.body.lower() for m in email.sent)
 
 
 async def test_failing_channel_does_not_500(

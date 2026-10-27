@@ -195,7 +195,11 @@ async def test_product_fields_and_duplicate_sku_409(as_owner: httpx.AsyncClient)
     assert first.json()["stock_on_hand"] == 0
     assert first.json()["sku"] == "SPRAY-01"
     again = await as_owner.post("/v1/items", json={**body, "name": "Copy"})
-    assert again.status_code == 409
+    assert again.status_code == 409 and again.json()["error"] == "sku_taken"
+    other = await as_owner.post("/v1/items", json={**body, "name": "Other", "sku": "SPRAY-02"})
+    assert other.status_code == 201, other.text
+    taken = await as_owner.patch(f"/v1/items/{other.json()['id']}", json={"sku": "SPRAY-01"})
+    assert taken.status_code == 409 and taken.json()["error"] == "sku_taken"
 
 
 async def test_only_products_track_stock_422(as_owner: httpx.AsyncClient) -> None:

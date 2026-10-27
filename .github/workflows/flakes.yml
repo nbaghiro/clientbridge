@@ -1,0 +1,70 @@
+name: flakes
+on:
+  schedule:
+    - cron: "0 7 * * 0"
+  workflow_dispatch:
+    inputs:
+      repeat:
+        description: times each case runs
+        default: "3"
+      seed:
+        description: shuffle seed; empty uses the run id
+        default: ""
+permissions:
+  contents: read
+concurrency:
+  group: flakes
+  cancel-in-progress: false
+# Measures first-attempt outcomes of shuffled, repeated lanes; it never qualifies a lane.
+jobs:
+  lane:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        surface: [web, connect, journeys]
+    env:
+      SEED: ${{ inputs.seed || github.run_id }}
+      REPEAT: ${{ inputs.repeat || '3' }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.0
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 9
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - run: uv sync --frozen
+        working-directory: backend
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+        working-directory: frontend
+      - run: pnpm --filter web exec playwright install --with-deps chromium
+        working-directory: frontend
+      - run: make test-tier
+      - name: run the shuffled, repeated lane
+        run: make test-flakes FLAKE_SEED="$SEED" FLAKE_REPEAT="$REPEAT" FLAKE_ARGS="--surface ${{ matrix.surface }}"
+      - name: collect the test tier's logs
+        if: always()
+        run: mkdir -p .scratchpad && make test-tier-logs > .scratchpad/tier.log 2>&1 || true
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: flakes-${{ matrix.surface }}
+          include-hidden-files: true
+          if-no-files-found: error
+          path: |
+            .scratchpad/e2e-*/run.json
+            .scratchpad/e2e-*/flakes.json
+            .scratchpad/e2e-*/shuffle.json
+            .scratchpad/e2e-*/browser-results
+            .scratchpad/e2e-*/browser.log
+            .scratchpad/e2e-*/setup.log
+            .scratchpad/e2e-*/api.log
+            .scratchpad/e2e-*/worker.log
+            .scratchpad/e2e-*/purge.json
+            .scratchpad/tier.log
+          retention-days: 14

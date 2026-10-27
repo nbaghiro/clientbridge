@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Header, Query, Response
+from fastapi import APIRouter, Header, Query
 
 from clientbridge.core.deps import (
     CurrentPrincipal,
@@ -28,7 +28,7 @@ from clientbridge.schemas.payments import (
     SetupIntentOut,
     TaxFilings,
 )
-from clientbridge.services.deliveries import dispatch_scope
+from clientbridge.services.deliveries import send_queued
 from clientbridge.services.orders import OrderService
 from clientbridge.services.payments import PaymentService
 from clientbridge.services.remittances import RemittanceService
@@ -42,9 +42,7 @@ async def account_session(
     principal: CurrentPrincipal,
     db: DbSession,
     gateway: GatewayDep,
-    response: Response,
 ) -> ConnectSessionOut:
-    response.headers["Cache-Control"] = "no-store"
     return await PaymentService(db, principal, gateway).account_session(body.component)
 
 
@@ -96,9 +94,7 @@ async def create_pad_link(
     principal: CurrentPrincipal,
     db: DbSession,
     gateway: GatewayDep,
-    response: Response,
 ) -> PaymentSetupLinkOut:
-    response.headers["Cache-Control"] = "no-store"
     return await PaymentService(db, principal, gateway).create_pad_link(client_id)
 
 
@@ -144,8 +140,7 @@ async def refund_payment(
     out = await PaymentService(db, principal, gateway).refund_payment(
         payment_id, body.amount_cents, idempotency_key, body.reason, body.notify
     )
-    if body.notify and out.status == "succeeded":
-        await dispatch_scope(db, f"refund:{out.refund_id}", email, sms, push)
+    await send_queued(db, email, sms, push)
     return out
 
 

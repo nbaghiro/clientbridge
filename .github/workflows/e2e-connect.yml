@@ -1,0 +1,46 @@
+name: e2e connect
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  lane:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: chromium, artifact: connect-chromium, browser: chromium, project: default }
+          - { name: pseudo-locale, artifact: connect-pseudo, browser: chromium, project: pseudo }
+          # Firefox and WebKit run only the cases tagged @browsers; CI keeps them on Linux
+          - { name: firefox, artifact: connect-firefox, browser: firefox, project: firefox }
+          - { name: webkit, artifact: connect-webkit, browser: webkit, project: webkit }
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/e2e-setup
+        with:
+          app: connect
+          browser: ${{ matrix.browser }}
+          prepared: "true"
+      - name: run the lane on the test tier
+        env:
+          PROJECT: ${{ matrix.project }}
+        run: make test-functional FUNCTIONAL_ARGS="--surface connect --project $PROJECT"
+      - if: always()
+        uses: ./.github/actions/e2e-collect
+        with:
+          name: ${{ matrix.artifact }}
+
+  result:
+    needs: lane
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - env:
+          RESULT: ${{ needs.lane.result }}
+        run: test "$RESULT" = success

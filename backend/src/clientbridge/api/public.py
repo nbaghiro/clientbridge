@@ -51,9 +51,8 @@ from clientbridge.schemas.public import (
     PublicSlots,
 )
 from clientbridge.schemas.public_profiles import PublicNextOpenings, PublicProfile
-from clientbridge.services.deliveries import dispatch_scope
+from clientbridge.services.deliveries import send_queued
 from clientbridge.services.files import public_media_location
-from clientbridge.services.notifications import Notifier
 from clientbridge.services.payments import PublicPaymentSetupService
 from clientbridge.services.public import (
     PublicBookingService,
@@ -107,8 +106,16 @@ estimate_router = APIRouter(prefix="/estimate", tags=["public-estimate"])
 
 
 @estimate_router.get("/{token}", response_model=PublicEstimate)
-async def public_estimate(token: str, db: DbSession, _: RateLimited) -> PublicEstimate:
-    return await PublicEstimateService(db).context(token)
+async def public_estimate(
+    token: str,
+    db: DbSession,
+    _: RateLimited,
+    line_ids: Annotated[
+        list[str] | None,
+        Query(description="Quote the estimate with these optional add-ons ticked"),
+    ] = None,
+) -> PublicEstimate:
+    return await PublicEstimateService(db).context(token, line_ids)
 
 
 @estimate_router.post("/{token}/accept", response_model=PublicEstimate)
@@ -122,7 +129,7 @@ async def public_estimate_accept(
     _: RateLimited,
 ) -> PublicEstimate:
     result = await PublicEstimateService(db).accept(token, data)
-    await Notifier(email, sms, push).on_estimate_answered(db, token)
+    await send_queued(db, email, sms, push)
     return result
 
 
@@ -137,7 +144,7 @@ async def public_estimate_decline(
     _: RateLimited,
 ) -> PublicEstimate:
     result = await PublicEstimateService(db).decline(token, data)
-    await Notifier(email, sms, push).on_estimate_answered(db, token)
+    await send_queued(db, email, sms, push)
     return result
 
 
@@ -317,13 +324,7 @@ async def public_book(
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key", min_length=8)] = None,
 ) -> PublicBookingResult:
     result = await PublicBookingService(db, gateway).book(slug, body, idempotency_key)
-    notifier = Notifier(email, sms, push)
-    if result.status == "pending":
-        await notifier.on_booking_requested(db, result.booking_id)
-    elif len(result.booking_ids) > 1:
-        await notifier.on_series_booked(db, result.booking_ids, "booked")
-    else:
-        await notifier.on_booking_confirmed(db, result.booking_id)
+    await send_queued(db, email, sms, push)
     return result
 
 
@@ -340,7 +341,7 @@ async def public_join_waitlist(
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key", min_length=8)] = None,
 ) -> PublicBookingResult:
     result = await PublicBookingService(db, gateway).join_waitlist(slug, body, idempotency_key)
-    await dispatch_scope(db, f"booking:{result.booking_id}", email, sms, push)
+    await send_queued(db, email, sms, push)
     return result
 
 
@@ -426,12 +427,8 @@ async def manage_reschedule(
     _: BookingRateLimited,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key", min_length=8)] = None,
 ) -> ManagedBooking:
-    service = PublicManageService(db, gateway)
-    before = await service.view(token)
-    result = await service.reschedule(token, body, idempotency_key)
-    if result.starts_at != before.starts_at:
-        booking_id = await service.booking_id(token)
-        await Notifier(email, sms, push).on_booking_rescheduled(db, booking_id)
+    result = await PublicManageService(db, gateway).reschedule(token, body, idempotency_key)
+    await send_queued(db, email, sms, push)
     return result
 
 
@@ -446,11 +443,8 @@ async def manage_cancel(
     _: BookingRateLimited,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key", min_length=8)] = None,
 ) -> ManageCancelResult:
-    service = PublicManageService(db, gateway)
-    live = (await service.view(token)).status != "canceled"
-    result, canceled = await service.cancel(token, idempotency_key)
-    if live and canceled:
-        await Notifier(email, sms, push).on_visits_canceled(db, canceled)
+    result = await PublicManageService(db, gateway).cancel(token, idempotency_key)
+    await send_queued(db, email, sms, push)
     return result
 
 
@@ -489,9 +483,9 @@ async def public_manage_message(
     _: BookingRateLimited,
     idempotency_key: Annotated[str, Header(alias="Idempotency-Key")],
 ) -> ManageMessageResult:
-    return await PublicManageService(db, gateway).message(
-        token, data, idempotency_key, Notifier(email, sms, push)
-    )
+    result = await PublicManageService(db, gateway).message(token, data, idempotency_key)
+    await send_queued(db, email, sms, push)
+    return result
 
 
 payment_setup_router = APIRouter(prefix="/payment-method", tags=["public-payments"])
@@ -502,7 +496,6 @@ SetupToken = Annotated[str, Header(alias="X-Payment-Setup-Token", pattern=r"^[A-
 async def public_payment_setup(
     token: SetupToken, db: DbSession, gateway: GatewayDep, response: Response, _: BookingRateLimited
 ) -> PublicPaymentSetup:
-    response.headers["Cache-Control"] = "no-store"
     response.headers["Referrer-Policy"] = "no-referrer"
     return await PublicPaymentSetupService(db, gateway).view(token)
 
@@ -511,6 +504,5 @@ async def public_payment_setup(
 async def public_payment_setup_start(
     token: SetupToken, db: DbSession, gateway: GatewayDep, response: Response, _: BookingRateLimited
 ) -> PublicPaymentSetup:
-    response.headers["Cache-Control"] = "no-store"
     response.headers["Referrer-Policy"] = "no-referrer"
     return await PublicPaymentSetupService(db, gateway).view(token, start=True)

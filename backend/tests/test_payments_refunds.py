@@ -9,18 +9,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from clientbridge.core import clock
 from clientbridge.core.ids import new_id
 from clientbridge.models.billing import Invoice, Order
+from clientbridge.models.business import User
 from clientbridge.models.catalog import GiftCard, Package
 from clientbridge.models.payments import Payment
 from clientbridge.models.scheduling import Booking
 from clientbridge.services import ledger
 from clientbridge.services.payments import next_credit_note
 from clientbridge.services.tax import TaxResult
-from tests.conftest import BIZ, Factory, FakeEmailSender, FakePaymentGateway
+from tests.conftest import BIZ, OWNER_USER, Factory, FakeEmailSender, FakePaymentGateway
 from tests.helpers import (
     card_pay,
     client_id,
     column,
     enable_payments,
+    ok,
     payment_by_ref,
     sent_invoice,
     stripe_event,
@@ -160,6 +162,24 @@ async def test_over_refund_and_bad_amounts_409(
     assert await _refunds(db, pay_id) == 2
 
 
+async def test_a_refused_refund_names_the_code_its_preview_shows(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    _, pay_id = await _paid_invoice(as_owner, db)
+    ok(await as_owner.post(f"/v1/payments/{pay_id}/refund", json={}, headers=retry_key()))
+    preview = ok(await as_owner.get(f"/v1/payments/{pay_id}/refund-preview")).json()
+    again = await as_owner.post(f"/v1/payments/{pay_id}/refund", json={}, headers=retry_key())
+    assert preview["blocked"] == again.json()["error"] == "already_refunded"
+    assert again.status_code == 409
+    failed = await _entitlement_payment(db, 5000)
+    failed.status = "failed"
+    await db.flush()
+    preview = ok(await as_owner.get(f"/v1/payments/{failed.id}/refund-preview")).json()
+    refused = await as_owner.post(f"/v1/payments/{failed.id}/refund", json={}, headers=retry_key())
+    assert preview["blocked"] == refused.json()["error"] == "not_succeeded"
+    assert refused.status_code == 409 and preview["whole_only"] is False
+
+
 async def test_refund_replay_does_not_refund_twice(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
@@ -289,7 +309,7 @@ async def test_gift_card_purchase_refunds_in_full_only(
         f"/v1/payments/{pay_id}/refund", json={"amount_cents": 1000}, headers=retry_key()
     )
     assert part.status_code == 409
-    assert part.json()["message"] == "a gift card purchase is refunded in full"
+    assert part.json()["error"] == "whole_only"
     full = await as_owner.post(f"/v1/payments/{pay_id}/refund", json={}, headers=retry_key())
     assert full.status_code == 200, full.text
     card = (await db.execute(select(GiftCard).where(GiftCard.id == card_id))).scalar_one()
@@ -322,7 +342,7 @@ async def test_package_purchase_refunds_in_full_only(
         f"/v1/payments/{pay_id}/refund", json={"amount_cents": 1000}, headers=retry_key()
     )
     assert part.status_code == 409
-    assert part.json()["message"] == "a package purchase is refunded in full"
+    assert part.json()["error"] == "whole_only"
     assert (
         await as_owner.post(f"/v1/payments/{pay_id}/refund", json={}, headers=retry_key())
     ).status_code == 200
@@ -364,7 +384,7 @@ async def test_forfeited_deposit_refunds_in_full_only(
         f"/v1/payments/{deposit.id}/refund", json={"amount_cents": 500}, headers=retry_key()
     )
     assert res.status_code == 409
-    assert res.json()["message"] == "a forfeited deposit is refunded in full"
+    assert res.json()["error"] == "whole_only"
 
 
 def _refund_event(
@@ -473,9 +493,14 @@ async def test_used_package_cannot_be_refunded(
     await ledger.post_payment(db, payment)
     for _ in range(2):
         await ledger.post_consumption(db, package)
-    res = await as_owner.post(f"/v1/payments/{payment.id}/refund", json={}, headers=retry_key())
+    # the refused refund rolls back, which expires the loaded payment
+    url = f"/v1/payments/{payment.id}"
+    res = await as_owner.post(f"{url}/refund", json={}, headers=retry_key())
     assert res.status_code == 409
-    assert res.json()["message"] == "can't refund a package with sessions already used"
+    assert res.json()["error"] == "package_used"
+    preview = ok(await as_owner.get(f"{url}/refund-preview")).json()
+    assert preview["blocked"] == "package_used"
+    assert preview["refund_cents"] == 0 and preview["parts"] == []
 
 
 async def test_pending_refund_posts_only_when_succeeded(
@@ -656,3 +681,32 @@ async def test_refund_requires_a_retry_key_before_calling_provider(
     response = await as_owner.post(f"/v1/payments/{payment_id}/refund", json={"amount_cents": 100})
     assert response.status_code == 422
     assert len(gateway.refunds) == before
+
+
+async def test_sandbox_refund_refusals_reach_the_refund_with_their_retry_keys(
+    as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory, gateway: FakePaymentGateway
+) -> None:
+    _, payment_id = await _paid_invoice(as_owner, db)
+    path = f"/v1/payments/{payment_id}/refund"
+    partial = await as_owner.post(
+        path, json={"amount_cents": 500, "notify": False}, headers=retry_key()
+    )
+    assert partial.status_code == 200, partial.text
+    over = {"amount_cents": 11200, "notify": False}
+    assert (await as_owner.post(path, json=over)).status_code == 422
+    refused = await as_owner.post(path, json=over, headers=retry_key())
+    assert refused.status_code == 409, refused.text
+    assert refused.json()["error"] != "invalid_request"
+    other = await factory.business()
+    owner = await db.get(User, OWNER_USER)
+    assert owner is not None
+    await factory.staff(business=other, user=owner, role="owner")
+    await db.commit()
+    before = len(gateway.refunds)
+    foreign = await as_owner.post(
+        path, json={"notify": False}, headers={"X-Business-Id": other.id, **retry_key()}
+    )
+    assert foreign.status_code == 404, foreign.text
+    assert foreign.json()["error"] == "not_found"
+    assert len(gateway.refunds) == before
+    assert await _refunds(db, payment_id) == 1

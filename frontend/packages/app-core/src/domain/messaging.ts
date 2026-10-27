@@ -432,12 +432,25 @@ export function useMarkThreadRead(
     }, [api, thread.id, thread.unread_count]);
 }
 
-function sendMessage(
+class NotDelivered extends Error {}
+
+async function sendMessage(
     api: ApiLike,
     input: { client_id: string; channel: Channel; body: string; booking_id?: string },
     attempt: { current: Attempt | null },
-): Promise<unknown> {
-    return api.post("/v1/messages", input, { idempotencyKey: attemptKey(attempt, input) });
+): Promise<void> {
+    const sent = await api.post<{ status: string }>("/v1/messages", input, {
+        idempotencyKey: attemptKey(attempt, input),
+    });
+    if (sent.status === "failed") {
+        // the failed message is recorded, so trying again is a new message rather than a replay
+        attempt.current = null;
+        throw new NotDelivered();
+    }
+}
+
+function sendFailure(e: unknown): string {
+    return e instanceof NotDelivered ? m.notDelivered : failureMessage(e, m.sendError);
 }
 
 export interface ThreadComposer {
@@ -455,9 +468,9 @@ export interface ThreadComposer {
 
 /** A STOP reply blocks texts; email still reaches the client. */
 export function useThreadComposer(api: ApiLike, thread: InboxThread): ThreadComposer {
-    const [channel, setChannel] = useState<Channel>(
-        thread.textsOff || thread.channel === "email" ? "email" : "sms",
-    );
+    // until the person picks one, the channel follows the thread, whose STOP can sync in after opening
+    const [picked, setChannel] = useState<Channel | null>(null);
+    const channel = picked ?? (thread.textsOff || thread.channel === "email" ? "email" : "sms");
     const [body, setBody] = useState("");
     const { busy, error, setError, run } = useAsyncAction();
     const attempt = useRef<Attempt | null>(null);
@@ -491,7 +504,7 @@ export function useThreadComposer(api: ApiLike, thread: InboxThread): ThreadComp
                         attempt.current = null;
                         setBody("");
                     },
-                    errorMessage: m.sendError,
+                    errorMessage: sendFailure,
                 },
             );
         },
@@ -572,7 +585,7 @@ export function useNewMessage(
                         setBody("");
                         onSent({ clientId, name });
                     },
-                    errorMessage: m.sendError,
+                    errorMessage: sendFailure,
                 },
             );
         },
@@ -636,7 +649,7 @@ export function useVisitNote(
                         setBody("");
                         setSent(true);
                     },
-                    errorMessage: (e) => failureMessage(e, m.sendError),
+                    errorMessage: sendFailure,
                 },
             );
         },

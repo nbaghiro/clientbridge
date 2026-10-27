@@ -168,6 +168,62 @@ class Record:
 
 
 @dataclass(frozen=True)
+class StripeSandbox:
+    """The Stripe test platform and the two dedicated CI merchants stripe-qa.yml runs against."""
+
+    secret_key: pulumi.Output[str]
+    publishable_key: pulumi.Output[str]
+    platform: str
+    connected_account: str
+    other_account: str
+
+
+STRIPE_SANDBOX_SECRETS = ("stripeTestSecretKey", "stripeTestPublishableKey")
+STRIPE_SANDBOX_ACCOUNTS = (
+    "stripeTestPlatform",
+    "stripeTestConnectedAccount",
+    "stripeTestOtherAccount",
+)
+
+
+def stripe_test_key(value: str, prefixes: tuple[str, ...], name: str) -> str:
+    if not value.startswith(prefixes):
+        raise ValueError(f"clientbridge:{name} must be a Stripe test-mode key: {prefixes}")
+    return value
+
+
+def stripe_sandbox(config: pulumi.Config) -> StripeSandbox | None:
+    """None until every key is set, so the environment appears in one deliberate change."""
+    secrets = {name: config.get_secret(name) for name in STRIPE_SANDBOX_SECRETS}
+    accounts = {name: config.get(name) for name in STRIPE_SANDBOX_ACCOUNTS}
+    present = [name for name, value in {**secrets, **accounts}.items() if value is not None]
+    if not present:
+        return None
+    missing = sorted({*STRIPE_SANDBOX_SECRETS, *STRIPE_SANDBOX_ACCOUNTS} - {*present})
+    if missing:
+        raise ValueError(f"the Stripe sandbox needs every key; missing clientbridge:{missing}")
+    platform, connected, other = (str(accounts[name]) for name in STRIPE_SANDBOX_ACCOUNTS)
+    if not all(each.startswith("acct_") for each in (platform, connected, other)):
+        raise ValueError("the Stripe sandbox platform and merchants must be acct_ identifiers")
+    if len({platform, connected, other}) != 3:
+        raise ValueError("the Stripe sandbox platform and its two merchants must all differ")
+    secret, publishable = (secrets[name] for name in STRIPE_SANDBOX_SECRETS)
+    if secret is None or publishable is None:
+        raise ValueError("the Stripe sandbox keys must be set with pulumi config set --secret")
+    return StripeSandbox(
+        secret_key=secret.apply(
+            lambda v: stripe_test_key(v, ("sk_test_", "rk_test_"), "stripeTestSecretKey")
+        ),
+        publishable_key=publishable.apply(
+            lambda v: stripe_test_key(v, ("pk_test_",), "stripeTestPublishableKey")
+        ),
+        platform=platform,
+        connected_account=connected,
+        other_account=other,
+    )
+
+
+@dataclass(frozen=True)
 class Cloud:
     """The cloud stack: everything both environments share, applied by an administrator."""
 
@@ -187,6 +243,7 @@ class Cloud:
     state_bucket: str  # the Pulumi state bucket and KMS key the bootstrap created
     state_key: str
     github_reviewer: str  # the GitHub user who approves production deploys
+    stripe_sandbox: StripeSandbox | None  # stripe-qa.yml's protected environment, once configured
 
 
 def load_cloud() -> Cloud:
@@ -220,6 +277,7 @@ def load_cloud() -> Cloud:
         state_bucket=config.require("stateBucket"),
         state_key=config.require("stateKey"),
         github_reviewer=config.require("githubReviewer"),
+        stripe_sandbox=stripe_sandbox(config),
     )
 
 

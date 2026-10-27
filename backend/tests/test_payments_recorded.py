@@ -236,8 +236,11 @@ async def test_foreign_invoice_is_not_found(
     assert minted is None
 
 
-async def test_same_key_records_once(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
-    inv = await sent_invoice(db, total=3000)
+async def test_same_key_records_once(
+    as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
+) -> None:
+    cid = await client_id(db, email="replay@example.ca")
+    inv = await sent_invoice(db, client=cid, total=3000)
     headers = key()
     first = ok(
         await as_owner.post(
@@ -255,6 +258,7 @@ async def test_same_key_records_once(as_owner: httpx.AsyncClient, db: AsyncSessi
     count = (await db.execute(select(Payment.id).where(Payment.invoice_id == inv))).scalars().all()
     assert len(count) == 1
     assert (await invoice(db, inv)).balance_cents == 2000
+    assert len([mail for mail in email.sent if "Receipt" in mail.subject]) == 1
 
 
 async def test_no_receipt_when_not_asked(

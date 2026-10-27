@@ -1,7 +1,15 @@
 import { describe, expect, it } from "vitest";
 
+import { formatParts, formatPhone } from "../format";
 import { strings } from "../strings";
-import { type TreatmentNote, answerRows, canKeepNotes, noteByline, noteVisit } from "./forms";
+import {
+    type TreatmentNote,
+    answerRows,
+    canKeepNotes,
+    noteByline,
+    noteVisit,
+    sendOptions,
+} from "./forms";
 
 const ZONE = "America/Vancouver";
 const f = strings.forms;
@@ -79,5 +87,36 @@ describe("canKeepNotes", () => {
         expect(canKeepNotes({ staffId: "st_2", role: "admin" }, "st_1")).toBe(true);
         expect(canKeepNotes({ staffId: "st_2", role: "staff" }, "st_1")).toBe(false);
         expect(canKeepNotes(null, "st_1")).toBe(false);
+    });
+});
+
+describe("sendOptions", () => {
+    it("tells two clients with the same name apart by their contact details", () => {
+        const client = (id: string, email: string | null, phone: string | null) => ({
+            id,
+            name: "Robin Bennett",
+            email,
+            phone,
+            status: "active",
+            lifetime_value_cents: null,
+        });
+        const options = sendOptions(
+            [
+                client("cl_1", "robin@example.ca", null),
+                client("cl_2", "r.bennett@example.ca", "+12505550142"),
+                client("cl_3", null, null),
+            ],
+            (id) => (id === "cl_1" ? "https://files.example/robin.jpg" : null),
+        );
+        expect(options.map((o) => [o.key, o.label, o.detail])).toEqual([
+            ["cl_1", "Robin Bennett", "robin@example.ca"],
+            [
+                "cl_2",
+                "Robin Bennett",
+                formatParts([formatPhone("+12505550142"), "r.bennett@example.ca"]),
+            ],
+            ["cl_3", "Robin Bennett", undefined],
+        ]);
+        expect(options[0]?.media).toMatchObject({ src: "https://files.example/robin.jpg" });
     });
 });

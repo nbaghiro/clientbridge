@@ -389,16 +389,17 @@ function RosterPanel({ roster, onMessage }: { roster: ClassRoster; onMessage: ()
                         {roster.matches.length > 0 ? (
                             <div className="absolute inset-x-0 top-full z-10 mt-1 overflow-hidden rounded-md border border-line bg-surface shadow-card">
                                 {roster.matches.map((m) => (
-                                    <ListRow
-                                        key={m.key}
-                                        density="compact"
-                                        leading={<Avatar name={m.avatar} size="sm" />}
-                                        title={m.title}
-                                        meta={x.full ? s.waitlist : s.add}
-                                        onPress={() => {
-                                            roster.add(m.key);
-                                        }}
-                                    />
+                                    <div key={m.key} data-client-id={m.clientId}>
+                                        <ListRow
+                                            density="compact"
+                                            leading={<Avatar name={m.avatar} size="sm" />}
+                                            title={m.title}
+                                            meta={x.full ? s.waitlist : s.add}
+                                            onPress={() => {
+                                                roster.add(m.key);
+                                            }}
+                                        />
+                                    </div>
                                 ))}
                             </div>
                         ) : null}

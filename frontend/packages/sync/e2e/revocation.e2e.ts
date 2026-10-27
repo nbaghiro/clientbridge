@@ -2,20 +2,18 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { expect, test } from "@playwright/test";
 
-const endpoint = process.env.SYNC_TEST_URL;
-const tokens = JSON.parse(process.env.SYNC_TEST_TOKENS ?? "{}") as Record<string, string>;
+import { endpoint, fixture, token } from "./service";
 
 async function mutate(action: string): Promise<void> {
     const python = process.env.SYNC_TEST_PYTHON;
     const cwd = process.env.SYNC_TEST_BACKEND;
-    if (!python || !cwd) throw new Error("Run make test-sync for isolated mutations");
-    await promisify(execFile)(python, ["-m", "scripts.sync_mutate", action], { cwd });
+    if (!python || !cwd) throw new Error("SYNC_TEST_PYTHON is not set: run make test-sync");
+    await promisify(execFile)(python, ["-m", "e2e.sync", "mutate", action], { cwd });
 }
 
 test("live renames reach the replica; downgrade, deletion and removal purge its data", async ({
     page,
 }) => {
-    test.skip(!endpoint, "Run make test-sync for disposable services");
     await page.goto("/");
     await page.evaluate(
         async ({ endpoint, token }) => {
@@ -28,10 +26,11 @@ test("live renames reach the replica; downgrade, deletion and removal purge its 
             });
             await db.waitForFirstSync(AbortSignal.timeout(20_000));
         },
-        { endpoint: endpoint ?? "", token: tokens.admin ?? "" },
+        { endpoint: endpoint(), token: token("admin") },
     );
+    const owner = fixture("us_owner");
     const snapshot = () =>
-        page.evaluate(async () => {
+        page.evaluate(async (owner) => {
             const { liveReplicas } = await import("./database");
             const db = liveReplicas.get("revoke");
             if (!db) throw new Error("missing replica");
@@ -46,11 +45,12 @@ test("live renames reach the replica; downgrade, deletion and removal purge its 
                 owner:
                     (
                         await db.getOptional<{ name: string | null }>(
-                            "SELECT name FROM users WHERE id = 'us_owner'",
+                            "SELECT name FROM users WHERE id = ?",
+                            [owner],
                         )
                     )?.name ?? null,
             };
-        });
+        }, owner);
     try {
         expect(await snapshot()).toMatchObject({
             businesses: 1,

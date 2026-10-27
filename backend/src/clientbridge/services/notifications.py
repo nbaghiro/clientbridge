@@ -53,6 +53,7 @@ from clientbridge.schemas.forms import FormDefinition
 from clientbridge.services import ledger
 from clientbridge.services.business import reply_address, staff_names
 from clientbridge.services.consents import emails_withdrawn, prefs_url, texts_stopped
+from clientbridge.services.deliveries import DeliveryQueue, QueuedEmail, QueuedPush, QueuedSms
 from clientbridge.services.files import media_url
 from clientbridge.services.lines import LineParent, fetch_lines, issued_at
 from clientbridge.services.subjects import place_address
@@ -1357,18 +1358,6 @@ class Notifier:
         notice = trial_ending_message(locale, business.name, when, plan_link(), last_day=last_day)
         await self._safe(self.email.send(business_email(business, to, notice)))
 
-    async def on_estimate_answered(self, db: AsyncSession, view_token: str) -> None:
-        """Tell the provider a client accepted or declined an estimate from its public link."""
-        estimate = (
-            await db.execute(select(Estimate).where(Estimate.view_token == view_token))
-        ).scalar_one_or_none()
-        if estimate is None:
-            return
-        if estimate.status == "accepted":
-            await self.on_estimate_accepted(db, estimate.id)
-        elif estimate.status == "declined":
-            await self.on_estimate_declined(db, estimate.id)
-
     async def on_refund(self, db: AsyncSession, refund_payment_id: str) -> None:
         payment = await db.get(Payment, refund_payment_id)
         if payment is None or not payment.refund_notify or payment.status != "succeeded":
@@ -1677,7 +1666,9 @@ class Notifier:
         )
         # an invitation asks the client for something, so an email opt-out leaves only texts
         opted_out = await emails_withdrawn(db, business.id, client_id)
-        return await self._to_client(db, client_id, notice, channel="sms" if opted_out else None)
+        return await self._to_client(
+            db, client_id, notice, channel="sms" if opted_out else None, opt_out=True
+        )
 
     async def deliver(self, db: AsyncSession, client_id: str, notice: Notice) -> Outcome:
         return await self._to_client(db, client_id, notice)
@@ -1783,6 +1774,7 @@ class Notifier:
         notice: Notice,
         *,
         channel: str | None = None,
+        opt_out: bool = False,
     ) -> Outcome:
         """Email + SMS to a client (or only the channel asked for), each isolated from the other."""
         if client_id is None:
@@ -1795,7 +1787,13 @@ class Notifier:
         if client.email and channel != "sms" and business is not None:
             brand = await business_brand(db, business)
             mail = client_email(business, brand, client.email, notice, client=client)
-            sent.append(await self._safe(self.email.send(mail)))
+            # a direct send checked consent just now; a queued one checks it again as it goes
+            sending = (
+                self.email.send(mail, client_id=client.id, opt_out=opt_out)
+                if isinstance(self.email, QueuedEmail)
+                else self.email.send(mail)
+            )
+            sent.append(await self._safe(sending))
         number = e164(client.phone) if client.phone else None
         if (
             number
@@ -1909,8 +1907,7 @@ async def run_prune_devices(db: AsyncSession, now: datetime) -> int:
     return len(devices)
 
 
-def queued_notifier(db: AsyncSession, scope: str, business_id: str) -> Notifier:
-    from clientbridge.services.deliveries import DeliveryQueue, QueuedEmail, QueuedPush, QueuedSms
-
-    queue = DeliveryQueue(db, scope, business_id)
+def queued_notifier(db: AsyncSession, business_id: str | None, key: str) -> Notifier:
+    """A notifier that queues its messages under the delivery key instead of sending them."""
+    queue = DeliveryQueue(db, key, business_id)
     return Notifier(QueuedEmail(queue), QueuedSms(queue), QueuedPush(queue), raise_errors=True)

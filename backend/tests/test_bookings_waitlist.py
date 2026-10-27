@@ -394,7 +394,7 @@ async def test_two_cancellations_at_once_seat_the_waiting_client_once(db: AsyncS
         async with SessionLocal() as session:
             service = BookingService(session, OWNER, FakePaymentGateway())
             await ready.wait()
-            out, _ = await service.patch(booking_id, BookingPatch(status="canceled"))
+            out = await service.patch(booking_id, BookingPatch(status="canceled"))
             return out.status
 
     try:

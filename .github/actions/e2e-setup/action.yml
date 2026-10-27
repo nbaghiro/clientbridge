@@ -1,0 +1,36 @@
+name: e2e setup
+description: >
+  Installs the backend and frontend and the lane's browser, starts the test tier, and restores what
+  the prepare job made: the seed snapshot and the web, Connect and admin builds.
+inputs:
+  app:
+    description: The pnpm package whose Playwright installs the browser; empty installs none.
+    default: ""
+  browser:
+    description: chromium, firefox or webkit.
+    default: chromium
+  prepared:
+    description: Restore the prepare job's snapshot and builds into the tier's folder.
+    default: "false"
+runs:
+  using: composite
+  steps:
+    - uses: ./.github/actions/setup
+      with:
+        uv: backend
+        pnpm: "true"
+    - if: inputs.app != ''
+      uses: ./.github/actions/playwright
+      with:
+        app: ${{ inputs.app }}
+        browser: ${{ inputs.browser }}
+    - run: make test-tier
+      shell: bash
+    - id: tier
+      run: echo "dir=$HOME/.cache/clientbridge-test" >> "$GITHUB_OUTPUT"
+      shell: bash
+    - if: inputs.prepared == 'true'
+      uses: actions/download-artifact@v8
+      with:
+        name: e2e-prepared
+        path: ${{ steps.tier.outputs.dir }}

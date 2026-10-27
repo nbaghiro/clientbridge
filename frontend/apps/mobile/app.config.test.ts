@@ -52,6 +52,13 @@ describe("app config", () => {
         expect(config.ios?.entitlements).toEqual({});
     });
 
+    it("gives the native e2e build its own app id without deployed updates", async () => {
+        const config = await load({ APP_ID: "ca.clientbridge.app.e2e" });
+        expect(config.ios?.bundleIdentifier).toBe("ca.clientbridge.app.e2e");
+        expect(config.android?.package).toBe("ca.clientbridge.app.e2e");
+        expect(config.updates?.enabled).toBe(false);
+    });
+
     it("adds the Tap to Pay entitlement only when the environment has it", async () => {
         const config = await load({ ...STAGING, TAP_TO_PAY: "true" });
         expect(config.ios?.entitlements).toEqual({

@@ -17,7 +17,7 @@
         "@clientbridge/sync": "workspace:*",
         "@clientbridge/tokens": "workspace:*",
         "@clientbridge/ui": "workspace:*",
-        "@journeyapps/wa-sqlite": "^2.0.6",
+        "@journeyapps/wa-sqlite": "^2.0.10",
         "@powersync/react": "^2.0.2",
         "@powersync/web": "^2.4.2",
         "@stripe/react-stripe-js": "^7.0.0",
@@ -34,6 +34,7 @@
         "@types/react": "~19.2.0",
         "@types/react-dom": "~19.2.0",
         "@vitejs/plugin-react": "^6.1.1",
+        "postgres": "^3.4.9",
         "tailwindcss": "^4.3.3",
         "vite": "^8.3.2"
     }

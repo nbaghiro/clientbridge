@@ -16,7 +16,9 @@ const cleanUrls = (): Plugin => ({
     name: "clean-urls",
     configureServer(server) {
         server.middlewares.use((req, _res, next) => {
-            if (routePath(req) !== null) req.url = "/index.html";
+            // only page loads: Vite's own module paths such as /@vite/client have no extension too
+            const page = req.headers.accept?.includes("text/html") === true;
+            if (req.method === "GET" && page && routePath(req) !== null) req.url = "/index.html";
             next();
         });
     },
@@ -38,12 +40,18 @@ const cleanUrls = (): Plugin => ({
     },
 });
 
+const contactUpstream = process.env.CONTACT_UPSTREAM;
+
 export default defineConfig({
     plugins: [react(), tailwindcss(), cleanUrls()],
     appType: "mpa",
     server: {
         port: 8710, // see .docs/engineering.md (ports)
         strictPort: true,
+        // the host sends a posted contact form to the API, as Caddy's CONTACT_UPSTREAM does
+        ...(contactUpstream
+            ? { proxy: { "^/contact$": { target: contactUpstream, changeOrigin: true } } }
+            : {}),
     },
     preview: { port: 8710, strictPort: true },
     // Workspace packages ship TypeScript source, so the SSR build bundles them instead of importing.

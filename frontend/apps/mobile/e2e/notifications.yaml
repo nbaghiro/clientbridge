@@ -1,0 +1,22 @@
+appId: ${APP_ID}
+name: NATIVE-IOS-03 Tapping a message push opens that client's conversation
+tags:
+    - lane
+    - ios
+---
+- runFlow: helpers/owner.yaml
+- tapOn: "Clients"
+- runScript:
+      file: helpers/control.js
+      env:
+          ACTION: push
+          PAYLOAD: '{"client_id": "cl_sophie", "preview": "Can Mochi come in on Friday?"}'
+- extendedWaitUntil:
+      visible: ".*Can Mochi come in on Friday\\?.*"
+      timeout: 30000
+- tapOn: ".*Can Mochi come in on Friday\\?.*"
+- extendedWaitUntil:
+      visible: "Client details"
+      timeout: 30000
+- assertVisible: "Sophie Nguyen"
+- takeScreenshot: push-opened-conversation

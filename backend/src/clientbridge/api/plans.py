@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header, Request, Response
+from fastapi import APIRouter, Depends, Header, Request
 from starlette.routing import compile_path
 
 from clientbridge.core import clock
@@ -20,7 +20,7 @@ from clientbridge.services.plans import PlanService
 router = APIRouter(prefix="/plan", tags=["plan"])
 
 _SAFE = frozenset({"GET", "HEAD", "OPTIONS"})
-# a lapsed business can still buy a plan, fix its address, export, leave and handle money owed
+# a lapsed business can still buy a plan, fix its address, export, leave, settle and stop activity
 LAPSED_WRITES = frozenset(
     {
         ("POST", "/v1/plan/checkout"),
@@ -39,6 +39,9 @@ LAPSED_WRITES = frozenset(
         ("POST", "/v1/threads/{thread_id}/read"),
         ("POST", "/v1/connect/session"),
         ("POST", "/v1/payments/{payment_id}/refund"),
+        ("POST", "/v1/subscriptions/{subscription_id}/cancel"),
+        ("POST", "/v1/reviews/google/disconnect"),
+        ("POST", "/v1/broadcasts/{broadcast_id}/cancel"),
     }
 )
 _ALLOWED = [(method, compile_path(path)[0]) for method, path in LAPSED_WRITES]
@@ -71,10 +74,8 @@ async def checkout(
     principal: CurrentPrincipal,
     db: DbSession,
     gateway: GatewayDep,
-    response: Response,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> PlanLink:
-    response.headers["Cache-Control"] = "no-store"
     return await PlanService(db, principal, gateway).checkout(body, idempotency_key)
 
 
@@ -90,8 +91,5 @@ async def change(
 
 
 @router.post("/portal", response_model=PlanLink)
-async def portal(
-    principal: CurrentPrincipal, db: DbSession, gateway: GatewayDep, response: Response
-) -> PlanLink:
-    response.headers["Cache-Control"] = "no-store"
+async def portal(principal: CurrentPrincipal, db: DbSession, gateway: GatewayDep) -> PlanLink:
     return await PlanService(db, principal, gateway).portal()

@@ -70,7 +70,7 @@ Tests extend the existing concept files:
 - `test_orders.py`: ticket to invoice;
 - `test_bookings_reminders.py`: the reminder list.
 
-The new `test_flows_visits.py` is a cross-cutting flow suite, which the naming rule exempts. Web e2e extends `web.e2e.ts`. Mobile e2e extends `01-workday.yaml`, so `shards.json` doesn't change.
+The new `test_flows_visits.py` is a cross-cutting flow suite, which the naming rule exempts. Web e2e extends `shell.e2e.ts`. Mobile e2e extends `today.yaml`, so `shards.json` doesn't change.
 
 ## Work, in order
 
@@ -133,8 +133,8 @@ Checkout comes first so it can be its own commit. Each task follows the same loo
   - a second visit covered by a package;
   - a sale paid with a gift card credit and a card;
   - then confirm the visits completed, the session used, the commission accrued and the review request eligible.
-- **D2. Web e2e** in `web.e2e.ts`: check in with the checklist, check out, then rebook and send a note from the paid screen.
-- **D3. Mobile e2e** in `01-workday.yaml`: the same path on the iOS simulator.
+- **D2. Web e2e** in `shell.e2e.ts`: check in with the checklist, check out, then rebook and send a note from the paid screen.
+- **D3. Mobile e2e** in `today.yaml`: the same path on the iOS simulator.
 - **D4. Milestone audit** per `CLAUDE.md`:
   - layering, surfaces and role gates;
   - the four-part matrix;

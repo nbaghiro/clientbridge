@@ -1,0 +1,239 @@
+name: e2e mobile
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  shards:
+    # Fails when a walkthrough is in no shard or in two, and hands the shard list to android.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      shards: ${{ steps.shards.outputs.shards }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: check every walkthrough is in exactly one shard
+        id: shards
+        working-directory: frontend/apps/mobile/e2e
+        run: |
+          listed=$(jq -r '.[].flows[]' shards.json | sort)
+          present=$(ls *.yaml | sort)
+          if [ "$listed" != "$present" ] || [ -n "$(echo "$listed" | uniq -d)" ]; then
+            diff <(echo "$listed") <(echo "$present"); echo "update e2e/shards.json"; exit 1
+          fi
+          echo "shards=$(jq -c . shards.json)" >> "$GITHUB_OUTPUT"
+
+  build:
+    # An x86_64 release APK for the emulator; when the native fingerprint is cached only the JS bundle is rebuilt.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      E2E_CLEARTEXT: "1"
+      APP_NAME: Clientbridge E2E
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.0
+      - run: uv sync --frozen
+        working-directory: backend
+      # the app id and the emulator's host addresses the native lane forwards, from the lane itself
+      - name: point the build at the native lane
+        working-directory: backend
+        run: |
+          uv run python -c 'from e2e.runner import native_urls
+          for name, value in native_urls("android").items(): print(f"{name}={value}")' >> "$GITHUB_ENV"
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 9
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+        working-directory: frontend
+      - name: key the native build
+        id: native
+        working-directory: frontend/apps/mobile
+        run: |
+          hash=$(node ../../node_modules/@expo/fingerprint/bin/cli.js fingerprint:generate --platform android \
+            | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).hash))')
+          echo "key=apk-x86_64-$hash" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache/restore@v6
+        id: cached
+        with:
+          path: native-apk
+          key: ${{ steps.native.outputs.key }}
+      - name: rebundle the cached build
+        id: rebundle
+        if: steps.cached.outputs.cache-hit == 'true'
+        continue-on-error: true
+        run: frontend/apps/mobile/scripts/rebundle-apk.sh native-apk/app-release.apk app-release.apk
+      - uses: actions/setup-java@v6
+        if: steps.rebundle.outcome != 'success'
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v5
+        if: steps.rebundle.outcome != 'success'
+        with:
+          cache-cleanup: on-success
+      - name: build the release APK
+        if: steps.rebundle.outcome != 'success'
+        working-directory: frontend/apps/mobile
+        run: |
+          pnpm exec expo prebuild --platform android --no-install
+          # the template's 512 MB Metaspace runs out compiling the app's Kotlin, which inherits it
+          jvm="-Xmx4g -XX:MaxMetaspaceSize=1g"
+          sed -i "s/^org\.gradle\.jvmargs=.*/org.gradle.jvmargs=$jvm/" android/gradle.properties
+          grep -qx "org.gradle.jvmargs=$jvm" android/gradle.properties
+          echo "kotlin.daemon.jvmargs=$jvm" >> android/gradle.properties
+          cd android && ./gradlew assembleRelease --build-cache -PreactNativeArchitectures=x86_64
+          mkdir -p "$GITHUB_WORKSPACE/native-apk"
+          cp app/build/outputs/apk/release/app-release.apk "$GITHUB_WORKSPACE/native-apk/"
+          cp app/build/outputs/apk/release/app-release.apk "$GITHUB_WORKSPACE/app-release.apk"
+      - uses: actions/cache/save@v6
+        if: steps.cached.outputs.cache-hit != 'true'
+        with:
+          path: native-apk
+          key: ${{ steps.native.outputs.key }}
+      - uses: actions/upload-artifact@v7
+        with:
+          name: mobile-apk
+          path: app-release.apk
+          retention-days: 3
+
+  android:
+    # The Maestro walkthroughs on Android 14 emulators through the native lane, split into shards of about equal length.
+    needs: [shards, build]
+    name: android (${{ matrix.shard.name }})
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      # to see when the prepare job's snapshot is uploaded
+      actions: read
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(needs.shards.outputs.shards) }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.0
+      - run: uv sync --frozen
+        working-directory: backend
+      - name: enable KVM for the emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: install Maestro
+        env:
+          MAESTRO_VERSION: 2.11.0
+        run: |
+          curl -fsSL "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+      - uses: actions/download-artifact@v8
+        with:
+          name: mobile-apk
+      - name: put the build where the lane installs it from
+        run: mkdir -p .scratchpad/native && mv app-release.apk .scratchpad/native/clientbridge-e2e.apk
+      - name: clear the runner's own emulator
+        id: emulator
+        run: |
+          rm -rf /usr/local/lib/android/sdk/emulator
+          echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
+          echo "key=$(frontend/apps/mobile/scripts/ci-emulator.sh key)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache/restore@v6
+        id: android
+        with:
+          # the pinned emulator build, the system image and the AVD with its quick-boot snapshot
+          path: |
+            /usr/local/lib/android/sdk/emulator
+            /usr/local/lib/android/sdk/system-images/android-34/google_apis/x86_64
+            ~/.android/avd
+            ~/.android/adbkey*
+          key: ${{ steps.emulator.outputs.key }}
+      - name: install the emulator and save its snapshot
+        if: steps.android.outputs.cache-hit != 'true'
+        run: frontend/apps/mobile/scripts/ci-emulator.sh install
+      # saved before the walkthroughs, so it holds the clean snapshot; only main writes it, to keep within 10 GB
+      - uses: actions/cache/save@v6
+        if: steps.android.outputs.cache-hit != 'true' && github.ref == 'refs/heads/main'
+        with:
+          path: |
+            /usr/local/lib/android/sdk/emulator
+            /usr/local/lib/android/sdk/system-images/android-34/google_apis/x86_64
+            ~/.android/avd
+            ~/.android/adbkey*
+          key: ${{ steps.emulator.outputs.key }}
+      - run: make test-tier
+      # e2e.yml's prepare job runs beside the mobile build, so its seed snapshot is normally uploaded by now;
+      # without it the lane seeds its own
+      - name: wait for the prepared seed snapshot
+        id: prepared
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for _ in $(seq 60); do
+            found=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts?name=e2e-prepared" --jq .total_count)
+            if [ "$found" = 1 ]; then echo "found=true" >> "$GITHUB_OUTPUT"; exit 0; fi
+            sleep 5
+          done
+          echo "::warning::no prepared seed snapshot after five minutes; the lane seeds its own"
+      - if: steps.prepared.outputs.found == 'true'
+        uses: actions/download-artifact@v8
+        with:
+          name: e2e-prepared
+          path: ${{ runner.temp }}/prepared
+      - if: steps.prepared.outputs.found == 'true'
+        run: mkdir -p ~/.cache/clientbridge-test && cp -R "$RUNNER_TEMP/prepared/snapshots" ~/.cache/clientbridge-test/
+      - name: run the walkthroughs
+        run: |
+          frontend/apps/mobile/scripts/ci-emulator.sh start
+          make test-mobile PLATFORM=android DEVICE=emulator-5554 ARGS="${{ join(matrix.shard.flows, ' ') }}"
+      - name: flag walkthroughs over three times their usual time
+        if: success() || failure()
+        run: frontend/apps/mobile/scripts/slow-flows.sh .scratchpad/e2e-*/native.log
+      - name: collect the device and test tier logs
+        if: always()
+        run: |
+          adb logcat -d -v threadtime > .scratchpad/logcat.txt || true
+          make test-tier-logs > .scratchpad/tier.log 2>&1 || true
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: mobile-walkthroughs-${{ matrix.shard.id }}
+          include-hidden-files: true
+          path: |
+            .scratchpad/logcat.txt
+            /tmp/emulator.log
+            .scratchpad/e2e-*/run.json
+            .scratchpad/e2e-*/native-*
+            .scratchpad/e2e-*/native.log
+            .scratchpad/e2e-*/control.log
+            .scratchpad/e2e-*/setup.log
+            .scratchpad/e2e-*/api.log
+            .scratchpad/e2e-*/worker.log
+            .scratchpad/e2e-*/purge.json
+            .scratchpad/tier.log
+          retention-days: 3
+      - if: failure()
+        run: |
+          tail -200 /tmp/emulator.log || true
+          tail -200 .scratchpad/e2e-*/native-debug/maestro.log || true
+          tail -300 .scratchpad/logcat.txt || true
+          tail -200 .scratchpad/e2e-*/api.log || true
+
+
+  result:
+    # passes when the build and every shard passed
+    needs: [shards, build, android]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: jq -e 'all(.[]; .result == "success")' <<< "$NEEDS"

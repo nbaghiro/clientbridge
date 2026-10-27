@@ -140,13 +140,14 @@ jobs:
       allow_schema_ahead: ${{ github.event_name == 'workflow_dispatch' && inputs.rollback == true }}
 
   production:
-    needs: [images, staging]
-    # after staging deployed a push to main; directly (still behind approval) for a manual production run.
+    needs: [images, staging, staging-smoke]
+    # after staging deployed a push to main and passed its smoke lane; directly (still behind
+    # approval) for a manual production run.
     # DEPLOY_PRODUCTION is set by the cloud stack, false until production is one of its environments
     if: >-
       always() && vars.DEPLOY_PRODUCTION == 'true' && needs.images.result == 'success' &&
       ((github.event_name == 'workflow_run' && needs.staging.result == 'success' &&
-        needs.staging.outputs.deployed == 'true') ||
+        needs.staging.outputs.deployed == 'true' && needs.staging-smoke.result == 'success') ||
        (github.event_name == 'workflow_dispatch' && inputs.environment == 'production'))
     permissions:
       contents: read
@@ -159,6 +160,35 @@ jobs:
       ref: ${{ needs.images.outputs.sha }}
       newer_only: ${{ github.event_name == 'workflow_run' }}
       allow_schema_ahead: ${{ github.event_name == 'workflow_dispatch' && inputs.rollback == true }}
+
+  # read-only browser checks of the deployed staging hosts; a job of its own, so the third-party
+  # packages it installs never run beside the deployer's credentials
+  staging-smoke:
+    needs: [images, staging]
+    if: needs.staging.outputs.deployed == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.images.outputs.sha }}
+          persist-credentials: false
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 9
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+        working-directory: frontend
+      - run: pnpm --filter connect exec playwright install --with-deps chromium
+        working-directory: frontend
+      # it signs in as the demo owners and never books, pays or sends a message
+      - run: make test-staging-smoke
 
   # a manual run redeploys or rolls back the backend; the app rolls back with deploy-mobile.yml
   staging-mobile:

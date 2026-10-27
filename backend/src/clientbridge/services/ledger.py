@@ -421,9 +421,23 @@ def invoice_status_expr() -> ColumnElement[str]:
         (Invoice.status.in_(("draft", "void")), Invoice.status),
         (and_(paid <= 0, _refunded_expr("invoice", Invoice.id), owed <= 0), "refunded"),
         (owed <= 0, "paid"),
-        (paid > 0, "partial"),
         (Invoice.overdue_notified_at.is_not(None), "overdue"),
+        (or_(paid > 0, _applied_expr() > 0), "partial"),
         else_="sent",
+    )
+
+
+def _applied_expr() -> ColumnElement[int]:
+    """Visit deposits applied to an invoice and not taken back, which pay part of it."""
+    return (
+        select(func.coalesce(-func.sum(Entry.amount_cents), 0))
+        .join(Account, Account.id == Entry.account_id)
+        .where(
+            _subject_legs("invoice", Invoice.id),
+            Account.category == "receivable",
+            Entry.ref.startswith("application:"),
+        )
+        .scalar_subquery()
     )
 
 

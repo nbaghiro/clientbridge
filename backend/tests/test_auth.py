@@ -46,6 +46,16 @@ async def test_me_describes_the_signed_in_user(
         "email_verified": True,
         "second_factor": False,
     }
+    assert res.headers["cache-control"] == "no-store"
+
+
+async def test_refusals_and_chosen_caching_keep_their_cache_headers(
+    unauth: httpx.AsyncClient,
+) -> None:
+    refused = await unauth.get("/v1/me")
+    assert refused.status_code == 401
+    assert refused.headers["cache-control"] == "no-store"
+    assert "max-age" in (await unauth.get("/v1/zones")).headers["cache-control"]
 
 
 async def test_first_request_provisions_the_user_once(

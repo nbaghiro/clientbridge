@@ -2,7 +2,7 @@ import { useBusinessQuery as useQuery } from "../hooks";
 
 import { useMemo, useRef, useState } from "react";
 
-import { type ApiLike, type Attempt, attemptKey } from "../api";
+import { type ApiLike, type Attempt, attemptKey, failedCode, failureMessage } from "../api";
 import { daysUntil, formatDate, parseTimestamp, startOfMonth, useBusinessZone } from "../datetime";
 import { formatCredit, formatMoney, formatParts, parseCents, BUSINESS_CURRENCY } from "../format";
 import { type Load, type Remote, useAsyncAction, useRemote } from "../hooks";
@@ -193,6 +193,18 @@ interface RefundPart {
     cents: number;
 }
 
+type RefundBlock = keyof typeof s.blocked;
+
+function isRefundBlock(code: string | null): code is RefundBlock {
+    return code !== null && Object.hasOwn(s.blocked, code);
+}
+
+/** A refused refund names why with the same code its preview shows. */
+function refundFailure(e: unknown): string {
+    const code = failedCode(e);
+    return (isRefundBlock(code) ? s.blocked[code] : undefined) ?? failureMessage(e, s.refundError);
+}
+
 interface RefundPreview {
     payment_id: string;
     amount_cents: number;
@@ -200,8 +212,8 @@ interface RefundPreview {
     left_cents: number;
     fee_cents: number;
     refund_cents: number;
-    whole_only: string | null;
-    blocked: string | null;
+    whole_only: boolean;
+    blocked: RefundBlock | null;
     by_hand: boolean;
     next_credit_note: string;
     parts: RefundPart[];
@@ -283,8 +295,8 @@ export function useRefundComposer(
         `${p.id}${query}${String(p.refunded_cents)}`,
     );
     const data = preview.data;
-    const blocked = data?.blocked ?? null;
-    const wholeOnly = data !== null && data.whole_only !== null;
+    const blocked = data?.blocked == null ? null : (s.blocked[data.blocked] ?? null);
+    const wholeOnly = data?.whole_only === true;
     const backTo = s.backTo(summary.method);
     const lines: DocTotalLine[] =
         data === null || !valid
@@ -335,9 +347,7 @@ export function useRefundComposer(
                         : s.refundPending,
                 );
             },
-            {
-                errorMessage: s.refundError,
-            },
+            { errorMessage: refundFailure },
         );
     };
 

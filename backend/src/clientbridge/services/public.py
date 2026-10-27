@@ -126,6 +126,7 @@ from clientbridge.services.consents import (
     latest_consents,
     set_channel_consent,
 )
+from clientbridge.services.deliveries import delivery_key
 from clientbridge.services.files import (
     confirm_upload,
     item_images,
@@ -147,7 +148,7 @@ from clientbridge.services.lines import (
     worker_shares,
 )
 from clientbridge.services.messaging import open_thread
-from clientbridge.services.notifications import Notifier, queued_notifier
+from clientbridge.services.notifications import queued_notifier
 from clientbridge.services.orders import next_order_number, pickup_setting, pickup_windows
 from clientbridge.services.payments import (
     assert_payable,
@@ -398,7 +399,7 @@ class PublicBookingService:
             policy = policy_of(business)
             _assert_bookable_window(policy, data.starts_at)
             if is_program(item):
-                return await self._enrol(cmd, business, item, data)
+                return await self._announce(business, await self._enrol(cmd, business, item, data))
             addons = await self._addons(business, item, data)
             extra = addon_minutes(addons)
             staff_id = await self._staff_for(
@@ -432,7 +433,7 @@ class PublicBookingService:
                 deposit_cents=booking.deposit_amount_cents,
             )
             cmd.record(_BOOK_SCOPE, entity_type="booking", entity_id=booking.id)
-            return result
+            return await self._announce(business, result)
 
         return await run_command(
             self.db,
@@ -443,6 +444,20 @@ class PublicBookingService:
             idempotency_key=idempotency_key,
             request=data,
         )
+
+    async def _announce(
+        self, business: Business, result: PublicBookingResult
+    ) -> PublicBookingResult:
+        # queued in the booking's own command, so a replayed request never sends it twice
+        key = delivery_key("booking-created", result.booking_id)
+        notifier = queued_notifier(self.db, business.id, key)
+        if result.status == "pending":
+            await notifier.on_booking_requested(self.db, result.booking_id)
+        elif len(result.booking_ids) > 1:
+            await notifier.on_series_booked(self.db, result.booking_ids, "booked")
+        else:
+            await notifier.on_booking_confirmed(self.db, result.booking_id)
+        return result
 
     async def _enrol(
         self, cmd: Command, business: Business, item: Item, data: PublicBookingCreate
@@ -561,9 +576,9 @@ class PublicBookingService:
             self._extras(business, booking, data, addons)
             await self.db.flush()
             cmd.record(_WAITLIST_SCOPE, entity_type="booking", entity_id=booking.id)
-            await queued_notifier(self.db, f"booking:{booking.id}", business.id).on_waitlist_joined(
-                self.db, booking.id
-            )
+            await queued_notifier(
+                self.db, business.id, delivery_key("booking", booking.id)
+            ).on_waitlist_joined(self.db, booking.id)
             return PublicBookingResult(
                 booking_id=booking.id,
                 status=booking.status,
@@ -959,10 +974,6 @@ class PublicManageService:
         self.db = db
         self.gateway = gateway
 
-    async def booking_id(self, token: str) -> str:
-        booking, _, _ = await self._resolve(token)
-        return booking.id
-
     async def view(self, token: str) -> ManagedBooking:
         booking, slot, business = await self._resolve(token)
         return await self._view(booking, slot, business)
@@ -1078,6 +1089,7 @@ class PublicManageService:
                 raise Conflict(_UNOFFERED, code="slot_unavailable")
             if await crew_problem(self.db, business.id, item, crew, data.starts_at, ends_at):
                 raise Conflict(_UNOFFERED, code="slot_unavailable")
+            moved = slot.starts_at != data.starts_at
             await keep_resource(self.db, item, slot, data.starts_at, ends_at)
             await move_slot(self.db, business.id, slot, data.starts_at, ends_at)
             booking.reschedule_count += 1
@@ -1086,6 +1098,10 @@ class PublicManageService:
             except IntegrityError as exc:
                 raise lost_race(exc, Conflict(OVERLAP)) from exc
             await carry_crew(self.db, business.id, booking, slot)
+            if moved:
+                await queued_notifier(
+                    self.db, business.id, delivery_key("booking", booking.id, each=True)
+                ).on_booking_rescheduled(self.db, booking.id)
             out = await self._view(booking, slot, business)
             cmd.record(_MOVE_SCOPE, entity_type="booking", entity_id=booking.id)
             return out
@@ -1100,10 +1116,8 @@ class PublicManageService:
             request=request,
         )
 
-    async def message(
-        self, token: str, data: ManageMessage, key: str, notifier: Notifier
-    ) -> ManageMessageResult:
-        """Record the client's message in their thread and alert staff once, not on a replay."""
+    async def message(self, token: str, data: ManageMessage, key: str) -> ManageMessageResult:
+        """Record the client's message in their thread and queue staff's alert, once per key."""
         booking, _, business = await self._resolve(token)
         client = (
             await self.db.execute(
@@ -1129,11 +1143,12 @@ class PublicManageService:
             self.db.add(message)
             await self.db.flush()
             cmd.record("booking.message", entity_type="booking", entity_id=booking.id)
-            received.append(message.id)
+            await queued_notifier(
+                self.db, business.id, delivery_key("inbound", message.id)
+            ).on_inbound_message(self.db, message.id)
             return ManageMessageResult(id=message.id)
 
-        received: list[str] = []
-        result = await run_command(
+        return await run_command(
             self.db,
             PublicPrincipal(business.id),
             action=f"booking.message.{booking.id}",
@@ -1142,20 +1157,21 @@ class PublicManageService:
             idempotency_key=key,
             request=data,
         )
-        for message_id in received:
-            await notifier.on_inbound_message(self.db, message_id)
-        return result
 
-    async def cancel(
-        self, token: str, idempotency_key: str | None
-    ) -> tuple[ManageCancelResult, list[str]]:
-        """Cancel the visit, or every day of a program enrolment; also names what it canceled."""
+    async def cancel(self, token: str, idempotency_key: str | None) -> ManageCancelResult:
+        """Cancel the visit, or every day of a program enrolment, and queue the client's notice."""
         booking, slot, business = await self._locked(token)
         request = {"booking_id": booking.id}
         days = await self._program_days(booking, slot)
-        canceled: list[str] = []
+
+        async def notify(canceled: list[str]) -> None:
+            if canceled:
+                await queued_notifier(
+                    self.db, business.id, delivery_key("booking", booking.id, each=True)
+                ).on_visits_canceled(self.db, canceled)
 
         async def run(cmd: Command) -> ManageCancelResult:
+            was = booking.status
             _, staff = await self._visit(booking, slot, business)
             first = await self._first_day(booking, slot) if days else None
             blocked = self._blocked(booking, slot, business, staff, "cancel", first)
@@ -1171,7 +1187,7 @@ class PublicManageService:
                 ]
                 refunded = await withdraw(self.db, self.gateway, live, cmd)
                 cmd.record(_CANCEL_SCOPE, entity_type="booking", entity_id=booking.id)
-                canceled.extend(b.id for b in live)
+                await notify([b.id for b in live] if was != "canceled" else [])
                 return ManageCancelResult(
                     deposit="refunded" if refunded > 0 else "none", refund_cents=refunded
                 )
@@ -1181,23 +1197,22 @@ class PublicManageService:
             elif booking.deposit_status == "pending":
                 await cancel_open_deposits(self.db, self.gateway, booking)
                 booking.deposit_status = "none"
-            held_seat = booking.status in ("pending", "confirmed")
             booking.status = "canceled"
             booking.canceled_at = clock.now()
             await release_slot(self.db, slot)
             await carry_crew(self.db, business.id, booking, slot)
-            if held_seat:
+            if was in ("pending", "confirmed"):
                 await fill_freed_seats(self.db, slot)
             result = ManageCancelResult(
                 deposit=(await booking_refund_status(self.db, booking))
                 or ("refunded" if refunded > 0 else "none"),
                 refund_cents=refunded,
             )
-            canceled.append(booking.id)
+            await notify([booking.id] if was != "canceled" else [])
             cmd.record(_CANCEL_SCOPE, entity_type="booking", entity_id=booking.id)
             return result
 
-        result = await run_command(
+        return await run_command(
             self.db,
             PublicPrincipal(business.id),
             action=_CANCEL_SCOPE,
@@ -1206,7 +1221,6 @@ class PublicManageService:
             idempotency_key=idempotency_key,
             request=request,
         )
-        return result, canceled
 
     async def pay_deposit(self, token: str) -> PublicCardIntent:
         """Open the card payment for a visit's unpaid deposit, superseding any earlier attempt."""
@@ -1930,25 +1944,30 @@ class PublicEstimateService:
             raise NotFound(msg)
         return estimate, await business_or_404(self.db, estimate.business_id, msg)
 
-    async def context(self, token: str) -> PublicEstimate:
+    async def context(self, token: str, line_ids: list[str] | None = None) -> PublicEstimate:
+        """The estimate as sent, or quoted with `line_ids` ticked as accepting prices it."""
         estimate, business = await self._resolve(token)
-        return await self._context(estimate, business)
+        if line_ids is None:
+            return await self._context(estimate, business)
+        self._assert_open(estimate, business)
+        lines = [_detached_copy(ln) for ln in await self._lines(estimate)]
+        _tick_addons(lines, line_ids, estimate)
+        return await self._context(estimate, business, lines)
 
     async def accept(self, token: str, data: PublicEstimateAccept) -> PublicEstimate:
         estimate, business = await self._resolve(token, lock=True)
         self._assert_open(estimate, business)
         assert_serving(business, clock.now())
-        lines = await fetch_lines(self.db, estimate.business_id, "estimate", estimate.id)
-        offered = {ln.id for ln in lines if ln.optional}
-        if not set(data.line_ids) <= offered:
-            raise Unprocessable("only an optional add-on can be ticked")
-        for line in lines:
-            line.selected = line.optional and line.id in data.line_ids
-        price_lines(lines, estimate)
+        lines = await self._lines(estimate)
+        _tick_addons(lines, data.line_ids, estimate)
         result = await tax_for_lines(self.db, estimate.business_id, lines)
-        apply_totals(estimate, included_totals(lines, result))
+        totals = included_totals(lines, result)
+        if data.total_cents is not None and data.total_cents != totals.total_cents:
+            raise Conflict("this estimate changed since it was shown", code="estimate_changed")
+        apply_totals(estimate, totals)
         estimate.status = "accepted"
         estimate.accepted_at = clock.now()
+        await self._queue_answer(estimate)
         await self.db.commit()
         return await self._context(estimate, business)
 
@@ -1958,8 +1977,18 @@ class PublicEstimateService:
         estimate.status = "declined"
         estimate.declined_at = clock.now()
         estimate.decline_reason = (data.reason or "").strip() or None
+        await self._queue_answer(estimate)
         await self.db.commit()
         return await self._context(estimate, business)
+
+    async def _queue_answer(self, estimate: Estimate) -> None:
+        await self.db.flush()
+        key = delivery_key("estimate", estimate.id, each=True)
+        notifier = queued_notifier(self.db, estimate.business_id, key)
+        if estimate.status == "accepted":
+            await notifier.on_estimate_accepted(self.db, estimate.id)
+        else:
+            await notifier.on_estimate_declined(self.db, estimate.id)
 
     @staticmethod
     def _assert_open(estimate: Estimate, business: Business) -> None:
@@ -1967,9 +1996,14 @@ class PublicEstimateService:
         if status != "sent":
             raise Conflict(f"this estimate is already {status}")
 
-    async def _context(self, estimate: Estimate, business: Business) -> PublicEstimate:
+    async def _lines(self, estimate: Estimate) -> list[Line]:
+        return await fetch_lines(self.db, estimate.business_id, "estimate", estimate.id)
+
+    async def _context(
+        self, estimate: Estimate, business: Business, lines: list[Line] | None = None
+    ) -> PublicEstimate:
         client = await self.db.get(Client, estimate.client_id)
-        lines = await fetch_lines(self.db, estimate.business_id, "estimate", estimate.id)
+        lines = lines if lines is not None else await self._lines(estimate)
         priced = await estimate_tax(self.db, estimate, lines)
         doc_lines, taxes = await public_doc_lines(self.db, estimate, lines, priced)
         totals = included_totals(lines, priced[1])
@@ -1991,6 +2025,8 @@ class PublicEstimateService:
             valid_until=estimate.valid_until,
             notes=estimate.notes,
             decline_reason=estimate.decline_reason,
+            discount_cents=sum(ln.sale_discount_cents for ln in lines if included(ln)),
+            discount_reason=estimate.discount_reason,
             lines=[
                 PublicEstimateLine(
                     **doc.model_dump(),
@@ -2004,6 +2040,20 @@ class PublicEstimateService:
             ],
             taxes=taxes,
         )
+
+
+def _detached_copy(line: Line) -> Line:
+    """A copy outside the session, so a quote can price it without writing the estimate."""
+    return Line(**{attr.key: getattr(line, attr.key) for attr in Line.__mapper__.column_attrs})
+
+
+def _tick_addons(lines: list[Line], line_ids: list[str], estimate: Estimate) -> None:
+    """Tick the chosen add-ons and price the document's discount over everything included."""
+    if not set(line_ids) <= {ln.id for ln in lines if ln.optional}:
+        raise Unprocessable("only an optional add-on can be ticked")
+    for line in lines:
+        line.selected = line.optional and line.id in line_ids
+    price_lines(lines, estimate)
 
 
 async def owner_staff_id(db: AsyncSession, business_id: str) -> str:

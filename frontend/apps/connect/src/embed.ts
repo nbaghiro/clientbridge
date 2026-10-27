@@ -38,13 +38,24 @@ function postToParent(message: EmbedMessage): void {
 export function useEmbedResize(): void {
     useEffect(() => {
         if (!isEmbedded()) return undefined;
+        let reported = -1;
         const post = (): void => {
-            postToParent({
-                type: "resize",
-                height: Math.ceil(document.body.getBoundingClientRect().height),
-            });
+            const height = Math.ceil(document.body.getBoundingClientRect().height);
+            if (height === reported) return;
+            reported = height;
+            postToParent({ type: "resize", height });
         };
         post();
+        // Chrome runs no ResizeObserver in an offscreen cross-origin frame, so DOM changes report too
+        const mutations = new MutationObserver(post);
+        mutations.observe(document.body, {
+            attributes: true,
+            characterData: true,
+            childList: true,
+            subtree: true,
+        });
+        document.addEventListener("load", post, true);
+        document.fonts.addEventListener("loadingdone", post);
         const dismiss = (event: KeyboardEvent): void => {
             if (
                 event.key === "Escape" &&
@@ -58,6 +69,9 @@ export function useEmbedResize(): void {
         observer.observe(document.body);
         return () => {
             observer.disconnect();
+            mutations.disconnect();
+            document.removeEventListener("load", post, true);
+            document.fonts.removeEventListener("loadingdone", post);
             window.removeEventListener("keydown", dismiss);
         };
     }, []);

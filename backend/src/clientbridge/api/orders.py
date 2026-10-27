@@ -23,7 +23,7 @@ from clientbridge.schemas.orders import (
     OrderReceiptIn,
     OrderUpdate,
 )
-from clientbridge.services.notifications import Notifier
+from clientbridge.services.deliveries import send_queued
 from clientbridge.services.orders import OrderService
 
 router = APIRouter(prefix="/orders", tags=["orders"])
@@ -83,7 +83,7 @@ async def pay_order_cash(
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> OrderCashOut:
     result = await OrderService(db, principal, gateway).pay_cash(order_id, data, idempotency_key)
-    await Notifier(email, sms, push).on_payment_succeeded(db, result.payment_id)
+    await send_queued(db, email, sms, push)
     return result
 
 
@@ -113,7 +113,7 @@ async def send_order_receipt(
     push: PushDep,
 ) -> OrderOut:
     result = await OrderService(db, principal, gateway).send_receipt(order_id, data)
-    await Notifier(email, sms, push).on_order_receipt(db, result.id)
+    await send_queued(db, email, sms, push)
     return result
 
 
@@ -148,6 +148,5 @@ async def set_order_pickup(
     push: PushDep,
 ) -> OrderOut:
     result = await OrderService(db, principal, gateway).set_pickup(order_id, data)
-    if data.status == "ready":
-        await Notifier(email, sms, push).on_order_ready(db, result.id)
+    await send_queued(db, email, sms, push)
     return result

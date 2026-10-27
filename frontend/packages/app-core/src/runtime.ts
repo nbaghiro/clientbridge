@@ -29,25 +29,47 @@ function given(value: unknown): string | undefined {
     return typeof value === "string" && value !== "" ? value : undefined;
 }
 
-// The web image serves /config.js, loaded before each bundle; dev servers serve an empty one.
-export function runtimeConfig(): RuntimeConfig | null {
+// Every server answers /config.js, loaded before each bundle: Caddy in the web image, the Vite plugin in dev and e2e.
+export function runtimeConfig(): RuntimeConfig {
     const served = (globalThis as { __CLIENTBRIDGE_CONFIG__?: ServedConfig })
         .__CLIENTBRIDGE_CONFIG__;
-    const base = given(served?.baseDomain);
-    if (served === undefined || base === undefined) return null;
-    const apiUrl = given(served.apiUrl) ?? `https://api.${base}`;
+    if (served === undefined) throw new Error("/config.js did not load before the app");
+    const base = given(served.baseDomain);
+    const url = (name: keyof ServedConfig, derived: (domain: string) => string): string => {
+        const value = given(served[name]) ?? (base === undefined ? undefined : derived(base));
+        if (value === undefined) throw new Error(`/config.js sets neither ${name} nor baseDomain`);
+        return value;
+    };
     return {
-        adminUrl: given(served.adminUrl) ?? `https://admin.${base}`,
-        webUrl: given(served.webUrl) ?? `https://app.${base}`,
-        apiUrl,
+        get adminUrl() {
+            return url("adminUrl", (domain) => `https://admin.${domain}`);
+        },
+        get webUrl() {
+            return url("webUrl", (domain) => `https://app.${domain}`);
+        },
+        get apiUrl() {
+            return url("apiUrl", (domain) => `https://api.${domain}`);
+        },
         // the auth service is routed under the API host unless the served config names it
-        authUrl: given(served.authUrl) ?? `${apiUrl}/auth`,
-        powersyncUrl: given(served.syncUrl) ?? `https://sync.${base}`,
+        get authUrl() {
+            return given(served.authUrl) ?? `${this.apiUrl}/auth`;
+        },
+        get powersyncUrl() {
+            return url("syncUrl", (domain) => `https://sync.${domain}`);
+        },
         // each business's public page is a subdomain named by its slug
-        pageUrl: given(served.pageUrl) ?? `https://{slug}.${base}`,
-        bookUrl: given(served.bookUrl) ?? `https://book.${base}`,
-        shopUrl: given(served.shopUrl) ?? `https://shop.${base}`,
-        payUrl: given(served.payUrl) ?? `https://pay.${base}`,
+        get pageUrl() {
+            return url("pageUrl", (domain) => `https://{slug}.${domain}`);
+        },
+        get bookUrl() {
+            return url("bookUrl", (domain) => `https://book.${domain}`);
+        },
+        get shopUrl() {
+            return url("shopUrl", (domain) => `https://shop.${domain}`);
+        },
+        get payUrl() {
+            return url("payUrl", (domain) => `https://pay.${domain}`);
+        },
         stripePublishableKey: given(served.stripePublishableKey),
     };
 }

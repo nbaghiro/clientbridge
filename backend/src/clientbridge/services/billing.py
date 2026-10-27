@@ -31,6 +31,7 @@ from clientbridge.schemas.orders import VisitReceipt
 from clientbridge.services import ledger
 from clientbridge.services.bookings import apply_deposit, hold_estimate, is_program, unapply_deposit
 from clientbridge.services.business import business_tz, businesses_at_hour
+from clientbridge.services.deliveries import delivery_key
 from clientbridge.services.ledger import invoice_status_expr
 from clientbridge.services.lines import (
     LineParent,
@@ -45,7 +46,7 @@ from clientbridge.services.lines import (
     replace_lines,
     set_discount,
 )
-from clientbridge.services.notifications import Notifier, Outcome
+from clientbridge.services.notifications import Notifier, Outcome, queued_notifier
 from clientbridge.services.payments import close_settled_visit, sync_invoice
 from clientbridge.services.tax import tax_for_lines
 
@@ -85,6 +86,7 @@ class BillingService:
                 if not lines:
                     raise Unprocessable("add a line before sending the invoice")
                 await issue_invoice(self.db, invoice, cmd)
+                await self._queue_send(invoice.id)
             return await invoice_out(self.db, invoice, await self._lines("invoice", invoice.id))
 
         return await run_command(
@@ -124,7 +126,12 @@ class BillingService:
             self.db, self.principal, action="invoice.update", run=run, response_model=InvoiceOut
         )
 
-    async def send_invoice(self, invoice_id: str) -> InvoiceOut:
+    async def _queue_send(self, invoice_id: str) -> None:
+        """Each send is its own delivery, so a replay sends nothing new and a resend sends again."""
+        key = delivery_key("invoice-sent", invoice_id, each=True)
+        await queued_notifier(self.db, self.biz, key).on_invoice_sent(self.db, invoice_id)
+
+    async def send_invoice(self, invoice_id: str, idempotency_key: str | None) -> InvoiceOut:
         self._assert_admin()
         invoice = await self._invoice(invoice_id)
         if invoice.status == "void":
@@ -135,13 +142,20 @@ class BillingService:
                 await issue_invoice(self.db, invoice, cmd)
             else:
                 cmd.record("invoice.resend", entity_type="invoice", entity_id=invoice.id)
+            await self._queue_send(invoice.id)
             return await invoice_out(self.db, invoice, await self._lines("invoice", invoice.id))
 
         return await run_command(
-            self.db, self.principal, action="invoice.send", run=run, response_model=InvoiceOut
+            self.db,
+            self.principal,
+            action="invoice.send",
+            run=run,
+            response_model=InvoiceOut,
+            idempotency_key=idempotency_key,
+            request={"invoice_id": invoice_id},
         )
 
-    async def remind_invoice(self, invoice_id: str) -> InvoiceOut:
+    async def remind_invoice(self, invoice_id: str, idempotency_key: str | None) -> InvoiceOut:
         self._assert_admin()
         invoice = await self._invoice(invoice_id)
         if invoice.status != "sent":
@@ -151,18 +165,29 @@ class BillingService:
 
         async def run(cmd: Command) -> InvoiceOut:
             cmd.record("invoice.remind", entity_type="invoice", entity_id=invoice.id)
+            key = delivery_key("invoice-reminder", invoice.id, each=True)
+            await queued_notifier(self.db, self.biz, key).on_invoice_reminder(self.db, invoice.id)
             return await invoice_out(self.db, invoice, await self._lines("invoice", invoice.id))
 
         return await run_command(
-            self.db, self.principal, action="invoice.remind", run=run, response_model=InvoiceOut
+            self.db,
+            self.principal,
+            action="invoice.remind",
+            run=run,
+            response_model=InvoiceOut,
+            idempotency_key=idempotency_key,
+            request={"invoice_id": invoice_id},
         )
 
     async def void_invoice(self, invoice_id: str) -> InvoiceOut:
         self._assert_admin()
         invoice = await self._invoice(invoice_id)
         status, _ = await ledger.invoice_state(self.db, invoice)
-        if status in ("paid", "partial", "refunded", "void"):
+        cash, _ = await ledger.collected(self.db, invoice.business_id, "invoice", invoice.id)
+        if status in ("paid", "refunded", "void"):
             raise Conflict(f"a {status} invoice can't be voided")
+        if cash != 0:
+            raise Conflict("money was taken on this invoice", code="invoice_has_payments")
 
         async def run(cmd: Command) -> InvoiceOut:
             if await payment_pending(self.db, invoice):
@@ -200,6 +225,7 @@ class BillingService:
                 if not any(included(ln) for ln in lines):
                     raise Unprocessable("add a line before sending the estimate")
                 await self._issue_estimate(estimate, cmd)
+                await self._queue_estimate(estimate.id)
             return _estimate_out(estimate, lines, await self._today())
 
         return await run_command(
@@ -239,7 +265,11 @@ class BillingService:
             self.db, self.principal, action="estimate.update", run=run, response_model=EstimateOut
         )
 
-    async def send_estimate(self, estimate_id: str) -> EstimateOut:
+    async def _queue_estimate(self, estimate_id: str) -> None:
+        key = delivery_key("estimate", estimate_id, each=True)
+        await queued_notifier(self.db, self.biz, key).on_estimate_sent(self.db, estimate_id)
+
+    async def send_estimate(self, estimate_id: str, idempotency_key: str | None) -> EstimateOut:
         self._assert_admin()
         estimate = await self._estimate(estimate_id)
         status = estimate_status(estimate, await self._today())
@@ -251,12 +281,19 @@ class BillingService:
                 await self._issue_estimate(estimate, cmd)
             else:
                 cmd.record("estimate.resend", entity_type="estimate", entity_id=estimate.id)
+            await self._queue_estimate(estimate.id)
             return _estimate_out(
                 estimate, await self._lines("estimate", estimate.id), await self._today()
             )
 
         return await run_command(
-            self.db, self.principal, action="estimate.send", run=run, response_model=EstimateOut
+            self.db,
+            self.principal,
+            action="estimate.send",
+            run=run,
+            response_model=EstimateOut,
+            idempotency_key=idempotency_key,
+            request={"estimate_id": estimate_id},
         )
 
     async def _issue_estimate(self, estimate: Estimate, cmd: Command) -> None:
@@ -359,6 +396,12 @@ class BillingService:
                 estimate.decline_reason = reason
             await self.db.flush()
             cmd.record(f"estimate.{status}", entity_type="estimate", entity_id=estimate.id)
+            key = delivery_key("estimate", estimate.id, each=True)
+            notifier = queued_notifier(self.db, self.biz, key)
+            if status == "accepted":
+                await notifier.on_estimate_accepted(self.db, estimate.id)
+            else:
+                await notifier.on_estimate_declined(self.db, estimate.id)
             return _estimate_out(
                 estimate, await self._lines("estimate", estimate.id), await self._today()
             )

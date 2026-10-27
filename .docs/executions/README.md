@@ -20,5 +20,5 @@ Use a new folder for a separate execution. Record tested behavior, remaining wor
 
 - [Demo seed simplification](demo-simplification/plan.md) — on hold until the demo businesses have been tested; eleven fingerprint-proven commits that remove about 600 to 700 lines without changing demo data.
 
-
 - [Connect hosts](connect-hosts/plan.md): one host per kind of Connect page and a subdomain per business page, on `connect-hosts`; [QA checklist](connect-hosts/qa.md).
+- [End to end testing](e2e/README.md): the audit families still to cover, with the [coverage catalogue](e2e/coverage.json) and [decisions to review](e2e/decisions.md).

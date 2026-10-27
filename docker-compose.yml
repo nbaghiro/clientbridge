@@ -66,7 +66,7 @@ services:
   # The auth service (Ory Kratos) owns credentials and sessions, in the separate `auth` database
   # created by `make up` (scripts/db_access.py).
   auth-migrate:
-    image: &auth-image oryd/kratos@sha256:2a13bb8d362c7a7ae33bd7c0f5168aee46921f15c916a06346db91c06dc76643  # infra/auth/standalone.sh reads this pin too
+    image: &auth-image oryd/kratos@sha256:2a13bb8d362c7a7ae33bd7c0f5168aee46921f15c916a06346db91c06dc76643  # the test tier (backend/e2e/tier.py) reads every pin here
     depends_on:
       postgres:
         condition: service_healthy
@@ -104,8 +104,8 @@ services:
     image: axllent/mailpit@sha256:b68349e3a014b90c5610bfb26b2ae36f3892d7b8cf25ee140c6c71c98d2fcf48
     ports: ["127.0.0.1:8715:8025", "127.0.0.1:8716:1025"]   # host 8715 → web UI and API, 8716 → SMTP
 
-  # Contract-test only (profile "test"): the official OpenAPI mock. `make stripe-mock` starts it;
-  # the real StripeGateway runs against it to validate request/response shapes against the live spec.
+  # Contract-test only (profile "test", never started here): the test tier runs this pin, and the
+  # real StripeGateway runs against it to validate request/response shapes against the live spec.
   stripe-mock:
     image: stripe/stripe-mock@sha256:aeb96b83e87a893d2ac005e363ac01ffa6e59a5ad85b49c155dfc9129de02e78  # v0.206.0
     profiles: ["test"]

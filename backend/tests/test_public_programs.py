@@ -40,7 +40,7 @@ def _body(item_id: str, name: str = "Rosa Diaz", **extra: object) -> dict[str, o
         "item_id": item_id,
         "staff_id": "any",
         "starts_at": FIRST,
-        "client": {"name": name, "email": f"{name.split()[0].lower()}@clients.test"},
+        "client": {"name": name, "email": f"{name.split()[0].lower()}@clients.ca"},
         "subject_name": "Biscuit",
         **extra,
     }
