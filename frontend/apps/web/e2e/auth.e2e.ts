@@ -170,7 +170,7 @@ test(
         const otherDevice = await nativeSession(request, account.email, account.password);
         expect(await sessionActive(request, otherDevice)).toBe(true);
 
-        await page.goto("/setup/security");
+        await openSecurity(page);
         await page
             .getByLabel(a.securityNewPassword, { exact: true })
             .fill(`${account.password}-new`);
@@ -190,7 +190,7 @@ test(
         const account = newAccount("totp");
         await signUp(page, request, account);
         await openBusiness(page, `${account.name}'s Beauty Studio`);
-        await page.goto("/setup/security");
+        await openSecurity(page);
         const key = page.getByText(/^Or enter this key: /);
         const secret = ((await key.textContent()) ?? "").replace("Or enter this key: ", "").trim();
         await page.getByLabel(a.code, { exact: true }).fill(totp(secret));
@@ -254,6 +254,14 @@ test("an invite refuses an account with a different email", async ({ page, reque
         await cleanup();
     }
 });
+
+async function openSecurity(page: Page): Promise<void> {
+    await page.goto("/setup/security");
+    // the photo control appears once the replica knows the viewer's role and pushes the form down
+    await expect(
+        page.getByRole("button", { name: strings.files.addPhoto, exact: true }),
+    ).toBeVisible();
+}
 
 async function startSignUp(
     page: Page,

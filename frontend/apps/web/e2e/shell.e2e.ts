@@ -20,6 +20,9 @@ const DEPOSIT_BOOKING = demoId("bk_015");
 // Other cases ring up and void sales beside this one, so open the seeded Tap to Pay sale.
 const TAP_SALE = 6;
 const TAP_CLIENT = "Ethan Wright";
+// Other cases refund the newest payments in full, so open yesterday's seeded, part-refunded sale.
+const REFUND_SALE = 2;
+const REFUND_CLIENT = "Noah Schmidt";
 
 const PAYMENTS_TABS = {
     invoices: strings.billing.newInvoice,
@@ -668,9 +671,9 @@ test("owner: payments desk, records and their dialogs", async ({ page }) => {
 
     await walk.step("refunds: payment, refund confirm, credit notes and disputes", async () => {
         await navigate(page, "/payments/refunds");
+        await main.getByRole("searchbox").fill(REFUND_CLIENT);
         await main
-            .getByRole("button", { name: /Invoice #|Sale S-/ })
-            .first()
+            .getByRole("button", { name: new RegExp(`\\b${saleNumber(REFUND_SALE)}\\b`) })
             .click();
         const refund = page.getByRole("dialog");
         await expect(refund.getByText(strings.refunds.reverses)).toBeVisible();
