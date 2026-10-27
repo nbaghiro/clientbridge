@@ -17,6 +17,7 @@ from clientbridge.models.payments import Payment, PaymentMethod
 from clientbridge.models.scheduling import Booking, Slot
 from clientbridge.schemas.payments import RemittanceIn, TaxFamily
 from clientbridge.services import bookings, earnings, ledger
+from clientbridge.services.business import registered_on
 from clientbridge.services.lines import fetch_lines, included_totals, price_lines
 from clientbridge.services.remittances import RemittanceService
 from clientbridge.services.tax import (
@@ -105,7 +106,9 @@ def _taxed(
             TaxComponent(r.jurisdiction, r.rate)
             for r in rates_on(business.province, on or ctx.now.date())
         ],
-        registered=business.tax_registered,
+        registered=registered_on(
+            business.tax_registered, business.tax_registered_on, on or ctx.now.date()
+        ),
         prices_include_tax=included,
     )
 

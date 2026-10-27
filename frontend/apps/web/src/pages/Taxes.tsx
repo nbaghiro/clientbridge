@@ -25,6 +25,7 @@ import {
     Button,
     Checkbox,
     Choice,
+    DateField,
     Empty,
     Field,
     Icon,
@@ -269,6 +270,7 @@ function ItemClasses({ items, province }: { items: ItemTaxClasses; province: str
 export function Taxes() {
     const form = useTaxSettingsForm(api, provinceName);
     const items = useItemTaxClasses(api);
+    const zone = useBusinessZone();
     const registered = form.registration === "registered";
 
     const taxLines = (
@@ -383,6 +385,16 @@ export function Taxes() {
                                         error={form.fieldErrors.gst}
                                         disabled={!registered}
                                     />
+                                    {registered ? (
+                                        <DateField
+                                            label={s.registeredSince}
+                                            hint={s.registeredSinceHint}
+                                            value={form.registeredSince}
+                                            onChange={form.setRegisteredSince}
+                                            zone={zone}
+                                            optional
+                                        />
+                                    ) : null}
                                     {form.hasPst ? (
                                         <TextField
                                             label={s.pst}

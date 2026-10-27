@@ -1,6 +1,6 @@
 # Stripe hardening schema
 
-Status: S1 approved on 2026-10-26. S2 not taken.
+Status: S1 approved on 2026-10-26. S2 not taken. S3 approved on 2026-10-27.
 
 ## S1 (approved): two account categories, `transit` and `loss`
 
@@ -22,6 +22,20 @@ Widen the `accounts.category` CHECK constraint (rendered by `enum_check` from `A
 Widen `payments.dispute_status` (`DisputeStatus` in `models/payments.py`) with `inquiry`, so the payment and the client page can show an inquiry before it escalates. Without it, C7 still notifies the owner and audits the inquiry, but the payment shows no status until a chargeback opens. Data impact: none. Rollback: narrow again after clearing any `inquiry` values to null.
 
 Recommendation: skip S2 for now; the notice is what the business needs.
+
+## S3 (approved): `businesses.tax_registered_on`
+
+A nullable `DATE` column: the day the business's GST/HST registration took effect. NULL means unregistered, or registered with no known start, which counts as registered throughout. A business collects tax at an instant when `tax_registered` is on and `tax_registered_on` is NULL or on or before that instant's date in the business time zone (`services/business.registered_on`). Every tax computed for a moment uses it, so a membership renewal booked late for a period that started before the registration date is split as untaxed. (F5)
+
+The owner or an admin sets it through `PATCH /v1/business` beside `tax_registered`. Turning registration off clears it, turning it on without a date leaves it NULL, and a date while registration is off answers 422 `tax_registration_off`. It syncs with `tax_registered` in both `businesses` streams.
+
+**Migration.** `20261027_000000_tax_registered_on.py` (`cb0034`, after `cb0033`) adds the column. No index, constraint or other table, and no history table.
+
+**Data impact.** Existing rows stay NULL with no backfill, so registered businesses behave as registered throughout, as they do today. Demo seeds leave it NULL. There is no production data yet.
+
+**Rollback.** The downgrade drops the column, which loses only the stored registration dates. Tax already booked keeps its journals.
+
+**Not chosen.** A registration history table would cover a business that registers, deregisters and registers again, which one date can't express. That case is rare for a small business, and turning registration off clears the date.
 
 ## Needs without a schema change
 

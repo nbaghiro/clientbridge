@@ -9520,6 +9520,13 @@
     "taxes.gstHint": {
         "message": "9 digits, then RT and 4 digits."
     },
+    "taxes.registeredSince": {
+        "message": "Registered since"
+    },
+    "taxes.registeredSinceHint": {
+        "message": "The day your GST/HST registration took effect. Leave it empty if you've been registered the whole time.",
+        "description": "Hint under the optional registration date; memberships renewed for earlier periods are not taxed"
+    },
     "taxes.gstInvalid": {
         "message": "Enter it like 84720 1539 RT0001."
     },

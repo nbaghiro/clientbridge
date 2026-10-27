@@ -3234,6 +3234,8 @@ interface Strings {
         readonly provinceSaveError: string;
         readonly gst: string;
         readonly gstHint: string;
+        readonly registeredSince: string;
+        readonly registeredSinceHint: string;
         readonly gstInvalid: string;
         readonly pst: string;
         readonly pstHint: string;

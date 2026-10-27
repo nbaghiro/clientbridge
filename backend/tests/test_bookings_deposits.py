@@ -198,6 +198,53 @@ async def test_refunding_an_applied_deposit_reopens_the_invoice(
     assert (status, held, balance) == ("refunded", 0, invoice.total_cents)
 
 
+async def _refund_deposit(
+    api: httpx.AsyncClient, db: AsyncSession, pay_id: str
+) -> dict[str, object]:
+    assert (
+        await api.post(f"/v1/payments/{pay_id}/refund", json={}, headers=retry_key())
+    ).status_code == 200
+    refund = (
+        await db.execute(
+            select(Payment)
+            .where(Payment.parent_payment_id == pay_id, Payment.status == "succeeded")
+            .order_by(Payment.id.desc())
+            .limit(1)
+        )
+    ).scalar_one()
+    return {
+        "id": refund.provider_ref,
+        "payment_intent": await provider_ref(db, pay_id),
+        "amount": refund.amount_cents,
+        "status": "failed",
+    }
+
+
+async def test_a_failed_deposit_refund_goes_back_on_the_invoice(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    bid, pay_id = await _collected(as_owner, db, "2027-07-06T10:00:00Z")
+    inv_id = await _api_invoice(as_owner, bid)
+    invoice = (await db.execute(select(Invoice).where(Invoice.id == inv_id))).scalar_one()
+    failed = await _refund_deposit(as_owner, db, pay_id)
+    await stripe_event(as_owner, "refund.updated", failed)
+    await stripe_event(as_owner, "refund.failed", failed)
+    assert await _state(db, bid, inv_id) == ("applied", 0, invoice.total_cents - 2000)
+    await _refund_deposit(as_owner, db, pay_id)
+    assert await _state(db, bid, inv_id) == ("refunded", 0, invoice.total_cents)
+
+
+async def test_a_failed_deposit_refund_stays_held_once_the_invoice_is_void(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    bid, pay_id = await _collected(as_owner, db, "2027-07-07T10:00:00Z")
+    inv_id = await _api_invoice(as_owner, bid)
+    failed = await _refund_deposit(as_owner, db, pay_id)
+    assert (await as_owner.post(f"/v1/invoices/{inv_id}/void")).status_code == 200
+    await stripe_event(as_owner, "refund.updated", failed)
+    assert await _state(db, bid, inv_id) == ("collected", 2000, 0)
+
+
 async def test_void_with_a_payment_in_progress_409(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:

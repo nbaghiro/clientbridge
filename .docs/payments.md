@@ -96,7 +96,13 @@ flowchart LR
 - **PAD/EFT**: pre-authorized debit for recurring. Staff on web or mobile send the client a payment setup link,
   and the client authorizes the bank account on Connect `pay.D/setup`. A charge on a saved bank account is
   recorded as `bank_eft` (`charge_method`) by the invoice, deposit, entitlement and sale builders, and its
-  refunds copy that method.
+  refunds copy that method. Stripe debits a saved bank account off session only when the PaymentIntent
+  names both `allowed_payment_method_types: ["acss_debit"]` and the mandate, so `pad_mandate` finds the
+  active mandate from the client's setup links (`mandate_ref`, confirmed with Stripe) and the builders pass
+  it on; with no active mandate the charge answers 409. The setup link asks for a mandate with
+  `default_for: ["invoice", "subscription"]` and no `payment_schedule` or `interval_description` (Stripe
+  refuses the two together). Stripe makes it a `combined` mandate with its own wording; it covers one-off
+  charges named with it and memberships, which Stripe bills under it without being told.
 - **Charge gates.** Card charges, card setup and PAD setup links need card payments on
   (`stripe_charges_enabled`). Any staff member may charge a client's saved card for a sale or a deposit at
   the desk; charging a saved card against an invoice stays with owners and admins. A lapsed business can
@@ -133,6 +139,11 @@ flowchart LR
   (422), `idempotency_mismatch` (409) when a retry differs from the original request, `card_declined` (402),
   and `payment_provider_error` (502) for anything else. Clients render these through `failureMessage`. The
   handler logs the Stripe code and request id on the `clientbridge.stripe` logger.
+- **No automatic network retries.** Each Stripe call is one 10-second attempt, because calls run while
+  row and advisory locks are held and SDK retries would hold them for up to 30 seconds. A network failure
+  answers `payment_provider_error`; the person tries again with the same idempotency key, which reaches
+  Stripe as the same Stripe key, so the money moves once. The hourly jobs (reconciliation, missed-event
+  replay, stale intent cleanup) pick up anything a failed attempt left behind.
 - Retry-safe `open_*` builders (card/booking-deposit/entitlement/terminal) are Stripe-idempotency-
   keyed + `provider_ref`-deduped, shared by the authed services and the public surfaces. A payment can be
   refunded in part, more than once, up to what is left; a gift card or package purchase, and a forfeited
@@ -195,9 +206,12 @@ saved card or bank account and the platform fee as `application_fee_percent`. It
   subscriptions are ignored.
 - Stripe statuses map to ours: `active` and `trialing` to active, `past_due`, `unpaid` and `incomplete` to
   past due, `incomplete_expired` and `canceled` to canceled, `paused` to paused.
-- Each renewal takes its amount from the InvoicePayment and backs tax out at the rates in force at the
-  period start, using the business's current registration (there is no registration history). Registering
-  partway through a membership therefore taxes the next renewal, and deregistering stops it.
+- Each renewal takes its amount from the InvoicePayment and backs tax out at the rates and registration in
+  force at the period start. A business is registered on a day when `tax_registered` is on and
+  `tax_registered_on` is empty or on or before that day in the business time zone, so a renewal booked
+  late for a period before the registration date is split as untaxed. Turning registration off clears the
+  date, and with no date the current setting applies to every period: registering partway through a
+  membership taxes the next renewal, and deregistering stops it.
 - An invoice marked paid with no InvoicePayment behind it was paid outside Stripe. It is audited once
   (`subscription.paid_outside_stripe`) and books nothing.
 - The past-due notice is scoped to the failing invoice, so each failed episode sends one notice while
@@ -225,20 +239,29 @@ A payment with an open or lost dispute can't be refunded: the refund and its pre
 Ordinary refunds leave the original Stripe and application fees in place. Refunds we start for our own
 reasons ask Stripe to return the application fee (`refund_application_fee`): an online order paid after it
 expired or after its stock ran out is refunded in full this way, and `ledger.post_fee_return` books the
-returned fee under `fee_return:<refund>`. Orphan-purchase compensation returns it too. A client cancelling
+returned fee under `fee_return:<refund>`. Orphan-purchase compensation returns it too. Stripe doesn't put
+the returned fee in the refund's balance transaction: it posts a separate `adjustment` (reporting
+category `fee`, pro rata to the amount refunded) on the connected account whose source is the original
+charge, so reconciliation counts the `fee_return:` journals of a charge's refunds under the charge. A client cancelling
 their own online order doesn't. The fee return is booked only when Stripe reports the refund succeeded in
 its first answer; a refund that succeeds later through `refund.updated` doesn't book it yet.
 
 Money leaving a booking deposit, by refund or lost dispute, first takes back the deposit's forfeit and any
 application to an invoice, then marks the deposit refunded. The forfeit reversal is keyed by the refund or
 dispute. A refund that fails after it succeeded reverses the refund journal, forfeits the deposit again
-(`restore_forfeit`) and restores a gift card or package the refund had voided. A deposit that had been
-applied to an invoice is not re-applied after a failed refund: it stays held and the invoice stays reopened.
+(`restore_forfeit`) and restores a gift card or package the refund had voided. A held deposit goes back
+on the booking's open invoice under an application keyed by the failed refund, so the invoice it reopened
+is paid down again; if that invoice was paid or voided in the meantime, the deposit stays held.
 
 A dispute withdrawal posts the disputed amount and fee. A win reinstates funds and any fee Stripe
 actually returns. A loss unwinds the sale through the ledger, capped at what the sale still carries: a
 refund followed by a lost dispute leaves revenue and tax at zero, and the money lost twice goes to the
-business's `loss` account. A gift card or package gives back only what it still holds, so the used part of
+business's `loss` account. Stripe can dispute the whole charge after a partial refund and, when the
+dispute is lost, give the refunded part back. A positive balance transaction on a lost dispute
+(`charge.dispute.funds_reinstated`) posts `dispute:<id>:reinstated` from the `loss` account to the Stripe
+balance, booking only the increase on each event. This follows the dispute's documented
+`balance_transactions`; the sandbox could not produce a dispute after a refund to observe it. A gift card
+or package gives back only what it still holds, so the used part of
 a lost purchase is booked to `loss` as well; the card or package is voided once the dispute and any refunds
 cover the whole purchase. The income report counts lost-dispute reversals with refunds instead of as lower
 sales.
@@ -370,8 +393,9 @@ in progress, a payout as its current status and a SetupIntent as succeeded or fa
 through the normal webhook path under its original id, so a later delivery of the same event changes
 nothing, and its notices use the delivery queue and the one-day rule above.
 
-Thin v2 account events don't appear in that list, so a missed KYC event waits for the next account event,
-reconciliation of the business or the Refresh button.
+Thin v2 account events don't appear in that list. `GET /v2/core/events` lists them, but it can't filter by
+delivery, so the replay re-reads every account still in progress instead, and a missed KYC event also
+waits for the next account event, reconciliation of the business or the Refresh button.
 
 ### Reconciliation
 
@@ -382,11 +406,19 @@ business with a merchant account it:
 1. Reads the balance transactions created since its cursor, less a day of overlap. The cursor is a
    `ledger.reconciled` audit holding the newest transaction id and `created` that a run reached; each run
    writes one per business, and a business with none is read from the start of its history.
-2. Adds the full history of every source with an active finding. A source that doesn't match within the
-   window is compared again on its full history, since the window may hold only its later transactions.
+2. Adds the full history of every source with an active finding and of every refund still pending. A
+   source that doesn't match within the window is compared again on its full history, since the window may
+   hold only its later transactions. Stripe's `source` filter returns only a source's primary transaction,
+   so the history also lists `refund_failure` and `adjustment` transactions by type from the source's
+   first `created` and keeps those whose source matches. That is how a failed refund and a returned
+   application fee are seen.
 3. Repairs each source through the same handlers as webhooks (charges first), compares Stripe's net for the
    source with the business's Stripe legs from the journals it produced, and records or resolves a finding.
-   Standalone `stripe_fee` transactions, including fee credits, post once by transaction id.
+   Disputes are recognized by both `du_` and the older `dp_` ids. Standalone fees Stripe charges the account
+   (`stripe_fee`, `tax_fee`, `stripe_fx_fee` and any other non-adjustment `fee` row), including fee
+   credits, post once by transaction id to `processing_fee`. A refund Stripe still reports as pending is
+   expected: its debit is already in Stripe's balance while the ledger books it on success, so the source
+   records no finding and the balance check adds pending refunds back until they settle or fail.
 4. Compares the account balance with the ledger, then checks each account's cached balance against its
    entries.
 
@@ -426,7 +458,8 @@ finding stays active, and still counts in the balance check, until the source ma
 A gift card or package charge that was refunded as an orphan posts to an orphan payable, with processor
 and application fees taken from the provider balance transactions. Those `orphan:` journals create no sale
 revenue or entitlement, and today's revenue on the dashboard leaves them out. The business keeps the Stripe
-fee on an orphan refund, since Stripe takes it from the connected account. Unknown fee types and
+fee on an orphan refund, since Stripe takes it from the connected account. The application fee Stripe
+returns arrives as an `adjustment` on the charge and reverses the orphan's platform fee. Unknown fee types and
 inconsistent provider amounts remain errors rather than balancing adjustments.
 
 Older membership charges are reconstructed through their InvoicePayments association, and a recovered

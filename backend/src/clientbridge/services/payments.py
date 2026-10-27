@@ -8,7 +8,7 @@ from datetime import UTC, datetime, time, timedelta
 from time import monotonic
 from typing import TYPE_CHECKING, Literal
 
-from sqlalchemy import BigInteger, Integer, Select, Subquery, cast, func, select
+from sqlalchemy import BigInteger, Integer, Select, Subquery, cast, func, or_, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -1119,6 +1119,9 @@ async def run_cancel_stale_intents(db: AsyncSession, gateway: PaymentGateway, no
         except AppError:
             _log.warning("stale intent %s could not be canceled", payment.provider_ref)
             continue
+        except Exception:
+            _log.exception("canceling stale intent %s failed", payment.provider_ref)
+            continue
         payment.status = "canceled"
         canceled += 1
     await db.commit()
@@ -1246,6 +1249,38 @@ async def charge_method(
     return "bank_eft" if saved == "bank_eft" else "card"
 
 
+async def pad_mandate(
+    db: AsyncSession,
+    gateway: PaymentGateway,
+    account_id: str,
+    business_id: str,
+    payment_method: str | None,
+) -> str | None:
+    """The active mandate a saved bank account is debited under; Stripe needs it on the charge."""
+    if payment_method is None:
+        return None
+    saved = await db.scalar(
+        scoped(PaymentMethod, business_id).where(PaymentMethod.provider_ref == payment_method)
+    )
+    if saved is None or saved.method != "bank_eft":
+        return None
+    mandates = await db.scalars(
+        scoped(PaymentSetupLink, business_id)
+        .with_only_columns(PaymentSetupLink.mandate_ref)
+        .where(
+            PaymentSetupLink.client_id == saved.client_id,
+            PaymentSetupLink.account_id == account_id,
+            PaymentSetupLink.mandate_ref.is_not(None),
+        )
+        .order_by(PaymentSetupLink.id.desc())
+    )
+    for mandate_id in filter(None, mandates):
+        mandate = await gateway.get_mandate(account_id, mandate_id)
+        if mandate.payment_method_id == payment_method and mandate.status == "active":
+            return mandate.id
+    raise Conflict("the client must complete bank authorization before this account can be charged")
+
+
 async def open_card_payment(
     db: AsyncSession,
     gateway: PaymentGateway,
@@ -1282,6 +1317,7 @@ async def open_card_payment(
         # A failed or canceled attempt bumps the key, so only a live attempt is ever replayed.
         idempotency_key=f"payment_{invoice.id}_{attempt}",
         payment_method=payment_method,
+        mandate=await pad_mandate(db, gateway, account_id, business_id, payment_method),
     )
     existing = (
         await db.execute(select(Payment).where(Payment.provider_ref == intent.id))
@@ -1392,6 +1428,7 @@ async def open_booking_deposit(
         metadata={"booking_id": booking.id, "business_id": business_id},
         idempotency_key=f"deposit_{booking.id}_{attempt}",
         payment_method=payment_method,
+        mandate=await pad_mandate(db, gateway, account_id, business_id, payment_method),
     )
     existing = (
         await db.execute(select(Payment).where(Payment.provider_ref == intent.id))
@@ -1464,6 +1501,7 @@ async def open_entitlement_payment(
         # The entitlement id is new per request, so dedupe on the client's Idempotency-Key.
         idempotency_key=f"{entitlement_kind}_{idempotency_key or entitlement_id}",
         payment_method=payment_method,
+        mandate=await pad_mandate(db, gateway, account_id, business_id, payment_method),
     )
     existing = (
         await db.execute(select(Payment).where(Payment.provider_ref == intent.id))
@@ -1525,6 +1563,7 @@ async def open_order_card_payment(
         # A canceled attempt bumps the key, so a new checkout never replays a closed intent.
         idempotency_key=f"order_card_{order.id}_{attempt}",
         payment_method=payment_method,
+        mandate=await pad_mandate(db, gateway, account_id, business_id, payment_method),
     )
     existing = (
         await db.execute(select(Payment).where(Payment.provider_ref == intent.id))
@@ -1870,7 +1909,7 @@ async def run_replay_missed_events(db: AsyncSession, gateway: PaymentGateway) ->
 
 
 async def _resync_account(db: AsyncSession, gateway: PaymentGateway, business: Business) -> None:
-    """Thin account events can't be listed again, so an account still in progress is re-read."""
+    """Thin account events list without a delivery filter, so an account in progress is re-read."""
     assert business.stripe_account_id is not None
     try:
         apply_account_status(business, await gateway.get_account(business.stripe_account_id))
@@ -2121,6 +2160,7 @@ async def _update_dispute(db: AsyncSession, data: dict[str, object]) -> str | No
 
 
 DISPUTED = "a disputed payment can't be refunded unless the dispute is won"
+DISPUTES = ("du_", "dp_")  # Stripe's dispute ids; older disputes carry dp_
 
 
 def _disputed(payment: Payment) -> bool:
@@ -2151,8 +2191,24 @@ async def _close_dispute(db: AsyncSession, data: dict[str, object]) -> None:
             dispute_id,
             lambda: ledger.lose_dispute(db, payment, dispute_id=dispute_id, amount=lost),
         )
+        back, back_net = _credits(data)
+        await ledger.reinstate_dispute(db, payment, dispute_id, amount=back, net=back_net)
         if lost + await _refunded_cents(db, payment) >= payment.amount_cents:
             await _reverse_entitlement(db, payment)
+
+
+def _credits(data: dict[str, object]) -> tuple[int, int]:
+    """The amount and net of the dispute's positive balance transactions (funds reinstated)."""
+    txns = data.get("balance_transactions")
+    credits = [
+        (int(t["amount"]), int(t["net"]))
+        for t in (txns if isinstance(txns, list) else [])
+        if isinstance(t, dict)
+        and isinstance(t.get("amount"), int)
+        and int(t["amount"]) > 0
+        and isinstance(t.get("net"), int)
+    ]
+    return sum(amount for amount, _ in credits), sum(net for _, net in credits)
 
 
 def _returned_fee(data: dict[str, object]) -> int:
@@ -2419,8 +2475,9 @@ async def _unapply_refund(db: AsyncSession, refund: Payment, payment: Payment) -
             db, payment.business_id, returned, ref=f"fee_return:{refund.id}:failed"
         )
     if payment.booking_id is not None and payment.kind == "deposit":
-        await _restore_booking_deposit(db, payment.booking_id, refund.id)
-        await _booking_deposit_refunded(db, payment.booking_id)
+        reapplied = await _restore_booking_deposit(db, payment.booking_id, refund.id)
+        if reapplied is not None:
+            await sync_invoice(db, reapplied)
     await _sync_parent(db, payment)
     if not await _fully_refunded(db, payment):
         await _restore_entitlement(db, payment)
@@ -2460,10 +2517,10 @@ async def _reverse_booking_deposit(db: AsyncSession, booking_id: str, key: str) 
     return await bookings.reverse_deposit(db, booking_id, key)
 
 
-async def _restore_booking_deposit(db: AsyncSession, booking_id: str, key: str) -> None:
+async def _restore_booking_deposit(db: AsyncSession, booking_id: str, key: str) -> str | None:
     from clientbridge.services import bookings  # deferred: booking imports this module
 
-    await bookings.restore_deposit(db, booking_id, key)
+    return await bookings.restore_deposit(db, booking_id, key)
 
 
 async def _booking_deposit_refunded(db: AsyncSession, booking_id: str) -> None:
@@ -3439,9 +3496,6 @@ class PublicPaymentSetupService:
                 link.account_id,
                 customer_id=link.customer_id,
                 idempotency_key=f"pad_setup_{link.id}",
-                interval_description=message(
-                    locale_for(client=client), "stripe.pad_interval_description"
-                ),
                 email=client.email,
             )
             link.setup_intent_id = intent.id
@@ -3672,7 +3726,17 @@ async def recover_stripe_source(
             scoped(Payment, business_id).where(Payment.provider_ref == intent_id)
         )
         if payment is not None:
-            refs = [f"payment:{payment.id}", f"fee:{payment.id}"]
+            # Stripe returns an application fee as an adjustment on the charge, not the refund
+            refunds = await db.scalars(
+                scoped(Payment, business_id)
+                .with_only_columns(Payment.id)
+                .where(Payment.parent_payment_id == payment.id, Payment.kind == "refund")
+            )
+            refs = [
+                f"payment:{payment.id}",
+                f"fee:{payment.id}",
+                *(f"fee_return:{refund}{end}" for refund in refunds for end in ("", ":failed")),
+            ]
     elif source.startswith(("re_", "pyr_")):
         refund = await gateway.retrieve(account_id, "refund", source)
         outcome = await _reconcile_refund(db, refund, account_id)
@@ -3680,19 +3744,14 @@ async def recover_stripe_source(
             scoped(Payment, business_id).where(Payment.provider_ref == source)
         )
         if payment is not None:
-            refs = [
-                f"refund:{payment.id}",
-                f"refund:{payment.id}:failed",
-                f"fee_return:{payment.id}",
-                f"fee_return:{payment.id}:failed",
-            ]
+            refs = [f"refund:{payment.id}", f"refund:{payment.id}:failed"]
     elif source.startswith("po_"):
         payout = await gateway.retrieve(account_id, "payout", source)
         await _record_payout(db, account_id, payout)
         if payout.get("status") in ("failed", "canceled"):
             await _fail_payout(db, account_id, payout, last_at)
         refs = [f"payout:{source}", f"payout:{source}:failed"]
-    elif source.startswith("dp_"):
+    elif source.startswith(DISPUTES):
         dispute = await gateway.retrieve(account_id, "dispute", source)
         if dispute.get("status") in ("won", "lost"):
             await _close_dispute(db, dispute)
@@ -3700,22 +3759,22 @@ async def recover_stripe_source(
             disputed = await _update_dispute(db, dispute)
             if disputed is not None:
                 outcome = WebhookOutcome("payment_disputed", disputed)
-        refs = [
-            f"dispute:{source}",
-            f"dispute:{source}:won",
-            f"dispute:{source}:lost",
-            *list(
-                await db.scalars(
-                    scoped(Entry, business_id)
-                    .where(
-                        (Entry.ref == f"dispute_fee:{source}")
-                        | Entry.ref.startswith(f"dispute_fee:{source}:", autoescape=True)
+        refs = list(
+            await db.scalars(
+                scoped(Entry, business_id)
+                .where(
+                    or_(
+                        *(
+                            (Entry.ref == f"{kind}:{source}")
+                            | Entry.ref.startswith(f"{kind}:{source}:", autoescape=True)
+                            for kind in ("dispute", "dispute_fee")
+                        )
                     )
-                    .with_only_columns(Entry.ref)
-                    .distinct()
                 )
-            ),
-        ]
+                .with_only_columns(Entry.ref)
+                .distinct()
+            )
+        ) or [f"dispute:{source}"]
     if outcome is not None:
         await _notify_recovery(db, outcome, occurred_at)
     return refs
@@ -3903,6 +3962,12 @@ async def _orphan_transactions(
         row = StripeTransaction.model_validate(raw)
         if row.currency != BUSINESS_CURRENCY.lower():
             raise ValueError("orphan transaction currency does not match business")
+        if _fee_return(raw):
+            stamp = datetime.fromtimestamp(row.created, UTC)
+            refs.append(
+                await ledger.post_orphan(db, business_id, row.id, intent, 0, 0, -row.net, stamp)
+            )
+            continue
         details = raw.get("fee_details")
         if not isinstance(details, list):
             raise ValueError("orphan transaction has no fee breakdown")
@@ -3933,6 +3998,43 @@ async def _orphan_transactions(
     return refs
 
 
+_STRIPE_FEES = ("stripe_fee", "tax_fee", "stripe_fx_fee")
+_SECONDARY = ("refund_failure", "adjustment")  # Stripe's source filter leaves these out
+
+
+def _fee_return(row: dict[str, object]) -> bool:
+    """An application fee Stripe returned with a refund, posted on the charge as its source."""
+    return row.get("type") == "adjustment" and row.get("reporting_category") == "fee"
+
+
+def _stripe_fee(row: dict[str, object]) -> bool:
+    """A fee Stripe charged the account on its own, such as Connect fees or tax on its fees."""
+    kind = row.get("type")
+    return kind in _STRIPE_FEES or (kind != "adjustment" and row.get("reporting_category") == "fee")
+
+
+async def _source_history(
+    gateway: PaymentGateway, account_id: str, source: str
+) -> list[dict[str, object]]:
+    """Every transaction of one source, newest first, including the ones its filter misses."""
+    rows = await gateway.balance_transactions(account_id, source=source)
+    created = [at for row in rows if isinstance(at := row.get("created"), int)]
+    if not created:
+        return rows
+    seen = {row.get("id") for row in rows}
+    for kind in _SECONDARY:
+        for row in await gateway.balance_transactions(account_id, since=min(created), kind=kind):
+            if row.get("source") == source and row.get("id") not in seen:
+                seen.add(row.get("id"))
+                rows.append(row)
+    return sorted(rows, key=lambda row: _created(row), reverse=True)
+
+
+def _created(row: dict[str, object]) -> int:
+    at = row.get("created")
+    return at if isinstance(at, int) else 0
+
+
 def _by_source(rows: list[dict[str, object]]) -> dict[str, list[dict[str, object]]]:
     """Stripe lists newest first; each source's transactions come back oldest first."""
     sources: dict[str, list[dict[str, object]]] = {}
@@ -3960,29 +4062,30 @@ async def _source_changes(
     source: str,
     transactions: list[dict[str, object]],
 ) -> dict[str, object] | None:
-    if transactions[0].get("type") == "stripe_fee":
-        refs: list[str] = []
-        for row in transactions:
-            identity, net, stamp = row.get("id"), row.get("net"), _stamp(row, "created")
-            if row.get("currency") != BUSINESS_CURRENCY.lower():
-                continue
-            if not isinstance(identity, str) or not isinstance(net, int) or stamp is None:
-                raise ValueError("stripe fee transaction is incomplete")
-            refs.append(await ledger.post_stripe_fee(db, business_id, identity, net, stamp))
-    else:
-        refs = await recover_stripe_source(
+    refs: list[str] = []
+    for row in [row for row in transactions if _stripe_fee(row)]:
+        identity, net, stamp = row.get("id"), row.get("net"), _stamp(row, "created")
+        if row.get("currency") != BUSINESS_CURRENCY.lower():
+            continue
+        if not isinstance(identity, str) or not isinstance(net, int) or stamp is None:
+            raise ValueError("stripe fee transaction is incomplete")
+        refs.append(await ledger.post_stripe_fee(db, business_id, identity, net, stamp))
+    others = [row for row in transactions if not _stripe_fee(row)]
+    if others:
+        recovered = await recover_stripe_source(
             db,
             gateway,
             business_id,
             account_id,
             source,
-            _stamp(transactions[0], "created"),
-            _stamp(transactions[-1], "created"),
+            _stamp(others[0], "created"),
+            _stamp(others[-1], "created"),
         )
-    if not refs:
-        refs = await _orphan_transactions(
-            db, gateway, business_id, account_id, source, transactions
+        refs += recovered or await _orphan_transactions(
+            db, gateway, business_id, account_id, source, others
         )
+        if await _pending_refund(db, business_id, source):
+            return None  # Stripe debits a pending refund at once; we book it when it settles
     expected = _stripe_net(transactions)
     actual = await db.scalar(
         scoped(Entry, business_id)
@@ -4005,6 +4108,26 @@ async def _source_changes(
     }
 
 
+def _pending_refunds(business_id: str) -> Select[tuple[Payment]]:
+    return scoped(Payment, business_id).where(
+        Payment.kind == "refund",
+        Payment.provider == "stripe",
+        Payment.status == "pending",
+        Payment.provider_ref.is_not(None),
+    )
+
+
+async def _pending_refund(db: AsyncSession, business_id: str, source: str) -> bool:
+    if not source.startswith(("re_", "pyr_")):
+        return False
+    found = await db.scalar(
+        _pending_refunds(business_id)
+        .with_only_columns(Payment.id)
+        .where(Payment.provider_ref == source)
+    )
+    return found is not None
+
+
 async def _reconcile_source(
     db: AsyncSession,
     gateway: PaymentGateway,
@@ -4019,7 +4142,7 @@ async def _reconcile_source(
         changes = await _source_changes(db, gateway, business_id, account_id, source, transactions)
         if changes is not None and windowed and isinstance(transactions[0].get("source"), str):
             # the window can hold only a source's later transactions, so compare its whole history
-            history = _by_source(await gateway.balance_transactions(account_id, source=source))
+            history = _by_source(await _source_history(gateway, account_id, source))
             if history.get(source):
                 transactions = history[source]
                 changes = await _source_changes(
@@ -4072,9 +4195,12 @@ async def reconcile_stripe_transactions(
     since = last - int(_RECONCILE_OVERLAP.total_seconds()) if isinstance(last, int) else None
     rows = await gateway.balance_transactions(account_id, since=since)
     sources = _by_source(rows)
-    open_sources = list(await db.scalars(select(_active_findings(business_id).c.entity_id)))
-    for source in [source for source in open_sources if source not in sources]:
-        history = _by_source(await gateway.balance_transactions(account_id, source=source))
+    open_sources = [
+        *await db.scalars(select(_active_findings(business_id).c.entity_id)),
+        *await db.scalars(_pending_refunds(business_id).with_only_columns(Payment.provider_ref)),
+    ]
+    for source in [source for source in open_sources if source and source not in sources]:
+        history = _by_source(await _source_history(gateway, account_id, source))
         if history.get(source):
             sources[source] = history[source]
     drifted = 0
@@ -4122,8 +4248,13 @@ async def _reconcile_balance(
     ours = await ledger.balance(
         db, business_id, owner_type="business", owner_id=business_id, category="stripe"
     )
+    pending = await db.scalar(
+        _pending_refunds(business_id).with_only_columns(
+            func.coalesce(func.sum(Payment.amount_cents), 0)
+        )
+    )
     theirs = await gateway.get_balance_cents(account_id, currency=BUSINESS_CURRENCY)
-    residual = theirs - ours - int(explained or 0)
+    residual = theirs - ours - int(explained or 0) + int(pending or 0)
     return await _source_drift(
         db, business_id, "balance", {"residual_cents": residual} if residual else None
     )

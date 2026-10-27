@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, date, datetime
 from zoneinfo import ZoneInfo
 
 import httpx
@@ -12,6 +12,7 @@ from clientbridge.models.business import Business
 from clientbridge.models.platform import Audit
 from clientbridge.services.business import (
     after_quiet_hours,
+    business_tax_registered,
     postal_address,
     quiet_hours,
     reply_address,
@@ -131,6 +132,79 @@ async def test_bad_tax_numbers_are_422(as_owner: httpx.AsyncClient) -> None:
         {"filing_frequency": "weekly"},
     ):
         assert (await as_owner.patch("/v1/business", json=body)).status_code == 422, body
+
+
+async def test_owner_sets_when_registration_took_effect(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    other = await db.scalar(select(Business.id).where(Business.id != BIZ).limit(1))
+    res = await as_owner.patch(
+        "/v1/business", json={"tax_registered": True, "tax_registered_on": "2026-10-01"}
+    )
+    assert res.status_code == 200, res.text
+    assert res.json()["tax_registered_on"] == "2026-10-01"
+    kept = await as_owner.patch("/v1/business", json={"tax_registered": True})
+    assert kept.json()["tax_registered_on"] == "2026-10-01"
+    cleared = await as_owner.patch("/v1/business", json={"tax_registered_on": None})
+    assert (cleared.json()["tax_registered"], cleared.json()["tax_registered_on"]) == (True, None)
+    db.expire_all()
+    assert await db.scalar(select(Business.tax_registered_on).where(Business.id == other)) is None
+
+
+async def test_turning_registration_off_clears_its_date(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await as_owner.patch(
+        "/v1/business", json={"tax_registered": True, "tax_registered_on": "2026-10-01"}
+    )
+    off = await as_owner.patch("/v1/business", json={"tax_registered": False})
+    assert (off.json()["tax_registered"], off.json()["tax_registered_on"]) == (False, None)
+    on = await as_owner.patch("/v1/business", json={"tax_registered": True})
+    assert (on.json()["tax_registered"], on.json()["tax_registered_on"]) == (True, None)
+
+
+async def test_a_registration_date_without_registration_is_422(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await db.execute(update(Business).where(Business.id == BIZ).values(tax_registered=False))
+    await db.flush()
+    for body in (
+        {"tax_registered_on": "2026-10-01"},
+        {"tax_registered": False, "tax_registered_on": "2026-10-01"},
+    ):
+        res = await as_owner.patch("/v1/business", json=body)
+        assert res.status_code == 422, body
+        assert res.json()["error"] == "tax_registration_off"
+    db.expire_all()
+    assert await db.scalar(select(Business.tax_registered_on).where(Business.id == BIZ)) is None
+
+
+async def test_staff_cannot_set_the_registration_date(as_staff: httpx.AsyncClient) -> None:
+    res = await as_staff.patch(
+        "/v1/business", json={"tax_registered": True, "tax_registered_on": "2026-10-01"}
+    )
+    assert res.status_code == 403
+
+
+@pytest.mark.parametrize(
+    ("registered", "since", "at", "expected"),
+    [
+        (True, None, datetime(2020, 1, 1, tzinfo=UTC), True),
+        (False, None, datetime(2026, 10, 13, tzinfo=UTC), False),
+        (True, date(2026, 10, 1), datetime(2026, 10, 1, 6, 59, tzinfo=UTC), False),
+        (True, date(2026, 10, 1), datetime(2026, 10, 1, 7, tzinfo=UTC), True),
+        (True, date(2026, 10, 1), datetime(2026, 12, 1, tzinfo=UTC), True),
+    ],
+)
+async def test_registration_holds_from_its_day_in_the_business_zone(
+    db: AsyncSession, registered: bool, since: date | None, at: datetime, expected: bool
+) -> None:
+    await db.execute(
+        update(Business)
+        .where(Business.id == BIZ)
+        .values(tax_registered=registered, tax_registered_on=since)
+    )
+    assert await business_tax_registered(db, BIZ, at) is expected
 
 
 async def test_setup_list_can_be_hidden_and_shown(as_owner: httpx.AsyncClient) -> None:

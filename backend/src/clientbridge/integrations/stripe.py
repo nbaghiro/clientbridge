@@ -595,9 +595,14 @@ class PaymentGateway(Protocol):
     def verify_webhook(self, payload: bytes, signature: str) -> GatewayEvent: ...
 
     async def balance_transactions(
-        self, account_id: str, *, since: int | None = None, source: str | None = None
+        self,
+        account_id: str,
+        *,
+        since: int | None = None,
+        source: str | None = None,
+        kind: str | None = None,
     ) -> list[dict[str, object]]:
-        """Newest first; `since` bounds by `created`, `source` reads one object's transactions."""
+        """Newest first, filtered by `created`, `source` (its primary rows only) and `type`."""
         ...
 
     async def list_payouts(self, account_id: str, after: str | None = None) -> PayoutPage: ...
@@ -631,7 +636,6 @@ class PaymentGateway(Protocol):
         *,
         customer_id: str,
         idempotency_key: str,
-        interval_description: str,
         email: str | None = None,
     ) -> SetupIntentResult:
         """Save a Canadian pre-authorized debit (ACSS) mandate for later off-session pulls."""
@@ -685,7 +689,11 @@ class PaymentGateway(Protocol):
         metadata: dict[str, str],
         idempotency_key: str,
         payment_method: str | None = None,
-    ) -> PaymentIntentResult: ...
+        mandate: str | None = None,
+    ) -> PaymentIntentResult:
+        """A `mandate` charges a saved PAD account under it; Stripe needs both for acss_debit."""
+        ...
+
     async def cancel_payment_intent(self, account_id: str, *, payment_intent_id: str) -> None:
         """Cancel an unconfirmed intent; Conflict when it already went through."""
         ...
@@ -1113,13 +1121,20 @@ class StripeGateway:
 
     @_keyed
     async def balance_transactions(
-        self, account_id: str, *, since: int | None = None, source: str | None = None
+        self,
+        account_id: str,
+        *,
+        since: int | None = None,
+        source: str | None = None,
+        kind: str | None = None,
     ) -> list[dict[str, object]]:
         params: BalanceTransactionListParams = {"stripe_account": account_id, "limit": 100}
         if since is not None:
             params["created"] = {"gte": since}
         if source is not None:
             params["source"] = source
+        if kind is not None:
+            params["type"] = kind
         result = await stripe.BalanceTransaction.list_async(**params)
         return [cast(dict[str, object], row.to_dict()) async for row in result.auto_paging_iter()]
 
@@ -1263,7 +1278,6 @@ class StripeGateway:
         *,
         customer_id: str,
         idempotency_key: str,
-        interval_description: str,
         email: str | None = None,
     ) -> SetupIntentResult:
         if email is not None:
@@ -1275,9 +1289,8 @@ class StripeGateway:
             payment_method_options={
                 "acss_debit": {
                     "currency": "cad",
+                    # a default_for mandate is the one Stripe bills memberships under unprompted
                     "mandate_options": {
-                        "payment_schedule": "interval",
-                        "interval_description": interval_description,
                         "default_for": ["invoice", "subscription"],
                         "transaction_type": "personal",
                     },
@@ -1448,6 +1461,7 @@ class StripeGateway:
         metadata: dict[str, str],
         idempotency_key: str,
         payment_method: str | None = None,
+        mandate: str | None = None,
     ) -> PaymentIntentResult:
         # a saved payment_method → charge it off-session now; else return a client_secret to confirm
         params: PaymentIntentCreateParams = {
@@ -1460,6 +1474,8 @@ class StripeGateway:
         }
         if payment_method:
             params.update(payment_method=payment_method, confirm=True, off_session=True)
+        if mandate is not None:
+            params.update(allowed_payment_method_types=["acss_debit"], mandate=mandate)
         if customer_id is not None:  # a walk-in sale has no Customer
             params["customer"] = customer_id
         try:

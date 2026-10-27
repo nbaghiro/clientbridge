@@ -363,6 +363,12 @@ class PlanCheckout:
     trial_end: datetime | None
 
 
+def _primary(row: dict[str, object]) -> bool:
+    """Stripe's `source` filter leaves out a refund failure and a returned application fee."""
+    fee_return = row.get("type") == "adjustment" and row.get("reporting_category") == "fee"
+    return row.get("type") != "refund_failure" and not fee_return
+
+
 class FakePaymentGateway:
     refund_status: str = "succeeded"
 
@@ -417,6 +423,7 @@ class FakePaymentGateway:
         self.account_status: ConnectAccount | None = None  # override get_account() in a test
         self.payout_transaction_calls: list[tuple[str, str, str | None]] = []
         self.transaction_calls: list[tuple[str, int | None, str | None]] = []
+        self.mandated_charges: list[tuple[str | None, str]] = []
         self.pending_fees: set[str] = set()
         self.charges: dict[str, tuple[int, int]] = {}  # intent id -> (amount, application fee)
         self.payouts: dict[str, list[dict[str, object]]] = {}
@@ -573,13 +580,20 @@ class FakePaymentGateway:
         )
 
     async def balance_transactions(
-        self, account_id: str, *, since: int | None = None, source: str | None = None
+        self,
+        account_id: str,
+        *,
+        since: int | None = None,
+        source: str | None = None,
+        kind: str | None = None,
     ) -> list[dict[str, object]]:
-        self.transaction_calls.append((account_id, since, source))
+        if kind is None:
+            self.transaction_calls.append((account_id, since, source))
         return [
             row
             for row in self.transactions.get(account_id, [])
-            if (source is None or row.get("source") == source)
+            if (source is None or (row.get("source") == source and _primary(row)))
+            and (kind is None or row.get("type") == kind)
             and (since is None or not isinstance(at := row.get("created"), int) or at >= since)
         ]
 
@@ -639,7 +653,6 @@ class FakePaymentGateway:
         *,
         customer_id: str,
         idempotency_key: str,
-        interval_description: str,
         email: str | None = None,
     ) -> SetupIntentResult:
         if idempotency_key in self.pad_keys:
@@ -753,7 +766,10 @@ class FakePaymentGateway:
         metadata: dict[str, str],
         idempotency_key: str,
         payment_method: str | None = None,
+        mandate: str | None = None,
     ) -> PaymentIntentResult:
+        if mandate is not None:
+            self.mandated_charges.append((payment_method, mandate))
         if payment_method == "pm_card_declined":
             raise CardDeclined("the card was declined")
         if payment_method == "pm_requires_action":

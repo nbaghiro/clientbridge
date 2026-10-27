@@ -8837,6 +8837,12 @@
     "taxes.gstHint": {
         "message": "[9 ðîĝîţš, ţĥéñ ŔŢ åñð 4 ðîĝîţš. one two three]"
     },
+    "taxes.registeredSince": {
+        "message": "[Ŕéĝîšţéŕéð šîñçé one two]"
+    },
+    "taxes.registeredSinceHint": {
+        "message": "[Ţĥé ðåý ýöûŕ ĜŠŢ/ĤŠŢ ŕéĝîšţŕåţîöñ ţööķ éƒƒéçţ. Ļéåṽé îţ éɱþţý îƒ ýöû'ṽé ƀééñ ŕéĝîšţéŕéð ţĥé ŵĥöļé ţîɱé. one two three four five six seven]"
+    },
     "taxes.gstInvalid": {
         "message": "[Éñţéŕ îţ ļîķé 84720 1539 ŔŢ0001. one two]"
     },

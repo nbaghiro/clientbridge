@@ -1,7 +1,7 @@
 """EFT/PAD + recurring subscriptions: command surface + Stripe subscription webhooks."""
 
 import json
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 import httpx
 import pytest
@@ -909,6 +909,49 @@ async def test_a_renewal_is_issued_and_taxed_at_the_period_stripe_billed(
     assert paid.invoice_id is not None
     renewed = await invoice(db, paid.invoice_id)
     assert renewed.issued_at == start and paid.paid_at == PAID_AT
+
+
+@pytest.mark.parametrize(
+    ("start", "split"),
+    [
+        # 2026-10-01 05:00 UTC is still September 30 in Vancouver
+        (datetime(2026, 10, 1, 5, tzinfo=UTC), (5600, 0)),
+        (datetime(2026, 10, 1, 8, tzinfo=UTC), (5000, 600)),
+    ],
+)
+async def test_a_late_renewal_is_split_with_the_registration_at_its_period_start(
+    api: httpx.AsyncClient,
+    db: AsyncSession,
+    gateway: FakePaymentGateway,
+    start: datetime,
+    split: tuple[int, int],
+) -> None:
+    await enable_payments(db)
+    await db.execute(
+        update(Business)
+        .where(Business.id == BIZ)
+        .values(tax_registered=True, tax_registered_on=date(2026, 10, 1))
+    )
+    gateway.pay_invoice("in_late", "pi_late", 5600)
+    await _seed_sub(db, ref="sub_late")
+    obj: dict[str, object] = {
+        "id": "in_late",
+        "parent": {"subscription_details": {"subscription": "sub_late"}},
+        "amount_paid": 5600,
+        "currency": "cad",
+        "status_transitions": {"paid_at": int(PAID_AT.timestamp())},
+        "lines": {"data": [{"period": {"start": int(start.timestamp())}}]},
+    }
+    res = await api.post(
+        "/webhooks/stripe",
+        content=_sub_event("evt_late", "invoice.payment_succeeded", obj),
+        headers=GOOD,
+    )
+    assert res.status_code == 200
+    paid = await payment_by_ref(db, "pi_late")
+    assert paid.invoice_id is not None
+    renewed = await invoice(db, paid.invoice_id)
+    assert (renewed.subtotal_cents, renewed.tax_total_cents, renewed.total_cents) == (*split, 5600)
 
 
 async def test_stale_subscription_update_cannot_restore_canceled_membership(

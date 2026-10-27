@@ -2,6 +2,7 @@ from datetime import timedelta
 
 import httpx
 import pytest
+import stripe
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -132,3 +133,27 @@ async def test_a_run_cancels_a_bounded_batch(
 
     assert await run_cancel_stale_intents(db, gateway, clock.now()) == 1
     assert await run_cancel_stale_intents(db, gateway, clock.now()) == 1
+
+
+async def test_a_network_error_on_one_intent_does_not_stop_the_run(
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    gateway: FakePaymentGateway,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    await enable_payments(db)
+    older, newer = await _desk_checkout(as_owner), await _desk_checkout(as_owner)
+    await _age(db, older, DAY * 3)
+    await _age(db, newer, DAY * 2)
+    unreachable = await db.scalar(select(Payment.provider_ref).where(Payment.id == newer))
+    cancel = gateway.cancel_payment_intent
+
+    async def flaky(account_id: str, *, payment_intent_id: str) -> None:
+        if payment_intent_id == unreachable:
+            raise stripe.APIConnectionError("network down")
+        await cancel(account_id, payment_intent_id=payment_intent_id)
+
+    monkeypatch.setattr(gateway, "cancel_payment_intent", flaky)
+
+    assert await run_cancel_stale_intents(db, gateway, clock.now()) == 1
+    assert (await _status(db, older), await _status(db, newer)) == ("canceled", "pending")

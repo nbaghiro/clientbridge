@@ -67,7 +67,7 @@
 - **F2.** `incomplete_expired` maps to `canceled`.
 - **F3.** The past-due notice is scoped by the failing invoice.
 - **F4.** Lapsed businesses can cancel memberships, and the owner is emailed once when the plan lapses with live memberships.
-- **F5.** Each renewal backs tax out using the rates and registration at the period start (the current registration; there is no registration history).
+- **F5.** Each renewal backs tax out using the rates and registration at the period start (registration date from S3, below).
 - **F6.** Archiving a client cancels their memberships at period end; a lost membership dispute cancels now.
 - **F7.** The item editor says current members keep their price.
 - **F8.** A paid invoice with no InvoicePayment is audited once as paid outside Stripe; renewal amounts come from the InvoicePayment.
@@ -105,7 +105,39 @@
 - **H.** `ledger.cache_drift` and `ledger.reconciliation_failed` alert on a change or once a day rather than every hour, and the cursor audit is written only when it moves.
 - **H7.** The admin drift list reports the balance finding's residual (`residual_cents`).
 - **G1 scope.** Deferred and version-rejected events keep a failed row; the existing `webhook-failures` (5xx, including deferrals) and `webhook-rejections` alerts cover them, so no separate audit was added.
-- **Not built:** the proportional commission cut (C10), reapplying a deposit to an invoice after a failed refund, and registration history for renewal tax (F5 uses the current registration).
+- **Not built here:** the proportional commission cut (C10), which moved to `staff-pay`. Deposit re-application and the registration date followed on 2026-10-27, below.
+
+## Follow-ups, 2026-10-27
+
+- **S3.** `businesses.tax_registered_on` (migration `cb0034`, [schema.md](schema.md)) records the day GST/HST registration took effect. `services/business.registered_on` decides registration on a business day, and `business_tax_registered` now takes the instant, so a renewal is split with the registration at its period start (F5). The Taxes settings on web and mobile show an optional Registered since date while registered, and device tax previews (`useTaxSetup`) apply the same rule. Remittances still read the current setting, since their periods and amounts come from the tax actually booked. Tests: `test_business_migration.py`, the registration helper and settings cases in `test_business.py`, the late renewal in `test_entitlements_subscriptions.py`, and the app-core hook tests.
+- **Deposit after a failed refund.** `bookings.restore_deposit` puts a held deposit back on the booking's open invoice under an application keyed by the failed refund (`application:{booking}:{invoice}:again:{refund}`), and `ledger.applied_invoices`/`reverse_application` read every live application, so a later refund takes it off again. A re-forfeited deposit is marked `forfeited` instead of `refunded`. Tests: `test_a_failed_deposit_refund_goes_back_on_the_invoice`, `test_a_failed_deposit_refund_stays_held_once_the_invoice_is_void`, and the status check in `test_a_refund_that_fails_later_forfeits_the_deposit_again`.
+- **Network retries (A6) closed by decision.** Calls stay one attempt; a retry with the same idempotency key reaches Stripe with the same key (`test_retrying_a_refund_after_a_network_error_reuses_the_stripe_key`). Recorded in `payments.md`.
+- **Stale intents.** `run_cancel_stale_intents` logs and skips any error on one intent instead of failing the job (`test_a_network_error_on_one_intent_does_not_stop_the_run`).
+- **C10 moved.** The proportional commission clawback is built on `staff-pay` (PR #61, CLI-44) as negative pending earnings, so it is not repeated here.
+- **Sandbox checks (2026-10-27).** Run against the Clientbridge sandbox on Birchbark (`acct_1UPnLpFGqw5ObEW5`) at `2026-09-30.endive`. Summary below; the eight mismatches it found are fixed in the items that follow.
+
+  | Check | Objects | Result |
+  | --- | --- | --- |
+  | 1. PAD refund | `pi_3UV9NTFGqw5ObEW50YLhtfF7`, `pyr_1UV9PsFGqw5ObEW53BnAYjve`, `txn_1UV9PsFGqw5ObEW5EbcPkT3K` | `pyr_` refund with a `payment_refund` transaction of -2000 that exists while the refund is pending; `Refund.retrieve` works. Matches, except M7. |
+  | 2. Returned application fee | `ch_3UV9IiFGqw5ObEW51mmgt0DW`, `re_3UV9IiFGqw5ObEW51RFT36Ja`, `txn_1UV9JLFGqw5ObEW5BTlr9sd7` | The fee comes back as an `adjustment` (category `fee`, +120 of 300, pro rata) whose source is the charge; `?source=` returns neither it nor anything but the primary row. M1, M2. |
+  | 3. Failed refund | `re_3UV9JpFGqw5ObEW50zW5eBu7`, `txn_1UV9M1FGqw5ObEW5vp32TGxa` | Reported only by `refund.failed`; the `refund_failure` (+2000, source the refund) is missing from `?source=`. M2. |
+  | 4. Dispute after a partial refund | `du_1UV9LxFGqw5ObEW5pv72TyEY`, `re_3UV9LuFGqw5ObEW51NH84Cxf` | Not observed; an inquiry kept its full 6000 after a 1000 refund. Docs say a lost dispute can reinstate the refunded part. M4. |
+  | 5. Refund during a dispute | `du_1UV9K5FGqw5ObEW5RLrvtdnC`, `txn_1UV9K5FGqw5ObEW5KT1VrtR1` | Refused with `charge_disputed` while disputed, allowed during an inquiry; dispute ids and the withdrawal's source are `du_`. M3. |
+  | 6. Off-session PAD charge | `seti_1UV9N1FGqw5ObEW5kainZLyJ`, `mandate_1UV9N2FGqw5ObEW5wikXrsZS`, `pi_3UV9NTFGqw5ObEW50YLhtfF7` | Succeeds only with `allowed_payment_method_types=["acss_debit"]` and `mandate`; `default_for` with an interval schedule is refused at setup. M5, M6. |
+  | 7. `delivery_success=false` | `evt_3UUs9SFGqw5ObEW50HeXW0Am` | Works on the platform and per account, 30 days back. Matches; the thin-event comment was wrong. |
+  | 8. Closed v2 account | `acct_1UV9OGFGqwSdYFTi` | Retrievable with our includes, `closed: true`, configuration null; maps to `disabled_reason: closed`. Matches. |
+  | 9. Bank change in account management | none | Docs only: Stripe's own sign-in gates it; whether only the representative can pass it needs a browser test. |
+  | 10. Standalone `tax_fee` / `stripe_fee` | 18 connected accounts | None exist in the sandbox. M8 from the docs. |
+
+- **M1, returned fee on the charge.** Reconciliation counts `fee_return:<refund>` (and `:failed`) for every refund of a payment under the charge's source instead of the refund's (`recover_stripe_source`). An orphan's returned fee posts as `orphan:<txn>` against the platform fee (`_orphan_transactions`, `ledger.post_orphan`). Tests: `test_a_returned_application_fee_reconciles_on_the_charge_it_came_from`; `test_orphan_charge_refund_and_returned_fee_reconcile_once` now uses Stripe's shape.
+- **M2, whole source history.** `_source_history` reads the `source=` rows, then `refund_failure` and `adjustment` rows by type from the source's first `created` and keeps those with that source. The gateway's `balance_transactions` takes `kind` (Stripe's `type`), and the fake gateway's `source` filter now leaves out the same rows Stripe does. Used by the windowed refetch and for open findings. Tests: `test_a_refund_that_failed_reconciles_against_its_reversal`, the window part of the fee-return test, `test_lists_balance_transactions_by_type` (contract).
+- **M3, `du_` disputes.** `DISPUTES = ("du_", "dp_")` routes both to the dispute branch, whose refs now read every `dispute:<id>` and `dispute_fee:<id>` journal. Fixtures in `test_payments_disputes.py` and `test_ledger_drift.py` use `du_`; `test_webhooks.py` keeps `dp_`. Test: `test_a_dispute_withdrawal_is_recovered_and_reconciled[du_recovered|dp_recovered]`.
+- **M4, reinstated funds on a lost dispute.** The lost journal is unchanged (the overlap with a refund goes to `loss`); `ledger.reinstate_dispute` then books the dispute's positive balance transactions as `dispute:<id>:reinstated` (Stripe up, `loss` down, any returned fee off `processing_fee`), only the increase per event, so a later `charge.dispute.funds_reinstated` is booked too. Built from the documented `balance_transactions`, not observed. Test: `test_a_lost_dispute_that_reinstates_the_refunded_part_loses_only_the_rest`.
+- **M5, PAD charges name the mandate.** `create_payment_intent` takes `mandate` and then sends `allowed_payment_method_types=["acss_debit"]` with it; `pad_mandate` finds the active mandate for a saved `bank_eft` method from the client's setup links and Stripe, and the four charge builders pass it. No active mandate answers 409. Tests: `test_a_saved_bank_account_is_charged_under_its_mandate`, `test_a_bank_account_whose_mandate_stripe_no_longer_holds_is_not_charged`, `test_charges_a_saved_bank_account_under_its_mandate` (contract). The PAD cases in `test_payments_fees.py` now record a setup link with an active mandate.
+- **M6, PAD setup with a `default_for` mandate.** Stripe refuses `default_for` together with `payment_schedule`/`interval_description`. In the sandbox an interval mandate charged one-off payments but left a membership's first invoice at `requires_confirmation` (`sub_1UVBMaFGqw5ObEW5OOAqbrGW`), while a `default_for: ["invoice", "subscription"]` mandate (Stripe makes it `combined`, `mandate_1UVBN7FGqw5ObEW59uyfzvwk`) took a one-off charge with `mandate` (`processing`) and billed a membership unprompted (`active`, intent `processing`). `create_pad_setup_intent` now asks for that mandate, and the unused `stripe.pad_interval_description` copy is gone. Test: `test_pad_setup_asks_for_a_mandate_that_covers_invoices_and_memberships` (contract).
+- **M7, pending refunds.** A refund source whose refund is pending records no finding, every pending Stripe refund is re-read each run until it settles, and the balance check adds pending refunds back. Test: `test_a_pending_refund_is_expected_until_it_settles`.
+- **M8, other Stripe fees.** `stripe_fee`, `tax_fee`, `stripe_fx_fee` and any non-adjustment `fee` row post through `post_stripe_fee` wherever they sit in a source. Test: `test_standalone_stripe_fee_is_booked_once` over the three types.
+- **Thin events comment.** `_resync_account` now says they list without a delivery filter.
 
 ## Gate, 2026-10-26
 
@@ -120,4 +152,4 @@ On the uncommitted worktree, after all of the above:
 
 ## Sandbox checks
 
-None run yet.
+Run on 2026-10-27; the results and fixes are under Follow-ups, 2026-10-27.

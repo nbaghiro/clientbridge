@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
 from clientbridge.core.ids import new_id
-from clientbridge.integrations.stripe import StripeResource
+from clientbridge.integrations.stripe import ChargeFees, StripeResource
 from clientbridge.models.catalog import Item, Subscription
 from clientbridge.models.payments import Payment
 from clientbridge.models.platform import Audit
@@ -165,16 +165,17 @@ async def test_recovers_an_old_membership_charge_from_its_stripe_invoice(
     assert await reconcile_stripe_transactions(db, gateway, BIZ, "acct_test") == 0
 
 
+@pytest.mark.parametrize("kind", ["stripe_fee", "tax_fee", "stripe_fx_fee"])
 @pytest.mark.parametrize("net", [-150, 150])
 async def test_standalone_stripe_fee_is_booked_once(
-    db: AsyncSession, gateway: FakePaymentGateway, net: int
+    db: AsyncSession, gateway: FakePaymentGateway, net: int, kind: str
 ) -> None:
     await enable_payments(db)
     gateway.transactions["acct_test"] = [
         {
             "id": "txn_fee",
             "source": None,
-            "type": "stripe_fee",
+            "type": kind,
             "net": net,
             "currency": "cad",
             "created": int(clock.now().timestamp()),
@@ -318,11 +319,23 @@ async def test_orphan_charge_refund_and_returned_fee_reconcile_once(
             "source": "pyr_orphan",
             "type": "payment_refund",
             "amount": -1000,
-            "fee": -20,
-            "net": -980,
+            "fee": 0,
+            "net": -1000,
             "currency": "cad",
             "created": stamp,
-            "fee_details": [{"type": "application_fee", "amount": -20}],
+            "fee_details": [],
+        },
+        {
+            "id": "txn_orphan_fee_back",
+            "source": "ch_orphan",
+            "type": "adjustment",
+            "reporting_category": "fee",
+            "amount": 20,
+            "fee": 0,
+            "net": 20,
+            "currency": "cad",
+            "created": stamp,
+            "fee_details": [],
         },
     ]
     before = await ledger.balance(db, BIZ, owner_type="business", owner_id=BIZ, category="stripe")
@@ -539,3 +552,186 @@ async def test_payout_history_pages_without_losing_older_payouts(
     assert (await as_owner.get("/v1/connect/payouts?after=po_23")).json() == last.json()
     assert (await as_owner.get("/v1/connect/payouts?after=po_other_account")).status_code == 409
     assert (await as_owner.get("/v1/connect/payouts?after=invalid")).status_code == 422
+
+
+async def _settled_charge(
+    db: AsyncSession, gateway: FakePaymentGateway, name: str, amount: int, fees: ChargeFees
+) -> Payment:
+    """A settled card charge `pi_<name>` / `ch_<name>` with its fees booked."""
+    row = Payment(
+        id=new_id("payment"),
+        business_id=BIZ,
+        client_id=await client_id(db),
+        kind="payment",
+        amount_cents=amount,
+        currency="CAD",
+        method="card",
+        provider="stripe",
+        provider_ref=f"pi_{name}",
+        status="succeeded",
+        paid_at=clock.now() - timedelta(days=10),
+    )
+    db.add(row)
+    await db.flush()
+    await ledger.post_payment(db, row)
+    await ledger.post_fees(db, row, fees)
+    gateway.objects[("acct_test", "charge", f"ch_{name}")] = {
+        "id": f"ch_{name}",
+        "payment_intent": f"pi_{name}",
+    }
+    gateway.objects[("acct_test", "payment_intent", f"pi_{name}")] = {
+        "id": f"pi_{name}",
+        "status": "succeeded",
+    }
+    return row
+
+
+async def _refunded(
+    db: AsyncSession, gateway: FakePaymentGateway, charge: Payment, refund_id: str, amount: int
+) -> Payment:
+    refund = Payment(
+        id=new_id("payment"),
+        business_id=BIZ,
+        client_id=charge.client_id,
+        kind="refund",
+        parent_payment_id=charge.id,
+        amount_cents=amount,
+        currency="CAD",
+        method="card",
+        provider="stripe",
+        provider_ref=refund_id,
+        status="succeeded",
+        paid_at=clock.now() - timedelta(days=10),
+    )
+    db.add(refund)
+    await db.flush()
+    await ledger.post_refund(db, refund, charge)
+    gateway.objects[("acct_test", "refund", refund_id)] = {
+        "id": refund_id,
+        "payment_intent": charge.provider_ref,
+        "status": "succeeded",
+        "amount": amount,
+    }
+    return refund
+
+
+def _txn(
+    identity: str, source: str, kind: str, net: int, created: int, **extra: object
+) -> dict[str, object]:
+    return {
+        "id": identity,
+        "source": source,
+        "type": kind,
+        "amount": net,
+        "fee": 0,
+        "net": net,
+        "currency": "cad",
+        "created": created,
+        "fee_details": [],
+        **extra,
+    }
+
+
+async def _findings(db: AsyncSession) -> list[Audit]:
+    return list(
+        await db.scalars(
+            select(Audit).where(
+                Audit.business_id == BIZ,
+                Audit.action.in_(("ledger.transaction_drift", "ledger.transaction_failed")),
+            )
+        )
+    )
+
+
+async def _window_from(db: AsyncSession, created: int) -> None:
+    db.add(
+        Audit(
+            id=new_id("audit"),
+            business_id=BIZ,
+            action="ledger.reconciled",
+            entity_type="business",
+            entity_id=BIZ,
+            changes={"transaction_id": "txn_before", "created": created},
+        )
+    )
+    await db.commit()
+
+
+async def test_a_returned_application_fee_reconciles_on_the_charge_it_came_from(
+    db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    """Stripe posts the returned fee as an adjustment on the charge (sandbox check 2)."""
+    await enable_payments(db)
+    charge = await _settled_charge(db, gateway, "fee_back", 10000, ChargeFees(400, 300, None))
+    refund = await _refunded(db, gateway, charge, "re_fee_back", 10000)
+    await ledger.post_fee_return(db, charge, refund.id)
+    now = int(clock.now().timestamp())
+    old = now - 10 * 86400
+    gateway.transactions["acct_test"] = [
+        _txn("txn_fee_back", "ch_fee_back", "adjustment", 300, now, reporting_category="fee"),
+        _txn("txn_refund", "re_fee_back", "refund", -10000, old),
+        {
+            **_txn("txn_charge", "ch_fee_back", "charge", 9300, old),
+            "amount": 10000,
+            "fee": 700,
+            "fee_details": [
+                {"type": "application_fee", "amount": 300},
+                {"type": "stripe_fee", "amount": 400},
+            ],
+        },
+    ]
+    assert await reconcile_stripe_transactions(db, gateway, BIZ, "acct_test") == 0
+    await _window_from(db, now - 600)
+    assert await reconcile_stripe_transactions(db, gateway, BIZ, "acct_test") == 0
+    assert ("acct_test", None, "ch_fee_back") in gateway.transaction_calls
+    assert await _findings(db) == []
+
+
+async def test_a_refund_that_failed_reconciles_against_its_reversal(
+    db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    """Stripe's `source` filter leaves out the `refund_failure` row, so it is read by type."""
+    await enable_payments(db)
+    charge = await _settled_charge(db, gateway, "refund_fails", 5000, ChargeFees(175, 0, None))
+    refund = await _refunded(db, gateway, charge, "re_refund_fails", 2000)
+    refund.status = "failed"
+    await ledger.reverse_refund(db, refund, charge)
+    gateway.objects[("acct_test", "refund", "re_refund_fails")]["status"] = "failed"
+    now = int(clock.now().timestamp())
+    await _window_from(db, now - 600)
+    gateway.transactions["acct_test"] = [
+        _txn("txn_refund_back", "re_refund_fails", "refund_failure", 2000, now),
+        _txn("txn_refund_out", "re_refund_fails", "refund", -2000, now - 10 * 86400),
+    ]
+    assert await reconcile_stripe_transactions(db, gateway, BIZ, "acct_test") == 0
+    assert await _findings(db) == []
+
+
+@pytest.mark.parametrize("dispute", ["du_recovered", "dp_recovered"])
+async def test_a_dispute_withdrawal_is_recovered_and_reconciled(
+    db: AsyncSession, gateway: FakePaymentGateway, dispute: str
+) -> None:
+    """Disputes are `du_` today and `dp_` on older ones; both are repaired and compared."""
+    await enable_payments(db)
+    charge = await _settled_charge(db, gateway, "disputed", 10000, ChargeFees(320, 300, None))
+    withdrawal = {
+        **_txn("txn_dispute", dispute, "adjustment", -11500, int(clock.now().timestamp())),
+        "amount": -10000,
+        "fee": 1500,
+        "reporting_category": "dispute",
+    }
+    gateway.objects[("acct_test", "dispute", dispute)] = {
+        "id": dispute,
+        "payment_intent": charge.provider_ref,
+        "amount": 10000,
+        "status": "needs_response",
+        "balance_transactions": [withdrawal],
+    }
+    gateway.transactions["acct_test"] = [withdrawal]
+    before = await ledger.balance(db, BIZ, owner_type="business", owner_id=BIZ, category="stripe")
+    for _ in range(2):
+        assert await reconcile_stripe_transactions(db, gateway, BIZ, "acct_test") == 0
+    after = await ledger.balance(db, BIZ, owner_type="business", owner_id=BIZ, category="stripe")
+    assert after == before - 11500
+    await db.refresh(charge)
+    assert charge.dispute_status == "needs_response"

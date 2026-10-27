@@ -12,10 +12,12 @@ from clientbridge.core.ids import new_id
 from clientbridge.integrations.stripe import AccountBalance
 from clientbridge.models.business import Business
 from clientbridge.models.ledger import Entry
+from clientbridge.models.payments import Payment
 from clientbridge.models.platform import Audit
 from clientbridge.services import ledger
 from clientbridge.services.payments import run_reconcile_payments
 from tests.conftest import BIZ, Factory, FakePaymentGateway
+from tests.helpers import client_id
 
 
 async def _connect(db: AsyncSession, business_id: str, account: str) -> None:
@@ -362,3 +364,71 @@ async def test_a_failing_business_alerts_once_a_day_not_every_hour(
     await run_reconcile_payments(db, gateway)
     await run_reconcile_payments(db, gateway)
     assert len(await _findings(db, "ledger.reconciliation_failed")) == 1
+
+
+async def test_a_pending_refund_is_expected_until_it_settles(
+    db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    """Stripe debits a PAD refund while it is pending (sandbox check 1); we book it on success."""
+    await _connect(db, BIZ, "acct_pad_refund")
+    charge = Payment(
+        id=new_id("payment"),
+        business_id=BIZ,
+        client_id=await client_id(db),
+        kind="payment",
+        amount_cents=5000,
+        currency="CAD",
+        method="bank_eft",
+        provider="stripe",
+        provider_ref="pi_pad_refunded",
+        status="succeeded",
+        paid_at=clock.now(),
+    )
+    db.add(charge)
+    await db.flush()
+    await ledger.post_payment(db, charge)
+    refund = Payment(
+        id=new_id("payment"),
+        business_id=BIZ,
+        client_id=charge.client_id,
+        kind="refund",
+        parent_payment_id=charge.id,
+        amount_cents=2000,
+        currency="CAD",
+        method="bank_eft",
+        provider="stripe",
+        provider_ref="pyr_pad_pending",
+        status="pending",
+    )
+    db.add(refund)
+    await db.commit()
+    gateway.objects[("acct_pad_refund", "refund", "pyr_pad_pending")] = {
+        "id": "pyr_pad_pending",
+        "payment_intent": "pi_pad_refunded",
+        "amount": 2000,
+        "status": "pending",
+        "created": int(clock.now().timestamp()),
+    }
+    gateway.transactions["acct_pad_refund"] = [
+        {
+            "id": "txn_pad_refund",
+            "source": "pyr_pad_pending",
+            "type": "payment_refund",
+            "status": "pending",
+            "amount": -2000,
+            "fee": 0,
+            "net": -2000,
+            "currency": "cad",
+            "created": int(clock.now().timestamp()),
+        }
+    ]
+    await _stripe_holds(db, gateway, "acct_pad_refund", -2000)
+    await run_reconcile_payments(db, gateway)
+    assert await _findings(db, "ledger.transaction_drift") == []
+    await _cursor(db, int(clock.now().timestamp()) + 10 * 86400)
+    gateway.objects[("acct_pad_refund", "refund", "pyr_pad_pending")]["status"] = "succeeded"
+    await run_reconcile_payments(db, gateway)
+    assert ("acct_pad_refund", None, "pyr_pad_pending") in gateway.transaction_calls
+    await db.refresh(refund)
+    assert refund.status == "succeeded"
+    assert await _findings(db, "ledger.transaction_drift") == []

@@ -26,6 +26,7 @@ import {
     Button,
     Checkbox,
     Choice,
+    DateField,
     Empty,
     Field,
     Icon,
@@ -154,6 +155,16 @@ export function TaxesScreen() {
                         error={form.fieldErrors.gst}
                         disabled={!registered}
                     />
+                    {registered ? (
+                        <DateField
+                            label={s.registeredSince}
+                            hint={s.registeredSinceHint}
+                            value={form.registeredSince}
+                            onChange={form.setRegisteredSince}
+                            zone={zone}
+                            optional
+                        />
+                    ) : null}
                     {form.hasPst ? (
                         <TextField
                             label={s.pst}

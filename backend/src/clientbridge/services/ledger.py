@@ -1126,6 +1126,38 @@ async def lose_dispute(
         )
 
 
+async def reinstate_dispute(
+    db: AsyncSession, payment: Payment, dispute_id: str, *, amount: int, net: int
+) -> None:
+    """Funds Stripe hands back on a lost dispute, such as a part refunded first, reduce the loss."""
+    biz = payment.business_id
+    if amount <= 0 or await journal_for(db, biz, f"dispute:{dispute_id}:lost") is None:
+        return
+    ref = f"dispute:{dispute_id}:reinstated"
+    rows = await _rows(
+        db, biz, or_(Entry.ref == ref, Entry.ref.startswith(f"{ref}:", autoescape=True))
+    )
+    booked = -sum(e.amount_cents for e, a in rows if a.category == "loss")
+    booked_net = sum(e.amount_cents for e, a in rows if a.category == "stripe")
+    if amount <= booked:
+        return
+    subject, _ = await _settlement(db, payment)
+    await post(
+        db,
+        biz,
+        event="dispute",
+        ref=ref if not rows else f"{ref}:{amount}",
+        legs=[
+            Leg("business", biz, "stripe", net - booked_net),
+            Leg("business", biz, "loss", booked - amount),
+            Leg("business", biz, "processing_fee", amount - booked - (net - booked_net)),
+        ],
+        currency=payment.currency,
+        source=("payment", payment.id),
+        subject=subject,
+    )
+
+
 async def post_payout(
     db: AsyncSession,
     business_id: str,
@@ -1371,7 +1403,9 @@ async def post_forfeit(db: AsyncSession, booking: Booking) -> None:
     await _move_forfeit(db, booking, await deposit_held(db, booking), f"forfeit:{booking.id}")
 
 
-async def post_application(db: AsyncSession, booking: Booking, invoice: Invoice) -> int:
+async def post_application(
+    db: AsyncSession, booking: Booking, invoice: Invoice, *, again: str | None = None
+) -> int:
     """Apply a held deposit to the booking's invoice: the deposit pays down its receivable."""
     biz = booking.business_id
     applied = min(await deposit_held(db, booking), await invoice_balance(db, invoice))
@@ -1381,7 +1415,7 @@ async def post_application(db: AsyncSession, booking: Booking, invoice: Invoice)
         db,
         biz,
         event="application",
-        ref=f"application:{booking.id}:{invoice.id}",
+        ref=f"application:{booking.id}:{invoice.id}" + (f":again:{again}" if again else ""),
         legs=[
             Leg("business", biz, "deposit", applied, subject=("booking", booking.id)),
             Leg(
@@ -1400,29 +1434,35 @@ async def post_application(db: AsyncSession, booking: Booking, invoice: Invoice)
 async def applied_invoices(db: AsyncSession, booking: Booking) -> list[str]:
     """The invoices a booking's deposit currently counts toward (applied and not taken back)."""
     prefix = f"application:{booking.id}:"
+    return sorted(
+        {ref.removeprefix(prefix).split(":")[0] for ref in await _applications(db, booking)}
+    )
+
+
+async def reverse_application(db: AsyncSession, booking: Booking, invoice_id: str) -> None:
+    for ref in await _applications(db, booking):
+        if ref.startswith(f"application:{booking.id}:{invoice_id}"):
+            journal = await journal_for(db, booking.business_id, ref)
+            if journal is not None:
+                await reverse(db, booking.business_id, journal, ref=f"{ref}:reversal")
+
+
+async def _applications(db: AsyncSession, booking: Booking) -> list[str]:
+    """Refs of the booking's application journals that have not been reversed."""
     refs = set(
         (
             await db.execute(
                 scoped(Entry, booking.business_id)
                 .with_only_columns(Entry.ref)
-                .where(Entry.ref.startswith(prefix), Entry.leg == 0)
+                .where(Entry.ref.startswith(f"application:{booking.id}:"), Entry.leg == 0)
             )
         )
         .scalars()
         .all()
     )
     return sorted(
-        ref.removeprefix(prefix)
-        for ref in refs
-        if not ref.endswith(":reversal") and f"{ref}:reversal" not in refs
+        ref for ref in refs if not ref.endswith(":reversal") and f"{ref}:reversal" not in refs
     )
-
-
-async def reverse_application(db: AsyncSession, booking: Booking, invoice_id: str) -> None:
-    ref = f"application:{booking.id}:{invoice_id}"
-    journal = await journal_for(db, booking.business_id, ref)
-    if journal is not None:
-        await reverse(db, booking.business_id, journal, ref=f"{ref}:reversal")
 
 
 async def reverse_forfeit(db: AsyncSession, booking: Booking, key: str) -> None:
@@ -1440,12 +1480,13 @@ async def reverse_forfeit(db: AsyncSession, booking: Booking, key: str) -> None:
         await _move_forfeit(db, booking, -forfeited, f"forfeit:{booking.id}:back:{key}")
 
 
-async def restore_forfeit(db: AsyncSession, booking: Booking, key: str) -> None:
+async def restore_forfeit(db: AsyncSession, booking: Booking, key: str) -> int:
     """A refund that failed after taking a forfeit back forfeits that money again."""
     rows = await _rows(db, booking.business_id, Entry.ref == f"forfeit:{booking.id}:back:{key}")
     taken = sum(entry.amount_cents for entry, account in rows if account.category == "revenue")
     if taken > 0:
         await _move_forfeit(db, booking, taken, f"forfeit:{booking.id}:restore:{key}")
+    return max(taken, 0)
 
 
 async def _move_forfeit(db: AsyncSession, booking: Booking, cents: int, ref: str) -> None:
@@ -1525,7 +1566,7 @@ async def post_orphan(
     await post(
         db,
         business_id,
-        event="payment" if amount > 0 else "refund",
+        event="fee" if amount == 0 else "payment" if amount > 0 else "refund",
         ref=ref,
         legs=[
             Leg("business", business_id, "stripe", amount - processing_fee - application_fee),

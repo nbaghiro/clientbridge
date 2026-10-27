@@ -1,10 +1,11 @@
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from typing import Literal
 
 from sqlalchemy import (
     BigInteger,
     Boolean,
     CheckConstraint,
+    Date,
     DateTime,
     ForeignKey,
     Index,
@@ -69,6 +70,8 @@ class Business(PKMixin, TimestampMixin, Base):
     gst_hst_number: Mapped[str | None] = mapped_column(String)
     qst_number: Mapped[str | None] = mapped_column(String)
     tax_registered: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    # null while unregistered, or registered with no known start (registered throughout)
+    tax_registered_on: Mapped[date | None] = mapped_column(Date)
     pst_number: Mapped[str | None] = mapped_column(String)
     setup_dismissed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     review_requests_enabled: Mapped[bool] = mapped_column(

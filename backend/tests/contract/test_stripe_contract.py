@@ -1,10 +1,14 @@
 """Every v1 StripeGateway call against stripe-mock; it has no /v2 routes, so v2 calls are e2e."""
 
-from collections.abc import Sequence
+import contextlib
+from collections.abc import Awaitable, Callable, Sequence
 from datetime import UTC, datetime
+from typing import cast
 
 import pytest
+import stripe
 
+from clientbridge.core.errors import Conflict
 from clientbridge.integrations.stripe import (
     ChargeFees,
     ConnectComponent,
@@ -72,6 +76,60 @@ async def test_create_payment_intent(contract_gateway: StripeGateway) -> None:
         idempotency_key="contract-pi-1",
     )
     assert result.id.startswith("pi_") and result.client_secret
+
+
+async def test_charges_a_saved_bank_account_under_its_mandate(
+    contract_gateway: StripeGateway, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    sent = _recorded(monkeypatch, stripe.PaymentIntent)
+    result = await contract_gateway.create_payment_intent(
+        ACCT,
+        amount_cents=5000,
+        currency="cad",
+        customer_id=CUS,
+        application_fee_cents=50,
+        metadata={"invoice_id": "inv_1"},
+        idempotency_key="contract-pi-pad",
+        payment_method="pm_contract",
+        mandate="mandate_contract",
+    )
+    assert result.id.startswith("pi_")
+    (params,) = sent
+    assert params["allowed_payment_method_types"] == ["acss_debit"]
+    assert params["mandate"] == "mandate_contract"
+    assert "payment_method_types" not in params
+
+
+async def test_pad_setup_asks_for_a_mandate_that_covers_invoices_and_memberships(
+    contract_gateway: StripeGateway, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    sent = _recorded(monkeypatch, stripe.SetupIntent)
+    with contextlib.suppress(Conflict):  # stripe-mock answers with card as the only type
+        await contract_gateway.create_pad_setup_intent(
+            ACCT,
+            customer_id=CUS,
+            idempotency_key="contract-pad-setup",
+        )
+    (params,) = sent
+    options = cast(dict[str, dict[str, object]], params["payment_method_options"])
+    mandate = cast(dict[str, object], options["acss_debit"]["mandate_options"])
+    assert mandate["default_for"] == ["invoice", "subscription"]
+    assert "payment_schedule" not in mandate and "interval_description" not in mandate
+
+
+def _recorded(
+    monkeypatch: pytest.MonkeyPatch, resource: type[stripe.PaymentIntent] | type[stripe.SetupIntent]
+) -> list[dict[str, object]]:
+    """Keep each create's parameters while stripe-mock still validates the request."""
+    sent: list[dict[str, object]] = []
+    create = cast(Callable[..., Awaitable[object]], resource.create_async)
+
+    async def record(**params: object) -> object:
+        sent.append(params)
+        return await create(**params)
+
+    monkeypatch.setattr(resource, "create_async", record)
+    return sent
 
 
 async def test_refund(contract_gateway: StripeGateway) -> None:
@@ -218,6 +276,11 @@ async def test_retrieve_connected_object(
 
 async def test_lists_balance_transactions(contract_gateway: StripeGateway) -> None:
     assert await contract_gateway.balance_transactions(ACCT)
+
+
+async def test_lists_balance_transactions_by_type(contract_gateway: StripeGateway) -> None:
+    rows = await contract_gateway.balance_transactions(ACCT, since=0, kind="refund_failure")
+    assert isinstance(rows, list)
 
 
 async def test_lists_payouts(contract_gateway: StripeGateway) -> None:

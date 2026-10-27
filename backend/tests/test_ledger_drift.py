@@ -76,7 +76,7 @@ def _dispute(
     pi: str, status: str, txns: Sequence[Mapping[str, object]], *, amount: int = 8000
 ) -> dict[str, object]:
     return {
-        "id": f"dp_{pi}",
+        "id": f"du_{pi}",
         "payment_intent": pi,
         "amount": amount,
         "status": status,

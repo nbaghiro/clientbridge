@@ -1,5 +1,5 @@
 import re
-from datetime import datetime
+from datetime import date, datetime
 from urllib.parse import urlparse
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -64,6 +64,7 @@ class BusinessOut(Mirror):
     qst_number: str | None
     pst_number: str | None
     tax_registered: bool
+    tax_registered_on: date | None
     filing_frequency: FilingFrequency
     setup_dismissed_at: datetime | None
     review_requests_enabled: bool
@@ -155,6 +156,10 @@ class BusinessSettingsUpdate(Mirror):
     qst_number: str | None = None
     pst_number: str | None = None
     tax_registered: bool | None = None
+    tax_registered_on: date | None = Field(
+        default=None,
+        description="The day GST/HST registration took effect; null means registered throughout",
+    )
     filing_frequency: FilingFrequency | None = Field(
         default=None, description="How often the business files its sales-tax returns"
     )

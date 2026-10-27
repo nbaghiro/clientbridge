@@ -5029,6 +5029,8 @@ export interface components {
             pst_number: string | null;
             /** Tax Registered */
             tax_registered: boolean;
+            /** Tax Registered On */
+            tax_registered_on: string | null;
             /**
              * Filing Frequency
              * @enum {string}
@@ -5078,6 +5080,11 @@ export interface components {
             pst_number?: string | null;
             /** Tax Registered */
             tax_registered?: boolean | null;
+            /**
+             * Tax Registered On
+             * @description The day GST/HST registration took effect; null means registered throughout
+             */
+            tax_registered_on?: string | null;
             /**
              * Filing Frequency
              * @description How often the business files its sales-tax returns

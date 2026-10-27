@@ -720,11 +720,25 @@ async def reverse_deposit(db: AsyncSession, booking_id: str, key: str) -> list[s
     return invoices
 
 
-async def restore_deposit(db: AsyncSession, booking_id: str, key: str) -> None:
-    """A refund `key` failed: the forfeit it took back stands again."""
+async def restore_deposit(db: AsyncSession, booking_id: str, key: str) -> str | None:
+    """A refund `key` failed: the forfeit stands again and the deposit goes back on its invoice."""
     booking = await db.get(Booking, booking_id)
-    if booking is not None:
-        await ledger.restore_forfeit(db, booking, key)
+    if booking is None:
+        return None
+    forfeited = await ledger.restore_forfeit(db, booking, key)
+    if await ledger.deposit_held(db, booking) <= 0:
+        booking.deposit_status = "forfeited" if forfeited else "refunded"
+        await db.flush()
+        return None
+    booking.deposit_status = "collected"
+    invoice = await _open_invoice(db, booking)
+    if invoice is None or await ledger.post_application(db, booking, invoice, again=key) <= 0:
+        await db.flush()
+        return None
+    if await ledger.deposit_held(db, booking) <= 0:
+        booking.deposit_status = "applied"
+    await db.flush()
+    return invoice.id
 
 
 async def deposit_refunded(db: AsyncSession, booking_id: str) -> None:

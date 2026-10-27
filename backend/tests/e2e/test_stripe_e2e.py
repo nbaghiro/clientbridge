@@ -52,7 +52,6 @@ async def test_pad_setup_has_a_scoped_customer(stripe_run: StripeRun) -> None:
         stripe_run.account,
         customer_id=customer,
         idempotency_key=f"{stripe_run.namespace}:pad",
-        interval_description="When an invoice or a scheduled membership payment is due",
     )
     try:
         setup = await stripe.SetupIntent.retrieve_async(

@@ -672,6 +672,8 @@ transactions by source and its Stripe balance against the ledger, and records an
 
 GST/HST/PST/QST computed per **province** at the **line level** (QST at exact 9.975%, half-up rounding).
 The business stores registration numbers; small-supplier mode (`tax_registered=false`) collects nothing.
+`tax_registered_on`, when set, is the day registration took effect: a supply before that day in the
+business time zone is untaxed (`services/business.registered_on`).
 The engine (`services/tax.py`) is pure and golden-tested; rates are rows of (province, code, rate,
 valid_from) in the same file (no table), and a supply is taxed at the rows in force on its date in the
 business time zone. Devices read the same rows from the generated `app-core/src/taxRates.ts` (`make

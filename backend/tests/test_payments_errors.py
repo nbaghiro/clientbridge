@@ -3,9 +3,13 @@ import logging
 import httpx
 import pytest
 import stripe
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from clientbridge.integrations.stripe import ConnectComponent
+from clientbridge.integrations.stripe import ConnectComponent, RefundResult
+from clientbridge.models.payments import Payment
 from tests.conftest import FakePaymentGateway
+from tests.helpers import card_pay, enable_payments, key, sent_invoice, settle
 
 HEADERS = {"request-id": "req_test"}
 
@@ -76,3 +80,48 @@ async def test_stripe_error_hides_stripe_text_and_logs_the_request_id(
     assert record.levelno == logging.WARNING
     assert "req_test" in record.getMessage()
     assert "parameter_invalid_integer" in record.getMessage()
+
+
+async def test_retrying_a_refund_after_a_network_error_reuses_the_stripe_key(
+    api: httpx.AsyncClient,
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    gateway: FakePaymentGateway,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    await enable_payments(db)
+    payment_id = await card_pay(api, db, await sent_invoice(db, number=9201))
+    await settle(api, db, payment_id)
+    keys: list[str] = []
+    refund = gateway.refund
+
+    async def flaky(
+        account_id: str,
+        *,
+        payment_intent_id: str,
+        amount_cents: int,
+        idempotency_key: str,
+        refund_application_fee: bool = False,
+    ) -> RefundResult:
+        keys.append(idempotency_key)
+        if len(keys) == 1:
+            raise stripe.APIConnectionError("network down")
+        return await refund(
+            account_id,
+            payment_intent_id=payment_intent_id,
+            amount_cents=amount_cents,
+            idempotency_key=idempotency_key,
+            refund_application_fee=refund_application_fee,
+        )
+
+    monkeypatch.setattr(gateway, "refund", flaky)
+    headers = key()
+    first = await as_owner.post(f"/v1/payments/{payment_id}/refund", json={}, headers=headers)
+    assert first.json()["error"] == "payment_provider_error"
+    retry = await as_owner.post(f"/v1/payments/{payment_id}/refund", json={}, headers=headers)
+    assert retry.status_code == 200
+    assert keys[0] == keys[1]
+    refunds = await db.execute(
+        select(Payment.id).where(Payment.parent_payment_id == payment_id, Payment.kind == "refund")
+    )
+    assert len(refunds.scalars().all()) == 1

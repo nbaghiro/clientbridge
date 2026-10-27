@@ -697,6 +697,8 @@ async def test_a_refund_that_fails_later_forfeits_the_deposit_again(
     await stripe_event(api, "refund.updated", refund | {"status": "failed"})
     assert await revenue() == -2000
     assert await ledger.deposit_held(db, booking) == 0
+    await db.refresh(booking)
+    assert booking.deposit_status == "forfeited"
     await stripe_event(api, "refund.created", refund | {"id": "re_again", "status": "succeeded"})
     assert await revenue() == 0
 

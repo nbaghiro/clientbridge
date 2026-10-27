@@ -1973,7 +1973,9 @@ describe("app-core SQL against the replica schema", () => {
             { id: "stk_2", item_name: "Soap", order_source: "online", by_name: "Owner" },
             { id: "stk_1", item_name: "Soap", order_source: null, by_name: "Groomer" },
         ]);
-        expect(run("TAX_SETUP_SQL")).toEqual([{ province: null, tax_registered: 1 }]);
+        expect(run("TAX_SETUP_SQL")).toEqual([
+            { province: null, tax_registered: 1, tax_registered_on: null },
+        ]);
     });
 
     it("reads a client's record: subjects, visits, notes, methods, plans and history", () => {
@@ -2123,6 +2125,7 @@ describe("app-core SQL against the replica schema", () => {
             {
                 province: "BC",
                 tax_registered: 1,
+                tax_registered_on: null,
                 gst_hst_number: "123456789RT0001",
                 pst_number: "PST12345678",
                 filing_frequency: "quarterly",

@@ -1,6 +1,7 @@
 """Lost disputes unwind only what a sale still carries, and disputed payments can't be refunded."""
 
 import json
+from collections.abc import Mapping, Sequence
 
 import httpx
 from sqlalchemy import select
@@ -76,8 +77,23 @@ async def _purchase(db: AsyncSession, amount: int, booking_id: str | None = None
     return payment
 
 
-def _dispute(event_id: str, pi: str, status: str, amount: int, event: str = "closed") -> str:
-    obj = {"id": f"dp_{event_id}", "payment_intent": pi, "amount": amount, "status": status}
+def _dispute(
+    event_id: str,
+    pi: str,
+    status: str,
+    amount: int,
+    event: str = "closed",
+    txns: Sequence[Mapping[str, object]] | None = None,
+    dispute: str | None = None,
+) -> str:
+    obj: dict[str, object] = {
+        "id": dispute or f"du_{event_id}",
+        "payment_intent": pi,
+        "amount": amount,
+        "status": status,
+    }
+    if txns is not None:
+        obj["balance_transactions"] = txns
     return json.dumps({"id": event_id, "type": f"charge.dispute.{event}", "data": {"object": obj}})
 
 
@@ -122,6 +138,34 @@ async def test_a_dispute_lost_after_a_partial_refund_unwinds_the_rest_and_loses_
     assert await _invoice_net(db, inv_id, "revenue") == 0
     assert await _invoice_net(db, inv_id, "tax") == 0
     assert await _loss(db) - before == 5600
+
+
+async def test_a_lost_dispute_that_reinstates_the_refunded_part_loses_only_the_rest(
+    as_owner: httpx.AsyncClient, api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    """Stripe disputes the whole charge after a partial refund and gives the refunded part back."""
+    inv_id, pay_id = await _paid_invoice(as_owner, db)
+    refund = await as_owner.post(
+        f"/v1/payments/{pay_id}/refund", json={"amount_cents": 5600}, headers=retry_key()
+    )
+    assert refund.status_code == 200, refund.text
+    loss, stripe = await _loss(db), await business_balance(db, "stripe")
+    pi = await _intent(db, pay_id)
+    pulled = {"id": "txn_whole_out", "amount": -11200, "fee": 1500, "net": -12700}
+    back = {"id": "txn_part_back", "amount": 5600, "fee": 0, "net": 5600}
+    lost = _dispute("evt_whole_lost", pi, "lost", 11200, txns=[pulled], dispute="du_whole")
+    assert (await api.post("/webhooks/stripe", content=lost, headers=GOOD)).status_code == 200
+    assert await _loss(db) - loss == 5600
+    for event_id in ("evt_part_back", "evt_part_back_again"):
+        reinstated = _dispute(
+            event_id, pi, "lost", 11200, "funds_reinstated", [pulled, back], dispute="du_whole"
+        )
+        response = await api.post("/webhooks/stripe", content=reinstated, headers=GOOD)
+        assert response.status_code == 200
+        assert await _loss(db) == loss
+        assert await business_balance(db, "stripe") == stripe - 12700 + 5600
+    assert await _invoice_net(db, inv_id, "revenue") == 0
+    assert await _invoice_net(db, inv_id, "tax") == 0
 
 
 async def test_a_dispute_lost_on_a_part_used_gift_card_loses_the_used_part(

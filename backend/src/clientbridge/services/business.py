@@ -191,13 +191,21 @@ async def business_province(db: AsyncSession, business_id: str) -> str | None:
     ).scalar_one_or_none()
 
 
-async def business_tax_registered(db: AsyncSession, business_id: str) -> bool:
-    """Whether the business collects GST/HST (small suppliers don't)."""
-    return bool(
-        (
-            await db.execute(select(Business.tax_registered).where(Business.id == business_id))
-        ).scalar_one()
-    )
+def registered_on(registered: bool, since: date | None, day: date) -> bool:
+    """Whether a business collects GST/HST on its calendar `day` (small suppliers don't)."""
+    return registered and (since is None or since <= day)
+
+
+async def business_tax_registered(db: AsyncSession, business_id: str, at: datetime) -> bool:
+    """Whether the business collected GST/HST at the instant `at`, on its own calendar."""
+    registered, since, tz = (
+        await db.execute(
+            select(Business.tax_registered, Business.tax_registered_on, Business.timezone).where(
+                Business.id == business_id
+            )
+        )
+    ).one()
+    return registered_on(registered, since, at.astimezone(zone(tz)).date())
 
 
 def derive_kyc_status(status: ConnectAccount) -> KycStatus:
@@ -412,9 +420,17 @@ class BusinessService:
                 "the province cannot change once a document has charged tax",
                 code="province_locked",
             )
+        registered = business.tax_registered if data.tax_registered is None else data.tax_registered
+        if data.tax_registered_on is not None and not registered:
+            raise Unprocessable(
+                "a registration date needs GST/HST registration turned on",
+                code="tax_registration_off",
+            )
         for key, value in fields.items():
             if value is not None or key not in _KEPT_ON_NULL:
                 setattr(business, key, value)
+        if not business.tax_registered:
+            business.tax_registered_on = None
         _assert_postal_code_in_province(business)
         if data.setup_dismissed is not None:
             business.setup_dismissed_at = clock.now() if data.setup_dismissed else None
