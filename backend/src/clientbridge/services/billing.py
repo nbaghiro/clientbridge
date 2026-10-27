@@ -70,7 +70,7 @@ class BillingService:
                 business_id=self.biz,
                 client_id=data.client_id,
                 status="draft",
-                currency="CAD",
+                currency=ledger.BUSINESS_CURRENCY,
                 notes=data.notes,
                 due_at=data.due_at,
             )
@@ -299,7 +299,7 @@ class BillingService:
                 business_id=self.biz,
                 client_id=estimate.client_id,
                 status="draft",
-                currency="CAD",
+                currency=ledger.BUSINESS_CURRENCY,
                 notes=estimate.notes,
                 discount_kind=estimate.discount_kind,
                 discount_value=estimate.discount_value,
@@ -545,7 +545,7 @@ async def draft_for_booking(db: AsyncSession, booking: Booking) -> tuple[Invoice
         business_id=booking.business_id,
         client_id=booking.client_id,
         status="draft",
-        currency=item.currency if item is not None else "CAD",
+        currency=item.currency if item is not None else ledger.BUSINESS_CURRENCY,
     )
     db.add(invoice)
     await db.flush()

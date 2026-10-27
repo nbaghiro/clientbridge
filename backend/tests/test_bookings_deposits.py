@@ -10,6 +10,7 @@ from clientbridge.models.scheduling import Booking
 from clientbridge.services import ledger
 from tests.conftest import FakePaymentGateway
 from tests.helpers import (
+    begin,
     card_pay,
     deposit_payment,
     enable_payments,
@@ -289,3 +290,34 @@ async def _payment_id(db: AsyncSession, provider_ref: str) -> str:
     return (
         await db.execute(select(Payment.id).where(Payment.provider_ref == provider_ref))
     ).scalar_one()
+
+
+async def test_completing_a_visit_cancels_its_unpaid_deposit_intent(
+    api: httpx.AsyncClient,
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    gateway: FakePaymentGateway,
+) -> None:
+    bid, _, pid = await _online_deposit(api, db)
+    await begin(db, bid)
+    res = await as_owner.patch(f"/v1/bookings/{bid}", json={"status": "completed"})
+    assert res.status_code == 200, res.text
+    assert (await payment(db, pid)).status == "canceled"
+    assert await provider_ref(db, pid) in gateway.canceled_intents
+
+
+async def test_a_deposit_that_settles_after_the_visit_is_done_is_refunded(
+    api: httpx.AsyncClient,
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    gateway: FakePaymentGateway,
+) -> None:
+    bid, _, pid = await _online_deposit(api, db)
+    gateway.confirmed.add(await provider_ref(db, pid))
+    await begin(db, bid)
+    res = await as_owner.patch(f"/v1/bookings/{bid}", json={"status": "completed"})
+    assert res.status_code == 200, res.text
+    await settle(api, db, pid)
+    booking = await db.get(Booking, bid, populate_existing=True)
+    assert booking is not None
+    assert (booking.status, booking.deposit_status) == ("completed", "refunded")

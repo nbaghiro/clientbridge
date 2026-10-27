@@ -24,7 +24,9 @@ type AccountKey = tuple[str, str, str, str]
 type _Id = InstrumentedAttribute[str] | str
 
 PLATFORM = "clientbridge"
-BUSINESS_CURRENCY = "CAD"  # every tenant books in CAD until multi-currency is a feature
+BUSINESS_CURRENCY = "CAD"
+# adding a currency here is the switch; accounts are already keyed by currency
+SUPPORTED_CURRENCIES = frozenset({BUSINESS_CURRENCY})
 _CASH = {"stripe": "stripe", "manual": "cash"}
 _CASH_CATEGORIES = ("stripe", "cash", "bank")
 # cash legs that settle or unsettle a document: a dispute withdraws like a refund, a win restores
@@ -33,6 +35,13 @@ _MONEY_BACK_EVENTS = ("payment", "refund", "dispute")
 _BANKED_BY_HAND = ("cheque", "etransfer", "bank_eft")
 # the credit-side kinds a refund unwinds pro rata (never the receivable: a refund is a credit note)
 _UNWOUND = ("revenue", "tax", "deposit", "deferred", "gift_card")
+
+
+def supported(currency: str) -> str:
+    """The currency in canonical form, or refuse one the ledger can't book."""
+    if currency.upper() not in SUPPORTED_CURRENCIES:
+        raise UnsupportedCurrency(f"{currency.upper()} is not a supported currency")
+    return currency.upper()
 
 
 class UnbalancedJournal(ValueError):
@@ -69,9 +78,7 @@ async def post(
     keep_zero: bool = False,
 ) -> str | None:
     """Write one balanced journal; a repeated `ref` returns the original id."""
-    currency = currency.upper()
-    if currency != BUSINESS_CURRENCY:
-        raise UnsupportedCurrency(f"{currency} journals are not supported")
+    currency = supported(currency)
     existing = await journal_for(db, business_id, ref)
     if existing is not None:
         return existing
@@ -839,17 +846,36 @@ async def _unwind(
     prior: dict[str, int] = {}
     for entry, _ in prior_rows:
         prior[entry.account_id] = prior.get(entry.account_id, 0) + entry.amount_cents
-    done = sum(prior.values()) + returned
+    unwound = sum(prior.values())
+    done = min(unwound + returned, base)
     shares = [
         (a, credit * done // base - prior.get(a.id, 0), credit) for a, credit in owed.values()
     ]
     largest = max(range(len(shares)), key=lambda i: shares[i][2])
-    short = returned - sum(cents for _, cents, _ in shares)
+    short = done - unwound - sum(cents for _, cents, _ in shares)
     legs = [
-        Leg(a.owner_type, a.owner_id, a.category, cents + (short if i == largest else 0), a.code)
+        Leg(
+            a.owner_type,
+            a.owner_id,
+            a.category,
+            await _within_holding(db, a, cents + (short if i == largest else 0)),
+            a.code,
+        )
         for i, (a, cents, _) in enumerate(shares)
     ]
+    # money returned beyond what the sale still carries was lost twice, never a negative sale
+    lost = returned - sum(leg.amount_cents for leg in legs)
+    if lost > 0:
+        legs.append(Leg("business", original.business_id, "loss", lost))
     return legs
+
+
+async def _within_holding(db: AsyncSession, account: Account, cents: int) -> int:
+    """A gift card or package gives back only what it still holds; the used part is spent."""
+    if account.owner_type not in ("gift_card", "package"):
+        return cents
+    held = await db.scalar(select(Account.balance_cents).where(Account.id == account.id))
+    return min(cents, max(0, -(held or 0)))
 
 
 async def refund_legs(
@@ -869,6 +895,29 @@ async def refund_legs(
     if base <= 0:
         return [Leg("business", biz, "revenue", returned - tip), *tip_legs]
     return [*await _unwind(db, original, refund_id, credits, base, returned - tip), *tip_legs]
+
+
+async def post_fee_return(db: AsyncSession, payment: Payment, refund_id: str) -> None:
+    """Our application fee goes back to the business with a refund we made for our own reasons."""
+    biz = payment.business_id
+    rows = await _rows(db, biz, Entry.ref == f"fee:{payment.id}")
+    app = sum(e.amount_cents for e, a in rows if a.category == "platform_fee" and a.owner_id == biz)
+    if app <= 0:
+        return
+    await post(
+        db,
+        biz,
+        event="fee",
+        ref=f"fee_return:{refund_id}",
+        legs=[
+            Leg("business", biz, "platform_fee", -app),
+            Leg("business", biz, "stripe", app),
+            Leg("platform", PLATFORM, "stripe", -app),
+            Leg("platform", PLATFORM, "fee_revenue", app),
+        ],
+        currency=payment.currency,
+        source=("payment", payment.id),
+    )
 
 
 async def payment_fee(db: AsyncSession, payment: Payment) -> int:
@@ -1087,14 +1136,14 @@ async def post_payout(
     arrival_at: datetime | None,
     occurred_at: datetime | None,
 ) -> None:
-    """Dated when Stripe created the payout; the money reaches the bank on arrival_at."""
+    """Stripe's balance drops when it creates the payout; the money is in transit until arrival."""
     await post(
         db,
         business_id,
         event="payout",
         ref=f"payout:{payout_id}",
         legs=[
-            Leg("business", business_id, "bank", amount),
+            Leg("business", business_id, "transit", amount),
             Leg("business", business_id, "stripe", -amount),
         ],
         currency=currency,
@@ -1104,14 +1153,41 @@ async def post_payout(
     )
 
 
+async def arrive_payout(
+    db: AsyncSession,
+    business_id: str,
+    *,
+    payout_id: str,
+    amount: int,
+    currency: str,
+    arrival_at: datetime,
+) -> None:
+    """Deposited when Stripe says it was paid, dated at its arrival; never after a failure."""
+    if await journal_for(db, business_id, f"payout:{payout_id}:failed") is not None:
+        return
+    await post(
+        db,
+        business_id,
+        event="payout",
+        ref=f"payout:{payout_id}:paid",
+        legs=[
+            Leg("business", business_id, "bank", amount),
+            Leg("business", business_id, "transit", -amount),
+        ],
+        currency=currency,
+        source=("stripe_payout", payout_id),
+        occurred_at=arrival_at,
+        available_at=arrival_at,
+    )
+
+
 async def fail_payout(
     db: AsyncSession, business_id: str, payout_id: str, *, occurred_at: datetime | None = None
 ) -> None:
-    journal = await journal_for(db, business_id, f"payout:{payout_id}")
-    if journal is not None:
-        await reverse(
-            db, business_id, journal, ref=f"payout:{payout_id}:failed", occurred_at=occurred_at
-        )
+    for ref in (f"payout:{payout_id}", f"payout:{payout_id}:paid"):
+        journal = await journal_for(db, business_id, ref)
+        if journal is not None:
+            await reverse(db, business_id, journal, ref=f"{ref}:failed", occurred_at=occurred_at)
 
 
 async def gift_card_balance(db: AsyncSession, card: GiftCard) -> int:
@@ -1292,25 +1368,7 @@ async def _subject_currency(
 
 
 async def post_forfeit(db: AsyncSession, booking: Booking) -> None:
-    held = await deposit_held(db, booking)
-    await post(
-        db,
-        booking.business_id,
-        event="forfeit",
-        ref=f"forfeit:{booking.id}",
-        legs=[
-            Leg("business", booking.business_id, "deposit", held),
-            Leg("business", booking.business_id, "revenue", -held),
-        ],
-        currency=await _subject_currency(
-            db,
-            booking.business_id,
-            category="deposit",
-            subject_type="booking",
-            subject_id=booking.id,
-        ),
-        subject=("booking", booking.id),
-    )
+    await _move_forfeit(db, booking, await deposit_held(db, booking), f"forfeit:{booking.id}")
 
 
 async def post_application(db: AsyncSession, booking: Booking, invoice: Invoice) -> int:
@@ -1367,10 +1425,48 @@ async def reverse_application(db: AsyncSession, booking: Booking, invoice_id: st
         await reverse(db, booking.business_id, journal, ref=f"{ref}:reversal")
 
 
-async def reverse_forfeit(db: AsyncSession, booking: Booking) -> None:
-    journal = await journal_for(db, booking.business_id, f"forfeit:{booking.id}")
-    if journal is not None:
-        await reverse(db, booking.business_id, journal, ref=f"forfeit:{booking.id}:refund")
+async def reverse_forfeit(db: AsyncSession, booking: Booking, key: str) -> None:
+    """Money leaving a deposit (refund `key` or lost dispute `key`) takes its forfeit back."""
+    rows = await _rows(
+        db,
+        booking.business_id,
+        or_(
+            Entry.ref == f"forfeit:{booking.id}",
+            Entry.ref.startswith(f"forfeit:{booking.id}:", autoescape=True),
+        ),
+    )
+    forfeited = -sum(entry.amount_cents for entry, account in rows if account.category == "revenue")
+    if forfeited > 0:
+        await _move_forfeit(db, booking, -forfeited, f"forfeit:{booking.id}:back:{key}")
+
+
+async def restore_forfeit(db: AsyncSession, booking: Booking, key: str) -> None:
+    """A refund that failed after taking a forfeit back forfeits that money again."""
+    rows = await _rows(db, booking.business_id, Entry.ref == f"forfeit:{booking.id}:back:{key}")
+    taken = sum(entry.amount_cents for entry, account in rows if account.category == "revenue")
+    if taken > 0:
+        await _move_forfeit(db, booking, taken, f"forfeit:{booking.id}:restore:{key}")
+
+
+async def _move_forfeit(db: AsyncSession, booking: Booking, cents: int, ref: str) -> None:
+    await post(
+        db,
+        booking.business_id,
+        event="forfeit",
+        ref=ref,
+        legs=[
+            Leg("business", booking.business_id, "deposit", cents),
+            Leg("business", booking.business_id, "revenue", -cents),
+        ],
+        currency=await _subject_currency(
+            db,
+            booking.business_id,
+            category="deposit",
+            subject_type="booking",
+            subject_id=booking.id,
+        ),
+        subject=("booking", booking.id),
+    )
 
 
 async def stale_accounts(db: AsyncSession, business_id: str) -> list[str]:
@@ -1408,6 +1504,11 @@ async def post_stripe_fee(
         occurred_at=occurred_at,
     )
     return ref
+
+
+def orphaned() -> ColumnElement[bool]:
+    """Legs of a charge refunded because no sale was recorded for it; never revenue."""
+    return Entry.ref.startswith("orphan:")
 
 
 async def post_orphan(

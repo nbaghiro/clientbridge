@@ -248,6 +248,58 @@ export function useAdminEditionForm(base: string, business: AdminSchemas["AdminB
     };
 }
 
+export function useAdminDriftForm(base: string, businessId: string, onChanged: () => void) {
+    const [findingId, setFindingId] = useState<string | null>(null);
+    const [reason, setReason] = useState("");
+    const [busy, setBusy] = useState(false);
+    const [outcome, setOutcome] = useState<"saved" | "stale" | "failed" | null>(null);
+    const ready = findingId !== null && reason.trim() !== "";
+    const save = () => {
+        if (busy || !ready) return;
+        setBusy(true);
+        setOutcome(null);
+        adminRequest(
+            base,
+            `businesses/${encodeURIComponent(businessId)}/drift/${encodeURIComponent(findingId)}/acknowledge`,
+            { reason: reason.trim() },
+        )
+            .then(
+                () => {
+                    setOutcome("saved");
+                    setFindingId(null);
+                    setReason("");
+                    onChanged();
+                },
+                (error: unknown) => {
+                    const stale = error instanceof AdminRequestError && error.status === 409;
+                    setOutcome(stale ? "stale" : "failed");
+                    if (stale) {
+                        setFindingId(null);
+                        onChanged();
+                    }
+                },
+            )
+            .finally(() => {
+                setBusy(false);
+            })
+            .catch(() => undefined);
+    };
+    return {
+        findingId,
+        choose: (id: string | null) => {
+            setFindingId(id);
+            setReason("");
+            setOutcome(null);
+        },
+        reason,
+        setReason,
+        ready,
+        busy,
+        outcome,
+        save,
+    };
+}
+
 export function adminLabel(value: string): string {
     const labels: Record<string, string> = {
         queued: strings.admin.valueQueued,

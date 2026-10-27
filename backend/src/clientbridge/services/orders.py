@@ -56,6 +56,7 @@ from clientbridge.services.lines import (
 from clientbridge.services.notifications import Notifier
 from clientbridge.services.payments import (
     TipTerms,
+    cancel_order_intents,
     has_pending_order_refund,
     open_order_card_payment,
     open_terminal_payment,
@@ -202,6 +203,32 @@ class OrderService:
             response_model=CheckoutOut,
             idempotency_key=idempotency_key,
             request={"order_id": order_id, "data": data},
+        )
+
+    async def cancel_checkout(self, order_id: str) -> OrderOut:
+        """Cancel a sale's unfinished card or Tap to Pay checkout so it can change or take cash."""
+        order = await self._order(order_id)
+
+        async def run(cmd: Command) -> OrderOut:
+            await self.db.execute(select(Order.id).where(Order.id == order_id).with_for_update())
+            status = await _status(self.db, order)
+            if status == "paid":
+                raise Conflict("the sale is already paid", code="checkout_paid")
+            if status != "open":
+                raise Conflict(f"a {status} order has no checkout to cancel")
+            business = await self.db.get(Business, self.biz)
+            if business is not None and business.stripe_account_id is not None:
+                await cancel_order_intents(self.db, self.gateway, business.stripe_account_id, order)
+            cmd.record("order.checkout_cancel", entity_type="order", entity_id=order.id)
+            lines = await fetch_lines(self.db, self.biz, "order", order.id)
+            return await order_out(self.db, order, lines)
+
+        return await run_command(
+            self.db,
+            self.principal,
+            action="order.checkout_cancel",
+            run=run,
+            response_model=OrderOut,
         )
 
     async def pay_by_card(
@@ -448,8 +475,9 @@ class OrderService:
                 address=postal_address(business),
             )
             await self.db.commit()
-        secret = await self.gateway.create_connection_token(account_id)
-        return ConnectionTokenOut(secret=secret, location_id=business.stripe_terminal_location_id)
+        location_id = business.stripe_terminal_location_id
+        secret = await self.gateway.create_connection_token(account_id, location_id=location_id)
+        return ConnectionTokenOut(secret=secret, location_id=location_id)
 
     def _assert_admin(self) -> None:
         assert_role(
@@ -505,17 +533,17 @@ class OrderService:
             booking.order_id = order.id
 
     async def _currency(self, lines: list[Line]) -> str:
-        """A sale is in its items' currency (CAD when it has only free-text lines)."""
+        """A sale is in its items' currency (the business's when it has only free-text lines)."""
         ids = {ln.item_id for ln in lines if ln.item_id}
         if not ids:
-            return "CAD"
+            return ledger.BUSINESS_CURRENCY
         rows = await self.db.execute(
             scoped(Item, self.biz).with_only_columns(Item.currency).where(Item.id.in_(ids))
         )
         currencies = set(rows.scalars().all())
         if len(currencies) > 1:
             raise Unprocessable("one sale can't mix currencies")
-        return currencies.pop()
+        return ledger.supported(currencies.pop())
 
     async def _order(self, order_id: str) -> Order:
         row = (

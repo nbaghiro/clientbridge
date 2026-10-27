@@ -25,6 +25,8 @@ interface TerminalCheckout {
     error: string | null;
     ready: boolean;
     charge: (clientSecret: string) => void;
+    // stops collecting a card, before the sale's checkout is canceled on the server
+    stop: () => Promise<void>;
     retry: (() => void) | null;
 }
 
@@ -38,6 +40,7 @@ export function useTerminalCheckout(locationId: string | null): TerminalCheckout
         retrievePaymentIntent,
         collectPaymentMethod,
         confirmPaymentIntent,
+        cancelCollectPaymentMethod,
         discoveredReaders,
         connectedReader,
     } = useStripeTerminal();
@@ -190,11 +193,16 @@ export function useTerminalCheckout(locationId: string | null): TerminalCheckout
         [retrievePaymentIntent, collectPaymentMethod, confirmPaymentIntent, t],
     );
 
+    const stop = useCallback(async (): Promise<void> => {
+        if (charging.current) await cancelCollectPaymentMethod();
+    }, [cancelCollectPaymentMethod]);
+
     return {
         phase,
         error,
         ready: connectedReader != null && phase === "ready",
         charge,
+        stop,
         retry: canRetry
             ? () => {
                   setAttempt((value) => value + 1);

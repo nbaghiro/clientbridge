@@ -2,6 +2,7 @@ import logging
 import re
 from collections.abc import Iterable
 from datetime import UTC, date, datetime, time, timedelta
+from typing import cast
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import ColumnElement, case, func, or_, select
@@ -15,12 +16,18 @@ from clientbridge.core.errors import Conflict, Forbidden, NotFound, Unprocessabl
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
 from clientbridge.core.zones import SUPPORTED_ZONES, zone
-from clientbridge.integrations.stripe import ConnectAccount, PaymentGateway, PostalAddress
+from clientbridge.integrations.stripe import (
+    ConnectAccount,
+    PaymentGateway,
+    PostalAddress,
+    RequirementError,
+)
 from clientbridge.models.billing import Estimate, Invoice, Line, Order
 from clientbridge.models.business import Business, ProvinceCode, Staff, User
 from clientbridge.models.ledger import Account, Entry
 from clientbridge.models.platform import Audit, File
 from clientbridge.schemas.business import BusinessSettingsUpdate, OnboardBody, public_email
+from clientbridge.schemas.payments import KycStatus
 
 _log = logging.getLogger(__name__)
 
@@ -193,12 +200,12 @@ async def business_tax_registered(db: AsyncSession, business_id: str) -> bool:
     )
 
 
-def derive_kyc_status(status: ConnectAccount) -> str:
-    """The KYC phase from the card_payments capability, per Stripe's v2 verification guide."""
+def derive_kyc_status(status: ConnectAccount) -> KycStatus:
+    """The KYC phase from the card_payments and payouts capabilities, per Stripe's v2 guide."""
     if status.disabled_reason is not None:
         return "disabled"  # closed, unsupported, or only Stripe support can lift it
     if status.charges_enabled:
-        return "enabled"
+        return "enabled" if status.payouts_enabled and not status.past_due else "payouts_paused"
     # an account that only pays for its plan has no card capability yet
     if not status.details_submitted or status.card_status is None:
         return "not_started"
@@ -219,7 +226,7 @@ def merchant_account(business: Business) -> str | None:
     return business.stripe_account_id if has_merchant(business) else None
 
 
-def kyc_status(business: Business) -> str:
+def kyc_status(business: Business) -> KycStatus:
     """The KYC state, read from the account fields mirrored off Stripe."""
     req = business.stripe_requirements
 
@@ -253,7 +260,23 @@ def apply_account_status(business: Business, status: ConnectAccount) -> None:
         "disabled_reason": status.disabled_reason,
         "card_status": status.card_status,
         "current_deadline": status.current_deadline,
+        "requirement_errors": [
+            {"requirement": e.requirement, "code": e.code} for e in status.requirement_errors
+        ],
     }
+
+
+def requirement_errors(business: Business) -> list[RequirementError]:
+    """The mirrored reasons Stripe rejected details the business sent."""
+    rows = business.stripe_requirements.get("requirement_errors")
+    errors: list[RequirementError] = []
+    for row in cast(list[object], rows) if isinstance(rows, list) else []:
+        if isinstance(row, dict):
+            item = cast(dict[str, object], row)
+            requirement, code = item.get("requirement"), item.get("code")
+            if isinstance(requirement, str) and isinstance(code, str):
+                errors.append(RequirementError(requirement, code))
+    return errors
 
 
 def _assert_postal_code_in_province(business: Business) -> None:
@@ -325,6 +348,17 @@ class BusinessService:
         except Exception:
             # the settings stay saved; Stripe keeps the old address until the next change
             _log.exception("stripe address update failed for %s", business.id)
+
+    async def _drop_terminal_location(self, business: Business, location_id: str) -> None:
+        if business.stripe_account_id is None:
+            return
+        try:
+            await self.gateway.delete_terminal_location(
+                business.stripe_account_id, location_id=location_id
+            )
+        except Exception:
+            # the address stays saved; the old Location only lingers unused in Stripe
+            _log.exception("stripe terminal location delete failed for %s", business.id)
 
     async def _move_page_url(self, business: Business) -> None:
         if business.stripe_account_id is None:
@@ -426,6 +460,7 @@ class BusinessService:
                 )
             )
         moved = [getattr(business, key) for key in _ADDRESS] != located
+        stale_location = business.stripe_terminal_location_id if moved else None
         if moved:
             # the Terminal location holds the old address; the next reader session mints one
             business.stripe_terminal_location_id = None
@@ -438,6 +473,8 @@ class BusinessService:
         await self.db.commit()
         if moved:
             await self._move_plan_account(business)
+        if stale_location is not None:
+            await self._drop_terminal_location(business, stale_location)
         if business.slug != previous_slug:
             await self._move_page_url(business)
         return business

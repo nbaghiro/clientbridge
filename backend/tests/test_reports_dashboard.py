@@ -89,6 +89,15 @@ async def test_today_revenue_counts_todays_succeeded_payment(
     assert after - before == 5000
 
 
+async def test_an_orphaned_charge_and_its_refund_are_not_revenue(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    before = (await as_owner.get("/v1/dashboard/summary")).json()["today_revenue_cents"]
+    await ledger.post_orphan(db, BIZ, "txn_orphan_in", "pi_orphan", 1000, 40, 20, clock.now())
+    after = (await as_owner.get("/v1/dashboard/summary")).json()["today_revenue_cents"]
+    assert after == before
+
+
 async def test_awaiting_payment_counts_outstanding_balance(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:

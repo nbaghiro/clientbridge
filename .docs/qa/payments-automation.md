@@ -69,7 +69,7 @@ is untouched. Initial onboarding is a dependency, not an automatically passing s
   workers limited to the CI businesses/fixtures; prove global replay cannot import unrelated activity.
 - Use real application commands and genuine resulting provider events for end-to-end success. Artificial
   events belong to regression coverage; CLI-generated unrelated objects do not prove product fulfillment.
-- Exercise missing delivery and retry with a controlled relay. Run the reconciliation job deterministically rather than waiting for its nightly schedule.
+- Exercise missing delivery and retry with a controlled relay. Run the replay and reconciliation jobs deterministically rather than waiting for their hourly schedule.
 
 Done when a fresh app payment settles through a signed event, duplicates are harmless, a withheld event
 is repaired and an unrelated sandbox event is ignored without bypassing application authorization.
@@ -174,73 +174,30 @@ References: [Stripe Connect testing](https://docs.stripe.com/connect/testing),
 [Playwright CI](https://playwright.dev/docs/ci-intro), and
 [GitHub concurrency](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency).
 
-## Review follow-up
+## Status
 
-Implementation status after the review-fix follow-ups (2026-10-18):
+The review findings this file used to track are fixed on the `fix/stripe-hardening` branch: reconciliation
+runs hourly from a per-business cursor kept as a `ledger.reconciled` audit (no checkpoint table), payouts
+move through the `transit` account category and count as deposited only once paid, an hourly job replays
+events Stripe couldn't deliver, and platform admins can list and acknowledge drift findings.
+[Payments and Stripe](../payments.md) describes the current behavior.
 
-| Finding                                                 | Status                                         | Regression / next action                                                                                                                      |
-| ------------------------------------------------------- | ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| Listed event version mismatch and stale outcome         | Fixed                                          | `test_payments_recovery.py`: old-version success/failure snapshots retrieve the current successful payment and its actual charge date.        |
-| Transient recovery timing                               | Implemented across recovery and source reconciliation | Fees unavailable defer without failing the job; the next run retries. Durable deferred-source checkpoints remain outstanding. |
-| Customer creation parameter drift                       | Fixed                                          | `test_payments_gateway.py`: rename retries use identical create parameters and update the same Customer separately.                           |
-| Old recovery receipts                                   | Fixed for routine notifications                | Old charges settle without receipt delivery; recent recovery still queues delivery. Gift-card issuance is preserved.                          |
-| Unbounded payout history read                           | Capped                                         | Adapter returns 24 payouts per cursor page; web/mobile expose older/newer history. The 30-day figure derives from ledger journals rather than the page.                                               |
-| Circular ledger/payment dependency                      | Fixed                                          | Payments owns repair orchestration; ledger owns journal operations.                                                                           |
-| Standalone Stripe fees                                  | Fixed for `stripe_fee` transactions            | Debit and credit transactions post once by provider transaction ID.                                                                           |
-| Bounded reconciliation, event replay and pending sweeps | Pending schema approval / implementation       | Durable checkpoints, fair batches, unresolved-source retries and method-aware retry windows.                                                  |
-| Drift acknowledgement and consolidated alerts | Implemented; regression gate passed | Existing append-only audits deduplicate unchanged findings, record platform-admin acknowledgement and reopen changed/resolved findings. Removed duplicate aggregate alert; no balancing journal or schema addition. |
-| Orphan and PAD refund completeness | Regression implemented; sandbox evidence pending | Audited orphan charges/refunds/returned fees journal once without recognizing a sale. `pyr_` sources supported; actual PAD refund format still needs sandbox verification. |
-| Payout transit accounting                               | Pending schema approval / implementation       | Add the transit category, then correct journals/reports and test ordering, failures and historical repair.                                    |
-| Payout contents and adapter result validation | Implemented; regression gate passed | Typed automatic-payout transactions, 24-row cursor pages, tenant/role gates and explicit pending/manual states; web/mobile share the hook. Malformed payout responses return 502. |
+The [Stripe hardening execution](../executions/stripe-hardening/plan.md) tracks what is still open, with
+evidence in its [progress](../executions/stripe-hardening/progress.md): the Stripe sandbox checks, the
+Stripe browser cases STR-E01 to STR-E12, which build on the end-to-end suite once it merges, and the final
+gate.
 
-Do not treat this branch as merge-ready until these remaining findings are resolved and the full gate
-is rerun. The schema proposals are a server-only `checkpoints` table and the `transit` account-category
-constraint addition; no models or migrations have been changed for them without approval.
+No checklist group is declared fully covered. All IDs and variants in [payments.md](payments.md) remain
+the release inventory. The payout browser test in `frontend/apps/web/e2e/paymentAccount.e2e.ts` covers
+payout-detail pagination and switching to manual payouts through real app login, with intercepted payout
+responses, so it is browser regression evidence rather than a Stripe sign-off. Set `E2E_RECORD=1` when
+running web Playwright to keep videos of passing tests as well as failures.
 
-Automation should start with regression coverage above, then dedicated sandbox fixture setup and
-signed-event isolation (batches 1–2). First real-app recordings should cover invoice payment, delayed
-webhook recovery, refund, payout scheduling and a funded payout with matching reports. Expand to
-membership/PAD/dispute lifecycles only after the core fixtures clean up reliably. Keep manual onboarding,
-provider-dependent states and physical devices explicitly separate from CI passes.
-
-Validation for this batch: `make check` passed with 2,113 backend tests (93.41% coverage),
-498 frontend tests plus app-core timezone reruns, and 102 infrastructure tests. The separate Stripe
-contract suite passed 34 tests against stripe-mock. Old-version replay, stale receipt, Customer retry
-and standalone fee regressions were observed failing before their fixes. These results do not represent
-a live sandbox payout or completion of the remaining review items.
-
-
-## Follow-up execution evidence — 2026-10-18
-
-The follow-up adds `GET /v1/connect/payouts/{id}/transactions?after=...` and the platform-only
-`POST /admin/v1/businesses/{business_id}/drift/{finding_id}/acknowledge` (body: `reason`).
-Acknowledgements preserve money and the original finding; changing its amounts or transaction IDs
-creates a new finding. Only identical, acknowledged findings stop alerting. Successful repair records
-resolution. The event recovery job and pending-payment sweep have since been removed from scope. Durable/fair batching remains outstanding.
-
-Targeted backend regression: 101 tests passed across payment recovery, ledger jobs/drift and admin.
-Stripe-mock contracts: 35 passed. The added browser test in `paymentAccount.e2e.ts` passed through
-real app login and rendering, covering payout-detail pagination, previous-page navigation and clearing
-stale contents on switching to manual payouts. It intercepts the payout HTTP responses, so this is
-browser regression evidence, **not** a real Stripe/application E2E sign-off. Enable `E2E_RECORD=1`
-when running web Playwright to save videos for passing tests as well as failures.
-
-No checklist group is declared fully covered by this follow-up. All 35 IDs and every variant in
-`payments.md` remain the release inventory. The dedicated sandbox accounts, signed webhook isolation,
-full real-app recordings, provider lifecycle coverage and native/hardware checks are still required.
-The pending schema decisions prevent final reconciliation/restart and payout-report assertions from
-being implemented against the intended final model. Do not merge based on the partial evidence above.
-
-The demo account readiness recheck still reports `charges_enabled=false` and `payouts_enabled=false`
-for both merchants. A passing browser recording is saved locally at
-`.scratchpad/stripe-review/payout-contents.webm`; its payout responses are controlled fixtures.
-Remaining implementation work also includes generic retrieved-object typing/validation and complete
-payout history/30-day totals, in addition to the checkpoint and transit schema-dependent work.
-
-Follow-up full gate: `make check` passed (2,128 backend tests, 93.31% branch-aware coverage;
-498 frontend tests plus timezone reruns; 102 infrastructure tests). The separate Stripe contract suite
-passed 35 tests and the payout browser scenario passed with a video. These results do not clear the
-remaining schema, sandbox or complete-checklist coverage blockers.
+Automation should start with regression coverage, then dedicated sandbox fixture setup and signed-event
+isolation (batches 1 and 2). First real-app recordings should cover invoice payment, a withheld webhook
+applied by the replay job, refund, payout scheduling and a funded payout with matching reports. Expand to
+membership, PAD and dispute lifecycles only after the core fixtures clean up reliably. Keep manual
+onboarding, provider-dependent states and physical devices separate from CI passes.
 
 ## Sandbox automation implementation — 2026-10-18
 
@@ -292,36 +249,10 @@ local merchants while CI owns its pair.
 Still required: live execution and fixes from it; interrupted-run cleanup; actual browser/admin/native
 flows and recordings; payout schedule editing and funded payout contents/report assertions; booking,
 orders, entitlements, PAD, dispute, membership renewal and platform billing lifecycles; complete
-per-variant mapping and job recovery isolation. Checkpoint/transit schema decisions remain separate
-product blockers. Do not interpret successful harness tests or ordinary `make check` as live E2E passes.
+per-variant mapping and replay job isolation. Do not interpret successful harness tests or ordinary `make check` as live E2E passes.
 
 Validation for the sandbox harness increment: 17 harness regressions passed; the live suite collected
 13 tests. `make check` passed with 2,145 backend tests (93.31% coverage), 498 frontend tests plus
 timezone reruns, and 102 infrastructure tests. The read-only CLI-profile preflight rejected the
 existing demo merchant as not reserved for QA. No live financial scenarios were executed. These
 results validate the harness and baseline regression suite, not all 35 checklist groups.
-
-
-## PR #42 review fixes
-
-Rebased onto main, preserving the legal-address and reseeded-demo changes. Added failing regressions
-for terminal-dispute fees, incremental fee returns and ledger-only Stripe differences, then corrected
-their journal/reconciliation paths. Added payout-history pagination and an independent deposit-total
-query tested with more than 24 payouts. The targeted backend set passed 119 tests before the additional
-funds-withdrawn parameter cases. The full backend gate passed 2,247 tests with 93.35% coverage;
-35 Stripe-mock contracts and three payout browser checks passed. Browser checks use mocked provider
-responses, not live Stripe. Recordings are local under `.scratchpad/stripe-review/`.
-The combined gate was interrupted by a machine sleep during timezone tests; the frontend and
-infrastructure targets were rerun separately. The frontend passed 526 tests plus all three
-timezone reruns. The isolated pre-commit gate also runs before committing.
-
-The initial browser retry used non-allowlisted ports and failed at login; it is not payout evidence.
-Checkpoint persistence and payout-transit accounting still require explicit schema approval before
-implementation. The PR stays draft until those findings and validation are complete.
-
-## Current scope update
-
-Scheduled event recovery and pending-payment sweeps are deferred, including their dedicated adapter
-and tests. Reconciliation remains. Earlier event-recovery implementation/test evidence is historical,
-not current functionality. Use genuine webhook redelivery for recovery QA; source-reconciliation QA
-remains applicable. Payout history errors must not hide locally synced totals or charges on web/mobile.

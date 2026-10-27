@@ -551,6 +551,9 @@ function PlanFields({ ed }: { ed: PlanEditor }) {
                 {ed.facts.perYear !== null ? (
                     <Text style={styles.facts}>{ed.facts.perYear}</Text>
                 ) : null}
+                {ed.facts.priceNote !== null ? (
+                    <Text style={styles.hint}>{ed.facts.priceNote}</Text>
+                ) : null}
                 <Text style={styles.hint}>{s.sellsAt}</Text>
             </View>
         </>

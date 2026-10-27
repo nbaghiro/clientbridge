@@ -178,6 +178,9 @@ msgstr ""
 msgid "datetime.day_at_time"
 msgstr ""
 
+msgid "dispute.inquiry_push"
+msgstr ""
+
 msgid "dispute.push"
 msgstr ""
 
@@ -443,6 +446,26 @@ msgid "payment_failed.subject"
 msgstr ""
 
 msgid "pickup.body"
+msgstr ""
+
+msgid "plan_lapsed_memberships.action"
+msgstr ""
+
+msgid "plan_lapsed_memberships.body"
+msgstr ""
+
+msgid "plan_lapsed_memberships.heading"
+msgstr ""
+
+msgid "plan_lapsed_memberships.how"
+msgstr ""
+
+msgid "plan_lapsed_memberships.lead"
+msgid_plural "plan_lapsed_memberships.lead"
+msgstr[0] ""
+msgstr[1] ""
+
+msgid "plan_lapsed_memberships.subject"
 msgstr ""
 
 msgid "plans.premium"

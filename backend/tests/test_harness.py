@@ -105,7 +105,7 @@ def _deploy(monkeypatch: pytest.MonkeyPatch, env: Environment, base_domain: str)
         "S3_ACCESS_KEY": "GOOG1EXAMPLE",
         "S3_SECRET_KEY": "hmac-secret",
         "S3_REGION": "us-east1",
-        "STRIPE_SECRET_KEY": "sk_test_x",
+        "STRIPE_SECRET_KEY": "sk_live_x" if env == "prod" else "sk_test_x",
         "STRIPE_WEBHOOK_SECRET": "whsec_connect",
         "STRIPE_THIN_WEBHOOK_SECRET": "whsec_thin",
         "STRIPE_PLATFORM_WEBHOOK_SECRET": "whsec_platform",
@@ -215,7 +215,40 @@ def test_a_refused_start_does_not_echo_a_secret(monkeypatch: pytest.MonkeyPatch)
     with pytest.raises(ValidationError, match="TWILIO_AUTH_TOKEN") as caught:
         EnvSettings()
     assert "do-not-print-me" not in str(caught.value)
-    assert "sk_test_x" not in str(caught.value)
+    assert "sk_live_x" not in str(caught.value)
+
+
+@pytest.mark.parametrize(
+    ("env", "key", "accepted"),
+    [
+        ("prod", "sk_live_x", True),
+        ("prod", "rk_live_x", True),
+        ("prod", "sk_test_x", False),
+        ("prod", "rk_test_x", False),
+        ("staging", "sk_test_x", True),
+        ("staging", "rk_test_x", True),
+        ("staging", "sk_live_x", False),
+        ("staging", "rk_live_x", False),
+    ],
+)
+def test_the_stripe_key_mode_matches_the_environment(
+    monkeypatch: pytest.MonkeyPatch, env: Environment, key: str, accepted: bool
+) -> None:
+    _deploy(monkeypatch, env, "clientbridge.ca" if env == "prod" else "staging.clientbridge.ca")
+    monkeypatch.setenv("STRIPE_SECRET_KEY", key)
+    if accepted:
+        assert EnvSettings().stripe_secret_key == key
+        return
+    with pytest.raises(ValidationError, match="STRIPE_SECRET_KEY") as caught:
+        EnvSettings()
+    assert key not in str(caught.value)
+
+
+@pytest.mark.parametrize("key", ["sk_live_x", "rk_live_x"])
+def test_dev_refuses_a_live_stripe_key(key: str) -> None:
+    with pytest.raises(ValidationError, match="STRIPE_SECRET_KEY"):
+        EnvSettings(env="dev", stripe_secret_key=key)
+    assert EnvSettings(env="dev", stripe_secret_key="sk_test_x").stripe_secret_key == "sk_test_x"
 
 
 def test_an_explicit_url_must_agree_with_the_base_domain(monkeypatch: pytest.MonkeyPatch) -> None:

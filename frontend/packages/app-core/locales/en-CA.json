@@ -186,6 +186,9 @@
     "api.depositNotDue": {
         "message": "This deposit is already paid or no longer due."
     },
+    "api.checkoutPaid": {
+        "message": "The card payment already went through, so it can't be canceled."
+    },
     "api.depositInProgress": {
         "message": "A payment for this deposit is already going through. Check back in a few minutes."
     },
@@ -312,6 +315,22 @@
     "api.enrolmentPaid": {
         "message": "A payment was taken on this enrolment's invoice, so it can't be canceled until that payment is refunded.",
         "description": "Refusing to cancel or decline a program enrolment whose invoice has money paid on it"
+    },
+    "api.paymentDisputed": {
+        "message": "This payment has an open dispute, so it can't be refunded until the dispute is resolved.",
+        "description": "The card network refused a refund or change because the client disputed the payment."
+    },
+    "api.amountTooSmall": {
+        "message": "This amount is too small to charge to a card. Enter a larger amount or record the payment another way.",
+        "description": "The amount is below the card network's minimum charge."
+    },
+    "api.idempotencyMismatch": {
+        "message": "This payment was already sent with different details. Refresh and try again.",
+        "description": "The payment provider saw a retry whose details differ from the original request."
+    },
+    "api.paymentProviderError": {
+        "message": "The payment provider couldn't complete this request. Please try again in a few minutes.",
+        "description": "The payment provider refused or failed a request for a reason the app doesn't name."
     },
     "api.addonLengthInUse": {
         "message": "{count, plural, one {This add-on's length can't change while a visit carries it. Remove it from # upcoming visit first, or wait until it's done.} other {This add-on's length can't change while visits carry it. Remove it from # upcoming visits first, or wait until they're done.}}",
@@ -1839,6 +1858,13 @@
     "pos.desk.savedCardCharge": {
         "message": "We'll charge {card} now.",
         "args": ["card"]
+    },
+    "pos.desk.cancelCheckout": {
+        "message": "Cancel payment",
+        "description": "Stops a card or Tap to Pay charge that hasn't gone through, so the sale can be changed or paid another way."
+    },
+    "pos.desk.cancelCheckoutError": {
+        "message": "The payment could not be canceled. Please try again."
     },
     "pos.desk.payError": {
         "message": "The card was declined. Try another card or payment method."
@@ -9057,6 +9083,10 @@
     "catalog.sellsAt": {
         "message": "Sells from Sales, with its own checkout."
     },
+    "catalog.membersKeepPrice": {
+        "message": "Current members keep the price they joined at. A new price applies to new memberships.",
+        "description": "Shown when editing an existing membership item, under its price summary."
+    },
     "catalog.freqLabel.day": {
         "message": "day"
     },
@@ -9870,6 +9900,39 @@
     },
     "gettingPaid.pausedBodyNoDate": {
         "message": "You can still take card payments, but your payouts are on hold until you send what's listed below."
+    },
+    "gettingPaid.pausedBodyReview": {
+        "message": "You can still take card payments. Payouts are on hold while your details are being verified."
+    },
+    "gettingPaid.restrictedTitle": {
+        "message": "Card payments are paused"
+    },
+    "gettingPaid.restrictedBody": {
+        "message": "Card payments are on hold until you send the missing details. They turn back on once your details are verified."
+    },
+    "gettingPaid.reqError.identity": {
+        "message": "The name, date of birth and ID number didn't match. Check them and send them again."
+    },
+    "gettingPaid.reqError.documentExpired": {
+        "message": "This document has expired. Upload one that's still valid."
+    },
+    "gettingPaid.reqError.documentMismatch": {
+        "message": "The document doesn't match the details you entered. Check the details or upload a different document."
+    },
+    "gettingPaid.reqError.document": {
+        "message": "The document couldn't be verified. Upload a clear colour photo of the whole document."
+    },
+    "gettingPaid.reqError.address": {
+        "message": "The address couldn't be verified. Check it and send it again."
+    },
+    "gettingPaid.reqError.businessNumber": {
+        "message": "The business number didn't match the business name. Check both and send them again."
+    },
+    "gettingPaid.reqError.website": {
+        "message": "The website couldn't be verified. Check the address and that the site is live."
+    },
+    "gettingPaid.reqError.other": {
+        "message": "This detail couldn't be verified. Check it and send it again."
     },
     "gettingPaid.readyTitle": {
         "message": "You're set up to get paid"
@@ -14691,6 +14754,52 @@
     },
     "admin.searchBusiness": {
         "message": "Business name, slug or ID"
+    },
+    "admin.drift": {
+        "message": "Ledger drift"
+    },
+    "admin.driftHint": {
+        "message": "Sources where the ledger and Stripe disagree after the nightly reconciliation. Each shows its latest finding."
+    },
+    "admin.driftSource": {
+        "message": "Source"
+    },
+    "admin.driftBalance": {
+        "message": "Account balance",
+        "description": "The source of a finding that compares the whole Stripe balance with the ledger"
+    },
+    "admin.driftFound": {
+        "message": "Found"
+    },
+    "admin.driftLedger": {
+        "message": "Ledger"
+    },
+    "admin.driftStripe": {
+        "message": "Stripe"
+    },
+    "admin.driftAcknowledged": {
+        "message": "Acknowledged"
+    },
+    "admin.acknowledge": {
+        "message": "Acknowledge"
+    },
+    "admin.acknowledgeReason": {
+        "message": "Reason"
+    },
+    "admin.acknowledgeHint": {
+        "message": "Saved with the finding so the next reviewer can see why it was accepted."
+    },
+    "admin.saveAcknowledgement": {
+        "message": "Save acknowledgement"
+    },
+    "admin.acknowledgementSaved": {
+        "message": "Acknowledgement saved."
+    },
+    "admin.acknowledgementStale": {
+        "message": "This finding has been replaced or resolved, so the list has been refreshed."
+    },
+    "admin.acknowledgementError": {
+        "message": "The acknowledgement could not be saved. Please try again."
     },
     "publicForm.signerName": {
         "message": "Full legal name"

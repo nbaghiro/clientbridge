@@ -436,3 +436,13 @@ async def queued_subjects(db: AsyncSession, scope: str) -> list[str]:
     )
     payloads = [DELIVERY_PAYLOAD.validate_python(d.payload) for d in rows.all()]
     return [p.message.subject for p in payloads if isinstance(p, EmailDelivery)]
+
+
+async def booking_off_the_ledger(db: AsyncSession) -> Booking:
+    """A seeded visit with nothing booked against it yet, whatever other tests ran first."""
+    booked = select(Entry.id).where(Entry.subject_type == "booking", Entry.subject_id == Booking.id)
+    row = await db.scalar(
+        select(Booking).where(Booking.business_id == BIZ, ~booked.exists()).order_by(Booking.id)
+    )
+    assert row is not None
+    return row

@@ -47,6 +47,7 @@ _public_contract_limiter = RateLimiter(limit=_PER_MINUTE, window_s=60.0)
 _public_booking_limiter = RateLimiter(limit=_PER_MINUTE, window_s=60.0)
 _public_prefs_limiter = RateLimiter(limit=_PER_MINUTE, window_s=60.0)
 _public_invite_limiter = RateLimiter(limit=_PER_MINUTE, window_s=60.0)
+connect_refresh_limiter = RateLimiter(limit=6, window_s=60.0)
 
 
 def requester_ip(request: Request) -> str:

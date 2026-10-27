@@ -97,14 +97,19 @@ async def _sale(db: AsyncSession, business_id: str = BIZ, client: str | None = N
         ],
         occurred_at=MARCH,
     )
-    await ledger.post_payout(
-        db,
-        business_id,
-        payout_id=f"po_{new_id('payment')}",
-        amount=5000,
-        currency="CAD",
-        arrival_at=MARCH,
-        occurred_at=MARCH,
+    payout_id_paid = f"po_{new_id('payment')}"
+    for payout_id, amount in ((payout_id_paid, 5000), (f"po_{new_id('payment')}", 700)):
+        await ledger.post_payout(
+            db,
+            business_id,
+            payout_id=payout_id,
+            amount=amount,
+            currency="CAD",
+            arrival_at=MARCH,
+            occurred_at=MARCH,
+        )
+    await ledger.arrive_payout(
+        db, business_id, payout_id=payout_id_paid, amount=5000, currency="CAD", arrival_at=MARCH
     )
     await db.commit()
 

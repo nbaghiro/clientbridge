@@ -2055,6 +2055,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/connect/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Connect Refresh */
+        post: operations["connect_refresh_v1_connect_refresh_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/connect/status": {
         parameters: {
             query?: never;
@@ -2305,6 +2322,23 @@ export interface paths {
         put?: never;
         /** Checkout Order */
         post: operations["checkout_order_v1_orders__order_id__checkout_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/orders/{order_id}/checkout/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel Order Checkout */
+        post: operations["cancel_order_checkout_v1_orders__order_id__checkout_cancel_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4019,6 +4053,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/v1/businesses/{business_id}/drift": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Drift */
+        get: operations["drift_admin_v1_businesses__business_id__drift_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/v1/businesses/{business_id}/drift/{finding_id}/acknowledge": {
         parameters: {
             query?: never;
@@ -4223,10 +4274,46 @@ export interface components {
             /** Actor */
             actor: string | null;
         };
+        /** AdminDriftAcknowledged */
+        AdminDriftAcknowledged: {
+            /** Identity Id */
+            identity_id: string | null;
+            /** Reason */
+            reason: string;
+            /**
+             * Acknowledged At
+             * Format: date-time
+             */
+            acknowledged_at: string;
+        };
         /** AdminDriftAcknowledgement */
         AdminDriftAcknowledgement: {
             /** Reason */
             reason: string;
+        };
+        /** AdminDriftFinding */
+        AdminDriftFinding: {
+            /** Id */
+            id: string;
+            /**
+             * Source
+             * @description The Stripe source id, or balance for the account balance
+             */
+            source: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Ledger Cents */
+            ledger_cents: number | null;
+            /** Stripe Cents */
+            stripe_cents: number | null;
+            /** Residual Cents */
+            residual_cents: number | null;
+            /** Transaction Ids */
+            transaction_ids: string[];
+            acknowledgement: components["schemas"]["AdminDriftAcknowledged"] | null;
         };
         /** AdminDriftResult */
         AdminDriftResult: {
@@ -4392,6 +4479,13 @@ export interface components {
         AdminPage_AdminDelivery_: {
             /** Items */
             items: components["schemas"]["AdminDelivery"][];
+            /** Has More */
+            has_more: boolean;
+        };
+        /** AdminPage[AdminDriftFinding] */
+        AdminPage_AdminDriftFinding_: {
+            /** Items */
+            items: components["schemas"]["AdminDriftFinding"][];
             /** Has More */
             has_more: boolean;
         };
@@ -5196,10 +5290,11 @@ export interface components {
             payouts_enabled: boolean;
             /**
              * Kyc Status
-             * @description not_started, pending, restricted, enabled or disabled
+             * @description restricted: card payments are off; payouts_paused: cards on, payouts held
              * @default not_started
+             * @enum {string}
              */
-            kyc_status: string;
+            kyc_status: "not_started" | "pending" | "restricted" | "payouts_paused" | "enabled" | "disabled";
             /** Disabled Reason */
             disabled_reason?: string | null;
             /**
@@ -5209,6 +5304,11 @@ export interface components {
             currently_due?: string[];
             /** Past Due */
             past_due?: string[];
+            /**
+             * Requirement Errors
+             * @description Why Stripe rejected details the business sent
+             */
+            requirement_errors?: components["schemas"]["RequirementErrorOut"][];
             /**
              * Current Deadline
              * @description When Stripe pauses payouts if what is due isn't sent
@@ -9410,6 +9510,16 @@ export interface components {
             payouts: components["schemas"]["PayoutRow"][];
             /** Rates */
             rates: components["schemas"]["ReportRate"][];
+        };
+        /** RequirementErrorOut */
+        RequirementErrorOut: {
+            /** Requirement */
+            requirement: string;
+            /**
+             * Code
+             * @description Stripe's error code, such as verification_failed_id_number_match
+             */
+            code: string;
         };
         /** ResourceCreate */
         ResourceCreate: {
@@ -14756,6 +14866,39 @@ export interface operations {
             };
         };
     };
+    connect_refresh_v1_connect_refresh_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConnectStatus"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     connect_status_v1_connect_status_get: {
         parameters: {
             query?: never;
@@ -15320,6 +15463,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CheckoutOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cancel_order_checkout_v1_orders__order_id__checkout_cancel_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
+            };
+            path: {
+                order_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderOut"];
                 };
             };
             /** @description Validation Error */
@@ -18979,6 +19157,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AdminBusiness"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    drift_admin_v1_businesses__business_id__drift_get: {
+        parameters: {
+            query?: {
+                offset?: number;
+            };
+            header?: {
+                "x-session-token"?: string;
+            };
+            path: {
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminPage_AdminDriftFinding_"];
                 };
             };
             /** @description Validation Error */

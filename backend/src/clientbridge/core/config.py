@@ -16,6 +16,7 @@ _DEV_E2E_ORIGINS = ("http://localhost:8721", "http://localhost:8724")  # web e2e
 _DEV_JWT_SECRET = "clientbridge-dev-secret-do-not-use-in-prod"
 _DEV_COURIER_SECRET = "clientbridge-dev-courier-secret-do-not-use-in-prod"
 _DEV_SMTP_URL = "smtp://localhost:8716"  # Mailpit in docker-compose.yml
+_STRIPE_LIVE_KEYS = ("sk_live_", "rk_live_")
 _DOMAIN = re.compile(r"[a-z0-9-]+(\.[a-z0-9-]+)+")
 _LOCAL_HOSTS = frozenset({"localhost", "127.0.0.1", "::1", "0.0.0.0", "host.docker.internal"})
 # reserved names (RFC 2606, 6761) and the web image's build placeholder base.invalid
@@ -205,6 +206,11 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def _check_keys(self) -> "Settings":
+        live = self.stripe_secret_key.startswith(_STRIPE_LIVE_KEYS)
+        if self.env == "prod" and not live:
+            raise ValueError("STRIPE_SECRET_KEY must be a live key (sk_live_ or rk_live_) in prod")
+        if self.env != "prod" and live:
+            raise ValueError("STRIPE_SECRET_KEY must not be a live key when ENV is not 'prod'")
         if self.powersync_private_key_pem:
             key = serialization.load_pem_private_key(
                 self.powersync_private_key_pem.encode(), password=None

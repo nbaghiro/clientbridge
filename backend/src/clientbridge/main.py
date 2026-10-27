@@ -1,6 +1,7 @@
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
+import stripe
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -30,6 +31,7 @@ from clientbridge.core.errors import (
     AppError,
     UnhandledErrors,
     app_error_handler,
+    stripe_error_handler,
     validation_error_handler,
 )
 from clientbridge.core.logs import RequestLog, configure_logging
@@ -56,6 +58,7 @@ def create_app() -> FastAPI:
     app = FastAPI(title="Clientbridge API", version="0.1.0", lifespan=lifespan)
     app.add_exception_handler(AppError, app_error_handler)
     app.add_exception_handler(RequestValidationError, validation_error_handler)
+    app.add_exception_handler(stripe.StripeError, stripe_error_handler)
     app.add_middleware(UnhandledErrors)  # added first, so it runs inside CORS
 
     app.add_middleware(UploadSizeLimit)

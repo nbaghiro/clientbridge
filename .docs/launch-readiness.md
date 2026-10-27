@@ -173,7 +173,7 @@ Size: S · Area: Accounts and settings
 
 **Flow:** The owner connects a Stripe account from Setup › Getting paid, completes verification and sees when they can take payments and receive payouts.
 
-**Built:** Accounts v2 connected accounts with embedded onboarding and account management, verification status mirrored from Stripe's thin account events, each due requirement worded from the catalog (`requirementCopy`), and `make stripe-setup`, which creates Accounts v2 test merchants for the demo.
+**Built:** Accounts v2 connected accounts with embedded onboarding and account management, verification status mirrored from Stripe's thin account events, each due requirement worded from the catalog (`requirementCopy`) with Stripe's reason when it rejected a detail, a payouts-paused state when cards work but payouts are held, a Refresh that reads the account from Stripe (`POST /v1/connect/refresh`), closed accounts shown as disabled, and `make stripe-setup`, which creates Accounts v2 test merchants for the demo.
 
 **To do:**
 
@@ -222,7 +222,7 @@ Size: L · Area: Accounts and settings
 
 **Flow:** A new business gets a 14-day trial without a card, the owner picks Premium or Team, monthly or yearly, in Stripe Checkout, and later manages the payment method, invoices and cancellation in the Stripe Billing Portal. When the trial ends without a plan, or Stripe ends the subscription, the business becomes read-only and keeps its data. The design is in the Platform billing section of `.docs/architecture.md`.
 
-**Built:** the plan columns on `businesses` (migration `cb0007`), the owner-only plan endpoints (`GET /v1/plan`, checkout, change, portal), the platform subscription webhook handler, Premium seat billing with the daily seat sync, the trial reminder job, the read-only gate (402 `plan_required`, public flows 409 `business_unavailable`), the web plan page and shell notices, the read-only plan section on mobile; plan Checkout (customer account, flexible billing mode, trial carry-over, automatic tax), the Billing Portal and plan item changes; onboarding that reuses an account created for billing; `scripts.stripe_setup` planning the products, the five lookup-key prices, the portal configuration and the platform webhook endpoint; the two plans on the marketing site's pricing page; the contract tier for the Checkout, Portal and subscription calls.
+**Built:** the plan columns on `businesses` (migration `cb0007`), the owner-only plan endpoints (`GET /v1/plan`, checkout, change, portal), the platform subscription webhook handler, Premium seat billing with the daily seat sync, the trial reminder job, the read-only gate (402 `plan_required`, public flows 409 `business_unavailable`), the web plan page and shell notices, the read-only plan section on mobile; plan Checkout (customer account, flexible billing mode, trial carry-over, automatic tax), the Billing Portal and plan item changes; onboarding that reuses an account created for billing; `scripts.stripe_setup` planning the products, the five lookup-key prices, the portal configuration and the platform webhook endpoint; the two plans on the marketing site's pricing page; the contract tier for the Checkout, Portal and subscription calls; a paying subscription whose created event was missed is adopted at Checkout, on the plan page and before the portal, and a stale event for a replaced subscription changes nothing; a lapsed owner can still cancel client memberships and is emailed that they keep charging.
 
 **To do:**
 
@@ -786,7 +786,7 @@ Size: M · Area: Front desk sales and orders
 
 **Flow:** Staff take payment by saved card, new card or Tap to Pay, and the client gets an itemised receipt.
 
-**Built:** Card checkout for sales on web and mobile, Tap to Pay on mobile, itemised receipts by email or text including walk-ins.
+**Built:** Card checkout for sales on web and mobile, Tap to Pay on mobile with connection tokens scoped to the business's Terminal Location, cancelling an unfinished card or Tap to Pay checkout so the sale can be edited or paid in cash, abandoned staff-opened intents cancelled after a day, itemised receipts by email or text including walk-ins.
 
 **To do:**
 
@@ -988,11 +988,10 @@ Size: M · Area: Invoices and payments
 
 **Flow:** Clients buy prepaid visits, memberships and gift cards, then use, renew and let them expire, with balances always right.
 
-**Built:** Sell each through its own checkout; one session used per visit; monthly charges by Stripe with an invoice each period; redeem gift cards by code; expiry books the unused balance as revenue.
+**Built:** Sell each through its own checkout; one session used per visit; monthly charges by Stripe with an invoice each period, carrying the platform fee, taxed by the business's registration when each period starts and with one past-due notice per failed invoice; existing members keep their price when the item's price changes, and the item editor says so; archiving a client ends their memberships at period end; redeem gift cards by code; expiry books the unused balance as revenue.
 
 **To do:**
 
-- A price change reaching existing memberships.
 - Pause a membership.
 - A full pass with Stripe's test clock.
 
@@ -1015,11 +1014,11 @@ Size: S · Area: Invoices and payments
 
 **Flow:** Staff refund all or part of a payment, and chargebacks are tracked to their outcome.
 
-**Built:** Full, partial and repeated refunds as credit notes; dashboard refunds recorded; deposits, stock and entitlements unwound; disputes book the withdrawn funds and fee, a won dispute reverses them.
+**Built:** Full, partial and repeated refunds as credit notes; dashboard refunds recorded, including failed ones; deposits, stock and entitlements unwound; disputes book the withdrawn funds and fee, a won dispute reverses them. A refund that fails after succeeding is reversed, and a lost dispute is written off with the sale unwound and the document reading refunded; an open or won case leaves it paid. A lost dispute never takes sales or tax below zero: money lost twice, and the used part of a gift card or package, goes to a loss account, and a deposit's forfeit is taken back first. A payment under dispute can't be refunded, and a dispute inquiry alerts staff.
 
 **To do:**
 
-- Suspend a disputed gift card or package while the case is open. A refund that fails after succeeding is reversed, and a lost dispute is written off with the sale unwound and the document reading refunded; an open or won case leaves it paid.
+- Suspend a disputed gift card or package while the case is open.
 
 **QA:**
 
@@ -1038,7 +1037,7 @@ QA pass:
 1. Take a payment: Today updates on web and phones within seconds and matches the day's income report.
 2. After a test week, check each report's totals against the sales and payments made, and open each CSV in a spreadsheet.
 3. Record the quarter's GST/HST return: tax set aside drops by the amount filed, and the same period is refused a second time.
-4. Check each fee against Stripe's dashboard, see a test payout under Bank deposits, and confirm the nightly check reports no difference.
+4. Check each fee against Stripe's dashboard, see a test payout under Bank deposits once Stripe marks it paid, and confirm the hourly reconciliation reports no difference.
 5. Set 40% on services and 10% on retail; a $100 groom and a $30 product earn $40 and $3; approve, mark paid, and find $43 on the T4A.
 
 Run it in order on one business, on web, iPhone and Android, as the owner and again as staff where the steps involve roles.
@@ -1124,17 +1123,18 @@ Size: S · Area: Money, tax and staff pay
 
 **Flow:** Every payment's Stripe fee and every payout to the bank is recorded and agrees with Stripe.
 
-**Built:** Actual fees per payment, live payout statuses, separate available/pending balances, embedded schedule editing and standard manual payouts. Recovery runs every 15 minutes; nightly reconciliation repairs recognized missing movements and compares source-level and aggregate balances. See [Payments and Stripe](payments.md).
+**Built:** Actual fees per payment, live payout statuses, payout contents, separate available/pending balances, embedded schedule editing and standard manual payouts. A payout is in transit from its creation and counts as deposited when Stripe marks it paid; failed and canceled payouts are reversed. An hourly job applies events Stripe couldn't deliver, and hourly reconciliation reads each business's new balance transactions, repairs recognized missing movements, compares source-level and account balances, and lists what it can't explain for platform admins. Settlement retries when the fees are not readable yet. See [Payments and Stripe](payments.md).
 
 **To do:**
 
-- A run with Stripe test keys. Payouts are booked when Stripe creates them and reversed when canceled, and settlement retries when the fees are not readable yet.
+- A run with Stripe test keys, including the sandbox checks in the [Stripe hardening plan](executions/stripe-hardening/plan.md#sandbox-checks).
+- The Stripe browser cases STR-E01 to STR-E12 from the same plan, once the end-to-end suite they build on is merged.
 
 **QA:**
 
 1. After test payments, each fee matches Stripe's dashboard.
 2. Change an automatic schedule, then exercise manual payouts in Stripe sandbox; verify persistence, role gates and pending/in-transit/paid/failed/canceled display.
-3. Delay and replay a payment event; verify recovery without duplicate entries and that nightly reconciliation reports no unexplained difference.
+3. Withhold a payment event and let the replay job apply it; verify there are no duplicate entries and that the hourly reconciliation reports no unexplained difference.
 
 **Depends on:** Stripe connect and payout status (CLI-8)
 
@@ -1326,7 +1326,7 @@ Size: L · Area: Platform and launch
 
 **Flow:** Every part of the system runs in production on its own subdomain, deploys from CI, and is locked down.
 
-**Built:** Local Docker stack; CI builds and tests every app; production secrets checked at startup; Stripe API version pinned.
+**Built:** Local Docker stack; CI builds and tests every app; production secrets checked at startup, including a live Stripe key in production and a test key everywhere else; Stripe API version pinned; `make infra-providers` leaves production's Stripe objects to the live Dashboard.
 
 **To do:**
 

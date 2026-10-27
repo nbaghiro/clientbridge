@@ -845,18 +845,37 @@ def test_the_powersync_key_id_and_previous_keys_come_from_secrets(stacks: dict[s
             assert {"POWERSYNC_KID", "POWERSYNC_PREVIOUS_PUBLIC_KEYS"} <= exported(container)
 
 
-def test_ledger_drift_raises_an_alert(cloud: Built) -> None:
-    (metric,) = [
-        each for each in of_type(cloud, "gcp:logging/metric:Metric") if each.name == "ledger-drift"
+def logged_from(message: str) -> str:
+    """The backend module that logs an ERROR line starting with the message."""
+    source = PROGRAM.parents[1] / "backend" / "src"
+    (path,) = [
+        each for each in source.rglob("*.py") if f'_log.error("{message}' in each.read_text()
     ]
-    query = str(dig(metric.inputs, "filter"))
-    assert 'jsonPayload.logger="clientbridge.services.ledger"' in query
-    assert 'jsonPayload.message=~"^ledger drift"' in query
+    return ".".join(path.relative_to(source).with_suffix("").parts)
+
+
+def log_alert(cloud: Built, name: str) -> str:
+    (metric,) = [each for each in of_type(cloud, "gcp:logging/metric:Metric") if each.name == name]
     assert [
         each
         for each in of_type(cloud, "gcp:monitoring/alertPolicy:AlertPolicy")
-        if each.name == "ledger-drift"
+        if each.name == name
     ]
+    return str(dig(metric.inputs, "filter"))
+
+
+def test_ledger_drift_raises_an_alert(cloud: Built) -> None:
+    query = log_alert(cloud, "ledger-drift")
+    assert f'jsonPayload.logger="{logged_from("ledger drift")}"' in query
+    assert 'jsonPayload.message=~"^ledger drift"' in query
+
+
+def test_a_rejected_webhook_raises_an_alert(cloud: Built) -> None:
+    query = log_alert(cloud, "webhook-rejections")
+    assert 'resource.labels.container_name="api"' in query
+    assert f'jsonPayload.logger="{logged_from("webhook rejected")}"' in query
+    assert 'jsonPayload.message=~"^webhook rejected"' in query
+    assert "severity>=ERROR" in query
 
 
 def test_the_registry_never_deletes_a_deployed_image(cloud: Built) -> None:

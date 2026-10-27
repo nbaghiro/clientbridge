@@ -17,6 +17,7 @@ from clientbridge.services.payments import next_credit_note
 from clientbridge.services.tax import TaxResult
 from tests.conftest import BIZ, Factory, FakeEmailSender, FakePaymentGateway
 from tests.helpers import (
+    booking_off_the_ledger,
     card_pay,
     client_id,
     column,
@@ -587,6 +588,7 @@ def _refund_object(pi: str, status: str) -> dict[str, object]:
 async def test_a_refund_that_fails_later_retains_its_credit_note_and_tells_the_client(
     api: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
 ) -> None:
+    await enable_payments(db)
     cid = await client_id(db, email="bounced@example.ca")
     inv_id = await sent_invoice(db, number=9100, total=8000)
     payment = await _settled_charge(db, "pi_bounce", client=cid)
@@ -610,6 +612,7 @@ async def test_a_refund_that_fails_later_retains_its_credit_note_and_tells_the_c
 async def test_a_refund_that_fails_later_restores_the_gift_card_it_voided(
     api: httpx.AsyncClient, db: AsyncSession
 ) -> None:
+    await enable_payments(db)
     cid = await client_id(db)
     payment = await _settled_charge(db, "pi_gcfail", client=cid)
     card = GiftCard(
@@ -634,6 +637,7 @@ async def test_a_refund_that_fails_later_restores_the_gift_card_it_voided(
 async def test_failed_earlier_refund_does_not_reuse_a_later_credit_note(
     api: httpx.AsyncClient, db: AsyncSession
 ) -> None:
+    await enable_payments(db)
     cid = await client_id(db)
     inv_id = await sent_invoice(db, number=99002, total=8000)
     paid = await _settled_charge(db, "pi_number_gap", client=cid)
@@ -656,3 +660,60 @@ async def test_refund_requires_a_retry_key_before_calling_provider(
     response = await as_owner.post(f"/v1/payments/{payment_id}/refund", json={"amount_cents": 100})
     assert response.status_code == 422
     assert len(gateway.refunds) == before
+
+
+async def test_a_refund_that_fails_later_forfeits_the_deposit_again(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await enable_payments(db)
+    booking = await booking_off_the_ledger(db)
+    deposit = Payment(
+        id="pay_forfeit_bounce",
+        business_id=BIZ,
+        client_id=await client_id(db),
+        kind="deposit",
+        booking_id=booking.id,
+        amount_cents=2000,
+        currency="CAD",
+        method="card",
+        provider="stripe",
+        provider_ref="pi_forfeit_bounce",
+        status="succeeded",
+        paid_at=clock.now(),
+    )
+    db.add(deposit)
+    await db.flush()
+    await ledger.post_payment(db, deposit)
+    await ledger.post_forfeit(db, booking)
+    refund = {"id": "re_forfeit_bounce", "payment_intent": "pi_forfeit_bounce", "amount": 2000}
+
+    async def revenue() -> int:
+        return await ledger.subject_balance(
+            db, BIZ, category="revenue", subject_type="booking", subject_id=booking.id
+        )
+
+    await stripe_event(api, "refund.created", refund | {"status": "succeeded"})
+    assert await revenue() == 0
+    await stripe_event(api, "refund.updated", refund | {"status": "failed"})
+    assert await revenue() == -2000
+    assert await ledger.deposit_held(db, booking) == 0
+    await stripe_event(api, "refund.created", refund | {"id": "re_again", "status": "succeeded"})
+    assert await revenue() == 0
+
+
+async def test_a_refund_failed_event_puts_the_money_back(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await enable_payments(db)
+    cid = await client_id(db)
+    inv_id = await sent_invoice(db, number=9101, total=8000)
+    payment = await _settled_charge(db, "pi_refund_failed", client=cid)
+    payment.invoice_id = inv_id
+    await db.flush()
+    await ledger.post_payment(db, payment)
+    await stripe_event(api, "refund.created", _refund_object("pi_refund_failed", "succeeded"))
+    await stripe_event(api, "refund.failed", _refund_object("pi_refund_failed", "failed"))
+    refund = await payment_by_ref(db, "re_pi_refund_failed")
+    assert refund.status == "failed"
+    invoice = await db.get(Invoice, inv_id)
+    assert invoice is not None and (await ledger.invoice_state(db, invoice))[0] == "paid"

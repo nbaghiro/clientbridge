@@ -30,7 +30,6 @@ const g = strings.gettingPaid;
 
 function Hero({ paid }: { paid: GettingPaidView }) {
     const warn = paid.phase !== "enabled";
-    const act = paid.phase === "restricted" || paid.phase === "in_progress";
     return (
         <Panel
             title={paid.title}
@@ -54,7 +53,7 @@ function Hero({ paid }: { paid: GettingPaidView }) {
                 >
                     {strings.paymentAccount.manage}
                 </Button>
-                {act ? (
+                {paid.canFinish ? (
                     <Button disabled={!paid.account.ready} onPress={paid.finish} icon="card">
                         {g.finish}
                     </Button>
@@ -99,6 +98,14 @@ function Body({ paid }: { paid: GettingPaidView }) {
                                                     {r.why}
                                                 </p>
                                             ) : null}
+                                            {r.errors.map((error) => (
+                                                <p
+                                                    key={error}
+                                                    className="mt-0.5 text-xs leading-relaxed text-danger"
+                                                >
+                                                    {error}
+                                                </p>
+                                            ))}
                                         </div>
                                         <span className="shrink-0">
                                             <StatusPill

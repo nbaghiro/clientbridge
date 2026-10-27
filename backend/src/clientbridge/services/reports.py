@@ -350,7 +350,7 @@ class ReportService:
         return {code: -int(cents) for code, cents in rows.tuples().all() if cents}
 
     async def _income(self, lo: datetime, hi: datetime, tax: dict[str, int]) -> IncomeSummary:
-        is_refund = Entry.event == "refund"
+        is_refund = Entry.event.in_(("refund", "dispute"))
         revenue = await self.db.execute(
             self._legs(Account.category == "revenue", None, lo, hi)
             .with_only_columns(is_refund, func.sum(Entry.amount_cents))
@@ -564,6 +564,7 @@ class DashboardService:
             .where(
                 Account.category.in_(("stripe", "bank", "cash")),
                 Entry.event.in_(_MONEY_BACK),
+                ~ledger.orphaned(),
                 Entry.occurred_at >= day_start,
             )
         )

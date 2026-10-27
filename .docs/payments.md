@@ -7,13 +7,13 @@ covers development, and [operations](operations.md) covers environments, secrets
 
 ## Account ownership and money flow
 
-| Concept                            | Stripe owner                                                            | Local reference                                                               |
-| ---------------------------------- | ----------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| Business accepting client payments | One Accounts v2 connected account per business                          | `businesses.stripe_account_id`                                                |
-| Client paying that business        | A v1 Customer within that connected account                             | `clients.stripe_customer_id`                                                  |
-| Client membership                  | Subscription and Price within that connected account                    | `subscriptions.provider_ref`, `items.stripe_price_id`                         |
-| Business paying for Clientbridge   | Platform subscription, using the business account as `customer_account` | `businesses.stripe_subscription_id`                                           |
-| Merchant payout                    | Connected account → linked bank                                         | Append-only ledger journal keyed by Stripe payout ID; live status from Stripe |
+| Concept                            | Stripe owner                                                            | Local reference                                                                |
+| ---------------------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| Business accepting client payments | One Accounts v2 connected account per business                          | `businesses.stripe_account_id`                                                 |
+| Client paying that business        | A v1 Customer within that connected account                             | `clients.stripe_customer_id`                                                   |
+| Client membership                  | Subscription and Price within that connected account                    | `subscriptions.provider_ref`, `items.stripe_price_id`                          |
+| Business paying for Clientbridge   | Platform subscription, using the business account as `customer_account` | `businesses.stripe_subscription_id`                                            |
+| Merchant payout                    | Connected account → linked bank                                         | Append-only ledger journals keyed by Stripe payout ID; live status from Stripe |
 
 A person buying from two businesses has a separate Customer in each business's account. Saved payment
 methods are scoped to that Customer/account. Platform plan billing is a separate flow from the
@@ -34,6 +34,12 @@ flowchart LR
 
 - **Stripe Connect** (Accounts v2 merchants, direct charges + application fee, Stripe's automatic payouts) for
   cards, Link, Tap-to-Pay/Terminal, saved cards, deposits, refunds, subscriptions, and the KYC mirror.
+- **Currency.** Every price and charge is in CAD. `SUPPORTED_CURRENCIES` in `services/ledger.py` holds
+  the currencies the ledger books, and `ledger.supported()` checks it for every journal, item create and
+  update (422 `unsupported_currency`), sale creation and every charge builder before Stripe is called.
+  Ledger accounts are already keyed by currency, so adding one means adding it to that set and checking
+  fees and reports. A Stripe object in another currency that reaches us anyway, such as a payout or a
+  membership renewal, is refused once as a `payout.refused` or `payment.refused` audit and never booked.
 - **Application fee.** `services/payments.application_fee_cents` computes integer cents as
   `amount × clamp(ceiling_bps − estimated_stripe_bps, 0, max_bps) / 10000`, rounded down.
   Defaults in `core/config.py` are a 320 bps ceiling and 200 bps application-fee maximum;
@@ -41,7 +47,12 @@ flowchart LR
   with 200 extra bps for conversion. These are application configuration assumptions, not a guarantee
   of Stripe's total price: fixed charges, international-card surcharges and account-specific pricing
   can change the actual cost. The ledger records actual fees from Stripe balance transactions.
-  Client membership subscriptions charge no application fee today.
+  The fee applies to every transaction, tips included, so a tipped sale's fee is computed on the amount
+  with its tip. Memberships carry it as the subscription's `application_fee_percent`, set at the rate a
+  one-off charge with the same payment method gets (`subscription_fee_percent`: 0.3% for a card and 2%
+  for PAD at the default settings), and each renewal books the fee Stripe took from its balance
+  transaction. Ordinary refunds keep the fee; refunds we start ourselves return it (see
+  [Refunds and disputes](#refunds-and-disputes)).
 - **Connected accounts** are created with `POST /v2/core/accounts`: `dashboard=none` (businesses manage
   everything through embedded components), `fees_collector=stripe` (Stripe takes its processing fee from
   the business, so the application fee is our fee alone) and `losses_collector=stripe` (Stripe owns negative
@@ -62,12 +73,42 @@ flowchart LR
   (`requirementCopy` in app-core) with a generic fallback. Thin `v2.core.account[requirements].updated`,
   `v2.core.account[configuration.merchant].capability_status_updated` and `v2.core.account.closed` events
   arrive through an event destination; the handler fetches the account and mirrors it.
+- **KYC phase.** `business.derive_kyc_status` reads both capabilities. `enabled` means charges and payouts
+  are on with nothing past due; `payouts_paused` means charges are on but payouts are off or a requirement
+  is past due; `restricted` means card payments are off while something is due; `pending` means Stripe is
+  reviewing; `not_started` means details aren't submitted yet, or the account only pays for its plan; and
+  `disabled` means the account is closed or only Stripe support can lift the restriction. Getting paid
+  shows the finish action whenever anything is due, and a deadline that has passed uses the wording without
+  a date. Errors Stripe reports on a requirement (`requirements.entries[].errors`) are mirrored into
+  `stripe_requirements.requirement_errors` and shown under that requirement through `gettingPaid.reqError.*`
+  copy, with a generic fallback.
+- **Refresh.** `POST /v1/connect/refresh` (owners and admins) reads the account from Stripe and mirrors it,
+  for when its events are late or never arrived. It calls Stripe at most six times a minute per business
+  and otherwise returns the mirrored status. Getting paid's Refresh button and the return from onboarding
+  use it.
+- **Closed accounts.** `v2.core.account.closed` fetches the account like any account event. If Stripe can
+  no longer return it, the event alone marks the business disabled (`disabled_reason: closed`, charges and
+  payouts off). Reconciliation and event replay don't skip a closed account yet, and offboarding a business
+  is not built.
 - **Recorded by hand**: cash, cheques and e-Transfers received outside the app (`provider` manual, the
   e-Transfer method stored as `etransfer`); cash lands in the till's `cash` account, a cheque or e-Transfer
   in `bank`. There is no e-Transfer request or matching.
 - **PAD/EFT**: pre-authorized debit for recurring. Staff on web or mobile send the client a payment setup link,
-  and the client authorizes the bank account on Connect `pay.D/setup`.
-- **Customer ownership.** Each business has one connected account. Client Customers are created with a stable business/client idempotency key and invariant creation parameters; name/email are applied in a separate update so a rolled-back creation can be retried after a rename; known-client Terminal payments attach that same Customer, while walk-ins remain customerless.
+  and the client authorizes the bank account on Connect `pay.D/setup`. A charge on a saved bank account is
+  recorded as `bank_eft` (`charge_method`) by the invoice, deposit, entitlement and sale builders, and its
+  refunds copy that method.
+- **Charge gates.** Card charges, card setup and PAD setup links need card payments on
+  (`stripe_charges_enabled`). Any staff member may charge a client's saved card for a sale or a deposit at
+  the desk; charging a saved card against an invoice stays with owners and admins. A lapsed business can
+  still collect a deposit from a client's manage link, as it can be paid on an invoice, because the booking
+  already exists; new bookings stay blocked.
+- **Customer ownership.** Each business has one connected account. Client Customers are created with a
+  stable business/client idempotency key and invariant creation parameters; name/email are applied in a
+  separate update so a rolled-back creation can be retried after a rename; known-client Terminal payments
+  attach that same Customer, while walk-ins remain customerless. A later edit to a client's name or email
+  updates their Customer after the edit commits (`payments.sync_customer`). That update is best effort: a
+  failure is logged and the next edit tries again. A command retried more than 24 hours after a rollback
+  can create a second Customer; it holds no payment method.
 - **Clients stay v1 Customers** on the connected account. Using Accounts v2 as the customers of a connected
   account is a Stripe preview; moving to it later would change `clients.stripe_customer_id` (a schema and
   data change) and pass `customer_account` instead of `customer`.
@@ -75,19 +116,23 @@ flowchart LR
   linked bank through Stripe payouts. Clientbridge records and initiates supported operations through Stripe.
 - Owners see Stripe's embedded notification banner on Getting paid and Today (web), and manage the
   account through the embedded account management component, as Stripe requires for accounts with no
-  Stripe dashboard where Stripe carries losses. The React Native SDK has neither component and Stripe
-  does not support Connect.js inside a WebView, so mobile links to the web page for both.
-  `payments` records each attempt and Stripe object; the ledger records what each one did to the money.
+  Stripe dashboard where Stripe carries losses. Owners and admins can open account management and payouts.
+  The React Native SDK has neither component and Stripe does not support Connect.js inside a WebView, so
+  mobile links to the web page for both. `payments` records each attempt and Stripe object; the ledger
+  records what each one did to the money.
 - The Stripe API version is pinned (`STRIPE_API_VERSION` in `integrations/stripe.py`), and the Connect
   webhook endpoint (snapshot events) must be created with that same version, because the handlers parse
   its payload shapes. Thin events are unversioned and signed with the event destination's own secret
   (`STRIPE_THIN_WEBHOOK_SECRET`); both arrive at `/webhooks/stripe`, as do platform events (see Platform
-  billing below).
-  Dashboard refunds arrive as `refund.created`/`refund.updated`, and a recurring invoice's PaymentIntent
-  is looked up through its invoice payments. The webhook rejects (400) a snapshot event rendered at any
-  other version.
-  `setup_intent.setup_failed` records a
-  failed bank (PAD) setup on its link.
+  billing below). Dashboard refunds arrive as `refund.created`/`refund.updated`/`refund.failed`, and a
+  recurring invoice's PaymentIntent is looked up through its invoice payments. The webhook rejects (400) a
+  snapshot event rendered at any other version. `setup_intent.setup_failed` records a failed bank (PAD)
+  setup on its link.
+- **Stripe errors.** A Stripe error that escapes the adapter answers with a stable code through
+  `core/errors.stripe_error_handler`: `payment_disputed` (409) for `charge_disputed`, `amount_too_small`
+  (422), `idempotency_mismatch` (409) when a retry differs from the original request, `card_declined` (402),
+  and `payment_provider_error` (502) for anything else. Clients render these through `failureMessage`. The
+  handler logs the Stripe code and request id on the `clientbridge.stripe` logger.
 - Retry-safe `open_*` builders (card/booking-deposit/entitlement/terminal) are Stripe-idempotency-
   keyed + `provider_ref`-deduped, shared by the authed services and the public surfaces. A payment can be
   refunded in part, more than once, up to what is left; a gift card or package purchase, and a forfeited
@@ -98,36 +143,114 @@ flowchart LR
 
 ## Payment lifecycle and product surfaces
 
-| Flow                                | Implementation and completion                                                                                                                                                                            |
-| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Invoice / public pay link           | API opens a PaymentIntent on the business account; Elements confirms it; successful settlement posts payment and fees against the invoice.                                                               |
-| Booking deposit                     | Shared payment builders create the charge; settlement and booking logic collect/apply/forfeit/refund the deposit through ledger journals.                                                                |
-| Order / online shop                 | Order payment settles the sale through the same payment and ledger services. Product stock and order rules remain in `services/orders.py`.                                                               |
-| Saved card                          | `ensure_customer` reuses the business/client Customer; setup stores a provider reference, then an authorized server command charges it.                                                                  |
-| Terminal / Tap to Pay               | API creates the connected-account card-present intent; the reader confirms it and settlement follows. Known clients attach their Customer; walk-ins do not.                                              |
-| Bank authorization / PAD            | Client completes a SetupIntent through a public setup link. Mandate/setup events update local authorization state. A pending debit is not treated as settled.                                            |
-| Membership renewal                  | Connected-account Billing invoice success resolves its PaymentIntent through InvoicePayments, then creates the local paid invoice/payment and journals. Subscription updates fetch current Stripe state. |
-| Gift card / package sale            | Shared builders and settlement issue the entitlement and book the liability/deferred revenue; redemption/usage is a later ledger event.                                                                  |
-| Cash / cheque / received e-Transfer | Recorded manually without Stripe; these do not contribute to the Stripe balance or Stripe payouts.                                                                                                       |
+| Flow                                | Implementation and completion                                                                                                                                                                                                                        |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Invoice / public pay link           | API opens a PaymentIntent on the business account; Elements confirms it; successful settlement posts payment and fees against the invoice.                                                                                                           |
+| Booking deposit                     | Shared payment builders create the charge; settlement and booking logic collect/apply/forfeit/refund the deposit through ledger journals.                                                                                                            |
+| Order / online shop                 | Order payment settles the sale through the same payment and ledger services. Product stock and order rules remain in `services/orders.py`.                                                                                                           |
+| Saved card                          | `ensure_customer` reuses the business/client Customer; setup stores a provider reference, then an authorized server command charges it.                                                                                                              |
+| Terminal / Tap to Pay               | API creates the connected-account card-present intent; the reader confirms it and settlement follows. Known clients attach their Customer; walk-ins do not.                                                                                          |
+| Bank authorization / PAD            | Client completes a SetupIntent through a public setup link. Mandate/setup events update local authorization state. A pending debit is not treated as settled.                                                                                        |
+| Membership renewal                  | Connected-account Billing invoice success resolves its PaymentIntent and amount through InvoicePayments, then creates the local paid invoice/payment and journals. Subscription updates fetch current Stripe state. See [Memberships](#memberships). |
+| Gift card / package sale            | Shared builders and settlement issue the entitlement and book the liability/deferred revenue; redemption/usage is a later ledger event.                                                                                                              |
+| Cash / cheque / received e-Transfer | Recorded manually without Stripe; these do not contribute to the Stripe balance or Stripe payouts.                                                                                                                                                   |
 
 A browser redirect or successful UI confirmation alone does not prove local settlement. The backend
 must process the provider outcome, obtain fees and commit the payment, parent state and ledger entries.
 Stripe charge operations require connectivity. PowerSync distributes the resulting local records;
 it does not create Stripe charges or configure payouts. Public Connect uses API reads rather than PowerSync.
 
+### Open intents
+
+An intent that nobody will finish is cancelled rather than left confirmable, so a client can't pay twice:
+
+- Paying an invoice again supersedes its earlier attempts and cancels both the pending and the declined
+  ones.
+- Completing a visit cancels its unpaid deposit intent. A deposit that still settles after the visit
+  finished without it is refunded, as after a cancellation.
+- `POST /v1/orders/{id}/checkout/cancel` cancels a desk sale's open card or Terminal intents so the sale
+  can be edited, voided or paid in cash. It answers 409 `checkout_paid` once the card payment went
+  through. The web and mobile pay sheets and the mobile reader screen offer it, and changing the tip
+  supersedes the open intent instead of being refused.
+- `cancel_stale_intents` (hourly at :45, `payments.run_cancel_stale_intents`) cancels staff-opened desk
+  sale, gift card and package intents that are still pending a day after they opened, 200 per run,
+  newest first. An intent Stripe refuses to cancel is logged and left for the next run.
+- Subscription creates use the command's idempotency key as Stripe's key, so a retry with a different card
+  succeeds and a quick resubscribe starts a new subscription. The no-show charge keys on the card, so a
+  new default card after a decline is a new charge.
+
+Terminal connection tokens are scoped to the business's Terminal Location. When the business address
+changes, the next reader session creates a Location at the new address and the old one is deleted; a
+failed delete is logged and the old Location stays unused in Stripe.
+
+### Memberships
+
+A membership is a Stripe Subscription on the business's connected account, created with the client's
+saved card or bank account and the platform fee as `application_fee_percent`. Its metadata carries
+`business_id`, `client_id` and the item's `tax_class`, and Stripe copies it to every invoice.
+
+- Stripe charges the first invoice inside `Subscription.create`, before our row commits. An event for a
+  subscription we haven't recorded yet answers `retry_later` when its metadata names one of our
+  businesses on the same account, so Stripe delivers it again once the row exists. Other unknown
+  subscriptions are ignored.
+- Stripe statuses map to ours: `active` and `trialing` to active, `past_due`, `unpaid` and `incomplete` to
+  past due, `incomplete_expired` and `canceled` to canceled, `paused` to paused.
+- Each renewal takes its amount from the InvoicePayment and backs tax out at the rates in force at the
+  period start, using the business's current registration (there is no registration history). Registering
+  partway through a membership therefore taxes the next renewal, and deregistering stops it.
+- An invoice marked paid with no InvoicePayment behind it was paid outside Stripe. It is audited once
+  (`subscription.paid_outside_stripe`) and books nothing.
+- The past-due notice is scoped to the failing invoice, so each failed episode sends one notice while
+  Smart Retries within an episode don't send more.
+- Archiving a client cancels their memberships at the end of the paid period. A lost dispute on a
+  membership charge cancels the membership at once and audits `subscription.cancel`.
+- Changing an item's price doesn't move existing members; they keep the price they joined at, and the item
+  editor says so.
+- When the business's own plan lapses, its memberships keep billing. The owner can still cancel them
+  (`POST /v1/subscriptions/{id}/cancel` is allowed while lapsed) and is emailed once that memberships are
+  still charging.
+
 ### Refunds and disputes
 
-Refund commands and Dashboard-originated refunds converge on the same local refund handling. Each
-Stripe refund has its own Payment row tied to the original payment. The remaining refundable amount
-and product restrictions are checked server-side; repeating a provider outcome must not post twice.
-Ordinary refunds leave the original Stripe and application fees in place. Orphan-purchase compensation
-explicitly requests application-fee return.
+Refund commands and Dashboard-originated refunds converge on the same local refund handling:
+`refund.created`, `refund.updated` and `refund.failed` all go through one handler. Each Stripe refund has
+its own Payment row tied to the original payment. The remaining refundable amount and product
+restrictions are checked server-side, and repeating a provider outcome doesn't post twice. The refund
+command requires an idempotency key and passes it to Stripe, so a rolled-back command retried with the
+same key refunds once.
+
+A payment with an open or lost dispute can't be refunded: the refund and its preview answer 409
+`payment_disputed`, and a won dispute allows refunds again.
+
+Ordinary refunds leave the original Stripe and application fees in place. Refunds we start for our own
+reasons ask Stripe to return the application fee (`refund_application_fee`): an online order paid after it
+expired or after its stock ran out is refunded in full this way, and `ledger.post_fee_return` books the
+returned fee under `fee_return:<refund>`. Orphan-purchase compensation returns it too. A client cancelling
+their own online order doesn't. The fee return is booked only when Stripe reports the refund succeeded in
+its first answer; a refund that succeeds later through `refund.updated` doesn't book it yet.
+
+Money leaving a booking deposit, by refund or lost dispute, first takes back the deposit's forfeit and any
+application to an invoice, then marks the deposit refunded. The forfeit reversal is keyed by the refund or
+dispute. A refund that fails after it succeeded reverses the refund journal, forfeits the deposit again
+(`restore_forfeit`) and restores a gift card or package the refund had voided. A deposit that had been
+applied to an invoice is not re-applied after a failed refund: it stays held and the invoice stays reopened.
 
 A dispute withdrawal posts the disputed amount and fee. A win reinstates funds and any fee Stripe
-actually returns; a loss unwinds the sale through the ledger. An inquiry does not withdraw money until
-it escalates. Late opening events cannot reopen a won/lost dispute, and an initially missing dispute
-fee can be booked when a subsequent event supplies it. Embedded dispute management handles evidence;
-our payment records and journals track the financial effect.
+actually returns. A loss unwinds the sale through the ledger, capped at what the sale still carries: a
+refund followed by a lost dispute leaves revenue and tax at zero, and the money lost twice goes to the
+business's `loss` account. A gift card or package gives back only what it still holds, so the used part of
+a lost purchase is booked to `loss` as well; the card or package is voided once the dispute and any refunds
+cover the whole purchase. The income report counts lost-dispute reversals with refunds instead of as lower
+sales.
+
+An inquiry (`warning_needs_response`) alerts staff once and books nothing; money moves only if it
+escalates. Late opening events cannot reopen a won/lost dispute, and dispute fees and returned fees post
+only their newly observed increments, including after the case closed. Embedded dispute management
+handles evidence; our payment records and journals track the financial effect.
+
+Staff commission follows the document's paid status. When a refund leaves an invoice or sale anything other
+than paid, its pending commission is reversed in full; approved or paid commission stands. Reducing pending
+commission in proportion to a partial refund is decided but not built.
 
 ## Payouts and schedules
 
@@ -164,8 +287,8 @@ flow; unsupported mobile account-management components link to web as described 
 ### Display and accounting
 
 `GET /v1/connect/status` returns available and pending amounts from a single Stripe balance request.
-`GET /v1/connect/payouts` is owner/admin-gated and reads current CAD payout objects from the business's
-account, including all pages. The shared `usePayouts` view-model uses those provider statuses:
+`GET /v1/connect/payouts` is owner/admin-gated and reads the business's CAD payouts from Stripe, 24 per
+page with a cursor for older pages. The shared `usePayouts` view-model uses those provider statuses:
 
 | Status                   | Meaning in the app                                                      |
 | ------------------------ | ----------------------------------------------------------------------- |
@@ -173,11 +296,23 @@ account, including all pages. The shared `usePayouts` view-model uses those prov
 | `paid`                   | Stripe reports paid; eligible for the deposited total.                  |
 | `failed` / `canceled`    | Show unsuccessful/returned status; reverse the original local movement. |
 
-The local payout journal posts `bank + / stripe −` at creation, keyed by `payout:<id>`, with the expected
-arrival attached. This bank leg is an accounting movement, not independent evidence of bank receipt.
-A later `payout.paid` does not book a second transfer. Failed/canceled payouts use a reversing journal;
-if failure arrives first, the handler creates and reverses the original so a late creation cannot
-resurrect it. Revenue reports must not count payouts as sales.
+`GET /v1/connect/payouts/{payout_id}/transactions?after=txn_...` lists what an automatic payout contains,
+24 balance transactions per page, read from the business's connected account after the same owner/admin
+check. It answers `pending` while Stripe is still reconciling the payout and `unavailable` for a manual
+payout, which has no transaction breakdown, and lists only CAD transactions. A payout id Stripe doesn't
+recognize answers 404, and a malformed provider response 502. Web and mobile render the same app-core
+view-model.
+
+A payout moves through a `transit` account. `payout.created` posts `transit + / stripe −`, keyed by
+`payout:<id>` and dated when Stripe created it, because Stripe's balance drops then. `payout.paid` posts
+`bank + / transit −`, keyed by `payout:<id>:paid` and dated at the arrival date, so a payout counts as
+deposited only once Stripe says it arrived. A paid event that arrives before the creation books both, and
+replays book nothing new. A failed or canceled payout reverses whichever of the two journals exist,
+dated at the failure (`payout:<id>:failed` and `payout:<id>:paid:failed`); if the failure arrives first,
+the handler creates and reverses the original so a late creation or paid event can't resurrect it. The
+bank leg is still an accounting movement, not independent evidence of receipt. Reports, the payouts CSV
+and the 30-day Deposited figure read only bank legs, so the Deposited figure counts paid payouts by
+arrival date, independently of the visible history page. Revenue reports never count payouts as sales.
 
 Balances, fees and charge history still use the local ledger. Live payout status requires the API and
 Stripe; the payout page currently depends on that online read. No payout-status table is mirrored
@@ -192,39 +327,111 @@ processing/application fees come from Stripe, and settlement retries when requir
 available. The connected-account balance is compared with the business's Stripe account, excluding the
 platform's own application-fee balance.
 
-Stripe and Postgres cannot commit atomically. Consistency is eventual: signed webhooks provide the fast
-path, nightly reconciliation repairs recognized sources, and audits expose unexplained differences.
-This is not a guarantee that both balances are identical at every instant.
+Stripe and Postgres cannot commit atomically, so consistency is eventual. Signed webhooks are the fast
+path, the hourly replay job applies events Stripe couldn't deliver, hourly reconciliation repairs
+recognized balance-transaction sources, and audits expose differences nothing explains. This is not a
+guarantee that both balances are identical at every instant.
 
-| Mechanism                              | Behavior                                                                                                                                                                                                                                 |
-| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Provider commands                      | Stable idempotency keys and provider-reference deduplication; Customer creation also uses a business/client key.                                                                                                                         |
-| Webhook application                    | Verify signature/version, dedupe by event ID, then apply state, journal and queued notification transactionally.                                                                                                                         |
-| Current subscription state             | Fetch Stripe's current subscription under a local row lock instead of overwriting it with an old event snapshot.                                                                                                                         |
-| `reconcile_ledger`, daily at 04:00 UTC | Enumerate connected-account balance transactions, group by source, repair recognized charge/refund/dispute/payout sources, compare source net amounts and aggregate balances, and check cached ledger balances.                          |
+| Mechanism                             | Behavior                                                                                                                                                                                            |
+| ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Provider commands                     | Stable idempotency keys and provider-reference deduplication; Customer creation also uses a business/client key.                                                                                    |
+| Webhook application                   | Verify signature/version, dedupe by event ID, then apply state, journal and queued notification transactionally.                                                                                    |
+| Current subscription state            | Fetch Stripe's current subscription under a local row lock instead of overwriting it with an old event snapshot.                                                                                    |
+| `replay_missed_events`, hourly at :27 | List events Stripe couldn't deliver, re-fetch each object at the pinned version and apply the event its current state stands for.                                                                   |
+| `reconcile_ledger`, hourly at :45     | Read each connected account's balance transactions since its cursor, repair recognized charge/refund/dispute/payout sources, compare source and account balances, and check cached ledger balances. |
 
-Older membership charges can be reconstructed through their InvoicePayments association even outside
-the event history window. Recovery of a local succeeded PaymentIntent uses its charge timestamp rather
-than recording an old payment as paid today. The same notification queue/deduplication rules apply to
-recovery and webhooks.
+### Webhooks
 
-Reconciliation never invents a balancing entry. Unknown adjustments, mismatched amounts or failed
-repairs produce audits and the existing ledger-drift alert:
+`api/webhooks.py` answers 400 to an event whose signature doesn't verify or whose snapshot is rendered at
+an API version other than `STRIPE_API_VERSION`, and logs `webhook rejected ...` at `ERROR`, which raises
+the webhook-rejections alert. A version-rejected event is also kept as a `failed` row in `webhooks` with
+its payload.
 
-| Audit                          | Investigation                                                                                 |
-| ------------------------------ | --------------------------------------------------------------------------------------------- |
-| `ledger.transaction_drift`     | Source ID, balance transaction IDs and local/Stripe net cents identify the movement to trace. |
-| `ledger.transaction_failed`    | Source repair failed; inspect the correlated worker exception.                                |
-| `ledger.drift`                 | Aggregate business Stripe balance differs.                                                    |
-| `ledger.cache_drift`           | Cached account balances differ from their immutable entries.                                  |
-| `ledger.reconciliation_failed` | Business reconciliation could not complete, including provider access failures.               |
+A handler that needs Stripe or our own commit to catch up raises `retry_later` (503): the charge's fees
+aren't readable yet, a refunded charge hasn't settled locally, or a membership event arrived before its
+row committed. The event is kept as a `failed` row with its payload, so it outlives Stripe's retries, and
+Stripe delivers it again. Any other exception also leaves a `failed` row, is logged at `ERROR` and answers
+5xx. A retried `failed` row is locked (`SELECT ... FOR UPDATE`) before it is applied, so concurrent
+deliveries apply it once. Failed rows don't raise an alert by age yet.
 
-The periodic event replay and pending-payment sweep are deferred. Webhook retries remain the normal
-retry path; reconciliation repairs recognized merchant balance-transaction sources. It does not
-replace missed platform subscription, setup, or mandate events; those require webhook redelivery.
-Nightly balance reconciliation scans complete history, and payout history uses bounded cursor pages; reconciliation
-so runtime and request volume grow with usage. Unsupported movements require investigation. Existing
-fixture references in demo data are not recoverable real Stripe transactions.
+Payment notices are sent only for events less than a day old (`event.created`); an older event still
+settles but sends no notice. Gift card issuance is always sent, because the client needs the code. The
+same rule applies to replays and to reconciliation.
+
+### Replaying missed events
+
+`replay_missed_events` (`payments.run_replay_missed_events`) asks Stripe for events from the last seven
+days that it couldn't deliver (`GET /v1/events?delivery_success=false`), first on the platform and then on
+each connected account, up to 100 per account and 500 per run. It skips event types we don't subscribe to
+(plan events on the platform, `PAYMENT_EVENTS` on connected accounts) and events already processed. For
+the rest it re-fetches the object at the pinned API version and applies the event the object's current
+state stands for: a PaymentIntent replays as succeeded, canceled or failed, or not at all while it's still
+in progress, a payout as its current status and a SetupIntent as succeeded or failed. The event is applied
+through the normal webhook path under its original id, so a later delivery of the same event changes
+nothing, and its notices use the delivery queue and the one-day rule above.
+
+Thin v2 account events don't appear in that list, so a missed KYC event waits for the next account event,
+reconciliation of the business or the Refresh button.
+
+### Reconciliation
+
+`reconcile_ledger` (`payments.run_reconcile_payments`) visits businesses least recently reconciled first
+and stops starting new businesses after ten minutes, inside the worker's 900-second job timeout. For each
+business with a merchant account it:
+
+1. Reads the balance transactions created since its cursor, less a day of overlap. The cursor is a
+   `ledger.reconciled` audit holding the newest transaction id and `created` that a run reached; each run
+   writes one per business, and a business with none is read from the start of its history.
+2. Adds the full history of every source with an active finding. A source that doesn't match within the
+   window is compared again on its full history, since the window may hold only its later transactions.
+3. Repairs each source through the same handlers as webhooks (charges first), compares Stripe's net for the
+   source with the business's Stripe legs from the journals it produced, and records or resolves a finding.
+   Standalone `stripe_fee` transactions, including fee credits, post once by transaction id.
+4. Compares the account balance with the ledger, then checks each account's cached balance against its
+   entries.
+
+A source that answers `retry_later` is skipped until 24 hours after its first transaction's `created`, then
+becomes a `ledger.transaction_drift` finding. A source whose repair raises anything else records a
+`ledger.transaction_failed` finding with its Stripe net and no ledger amount.
+
+Findings are append-only audits on the source (`entity_type` `stripe_source`). A run that finds the same
+difference again writes nothing new, so it alerts once; a changed difference writes a new finding, and a
+repaired source records `ledger.drift_resolved` on the active one. The account-balance check subtracts the
+differences of all active source findings, failures and acknowledged findings included, and stores only
+the residual as a finding on the source `balance`. The same unexplained difference therefore keeps one
+finding while both balances move. Reconciliation never invents a balancing entry.
+
+| Audit                                   | Investigation                                                                                                |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `ledger.transaction_drift`              | Source ID, balance transaction IDs and local/Stripe net cents identify the movement to trace.                |
+| `ledger.transaction_failed`             | Source repair failed; inspect the correlated worker exception.                                               |
+| `ledger.transaction_drift` on `balance` | The Stripe balance differs from the ledger by `residual_cents` beyond the active findings.                   |
+| `ledger.drift_resolved`                 | A later run found the source matching again.                                                                 |
+| `ledger.drift_acknowledged`             | A platform admin reviewed the finding and gave a reason; no money changed.                                   |
+| `ledger.reconciled`                     | The per-business cursor.                                                                                     |
+| `ledger.cache_drift`                    | Cached account balances differ from their immutable entries. Written on each run that sees it.               |
+| `ledger.reconciliation_failed`          | Business reconciliation could not complete, including provider access failures. Written on each failing run. |
+| `payout.refused` / `payment.refused`    | A payout or renewal in a currency the ledger doesn't book. Written once per object.                          |
+
+Each new finding, cache difference and reconciliation failure logs `ledger drift ...` at `ERROR` from
+`clientbridge.services.payments`, which raises the ledger-drift alert.
+
+Platform admins see a business's findings through `GET /admin/v1/businesses/{business_id}/drift`: the
+latest finding for each source that isn't resolved, 50 per page, with its acknowledgement, shown on the
+admin business page. `POST /admin/v1/businesses/{business_id}/drift/{finding_id}/acknowledge` with a reason
+records `ledger.drift_acknowledged` and changes no ledger entries. It refuses a finding a newer one has
+replaced (409 `finding_superseded`) and one already resolved (409 `finding_resolved`). An acknowledged
+finding stays active, and still counts in the balance check, until the source matches again.
+
+A gift card or package charge that was refunded as an orphan posts to an orphan payable, with processor
+and application fees taken from the provider balance transactions. Those `orphan:` journals create no sale
+revenue or entitlement, and today's revenue on the dashboard leaves them out. The business keeps the Stripe
+fee on an orphan refund, since Stripe takes it from the connected account. Unknown fee types and
+inconsistent provider amounts remain errors rather than balancing adjustments.
+
+Older membership charges are reconstructed through their InvoicePayments association, and a recovered
+PaymentIntent is dated at its charge rather than recorded as paid today. Existing fixture references in
+demo data are not recoverable real Stripe transactions.
 
 ## Platform billing
 
@@ -266,12 +473,19 @@ every account we create carries ours whichever configuration it starts with.
   `metadata.business_id`, adopts a created subscription unless another live one exists, and mirrors the
   subscription it fetches from Stripe, so out-of-order deliveries end at Stripe's current state. A second
   subscription that has not ended yet has its paid invoices refunded and is then cancelled; its later
-  events, including its own `deleted`, find it ended and change nothing.
+  events, including its own `deleted`, find it ended and change nothing. An event for a subscription that
+  has ended and isn't the business's current one leaves the business as it is.
+- A missed `customer.subscription.created` doesn't strand a paying business. When a new Checkout finds a
+  completed Checkout whose subscription is billing, it adopts that subscription and answers `plan_active`;
+  `GET /v1/plan` (where the Checkout return lands) does the same for a business that isn't on a live plan,
+  and the portal endpoint for one with no subscription recorded.
 - Lapsed: the business can sign in and read. `api/plans.writable` answers every other write with 402
-  `plan_required`, except sign-in, the plan endpoints, devices, onboarding, staff removal and data export;
-  public booking, the shop and estimate acceptance answer 409 `business_unavailable`, while invoice
-  payment and webhooks keep working. Booking reminders, broadcasts, review requests and intake forms skip
-  lapsed businesses (`plans.serving`).
+  `plan_required`, except sign-in, the plan endpoints, devices, onboarding, staff removal, data export,
+  refunds and cancelling a client membership; public booking, the shop and estimate acceptance answer 409
+  `business_unavailable`, while invoice payment, manage-link deposits and webhooks keep working. Booking
+  reminders, broadcasts, review requests and intake forms skip lapsed businesses (`plans.serving`). Client
+  memberships keep billing, and when the plan lapses while any are active or past due, the owner is
+  emailed once that they are still charging.
 - Seats: a member besides the owner who is active, or invited with an unexpired invite. Trial and Team
   allow `PLAN_SEAT_CAP` (50); Premium bills each seat. An invite sets the Stripe seat quantity before it
   commits, so a failed Stripe call fails the invite; removal and revocation lower it afterwards, and
@@ -364,10 +578,11 @@ Complete the one-time manual step for each business:
 make stripe-setup ARGS="--project-name clientbridge --apply --write-db"
 ```
 
-With `make stripe-listen` and the local API running, account events also refresh the KYC mirror. Confirm
-both charges and payouts are enabled before creating fresh test charges and trying a funded payout.
-Historic seed payments keep fixture provider references and must not be used for live sandbox refunds.
-If you reset the local demo database later, rerun linking; you do not need to recreate the Stripe accounts.
+With `make stripe-listen` and the local API running, account events also refresh the KYC mirror; the
+Refresh button on Getting paid reads the account directly. Confirm both charges and payouts are enabled
+before creating fresh test charges and trying a funded payout. Historic seed payments keep fixture
+provider references and must not be used for live sandbox refunds. If you reset the local demo database
+later, rerun linking; you do not need to recreate the Stripe accounts.
 
 ### Credentials and runtime settings
 
@@ -383,23 +598,25 @@ If you reset the local demo database later, rerun linking; you do not need to re
 | `STRIPE_PUBLISHABLE_KEY`            | Mobile configuration; deployed web receives runtime configuration from the stack. |
 | `clientbridge:stripePublishableKey` | Per-environment Pulumi stack setting for deployed clients.                        |
 
-Secret and publishable keys must refer to the same mode/platform account. Local CLI signing secrets
-are distinct from deployed endpoint secrets. See [secret deployment](operations.md#secrets) for Secret
-Manager names, mounting and rollout behavior. Test-only E2E settings are covered below.
+Secret and publishable keys must refer to the same mode/platform account. `core/config.py` checks the
+secret key's mode: with `ENV=prod` it must be a live key (`sk_live_` or `rk_live_`), and every other
+environment, dev included, refuses a live key. Local CLI signing secrets are distinct from deployed
+endpoint secrets. See [secret deployment](operations.md#secrets) for Secret Manager names, mounting and
+rollout behavior. Test-only E2E settings are covered below.
 
 ## Staging and production setup
 
 Staging uses a Stripe sandbox and production the live platform account, both on API version `2026-09-30.endive` (`STRIPE_API_VERSION` in `integrations/stripe.py`). Each needs:
 
-- A Connect webhook endpoint (`connect=true`) at `https://api.D/webhooks/stripe` for the snapshot events in `integrations/stripe.py` `PAYMENT_EVENTS` (aliased as `WEBHOOK_EVENTS` in the setup script), at the pinned API version. Its signing secret is `STRIPE_WEBHOOK_SECRET`.
+- A Connect webhook endpoint (`connect=true`) at `https://api.D/webhooks/stripe` for the snapshot events in `integrations/stripe.py` `PAYMENT_EVENTS` (aliased as `WEBHOOK_EVENTS` in the setup script), at the pinned API version. Its signing secret is `STRIPE_WEBHOOK_SECRET`. The list now includes `refund.failed`, so an endpoint created before it was added needs that event added.
 - A thin event destination at the same URL for `v2.core.account[requirements].updated`, `v2.core.account[configuration.merchant].capability_status_updated` and `v2.core.account.closed`. Its secret is `STRIPE_THIN_WEBHOOK_SECRET`.
 - A platform endpoint (`connect=false`) at the same URL for `customer.subscription.created`, `.updated` and `.deleted`. Its secret is `STRIPE_PLATFORM_WEBHOOK_SECRET`.
 - The plan products, prices and Billing Portal configuration that `stripe_setup.py` plans (see [the demo account](engineering.md#the-demo--qa-account)); the configuration id is `STRIPE_PORTAL_CONFIGURATION`.
-- Payment method domains for `app.D`, `book.D`, `pay.D` and `shop.D`, so Apple Pay, Google Pay and Link show in Elements there. We use direct charges, and Stripe requires the domain to be registered on the connected account that runs the charge (`Stripe-Account` header), not on the platform. The API registers and enables the four domains on a business's account each time its owner opens the embedded onboarding session (`POST /v1/connect/session`) when `BASE_DOMAIN` is set (`register_payment_domains` in `integrations/stripe.py`), which covers live accounts with no Dashboard step. For accounts that existed before, such as the sandbox demo accounts, `stripe_setup.py --payment-domains D` plans the same registration on each demo account and `--apply` performs it; it refuses live mode like the rest of the script. Check Apple Pay on `book.` in staging after the first deploy.
+- Payment method domains for `app.D`, `book.D`, `pay.D` and `shop.D`, so Apple Pay, Google Pay and Link show in Elements there. We use direct charges, and Stripe requires the domain to be registered on the connected account that runs the charge (`Stripe-Account` header), not on the platform. When `BASE_DOMAIN` is set, the API registers and enables the four domains on a business's account each time its owner opens the embedded onboarding session (`POST /v1/connect/session`), after the session is issued and committed and outside the business lock (`register_payment_domains` in `integrations/stripe.py`). This covers live accounts with no Dashboard step. Registration is best effort: a failure is logged, onboarding carries on, and the next onboarding session tries again. For accounts that existed before, such as the sandbox demo accounts, `stripe_setup.py --payment-domains D` plans the same registration on each demo account and `--apply` performs it; it refuses live mode like the rest of the script. Check Apple Pay on `book.` in staging after the first deploy.
 - The Dashboard-only settings `stripe_setup.py` prints (`DASHBOARD_STEPS`): Connect profile and branding, payment methods for connected accounts, Terminal, Connect and Billing emails, Smart Retries and Stripe Tax.
-- `STRIPE_SECRET_KEY` (a restricted key if every call the adapter makes is covered, otherwise the secret key) and the publishable key in the stack's `stripePublishableKey`.
+- `STRIPE_SECRET_KEY` (a restricted key if every call the adapter makes is covered, otherwise the secret key) and the publishable key in the stack's `stripePublishableKey`. Production refuses to start with a test key, and staging with a live one.
 
-For staging, `stripe_setup.py` creates all of the endpoints and billing objects. It runs only with `ENV=dev` and a test-mode Stripe CLI profile, so run it from a local checkout against the staging sandbox's CLI profile, with the staging app URL for the portal's return link:
+For staging, `stripe_setup.py` creates all of the endpoints and billing objects. It runs only with `ENV=dev` and a test-mode Stripe CLI profile, so run it from a local checkout against the staging sandbox's CLI profile, with the staging app URL for the portal's return link. `make infra-providers ENV=staging` runs the same step (see [first deploy](operations.md#first-deploy)).
 
 ```
 WEB_BASE_URL=https://app.staging.clientbridge.ca make stripe-setup \
@@ -410,7 +627,7 @@ WEB_BASE_URL=https://app.staging.clientbridge.ca make stripe-setup \
   ARGS="--apply --project-name <staging profile> --payment-domains staging.clientbridge.ca"   # once the demo accounts exist
 ```
 
-The script refuses live mode, so production's endpoints, destination, products, prices and portal configuration are created in the live Dashboard (Workbench > Webhooks, choosing API version `2026-09-30.endive`) with the same event lists, product ids and price lookup keys as `stripe_setup.py`.
+The script refuses live mode, so production's endpoints, destination, products, prices and portal configuration are created in the live Dashboard (Workbench > Webhooks, choosing API version `2026-09-30.endive`) with the same event lists, product ids and price lookup keys as `stripe_setup.py`. `make infra-providers ENV=prod` skips its Stripe step and reports that it did, because the setup script works on the sandbox and its secrets would overwrite the live ones.
 
 The webhook route picks the signing secret by the event's shape: thin events use `STRIPE_THIN_WEBHOOK_SECRET` (the event destination's secret), snapshot events with an `account` use `STRIPE_WEBHOOK_SECRET` (the Connect endpoint's secret), and snapshot events without one use `STRIPE_PLATFORM_WEBHOOK_SECRET` (the platform endpoint's secret). The snapshot listener forwards both Connect and platform events, so with our local listeners use the secrets printed for the corresponding destinations; the setup script prints the local values. `STRIPE_PORTAL_CONFIGURATION` holds the portal configuration id the script prints, and production config validation requires it and the platform secret. A sandbox renders snapshot events at its own default API version, and `stripe listen` cannot pin another. The webhook rejects snapshot events rendered at any version other than `STRIPE_API_VERSION`, which matches the Clientbridge sandbox default (`2026-09-30.endive`); when Stripe releases a newer version, we upgrade the pin and the SDK together after checking its changelog against the handlers. Thin events are unversioned and skip this check.
 
@@ -432,20 +649,25 @@ original Price unless explicitly changed.
 Use the [categorized QA checklist](qa/payments.md) for scenario coverage and the
 [automation plan](qa/payments-automation.md) for real-app recordings, shared sandbox isolation and CI rollout.
 
-| Layer              | Command                                         | What it proves                                                                                                                             |
-| ------------------ | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| Backend regression | `make test-backend`                             | Product behavior, ledger invariants, duplicate/out-of-order events, recovery and tenant/role isolation with fakes and disposable Postgres. |
-| Stripe contract    | `make stripe-mock`, then `make test-contract`   | Real adapter request/response shapes against stripe-mock; not provider state or Accounts v2 behavior.                                      |
-| Provider E2E       | `make test-e2e`                                 | Real sandbox behavior when test keys are configured; skipped otherwise. May create provider test objects.                                  |
-| Frontend           | `make test-frontend` and normal lint/type gates | Shared view-model and client checks; not proof of successful embedded-provider interaction.                                                |
+| Layer              | Command                                         | What it proves                                                                                                                                           |
+| ------------------ | ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Backend regression | `make test-backend`                             | Product behavior, ledger invariants, duplicate/out-of-order events, replay, reconciliation and tenant/role isolation with fakes and disposable Postgres. |
+| Stripe contract    | `make stripe-mock`, then `make test-contract`   | Real adapter request/response shapes against stripe-mock; not provider state or Accounts v2 behavior.                                                    |
+| Provider E2E       | `make test-e2e`                                 | Real sandbox behavior when test keys are configured; skipped otherwise. May create provider test objects.                                                |
+| Frontend           | `make test-frontend` and normal lint/type gates | Shared view-model and client checks; not proof of successful embedded-provider interaction.                                                              |
 
 E2E uses `STRIPE_TEST_SECRET_KEY` and, for existing merchant scenarios, `STRIPE_TEST_CONNECTED_ACCOUNT`;
 the setup script prints the demo account ID. Follow the [test tiers](engineering.md#stripe-three-tiers-layered-by-cost)
 for the complete harness and prerequisites. A green fake/contract suite is not a live payout sign-off.
 
+The [Stripe hardening execution](executions/stripe-hardening/plan.md) tracks the work still open from the
+October 26 review of every Stripe flow, including the sandbox checks and the Stripe browser cases, with its
+evidence in [progress](executions/stripe-hardening/progress.md).
+
 Manual sandbox pass:
 
-1. Finish onboarding; test incomplete requirements and recovery to ready on web/mobile.
+1. Finish onboarding; test incomplete requirements, payouts paused and recovery to ready on web/mobile,
+   using Refresh to pull the change from Stripe.
 2. Make a fresh invoice payment, booking deposit, shop/desk sale and known-client Terminal payment.
    Check the connected account, Customer association, fee journals and product completion.
 3. Save a card; authorize a bank method; test decline/additional authentication and pending debit states.
@@ -454,23 +676,14 @@ Manual sandbox pass:
 6. Open Payouts and schedule as owner/admin; change an available automatic schedule, reload and verify
    persistence in Stripe. Select manual scheduling and request a supported standard sandbox payout.
    Check pending/in-transit/paid/failed/canceled display without booking duplicate revenue. Verify staff denial.
-7. Compare available/pending amounts with Stripe. Delay a webhook, restore delivery/recovery and verify
-   one payment, one set of journals and deduplicated notifications. Verify reconciliation finds no
-   unexplained movement for the fresh test transactions.
+7. Compare available/pending amounts with Stripe. Withhold a webhook, then let Stripe retry or run the
+   replay job, and verify one payment, one set of journals and deduplicated notifications. Verify
+   reconciliation finds no unexplained movement for the fresh test transactions.
 8. Exercise platform plan Checkout, portal and cancellation separately from client memberships.
 
 Sandbox payouts do not prove actual bank delivery. Real-device Terminal and wallet tests require their
 provider/device prerequisites. Keep release sign-off in [launch readiness](launch-readiness.md), rather
 than treating this reference as a completed checklist.
-
-Source reconciliation suppresses routine notifications older than one day while preserving gift-card issuance.
-Standalone Stripe fee transactions post by transaction ID, including fee credits. The payout list reads
-24 payouts per cursor page without fetching every historical page. The 30-day deposited figure is
-derived from all applicable bank journals, independently of the visible history page. Ledger repair orchestration lives in
-`services/payments.py`; journal primitives remain in `services/ledger.py`.
-
-The [review follow-up](qa/payments-automation.md#review-follow-up) records remaining merge blockers;
-these source-repair improvements do not yet make reconciliation bounded or fix payout transit accounting.
 
 ### Sandbox verification record — 2026-10-18
 
@@ -495,17 +708,19 @@ round trips alone do not complete that QA.
 
 ## Troubleshooting
 
-| Symptom                                        | Check                                                                                                                                                                                                             |
-| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Cannot accept payments / payouts disabled      | Current account requirements and capabilities; finish embedded onboarding/account management. Inspect thin destination delivery and the mirrored KYC state.                                                       |
-| Signature rejection                            | Correct endpoint family and signing secret, raw request body, environment/mode and local versus deployed listener.                                                                                                |
-| Snapshot rejected for API version              | Compare event `api_version` with `STRIPE_API_VERSION`; align sandbox default or deployed endpoint. Upgrade SDK, fixtures and handlers together.                                                                   |
-| Successful Stripe charge still pending locally | Event delivery/failed Webhook row; required fee availability; webhook redelivery or source reconciliation; associated product record and provider reference. Do not create another charge to repair bookkeeping.                         |
-| Payout has not arrived                         | Stripe's live status, available versus pending funds, selected schedule and bank requirements. A local bank journal or estimated date is not proof of receipt.                                                    |
-| Ledger drift                                   | Use source/transaction IDs in the audit to compare provider net movement with business-owned Stripe journal legs. Check refunds, disputes and reversals, then rerun normal reconciliation after fixing the cause. |
-| Customer/payment method missing                | Verify the connected-account scope and platform/mode. After a demo reset, relink fixtures or create fresh test transactions.                                                                                      |
-| Apple Pay / Google Pay / Link absent           | Verify payment method enablement and domain registration on the merchant account, then browser/device eligibility.                                                                                                |
-| Plan checkout/portal fails                     | Check platform products/lookup keys, portal configuration and platform webhook secret; do not use the merchant Customer as the platform billing customer.                                                         |
+| Symptom                                        | Check                                                                                                                                                                                                                                                                                                               |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Cannot accept payments / payouts disabled      | The KYC phase (`restricted`, `payouts_paused`, `disabled`), current account requirements and capabilities; finish embedded onboarding/account management. Use Refresh, then inspect thin destination delivery and the mirrored KYC state.                                                                           |
+| Signature rejection                            | The webhook-rejections alert names it. Check the endpoint family and signing secret, raw request body, environment/mode and local versus deployed listener, then resend the refused events.                                                                                                                         |
+| Snapshot rejected for API version              | Compare event `api_version` with `STRIPE_API_VERSION`; align sandbox default or deployed endpoint. The event is kept as a failed `webhooks` row. Upgrade SDK, fixtures and handlers together.                                                                                                                       |
+| Successful Stripe charge still pending locally | A failed `webhooks` row for the event and its log line; required fee availability; Stripe's retries, the hourly replay job and source reconciliation; associated product record and provider reference. Do not create another charge to repair bookkeeping.                                                         |
+| `unsupported_currency` on an item or sale      | Only CAD is supported (`SUPPORTED_CURRENCIES`).                                                                                                                                                                                                                                                                     |
+| `payment_provider_error` (502)                 | Stripe refused a request we don't map. The API log `stripe error <code> ...` on `clientbridge.stripe` names Stripe's code and request id.                                                                                                                                                                           |
+| Payout has not arrived                         | Stripe's live status, available versus pending funds, selected schedule and bank requirements. A payout counts as deposited only after `payout.paid`, and even then the bank journal is not proof of receipt.                                                                                                       |
+| Ledger drift                                   | Open the business's drift list in admin. Use source/transaction IDs to compare provider net movement with business-owned Stripe journal legs. Check refunds, disputes, fee returns and reversals, then let the next run confirm the fix; acknowledge only a difference that is understood and will not be repaired. |
+| Customer/payment method missing                | Verify the connected-account scope and platform/mode. After a demo reset, relink fixtures or create fresh test transactions.                                                                                                                                                                                        |
+| Apple Pay / Google Pay / Link absent           | Verify payment method enablement and domain registration on the merchant account (a failed registration is logged when onboarding opens), then browser/device eligibility.                                                                                                                                          |
+| Plan checkout/portal fails                     | Check platform products/lookup keys, portal configuration and platform webhook secret; do not use the merchant Customer as the platform billing customer.                                                                                                                                                           |
 
 Inspect webhook failures, worker errors and ledger-drift audits together; use the [operations alerts](operations.md#health-checks-and-alerts)
 for deployment-specific investigation. Fix causes and replay through existing handlers rather than
@@ -515,54 +730,30 @@ editing immutable ledger rows or inserting unexplained balancing entries.
 
 Paths are repository-relative; shared frontend paths are under `frontend/packages/app-core/src/`.
 
-| Responsibility                                             | Source                                                                                        |
-| ---------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| Stripe adapter, API pin, event families, embedded features | `backend/src/clientbridge/integrations/stripe.py`                                             |
-| Merchant commands, settlement, webhooks and recovery       | `backend/src/clientbridge/services/payments.py`                                               |
-| Ledger posting, reversals and reconciliation               | `backend/src/clientbridge/services/ledger.py`                                                 |
-| Plan billing and seats                                     | `backend/src/clientbridge/services/plans.py`                                                  |
-| Merchant subscriptions and entitlements                    | `backend/src/clientbridge/services/entitlements.py`                                           |
-| Payment / Connect routes and webhook entry                 | `backend/src/clientbridge/api/payments.py`, `backend/src/clientbridge/api/webhooks.py`        |
-| Persistent payment records and output contracts            | `backend/src/clientbridge/models/payments.py`, `backend/src/clientbridge/schemas/payments.py` |
-| Scheduled jobs                                             | `backend/src/clientbridge/tasks/worker.py`                                                    |
-| Sandbox provisioning and account audit                     | `backend/scripts/stripe_setup.py`, `backend/scripts/payment_accounts.py`                      |
-| Getting paid, payouts and embedded session view-models     | `domain/gettingPaid.ts` (including `usePaymentAccount`), `domain/payouts.ts`                  |
-| Recovery and ledger regressions                            | `backend/tests/test_payments_recovery.py`, `backend/tests/test_ledger_drift.py`               |
-| Provider contract and E2E tests                            | `backend/tests/contract/test_stripe_contract.py`, `backend/tests/e2e/test_stripe_e2e.py`      |
+| Responsibility                                                     | Source                                                                                                                                                                                  |
+| ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Stripe adapter, API pin, event families, embedded features         | `backend/src/clientbridge/integrations/stripe.py`                                                                                                                                       |
+| Merchant commands, settlement, webhooks, replay and reconciliation | `backend/src/clientbridge/services/payments.py`                                                                                                                                         |
+| Ledger posting, reversals, caps and payout journals                | `backend/src/clientbridge/services/ledger.py`                                                                                                                                           |
+| `transit` and `loss` account categories                            | `backend/migrations/versions/20261026_000000_transit_and_loss.py`                                                                                                                       |
+| KYC phase and account mirror                                       | `backend/src/clientbridge/services/business.py`                                                                                                                                         |
+| Stripe error codes                                                 | `backend/src/clientbridge/core/errors.py`                                                                                                                                               |
+| Plan billing and seats                                             | `backend/src/clientbridge/services/plans.py`                                                                                                                                            |
+| Merchant subscriptions and entitlements                            | `backend/src/clientbridge/services/entitlements.py`                                                                                                                                     |
+| Desk checkout cancel                                               | `backend/src/clientbridge/services/orders.py`                                                                                                                                           |
+| Payment / Connect routes and webhook entry                         | `backend/src/clientbridge/api/payments.py`, `backend/src/clientbridge/api/webhooks.py`                                                                                                  |
+| Admin drift list and acknowledgement                               | `backend/src/clientbridge/api/admin.py`, `backend/src/clientbridge/services/admin.py`                                                                                                   |
+| Persistent payment records and output contracts                    | `backend/src/clientbridge/models/payments.py`, `backend/src/clientbridge/schemas/payments.py`                                                                                           |
+| Scheduled jobs                                                     | `backend/src/clientbridge/tasks/worker.py`                                                                                                                                              |
+| Alerts for ledger drift and webhook rejections                     | `infra/pulumi/cloud/observability.py`                                                                                                                                                   |
+| Sandbox provisioning and account audit                             | `backend/scripts/stripe_setup.py`, `backend/scripts/payment_accounts.py`                                                                                                                |
+| Getting paid, payouts and embedded session view-models             | `domain/gettingPaid.ts` (including `usePaymentAccount`), `domain/payouts.ts`                                                                                                            |
+| Webhook, replay, recovery and reconciliation regressions           | `backend/tests/test_webhooks.py`, `test_webhooks_replay.py`, `test_payments_recovery.py`, `test_ledger_drift.py`, `test_ledger_jobs.py`, `test_ledger_migration.py`                     |
+| Refund, dispute, fee and error regressions                         | `backend/tests/test_payments_refunds.py`, `test_payments_disputes.py`, `test_payments_fees.py`, `test_payments_errors.py`, `test_orders_tips.py`                                        |
+| Charge lifecycle, Connect and membership regressions               | `backend/tests/test_orders_cancel.py`, `test_payments_stale_intents.py`, `test_payments_terminal.py`, `test_payments_connect.py`, `test_entitlements_subscriptions.py`, `test_plans.py` |
+| Provider contract and E2E tests                                    | `backend/tests/contract/test_stripe_contract.py`, `backend/tests/e2e/test_stripe_e2e.py`                                                                                                |
 
 Provider references: [embedded payouts](https://docs.stripe.com/connect/supported-embedded-components/payouts),
 [payout schedules](https://docs.stripe.com/connect/manage-payout-schedule),
 [webhooks](https://docs.stripe.com/webhooks), [event history](https://docs.stripe.com/api/events/list),
 and [balance transactions](https://docs.stripe.com/api/balance_transactions/list).
-
-
-### Source findings and payout details
-
-Automatic payouts expose bounded, cursor-paged transaction details through
-`GET /v1/connect/payouts/{payout_id}/transactions?after=txn_...`. The service checks owner/admin
-access and retrieves both payout and transactions in the current business's connected account.
-Pending reconciliation and manual payouts have explicit states; manual payouts do not receive an
-invented transaction allocation. Web and mobile render the same app-core view model.
-
-Source mismatches are append-only audit findings. Repeated identical findings reuse their original
-record. A platform administrator can acknowledge one with a reason through
-`POST /admin/v1/businesses/{business_id}/drift/{finding_id}/acknowledge`; this changes no ledger entries.
-A changed mismatch creates a fresh finding; a repaired source records resolution. The nightly job
-reports source findings and cache corruption. An account-balance comparison subtracts already
-identified source differences, so ledger-only differences remain visible without a duplicate alert for the same
-source mismatch. Transient `retry_later` responses defer reconciliation until the next run.
-
-Audited orphan collections and their refunds post to an orphan payable, with processor and application
-fees taken from the provider balance transactions. They create no sale revenue or product entitlement.
-Unknown fee types and inconsistent provider amounts remain errors rather than balancing adjustments.
-
-
-PR #42 review follow-up: dispute fees and returned fees now post only their newly observed increments,
-including after terminal dispute status, without reopening a won/lost case. History and payout-content
-pagination are independent on web and mobile. The account-balance residual check uses active source
-findings (including acknowledged ones) and detects ledger-only discrepancies. Durable job checkpoints
-and payout-transit accounting remain pending explicit schema approval; do not merge until implemented
-and validated.
-
-Scope update: the scheduled recovery job and its event-listing adapter were removed. Reconciliation
-and shared payment/webhook handlers remain. No checkpoint table or other schema change was added.

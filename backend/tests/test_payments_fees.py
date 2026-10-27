@@ -118,3 +118,24 @@ async def test_every_saved_card_takes_the_domestic_card_fee_without_asking_strip
     await enable_payments(db)
     method_id = await _saved(db, await client_id(db), "pm_abroad", "card")
     assert await _charge_saved(as_owner, db, gateway, method_id) == 30
+
+
+@pytest.mark.parametrize(
+    ("ref", "method"), [("pm_label_card", "card"), ("pm_label_pad", "bank_eft")]
+)
+async def test_a_saved_method_charge_is_recorded_as_its_own_method(
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    gateway: FakePaymentGateway,
+    ref: str,
+    method: str,
+) -> None:
+    await enable_payments(db)
+    await _charge_saved(as_owner, db, gateway, await _saved(db, await client_id(db), ref, method))
+    recorded = await db.scalar(
+        select(Payment.method)
+        .where(Payment.provider_ref.in_(list(gateway.charges)))
+        .order_by(Payment.created_at.desc())
+        .limit(1)
+    )
+    assert recorded == method

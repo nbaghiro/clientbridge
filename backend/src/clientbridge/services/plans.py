@@ -23,6 +23,7 @@ from clientbridge.integrations.stripe import (
     SubscribedItem,
 )
 from clientbridge.models.business import Business, Plan, PlanStatus, Staff
+from clientbridge.models.catalog import Subscription
 from clientbridge.schemas.plans import (
     PlanAccess,
     PlanChoice,
@@ -297,10 +298,19 @@ class PlanService:
             raise NotFound("business not found")
         return business
 
+    async def _adopted(self) -> Business:
+        business = await self._business(lock=True)
+        await _adopt_paid(self.db, self.gateway, business)
+        await self.db.commit()
+        return business
+
     async def status(self) -> PlanOut:
         self._assert_owner()
         now = clock.now()
         business = await self._business()
+        if business.stripe_account_id is not None and plan_access(business, now) not in _LIVE:
+            # the Checkout return lands here, so a paid plan shows even if its webhook is late
+            business = await self._adopted()
         seats = await billed_seats(self.db, business.id, now)
         sub = (
             await self.gateway.get_plan_subscription(business.stripe_subscription_id)
@@ -351,7 +361,13 @@ class PlanService:
         )
         attempt = f"{_key(idempotency_key)}:{parameters}"
         # two tabs or a retry without a key would otherwise open two subscriptions
-        if await self.gateway.close_plan_checkouts(account_id, keep=attempt):
+        paid = await self.gateway.close_plan_checkouts(account_id, keep=attempt)
+        if paid is not None:
+            await _mirror(
+                self.db, self.gateway, business, paid.id, named=paid.business_id, created=True
+            )
+            # kept, so the plan page and portal see the subscription the 409 points to
+            await self.db.commit()
             raise Conflict("the business already has a plan; change it instead", code="plan_active")
         url = await self.gateway.create_plan_checkout(
             account_id,
@@ -414,6 +430,8 @@ class PlanService:
     async def portal(self) -> PlanLink:
         self._assert_owner()
         business = await self._business()
+        if business.stripe_subscription_id is None and business.stripe_account_id is not None:
+            business = await self._adopted()
         if business.stripe_subscription_id is None or business.stripe_account_id is None:
             raise Conflict("this business has no plan to manage", code="plan_not_managed")
         url = await self.gateway.create_portal_session(
@@ -450,6 +468,25 @@ async def apply_subscription_event(
     if named is not None and named != business.id:
         _log.warning("plan subscription %s names %s, not %s", subscription_id, named, business.id)
         return
+    await _mirror(
+        db,
+        gateway,
+        business,
+        subscription_id,
+        named=named,
+        created=event.type == "customer.subscription.created",
+    )
+
+
+async def _mirror(
+    db: AsyncSession,
+    gateway: PaymentGateway,
+    business: Business,
+    subscription_id: str,
+    *,
+    named: object,
+    created: bool,
+) -> None:
     current = business.stripe_subscription_id
     if current != subscription_id:
         # only a subscription our Checkout made for this business is adopted, whatever its event
@@ -478,10 +515,14 @@ async def apply_subscription_event(
             )
             return
     sub = await gateway.get_plan_subscription(subscription_id)
-    if current is not None and current != subscription_id and sub.status in _LIVE:
-        previous = await gateway.get_plan_subscription(current)
-        if previous.status not in _ENDED:
-            await gateway.cancel_plan_subscription(current)
+    if current is not None and current != subscription_id:
+        # a stale or retried event for a replaced subscription must not repoint the business
+        if sub.status in _ENDED:
+            return
+        if sub.status in _LIVE:
+            previous = await gateway.get_plan_subscription(current)
+            if previous.status not in _ENDED:
+                await gateway.cancel_plan_subscription(current)
     business.stripe_subscription_id = subscription_id
     status = _STRIPE_STATUS.get(sub.status)
     trialing = plan_access(business, clock.now()) == "trial"
@@ -489,11 +530,42 @@ async def apply_subscription_event(
     if status is None or (sub.status == "incomplete_expired" and trialing):
         await db.flush()
         return
+    lapsing = status == "lapsed" and business.plan_status != "lapsed"
     business.plan_status = status
     business.plan = _tier_of(sub)[0] if status != "lapsed" else None
     await db.flush()
-    if event.type == "customer.subscription.created":
+    if lapsing:
+        await _warn_live_memberships(db, business, subscription_id, sub.status)
+    if created:
         await sync_seats(gateway, business, await billed_seats(db, business.id, clock.now()))
+
+
+async def _warn_live_memberships(
+    db: AsyncSession, business: Business, subscription_id: str, stripe_status: str
+) -> None:
+    """Memberships keep billing after the plan lapses, so the owner learns how to stop them."""
+    live = await db.scalar(
+        select(func.count()).select_from(
+            scoped(Subscription, business.id)
+            .where(Subscription.status.in_(("active", "past_due")))
+            .subquery()
+        )
+    )
+    if not live:
+        return
+    queue = DeliveryQueue(db, f"plan-lapsed:{business.id}:{subscription_id}:{stripe_status}")
+    queued = Notifier(QueuedEmail(queue), QueuedSms(queue), QueuedPush(queue), raise_errors=True)
+    await queued.on_plan_lapsed_with_memberships(db, business.id, int(live))
+
+
+async def _adopt_paid(db: AsyncSession, gateway: PaymentGateway, business: Business) -> None:
+    """Mirror a plan Checkout has already started billing, when its platform webhook was missed."""
+    if business.stripe_account_id is None or plan_access(business, clock.now()) in _LIVE:
+        return
+    paid = await gateway.paid_plan_subscription(business.stripe_account_id)
+    if paid is None or paid.customer_account != business.stripe_account_id:
+        return
+    await _mirror(db, gateway, business, paid.id, named=paid.business_id, created=True)
 
 
 async def run_sync_seats(db: AsyncSession, gateway: PaymentGateway, now: datetime) -> int:

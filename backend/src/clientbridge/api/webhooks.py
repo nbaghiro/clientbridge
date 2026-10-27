@@ -1,5 +1,6 @@
 """Webhook surface (#4) — unauthenticated provider callbacks, authenticated by signature."""
 
+import logging
 import secrets
 from typing import Annotated
 from urllib.parse import parse_qsl
@@ -42,6 +43,7 @@ from clientbridge.services.payments import (
     process_stripe_event,
 )
 
+_log = logging.getLogger(__name__)
 router = APIRouter(prefix="/webhooks", tags=["webhooks"])
 
 
@@ -60,13 +62,17 @@ async def stripe_webhook(
     notifier = Notifier(QueuedEmail(queue), QueuedSms(queue), QueuedPush(queue), raise_errors=True)
 
     async def notify(outcome: WebhookOutcome) -> None:
-        queue.scope = f"stripe:{outcome.notify}:{outcome.target_id}"
+        queue.scope = outcome.scope
         queue.business_id = outcome.business_id
         await notify_payment_outcome(notifier, db, outcome)
 
     try:
         outcome = await process_stripe_event(db, gateway, payload, stripe_signature, notify)
-    except (WebhookVerificationError, WebhookVersionError):
+    except WebhookVerificationError as error:
+        _log.error("webhook rejected signature: %s", error)
+        return Response(status_code=400)
+    except WebhookVersionError as error:
+        _log.error("webhook rejected version %s", error)
         return Response(status_code=400)
     for identity in queue.ids:
         await dispatch(db, identity, email, sms, push)

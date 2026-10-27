@@ -12,6 +12,7 @@ OwnerType = Literal["business", "client", "staff", "platform", "gift_card", "pac
 AccountCategory = Literal[
     "stripe",
     "bank",
+    "transit",
     "cash",
     "receivable",
     "tax",
@@ -25,6 +26,7 @@ AccountCategory = Literal[
     "platform_fee",
     "staff_cost",
     "itc",
+    "loss",
 ]
 EntryEvent = Literal[
     "invoice",

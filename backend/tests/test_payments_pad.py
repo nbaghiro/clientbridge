@@ -312,3 +312,17 @@ async def test_failed_bank_setup_records_the_setup_status(
     assert await column(db, "payment_setup_links", link.id, "setup_status") == (
         "requires_payment_method"
     )
+
+
+async def test_bank_links_and_card_setup_wait_for_card_payments_to_be_on(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await enable_payments(db)
+    cid = await client_id(db)
+    business = await db.get(Business, BIZ)
+    assert business is not None
+    business.stripe_charges_enabled = False
+    await db.commit()
+    assert (await as_owner.post(f"/v1/payments/pad-links/{cid}")).status_code == 409
+    setup = await as_owner.post(f"/v1/payments/setup-intent/{cid}")
+    assert setup.status_code == 409, setup.text

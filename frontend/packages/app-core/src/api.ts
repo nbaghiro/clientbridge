@@ -80,6 +80,7 @@ const FAILURES: Record<string, (detail: FailureDetail) => string> = {
     estimate_on_visit: () => strings.api.estimateOnVisit,
     deposit_not_due: () => strings.api.depositNotDue,
     deposit_in_progress: () => strings.api.depositInProgress,
+    checkout_paid: () => strings.api.checkoutPaid,
     card_payments_unavailable: () => strings.api.cardPaymentsUnavailable,
     staff_has_future_work: () => strings.api.staffHasFutureWork,
     broadcast_address_missing: () => strings.api.broadcastAddressMissing,
@@ -122,6 +123,10 @@ const FAILURES: Record<string, (detail: FailureDetail) => string> = {
     class_schedule: () => strings.api.classSchedule,
     addon_length_in_use: (d) => strings.api.addonLengthInUse(detailCount(d)),
     enrolment_paid: () => strings.api.enrolmentPaid,
+    payment_disputed: () => strings.api.paymentDisputed,
+    amount_too_small: () => strings.api.amountTooSmall,
+    idempotency_mismatch: () => strings.api.idempotencyMismatch,
+    payment_provider_error: () => strings.api.paymentProviderError,
 };
 
 /** The catalog message for a failure the server named, else the action's own message. */

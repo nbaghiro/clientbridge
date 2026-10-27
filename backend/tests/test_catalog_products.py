@@ -364,15 +364,22 @@ async def test_no_commission_without_a_retail_rate(
     assert found is None
 
 
-async def test_sale_takes_its_items_currency(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
+async def test_an_item_or_sale_in_an_unsupported_currency_is_refused(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    created = await as_owner.post(
+        "/v1/items", json={"kind": "product", "name": "Import", "currency": "USD"}
+    )
+    assert created.status_code == 422
+    assert created.json()["error"] == "unsupported_currency"
+    changed = await as_owner.patch(f"/v1/items/{SHAMPOO}", json={"currency": "USD"})
+    assert changed.status_code == 422
+    assert changed.json()["error"] == "unsupported_currency"
     await db.execute(update(Item).where(Item.id == SHAMPOO).values(currency="USD"))
     await db.commit()
-    single = await as_owner.post("/v1/orders", json={"lines": [await _line(SHAMPOO, 2400)]})
-    assert single.json()["currency"] == "USD"
-    mixed = await as_owner.post(
-        "/v1/orders", json={"lines": [await _line(SHAMPOO, 2400), await _line(BATH, 4500)]}
-    )
-    assert mixed.status_code == 422
+    sale = await as_owner.post("/v1/orders", json={"lines": [await _line(SHAMPOO, 2400)]})
+    assert sale.status_code == 422
+    assert sale.json()["error"] == "unsupported_currency"
 
 
 async def test_walk_in_pays_with_a_new_card(

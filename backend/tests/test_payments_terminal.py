@@ -8,6 +8,7 @@ from clientbridge.integrations.stripe import PostalAddress
 from clientbridge.models.business import Business
 from clientbridge.services.business import postal_address
 from tests.conftest import FakePaymentGateway
+from tests.helpers import ok
 
 BIZ = "bz_birchbark"
 
@@ -62,6 +63,44 @@ async def test_connection_token_mints_and_reuses_terminal_location(
     second = (await as_owner.post("/v1/terminal/connection-token")).json()
     assert second["location_id"] == loc
     assert len(gateway.created_locations) == 1
+
+
+async def test_connection_token_is_scoped_to_the_business_location(
+    as_staff: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await _set_account(db, "acct_test")
+    first = ok(await as_staff.post("/v1/terminal/connection-token")).json()
+    second = ok(await as_staff.post("/v1/terminal/connection-token")).json()
+    assert gateway.token_locations == [first["location_id"], second["location_id"]]
+
+
+async def test_a_new_address_deletes_the_old_location(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await _set_account(db, "acct_test")
+    old = ok(await as_owner.post("/v1/terminal/connection-token")).json()["location_id"]
+    ok(await as_owner.patch("/v1/business", json={"brand": {"address": "Elsewhere"}}))
+    assert gateway.deleted_locations == []
+    ok(await as_owner.patch("/v1/business", json={"unit": "Suite 4"}))
+    assert gateway.deleted_locations == [old]
+    new = ok(await as_owner.post("/v1/terminal/connection-token")).json()["location_id"]
+    assert new != old and gateway.token_locations[-1] == new
+
+
+async def test_a_location_stripe_will_not_delete_leaves_the_address_saved(
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    gateway: FakePaymentGateway,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    await _set_account(db, "acct_test")
+    ok(await as_owner.post("/v1/terminal/connection-token"))
+    gateway.location_delete_fails = True
+    ok(await as_owner.patch("/v1/business", json={"unit": "Suite 4"}))
+    business = await db.get(Business, BIZ, populate_existing=True)
+    assert business is not None and business.unit == "Suite 4"
+    assert business.stripe_terminal_location_id is None
+    assert "terminal location delete failed" in caplog.text
 
 
 async def test_terminal_location_uses_the_business_street_address(

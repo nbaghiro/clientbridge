@@ -2,7 +2,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Header
 
-from clientbridge.core.deps import CurrentPrincipal, DbSession
+from clientbridge.core.deps import CurrentPrincipal, DbSession, GatewayDep
 from clientbridge.schemas.clients import (
     BulkResult,
     ClientCreate,
@@ -34,9 +34,10 @@ async def archive_clients(
     body: ClientIds,
     principal: CurrentPrincipal,
     db: DbSession,
+    gateway: GatewayDep,
     idempotency_key: IdempotencyKey = None,
 ) -> BulkResult:
-    return await ClientService(db, principal).archive_many(body, idempotency_key)
+    return await ClientService(db, principal).archive_many(body, gateway, idempotency_key)
 
 
 @router.post("/tags", response_model=BulkResult)
@@ -55,9 +56,10 @@ async def update_client(
     body: ClientUpdate,
     principal: CurrentPrincipal,
     db: DbSession,
+    gateway: GatewayDep,
     idempotency_key: IdempotencyKey = None,
 ) -> ClientOut:
-    return await ClientService(db, principal).update(client_id, body, idempotency_key)
+    return await ClientService(db, principal).update(client_id, body, gateway, idempotency_key)
 
 
 @router.post("/{client_id}/archive", response_model=ClientOut)
@@ -65,10 +67,11 @@ async def archive_client(
     client_id: str,
     principal: CurrentPrincipal,
     db: DbSession,
+    gateway: GatewayDep,
     idempotency_key: IdempotencyKey = None,
 ) -> ClientOut:
     return await ClientService(db, principal).set_archived(
-        client_id, archived=True, idempotency_key=idempotency_key
+        client_id, archived=True, gateway=gateway, idempotency_key=idempotency_key
     )
 
 
@@ -77,10 +80,11 @@ async def restore_client(
     client_id: str,
     principal: CurrentPrincipal,
     db: DbSession,
+    gateway: GatewayDep,
     idempotency_key: IdempotencyKey = None,
 ) -> ClientOut:
     return await ClientService(db, principal).set_archived(
-        client_id, archived=False, idempotency_key=idempotency_key
+        client_id, archived=False, gateway=gateway, idempotency_key=idempotency_key
     )
 
 

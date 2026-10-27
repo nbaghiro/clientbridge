@@ -1,5 +1,7 @@
+import logging
 from collections.abc import Mapping
 
+import stripe
 from fastapi import Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
@@ -86,6 +88,38 @@ async def app_error_handler(_: Request, exc: Exception) -> JSONResponse:
     if exc.detail is not None:
         content["detail"] = jsonable_encoder(exc.detail)
     return JSONResponse(status_code=exc.status_code, content=content)
+
+
+_stripe_log = logging.getLogger("clientbridge.stripe")
+
+_STRIPE_CODES: Mapping[str, tuple[int, str, str]] = {
+    "charge_disputed": (409, "payment_disputed", "the payment is disputed"),
+    "amount_too_small": (422, "amount_too_small", "the amount is below the card minimum"),
+}
+
+
+def _stripe_failure(exc: stripe.StripeError) -> tuple[int, str, str]:
+    if isinstance(exc, stripe.IdempotencyError):
+        return 409, "idempotency_mismatch", "the retry differs from the original request"
+    if isinstance(exc, stripe.CardError):
+        return 402, "card_declined", "the card was declined"
+    known = _STRIPE_CODES.get(exc.code or "")
+    return known or (502, "payment_provider_error", "the payment provider refused the request")
+
+
+async def stripe_error_handler(_: Request, exc: Exception) -> JSONResponse:
+    # Stripe errors that escape the adapter answer with a stable code, never Stripe's own text.
+    if not isinstance(exc, stripe.StripeError):
+        raise exc
+    status_code, code, message = _stripe_failure(exc)
+    _stripe_log.warning(
+        "stripe error %s (%s) on request %s answered as %s",
+        exc.code,
+        type(exc).__name__,
+        exc.request_id,
+        code,
+    )
+    return JSONResponse(status_code=status_code, content={"error": code, "message": message})
 
 
 async def validation_error_handler(_: Request, exc: Exception) -> JSONResponse:

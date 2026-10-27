@@ -41,12 +41,20 @@ LOG_METRICS = (
         'AND jsonPayload.logger="clientbridge.requests" AND jsonPayload.path=~"^/webhooks/" '
         "AND jsonPayload.status>=500",
     ),
+    # a rejection answers 400, which webhook-failures does not count
+    LogMetric(
+        "webhook-rejections",
+        "Webhooks the API refused for their signature or API version",
+        'resource.type="k8s_container" AND resource.labels.container_name="api" '
+        'AND jsonPayload.logger="clientbridge.api.webhooks" '
+        'AND jsonPayload.message=~"^webhook rejected" AND severity>=ERROR',
+    ),
     # reconcile_ledger logs drift and carries on, so the run itself does not fail
     LogMetric(
         "ledger-drift",
         "reconcile_ledger found the ledger out of line with its cache or Stripe",
         'resource.type="k8s_container" AND resource.labels.container_name="worker" '
-        'AND jsonPayload.logger="clientbridge.services.ledger" '
+        'AND jsonPayload.logger="clientbridge.services.payments" '
         'AND jsonPayload.message=~"^ledger drift" AND severity>=ERROR',
     ),
 )

@@ -191,7 +191,7 @@ def _intent_event(event_type: str, pi: str) -> str:
 
 
 async def test_card_attempt_after_cancel_or_failure_opens_a_new_intent(
-    api: httpx.AsyncClient, db: AsyncSession
+    api: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
 ) -> None:
     inv_id, token = await _card_ready_invoice(db)
     secrets = [(await api.post(f"/pay/{token}/card")).json()["client_secret"]]
@@ -204,7 +204,9 @@ async def test_card_attempt_after_cancel_or_failure_opens_a_new_intent(
         assert retry.status_code == 200, retry.text
         secrets.append(retry.json()["client_secret"])
     assert len(set(secrets)) == 3
-    assert [s for s, _, _ in await _card_rows(db, inv_id)] == ["canceled", "failed", "pending"]
+    rows = await _card_rows(db, inv_id)
+    assert [s for s, _, _ in rows] == ["canceled", "canceled", "pending"]
+    assert rows[1][1] in gateway.canceled_intents  # a declined intent could still be confirmed
 
 
 async def test_card_tip_change_supersedes_the_live_attempt(

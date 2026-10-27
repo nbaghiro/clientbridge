@@ -1,15 +1,18 @@
 import { useParams } from "react-router-dom";
 import {
+    BUSINESS_CURRENCY,
+    formatMoney,
     formatNumber,
     adminEditionOptions,
     adminLabel,
     strings,
+    useAdminDriftForm,
     useAdminEditionForm,
     useAdminFilters,
     useAdminResource,
     type AdminSchemas,
 } from "@clientbridge/app-core/public";
-import { Button, Notice, Panel, Select, Stat } from "@clientbridge/ui";
+import { Button, Notice, Panel, Select, Stat, TextField } from "@clientbridge/ui";
 import { config } from "../config";
 import {
     RecordStatus,
@@ -100,6 +103,119 @@ function EditionPanel({ business }: { business: AdminSchemas["AdminBusiness"] })
     );
 }
 
+function DriftAcknowledgement({ form }: { form: ReturnType<typeof useAdminDriftForm> }) {
+    if (form.findingId === null) {
+        if (form.outcome === "saved")
+            return <Notice tone="success">{strings.admin.acknowledgementSaved}</Notice>;
+        if (form.outcome === "stale")
+            return <Notice tone="info">{strings.admin.acknowledgementStale}</Notice>;
+        return null;
+    }
+    return (
+        <div className="flex flex-col gap-3 border-t border-line p-4">
+            <TextField
+                label={strings.admin.acknowledgeReason}
+                hint={strings.admin.acknowledgeHint}
+                value={form.reason}
+                onChange={form.setReason}
+                onSubmit={form.save}
+            />
+            <div className="flex flex-wrap gap-2">
+                <Button disabled={!form.ready} busy={form.busy} onPress={form.save}>
+                    {strings.admin.saveAcknowledgement}
+                </Button>
+                <Button
+                    variant="outline"
+                    disabled={form.busy}
+                    onPress={() => {
+                        form.choose(null);
+                    }}
+                >
+                    {strings.admin.cancel}
+                </Button>
+            </div>
+            {form.outcome === "failed" ? (
+                <Notice tone="danger">{strings.admin.acknowledgementError}</Notice>
+            ) : null}
+        </div>
+    );
+}
+
+function DriftPanel({ business }: { business: AdminSchemas["AdminBusiness"] }) {
+    const state = useAdminResource(
+        "AdminPage_AdminDriftFinding_",
+        config.apiUrl,
+        `businesses/${encodeURIComponent(business.id)}/drift`,
+    );
+    const form = useAdminDriftForm(config.apiUrl, business.id, state.refresh);
+    const cents = (value: number | null) =>
+        value === null ? strings.admin.none : formatMoney(value, BUSINESS_CURRENCY);
+    return (
+        <RecordPanel title={strings.admin.drift}>
+            <p className="px-4 pt-4 text-sm text-muted">{strings.admin.driftHint}</p>
+            <Resource state={state}>
+                {(data) => (
+                    <Records
+                        items={data.items}
+                        columns={[
+                            {
+                                label: strings.admin.driftSource,
+                                render: (f) =>
+                                    f.source === "balance" ? (
+                                        strings.admin.driftBalance
+                                    ) : (
+                                        <Identifier value={f.source} />
+                                    ),
+                            },
+                            {
+                                label: strings.admin.driftFound,
+                                render: (f) => (
+                                    <When value={f.created_at} zone={business.timezone} />
+                                ),
+                            },
+                            {
+                                label: strings.admin.driftLedger,
+                                render: (f) => cents(f.ledger_cents),
+                            },
+                            {
+                                label: strings.admin.driftStripe,
+                                render: (f) => cents(f.stripe_cents),
+                            },
+                            {
+                                label: strings.admin.driftAcknowledged,
+                                render: (f) =>
+                                    f.acknowledgement ? (
+                                        <>
+                                            <div className="break-words">
+                                                {f.acknowledgement.reason}
+                                            </div>
+                                            <When
+                                                value={f.acknowledgement.acknowledged_at}
+                                                zone={business.timezone}
+                                            />
+                                        </>
+                                    ) : (
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            disabled={form.busy}
+                                            onPress={() => {
+                                                form.choose(f.id);
+                                            }}
+                                        >
+                                            {strings.admin.acknowledge}
+                                        </Button>
+                                    ),
+                            },
+                        ]}
+                    />
+                )}
+            </Resource>
+            <DriftAcknowledgement form={form} />
+        </RecordPanel>
+    );
+}
+
 export function BusinessDetail() {
     const { id = "" } = useParams();
     const state = useAdminResource(
@@ -136,6 +252,7 @@ export function BusinessDetail() {
                         />
                     </Panel>
                     <EditionPanel business={b} />
+                    <DriftPanel business={b} />
                     <div className="grid gap-4 sm:grid-cols-2">
                         <Stat label={strings.admin.clients} value={formatNumber(clients)} />
                         <Stat label={strings.admin.payments} value={formatNumber(payments)} />

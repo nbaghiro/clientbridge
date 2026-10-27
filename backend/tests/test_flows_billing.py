@@ -203,7 +203,7 @@ async def test_subscription_start_and_recurring_invoice(
     ).json()
     assert sub["status"] == "active"
     [price] = gateway.created_price_amounts
-    gateway.invoice_intents["in_flow"] = "pi_flow_sub"
+    gateway.pay_invoice("in_flow", "pi_flow_sub", price)
 
     charge: dict[str, object] = {
         "id": "in_flow",

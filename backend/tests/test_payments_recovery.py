@@ -2,16 +2,19 @@ from datetime import timedelta
 
 import httpx
 import pytest
+import stripe
 from sqlalchemy import select
+from sqlalchemy.dialects import postgresql
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
 from clientbridge.core.ids import new_id
+from clientbridge.integrations.stripe import StripeResource
 from clientbridge.models.catalog import Item, Subscription
 from clientbridge.models.payments import Payment
 from clientbridge.models.platform import Audit
 from clientbridge.services import ledger
-from clientbridge.services.payments import reconcile_stripe_transactions
+from clientbridge.services.payments import reconcile_stripe_transactions, source_findings
 from tests.conftest import BIZ, FakePaymentGateway
 from tests.helpers import client_id, enable_payments, sent_invoice
 
@@ -138,7 +141,7 @@ async def test_recovers_an_old_membership_charge_from_its_stripe_invoice(
     db.add(sub)
     await db.flush()
     paid_at = int((clock.now() - timedelta(days=60)).timestamp())
-    gateway.invoice_intents["in_old"] = "pi_old"
+    gateway.pay_invoice("in_old", "pi_old", 1000)
     gateway.objects[("acct_test", "invoice_payment", "pi_old")] = {
         "id": "in_old",
         "currency": "cad",
@@ -405,9 +408,9 @@ async def test_repaired_source_records_resolution_and_reopens_later_drift(
     assert len(findings) == 2
 
 
-async def test_unreadable_source_fees_defer_without_a_drift_alert(
-    db: AsyncSession, gateway: FakePaymentGateway
-) -> None:
+async def _unreadable_fees(
+    db: AsyncSession, gateway: FakePaymentGateway, age: timedelta
+) -> list[Audit]:
     await _pending(db, gateway)
     gateway.pending_fees.add("pi_recovery")
     gateway.objects[("acct_test", "charge", "ch_recovered")]["payment_intent"] = "pi_recovery"
@@ -417,11 +420,97 @@ async def test_unreadable_source_fees_defer_without_a_drift_alert(
             "source": "ch_recovered",
             "net": 980,
             "currency": "cad",
-            "created": int(clock.now().timestamp()),
+            "created": int((clock.now() - age).timestamp()),
         }
     ]
-    assert await reconcile_stripe_transactions(db, gateway, BIZ, "acct_test") == 0
-    assert list(await db.scalars(select(Audit).where(Audit.action.like("ledger.%")))) == []
+    await reconcile_stripe_transactions(db, gateway, BIZ, "acct_test")
+    return list(
+        await db.scalars(
+            select(Audit).where(Audit.action.like("ledger.%"), Audit.action != "ledger.reconciled")
+        )
+    )
+
+
+async def test_unreadable_source_fees_defer_without_a_drift_alert(
+    db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    assert await _unreadable_fees(db, gateway, timedelta(hours=23)) == []
+
+
+async def test_unreadable_source_fees_become_a_finding_after_a_day(
+    db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    (finding,) = await _unreadable_fees(db, gateway, timedelta(hours=25))
+    assert finding.action == "ledger.transaction_drift"
+    assert (finding.entity_id, finding.changes["stripe_cents"]) == ("ch_recovered", 980)
+
+
+async def test_finding_lookups_filter_on_every_audit_entity_index_column(
+    db: AsyncSession,
+) -> None:
+    query = source_findings(BIZ).where(Audit.entity_id == "ch_any")
+    sql = str(query.compile(dialect=postgresql.dialect()))
+    for column in ("business_id", "entity_type", "entity_id"):
+        assert f"audits.{column} = " in sql
+    assert await db.scalar(query) is None
+
+
+async def test_payout_contents_list_only_canadian_dollar_transactions(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await enable_payments(db)
+    gateway.objects[("acct_test", "payout", "po_mixed")] = {
+        "id": "po_mixed",
+        "automatic": True,
+        "reconciliation_status": "completed",
+    }
+    gateway.transactions["po_mixed"] = [
+        {
+            "id": f"txn_{currency}",
+            "source": f"ch_{currency}",
+            "amount": 1000,
+            "fee": 30,
+            "net": 970,
+            "currency": currency,
+            "type": "charge",
+            "created": int(clock.now().timestamp()),
+        }
+        for currency in ("cad", "usd")
+    ]
+    response = await as_owner.get("/v1/connect/payouts/po_mixed/transactions")
+    assert [row["id"] for row in response.json()["transactions"]] == ["txn_cad"]
+
+
+async def test_payout_contents_treat_a_malformed_id_as_missing(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await enable_payments(db)
+    gateway.objects[("acct_test", "payout", "not-a-payout")] = {
+        "id": "not-a-payout",
+        "automatic": True,
+        "reconciliation_status": "completed",
+    }
+    response = await as_owner.get("/v1/connect/payouts/not-a-payout/transactions")
+    assert response.status_code == 404
+
+
+async def test_payout_contents_answer_a_provider_refusal_as_bad_gateway(
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    gateway: FakePaymentGateway,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    await enable_payments(db)
+
+    async def refused(
+        account_id: str | None, resource: StripeResource, identity: str
+    ) -> dict[str, object]:
+        raise stripe.InvalidRequestError("account cannot read payouts", "payout", code="other")
+
+    monkeypatch.setattr(gateway, "retrieve", refused)
+    response = await as_owner.get("/v1/connect/payouts/po_refused/transactions")
+    assert response.status_code == 502
+    assert response.json()["error"] == "payment_provider_error"
 
 
 async def test_payout_history_pages_without_losing_older_payouts(

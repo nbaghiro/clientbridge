@@ -22,3 +22,5 @@ Use a new folder for a separate execution. Record tested behavior, remaining wor
 
 
 - [Connect hosts](connect-hosts/plan.md): one host per kind of Connect page and a subdomain per business page, on `connect-hosts`; [QA checklist](connect-hosts/qa.md).
+
+- [Stripe hardening](stripe-hardening/plan.md): fixes for the October 26 review of every Stripe flow, on `fix/stripe-hardening`; [schema proposal](stripe-hardening/schema.md), [task queue](stripe-hardening/tasks.json), [progress](stripe-hardening/progress.md).

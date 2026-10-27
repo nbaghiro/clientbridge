@@ -169,6 +169,9 @@ msgstr "{service} · {client}"
 msgid "datetime.day_at_time"
 msgstr "{day} at {time}"
 
+msgid "dispute.inquiry_push"
+msgstr "A client's bank asked about a {amount} payment. Answer it in Payments before the deadline so it doesn't become a dispute."
+
 msgid "dispute.push"
 msgstr "Payment disputed: {amount}. Review the dispute details."
 
@@ -435,6 +438,26 @@ msgstr "Payment failed — {business}"
 
 msgid "pickup.body"
 msgstr "Collect your order at {business}. We'll let you know when it's ready."
+
+msgid "plan_lapsed_memberships.action"
+msgstr "Open clients"
+
+msgid "plan_lapsed_memberships.body"
+msgstr "{lead} {how} {link}"
+
+msgid "plan_lapsed_memberships.heading"
+msgstr "Client memberships are still billing"
+
+msgid "plan_lapsed_memberships.how"
+msgstr "To stop one, open the client and cancel the membership. You can do this while the business is paused, or choose a plan to keep everything running."
+
+msgid "plan_lapsed_memberships.lead"
+msgid_plural "plan_lapsed_memberships.lead"
+msgstr[0] "The Clientbridge plan for {business} has ended, and {count} client membership still bills automatically."
+msgstr[1] "The Clientbridge plan for {business} has ended, and {count} client memberships still bill automatically."
+
+msgid "plan_lapsed_memberships.subject"
+msgstr "Your client memberships are still billing"
 
 msgid "plans.premium"
 msgstr "Clientbridge Premium"

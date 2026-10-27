@@ -50,7 +50,6 @@ export function GettingPaidScreen() {
         }, [refresh]),
     );
     const warn = paid.phase !== "enabled";
-    const act = paid.phase === "restricted" || paid.phase === "in_progress";
     const deadline = paid.deadline === null ? "" : formatDate(paid.deadline, zone);
 
     if (paid.account.props !== null) return <PaymentAccount {...paid.account.props} />;
@@ -146,6 +145,11 @@ export function GettingPaidScreen() {
                                 />
                             </View>
                             {r.why !== "" ? <Text style={styles.small}>{r.why}</Text> : null}
+                            {r.errors.map((error) => (
+                                <Text key={error} style={[styles.small, styles.error]}>
+                                    {error}
+                                </Text>
+                            ))}
                         </View>
                     ))}
                 </View>
@@ -212,7 +216,7 @@ export function GettingPaidScreen() {
                         {paid.refreshing ? g.checking : g.refresh}
                     </Button>
                 </View>
-                {act ? (
+                {paid.canFinish ? (
                     <View style={styles.flex}>
                         <Button size="lg" full disabled={!paid.account.ready} onPress={paid.finish}>
                             {g.finish}
@@ -258,6 +262,7 @@ const styles = StyleSheet.create({
     },
     reqTitle: { color: c.ink, fontSize: 15, fontWeight: "600", flexShrink: 1 },
     small: { color: c.muted, fontSize: 13, lineHeight: 18, marginTop: 3 },
+    error: { color: c.danFg },
     flex: { flex: 1 },
     help: { flexDirection: "row", alignItems: "flex-start", gap: 6 },
     footer: {

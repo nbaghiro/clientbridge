@@ -1,8 +1,11 @@
 // @vitest-environment happy-dom
 import { act, renderHook } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { createElement, type ReactNode } from "react";
+import { describe, expect, it, vi } from "vitest";
 
 import type { ApiLike } from "../api";
+import { BusinessZoneContext } from "../datetime";
+import { strings } from "../strings";
 import { allocate, discountCents } from "./billing";
 import { ratesOn } from "./taxes";
 import {
@@ -13,14 +16,21 @@ import {
     previewDiscount,
     issuedSale,
     priceSale,
+    type OrderOut,
     type SaleLine,
     saleStatus,
     saleTotalLines,
     tipCentsFor,
     tipShares,
+    useSale,
     useTerminalConnection,
 } from "./pos";
 import { saleNumber } from "./printing";
+
+vi.mock("../hooks", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("../hooks")>()),
+    useBusinessQuery: () => ({ data: [] }),
+}));
 
 const ZONE = "America/Vancouver";
 
@@ -294,5 +304,93 @@ describe("useTerminalConnection", () => {
         });
         expect(secret).toBe("pst_1");
         expect(result.current.locationId).toBe("tml_1");
+    });
+});
+
+describe("canceling a sale's checkout", () => {
+    const wrapper = ({ children }: { children: ReactNode }) =>
+        createElement(BusinessZoneContext.Provider, { value: ZONE }, children);
+    const held: OrderOut = {
+        id: "ord_1",
+        number: 12,
+        client_id: null,
+        status: "open",
+        total_cents: 1000,
+        subtotal_cents: 1000,
+        tax_total_cents: 0,
+        deposit_cents: 0,
+        gift_card_cents: 0,
+        due_cents: 1000,
+        discount_cents: 0,
+        note: null,
+        discount: null,
+        lines: [
+            {
+                id: "ln_1",
+                description: "Latte",
+                quantity: 1,
+                unit_amount_cents: 1000,
+                item_id: null,
+                booking_id: null,
+                tax_class: "standard",
+                staff_id: null,
+                discount: null,
+            },
+        ],
+    };
+
+    function saleApi(refusal: object | null): ApiLike & { posted: string[] } {
+        const posted: string[] = [];
+        return {
+            posted,
+            get: <T>() => Promise.resolve([] as T),
+            getText: () => Promise.resolve(""),
+            post: <T>(path: string) => {
+                posted.push(path);
+                return refusal === null
+                    ? Promise.resolve(held as T)
+                    : Promise.reject(Object.assign(new Error("refused"), refusal));
+            },
+            patch: <T>() => Promise.resolve({} as T),
+            delete: <T>() => Promise.resolve({} as T),
+        };
+    }
+
+    it("asks the server to cancel the sale's open checkout", async () => {
+        const api = saleApi(null);
+        const { result } = renderHook(() => useSale(api, { platform: "web" }), { wrapper });
+        act(() => {
+            result.current.resume(held, []);
+        });
+        await act(async () => {
+            result.current.cancelCheckout();
+            await Promise.resolve();
+        });
+        expect(api.posted).toEqual(["/v1/orders/ord_1/checkout/cancel"]);
+        expect(result.current.terminal).toBeNull();
+        expect(result.current.error).toBeNull();
+    });
+
+    it("says so when the card already went through", async () => {
+        const api = saleApi({ code: "checkout_paid" });
+        const { result } = renderHook(() => useSale(api, { platform: "web" }), { wrapper });
+        act(() => {
+            result.current.resume(held, []);
+        });
+        await act(async () => {
+            result.current.cancelCheckout();
+            await Promise.resolve();
+        });
+        expect(result.current.error).toBe(strings.api.checkoutPaid);
+        expect(result.current.checkout.error).toBe(strings.api.checkoutPaid);
+    });
+
+    it("closes a checkout that never reached the server without a request", () => {
+        const api = saleApi(null);
+        const { result } = renderHook(() => useSale(api, { platform: "web" }), { wrapper });
+        act(() => {
+            result.current.cancelCheckout();
+        });
+        expect(api.posted).toEqual([]);
     });
 });

@@ -11,6 +11,7 @@ from clientbridge.core.errors import Conflict, NotFound
 from clientbridge.core.ids import new_id
 from clientbridge.core.phones import e164, same_phone
 from clientbridge.core.scoping import scoped, scoped_update
+from clientbridge.integrations.stripe import PaymentGateway
 from clientbridge.models.billing import Estimate, Invoice, Order
 from clientbridge.models.catalog import GiftCard, Package, Subscription
 from clientbridge.models.clients import Client, Consent, Note, Subject
@@ -30,6 +31,7 @@ from clientbridge.schemas.clients import (
     ClientUpdate,
 )
 from clientbridge.services.consents import set_marketing_consent
+from clientbridge.services.payments import end_memberships_at_period_end, sync_customer
 from clientbridge.services.subjects import new_subject
 
 MANAGERS = ("owner", "admin")
@@ -114,7 +116,11 @@ class ClientService:
         )
 
     async def update(
-        self, client_id: str, data: ClientUpdate, idempotency_key: str | None = None
+        self,
+        client_id: str,
+        data: ClientUpdate,
+        gateway: PaymentGateway,
+        idempotency_key: str | None = None,
     ) -> ClientOut:
         async def run(cmd: Command) -> ClientOut:
             client = await load_client(self.db, self.biz, client_id)
@@ -136,7 +142,7 @@ class ClientService:
             cmd.record("client.update", entity_type="client", entity_id=client.id)
             return ClientOut.model_validate(client)
 
-        return await run_command(
+        out = await run_command(
             self.db,
             self.principal,
             action="client.update",
@@ -145,9 +151,17 @@ class ClientService:
             idempotency_key=idempotency_key,
             request={"client_id": client_id, "data": data},
         )
+        if data.model_fields_set & {"name", "email"}:
+            await sync_customer(self.db, gateway, await load_client(self.db, self.biz, client_id))
+        return out
 
     async def set_archived(
-        self, client_id: str, *, archived: bool, idempotency_key: str | None
+        self,
+        client_id: str,
+        *,
+        archived: bool,
+        gateway: PaymentGateway,
+        idempotency_key: str | None,
     ) -> ClientOut:
         assert_role(self.principal, *MANAGERS, message="only owners and admins archive clients")
         client = await load_client(self.db, self.biz, client_id)
@@ -160,6 +174,10 @@ class ClientService:
                 await self.db.refresh(client)
                 action = "client.archive" if archived else "client.restore"
                 cmd.record(action, entity_type="client", entity_id=client.id)
+                if archived:
+                    await end_memberships_at_period_end(
+                        self.db, gateway, cmd, self.biz, [client.id]
+                    )
             return ClientOut.model_validate(client)
 
         return await run_command(
@@ -186,7 +204,9 @@ class ClientService:
             raise NotFound("client not found")
         return rows
 
-    async def archive_many(self, data: ClientIds, idempotency_key: str | None) -> BulkResult:
+    async def archive_many(
+        self, data: ClientIds, gateway: PaymentGateway, idempotency_key: str | None
+    ) -> BulkResult:
         assert_role(self.principal, *MANAGERS, message="only owners and admins archive clients")
         clients = await self._many(data.client_ids)
 
@@ -198,6 +218,9 @@ class ClientService:
                     client.archived_at = now
                     cmd.record("client.archive", entity_type="client", entity_id=client.id)
             await self.db.flush()
+            await end_memberships_at_period_end(
+                self.db, gateway, cmd, self.biz, [client.id for client in clients]
+            )
             return BulkResult(count=len(clients))
 
         return await run_command(
