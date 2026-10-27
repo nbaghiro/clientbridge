@@ -38,7 +38,6 @@ class Email:
     reply_to: str | None = None
     idempotency_key: str | None = None
     tags: Mapping[str, str] = field(default_factory=dict)
-    opt_out: bool = False  # the client's email opt-out stops it, checked again as it goes
 
 
 class EmailSender(Protocol):

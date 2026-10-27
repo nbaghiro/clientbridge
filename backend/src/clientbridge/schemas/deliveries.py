@@ -12,6 +12,10 @@ class EmailDelivery(BaseModel):
     channel: Literal["email"] = "email"
     message: Email
     transport: Literal["smtp", "resend"] | None = None
+    client_id: str | None = None
+    opt_out: bool = Field(
+        default=False, description="The client's email opt-out stops it, checked again as it goes"
+    )
 
 
 class SmsDelivery(BaseModel):

@@ -209,10 +209,9 @@ async def _texts_stopped(db: AsyncSession, business_id: str, payload: DeliveryPa
 
 async def _emails_withdrawn(db: AsyncSession, business_id: str, payload: DeliveryPayload) -> bool:
     """An email the client can opt out of stays unsent once they have, even after it queued."""
-    if not isinstance(payload, EmailDelivery) or not payload.message.opt_out:
+    if not isinstance(payload, EmailDelivery) or not payload.opt_out or payload.client_id is None:
         return False
-    client_id = payload.message.tags.get("client")
-    return client_id is not None and await emails_withdrawn(db, business_id, client_id)
+    return await emails_withdrawn(db, business_id, payload.client_id)
 
 
 def _reserved(payload: DeliveryPayload) -> bool:
@@ -259,8 +258,11 @@ class QueuedEmail:
     def __init__(self, queue: DeliveryQueue) -> None:
         self.queue = queue
 
-    async def send(self, email: Email) -> str:
-        return await self.queue.add(EmailDelivery(message=email), email.tags.get("business"))
+    async def send(
+        self, email: Email, *, client_id: str | None = None, opt_out: bool = False
+    ) -> str:
+        delivery = EmailDelivery(message=email, client_id=client_id, opt_out=opt_out)
+        return await self.queue.add(delivery, email.tags.get("business"))
 
 
 class QueuedSms:

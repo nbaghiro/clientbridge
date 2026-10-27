@@ -1787,7 +1787,13 @@ class Notifier:
         if client.email and channel != "sms" and business is not None:
             brand = await business_brand(db, business)
             mail = client_email(business, brand, client.email, notice, client=client)
-            sent.append(await self._safe(self.email.send(replace(mail, opt_out=opt_out))))
+            # a direct send checked consent just now; a queued one checks it again as it goes
+            sending = (
+                self.email.send(mail, client_id=client.id, opt_out=opt_out)
+                if isinstance(self.email, QueuedEmail)
+                else self.email.send(mail)
+            )
+            sent.append(await self._safe(sending))
         number = e164(client.phone) if client.phone else None
         if (
             number
