@@ -11,11 +11,6 @@ export const replica = new ReplicaController(
         new PowerSyncDatabase({
             schema: AppSchema,
             database: { dbFilename },
-            logger: {
-                log: (r: { level: number; message: string; error?: unknown }) => {
-                    console.error("DBGPS", r.level, performance.now().toFixed(0), r.message, r.error === undefined ? "" : String(r.error));
-                },
-            },
         }),
 );
 
