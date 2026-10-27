@@ -171,7 +171,7 @@ def after_quiet_hours(at: datetime, tz: ZoneInfo) -> datetime:
     return datetime.combine(day, QUIET_UNTIL, tzinfo=tz).astimezone(UTC)
 
 
-# each province's most populous zone; an owner elsewhere in it picks theirs in Business
+# the supported zone that matches each province's most populous area; owners elsewhere pick theirs
 PROVINCE_ZONES: dict[ProvinceCode, str] = {
     "AB": "America/Edmonton",
     "BC": "America/Vancouver",

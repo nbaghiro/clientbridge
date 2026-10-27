@@ -247,7 +247,7 @@ async def _claim_broadcast(db: AsyncSession, broadcast_id: str) -> Broadcast | N
     ).scalar_one_or_none()
 
 
-async def _messaged(db: AsyncSession, broadcast: Broadcast, client_id: str) -> bool:
+async def _already_messaged(db: AsyncSession, broadcast: Broadcast, client_id: str) -> bool:
     already = (
         await db.execute(
             scoped(Message, broadcast.business_id)
@@ -311,7 +311,7 @@ async def _send_broadcast(
         if claimed is None:
             await db.commit()
             return False
-        if await _messaged(db, claimed, client_id):
+        if await _already_messaged(db, claimed, client_id):
             await db.commit()
             continue
         to = await _still_reachable(db, claimed, client_id)

@@ -1950,19 +1950,16 @@ class PublicEstimateService:
         if line_ids is None:
             return await self._context(estimate, business)
         self._assert_open(estimate, business)
-        lines = [_unsaved(ln) for ln in await self._lines(estimate)]
-        _select(lines, line_ids, estimate)
+        lines = [_detached_copy(ln) for ln in await self._lines(estimate)]
+        _tick_addons(lines, line_ids, estimate)
         return await self._context(estimate, business, lines)
-
-    async def estimate_id(self, token: str) -> str:
-        return (await self._resolve(token))[0].id
 
     async def accept(self, token: str, data: PublicEstimateAccept) -> PublicEstimate:
         estimate, business = await self._resolve(token, lock=True)
         self._assert_open(estimate, business)
         assert_serving(business, clock.now())
         lines = await self._lines(estimate)
-        _select(lines, data.line_ids, estimate)
+        _tick_addons(lines, data.line_ids, estimate)
         result = await tax_for_lines(self.db, estimate.business_id, lines)
         totals = included_totals(lines, result)
         if data.total_cents is not None and data.total_cents != totals.total_cents:
@@ -2045,12 +2042,12 @@ class PublicEstimateService:
         )
 
 
-def _unsaved(line: Line) -> Line:
+def _detached_copy(line: Line) -> Line:
     """A copy outside the session, so a quote can price it without writing the estimate."""
     return Line(**{attr.key: getattr(line, attr.key) for attr in Line.__mapper__.column_attrs})
 
 
-def _select(lines: list[Line], line_ids: list[str], estimate: Estimate) -> None:
+def _tick_addons(lines: list[Line], line_ids: list[str], estimate: Estimate) -> None:
     """Tick the chosen add-ons and price the document's discount over everything included."""
     if not set(line_ids) <= {ln.id for ln in lines if ln.optional}:
         raise Unprocessable("only an optional add-on can be ticked")
