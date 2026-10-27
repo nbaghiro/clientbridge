@@ -1,6 +1,6 @@
 import type { Session } from "@clientbridge/api-client";
 import { AppSchema, createConnector, ReplicaController } from "@clientbridge/sync";
-import { type ReplicaStorage, replicaStorage } from "@clientbridge/app-core";
+import { boundedOpen, type ReplicaStorage, replicaStorage } from "@clientbridge/app-core";
 import { type DBAdapter, PowerSyncDatabase, WASQLiteVFS, type WebDBAdapter } from "@powersync/web";
 import { beforeSessionReplace, getUserId } from "./auth";
 import { config } from "../config";
@@ -37,6 +37,7 @@ function replicaStorageKind(): Promise<ReplicaStorage> {
     return storage;
 }
 
+let kind: ReplicaStorage | null = null;
 let opened: PowerSyncDatabase | null = null;
 
 export const replica = new ReplicaController((dbFilename) => {
@@ -49,16 +50,50 @@ beforeSessionReplace(() => replica.pause());
 export async function connectPowerSync(api: Session) {
     const userId = getUserId();
     if (!userId) throw new Error("a valid account identity is required");
-    vfs = VFS[await replicaStorageKind()];
-    const db = await replica.activate(
-        { userId, apiUrl, powersyncUrl },
-        createConnector({ powersyncUrl, authFetch: api.forBusiness(null).authFetchFor(userId) }),
+    kind = await replicaStorageKind();
+    vfs = VFS[kind];
+    const db = await boundedOpen(
+        replica.activate(
+            { userId, apiUrl, powersyncUrl },
+            createConnector({
+                powersyncUrl,
+                authFetch: api.forBusiness(null).authFetchFor(userId),
+            }),
+        ),
     );
     db.waitForFirstSync()
         .then(askToPersistOnce)
         .catch(() => undefined);
     return db;
 }
+
+function settled(work: Promise<void>, ms: number): Promise<void> {
+    return Promise.race([
+        work.catch(() => undefined),
+        new Promise<void>((resolve) => setTimeout(resolve, ms)),
+    ]);
+}
+
+/** Every full-page navigation goes here: WebKit keeps a script-navigated page's OPFS locks (bug 316904). */
+export async function leave(url: string, how: "assign" | "replace" = "assign"): Promise<void> {
+    if (kind === "opfs") await settled(replica.close(), 2_000);
+    location[how](url);
+}
+
+let restored: () => void = () => undefined;
+
+export function onPageRestored(handler: () => void): void {
+    restored = handler;
+}
+
+addEventListener("pagehide", () => {
+    if (kind === "opfs") replica.close().catch(() => undefined);
+});
+
+// a page back from the back-forward cache had its replica closed on pagehide
+addEventListener("pageshow", (event) => {
+    if (event.persisted && kind === "opfs") restored();
+});
 
 const PERSIST_ASKED = "cb_persist_asked";
 

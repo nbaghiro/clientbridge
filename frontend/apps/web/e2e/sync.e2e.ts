@@ -1,18 +1,11 @@
 import { strings } from "@clientbridge/app-core/public";
-import { type Page, expect, test } from "@playwright/test";
+import { expect } from "@playwright/test";
+import { navigate, signIn, test } from "./support/session";
 import { offsiteLoadFailure } from "./support/shell";
 import { demoId, runEmail } from "@clientbridge/config/e2e/run";
 
 const m = strings.messaging;
 const s = strings.billing;
-
-// a client-side route change, so the session and replica stay as they are
-async function navigate(page: Page, path: string): Promise<void> {
-    await page.evaluate((to) => {
-        history.pushState({}, "", to);
-        dispatchEvent(new PopStateEvent("popstate"));
-    }, path);
-}
 
 test("history older than the device window is read from the API", async ({ page }) => {
     test.setTimeout(180_000);
@@ -89,4 +82,49 @@ test("a recorded payment holds the invoice until its new balance reaches this de
     await expect(record.getByRole("button", { name: s.recordPayment })).toHaveCount(0);
     await expect(record.getByText(s.settlingLate)).toBeVisible({ timeout: 20_000 });
     await expect(record.getByRole("button", { name: s.recordPayment })).toBeVisible();
+});
+
+test.describe(() => {
+    // WebKit does not route requests from a page its service worker controls
+    test.use({ serviceWorkers: "block" });
+
+    test(
+        "XB-E2E-21 a checkout that leaves the app reopens the replica on the return and on Back",
+        { tag: "@browsers" },
+        async ({ page, baseURL }) => {
+            test.setTimeout(180_000);
+            const back = new URL("/today", baseURL);
+            await page.route("**/v1/plan/checkout", (route) =>
+                route.request().method() === "POST"
+                    ? route.fulfill({
+                          json: { url: back.toString() },
+                          headers: {
+                              "access-control-allow-origin": back.origin,
+                              "access-control-allow-credentials": "true",
+                          },
+                      })
+                    : route.continue(),
+            );
+            await signIn(page, {
+                email: runEmail("owner@cedarcoast.example"),
+                password: "demo1234",
+            });
+            await navigate(page, "/setup/plan");
+            const choose = page.getByRole("button", {
+                name: strings.plans.choose(strings.plans.team),
+                exact: true,
+            });
+            await choose.click({ timeout: 60_000 });
+
+            const stuck = page.getByText(strings.sync.openStuckTitle, { exact: true });
+            await expect(page).toHaveURL(/\/today$/);
+            await expect(page.getByRole("heading", { level: 1 })).toBeVisible({ timeout: 20_000 });
+            await expect(stuck).toHaveCount(0);
+
+            await page.goBack();
+            await expect(page).toHaveURL(/\/setup\/plan$/);
+            await expect(choose).toBeVisible({ timeout: 20_000 });
+            await expect(stuck).toHaveCount(0);
+        },
+    );
 });

@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
     UPLOAD_NOTICE_AFTER_MS,
     arrivalState,
+    boundedOpen,
     isStorageFull,
     replicaStorage,
     syncNotice,
@@ -199,4 +200,35 @@ it("checks whether timed-out restore is invalidated before its delayed side effe
         await Promise.resolve();
     });
     expect(activated).toBe(false);
+});
+
+describe("a replica that doesn't open", () => {
+    it("fails as stuck after 20 seconds, so the shell shows its own recovery message", async () => {
+        vi.useFakeTimers();
+        const open = boundedOpen(new Promise<never>(() => undefined));
+        const outcome = expect(open).rejects.toMatchObject({ code: "replica_stuck" });
+        await vi.advanceTimersByTimeAsync(20_000);
+        await outcome;
+    });
+
+    it("passes an open that answers in time", async () => {
+        expect(await boundedOpen(Promise.resolve("db"))).toBe("db");
+    });
+
+    it("maps replica_stuck to the stuck failure and keeps retry on restore", async () => {
+        const options = {
+            restore: () =>
+                Promise.reject(Object.assign(new Error("stuck"), { code: "replica_stuck" })),
+            pause: vi.fn(() => Promise.resolve()),
+            discard: () => Promise.resolve(),
+            clearCredentials: () => Promise.resolve(),
+            subscribe: () => undefined,
+        };
+        const { result } = renderHook(() => useReplicaSession(options));
+        await act(async () => {
+            await Promise.resolve();
+        });
+        expect(result.current.failed).toBe("stuck");
+        expect(result.current.retry).toBe(result.current.restore);
+    });
 });

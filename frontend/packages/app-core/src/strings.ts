@@ -4796,6 +4796,8 @@ interface Strings {
         readonly discardRejected: string;
         readonly discardRejectedDetail: string;
         readonly offlineExpired: string;
+        readonly openStuckTitle: string;
+        readonly openStuckBody: string;
         readonly awaitingTitle: string;
         readonly awaitingDetail: string;
     };

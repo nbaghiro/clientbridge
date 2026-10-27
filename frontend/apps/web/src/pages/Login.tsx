@@ -14,6 +14,7 @@ import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 import { identity } from "../lib/api";
 import { expectSession, getUserId, heldInvite, hintSession, sessionHinted } from "../lib/auth";
+import { leave } from "../lib/powersync";
 import { webauthn } from "../lib/webauthn";
 import { BrandBackdrop, resolveVariant } from "../components/BrandBackdrop";
 
@@ -408,10 +409,7 @@ function SignIn({ onSuccess, probe }: { onSuccess: () => void; probe?: boolean }
             returnTo: returnTo.toString(),
             probe: probe ?? (getUserId() !== null || params.has("session") || sessionHinted()),
             onSessionStarted: hintSession,
-            openUrl: (url) => {
-                window.location.assign(url);
-                return Promise.resolve(null);
-            },
+            openUrl: (url) => leave(url).then(() => null),
             ...(webauthn ? { webauthn } : {}),
             ...(params.get("flow") ? { flowId: params.get("flow") ?? "" } : {}),
         },

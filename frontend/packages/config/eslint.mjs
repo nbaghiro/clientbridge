@@ -124,6 +124,22 @@ export default tseslint.config(
         rules: { "local/no-raw-format": "off", "local/no-composed-copy": "off" },
     },
     {
+        // WebKit keeps a script-navigated page's replica locks, so full-page navigations close it first.
+        files: ["**/apps/web/src/**/*.{ts,tsx}"],
+        ignores: ["**/apps/web/src/lib/powersync.ts", "**/apps/web/src/AdminLogin.tsx"],
+        rules: {
+            "no-restricted-syntax": [
+                "error",
+                {
+                    selector:
+                        "CallExpression[callee.property.name=/^(assign|replace|reload)$/][callee.object.name='location'], CallExpression[callee.property.name=/^(assign|replace|reload)$/][callee.object.property.name='location'], AssignmentExpression[left.property.name='href'][left.object.name='location'], AssignmentExpression[left.property.name='href'][left.object.property.name='location'][left.object.object.name='window']",
+                    message:
+                        "Navigate with leave() from lib/powersync, which closes the replica first.",
+                },
+            ],
+        },
+    },
+    {
         // Param lists stay `type`s: an interface needs an index signature to satisfy ParamListBase.
         files: ["**/apps/mobile/src/navigation.ts"],
         rules: { "@typescript-eslint/consistent-type-definitions": "off" },
