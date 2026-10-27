@@ -203,8 +203,8 @@ test(
             const menu = page.getByRole("menu", { name: n.createMenu });
             await expect(menu.getByRole("menuitem")).toHaveCount(7);
             await page.keyboard.press("c");
-            await expect(page).toHaveURL(/\/clients$/);
             await expect(page.getByRole("dialog")).toBeVisible();
+            await expect(page).toHaveURL(/\/today$/);
             await escapeDialog(page);
         });
 
@@ -226,13 +226,15 @@ test(
         });
         await walk.step("create: sale", async () => {
             await create(c.sale.label);
-            await expect(page).toHaveURL(/\/payments\/sales$/);
-            await expect(main.getByText(strings.pos.desk.ticket, { exact: true })).toBeVisible();
+            const drawer = page.getByRole("dialog");
+            await expect(drawer.getByText(strings.pos.desk.ticket, { exact: true })).toBeVisible();
+            await expect(page).toHaveURL(/\/today$/);
+            await escapeDialog(page);
         });
         for (const [key, path] of [
-            ["invoice", /\/payments\/invoices$/],
-            ["estimate", /\/payments\/invoices\?doc=estimates$/],
-            ["client", /\/clients$/],
+            ["invoice", /\/today$/],
+            ["estimate", /\/today$/],
+            ["client", /\/today$/],
             ["message", /\/inbox$/],
         ] as const) {
             await walk.step(`create: ${key}`, async () => {
@@ -884,6 +886,7 @@ test("owner: setup sections and their dialogs", async ({ page }) => {
     await walk.step("services: items, packages, products and inventory", async () => {
         await navigate(page, "/setup/services");
         await openFirstRow(page);
+        await main.getByRole("tab", { name: strings.catalog.views.plans }).click();
         await main.getByRole("button", { name: strings.catalog.addItem }).click();
         const picker = page.getByRole("dialog");
         await picker.getByText(strings.catalog.kindPackage, { exact: true }).click();

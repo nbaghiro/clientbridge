@@ -24,7 +24,6 @@ const r = (x: number, y: number, width: number, height: number, rx = 2): IconPri
 
 export type IconName =
     | "today"
-    | "sidebar"
     | "calendar"
     | "clients"
     | "invoices"
@@ -257,7 +256,6 @@ export const ICON_SPECS: Record<IconName, IconPrimitive[]> = {
     pin: [p("M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"), o(12, 10, 2.5)],
     message: chat,
     card: [r(3, 5, 18, 14), p("M3 10h18M7 15h3")],
-    sidebar: [r(3, 4, 18, 16), p("M9 4v16")],
     chevronRight: [p("m9 18 6-6-6-6")],
     chevronUp: [p("m6 15 6-6 6 6")],
     move: [p("M12 3v18M3 12h18"), p("m9 6 3-3 3 3M9 18l3 3 3-3M6 9l-3 3 3 3M18 9l3 3-3 3")],

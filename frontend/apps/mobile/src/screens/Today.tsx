@@ -16,7 +16,7 @@ import { StatusBar } from "expo-status-bar";
 import { type ReactNode, useRef, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Backdrop, Button, Empty, Notice, Panel } from "@clientbridge/ui";
+import { Backdrop, Button, Empty, Notice, Panel, useTabletLayout } from "@clientbridge/ui";
 
 import { DebugOverlay } from "../components/DebugOverlay";
 import {
@@ -26,12 +26,14 @@ import {
     KpiSummaryLoading,
     NextActions,
     NextCard,
+    NumbersFailed,
     PaymentsSummary,
     QuietDay,
     QuietSchedule,
     RowsLoading,
     Section,
     SetupGuide,
+    TeamToday,
     TodayFailed,
     TodayHeader,
 } from "../components/TodayParts";
@@ -98,7 +100,53 @@ function OwnerToday({ bell, onSecretTap }: { bell: number; onSecretTap: () => vo
     const firstRun = load.hasData && layout.guide;
     const figures = !(firstRun && !layout.money);
     const focus = view.current ?? view.next;
-    const later = view.agenda.filter((a) => a !== focus && a.state !== "done");
+    const wide = useTabletLayout();
+    // A tablet has room for the whole day, done visits included, as on the web.
+    const later = wide ? view.agenda : view.agenda.filter((a) => a !== focus && a.state !== "done");
+    const focusSection =
+        focus === null ? null : (
+            <Section title={focus.state === "now" ? t.stateNow : t.upNext}>
+                <NextCard item={focus}>
+                    <NextActions item={focus} actions={actions} />
+                </NextCard>
+            </Section>
+        );
+    const attentionSection =
+        firstRun && view.attention.length === 0 ? null : (
+            <Section title={t.needsYou}>
+                {loading ? (
+                    <RowsLoading count={3} />
+                ) : (
+                    <AttentionList items={view.attention} actions={actions} empty={t.allClear} />
+                )}
+            </Section>
+        );
+    const scheduleSection = (
+        <Section
+            title={wide ? t.schedule : t.restOfDay}
+            action={
+                <Button
+                    size="sm"
+                    variant="link"
+                    onPress={() => {
+                        openLink("schedule");
+                    }}
+                >
+                    {t.openSchedule}
+                </Button>
+            }
+        >
+            {loading ? (
+                <RowsLoading />
+            ) : firstRun ? (
+                <QuietSchedule bookingLink={bookingLink} />
+            ) : later.length === 0 ? (
+                <QuietDay bookingLink={bookingLink} />
+            ) : (
+                <AgendaRows items={later} />
+            )}
+        </Section>
+    );
 
     return (
         <>
@@ -121,8 +169,15 @@ function OwnerToday({ bell, onSecretTap }: { bell: number; onSecretTap: () => vo
                     ) : null}
                     <CheckInLayer actions={actions} />
                     {firstRun ? <SetupGuide setup={setup} /> : null}
-                    {!figures ? null : loading ? (
+                    {!figures ? null : loading || owner.moneyLoad.state === "loading" ? (
                         <KpiSummaryLoading />
+                    ) : owner.moneyLoad.state === "error" ? (
+                        <View style={styles.notice}>
+                            <NumbersFailed
+                                onRetry={owner.moneyLoad.retry}
+                                retrying={owner.moneyLoad.retrying}
+                            />
+                        </View>
                     ) : (
                         <KpiSummary
                             items={[
@@ -130,60 +185,53 @@ function OwnerToday({ bell, onSecretTap }: { bell: number; onSecretTap: () => vo
                                     label: t.booked,
                                     value: String(view.agenda.length),
                                     hint: t.bookedHint(view.done, view.remaining),
+                                    progress: { value: view.done, max: view.agenda.length },
                                 },
                                 {
                                     label: t.expected,
                                     value: formatMoney(view.expectedCents, BUSINESS_CURRENCY),
                                     hint: t.expectedHint,
                                 },
+                                {
+                                    label: t.collected,
+                                    value: formatMoney(
+                                        owner.money.collectedCents,
+                                        BUSINESS_CURRENCY,
+                                    ),
+                                    hint: t.collectedHint(owner.money.paymentCount),
+                                    tone: "success",
+                                },
+                                {
+                                    label: t.awaiting,
+                                    value: formatMoney(
+                                        owner.money.awaitingCents,
+                                        BUSINESS_CURRENCY,
+                                    ),
+                                    hint: t.awaitingHint(owner.money.awaitingCount),
+                                },
                             ]}
                         />
                     )}
-                    {focus === null ? null : (
-                        <Section title={focus.state === "now" ? t.stateNow : t.upNext}>
-                            <NextCard item={focus}>
-                                <NextActions item={focus} actions={actions} />
-                            </NextCard>
-                        </Section>
+                    {wide && !firstRun ? (
+                        <View style={styles.columns}>
+                            <View style={styles.main}>
+                                {focusSection}
+                                {scheduleSection}
+                            </View>
+                            <View style={styles.side}>
+                                {figures ? <PaymentsSummary owner /> : null}
+                                {attentionSection}
+                                <TeamToday team={view.team} />
+                            </View>
+                        </View>
+                    ) : (
+                        <>
+                            {focusSection}
+                            {figures ? <PaymentsSummary owner /> : null}
+                            {attentionSection}
+                            {scheduleSection}
+                        </>
                     )}
-                    {figures ? <PaymentsSummary owner={owner} /> : null}
-                    {firstRun && view.attention.length === 0 ? null : (
-                        <Section title={t.needsYou}>
-                            {loading ? (
-                                <RowsLoading count={3} />
-                            ) : (
-                                <AttentionList
-                                    items={view.attention}
-                                    actions={actions}
-                                    empty={t.allClear}
-                                />
-                            )}
-                        </Section>
-                    )}
-                    <Section
-                        title={t.restOfDay}
-                        action={
-                            <Button
-                                size="sm"
-                                variant="link"
-                                onPress={() => {
-                                    openLink("schedule");
-                                }}
-                            >
-                                {t.openSchedule}
-                            </Button>
-                        }
-                    >
-                        {loading ? (
-                            <RowsLoading />
-                        ) : firstRun ? (
-                            <QuietSchedule bookingLink={bookingLink} />
-                        ) : later.length === 0 ? (
-                            <QuietDay bookingLink={bookingLink} />
-                        ) : (
-                            <AgendaRows items={later} />
-                        )}
-                    </Section>
                 </Body>
             )}
         </>
@@ -277,12 +325,16 @@ function StaffToday({ bell, onSecretTap }: { bell: number; onSecretTap: () => vo
 }
 
 const styles = StyleSheet.create({
-    screen: { flex: 1, backgroundColor: c.bg },
+    screen: { flex: 1 },
     body: { paddingTop: 4, paddingBottom: 32 },
     notice: { paddingHorizontal: 20, paddingBottom: 10 },
     loading: { paddingHorizontal: 20, paddingTop: 12 },
     sub: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 14, paddingHorizontal: 20 },
     facts: { flexDirection: "row", gap: 10, paddingHorizontal: 20, marginTop: 22 },
+    columns: { flexDirection: "row", alignItems: "flex-start" },
+    // Each section pads its own sides, so the columns overlap that padding to leave a 24pt gap.
+    main: { flex: 1, minWidth: 0, marginRight: -8 },
+    side: { width: 360, marginLeft: -8 },
     fact: { flex: 1 },
     factLabel: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 12, fontWeight: "600" },
     factValue: {

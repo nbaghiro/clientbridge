@@ -322,7 +322,7 @@ function RosterBody({ roster }: { roster: ClassRoster }) {
 }
 
 const styles = StyleSheet.create({
-    screen: { flex: 1, backgroundColor: c.bg },
+    screen: { flex: 1 },
     body: { padding: 16, paddingBottom: 32, gap: 12 },
     subtitle: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 13 },
     gap: { gap: 12 },

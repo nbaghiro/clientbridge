@@ -473,7 +473,7 @@ function QuestionControls({ editor, field }: { editor: FormEditor; field: Editor
 }
 
 const styles = StyleSheet.create({
-    screen: { flex: 1, backgroundColor: c.bg },
+    screen: { flex: 1 },
     body: { padding: 16, paddingBottom: 40, gap: 12 },
     top: { flexDirection: "row", alignItems: "center", gap: 12 },
     subtitle: { flex: 1, color: c.muted, fontFamily: theme.fonts.ui, fontSize: 13 },

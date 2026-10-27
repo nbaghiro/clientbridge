@@ -1,25 +1,13 @@
 import {
     type ClientListRow,
-    type ClientNote,
     type ClientSegment,
-    type SubjectRow,
     canManagePayments,
-    formatDate,
     formatMoney,
-    formatRelativeTime,
-    formatTime,
-    formatWeekday,
     kindWord,
     nextVisitLabel,
-    savedCardLabel,
-    subjectSummary,
-    subjectTemperament,
     strings,
     useClientDirectory,
-    useClientRecord,
     useClientSelection,
-    useNoteActions,
-    visitPill,
     formatParts,
     formatList,
     BUSINESS_CURRENCY,
@@ -29,54 +17,33 @@ import {
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import {
-    ActionMenu,
     Avatar,
     Backdrop,
-    Badge,
     Button,
     Checkbox,
     confirm,
-    DetailSection,
-    DetailView,
-    KeyValueList,
     ListPage,
-    ListRow,
-    LoadFailed,
     Modal,
     Notice,
-    Panel,
-    Skeleton,
-    StatusPill,
+    useTabletLayout,
+    Choice,
+    PageHeader,
+    SearchField,
 } from "@clientbridge/ui";
-import { type RouteProp, useNavigation, useRoute } from "@react-navigation/native";
-import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { useEffect, useState } from "react";
-import { Linking, StyleSheet, Text, View } from "react-native";
+import { useState } from "react";
+import { StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import {
-    ClientEditorSheet,
-    MergeSheet,
-    NoteSheet,
-    SubjectSheet,
-    TagSheet,
-} from "../components/ClientSheets";
-import { ClientFormsSection } from "../components/TreatmentNotes";
+import { MergeSheet, TagSheet } from "../components/ClientSheets";
+import { AskSheet, type RecordAsk, RecordSheet } from "../components/ClientRecord";
 import { api } from "../lib/api";
-import { useRole, useViewer } from "../lib/auth";
-import { useOpenLink } from "../lib/links";
-import type { RootStackParamList, TabParamList } from "../navigation";
+import { useRole } from "../lib/auth";
 
 const c = theme.colors;
 const r = strings.clients.record;
 const t = strings.clients.tidy;
 
-type Sheet =
-    | { kind: "client"; id: string | null }
-    | { kind: "subject"; clientId: string; subject: SubjectRow | null }
-    | { kind: "note"; clientId: string; subjects: readonly SubjectRow[] }
-    | { kind: "merge"; a: ClientListRow; b: ClientListRow }
-    | { kind: "tags" };
+type Sheet = RecordAsk | { kind: "merge"; a: ClientListRow; b: ClientListRow } | { kind: "tags" };
 
 export function ClientsScreen() {
     const photos = usePeoplePhotos();
@@ -89,13 +56,6 @@ export function ClientsScreen() {
     const [selecting, setSelecting] = useState(false);
     const [merged, setMerged] = useState<string | null>(null);
     const sel = useClientSelection(api, dir.all);
-    const params = useRoute<RouteProp<TabParamList, "Clients">>().params;
-    useEffect(() => {
-        if (params?.create !== undefined) setSheet({ kind: "client", id: null });
-    }, [params?.create]);
-    useEffect(() => {
-        if (params?.open !== undefined) setOpenId(params.open);
-    }, [params?.open]);
     const n = sel.selected.length;
     const askArchive = (): void => {
         confirm({
@@ -111,72 +71,89 @@ export function ClientsScreen() {
     };
     const notice = merged !== null ? t.merged(merged) : sel.done;
     const nothingYet = dir.load.state === "empty";
+    const tablet = useTabletLayout();
+    const closeRecord = (): void => {
+        setOpenId(null);
+    };
 
-    return (
-        <SafeAreaView style={styles.screen} edges={["top"]}>
-            <Backdrop />
+    const list = (
+        <>
             <ListPage<ClientListRow, ClientSegment>
-                title={selecting && n > 0 ? t.selected(n) : strings.clients.title}
+                title={
+                    tablet ? undefined : selecting && n > 0 ? t.selected(n) : strings.clients.title
+                }
                 summary={
-                    dir.load.hasData && !selecting && !nothingYet
-                        ? strings.clients.edit.listSummary(dir.counts.active, dir.counts.archived)
-                        : undefined
+                    tablet
+                        ? undefined
+                        : dir.load.hasData && !selecting && !nothingYet
+                          ? strings.clients.edit.listSummary(dir.counts.active, dir.counts.archived)
+                          : undefined
                 }
                 accessory={
-                    <View style={styles.accessory}>
-                        {dir.load.ready && !nothingYet ? (
-                            <Button
-                                style={{ alignSelf: "center" }}
-                                size="sm"
-                                variant={selecting ? "outline" : "quiet"}
-                                onPress={() => {
-                                    setSelecting(!selecting);
-                                    sel.clear();
-                                }}
-                            >
-                                {selecting ? strings.common.done : t.select}
-                            </Button>
-                        ) : null}
-                    </View>
+                    tablet ? undefined : (
+                        <View style={styles.accessory}>
+                            {dir.load.ready && !nothingYet ? (
+                                <Button
+                                    style={{ alignSelf: "center" }}
+                                    size="sm"
+                                    variant={selecting ? "outline" : "quiet"}
+                                    onPress={() => {
+                                        setSelecting(!selecting);
+                                        sel.clear();
+                                    }}
+                                >
+                                    {selecting ? strings.common.done : t.select}
+                                </Button>
+                            ) : null}
+                        </View>
+                    )
                 }
                 action={
-                    selecting || nothingYet
+                    tablet
                         ? undefined
-                        : {
-                              label: strings.clients.addShort,
-                              onPress: () => {
-                                  setSheet({ kind: "client", id: null });
-                              },
-                          }
+                        : selecting || nothingYet
+                          ? undefined
+                          : {
+                                label: strings.clients.addShort,
+                                onPress: () => {
+                                    setSheet({ kind: "client", id: null });
+                                },
+                            }
                 }
                 segments={
-                    dir.load.ready && !selecting && !nothingYet
-                        ? {
-                              items: [
-                                  {
-                                      key: "active",
-                                      label: strings.clients.edit.segmentActive(dir.counts.active),
-                                  },
-                                  {
-                                      key: "archived",
-                                      label: strings.clients.edit.segmentArchived(
-                                          dir.counts.archived,
-                                      ),
-                                  },
-                              ],
-                              active: dir.segment,
-                              onSelect: dir.setSegment,
-                          }
-                        : undefined
+                    tablet
+                        ? undefined
+                        : dir.load.ready && !selecting && !nothingYet
+                          ? {
+                                items: [
+                                    {
+                                        key: "active",
+                                        label: strings.clients.edit.segmentActive(
+                                            dir.counts.active,
+                                        ),
+                                    },
+                                    {
+                                        key: "archived",
+                                        label: strings.clients.edit.segmentArchived(
+                                            dir.counts.archived,
+                                        ),
+                                    },
+                                ],
+                                active: dir.segment,
+                                onSelect: dir.setSegment,
+                            }
+                          : undefined
                 }
                 search={
-                    dir.load.ready && !nothingYet
-                        ? {
-                              value: dir.q,
-                              onChange: dir.setQ,
-                              placeholder: r.searchPlaceholder(kindWord(kind)),
-                          }
-                        : undefined
+                    tablet
+                        ? undefined
+                        : dir.load.ready && !nothingYet
+                          ? {
+                                value: dir.q,
+                                onChange: dir.setQ,
+                                placeholder: r.searchPlaceholder(kindWord(kind)),
+                            }
+                          : undefined
                 }
                 banner={
                     notice !== null ? (
@@ -220,39 +197,74 @@ export function ClientsScreen() {
                           ? strings.clients.edit.emptyArchived
                           : strings.clients.emptySearch
                 }
-                renderRow={(cl) => (
-                    <View style={styles.row}>
-                        {selecting ? (
-                            <Checkbox
-                                label={cl.name}
-                                hideLabel
-                                value={sel.isSelected(cl.id)}
-                                onChange={() => {
-                                    sel.toggle(cl.id);
-                                }}
-                            />
-                        ) : null}
-                        <Avatar name={cl.name} src={photos.client(cl.id)} />
-                        <View style={styles.rowMain}>
-                            <Text style={styles.rowName} numberOfLines={1}>
-                                {cl.name}
+                renderRow={(cl) =>
+                    tablet && !selecting ? (
+                        <View style={styles.tableRow}>
+                            <View style={[styles.row, styles.colClient]}>
+                                <Avatar name={cl.name} src={photos.client(cl.id)} />
+                                <View style={styles.rowMain}>
+                                    <Text style={styles.rowName} numberOfLines={1}>
+                                        {cl.name}
+                                    </Text>
+                                    <Text style={styles.rowSub} numberOfLines={1}>
+                                        {cl.phoneLabel || (cl.email ?? strings.clients.dash)}
+                                    </Text>
+                                </View>
+                            </View>
+                            {kind !== null ? (
+                                <Text style={[styles.cell, styles.colWide]} numberOfLines={1}>
+                                    {cl.subjects}
+                                </Text>
+                            ) : null}
+                            <Text style={[styles.cell, styles.colWide]} numberOfLines={1}>
+                                {cl.next === null
+                                    ? strings.clients.dash
+                                    : nextVisitLabel(cl.next, zone)}
                             </Text>
-                            <Text style={styles.rowSub} numberOfLines={1}>
-                                {selecting
-                                    ? formatParts([cl.phoneLabel, formatList(cl.tags, "unit")])
-                                    : formatParts([
-                                          kind === null ? null : cl.subjects,
-                                          cl.next === null ? null : nextVisitLabel(cl.next, zone),
-                                      ]) || cl.phoneLabel}
-                            </Text>
+                            {manager ? (
+                                <Text style={[styles.cell, styles.colMoney]} numberOfLines={1}>
+                                    {cl.balanceCents > 0
+                                        ? formatMoney(cl.balanceCents, BUSINESS_CURRENCY)
+                                        : strings.clients.dash}
+                                </Text>
+                            ) : null}
                         </View>
-                        {manager && !selecting && cl.balanceCents > 0 ? (
-                            <Text style={styles.due}>
-                                {formatMoney(cl.balanceCents, BUSINESS_CURRENCY)}
-                            </Text>
-                        ) : null}
-                    </View>
-                )}
+                    ) : (
+                        <View style={styles.row}>
+                            {selecting ? (
+                                <Checkbox
+                                    label={cl.name}
+                                    hideLabel
+                                    value={sel.isSelected(cl.id)}
+                                    onChange={() => {
+                                        sel.toggle(cl.id);
+                                    }}
+                                />
+                            ) : null}
+                            <Avatar name={cl.name} src={photos.client(cl.id)} />
+                            <View style={styles.rowMain}>
+                                <Text style={styles.rowName} numberOfLines={1}>
+                                    {cl.name}
+                                </Text>
+                                <Text style={styles.rowSub} numberOfLines={1}>
+                                    {selecting
+                                        ? formatParts([cl.phoneLabel, formatList(cl.tags, "unit")])
+                                        : formatParts([
+                                              kind === null ? null : cl.subjects,
+                                              cl.next === null
+                                                  ? null
+                                                  : nextVisitLabel(cl.next, zone),
+                                          ]) || cl.phoneLabel}
+                                </Text>
+                            </View>
+                            {manager && !selecting && cl.balanceCents > 0 ? (
+                                <Text style={styles.due}>
+                                    {formatMoney(cl.balanceCents, BUSINESS_CURRENCY)}
+                                </Text>
+                            ) : null}
+                        </View>
+                    )
+                }
             />
             {selecting && n > 0 ? (
                 <View style={styles.bar}>
@@ -302,61 +314,164 @@ export function ClientsScreen() {
                     <Notice tone="danger">{sel.error}</Notice>
                 </View>
             ) : null}
+        </>
+    );
+
+    return (
+        <SafeAreaView style={styles.screen} edges={["top"]}>
+            <Backdrop />
+            {tablet ? (
+                <>
+                    <PageHeader
+                        style={styles.tabletHead}
+                        title={selecting && n > 0 ? t.selected(n) : strings.clients.title}
+                        subtitle={
+                            dir.load.hasData && !selecting && !nothingYet
+                                ? strings.clients.edit.listSummary(
+                                      dir.counts.active,
+                                      dir.counts.archived,
+                                  )
+                                : undefined
+                        }
+                        actions={
+                            dir.load.ready && !nothingYet ? (
+                                <>
+                                    <Button
+                                        style={{ alignSelf: "center" }}
+                                        size="sm"
+                                        icon="check"
+                                        variant={selecting ? "outline" : "quiet"}
+                                        onPress={() => {
+                                            setSelecting(!selecting);
+                                            sel.clear();
+                                        }}
+                                    >
+                                        {selecting ? strings.common.done : t.select}
+                                    </Button>
+                                    {selecting ? null : (
+                                        <Button
+                                            style={{ alignSelf: "center" }}
+                                            size="sm"
+                                            icon="plus"
+                                            onPress={() => {
+                                                setSheet({ kind: "client", id: null });
+                                            }}
+                                        >
+                                            {strings.clients.add}
+                                        </Button>
+                                    )}
+                                </>
+                            ) : undefined
+                        }
+                    />
+                    {dir.load.ready && !nothingYet ? (
+                        <View style={styles.toolbar}>
+                            <Choice
+                                layout="segmented"
+                                label={strings.clients.title}
+                                value={dir.segment}
+                                onChange={dir.setSegment}
+                                options={[
+                                    {
+                                        key: "active",
+                                        label: strings.clients.edit.segmentActive(
+                                            dir.counts.active,
+                                        ),
+                                    },
+                                    {
+                                        key: "archived",
+                                        label: strings.clients.edit.segmentArchived(
+                                            dir.counts.archived,
+                                        ),
+                                    },
+                                ]}
+                            />
+                            <SearchField
+                                style={styles.search}
+                                value={dir.q}
+                                onChange={dir.setQ}
+                                placeholder={r.searchPlaceholder(kindWord(kind))}
+                            />
+                        </View>
+                    ) : null}
+                    <View style={styles.tabletRow}>
+                        <View style={styles.tableCard}>
+                            {selecting ? null : (
+                                <View style={styles.tableHead}>
+                                    <Text style={[styles.headCell, styles.colClient]}>
+                                        {r.colClient}
+                                    </Text>
+                                    {kind !== null ? (
+                                        <Text style={[styles.headCell, styles.colWide]}>
+                                            {strings.subjects.many(kind)}
+                                        </Text>
+                                    ) : null}
+                                    <Text style={[styles.headCell, styles.colWide]}>
+                                        {r.colNext}
+                                    </Text>
+                                    {manager ? (
+                                        <Text style={[styles.headCell, styles.colMoney]}>
+                                            {r.colBalance}
+                                        </Text>
+                                    ) : null}
+                                </View>
+                            )}
+                            {list}
+                        </View>
+                        {openId !== null ? (
+                            <View style={styles.recordCard}>
+                                <RecordSheet
+                                    key={openId}
+                                    inline
+                                    visible
+                                    clientId={openId}
+                                    manager={manager}
+                                    onClose={closeRecord}
+                                    onSheet={setSheet}
+                                />
+                            </View>
+                        ) : null}
+                    </View>
+                </>
+            ) : (
+                list
+            )}
 
             <Modal
                 flow
                 framed={false}
                 size="xl"
-                open={openId !== null || sheet !== null}
+                open={sheet !== null || (!tablet && openId !== null)}
                 onClose={() => {
                     if (sheet !== null) setSheet(null);
                     else setOpenId(null);
                 }}
             >
-                {openId !== null ? (
+                {openId !== null && !tablet ? (
                     <RecordSheet
                         visible={sheet === null}
                         clientId={openId}
                         manager={manager}
-                        onClose={() => {
-                            setOpenId(null);
-                        }}
+                        onClose={closeRecord}
                         onSheet={setSheet}
                     />
                 ) : null}
-                {sheet?.kind === "client" ? (
-                    <ClientEditorSheet
-                        key={sheet.id ?? "new"}
-                        directory={dir.all}
-                        clientId={sheet.id}
-                        onOpen={(id) => {
-                            setSheet(null);
-                            setOpenId(id);
-                        }}
-                        onClose={() => {
-                            setSheet(null);
-                        }}
-                    />
-                ) : null}
-                {sheet?.kind === "subject" ? (
-                    <SubjectSheet
-                        key={sheet.subject?.id ?? "new"}
-                        clientId={sheet.clientId}
-                        subject={sheet.subject}
-                        onClose={() => {
-                            setSheet(null);
-                        }}
-                    />
-                ) : null}
-                {sheet?.kind === "note" ? (
-                    <NoteSheet
-                        clientId={sheet.clientId}
-                        subjects={sheet.subjects}
-                        onClose={() => {
-                            setSheet(null);
-                        }}
-                    />
-                ) : null}
+                <AskSheet
+                    ask={
+                        sheet?.kind === "client" ||
+                        sheet?.kind === "subject" ||
+                        sheet?.kind === "note"
+                            ? sheet
+                            : null
+                    }
+                    onOpen={(id) => {
+                        setSheet(null);
+                        setOpenId(id);
+                    }}
+                    onClose={() => {
+                        setSheet(null);
+                    }}
+                />
                 {sheet?.kind === "merge" ? (
                     <MergeSheet
                         a={sheet.a}
@@ -385,408 +500,52 @@ export function ClientsScreen() {
     );
 }
 
-function NoteLine({ note, manager }: { note: ClientNote; manager: boolean }) {
-    const zone = useBusinessZone();
-    const actions = useNoteActions(api);
-    const [menu, setMenu] = useState(false);
-    const can = manager || note.mine;
-    return (
-        <View style={styles.note}>
-            <ListRow
-                density="compact"
-                title={note.body}
-                detail={formatParts([
-                    strings.clients.history.by(
-                        note.author,
-                        formatRelativeTime(note.at.toISOString(), zone),
-                    ),
-                    note.subjectName,
-                    note.pinned ? r.pinned : null,
-                ])}
-                label={note.body}
-                onPress={
-                    can
-                        ? () => {
-                              setMenu(true);
-                          }
-                        : undefined
-                }
-            />
-            {actions.error !== null ? <Notice tone="danger">{actions.error}</Notice> : null}
-            <ActionMenu
-                open={menu}
-                onClose={() => {
-                    setMenu(false);
-                }}
-                items={[
-                    {
-                        key: "pin",
-                        label: note.pinned
-                            ? strings.clients.history.unpin
-                            : strings.clients.history.pinNote,
-                        hint: strings.clients.history.pinHint,
-                        icon: "pushpin",
-                    },
-                    { key: "delete", label: strings.clients.history.deleteNote, icon: "trash" },
-                ]}
-                onSelect={(k) => {
-                    setMenu(false);
-                    if (k === "pin") {
-                        actions.togglePin(note);
-                        return;
-                    }
-                    confirm({
-                        title: strings.clients.history.deleteNoteTitle,
-                        message: strings.clients.history.deleteNoteBody,
-                        confirmLabel: strings.clients.history.deleteNote,
-                        destructive: true,
-                    })
-                        .then((ok) => {
-                            if (ok) actions.remove(note);
-                        })
-                        .catch(() => undefined);
-                }}
-            />
-        </View>
-    );
-}
-
-type Nav = NativeStackNavigationProp<RootStackParamList>;
-
-function RecordSheet({
-    visible,
-    clientId,
-    manager,
-    onClose,
-    onSheet,
-}: {
-    visible: boolean;
-    clientId: string;
-    manager: boolean;
-    onClose: () => void;
-    onSheet: (s: Sheet) => void;
-}) {
-    const photos = usePeoplePhotos();
-    const zone = useBusinessZone();
-    const kind = useSubjectKind();
-    const viewer = useViewer();
-    const { load, record } = useClientRecord(api, clientId, viewer?.staffId ?? null);
-    const nav = useNavigation<Nav>();
-    const open = useOpenLink();
-    if (record === null) {
-        return (
-            <DetailView open={visible} title={strings.clients.title} onClose={onClose}>
-                {load.state === "error" ? (
-                    <LoadFailed
-                        message={r.loadError}
-                        onRetry={load.retry}
-                        retrying={load.retrying}
-                    />
-                ) : load.state === "empty" ? (
-                    <Text style={styles.muted}>{r.goneBody}</Text>
-                ) : (
-                    <Skeleton variant="stat" count={4} columns={2} label={r.loadingRecord} />
-                )}
-            </DetailView>
-        );
-    }
-    const cl = record.client;
-    const now = new Date();
-    const push = (screen: "ClientHistory" | "ClientWallet"): void => {
-        onClose();
-        nav.navigate(screen, { clientId: cl.id, name: cl.name });
-    };
-    return (
-        <DetailView
-            open={visible}
-            title={cl.name}
-            subtitle={formatParts([
-                cl.phoneLabel,
-                formatList(
-                    record.subjects.map((x) => x.name),
-                    "unit",
-                ),
-            ])}
-            status={cl.archived ? { status: r.archived, intent: "warning" } : undefined}
-            leading={<Avatar name={cl.name} src={photos.client(cl.id)} size="lg" />}
-            onClose={onClose}
-            actions={
-                <View style={styles.actions}>
-                    <Button
-                        grow
-                        onPress={() => {
-                            onClose();
-                            open("booking");
-                        }}
-                    >
-                        {r.book}
-                    </Button>
-                    <Button
-                        grow
-                        variant="outline"
-                        onPress={() => {
-                            onClose();
-                            open("message", cl.id);
-                        }}
-                    >
-                        {r.message}
-                    </Button>
-                    <Button
-                        variant="outline"
-                        onPress={() => {
-                            onSheet({ kind: "client", id: cl.id });
-                        }}
-                    >
-                        {r.editShort}
-                    </Button>
-                </View>
-            }
-        >
-            <View style={styles.overview}>
-                {cl.phone !== null ? (
-                    <View style={styles.actions}>
-                        <Button
-                            grow
-                            size="sm"
-                            variant="quiet"
-                            icon="phone"
-                            onPress={() => {
-                                Linking.openURL(`tel:${cl.phone ?? ""}`).catch(() => undefined);
-                            }}
-                        >
-                            {r.call}
-                        </Button>
-                        <Button
-                            grow
-                            size="sm"
-                            variant="quiet"
-                            icon="message"
-                            onPress={() => {
-                                Linking.openURL(`sms:${cl.phone ?? ""}`).catch(() => undefined);
-                            }}
-                        >
-                            {r.text}
-                        </Button>
-                        <Button
-                            grow
-                            size="sm"
-                            variant="quiet"
-                            icon="history"
-                            onPress={() => {
-                                push("ClientHistory");
-                            }}
-                        >
-                            {r.history}
-                        </Button>
-                    </View>
-                ) : null}
-                {record.textsStopped !== null ? (
-                    <Notice tone="info" banner>
-                        {record.textsStopped}
-                    </Notice>
-                ) : null}
-                {cl.tags.length > 0 ? (
-                    <View style={styles.tags}>
-                        {cl.tags.map((tag) => (
-                            <Badge key={tag} label={tag} intent="accent" />
-                        ))}
-                    </View>
-                ) : null}
-                <View style={styles.facts}>
-                    <KeyValueList
-                        layout="stack"
-                        rows={[
-                            ...(manager
-                                ? [
-                                      {
-                                          label: r.lifetime,
-                                          value: formatMoney(cl.lifetimeCents, BUSINESS_CURRENCY),
-                                      },
-                                      {
-                                          label: r.balance,
-                                          value:
-                                              cl.balanceCents > 0
-                                                  ? formatMoney(cl.balanceCents, BUSINESS_CURRENCY)
-                                                  : r.settled,
-                                          intent:
-                                              cl.balanceCents > 0
-                                                  ? ("warning" as const)
-                                                  : undefined,
-                                      },
-                                  ]
-                                : []),
-                            { label: r.visits, value: String(record.visits) },
-                            { label: r.since, value: formatDate(cl.since, zone) },
-                        ]}
-                    />
-                </View>
-            </View>
-            {kind !== null ? (
-                <DetailSection
-                    title={strings.subjects.many(kind)}
-                    action={
-                        <Button
-                            size="sm"
-                            variant="link"
-                            onPress={() => {
-                                onSheet({ kind: "subject", clientId: cl.id, subject: null });
-                            }}
-                        >
-                            {strings.subjects.add(kind)}
-                        </Button>
-                    }
-                >
-                    {record.subjects.length === 0 ? (
-                        <Text style={styles.muted}>{strings.subjects.none(kind)}</Text>
-                    ) : null}
-                    {record.subjects.map((subject) => {
-                        const temperament = subjectTemperament(kind, subject.attributes);
-                        return (
-                            <Panel flush key={subject.id} style={styles.rowCard}>
-                                <ListRow
-                                    density="compact"
-                                    leading={<Avatar name={subject.name} size="sm" />}
-                                    title={subject.name}
-                                    detail={subjectSummary(kind, subject.attributes, zone)}
-                                    meta={
-                                        temperament !== null ? (
-                                            <Badge
-                                                label={temperament.label}
-                                                intent={temperament.nervous ? "warning" : "neutral"}
-                                            />
-                                        ) : undefined
-                                    }
-                                    label={strings.subjects.editNamed(subject.name)}
-                                    onPress={() => {
-                                        onSheet({ kind: "subject", clientId: cl.id, subject });
-                                    }}
-                                />
-                            </Panel>
-                        );
-                    })}
-                    {record.subjects.length > 0 ? (
-                        <Button
-                            size="sm"
-                            variant="link"
-                            onPress={() => {
-                                onClose();
-                                nav.navigate("ClientSubjects", {
-                                    clientId: cl.id,
-                                    name: cl.name,
-                                    kind,
-                                });
-                            }}
-                        >
-                            {strings.subjects.many(kind)}
-                        </Button>
-                    ) : null}
-                </DetailSection>
-            ) : null}
-            <DetailSection title={r.upcoming}>
-                {record.upcoming.length === 0 ? (
-                    <Text style={styles.muted}>{r.noUpcoming}</Text>
-                ) : null}
-                {record.upcoming.slice(0, 3).map((v) => {
-                    const pill = visitPill(v, now);
-                    return (
-                        <Panel key={v.id} style={styles.card}>
-                            <View
-                                style={[styles.stripe, { backgroundColor: v.color ?? c.accent }]}
-                            />
-                            <View style={styles.rowMain}>
-                                <Text style={styles.cardTitle} numberOfLines={1}>
-                                    {v.service}
-                                </Text>
-                                <Text style={styles.rowSub}>
-                                    {formatParts([
-                                        formatWeekday(v.start, zone),
-                                        formatDate(v.start, zone),
-                                        formatTime(v.start, zone),
-                                    ])}
-                                </Text>
-                            </View>
-                            {pill !== null ? (
-                                <StatusPill
-                                    style={{ alignSelf: "center" }}
-                                    status={pill.label}
-                                    intent={pill.intent}
-                                />
-                            ) : null}
-                        </Panel>
-                    );
-                })}
-                {record.lastVisitAt !== null ? (
-                    <Text style={styles.muted}>
-                        {r.lastVisit(formatDate(record.lastVisitAt, zone))}
-                    </Text>
-                ) : null}
-            </DetailSection>
-            <DetailSection
-                title={r.notes}
-                action={
-                    <Button
-                        size="sm"
-                        variant="link"
-                        onPress={() => {
-                            onSheet({ kind: "note", clientId: cl.id, subjects: record.subjects });
-                        }}
-                    >
-                        {r.addNote}
-                    </Button>
-                }
-            >
-                {record.notes.length === 0 ? <Text style={styles.muted}>{r.noNotes}</Text> : null}
-                {record.notes.map((note) => (
-                    <NoteLine key={note.id} note={note} manager={manager} />
-                ))}
-            </DetailSection>
-            <ClientFormsSection key={cl.id} clientId={cl.id} manager={manager} />
-            {manager ? (
-                <DetailSection
-                    title={r.wallet}
-                    action={
-                        <Button
-                            size="sm"
-                            variant="link"
-                            onPress={() => {
-                                push("ClientWallet");
-                            }}
-                        >
-                            {r.manageWallet}
-                        </Button>
-                    }
-                >
-                    <Panel flush style={styles.lines}>
-                        {record.methods.length === 0 ? (
-                            <Text style={styles.lineMuted}>{r.noCards}</Text>
-                        ) : null}
-                        {record.methods.map((m) => (
-                            <View key={m.id} style={styles.line}>
-                                <Text style={styles.lineText}>{savedCardLabel(m)}</Text>
-                                {m.preferred === 1 ? (
-                                    <Badge
-                                        style={{ alignSelf: "center" }}
-                                        label={strings.clients.wallet.default}
-                                        intent="accent"
-                                    />
-                                ) : null}
-                            </View>
-                        ))}
-                        {record.plans.map((plan) => (
-                            <View key={plan.id} style={styles.line}>
-                                <Text style={styles.lineText}>{plan.name}</Text>
-                                <Text style={styles.rowSub}>{plan.detail}</Text>
-                            </View>
-                        ))}
-                    </Panel>
-                </DetailSection>
-            ) : null}
-        </DetailView>
-    );
-}
+const card = {
+    backgroundColor: c.surface,
+    borderRadius: theme.radius,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: c.border,
+    overflow: "hidden",
+} as const;
 
 const styles = StyleSheet.create({
-    screen: { flex: 1, backgroundColor: c.bg },
+    // A tablet follows the web's Clients page: header and filters above a table, the record beside it.
+    tabletHead: { paddingHorizontal: 20, paddingTop: 8 },
+    toolbar: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 12,
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+    },
+    search: { width: 340 },
+    tabletRow: { flex: 1, flexDirection: "row", gap: 16, paddingHorizontal: 16, paddingBottom: 16 },
+    tableCard: { ...card, flex: 1, minWidth: 0 },
+    recordCard: { ...card, width: theme.layout.side },
+    tableHead: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 12,
+        paddingHorizontal: 20,
+        paddingVertical: 10,
+        borderBottomWidth: StyleSheet.hairlineWidth,
+        borderBottomColor: c.border,
+    },
+    headCell: {
+        color: c.muted,
+        fontFamily: theme.fonts.ui,
+        fontSize: 11,
+        fontWeight: "700",
+        letterSpacing: 0.5,
+        textTransform: "uppercase",
+    },
+    tableRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+    colClient: { flex: 2.2, minWidth: 0 },
+    colWide: { flex: 1.2, minWidth: 0 },
+    colMoney: { width: 96, textAlign: "right" },
+    cell: { color: c.inkSoft, fontFamily: theme.fonts.ui, fontSize: 14 },
+    screen: { flex: 1 },
     accessory: { flexDirection: "row", alignItems: "center", gap: 6 },
     row: { flexDirection: "row", alignItems: "center", gap: 12 },
     rowMain: { flex: 1, minWidth: 0 },
@@ -803,38 +562,4 @@ const styles = StyleSheet.create({
         borderTopColor: c.border,
     },
     error: { paddingHorizontal: 16, paddingBottom: 8 },
-    actions: { flexDirection: "row", gap: 8 },
-    overview: { gap: 12 },
-    tags: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
-    facts: {
-        backgroundColor: c.bg,
-        borderRadius: theme.radius,
-        borderWidth: theme.borderWidth,
-        borderColor: c.border,
-        padding: 14,
-        marginBottom: 6,
-    },
-    muted: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 13, marginTop: 4 },
-    rowCard: { marginBottom: 8 },
-    card: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 8 },
-    cardTitle: { color: c.ink, fontFamily: theme.fonts.ui, fontSize: 15, fontWeight: "600" },
-    stripe: { width: 4, alignSelf: "stretch", borderRadius: 2 },
-    note: {
-        backgroundColor: c.warnBg,
-        borderRadius: theme.radius,
-        marginBottom: 8,
-        overflow: "hidden",
-    },
-    lines: { paddingHorizontal: 12 },
-    line: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
-        gap: 8,
-        paddingVertical: 11,
-        borderBottomColor: c.borderSoft,
-        borderBottomWidth: StyleSheet.hairlineWidth,
-    },
-    lineMuted: { color: c.muted, paddingVertical: 11 },
-    lineText: { color: c.ink, fontFamily: theme.fonts.ui, fontSize: 15 },
 });

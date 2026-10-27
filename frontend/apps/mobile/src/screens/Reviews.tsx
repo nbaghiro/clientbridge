@@ -484,7 +484,7 @@ function RequestReviewSheet({ queue, onClose }: { queue: ReviewQueue; onClose: (
 
 const styles = StyleSheet.create({
     reply: { gap: 6, padding: 12, backgroundColor: c.bg, borderRadius: theme.radius },
-    screen: { flex: 1, backgroundColor: c.bg },
+    screen: { flex: 1 },
     body: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 32, gap: 12 },
     subtitle: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 13 },
     card: { gap: 10 },

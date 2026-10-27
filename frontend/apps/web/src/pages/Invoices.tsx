@@ -25,6 +25,7 @@ import {
     kindWord,
     usePeoplePhotos,
     useSubjectKind,
+    openTask,
 } from "@clientbridge/app-core";
 import {
     ActivityTimeline,
@@ -48,7 +49,6 @@ import {
 } from "@clientbridge/ui";
 import { cssVar } from "@clientbridge/tokens";
 import { type ReactNode, useState } from "react";
-import { useNavigate } from "react-router-dom";
 
 import { DeskBar } from "../components/Desk";
 import { DocEditor } from "../components/DocEditor";
@@ -57,7 +57,7 @@ import { RecordPayment } from "../components/RecordPayment";
 import { config } from "../config";
 import { api, apiBaseUrl } from "../lib/api";
 import { useRole } from "../lib/auth";
-import { linkPath, useLinkIntent, useOpenLink } from "../lib/links";
+import { useLinkIntent, useOpenLink } from "../lib/links";
 
 const s = strings.billing;
 const GRID =
@@ -71,15 +71,7 @@ type Composing = { kind: "invoice" | "estimate"; id: string | null } | null;
 export function Invoices() {
     const [composing, setComposing] = useState<Composing>(null);
     const [openId, setOpenId] = useState<string | null>(null);
-    const params = useLinkIntent({
-        onCreate: () => {
-            setComposing({
-                kind: params.get("doc") === "estimates" ? "estimate" : "invoice",
-                id: null,
-            });
-        },
-        onOpen: setOpenId,
-    });
+    const params = useLinkIntent({ onOpen: setOpenId });
     const [doc, setDoc] = useState<DocKind>(
         params.get("doc") === "estimates" ? "estimates" : "invoices",
     );
@@ -752,7 +744,6 @@ function EstimatePanel({
 }) {
     const rec = useEstimateRecord(id, config.payUrl);
     const act = useEstimateActions(api);
-    const navigate = useNavigate();
     const kind = useSubjectKind();
     const openLink = useOpenLink();
     const letterhead = useLetterhead(apiBaseUrl);
@@ -852,10 +843,7 @@ function EstimatePanel({
                                         variant="outline"
                                         icon="calendar"
                                         onPress={() => {
-                                            const done = navigate(
-                                                `${linkPath("booking")}&estimate=${encodeURIComponent(rec.row.id)}`,
-                                            );
-                                            if (done) done.catch(() => undefined);
+                                            openTask({ kind: "booking", estimateId: rec.row.id });
                                         }}
                                     >
                                         {s.bookVisit(kindWord(kind))}

@@ -13,7 +13,7 @@ import {
     strings,
     useCatalogItems,
     useCheckoutQueue,
-    useLinkedVisit,
+    openTask,
     usePackageCover,
     useRegisterCatalog,
     useSale,
@@ -45,13 +45,13 @@ import { SalesBoard, SalesHistory } from "../components/SaleOrders";
 import { TicketSheet } from "../components/SaleTicket";
 import { api, apiBaseUrl } from "../lib/api";
 import { useViewer } from "../lib/auth";
-import { useBookAgain, useOpenLink } from "../lib/links";
+import { useOpenLink } from "../lib/links";
 
 const d = strings.pos.desk;
 const c = theme.colors;
 
 /** Sales on a phone: the register, the front desk board and, for owners and admins, history. */
-export function POS({ linked }: { linked?: string | undefined }) {
+export function POS() {
     const viewer = useViewer();
     const role = viewer?.role ?? null;
     const sale = useSale(api, {
@@ -72,12 +72,7 @@ export function POS({ linked }: { linked?: string | undefined }) {
         <View style={styles.screen}>
             <Tabs items={views} active={view} onSelect={setView} variant="pill" label={d.title} />
             {view === "register" ? (
-                <Register
-                    sale={sale}
-                    linked={linked ?? null}
-                    ticketOpen={ticketOpen}
-                    setTicketOpen={setTicketOpen}
-                />
+                <Register sale={sale} ticketOpen={ticketOpen} setTicketOpen={setTicketOpen} />
             ) : (
                 <ScrollView contentContainerStyle={styles.body}>
                     {view === "board" ? (
@@ -180,24 +175,17 @@ const PLAN_KINDS: { key: WalletKind; label: string; icon: "tag" | "box" | "repea
 
 function Register({
     sale,
-    linked,
     ticketOpen,
     setTicketOpen,
 }: {
     sale: SaleTicket;
-    linked: string | null;
     ticketOpen: boolean;
     setTicketOpen: (open: boolean) => void;
 }) {
     const queue = useCheckoutQueue();
     const cover = usePackageCover(api);
-    useLinkedVisit(linked, queue, (visit) => {
-        sale.addVisit(visit);
-        setTicketOpen(true);
-    });
     const catalog = useRegisterCatalog();
     const openLink = useOpenLink();
-    const bookAgain = useBookAgain();
     const visitId = sale.visitId;
     const [selling, setSelling] = useState<WalletKind | null>(null);
     const onTicket = (id: string): number =>
@@ -348,8 +336,11 @@ function Register({
                     setTicketOpen(false);
                 }}
                 onBookNext={() => {
-                    if (visitId === null) openLink("booking");
-                    else bookAgain(visitId);
+                    openTask(
+                        visitId === null
+                            ? { kind: "booking" }
+                            : { kind: "booking", rebookId: visitId },
+                    );
                 }}
             />
             <Modal

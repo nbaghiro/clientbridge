@@ -104,34 +104,19 @@ export function Schedule() {
     });
 
     const slotAt = (min: number): Date => minutesInto(day.date, startHour * 60 + min, zone);
-    const openSlot = (
-        staffId: string,
-        min: number,
-        from: { estimateId?: string | undefined; rebookId?: string | undefined } = {},
-    ): void => {
+    const openSlot = (staffId: string, min: number): void => {
         board.select(null);
-        setComposer({ staffId, start: slotAt(min), ...from });
+        setComposer({ staffId, start: slotAt(min) });
     };
-    const openNew = (
-        from: { estimateId?: string | undefined; rebookId?: string | undefined } = {},
-    ): void => {
+    const openNew = (): void => {
         const first = day.lanes.find((l) => l.hours) ?? day.lanes[0];
         board.select(null);
         setComposer({
             staffId: first?.id ?? viewer?.staffId ?? "",
             start: suggestedStart(day.date, board.now, board.window, zone),
-            ...from,
         });
     };
-    const params = useLinkIntent({
-        onCreate: () => {
-            openNew({
-                estimateId: params.get("estimate") ?? undefined,
-                rebookId: params.get("rebook") ?? undefined,
-            });
-        },
-        onOpen: setLinked,
-    });
+    useLinkIntent({ onOpen: setLinked });
     const { setAnchor, select: selectId } = board;
     useEffect(() => {
         if (linked === null || linkedStart === null) return;

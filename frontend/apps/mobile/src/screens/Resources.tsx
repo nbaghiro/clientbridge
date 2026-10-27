@@ -202,7 +202,7 @@ function ResourceForm({
 }
 
 const styles = StyleSheet.create({
-    screen: { flex: 1, backgroundColor: c.bg },
+    screen: { flex: 1 },
     body: { padding: 16, paddingBottom: 32, gap: 14 },
     head: { flexDirection: "row", alignItems: "center", gap: 12 },
     flex: { flex: 1, minWidth: 0 },

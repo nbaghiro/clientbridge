@@ -132,7 +132,7 @@ export function ClientHistoryScreen() {
 }
 
 const styles = StyleSheet.create({
-    screen: { flex: 1, backgroundColor: c.bg },
+    screen: { flex: 1 },
     body: { padding: 16, paddingBottom: 32, gap: 12 },
     row: { flexDirection: "row", alignItems: "center", gap: 6 },
     pinned: { backgroundColor: c.warnBg, borderRadius: theme.radius, padding: 12 },

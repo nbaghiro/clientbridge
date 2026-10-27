@@ -13,5 +13,15 @@ export const theme = {
     // The web's scale: text-2xl page titles and 17 px section and sheet titles.
     type: { page: 24, section: 17 },
     // Points: from `tablet` wide the sidebar replaces the tab bar and pages centre in `frame`.
-    layout: { tablet: 900, frame: 1408, gutter: 32, sheet: 560, panel: 640, form: 400, sidebar: 248, rail: 64 },
+    layout: {
+        tablet: 900,
+        frame: 1408,
+        page: 1024,
+        gutter: 32,
+        sheet: 560,
+        panel: 640,
+        form: 400,
+        list: 380,
+        side: 420,
+    },
 } as const;

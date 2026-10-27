@@ -13,7 +13,7 @@ import {
     strings,
     useCatalogItems,
     useCheckoutQueue,
-    useLinkedVisit,
+    openTask,
     usePackageCover,
     usePeoplePhotos,
     useRegisterCatalog,
@@ -39,7 +39,7 @@ import {
     StatusPill,
 } from "@clientbridge/ui";
 import { type ReactNode, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 
 import { SellEntitlement } from "../components/EntitlementSales";
 import { SalesBoard, SalesHistory } from "../components/SaleOrders";
@@ -47,7 +47,7 @@ import { DeskBar } from "../components/Desk";
 import { PaySheet, TicketPanel } from "../components/SaleTicket";
 import { api, apiBaseUrl } from "../lib/api";
 import { useViewer } from "../lib/auth";
-import { linkPath, useOpenLink } from "../lib/links";
+import { useOpenLink } from "../lib/links";
 
 const d = strings.pos.desk;
 
@@ -87,7 +87,7 @@ export function POS() {
         <div className="space-y-6">
             {view === "register" ? null : <DeskBar switcher={switcher} />}
             {view === "register" ? (
-                <Register sale={sale} linked={params.get("open")} switcher={switcher} />
+                <Register sale={sale} switcher={switcher} />
             ) : view === "board" ? (
                 <SalesBoard onResume={resume} />
             ) : (
@@ -193,20 +193,10 @@ const PLAN_KINDS: { key: WalletKind; label: string; icon: "tag" | "box" | "repea
     },
 ];
 
-function Register({
-    sale,
-    linked,
-    switcher,
-}: {
-    sale: SaleTicket;
-    linked: string | null;
-    switcher: ReactNode;
-}) {
+function Register({ sale, switcher }: { sale: SaleTicket; switcher: ReactNode }) {
     const queue = useCheckoutQueue();
     const cover = usePackageCover(api);
-    const navigate = useNavigate();
     const visitId = sale.visitId;
-    useLinkedVisit(linked, queue, sale.addVisit);
     const catalog = useRegisterCatalog();
     const openLink = useOpenLink();
     const [paying, setPaying] = useState(false);
@@ -219,17 +209,6 @@ function Register({
     return (
         <div className="flex items-start gap-6">
             <section className="min-w-0 flex-1 space-y-5">
-                {linked === null ? null : (
-                    <Button
-                        variant="link"
-                        icon="chevronLeft"
-                        onPress={() => {
-                            openLink("today");
-                        }}
-                    >
-                        {d.backToToday}
-                    </Button>
-                )}
                 <DeskBar
                     switcher={
                         <div className="flex flex-wrap items-center gap-3">
@@ -379,11 +358,11 @@ function Register({
                     }}
                     onBookNext={() => {
                         setPaying(false);
-                        if (visitId === null) openLink("booking");
-                        else
-                            navigate(
-                                `${linkPath("booking")}&rebook=${encodeURIComponent(visitId)}`,
-                            )?.catch(() => undefined);
+                        openTask(
+                            visitId === null
+                                ? { kind: "booking" }
+                                : { kind: "booking", rebookId: visitId },
+                        );
                     }}
                 />
             ) : null}

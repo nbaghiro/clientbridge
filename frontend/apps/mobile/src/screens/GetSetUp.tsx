@@ -446,7 +446,7 @@ export function GetSetUpScreen() {
 }
 
 const styles = StyleSheet.create({
-    screen: { flex: 1, backgroundColor: c.bg },
+    screen: { flex: 1 },
     content: { padding: 16, paddingBottom: 32, gap: 14 },
     body: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 14, lineHeight: 20 },
     progressRow: { flexDirection: "row", alignItems: "center", gap: 10 },

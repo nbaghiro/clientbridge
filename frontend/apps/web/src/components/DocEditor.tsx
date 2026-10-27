@@ -32,7 +32,7 @@ import {
     confirm,
 } from "@clientbridge/ui";
 import { cssVar } from "@clientbridge/tokens";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { api, apiBaseUrl } from "../lib/api";
 import { Paper, PaperPane } from "./DocumentPreview";
@@ -43,16 +43,24 @@ const s = strings.billing;
 export interface DocEditorProps {
     kind: "invoice" | "estimate";
     draft?: DocDraft | undefined;
+    // A new document's client, when it is started from that client.
+    clientId?: string | undefined;
     onClose: () => void;
     onSent?: ((id: string) => void) | undefined;
 }
 
-export function DocEditor({ kind, draft, onClose, onSent }: DocEditorProps) {
+export function DocEditor({ kind, draft, clientId, onClose, onSent }: DocEditorProps) {
     const clients = useClients();
     const items = useCatalogItems();
     const catalog = useMemo(() => sellableItems(items), [items]);
     const letterhead = useLetterhead(apiBaseUrl);
     const c = useDocComposer(api, kind, draft, onSent);
+    const picked = useRef(false);
+    useEffect(() => {
+        if (picked.current || clientId === undefined) return;
+        picked.current = true;
+        c.setClientId(clientId);
+    }, [clientId, c]);
     const [showPreview, setShowPreview] = useState(false);
     const [discounting, setDiscounting] = useState<string | null>(null);
     const client = clients.find((x) => x.id === c.clientId) ?? null;

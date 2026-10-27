@@ -588,7 +588,7 @@ function SeriesComposer({ onDone }: { onDone: () => void }) {
 }
 
 const styles = StyleSheet.create({
-    screen: { flex: 1, backgroundColor: c.bg },
+    screen: { flex: 1 },
     body: { padding: 16, paddingBottom: 32, gap: 12 },
     headRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
     muted: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 13 },

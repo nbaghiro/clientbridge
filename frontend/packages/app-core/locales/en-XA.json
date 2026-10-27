@@ -1499,6 +1499,9 @@
     "pos.desk.sellMembership": {
         "message": "[Ṁéɱƀéŕšĥîþ one two]"
     },
+    "pos.desk.addItems": {
+        "message": "[Åðð å þŕöðûçţ öŕ šéŕṽîçé one two]"
+    },
     "pos.desk.ticket": {
         "message": "[Ţîçķéţ one]"
     },
@@ -1621,9 +1624,6 @@
     },
     "pos.desk.visitNoteSent": {
         "message": "[Ñöţé šéñţ ŵîţĥ å ļîñķ ţö ţĥé ṽîšîţ. one two three]"
-    },
-    "pos.desk.backToToday": {
-        "message": "[Ɓåçķ ţö Ţöðåý one two]"
     },
     "pos.desk.todaysVisitsHint": {
         "message": "[Ɓööķéð šéŕṽîçéš ŕéåðý ţö çĥéçķ öûţ. Åðð þŕöðûçţš åñð åðð-öñš åƒţéŕ. one two three four five]"
@@ -3109,6 +3109,9 @@
     },
     "bookings.composerServicePlaceholder": {
         "message": "[Çĥööšé å šéŕṽîçé one two]"
+    },
+    "bookings.dayOf": {
+        "message": "[{name}''š ðåý one]"
     },
     "bookings.composerWith": {
         "message": "[Ŵîţĥ one]"
@@ -5873,9 +5876,6 @@
     "messaging.filters.email": {
         "message": "[Éɱåîļ one]"
     },
-    "messaging.filterLabel": {
-        "message": "[Šĥöŵ one]"
-    },
     "messaging.noThreadsFiltered": {
         "message": "[Ñöţĥîñĝ ɱåţçĥéš. Ţŕý åñöţĥéŕ ƒîļţéŕ öŕ šéåŕçĥ. one two three four]"
     },
@@ -5887,6 +5887,9 @@
     },
     "messaging.noMessagesYet": {
         "message": "[Ñö ɱéššåĝéš ŵîţĥ {name} ýéţ. Ŵŕîţé ţĥé ƒîŕšţ öñé ƀéļöŵ. one two three four]"
+    },
+    "messaging.filterLabel": {
+        "message": "[Šĥöŵ one]"
     },
     "messaging.selectThread": {
         "message": "[Çĥööšé å çöñṽéŕšåţîöñ ţö ŕéåð åñð ŕéþļý. one two three]"
@@ -7667,14 +7670,11 @@
     "catalog.variantHint": {
         "message": "[Éåçĥ ṽåŕîåñţ ķééþš îţš öŵñ þŕîçé, ŠĶÛ åñð šţöçķ. Çĥööšé ţĥé ɱåîñ þŕöðûçţ šĥöŵñ îñ ţĥé šĥöþ. one two three four five six]"
     },
-    "catalog.title": {
-        "message": "[Çåţåļöĝ one]"
+    "catalog.views.services": {
+        "message": "[Šéŕṽîçéš one]"
     },
-    "catalog.summary": {
-        "message": "[{low,plural,other{{items, number} îţéɱš · # ñééð ŕéšţöçķîñĝ} =0{{items, number} îţéɱš}} one two three]"
-    },
-    "catalog.views.catalog": {
-        "message": "[Çåţåļöĝ one]"
+    "catalog.views.plans": {
+        "message": "[Þåçķåĝéš & ɱéɱƀéŕšĥîþš one two]"
     },
     "catalog.views.products": {
         "message": "[Þŕöðûçţš one]"
@@ -7697,11 +7697,11 @@
     "catalog.filterAll": {
         "message": "[Åļļ one]"
     },
-    "catalog.filterServices": {
-        "message": "[Šéŕṽîçéš one]"
+    "catalog.filterActive": {
+        "message": "[Åçţîṽé one]"
     },
-    "catalog.filterPlans": {
-        "message": "[Þåçķåĝéš & ɱéɱƀéŕšĥîþš one two]"
+    "catalog.filterLabel": {
+        "message": "[Šĥöŵ one]"
     },
     "catalog.filterLowStock": {
         "message": "[Ļöŵ šţöçķ one]"
@@ -12302,12 +12302,6 @@
     "navigation.search": {
         "message": "[Šéåŕçĥ one]"
     },
-    "navigation.collapseSidebar": {
-        "message": "[Çöļļåþšé šîðéƀåŕ one two]"
-    },
-    "navigation.expandSidebar": {
-        "message": "[Éẋþåñð šîðéƀåŕ one two]"
-    },
     "navigation.searchShortcut": {
         "message": "[⌘Ķ one]"
     },
@@ -12453,13 +12447,13 @@
         "message": "[Šåļéš ţåẋ one]"
     },
     "navigation.setupSections.onlineBooking": {
-        "message": "[Öñļîñé ƀööķîñĝ one two]"
+        "message": "[Ɓööķîñĝ þåĝé & ŕûļéš one two]"
     },
     "navigation.setupSections.reminders": {
-        "message": "[Ŕéɱîñðéŕš one two]"
+        "message": "[Ṁéššåĝéš & ŕéɱîñðéŕš one two]"
     },
     "navigation.setupSections.security": {
-        "message": "[Šîĝñ-îñ & šéçûŕîţý one two]"
+        "message": "[Åççöûñţ & þļåñ one two]"
     },
     "navigation.inboxSegments.messages": {
         "message": "[Ṁéššåĝéš one]"

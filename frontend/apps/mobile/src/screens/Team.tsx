@@ -649,7 +649,7 @@ export function Team({ footer }: { footer?: ReactNode }) {
 }
 
 const styles = StyleSheet.create({
-    screen: { flex: 1, backgroundColor: c.bg },
+    screen: { flex: 1 },
     content: { padding: 16, paddingBottom: 32 },
     sub: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 14, lineHeight: 20 },
     section: {

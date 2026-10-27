@@ -230,7 +230,7 @@ export function GettingPaidScreen() {
 }
 
 const styles = StyleSheet.create({
-    screen: { flex: 1, backgroundColor: c.bg },
+    screen: { flex: 1 },
     content: { padding: 16, paddingBottom: 24, gap: 12 },
     hero: { borderRadius: theme.radius, padding: 16, gap: 6 },
     heroWarn: { backgroundColor: c.warnBg },

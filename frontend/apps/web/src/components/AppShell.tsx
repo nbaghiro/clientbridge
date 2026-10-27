@@ -32,6 +32,7 @@ import { connectPowerSync } from "../lib/powersync";
 import { getUserId, useViewer } from "../lib/auth";
 import { ShellContext, linkPath, useOpenLink } from "../lib/links";
 import { CommandPalette } from "./CommandPalette";
+import { TaskHost } from "./TaskHost";
 import { NotificationsPanel } from "./NotificationsPanel";
 import { SignOutDialog } from "./SignOutDialog";
 
@@ -56,7 +57,7 @@ function PlanBanner() {
                             size="sm"
                             variant="outline"
                             onPress={() => {
-                                const done = navigate("/setup/plan");
+                                const done = navigate("/setup/security");
                                 if (done) done.catch(() => undefined);
                             }}
                         >
@@ -171,6 +172,7 @@ export function AppShell({ onSignOut }: { onSignOut: () => void }) {
                     }}
                 />
             ) : null}
+            <TaskHost />
             <SignOutDialog
                 open={leaving}
                 pending={sync.pending}

@@ -2,6 +2,7 @@ export { PaymentAccount } from "./PaymentAccount";
 export { PaymentNotices } from "./PaymentNotices";
 export { CardForm } from "./CardForm";
 export { ChargeSheet } from "./ChargeSheet";
+export { IconBadge } from "./IconBadge";
 export { ItemImage } from "./ItemImage";
 export { Lockup, Logo, type LogoProps } from "./Logo";
 export { PaymentMethodForm } from "./PaymentMethodForm";

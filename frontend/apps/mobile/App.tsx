@@ -31,6 +31,7 @@ import { RecordPaper } from "./src/components/DocumentPreview";
 import { StripeAppProvider } from "./src/components/Stripe";
 import { Splash, revealApp } from "./src/components/Splash";
 import { ShellBanners, TabBar } from "./src/components/TabBar";
+import { TaskHost } from "./src/components/TaskHost";
 import { api, identity, onSignedOut, selectBusiness } from "./src/lib/api";
 import { clearSession, getSession, rememberUser, signIn } from "./src/lib/auth";
 import { stripePublishableKey } from "./src/lib/config";
@@ -54,7 +55,6 @@ import { ConfirmEmailScreen, LoginScreen } from "./src/screens/Login";
 import { OnboardingScreen } from "./src/screens/Onboarding";
 import { PaymentsScreen } from "./src/screens/Payments";
 import { GettingPaidScreen } from "./src/screens/GettingPaid";
-import { PlansScreen } from "./src/screens/Plans";
 import { BusinessScreen, SetupScreen, TeamHoursScreen } from "./src/screens/Setup";
 import { TodayScreen } from "./src/screens/Today";
 import { ClassesScreen } from "./src/screens/Classes";
@@ -91,11 +91,9 @@ function Tabs() {
         <Tab.Navigator
             initialRouteName="Today"
             tabBar={(props) => <TabBar {...props} />}
-            screenOptions={{ headerShown: false, tabBarPosition: tablet ? "left" : "bottom" }}
+            screenOptions={{ headerShown: false }}
             screenLayout={({ children }) => (
-                <PageFrame leading={tablet ? <ShellBanners /> : undefined}>
-                    {children}
-                </PageFrame>
+                <PageFrame leading={tablet ? <ShellBanners /> : undefined}>{children}</PageFrame>
             )}
         >
             <Tab.Screen name="Today" component={TodayScreen} />
@@ -267,11 +265,6 @@ function AuthedApp({ onSignOut }: { onSignOut: () => void }) {
                                     component={SearchScreen}
                                     layout={framed}
                                 />
-                                <RootStack.Screen
-                                    name="Notifications"
-                                    component={NotificationsScreen}
-                                    layout={framed}
-                                />
                                 <RootStack.Group
                                     screenLayout={framed}
                                     screenOptions={{
@@ -282,6 +275,11 @@ function AuthedApp({ onSignOut }: { onSignOut: () => void }) {
                                         headerBackTitle: "Back",
                                     }}
                                 >
+                                    <RootStack.Screen
+                                        name="Notifications"
+                                        component={NotificationsScreen}
+                                        options={{ title: strings.notifications.title }}
+                                    />
                                     <RootStack.Screen
                                         name="Payments"
                                         component={PaymentsScreen}
@@ -327,11 +325,6 @@ function AuthedApp({ onSignOut }: { onSignOut: () => void }) {
                                         options={{
                                             title: strings.navigation.setupSections.gettingPaid,
                                         }}
-                                    />
-                                    <RootStack.Screen
-                                        name="Plans"
-                                        component={PlansScreen}
-                                        options={{ title: strings.navigation.setupSections.plan }}
                                     />
                                     <RootStack.Screen
                                         name="ClientHistory"
@@ -390,6 +383,7 @@ function AuthedApp({ onSignOut }: { onSignOut: () => void }) {
                                     />
                                 </RootStack.Group>
                             </RootStack.Navigator>
+                            <TaskHost />
                         </NavigationContainer>
                         <SendReviewHost document={(d) => <RecordPaper {...d} />} />
                     </>
@@ -400,7 +394,7 @@ function AuthedApp({ onSignOut }: { onSignOut: () => void }) {
 }
 
 function framed({ children }: { children: ReactElement }) {
-    return <PageFrame>{children}</PageFrame>;
+    return <PageFrame size="md">{children}</PageFrame>;
 }
 
 const styles = StyleSheet.create({

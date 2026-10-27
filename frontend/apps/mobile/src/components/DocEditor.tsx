@@ -16,7 +16,7 @@ import {
     currencyAffix,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import {
     Button,
@@ -45,16 +45,24 @@ const s = strings.billing;
 export interface DocEditorProps {
     kind: "invoice" | "estimate";
     draft?: DocDraft | undefined;
+    // A new document's client, when it is started from that client.
+    clientId?: string | undefined;
     onClose: () => void;
 }
 
-export function DocEditor({ kind, draft, onClose }: DocEditorProps) {
+export function DocEditor({ kind, draft, clientId, onClose }: DocEditorProps) {
     const clients = useClients();
     const items = useCatalogItems();
     const catalog = useMemo(() => sellableItems(items), [items]);
     const letterhead = useLetterhead(apiBaseUrl);
     const [current, setCurrent] = useState(kind);
     const form = useDocComposer(api, current, draft);
+    const picked = useRef(false);
+    useEffect(() => {
+        if (picked.current || clientId === undefined) return;
+        picked.current = true;
+        form.setClientId(clientId);
+    }, [clientId, form]);
     const [preview, setPreview] = useState(false);
     const [discounting, setDiscounting] = useState<string | null>(null);
     const client = clients.find((x) => x.id === form.clientId) ?? null;

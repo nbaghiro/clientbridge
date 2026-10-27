@@ -19,7 +19,13 @@ export function PageHeader({
             <View style={styles.row}>
                 <View style={styles.text}>
                     {leading}
-                    <Text accessibilityRole="header" numberOfLines={1} style={styles.title}>
+                    <Text
+                        accessibilityRole="header"
+                        numberOfLines={2}
+                        adjustsFontSizeToFit
+                        minimumFontScale={0.8}
+                        style={styles.title}
+                    >
                         {title}
                     </Text>
                     {subtitle !== undefined ? (

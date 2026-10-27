@@ -1,18 +1,7 @@
 import { strings, useNotifications } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
-import {
-    Button,
-    Choice,
-    Empty,
-    IconButton,
-    ListRow,
-    LoadFailed,
-    Panel,
-    Skeleton,
-} from "@clientbridge/ui";
-import { useNavigation } from "@react-navigation/native";
+import { Button, Choice, Empty, ListRow, LoadFailed, Panel, Skeleton } from "@clientbridge/ui";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useViewer } from "../lib/auth";
 import { useOpenLink } from "../lib/links";
@@ -23,24 +12,10 @@ const t = strings.notifications;
 /** The bell on a phone: the last week of what happened, grouped by day. */
 export function NotificationsScreen() {
     const view = useNotifications(useViewer());
-    const nav = useNavigation();
     const openLink = useOpenLink();
 
     return (
-        <SafeAreaView style={styles.screen} edges={["top"]}>
-            <View style={styles.bar}>
-                <IconButton
-                    icon="chevronLeft"
-                    label={strings.common.close}
-                    onPress={() => {
-                        nav.goBack();
-                    }}
-                />
-                <Text style={styles.barTitle} accessibilityRole="header">
-                    {t.title}
-                </Text>
-                <View style={styles.barSpacer} />
-            </View>
+        <View style={styles.screen}>
             <View style={styles.filters}>
                 <Choice
                     layout="segmented"
@@ -112,22 +87,12 @@ export function NotificationsScreen() {
                     ))
                 )}
             </ScrollView>
-        </SafeAreaView>
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
-    screen: { flex: 1, backgroundColor: c.bg },
-    bar: { flexDirection: "row", alignItems: "center", paddingHorizontal: 8, paddingBottom: 4 },
-    barTitle: {
-        flex: 1,
-        textAlign: "center",
-        color: c.ink,
-        fontFamily: theme.fonts.ui,
-        fontSize: theme.type.section,
-        fontWeight: "700",
-    },
-    barSpacer: { width: 44 },
+    screen: { flex: 1 },
     filters: {
         flexDirection: "row",
         alignItems: "center",

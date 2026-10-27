@@ -12,6 +12,7 @@ import {
     useConversation,
     usePeoplePhotos,
     useSubjectKind,
+    openTask,
 } from "@clientbridge/app-core";
 import { Avatar, Badge, Button, KeyValueList, Money } from "@clientbridge/ui";
 import { useState } from "react";
@@ -122,7 +123,7 @@ export function ContextPanel({
                     size="sm"
                     grow
                     onPress={() => {
-                        openLink("booking");
+                        openTask({ kind: "booking", clientId: thread.client_id });
                     }}
                 >
                     {s.book}

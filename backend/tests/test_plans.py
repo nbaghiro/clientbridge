@@ -558,7 +558,7 @@ async def test_trial_reminders_go_three_days_before_and_on_the_last_day(
     await _trial(db, timedelta(days=3, hours=2), billing_email="owner@example.ca")
     assert await run_trial_reminders(db, notifier, now) == 1
     assert email.sent[-1].to == "owner@example.ca"
-    assert "/setup/plan" in email.sent[-1].body
+    assert "/setup/security" in email.sent[-1].body
     await _trial(db, timedelta(hours=5))
     assert await run_trial_reminders(db, notifier, now) == 1
     assert email.sent[-1].subject != email.sent[0].subject

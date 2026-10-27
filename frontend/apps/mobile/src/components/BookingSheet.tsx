@@ -1,6 +1,13 @@
 import {
     type BookingActions,
     type BookingComposer,
+    type ComposerSlot,
+    useBookingActions,
+    useBookingDetail,
+    useBookingStart,
+    suggestedStart,
+    useBookingComposer,
+    useScheduleBoard,
     type BookingDetail,
     type LifecycleAction,
     type ScheduleEvent,
@@ -59,18 +66,20 @@ import {
     SearchSelect,
     Select,
     SheetHeader,
+    DetailView,
     Skeleton,
     StatusPill,
     TextField,
     TimeSlotPicker,
     Toggle,
+    useTabletLayout,
 } from "@clientbridge/ui";
 import {
     launchCameraAsync,
     launchImageLibraryAsync,
     requestCameraPermissionsAsync,
 } from "expo-image-picker";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
     Image,
     KeyboardAvoidingView,
@@ -943,7 +952,186 @@ function MessageSheet({
     );
 }
 
-/** New booking docked under the calendar: a summary bar while the draft is placed, the whole form when expanded. */
+/** The new-booking form's fields, shared by the composer under the calendar and the booking task. */
+function ComposerFields({ form }: { form: BookingComposer }) {
+    const photos = usePeoplePhotos();
+    return (
+        <>
+            <Text style={styles.label}>{s.composerClient}</Text>
+            {form.client ? (
+                <View style={styles.picked}>
+                    <Avatar name={form.client.name} src={photos.client(form.client.id)} size="sm" />
+                    <View style={styles.flex}>
+                        <Text style={styles.name}>{form.client.name}</Text>
+                        <Text style={styles.sub}>
+                            {formatList(
+                                form.subjects.map((x) => x.name),
+                                "unit",
+                            )}
+                        </Text>
+                    </View>
+                    <Button
+                        style={{ alignSelf: "center" }}
+                        size="sm"
+                        variant="link"
+                        onPress={() => {
+                            form.pickClient(null);
+                        }}
+                    >
+                        {s.composerChange}
+                    </Button>
+                </View>
+            ) : (
+                <>
+                    <SearchField
+                        value={form.query}
+                        onChange={form.setQuery}
+                        placeholder={s.composerClientSearch(kindWord(form.kind))}
+                    />
+                    <Panel flush style={styles.card}>
+                        {form.matches.slice(0, 4).map((m) => (
+                            <ListRow
+                                key={m.client.id}
+                                density="compact"
+                                leading={
+                                    <Avatar
+                                        name={m.client.name}
+                                        src={photos.client(m.client.id)}
+                                        size="sm"
+                                    />
+                                }
+                                title={m.client.name}
+                                detail={formatParts([
+                                    m.client.email,
+                                    formatList(m.subjects, "unit"),
+                                ])}
+                                onPress={() => {
+                                    form.pickClient(m.client.id);
+                                }}
+                            />
+                        ))}
+                    </Panel>
+                </>
+            )}
+            {form.kind !== null && form.subjects.length > 1 ? (
+                <Choice
+                    label={strings.subjects.one(form.kind)}
+                    options={form.subjects.map((x) => ({
+                        key: x.id,
+                        label: x.name,
+                    }))}
+                    value={form.subjectId}
+                    onChange={form.setSubjectId}
+                />
+            ) : null}
+
+            <SearchSelect
+                label={s.composerService}
+                placeholder={s.composerServicePlaceholder}
+                options={form.services.map((i) => ({
+                    key: i.id,
+                    label: i.name,
+                    media: itemMedia(i),
+                    detail: formatParts([
+                        strings.catalog.minutes(i.duration_min ?? 60),
+                        formatMoney(i.price_cents ?? 0, BUSINESS_CURRENCY),
+                    ]),
+                }))}
+                value={form.item?.id ?? ""}
+                onChange={form.setItemId}
+            />
+
+            <Text style={styles.label}>{s.composerWith}</Text>
+            <Choice
+                label={s.composerWith}
+                options={form.staffOptions.map((o) => ({
+                    key: o.id,
+                    label: o.name.split(" ")[0] ?? o.name,
+                    media: o.media,
+                    hint: form.item === null || o.free ? undefined : s.busy,
+                }))}
+                value={form.staffId}
+                onChange={form.setStaffId}
+            />
+
+            {form.resource !== null ? (
+                <Select
+                    label={form.resource.label}
+                    value={form.resource.value}
+                    options={form.resource.options}
+                    onChange={form.resource.pick}
+                />
+            ) : null}
+
+            <Text style={styles.label}>{s.composerDate}</Text>
+            <DateStrip
+                label={s.composerDate}
+                days={form.days}
+                value={form.day}
+                onChange={form.setDay}
+            />
+            {form.slotGroups.length === 0 ? (
+                <Empty message={s.noTimes} />
+            ) : (
+                <TimeSlotPicker
+                    label={s.composerTime}
+                    groups={form.slotGroups}
+                    value={form.time}
+                    onChange={form.setTime}
+                    columns={4}
+                />
+            )}
+            {form.problem !== null ? <Notice tone="danger">{form.problem}</Notice> : null}
+
+            {form.fromEstimate !== null ? (
+                <Panel style={styles.depart}>
+                    <Text style={styles.name}>{form.fromEstimate.title}</Text>
+                    {form.fromEstimate.lines.map((line, i) => (
+                        <Text key={i} style={styles.sub}>
+                            {line}
+                        </Text>
+                    ))}
+                    <Text style={styles.hint}>{s.composerFromEstimateHint}</Text>
+                </Panel>
+            ) : (
+                <Toggle
+                    label={s.composerRepeat}
+                    hint={
+                        form.repeat
+                            ? formatParts([
+                                  s.everyWeeks(form.every),
+                                  s.composerBookSeries(form.count),
+                              ])
+                            : undefined
+                    }
+                    value={form.repeat}
+                    onChange={form.setRepeat}
+                />
+            )}
+            {form.repeat ? null : (
+                <TextField
+                    label={s.composerNote}
+                    optional
+                    multiline
+                    rows={2}
+                    value={form.note}
+                    onChange={form.setNote}
+                    placeholder={s.composerNotePlaceholder}
+                />
+            )}
+            <Toggle label={s.composerConfirm} value={form.notify} onChange={form.setNotify} />
+            {form.depositLine !== null ? (
+                <Notice tone="info" banner>
+                    {form.depositLine}
+                </Notice>
+            ) : null}
+            {form.notice !== null ? <Notice tone="success">{form.notice}</Notice> : null}
+            {form.error !== null ? <Notice tone="danger">{form.error}</Notice> : null}
+        </>
+    );
+}
+
+/** New booking docked under the calendar (beside it on a tablet): a summary bar while the draft is placed, the whole form when expanded. */
 export function BookingComposerSheet({
     form,
     expanded,
@@ -957,8 +1145,9 @@ export function BookingComposerSheet({
     onCollapse: () => void;
     onClose: () => void;
 }) {
-    const photos = usePeoplePhotos();
     const zone = useBusinessZone();
+    const side = useTabletLayout();
+    const open = expanded || side;
     const draft = form.draft;
     const member = form.staffOptions.find((o) => o.id === form.staffId);
     const book = (
@@ -981,10 +1170,10 @@ export function BookingComposerSheet({
     return (
         <KeyboardAvoidingView
             pointerEvents="box-none"
-            style={styles.dockWrap}
+            style={side ? styles.sideWrap : styles.dockWrap}
             behavior={Platform.OS === "ios" ? "padding" : undefined}
         >
-            <View style={[styles.dock, expanded && styles.dockOpen]}>
+            <View style={side ? styles.side : [styles.dock, expanded && styles.dockOpen]}>
                 <View style={styles.dockHead}>
                     <View style={styles.flex}>
                         <Text style={styles.sheetTitle} numberOfLines={1}>
@@ -1000,17 +1189,19 @@ export function BookingComposerSheet({
                             </Text>
                         ) : null}
                     </View>
-                    <Button
-                        size="sm"
-                        variant="outline"
-                        icon={expanded ? "calendar" : "edit"}
-                        onPress={expanded ? onCollapse : onExpand}
-                    >
-                        {expanded ? s.draftShowCalendar : s.draftShowForm}
-                    </Button>
+                    {side ? null : (
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            icon={expanded ? "calendar" : "edit"}
+                            onPress={expanded ? onCollapse : onExpand}
+                        >
+                            {expanded ? s.draftShowCalendar : s.draftShowForm}
+                        </Button>
+                    )}
                     <IconButton icon="x" label={s.close} onPress={onClose} />
                 </View>
-                {expanded ? null : (
+                {open ? null : (
                     <>
                         {draft?.problem != null ? (
                             <Notice tone="danger">{draft.problem}</Notice>
@@ -1020,202 +1211,144 @@ export function BookingComposerSheet({
                         {book}
                     </>
                 )}
-                {expanded ? (
+                {open ? (
                     <>
                         <ScrollView
                             style={styles.sheetScroll}
                             contentContainerStyle={styles.sheetBody}
                             keyboardShouldPersistTaps="handled"
                         >
-                            <Text style={styles.label}>{s.composerClient}</Text>
-                            {form.client ? (
-                                <View style={styles.picked}>
-                                    <Avatar
-                                        name={form.client.name}
-                                        src={photos.client(form.client.id)}
-                                        size="sm"
-                                    />
-                                    <View style={styles.flex}>
-                                        <Text style={styles.name}>{form.client.name}</Text>
-                                        <Text style={styles.sub}>
-                                            {formatList(
-                                                form.subjects.map((x) => x.name),
-                                                "unit",
-                                            )}
-                                        </Text>
-                                    </View>
-                                    <Button
-                                        style={{ alignSelf: "center" }}
-                                        size="sm"
-                                        variant="link"
-                                        onPress={() => {
-                                            form.pickClient(null);
-                                        }}
-                                    >
-                                        {s.composerChange}
-                                    </Button>
-                                </View>
-                            ) : (
-                                <>
-                                    <SearchField
-                                        value={form.query}
-                                        onChange={form.setQuery}
-                                        placeholder={s.composerClientSearch(kindWord(form.kind))}
-                                    />
-                                    <Panel flush style={styles.card}>
-                                        {form.matches.slice(0, 4).map((m) => (
-                                            <ListRow
-                                                key={m.client.id}
-                                                density="compact"
-                                                leading={
-                                                    <Avatar
-                                                        name={m.client.name}
-                                                        src={photos.client(m.client.id)}
-                                                        size="sm"
-                                                    />
-                                                }
-                                                title={m.client.name}
-                                                detail={formatParts([
-                                                    m.client.email,
-                                                    formatList(m.subjects, "unit"),
-                                                ])}
-                                                onPress={() => {
-                                                    form.pickClient(m.client.id);
-                                                }}
-                                            />
-                                        ))}
-                                    </Panel>
-                                </>
-                            )}
-                            {form.kind !== null && form.subjects.length > 1 ? (
-                                <Choice
-                                    label={strings.subjects.one(form.kind)}
-                                    options={form.subjects.map((x) => ({
-                                        key: x.id,
-                                        label: x.name,
-                                    }))}
-                                    value={form.subjectId}
-                                    onChange={form.setSubjectId}
-                                />
-                            ) : null}
-
-                            <SearchSelect
-                                label={s.composerService}
-                                placeholder={s.composerServicePlaceholder}
-                                options={form.services.map((i) => ({
-                                    key: i.id,
-                                    label: i.name,
-                                    media: itemMedia(i),
-                                    detail: formatParts([
-                                        strings.catalog.minutes(i.duration_min ?? 60),
-                                        formatMoney(i.price_cents ?? 0, BUSINESS_CURRENCY),
-                                    ]),
-                                }))}
-                                value={form.item?.id ?? ""}
-                                onChange={form.setItemId}
-                            />
-
-                            <Text style={styles.label}>{s.composerWith}</Text>
-                            <Choice
-                                label={s.composerWith}
-                                layout="segmented"
-                                options={form.staffOptions.map((o) => ({
-                                    key: o.id,
-                                    label: o.name.split(" ")[0] ?? o.name,
-                                }))}
-                                value={form.staffId}
-                                onChange={form.setStaffId}
-                            />
-
-                            {form.resource !== null ? (
-                                <Select
-                                    label={form.resource.label}
-                                    value={form.resource.value}
-                                    options={form.resource.options}
-                                    onChange={form.resource.pick}
-                                />
-                            ) : null}
-
-                            <Text style={styles.label}>{s.composerDate}</Text>
-                            <DateStrip
-                                label={s.composerDate}
-                                days={form.days}
-                                value={form.day}
-                                onChange={form.setDay}
-                            />
-                            {form.slotGroups.length === 0 ? (
-                                <Empty message={s.noTimes} />
-                            ) : (
-                                <TimeSlotPicker
-                                    label={s.composerTime}
-                                    groups={form.slotGroups}
-                                    value={form.time}
-                                    onChange={form.setTime}
-                                    columns={4}
-                                />
-                            )}
-                            {form.problem !== null ? (
-                                <Notice tone="danger">{form.problem}</Notice>
-                            ) : null}
-
-                            {form.fromEstimate !== null ? (
-                                <Panel style={styles.depart}>
-                                    <Text style={styles.name}>{form.fromEstimate.title}</Text>
-                                    {form.fromEstimate.lines.map((line, i) => (
-                                        <Text key={i} style={styles.sub}>
-                                            {line}
-                                        </Text>
-                                    ))}
-                                    <Text style={styles.hint}>{s.composerFromEstimateHint}</Text>
-                                </Panel>
-                            ) : (
-                                <Toggle
-                                    label={s.composerRepeat}
-                                    hint={
-                                        form.repeat
-                                            ? formatParts([
-                                                  s.everyWeeks(form.every),
-                                                  s.composerBookSeries(form.count),
-                                              ])
-                                            : undefined
-                                    }
-                                    value={form.repeat}
-                                    onChange={form.setRepeat}
-                                />
-                            )}
-                            {form.repeat ? null : (
-                                <TextField
-                                    label={s.composerNote}
-                                    optional
-                                    multiline
-                                    rows={2}
-                                    value={form.note}
-                                    onChange={form.setNote}
-                                    placeholder={s.composerNotePlaceholder}
-                                />
-                            )}
-                            <Toggle
-                                label={s.composerConfirm}
-                                value={form.notify}
-                                onChange={form.setNotify}
-                            />
-                            {form.depositLine !== null ? (
-                                <Notice tone="info" banner>
-                                    {form.depositLine}
-                                </Notice>
-                            ) : null}
-                            {form.notice !== null ? (
-                                <Notice tone="success">{form.notice}</Notice>
-                            ) : null}
-                            {form.error !== null ? (
-                                <Notice tone="danger">{form.error}</Notice>
-                            ) : null}
+                            <ComposerFields form={form} />
                         </ScrollView>
                         {book}
                     </>
                 ) : null}
             </View>
         </KeyboardAvoidingView>
+    );
+}
+
+/** A new booking over the current screen: the composer's fields with day and time picked from open slots. */
+export function BookingTask({
+    clientId,
+    estimateId,
+    rebookId,
+    onClose,
+}: {
+    clientId?: string | undefined;
+    estimateId?: string | undefined;
+    rebookId?: string | undefined;
+    onClose: () => void;
+}) {
+    const viewer = useViewer();
+    const zone = useBusinessZone();
+    const board = useScheduleBoard(viewer);
+    const [slot, setSlot] = useState<ComposerSlot | null>(null);
+    const day = board.focus;
+    const first = day.lanes.find((l) => l.hours) ?? day.lanes[0];
+    useEffect(() => {
+        if (slot !== null || first === undefined) return;
+        setSlot({
+            staffId: first.id,
+            start: suggestedStart(day.date, board.now, board.window, zone),
+            estimateId,
+            rebookId,
+        });
+    }, [slot, first, day.date, board.now, board.window, zone, estimateId, rebookId]);
+    const form = useBookingComposer(api, slot, board, onClose);
+    const picked = useRef(false);
+    useEffect(() => {
+        if (picked.current || clientId === undefined || slot === null) return;
+        picked.current = true;
+        form.pickClient(clientId);
+    }, [clientId, slot, form]);
+    return (
+        <DetailView
+            open
+            title={s.composerTitle}
+            onClose={onClose}
+            actions={
+                <Button full busy={form.busy} disabled={!form.canSubmit} onPress={form.submit}>
+                    {form.busy
+                        ? s.composerBooking
+                        : form.repeat
+                          ? s.composerBookSeries(form.count)
+                          : s.composerBook}
+                </Button>
+            }
+        >
+            {slot === null ? (
+                <Skeleton variant="row" count={4} label={s.loading} />
+            ) : (
+                <View style={styles.sheetBody}>
+                    <ComposerFields form={form} />
+                </View>
+            )}
+        </DetailView>
+    );
+}
+
+/** A booking over the current screen, with the same body and actions as the schedule's sheet. */
+export function BookingRecordTask({
+    bookingId,
+    onClose,
+}: {
+    bookingId: string;
+    onClose: () => void;
+}) {
+    const viewer = useViewer();
+    const board = useScheduleBoard(viewer);
+    const start = useBookingStart(bookingId);
+    const [moving, setMoving] = useState(false);
+    const { setAnchor, select } = board;
+    useEffect(() => {
+        if (start === null) return;
+        setAnchor(start);
+        select(bookingId);
+    }, [start, bookingId, setAnchor, select]);
+    const detail = useBookingDetail(board.selected, board.now);
+    const actions = useBookingActions(api, detail?.event ?? null, board.now);
+    return (
+        <Modal
+            flow
+            framed={false}
+            size="xl"
+            onClose={() => {
+                if (moving) setMoving(false);
+                else onClose();
+            }}
+        >
+            <DetailView
+                open={!moving}
+                title={detail?.event.headline ?? s.loading}
+                subtitle={detail?.event.serviceName}
+                onClose={onClose}
+                actions={
+                    detail === null ? undefined : (
+                        <BookingActionBar
+                            actions={actions}
+                            onReschedule={() => {
+                                setMoving(true);
+                            }}
+                        />
+                    )
+                }
+            >
+                {detail === null ? (
+                    <Skeleton variant="row" count={4} label={s.loading} />
+                ) : (
+                    <BookingBody detail={detail} />
+                )}
+            </DetailView>
+            {moving && detail !== null ? (
+                <RescheduleSheet
+                    event={detail.event}
+                    onClose={() => {
+                        setMoving(false);
+                    }}
+                />
+            ) : null}
+        </Modal>
     );
 }
 
@@ -1330,6 +1463,18 @@ const styles = StyleSheet.create({
         elevation: 12,
     },
     dockOpen: { height: "72%" },
+    // Beside the calendar on a tablet, so the draft stays in view and can still be dragged.
+    sideWrap: { width: theme.layout.side },
+    side: {
+        flex: 1,
+        backgroundColor: c.surface,
+        borderLeftWidth: StyleSheet.hairlineWidth,
+        borderLeftColor: c.border,
+        paddingHorizontal: 16,
+        paddingTop: 14,
+        paddingBottom: 16,
+        gap: 8,
+    },
     dockHead: { flexDirection: "row", alignItems: "center", gap: 8 },
     label: {
         color: c.inkSoft,

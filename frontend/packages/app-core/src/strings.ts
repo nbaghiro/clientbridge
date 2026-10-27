@@ -549,6 +549,7 @@ interface Strings {
             readonly sellGiftCard: string;
             readonly sellPackage: string;
             readonly sellMembership: string;
+            readonly addItems: string;
             readonly ticket: string;
             readonly clear: string;
             readonly walkIn: string;
@@ -590,7 +591,6 @@ interface Strings {
             readonly visitNotePhotos: (n: number) => string;
             readonly visitNoteSend: string;
             readonly visitNoteSent: string;
-            readonly backToToday: string;
             readonly todaysVisitsHint: string;
             readonly visitPaid: string;
             readonly visitInProgress: string;
@@ -1108,6 +1108,7 @@ interface Strings {
         readonly composerClientSearch: (kind: string) => string;
         readonly composerService: string;
         readonly composerServicePlaceholder: string;
+        readonly dayOf: (name: string) => string;
         readonly composerWith: string;
         readonly composerDate: string;
         readonly composerTime: string;
@@ -2100,11 +2101,11 @@ interface Strings {
             readonly sms: string;
             readonly email: string;
         } & Labels;
-        readonly filterLabel: string;
         readonly noThreadsFiltered: string;
         readonly noThreadsTitle: string;
         readonly noThreadsBody: string;
         readonly noMessagesYet: (name: string) => string;
+        readonly filterLabel: string;
         readonly selectThread: string;
         readonly thread: {
             readonly automatic: string;
@@ -2811,10 +2812,9 @@ interface Strings {
         readonly variantLabel: string;
         readonly standaloneProduct: string;
         readonly variantHint: string;
-        readonly title: string;
-        readonly summary: (items: number, low: number) => string;
         readonly views: {
-            readonly catalog: string;
+            readonly services: string;
+            readonly plans: string;
             readonly products: string;
             readonly inventory: string;
         } & Labels;
@@ -2823,8 +2823,8 @@ interface Strings {
         readonly addShort: string;
         readonly searchPlaceholder: string;
         readonly filterAll: string;
-        readonly filterServices: string;
-        readonly filterPlans: string;
+        readonly filterActive: string;
+        readonly filterLabel: string;
         readonly filterLowStock: string;
         readonly filterArchived: string;
         readonly shopLinkTitle: string;
@@ -4500,8 +4500,6 @@ interface Strings {
     readonly navigation: {
         readonly createMenu: string;
         readonly search: string;
-        readonly collapseSidebar: string;
-        readonly expandSidebar: string;
         readonly searchShortcut: string;
         readonly notifications: string;
         readonly businessMenu: string;

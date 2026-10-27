@@ -23,9 +23,17 @@ import {
     useBusinessZone,
     useNextVisit,
     useVisitNote,
+    itemMedia,
+    replaceTask,
+    sellableItems,
+    useCatalogItems,
+    useCheckoutQueue,
+    useLinkedVisit,
+    useSale,
+    mediaUrl,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import {
     Avatar,
@@ -40,11 +48,14 @@ import {
     Notice,
     Panel,
     SearchField,
+    SearchSelect,
     SheetHeader,
     TextField,
+    ItemImage,
 } from "@clientbridge/ui";
 
-import { api } from "../lib/api";
+import { api, apiBaseUrl } from "../lib/api";
+import { useViewer } from "../lib/auth";
 import { TerminalProvider, useTerminalCheckout } from "./Terminal";
 
 const d = strings.pos.desk;
@@ -737,11 +748,14 @@ type SheetStep = "ticket" | "discount" | "pay";
 export function TicketSheet({
     sale,
     open,
+    adder,
     onClose,
     onBookNext,
 }: {
     sale: SaleTicket;
     open: boolean;
+    // Shown under the client, where the register's tiles are out of reach.
+    adder?: ReactNode;
     onClose: () => void;
     onBookNext: () => void;
 }) {
@@ -801,6 +815,7 @@ export function TicketSheet({
                     closeLabel={strings.common.close}
                 />
                 <ClientPicker sale={sale} />
+                {adder}
                 {sale.held !== null ? <Notice tone="success">{sale.held}</Notice> : null}
                 {sale.invoiced !== null ? <Notice tone="success">{sale.invoiced}</Notice> : null}
                 {sale.views.map((v) => (
@@ -808,6 +823,14 @@ export function TicketSheet({
                         <LineItem
                             currency={BUSINESS_CURRENCY}
                             title={v.title}
+                            leading={
+                                <ItemImage
+                                    src={mediaUrl(apiBaseUrl, v.imageFileId)}
+                                    name={v.title}
+                                    color={v.color}
+                                    size={36}
+                                />
+                            }
                             meta={v.meta}
                             tag={v.tag}
                             cents={v.cents}
@@ -907,6 +930,60 @@ export function TicketSheet({
                 body
             )}
         </Modal>
+    );
+}
+
+/** Adds any sellable item to the ticket by name. */
+function ItemAdder({ sale }: { sale: SaleTicket }) {
+    const all = useCatalogItems();
+    const items = useMemo(() => sellableItems(all), [all]);
+    return (
+        <SearchSelect
+            name={d.addItems}
+            placeholder={d.addItems}
+            options={items.map((i) => ({
+                key: i.id,
+                label: i.name,
+                media: itemMedia(i),
+                detail: formatMoney(i.price_cents ?? 0, BUSINESS_CURRENCY),
+            }))}
+            value=""
+            onChange={(id) => {
+                const item = items.find((i) => i.id === id);
+                if (item !== undefined) sale.addItem(item);
+            }}
+        />
+    );
+}
+
+/** Checkout over the current screen: a visit's ticket (or a new sale), extra items, then payment. */
+export function CheckoutTask({
+    bookingId,
+    onClose,
+}: {
+    bookingId: string | null;
+    onClose: () => void;
+}) {
+    const viewer = useViewer();
+    const sale = useSale(api, {
+        viewerStaffId: viewer?.staffId ?? null,
+        platform: "mobile",
+        role: viewer?.role ?? null,
+    });
+    useLinkedVisit(bookingId, useCheckoutQueue(), sale.addVisit);
+    const visitId = sale.visitId;
+    return (
+        <TicketSheet
+            sale={sale}
+            open
+            adder={<ItemAdder sale={sale} />}
+            onClose={onClose}
+            onBookNext={() => {
+                replaceTask(
+                    visitId === null ? { kind: "booking" } : { kind: "booking", rebookId: visitId },
+                );
+            }}
+        />
     );
 }
 

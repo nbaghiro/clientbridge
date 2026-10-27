@@ -1,8 +1,8 @@
 import {
+    type CatalogGroup,
     type ItemRow,
     KIND_LABEL,
     PICKUP_FIELDS,
-    type ProductFilter,
     formatMoney,
     itemMeta,
     itemPriceLabel,
@@ -34,6 +34,7 @@ import {
     Panel,
     PayCode,
     SearchField,
+    Select,
     StatusPill,
     Tabs,
     TextField,
@@ -48,13 +49,19 @@ import { api, apiBaseUrl } from "../lib/api";
 
 const s = strings.catalog;
 
-type View = "catalog" | "products" | "inventory";
+type View = CatalogGroup | "products" | "inventory";
 
 const VIEWS: { key: View; label: string }[] = [
     {
-        key: "catalog",
+        key: "services",
         get label() {
-            return s.views.catalog;
+            return s.views.services;
+        },
+    },
+    {
+        key: "plans",
+        get label() {
+            return s.views.plans;
         },
     },
     {
@@ -77,13 +84,15 @@ interface Open {
 }
 
 export function Catalog() {
-    const [view, setView] = useState<View>("catalog");
+    const [view, setView] = useState<View>("services");
     return (
         <div className="space-y-5">
             <PageHeader title={strings.navigation.setupSections.services}>
                 <Tabs items={VIEWS} active={view} onSelect={setView} label={s.viewsLabel} />
             </PageHeader>
-            {view === "catalog" ? <CatalogList /> : null}
+            {view === "services" || view === "plans" ? (
+                <CatalogList key={view} group={view} />
+            ) : null}
             {view === "products" ? <ProductTable /> : null}
             {view === "inventory" ? <Inventory /> : null}
         </div>
@@ -130,8 +139,16 @@ function CatalogRow({ item }: { item: ItemRow }) {
     );
 }
 
-function KindPicker({ onClose, onPick }: { onClose: () => void; onPick: (kind: string) => void }) {
-    const picker = useKindPicker();
+function KindPicker({
+    kinds,
+    onClose,
+    onPick,
+}: {
+    kinds: readonly string[];
+    onClose: () => void;
+    onPick: (kind: string) => void;
+}) {
+    const picker = useKindPicker(kinds);
     return (
         <Modal open size="lg" onClose={onClose}>
             <div className="space-y-4">
@@ -165,8 +182,8 @@ function KindPicker({ onClose, onPick }: { onClose: () => void; onPick: (kind: s
     );
 }
 
-function CatalogList() {
-    const view = useCatalogView();
+function CatalogList({ group }: { group: CatalogGroup }) {
+    const view = useCatalogView(group);
     const [choosing, setChoosing] = useState(false);
     const [open, setOpen] = useState<Open | null>(null);
     const add = (
@@ -200,13 +217,6 @@ function CatalogList() {
                         rows={5}
                     >
                         <div className="flex flex-wrap items-center justify-between gap-3">
-                            <Choice
-                                layout="segmented"
-                                label={s.title}
-                                options={view.filters}
-                                value={view.filter}
-                                onChange={view.setFilter}
-                            />
                             <div className="w-full max-w-xs">
                                 <SearchField
                                     value={view.q}
@@ -214,6 +224,14 @@ function CatalogList() {
                                     placeholder={s.searchPlaceholder}
                                 />
                             </div>
+                            <Select
+                                name={s.filterLabel}
+                                size="sm"
+                                width="auto"
+                                options={view.statuses}
+                                value={view.status}
+                                onChange={view.setStatus}
+                            />
                         </div>
                         <div className="mt-5 space-y-6">
                             {view.sections.length === 0 ? (
@@ -258,6 +276,7 @@ function CatalogList() {
             </div>
             {choosing ? (
                 <KindPicker
+                    kinds={view.kinds}
                     onClose={() => {
                         setChoosing(false);
                     }}
@@ -318,12 +337,7 @@ function ProductTable() {
                         failed={s.loadErrorProducts}
                         rows={5}
                     >
-                        <ListPage<(typeof view.rows)[number], ProductFilter>
-                            segments={{
-                                items: view.filters,
-                                active: view.filter,
-                                onSelect: view.setFilter,
-                            }}
+                        <ListPage
                             search={{
                                 value: view.q,
                                 onChange: view.setQ,
@@ -331,7 +345,15 @@ function ProductTable() {
                             }}
                             banner={
                                 <div className="flex items-center gap-3 text-sm">
-                                    <span className="text-muted">{s.sortBy}</span>
+                                    <Select
+                                        name={s.filterLabel}
+                                        size="sm"
+                                        width="auto"
+                                        options={view.filters}
+                                        value={view.filter}
+                                        onChange={view.setFilter}
+                                    />
+                                    <span className="ml-auto text-muted">{s.sortBy}</span>
                                     <Choice
                                         label={s.sortBy}
                                         options={view.sorts}

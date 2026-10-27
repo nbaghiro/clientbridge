@@ -149,6 +149,7 @@ export function SelectSheet<K extends string>({
     searchable,
     size = "md",
     surface,
+    width = "full",
     disabled = false,
     style,
     searchFirst,
@@ -164,7 +165,9 @@ export function SelectSheet<K extends string>({
         onChange?.(key);
     };
     const plain = options.every((o) => o.detail === undefined && o.group === undefined);
+    // A compact select beside other controls stays one line; only a full-width one lays its options out.
     const sheet =
+        width === "auto" ||
         searchFirst ||
         options.length > SEARCH_AFTER ||
         placeholder !== undefined ||
@@ -209,7 +212,7 @@ export function SelectSheet<K extends string>({
         );
     }
     return (
-        <View style={style}>
+        <View style={[width === "auto" && styles.auto, style]}>
             {label !== undefined ? <Label text={label} optional={false} /> : null}
             {sheet ? (
                 <PickerTrigger
@@ -276,6 +279,7 @@ export function SelectSheet<K extends string>({
 }
 
 const styles = StyleSheet.create({
+    auto: { minWidth: 132 },
     trigger: { flexDirection: "row", alignItems: "center", gap: 8 },
     open: { borderColor: c.accent },
     invalid: { borderColor: c.danFg },

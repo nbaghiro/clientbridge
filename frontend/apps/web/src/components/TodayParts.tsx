@@ -19,6 +19,8 @@ import {
     BUSINESS_CURRENCY,
     useBusinessZone,
     useNotifications,
+    mediaUrl,
+    useShellNav,
 } from "@clientbridge/app-core";
 import {
     Avatar,
@@ -31,9 +33,12 @@ import {
     Panel,
     Skeleton,
     StatusPill,
+    IconBadge,
+    ItemImage,
 } from "@clientbridge/ui";
 import { Fragment } from "react";
 
+import { apiBaseUrl } from "../lib/api";
 import { useViewer } from "../lib/auth";
 import { useOpenLink } from "../lib/links";
 
@@ -44,15 +49,17 @@ export interface Kpi {
     value: string;
     hint: string;
     tone?: "ink" | "success" | undefined;
+    // How far through the day this figure is, drawn as a thin bar under it.
+    progress?: { value: number; max: number } | undefined;
 }
 
 export function KpiStrip({ items }: { items: Kpi[] }) {
     return (
-        <div className="grid grid-cols-2 overflow-hidden rounded-lg border border-line bg-surface shadow-card lg:grid-cols-4 lg:divide-x lg:divide-line-soft">
-            {items.map((k, i) => (
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            {items.map((k) => (
                 <div
                     key={k.label}
-                    className={`px-5 py-4 ${i < 2 ? "border-b border-line-soft lg:border-b-0" : ""} ${i % 2 === 0 ? "border-r border-line-soft lg:border-r-0" : ""}`}
+                    className="rounded-lg border border-line bg-surface px-5 py-4 shadow-card"
                 >
                     <p className="text-xs font-medium text-muted">{k.label}</p>
                     <p
@@ -60,7 +67,17 @@ export function KpiStrip({ items }: { items: Kpi[] }) {
                     >
                         {k.value}
                     </p>
-                    <p className="mt-0.5 truncate text-xs text-muted">{k.hint}</p>
+                    {k.progress !== undefined ? (
+                        <Meter
+                            className="mt-2"
+                            value={k.progress.value}
+                            max={Math.max(1, k.progress.max)}
+                            label={k.hint}
+                            labelPosition="hidden"
+                            size="sm"
+                        />
+                    ) : null}
+                    <p className="mt-0.5 text-xs text-muted">{k.hint}</p>
                 </div>
             ))}
         </div>
@@ -69,8 +86,12 @@ export function KpiStrip({ items }: { items: Kpi[] }) {
 
 export function KpiStripLoading() {
     return (
-        <div className="overflow-hidden rounded-lg border border-line bg-surface shadow-card">
-            <Skeleton variant="stat" count={4} columns={4} label={t.loading} />
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            {[0, 1, 2, 3].map((i) => (
+                <div key={i} className="rounded-lg border border-line bg-surface shadow-card">
+                    <Skeleton variant="stat" count={1} label={t.loading} />
+                </div>
+            ))}
         </div>
     );
 }
@@ -160,6 +181,12 @@ function AgendaRow({
                     backgroundColor: item.color ?? undefined,
                     opacity: done ? 0.35 : 1,
                 }}
+            />
+            <ItemImage
+                src={mediaUrl(apiBaseUrl, item.serviceImageId)}
+                name={item.serviceName}
+                color={item.color}
+                size={36}
             />
             <div className="min-w-0 flex-1">
                 <div
@@ -345,8 +372,7 @@ export function AttentionPanel({
                         return (
                             <ListRow
                                 key={a.key}
-                                icon={a.icon}
-                                intent={a.intent}
+                                leading={<IconBadge icon={a.icon} intent={a.intent} size="sm" />}
                                 title={a.title}
                                 detail={a.detail}
                                 density="compact"
@@ -370,6 +396,131 @@ export function AttentionPanel({
                     })}
                 </div>
             )}
+        </Panel>
+    );
+}
+
+/** The visit happening now or next, with who it is for, who is doing it and the next step. */
+export function FocusCard({ item, actions }: { item: AgendaItem; actions: TodayActions }) {
+    const photos = usePeoplePhotos();
+    const openLink = useOpenLink();
+    const kind = useSubjectKind();
+    const action = visitAction(item, kind);
+    const id = item.bookingId;
+    return (
+        <Panel flush title={item.state === "now" ? t.stateNow : t.upNext}>
+            <div className="flex items-center gap-4 px-5 pt-4">
+                <span
+                    className="w-1 shrink-0 self-stretch rounded-full bg-accent"
+                    style={{ backgroundColor: item.color ?? undefined }}
+                />
+                <Avatar name={item.clientName} src={photos.client(item.clientId)} size="lg" />
+                <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-3">
+                        <p className="text-sm font-semibold text-ink-soft">
+                            {item.time} – {item.endTime}
+                        </p>
+                        <StatusPill
+                            status={
+                                item.checkedIn
+                                    ? arrivalWords(kind).done
+                                    : item.departed
+                                      ? t.onTheWay
+                                      : item.state === "now"
+                                        ? t.stateNow
+                                        : item.startsIn
+                            }
+                            intent={item.checkedIn || item.state === "now" ? "success" : "accent"}
+                        />
+                    </div>
+                    <h3 className="truncate font-display text-xl font-bold text-ink">
+                        {item.clientName}
+                    </h3>
+                    <div className="mt-1 flex items-center gap-2 text-sm text-muted">
+                        <ItemImage
+                            src={mediaUrl(apiBaseUrl, item.serviceImageId)}
+                            name={item.serviceName}
+                            color={item.color}
+                            size={20}
+                        />
+                        <span className="min-w-0 flex-1 truncate">
+                            {formatParts([item.serviceName, t.withStaff(item.staffName)])}
+                        </span>
+                        <Avatar
+                            name={item.staffName}
+                            src={photos.staff(item.staffId)}
+                            size="sm"
+                            color={item.staffColor}
+                        />
+                    </div>
+                </div>
+            </div>
+            <div className="flex items-center gap-2 px-5 pb-4 pt-3">
+                <OwedTag item={item} actions={actions} />
+                {action === null || id === null ? null : (
+                    <Button
+                        className="flex-1"
+                        busy={actions.busyKey === id}
+                        onPress={() => {
+                            if (action === "checkout") openLink("checkout", id);
+                            else if (action === "depart") actions.depart(id);
+                            else actions.openCheckIn(id);
+                        }}
+                    >
+                        {visitActionLabel(action, kind)}
+                    </Button>
+                )}
+                <Button
+                    className="flex-1"
+                    variant="outline"
+                    onPress={() => {
+                        openLink("message", item.clientId);
+                    }}
+                >
+                    {t.staff.message}
+                </Button>
+            </div>
+        </Panel>
+    );
+}
+
+/** What is overdue, beside the figures in the strip above. */
+export function PaymentsPanel() {
+    const openLink = useOpenLink();
+    const overdue = useShellNav(useViewer()).badges.payments ?? 0;
+    return (
+        <Panel
+            flush
+            title={strings.navigation.payments}
+            actions={
+                <Button
+                    size="sm"
+                    variant="link"
+                    label={strings.navigation.viewPayments}
+                    onPress={() => {
+                        openLink("payments");
+                    }}
+                >
+                    {t.viewAllPayments}
+                </Button>
+            }
+        >
+            <div className="flex items-center justify-between px-4 py-3 text-sm">
+                <span className="text-muted">
+                    {overdue > 0
+                        ? strings.navigation.overduePayments(overdue)
+                        : t.noOverdueInvoices}
+                </span>
+                <Button
+                    size="sm"
+                    variant="link"
+                    onPress={() => {
+                        openLink("invoices");
+                    }}
+                >
+                    {strings.navigation.paymentsTabs.invoices}
+                </Button>
+            </div>
         </Panel>
     );
 }

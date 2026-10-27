@@ -1643,6 +1643,9 @@
     "pos.desk.sellMembership": {
         "message": "Membership"
     },
+    "pos.desk.addItems": {
+        "message": "Add a product or service"
+    },
     "pos.desk.ticket": {
         "message": "Ticket"
     },
@@ -1776,9 +1779,6 @@
     },
     "pos.desk.visitNoteSent": {
         "message": "Note sent with a link to the visit."
-    },
-    "pos.desk.backToToday": {
-        "message": "Back to Today"
     },
     "pos.desk.todaysVisitsHint": {
         "message": "Booked services ready to check out. Add products and add-ons after."
@@ -3384,6 +3384,10 @@
     },
     "bookings.composerServicePlaceholder": {
         "message": "Choose a service"
+    },
+    "bookings.dayOf": {
+        "message": "{name}'s day",
+        "args": ["name"]
     },
     "bookings.composerWith": {
         "message": "With"
@@ -6384,9 +6388,6 @@
     "messaging.filters.email": {
         "message": "Email"
     },
-    "messaging.filterLabel": {
-        "message": "Show"
-    },
     "messaging.noThreadsFiltered": {
         "message": "Nothing matches. Try another filter or search."
     },
@@ -6399,6 +6400,9 @@
     "messaging.noMessagesYet": {
         "message": "No messages with {name} yet. Write the first one below.",
         "args": ["name"]
+    },
+    "messaging.filterLabel": {
+        "message": "Show"
     },
     "messaging.selectThread": {
         "message": "Choose a conversation to read and reply."
@@ -8279,15 +8283,11 @@
     "catalog.variantHint": {
         "message": "Each variant keeps its own price, SKU and stock. Choose the main product shown in the shop."
     },
-    "catalog.title": {
-        "message": "Catalog"
+    "catalog.views.services": {
+        "message": "Services"
     },
-    "catalog.summary": {
-        "message": "{low, plural, =0 {{items, number} items} other {{items, number} items · # need restocking}}",
-        "args": ["items", "low"]
-    },
-    "catalog.views.catalog": {
-        "message": "Catalog"
+    "catalog.views.plans": {
+        "message": "Packages & memberships"
     },
     "catalog.views.products": {
         "message": "Products"
@@ -8310,11 +8310,11 @@
     "catalog.filterAll": {
         "message": "All"
     },
-    "catalog.filterServices": {
-        "message": "Services"
+    "catalog.filterActive": {
+        "message": "Active"
     },
-    "catalog.filterPlans": {
-        "message": "Packages & memberships"
+    "catalog.filterLabel": {
+        "message": "Show"
     },
     "catalog.filterLowStock": {
         "message": "Low stock"
@@ -13202,12 +13202,6 @@
     "navigation.search": {
         "message": "Search"
     },
-    "navigation.collapseSidebar": {
-        "message": "Collapse sidebar"
-    },
-    "navigation.expandSidebar": {
-        "message": "Expand sidebar"
-    },
     "navigation.searchShortcut": {
         "message": "⌘K"
     },
@@ -13355,13 +13349,13 @@
         "message": "Sales tax"
     },
     "navigation.setupSections.onlineBooking": {
-        "message": "Online booking"
+        "message": "Booking page & rules"
     },
     "navigation.setupSections.reminders": {
-        "message": "Reminders"
+        "message": "Messages & reminders"
     },
     "navigation.setupSections.security": {
-        "message": "Sign-in & security"
+        "message": "Account & plan"
     },
     "navigation.inboxSegments.messages": {
         "message": "Messages"

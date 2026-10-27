@@ -3,8 +3,8 @@ import type { NavigatorScreenParams } from "@react-navigation/native";
 
 export type TabParamList = {
     Today: undefined;
-    Schedule: { create?: number; open?: string; estimate?: string; rebook?: string } | undefined;
-    Clients: { create?: number; open?: string } | undefined;
+    Schedule: { open?: string } | undefined;
+    Clients: undefined;
     Inbox:
         | {
               segment?: InboxSegmentKey;
@@ -18,9 +18,7 @@ export type TabParamList = {
 
 export type RootStackParamList = {
     Tabs: NavigatorScreenParams<TabParamList> | undefined;
-    Payments:
-        | { tab?: PaymentsTabKey; create?: number; compose?: "invoice" | "estimate"; open?: string }
-        | undefined;
+    Payments: { tab?: PaymentsTabKey; open?: string } | undefined;
     Search: undefined;
     Notifications: undefined;
     Setup: undefined;
@@ -28,7 +26,6 @@ export type RootStackParamList = {
     Services: undefined;
     Team: undefined;
     GettingPaid: undefined;
-    Plans: undefined;
     GetSetUp: undefined;
     Taxes: undefined;
     ClientHistory: { clientId: string; name: string };

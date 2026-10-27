@@ -1015,17 +1015,22 @@ Signed-in pages are built from a few layouts. New work composes one of them rath
 
 | Pattern                  | Pieces                                                                                                                                         | Used by                                                                                     |
 | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| Frame                    | `PageFrame` (web: centred, 88rem, 2rem padding, with the corner `Backdrop` from `AppShell`; tablet: a centred rounded card beside the sidebar) | Every signed-in page                                                                        |
+| Frame                    | `PageFrame` (web: centred, 88rem, 2rem padding, with the corner `Backdrop` from `AppShell`; tablet: a centred rounded card above the floating tab bar; `size="md"` caps settings and other pushed screens at 64rem; the tabs use the full width) | Every signed-in page                                                                        |
 | Host with tabs           | `PageFrame` › `PageHeader` › `Tabs` › body                                                                                                     | Schedule, Inbox, Payments                                                                   |
 | Working card with a rail | One card with a list or grid on the left and an `<aside>` on the right, `FILL` height when it should fill the window                           | Schedule calendar, Inbox messages, Classes, Repeat visits                                   |
 | Desk                     | `DeskBar` (switcher, summary, action) › `Stat` row › `ListPage` › `DeskPanel` record from the right                                            | Invoices, Gift cards, Refunds, Payouts, Reports, Sales, Broadcasts, Team, Rooms & equipment |
 | Paper drawer             | `Modal variant="drawer" size="xl" framed={false}`, details beside a `PaperPane`                                                                | Invoice and estimate records, `DocEditor`, signed contracts                                 |
 | Setup section            | `PageHeader` › `Panel`s at the full width of the section column, with an optional preview column                                               | Setup sections                                                                              |
 | Record                   | `ClientRecordView` (inline or drawer) on `DetailView`                                                                                          | Clients, Inbox "Open record"                                                                |
+| Task                     | `useOpenLink` asks `taskFor(target, refId)`; a task goes on the stack (`openTask`, `closeTask`, `replaceTask`) and each app's `TaskHost` shows the top one over the current page | Checkout and new sale, new booking (with the person's day), a booking, new invoice or estimate, refund, add client, a client's record |
 
 Tablets in landscape (mobile windows at least 900pt wide and wider than tall, `useTabletLayout()`) reuse the phone screens; portrait and Split View keep the phone layout. The shared components change
-their layout: the tab bar becomes a sidebar fed by `DESTINATIONS` (it collapses to an icon rail from its own footer, remembered per device), `PageFrame` becomes a centred card, records,
+their layout: the phone tab bar floats as a capsule below the page, `PageFrame` becomes a centred card, Clients and Inbox show the list and the open item as two cards (`SplitView`), Schedule shows its board as one card, records,
 editors and flows open in a right-hand panel, and small sheets become centred cards.
+
+A button that starts work (checkout, book, invoice, refund, add a client) opens it as a task over the page it sits
+on, so closing or finishing it leaves you where you were. Links that go somewhere (a tab, "View all", search results
+for a page, Message, which opens the client's conversation) navigate, and clear any open tasks first.
 
 ### Connect — the customer app (PowerSync-free, embeddable)
 

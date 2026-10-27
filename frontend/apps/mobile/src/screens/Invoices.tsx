@@ -23,6 +23,7 @@ import {
     kindWord,
     usePeoplePhotos,
     useSubjectKind,
+    openTask,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import { useEffect, useState } from "react";
@@ -54,7 +55,7 @@ import { RecordPayment } from "../components/RecordPayment";
 import { api } from "../lib/api";
 import { useRole } from "../lib/auth";
 import { payUrl } from "../lib/config";
-import { useBookEstimate, useOpenLink } from "../lib/links";
+import { useOpenLink } from "../lib/links";
 
 const c = theme.colors;
 const s = strings.billing;
@@ -66,23 +67,10 @@ const share = (url: string): void => {
     Share.share({ message: url }).catch(() => undefined);
 };
 
-export function Invoices({
-    createToken,
-    createKind = "invoice",
-    openId: openParam,
-}: {
-    createToken?: number | undefined;
-    createKind?: "invoice" | "estimate";
-    openId?: string | undefined;
-}) {
+export function Invoices({ openId: openParam }: { openId?: string | undefined }) {
     const [doc, setDoc] = useState<DocKind>("invoices");
     const [composing, setComposing] = useState<Composing>(null);
     const [openId, setOpenId] = useState<string | null>(openParam ?? null);
-    useEffect(() => {
-        if (createToken === undefined) return;
-        setDoc(createKind === "estimate" ? "estimates" : "invoices");
-        setComposing({ kind: createKind, id: null });
-    }, [createToken, createKind]);
     useEffect(() => {
         if (openParam !== undefined) setOpenId(openParam);
     }, [openParam]);
@@ -616,7 +604,6 @@ function EstimatePanel({
     const rec = useEstimateRecord(id, payUrl);
     const act = useEstimateActions(api);
     const letterhead = useLetterhead(apiBaseUrl);
-    const bookEstimate = useBookEstimate();
     const kind = useSubjectKind();
     const openLink = useOpenLink();
     const [overlay, setOverlay] = useState<"pdf" | "menu" | null>(null);
@@ -640,7 +627,7 @@ function EstimatePanel({
         else if (key === "edit") onEdit(rec.row.id);
         else if (key === "accept") act.accept(rec);
         else if (key === "decline") act.decline(rec);
-        else if (key === "book") bookEstimate(rec.row.id);
+        else if (key === "book") openTask({ kind: "booking", estimateId: rec.row.id });
     };
     const convert = (): void => {
         confirm({ title: s.convertTitle, message: s.convertBody, confirmLabel: s.convert })

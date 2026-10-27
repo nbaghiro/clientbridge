@@ -169,7 +169,7 @@ function OpenVisits({
 }
 
 const styles = StyleSheet.create({
-    screen: { flex: 1, backgroundColor: c.bg },
+    screen: { flex: 1 },
     body: { padding: 16, paddingBottom: 32, gap: 14 },
     card: { gap: 8 },
     muted: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 13 },

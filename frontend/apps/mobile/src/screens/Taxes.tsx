@@ -342,7 +342,7 @@ export function TaxesScreen() {
 }
 
 const styles = StyleSheet.create({
-    screen: { flex: 1, backgroundColor: c.bg },
+    screen: { flex: 1 },
     content: { padding: 16, paddingBottom: 32, gap: 14 },
     flush: { paddingHorizontal: 14 },
     gap: { marginTop: 10 },

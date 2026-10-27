@@ -101,6 +101,7 @@ export function SearchScreen() {
                     autoFocus
                     trailing={
                         <Button
+                            style={{ alignSelf: "center" }}
                             variant="link"
                             onPress={() => {
                                 nav.goBack();
@@ -236,7 +237,7 @@ export function SearchScreen() {
 }
 
 const styles = StyleSheet.create({
-    screen: { flex: 1, backgroundColor: c.bg },
+    screen: { flex: 1 },
     top: { paddingHorizontal: 16, paddingTop: 6, paddingBottom: 8 },
     scopes: { paddingHorizontal: 16, paddingBottom: 8 },
     body: { paddingHorizontal: 16, paddingBottom: 40 },

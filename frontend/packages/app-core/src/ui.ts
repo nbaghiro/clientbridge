@@ -340,6 +340,8 @@ export interface PageFrameProps {
     children: ReactNode;
     // Full-width content above the centred column, such as a sync banner.
     leading?: ReactNode | undefined;
+    // "md" keeps lists and settings at a readable width; "lg" (the default) suits boards and splits.
+    size?: "md" | "lg" | undefined;
 }
 
 export interface PanelProps {
@@ -500,6 +502,13 @@ export interface PaymentMethodFormProps {
     allowBank: boolean;
 }
 
+// An icon in a soft circle of its status colour, leading a row that asks for attention.
+export interface IconBadgeProps {
+    icon: IconName;
+    intent?: Intent | undefined;
+    size?: "sm" | "md" | undefined;
+}
+
 export interface ItemImageProps {
     src: string | null;
     name: string;
@@ -530,7 +539,9 @@ export interface SheetHeaderProps {
 
 // The faint contour art in a corner behind a page; purely decorative.
 export interface BackdropProps {
-    corner?: "topRight" | "bottomRight" | undefined;
+    // The art is drawn for the top right and mirrored into the other corners.
+    corner?: "topRight" | "bottomRight" | "topLeft" | "bottomLeft" | undefined;
+    size?: "sm" | "md" | "lg" | undefined;
 }
 
 export interface AvatarProps {

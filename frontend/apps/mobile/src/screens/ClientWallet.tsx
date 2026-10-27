@@ -367,7 +367,7 @@ function Plans({ clientId }: { clientId: string }) {
 const styles = StyleSheet.create({
     planRow: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.borderSoft },
     empty: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 13, padding: 14 },
-    screen: { flex: 1, backgroundColor: c.bg },
+    screen: { flex: 1 },
     body: { padding: 16, paddingBottom: 32, gap: 12 },
     group: { marginTop: 6 },
     warn: {

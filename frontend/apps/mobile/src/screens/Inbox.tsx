@@ -22,6 +22,7 @@ import {
     useBusinessZone,
     kindWord,
     useSubjectKind,
+    openTask,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import {
@@ -59,6 +60,7 @@ import {
 } from "react-native";
 
 import { Loaded } from "../components/Loaded";
+import { SplitView } from "../components/SplitView";
 import { api } from "../lib/api";
 import { useRole } from "../lib/auth";
 import { useOpenLink } from "../lib/links";
@@ -235,18 +237,12 @@ function Messages() {
     return (
         <View style={styles.screen}>
             {tablet ? (
-                <View style={styles.split}>
-                    <View style={styles.listPane}>{list}</View>
-                    <View style={styles.threadPane}>
-                        {open !== null ? (
-                            <ThreadView key={open.id} thread={open} />
-                        ) : inbox.load.hasData ? (
-                            <View style={styles.pick}>
-                                <Empty icon="inbox" message={s.selectThread} />
-                            </View>
-                        ) : null}
-                    </View>
-                </View>
+                <SplitView
+                    list={list}
+                    detail={open !== null ? <ThreadView key={open.id} thread={open} /> : null}
+                    icon="inbox"
+                    placeholder={inbox.load.hasData ? s.selectThread : null}
+                />
             ) : (
                 list
             )}
@@ -403,7 +399,13 @@ function ThreadView({ thread, onBack }: { thread: InboxThread; onBack?: () => vo
                     }}
                 >
                     <ScrollView>
-                        <ContextPanel thread={thread} conversation={conversation} />
+                        <ContextPanel
+                            thread={thread}
+                            conversation={conversation}
+                            onLeave={() => {
+                                setDetails(false);
+                            }}
+                        />
                     </ScrollView>
                 </Modal>
             ) : null}
@@ -414,9 +416,11 @@ function ThreadView({ thread, onBack }: { thread: InboxThread; onBack?: () => vo
 function ContextPanel({
     thread,
     conversation,
+    onLeave,
 }: {
     thread: InboxThread;
     conversation: Conversation;
+    onLeave: () => void;
 }) {
     const kind = useSubjectKind();
     const zone = useBusinessZone();
@@ -434,7 +438,8 @@ function ContextPanel({
                     <Button
                         full
                         onPress={() => {
-                            openLink("booking");
+                            onLeave();
+                            openTask({ kind: "booking", clientId: thread.client_id });
                         }}
                     >
                         {s.book}
@@ -445,6 +450,7 @@ function ContextPanel({
                         full
                         variant="outline"
                         onPress={() => {
+                            onLeave();
                             openLink("client", thread.client_id);
                         }}
                     >
@@ -558,26 +564,8 @@ const styles = StyleSheet.create({
     earlier: { gap: 8 },
     earlierAction: { flexDirection: "row", justifyContent: "center" },
     inboxTitle: { paddingHorizontal: 20, paddingVertical: 8 },
-    screen: { flex: 1, backgroundColor: c.bg },
+    screen: { flex: 1 },
     flex: { flex: 1, minWidth: 0 },
-    split: {
-        flex: 1,
-        flexDirection: "row",
-        margin: 16,
-        marginTop: 8,
-        borderRadius: theme.radius,
-        borderWidth: StyleSheet.hairlineWidth,
-        borderColor: c.border,
-        backgroundColor: c.surface,
-        overflow: "hidden",
-    },
-    listPane: {
-        width: 300,
-        borderRightWidth: StyleSheet.hairlineWidth,
-        borderRightColor: c.border,
-    },
-    threadPane: { flex: 1, minWidth: 0 },
-    pick: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: c.bg },
     header: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 6, gap: 10 },
     headRow: {
         flexDirection: "row",
