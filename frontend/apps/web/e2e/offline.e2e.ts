@@ -1,5 +1,5 @@
 import { strings } from "@clientbridge/app-core/public";
-import { expect, test } from "@playwright/test";
+import { type BrowserContext, expect, test } from "@playwright/test";
 import { runEmail, runUrl } from "@clientbridge/config/e2e/run";
 import {
     expectMondayOnly,
@@ -11,10 +11,17 @@ import {
 } from "./support/hours";
 import { navigate, signIn } from "./support/session";
 
+// Firefox's emulated offline leaves the replica's token fetch pending, so it drops requests instead
+async function setOffline(context: BrowserContext, browserName: string, offline: boolean) {
+    if (browserName !== "firefox") return context.setOffline(offline);
+    if (offline) return context.route("**/*", (route) => route.abort("internetdisconnected"));
+    return context.unrouteAll();
+}
+
 test(
     "the production shell restores its replica offline and locks expired offline access without deleting it",
     { tag: "@browsers" },
-    async ({ page, context }) => {
+    async ({ page, context, browserName }) => {
         test.skip(!process.env.CI, "Requires the production service worker");
         await page.goto("/");
         await page
@@ -30,7 +37,7 @@ test(
         await expect(page.getByRole("heading", { level: 1 })).toContainText("Hannah", {
             timeout: 60_000,
         });
-        await context.setOffline(true);
+        await setOffline(context, browserName, true);
         await page.reload();
         await expect(page.getByRole("heading", { level: 1 })).toContainText("Hannah", {
             timeout: 60_000,
@@ -41,7 +48,7 @@ test(
         await page.reload();
         await expect(page.getByText(strings.sync.offlineExpired, { exact: true })).toBeVisible();
         expect(await page.evaluate(() => localStorage.getItem("cb_user"))).not.toBeNull();
-        await context.setOffline(false);
+        await setOffline(context, browserName, false);
         await page.reload();
         await expect(page.getByRole("heading", { level: 1 })).toContainText("Hannah", {
             timeout: 60_000,
@@ -63,7 +70,7 @@ test(
 test(
     "OFF-E2E-01 working-hours command survives offline reload and reconnects exactly once",
     { tag: "@browsers" },
-    async ({ page, context, request, browser }, testInfo) => {
+    async ({ page, context, request, browser, browserName }, testInfo) => {
         test.skip(!process.env.CI, "Requires the production service worker");
         test.setTimeout(240_000);
         const staff = await joinHoursStaff(page, request);
@@ -82,7 +89,7 @@ test(
             await page.evaluate(() => navigator.serviceWorker.ready.then(() => undefined));
             await page.reload();
             await openHours(page, staff.name);
-            await context.setOffline(true);
+            await setOffline(context, browserName, true);
             const editor = page.getByRole("dialog", {
                 name: strings.hours.editHoursFor(staff.name),
                 exact: true,
@@ -118,7 +125,7 @@ test(
                     response.status() === 200,
                 { timeout: 60_000 },
             );
-            await context.setOffline(false);
+            await setOffline(context, browserName, false);
             const response = await confirmed;
             const command = response.request().postDataJSON() as HoursCommand;
             expect(command.expected_revision).toBe(0);
@@ -178,7 +185,7 @@ test(
                 contentType: "application/json",
             });
         } finally {
-            await context.setOffline(false);
+            await setOffline(context, browserName, false);
             await observer.close();
             await staff.cleanup();
         }

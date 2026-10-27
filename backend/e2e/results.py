@@ -268,7 +268,10 @@ def validate_native_evidence(junit: str, required: list[str]) -> None:
     if len(set(names)) != len(names):
         raise ValueError("a native flow ran more than once")
     for case in cases:
-        if case.get("status") != "SUCCESS" or len(case):
+        # a tagged flow carries a <properties> child, so only an outcome child marks it unclean
+        if case.get("status") != "SUCCESS" or any(
+            child.tag in ("failure", "error", "skipped") for child in case
+        ):
             raise ValueError(f"native flow did not pass: {case.get('name')}")
 
 

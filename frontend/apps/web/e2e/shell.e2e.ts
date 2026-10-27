@@ -1,4 +1,4 @@
-import { strings } from "@clientbridge/app-core/public";
+import { saleNumber, strings } from "@clientbridge/app-core/public";
 import { axeIssues, unmarkedFocus, unreadableHover } from "@clientbridge/config/e2e/accessibility";
 import { demoId, runEmail, runUrl } from "@clientbridge/config/e2e/run";
 import { expect, type Locator, type Page, test } from "@playwright/test";
@@ -17,6 +17,9 @@ const STAFF = runEmail("diego@birchbark.example");
 const PASSWORD = "demo1234";
 // A seeded visit with a $20 deposit; opening it by link puts its day on the board.
 const DEPOSIT_BOOKING = demoId("bk_015");
+// Other cases ring up and void sales beside this one, so open the seeded Tap to Pay sale.
+const TAP_SALE = 6;
+const TAP_CLIENT = "Ethan Wright";
 
 const PAYMENTS_TABS = {
     invoices: strings.billing.newInvoice,
@@ -724,12 +727,12 @@ test("owner: payments desk, records and their dialogs", async ({ page }) => {
         await openAndClose(page, d.details);
         await main.getByRole("tab", { name: d.history }).click();
         await expect(main.getByText(d.todaySales)).toBeVisible();
-        // other cases run beside this one, so take a sale that has a payment, not an open or void one
-        const unpaid = new RegExp(`\\b(${d.status.open}|${d.status.void})\\b`);
+        await main.getByRole("searchbox", { name: d.historySearch, exact: true }).fill(TAP_CLIENT);
         await main
-            .getByRole("button", { name: /^S-\d+/ })
-            .filter({ hasNotText: unpaid })
-            .first()
+            .getByRole("button", {
+                name: strings.common.labelValue(saleNumber(TAP_SALE), TAP_CLIENT),
+                exact: true,
+            })
             .click();
         await expect(page.getByRole("dialog")).toContainText(d.payments);
         await escapeDialog(page);

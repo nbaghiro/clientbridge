@@ -1896,10 +1896,18 @@ def native_junit(*cases: tuple[str, str, str]) -> str:
     return f"<testsuites><testsuite>{rows}</testsuite></testsuites>"
 
 
-@pytest.mark.parametrize("failure", ["missing", "failed", "error_child", "repeated", "empty"])
+@pytest.mark.parametrize(
+    "failure", ["missing", "failed", "error_child", "skipped_child", "repeated", "empty"]
+)
 def test_native_evidence_cannot_certify_missing_or_unclean_flows(failure: str) -> None:
     passed = ("NATIVE-CRM-01 client lifecycle", "SUCCESS", "")
     validate_native_evidence(native_junit(passed), ["NATIVE-CRM-01"])
+    tagged = (
+        "NATIVE-IOS-02 offline record",
+        "SUCCESS",
+        '<properties><property name="tags" value="lane"/></properties>',
+    )
+    validate_native_evidence(native_junit(passed, tagged), ["NATIVE-CRM-01", "NATIVE-IOS-02"])
     required = ["NATIVE-CRM-01"]
     cases = [passed]
     if failure == "missing":
@@ -1908,6 +1916,8 @@ def test_native_evidence_cannot_certify_missing_or_unclean_flows(failure: str) -
         cases = [("NATIVE-CRM-01 client lifecycle", "ERROR", "")]
     elif failure == "error_child":
         cases = [("NATIVE-CRM-01 client lifecycle", "SUCCESS", "<failure>stalled</failure>")]
+    elif failure == "skipped_child":
+        cases = [("NATIVE-CRM-01 client lifecycle", "SUCCESS", "<skipped/>")]
     elif failure == "repeated":
         cases = [passed, passed]
     else:
