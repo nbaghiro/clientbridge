@@ -154,6 +154,12 @@ def images() -> dict[str, str]:
     }
 
 
+def pinned_images() -> list[str]:
+    """Every image the tier runs, pinned by digest."""
+    services = cast(dict[str, dict[str, object]], compose_spec()["services"])
+    return sorted({str(service["image"]) for service in services.values()})
+
+
 def compose_spec() -> dict[str, object]:
     pins = images()
     config = TIER / "config"
@@ -363,8 +369,12 @@ def write_config() -> None:
     (TIER / "compose.json").write_text(json.dumps(compose_spec(), indent=2))
 
 
+def compose_command(*arguments: str) -> list[str]:
+    return ["docker", "compose", "-p", PROJECT, "-f", str(TIER / "compose.json"), *arguments]
+
+
 def compose(*arguments: str, capture: bool = False) -> str:
-    command = ["docker", "compose", "-p", PROJECT, "-f", str(TIER / "compose.json"), *arguments]
+    command = compose_command(*arguments)
     result = subprocess.run(command, cwd=TIER, check=True, text=True, capture_output=capture)
     return result.stdout if capture else ""
 
@@ -651,8 +661,11 @@ def lease(*, poll_seconds: float = 5) -> Iterator[Lease]:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=["up", "reset", "down", "status", "env"])
+    parser.add_argument("action", choices=["up", "reset", "down", "status", "env", "images"])
     args = parser.parse_args()
+    if args.action == "images":
+        print("\n".join(pinned_images()))
+        return
     if args.action == "env":
         for name, value in environment().items():
             print(f"{name}={value}")
