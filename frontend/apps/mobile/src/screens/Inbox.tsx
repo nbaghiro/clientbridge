@@ -43,6 +43,7 @@ import {
     SearchSelect,
     Tabs,
     TextField,
+    useTabletLayout,
 } from "@clientbridge/ui";
 import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import { type RouteProp, useNavigation, useRoute } from "@react-navigation/native";
@@ -145,8 +146,9 @@ function Messages() {
         setComposing(target.clientId);
     }, [params, inbox.load.hasData, inbox.threads, nav]);
     const open = inbox.threads.find((t) => t.id === openId) ?? null;
+    const tablet = useTabletLayout();
 
-    if (open !== null)
+    if (open !== null && !tablet)
         return (
             <ThreadView
                 key={open.id}
@@ -157,8 +159,8 @@ function Messages() {
             />
         );
 
-    return (
-        <View style={styles.screen}>
+    const list = (
+        <>
             <View style={styles.header}>
                 <View style={styles.headRow}>
                     <Text style={styles.meta}>{s.unreadCount(inbox.unread)}</Text>
@@ -228,6 +230,26 @@ function Messages() {
                     )}
                 />
             </Loaded>
+        </>
+    );
+    return (
+        <View style={styles.screen}>
+            {tablet ? (
+                <View style={styles.split}>
+                    <View style={styles.listPane}>{list}</View>
+                    <View style={styles.threadPane}>
+                        {open !== null ? (
+                            <ThreadView key={open.id} thread={open} />
+                        ) : inbox.load.hasData ? (
+                            <View style={styles.pick}>
+                                <Empty icon="inbox" message={s.selectThread} />
+                            </View>
+                        ) : null}
+                    </View>
+                </View>
+            ) : (
+                list
+            )}
             {composing !== null ? (
                 <NewMessageSheet
                     clientId={composing}
@@ -246,7 +268,7 @@ function Messages() {
     );
 }
 
-function ThreadView({ thread, onBack }: { thread: InboxThread; onBack: () => void }) {
+function ThreadView({ thread, onBack }: { thread: InboxThread; onBack?: () => void }) {
     const conversation = useConversation(api, thread);
     const composer = useThreadComposer(api, thread);
     useMarkThreadRead(api, thread);
@@ -260,7 +282,9 @@ function ThreadView({ thread, onBack }: { thread: InboxThread; onBack: () => voi
             behavior={Platform.OS === "ios" ? "padding" : undefined}
         >
             <View style={styles.threadHead}>
-                <IconButton icon="chevronLeft" label={s.back} onPress={onBack} />
+                {onBack !== undefined ? (
+                    <IconButton icon="chevronLeft" label={s.back} onPress={onBack} />
+                ) : null}
                 <Text style={[styles.threadTitle, styles.flex]} numberOfLines={1}>
                     {thread.title}
                 </Text>
@@ -536,6 +560,24 @@ const styles = StyleSheet.create({
     inboxTitle: { paddingHorizontal: 20, paddingVertical: 8 },
     screen: { flex: 1, backgroundColor: c.bg },
     flex: { flex: 1, minWidth: 0 },
+    split: {
+        flex: 1,
+        flexDirection: "row",
+        margin: 16,
+        marginTop: 8,
+        borderRadius: theme.radius,
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: c.border,
+        backgroundColor: c.surface,
+        overflow: "hidden",
+    },
+    listPane: {
+        width: 300,
+        borderRightWidth: StyleSheet.hairlineWidth,
+        borderRightColor: c.border,
+    },
+    threadPane: { flex: 1, minWidth: 0 },
+    pick: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: c.bg },
     header: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 6, gap: 10 },
     headRow: {
         flexDirection: "row",
