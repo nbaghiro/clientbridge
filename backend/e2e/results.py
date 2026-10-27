@@ -134,6 +134,7 @@ BROWSER_CASES = {
         "XB-E2E-06": "OFF-E2E-01",
         "XB-E2E-07": "BILL-PILOT-02",
         "XB-E2E-08": "owner: shell, today, create menu, search, notifications and account menu",
+        "XB-E2E-17": "XB-E2E-17",
     },
     "connect": {
         "XB-E2E-09": "business navigation connects the shop, booking, and homepage sections on "

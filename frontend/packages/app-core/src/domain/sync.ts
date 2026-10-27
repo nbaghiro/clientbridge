@@ -21,12 +21,17 @@ import { strings } from "../strings";
 
 export const DEVICE_PREF_SQL = "SELECT value FROM device_prefs WHERE id = ?";
 
-type ReplicaStorage = "indexeddb" | "opfs";
+export type ReplicaStorage = "indexeddb" | "opfs" | "memory";
 
-/** WebKit's IndexedDB can stall reopening the replica after a reload, so WebKit keeps it in OPFS. */
-export function replicaStorage(vendor: string): ReplicaStorage {
+/** WebKit keeps the replica in OPFS, since its IndexedDB can stall reopening it after a reload. */
+export async function replicaStorage(
+    vendor: string,
+    opfsSyncAccess: () => Promise<boolean>,
+): Promise<ReplicaStorage> {
     const webkit: EngineVendor = "Apple Computer, Inc.";
-    return vendor === webkit ? "opfs" : "indexeddb";
+    if (vendor !== webkit) return "indexeddb";
+    // a private window refuses OPFS; its storage would be gone when it closes anyway
+    return (await opfsSyncAccess()) ? "opfs" : "memory";
 }
 
 // the fixed navigator.vendor of each engine; Firefox reports an empty string

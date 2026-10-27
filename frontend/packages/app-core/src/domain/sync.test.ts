@@ -23,10 +23,18 @@ afterEach(() => {
 });
 
 describe("replicaStorage", () => {
-    it("keeps WebKit's replica in OPFS and every other engine's in IndexedDB", () => {
-        expect(replicaStorage("Apple Computer, Inc.")).toBe("opfs");
-        expect(replicaStorage("Google Inc.")).toBe("indexeddb");
-        expect(replicaStorage("")).toBe("indexeddb");
+    it("keeps WebKit's replica in OPFS and every other engine's in IndexedDB", async () => {
+        const probe = vi.fn(() => Promise.resolve(true));
+        expect(await replicaStorage("Apple Computer, Inc.", probe)).toBe("opfs");
+        expect(await replicaStorage("Google Inc.", probe)).toBe("indexeddb");
+        expect(await replicaStorage("", probe)).toBe("indexeddb");
+        expect(probe).toHaveBeenCalledTimes(1);
+    });
+
+    it("opens WebKit's replica in memory when OPFS sync access is refused", async () => {
+        expect(await replicaStorage("Apple Computer, Inc.", () => Promise.resolve(false))).toBe(
+            "memory",
+        );
     });
 });
 
