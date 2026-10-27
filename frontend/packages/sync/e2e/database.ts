@@ -1,11 +1,15 @@
 import { AppSchema } from "../src/schema";
-import { PowerSyncDatabase } from "@powersync/web";
+import { PowerSyncDatabase, WASQLiteVFS } from "@powersync/web";
 import { Schema, Table, column } from "@powersync/common";
+
+function opfs(dbFilename: string) {
+    return { dbFilename, vfs: WASQLiteVFS.OPFSCoopSyncVFS };
+}
 
 export async function openReplica(filename: string) {
     const db = new PowerSyncDatabase({
         schema: AppSchema,
-        database: { dbFilename: filename },
+        database: opfs(filename),
     });
     await db.init();
     return db;
@@ -28,7 +32,7 @@ export async function openModelReplica(filename: string, model: Record<string, s
                 ]),
             ),
         ),
-        database: { dbFilename: filename },
+        database: opfs(filename),
     });
     await db.init();
     return db;
@@ -52,19 +56,29 @@ export async function openAuthorizationReplica(filename: string) {
                 phone: column.text,
             }),
         }),
-        database: { dbFilename: filename },
+        database: opfs(filename),
     });
     await db.init();
     return db;
 }
 
 export { ReplicaController } from "../src/lifecycle";
+export { removeReplicaFiles } from "../src/files";
 
 export function replicaDatabase(filename: string) {
-    return new PowerSyncDatabase({ schema: AppSchema, database: { dbFilename: filename } });
+    return new PowerSyncDatabase({ schema: AppSchema, database: opfs(filename) });
 }
 
 export const liveReplicas = new Map<string, PowerSyncDatabase>();
 export { businessQuery, selectReplicaBusiness } from "../src/scoping";
 export { enqueueHours, uploadHoursOnce, discardRejectedQueue } from "../src/hours";
 export { subscribeHistory } from "../src/history";
+
+export async function replicaFiles(name: string): Promise<string[]> {
+    const root = await navigator.storage.getDirectory();
+    const names: string[] = [];
+    for await (const entry of root.keys()) if (entry.startsWith(name)) names.push(entry);
+    return names.sort();
+}
+
+export { isStorageFull } from "../../app-core/src/domain/sync";
