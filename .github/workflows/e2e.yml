@@ -48,6 +48,15 @@ jobs:
       - uses: ./.github/actions/e2e-setup
         with:
           app: "@clientbridge/sync"
+      # the lifecycle cases also run in Firefox and WebKit
+      - uses: ./.github/actions/playwright
+        with:
+          app: "@clientbridge/sync"
+          browser: firefox
+      - uses: ./.github/actions/playwright
+        with:
+          app: "@clientbridge/sync"
+          browser: webkit
       - run: make test-sync
       - name: collect the test tier's logs
         if: always()

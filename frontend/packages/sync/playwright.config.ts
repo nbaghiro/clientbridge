@@ -17,6 +17,15 @@ export default defineConfig({
     outputDir: `${output}/results`,
     reporter: [["list"], ["html", { outputFolder: `${output}/report`, open: "never" }]],
     use: { baseURL: `http://localhost:${port}` },
+    projects: [
+        { name: "chromium", use: { browserName: "chromium" } },
+        // the lifecycle cases carry the OPFS locking and file risk that differs by engine
+        ...(["firefox", "webkit"] as const).map((browserName) => ({
+            name: browserName,
+            testMatch: "lifecycle.e2e.ts",
+            use: { browserName },
+        })),
+    ],
     webServer: {
         command: `pnpm exec vite packages/sync/e2e --port ${port} --strictPort`,
         cwd: "../..",
