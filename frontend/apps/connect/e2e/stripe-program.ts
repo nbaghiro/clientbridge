@@ -62,6 +62,7 @@ export async function prepareProgram(owner: Page) {
         201,
     );
     let program: Scheduled | null = null;
+    let refusal = "";
     for (let week = 3; week < 10 && program === null; week++) {
         const ahead = addDays(new Date(), week * 7, ZONE);
         const weekday = new Date(`${dateKey(ahead, ZONE)}T12:00:00Z`).getUTCDay();
@@ -71,16 +72,19 @@ export async function prepareProgram(owner: Page) {
             data: {
                 item_id: camp.id,
                 staff_id: member.id,
-                starts_at: combineDayAndTime(monday, "17:00", ZONE).toISOString(),
+                starts_at: combineDayAndTime(monday, "15:00", ZONE).toISOString(),
                 byday: ["MO", "TU", "WE"],
                 count: PROGRAM.days,
             },
         });
-        if (response.status() === 409) continue;
+        if (response.status() === 409) {
+            refusal = await response.text();
+            continue;
+        }
         expect(response.status(), await response.text()).toBe(201);
         program = (await response.json()) as Scheduled;
     }
-    if (program === null) throw new Error("No free week for the camp");
+    if (program === null) throw new Error(`No free week for the camp: ${refusal}`);
     const booker = onlineBooker("Juniper");
     const client = await apiCall<{ id: string }>(
         owner,

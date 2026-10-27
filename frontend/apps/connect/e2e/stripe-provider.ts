@@ -165,6 +165,9 @@ export async function openRegisteredStripeInvoice(
                         cardFrame = frame;
                         return true;
                     }
+                    // Firefox gets the methods collapsed, with none chosen until one is clicked
+                    const card = frame.getByRole("button", { name: "Card", exact: true });
+                    if (await card.isVisible()) await card.click();
                 }
                 return false;
             },
