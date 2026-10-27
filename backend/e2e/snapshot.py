@@ -1,5 +1,6 @@
 """The core demo businesses seeded once into a Postgres dump, which each run restores."""
 
+import argparse
 import asyncio
 import fcntl
 import json
@@ -10,12 +11,14 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
 
+import asyncpg
 from scripts import demo_copy, seed_demo
 from scripts.demo_context import DEMO_BUSINESSES
 
 from clientbridge.core import clock
 from clientbridge.core.config import get_settings
 from clientbridge.core.zones import zone
+from clientbridge.models.platform import File
 from e2e import tier
 from e2e.database import admin, on, seed_sources
 
@@ -125,9 +128,37 @@ def restore(snapshot: Snapshot, database: str) -> None:
         )
 
 
+async def upload_assets(seeded: asyncpg.Connection) -> None:
+    """Put the demo assets a restored seed's files name in the configured bucket."""
+    rows = await seeded.fetch("SELECT id, s3_key, size, content_type FROM files")
+    files = [
+        File(id=row["id"], s3_key=row["s3_key"], size=row["size"], content_type=row["content_type"])
+        for row in rows
+    ]
+    await asyncio.to_thread(seed_demo.upload_demo_assets, files)
+
+
+async def upload_restored_assets() -> None:
+    seeded = await demo_copy.connect(get_settings().migration_database_url)
+    try:
+        await upload_assets(seeded)
+    finally:
+        await seeded.close()
+
+
 def main() -> None:
-    """Make sure a fresh real-time snapshot exists, for the lanes that start next."""
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "action",
+        choices=["fresh", "assets"],
+        help="fresh: make sure a real-time snapshot exists for the lanes that start next; "
+        "assets: upload the assets of the database the settings name, after a restore",
+    )
+    args = parser.parse_args()
     seed_demo.validate_seed_target()
+    if args.action == "assets":
+        asyncio.run(upload_restored_assets())
+        return
     print(asyncio.run(ensure(None)).dump)
 
 

@@ -24,7 +24,6 @@ from clientbridge.integrations.kratos import get_identity_provider
 from clientbridge.integrations.s3 import S3_CONFIG
 from clientbridge.models import Base
 from clientbridge.models.business import Business, User
-from clientbridge.models.platform import File
 from e2e import snapshot, tier
 from e2e.database import admin, on
 
@@ -125,16 +124,6 @@ async def scratch_database(namespace: str, seeded: snapshot.Snapshot) -> AsyncIt
         await admin(f"DROP DATABASE IF EXISTS {demo_copy.quote(name)} WITH (FORCE)")
 
 
-async def upload_assets(scratch: asyncpg.Connection) -> None:
-    """Put the seeded files' demo assets in this run's own bucket."""
-    rows = await scratch.fetch("SELECT id, s3_key, size, content_type FROM files")
-    files = [
-        File(id=row["id"], s3_key=row["s3_key"], size=row["size"], content_type=row["content_type"])
-        for row in rows
-    ]
-    await asyncio.to_thread(seed_demo.upload_demo_assets, files)
-
-
 async def link_identities(scratch: asyncpg.Connection, renamer: Renamer) -> dict[str, str]:
     """Create each seeded user's namespaced login, keyed by the scratch identity it replaces."""
     identities = get_identity_provider()
@@ -211,7 +200,7 @@ async def seed(namespace: str, as_of: datetime | None) -> dict[str, object]:
         scratch = await demo_copy.connect(url)
         target = await demo_copy.connect(settings.migration_database_url)
         try:
-            await upload_assets(scratch)
+            await snapshot.upload_assets(scratch)
             stray = await demo_copy.uncovered(scratch, snapshot.core_businesses(), [])
             stray = [entry for entry in stray if not entry.startswith("users:")]
             if stray:

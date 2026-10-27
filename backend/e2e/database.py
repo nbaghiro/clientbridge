@@ -81,6 +81,8 @@ def build_template(name: str) -> None:
                     name,
                     stdin=saved,
                 )
+            # the seed's own upload is what puts its assets, and the bucket, in the tier's storage
+            run([*python, "e2e.snapshot", "assets"], env)
         else:
             run([*python, "scripts.db_access", "roles"], env)
             run([*python, "alembic", "upgrade", "head"], env)

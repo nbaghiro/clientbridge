@@ -173,7 +173,7 @@ freely, and leave **zero residue** — repeatable, parallel-safe.
 
 `make test-backend` runs the suite through `e2e/database.py`, which seeds a template database once per
 migrations, seed code and frozen instant (or restores it from the dump it kept under the tier's `templates/`
-folder, which CI caches), then copies it to a `clientbridge_test_<random>` database for
+folder, which CI caches, and then uploads the demo assets its files name, as the seed would have), then copies it to a `clientbridge_test_<random>` database for
 each pytest-xdist worker (`<database>_gw0`, `_gw1` and so on), runs pytest with `-n auto` and drops the copies.
 `tests/__init__.py` points each worker at its own copy before the settings load, so the rollback per test
 works as before and workers never see each other's rows. There is one worker per core, up to eight, and

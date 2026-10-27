@@ -172,7 +172,7 @@ def prepare() -> None:
     """Seed the snapshot and build the bundles that the lanes after this one reuse."""
     with tier.hold():
         subprocess.run(
-            [sys.executable, "-m", "e2e.snapshot"],
+            [sys.executable, "-m", "e2e.snapshot", "fresh"],
             cwd=ROOT / "backend",
             env=environment() | tier.environment(),
             check=True,
