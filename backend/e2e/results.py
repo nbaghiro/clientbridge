@@ -311,7 +311,7 @@ def main() -> None:
     required = REQUIRED_CASES.get(args.surface, []) + args.required
     report = merged(args.reports)
     if args.seconds is not None:
-        args.seconds.write_text(json.dumps(report.case_seconds(), indent=2, sort_keys=True) + "\n")
+        args.seconds.write_text(json.dumps(report.case_seconds(), indent=4, sort_keys=True) + "\n")
     report.validate_evidence(required)
     print("Functional evidence passed: no missing required cases, skipped cases or retries.")
 
