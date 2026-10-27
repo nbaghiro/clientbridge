@@ -33,6 +33,7 @@ dev = [
     # pinned so make, the pre-commit hook and CI type-check with one version
     "pyright==1.1.408",
     "asgi-lifespan>=2",
+    "pytest-xdist>=3.8.0",
 ]
 
 [tool.coverage.run]
