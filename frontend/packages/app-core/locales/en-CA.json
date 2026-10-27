@@ -13202,11 +13202,11 @@
     "navigation.search": {
         "message": "Search"
     },
-    "navigation.hideSidebar": {
-        "message": "Hide sidebar"
+    "navigation.collapseSidebar": {
+        "message": "Collapse sidebar"
     },
-    "navigation.showSidebar": {
-        "message": "Show sidebar"
+    "navigation.expandSidebar": {
+        "message": "Expand sidebar"
     },
     "navigation.searchShortcut": {
         "message": "⌘K"

@@ -24,7 +24,6 @@ import {
     PageFrame,
     Select,
     SendReviewHost,
-    SidebarContext,
     useTabletLayout,
 } from "@clientbridge/ui";
 
@@ -38,7 +37,6 @@ import { stripePublishableKey } from "./src/lib/config";
 import { connectPowerSync, replica, signOut } from "./src/lib/powersync";
 import { registerForPush, unregisterFromPush, usePushTaps } from "./src/lib/push";
 import { useOpenLink } from "./src/lib/links";
-import { useSidebarToggle } from "./src/lib/sidebar";
 import { SignOutContext } from "./src/lib/session";
 import type { RootStackParamList, TabParamList } from "./src/navigation";
 import { ScheduleScreen } from "./src/screens/Schedule";
@@ -81,7 +79,6 @@ const navTheme = {
 function Tabs() {
     const open = useOpenLink();
     const tablet = useTabletLayout();
-    const sidebar = useSidebarToggle();
     usePushTaps(
         useCallback(
             (threadId: string) => {
@@ -91,23 +88,21 @@ function Tabs() {
         ),
     );
     return (
-        <SidebarContext.Provider value={tablet ? sidebar : null}>
-            <Tab.Navigator
-                initialRouteName="Today"
-                tabBar={(props) => <TabBar {...props} />}
-                screenOptions={{ headerShown: false, tabBarPosition: tablet ? "left" : "bottom" }}
-                screenLayout={({ children }) => (
-                    <PageFrame leading={tablet ? <ShellBanners /> : undefined}>
-                        {children}
-                    </PageFrame>
-                )}
-            >
-                <Tab.Screen name="Today" component={TodayScreen} />
-                <Tab.Screen name="Inbox" component={InboxScreen} />
-                <Tab.Screen name="Clients" component={ClientsScreen} />
-                <Tab.Screen name="Schedule" component={ScheduleScreen} />
-            </Tab.Navigator>
-        </SidebarContext.Provider>
+        <Tab.Navigator
+            initialRouteName="Today"
+            tabBar={(props) => <TabBar {...props} />}
+            screenOptions={{ headerShown: false, tabBarPosition: tablet ? "left" : "bottom" }}
+            screenLayout={({ children }) => (
+                <PageFrame leading={tablet ? <ShellBanners /> : undefined}>
+                    {children}
+                </PageFrame>
+            )}
+        >
+            <Tab.Screen name="Today" component={TodayScreen} />
+            <Tab.Screen name="Inbox" component={InboxScreen} />
+            <Tab.Screen name="Clients" component={ClientsScreen} />
+            <Tab.Screen name="Schedule" component={ScheduleScreen} />
+        </Tab.Navigator>
     );
 }
 

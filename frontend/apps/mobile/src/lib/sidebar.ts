@@ -1,27 +1,27 @@
 import * as SecureStore from "expo-secure-store";
 import { useEffect, useMemo, useState } from "react";
 
-const KEY = "cb_sidebar_hidden";
+const KEY = "cb_sidebar_collapsed";
 
-/** Whether the tablet sidebar is hidden, remembered across launches. */
-export function useSidebarToggle(): { hidden: boolean; toggle: () => void } {
-    const [hidden, setHidden] = useState(false);
+/** Whether the tablet sidebar is collapsed to a rail, remembered across launches. */
+export function useSidebarToggle(): { collapsed: boolean; toggle: () => void } {
+    const [collapsed, setCollapsed] = useState(false);
     useEffect(() => {
         SecureStore.getItemAsync(KEY)
             .then((v) => {
-                setHidden(v === "1");
+                setCollapsed(v === "1");
             })
             .catch(() => undefined);
     }, []);
     return useMemo(
         () => ({
-            hidden,
+            collapsed,
             toggle: () => {
-                const next = !hidden;
-                setHidden(next);
+                const next = !collapsed;
+                setCollapsed(next);
                 SecureStore.setItemAsync(KEY, next ? "1" : "0").catch(() => undefined);
             },
         }),
-        [hidden],
+        [collapsed],
     );
 }

@@ -12302,11 +12302,11 @@
     "navigation.search": {
         "message": "[Šéåŕçĥ one]"
     },
-    "navigation.hideSidebar": {
-        "message": "[Ĥîðé šîðéƀåŕ one two]"
+    "navigation.collapseSidebar": {
+        "message": "[Çöļļåþšé šîðéƀåŕ one two]"
     },
-    "navigation.showSidebar": {
-        "message": "[Šĥöŵ šîðéƀåŕ one two]"
+    "navigation.expandSidebar": {
+        "message": "[Éẋþåñð šîðéƀåŕ one two]"
     },
     "navigation.searchShortcut": {
         "message": "[⌘Ķ one]"

@@ -12,8 +12,8 @@ import {
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
-import { useContext, useRef, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useRef, useState } from "react";
+import { LayoutAnimation, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
     ActionMenu,
@@ -25,7 +25,6 @@ import {
     Notice,
     SyncBanner,
     confirm,
-    SidebarContext,
     useTabletLayout,
 } from "@clientbridge/ui";
 
@@ -34,6 +33,7 @@ import { useUserId, useViewer } from "../lib/auth";
 import { useOpenLink } from "../lib/links";
 import { connectPowerSync } from "../lib/powersync";
 import { useSignOut } from "../lib/session";
+import { useSidebarToggle } from "../lib/sidebar";
 
 const c = theme.colors;
 
@@ -94,9 +94,7 @@ export function ShellBanners() {
 }
 
 export function TabBar(props: BottomTabBarProps) {
-    const sidebar = useContext(SidebarContext);
-    if (!useTabletLayout()) return <BottomBar {...props} />;
-    return sidebar?.hidden === true ? null : <Sidebar {...props} />;
+    return useTabletLayout() ? <Sidebar {...props} /> : <BottomBar {...props} />;
 }
 
 function BottomBar({ state, navigation }: BottomTabBarProps) {
@@ -201,6 +199,7 @@ function Sidebar({ state, navigation }: BottomTabBarProps) {
     const userId = useUserId();
     const openLink = useOpenLink();
     const signOut = useSignOut();
+    const { collapsed: rail, toggle } = useSidebarToggle();
     const [menu, setMenu] = useState<"create" | "account" | null>(null);
     const n = strings.navigation;
     const close = (): void => {
@@ -214,6 +213,7 @@ function Sidebar({ state, navigation }: BottomTabBarProps) {
         <View
             style={[
                 styles.side,
+                rail && styles.rail,
                 {
                     marginTop: insets.top + theme.layout.gutter / 2,
                     marginBottom: insets.bottom + theme.layout.gutter / 2,
@@ -221,9 +221,13 @@ function Sidebar({ state, navigation }: BottomTabBarProps) {
                 },
             ]}
         >
-            <View style={styles.sidePad}>
+            <View style={[styles.sidePad, rail && styles.railPad]}>
                 <Pressable
-                    style={({ pressed }) => [styles.business, pressed && styles.pressed]}
+                    style={({ pressed }) => [
+                        styles.business,
+                        rail && styles.railItem,
+                        pressed && styles.pressed,
+                    ]}
                     accessibilityRole="button"
                     accessibilityLabel={n.businessMenu}
                     onPress={() => {
@@ -239,37 +243,64 @@ function Sidebar({ state, navigation }: BottomTabBarProps) {
                             nav.setup.logoFileId ? mediaUrl(apiBaseUrl, nav.setup.logoFileId) : null
                         }
                     />
-                    <Text style={styles.businessName} numberOfLines={1}>
-                        {nav.setup.businessName}
-                    </Text>
-                    <Icon name="chevronDown" size={15} color={c.muted} />
+                    {rail ? null : (
+                        <>
+                            <Text style={styles.businessName} numberOfLines={1}>
+                                {nav.setup.businessName}
+                            </Text>
+                            <Icon name="chevronDown" size={15} color={c.muted} />
+                        </>
+                    )}
                 </Pressable>
-                <View style={styles.actions}>
-                    <Button
-                        full
-                        icon="plus"
-                        onPress={() => {
-                            setMenu("create");
-                        }}
-                    >
-                        {n.createMenu}
-                    </Button>
-                    <Button
-                        full
-                        variant="outline"
-                        icon="search"
-                        onPress={() => {
-                            navigation.navigate("Search");
-                        }}
-                    >
-                        {n.search}
-                    </Button>
-                </View>
+                {rail ? (
+                    <View style={styles.actions}>
+                        <Pressable
+                            style={({ pressed }) => [styles.railCreate, pressed && styles.dimmed]}
+                            accessibilityRole="button"
+                            accessibilityLabel={n.createMenu}
+                            onPress={() => {
+                                setMenu("create");
+                            }}
+                        >
+                            <Icon name="plus" size={20} color={c.surface} />
+                        </Pressable>
+                        <IconButton
+                            icon="search"
+                            label={n.search}
+                            variant="outline"
+                            onPress={() => {
+                                navigation.navigate("Search");
+                            }}
+                        />
+                    </View>
+                ) : (
+                    <View style={styles.actions}>
+                        <Button
+                            full
+                            icon="plus"
+                            onPress={() => {
+                                setMenu("create");
+                            }}
+                        >
+                            {n.createMenu}
+                        </Button>
+                        <Button
+                            full
+                            variant="outline"
+                            icon="search"
+                            onPress={() => {
+                                navigation.navigate("Search");
+                            }}
+                        >
+                            {n.search}
+                        </Button>
+                    </View>
+                )}
             </View>
 
             <ScrollView
                 style={styles.fill}
-                contentContainerStyle={styles.links}
+                contentContainerStyle={[styles.links, rail && styles.railPad]}
                 accessibilityRole="tablist"
                 accessibilityLabel={n.main}
             >
@@ -282,6 +313,7 @@ function Sidebar({ state, navigation }: BottomTabBarProps) {
                             testID={`tab-${key}`}
                             style={({ pressed }) => [
                                 styles.link,
+                                rail && styles.railItem,
                                 selected && styles.linkSelected,
                                 pressed && !selected && styles.pressed,
                             ]}
@@ -301,21 +333,32 @@ function Sidebar({ state, navigation }: BottomTabBarProps) {
                                 size={18}
                                 color={selected ? c.accent : c.inkSoft}
                             />
-                            <Text
-                                style={[styles.linkLabel, selected && styles.linkLabelSelected]}
-                                numberOfLines={1}
-                            >
-                                {label}
-                            </Text>
-                            {badge !== undefined && badge > 0 ? (
-                                <Badge label={badge} variant="count" />
-                            ) : null}
+                            {rail ? (
+                                badge !== undefined && badge > 0 ? (
+                                    <View style={styles.railDot} />
+                                ) : null
+                            ) : (
+                                <>
+                                    <Text
+                                        style={[
+                                            styles.linkLabel,
+                                            selected && styles.linkLabelSelected,
+                                        ]}
+                                        numberOfLines={1}
+                                    >
+                                        {label}
+                                    </Text>
+                                    {badge !== undefined && badge > 0 ? (
+                                        <Badge label={badge} variant="count" />
+                                    ) : null}
+                                </>
+                            )}
                         </Pressable>
                     );
                 })}
             </ScrollView>
 
-            {nav.showSetup ? (
+            {nav.showSetup && !rail ? (
                 <Pressable
                     style={({ pressed }) => [styles.setupCard, pressed && styles.pressed]}
                     accessibilityRole="button"
@@ -337,37 +380,80 @@ function Sidebar({ state, navigation }: BottomTabBarProps) {
                 </Pressable>
             ) : null}
 
-            <View style={styles.foot}>
-                <Pressable
-                    style={({ pressed }) => [styles.link, pressed && styles.pressed]}
-                    accessibilityRole="button"
-                    onPress={() => {
-                        navigation.navigate("Setup");
-                    }}
-                >
-                    <Icon name="settings" size={18} color={c.inkSoft} />
-                    <Text style={styles.linkLabel}>{n.setup}</Text>
-                </Pressable>
-                <View style={styles.account}>
-                    <Avatar name={nav.name} src={photos.user(userId)} size="sm" color={nav.color} />
-                    <View style={styles.fill}>
-                        <Text style={styles.accountName} numberOfLines={1}>
-                            {nav.name}
-                        </Text>
-                        <Text style={styles.accountRole} numberOfLines={1}>
-                            {nav.roleLabel}
-                        </Text>
-                    </View>
-                    <IconButton
-                        icon="more"
-                        label={n.accountMenu}
-                        size="sm"
-                        pressed={menu === "account"}
+            <View style={[styles.foot, rail && styles.railPad]}>
+                <View style={[styles.footRow, rail && styles.railStack]}>
+                    <Pressable
+                        style={({ pressed }) => [
+                            styles.link,
+                            rail ? styles.railItem : styles.fill,
+                            pressed && styles.pressed,
+                        ]}
+                        accessibilityRole="button"
+                        accessibilityLabel={n.setup}
                         onPress={() => {
-                            setMenu("account");
+                            navigation.navigate("Setup");
+                        }}
+                    >
+                        <Icon name="settings" size={18} color={c.inkSoft} />
+                        {rail ? null : <Text style={styles.linkLabel}>{n.setup}</Text>}
+                    </Pressable>
+                    <IconButton
+                        icon="sidebar"
+                        label={rail ? n.expandSidebar : n.collapseSidebar}
+                        size={rail ? "md" : "sm"}
+                        onPress={() => {
+                            LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                            toggle();
                         }}
                     />
                 </View>
+                {rail ? (
+                    <Pressable
+                        style={({ pressed }) => [
+                            styles.account,
+                            styles.railItem,
+                            pressed && styles.pressed,
+                        ]}
+                        accessibilityRole="button"
+                        accessibilityLabel={n.accountMenu}
+                        onPress={() => {
+                            setMenu("account");
+                        }}
+                    >
+                        <Avatar
+                            name={nav.name}
+                            src={photos.user(userId)}
+                            size="sm"
+                            color={nav.color}
+                        />
+                    </Pressable>
+                ) : (
+                    <View style={styles.account}>
+                        <Avatar
+                            name={nav.name}
+                            src={photos.user(userId)}
+                            size="sm"
+                            color={nav.color}
+                        />
+                        <View style={styles.fill}>
+                            <Text style={styles.accountName} numberOfLines={1}>
+                                {nav.name}
+                            </Text>
+                            <Text style={styles.accountRole} numberOfLines={1}>
+                                {nav.roleLabel}
+                            </Text>
+                        </View>
+                        <IconButton
+                            icon="more"
+                            label={n.accountMenu}
+                            size="sm"
+                            pressed={menu === "account"}
+                            onPress={() => {
+                                setMenu("account");
+                            }}
+                        />
+                    </View>
+                )}
             </View>
 
             <ActionMenu
@@ -450,6 +536,36 @@ const styles = StyleSheet.create({
         borderRadius: theme.radius,
         overflow: "hidden",
     },
+    // Collapsed: icons only, each centred in a square the size of an icon button.
+    rail: { width: theme.layout.rail },
+    railPad: { paddingHorizontal: 0, alignItems: "center" },
+    railItem: {
+        width: 40,
+        height: 40,
+        paddingHorizontal: 0,
+        paddingVertical: 0,
+        gap: 0,
+        justifyContent: "center",
+    },
+    railStack: { flexDirection: "column", gap: 2 },
+    railCreate: {
+        width: 40,
+        height: 40,
+        borderRadius: theme.radius,
+        backgroundColor: c.accent,
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    railDot: {
+        position: "absolute",
+        top: 8,
+        right: 8,
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        backgroundColor: c.danFg,
+    },
+    dimmed: { opacity: 0.85 },
     sidePad: { paddingHorizontal: 12, gap: 12 },
     fill: { flex: 1, minWidth: 0 },
     pressed: { backgroundColor: c.bg },
@@ -516,6 +632,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 12,
         paddingTop: 12,
     },
+    footRow: { flexDirection: "row", alignItems: "center", gap: 4 },
     account: {
         flexDirection: "row",
         alignItems: "center",

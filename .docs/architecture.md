@@ -1024,7 +1024,7 @@ Signed-in pages are built from a few layouts. New work composes one of them rath
 | Record                   | `ClientRecordView` (inline or drawer) on `DetailView`                                                                                          | Clients, Inbox "Open record"                                                                |
 
 Tablets in landscape (mobile windows at least 900pt wide and wider than tall, `useTabletLayout()`) reuse the phone screens; portrait and Split View keep the phone layout. The shared components change
-their layout: the tab bar becomes a sidebar fed by `DESTINATIONS`, `PageFrame` becomes a centred card, records,
+their layout: the tab bar becomes a sidebar fed by `DESTINATIONS` (it collapses to an icon rail from its own footer, remembered per device), `PageFrame` becomes a centred card, records,
 editors and flows open in a right-hand panel, and small sheets become centred cards.
 
 ### Connect — the customer app (PowerSync-free, embeddable)

@@ -1,10 +1,6 @@
-import { type PageHeaderProps, strings } from "@clientbridge/app-core";
+import type { PageHeaderProps } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
-import { useContext } from "react";
 import { StyleSheet, Text, View } from "react-native";
-
-import { IconButton } from "./IconButton";
-import { SidebarContext } from "./layout";
 
 import type { NativeProps } from "./props";
 
@@ -18,21 +14,9 @@ export function PageHeader({
     children,
     style,
 }: NativeProps<PageHeaderProps>) {
-    const sidebar = useContext(SidebarContext);
     return (
         <View style={style}>
             <View style={styles.row}>
-                {sidebar !== null ? (
-                    <IconButton
-                        icon="sidebar"
-                        label={
-                            sidebar.hidden
-                                ? strings.navigation.showSidebar
-                                : strings.navigation.hideSidebar
-                        }
-                        onPress={sidebar.toggle}
-                    />
-                ) : null}
                 <View style={styles.text}>
                     {leading}
                     <Text accessibilityRole="header" numberOfLines={1} style={styles.title}>
