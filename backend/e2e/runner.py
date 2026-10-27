@@ -652,6 +652,7 @@ def run_browsers(
         f"--config={config}",
         f"--project={args.project}",
         *(["--fully-parallel", f"--repeat-each={args.repeat_each}"] if measuring else []),
+        *([f"--shard={args.shard}"] if args.shard else []),
         *args.tests,
     ]
     report_path = stack.directory / "browser-results" / "results.json"
@@ -665,7 +666,8 @@ def run_browsers(
             outcomes = Report.model_validate_json(report_path.read_text()).first_attempts()
             (stack.directory / "flakes.json").write_text(json.dumps(outcomes, indent=2) + "\n")
     report = Report.model_validate_json(report_path.read_text())
-    if args.tests or measuring or args.project == "pseudo":
+    # a shard holds part of the lane, so CI checks the required cases on the shards merged
+    if args.tests or measuring or args.shard or args.project == "pseudo":
         report.validate_evidence([])
     elif args.project in BROWSERS:
         report.validate_evidence([], {args.project: browser_cases(args.surface)[args.project]})
@@ -960,6 +962,13 @@ def run_native(
     validate_native_evidence(report.read_text(), required)
 
 
+def shard(value: str) -> str:
+    match = re.fullmatch(r"(\d+)/(\d+)", value)
+    if not match or not 1 <= int(match[1]) <= int(match[2]):
+        raise argparse.ArgumentTypeError("a shard is <index>/<total>, e.g. 2/3")
+    return value
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--configure-only", action="store_true")
@@ -975,6 +984,7 @@ def main() -> None:
     parser.add_argument("--allow-source-changes", action="store_true")
     parser.add_argument("--repeat-each", type=int, default=1)
     parser.add_argument("--shuffle-seed", type=int)
+    parser.add_argument("--shard", type=shard)
     parser.add_argument("tests", nargs=argparse.REMAINDER)
     args = parser.parse_args()
     if args.tests[:1] == ["--"]:
@@ -992,6 +1002,8 @@ def main() -> None:
         parser.error("only the web and Connect lanes have Firefox and WebKit projects")
     if args.repeat_each < 1:
         parser.error("repeat-each must be at least 1")
+    if args.shard and args.surface not in ("web", "connect", "journeys"):
+        parser.error("only the web, Connect and journeys lanes split into shards")
     if args.cleanup and args.seed_as_of is not None:
         parser.error("cleanup cannot override a recorded seed date")
     if args.cleanup:
