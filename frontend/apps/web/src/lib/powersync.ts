@@ -1,5 +1,6 @@
 import type { Session } from "@clientbridge/api-client";
-import { AppSchema, createConnector, ReplicaController } from "@clientbridge/sync";
+import { AppSchema, createConnector, ReplicaController, replicaFilename } from "@clientbridge/sync";
+import { removeReplicaFiles } from "@clientbridge/sync/files";
 import { boundedOpen, type ReplicaStorage, replicaStorage } from "@clientbridge/app-core";
 import { type DBAdapter, PowerSyncDatabase, WASQLiteVFS, type WebDBAdapter } from "@powersync/web";
 import { beforeSessionReplace, getUserId } from "./auth";
@@ -40,10 +41,69 @@ function replicaStorageKind(): Promise<ReplicaStorage> {
 let kind: ReplicaStorage | null = null;
 let opened: PowerSyncDatabase | null = null;
 
+const TRASH = "cb_replica_trash";
+
+function trash(): string[] {
+    try {
+        const listed: unknown = JSON.parse(localStorage.getItem(TRASH) ?? "[]");
+        return Array.isArray(listed)
+            ? listed.filter((name): name is string => typeof name === "string")
+            : [];
+    } catch {
+        return [];
+    }
+}
+
+function keepTrash(names: string[]): void {
+    if (names.length) localStorage.setItem(TRASH, JSON.stringify([...new Set(names)]));
+    else localStorage.removeItem(TRASH);
+}
+
+// resolves true once the name is off the list, including when its account reopened it meanwhile
+async function removeListed(name: string): Promise<boolean> {
+    if (!trash().includes(name)) return true;
+    if (!(await removeReplicaFiles(name).catch(() => false))) return false;
+    keepTrash(trash().filter((listed) => listed !== name));
+    return true;
+}
+
+// another tab may still hold the file, so a sign-out keeps trying briefly and the next start tries again
+async function removeOnSignOut(name: string): Promise<void> {
+    if (kind !== "opfs") return;
+    keepTrash([...trash(), name]);
+    const deadline = Date.now() + 5_000;
+    while (!(await removeListed(name)) && Date.now() < deadline)
+        await new Promise((resolve) => setTimeout(resolve, 500));
+}
+
+const PROBE = ".clientbridge-opfs-probe";
+
+async function sweepProbeFiles(): Promise<void> {
+    const root = await navigator.storage.getDirectory();
+    await navigator.locks.request(PROBE, { ifAvailable: true }, async (lock) => {
+        if (!lock) return;
+        const names: string[] = [];
+        for await (const name of root.keys()) if (name.startsWith(PROBE)) names.push(name);
+        for (const name of names) await root.removeEntry(name).catch(() => undefined);
+    });
+}
+
+// the opening account's own name comes off first, so its new edits are never swept
+async function sweep(own: string | null): Promise<void> {
+    keepTrash(trash().filter((name) => name !== own));
+    for (const name of trash()) await removeListed(name);
+    await sweepProbeFiles();
+}
+
+/** A start with no account to open retries every listed replica. */
+export async function sweepSignedOut(): Promise<void> {
+    if ((await replicaStorageKind()) === "opfs") await sweep(null);
+}
+
 export const replica = new ReplicaController((dbFilename) => {
     opened = new PowerSyncDatabase({ schema: AppSchema, database: { dbFilename, vfs } });
     return opened;
-});
+}, removeOnSignOut);
 
 beforeSessionReplace(() => replica.pause());
 
@@ -52,9 +112,11 @@ export async function connectPowerSync(api: Session) {
     if (!userId) throw new Error("a valid account identity is required");
     kind = await replicaStorageKind();
     vfs = VFS[kind];
+    const identity = { userId, apiUrl, powersyncUrl };
+    if (kind === "opfs") await sweep(replicaFilename(identity)).catch(() => undefined);
     const db = await boundedOpen(
         replica.activate(
-            { userId, apiUrl, powersyncUrl },
+            identity,
             createConnector({
                 powersyncUrl,
                 authFetch: api.forBusiness(null).authFetchFor(userId),

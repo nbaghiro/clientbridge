@@ -135,6 +135,7 @@ BROWSER_CASES = {
         "XB-E2E-07": "BILL-PILOT-02",
         "XB-E2E-08": "owner: shell, today, create menu, search, notifications and account menu",
         "XB-E2E-17": "XB-E2E-17",
+        "XB-E2E-20": "XB-E2E-20",
         "XB-E2E-21": "XB-E2E-21",
     },
     "connect": {

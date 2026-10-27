@@ -17309,6 +17309,43 @@
       "related_audit_families": [
         "SYN18"
       ]
+    },
+    {
+      "id": "XB-E2E-20",
+      "status": "implemented",
+      "layer": "browser",
+      "lane": "pr",
+      "risk": "high",
+      "implementation": [
+        "frontend/apps/web/e2e/sync.e2e.ts",
+        "frontend/apps/web/src/lib/powersync.ts"
+      ],
+      "setup": "A new account signed up through the UI, with no business; a second tab of the same browser",
+      "actions": [
+        "Sign out in the first tab while the second is open",
+        "Reload",
+        "Sign in again"
+      ],
+      "expected": [
+        "The account's OPFS entries are gone by the next page load",
+        "No replica is left listed for deletion",
+        "The next sign-in opens a new replica under the same name"
+      ],
+      "forbidden": [
+        "A replica file of the signed-out account left on the device"
+      ],
+      "boundaries": [
+        "Proves file removal only where the replica is in OPFS (WebKit today, every engine after web-storage T9)",
+        "Doesn't cover a sign-out whose retries run out while another tab holds the file"
+      ],
+      "depends_on": [
+        "seeded_stack",
+        "mailpit"
+      ],
+      "related_audit_families": [
+        "SYN03",
+        "SYN04"
+      ]
     }
   ],
   "coverage_summary": {

@@ -72,3 +72,12 @@ export function customerContext(browser: Browser): Promise<BrowserContext> {
         extraHTTPHeaders: { "X-Forwarded-For": `2001:db8:${groups.join(":")}::1` },
     });
 }
+
+/** Entry names at the root of the page origin's private file system. */
+export function opfsEntries(page: Page): Promise<string[]> {
+    return page.evaluate(async () => {
+        const names: string[] = [];
+        for await (const name of (await navigator.storage.getDirectory()).keys()) names.push(name);
+        return names.sort();
+    });
+}
