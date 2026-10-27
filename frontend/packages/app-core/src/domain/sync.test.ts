@@ -54,6 +54,7 @@ describe("sync health", () => {
             true,
         );
         expect(isStorageFull(new DOMException("quota", "QuotaExceededError"))).toBe(true);
+        expect(isStorageFull(new Error("disk I/O error"))).toBe(true);
         expect(isStorageFull(new Error("Failed to fetch"))).toBe(false);
         expect(isStorageFull(undefined)).toBe(false);
         expect(syncProblem(false, true, true, true)).toBe("full");
