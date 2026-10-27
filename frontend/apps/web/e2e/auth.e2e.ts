@@ -1,5 +1,6 @@
 import { strings } from "@clientbridge/app-core/public";
-import { type Page, expect, test } from "@playwright/test";
+import { type Page, expect } from "@playwright/test";
+import { test } from "./support/session";
 import {
     deleteIdentity,
     mailedCode,

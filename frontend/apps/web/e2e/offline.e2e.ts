@@ -1,5 +1,5 @@
 import { strings } from "@clientbridge/app-core/public";
-import { type BrowserContext, expect, test } from "@playwright/test";
+import { type BrowserContext, expect } from "@playwright/test";
 import { runEmail, runUrl } from "@clientbridge/config/e2e/run";
 import {
     expectMondayOnly,
@@ -9,7 +9,7 @@ import {
     selectHoursTime,
     type HoursCommand,
 } from "./support/hours";
-import { navigate, signIn } from "./support/session";
+import { navigate, signIn, test } from "./support/session";
 
 // Firefox's emulated offline leaves the replica's token fetch pending, so it drops requests instead
 async function setOffline(context: BrowserContext, browserName: string, offline: boolean) {

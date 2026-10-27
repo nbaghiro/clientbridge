@@ -1,7 +1,8 @@
 import { saleNumber, strings } from "@clientbridge/app-core/public";
 import { axeIssues, unmarkedFocus, unreadableHover } from "@clientbridge/config/e2e/accessibility";
 import { demoId, runEmail, runUrl } from "@clientbridge/config/e2e/run";
-import { expect, type Locator, type Page, test } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
+import { test } from "./support/session";
 import { offsiteLoadFailure } from "./support/shell";
 import { createInvoice, openInvoice } from "./support/billing";
 import {

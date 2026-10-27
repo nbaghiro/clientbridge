@@ -1,5 +1,5 @@
 import { strings } from "@clientbridge/app-core/public";
-import { expect, test } from "@playwright/test";
+import { expect } from "@playwright/test";
 import {
     createInvoice,
     expectPaid,
@@ -17,7 +17,7 @@ import {
     type DocumentRecord,
 } from "./support/billing";
 import { paymentEvidence, receiptMessages } from "./support/evidence";
-import { signIn } from "./support/session";
+import { signIn, test } from "./support/session";
 import { randomUUID } from "node:crypto";
 import { demoId, runEmail, runUrl } from "@clientbridge/config/e2e/run";
 
