@@ -1,20 +1,12 @@
 import { defineConfig } from "@playwright/test";
 
-import { on, PORTS } from "./e2e/hosts";
+import { on, PORTS } from "./e2e/support/hosts";
 import { runPreview, runPort } from "@clientbridge/config/e2e/run";
 
 export default defineConfig({
-    testDir: "e2e",
-    testMatch: [
-        "stripe-provider.spec.ts",
-        "stripe-deposit.spec.ts",
-        "stripe-disputes.spec.ts",
-        "stripe-memberships.spec.ts",
-        "stripe-payouts.spec.ts",
-        "stripe-desk.spec.ts",
-        "stripe-tabs.spec.ts",
-        "stripe-account.spec.ts",
-    ],
+    testDir: "e2e/stripe",
+    testMatch: "*.stripe.ts",
+    testIgnore: "reconciliation.stripe.ts",
     outputDir: process.env.E2E_OUTPUT_DIR ?? "test-results/stripe-provider",
     timeout: 180_000,
     forbidOnly: true,
@@ -47,7 +39,8 @@ export default defineConfig({
         // reconciliation checks every source the other cases made, so it runs after all of them
         {
             name: "reconciliation",
-            testMatch: "stripe-reconciliation.spec.ts",
+            testMatch: "reconciliation.stripe.ts",
+            testIgnore: [],
             dependencies: ["default", "firefox", "webkit"],
         },
     ],

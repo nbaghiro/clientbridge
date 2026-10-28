@@ -22,12 +22,14 @@ describe("e2e file names", () => {
                 "apps/web/e2e/support/anything.ts",
                 "apps/connect/e2e/publicShop.e2e.ts",
                 "apps/connect/e2e/embed.e2e.ts",
-                "apps/connect/e2e/hosts.ts",
-                "apps/connect/e2e/stripe-provider.spec.ts",
+                "apps/connect/e2e/support/hosts.ts",
+                "apps/connect/e2e/stripe/provider.stripe.ts",
+                "apps/connect/e2e/stripe/support/provider.ts",
+                "apps/connect/e2e/smoke/staff.smoke.ts",
+                "apps/connect/e2e/smoke/support/deployment.ts",
                 "apps/mobile/e2e/today.yaml",
                 "apps/mobile/e2e/setup.yaml",
                 "apps/mobile/e2e/auth.recovery.yaml",
-                "apps/mobile/e2e/shards.json",
                 "apps/mobile/e2e/helpers/owner.yaml",
             ),
             [],
@@ -50,6 +52,23 @@ describe("e2e file names", () => {
                 "apps/mobile/e2e/01-workday.yaml",
             ).length,
             5,
+        );
+    });
+
+    it("keeps Connect cases in their lane's folder and helpers in support/", () => {
+        assert.deepEqual(
+            problems(
+                "apps/connect/e2e/hosts.ts",
+                "apps/connect/e2e/stripe-provider.spec.ts",
+                "apps/connect/e2e/stripe/provider.spec.ts",
+                "apps/connect/e2e/smoke/deployment.ts",
+            ),
+            [
+                "apps/connect/e2e/hosts.ts: apps/connect/e2e/ holds only <page>.e2e.ts files and support/",
+                "apps/connect/e2e/stripe-provider.spec.ts: apps/connect/e2e/ holds only <page>.e2e.ts files and support/",
+                "apps/connect/e2e/stripe/provider.spec.ts: apps/connect/e2e/stripe/ holds only <case>.stripe.ts files and support/",
+                "apps/connect/e2e/smoke/deployment.ts: apps/connect/e2e/smoke/ holds only <case>.smoke.ts files and support/",
+            ],
         );
     });
 

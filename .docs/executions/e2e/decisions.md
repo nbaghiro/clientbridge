@@ -26,7 +26,7 @@ Where a case met behaviour whose intent wasn't settled, it asserts the current b
 
 **Why.** Connect keeps the cart in session storage on purpose, so a reload during checkout resumes the order (the SALE-E2E-03 fix). Dropping a refused line from the cart would be a separate product change.
 
-## XB-E2E-05 and XB-E2E-06: the offline reload cases in WebKit
+## XB-E2E-05 and OFF-E2E-01: the offline reload cases in WebKit
 
 **Question.** Both cases reload the production shell while the browser is offline and expect the service worker to serve it. In WebKit the reload never reaches the service worker: with `setOffline(true)`, any navigation to a service-worker page fails with "WebKit encountered an internal error", and a `route` that aborts requests blocks the navigation before the worker sees it and misses the page's own API fetches. A ten-line page with a service worker shows the same thing in Playwright 1.63 on macOS and in the Linux Playwright image.
 

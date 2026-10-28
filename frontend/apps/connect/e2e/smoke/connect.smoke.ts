@@ -1,7 +1,13 @@
 import { strings } from "@clientbridge/app-core/public";
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 
-import { businessPage, deployment, expectNoWrites, pageErrors, readOnly } from "./deployment";
+import {
+    businessPage,
+    deployment,
+    expectNoWrites,
+    pageErrors,
+    readOnly,
+} from "./support/deployment";
 
 const { slug, business } = deployment;
 const host = "https://smoke-host.example/";

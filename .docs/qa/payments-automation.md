@@ -10,16 +10,16 @@ subscription assertions unreliable. No production schema changes are needed for 
 
 ## Existing infrastructure to extend
 
-| Area                                                     | Current behavior                                                                                   | Required extension                                                                                                |
-| -------------------------------------------------------- | -------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `.github/workflows/ci.yml`                               | Backend/Postgres regressions, stripe-mock contract job, frontend checks and real app browser jobs. | Preserve these PR gates; add a separate opt-in sandbox workflow after local proof.                                |
-| `backend/tests/e2e/test_stripe_e2e.py` and `conftest.py` | Real Stripe adapter tests; missing credentials/account can skip tests.                             | Audit fixture ownership/idempotency, fail-closed CI preflight, lifecycle cleanup and additional state assertions. |
-| `frontend/apps/web/e2e/payouts.e2e.ts`                   | Aborts Connect JS loading to test application error/navigation behavior.                           | Keep it; add real provider scenarios that load Stripe through authenticated app pages.                            |
-| Web and Connect `playwright.config.ts`                   | Existing production-preview CI servers, failure traces/screenshots; videos off.                    | Dedicated sandbox project with one worker, separate fixture accounts and passing-run videos.                      |
-| Admin                                                    | No dedicated Playwright project identified in this checkout.                                       | Reuse existing browser fixtures with an admin server/project and actual admin login.                              |
-| `frontend/apps/mobile/e2e/`                              | Existing Maestro flows and Android emulator CI.                                                    | Extend native flows; retain assisted iOS/physical reader coverage.                                                |
+| Area                                                             | Current behavior                                                                                   | Required extension                                                                                                |
+| ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `.github/workflows/ci.yml`                                       | Backend/Postgres regressions, stripe-mock contract job, frontend checks and real app browser jobs. | Preserve these PR gates; add a separate opt-in sandbox workflow after local proof.                                |
+| `backend/tests/sandbox/test_stripe_sandbox.py` and `conftest.py` | Real Stripe adapter tests; missing credentials/account can skip tests.                             | Audit fixture ownership/idempotency, fail-closed CI preflight, lifecycle cleanup and additional state assertions. |
+| `frontend/apps/web/e2e/payouts.e2e.ts`                           | Aborts Connect JS loading to test application error/navigation behavior.                           | Keep it; add real provider scenarios that load Stripe through authenticated app pages.                            |
+| Web and Connect `playwright.config.ts`                           | Existing production-preview CI servers, failure traces/screenshots; videos off.                    | Dedicated sandbox project with one worker, separate fixture accounts and passing-run videos.                      |
+| Admin                                                            | No dedicated Playwright project identified in this checkout.                                       | Reuse existing browser fixtures with an admin server/project and actual admin login.                              |
+| `frontend/apps/mobile/e2e/`                                      | Existing Maestro flows and Android emulator CI.                                                    | Extend native flows; retain assisted iOS/physical reader coverage.                                                |
 
-Do not invoke unqualified `make test-e2e` in the Stripe-only lane: it can also select email-provider
+Do not invoke unqualified `make test-sandbox` in the Stripe-only lane: it can also select email-provider
 tests. Select the Stripe file explicitly initially, then add a focused target using the same local/CI
 command. Existing `STRIPE_TEST_SECRET_KEY` and `STRIPE_TEST_CONNECTED_ACCOUNT` are the starting fixture
 contract; name and validate the second account and expected platform explicitly in the harness.
@@ -206,19 +206,19 @@ This is partial automation, not full checklist completion. The live scenarios ha
 against ready, reserved merchants. Authentication and notification transports remain test boundaries;
 these scenarios do not prove browser, native or email delivery behavior.
 
-| Scenario file / test | Checklist coverage contributed |
-| --- | --- |
-| `backend/tests/e2e/test_stripe_e2e.py`: fresh v2 account | SET-03 onboarding requirements |
-| Same: PAD capability and scoped setup | COL-07 setup only; no debit settlement |
-| Same: Terminal intent | Terminal intent contract only; no reader collection |
-| Same: declined card | COL-02 provider decline mapping |
-| Same: subscription period | COL-08 creation/period contract only; no renewal lifecycle |
-| Same: Customer rename retry and cross-account isolation | SET-02 customer identity and isolation |
-| `backend/tests/e2e/test_payments_e2e.py`: invoice replay/refunds | COL-01, REC-01/04/08 payment, signed duplicate delivery, partial/full refunds and ledger net |
-| Same: decline then retry | COL-02 failure/retry without false settlement |
-| Same: withheld webhook | REC-05/06 repair primitive for one owned charge; not the global job |
-| Same: external refund | REC-02/04 external refund delivery and duplicate protection |
-| Same: cross-business refund | SET-04 tenant isolation at the application API and provider |
+| Scenario file / test                                                     | Checklist coverage contributed                                                               |
+| ------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------- |
+| `backend/tests/sandbox/test_stripe_sandbox.py`: fresh v2 account         | SET-03 onboarding requirements                                                               |
+| Same: PAD capability and scoped setup                                    | COL-07 setup only; no debit settlement                                                       |
+| Same: Terminal intent                                                    | Terminal intent contract only; no reader collection                                          |
+| Same: declined card                                                      | COL-02 provider decline mapping                                                              |
+| Same: subscription period                                                | COL-08 creation/period contract only; no renewal lifecycle                                   |
+| Same: Customer rename retry and cross-account isolation                  | SET-02 customer identity and isolation                                                       |
+| `backend/tests/sandbox/test_payments_sandbox.py`: invoice replay/refunds | COL-01, REC-01/04/08 payment, signed duplicate delivery, partial/full refunds and ledger net |
+| Same: decline then retry                                                 | COL-02 failure/retry without false settlement                                                |
+| Same: withheld webhook                                                   | REC-05/06 repair primitive for one owned charge; not the global job                          |
+| Same: external refund                                                    | REC-02/04 external refund delivery and duplicate protection                                  |
+| Same: cross-business refund                                              | SET-04 tenant isolation at the application API and provider                                  |
 
 The executable test names in `results.json` are the precise evidence inventory; the checklist mapping
 above describes contributions, not completion of an entire ID. Full checklist variants remain in

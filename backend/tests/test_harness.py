@@ -25,13 +25,25 @@ import pytest
 import stripe
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
+from e2e import (
+    builds,
+    coverage,
+    native,
+    snapshot,
+    stripe_clients,
+    stripe_recovery,
+    stripe_relay,
+    tier,
+)
 from e2e import relay as tier_relay
 from e2e import runner as functional
-from e2e import snapshot, tier
+from e2e import shards as sharding
+from e2e import stack as run_stack
 from e2e import stripe as stripe_lane
 from e2e.namespace import Renamer
 from e2e.results import (
     BROWSER_CASES,
+    CASES,
     REQUIRED_CASES,
     SYNC_CASES,
     WEBKIT_EXCLUDED,
@@ -45,8 +57,8 @@ from e2e.results import (
     validate_native_evidence,
 )
 from e2e.results import Test as FunctionalTest
-from e2e.runner import environment, stop
-from e2e.stripe import Fixture, Manifest, recover
+from e2e.stack import environment, stop
+from e2e.stripe_recovery import Fixture, Manifest, recover
 from fastapi.responses import JSONResponse
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
@@ -537,8 +549,8 @@ def test_functional_stack_signs_callbacks_with_its_own_secrets_and_sends_to_no_p
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     monkeypatch.setenv("TWILIO_ACCOUNT_SID", "must-not-reach-the-child")
-    first = functional.Stack(tmp_path / "a", tier.Lease(0, "0001"))
-    second = functional.Stack(tmp_path / "b", tier.Lease(1, "0002"))
+    first = run_stack.Stack(tmp_path / "a", tier.Lease(0, "0001"))
+    second = run_stack.Stack(tmp_path / "b", tier.Lease(1, "0002"))
     for name in ("TWILIO_AUTH_TOKEN", "RESEND_WEBHOOK_SECRET"):
         assert first.env[name]
         assert first.env[name] != second.env[name]
@@ -609,10 +621,10 @@ def test_shard_reports_are_checked_together_for_the_lanes_required_cases(tmp_pat
 
 
 def test_a_shard_is_an_index_within_its_total() -> None:
-    assert functional.shard("2/3") == "2/3"
+    assert sharding.shard("2/3") == "2/3"
     for value in ("0/3", "4/3", "2", "a/b"):
         with pytest.raises(argparse.ArgumentTypeError):
-            functional.shard(value)
+            sharding.shard(value)
 
 
 def _case(file: str, line: int, title: str) -> Spec:
@@ -638,7 +650,7 @@ def test_shards_split_cases_by_their_measured_seconds_and_cover_each_once() -> N
         "pos.e2e.ts > SALE-01 in cash": 20,
         "pos.e2e.ts > SALE-01 by card": 20,
     }
-    shards = [functional.shard_filters(cases, seconds, f"{index}/3") for index in (1, 2, 3)]
+    shards = [sharding.shard_filters(cases, seconds, f"{index}/3") for index in (1, 2, 3)]
     # the unmeasured case counts as the median, 80 seconds
     assert shards == [
         ["e2e/shell.e2e.ts:10"],
@@ -650,11 +662,11 @@ def test_shards_split_cases_by_their_measured_seconds_and_cover_each_once() -> N
     assert len(every) == len(set(every))
     # one file's cases run on one worker, so a shard is as long as its longest file at least
     one_file = {"a.ts:1": 60, "a.ts:2": 60, "b.ts:1": 30, "c.ts:1": 30}
-    assert functional.balanced(one_file, 2) == [["a.ts:1", "b.ts:1", "c.ts:1"], ["a.ts:2"]]
-    assert functional.shard_seconds(one_file, ["a.ts:1", "a.ts:2"]) == 120
-    assert functional.shard_seconds(one_file, ["a.ts:1", "b.ts:1", "c.ts:1"]) == 60
+    assert sharding.balanced(one_file, 2) == [["a.ts:1", "b.ts:1", "c.ts:1"], ["a.ts:2"]]
+    assert sharding.shard_seconds(one_file, ["a.ts:1", "a.ts:2"]) == 120
+    assert sharding.shard_seconds(one_file, ["a.ts:1", "b.ts:1", "c.ts:1"]) == 60
     with pytest.raises(ValueError, match="no cases"):
-        functional.shard_filters(cases[:1], seconds, "2/2")
+        sharding.shard_filters(cases[:1], seconds, "2/2")
 
 
 def test_case_seconds_come_from_each_cases_first_attempt() -> None:
@@ -703,65 +715,97 @@ def test_every_browser_case_is_tagged_and_named_once() -> None:
     root = Path(__file__).resolve().parents[2] / "frontend" / "apps"
     sources = "\n".join(
         path.read_text()
-        for app in ("web", "connect")
-        for path in (root / app / "e2e").glob("*.ts")
+        for app, pattern in (
+            ("web", "*.ts"),
+            ("connect", "*.ts"),
+            ("connect", "stripe/*.stripe.ts"),
+        )
+        for path in (root / app / "e2e").glob(pattern)
         if "@browsers" in path.read_text()
     )
-    identities = [identity for cases in BROWSER_CASES.values() for identity in cases.values()]
+    identities = [identity for cases in BROWSER_CASES.values() for identity in cases]
     assert len(identities) == len(set(identities))
-    assert len(set(BROWSER_CASES["web"]) | set(BROWSER_CASES["connect"])) == len(
-        BROWSER_CASES["web"]
-    ) + len(BROWSER_CASES["connect"])
-    for identity in identities:
-        assert re.search(rf'test\(\s*"{re.escape(identity)}[ "]', sources), identity
+    declared = re.findall(rf'test\(\s*"({CASE_ID}) [^"]*",\s*(\{{[^}}]*\}})', sources)
+    tagged = {identity for identity, options in declared if "@browsers" in options}
+    assert tagged == set(identities)
     tags = re.findall(r'tag: (\[[^\]]*\]|"[^"]*")', sources)
     assert sum('"@browsers"' in tag for tag in tags) == len(identities)
-    excluded = [BROWSER_CASES["web"][identity] for identity in sorted(WEBKIT_EXCLUDED)]
-    for title in excluded:
+    for identity in sorted(WEBKIT_EXCLUDED):
         assert re.search(
-            rf'test\(\s*"{re.escape(title)}[ "][\s\S]{{0,300}}?{WEBKIT_EXCLUDED_TAG}', sources
-        ), title
-    assert sum(WEBKIT_EXCLUDED_TAG in tag for tag in tags) == len(excluded)
+            rf'test\(\s*"{re.escape(identity)} [\s\S]{{0,300}}?{WEBKIT_EXCLUDED_TAG}', sources
+        ), identity
+    assert sum(WEBKIT_EXCLUDED_TAG in tag for tag in tags) == len(WEBKIT_EXCLUDED)
     config = (root / "web" / "playwright.config.ts").read_text()
     assert f"grepInvert: /{WEBKIT_EXCLUDED_TAG}/" in config
 
 
 def test_webkit_alone_drops_the_offline_reload_cases() -> None:
     cases = browser_cases("web")
-    offline = {BROWSER_CASES["web"][identity] for identity in WEBKIT_EXCLUDED}
-    assert offline <= set(cases["firefox"])
-    assert not offline & set(cases["webkit"])
-    assert set(cases["firefox"]) - set(cases["webkit"]) == offline
+    assert set(cases["firefox"]) >= WEBKIT_EXCLUDED
+    assert not WEBKIT_EXCLUDED & set(cases["webkit"])
+    assert set(cases["firefox"]) - set(cases["webkit"]) == WEBKIT_EXCLUDED
     assert browser_cases("connect")["webkit"] == browser_cases("connect")["firefox"]
 
 
+CASE_ID = r"[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)+"
 LANE_FILES = {
-    "web": ("web", "*.e2e.ts"),
-    "connect": ("connect", "*.e2e.ts"),
-    "journeys": ("web", "journeys/*.journey.ts"),
-    "filings": ("web", "*.filing.ts"),
-    "stripe": ("connect", "stripe-*.spec.ts"),
+    "web": ("apps/web/e2e", "*.e2e.ts"),
+    "connect": ("apps/connect/e2e", "*.e2e.ts"),
+    "journeys": ("apps/web/e2e", "journeys/*.journey.ts"),
+    "filings": ("apps/web/e2e", "*.filing.ts"),
+    "stripe": ("apps/connect/e2e", "stripe/*.stripe.ts"),
+    "sync": ("packages/sync/e2e", "*.e2e.ts"),
+    "native-ios": ("apps/mobile/e2e", "*.yaml"),
+    "native-android": ("apps/mobile/e2e", "*.yaml"),
 }
 
 
-def test_every_required_case_is_written_in_its_lanes_files() -> None:
-    apps = functional.ROOT / "frontend" / "apps"
-    for lane, (surface, pattern) in LANE_FILES.items():
-        sources = "\n".join(path.read_text() for path in (apps / surface / "e2e").glob(pattern))
-        for identity in REQUIRED_CASES[lane]:
-            assert f'"{identity} ' in sources, f"{lane}: {identity}"
-    flows = "\n".join(path.read_text() for path in (functional.MOBILE / "e2e").glob("*.yaml"))
-    for platform in ("ios", "android"):
-        for identity in REQUIRED_CASES[f"native-{platform}"]:
-            assert f"name: {identity} " in flows, identity
+def lane_sources(lane: str) -> str:
+    folder, pattern = LANE_FILES[lane]
+    paths = (functional.ROOT / "frontend" / folder).glob(pattern)
+    # Android leaves out the flows tagged ios
+    return "\n".join(
+        text
+        for text in (path.read_text() for path in paths)
+        if lane != "native-android" or "    - ios\n" not in text
+    )
+
+
+def written_cases(source: str) -> set[str]:
+    return set(re.findall(rf'"({CASE_ID}) ', source)) | set(
+        re.findall(rf"^name: ({CASE_ID}) ", source, re.MULTILINE)
+    )
+
+
+def test_every_registered_case_is_written_in_its_lanes_files() -> None:
+    for lane in LANE_FILES:
+        written = written_cases(lane_sources(lane))
+        for identity, case in CASES.items():
+            if lane in case.lanes and case.status != "deferred":
+                assert identity in written, f"{lane}: {identity}"
+
+
+def test_every_case_in_a_lanes_files_is_registered_for_that_lane() -> None:
+    for lane in LANE_FILES:
+        registered = {identity for identity, case in CASES.items() if lane in case.lanes}
+        assert written_cases(lane_sources(lane)) <= registered, lane
+
+
+def test_every_family_a_case_names_is_an_audit_family() -> None:
+    known = {family.id for family in coverage.families()}
+    for identity, case in CASES.items():
+        assert set(case.families) <= known, identity
+    assert sum(coverage.totals()["all"].values()) == len(known)
 
 
 def test_every_sync_case_is_written_once_and_each_project_is_configured() -> None:
     e2e = functional.ROOT / "frontend" / "packages" / "sync"
     sources = "\n".join(path.read_text() for path in (e2e / "e2e").glob("*.e2e.ts"))
-    for project, cases in SYNC_CASES.items():
-        for identity in (case for case in cases if re.fullmatch(r"[A-Z]+-E2E-\d+", case)):
-            assert sources.count(f'"{identity} ') == 1, f"{project}: {identity}"
+    listed = {case for cases in SYNC_CASES.values() for case in cases}
+    listed = {case for case in listed if re.fullmatch(CASE_ID, case)}
+    assert listed == {identity for identity, case in CASES.items() if "sync" in case.lanes}
+    for identity in listed:
+        assert sources.count(f'"{identity} ') == 1, identity
     config = (e2e / "playwright.config.ts").read_text()
     assert "forbidOnly: true" in config
     for project in SYNC_CASES:
@@ -769,13 +813,15 @@ def test_every_sync_case_is_written_once_and_each_project_is_configured() -> Non
         assert f'"{engine}"' in config and (not storage or f"-{storage}" in config), project
 
 
-def test_the_native_lane_runs_every_walkthrough_once_in_shard_order() -> None:
-    flows = functional.native_flows([])
-    present = sorted(path.name for path in (functional.MOBILE / "e2e").glob("*.yaml"))
-    assert sorted(Path(flow).name for flow in flows) == present
-    shards = json.loads((functional.MOBILE / "e2e" / "shards.json").read_text())
-    assert flows == [f"e2e/{flow}" for shard in shards for flow in shard["flows"]]
-    assert functional.native_flows(["clients.yaml"]) == ["e2e/clients.yaml"]
+def test_every_walkthrough_lands_in_exactly_one_native_shard() -> None:
+    present = sorted(path.name for path in (native.MOBILE / "e2e").glob("*.yaml"))
+    shards = sharding.native_shards(5)
+    assert sorted(flow for shard in shards for flow in shard["flows"]) == present
+    assert [shard["id"] for shard in shards] == ["1", "2", "3", "4", "5"]
+    assert native.native_flows([]) == [f"e2e/{flow}" for flow in present]
+    assert native.native_flows(["clients.yaml"]) == ["e2e/clients.yaml"]
+    with pytest.raises(ValueError, match="use fewer shards"):
+        sharding.native_shards(len(present) + 1)
 
 
 def test_first_attempts_separate_flakes_from_failures() -> None:
@@ -812,17 +858,17 @@ def test_a_shuffled_lane_imports_every_listed_file_in_its_seeded_order(
         ]
         return subprocess.CompletedProcess([], 0, json.dumps({"errors": [], "suites": suites}), "")
 
-    monkeypatch.setattr(functional, "ROOT", tmp_path)
-    monkeypatch.setattr(functional.subprocess, "run", listing)
+    monkeypatch.setattr(sharding, "ROOT", tmp_path)
+    monkeypatch.setattr(sharding.subprocess, "run", listing)
     stack = argparse.Namespace(project="e2e-000000000000", env={}, directory=tmp_path)
     args = argparse.Namespace(surface="web", project="default", tests=[])
-    config = Path(functional.shuffled_config(cast(functional.Stack, stack), args, 7))
+    config = Path(sharding.shuffled_config(cast(run_stack.Stack, stack), args, 7))
     wrappers = sorted((config.parent / "cases").iterdir())
     order = [path.read_text().split("/")[-1].removesuffix('";\n') for path in wrappers]
     assert sorted(order) == listed
     assert order == json.loads((tmp_path / "shuffle.json").read_text())["files"]
-    again = functional.shuffled_config(
-        cast(functional.Stack, argparse.Namespace(**{**vars(stack), "project": "e2e-1"})), args, 7
+    again = sharding.shuffled_config(
+        cast(run_stack.Stack, argparse.Namespace(**{**vars(stack), "project": "e2e-1"})), args, 7
     )
     assert [p.name for p in sorted((Path(again).parent / "cases").iterdir())] == [
         p.name for p in wrappers
@@ -885,12 +931,12 @@ def test_functional_cleanup_accepts_a_refused_signal_only_once_the_group_is_gone
     def group_alive(_: int) -> bool:
         return alive
 
-    monkeypatch.setattr(functional.os, "killpg", refused)
-    monkeypatch.setattr(functional, "group_alive", group_alive)
-    functional.stop(process)
+    monkeypatch.setattr(run_stack.os, "killpg", refused)
+    monkeypatch.setattr(run_stack, "group_alive", group_alive)
+    run_stack.stop(process)
     alive = True
     with pytest.raises(PermissionError):
-        functional.stop(process)
+        run_stack.stop(process)
 
 
 class _Runtime:
@@ -915,7 +961,7 @@ class _Runtime:
 
     def require_worker(self) -> None:
         if self.worker_checks["worker_final"] != "passed":
-            raise functional.WorkerFailed("injected worker stop")
+            raise run_stack.WorkerFailed("injected worker stop")
 
     def start(
         self,
@@ -1396,7 +1442,7 @@ def test_client_fixtures_cannot_share_a_customer_with_another_fixture() -> None:
     with pytest.raises(ValidationError, match="incomplete registered customer lineage"):
         Manifest.model_validate(manifest)
     with pytest.raises(ValueError, match="duplicate client fixture"):
-        stripe_lane.client_fixtures(
+        stripe_clients.client_fixtures(
             {
                 "client_fixtures": [
                     {"client": "cl_b", "clock": "clock_a"},
@@ -1412,10 +1458,10 @@ def test_only_a_registered_customer_owns_a_redelivered_event() -> None:
         "fixtures": [{"invoice": "inv_a", "client": "cl_a", "customer": "cus_a"}],
         "client_fixtures": [{"client": "cl_b", "customer": "cus_b"}],
     }
-    assert stripe_lane.registered_tags(state, "cus_a")["clientbridge_qa_invoice"] == "inv_a"
-    assert stripe_lane.registered_tags(state, "cus_b")["clientbridge_qa_purchaser"] == "cl_b"
+    assert stripe_relay.registered_tags(state, "cus_a")["clientbridge_qa_invoice"] == "inv_a"
+    assert stripe_relay.registered_tags(state, "cus_b")["clientbridge_qa_purchaser"] == "cl_b"
     with pytest.raises(ValueError, match="not a registered fixture"):
-        stripe_lane.registered_tags(state, "cus_someone_else")
+        stripe_relay.registered_tags(state, "cus_someone_else")
 
 
 @pytest.mark.parametrize("incomplete", [False, True])
@@ -1442,16 +1488,16 @@ async def test_recovery_cli_preserves_failed_evidence_and_redacts_credentials(
     def credentials(_mode: str, _profile: str, _merchants: Path) -> dict[str, str]:
         return ENV
 
-    monkeypatch.setattr(stripe_lane, "ROOT", tmp_path)
-    monkeypatch.setattr(stripe_lane, "recovery_credentials", credentials)
+    monkeypatch.setattr(stripe_recovery, "ROOT", tmp_path)
+    monkeypatch.setattr(stripe_recovery, "recovery_credentials", credentials)
     argv = ["--state", str(state), "--apply"]
-    assert await stripe_lane.recover_main(argv) == (1 if incomplete else 0)
+    assert await stripe_recovery.recover_main(argv) == (1 if incomplete else 0)
     history = json.loads((directory / "provider-recovery.json").read_text())
     assert history[0]["status"] == ("failed" if incomplete else "verified_clean")
     assert history[0]["original_outcome"] == "failed"
     assert boundary.operations == ([] if incomplete else ["cancel"])
     if not incomplete:
-        assert await stripe_lane.recover_main(argv) == 0
+        assert await stripe_recovery.recover_main(argv) == 0
         assert boundary.operations == ["cancel"]
         assert len(json.loads((directory / "provider-recovery.json").read_text())) == 2
     assert (state.read_bytes(), original.read_bytes()) == before
@@ -1470,21 +1516,21 @@ async def test_recovery_cli_preserves_failed_evidence_and_redacts_credentials(
     ],
 )
 def test_filings_anchor_uses_local_quarter_and_anchor_dst(instant: str, expected: str) -> None:
-    assert functional.filing_seed_anchor(datetime.fromisoformat(instant)).isoformat() == expected
+    assert builds.filing_seed_anchor(datetime.fromisoformat(instant)).isoformat() == expected
 
 
 @pytest.mark.parametrize("value", ["2026-10-01", "2026-10-01T12:00:00", "invalid"])
 def test_filings_seed_rejects_ambiguous_instant(value: str) -> None:
     with pytest.raises(argparse.ArgumentTypeError):
-        functional.seed_timestamp(value)
+        builds.seed_timestamp(value)
 
 
 @pytest.mark.parametrize("value", [None, "2026-10-01T12:00:00-07:00", "2026-10-01T19:00:00Z"])
 def test_functional_first_seed_forwards_only_explicit_anchor(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, value: str | None
 ) -> None:
-    at = functional.seed_timestamp(value) if value is not None else None
-    stack = functional.Stack(tmp_path, tier.Lease(0, "0420"), seed_as_of=at)
+    at = builds.seed_timestamp(value) if value is not None else None
+    stack = run_stack.Stack(tmp_path, tier.Lease(0, "0420"), seed_as_of=at)
     calls: list[tuple[list[str], dict[str, str] | None]] = []
 
     def command(
@@ -1624,12 +1670,12 @@ def test_the_reaper_leaves_a_run_that_holds_its_namespace_and_needs_its_record(
     assert purged == ["0420"]
 
 
-def _worker(stack: functional.Stack, code: str) -> subprocess.Popen[bytes]:
+def _worker(stack: run_stack.Stack, code: str) -> subprocess.Popen[bytes]:
     stack.worker = subprocess.Popen([sys.executable, "-c", code], start_new_session=True)
     return stack.worker
 
 
-def _log(stack: functional.Stack, *lines: str) -> None:
+def _log(stack: run_stack.Stack, *lines: str) -> None:
     with (stack.directory / "worker.log").open("a") as log:
         for line in lines:
             log.write(f"2026-10-25 09:00:15,000 INFO arq.worker {line}\n")
@@ -1638,12 +1684,12 @@ def _log(stack: functional.Stack, *lines: str) -> None:
 def test_functional_browsers_wait_for_a_live_worker_heartbeat(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    stack = functional.Stack(tmp_path, tier.Lease(0, "0001"))
+    stack = run_stack.Stack(tmp_path, tier.Lease(0, "0001"))
     beats: list[bool] = [False, True]
     monkeypatch.setattr(stack, "worker_heartbeat", lambda: beats.pop(0))
     exited = _worker(stack, "pass")
     exited.wait(timeout=10)
-    with pytest.raises(functional.WorkerFailed, match="no heartbeat"):
+    with pytest.raises(run_stack.WorkerFailed, match="no heartbeat"):
         stack.await_worker(seconds=5)
     assert stack.worker_checks["worker_heartbeat"] == "failed"
     assert beats == [False, True]
@@ -1664,7 +1710,7 @@ def test_functional_probe_runs_a_real_cron_entry_by_its_scheduled_name(
     from clientbridge.tasks.worker import WorkerSettings
 
     enqueued: list[tuple[str, str | None]] = []
-    stack = functional.Stack(tmp_path, tier.Lease(0, "0001"))
+    stack = run_stack.Stack(tmp_path, tier.Lease(0, "0001"))
     stack.env["REDIS_URL"] = "redis://localhost:1/0"
 
     class Pool:
@@ -1679,14 +1725,14 @@ def test_functional_probe_runs_a_real_cron_entry_by_its_scheduled_name(
     async def pool(_settings: object) -> Pool:
         return Pool()
 
-    monkeypatch.setattr(functional, "create_pool", pool)
+    monkeypatch.setattr(run_stack, "create_pool", pool)
     running = _worker(stack, "import time; time.sleep(30)")
     try:
         stack.probe_schedule(seconds=10)
     finally:
         stop(running, grace_seconds=5)
     names = [job.name for job in WorkerSettings.cron_jobs if isinstance(job, CronJob)]
-    assert [function for function, _ in enqueued] == [f"cron:{functional.PROBE_JOB}"]
+    assert [function for function, _ in enqueued] == [f"cron:{run_stack.PROBE_JOB}"]
     assert enqueued[0][0] in names
     assert (enqueued[0][1] or "").startswith("e2e-probe:")
     assert stack.worker_checks["worker_probe"] == "passed"
@@ -1695,7 +1741,7 @@ def test_functional_probe_runs_a_real_cron_entry_by_its_scheduled_name(
 def test_functional_probe_fails_when_the_cron_job_fails(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    stack = functional.Stack(tmp_path, tier.Lease(0, "0001"))
+    stack = run_stack.Stack(tmp_path, tier.Lease(0, "0001"))
     stack.env["REDIS_URL"] = "redis://localhost:1/0"
 
     class Pool:
@@ -1709,10 +1755,10 @@ def test_functional_probe_fails_when_the_cron_job_fails(
     async def pool(_settings: object) -> Pool:
         return Pool()
 
-    monkeypatch.setattr(functional, "create_pool", pool)
+    monkeypatch.setattr(run_stack, "create_pool", pool)
     running = _worker(stack, "import time; time.sleep(30)")
     try:
-        with pytest.raises(functional.WorkerFailed, match="probed cron job"):
+        with pytest.raises(run_stack.WorkerFailed, match="probed cron job"):
             stack.probe_schedule(seconds=10)
     finally:
         stop(running, grace_seconds=5)
@@ -1722,7 +1768,7 @@ def test_functional_probe_fails_when_the_cron_job_fails(
 @pytest.mark.parametrize(
     ("lines", "alive", "schedule", "final"),
     [
-        ([f"  0.01s ← cron:{functional.PROBE_JOB} ● 0"], True, "failed", "passed"),
+        ([f"  0.01s ← cron:{run_stack.PROBE_JOB} ● 0"], True, "failed", "passed"),
         (["  0.02s ← cron:send_deliveries ● 1"], True, "passed", "passed"),
         (["  0.02s ← cron:send_deliveries ● 1"], False, "passed", "failed"),
         (
@@ -1741,7 +1787,7 @@ def test_functional_run_records_the_scheduler_and_a_worker_alive_at_the_end(
     schedule: str,
     final: str,
 ) -> None:
-    stack = functional.Stack(tmp_path, tier.Lease(0, "0001"))
+    stack = run_stack.Stack(tmp_path, tier.Lease(0, "0001"))
     stack.worker_checks.update(worker_heartbeat="passed", worker_probe="passed")
     monkeypatch.setattr(stack, "worker_heartbeat", lambda: alive)
     _log(stack, *lines)
@@ -1752,23 +1798,23 @@ def test_functional_run_records_the_scheduler_and_a_worker_alive_at_the_end(
         stop(running, grace_seconds=5)
     assert evidence["worker_schedule"] == schedule
     assert evidence["worker_final"] == final
-    assert evidence["scheduled_jobs"] == functional.scheduled_jobs(tmp_path / "worker.log")
+    assert evidence["scheduled_jobs"] == run_stack.scheduled_jobs(tmp_path / "worker.log")
     if schedule == final == "passed":
         stack.require_worker()
     else:
-        with pytest.raises(functional.WorkerFailed):
+        with pytest.raises(run_stack.WorkerFailed):
             stack.require_worker()
 
 
 def test_functional_run_without_a_started_worker_keeps_pending_checks(tmp_path: Path) -> None:
-    stack = functional.Stack(tmp_path, tier.Lease(0, "0001"))
+    stack = run_stack.Stack(tmp_path, tier.Lease(0, "0001"))
     assert stack.finish_worker(seconds=0) == {
         "worker_heartbeat": "pending",
         "worker_probe": "pending",
         "worker_schedule": "pending",
         "worker_final": "pending",
     }
-    with pytest.raises(functional.WorkerFailed, match="worker_heartbeat"):
+    with pytest.raises(run_stack.WorkerFailed, match="worker_heartbeat"):
         stack.require_worker()
 
 
@@ -2206,8 +2252,8 @@ def test_the_native_link_forwards_until_it_is_cut_and_again_once_restored() -> N
     with socket.socket() as upstream:
         upstream.bind(("127.0.0.1", 0))
         upstream.listen()
-        listen = functional.free_port()
-        link = functional.NativeLink({listen: upstream.getsockname()[1]})
+        listen = run_stack.free_port()
+        link = native.NativeLink({listen: upstream.getsockname()[1]})
         try:
             link.online()
             with socket.create_connection(("127.0.0.1", listen), timeout=5) as app:
@@ -2233,8 +2279,8 @@ def test_ci_builds_the_android_app_with_the_native_lanes_own_addresses() -> None
     workflow = (functional.ROOT / ".github" / "workflows" / "e2e-mobile.yml").read_text()
     build = workflow[workflow.index("  build:") : workflow.index("  android:")]
     assert 'native_urls("android").items()' in build and '>> "$GITHUB_ENV"' in build
-    config = (functional.MOBILE / "app.config.ts").read_text()
-    for name, value in functional.native_urls("android").items():
+    config = (native.MOBILE / "app.config.ts").read_text()
+    for name, value in native.native_urls("android").items():
         assert f"env.{name}" in config
         assert value not in build
 
@@ -2311,17 +2357,17 @@ def test_bundles_are_built_once_per_source_and_older_ones_pruned(
         built.append(command[2])
         return subprocess.CompletedProcess(command, 0)
 
-    monkeypatch.setattr(functional, "BUILDS", tmp_path)
-    monkeypatch.setattr(functional, "bundle_sources", lambda: key[0])
-    monkeypatch.setattr(functional.subprocess, "run", build)
-    first = functional.ensure_builds()
-    assert built == list(functional.BUNDLES)
+    monkeypatch.setattr(builds, "BUILDS", tmp_path)
+    monkeypatch.setattr(builds, "bundle_sources", lambda: key[0])
+    monkeypatch.setattr(builds.subprocess, "run", build)
+    first = builds.ensure_builds()
+    assert built == list(builds.BUNDLES)
     assert first["web"] == tmp_path / f"web-{key[0]}"
-    assert functional.ensure_builds() == first
-    assert len(built) == len(functional.BUNDLES)
+    assert builds.ensure_builds() == first
+    assert len(built) == len(builds.BUNDLES)
     for letter in "bcd":
         key[0] = letter * 16
-        functional.ensure_builds()
+        builds.ensure_builds()
     kept = sorted(path.name for path in tmp_path.glob("web-*"))
     assert kept == [f"web-{letter * 16}" for letter in "bcd"]
 
@@ -2335,17 +2381,17 @@ def test_bundle_sources_follow_the_app_code_and_not_its_tests(
         path.write_text(text)
 
     subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
-    monkeypatch.setattr(functional, "ROOT", tmp_path)
+    monkeypatch.setattr(builds, "ROOT", tmp_path)
     write("frontend/apps/web/src/main.tsx", "render();")
-    before = functional.bundle_sources()
+    before = builds.bundle_sources()
     write("frontend/apps/web/e2e/clients.e2e.ts", "test();")
     write("frontend/apps/web/src/format.test.ts", "test();")
     write("frontend/apps/web/playwright.config.ts", "export default {};")
     write("frontend/apps/mobile/src/main.tsx", "render();")
     write("frontend/apps/site/src/main.tsx", "render();")
-    assert functional.bundle_sources() == before
+    assert builds.bundle_sources() == before
     write("frontend/apps/web/src/main.tsx", "render(app);")
-    assert functional.bundle_sources() != before
+    assert builds.bundle_sources() != before
 
 
 def test_a_digest_leaves_out_bytecode(tmp_path: Path) -> None:

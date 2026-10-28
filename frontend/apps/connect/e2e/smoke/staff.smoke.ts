@@ -1,7 +1,7 @@
 import { strings } from "@clientbridge/app-core/public";
 import { expect, test, type Page } from "@playwright/test";
 
-import { deployment, expectNoWrites, readOnly } from "./deployment";
+import { deployment, expectNoWrites, readOnly } from "./support/deployment";
 
 const { slug, domain } = deployment;
 

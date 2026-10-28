@@ -1,11 +1,11 @@
 import { strings } from "@clientbridge/app-core/public";
 import { axeIssues, unmarkedFocus, unreadableHover } from "@clientbridge/config/e2e/accessibility";
 import { expect, test } from "@playwright/test";
-import { on } from "./hosts";
-import { links } from "./links";
-import { ownAddress } from "./network";
+import { on } from "./support/hosts";
+import { links } from "./support/links";
+import { ownAddress } from "./support/network";
 import { demoSlug, runUrl } from "@clientbridge/config/e2e/run";
-import { watchErrors } from "./errors";
+import { watchErrors } from "./support/errors";
 
 const PUBLIC_PAGES = [
     { name: "business", path: on(links.slug, "/"), landmark: "Birchbark Pet Studio" },
@@ -127,7 +127,7 @@ test("every client page explains an invalid link without offering a transaction"
 });
 
 test(
-    "business navigation connects the shop, booking, and homepage sections on mobile",
+    "XB-E2E-09 business navigation connects the shop, booking, and homepage sections on mobile",
     { tag: "@browsers" },
     async ({ page }) => {
         await page.setViewportSize({ width: 390, height: 844 });

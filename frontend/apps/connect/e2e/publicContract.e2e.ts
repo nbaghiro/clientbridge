@@ -1,9 +1,9 @@
 import { strings } from "@clientbridge/app-core/public";
 import { expect, test } from "@playwright/test";
-import { on } from "./hosts";
-import { ownAddress } from "./network";
+import { on } from "./support/hosts";
+import { ownAddress } from "./support/network";
 import { randomUUID } from "node:crypto";
-import { contractEvidence, documentApi, issueContract } from "./documents";
+import { contractEvidence, documentApi, issueContract } from "./support/documents";
 
 test.beforeEach(async ({ context }, info) => {
     await ownAddress(context, info);

@@ -13,7 +13,7 @@ from clientbridge.core.db import SessionLocal, engine
 from clientbridge.integrations.stripe import StripeGateway, close_stripe_client
 from clientbridge.models.business import Business
 from clientbridge.services.business import apply_account_status, kyc_status
-from e2e.stripe import BUSINESS, guard, validate_context
+from e2e.stripe_context import BUSINESS, guard, validate_context
 
 
 def _dict(value: object) -> dict[str, object]:

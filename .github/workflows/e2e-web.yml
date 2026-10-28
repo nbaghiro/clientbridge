@@ -14,7 +14,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # the runner splits a sharded lane's cases by their measured seconds (apps/web/e2e/case-seconds.json)
+          # the runner splits a sharded lane's cases by their measured seconds (backend/e2e/seconds.json)
           - { name: chromium (1/5), artifact: web-chromium-1, browser: chromium, args: --surface web --shard 1/5 }
           - { name: chromium (2/5), artifact: web-chromium-2, browser: chromium, args: --surface web --shard 2/5 }
           - { name: chromium (3/5), artifact: web-chromium-3, browser: chromium, args: --surface web --shard 3/5 }
@@ -73,7 +73,7 @@ jobs:
         run: |
           uv run python -m e2e.results ../journeys/*/e2e-*/browser-results/results.json --surface journeys \
             --seconds ../journeys-seconds.json
-      # each case's measured seconds, merged into apps/web/e2e/case-seconds.json to rebalance the shards
+      # each case's measured seconds, merged into backend/e2e/seconds.json under web to rebalance the shards
       - uses: actions/upload-artifact@v7
         if: always()
         with:

@@ -45,7 +45,7 @@ from clientbridge.models.payments import Payment
 from clientbridge.models.scheduling import Booking, Hours, Slot
 from e2e import tier
 from e2e.results import SYNC_CASES, Report
-from e2e.runner import environment, flush_redis, free_port, purge, stop
+from e2e.stack import environment, flush_redis, free_port, purge, stop
 from e2e.tier import DATABASE
 
 

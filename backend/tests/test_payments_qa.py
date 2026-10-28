@@ -13,7 +13,7 @@ from scripts.stripe_qa import REQUIRED, environment, results
 
 from clientbridge.core import clock
 from clientbridge.integrations.stripe import STRIPE_API_VERSION, StripeGateway, close_stripe_client
-from tests.e2e.conftest import StripeEvents
+from tests.sandbox.conftest import StripeEvents
 
 
 def configured(monkeypatch: pytest.MonkeyPatch) -> None:

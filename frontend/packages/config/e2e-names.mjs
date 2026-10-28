@@ -17,6 +17,9 @@ const JOURNEYS = [
     "operations",
 ];
 
+// Connect's separate lanes, each with its own cases and helpers in its support/.
+const CONNECT_LANES = new Set(["apps/connect/e2e/stripe", "apps/connect/e2e/smoke"]);
+
 // concepts: app-core domains; publicPages: Connect pages; screens: screens with no domain of their own.
 export function e2eNameProblems(files, { concepts, publicPages, screens, pageConcept }) {
     const problems = [];
@@ -46,8 +49,14 @@ export function e2eNameProblems(files, { concepts, publicPages, screens, pageCon
         } else if (dir === "apps/connect/e2e") {
             const spec = /^(.+)\.e2e\.ts$/.exec(name);
             if (spec) check(file, spec[1], connect, "a Connect page or a cross-cutting suite");
-            else if (name.endsWith(".spec.ts") && !name.startsWith("stripe-"))
-                problems.push(`${file}: the Stripe lane's files start with stripe-`);
+            else
+                problems.push(
+                    `${file}: apps/connect/e2e/ holds only <page>.e2e.ts files and support/`,
+                );
+        } else if (CONNECT_LANES.has(dir)) {
+            const lane = dir.slice("apps/connect/e2e/".length);
+            if (!name.endsWith(`.${lane}.ts`))
+                problems.push(`${file}: ${dir}/ holds only <case>.${lane}.ts files and support/`);
         } else if (dir === "apps/mobile/e2e" && name.endsWith(".yaml")) {
             // a Maestro flow is one file, so a concept with several flows adds each one's aspect
             const concept = name.split(".")[0] ?? name;

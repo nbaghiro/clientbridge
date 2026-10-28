@@ -1,7 +1,7 @@
 import { strings } from "@clientbridge/app-core/public";
 import { expect, test } from "@playwright/test";
-import { on } from "./hosts";
-import { ownAddress } from "./network";
+import { on } from "./support/hosts";
+import { ownAddress } from "./support/network";
 
 test.beforeEach(async ({ context }, info) => {
     await ownAddress(context, info);
@@ -12,7 +12,7 @@ test.afterEach(async ({ page }) => {
 });
 
 test(
-    "bank setup rejects a missing link and removes provider secrets from the URL",
+    "XB-E2E-13 bank setup rejects a missing link and removes provider secrets from the URL",
     { tag: "@browsers" },
     async ({ page }) => {
         await page.goto(

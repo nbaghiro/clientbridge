@@ -1,8 +1,8 @@
 import { formatMoney, strings } from "@clientbridge/app-core/public";
 import { expect, test } from "@playwright/test";
-import { links } from "./links";
-import { ownAddress } from "./network";
-import { watchErrors } from "./errors";
+import { links } from "./support/links";
+import { ownAddress } from "./support/network";
+import { watchErrors } from "./support/errors";
 
 test.beforeEach(async ({ context }, info) => {
     await ownAddress(context, info);
@@ -21,7 +21,7 @@ test("a client opens the manage link and the move picker", async ({ page }) => {
 });
 
 test(
-    "a client sees a deposit due on the manage link and how to pay it",
+    "XB-E2E-14 a client sees a deposit due on the manage link and how to pay it",
     { tag: "@browsers" },
     async ({ page }) => {
         const errors = watchErrors(page);

@@ -96,7 +96,7 @@ make format         # ruff format · prettier --write
 make gen-api        # regenerate the api-client from the backend OpenAPI (drift-gated)
 make gen-sync-schema# regenerate the PowerSync client schema from the models (drift-gated)
 make test-contract  # real StripeGateway vs stripe-mock (:8708)
-make test-e2e       # Stripe test-mode flows (dormant until STRIPE_TEST_SECRET_KEY is set)
+make test-sandbox   # Stripe test-mode flows (dormant until STRIPE_TEST_SECRET_KEY is set)
 make build-site     # marketing site → static HTML in frontend/apps/site/dist
 make test-site      # site browser pass: every page, links, images, phone width, accessibility
 ```

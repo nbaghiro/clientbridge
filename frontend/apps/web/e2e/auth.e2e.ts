@@ -122,7 +122,7 @@ test("existing business never flashes onboarding during sign-in or a slow reload
 });
 
 test(
-    "sign up, confirm the email with the mailed code, then open a business",
+    "XB-E2E-01 sign up, confirm the email with the mailed code, then open a business",
     { tag: "@browsers" },
     async ({ page, request }) => {
         const account = newAccount("signup");
@@ -132,7 +132,7 @@ test(
 );
 
 test(
-    "recover a forgotten password with an emailed code, staying signed in only here",
+    "XB-E2E-02 recover a forgotten password with an emailed code, staying signed in only here",
     { tag: "@browsers" },
     async ({ page, request }) => {
         const account = newAccount("recover");
@@ -162,7 +162,7 @@ test(
 );
 
 test(
-    "changing the password signs out every other device",
+    "XB-E2E-03 changing the password signs out every other device",
     { tag: "@browsers" },
     async ({ page, request }) => {
         const account = newAccount("password");
@@ -187,7 +187,7 @@ test(
 );
 
 test(
-    "turn on an authenticator app, then sign in with its code",
+    "XB-E2E-04 turn on an authenticator app, then sign in with its code",
     { tag: "@browsers" },
     async ({ page, request }) => {
         const account = newAccount("totp");

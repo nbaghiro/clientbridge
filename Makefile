@@ -1,4 +1,4 @@
-.PHONY: infra-bootstrap infra-providers infra-mobile help up down images up-app logs-sync logs-auth install stripe-listen stripe-setup dev-api worker dev-web dev-connect dev-site dev-mobile build build-apps build-site test-site test-web test-connect test-mobile test-staging-smoke lighthouse-site migrate revision seed seed-core gen-api gen-sync-schema gen-themes gen-messages gen-strings gen-zones gen-taxes codegen-check test test-backend test-frontend test-contract test-auth test-e2e lint lint-backend lint-frontend lint-infra test-infra typecheck format format-check format-check-backend format-check-frontend format-check-infra precommit hooks check gen-waitlist-email preview-emails configure-demo-admin dev-admin
+.PHONY: infra-bootstrap infra-providers infra-mobile help up down images up-app logs-sync logs-auth install stripe-listen stripe-setup dev-api worker dev-web dev-connect dev-site dev-mobile build build-apps build-site test-site test-web test-connect test-mobile test-staging-smoke lighthouse-site migrate revision seed seed-core gen-api gen-sync-schema gen-themes gen-messages gen-strings gen-zones gen-taxes codegen-check test test-backend test-frontend test-contract test-auth test-sandbox lint lint-backend lint-frontend lint-infra test-infra typecheck format format-check format-check-backend format-check-frontend format-check-infra precommit hooks check gen-waitlist-email preview-emails configure-demo-admin dev-admin
 .DEFAULT_GOAL := help
 
 help:
@@ -58,7 +58,7 @@ help:
 	@echo "test-frontend    the frontend unit tests, with app-core again in three time zones"
 	@echo "test-contract    real StripeGateway vs the test tier's stripe-mock"
 	@echo "test-auth        KratosIdentityProvider vs the test tier's auth service"
-	@echo "test-e2e         Stripe and Resend test-mode flows (needs STRIPE_TEST_SECRET_KEY, RESEND_TEST_API_KEY and RESEND_TEST_FROM)"
+	@echo "test-sandbox     Stripe and Resend test-mode flows (needs STRIPE_TEST_SECRET_KEY, RESEND_TEST_API_KEY and RESEND_TEST_FROM)"
 	@echo "lint             lint-backend + lint-frontend"
 	@echo "lint-backend     ruff, pyright and the structure check"
 	@echo "lint-frontend    eslint, the structure check, tsc and the site copy rules"
@@ -260,9 +260,9 @@ test-contract:
 test-auth:
 	cd backend && uv run python -m e2e.database pytest -m kratos -q
 
-# E2E tier: real Stripe test mode. Skips unless STRIPE_TEST_SECRET_KEY is exported.
-test-e2e:
-	cd backend && uv run pytest -m e2e -q
+# Sandbox tier: real Stripe test mode. Skips unless STRIPE_TEST_SECRET_KEY is exported.
+test-sandbox:
+	cd backend && uv run pytest -m sandbox -q
 
 .PHONY: test-stripe-qa
 # Real sandbox API flows; missing prerequisites and skipped tests fail this target.

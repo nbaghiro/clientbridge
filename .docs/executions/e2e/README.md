@@ -4,13 +4,9 @@ The suite, the shared test tier and the CI lanes are in place. [engineering.md](
 
 ## Where coverage stands
 
-`backend/e2e/results.py` registers every required case. [coverage.json](coverage.json) maps each case to the audit families from the [product brief](../../reviews/product/comprehensive-e2e-brief.md). Judged strictly:
+`backend/e2e/cases.json` registers every case, with the audit families from the [product brief](../../reviews/product/comprehensive-e2e-brief.md) it covers. [families.json](families.json) holds those families. `python -m e2e.coverage`, run from `backend/`, counts by priority how many are covered, partly covered or still open. A family is partly covered once a `verified` case names it.
 
-- 74 of the 302 families are partly covered (44 of them P0).
-- None is fully covered.
-- 228 have no case yet (104 of them P0).
-
-A family moves to `verified` only after a case written to its full audit assertions passes a strict run and an independent review.
+A family moves to `verified` in `families.json`, and counts as covered, only after a case written to its full audit assertions passes a strict run and an independent review.
 
 [decisions.md](decisions.md) lists the behaviour that cases asserted where the intent wasn't settled. Each entry needs a review.
 
@@ -26,4 +22,4 @@ A family moves to `verified` only after a case written to its full audit asserti
    - iOS: the replica isn't ready after the first sync in 14 of 15 runs.
    - Release builds.
    - Hosted runs of the flake and mutation workflows.
-6. Lift the WebKit offline exclusions (XB-E2E-05 and XB-E2E-06) once Playwright can load a service-worker page offline in WebKit.
+6. Lift the WebKit offline exclusions (XB-E2E-05 and OFF-E2E-01) once Playwright can load a service-worker page offline in WebKit.

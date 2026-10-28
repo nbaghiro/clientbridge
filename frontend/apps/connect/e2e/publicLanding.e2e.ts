@@ -1,9 +1,9 @@
 import { strings } from "@clientbridge/app-core/public";
 import { unreadableHover } from "@clientbridge/config/e2e/accessibility";
 import { expect, test } from "@playwright/test";
-import { on } from "./hosts";
-import { links } from "./links";
-import { ownAddress, rewrite, type Json } from "./network";
+import { on } from "./support/hosts";
+import { links } from "./support/links";
+import { ownAddress, rewrite, type Json } from "./support/network";
 import { demoSlug, runUrl } from "@clientbridge/config/e2e/run";
 
 const slug = demoSlug("birchbark");
