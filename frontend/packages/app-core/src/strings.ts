@@ -271,6 +271,7 @@ interface Strings {
         readonly reminderSentTo: (name: string) => string;
         readonly invoiceVoided: (label: string) => string;
         readonly actionError: string;
+        readonly actionUnconfirmed: string;
         readonly event: {
             readonly created: string;
             readonly sent: string;

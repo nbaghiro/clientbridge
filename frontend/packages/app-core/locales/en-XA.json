@@ -746,6 +746,9 @@
     "billing.actionError": {
         "message": "[Çöûļðñ'ţ ðö ţĥåţ. Ñöţĥîñĝ çĥåñĝéð; ţŕý åĝåîñ. one two three]"
     },
+    "billing.actionUnconfirmed": {
+        "message": "[Ţĥé çöññéçţîöñ ðŕöþþéð ƀéƒöŕé ŵé ĥéåŕð ƀåçķ. Îƒ îţ ŵéñţ ţĥŕöûĝĥ, îţ ŵîļļ šĥöŵ ĥéŕé îñ å ɱöɱéñţ; îƒ ñöţ, ţŕý åĝåîñ. one two three four five six seven]"
+    },
     "billing.event.created": {
         "message": "[Çŕéåţéð one]"
     },

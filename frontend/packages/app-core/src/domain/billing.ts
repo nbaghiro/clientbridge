@@ -25,7 +25,7 @@ import {
     parseNumber,
     BUSINESS_CURRENCY,
 } from "../format";
-import { useAsyncAction } from "../hooks";
+import { isConnectionFailure, useAsyncAction } from "../hooks";
 import { strings } from "../strings";
 import type {
     DocTotalLine,
@@ -64,6 +64,11 @@ import {
 import type { Load } from "../hooks";
 
 const s = strings.billing;
+
+// a dropped connection may have reached the server, so only a refusal means nothing changed
+function actionFailure(e: unknown): string {
+    return isConnectionFailure(e) ? s.actionUnconfirmed : failureMessage(e, s.actionError);
+}
 const p = strings.printing;
 
 export interface InvoiceRow {
@@ -861,7 +866,7 @@ export function useInvoiceActions(api: ApiLike): InvoiceActions {
                 attempt.current = null;
                 setNotice(message(res));
             },
-            { errorMessage: (e) => failureMessage(e, s.actionError) },
+            { errorMessage: actionFailure },
         );
     };
     return {
@@ -1287,7 +1292,7 @@ export function useEstimateActions(api: ApiLike): EstimateActions {
                 setNotice(message(res));
                 done?.(res);
             },
-            { errorMessage: s.actionError },
+            { errorMessage: actionFailure },
         );
     };
     return {
