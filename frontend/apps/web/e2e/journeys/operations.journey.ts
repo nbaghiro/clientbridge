@@ -29,7 +29,7 @@ interface Page<T> {
     has_more: boolean;
 }
 
-test("FLOW-10-A a desk payment is traceable in the operator console's ledger and activity, and failed delivery and callback work shows only where it belongs", async ({
+test("FLOW-10-A a desk payment is traceable in the operator console's ledger and activity, and a business delivery and a failed callback show only where they belong", async ({
     page,
     request,
 }, testInfo) => {
@@ -86,16 +86,16 @@ test("FLOW-10-A a desk payment is traceable in the operator console's ledger and
         headers: { Origin: origin, "Idempotency-Key": randomUUID() },
         data: {
             name: demoPerson(randomUUID()),
-            email: `ops-${randomUUID()}@mailbox.invalid`,
-            preferred_channel: "email",
+            // a number set aside for fiction, which the dev text transport refuses
+            phone: "+12505550142",
         },
     });
     expect(created.status(), await created.text()).toBe(201);
-    const unreachable = ((await created.json()) as { id: string }).id;
+    const fictional = ((await created.json()) as { id: string }).id;
     const invoice = await page.request.post(`${bookingApi()}/v1/invoices`, {
         headers: { Origin: origin, "Idempotency-Key": randomUUID() },
         data: {
-            client_id: unreachable,
+            client_id: fictional,
             send: true,
             lines: [
                 {
@@ -108,18 +108,18 @@ test("FLOW-10-A a desk payment is traceable in the operator console's ledger and
         },
     });
     expect(invoice.status(), await invoice.text()).toBe(201);
-    const failed = (await communicationEvidence(unreachable)).deliveries;
-    expect(failed).toEqual([
-        // outside production a reserved address reaches Mailpit, which refuses .invalid
+    const deliveries = (await communicationEvidence(fictional)).deliveries;
+    expect(deliveries).toEqual([
+        // the dev text transport is a local sink, and the tier's Mailpit refuses a fictional number
         expect.objectContaining({
-            channel: "email",
+            channel: "sms",
             state: "failed",
             error: expect.stringMatching(/^smtp_5\d\d$/),
         }),
     ]);
     const history = await admin<Page<{ id: string }>>(request, token, "/deliveries");
     // the console's delivery history is for operator test mail, not business notices
-    expect(history.items.map((row) => row.id)).not.toContain(failed[0]?.id);
+    expect(history.items.map((row) => row.id)).not.toContain(deliveries[0]?.id);
 
     const before = await admin<{ failed_webhooks: number }>(request, token, "/overview");
     const event = { type: "email.delivered" as const, emailId: "", to: "", tags: {} };
@@ -142,7 +142,7 @@ test("FLOW-10-A a desk payment is traceable in the operator console's ledger and
     const after = await admin<{ failed_webhooks: number }>(request, token, "/overview");
     expect(after.failed_webhooks).toBeGreaterThan(before.failed_webhooks);
     await testInfo.attach("operational-trail", {
-        body: JSON.stringify({ payment: detail, activity: activity.items, failed }),
+        body: JSON.stringify({ payment: detail, activity: activity.items, deliveries }),
         contentType: "application/json",
     });
 });

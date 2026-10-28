@@ -41,7 +41,6 @@ describe("the pickup queue", () => {
         client_id: "cl_1",
         client_name: null,
         phone: "+12505550201",
-        email: "a@x.test",
         pickup_status: "ready" as const,
         total_cents: 4800,
         created_at: "2026-10-03T16:00:00Z",
@@ -84,7 +83,7 @@ describe("the pickup queue", () => {
             intent: "accent",
             itemsLabel: "2 items",
             total: "$48.00",
-            contact: "(250) 555-0201 · a@x.test",
+            contact: "(250) 555-0201",
             waiting: "Waiting 1 day",
         });
         expect(view.lines.map((l) => l.name)).toEqual(["Brush"]);

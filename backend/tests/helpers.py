@@ -29,7 +29,7 @@ from clientbridge.models.platform import Audit, Webhook
 from clientbridge.models.scheduling import Booking, Slot
 from clientbridge.schemas.billing import InvoiceOut
 from clientbridge.schemas.bookings import BookingOut
-from clientbridge.schemas.deliveries import DELIVERY_PAYLOAD, EmailDelivery
+from clientbridge.schemas.deliveries import DELIVERY_PAYLOAD, EmailDelivery, SmsDelivery
 from clientbridge.schemas.orders import OrderOut
 from clientbridge.services import ledger
 from clientbridge.services.billing import invoice_out
@@ -87,14 +87,13 @@ async def texted(
     db: AsyncSession, client_id: str, *, business_id: str = BIZ, at: datetime | None = None
 ) -> None:
     """Record an outbound text to the client, which routes the client's replies to the business."""
-    thread = await open_thread(db, business_id, client_id, "sms")
+    thread = await open_thread(db, business_id, client_id)
     db.add(
         Message(
             id=new_id("message"),
             business_id=business_id,
             thread_id=thread.id,
             direction="out",
-            channel="sms",
             body="Hello",
             status="sent",
             created_at=at or clock.now(),
@@ -145,8 +144,13 @@ async def enable_payments(db: AsyncSession, account: str | None = "acct_test") -
     await db.flush()
 
 
-async def client_id(db: AsyncSession, *, business_id: str = BIZ, email: str | None = None) -> str:
-    """A seeded client of the business, optionally given an email."""
+async def client_id(
+    db: AsyncSession,
+    *,
+    business_id: str = BIZ,
+    phone: str | None = "+16045550223",
+) -> str:
+    """A seeded client of the business, optionally given a phone number."""
     cid = (
         (
             await db.execute(
@@ -160,8 +164,8 @@ async def client_id(db: AsyncSession, *, business_id: str = BIZ, email: str | No
         .first()
     )
     assert cid
-    if email is not None:
-        await db.execute(update(Client).where(Client.id == cid).values(email=email))
+    if phone is not None:
+        await db.execute(update(Client).where(Client.id == cid).values(phone=phone))
         await db.flush()
     return cid
 
@@ -170,11 +174,10 @@ async def reachable(
     db: AsyncSession,
     client: str,
     *,
-    email: str = "amelie@birchbark.ca",
     phone: str = "+12505551234",
 ) -> None:
-    """Real-looking contacts for a seeded client: queued deliveries skip reserved ones."""
-    await db.execute(update(Client).where(Client.id == client).values(email=email, phone=phone))
+    """A real-looking number for a seeded client: queued deliveries skip reserved ones."""
+    await db.execute(update(Client).where(Client.id == client).values(phone=phone))
     await db.flush()
 
 
@@ -182,14 +185,14 @@ async def new_client(
     db: AsyncSession,
     *,
     name: str = "Test Client",
-    email: str | None = "client@example.ca",
+    phone: str | None = "+16045550223",
     customer: str | None = None,
 ) -> str:
     client = Client(
         id=new_id("client"),
         business_id=BIZ,
         name=name,
-        email=email,
+        phone=phone,
         tags=[],
         custom_fields={},
         stripe_customer_id=customer,
@@ -440,14 +443,18 @@ async def delete_bookings(session: AsyncSession, booking_ids: list[str]) -> None
 
 
 async def queued_subjects(db: AsyncSession, key: str) -> list[str]:
-    """The subjects of the emails queued under a delivery key, oldest first."""
+    """The client-visible delivery copy queued under a delivery key, oldest first."""
     rows = await db.scalars(
         select(Delivery)
         .where(Delivery.key.startswith(f"{key}:"))
         .order_by(Delivery.created_at, Delivery.id)
     )
     payloads = [DELIVERY_PAYLOAD.validate_python(d.payload) for d in rows.all()]
-    return [p.message.subject for p in payloads if isinstance(p, EmailDelivery)]
+    return [
+        p.message.subject if isinstance(p, EmailDelivery) else p.message.body
+        for p in payloads
+        if isinstance(p, (EmailDelivery, SmsDelivery))
+    ]
 
 
 async def booking_off_the_ledger(db: AsyncSession) -> Booking:

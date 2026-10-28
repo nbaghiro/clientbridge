@@ -16,7 +16,7 @@ from tests.helpers import new_client, sent_invoice
 
 async def _texting_client(db: AsyncSession) -> str:
     cid = await new_client(db, name="Rosa Park")
-    await db.execute(update(Client).where(Client.id == cid).values(phone="+16045550123"))
+    await db.execute(update(Client).where(Client.id == cid).values(phone="+16045550223"))
     await db.flush()
     return cid
 
@@ -58,9 +58,8 @@ async def test_draft_invoice_preview_shows_the_message_and_sends_nothing(
     assert res.status_code == 200, res.text
     body = res.json()
     assert body["recipient"] == "Rosa Park"
-    assert body["email"]["to"] == "client@example.ca"
-    assert "Invoice #" in body["email"]["subject"]
-    assert body["text"]["to"] == "+16045550123"
+    assert body["text"]["to"] == "+16045550223"
+    assert "Invoice #" in body["text"]["body"]
     assert email.sent == [] and sms.sent == []
     after = await db.get(Invoice, inv, populate_existing=True)
     assert after is not None and after.status == "draft" and after.number is None
@@ -70,18 +69,17 @@ async def test_draft_invoice_preview_shows_the_message_and_sends_nothing(
 async def test_remind_preview_uses_reminder_then_overdue_wording(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    cid = await new_client(db)
+    cid = await _texting_client(db)
     inv = await sent_invoice(
         db, client=cid, number=9001, pay_token="tok", due_at=clock.now() + timedelta(days=3)
     )
     soon = (await as_owner.get(f"/v1/previews/invoices/{inv}/remind")).json()
-    assert soon["email"]["subject"].startswith("Reminder")
-    assert soon["text"] is None
+    assert soon["text"]["body"].startswith("A reminder")
     await db.execute(
         update(Invoice).where(Invoice.id == inv).values(due_at=clock.now() - timedelta(days=2))
     )
     late = (await as_owner.get(f"/v1/previews/invoices/{inv}/remind")).json()
-    assert "overdue" in late["email"]["subject"]
+    assert "overdue" in late["text"]["body"]
 
 
 async def test_remind_preview_refuses_a_draft(
@@ -92,12 +90,12 @@ async def test_remind_preview_refuses_a_draft(
 
 
 async def test_draft_estimate_preview(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
-    cid = await new_client(db)
+    cid = await _texting_client(db)
     line = {"description": "Fence repair", "quantity": 1, "unit_amount_cents": 40000}
     est = (await as_owner.post("/v1/estimates", json={"client_id": cid, "lines": [line]})).json()
     res = await as_owner.get(f"/v1/previews/estimates/{est['id']}/send")
     assert res.status_code == 200, res.text
-    assert "Estimate #" in res.json()["email"]["subject"]
+    assert "Estimate #" in res.json()["text"]["body"]
     after = await db.get(Estimate, est["id"], populate_existing=True)
     assert after is not None and after.status == "draft" and after.view_token is None
 
@@ -105,7 +103,7 @@ async def test_draft_estimate_preview(as_owner: httpx.AsyncClient, db: AsyncSess
 async def test_reschedule_preview_names_the_new_time_without_moving(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    booking = await _upcoming_visit(db, await new_client(db))
+    booking = await _upcoming_visit(db, await _texting_client(db))
     slot = await db.get(Slot, booking.slot_id)
     assert slot is not None
     starts, ends = slot.starts_at, slot.ends_at
@@ -115,7 +113,7 @@ async def test_reschedule_preview_names_the_new_time_without_moving(
     }
     res = await as_owner.get(f"/v1/previews/bookings/{booking.id}/rescheduled", params=params)
     assert res.status_code == 200, res.text
-    assert res.json()["email"] is not None
+    assert res.json()["text"] is not None
     moved = await db.get(Slot, booking.slot_id, populate_existing=True)
     assert moved is not None and moved.starts_at == starts
 
@@ -123,8 +121,7 @@ async def test_reschedule_preview_names_the_new_time_without_moving(
 async def test_departure_preview_is_a_text(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
     booking = await _upcoming_visit(db, await _texting_client(db))
     body = (await as_owner.get(f"/v1/previews/bookings/{booking.id}/departed")).json()
-    assert body["email"] is None
-    assert body["text"]["to"] == "+16045550123"
+    assert body["text"]["to"] == "+16045550223"
 
 
 async def test_move_without_notice_tells_nobody(
@@ -151,19 +148,19 @@ async def test_move_without_notice_tells_nobody(
 async def test_form_contract_and_review_previews(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    cid = await new_client(db)
+    cid = await _texting_client(db)
     form = await db.scalar(select(Form).where(Form.business_id == BIZ).limit(1))
     contract = await db.scalar(select(Contract).where(Contract.business_id == BIZ).limit(1))
     assert form is not None and contract is not None
     sent_form = await as_owner.get(f"/v1/previews/forms/{form.id}/send", params={"client_id": cid})
-    assert form.name in sent_form.json()["email"]["body"]
+    assert form.name in sent_form.json()["text"]["body"]
     signed = await as_owner.get(
         f"/v1/previews/contracts/{contract.id}/send", params={"client_id": cid}
     )
-    assert contract.name in signed.json()["email"]["body"]
+    assert contract.name in signed.json()["text"]["body"]
     review = await as_owner.get("/v1/previews/reviews/request", params={"client_id": cid})
     assert review.status_code == 200, review.text
-    assert review.json()["recipient"] == "Test Client"
+    assert review.json()["recipient"] == "Rosa Park"
 
 
 async def test_staff_cannot_preview_billing_sends(as_staff: httpx.AsyncClient) -> None:
@@ -201,9 +198,9 @@ async def test_order_and_signature_previews(as_owner: httpx.AsyncClient, db: Asy
     ready = await as_owner.get(f"/v1/previews/orders/{order.id}/ready")
     assert ready.status_code == 200, ready.text
     receipt = await as_owner.get(
-        f"/v1/previews/orders/{order.id}/receipt", params={"channel": "email", "to": "a@b.ca"}
+        f"/v1/previews/orders/{order.id}/receipt", params={"to": "+16045550223"}
     )
     assert receipt.status_code == 200, receipt.text
-    assert receipt.json()["email"]["to"] == "a@b.ca"
+    assert receipt.json()["text"]["to"] == "+16045550223"
     resend = await as_owner.get(f"/v1/previews/signatures/{signature.id}/resend")
     assert resend.status_code == 200, resend.text

@@ -556,19 +556,10 @@ function ReturningPanel({
                     <div className="mt-3 space-y-3">
                         {r.stage === "contact" ? (
                             <>
-                                <Choice
-                                    label={t.contact}
-                                    layout="chips"
-                                    value={r.channel}
-                                    onChange={r.setChannel}
-                                    options={[
-                                        { key: "email", label: t.email },
-                                        { key: "sms", label: t.sms },
-                                    ]}
-                                />
                                 <TextField
-                                    label={r.channel === "email" ? t.email : t.sms}
-                                    type={r.channel === "email" ? "email" : "tel"}
+                                    label={t.contact}
+                                    type="tel"
+                                    required
                                     value={r.contact}
                                     onChange={r.setContact}
                                 />

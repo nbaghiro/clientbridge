@@ -495,7 +495,7 @@ it.each(["contact_ambiguous", "slot_unavailable", "conflict"])(
         act(() => {
             result.current.next();
             result.current.fields.setName("Sam Chen");
-            result.current.fields.setEmail("sam@example.ca");
+            result.current.fields.setPhone("+16045550140");
         });
         expect(result.current.step).toBe("details");
         const daysBefore = vi.mocked(client.getDays).mock.calls.length;
@@ -522,7 +522,7 @@ it.each(["contact_ambiguous", "slot_unavailable", "conflict"])(
         expect(client.getDays).toHaveBeenCalledTimes(daysBefore);
         expect(client.getSlots).toHaveBeenCalledTimes(slotsBefore);
         act(() => {
-            result.current.fields.setEmail("sam.chen@example.ca");
+            result.current.fields.setPhone("+16045550141");
         });
         act(() => {
             result.current.next();
@@ -535,7 +535,7 @@ it.each(["contact_ambiguous", "slot_unavailable", "conflict"])(
         expect(calls[1]?.[1]).toMatchObject({
             startsAt: opening.starts_at,
             staffId: "member",
-            client: { email: "sam.chen@example.ca" },
+            client: { phone: "+16045550141" },
         });
         expect(calls[1]?.[2]).not.toBe(calls[0]?.[2]);
     },
@@ -718,8 +718,7 @@ describe("a deposit due on the manage link", () => {
 describe("detailErrors", () => {
     const filled = {
         name: "Robin",
-        phone: "",
-        email: "robin@example.com",
+        phone: "+16045550143",
         subjectName: "",
         subjectAddress: "",
     };

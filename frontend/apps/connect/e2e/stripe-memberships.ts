@@ -146,5 +146,5 @@ export async function pastDueNotices(subscriptionId: string) {
     return select<{ key: string; state: string }>`
         SELECT key, state FROM deliveries
         WHERE key LIKE ${`stripe:subscription_past_due:${subscriptionId}:%`}
-        AND payload->>'channel' = 'email' ORDER BY key`;
+        AND payload->>'channel' = 'sms' ORDER BY key`;
 }

@@ -12,7 +12,7 @@ from clientbridge.models.catalog import GiftCard, Item, StockMovement
 from clientbridge.models.payments import Payment
 from clientbridge.services import ledger
 from clientbridge.services.ledger import Leg
-from tests.conftest import BIZ, Factory, FakeEmailSender, FakePaymentGateway
+from tests.conftest import BIZ, Factory, FakePaymentGateway, FakeSmsSender
 from tests.helpers import enable_payments, key, settle
 from tests.helpers import key as retry_key
 
@@ -81,7 +81,7 @@ async def test_purchase_off_session_creates_pending_card_and_payment(
 
 
 async def test_purchase_settles_active_and_notifies_recipient(
-    as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
+    as_owner: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender
 ) -> None:
     await enable_payments(db)
     body = (
@@ -91,7 +91,7 @@ async def test_purchase_settles_active_and_notifies_recipient(
                 "amount_cents": 8000,
                 "purchaser_client_id": PURCHASER,
                 "payment_method_id": "default",
-                "recipient": "mum@example.ca",
+                "recipient": "+15145550233",
             },
         )
     ).json()
@@ -101,14 +101,14 @@ async def test_purchase_settles_active_and_notifies_recipient(
         await db.execute(select(GiftCard).where(GiftCard.id == body["gift_card_id"]))
     ).scalar_one()
     assert card.status == "active"
-    sent = [m for m in email.sent if m.to == "mum@example.ca"]
+    sent = [m for m in sms.sent if m.to == "+15145550233"]
     assert len(sent) == 1
     assert body["code"] in sent[0].body
     assert "a $80.00 gift card" in sent[0].body  # in the purchase's currency
 
 
 async def test_settle_redelivery_activates_once_and_notifies_once(
-    as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
+    as_owner: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender
 ) -> None:
     # A new event id for the same intent gets past webhook dedup and must hit the settled guard
     await enable_payments(db)
@@ -119,7 +119,7 @@ async def test_settle_redelivery_activates_once_and_notifies_once(
                 "amount_cents": 6000,
                 "purchaser_client_id": PURCHASER,
                 "payment_method_id": "default",
-                "recipient": "gran@example.ca",
+                "recipient": "+15145550234",
             },
         )
     ).json()
@@ -128,14 +128,14 @@ async def test_settle_redelivery_activates_once_and_notifies_once(
         await db.execute(select(GiftCard).where(GiftCard.id == body["gift_card_id"]))
     ).scalar_one()
     assert card.status == "active"
-    assert len([m for m in email.sent if m.to == "gran@example.ca"]) == 1
+    assert len([m for m in sms.sent if m.to == "+15145550234"]) == 1
 
     await settle(as_owner, db, body["payment_id"], "evt_gc_redelivery")  # second event id
     card = (
         await db.execute(select(GiftCard).where(GiftCard.id == body["gift_card_id"]))
     ).scalar_one()
     assert card.status == "active"  # still active, not re-activated
-    assert len([m for m in email.sent if m.to == "gran@example.ca"]) == 1  # emailed exactly once
+    assert len([m for m in sms.sent if m.to == "+15145550234"]) == 1
 
 
 async def test_redeem_before_activation_409(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
@@ -592,7 +592,7 @@ async def test_a_gift_card_cannot_settle_a_unit_an_online_checkout_holds(
     online = await as_owner.post(
         "/book/birchbark/shop/orders",
         json={
-            "client": {"name": "Online Shopper", "email": "shopper@example.ca"},
+            "client": {"name": "Online Shopper", "phone": "+16045550330"},
             "lines": [{"item_id": shampoo.id, "quantity": 1}],
         },
         headers=key(),

@@ -285,7 +285,7 @@ function ClientList() {
                                             {c.name}
                                         </div>
                                         <div className="truncate text-xs text-muted">
-                                            {c.phoneLabel || (c.email ?? strings.clients.dash)}
+                                            {c.phoneLabel || strings.clients.dash}
                                         </div>
                                     </div>
                                 </div>

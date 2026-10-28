@@ -1,4 +1,4 @@
-import { createHmac, randomUUID } from "node:crypto";
+import { createHmac, randomInt, randomUUID } from "node:crypto";
 import type { APIRequestContext } from "@playwright/test";
 import { demoPerson } from "@clientbridge/config/e2e/demo";
 import { demoId, runEmail, runUrl } from "@clientbridge/config/e2e/run";
@@ -41,6 +41,56 @@ export async function mailedCodeForFlow(
     );
 }
 
+/** A fresh mobile number, so its texts are sent and no other client already has it. */
+export function freshPhone(): string {
+    // NANP exchanges 200 to 999 except 555, which the product reserves for fiction
+    let exchange = randomInt(200, 1000);
+    if (exchange === 555) exchange = 556;
+    return `+1250${String(exchange)}${String(randomInt(0, 10_000)).padStart(4, "0")}`;
+}
+
+/** The dev inbox the API's text transport mails `phone`'s texts to, under this run. */
+export function textInbox(phone: string): string {
+    return runEmail(`${phone.replace(/\D/g, "")}@sms.test`);
+}
+
+/** The newest code texted to `phone`, other than `previous`. */
+export async function textedCode(
+    request: APIRequestContext,
+    phone: string,
+    previous?: string,
+): Promise<string> {
+    return texted(request, phone, (text) => {
+        const code = /\b(\d{6})\b/.exec(text)?.[1];
+        return code !== previous ? code : undefined;
+    });
+}
+
+export interface Text {
+    ID: string;
+    Subject: string;
+    Snippet: string;
+    Created: string;
+}
+
+/** Every text this run sent to `phone`, newest first. */
+export async function textsTo(request: APIRequestContext, phone: string): Promise<Text[]> {
+    const response = await request.get(`${MAILPIT}/api/v1/search`, {
+        params: { query: `to:"${textInbox(phone)}"`, limit: 100 },
+    });
+    if (response.status() !== 200) throw new Error(`mailpit search failed: ${response.status()}`);
+    return ((await response.json()) as { messages: Text[] }).messages;
+}
+
+/** What `pick` finds in the newest text to `phone`. */
+async function texted(
+    request: APIRequestContext,
+    phone: string,
+    pick: (text: string) => string | undefined,
+): Promise<string> {
+    return mailed(request, textInbox(phone), null, pick);
+}
+
 /** The verification link in the newest verification email to `email`. */
 export async function mailedVerificationLink(
     request: APIRequestContext,
@@ -52,12 +102,13 @@ export async function mailedVerificationLink(
 async function mailed(
     request: APIRequestContext,
     email: string,
-    subject: string,
+    subject: string | null,
     pick: (text: string) => string | undefined,
 ): Promise<string> {
+    const query = subject === null ? `to:"${email}"` : `to:"${email}" subject:"${subject}"`;
     for (let attempt = 0; attempt < 40; attempt++) {
         const search = await request.get(`${MAILPIT}/api/v1/search`, {
-            params: { query: `to:"${email}" subject:"${subject}"` },
+            params: { query },
         });
         const found = (await search.json()) as { messages?: { ID: string }[] };
         const id = found.messages?.[0]?.ID;

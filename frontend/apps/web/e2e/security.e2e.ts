@@ -1,4 +1,4 @@
-import { strings } from "@clientbridge/app-core/public";
+import { formatPhone, strings } from "@clientbridge/app-core/public";
 import { expect, test, type Page, type BrowserContext } from "@playwright/test";
 import { openClient } from "./support/clients";
 import {
@@ -87,7 +87,9 @@ test("SEC-E2E-02 another business cannot read or mutate client, invoice or payme
         await expect(
             foreign.getByText(strings.clients.record.goneBody, { exact: true }),
         ).toBeVisible({ timeout: 60_000 });
-        await expect(foreign.getByText(fixture.client.email, { exact: true })).toHaveCount(0);
+        await expect(
+            foreign.getByText(formatPhone(fixture.client.phone), { exact: true }),
+        ).toHaveCount(0);
         await navigate(foreign, `/payments/invoices?open=${fixture.invoice.id}`);
         await expect(
             foreign.getByRole("tab", {
@@ -160,7 +162,7 @@ async function downgraded(page: Page, f: SecurityFixture): Promise<void> {
         timeout: 60_000,
     });
     const client = await openClient(page, f.client);
-    await expect(client).toContainText(f.client.email);
+    await expect(client).toContainText(formatPhone(f.client.phone));
     await expect(
         client.getByRole("button", { name: strings.clients.record.invoice, exact: true }),
     ).toHaveCount(0);
@@ -188,7 +190,7 @@ async function removed(page: Page, f: SecurityFixture, businessId: string): Prom
     await expect(
         page.getByRole("heading", { name: strings.business.onboarding.title, exact: true }),
     ).toBeVisible({ timeout: 60_000 });
-    await expect(page.getByText(f.client.email, { exact: true })).toHaveCount(0);
+    await expect(page.getByText(formatPhone(f.client.phone), { exact: true })).toHaveCount(0);
     await expect(
         page.getByRole("tab", { name: strings.navigation.paymentsTabs.invoices, exact: true }),
     ).toHaveCount(0);

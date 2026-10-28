@@ -12,7 +12,7 @@ from clientbridge.models.catalog import Item
 from clientbridge.models.payments import Payment
 from clientbridge.models.scheduling import Addon, Booking
 from clientbridge.services import ledger
-from tests.conftest import BIZ, Factory, FakeEmailSender
+from tests.conftest import BIZ, Factory, FakeEmailSender, FakeSmsSender
 from tests.helpers import enable_payments, reachable, settle
 
 SLUG = "birchbark"
@@ -28,9 +28,9 @@ def _key() -> dict[str, str]:
     return {"Idempotency-Key": uuid.uuid4().hex}
 
 
-def _order(*lines: tuple[str, int], email: str = "shopper@example.ca") -> dict[str, object]:
+def _order(*lines: tuple[str, int], phone: str = "+16045550223") -> dict[str, object]:
     return {
-        "client": {"name": "Online Shopper", "email": email},
+        "client": {"name": "Online Shopper", "phone": phone},
         "lines": [{"item_id": i, "quantity": q} for i, q in lines],
     }
 
@@ -119,6 +119,18 @@ async def test_order_needs_an_idempotency_key_422(api: httpx.AsyncClient, db: As
     ).status_code == 422
 
 
+async def test_order_requires_a_mobile_number(api: httpx.AsyncClient) -> None:
+    res = await api.post(
+        f"/book/{SLUG}/shop/orders",
+        headers=_key(),
+        json={
+            "client": {"name": "No Mobile"},
+            "lines": [{"item_id": SHAMPOO, "quantity": 1}],
+        },
+    )
+    assert res.status_code == 422
+
+
 async def test_order_refuses_items_not_sold_online_404(
     api: httpx.AsyncClient, db: AsyncSession
 ) -> None:
@@ -160,7 +172,7 @@ async def test_order_needs_card_payments_on_409(api: httpx.AsyncClient, db: Asyn
 
 
 async def test_paid_order_notifies_owner_and_client_with_pickup(
-    api: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
+    api: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender, sms: FakeSmsSender
 ) -> None:
     await _enable(db)
     await db.execute(update(Business).where(Business.id == BIZ).values(billing_email="o@x.ca"))
@@ -175,11 +187,11 @@ async def test_paid_order_notifies_owner_and_client_with_pickup(
     assert order.paid_at is not None
     to = {e.to: e for e in email.sent}
     assert "Online order paid" in to["o@x.ca"].subject
-    assert "Collect your order" in to["shopper@example.ca"].body
+    assert any("Collect your order" in text.body for text in sms.sent)
 
 
 async def test_staff_mark_an_online_order_ready_then_picked_up(
-    as_staff: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
+    as_staff: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender
 ) -> None:
     order = await db.get(Order, "ord_web")
     assert order is not None and order.client_id is not None
@@ -189,7 +201,7 @@ async def test_staff_mark_an_online_order_ready_then_picked_up(
     assert ready.json()["pickup_status"] == "ready"
     assert ready.json()["ready_at"] is not None
     assert ready.json()["picked_up_at"] is None
-    assert any("ready to pick up" in e.body for e in email.sent)
+    assert any("ready to pick up" in text.body for text in sms.sent)
     done = await as_staff.post("/v1/orders/ord_web/pickup", json={"status": "picked_up"})
     assert done.json()["pickup_status"] == "picked_up"
     assert done.json()["ready_at"] == ready.json()["ready_at"]
@@ -228,7 +240,7 @@ async def test_booking_page_offers_add_ons_and_stores_them(
             "item_id": "it_groom_sm",
             "staff_id": "st_owner",
             "starts_at": "2027-03-02T18:50:00Z",
-            "client": {"name": "Add On", "email": "addon@example.com"},
+            "client": {"name": "Add On", "phone": "+16045550163"},
             "addons": [{"item_id": BRUSH, "quantity": 1}, {"item_id": BRUSH, "quantity": 1}],
         },
     )
@@ -248,7 +260,7 @@ async def test_booking_refuses_an_add_on_not_sold_online_404(api: httpx.AsyncCli
             "item_id": "it_groom_sm",
             "staff_id": "st_owner",
             "starts_at": "2027-03-02T18:50:00Z",
-            "client": {"name": "Add On", "email": "addon@example.com"},
+            "client": {"name": "Add On", "phone": "+16045550163"},
             "addons": [{"item_id": BATH}],
         },
     )

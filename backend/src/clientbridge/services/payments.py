@@ -496,8 +496,6 @@ class PaymentService:
         account_id = merchant_account(business)
         if account_id is None or not business.stripe_charges_enabled:
             raise Conflict("set up payments before requesting bank authorization")
-        if not client.email:
-            raise Conflict("add the client's email so they can receive bank verification notices")
         await self.gateway.ensure_pad_capability(account_id)
 
         async def run(cmd: Command) -> PaymentSetupLinkOut:
@@ -1166,7 +1164,6 @@ async def ensure_customer(
         locked.stripe_customer_id = await gateway.create_customer(
             account_id,
             name=locked.name,
-            email=locked.email,
             idempotency_key=f"customer:{locked.business_id}:{locked.id}",
         )
         await db.flush()
@@ -1175,15 +1172,13 @@ async def ensure_customer(
 
 
 async def sync_customer(db: AsyncSession, gateway: PaymentGateway, client: Client) -> None:
-    """Carry a client's new name or email to their Stripe Customer; the next edit retries a miss."""
+    """Carry a client's new name to their Stripe Customer; the next edit retries a miss."""
     business = await db.get(Business, client.business_id)
     account_id = merchant_account(business) if business is not None else None
     if account_id is None or client.stripe_customer_id is None:
         return
     try:
-        await gateway.update_customer(
-            account_id, client.stripe_customer_id, name=client.name, email=client.email
-        )
+        await gateway.update_customer(account_id, client.stripe_customer_id, name=client.name)
     except Exception:
         _log.warning("stripe customer update failed for client %s", client.id, exc_info=True)
 
@@ -3499,17 +3494,18 @@ class PublicPaymentSetupService:
             raise NotFound("authorization link unavailable; request a new link")
         return link
 
-    async def view(self, token: str, *, start: bool = False) -> PublicPaymentSetup:
+    async def view(self, token: str, *, payer_email: str | None = None) -> PublicPaymentSetup:
+        """The setup page; the payer's email starts the mandate and goes only to Stripe."""
         link = await self.resolve(token)
-        if start and link.setup_intent_id is None:
+        if payer_email is not None and link.setup_intent_id is None:
             client = await self.db.get(Client, link.client_id)
-            if client is None or not client.email:
-                raise Conflict("ask the business to add your email for bank verification notices")
+            if client is None:
+                raise NotFound("authorization link unavailable; request a new link")
             intent = await self.gateway.create_pad_setup_intent(
                 link.account_id,
                 customer_id=link.customer_id,
                 idempotency_key=f"pad_setup_{link.id}",
-                email=client.email,
+                email=payer_email,
             )
             link.setup_intent_id = intent.id
             link.expires_at = clock.now() + timedelta(days=10)
@@ -3523,7 +3519,7 @@ class PublicPaymentSetupService:
             link.setup_status = state.status
             if state.status == "succeeded":
                 await _reconcile_pad_setup(self.db, self.gateway, link.account_id, state.id)
-            elif start and state.status not in ("canceled", "processing"):
+            elif payer_email is not None and state.status not in ("canceled", "processing"):
                 secret = state.client_secret
             if state.verification_url and state.verification_url.startswith("https://"):
                 verify = state.verification_url

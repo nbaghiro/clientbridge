@@ -4,8 +4,8 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from clientbridge.core.mirrors import Mirror
+from clientbridge.core.phones import Phone
 from clientbridge.models.billing import Order, OrderSource, PickupStatus
-from clientbridge.models.clients import Channel
 from clientbridge.models.payments import Payment, PaymentKind, PayMethod
 from clientbridge.schemas.billing import DiscountIn, LineInput, LineOut
 from clientbridge.schemas.payments import PublicDocLine, PublicDocTax, TipShareIn
@@ -19,8 +19,7 @@ class OrderCreate(Mirror):
     lines: list[LineInput] = Field(default_factory=list)
     discount: DiscountIn | None = Field(default=None, description="Off the whole sale")
     note: str | None = Field(default=None, max_length=200, description="Why the sale is held")
-    receipt_email: str | None = Field(default=None, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
-    receipt_phone: str | None = Field(default=None, min_length=7, max_length=20)
+    receipt_phone: Phone = None
 
 
 class OrderUpdate(Mirror):
@@ -32,8 +31,7 @@ class OrderUpdate(Mirror):
     lines: list[LineInput] | None = None
     discount: DiscountIn | None = Field(default=None, description="Off the whole sale")
     note: str | None = Field(default=None, max_length=200)
-    receipt_email: str | None = Field(default=None, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
-    receipt_phone: str | None = Field(default=None, min_length=7, max_length=20)
+    receipt_phone: Phone = None
 
 
 class TipIn(Mirror):
@@ -69,8 +67,7 @@ class OrderCashOut(Mirror):
 
 
 class OrderReceiptIn(BaseModel):
-    channel: Channel
-    to: str = Field(min_length=3, max_length=200, description="An email address or phone number")
+    to: str = Field(min_length=7, max_length=20, description="The number the receipt is texted to")
 
 
 class OrderPickupIn(BaseModel):
@@ -94,7 +91,6 @@ class OrderOut(Mirror):
     amount_paid_cents: int
     balance_cents: int
     paid_at: datetime | None
-    receipt_email: str | None = None
     receipt_phone: str | None = None
     source: OrderSource = "pos"
     pickup_status: PickupStatus | None = None
@@ -107,7 +103,6 @@ class OrderOut(Mirror):
     gift_card_cents: int = Field(default=0, description="Gift card balance redeemed on the sale")
     due_cents: int = Field(default=0, description="What is left to charge, before any tip")
     tip_cents: int = 0
-    receipt_channel: Channel | None = None
     receipt_sent_at: datetime | None = None
     lines: list[LineOut]
 

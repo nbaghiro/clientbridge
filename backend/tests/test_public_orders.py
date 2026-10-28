@@ -23,7 +23,7 @@ async def place(api: httpx.AsyncClient, db: AsyncSession) -> dict[str, str]:
         "/book/birchbark/shop/orders",
         headers={"Idempotency-Key": uuid.uuid4().hex},
         json={
-            "client": {"name": "Pickup Client", "email": "pickup@example.com"},
+            "client": {"name": "Pickup Client", "phone": "+16045550164"},
             "lines": [{"item_id": "it_shampoo", "quantity": 1}],
         },
     )
@@ -122,7 +122,7 @@ async def test_pickup_windows_validate_and_enforce_capacity(
     assert windows
     window = windows[0]
     payload = {
-        "client": {"name": "Scheduled Pickup", "email": "scheduled@example.com"},
+        "client": {"name": "Scheduled Pickup", "phone": "+16045550165"},
         "lines": [{"item_id": "it_shampoo", "quantity": 1}],
         "pickup_from": window["starts_at"],
         "pickup_to": window["ends_at"],
@@ -184,7 +184,7 @@ async def test_unpaid_order_expires_only_after_intent_cancellation(
         "/book/birchbark/shop/orders",
         headers={"Idempotency-Key": uuid.uuid4().hex},
         json={
-            "client": {"name": "Abandoned", "email": "abandoned@example.com"},
+            "client": {"name": "Abandoned", "phone": "+16045550166"},
             "lines": [{"item_id": "it_shampoo", "quantity": 1}],
         },
     )
@@ -229,9 +229,9 @@ async def test_ready_order_reminder_sent_once_and_respects_alert_choice(
     morning = clock.now().astimezone(ZoneInfo("America/Vancouver")).replace(hour=9, minute=0)
     assert await run_pickup_reminders(db, notifier, morning.replace(hour=10)) == 0
     assert await run_pickup_reminders(db, notifier, morning) == 1
-    assert len(email.sent) == 1 and sms.sent == []
+    assert email.sent == [] and sms.sent == []
     assert await run_pickup_reminders(db, notifier, morning) == 0
-    assert len(email.sent) == 1
+    assert email.sent == []
 
 
 async def test_late_settlement_of_a_void_order_is_recorded_and_refunded(
@@ -242,7 +242,7 @@ async def test_late_settlement_of_a_void_order_is_recorded_and_refunded(
         "/book/birchbark/shop/orders",
         headers={"Idempotency-Key": uuid.uuid4().hex},
         json={
-            "client": {"name": "Late", "email": "late@example.com"},
+            "client": {"name": "Late", "phone": "+16045550167"},
             "lines": [{"item_id": "it_shampoo", "quantity": 1}],
         },
     )
@@ -307,7 +307,7 @@ async def test_stock_corrected_after_checkout_refunds_without_fulfilling(
         "/book/birchbark/shop/orders",
         headers={"Idempotency-Key": uuid.uuid4().hex},
         json={
-            "client": {"name": "Corrected", "email": "corrected@example.ca"},
+            "client": {"name": "Corrected", "phone": "+16045550168"},
             "lines": [{"item_id": product.id, "quantity": 1}],
         },
     )
@@ -351,7 +351,7 @@ async def test_a_void_refund_that_settles_later_still_returns_our_fee(
         "/book/birchbark/shop/orders",
         headers={"Idempotency-Key": uuid.uuid4().hex},
         json={
-            "client": {"name": "Later", "email": "later@example.ca"},
+            "client": {"name": "Later", "phone": "+16045550169"},
             "lines": [{"item_id": product.id, "quantity": 1}],
         },
     )

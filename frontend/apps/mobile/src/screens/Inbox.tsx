@@ -1,9 +1,7 @@
 import {
-    type Channel,
     INBOX_FILTERS,
     type InboxSegmentKey,
     type InboxThread,
-    channelLabel,
     firstName,
     strings,
     useConversation,
@@ -65,7 +63,6 @@ import { Reviews } from "./Reviews";
 
 const c = theme.colors;
 const s = strings.messaging;
-const CHANNELS: Channel[] = ["sms", "email"];
 
 export function InboxScreen() {
     const segments = visibleInboxSegments(useRole());
@@ -209,8 +206,6 @@ function Messages() {
                             preview={t.last_body ?? ""}
                             at={t.ago}
                             unread={t.unread_count}
-                            channel={t.channelKind}
-                            channelLabel={channelLabel(t.channel)}
                             tag={
                                 t.textsOff
                                     ? { label: s.textsOffShort, intent: "danger" }
@@ -349,21 +344,14 @@ function ThreadView({ thread, onBack }: { thread: InboxThread; onBack?: () => vo
                 <TextField
                     multiline
                     rows={2}
-                    name={s.replyPlaceholder(composer.channel)}
+                    name={s.replyPlaceholder}
                     value={composer.body}
                     onChange={composer.setBody}
-                    placeholder={s.replyPlaceholder(composer.channel)}
+                    placeholder={s.replyPlaceholder}
                     disabled={composer.smsBlocked}
                 />
                 {composer.error !== null ? <Notice tone="danger">{composer.error}</Notice> : null}
                 <View style={styles.headRow}>
-                    <Choice
-                        layout="segmented"
-                        label={s.channelLabel}
-                        options={CHANNELS.map((ch) => ({ key: ch, label: s.channels[ch] }))}
-                        value={composer.channel}
-                        onChange={composer.setChannel}
-                    />
                     <Button
                         style={{ alignSelf: "center" }}
                         icon="send"
@@ -374,7 +362,7 @@ function ThreadView({ thread, onBack }: { thread: InboxThread; onBack?: () => vo
                         {s.send}
                     </Button>
                 </View>
-                {composer.channel === "sms" && composer.body.length > 0 ? (
+                {composer.body.length > 0 ? (
                     <Text style={styles.meta}>
                         {s.smsCount(composer.segments.chars, composer.segments.segments)}
                     </Text>
@@ -404,13 +392,6 @@ function NewMessageSheet({
                     placeholder={s.chooseClient}
                     options={msg.clients}
                     onChange={msg.setClientId}
-                />
-                <Choice
-                    layout="segmented"
-                    label={s.channelLabel}
-                    options={CHANNELS.map((ch) => ({ key: ch, label: s.channels[ch] }))}
-                    value={msg.channel}
-                    onChange={msg.setChannel}
                 />
                 {msg.smsBlocked ? <Notice tone="danger">{s.smsBlockedNew}</Notice> : null}
                 <TextField

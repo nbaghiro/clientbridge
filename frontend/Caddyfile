@@ -122,7 +122,7 @@ Disallow: /
 		@unembeddable {
 			not {
 				host {$BOOK_HOST}
-				not path /m/* /prefs/*
+				not path /m/*
 			}
 			not {
 				host {$SHOP_HOST}

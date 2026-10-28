@@ -1,4 +1,4 @@
-import { formatMoney, strings } from "@clientbridge/app-core/public";
+import { formatMoney, formatPhone, strings } from "@clientbridge/app-core/public";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { paymentEvidence } from "./support/evidence";
 import {
@@ -9,13 +9,13 @@ import {
     openDocument,
     saveDocument,
 } from "./support/billing";
-import { deliveredMail, inboxMail } from "./support/messaging";
+import { textInbox, textsTo } from "./support/auth";
+import { deliveredTexts } from "./support/messaging";
 import { signIn } from "./support/session";
 import { runEmail } from "@clientbridge/config/e2e/run";
 
 interface Preview {
     recipient: string | null;
-    email: { to: string; subject: string; body: string } | null;
     text: { to: string; body: string } | null;
 }
 
@@ -38,19 +38,18 @@ async function reviewSend(
     const review = page.getByRole("dialog").filter({
         has: page.getByRole("heading", { name: strings.previews.title, exact: true }),
     });
-    const email = preview.email;
-    if (email === null) throw new Error("The preview shows no email");
+    const text = preview.text;
+    if (text === null) throw new Error("The preview shows no text");
     await expect(review.getByText(strings.ui.review.to(preview.recipient ?? ""))).toBeVisible();
     await expect(
-        review.getByText(strings.ui.review.emailTo(email.to), { exact: true }),
+        review.getByText(strings.ui.review.textTo(formatPhone(text.to)), { exact: true }),
     ).toBeVisible();
-    await expect(review.getByText(email.subject, { exact: true })).toBeVisible();
-    for (const line of email.body.split("\n").filter((part) => part.trim() !== ""))
+    for (const line of text.body.split("\n").filter((part) => part.trim() !== ""))
         await expect(review).toContainText(line);
     return { review, preview };
 }
 
-test("BILL-DOC-04 the send preview shows word for word the invoice and reminder emails that arrive", async ({
+test("BILL-DOC-04 the send preview shows word for word the invoice and reminder texts that arrive", async ({
     page,
 }, testInfo) => {
     await signIn(page);
@@ -69,17 +68,14 @@ test("BILL-DOC-04 the send preview shows word for word the invoice and reminder 
     );
     const sendPreview = sending.preview;
     expect(sendPreview.recipient).toBe(client.name);
-    expect(sendPreview.text).toBeNull();
-    expect(sendPreview.email?.to).toBe(client.email);
-    const promised = /^Invoice #(\d+) from Birchbark Pet Studio$/.exec(
-        sendPreview.email?.subject ?? "",
-    );
+    expect(sendPreview.text?.to).toBe(client.phone);
+    const promised = /^Invoice #(\d+) for /.exec(sendPreview.text?.body ?? "");
     expect(promised).not.toBeNull();
     expect((await documentEvidence("invoice", draft.id)).document).toMatchObject({
         status: "draft",
         number: null,
     });
-    expect(await inboxMail(page.request, client.email)).toEqual([]);
+    expect(await textsTo(page.request, client.phone)).toEqual([]);
     const sent = page.waitForResponse(
         (response) =>
             response.url().endsWith(`/v1/invoices/${draft.id}/send`) &&
@@ -94,18 +90,17 @@ test("BILL-DOC-04 the send preview shows word for word the invoice and reminder 
     expect(issued.status).toBe("sent");
     expect(String(issued.number)).toBe(promised?.[1]);
     await expect
-        .poll(async () => (await inboxMail(page.request, client.email)).length, {
+        .poll(async () => (await textsTo(page.request, client.phone)).length, {
             timeout: 30_000,
         })
         .toBe(1);
-    const [invoiceMail] = await deliveredMail(page.request, client.email);
-    expect(invoiceMail?.to).toEqual([client.email]);
-    expect(invoiceMail?.subject).toBe(sendPreview.email?.subject);
+    const [invoiceText] = await deliveredTexts(page.request, client.phone);
+    expect(invoiceText?.to).toEqual([textInbox(client.phone)]);
     // a draft's pay link is minted only when it goes out, so the preview holds its place
-    const [before, after, ...rest] = (sendPreview.email?.body ?? "").split("…");
+    const [before, after, ...rest] = (sendPreview.text?.body ?? "").split("…");
     expect(rest).toEqual([]);
     expect(before).toContain(formatMoney(4480, "CAD"));
-    expect(invoiceMail?.text).toMatch(
+    expect(invoiceText?.text).toMatch(
         new RegExp(`^${escape(before ?? "")}[A-Za-z0-9_-]{16,}${escape(after ?? "")}$`),
     );
 
@@ -123,14 +118,13 @@ test("BILL-DOC-04 the send preview shows word for word the invoice and reminder 
         `/v1/previews/invoices/${draft.id}/remind`,
     );
     const remindPreview = reminding.preview;
-    expect(remindPreview.text).toBeNull();
-    expect(remindPreview.email).toEqual({
-        to: client.email,
-        subject: `Reminder: invoice #${String(issued.number)} from Birchbark Pet Studio`,
-        body: expect.stringContaining(formatMoney(4480, "CAD")),
+    expect(remindPreview.text).toEqual({
+        to: client.phone,
+        body: expect.stringContaining(`invoice #${String(issued.number)}`),
     });
-    expect(remindPreview.email?.body).not.toContain("…");
-    expect(await inboxMail(page.request, client.email)).toHaveLength(1);
+    expect(remindPreview.text?.body).toContain(formatMoney(4480, "CAD"));
+    expect(remindPreview.text?.body).not.toContain("…");
+    expect(await textsTo(page.request, client.phone)).toHaveLength(1);
     const reminded = page.waitForResponse(
         (response) =>
             response.url().endsWith(`/v1/invoices/${draft.id}/remind`) &&
@@ -141,22 +135,21 @@ test("BILL-DOC-04 the send preview shows word for word the invoice and reminder 
         .click();
     expect((await reminded).status()).toBe(200);
     await expect
-        .poll(async () => (await inboxMail(page.request, client.email)).length, {
+        .poll(async () => (await textsTo(page.request, client.phone)).length, {
             timeout: 30_000,
         })
         .toBe(2);
-    const delivered = await deliveredMail(page.request, client.email);
+    const delivered = await deliveredTexts(page.request, client.phone);
     expect(delivered).toEqual([
-        invoiceMail,
+        invoiceText,
         {
             id: expect.any(String),
-            to: [client.email],
-            subject: remindPreview.email?.subject,
-            text: remindPreview.email?.body,
+            to: [textInbox(client.phone)],
+            text: remindPreview.text?.body,
         },
     ]);
-    // the reminder carries the same pay link the invoice email minted
-    const link = /https?:\/\/\S+\/i\/[A-Za-z0-9_-]+/.exec(invoiceMail?.text ?? "")?.[0];
+    // the reminder carries the same pay link the invoice text minted
+    const link = /https?:\/\/\S+\/i\/[A-Za-z0-9_-]+/.exec(invoiceText?.text ?? "")?.[0];
     expect(link).toBeTruthy();
     expect(delivered[1]?.text).toContain(link);
     const ledger = await paymentEvidence(draft.id);
@@ -166,13 +159,13 @@ test("BILL-DOC-04 the send preview shows word for word the invoice and reminder 
         status: "sent",
         number: issued.number,
     });
-    await testInfo.attach("previews-and-mail", {
+    await testInfo.attach("previews-and-texts", {
         body: JSON.stringify({ sendPreview, remindPreview, delivered }),
         contentType: "application/json",
     });
 });
 
-test("BILL-DOC-20 retry after a lost estimate send response mails the estimate once", async ({
+test("BILL-DOC-20 retry after a lost estimate send response texts the estimate once", async ({
     page,
 }, testInfo) => {
     await signIn(page);
@@ -209,7 +202,7 @@ test("BILL-DOC-20 retry after a lost estimate send response mails the estimate o
     const committed = (await documentEvidence("estimate", draft.id)).document;
     expect(committed).toMatchObject({ status: "sent", number: expect.any(Number) });
     await expect
-        .poll(async () => (await inboxMail(page.request, client.email)).length, {
+        .poll(async () => (await textsTo(page.request, client.phone)).length, {
             timeout: 30_000,
         })
         .toBe(1);
@@ -224,9 +217,9 @@ test("BILL-DOC-20 retry after a lost estimate send response mails the estimate o
     expect(keys[0]).toBeTruthy();
     expect(keys[1]).toBe(keys[0]);
     expect((await documentEvidence("estimate", draft.id)).document).toEqual(committed);
-    const delivered = await deliveredMail(page.request, client.email);
+    const delivered = await deliveredTexts(page.request, client.phone);
     expect(delivered).toHaveLength(1);
-    expect(delivered[0]?.subject).toContain(`#${String(committed.number)}`);
+    expect(delivered[0]?.text).toContain(`#${String(committed.number)}`);
     await testInfo.attach("estimate-send", {
         body: JSON.stringify({ keys, committed, delivered }),
         contentType: "application/json",
@@ -258,7 +251,7 @@ test("a reminder shows the message before it goes out, and cancelling sends noth
         .click({ timeout: 60_000 });
     const sheet = page.getByRole("dialog");
     await expect(sheet.getByText(p.title)).toBeVisible();
-    await expect(sheet.getByText(new RegExp(`^${r.emailTo("").trim()}`))).toBeVisible();
+    await expect(sheet.getByText(new RegExp(`^${r.textTo("").trim()}`))).toBeVisible();
     await expect(sheet.getByRole("button", { name: p.sendReminder })).toBeEnabled();
     await sheet.getByRole("button", { name: strings.common.cancel }).click();
     await expect(page.getByText(p.title)).toHaveCount(0);

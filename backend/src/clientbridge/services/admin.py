@@ -220,7 +220,6 @@ class AdminService:
             query = query.where(
                 or_(
                     Client.name.icontains(q, autoescape=True),
-                    Client.email.icontains(q, autoescape=True),
                     Client.id == q,
                 )
             )

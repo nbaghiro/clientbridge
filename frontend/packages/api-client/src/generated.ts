@@ -841,41 +841,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/prefs/{token}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Public Preferences */
-        get: operations["public_preferences_prefs__token__get"];
-        put?: never;
-        /** Public Preferences Save */
-        post: operations["public_preferences_save_prefs__token__post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/prefs/{token}/unsubscribe": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Public Unsubscribe */
-        post: operations["public_unsubscribe_prefs__token__unsubscribe_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/v1/plan": {
         parameters: {
             query?: never;
@@ -4327,8 +4292,6 @@ export interface components {
             business_id: string;
             /** Name */
             name: string;
-            /** Email */
-            email: string | null;
             /** Phone */
             phone: string | null;
             /**
@@ -5048,11 +5011,6 @@ export interface components {
             /** Name */
             name: string;
             /**
-             * Channel
-             * @enum {string}
-             */
-            channel: "sms" | "email";
-            /**
              * Status
              * @enum {string}
              */
@@ -5074,11 +5032,6 @@ export interface components {
         BroadcastSend: {
             /** Name */
             name: string;
-            /**
-             * Channel
-             * @enum {string}
-             */
-            channel: "sms" | "email";
             /** Body */
             body: string;
             /**
@@ -5248,8 +5201,6 @@ export interface components {
         ClientCreate: {
             /** Name */
             name: string;
-            /** Email */
-            email?: string | null;
             /** Phone */
             phone?: string | null;
             /** Tags */
@@ -5258,12 +5209,6 @@ export interface components {
             custom_fields?: {
                 [key: string]: unknown;
             };
-            /**
-             * Preferred Channel
-             * @default sms
-             * @enum {string}
-             */
-            preferred_channel: "sms" | "email";
             /**
              * Marketing Consent
              * @description Record that the client agreed to news and offers
@@ -5290,8 +5235,6 @@ export interface components {
         ClientOut: {
             /** Name */
             name: string;
-            /** Email */
-            email?: string | null;
             /** Phone */
             phone?: string | null;
             /** Tags */
@@ -5300,12 +5243,6 @@ export interface components {
             custom_fields?: {
                 [key: string]: unknown;
             };
-            /**
-             * Preferred Channel
-             * @default sms
-             * @enum {string}
-             */
-            preferred_channel: "sms" | "email";
             /** Id */
             id: string;
             /**
@@ -5344,8 +5281,6 @@ export interface components {
         ClientUpdate: {
             /** Name */
             name?: string | null;
-            /** Email */
-            email?: string | null;
             /** Phone */
             phone?: string | null;
             /** Tags */
@@ -5354,8 +5289,6 @@ export interface components {
             custom_fields?: {
                 [key: string]: unknown;
             } | null;
-            /** Preferred Channel */
-            preferred_channel?: ("sms" | "email") | null;
             /** Marketing Consent */
             marketing_consent?: boolean | null;
         };
@@ -5481,11 +5414,6 @@ export interface components {
              * @enum {string}
              */
             direction: "in" | "out";
-            /**
-             * Channel
-             * @enum {string}
-             */
-            channel: "sms" | "email";
             /** Body */
             body: string | null;
             /**
@@ -7218,11 +7146,6 @@ export interface components {
              * @enum {string}
              */
             direction: "in" | "out";
-            /**
-             * Channel
-             * @enum {string}
-             */
-            channel: "sms" | "email";
             /** Body */
             body: string | null;
             /**
@@ -7235,11 +7158,6 @@ export interface components {
         MessageSend: {
             /** Client Id */
             client_id: string;
-            /**
-             * Channel
-             * @enum {string}
-             */
-            channel: "sms" | "email";
             /** Body */
             body: string;
             /**
@@ -7506,8 +7424,6 @@ export interface components {
              * @description Why the sale is held
              */
             note?: string | null;
-            /** Receipt Email */
-            receipt_email?: string | null;
             /** Receipt Phone */
             receipt_phone?: string | null;
         };
@@ -7544,8 +7460,6 @@ export interface components {
             balance_cents: number;
             /** Paid At */
             paid_at: string | null;
-            /** Receipt Email */
-            receipt_email?: string | null;
             /** Receipt Phone */
             receipt_phone?: string | null;
             /**
@@ -7591,8 +7505,6 @@ export interface components {
              * @default 0
              */
             tip_cents: number;
-            /** Receipt Channel */
-            receipt_channel?: ("sms" | "email") | null;
             /** Receipt Sent At */
             receipt_sent_at?: string | null;
             /** Lines */
@@ -7628,13 +7540,8 @@ export interface components {
         /** OrderReceiptIn */
         OrderReceiptIn: {
             /**
-             * Channel
-             * @enum {string}
-             */
-            channel: "sms" | "email";
-            /**
              * To
-             * @description An email address or phone number
+             * @description The number the receipt is texted to
              */
             to: string;
         };
@@ -7651,19 +7558,8 @@ export interface components {
             discount?: components["schemas"]["DiscountIn"] | null;
             /** Note */
             note?: string | null;
-            /** Receipt Email */
-            receipt_email?: string | null;
             /** Receipt Phone */
             receipt_phone?: string | null;
-        };
-        /** OutgoingEmail */
-        OutgoingEmail: {
-            /** To */
-            to: string;
-            /** Subject */
-            subject: string;
-            /** Body */
-            body: string;
         };
         /**
          * OutgoingPreview
@@ -7675,7 +7571,6 @@ export interface components {
              * @description The client's name, when it goes to a client
              */
             recipient: string | null;
-            email: components["schemas"]["OutgoingEmail"] | null;
             text: components["schemas"]["OutgoingText"] | null;
         };
         /** OutgoingText */
@@ -8112,10 +8007,8 @@ export interface components {
         PublicBookingClient: {
             /** Name */
             name: string;
-            /** Email */
-            email?: string | null;
             /** Phone */
-            phone?: string | null;
+            phone: string;
         };
         /** PublicBookingCreate */
         PublicBookingCreate: {
@@ -8747,6 +8640,14 @@ export interface components {
             /** Verification Url */
             verification_url?: string | null;
         };
+        /** PublicPaymentSetupStart */
+        PublicPaymentSetupStart: {
+            /**
+             * Email
+             * @description Where Stripe sends the mandate and debit notices; Clientbridge keeps none
+             */
+            email: string;
+        };
         /** PublicPickupDays */
         PublicPickupDays: {
             /** Windows */
@@ -8784,41 +8685,6 @@ export interface components {
             max_reschedules: number;
             /** Horizon Days */
             horizon_days: number;
-        };
-        /** PublicPreferences */
-        PublicPreferences: {
-            /** Business Name */
-            business_name: string;
-            brand: components["schemas"]["PublicBrand"];
-            /** First Name */
-            first_name: string;
-            /**
-             * Email Hint
-             * @description The address on file, partly hidden
-             */
-            email_hint: string | null;
-            /**
-             * Phone Hint
-             * @description The last four digits of the number on file
-             */
-            phone_hint: string | null;
-            /**
-             * Email
-             * @description Offers and news by email
-             */
-            email: boolean;
-            /**
-             * Sms
-             * @description Offers and news by text
-             */
-            sms: boolean;
-        };
-        /** PublicPreferencesUpdate */
-        PublicPreferencesUpdate: {
-            /** Email */
-            email: boolean;
-            /** Sms */
-            sms: boolean;
         };
         /** PublicProfile */
         PublicProfile: {
@@ -9183,14 +9049,6 @@ export interface components {
              */
             photo_url?: string | null;
         };
-        /** PublicUnsubscribe */
-        PublicUnsubscribe: {
-            /**
-             * Channel
-             * @description One channel, or both when null
-             */
-            channel?: ("sms" | "email") | null;
-        };
         /** RecurrenceCancel */
         RecurrenceCancel: {
             /**
@@ -9485,8 +9343,6 @@ export interface components {
          * @description The reminder a visit gets, word for word, and when the job sends it.
          */
         ReminderPreview: {
-            /** Subject */
-            subject: string;
             /** Body */
             body: string;
             /**
@@ -9704,8 +9560,6 @@ export interface components {
         ReturningProfile: {
             /** Name */
             name: string;
-            /** Email */
-            email: string | null;
             /** Phone */
             phone: string | null;
             /** Subjects */
@@ -9714,10 +9568,8 @@ export interface components {
         };
         /** ReturningRequest */
         ReturningRequest: {
-            /** Email */
-            email?: string | null;
             /** Phone */
-            phone?: string | null;
+            phone: string;
         };
         /** ReturningSubject */
         ReturningSubject: {
@@ -10847,7 +10699,11 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublicPaymentSetupStart"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -12094,107 +11950,6 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    public_preferences_prefs__token__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                token: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PublicPreferences"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    public_preferences_save_prefs__token__post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                token: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PublicPreferencesUpdate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PublicPreferences"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    public_unsubscribe_prefs__token__unsubscribe_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                token: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PublicUnsubscribe"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PublicPreferences"];
-                };
             };
             /** @description Validation Error */
             422: {
@@ -16928,7 +16683,6 @@ export interface operations {
     order_receipt_v1_previews_orders__order_id__receipt_get: {
         parameters: {
             query: {
-                channel: "sms" | "email";
                 to: string;
             };
             header?: {

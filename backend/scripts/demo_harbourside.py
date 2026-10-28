@@ -257,8 +257,8 @@ POLICY_BODY = "\n\n".join(
         "This policy covers how to move or cancel a visit at Harbourside Massage and Wellness. "
         "It is demo text for a fictional business, not legal advice.",
         "Notice\nPlease give us at least 24 hours' notice to move or cancel. You can do it from "
-        "the link in your confirmation email, by text or by phone. We keep a short waitlist, "
-        "so an early cancellation usually lets someone else in.",
+        "the link in your confirmation text, by replying to it or by phone. We keep a short "
+        "waitlist, so an early cancellation usually lets someone else in.",
         "Late cancellations\nIf you cancel with less than 24 hours' notice, we charge half the "
         "treatment fee to the card on file. We'll waive it once a year for illness or an "
         "emergency; just tell us when you call.",
@@ -859,14 +859,11 @@ class Harbourside(Demo):
 
     def clients(self) -> None:
         for index, person in enumerate(PEOPLE):
-            first, last = person.name.lower().replace("'", "").split(" ", 1)
             self.client(
                 person.key,
                 person.name,
-                f"{first}.{last.replace(' ', '')}@example.test",
                 f"+17785550{100 + index}",
                 tags=["acupuncture"] if person.key in ACU_CLIENTS or person.key == "harjit" else [],
-                channel="email" if index % 3 == 0 else "sms",
                 fields={"source": ("referral", "google", "walk-in", "insurer list")[index % 4]},
                 since=self.at(person.since, 12) if person.since is not None else None,
             )
@@ -1369,14 +1366,14 @@ class Harbourside(Demo):
 
     def engagement(self) -> None:
         self.consents()
-        self.withdraw("brendan", "email", self.now - timedelta(days=60))
+        self.withdraw("brendan", self.now - timedelta(days=60))
         self.broadcast(
             "mothers_day",
             "Gift cards for Mother's Day",
             "Gift cards for Mother's Day are available at the front desk, by phone at "
-            "778-555-0190, or by replying to this email. They come in any amount, can be used "
+            "778-555-0190, or by replying to this text. They come in any amount, can be used "
             "for massage or acupuncture with any of us, and don't expire. If you'd like the card "
-            "sent straight to the recipient, tell us their email and we'll include a short note "
+            "sent straight to the recipient, include a short note "
             "from you.",
             self.at(-170, 10),
         )
@@ -1387,7 +1384,7 @@ class Harbourside(Demo):
             {
                 "rating": 5,
                 "liked": "Leila found the knot under my shoulder blade that's bothered me for "
-                "months and showed me a stretch for it. The receipt went straight to my email "
+                "months and showed me a stretch for it. I got the receipt right away "
                 "with everything my insurance asked for.",
                 "recommend": "Yes",
             },
@@ -1429,7 +1426,7 @@ class Harbourside(Demo):
         ctx = self.ctx
         ananya = ctx.get(Booking, "bk_hs_ananya_first")
         when = ananya.created_at + timedelta(hours=6)
-        thread = self.thread("ananya", "email", when)
+        thread = self.thread("ananya", when)
         self.say(
             thread,
             "Hi, I've filled in the health history form. Is there parking nearby, and should I "
@@ -1440,13 +1437,13 @@ class Harbourside(Demo):
         self.say(
             thread,
             "Thanks, Ananya, we have your form. There's pay parking under the building, with "
-            "the entrance on Bute Street. You don't need your card: we'll email a receipt with "
+            "the entrance on Bute Street. You don't need your card: you'll get a text receipt with "
             "Leila's registration number after the visit so you can claim it.",
             when + timedelta(minutes=40),
         )
         late = ctx.get(Booking, "bk_hs_brendan_late")
         canceled = late.canceled_at or late.starts_at
-        thread = self.thread("brendan", "sms", canceled)
+        thread = self.thread("brendan", canceled)
         self.say(
             thread,
             f"Hi, it's Brendan. I need to cancel my {self.clock(late.starts_at)} with Leila "
@@ -1469,7 +1466,7 @@ class Harbourside(Demo):
         )
         navneet = ctx.get(Booking, "bk_hs_navneet_0")
         when = navneet.created_at - timedelta(hours=3)
-        thread = self.thread("navneet", "sms", when)
+        thread = self.thread("navneet", when)
         self.say(
             thread,
             "Hello, I'm 18 weeks pregnant. Is massage safe at this stage, and will I need to "
@@ -1487,7 +1484,7 @@ class Harbourside(Demo):
         moved = ctx.get(Booking, "bk_hs_hiroshi_moved")
         when = min(moved.created_at + timedelta(days=1), self.now - timedelta(hours=4))
         local = self.local(moved.starts_at)
-        thread = self.thread("hiroshi", "sms", when)
+        thread = self.thread("hiroshi", when)
         self.say(
             thread,
             "Could I move my deep tissue with Jun to later in the week? Something came up at work.",
@@ -1503,7 +1500,7 @@ class Harbourside(Demo):
         gwen = ctx.get(Booking, "bk_hs_gwen_recent")
         assert gwen.completed_at is not None
         when = min(gwen.completed_at + timedelta(days=1, hours=2), self.now - timedelta(hours=1))
-        thread = self.thread("gwen", "email", when)
+        thread = self.thread("gwen", when)
         self.say(
             thread,
             "Hi Gwen, thank you for the feedback about the room. You're right that it was cold "
@@ -1522,7 +1519,7 @@ class Harbourside(Demo):
         kenji = ctx.get(Booking, "bk_hs_kenji_5")
         assert kenji.completed_at is not None
         when = kenji.completed_at + timedelta(days=2)
-        thread = self.thread("kenji", "email", when)
+        thread = self.thread("kenji", when)
         self.say(
             thread,
             "Hi, my insurer asked for a receipt that shows the therapist's registration number "
@@ -1540,7 +1537,7 @@ class Harbourside(Demo):
         fatemeh = ctx.get(Booking, "bk_hs_fatemeh_recent")
         assert fatemeh.completed_at is not None
         when = fatemeh.completed_at + timedelta(days=3)
-        thread = self.thread("fatemeh", "sms", when)
+        thread = self.thread("fatemeh", when)
         self.say(
             thread,
             "Thank you for fitting me in last week. The stretch Leila showed me is helping, "

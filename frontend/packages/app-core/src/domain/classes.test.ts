@@ -11,7 +11,6 @@ const seat = (status: string, checkedIn: string | null = null): RosterRow => ({
     subject_id: null,
     client_name: "Ann",
     client_phone: null,
-    client_email: null,
     subject_name: null,
     subject_attributes: null,
     status,

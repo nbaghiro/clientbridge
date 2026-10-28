@@ -2,7 +2,6 @@ import {
     type BroadcastDraft,
     type BroadcastItem,
     type BroadcastSeed,
-    type Channel,
     broadcastIntent,
     broadcastAudience,
     broadcastWhen,
@@ -48,20 +47,6 @@ import { api } from "../lib/api";
 
 const c = theme.colors;
 const s = strings.broadcasts;
-const CHANNELS: { key: Channel; label: string }[] = [
-    {
-        key: "sms",
-        get label() {
-            return s.channels.sms;
-        },
-    },
-    {
-        key: "email",
-        get label() {
-            return s.channels.email;
-        },
-    },
-];
 const ALL = "__all";
 type Step = "audience" | "message" | "review";
 const STEPS: Step[] = ["audience", "message", "review"];
@@ -110,13 +95,12 @@ function Home({ onCompose }: { onCompose: (seed: BroadcastSeed) => void }) {
             .catch(() => undefined);
     };
     const compose = (): void => {
-        onCompose({ name: "", body: "", tags: [], channel: "sms" });
+        onCompose({ name: "", body: "", tags: [] });
     };
     const nothingYet = home.load.hasData && home.broadcasts.length === 0;
     // No one to reach yet: the reach figures and the consent lists would all read zero.
     const noAudience =
         home.reach.sms === 0 &&
-        home.reach.email === 0 &&
         home.reach.optedOut === 0 &&
         home.optOuts.length === 0 &&
         home.implied.length === 0;
@@ -137,9 +121,6 @@ function Home({ onCompose }: { onCompose: (seed: BroadcastSeed) => void }) {
                     <View style={styles.stats}>
                         <View style={styles.flex}>
                             <Stat size="lg" label={s.reachText} value={String(home.reach.sms)} />
-                        </View>
-                        <View style={styles.flex}>
-                            <Stat size="lg" label={s.reachEmail} value={String(home.reach.email)} />
                         </View>
                         <View style={styles.flex}>
                             <Stat
@@ -200,7 +181,7 @@ function Home({ onCompose }: { onCompose: (seed: BroadcastSeed) => void }) {
                         <Text style={styles.meta}>{s.optOutsSubtitle}</Text>
                         {home.optOuts.length === 0 ? <Empty message={s.noOptOuts} /> : null}
                         {home.optOuts.map((o) => (
-                            <View key={`${o.clientId}-${o.channel}`} style={styles.row}>
+                            <View key={o.clientId} style={styles.row}>
                                 <Avatar name={o.name} src={photos.client(o.clientId)} size="sm" />
                                 <View style={styles.flex}>
                                     <Text style={styles.rowName}>{o.name}</Text>
@@ -208,26 +189,18 @@ function Home({ onCompose }: { onCompose: (seed: BroadcastSeed) => void }) {
                                         {s.consentSource(o.source, dateOf(o.at, zone))}
                                     </Text>
                                 </View>
-                                <StatusPill
-                                    style={{ alignSelf: "center" }}
-                                    status={s.consentChannel[o.channel]}
-                                    intent="danger"
-                                />
                             </View>
                         ))}
                         <Text style={[styles.sectionTitle, styles.gapTop]}>{s.impliedTitle}</Text>
                         <Text style={styles.meta}>{s.impliedSubtitle}</Text>
                         {home.implied.length === 0 ? <Empty message={s.noImplied} /> : null}
                         {home.implied.map((o) => (
-                            <View key={`${o.clientId}-${o.channel}`} style={styles.row}>
+                            <View key={o.clientId} style={styles.row}>
                                 <Avatar name={o.name} src={photos.client(o.clientId)} size="sm" />
                                 <View style={styles.flex}>
                                     <Text style={styles.rowName}>{o.name}</Text>
                                     <Text style={styles.meta}>
-                                        {formatParts([
-                                            s.consentChannel[o.channel],
-                                            s.endsOn(dateOf(o.expires, zone)),
-                                        ])}
+                                        {s.endsOn(dateOf(o.expires, zone))}
                                     </Text>
                                 </View>
                             </View>
@@ -245,10 +218,7 @@ function Home({ onCompose }: { onCompose: (seed: BroadcastSeed) => void }) {
                 >
                     <SheetHeader
                         title={open.name}
-                        subtitle={formatParts([
-                            s.viaChannel(open.channel),
-                            broadcastWhen(open, zone),
-                        ])}
+                        subtitle={broadcastWhen(open, zone)}
                         onClose={() => {
                             setOpen(null);
                         }}
@@ -285,7 +255,6 @@ function Home({ onCompose }: { onCompose: (seed: BroadcastSeed) => void }) {
                                         name: s.copyOf(open.name),
                                         body: open.body ?? "",
                                         tags: open.tags,
-                                        channel: open.channel === "email" ? "email" : "sms",
                                     });
                                 }}
                             >
@@ -355,15 +324,6 @@ function Composer({ seed, onDone }: { seed: BroadcastSeed; onDone: () => void })
                         onChange={draft.setName}
                         placeholder={s.namePlaceholder(word)}
                     />
-                    <Field label={s.channelPick}>
-                        <Choice
-                            layout="segmented"
-                            label={s.channelPick}
-                            options={CHANNELS}
-                            value={draft.channel}
-                            onChange={draft.setChannel}
-                        />
-                    </Field>
                     <AudiencePicker draft={draft} />
                     <Loaded
                         flush
@@ -385,17 +345,10 @@ function Composer({ seed, onDone }: { seed: BroadcastSeed; onDone: () => void })
                         value={draft.body}
                         onChange={draft.setBody}
                         placeholder={s.messagePlaceholder(word)}
-                        hint={
-                            draft.channel === "sms"
-                                ? s.smsCount(draft.segments.chars, draft.segments.segments)
-                                : undefined
-                        }
+                        hint={s.smsCount(draft.segments.chars, draft.segments.segments)}
                     />
                     <Notice tone="info" banner>
-                        {strings.common.twoSentences(
-                            draft.channel === "sms" ? s.optOutSms : s.optOutEmail,
-                            s.optOutNote,
-                        )}
+                        {strings.common.twoSentences(s.optOutSms, s.optOutNote)}
                     </Notice>
                 </View>
             ) : null}

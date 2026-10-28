@@ -33,8 +33,7 @@ async def open_invoice(
         "/v1/clients",
         json={
             "name": "QA Customer",
-            "email": "payments-qa@clientbridge.test",
-            "preferred_channel": "email",
+            "phone": "+16045550123",
         },
     )
     assert response.status_code == 201, response.text

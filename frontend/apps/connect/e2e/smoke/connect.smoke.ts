@@ -58,7 +58,6 @@ test.describe("web server", () => {
         ];
         const unframed = [
             `${deployment.book}/m/x`,
-            `${deployment.book}/prefs/x`,
             `${deployment.shop}/order/x`,
             `${deployment.pay}/e/x`,
             `${deployment.pay}/r/x`,

@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.ids import new_id
 from clientbridge.models.documents import Contract, Signature
-from tests.conftest import Factory, FakeEmailSender
+from tests.conftest import Factory, FakeSmsSender
 from tests.helpers import client_id, key, ok
 
 BIZ = "bz_birchbark"
@@ -16,7 +16,7 @@ DRAWN = [[[0.1, 0.5], [0.2, 0.4], [0.3, 0.6]], [[0.5, 0.5], [0.8, 0.45]]]
 async def _send(
     api: httpx.AsyncClient, db: AsyncSession, contract_id: str = WAIVER
 ) -> dict[str, object]:
-    body = {"contract_id": contract_id, "client_id": await client_id(db, email="sign@example.ca")}
+    body = {"contract_id": contract_id, "client_id": await client_id(db)}
     return dict(ok(await api.post("/v1/contracts/send", json=body), 201).json())
 
 
@@ -99,14 +99,14 @@ async def test_versions_are_tenant_scoped(
 
 
 async def test_resend_a_waiting_request(
-    as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
+    as_owner: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender
 ) -> None:
     sent = await _send(as_owner, db)
-    before = len(email.sent)
+    before = len(sms.sent)
     headers = key()
     ok(await as_owner.post(f"/v1/signatures/{sent['id']}/resend", headers=headers))
     ok(await as_owner.post(f"/v1/signatures/{sent['id']}/resend", headers=headers))
-    assert len(email.sent) == before + 1  # the replay does not send again
+    assert len(sms.sent) == before + 1
     ok(
         await as_owner.post(
             f"/contract/{sent['token']}/sign",

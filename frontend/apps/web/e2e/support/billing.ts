@@ -4,7 +4,8 @@ import { strings, formatMoney } from "@clientbridge/app-core/public";
 import { expect, type Page, type Locator } from "@playwright/test";
 import { requireLocalMail } from "./evidence";
 import { navigate } from "./session";
-import { runEmail, runUrl } from "@clientbridge/config/e2e/run";
+import { runUrl } from "@clientbridge/config/e2e/run";
+import { freshPhone, type Text, textsTo } from "./auth";
 import { select } from "./db";
 
 /** Picks which records a Payments list shows, from its Show dropdown. */
@@ -16,7 +17,7 @@ export async function showOnly(page: Page, option: RegExp): Promise<void> {
 
 export interface InvoiceFixture {
     id: string;
-    email: string;
+    phone: string;
     name: string;
 }
 
@@ -24,13 +25,13 @@ export async function createInvoice(page: Page): Promise<InvoiceFixture> {
     requireLocalMail();
     const run = randomUUID();
     const name = demoPerson(run);
-    const email = runEmail(`e2e-${run}@example.ca`);
+    const phone = freshPhone();
     const api = runUrl("VITE_API_URL");
     if (!["localhost", "127.0.0.1"].includes(new URL(api).hostname)) {
         throw new Error("The billing pilot requires a local API and SMTP sink");
     }
     const clientResponse = await page.request.post(`${api}/v1/clients`, {
-        data: { name, email, preferred_channel: "email" },
+        data: { name, phone },
         headers: { "Idempotency-Key": randomUUID(), Origin: new URL(page.url()).origin },
     });
     expect(clientResponse.status(), await clientResponse.text()).toBe(201);
@@ -59,7 +60,7 @@ export async function createInvoice(page: Page): Promise<InvoiceFixture> {
     };
     expect(invoice.total_cents).toBe(1000);
     expect(invoice.balance_cents).toBe(1000);
-    return { id: invoice.id, email, name };
+    return { id: invoice.id, phone, name };
 }
 
 export async function openInvoice(page: Page, invoice: InvoiceFixture): Promise<void> {
@@ -123,7 +124,7 @@ export async function recordPayment(
 export interface DocumentClient {
     id: string;
     name: string;
-    email: string;
+    phone: string;
 }
 
 export interface DocumentRecord {
@@ -215,13 +216,13 @@ export async function createDocumentClient(page: Page): Promise<DocumentClient> 
     }
     const run = randomUUID();
     const name = demoPerson(run);
-    const email = runEmail(`document-${run}@example.ca`);
+    const phone = freshPhone();
     const response = await page.request.post(`${api}/v1/clients`, {
         headers: { Origin: new URL(page.url()).origin, "Idempotency-Key": randomUUID() },
-        data: { name, email, preferred_channel: "email" },
+        data: { name, phone },
     });
     expect(response.status(), await response.text()).toBe(201);
-    return { id: ((await response.json()) as { id: string }).id, name, email };
+    return { id: ((await response.json()) as { id: string }).id, name, phone };
 }
 
 export async function composeDocument(
@@ -235,7 +236,7 @@ export async function composeDocument(
     });
     await editor
         .getByRole("combobox", { name: strings.billing.client, exact: true })
-        .fill(client.email);
+        .fill(client.name);
     await page
         .getByRole("option")
         .filter({ has: page.getByText(client.name, { exact: true }) })
@@ -330,16 +331,6 @@ export async function expectDocumentTotal(dialog: Locator, cents: number): Promi
     ).toBeVisible();
 }
 
-export async function documentMail(
-    page: Page,
-    client: DocumentClient,
-): Promise<{ ID: string; Subject: string; Snippet: string }[]> {
-    const base = runUrl("MAILPIT_URL");
-    const response = await page.request.get(`${base}/api/v1/search`, {
-        params: { query: `to:${client.email}`, limit: 100 },
-    });
-    expect(response.status()).toBe(200);
-    return (
-        (await response.json()) as { messages: { ID: string; Subject: string; Snippet: string }[] }
-    ).messages;
+export async function documentTexts(page: Page, client: DocumentClient): Promise<Text[]> {
+    return textsTo(page.request, client.phone);
 }

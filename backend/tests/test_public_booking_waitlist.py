@@ -63,18 +63,22 @@ async def _booking(
     return booking
 
 
-def _body(name: str = "Wait Lister", **extra: object) -> dict[str, object]:
+def _body(
+    name: str = "Wait Lister", phone: str = "+16045550259", **extra: object
+) -> dict[str, object]:
     return {
         "item_id": "it_puppy",
         "staff_id": "st_owner",
         "starts_at": OPENING,
-        "client": {"name": name, "email": f"{name.split()[0].lower()}@clients.test"},
+        "client": {"name": name, "phone": phone},
         **extra,
     }
 
 
-async def _join(api: httpx.AsyncClient, name: str = "Wait Lister") -> dict[str, object]:
-    res = await api.post(f"/book/{SLUG}/waitlist", json=_body(name), headers=key())
+async def _join(
+    api: httpx.AsyncClient, name: str = "Wait Lister", phone: str = "+16045550259"
+) -> dict[str, object]:
+    res = await api.post(f"/book/{SLUG}/waitlist", json=_body(name, phone), headers=key())
     assert res.status_code == 200, res.text
     body: dict[str, object] = res.json()
     return body
@@ -102,14 +106,14 @@ async def test_joining_the_waitlist_online_puts_the_client_in_line(
     first = await _join(api, "Wait Lister")
     assert first["status"] == "waitlisted" and first["waitlist_position"] == 1
     assert first["manage_token"] and first["deposit_client_secret"] is None
-    second = await _join(api, "Next Lister")
+    second = await _join(api, "Next Lister", "+16045550262")
     assert second["waitlist_position"] == 2
     row = await db.get(Booking, str(first["booking_id"]))
     assert row is not None and row.slot_id == slot_id and row.source == "online"
     assert row.confirmed_at is None
-    assert await queued_subjects(db, f"booking:{first['booking_id']}") == [
-        f"You're on the waitlist for {CLASS}"
-    ]
+    [waitlisted] = await queued_subjects(db, f"booking:{first['booking_id']}")
+    assert waitlisted.startswith(f"{CLASS} with")
+    assert "you're on the waitlist" in waitlisted
     view = (await api.get(f"/manage/{first['manage_token']}")).json()
     assert view["status"] == "waitlisted" and view["waitlist_position"] == 1
     assert view["can_cancel"] is True and view["can_move"] is False
@@ -121,16 +125,15 @@ async def test_a_seat_canceled_online_goes_to_the_first_person_waiting(
     slot_id = await _session(db)
     leaving = await db.scalar(select(Booking.manage_token).where(Booking.slot_id == slot_id))
     waiting = await _join(api)
-    later = await _join(api, "Late Lister")
+    later = await _join(api, "Late Lister", "+16045550263")
     jobs.work, jobs.enqueued = False, []
     res = await api.post(f"/manage/{leaving}/cancel", headers=key())
     assert res.status_code == 200, res.text
     assert jobs.enqueued == []  # the seat notice waits for the scheduled sweep
     seated = (await api.get(f"/manage/{waiting['manage_token']}")).json()
     assert seated["status"] == "confirmed" and seated["waitlist_position"] is None
-    assert await queued_subjects(db, f"seat:{slot_id}:{waiting['booking_id']}") == [
-        f"A seat opened up in {CLASS}"
-    ]
+    [notice] = await queued_subjects(db, f"seat:{slot_id}:{waiting['booking_id']}")
+    assert notice.startswith(f"A seat opened up in {CLASS}")
     notices = await db.scalars(
         select(Delivery.state).where(Delivery.key.startswith(f"seat:{slot_id}:"))
     )
@@ -150,7 +153,7 @@ async def test_leaving_the_waitlist_online_seats_nobody(
 ) -> None:
     slot_id = await _session(db)
     first = await _join(api)
-    second = await _join(api, "Next Lister")
+    second = await _join(api, "Next Lister", "+16045550264")
     res = await api.post(f"/manage/{first['manage_token']}/cancel", headers=key())
     assert res.status_code == 200, res.text
     assert res.json()["deposit"] == "none"
@@ -229,5 +232,7 @@ async def test_joining_with_the_same_key_replays_the_first_answer(
         )
     )
     assert waiting == 1
-    other = await api.post(f"/book/{SLUG}/waitlist", json=_body("Other Name"), headers=headers)
+    other = await api.post(
+        f"/book/{SLUG}/waitlist", json=_body("Other Name", "+16045550260"), headers=headers
+    )
     assert other.status_code == 422 and other.json()["error"] == "idempotency_key_reused"

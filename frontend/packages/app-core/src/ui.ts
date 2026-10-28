@@ -702,8 +702,6 @@ export interface ConversationRowProps {
     preview: string;
     at: string;
     unread: number;
-    channel: "sms" | "email";
-    channelLabel: string;
     selected?: boolean | undefined;
     // Something to act on: opted out, a new number.
     tag?: Tag | undefined;

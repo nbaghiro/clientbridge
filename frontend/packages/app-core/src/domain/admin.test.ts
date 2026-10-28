@@ -161,8 +161,8 @@ it("retries an email with the same request key and blocks simultaneous sends", a
         result.current.setConfirmed(true);
     });
     act(() => {
-        result.current.send("receipt", "smtp");
-        result.current.send("receipt", "smtp");
+        result.current.send("login-code", "smtp");
+        result.current.send("login-code", "smtp");
     });
     await waitFor(() => {
         expect(result.current.busy).toBe(false);
@@ -172,7 +172,7 @@ it("retries an email with the same request key and blocks simultaneous sends", a
         result.current.setConfirmed(true);
     });
     act(() => {
-        result.current.send("receipt", "smtp");
+        result.current.send("login-code", "smtp");
     });
     await waitFor(() => {
         expect(result.current.outcome).toBe("accepted");
@@ -195,7 +195,7 @@ it("does not report queued mail as accepted", async () => {
         result.current.setConfirmed(true);
     });
     act(() => {
-        result.current.send("receipt", "smtp");
+        result.current.send("login-code", "smtp");
     });
     await waitFor(() => {
         expect(result.current.outcome).toBe("queued");

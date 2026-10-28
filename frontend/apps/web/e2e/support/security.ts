@@ -52,7 +52,7 @@ export async function prepareSecurityFixture(page: Page): Promise<SecurityFixtur
     const document = await documentEvidence("invoice", invoice.id);
     return {
         invoice,
-        client: { id: document.document.client_id, name: invoice.name, email: invoice.email },
+        client: { id: document.document.client_id, name: invoice.name, phone: invoice.phone },
         paymentId: body.payment_id,
         payments,
         document,

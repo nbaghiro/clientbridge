@@ -57,8 +57,8 @@ export const outgoing = {
     invoiceSend: (api: ApiLike, id: string) => get(api, `invoices/${id}/send`),
     invoiceRemind: (api: ApiLike, id: string) => get(api, `invoices/${id}/remind`),
     estimateSend: (api: ApiLike, id: string) => get(api, `estimates/${id}/send`),
-    orderReceipt: (api: ApiLike, id: string, channel: "email" | "sms", to: string) =>
-        get(api, `orders/${id}/receipt?${query({ channel, to })}`),
+    orderReceipt: (api: ApiLike, id: string, to: string) =>
+        get(api, `orders/${id}/receipt?${query({ to })}`),
     orderReady: (api: ApiLike, id: string) => get(api, `orders/${id}/ready`),
     bookingDeparted: (api: ApiLike, id: string) => get(api, `bookings/${id}/departed`),
     bookingRescheduled: (api: ApiLike, id: string, startsAt: string, endsAt: string) =>

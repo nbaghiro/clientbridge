@@ -19,7 +19,7 @@ from clientbridge.models.platform import Audit
 from clientbridge.schemas.billing import InvoiceOut
 from clientbridge.services import ledger
 from clientbridge.services.payments import map_subscription_status
-from tests.conftest import Factory, FakeEmailSender, FakePaymentGateway
+from tests.conftest import Factory, FakeEmailSender, FakePaymentGateway, FakeSmsSender
 from tests.helpers import (
     business_balance,
     client_id,
@@ -61,7 +61,12 @@ async def _sub_item(
 
 async def _new_client(db: AsyncSession, *, business_id: str = BIZ, name: str = "Sub Client") -> str:
     client = Client(
-        id=new_id("client"), business_id=business_id, name=name, tags=[], custom_fields={}
+        id=new_id("client"),
+        business_id=business_id,
+        name=name,
+        phone="+16045550223",
+        tags=[],
+        custom_fields={},
     )
     db.add(client)
     await db.flush()
@@ -566,11 +571,13 @@ async def test_recurring_charge_taxed_and_in_gst_report(
 
 
 async def test_invoice_payment_failed_sets_past_due_and_notifies(
-    api: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender, gateway: FakePaymentGateway
+    api: httpx.AsyncClient,
+    db: AsyncSession,
+    sms: FakeSmsSender,
+    gateway: FakePaymentGateway,
 ) -> None:
     await enable_payments(db)
     cid = await _new_client(db, name="Past Due Client")
-    await db.execute(update(Client).where(Client.id == cid).values(email="pastdue@test.ca"))
     item = await _sub_item(db)
     sub = Subscription(
         id=new_id("subscription"),
@@ -595,15 +602,17 @@ async def test_invoice_payment_failed_sets_past_due_and_notifies(
         await db.execute(select(Subscription.status).where(Subscription.id == sub.id))
     ).scalar_one()
     assert status == "past_due"
-    assert any(e.to == "pastdue@test.ca" for e in email.sent)  # client warned of the failed charge
+    assert any(m.to == "+16045550223" for m in sms.sent)
 
 
 async def test_subscription_deleted_notifies_client(
-    api: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender, gateway: FakePaymentGateway
+    api: httpx.AsyncClient,
+    db: AsyncSession,
+    sms: FakeSmsSender,
+    gateway: FakePaymentGateway,
 ) -> None:
     await enable_payments(db)
     cid = await _new_client(db, name="Canceled Client")
-    await db.execute(update(Client).where(Client.id == cid).values(email="canceled@test.ca"))
     item = await _sub_item(db)
     sub = Subscription(
         id=new_id("subscription"),
@@ -625,7 +634,7 @@ async def test_subscription_deleted_notifies_client(
         await db.execute(select(Subscription.status).where(Subscription.id == sub.id))
     ).scalar_one()
     assert status == "canceled"
-    assert any(e.to == "canceled@test.ca" for e in email.sent)
+    assert any(m.to == "+16045550223" for m in sms.sent)
 
 
 async def test_an_expired_incomplete_membership_reads_as_canceled(
@@ -1148,20 +1157,20 @@ async def _fail_invoice(
 
 
 async def test_each_failed_invoice_sends_one_past_due_notice(
-    api: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender, gateway: FakePaymentGateway
+    api: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender, gateway: FakePaymentGateway
 ) -> None:
     await enable_payments(db)
     sub = await _seed_sub(db, ref="sub_episodes")
-    await db.execute(update(Client).where(Client.id == sub.client_id).values(email="ep@test.ca"))
+    phone = await db.scalar(select(Client.phone).where(Client.id == sub.client_id))
     gateway.objects[("acct_test", "subscription", "sub_episodes")] = {
         "id": "sub_episodes",
         "status": "past_due",
     }
     await _fail_invoice(api, "evt_ep1", "in_ep1", "sub_episodes")
     await _fail_invoice(api, "evt_ep1_retry", "in_ep1", "sub_episodes")
-    assert len([e for e in email.sent if e.to == "ep@test.ca"]) == 1
+    assert len([m for m in sms.sent if m.to == phone]) == 1
     await _fail_invoice(api, "evt_ep2", "in_ep2", "sub_episodes")
-    assert len([e for e in email.sent if e.to == "ep@test.ca"]) == 2
+    assert len([m for m in sms.sent if m.to == phone]) == 2
 
 
 async def test_archiving_a_client_ends_their_memberships_at_period_end(

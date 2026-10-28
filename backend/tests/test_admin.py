@@ -106,7 +106,7 @@ def admin_headers(
         "email-config",
         "access",
         "emails",
-        "emails/invoice",
+        "emails/login-code",
         "businesses/bz_birchbark",
         "businesses/bz_birchbark/drift",
         "users/us_dev",
@@ -134,7 +134,7 @@ async def test_admin_reads_require_platform_grant(
         "email-config",
         "access",
         "emails",
-        "emails/invoice",
+        "emails/login-code",
         "businesses/bz_birchbark",
         "businesses/bz_birchbark/drift",
         "users/us_dev",
@@ -210,7 +210,7 @@ async def test_admin_email_preview_and_send(
     app.dependency_overrides[test_sender] = lambda: email
     monkeypatch.setattr(get_settings(), "smtp_url", "smtp://localhost:1025")
     monkeypatch.setattr(get_settings(), "resend_api_key", "")
-    preview = (await api.get("/admin/v1/emails/invoice", headers=admin_headers)).json()
+    preview = (await api.get("/admin/v1/emails/login-code", headers=admin_headers)).json()
     assert "data:image/png;base64," in preview["html"]
     assert "cid:" not in preview["html"]
     body = {
@@ -218,7 +218,7 @@ async def test_admin_email_preview_and_send(
         "transport": "smtp",
         "request_id": "admin-test-delivery-001",
     }
-    response = await api.post("/admin/v1/emails/invoice/send", headers=admin_headers, json=body)
+    response = await api.post("/admin/v1/emails/login-code/send", headers=admin_headers, json=body)
     assert response.status_code == 200, response.text
     assert len(email.sent) == 1
     assert email.sent[0].to == "operator@example.ca"
@@ -231,24 +231,24 @@ async def test_admin_email_preview_and_send(
     assert history.json()["items"][0]["state"] == "accepted"
     assert (await api.get("/admin/v1/deliveries")).status_code == 401
     assert (
-        await api.post("/admin/v1/emails/invoice/send", headers=admin_headers, json=body)
+        await api.post("/admin/v1/emails/login-code/send", headers=admin_headers, json=body)
     ).status_code == 200
     assert len(email.sent) == 1
     assert (
         await api.post(
-            "/admin/v1/emails/invoice/send",
+            "/admin/v1/emails/login-code/send",
             headers=admin_headers,
             json={**body, "recipient": "a@example.com,b@example.com"},
         )
     ).status_code == 422
     assert (
         await api.post(
-            "/admin/v1/emails/invoice/send",
+            "/admin/v1/emails/login-code/send",
             headers=admin_headers,
             json={**body, "transport": "resend"},
         )
     ).status_code == 503
-    assert (await api.post("/admin/v1/emails/invoice/send", json=body)).status_code == 401
+    assert (await api.post("/admin/v1/emails/login-code/send", json=body)).status_code == 401
 
 
 @pytest.mark.parametrize(

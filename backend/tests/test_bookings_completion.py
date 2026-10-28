@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from clientbridge.core.ids import new_id
 from clientbridge.models.business import Business
 from clientbridge.models.catalog import Item
+from clientbridge.models.messaging import Delivery
 from clientbridge.models.platform import Audit
 from clientbridge.models.reviews import ReviewRequest
 from clientbridge.models.scheduling import Booking, BookingStatus, Slot
@@ -130,7 +131,7 @@ async def test_a_visit_left_open_yesterday_is_completed_and_asked_for_a_review(
 
 
 async def test_a_pending_visit_never_approved_is_canceled_without_a_notice(
-    db: AsyncSession, email: FakeEmailSender
+    db: AsyncSession,
 ) -> None:
     visit = await _visit(db, status="pending")
     assert await _run(db) == 1
@@ -139,7 +140,10 @@ async def test_a_pending_visit_never_approved_is_canceled_without_a_notice(
     assert slot.status == "canceled"
     [audit] = await _audits(db, visit.id)
     assert audit.action == "booking.auto_cancel"
-    assert email.sent == []
+    notices = await db.scalar(
+        select(func.count()).select_from(Delivery).where(Delivery.key.contains(visit.id))
+    )
+    assert notices == 0
 
 
 async def test_a_class_completes_once_its_last_open_booking_closes(db: AsyncSession) -> None:

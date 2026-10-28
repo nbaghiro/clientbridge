@@ -6,7 +6,6 @@ import type { PublicBookingFlow } from "./publicBooking";
 
 interface ReturningProfile {
     name: string;
-    email: string | null;
     phone: string | null;
     subjects: { id: string; name: string }[];
     last_visit: {
@@ -23,10 +22,7 @@ interface ReturningVerified {
 }
 
 interface ReturningClient {
-    request: (
-        slug: string,
-        contact: { email: string } | { phone: string },
-    ) => Promise<{ challenge_id: string }>;
+    request: (slug: string, contact: { phone: string }) => Promise<{ challenge_id: string }>;
     verify: (slug: string, challengeId: string, code: string) => Promise<ReturningVerified>;
 }
 
@@ -55,7 +51,6 @@ export function useReturningClient(
     slug: string,
     booking?: PublicBookingFlow,
 ) {
-    const [channel, setChannel] = useState<"email" | "sms">("email");
     const [contact, setContact] = useState("");
     const [code, setCode] = useState("");
     const [challengeId, setChallengeId] = useState<string | null>(null);
@@ -110,10 +105,7 @@ export function useReturningClient(
         const requestGeneration = generation.current;
         run(
             async () => {
-                const result = await client.request(
-                    slug,
-                    channel === "email" ? { email: value } : { phone: value },
-                );
+                const result = await client.request(slug, { phone: value });
                 if (generation.current !== requestGeneration) return;
                 setChallengeId(result.challenge_id);
                 setVerified(null);
@@ -146,11 +138,6 @@ export function useReturningClient(
               ? "code"
               : "contact";
     return {
-        channel,
-        setChannel: (value: "email" | "sms"): void => {
-            reset();
-            setChannel(value);
-        },
         contact,
         setContact: (value: string): void => {
             reset();
@@ -191,7 +178,6 @@ function applyReturning(
     const subject =
         booking.kind === null ? undefined : profile.subjects.find((x) => x.id === subjectId);
     booking.fields.setName(profile.name);
-    booking.fields.setEmail(profile.email ?? "");
     booking.fields.setPhone(profile.phone ?? "");
     booking.fields.setSubjectName(subject?.name ?? "");
     booking.setReturning({ token: verified.token, subjectId: subject?.id ?? null });

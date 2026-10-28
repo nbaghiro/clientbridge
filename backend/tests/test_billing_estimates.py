@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.ids import new_id
 from clientbridge.models.billing import Estimate
-from tests.conftest import Factory, FakeEmailSender
+from tests.conftest import Factory, FakeEmailSender, FakeSmsSender
 from tests.helpers import client_id
 
 BIZ = "bz_birchbark"
@@ -27,21 +27,21 @@ async def test_create_estimate(as_owner: httpx.AsyncClient, db: AsyncSession) ->
 
 
 async def test_send_estimate_assigns_number(
-    as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
+    as_owner: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender
 ) -> None:
-    cid = await client_id(db, email="client@example.ca")
+    cid = await client_id(db)
     est = (await as_owner.post("/v1/estimates", json={"client_id": cid, "lines": [_line()]})).json()
     sent = await as_owner.post(f"/v1/estimates/{est['id']}/send")
     assert sent.status_code == 200
     assert sent.json()["status"] == "sent"
     assert sent.json()["number"] is not None
-    assert len(email.sent) == 1
+    assert len(sms.sent) == 1 and sms.sent[0].to == "+16045550223"
 
 
 async def test_accept_then_convert(
     as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
 ) -> None:
-    cid = await client_id(db, email="client@example.ca")
+    cid = await client_id(db)
     est = (await as_owner.post("/v1/estimates", json={"client_id": cid, "lines": [_line()]})).json()
     await as_owner.post(f"/v1/estimates/{est['id']}/send")
     accepted = await as_owner.post(f"/v1/estimates/{est['id']}/accept")
@@ -63,7 +63,7 @@ async def test_accept_then_convert(
 async def test_cannot_convert_twice(
     as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
 ) -> None:
-    cid = await client_id(db, email="client@example.ca")
+    cid = await client_id(db)
     est = (await as_owner.post("/v1/estimates", json={"client_id": cid, "lines": [_line()]})).json()
     await as_owner.post(f"/v1/estimates/{est['id']}/send")
     assert (await as_owner.post(f"/v1/estimates/{est['id']}/convert")).status_code == 201
@@ -80,7 +80,7 @@ async def test_cannot_convert_draft(as_owner: httpx.AsyncClient, db: AsyncSessio
 async def test_decline_estimate(
     as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
 ) -> None:
-    cid = await client_id(db, email="client@example.ca")
+    cid = await client_id(db)
     est = (await as_owner.post("/v1/estimates", json={"client_id": cid, "lines": [_line()]})).json()
     await as_owner.post(f"/v1/estimates/{est['id']}/send")
     declined = await as_owner.post(f"/v1/estimates/{est['id']}/decline")
@@ -128,7 +128,7 @@ async def test_unknown_estimate_404(as_owner: httpx.AsyncClient) -> None:
 async def test_cannot_send_accepted_estimate(
     as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
 ) -> None:
-    cid = await client_id(db, email="client@example.ca")
+    cid = await client_id(db)
     est = (await as_owner.post("/v1/estimates", json={"client_id": cid, "lines": [_line()]})).json()
     await as_owner.post(f"/v1/estimates/{est['id']}/send")
     await as_owner.post(f"/v1/estimates/{est['id']}/accept")
@@ -220,9 +220,9 @@ async def test_optional_lines_stay_out_of_the_total(
 
 
 async def test_create_and_send_estimate(
-    as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
+    as_owner: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender
 ) -> None:
-    cid = await client_id(db, email="client@example.ca")
+    cid = await client_id(db)
     res = await as_owner.post(
         "/v1/estimates", json={"client_id": cid, "lines": [_line()], "send": True}
     )
@@ -230,7 +230,7 @@ async def test_create_and_send_estimate(
     body = res.json()
     assert body["status"] == "sent" and body["number"] is not None
     assert body["view_token"] and body["valid_until"] is not None
-    assert any(f"/e/{body['view_token']}" in m.body for m in email.sent)
+    assert any(f"/e/{body['view_token']}" in m.body for m in sms.sent)
 
 
 async def test_create_and_send_estimate_needs_an_included_line(
@@ -246,7 +246,7 @@ async def test_create_and_send_estimate_needs_an_included_line(
 async def test_decline_keeps_the_reason(
     as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
 ) -> None:
-    cid = await client_id(db, email="client@example.ca")
+    cid = await client_id(db)
     est = (await as_owner.post("/v1/estimates", json={"client_id": cid, "lines": [_line()]})).json()
     await as_owner.post(f"/v1/estimates/{est['id']}/send")
     declined = await as_owner.post(
@@ -259,7 +259,7 @@ async def test_decline_keeps_the_reason(
 async def test_convert_keeps_tax_class_and_skips_unticked_addons(
     as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
 ) -> None:
-    cid = await client_id(db, email="client@example.ca")
+    cid = await client_id(db)
     line = {**_line(), "tax_class": "federal_only"}
     est = (
         await as_owner.post("/v1/estimates", json={"client_id": cid, "lines": [line, _addon()]})

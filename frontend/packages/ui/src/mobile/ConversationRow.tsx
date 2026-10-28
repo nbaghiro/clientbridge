@@ -4,11 +4,9 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { Avatar } from "./Avatar";
 import { Badge } from "./Badge";
-import { Icon } from "./Icon";
 import type { NativeProps } from "./props";
 
 const c = theme.colors;
-const GLYPH = { sms: "phoneDevice", email: "mail" } as const;
 
 export function ConversationRow({
     name,
@@ -16,8 +14,6 @@ export function ConversationRow({
     preview,
     at,
     unread,
-    channel,
-    channelLabel,
     selected = false,
     tag,
     onPress,
@@ -29,7 +25,7 @@ export function ConversationRow({
             onPress={onPress}
             accessibilityRole="button"
             accessibilityState={{ selected }}
-            accessibilityLabel={formatList([name, channelLabel, preview], "unit")}
+            accessibilityLabel={formatList([name, preview], "unit")}
             style={({ pressed }) => [styles.row, (selected || pressed) && styles.active, style]}
         >
             <Avatar name={name} src={src} size="lg" />
@@ -41,9 +37,6 @@ export function ConversationRow({
                     <Text style={[styles.at, bold && styles.atUnread]}>{at}</Text>
                 </View>
                 <View style={styles.bottom}>
-                    <View style={styles.glyph}>
-                        <Icon name={GLYPH[channel]} size={14} color={c.muted} />
-                    </View>
                     <Text style={[styles.preview, bold && styles.previewUnread]} numberOfLines={2}>
                         {preview}
                     </Text>
@@ -77,8 +70,6 @@ const styles = StyleSheet.create({
     at: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 13 },
     atUnread: { color: c.accent, fontWeight: "600" },
     bottom: { flexDirection: "row", alignItems: "flex-start", gap: 6, marginTop: 3 },
-    // As tall as one line of the preview, so the glyph centres on the first line.
-    glyph: { height: 19, justifyContent: "center" },
     preview: { flex: 1, color: c.muted, fontFamily: theme.fonts.ui, fontSize: 14, lineHeight: 19 },
     previewUnread: { color: c.inkSoft },
     flag: { flexDirection: "row", marginTop: 6 },

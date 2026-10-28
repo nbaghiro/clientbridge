@@ -166,6 +166,7 @@ export function ClientEditorSheet({
             <TextField
                 label={e.phoneLabel}
                 type="tel"
+                required
                 value={draft.phone}
                 onChange={(v) => {
                     set("phone", v);
@@ -174,32 +175,7 @@ export function ClientEditorSheet({
                 error={errors.phone}
                 autoComplete="tel"
             />
-            <TextField
-                label={e.emailLabel}
-                type="email"
-                value={draft.email}
-                onChange={(v) => {
-                    set("email", v);
-                }}
-                placeholder={e.emailPlaceholder}
-                error={errors.email}
-                autoComplete="email"
-            />
             {errors.contact !== undefined ? <Notice tone="danger">{errors.contact}</Notice> : null}
-            <Field label={e.channelLabel}>
-                <Choice
-                    layout="segmented"
-                    label={e.channelLabel}
-                    options={[
-                        { key: "sms", label: e.channelText },
-                        { key: "email", label: e.channelEmail },
-                    ]}
-                    value={draft.channel}
-                    onChange={(v) => {
-                        set("channel", v);
-                    }}
-                />
-            </Field>
             <TagInput
                 label={e.tagsLabel}
                 tags={draft.tags}

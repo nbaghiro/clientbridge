@@ -135,7 +135,6 @@ interface Strings {
     readonly ui: {
         readonly review: {
             readonly to: (name: string) => string;
-            readonly emailTo: (address: string) => string;
             readonly textTo: (number: string) => string;
             readonly nothingSent: string;
             readonly loading: string;
@@ -402,7 +401,7 @@ interface Strings {
             readonly note: string;
             readonly notePlaceholder: string;
             readonly sendReceipt: string;
-            readonly sendReceiptTo: (email: string) => string;
+            readonly sendReceiptTo: (phone: string) => string;
             readonly thisPayment: string;
             readonly resultPaid: string;
             readonly resultPartial: string;
@@ -420,7 +419,7 @@ interface Strings {
             readonly cardBody: string;
             readonly donePaid: (n: string) => string;
             readonly donePartial: (n: string, left: string) => string;
-            readonly receiptSent: (email: string) => string;
+            readonly receiptSent: (phone: string) => string;
             readonly giveChange: (amount: string) => string;
             readonly recordAnother: string;
             readonly nothingOwed: string;
@@ -630,16 +629,12 @@ interface Strings {
             readonly paidBody: (money: string, method: string) => string;
             readonly changeToGive: (money: string) => string;
             readonly receiptTitle: string;
-            readonly receiptEmail: string;
             readonly receiptText: string;
             readonly receiptNone: string;
-            readonly receiptEmailTo: string;
             readonly receiptPhoneTo: string;
-            readonly sendEmail: string;
             readonly sendText: string;
             readonly receiptSent: (to: string) => string;
             readonly receiptSkipped: string;
-            readonly receiptEmailInvalid: string;
             readonly receiptPhoneInvalid: string;
             readonly receiptError: string;
             readonly newSale: string;
@@ -703,7 +698,7 @@ interface Strings {
             readonly payments: string;
             readonly tipsTo: string;
             readonly receiptSection: string;
-            readonly sentBy: (channel: string, to: string) => string;
+            readonly sentBy: (to: string) => string;
             readonly noReceipt: string;
             readonly resumeSale: string;
             readonly markReady: string;
@@ -1142,9 +1137,6 @@ interface Strings {
         readonly cancel: string;
         readonly message: string;
         readonly messageTitle: (name: string) => string;
-        readonly messageChannel: string;
-        readonly messageSms: string;
-        readonly messageEmail: string;
         readonly messageBody: string;
         readonly messagePlaceholder: string;
         readonly messageSend: string;
@@ -1487,8 +1479,6 @@ interface Strings {
         readonly subtitle: string;
         readonly remindersTitle: string;
         readonly remindersHint: string;
-        readonly channelSms: string;
-        readonly channelEmail: string;
         readonly rule: string;
         readonly includeLink: string;
         readonly preview: string;
@@ -1789,7 +1779,6 @@ interface Strings {
             readonly history: string;
             readonly call: string;
             readonly text: string;
-            readonly prefers: (channel: string) => string;
             readonly textsStopped: (when: string) => string;
             readonly inProgress: string;
             readonly depositDue: (amount: string) => string;
@@ -1816,11 +1805,6 @@ interface Strings {
             readonly phoneLabel: string;
             readonly phonePlaceholder: string;
             readonly phoneHint: string;
-            readonly emailLabel: string;
-            readonly emailPlaceholder: string;
-            readonly channelLabel: string;
-            readonly channelText: string;
-            readonly channelEmail: string;
             readonly tagsLabel: string;
             readonly tagsPlaceholder: string;
             readonly consentLabel: string;
@@ -1828,7 +1812,6 @@ interface Strings {
             readonly consentRecorded: (when: string, who: string) => string;
             readonly nameRequired: string;
             readonly contactRequired: string;
-            readonly emailInvalid: string;
             readonly phoneInvalid: string;
             readonly saveError: string;
             readonly add: string;
@@ -1841,7 +1824,6 @@ interface Strings {
             readonly duplicateOpen: string;
             readonly duplicateKeep: string;
             readonly reasonPhone: string;
-            readonly reasonEmail: string;
             readonly reasonName: string;
             readonly and: string;
             readonly archive: string;
@@ -1906,8 +1888,6 @@ interface Strings {
             readonly refundIssued: string;
             readonly textReceived: string;
             readonly textSent: string;
-            readonly emailReceived: string;
-            readonly emailSent: string;
             readonly note: string;
             readonly pinnedNote: string;
             readonly loading: string;
@@ -1983,11 +1963,7 @@ interface Strings {
             readonly created: (when: string) => string;
             readonly same: string;
             readonly none: string;
-            readonly field: {
-                readonly name: string;
-                readonly phone: string;
-                readonly email: string;
-            } & Labels;
+            readonly field: { readonly name: string; readonly phone: string } & Labels;
             readonly blockedMoney: string;
             readonly blockedMethods: string;
             readonly merge: (name: string) => string;
@@ -2153,8 +2129,6 @@ interface Strings {
     };
     readonly messaging: {
         readonly title: string;
-        readonly channelSms: string;
-        readonly channelEmail: string;
         readonly loading: string;
         readonly loadError: string;
         readonly unreadCount: (n: number) => string;
@@ -2167,17 +2141,12 @@ interface Strings {
         readonly sendMessage: string;
         readonly sentNew: (name: string) => string;
         readonly searchPlaceholder: (kind: string) => string;
-        readonly filters: {
-            readonly all: string;
-            readonly unread: string;
-            readonly sms: string;
-            readonly email: string;
-        } & Labels;
+        readonly filters: { readonly all: string; readonly unread: string } & Labels;
+        readonly filterLabel: string;
         readonly noThreadsFiltered: string;
         readonly noThreadsTitle: string;
         readonly noThreadsBody: string;
         readonly noMessagesYet: (name: string) => string;
-        readonly filterLabel: string;
         readonly selectThread: string;
         readonly thread: {
             readonly automatic: string;
@@ -2191,9 +2160,7 @@ interface Strings {
                 readonly queued: string;
             } & Labels;
         };
-        readonly channelLabel: string;
-        readonly channels: { readonly sms: string; readonly email: string } & Labels;
-        readonly replyPlaceholder: (channel: string) => string;
+        readonly replyPlaceholder: string;
         readonly send: string;
         readonly sending: string;
         readonly smsCount: (chars: number, segments: number) => string;
@@ -2214,7 +2181,7 @@ interface Strings {
         readonly balance: string;
         readonly settled: string;
         readonly consentTitle: string;
-        readonly consentChannel: { readonly sms: string; readonly email: string } & Labels;
+        readonly consentTexts: string;
         readonly consentState: {
             readonly express: string;
             readonly implied: string;
@@ -2238,17 +2205,13 @@ interface Strings {
         readonly nameLabel: string;
         readonly nameHint: string;
         readonly namePlaceholder: (kind: string) => string;
-        readonly channelPick: string;
-        readonly channels: { readonly sms: string; readonly email: string } & Labels;
         readonly audienceLabel: string;
         readonly everyone: string;
         readonly tagChip: (tag: string, n: number) => string;
         readonly messageLabel: string;
         readonly messagePlaceholder: (kind: string) => string;
         readonly optOutSms: string;
-        readonly optOutEmail: string;
         readonly smsPreview: (business: string, text: string, optOut: string) => string;
-        readonly emailPreview: (text: string, business: string, optOut: string) => string;
         readonly optOutNote: string;
         readonly whenLabel: string;
         readonly sendNow: string;
@@ -2297,7 +2260,6 @@ interface Strings {
             readonly sendError: string;
         } & Labels;
         readonly reachText: string;
-        readonly reachEmail: string;
         readonly reachOut: string;
         readonly reachOf: (n: number) => string;
         readonly colBroadcast: string;
@@ -2333,11 +2295,7 @@ interface Strings {
             readonly form: string;
             readonly online_booking: string;
             readonly reply: string;
-            readonly unsubscribe: string;
-            readonly preferences: string;
-            readonly complaint: string;
         } & Labels;
-        readonly consentChannel: { readonly sms: string; readonly email: string } & Labels;
         readonly resultsTitle: string;
         readonly messageTitle: string;
         readonly cancelSchedule: string;
@@ -2346,7 +2304,6 @@ interface Strings {
         readonly keepScheduled: string;
         readonly duplicate: string;
         readonly copyOf: (name: string) => string;
-        readonly viaChannel: (channel: string) => string;
         readonly recipientsLine: (n: number, out: number) => string;
         readonly statRecipients: string;
         readonly statLeftOut: string;
@@ -4138,8 +4095,6 @@ interface Strings {
     readonly publicReturning: {
         readonly title: string;
         readonly intro: (kind: string) => string;
-        readonly email: string;
-        readonly sms: string;
         readonly contact: string;
         readonly sendCode: string;
         readonly sent: string;
@@ -4215,8 +4170,6 @@ interface Strings {
         readonly namePlaceholder: string;
         readonly phone: string;
         readonly phonePlaceholder: string;
-        readonly email: string;
-        readonly emailPlaceholder: string;
         readonly subject: (kind: string) => string;
         readonly subjectPlaceholder: (kind: string) => string;
         readonly note: string;
@@ -4224,7 +4177,6 @@ interface Strings {
         readonly reachHint: string;
         readonly nameRequired: string;
         readonly contactRequired: string;
-        readonly emailInvalid: string;
         readonly phoneInvalid: string;
         readonly subjectRequired: (kind: string) => string;
         readonly address: string;
@@ -4342,7 +4294,6 @@ interface Strings {
         readonly pickupWhen: string;
         readonly name: string;
         readonly phone: string;
-        readonly email: string;
         readonly reach: string;
         readonly continuePay: string;
         readonly placing: string;
@@ -4698,36 +4649,6 @@ interface Strings {
         readonly agree: (business: string) => string;
         readonly signatureRequired: string;
     };
-    readonly publicPreferences: {
-        readonly title: string;
-        readonly greeting: (first: string, business: string) => string;
-        readonly offers: string;
-        readonly offersHint: string;
-        readonly byEmail: string;
-        readonly byEmailTo: (email: string) => string;
-        readonly byText: string;
-        readonly byTextTo: (phone: string) => string;
-        readonly reminders: string;
-        readonly remindersHint: string;
-        readonly alwaysOn: string;
-        readonly save: string;
-        readonly saving: string;
-        readonly saved: string;
-        readonly unsubscribeAll: string;
-        readonly unsubscribedTitle: string;
-        readonly unsubscribedBody: (business: string, email: string) => string;
-        readonly unsubscribedNoEmail: (business: string) => string;
-        readonly unsubscribedReminders: string;
-        readonly resubscribe: string;
-        readonly resubscribedTitle: string;
-        readonly resubscribedBody: (business: string) => string;
-        readonly manageAll: string;
-        readonly notFoundTitle: string;
-        readonly notFoundBody: string;
-        readonly errorTitle: string;
-        readonly errorBody: string;
-        readonly saveError: string;
-    };
     readonly publicLanding: {
         readonly poweredBy: string;
         readonly menu: string;
@@ -4783,6 +4704,7 @@ interface Strings {
         readonly bankLinkRequirements: string;
         readonly bankLinkError: string;
         readonly bankSetupTitle: string;
+        readonly payerEmail: string;
         readonly bankSetupBody: string;
         readonly bankSetupStart: string;
         readonly bankSetupConfirm: string;

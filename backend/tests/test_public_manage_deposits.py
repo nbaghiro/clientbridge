@@ -21,7 +21,7 @@ from tests.conftest import (
     FakeSmsSender,
 )
 from tests.helpers import enable_payments, key, ok, payment, settle, stripe_event
-from tests.test_bookings import CL_AMELIE, deliverable_email
+from tests.test_bookings import CL_AMELIE, deliverable_phone
 
 DEPOSIT = 2000
 DEPOSIT_LINE = "Please pay the $20.00 deposit"
@@ -95,14 +95,13 @@ async def test_a_class_seat_added_by_staff_asks_for_the_deposit_and_takes_it(
     api: httpx.AsyncClient,
     as_owner: httpx.AsyncClient,
     db: AsyncSession,
-    email: FakeEmailSender,
+    sms: FakeSmsSender,
 ) -> None:
-    await deliverable_email(db, CL_AMELIE)
+    await deliverable_phone(db, CL_AMELIE)
     booking = await _seated(as_owner, db)
     assert (booking.status, booking.deposit_status) == ("confirmed", "pending")
-    body = email.sent[-1].body
+    body = sms.sent[-1].body
     assert DEPOSIT_LINE in body and f"/m/{booking.manage_token}" in body
-    assert "Pay deposit" in (email.sent[-1].html or "")
 
     view = ok(await api.get(f"/manage/{booking.manage_token}")).json()
     assert (view["deposit_due"], view["accepts_card"], view["deposit_cents"]) == (
@@ -130,10 +129,10 @@ async def test_a_staff_booking_with_a_deposit_asks_for_it_in_the_confirmation(
     api: httpx.AsyncClient,
     as_owner: httpx.AsyncClient,
     db: AsyncSession,
-    email: FakeEmailSender,
+    sms: FakeSmsSender,
 ) -> None:
     await enable_payments(db)
-    await deliverable_email(db, CL_AMELIE)
+    await deliverable_phone(db, CL_AMELIE)
     res = await as_owner.post(
         "/v1/bookings",
         json={
@@ -147,8 +146,8 @@ async def test_a_staff_booking_with_a_deposit_asks_for_it_in_the_confirmation(
     assert res.status_code == 201, res.text
     booking = await _row(db, res.json()["id"])
     assert booking.deposit_amount_cents > 0
-    assert "Please pay the" in email.sent[-1].body
-    assert f"/m/{booking.manage_token}" in email.sent[-1].body
+    assert "Please pay the" in sms.sent[-1].body
+    assert f"/m/{booking.manage_token}" in sms.sent[-1].body
     _intent(await _pay(api, booking.manage_token))
 
 
@@ -156,13 +155,13 @@ async def test_without_card_payments_nothing_is_payable_and_nothing_is_asked(
     api: httpx.AsyncClient,
     as_owner: httpx.AsyncClient,
     db: AsyncSession,
-    email: FakeEmailSender,
+    sms: FakeSmsSender,
     gateway: FakePaymentGateway,
 ) -> None:
     await enable_payments(db, None)
-    await deliverable_email(db, CL_AMELIE)
+    await deliverable_phone(db, CL_AMELIE)
     booking = await _added(as_owner, db, await _class(db))
-    assert DEPOSIT_LINE not in email.sent[-1].body
+    assert DEPOSIT_LINE not in sms.sent[-1].body
     view = ok(await api.get(f"/manage/{booking.manage_token}")).json()
     assert (view["deposit_due"], view["accepts_card"]) == (True, False)
     res = await _pay(api, booking.manage_token)
@@ -337,7 +336,7 @@ async def test_the_online_booking_intent_is_reused_from_the_link(
                 "item_id": "it_groom_lg",
                 "staff_id": "st_owner",
                 "starts_at": "2027-03-02T16:00:00Z",
-                "client": {"name": "Deposit Payer", "email": "payer@example.com"},
+                "client": {"name": "Deposit Payer", "phone": "+16045550257"},
             },
         )
     ).json()
@@ -413,7 +412,7 @@ async def test_the_release_job_leaves_a_staff_booking_with_an_opened_deposit(
                 "item_id": "it_groom_lg",
                 "staff_id": "st_owner",
                 "starts_at": "2027-03-02T16:00:00Z",
-                "client": {"name": "Deposit Payer", "email": "payer@example.com"},
+                "client": {"name": "Deposit Payer", "phone": "+16045550257"},
             },
         )
     ).json()

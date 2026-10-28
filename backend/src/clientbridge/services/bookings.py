@@ -30,7 +30,7 @@ from clientbridge.integrations.stripe import PaymentGateway
 from clientbridge.models.billing import Estimate, Invoice, Line
 from clientbridge.models.business import Business, Staff
 from clientbridge.models.catalog import Item
-from clientbridge.models.clients import Channel, Client, Note, Subject
+from clientbridge.models.clients import Client, Note, Subject
 from clientbridge.models.documents import Contract, Form, FormResponse, Signature
 from clientbridge.models.messaging import Message
 from clientbridge.models.payments import Payment
@@ -92,12 +92,10 @@ from clientbridge.services.catalog import assert_offers, deposit_cents, load_ite
 from clientbridge.services.clients import load_client
 from clientbridge.services.deliveries import delivery_key
 from clientbridge.services.lines import crew_ids, crew_note, fetch_lines
-from clientbridge.services.messaging import open_thread, queue_message
+from clientbridge.services.messaging import client_number, open_thread, queue_message
 from clientbridge.services.notifications import (
     Notifier,
     Outcome,
-    business_brand,
-    message_notice,
     queued_notifier,
     reminder_message,
 )
@@ -1168,8 +1166,7 @@ class BookingService:
         if message is None:
             raise NotFound("booking not found")
         return ReminderPreview(
-            subject=message.subject,
-            body=message.body,
+            body=message,
             sends_at=slot.starts_at - _REMINDER_WINDOW,
             sent_at=booking.reminded_at,
         )
@@ -2744,13 +2741,12 @@ class ClassService:
         )
 
     async def message(self, slot_id: str, data: ClassMessage) -> ClassMessageOut:
-        """One message to everyone booked, by text when they have a mobile, else by email."""
+        """One text to everyone booked who has a mobile number."""
         slot = await self._session(slot_id)
         assert_can_act_as(self.principal, slot.staff_id)
         business = await self.db.get(Business, self.biz)
         if business is None:
             raise NotFound("business not found")
-        brand = await business_brand(self.db, business)
         clients = (
             (
                 await self.db.execute(
@@ -2767,29 +2763,22 @@ class ClassService:
         async def run(cmd: Command) -> ClassMessageOut:
             sent = 0
             for client in clients:
-                channel: Channel = "sms" if client.phone else "email"
-                to = client.phone or client.email
+                to = client_number(client)
                 if not to:
                     continue
-                thread = await open_thread(self.db, self.biz, client.id, channel)
+                thread = await open_thread(self.db, self.biz, client.id)
                 note = Message(
                     id=new_id("message"),
                     business_id=self.biz,
                     thread_id=thread.id,
                     direction="out",
-                    channel=channel,
                     sent_by=self.principal.user_id,
                     body=data.body,
                     status="queued",
                 )
                 self.db.add(note)
                 await self.db.flush()
-                notice = message_notice(
-                    locale_for(business=business, client=client), business.name, data.body
-                )
-                await queue_message(
-                    self.db, to, notice, message=note, business=business, brand=brand
-                )
+                await queue_message(self.db, to, data.body, message=note, business=business)
                 sent += 1
             await self.db.flush()
             cmd.record("class.message", entity_type="slot", entity_id=slot.id)

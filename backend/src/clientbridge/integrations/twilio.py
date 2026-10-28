@@ -1,4 +1,4 @@
-"""SMS: the Twilio sender, and a console no-op until it is configured."""
+"""SMS: the Twilio sender, a dev transport into Mailpit, and a console no-op otherwise."""
 
 import base64
 import hashlib
@@ -9,7 +9,9 @@ from typing import Protocol
 
 from clientbridge.core.config import get_settings
 from clientbridge.core.errors import AppError
+from clientbridge.core.phones import reserved_phone
 from clientbridge.integrations.http import http_session
+from clientbridge.integrations.resend import Email, EmailSender, SmtpEmailSender
 
 _TWILIO_API = "https://api.twilio.com/2010-04-01"
 
@@ -25,10 +27,20 @@ class SmsSender(Protocol):
     async def send(self, sms: Sms) -> str | None: ...
 
 
+def sender_number(number: str | None) -> str:
+    """The business's assigned number; a text without one fails the same way on every transport."""
+    if number is None:
+        raise AppError(
+            "business has no assigned SMS number", code="sms_unassigned", status_code=503
+        )
+    return number
+
+
 class ConsoleSmsSender:
     """Default — no real delivery (used until Twilio creds are configured)."""
 
     async def send(self, sms: Sms) -> str | None:
+        sender_number(sms.from_number)
         return None
 
 
@@ -38,12 +50,8 @@ class TwilioSmsSender:
         self._auth = auth_token
 
     async def send(self, sms: Sms) -> str | None:
-        if sms.from_number is None:
-            raise AppError(
-                "business has no assigned SMS number", code="sms_unassigned", status_code=503
-            )
         url = f"{_TWILIO_API}/Accounts/{self._sid}/Messages.json"
-        form = {"To": sms.to, "From": sms.from_number, "Body": sms.body}
+        form = {"To": sms.to, "From": sender_number(sms.from_number), "Body": sms.body}
         async with http_session() as client:
             response = await client.post(url, data=form, auth=(self._sid, self._auth))
             response.raise_for_status()
@@ -52,8 +60,34 @@ class TwilioSmsSender:
             return str(sid) if sid else None
 
 
+def sms_mailbox(number: str) -> str:
+    """The dev inbox a number's texts land in, namespaced to an e2e run like its addresses."""
+    digits = "".join(ch for ch in number if ch.isdigit())
+    namespace = get_settings().run_namespace
+    if not namespace:
+        return f"{digits}@sms.test"
+    # the test tier's Mailpit refuses .invalid, as a carrier refuses a number set aside for fiction
+    domain = "sms.invalid" if reserved_phone(number) else "sms.test"
+    return f"{digits}+{namespace}@{domain}"
+
+
+class SmtpSmsSender:
+    """Dev transport: mails each text to its number's inbox, so a person or a test can read it."""
+
+    def __init__(self, mail: EmailSender) -> None:
+        self._mail = mail
+
+    async def send(self, sms: Sms) -> str | None:
+        mail = Email(to=sms_mailbox(sms.to), subject=sender_number(sms.from_number), body=sms.body)
+        await self._mail.send(mail)
+        return None
+
+
 def get_sms_sender() -> SmsSender:
     s = get_settings()
+    if s.smtp_url:  # local transport wins, as for email: a dev checkout texts nobody real
+        mail = SmtpEmailSender(s.smtp_url, s.email_from or "no-reply@clientbridge.ca")
+        return SmtpSmsSender(mail)
     if s.twilio_account_sid and s.twilio_auth_token:
         return TwilioSmsSender(s.twilio_account_sid, s.twilio_auth_token)
     return ConsoleSmsSender()

@@ -266,7 +266,7 @@ LIABILITY = (
     "to the amount you paid for the visit."
 )
 ENDING = (
-    "Ending the agreement\nEither of us can end this agreement at any time by email. Visits "
+    "Ending the agreement\nEither of us can end this agreement at any time by text. Visits "
     "already booked are charged under the cancellation terms above."
 )
 AGREEMENT_V1 = "\n\n".join(
@@ -284,7 +284,7 @@ PLAN_BODY = "\n\n".join(
         "with the walker we agree on. Statutory holidays aren't included, and walks you skip "
         "aren't carried over to the next month.",
         "Billing\nThe plan is billed monthly in advance to the card on file, on the same day "
-        "each month. A change in price applies from the next billing date, and we'll email you "
+        "each month. A change in price applies from the next billing date, and we'll text you "
         "30 days before it does.",
         "Changes and pauses\nYou can change the walk time, or pause the plan for a month you're "
         "away, with seven days' notice before the next billing date.",
@@ -1451,7 +1451,7 @@ SPEC = BusinessSpec(
         Stage(
             "Four-star feedback about a muddy dog, with a reply",
             "callum",
-            ("fr_cc_feedback_callum", "th_cc_callum_sms"),
+            ("fr_cc_feedback_callum", "th_cc_callum"),
         ),
         Stage("Monthly walking plan", "elena", ("sub_cc_plan_elena", "sch_cc_elena")),
         Stage("Puppy visits four days a week", "simran", ("sch_cc_simran",)),
@@ -1553,10 +1553,8 @@ class Cedar(Demo):
             self.client(
                 home.key,
                 home.name,
-                f"{_email(home.name)}@example.test",
                 f"+1604555{home.phone:04}",
                 tags=list(home.tags),
-                channel="email" if home.phone % 3 == 0 else "sms",
                 fields={"source": "referral" if home.phone % 4 == 0 else "google"},
                 subject=first.name,
                 attributes=_attributes(home, first, 0),
@@ -2274,13 +2272,13 @@ class Cedar(Demo):
 
     def engagement(self) -> None:
         self.consents()
-        self.withdraw("liam", "email", self.now - timedelta(days=40))
+        self.withdraw("liam", self.now - timedelta(days=40))
         self.broadcast(
             "holidays",
             "Holiday sitting dates",
             "Our December calendar is open. Leila is taking overnight stays from December 18 to "
             "January 3, and walks and cat visits run as usual except on December 25 and January "
-            "1. Holiday stays fill up by mid-November, so reply to this email or message us with "
+            "1. Holiday stays fill up by mid-November, so reply to this message or text us with "
             "your dates. Stays over the holidays need 14 days' notice to cancel.",
             self.at(-6, 10),
         )
@@ -2370,7 +2368,7 @@ class Cedar(Demo):
         ctx = self.ctx
         meet = ctx.get(Booking, "bk_cc_daniel_meet")
         when = meet.created_at + timedelta(minutes=40)
-        thread = self.thread("daniel", "email", when)
+        thread = self.thread("daniel", when)
         self.say(
             thread,
             "Hi, I booked a meet and greet for Juno. She's a year old and still pulls a lot. "
@@ -2382,13 +2380,13 @@ class Cedar(Demo):
             thread,
             "Thanks, Daniel. Not a problem. We'll start Juno on solo walks with a front-clip "
             "harness, and once she's settled we can try her with one or two calm dogs. The "
-            "intake form is in your email; the vet and how we get in are the important parts.",
+            "intake form is in your texts; the vet and how we get in are the important parts.",
             min(when + timedelta(minutes=50), self.now - timedelta(minutes=30)),
         )
         callum = ctx.get(Booking, "bk_cc_callum_stay")
         assert callum.completed_at is not None
         when = callum.completed_at + timedelta(hours=30)
-        thread = self.thread("callum", "sms", when)
+        thread = self.thread("callum", when)
         self.say(
             thread,
             "Thanks for the feedback, Callum, and sorry about the couch. We've added a towel "
@@ -2410,7 +2408,7 @@ class Cedar(Demo):
             when,
         )
         when = self.now - timedelta(days=3)
-        thread = self.thread("ben", "email", when)
+        thread = self.thread("ben", when)
         self.say(
             thread,
             "Hi Rowan, we're away from December 19 to 27 this year. Could Leila stay with "
@@ -2421,14 +2419,14 @@ class Cedar(Demo):
         self.say(
             thread,
             "Hi Ben, yes, Leila has those dates free. I've sent a quote for eight nights, with "
-            "midday walks for Murphy as an option. Accept it from the email and the dates are "
+            "midday walks for Murphy as an option. Accept it from the text and the dates are "
             "yours.",
             when + timedelta(hours=20),
         )
         late = ctx.get(Booking, "bk_cc_ryan_late")
         assert late.canceled_at is not None
         when = late.canceled_at
-        thread = self.thread("ryan", "sms", when)
+        thread = self.thread("ryan", when)
         self.say(
             thread,
             "Need to cancel today's walk, my meeting got moved and I'm home.",
@@ -2438,12 +2436,12 @@ class Cedar(Demo):
         self.say(
             thread,
             "No problem, Ryan, we've cancelled it. As it's inside 24 hours, half the walk is "
-            "charged under our cancellation terms. The invoice is in your email.",
+            "charged under our cancellation terms. We've texted you the invoice.",
             when + timedelta(minutes=12),
         )
         chloe = ctx.get(Booking, "bk_cc_chloe_today")
         when = chloe.created_at + timedelta(hours=2)
-        thread = self.thread("chloe", "sms", when)
+        thread = self.thread("chloe", when)
         self.say(
             thread,
             "Could we move Maple's walk from Monday to today this week? I'm out of town Monday.",
@@ -2456,7 +2454,7 @@ class Cedar(Demo):
         aiko = ctx.get(Booking, "bk_cc_aiko_trip_0")
         if aiko.completed_at is not None:
             when = aiko.completed_at + timedelta(minutes=5)
-            thread = self.thread("aiko", "sms", when)
+            thread = self.thread("aiko", when)
             self.say(
                 thread,
                 "Hi Aiko, Nori came out to say hello and Kabocha ate all his renal food. "
@@ -2473,7 +2471,7 @@ class Cedar(Demo):
         isabel = ctx.get(Booking, "bk_cc_isabel_tip")
         if isabel.completed_at is not None:
             when = isabel.completed_at + timedelta(hours=1)
-            thread = self.thread("isabel", "email", when)
+            thread = self.thread("isabel", when)
             self.say(
                 thread, "Thank you both for being so good with Luna this summer.", when, sender=None
             )
@@ -2482,18 +2480,6 @@ class Cedar(Demo):
                 "Thanks, Isabel. Tessa says Luna is the best at waiting at crosswalks.",
                 when + timedelta(hours=2),
             )
-
-
-def _email(name: str) -> str:
-    plain = (
-        name.lower()
-        .replace("é", "e")
-        .replace("í", "i")
-        .replace("ü", "u")
-        .replace("'", "")
-        .replace("-", "")
-    )
-    return ".".join(plain.split())
 
 
 EDITION = Cedar

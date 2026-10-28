@@ -82,7 +82,7 @@ async def test_customer_boundary_persists_lineage_before_ambiguous_provider_writ
     monkeypatch.setattr(stripe.Customer, "create_async", create)
     with pytest.raises(OSError, match="ambiguous"):
         await deposits.create_deposit_customer(
-            path, manifest, fixture, "acct_owned", "Sophie Bennett", "sophie@example.ca"
+            path, manifest, fixture, "acct_owned", "Sophie Bennett"
         )
     with pytest.raises(ValueError, match="incomplete"):
         deposits.deposit_fixtures(json.loads(path.read_text()), complete=True)

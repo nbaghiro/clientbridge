@@ -29,7 +29,7 @@ async def _client(db: AsyncSession, client_id: str) -> dict[str, object]:
 
 
 async def test_create_and_update(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
-    res = await as_owner.post("/v1/clients", json={"name": "Test Client", "email": "t@example.com"})
+    res = await as_owner.post("/v1/clients", json={"name": "Test Client", "phone": "+16045550111"})
     assert res.status_code == 201, res.text
     created = res.json()
     cid = created["id"]
@@ -59,7 +59,7 @@ async def test_foreign_client_404_by_scoping(
     assert (await as_owner.post(f"/v1/clients/{foreign_id}/restore")).status_code == 404
 
 
-async def test_create_with_first_pet_consent_and_channel(
+async def test_create_with_first_pet_and_sms_consent(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     res = await as_owner.post(
@@ -67,7 +67,6 @@ async def test_create_with_first_pet_consent_and_channel(
         json={
             "name": "  Nora Vance ",
             "phone": "2505550190",
-            "preferred_channel": "email",
             "tags": ["New ", "new", "Puppy"],
             "marketing_consent": True,
             "subject": {"name": "Pip", "attributes": {"breed": "Beagle", "weight_kg": 9}},
@@ -76,7 +75,6 @@ async def test_create_with_first_pet_consent_and_channel(
     assert res.status_code == 201, res.text
     body = res.json()
     assert body["name"] == "Nora Vance"
-    assert body["preferred_channel"] == "email"
     assert body["tags"] == ["new", "puppy"]
     pets = (
         await db.execute(
@@ -86,14 +84,11 @@ async def test_create_with_first_pet_consent_and_channel(
     assert [(p.name, p.attributes["breed"]) for p in pets] == [("Pip", "Beagle")]
     consents = (
         await db.execute(
-            text("SELECT channel, status, source FROM consents WHERE client_id = :c"),
+            text("SELECT status, source FROM consents WHERE client_id = :c"),
             {"c": body["id"]},
         )
     ).all()
-    assert sorted(tuple(c) for c in consents) == [
-        ("email", "granted", "in_person"),
-        ("sms", "granted", "in_person"),
-    ]
+    assert [tuple(c) for c in consents] == [("granted", "in_person")]
 
 
 async def test_update_records_consent_only_on_change(
@@ -105,7 +100,7 @@ async def test_update_records_consent_only_on_change(
         assert res.status_code == 200, res.text
     rows = (
         await db.execute(
-            text("SELECT status FROM consents WHERE client_id = :c AND channel = 'sms'"),
+            text("SELECT status FROM consents WHERE client_id = :c"),
             {"c": cid},
         )
     ).scalars()
@@ -213,21 +208,32 @@ async def test_tag_many_needs_a_change_422(as_owner: httpx.AsyncClient) -> None:
 
 
 async def test_bulk_endpoints_scope_by_business(
-    as_owner: httpx.AsyncClient, factory: Factory
+    as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory
 ) -> None:
     other = await factory.business()
     foreign = await factory.client(business=other)
-    body = {"client_ids": [foreign.id], "set": {"x": True}}
+    foreign_id = foreign.id
+    thread = Thread(
+        id=f"th_{foreign_id}",
+        business_id=other.id,
+        client_id=foreign_id,
+    )
+    thread_id = thread.id
+    db.add(thread)
+    await db.flush()
+    body = {"client_ids": [foreign_id], "set": {"x": True}}
     assert (await as_owner.post("/v1/clients/tags", json=body)).status_code == 404
-    res = await as_owner.post("/v1/clients/archive", json={"client_ids": [foreign.id]})
+    res = await as_owner.post("/v1/clients/archive", json={"client_ids": [foreign_id]})
     assert res.status_code == 404
-    assert (await as_owner.post(f"/v1/clients/{foreign.id}/archive")).status_code == 404
-    res = await as_owner.post("/v1/clients/cl_grace/merge", json={"from_client_id": foreign.id})
+    assert (await as_owner.post(f"/v1/clients/{foreign_id}/archive")).status_code == 404
+    res = await as_owner.post("/v1/clients/cl_grace/merge", json={"from_client_id": foreign_id})
     assert res.status_code == 404
+    kept_thread = await db.get(Thread, thread_id, populate_existing=True)
+    assert kept_thread is not None and kept_thread.client_id == foreign_id
 
 
 async def _thread_with_message(db: AsyncSession, client_id: str) -> None:
-    db.add(Thread(id=f"th_{client_id}", business_id=BIZ, client_id=client_id, channel="sms"))
+    db.add(Thread(id=f"th_{client_id}", business_id=BIZ, client_id=client_id))
     await db.flush()
     db.add(
         Message(
@@ -235,7 +241,6 @@ async def _thread_with_message(db: AsyncSession, client_id: str) -> None:
             business_id=BIZ,
             thread_id=f"th_{client_id}",
             direction="in",
-            channel="sms",
             body="hello",
             status="delivered",
         )
@@ -397,7 +402,7 @@ async def test_create_replays_the_same_client_for_a_retried_attempt(
     as_owner: httpx.AsyncClient,
 ) -> None:
     headers = {"Idempotency-Key": "client-create-retry"}
-    body = {"name": "Retry client", "email": "retry@example.com"}
+    body = {"name": "Retry client", "phone": "+16045550112"}
     first = await as_owner.post("/v1/clients", json=body, headers=headers)
     assert first.status_code == 201
     replay = await as_owner.post("/v1/clients", json=body, headers=headers)
@@ -433,11 +438,11 @@ async def test_public_contact_matching_refuses_two_different_clients(db: AsyncSe
     first = await db.get(Client, "cl_amelie")
     second = await db.get(Client, "cl_marcus")
     assert first is not None and second is not None
-    first.email, second.phone = "ambiguous@example.ca", "+16045550111"
+    first.phone = second.phone = "+16045550111"
     await db.flush()
     with pytest.raises(Conflict, match="contact"):
         await find_or_create_by_contact(
-            db, BIZ, name="Ambiguous", email=first.email, phone=second.phone, source="book"
+            db, BIZ, name="Ambiguous", phone=second.phone, source="book"
         )
 
 
@@ -470,7 +475,7 @@ async def test_merge_refuses_pending_money_even_before_ledger_posting(
     assert client is not None and client.deleted_at is None
 
 
-async def test_a_name_or_email_edit_reaches_the_stripe_customer(
+async def test_a_name_edit_reaches_the_stripe_customer(
     as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
 ) -> None:
     await enable_payments(db)
@@ -480,8 +485,6 @@ async def test_a_name_or_email_edit_reaches_the_stripe_customer(
     tags = await as_owner.patch(f"/v1/clients/{cid}", json={"tags": ["vip"]})
     assert tags.status_code == 200
     assert gateway.customer_updates == []
-    renamed = await as_owner.patch(
-        f"/v1/clients/{cid}", json={"name": "Renamed Client", "email": "renamed@example.ca"}
-    )
+    renamed = await as_owner.patch(f"/v1/clients/{cid}", json={"name": "Renamed Client"})
     assert renamed.status_code == 200, renamed.text
-    assert gateway.customer_updates == [("cus_sync", "Renamed Client", "renamed@example.ca")]
+    assert gateway.customer_updates == [("cus_sync", "Renamed Client")]

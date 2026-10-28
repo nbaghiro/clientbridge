@@ -3,7 +3,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { on } from "./hosts";
 import { links } from "./links";
 import { ownAddress, rewrite } from "./network";
-import { demoSlug, runEmail, runUrl, demoId } from "@clientbridge/config/e2e/run";
+import { demoSlug, runUrl, demoId } from "@clientbridge/config/e2e/run";
 import { watchErrors } from "./errors";
 
 /** Matches what a copy function renders before its first argument, whatever that argument is. */
@@ -53,9 +53,6 @@ async function bookVisit(
     // fresh contact details, so an earlier run's booking never makes this client a returning one
     const fresh = String(Date.now() % 1_000_000).padStart(6, "0");
     await page.getByRole("textbox", { name: b.phone }).fill(`2507${fresh}`);
-    await page
-        .getByRole("textbox", { name: new RegExp(`^${b.email}`) })
-        .fill(runEmail(`robin.${fresh}@example.com`));
     await page.getByRole("button", { name: b.confirm, exact: true }).click();
 }
 
@@ -178,7 +175,7 @@ test(
                 theirs: `connect-booking:${otherSlug}`,
                 saved: {
                     name: "Booking Draft",
-                    email: runEmail("draft@example.test"),
+                    phone: "+16045550225",
                     itemId: demoId("it_bath"),
                     note: "Saved note",
                 },
@@ -199,7 +196,7 @@ test(
             `connect-booking:${slug}`,
         );
         expect(draft.name).toBe("Booking Draft");
-        expect(draft.email).toBe(runEmail("draft@example.test"));
+        expect(draft.phone).toBe("+16045550225");
         expect(draft.returningToken).toBeUndefined();
         await page.reload();
         await expect(
@@ -217,7 +214,7 @@ test(
             `connect-booking:${otherSlug}`,
         );
         expect(other.name).toBe("Other Client");
-        expect(other.email).toBeUndefined();
+        expect(other.phone).toBeUndefined();
         expect(
             await page.evaluate(
                 (key) => sessionStorage.getItem(key),

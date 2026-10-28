@@ -1,9 +1,7 @@
 import logging
 from collections.abc import Sequence
-from dataclasses import replace
-from datetime import UTC, datetime, timedelta
+from datetime import datetime
 
-from pydantic import ValidationError
 from sqlalchemy import and_, func, literal, or_, select, tuple_, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,10 +10,9 @@ from clientbridge.core import clock
 from clientbridge.core.command import Command, run_command
 from clientbridge.core.db import is_duplicate
 from clientbridge.core.deps import Principal, assert_role
-from clientbridge.core.email_layout import Brand
 from clientbridge.core.errors import AppError, Conflict, NotFound, Unprocessable
 from clientbridge.core.ids import new_id
-from clientbridge.core.locale import locale_for, message
+from clientbridge.core.locale import locale_for
 from clientbridge.core.phones import e164, same_phone
 from clientbridge.core.scoping import scoped
 from clientbridge.core.zones import zone
@@ -23,18 +20,16 @@ from clientbridge.integrations.expo import PushSender
 from clientbridge.integrations.resend import EmailSender
 from clientbridge.integrations.twilio import Sms, SmsSender
 from clientbridge.models.business import Business, Staff
-from clientbridge.models.clients import Channel, Client
-from clientbridge.models.messaging import Broadcast, Delivery, Message, Thread
-from clientbridge.models.platform import Webhook, WebhookStatus
+from clientbridge.models.clients import Client
+from clientbridge.models.messaging import Broadcast, Message, Thread
+from clientbridge.models.platform import Webhook
 from clientbridge.models.scheduling import Booking
-from clientbridge.schemas.deliveries import DeliveryPayload, EmailDelivery, SmsDelivery
+from clientbridge.schemas.deliveries import SmsDelivery
 from clientbridge.schemas.messaging import (
     BroadcastOut,
     BroadcastSend,
     ConversationMessage,
     ConversationPage,
-    EmailEventBody,
-    EmailEventData,
     MessageOut,
     MessageSend,
     ThreadOut,
@@ -48,20 +43,13 @@ from clientbridge.services.business import (
 from clientbridge.services.consents import (
     allows_marketing,
     latest_consents,
-    prefs_url,
-    record_complaint,
     record_text_reply,
     stopped_clients,
     texts_stopped,
 )
 from clientbridge.services.deliveries import delivery_key, enqueue, send_queued
 from clientbridge.services.notifications import (
-    Notice,
-    broadcast_notice,
     broadcast_text,
-    business_brand,
-    client_email,
-    message_notice,
     queued_notifier,
     visit_link,
     visit_note_body,
@@ -91,89 +79,62 @@ async def unread_count(db: AsyncSession, thread: Thread) -> int:
     return int(count.scalar_one())
 
 
-async def open_thread(
-    db: AsyncSession, business_id: str, client_id: str, channel: Channel
-) -> Thread:
-    # one thread per (client, channel) by unique constraint → reuse it
+async def open_thread(db: AsyncSession, business_id: str, client_id: str) -> Thread:
+    # one thread per client by unique constraint → reuse it
     thread = (
-        await db.execute(
-            scoped(Thread, business_id).where(
-                Thread.client_id == client_id, Thread.channel == channel
-            )
-        )
+        await db.execute(scoped(Thread, business_id).where(Thread.client_id == client_id))
     ).scalar_one_or_none()
     if thread is not None:
         return thread
     thread = Thread(
-        id=new_id("thread"),
-        business_id=business_id,
-        client_id=client_id,
-        channel=channel,
-        status="open",
+        id=new_id("thread"), business_id=business_id, client_id=client_id, status="open"
     )
     db.add(thread)
     await db.flush()
     return thread
 
 
-def contact_for(client: Client, channel: str) -> str | None:
-    """Where a message on the channel goes: the E.164 number for a text, else the email."""
-    if channel == "sms":
-        return e164(client.phone) if client.phone else None
-    return client.email
+def client_number(client: Client) -> str | None:
+    """The E.164 number a text to the client goes to."""
+    return e164(client.phone) if client.phone else None
 
 
 async def queue_message(
-    db: AsyncSession,
-    to: str,
-    notice: Notice,
-    *,
-    message: Message,
-    business: Business,
-    brand: Brand,
-    opt_out_client: str | None = None,
+    db: AsyncSession, to: str, body: str, *, message: Message, business: Business
 ) -> str:
-    """Queue the message on its channel; the delivery sends it and sets the row's status."""
-    payload: DeliveryPayload
-    if message.channel == "sms":
-        sms = Sms(to=to, body=notice.body, from_number=business.sms_number)
-        payload = SmsDelivery(message=sms, message_id=message.id)
-    else:
-        mail = client_email(business, brand, to, notice, message=message)
-        payload = EmailDelivery(
-            message=mail,
-            client_id=opt_out_client,
-            opt_out=opt_out_client is not None,
-            message_id=message.id,
-        )
+    """Queue the text; the delivery sends it and sets the row's status."""
+    sms = Sms(to=to, body=body, from_number=business.sms_number)
     return await enqueue(
-        db, payload, key=delivery_key("message", message.id), business_id=message.business_id
+        db,
+        SmsDelivery(message=sms, message_id=message.id),
+        key=delivery_key("message", message.id),
+        business_id=message.business_id,
     )
 
 
 async def broadcast_recipients(
-    db: AsyncSession, business_id: str, channel: Channel, audience: dict[str, object]
+    db: AsyncSession, business_id: str, audience: dict[str, object]
 ) -> tuple[Sequence[tuple[Client, str]], int]:
-    """The audience members who agreed to marketing on the channel, and how many were left out."""
+    """The audience members who agreed to marketing texts, and how many were left out."""
     query = scoped(Client, business_id, soft_delete=True).where(Client.status == "active")
     tags = audience.get("tags")
     if not audience.get("all") and isinstance(tags, list) and tags:
         query = query.where(Client.tags.overlap([str(tag) for tag in tags]))
     clients = (await db.execute(query.order_by(Client.id))).scalars().all()
-    out = await _reachable(db, business_id, channel, clients)
+    out = await _reachable(db, business_id, clients)
     return out[:_BROADCAST_CAP], len(clients) - len(out[:_BROADCAST_CAP])
 
 
 async def _reachable(
-    db: AsyncSession, business_id: str, channel: Channel, clients: Sequence[Client]
+    db: AsyncSession, business_id: str, clients: Sequence[Client]
 ) -> list[tuple[Client, str]]:
     ids = [c.id for c in clients]
-    consents = await latest_consents(db, business_id, ids, channel)
-    stopped = await stopped_clients(db, business_id, ids) if channel == "sms" else set()
+    consents = await latest_consents(db, business_id, ids)
+    stopped = await stopped_clients(db, business_id, ids)
     now = clock.now()
     out: list[tuple[Client, str]] = []
     for client in clients:
-        to = contact_for(client, channel)
+        to = client_number(client)
         if to and client.id not in stopped and allows_marketing(consents.get(client.id), now):
             out.append((client, to))
     return out
@@ -190,52 +151,32 @@ async def _still_reachable(db: AsyncSession, broadcast: Broadcast, client_id: st
     ).scalar_one_or_none()
     if client is None:
         return None
-    reachable = await _reachable(db, broadcast.business_id, broadcast.channel, [client])
+    reachable = await _reachable(db, broadcast.business_id, [client])
     return reachable[0][1] if reachable else None
 
 
-def _mailing_address(business: Business) -> str:
+def require_broadcast_identity(business: Business) -> None:
+    """Every broadcast's sender needs a legal address and a public way to reach them (CASL)."""
     try:
-        address = postal_address(business)
+        postal_address(business)
     except Unprocessable as missing:
         raise Unprocessable(
             "add the business legal address in Business settings before sending a broadcast",
             code="broadcast_address_missing",
         ) from missing
-    parts = {
-        "street": address.line1,
-        "city": address.city,
-        "province": address.province,
-        "postal_code": address.postal_code,
-    }
-    locale = locale_for(business=business)
-    if address.line2:
-        return message(locale, "broadcast.mailing_address_unit", unit=address.line2, **parts)
-    return message(locale, "broadcast.mailing_address", **parts)
-
-
-def broadcast_identity(business: Business) -> tuple[str, str]:
-    """The legal mailing address and a way to reach the business that every broadcast carries."""
     brand = business.brand or {}
-
-    def text(key: str) -> str:
-        value = brand.get(key)
-        return value.strip() if isinstance(value, str) else ""
-
-    address = _mailing_address(business)
-    contact = (
-        text("email")
-        or text("phone")
-        or (business.legal_phone or "")
-        or text("website")
-        or (business.billing_email or "")
+    contacts = (
+        brand.get("email"),
+        brand.get("phone"),
+        business.legal_phone,
+        brand.get("website"),
+        business.billing_email,
     )
-    if not contact:
+    if not any(isinstance(value, str) and value.strip() for value in contacts):
         raise Unprocessable(
             "add a business email, phone or website before sending a broadcast",
             code="broadcast_contact_missing",
         )
-    return address, contact
 
 
 async def _claim_broadcast(db: AsyncSession, broadcast_id: str) -> Broadcast | None:
@@ -264,13 +205,12 @@ async def _already_messaged(db: AsyncSession, broadcast: Broadcast, client_id: s
 
 async def _queue_recipient(db: AsyncSession, broadcast: Broadcast, client_id: str) -> Message:
     """Record the recipient's message before sending, so a retry never messages them twice."""
-    thread = await open_thread(db, broadcast.business_id, client_id, broadcast.channel)
+    thread = await open_thread(db, broadcast.business_id, client_id)
     message = Message(
         id=new_id("message"),
         business_id=broadcast.business_id,
         thread_id=thread.id,
         direction="out",
-        channel=broadcast.channel,
         sent_by=broadcast.created_by,
         body=broadcast.body,
         status="queued",
@@ -296,22 +236,19 @@ async def _send_broadcast(
         await db.commit()
         return False
     try:
-        address, contact = broadcast_identity(business)
+        require_broadcast_identity(business)
     except Unprocessable:
         _log.warning("broadcast %s waits for the business identity", broadcast.id)
         await db.commit()
         return False
-    recipients, excluded = await broadcast_recipients(
-        db, broadcast.business_id, broadcast.channel, broadcast.audience
-    )
+    recipients, excluded = await broadcast_recipients(db, broadcast.business_id, broadcast.audience)
     broadcast.status = "sending"
     broadcast.recipient_count = len(recipients)
     broadcast.excluded_count = excluded
-    name, channel, subject, body = business.name, broadcast.channel, broadcast.name, broadcast.body
+    name, body = business.name, broadcast.body
     targets = [
         (client.id, locale_for(business=business, client=client)) for client, _ in recipients
     ]
-    brand = await business_brand(db, business)
     await db.commit()
     for client_id, locale in targets:
         claimed = await _claim_broadcast(db, broadcast_id)
@@ -328,20 +265,8 @@ async def _send_broadcast(
             await db.commit()
             continue
         message = await _queue_recipient(db, claimed, client_id)
-        link = f"{prefs_url(client_id)}?unsubscribe=email"
-        notice = broadcast_notice(locale, name, subject, body or "", link, address, contact)
-        if channel == "sms":
-            text = broadcast_text(locale, name, channel, body or "", link, address, contact)
-            notice = replace(notice, body=text)
-        await queue_message(
-            db,
-            to,
-            notice,
-            message=message,
-            business=business,
-            brand=brand,
-            opt_out_client=client_id,
-        )
+        text = broadcast_text(locale, name, body or "")
+        await queue_message(db, to, text, message=message, business=business)
         # the message and its delivery commit together, so the sweep finishes what a crash leaves
         await db.commit()
         await send_queued(db, email, sms, push)
@@ -383,13 +308,12 @@ async def process_inbound_sms(
     if client is not None:
         if keyword in STOP_WORDS or keyword in START_WORDS:
             await record_text_reply(db, client, stop=keyword in STOP_WORDS)
-        thread = await open_thread(db, client.business_id, client.id, "sms")
+        thread = await open_thread(db, client.business_id, client.id)
         message = Message(
             id=new_id("message"),
             business_id=client.business_id,
             thread_id=thread.id,
             direction="in",
-            channel="sms",
             body=body,
             status="delivered",
             provider_ref=message_sid,
@@ -467,10 +391,10 @@ class MessageService:
         self, data: MessageSend, idempotency_key: str | None = None
     ) -> MessageOut:
         client = await self._client(data.client_id)
-        to = contact_for(client, data.channel)
+        to = client_number(client)
         if not to:
-            raise AppError(f"client has no {data.channel} contact", status_code=422)
-        if data.channel == "sms" and await texts_stopped(self.db, self.biz, client.id):
+            raise AppError("client has no mobile number", status_code=422)
+        if await texts_stopped(self.db, self.biz, client.id):
             raise Conflict("this client replied STOP, so texts to them are blocked")
         business = await self.db.get(Business, self.biz)
         if business is None:
@@ -490,26 +414,21 @@ class MessageService:
             link = visit_link(booking)
             if link is not None:
                 body = visit_note_body(locale, data.body, link)
-        notice = message_notice(locale, business.name, body)
-        brand = await business_brand(self.db, business)
 
         async def run(cmd: Command) -> MessageOut:
-            thread = await open_thread(self.db, self.biz, client.id, data.channel)
+            thread = await open_thread(self.db, self.biz, client.id)
             message = Message(
                 id=new_id("message"),
                 business_id=self.biz,
                 thread_id=thread.id,
                 direction="out",
-                channel=data.channel,
                 sent_by=self.principal.user_id,
                 body=body,
                 status="queued",
             )
             self.db.add(message)
             await self.db.flush()
-            await queue_message(
-                self.db, to, notice, message=message, business=business, brand=brand
-            )
+            await queue_message(self.db, to, body, message=message, business=business)
             cmd.record("message.send", entity_type="message", entity_id=message.id)
             return _message_out(message)
 
@@ -542,13 +461,11 @@ class MessageService:
         business = await self.db.get(Business, self.biz)
         if business is None:
             raise NotFound("business not found")
-        broadcast_identity(business)
+        require_broadcast_identity(business)
         now = clock.now()
         requested = data.scheduled_at if data.scheduled_at and data.scheduled_at > now else now
         send_at = after_quiet_hours(requested, zone(business.timezone))
-        recipients, excluded = await broadcast_recipients(
-            self.db, self.biz, data.channel, data.audience
-        )
+        recipients, excluded = await broadcast_recipients(self.db, self.biz, data.audience)
 
         async def run(cmd: Command) -> BroadcastOut:
             broadcast = Broadcast(
@@ -556,7 +473,6 @@ class MessageService:
                 business_id=self.biz,
                 created_by=self.principal.user_id,
                 name=data.name,
-                channel=data.channel,
                 body=data.body,
                 audience=data.audience,
                 status="scheduled" if send_at > now else "sending",
@@ -656,7 +572,6 @@ class MessageService:
                 ConversationMessage(
                     id=message.id,
                     direction=message.direction,
-                    channel=message.channel,
                     body=message.body,
                     status=message.status,
                     created_at=message.created_at,
@@ -691,7 +606,6 @@ def _message_out(message: Message) -> MessageOut:
         id=message.id,
         thread_id=message.thread_id,
         direction=message.direction,
-        channel=message.channel,
         body=message.body,
         status=message.status,
     )
@@ -701,194 +615,8 @@ def _broadcast_out(broadcast: Broadcast) -> BroadcastOut:
     return BroadcastOut(
         id=broadcast.id,
         name=broadcast.name,
-        channel=broadcast.channel,
         status=broadcast.status,
         recipient_count=broadcast.recipient_count,
         excluded_count=broadcast.excluded_count,
         scheduled_at=broadcast.scheduled_at,
     )
-
-
-_EMAIL_FAILURES = frozenset({"email.bounced", "email.failed", "email.suppressed"})
-_EVENT_GRACE = timedelta(minutes=10)
-
-
-class EmailEventPending(Exception):
-    """Resend reported on a send whose transaction has not committed yet; Svix must retry."""
-
-
-async def _email_message(db: AsyncSession, email_id: str) -> Message | None:
-    # the provider id is unique across tenants; the row it finds names the business
-    query = select(Message).where(Message.provider_ref == email_id, Message.channel == "email")
-    return (await db.execute(query)).scalars().first()
-
-
-async def _flagged_client(
-    db: AsyncSession, message: Message | None, *, business_id: str | None, client_id: str | None
-) -> Client | None:
-    """The client the mail went to: through the message's thread, else by the client tag."""
-    if message is not None:
-        threads = scoped(Thread, message.business_id).where(Thread.id == message.thread_id)
-        thread = (await db.execute(threads)).scalar_one_or_none()
-        if thread is None:
-            return None
-        business_id, client_id = message.business_id, thread.client_id
-    if not business_id or not client_id:
-        return None
-    clients = scoped(Client, business_id, soft_delete=True).where(Client.id == client_id)
-    return (await db.execute(clients)).scalar_one_or_none()
-
-
-async def _complaining_clients(
-    db: AsyncSession, message: Message | None, *, business_id: str | None, client_id: str | None
-) -> list[Client]:
-    """Everyone a complaint covers: the flagged client and any record sharing its mailbox."""
-    flagged = await _flagged_client(db, message, business_id=business_id, client_id=client_id)
-    if flagged is None:
-        return []
-    if not flagged.email:
-        return [flagged]
-    query = scoped(Client, flagged.business_id, soft_delete=True).where(
-        func.lower(Client.email) == flagged.email.lower()
-    )
-    return list((await db.execute(query)).scalars().all())
-
-
-def _is_recent(created_at: datetime | None) -> bool:
-    if created_at is None:
-        return False
-    if created_at.tzinfo is None:
-        created_at = created_at.replace(tzinfo=UTC)
-    return clock.wall() - created_at < _EVENT_GRACE
-
-
-async def _record_event(
-    db: AsyncSession,
-    event_id: str,
-    *,
-    event: str,
-    payload: dict[str, object],
-    status: WebhookStatus,
-) -> bool:
-    """Commit the event row with whatever it changed; False when a twin delivery got there first."""
-    db.add(
-        Webhook(
-            id=event_id,
-            provider="resend",
-            event=event,
-            payload=payload,
-            status=status,
-            processed_at=clock.now(),
-        )
-    )
-    try:
-        await db.commit()
-    except IntegrityError as exc:
-        await db.rollback()
-        if not is_duplicate(exc):  # only a redelivery race may be dropped; anything else must retry
-            raise
-        return False
-    return True
-
-
-async def process_email_event(db: AsyncSession, *, svix_id: str, payload: bytes) -> bool:
-    """Record a Resend event on its message; True when it changed something."""
-    event_id = f"resend_{svix_id}"
-    seen = (await db.execute(select(Webhook.id).where(Webhook.id == event_id))).scalar_one_or_none()
-    if seen is not None:
-        return False
-    try:
-        event = EmailEventBody.model_validate_json(payload)
-    except ValidationError as exc:
-        _log.warning("unparseable resend event %s: %s", svix_id, exc)
-        failure: dict[str, object] = {"error": str(exc)[:500]}
-        await _record_event(db, event_id, event="unparsed", payload=failure, status="failed")
-        return False
-    data = event.data or EmailEventData()
-    recipients = [data.to] if isinstance(data.to, str) else list(data.to or [])
-    tags = data.tags or {}
-    address = recipients[0] if recipients else None
-    email_id = data.email_id or ""
-    message_id, business_tag = tags.get("message"), tags.get("business")
-    message: Message | None = None
-    if message_id and business_tag:
-        tagged = scoped(Message, business_tag).where(Message.id == message_id)
-        message = (await db.execute(tagged)).scalar_one_or_none()
-    if message is None and email_id:
-        message = await _email_message(db, email_id)
-    if message is None and message_id and _is_recent(event.created_at):
-        raise EmailEventPending(message_id)
-    delivery = None
-    if tags.get("delivery"):
-        delivery = await db.scalar(
-            select(Delivery)
-            .where(Delivery.id == tags["delivery"])
-            .with_for_update()
-            .execution_options(populate_existing=True)
-        )
-        if delivery is None and _is_recent(event.created_at):
-            raise EmailEventPending(tags["delivery"])
-    elif email_id:
-        delivery = await db.scalar(
-            select(Delivery)
-            .where(Delivery.provider_ref == email_id)
-            .with_for_update()
-            .execution_options(populate_existing=True)
-        )
-    clients: list[Client] = []
-    changed = False
-    if (
-        delivery is not None
-        and delivery.payload.get("channel") == "email"
-        and delivery.provider_ref in (None, email_id)
-    ):
-        if event.type == "email.delivered" and delivery.state != "failed":
-            delivery.state, delivery.error = "delivered", None
-            changed = True
-        elif event.type in _EMAIL_FAILURES or event.type == "email.complained":
-            delivery.state, delivery.error = "failed", event.type
-            changed = True
-        elif event.type == "email.sent" and delivery.state in ("queued", "sending", "ambiguous"):
-            delivery.state, delivery.error = "accepted", None
-            changed = True
-        if changed:
-            delivery.provider_ref = email_id or delivery.provider_ref
-            delivery.next_at, delivery.claim = None, None
-    if message is not None:
-        heard_before = message.provider_ref is not None
-        if not heard_before and email_id:  # the send timed out after Resend had accepted it
-            message.provider_ref = email_id
-            changed = True
-        if event.type == "email.delivered":
-            if message.status in ("queued", "sent") or not heard_before:
-                message.status = "delivered"
-                changed = True
-        elif event.type in _EMAIL_FAILURES and message.status != "failed":
-            message.status = "failed"
-            changed = True
-    if event.type == "email.complained":
-        clients = await _complaining_clients(
-            db, message, business_id=tags.get("business"), client_id=tags.get("client")
-        )
-        for client in clients:
-            changed = await record_complaint(db, client) or changed
-    business_id = tags.get("business")
-    if message is not None:
-        business_id = message.business_id
-    elif clients:
-        business_id = clients[0].business_id
-    detail = ""
-    if data.bounce is not None:
-        detail = data.bounce.sub_type
-    elif data.failed is not None:
-        detail = data.failed.reason
-    summary: dict[str, object] = {
-        "email_id": email_id or None,
-        "to": address,
-        "detail": detail,
-        "matched": message is not None or delivery is not None or bool(clients),
-        "business_id": business_id,
-    }
-    if not await _record_event(db, event_id, event=event.type, payload=summary, status="processed"):
-        return False
-    return changed

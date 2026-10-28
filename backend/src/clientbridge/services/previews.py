@@ -10,14 +10,14 @@ from clientbridge.core.errors import Conflict, NotFound
 from clientbridge.core.locale import locale_for
 from clientbridge.core.scoping import scoped
 from clientbridge.integrations.expo import Push
-from clientbridge.integrations.resend import Email
+from clientbridge.integrations.resend import ConsoleEmailSender
 from clientbridge.integrations.twilio import Sms
-from clientbridge.models.billing import Channel, Estimate, Invoice, Order
+from clientbridge.models.billing import Estimate, Invoice, Order
 from clientbridge.models.business import Business
 from clientbridge.models.clients import Client
 from clientbridge.models.documents import Contract, Form, Signature
 from clientbridge.models.scheduling import Booking, Slot
-from clientbridge.schemas.previews import OutgoingEmail, OutgoingPreview, OutgoingText
+from clientbridge.schemas.previews import OutgoingPreview, OutgoingText
 from clientbridge.services.billing import peek_number
 from clientbridge.services.notifications import (
     Notifier,
@@ -27,15 +27,6 @@ from clientbridge.services.notifications import (
 
 # A link that is minted only when the message really goes out.
 _UNMINTED = "…"
-
-
-class _EmailOutbox:
-    def __init__(self) -> None:
-        self.sent: list[Email] = []
-
-    async def send(self, email: Email) -> str | None:
-        self.sent.append(email)
-        return None
 
 
 class _SmsOutbox:
@@ -59,9 +50,8 @@ class PreviewService:
         self.db = db
         self.principal = principal
         self.biz = principal.business_id
-        self._email = _EmailOutbox()
         self._sms = _SmsOutbox()
-        self.notifier = Notifier(self._email, self._sms, _PushOutbox(), raise_errors=True)
+        self.notifier = Notifier(ConsoleEmailSender(), self._sms, _PushOutbox(), raise_errors=True)
 
     async def invoice_send(self, invoice_id: str) -> OutgoingPreview:
         self._assert_admin()
@@ -98,14 +88,11 @@ class PreviewService:
 
         return await self._preview(estimate.client_id, run, (estimate,))
 
-    async def order_receipt(self, order_id: str, channel: Channel, to: str) -> OutgoingPreview:
+    async def order_receipt(self, order_id: str, to: str) -> OutgoingPreview:
         order = await self._owned(Order, order_id)
 
         async def run() -> None:
-            order.receipt_channel = channel
-            order.receipt_email, order.receipt_phone = (
-                (to, None) if channel == "email" else (None, to)
-            )
+            order.receipt_phone = to
             order.receipt_token = order.receipt_token or _UNMINTED
             await self.notifier.on_order_receipt(self.db, order.id)
 
@@ -198,13 +185,9 @@ class PreviewService:
             await savepoint.rollback()
             for row in touched:
                 self.db.expire(row)
-        email = self._email.sent[0] if self._email.sent else None
         text = self._sms.sent[0] if self._sms.sent else None
         return OutgoingPreview(
             recipient=recipient,
-            email=OutgoingEmail(to=email.to, subject=email.subject, body=email.body)
-            if email is not None
-            else None,
             text=OutgoingText(to=text.to, body=text.body) if text is not None else None,
         )
 

@@ -15,10 +15,10 @@ streams:
     with:
       member: SELECT business_id FROM staff WHERE user_id = auth.user_id() AND status = 'active'
     queries:
-      - SELECT created_by, name, email, phone, user_id, tags, status, custom_fields, preferred_channel, archived_at, id, business_id, created_at, updated_at, deleted_at FROM clients WHERE business_id IN member AND deleted_at IS NULL
+      - SELECT created_by, name, phone, user_id, tags, status, custom_fields, archived_at, id, business_id, created_at, updated_at, deleted_at FROM clients WHERE business_id IN member AND deleted_at IS NULL
       - SELECT client_id, name, attributes, id, business_id, created_at, updated_at, deleted_at FROM subjects WHERE business_id IN member AND deleted_at IS NULL
       - SELECT created_by, parent_type, parent_id, body, pinned, id, business_id, created_at, updated_at FROM notes WHERE business_id IN member
-      - SELECT client_id, channel, status, source, recorded_by, expires_at, id, business_id, created_at, updated_at FROM consents WHERE business_id IN member
+      - SELECT client_id, status, source, recorded_by, expires_at, id, business_id, created_at, updated_at FROM consents WHERE business_id IN member
       - SELECT staff_id, basis, weekday, date, start_time, end_time, available, note, starts_at, ends_at, reason, id, business_id, created_at, updated_at FROM hours WHERE business_id IN member AND staff_id IS NULL
       - SELECT created_by, kind, name, description, variant_parent_id, variant_label, price_cents, currency, duration_min, capacity, category, color, online_bookable, sell_online, buffer_before_min, buffer_after_min, deposit_type, deposit_value, interval, frequency, session_count, validity_days, covers_item_id, visits_per_period, member_discount_bps, gift_amounts, tax_class, sku, cost_cents, track_stock, stock_on_hand, low_stock_at, active, addon, addon_for, staff_ids, resource_ids, id, business_id, created_at, updated_at FROM items WHERE business_id IN member
       - SELECT name, active, id, business_id, created_at, updated_at FROM resources WHERE business_id IN member
@@ -28,7 +28,7 @@ streams:
       - SELECT form_id, input, name, label, help, required, options, position, id, business_id, created_at, updated_at FROM fields WHERE business_id IN member
       - SELECT name, body, version, active, id, business_id, created_at, updated_at FROM contracts WHERE business_id IN member
       - SELECT parent_type, parent_id, purpose, content_type, size, uploaded_at, shared_at, id, business_id, created_at, updated_at FROM files WHERE business_id IN member
-      - SELECT client_id, channel, status, id, business_id, created_at, updated_at FROM threads WHERE business_id IN member
+      - SELECT client_id, status, id, business_id, created_at, updated_at FROM threads WHERE business_id IN member
 
   # Staff and contractors read the business without tax numbers or billing email, the team without pay,
   # and the pickup queue without prices. Owner/admin read the same rows from business_full, never both.
@@ -70,7 +70,7 @@ streams:
       - SELECT item_id, staff_id, client_id, frequency, interval, byday, monthly_by, count, until, status, id, business_id, created_at, updated_at FROM recurrences WHERE business_id IN managed
       - SELECT client_id, number, status, currency, subtotal_cents, tax_total_cents, total_cents, issued_at, due_at, overdue_notified_at, voided_at, notes, pay_token, id, business_id, created_at, updated_at, discount_kind, discount_value, discount_reason FROM invoices WHERE business_id IN managed
       - SELECT client_id, number, status, subtotal_cents, tax_total_cents, total_cents, valid_until, accepted_at, declined_at, converted_invoice_id, notes, decline_reason, view_token, id, business_id, created_at, updated_at, discount_kind, discount_value, discount_reason FROM estimates WHERE business_id IN managed
-      - SELECT client_id, staff_id, number, status, currency, subtotal_cents, tax_total_cents, total_cents, receipt_email, receipt_phone, source, pickup_status, preparing_at, pickup_from, pickup_to, notify_sms, ready_at, picked_up_at, paid_at, note, receipt_channel, receipt_sent_at, id, business_id, created_at, updated_at, discount_kind, discount_value, discount_reason FROM orders WHERE business_id IN managed
+      - SELECT client_id, staff_id, number, status, currency, subtotal_cents, tax_total_cents, total_cents, receipt_phone, source, pickup_status, preparing_at, pickup_from, pickup_to, notify_sms, ready_at, picked_up_at, paid_at, note, receipt_sent_at, id, business_id, created_at, updated_at, discount_kind, discount_value, discount_reason FROM orders WHERE business_id IN managed
       - SELECT estimate_id, invoice_id, order_id, description, item_id, booking_id, quantity, unit_amount_cents, amount_cents, tax_amount_cents, tax_class, position, staff_id, discount_cents, sale_discount_cents, for_pickup, optional, selected, id, business_id, created_at, updated_at, discount_kind, discount_value, discount_reason FROM lines WHERE business_id IN managed
       - SELECT item_id, line_id, reason, quantity, unit_cost_cents, note, created_by, id, business_id, created_at, updated_at FROM inventory WHERE business_id IN managed
       - SELECT client_id, kind, parent_payment_id, invoice_id, order_id, booking_id, amount_cents, currency, method, provider, reference, note, tendered_cents, status, paid_at, reason, credit_note, dispute_status, dispute_reason, dispute_respond_by, tip_cents, tip_split, id, business_id, created_at, updated_at FROM payments WHERE business_id IN managed
@@ -79,7 +79,7 @@ streams:
       - SELECT owner_type, owner_id, category, code, currency, balance_cents, id, business_id, created_at, updated_at FROM accounts WHERE business_id IN managed
       - SELECT journal_id, account_id, owner_type, owner_id, amount_cents, currency, event, source_type, source_id, subject_type, subject_id, ref, leg, meta, occurred_at, available_at, created_at, id, business_id FROM entries WHERE business_id IN managed
       - SELECT client_id, booking_id, requested_at, id, business_id, created_at, updated_at FROM review_requests WHERE business_id IN managed
-      - SELECT created_by, name, channel, body, audience, status, scheduled_at, recipient_count, excluded_count, id, business_id, created_at, updated_at FROM broadcasts WHERE business_id IN managed
+      - SELECT created_by, name, body, audience, status, scheduled_at, recipient_count, excluded_count, id, business_id, created_at, updated_at FROM broadcasts WHERE business_id IN managed
       - SELECT form_id, client_id, parent_type, parent_id, status, submitted_at, opened_at, answers, id, business_id, created_at, updated_at FROM responses WHERE business_id IN managed
       - SELECT contract_id, client_id, parent_type, parent_id, token, signed_at, signed_body, ip, status, contract_version, opened_at, method, signer_name, strokes, id, business_id, created_at, updated_at FROM signatures WHERE business_id IN managed
 
@@ -89,7 +89,7 @@ streams:
     with:
       member: SELECT business_id FROM staff WHERE user_id = auth.user_id() AND status = 'active'
     queries:
-      - SELECT thread_id, direction, channel, sent_by, body, status, broadcast_id, id, business_id, created_at, updated_at FROM messages WHERE business_id IN member AND substring(created_at, 1, 7) IN subscription.parameter('months')
+      - SELECT thread_id, direction, sent_by, body, status, broadcast_id, id, business_id, created_at, updated_at FROM messages WHERE business_id IN member AND substring(created_at, 1, 7) IN subscription.parameter('months')
 
   history_self:
     with:

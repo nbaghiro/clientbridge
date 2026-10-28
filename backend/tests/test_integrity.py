@@ -1,7 +1,5 @@
 """The database refuses values outside each column's vocabulary, and the API returns 422."""
 
-from typing import Literal
-
 import httpx
 import pytest
 from sqlalchemy import text
@@ -45,10 +43,11 @@ async def test_database_refuses_values_outside_the_vocabulary(
     await db.rollback()
 
 
-async def test_client_channel_outside_the_vocabulary_is_422(as_owner: httpx.AsyncClient) -> None:
-    res = await as_owner.post("/v1/clients", json={"name": "Lead", "preferred_channel": "fax"})
-    assert res.status_code == 422
-    ok = await as_owner.post("/v1/clients", json={"name": "Quiet", "preferred_channel": "email"})
+async def test_a_client_field_the_api_does_not_take_is_422(as_owner: httpx.AsyncClient) -> None:
+    for extra in ({"email": "lead@example.ca"}, {"status": "lead"}):
+        res = await as_owner.post("/v1/clients", json={"name": "Lead", **extra})
+        assert res.status_code == 422, extra
+    ok = await as_owner.post("/v1/clients", json={"name": "Quiet"})
     assert ok.status_code == 201, ok.text
 
 
@@ -68,12 +67,8 @@ def test_a_widened_or_misnamed_mirror_field_is_reported() -> None:
         derived = frozenset({"nickname"})
 
         status: str
-        preferred_channel: Literal["sms", "fax"]
-        email: str | None = None
 
     assert mirror_errors([Drifted]) == (
         "Drifted.nickname: derived but not a field named after a column",
         "Drifted.status: <class 'str'> is wider than Client.status",
-        "Drifted.preferred_channel: typing.Literal['sms', 'fax'] is wider than "
-        "Client.preferred_channel",
     )

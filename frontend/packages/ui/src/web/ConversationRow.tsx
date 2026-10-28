@@ -2,10 +2,7 @@ import type { ConversationRowProps } from "@clientbridge/app-core/public";
 
 import { Avatar } from "./Avatar";
 import { Badge } from "./Badge";
-import { Icon } from "./Icon";
 import { type WebProps, cx } from "./props";
-
-const GLYPH = { sms: "phoneDevice", email: "mail" } as const;
 
 export function ConversationRow({
     name,
@@ -13,8 +10,6 @@ export function ConversationRow({
     preview,
     at,
     unread,
-    channel,
-    channelLabel,
     selected = false,
     tag,
     onPress,
@@ -48,9 +43,6 @@ export function ConversationRow({
                     </span>
                 </span>
                 <span className="mt-0.5 flex items-center gap-1.5">
-                    <span className="text-muted" title={channelLabel}>
-                        <Icon name={GLYPH[channel]} size={13} label={channelLabel} />
-                    </span>
                     <span className={`flex-1 truncate text-xs ${bold ? "text-ink" : "text-muted"}`}>
                         {preview}
                     </span>

@@ -1,6 +1,5 @@
 """Clearcoat Mobile Detailing: a four-person mobile car detailer in Montreal, on the demo engine."""
 
-import unicodedata
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
 
@@ -224,7 +223,7 @@ ITEMS: tuple[tuple[str, ItemKind, str, int, int | None, str, str], ...] = (
         0,
         None,
         "Gift cards",
-        "A gift card for any wash, detail or add-on, emailed with your note. It doesn't expire.",
+        "A gift card for any wash, detail or add-on. We text the code, and it doesn't expire.",
     ),
 )
 COLORS = {
@@ -400,7 +399,6 @@ class Owner:
     key: str
     name: str
     cars: tuple[Car, ...]
-    email: str | None = None
 
 
 NAMED = (
@@ -768,7 +766,6 @@ ROSEMONT = Owner(
             start=1,
         )
     ),
-    email="bureau.plomberierosemont@example.test",
 )
 PEOPLE = (
     ("Alexandre", "Gagnon"),
@@ -1094,13 +1091,6 @@ def _clock(when: datetime) -> str:
     return f"{when:%I:%M %p}".removeprefix("0")
 
 
-def _email(name: str) -> str:
-    plain = "".join(
-        c for c in unicodedata.normalize("NFKD", name.lower()) if c.isalpha() or c == " "
-    )
-    return f"{plain.replace(' ', '.')}@example.test"
-
-
 def _generated(index: int) -> Owner:
     first, last = PEOPLE[index]
     make, model, size = MODELS[index % len(MODELS)]
@@ -1180,10 +1170,8 @@ class Clearcoat(Demo):
         self.client(
             owner.key,
             owner.name,
-            owner.email or _email(owner.name),
             f"+1514555{100 + index:04}",
             tags=tags or [],
-            channel="email" if tags or index % 3 == 0 else "sms",
             fields={"source": ("google", "referral", "instagram")[index % 3]},
             subject=first.name,
             attributes=_attributes(first),
@@ -1669,7 +1657,7 @@ class Clearcoat(Demo):
             )
         )
         self.settle(invoice, "jason", "card")
-        thread = self.thread("jason", "sms", canceled)
+        thread = self.thread("jason", canceled)
         self.say(
             thread,
             "Sorry, I have to take the car to work today after all. Can we cancel?",
@@ -1717,7 +1705,7 @@ class Clearcoat(Demo):
                 created_at=moved,
             )
         )
-        thread = self.thread("isabelle", "sms", moved)
+        thread = self.thread("isabelle", moved)
         self.say(
             thread,
             "Hi Isabelle, it's Mathieu from Clearcoat. Rain is forecast all morning, so we'd like "
@@ -1745,7 +1733,7 @@ class Clearcoat(Demo):
             "smoke; quote a headliner shampoo if he asks again.",
             when,
         )
-        thread = self.thread("simon", "email", when - timedelta(hours=4))
+        thread = self.thread("simon", when - timedelta(hours=4))
         self.say(
             thread,
             "Hi, the van looked great, but after a few warm days the smoke smell is back.",
@@ -1839,7 +1827,7 @@ class Clearcoat(Demo):
         assert visit is not None and visit.completed_at is not None
         self.redeem(card, 33918, visit.completed_at + timedelta(minutes=10))
         self.visit("sophie_spring", "sophie", WASH, ANH, self.days_to(bought) - 50)
-        thread = self.thread("gilles", "sms", visit.completed_at + timedelta(hours=3))
+        thread = self.thread("gilles", visit.completed_at + timedelta(hours=3))
         self.say(
             thread,
             "Thank you, the Camry hasn't looked this good since I bought it. My daughter will be "
@@ -1888,9 +1876,8 @@ class Clearcoat(Demo):
         self.note(
             "cl_ct_rosemont",
             "client",
-            "Invoices go to bureau.plomberierosemont@example.test and are paid by e-Transfer "
-            "within 14 days. The office keeps the vans in the yard on wash days; book Olivier "
-            "with Anh.",
+            "Invoices are texted to the office and paid by e-Transfer within 14 days. The office "
+            "keeps the vans in the yard on wash days; book Olivier with Anh.",
             self.at(-125, 11),
         )
 
@@ -2026,13 +2013,13 @@ class Clearcoat(Demo):
 
     def engagement(self) -> None:
         self.consents()
-        self.withdraw("car_07", "email", self.now - timedelta(days=33))
+        self.withdraw("car_07", self.now - timedelta(days=33))
         self.broadcast(
             "spring",
             "Spring salt wash",
             "Winter salt keeps working on the paint and the underside of the car after the snow "
             "is gone. Book a maintenance wash or a full detail this month and we'll rinse the "
-            "wheel wells and underside too. Reply to this email or book online.",
+            "wheel wells and underside too. Reply to this text or book online.",
             self.at(-195, 10),
         )
         self.broadcast(
@@ -2083,7 +2070,7 @@ class Clearcoat(Demo):
         ctx = self.ctx
         emilie = ctx.get(Booking, "bk_ct_emilie")
         when = emilie.created_at + timedelta(hours=2)
-        thread = self.thread("emilie", "email", when)
+        thread = self.thread("emilie", when)
         self.say(
             thread,
             "Hi, I booked an interior detail online. Do I need to be home, or can you do it on "
@@ -2099,7 +2086,7 @@ class Clearcoat(Demo):
         )
         raj = ctx.get(Estimate, "est_ct_raj")
         when = raj.created_at + timedelta(minutes=15)
-        thread = self.thread("raj", "email", when)
+        thread = self.thread("raj", when)
         self.say(
             thread,
             "Hi Raj, your ceramic coating quote is ready. From your photo, a one-stage correction "
@@ -2121,7 +2108,7 @@ class Clearcoat(Demo):
         )
         thomas = ctx.get(Booking, "bk_ct_thomas")
         if thomas.departed_at is not None:
-            thread = self.thread("thomas", "sms", thomas.departed_at)
+            thread = self.thread("thomas", thomas.departed_at)
             self.say(
                 thread,
                 "Hi Thomas, Olivier from Clearcoat is on his way and should be there in about 25 "
@@ -2138,7 +2125,7 @@ class Clearcoat(Demo):
         mei = ctx.get(FormResponse, "fr_ct_feedback_mei")
         if mei.submitted_at is not None:
             when = mei.submitted_at + timedelta(hours=2)
-            thread = self.thread("mei", "email", when)
+            thread = self.thread("mei", when)
             self.say(
                 thread,
                 "Hi Mei, thank you for the feedback, and sorry for the late start and for making "
@@ -2150,11 +2137,11 @@ class Clearcoat(Demo):
         overdue = ctx.get(Invoice, "inv_ct_rosemont_3")
         if overdue.overdue_notified_at is not None:
             when = overdue.overdue_notified_at + timedelta(hours=2)
-            thread = self.thread("rosemont", "email", when)
+            thread = self.thread("rosemont", when)
             self.say(
                 thread,
                 f"Bonjour, invoice {overdue.number} for last month's fleet wash is past due. You "
-                "can pay by card from the invoice email or by e-Transfer to "
+                "can pay by card from the invoice link or by e-Transfer to "
                 "hello@clearcoat.example.",
                 when,
             )

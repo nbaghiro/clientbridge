@@ -54,7 +54,7 @@ async def test_a_reply_lands_on_the_thread_of_the_business_that_texted(
     assert msg is not None
     assert msg.direction == "in" and msg.body == "Can I reschedule?" and msg.business_id == BIZ
     thread = (await db.execute(select(Thread).where(Thread.id == msg.thread_id))).scalar_one()
-    assert thread.client_id == cid and thread.channel == "sms"
+    assert thread.client_id == cid
     assert await unread_count(db, thread) == 1
 
 

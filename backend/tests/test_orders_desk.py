@@ -69,7 +69,7 @@ async def test_another_business_sale_is_not_found(
     await db.flush()
     for path, body in (
         ("cash", {"tendered_cents": 100}),
-        ("receipt", {"channel": "email", "to": "a@b.ca"}),
+        ("receipt", {"to": "+16045550123"}),
         ("pay", {}),
     ):
         res = await as_owner.post(f"/v1/orders/{order.id}/{path}", json=body, headers=key())
@@ -135,11 +135,7 @@ async def test_the_receipt_lists_the_applied_deposit_without_a_method(
         201,
     ).json()
     await _cash(as_owner, sale["id"], sale["due_cents"])
-    ok(
-        await as_owner.post(
-            f"/v1/orders/{sale['id']}/receipt", json={"channel": "email", "to": "pat@example.ca"}
-        )
-    )
+    ok(await as_owner.post(f"/v1/orders/{sale['id']}/receipt", json={"to": "+16045550123"}))
     order = await db.get(Order, sale["id"], populate_existing=True)
     assert order is not None and order.receipt_token is not None
     page = ok(await unauth.get(f"/receipt/{order.receipt_token}")).json()
@@ -184,7 +180,7 @@ async def test_held_sales_list_open_desk_tickets_with_their_note(
     assert sale["id"] not in [o["id"] for o in ok(await as_staff.get("/v1/orders/held")).json()]
 
 
-async def test_receipt_by_email_or_text_after_payment(
+async def test_receipt_by_text_after_payment(
     as_owner: httpx.AsyncClient,
     unauth: httpx.AsyncClient,
     db: AsyncSession,
@@ -203,9 +199,7 @@ async def test_receipt_by_email_or_text_after_payment(
         ),
         201,
     ).json()
-    early = await as_owner.post(
-        f"/v1/orders/{sale['id']}/receipt", json={"channel": "email", "to": "a@b.ca"}
-    )
+    early = await as_owner.post(f"/v1/orders/{sale['id']}/receipt", json={"to": "+12505550223"})
     assert early.status_code == 409
     ok(
         await as_owner.post(
@@ -214,25 +208,15 @@ async def test_receipt_by_email_or_text_after_payment(
             headers=key(),
         )
     )
-    bad = await as_owner.post(
-        f"/v1/orders/{sale['id']}/receipt", json={"channel": "email", "to": "nope"}
-    )
+    bad = await as_owner.post(f"/v1/orders/{sale['id']}/receipt", json={"to": "nope"})
     assert bad.status_code == 422
     sent = ok(
-        await as_owner.post(
-            f"/v1/orders/{sale['id']}/receipt", json={"channel": "email", "to": "pat@example.ca"}
-        )
+        await as_owner.post(f"/v1/orders/{sale['id']}/receipt", json={"to": "+12505550223"})
     ).json()
-    assert (sent["receipt_channel"], sent["receipt_email"]) == ("email", "pat@example.ca")
-    mail = next(e for e in email.sent if e.to == "pat@example.ca")
-    assert mail.reply_to == "hello@birchbark.example"
-    assert mail.tags == {"business": BIZ, "delivery": mail.idempotency_key}
-    token = mail.body.rsplit("/r/", 1)[1].strip()
-    ok(
-        await as_owner.post(
-            f"/v1/orders/{sale['id']}/receipt", json={"channel": "sms", "to": "(250) 555-1234"}
-        )
-    )
+    assert sent["receipt_phone"] == "+12505550223"
+    assert email.sent == []
+    token = sms.sent[-1].body.rsplit("/r/", 1)[1].strip()
+    ok(await as_owner.post(f"/v1/orders/{sale['id']}/receipt", json={"to": "(250) 555-0201"}))
     assert any("/r/" in s.body for s in sms.sent)
     page = ok(await unauth.get(f"/receipt/{token}")).json()
     assert page["number"] == sale["number"]
@@ -278,7 +262,10 @@ def test_staff_read_pickup_orders_and_lines_without_money() -> None:
 
 
 async def test_walk_in_gets_an_itemised_receipt(
-    as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    email: FakeEmailSender,
+    sms: FakeSmsSender,
 ) -> None:
     await enable_payments(db)
     shampoo = {
@@ -289,21 +276,23 @@ async def test_walk_in_gets_an_itemised_receipt(
     }
     sale = ok(
         await as_owner.post(
-            "/v1/orders", json={"lines": [shampoo], "receipt_email": "walkin@example.ca"}
+            "/v1/orders", json={"lines": [shampoo], "receipt_phone": "+12505550224"}
         ),
         201,
     ).json()
     pay = ok(await as_owner.post(f"/v1/orders/{sale['id']}/pay", json={})).json()
     await settle(as_owner, db, pay["payment_id"], "evt_rcp1")
-    (receipt,) = [m for m in email.sent if m.to == "walkin@example.ca"]
+    assert email.sent == []
+    assert len(sms.sent) == 1
+    (receipt,) = [m for m in sms.sent if m.to == "+12505550224"]
     assert "it_shampoo x2  $48.00" in receipt.body
     assert "GST  $2.40" in receipt.body
     assert "PST  $3.36" in receipt.body
     assert "Total  $53.76" in receipt.body
 
 
-async def test_bad_receipt_email_422(as_owner: httpx.AsyncClient) -> None:
-    res = await as_owner.post("/v1/orders", json={"lines": [], "receipt_email": "not-an-email"})
+async def test_bad_receipt_phone_422(as_owner: httpx.AsyncClient) -> None:
+    res = await as_owner.post("/v1/orders", json={"lines": [], "receipt_phone": "not-a-phone"})
     assert res.status_code == 422
 
 
@@ -347,9 +336,7 @@ async def test_receipt_text_needs_a_full_phone_number_422(as_owner: httpx.AsyncC
             f"/v1/orders/{sale['id']}/cash", json={"tendered_cents": 9000}, headers=key()
         )
     )
-    res = await as_owner.post(
-        f"/v1/orders/{sale['id']}/receipt", json={"channel": "sms", "to": "555-0101"}
-    )
+    res = await as_owner.post(f"/v1/orders/{sale['id']}/receipt", json={"to": "555-0101"})
     assert res.status_code == 422
     assert res.json()["message"] == "that phone number doesn't look right"
 
@@ -388,7 +375,7 @@ async def test_a_visit_on_one_sale_cannot_join_another_409(
     ],
 )
 async def test_unauth_401(unauth: httpx.AsyncClient, method: str, path: str) -> None:
-    body = {"channel": "email", "to": "a@b.ca"} if method == "POST" else None
+    body = {} if method == "POST" else None
     assert (await unauth.request(method, path, json=body)).status_code == 401
 
 

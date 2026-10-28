@@ -353,3 +353,11 @@ class PublicPaymentSetup(BaseModel):
     stripe_account_id: str
     client_secret: str | None = None
     verification_url: str | None = None
+
+
+class PublicPaymentSetupStart(BaseModel):
+    email: str = Field(
+        max_length=254,
+        pattern=r"^[^\s@]+@[^\s@]+\.[^\s@]+$",
+        description="Where Stripe sends the mandate and debit notices; Clientbridge keeps none",
+    )

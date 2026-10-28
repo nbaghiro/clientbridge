@@ -174,7 +174,7 @@ test("STRIPE-BROWSER-05 owner issues an invoice and emailed card checkout reache
         const ownerInvoice = {
             id: fixture.invoice.id,
             name: fixture.client.name,
-            email: fixture.client.email,
+            phone: fixture.client.phone,
         };
         await signIn(replica);
         for (const page of [owner, replica]) {
@@ -203,7 +203,7 @@ test("STRIPE-BROWSER-05 owner issues an invoice and emailed card checkout reache
         if (!paymentId) throw new Error("Settled payment is missing");
         for (const page of [owner, replica]) await expectPaid(page);
         const receipt = await stripeReceipt(owner, fixture.client, fixture.invoice.id, paymentId);
-        expect(receipt.mailId).not.toBe(fixture.invoiceMailId);
+        expect(receipt.textId).not.toBe(fixture.invoiceTextId);
         for (const page of [owner, replica]) {
             await page.reload();
             await openInvoice(page, ownerInvoice);
@@ -242,7 +242,7 @@ test("STRIPE-BROWSER-06 held genuine settlement leaves durable invoice unpaid un
         const ownerInvoice = {
             id: fixture.invoice.id,
             name: fixture.client.name,
-            email: fixture.client.email,
+            phone: fixture.client.phone,
         };
         await signIn(replica);
         for (const page of [owner, replica]) await openInvoice(page, ownerInvoice);
@@ -276,7 +276,7 @@ test("STRIPE-BROWSER-06 held genuine settlement leaves durable invoice unpaid un
         expect(held.entries).toEqual([]);
         expect(held.webhooks).toEqual([]);
         expect(await stripeReceiptEvidence(fixture.invoice.id)).toEqual({ receipts: [] });
-        expect(await receiptMessages(owner.request, fixture.client.email)).toEqual([]);
+        expect(await receiptMessages(owner.request, fixture.client.phone)).toEqual([]);
         for (const page of [owner, replica]) {
             await expect(
                 page

@@ -75,7 +75,7 @@ export function DocumentPane({
                 <>
                     {attached !== "" ? (
                         <p className="flex min-w-0 items-center gap-2 text-sm text-muted">
-                            <Icon name="mail" size={15} />
+                            <Icon name="message" size={15} />
                             <span className="truncate">{attached}</span>
                         </p>
                     ) : null}

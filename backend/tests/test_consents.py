@@ -10,11 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
 from clientbridge.core.config import get_settings
-from clientbridge.core.errors import TooManyRequests
-from clientbridge.core.ratelimit import RateLimiter, public_prefs_rate_limit
-from clientbridge.main import app
 from clientbridge.models.clients import Client, Consent
-from clientbridge.services.consents import prefs_token, record_consent
+from clientbridge.services.consents import record_consent
 from clientbridge.services.messaging import broadcast_recipients
 from tests.conftest import Factory, FakeSmsSender
 from tests.google_business import configure_google_review_profile
@@ -25,7 +22,7 @@ PHONE = "+16045550877"
 
 
 async def _client(db: AsyncSession, *, name: str | None = None) -> str:
-    cid = await new_client(db, email="pat@example.ca")
+    cid = await new_client(db)
     values: dict[str, object] = {"phone": PHONE}
     if name is not None:
         values["name"] = name
@@ -34,10 +31,10 @@ async def _client(db: AsyncSession, *, name: str | None = None) -> str:
     return cid
 
 
-async def _consents(db: AsyncSession, cid: str, channel: str) -> list[tuple[str, str]]:
+async def _consents(db: AsyncSession, cid: str) -> list[tuple[str, str]]:
     rows = await db.execute(
         select(Consent.status, Consent.source)
-        .where(Consent.client_id == cid, Consent.channel == channel)
+        .where(Consent.client_id == cid)
         .order_by(Consent.created_at, Consent.id)
     )
     return [(status, source) for status, source in rows.all()]
@@ -49,20 +46,24 @@ async def _text_in(api: httpx.AsyncClient, body: str, sid: str) -> None:
 
 async def test_export_lists_every_change(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
     cid = await _client(db, name="=HYPERLINK(1)")
-    await record_consent(
-        db, BIZ, cid, channel="sms", status="granted", source="in_person", recorded_by=None
-    )
-    await record_consent(
-        db, BIZ, cid, channel="sms", status="withdrawn", source="reply", recorded_by=None
-    )
+    await record_consent(db, BIZ, cid, status="granted", source="in_person", recorded_by=None)
+    await record_consent(db, BIZ, cid, status="withdrawn", source="reply", recorded_by=None)
     body = ok(await as_owner.post("/v1/consents/export")).json()
     assert body["filename"].startswith("consent-log-") and body["filename"].endswith(".csv")
     rows = list(csv.reader(io.StringIO(body["content"])))
-    assert rows[0][:6] == ["client", "email", "phone", "channel", "status", "source"]
-    mine = [r for r in rows[1:] if r[2] == PHONE]
-    assert [(r[3], r[4], r[5]) for r in mine] == [
-        ("sms", "granted", "in_person"),
-        ("sms", "withdrawn", "reply"),
+    assert rows[0] == [
+        "client",
+        "phone",
+        "status",
+        "source",
+        "recorded_at",
+        "expires_at",
+        "recorded_by",
+    ]
+    mine = [r for r in rows[1:] if r[1] == PHONE]
+    assert [(r[2], r[3]) for r in mine] == [
+        ("granted", "in_person"),
+        ("withdrawn", "reply"),
     ]
     assert mine[0][0] == "'=HYPERLINK(1)"  # a spreadsheet won't run it as a formula
 
@@ -76,7 +77,7 @@ async def test_export_pseudo_localizes_headers_and_keeps_data(
     monkeypatch.setattr(get_settings(), "pseudo_locale", True)
     body = ok(await as_owner.post("/v1/consents/export")).json()
     header, *data = list(csv.reader(io.StringIO(body["content"])))
-    assert len(header) == len(english[0]) == 9
+    assert len(header) == len(english[0]) == 7
     for cell in header:
         assert cell.startswith("[") and cell.endswith("~]"), cell
         assert not re.search(r"[A-Za-z]", cell), cell
@@ -93,62 +94,25 @@ async def test_export_leaves_out_other_businesses(
     other = await factory.business(name="Rival Consent")
     foreign = await factory.client(business=other, name="Foreign Client")
     await record_consent(
-        db, other.id, foreign.id, channel="email", status="granted", source="form", recorded_by=None
+        db, other.id, foreign.id, status="granted", source="form", recorded_by=None
     )
     content = ok(await as_owner.post("/v1/consents/export")).json()["content"]
     assert "Foreign Client" not in content
 
 
-async def test_preferences_page_reads_and_saves(api: httpx.AsyncClient, db: AsyncSession) -> None:
-    cid = await _client(db)
-    token = prefs_token(cid)
-    page = ok(await api.get(f"/prefs/{token}")).json()
-    assert (page["email"], page["sms"]) == (False, False)
-    assert page["phone_hint"] == "•••0877" and page["email_hint"] == "p•••@example.ca"
-    saved = ok(await api.post(f"/prefs/{token}", json={"email": True, "sms": False})).json()
-    assert (saved["email"], saved["sms"]) == (True, False)
-    assert await _consents(db, cid, "email") == [("granted", "preferences")]
-    ok(await api.post(f"/prefs/{token}", json={"email": True, "sms": False}))
-    assert len(await _consents(db, cid, "email")) == 1  # saving the same choice records nothing
-
-
-async def test_one_click_unsubscribe(api: httpx.AsyncClient, db: AsyncSession) -> None:
-    cid = await _client(db)
-    await record_consent(
-        db, BIZ, cid, channel="email", status="granted", source="in_person", recorded_by=None
-    )
-    token = prefs_token(cid)
-    out = ok(await api.post(f"/prefs/{token}/unsubscribe", json={"channel": "email"})).json()
-    assert out["email"] is False
-    assert (await _consents(db, cid, "email"))[-1] == ("withdrawn", "unsubscribe")
-    ok(await api.post(f"/prefs/{token}/unsubscribe", json={"channel": "email"}))
-    assert len(await _consents(db, cid, "email")) == 2  # a second click is a no-op
-
-
-async def test_preferences_link_must_be_signed(api: httpx.AsyncClient, db: AsyncSession) -> None:
-    cid = await _client(db)
-    assert (await api.get(f"/prefs/{cid}.forged")).status_code == 404
-    assert (await api.get("/prefs/nothing")).status_code == 404
-    forged = await api.post(f"/prefs/{cid}.forged", json={"email": True, "sms": True})
-    assert forged.status_code == 404
-    unsubscribed = await api.post(f"/prefs/{cid}.forged/unsubscribe", json={})
-    assert unsubscribed.status_code == 404
-    assert await _consents(db, cid, "sms") == []
-
-
-async def test_implied_consent_lapses(api: httpx.AsyncClient, db: AsyncSession) -> None:
+async def test_implied_consent_lapses(db: AsyncSession) -> None:
     cid = await _client(db)
     await record_consent(
         db,
         BIZ,
         cid,
-        channel="email",
         status="implied",
         source="online_booking",
         recorded_by=None,
         expires_at=clock.now() - timedelta(days=1),
     )
-    assert ok(await api.get(f"/prefs/{prefs_token(cid)}")).json()["email"] is False
+    recipients, _ = await broadcast_recipients(db, BIZ, {"all": True})
+    assert cid not in {client.id for client, _ in recipients}
 
 
 async def test_stop_reply_blocks_texts_until_start(
@@ -156,20 +120,13 @@ async def test_stop_reply_blocks_texts_until_start(
 ) -> None:
     cid = await _client(db)
     await _text_in(as_owner, " stop ", "SM_stop_1")
-    assert await _consents(db, cid, "sms") == [("withdrawn", "reply")]
-    blocked = await as_owner.post(
-        "/v1/messages", json={"client_id": cid, "channel": "sms", "body": "Still there?"}
-    )
+    assert await _consents(db, cid) == [("withdrawn", "reply")]
+    blocked = await as_owner.post("/v1/messages", json={"client_id": cid, "body": "Still there?"})
     assert blocked.status_code == 409
     assert sms.sent == []
-    email = await as_owner.post(
-        "/v1/messages", json={"client_id": cid, "channel": "email", "body": "By email"}
-    )
-    assert email.status_code == 200  # email still reaches them
-
     await _text_in(as_owner, "START", "SM_start_1")
-    assert (await _consents(db, cid, "sms"))[-1] == ("granted", "reply")
-    ok(await as_owner.post("/v1/messages", json={"client_id": cid, "channel": "sms", "body": "Hi"}))
+    assert (await _consents(db, cid))[-1] == ("granted", "reply")
+    ok(await as_owner.post("/v1/messages", json={"client_id": cid, "body": "Hi"}))
     assert [m.to for m in sms.sent] == [PHONE]
 
 
@@ -179,7 +136,7 @@ async def test_ordinary_replies_leave_consent_alone(
     cid = await _client(db)
     await _text_in(as_owner, "Stop by at 3?", "SM_plain_1")
     await _text_in(as_owner, "START", "SM_plain_2")  # START without a STOP changes nothing
-    assert await _consents(db, cid, "sms") == []
+    assert await _consents(db, cid) == []
 
 
 async def test_stopped_client_gets_no_reminder_texts(
@@ -190,42 +147,6 @@ async def test_stopped_client_gets_no_reminder_texts(
     await _text_in(as_owner, "STOP", "SM_stop_2")
     ok(await as_owner.post("/v1/reviews/request", json={"client_id": cid}), 201)
     assert sms.sent == []
-
-
-async def test_preferences_are_rate_limited(api: httpx.AsyncClient, db: AsyncSession) -> None:
-    rl = RateLimiter(limit=1, window_s=60.0)
-
-    def limited() -> None:
-        if not rl.check("x", 0.0):
-            raise TooManyRequests("slow down")
-
-    app.dependency_overrides[public_prefs_rate_limit] = limited
-    token = prefs_token(await _client(db))
-    assert (await api.get(f"/prefs/{token}")).status_code == 200
-    assert (await api.get(f"/prefs/{token}")).status_code == 429
-
-
-async def test_a_deleted_clients_link_is_not_found(
-    api: httpx.AsyncClient, db: AsyncSession
-) -> None:
-    cid = await _client(db)
-    await db.execute(update(Client).where(Client.id == cid).values(deleted_at=clock.now()))
-    await db.flush()
-    assert (await api.get(f"/prefs/{prefs_token(cid)}")).status_code == 404
-
-
-async def test_unsubscribe_without_a_channel_withdraws_both(
-    api: httpx.AsyncClient, db: AsyncSession
-) -> None:
-    cid = await _client(db)
-    for channel in ("email", "sms"):
-        await record_consent(
-            db, BIZ, cid, channel=channel, status="granted", source="in_person", recorded_by=None
-        )
-    out = ok(await api.post(f"/prefs/{prefs_token(cid)}/unsubscribe", json={})).json()
-    assert (out["email"], out["sms"]) == (False, False)
-    assert (await _consents(db, cid, "email"))[-1] == ("withdrawn", "unsubscribe")
-    assert (await _consents(db, cid, "sms"))[-1] == ("withdrawn", "unsubscribe")
 
 
 async def test_export_needs_a_session(unauth: httpx.AsyncClient) -> None:
@@ -239,11 +160,8 @@ async def test_a_staff_toggle_after_stop_does_not_unblock_texts(
     await _text_in(as_owner, "STOP", "SM_sticky_1")
     ok(await as_owner.patch(f"/v1/clients/{cid}", json={"marketing_consent": False}))
     ok(await as_owner.patch(f"/v1/clients/{cid}", json={"marketing_consent": True}))
-    assert await _consents(db, cid, "sms") == [("withdrawn", "reply")]
-    assert (await _consents(db, cid, "email"))[-1] == ("granted", "in_person")
-    blocked = await as_owner.post(
-        "/v1/messages", json={"client_id": cid, "channel": "sms", "body": "Back?"}
-    )
+    assert await _consents(db, cid) == [("withdrawn", "reply")]
+    blocked = await as_owner.post("/v1/messages", json={"client_id": cid, "body": "Back?"})
     assert blocked.status_code == 409 and sms.sent == []
 
 
@@ -252,28 +170,12 @@ async def test_an_older_staff_grant_cannot_outrank_a_stop(
 ) -> None:
     cid = await _client(db)
     await _text_in(as_owner, "STOP", "SM_sticky_2")
-    await record_consent(
-        db, BIZ, cid, channel="sms", status="granted", source="in_person", recorded_by=None
-    )
-    recipients, _ = await broadcast_recipients(db, BIZ, "sms", {"all": True})
+    await record_consent(db, BIZ, cid, status="granted", source="in_person", recorded_by=None)
+    recipients, _ = await broadcast_recipients(db, BIZ, {"all": True})
     assert cid not in {client.id for client, _ in recipients}
-    blocked = await as_owner.post(
-        "/v1/messages", json={"client_id": cid, "channel": "sms", "body": "Back?"}
-    )
+    blocked = await as_owner.post("/v1/messages", json={"client_id": cid, "body": "Back?"})
     assert blocked.status_code == 409
     assert PHONE not in [m.to for m in sms.sent]
-
-
-async def test_the_preferences_page_cannot_lift_a_stop(
-    api: httpx.AsyncClient, db: AsyncSession
-) -> None:
-    cid = await _client(db)
-    await _text_in(api, "STOP", "SM_sticky_3")
-    saved = ok(await api.post(f"/prefs/{prefs_token(cid)}", json={"email": True, "sms": True}))
-    assert saved.json()["sms"] is False
-    assert await _consents(db, cid, "sms") == [("withdrawn", "reply")]
-    await _text_in(api, "START", "SM_sticky_4")
-    assert (await _consents(db, cid, "sms"))[-1] == ("granted", "reply")
 
 
 pytestmark = pytest.mark.usefixtures("google_review_provider")

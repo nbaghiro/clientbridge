@@ -1,17 +1,10 @@
 from datetime import datetime
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field
 
 
 class ReturningRequest(BaseModel):
-    email: str | None = Field(default=None, max_length=254, pattern=r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
-    phone: str | None = Field(default=None, max_length=24, pattern=r"^\+?[0-9 ()-]{8,24}$")
-
-    @model_validator(mode="after")
-    def _one_contact(self) -> "ReturningRequest":
-        if (self.email is None) == (self.phone is None):
-            raise ValueError("provide exactly one email or phone")
-        return self
+    phone: str = Field(max_length=24, pattern=r"^\+?[0-9 ()-]{8,24}$")
 
 
 class ReturningChallengeOut(BaseModel):
@@ -37,7 +30,6 @@ class ReturningVisit(BaseModel):
 
 class ReturningProfile(BaseModel):
     name: str
-    email: str | None
     phone: str | None
     subjects: list[ReturningSubject]
     last_visit: ReturningVisit | None

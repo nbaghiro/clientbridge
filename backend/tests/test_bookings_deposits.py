@@ -313,7 +313,7 @@ async def _online_deposit(api: httpx.AsyncClient, db: AsyncSession) -> tuple[str
             "item_id": "it_groom_lg",
             "staff_id": ST_OWNER,
             "starts_at": "2027-03-02T16:00:00Z",
-            "client": {"name": "Deposit Payer", "email": "payer@example.com"},
+            "client": {"name": "Deposit Payer", "phone": "+16045550173"},
         },
     )
     assert res.status_code == 200, res.text

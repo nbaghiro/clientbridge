@@ -12,7 +12,7 @@ from clientbridge.models.clients import Client
 from clientbridge.models.platform import Audit
 from clientbridge.models.scheduling import Recurrence, Slot
 from clientbridge.services.bookings import expand_occurrences
-from tests.conftest import BIZ, Factory, FakeEmailSender
+from tests.conftest import BIZ, Factory, FakeSmsSender
 from tests.helpers import key, ok
 
 ST_OWNER = "st_owner"
@@ -316,15 +316,13 @@ async def test_unauth_cannot_schedule_a_series(unauth: httpx.AsyncClient) -> Non
 
 
 async def test_a_replayed_recurring_booking_confirms_the_series_once(
-    as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
+    as_owner: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender
 ) -> None:
     client, item = await _client_and_item(db)
-    await db.execute(
-        update(Client).where(Client.id == client).values(email="series-replay@example.ca")
-    )
+    await db.execute(update(Client).where(Client.id == client).values(phone="+16045550331"))
     headers = key()
     body = _body(client, item, count=3, confirmation="series")
     first = ok(await as_owner.post("/v1/recurrences", json=body, headers=headers), 201).json()
     again = ok(await as_owner.post("/v1/recurrences", json=body, headers=headers), 201).json()
     assert again["id"] == first["id"]
-    assert len([m for m in email.sent if m.to == "series-replay@example.ca"]) == 1
+    assert len([m for m in sms.sent if m.to == "+16045550331"]) == 1

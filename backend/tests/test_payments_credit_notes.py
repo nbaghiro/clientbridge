@@ -11,7 +11,7 @@ from clientbridge.models.payments import Payment
 from clientbridge.services import ledger
 from clientbridge.services.payments import credit_note_number, next_credit_note
 from clientbridge.services.tax import TaxResult
-from tests.conftest import BIZ, Factory, FakeEmailSender
+from tests.conftest import BIZ, Factory, FakeSmsSender
 from tests.helpers import (
     business_balance,
     card_pay,
@@ -35,7 +35,7 @@ async def _taxed_card_payment(
     inv = Invoice(
         id=new_id("invoice"),
         business_id=BIZ,
-        client_id=await client_id(db, email="cn@example.ca"),
+        client_id=await client_id(db),
         number=number,
         status="sent",
         currency="CAD",
@@ -59,7 +59,7 @@ def _parts(preview: dict[str, object]) -> dict[str, int]:
 
 
 async def test_part_refund_is_numbered_and_previewed(
-    as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
+    as_owner: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender
 ) -> None:
     inv, pay = await _taxed_card_payment(as_owner, db, 9811)
 
@@ -75,7 +75,7 @@ async def test_part_refund_is_numbered_and_previewed(
     assert out["credit_note"] == "CN-9811-1"
     refund = await payment(db, out["refund_id"])
     assert (refund.reason, refund.credit_note) == ("skipped", "CN-9811-1")
-    assert any("CN-9811-1" in m.body for m in email.sent)
+    assert any("CN-9811-1" in m.body for m in sms.sent)
     assert (await invoice(db, inv)).status == "paid"
 
     revenue = await ledger.subject_balance(
@@ -90,13 +90,13 @@ async def test_part_refund_is_numbered_and_previewed(
 
 
 async def test_refund_without_notice_sends_nothing(
-    as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
+    as_owner: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender
 ) -> None:
     _, pay = await _taxed_card_payment(as_owner, db, 9812)
-    email.sent.clear()
+    sms.sent.clear()
     body = {"reason": "duplicate", "notify": False}
     ok(await as_owner.post(f"/v1/payments/{pay}/refund", json=body, headers=retry_key()))
-    assert not any("Refund" in m.subject for m in email.sent)
+    assert sms.sent == []
 
 
 async def test_cash_payment_is_refunded_by_hand(

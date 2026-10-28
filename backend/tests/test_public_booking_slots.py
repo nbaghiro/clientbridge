@@ -121,7 +121,7 @@ async def test_open_times_and_accepted_starts_agree_across_daylight_saving(
                 "item_id": NAILS,
                 "staff_id": ST_OWNER,
                 "starts_at": start.isoformat(),
-                "client": {"name": "Property", "email": f"property{n}@example.com"},
+                "client": {"name": "Property", "phone": f"+1604555{n:04d}"},
             },
         )
         assert res.status_code in (200, 409), res.text
@@ -133,10 +133,10 @@ async def test_open_times_and_accepted_starts_agree_across_daylight_saving(
 
 async def test_two_connections_racing_for_one_public_slot_book_it_once(db: AsyncSession) -> None:
     starts_at = datetime(2027, 5, 4, 16, tzinfo=UTC)
-    emails = ["race-a@example.com", "race-b@example.com"]
+    phones = ["+16045550240", "+16045550241"]
     ready = asyncio.Barrier(2)
 
-    async def book(email: str) -> str | Conflict:
+    async def book(phone: str) -> str | Conflict:
         async with SessionLocal() as session:
             service = PublicBookingService(session, FakePaymentGateway())
             await ready.wait()
@@ -147,7 +147,7 @@ async def test_two_connections_racing_for_one_public_slot_book_it_once(db: Async
                         item_id="it_groom_sm",
                         staff_id=ST_OWNER,
                         starts_at=starts_at,
-                        client=PublicBookingClient(name="Racer", email=email),
+                        client=PublicBookingClient(name="Racer", phone=phone),
                     ),
                 )
             except Conflict as exc:
@@ -155,7 +155,7 @@ async def test_two_connections_racing_for_one_public_slot_book_it_once(db: Async
             return result.booking_id
 
     try:
-        results = await asyncio.gather(*(book(email) for email in emails))
+        results = await asyncio.gather(*(book(phone) for phone in phones))
         assert sum(isinstance(r, str) for r in results) == 1
         assert sum(isinstance(r, Conflict) for r in results) == 1
         async with SessionLocal() as check:
@@ -169,7 +169,7 @@ async def test_two_connections_racing_for_one_public_slot_book_it_once(db: Async
             assert len(list(held)) == 1
     finally:
         async with SessionLocal() as cleanup:
-            clients = list(await cleanup.scalars(select(Client.id).where(Client.email.in_(emails))))
+            clients = list(await cleanup.scalars(select(Client.id).where(Client.phone.in_(phones))))
             bookings = list(
                 await cleanup.scalars(select(Booking.id).where(Booking.client_id.in_(clients)))
             )

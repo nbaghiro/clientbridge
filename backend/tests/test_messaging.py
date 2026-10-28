@@ -46,29 +46,22 @@ async def _agree_to_texts(db: AsyncSession) -> None:
             db,
             BIZ,
             client.id,
-            channel="sms",
             status="granted",
             source="in_person",
             recorded_by=None,
         )
 
 
-async def _client_with_contact(
-    db: AsyncSession, *, email: str | None = None, phone: str | None = None
-) -> str:
-    cid = await new_client(db, email=email)
-    await db.execute(update(Client).where(Client.id == cid).values(email=email, phone=phone))
+async def _client_with_contact(db: AsyncSession, *, phone: str | None = None) -> str:
+    cid = await new_client(db)
+    await db.execute(update(Client).where(Client.id == cid).values(phone=phone))
     await db.flush()
     return cid
 
 
-async def _thread_for(db: AsyncSession, cid: str, channel: str) -> Thread | None:
+async def _thread_for(db: AsyncSession, cid: str) -> Thread | None:
     return (
-        await db.execute(
-            select(Thread).where(
-                Thread.business_id == BIZ, Thread.client_id == cid, Thread.channel == channel
-            )
-        )
+        await db.execute(select(Thread).where(Thread.business_id == BIZ, Thread.client_id == cid))
     ).scalar_one_or_none()
 
 
@@ -76,19 +69,18 @@ async def test_send_sms_records_out_message(
     as_owner: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender
 ) -> None:
     cid = await _client_with_contact(db, phone="+15145551234")
-    res = await as_owner.post(
-        "/v1/messages", json={"client_id": cid, "channel": "sms", "body": "Hi there"}
-    )
+    res = await as_owner.post("/v1/messages", json={"client_id": cid, "body": "Hi there"})
     assert res.status_code == 200, res.text
     out = res.json()
     assert out["id"].startswith("msg_")
     assert out["direction"] == "out"
-    assert out["channel"] == "sms"
     assert out["status"] == "sent"
     assert (
         len(sms.sent) == 1 and sms.sent[0].to == "+15145551234" and sms.sent[0].body == "Hi there"
     )
-    thread = await _thread_for(db, cid, "sms")
+    stored = (await db.execute(select(Message).where(Message.id == out["id"]))).scalar_one()
+    assert stored.provider_ref == "sms_fake1"
+    thread = await _thread_for(db, cid)
     assert thread is not None and thread.id == out["thread_id"]
 
 
@@ -96,12 +88,8 @@ async def test_second_message_reuses_thread(
     as_owner: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender
 ) -> None:
     cid = await _client_with_contact(db, phone="+15145551234")
-    first = await as_owner.post(
-        "/v1/messages", json={"client_id": cid, "channel": "sms", "body": "one"}
-    )
-    second = await as_owner.post(
-        "/v1/messages", json={"client_id": cid, "channel": "sms", "body": "two"}
-    )
+    first = await as_owner.post("/v1/messages", json={"client_id": cid, "body": "one"})
+    second = await as_owner.post("/v1/messages", json={"client_id": cid, "body": "two"})
     assert first.json()["thread_id"] == second.json()["thread_id"]
     threads = (
         (await db.execute(select(Thread).where(Thread.business_id == BIZ, Thread.client_id == cid)))
@@ -112,39 +100,14 @@ async def test_second_message_reuses_thread(
     assert len(sms.sent) == 2
 
 
-async def test_send_email_path_as_staff(
-    as_staff: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
-) -> None:
-    cid = await _client_with_contact(db, email="pat@example.ca")
-    res = await as_staff.post(
-        "/v1/messages", json={"client_id": cid, "channel": "email", "body": "Hello"}
-    )
-    assert res.status_code == 200, res.text
-    assert res.json()["status"] == "sent"
-    assert len(email.sent) == 1 and email.sent[0].to == "pat@example.ca"
-    assert email.sent[0].body == "Hello"
-    message_id = res.json()["id"]
-    assert email.sent[0].reply_to == "hello@birchbark.example"
-    delivery = await db.scalar(select(Delivery).where(Delivery.key == f"message:{message_id}"))
-    assert delivery is not None and delivery.state == "accepted"
-    assert email.sent[0].idempotency_key == delivery.id
-    assert email.sent[0].tags == {"business": BIZ, "message": message_id, "delivery": delivery.id}
-    stored = (await db.execute(select(Message).where(Message.id == message_id))).scalar_one()
-    assert stored.provider_ref == delivery.provider_ref == "email_fake1"
-
-
 async def test_missing_contact_is_422(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
-    cid = await _client_with_contact(db, email=None, phone=None)
-    res = await as_owner.post(
-        "/v1/messages", json={"client_id": cid, "channel": "sms", "body": "Hi"}
-    )
+    cid = await _client_with_contact(db, phone=None)
+    res = await as_owner.post("/v1/messages", json={"client_id": cid, "body": "Hi"})
     assert res.status_code == 422
 
 
 async def test_unknown_client_is_404(as_owner: httpx.AsyncClient) -> None:
-    res = await as_owner.post(
-        "/v1/messages", json={"client_id": "cl_nope", "channel": "sms", "body": "Hi"}
-    )
+    res = await as_owner.post("/v1/messages", json={"client_id": "cl_nope", "body": "Hi"})
     assert res.status_code == 404
 
 
@@ -160,9 +123,7 @@ async def test_failing_sender_marks_failed(
         raise RuntimeError("twilio down")
 
     monkeypatch.setattr(sms, "send", boom)
-    res = await as_owner.post(
-        "/v1/messages", json={"client_id": cid, "channel": "sms", "body": "Hi"}
-    )
+    res = await as_owner.post("/v1/messages", json={"client_id": cid, "body": "Hi"})
     assert res.status_code == 200, res.text
     assert res.json()["status"] == "failed"
     status = (
@@ -176,7 +137,7 @@ async def test_a_message_reaches_the_provider_only_after_its_command_commits(
 ) -> None:
     cid = await _client_with_contact(db, phone="+15145551234")
     service = MessageService(db, OWNER)
-    queued = await service.send_message(MessageSend(client_id=cid, channel="sms", body="Hi"))
+    queued = await service.send_message(MessageSend(client_id=cid, body="Hi"))
     assert queued.status == "queued" and sms.sent == []
     delivery = await db.scalar(select(Delivery).where(Delivery.key == f"message:{queued.id}"))
     assert delivery is not None and delivery.state == "queued"
@@ -199,9 +160,7 @@ async def test_a_message_waiting_for_a_retry_shows_queued_until_it_is_accepted(
         raise httpx.ConnectError("offline")
 
     monkeypatch.setattr(sms, "send", offline)
-    res = await as_owner.post(
-        "/v1/messages", json={"client_id": cid, "channel": "sms", "body": "Hi"}
-    )
+    res = await as_owner.post("/v1/messages", json={"client_id": cid, "body": "Hi"})
     assert res.status_code == 200 and res.json()["status"] == "queued"
     monkeypatch.setattr(sms, "send", real)
     clock.travel(FROZEN + timedelta(minutes=2))
@@ -219,9 +178,7 @@ async def test_a_delivery_never_changes_another_business_message(
 ) -> None:
     other = await factory.business()
     cid = await _client_with_contact(db, phone="+15145551234")
-    sent = await MessageService(db, OWNER).send_message(
-        MessageSend(client_id=cid, channel="sms", body="Hi")
-    )
+    sent = await MessageService(db, OWNER).send_message(MessageSend(client_id=cid, body="Hi"))
     db.info.clear()
     foreign = SmsDelivery(
         message=Sms(to="+15145551234", body="x", from_number="+12365550190"), message_id=sent.id
@@ -237,7 +194,7 @@ async def test_send_is_idempotent(
     as_owner: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender
 ) -> None:
     cid = await _client_with_contact(db, phone="+15145551234")
-    body = {"client_id": cid, "channel": "sms", "body": "Hi"}
+    body = {"client_id": cid, "body": "Hi"}
     headers = {"Idempotency-Key": "msg-1"}
     first = await as_owner.post("/v1/messages", json=body, headers=headers)
     second = await as_owner.post("/v1/messages", json=body, headers=headers)
@@ -263,16 +220,15 @@ async def test_broadcast_fans_out(
         )
     await _agree_to_texts(db)
     now = await local_hour(db, 12)
-    res = await as_owner.post(
-        "/v1/broadcasts", json={"name": "Spring promo", "channel": "sms", "body": "Sale!"}
-    )
+    res = await as_owner.post("/v1/broadcasts", json={"name": "Spring promo", "body": "Sale!"})
     assert res.status_code == 200, res.text
     out = res.json()
     assert out["status"] == "sending" and out["scheduled_at"] is None
     assert out["recipient_count"] == 3
     assert sms.sent == []  # the job sends it, not the request
-    assert await run_due_broadcasts(db, sms, email, FakePushSender(), now) >= 1
+    assert await run_due_broadcasts(db, sms, FakeEmailSender(), FakePushSender(), now) >= 1
     assert len(sms.sent) == 3
+    assert email.sent == []
 
 
 async def test_mark_thread_read_zeroes_unread(
@@ -293,7 +249,6 @@ async def test_mark_thread_read_zeroes_unread(
         id=new_id("thread"),
         business_id=BIZ,
         client_id=client.id,
-        channel="sms",
         status="open",
     )
     db.add(thread)
@@ -305,7 +260,6 @@ async def test_mark_thread_read_zeroes_unread(
                 business_id=BIZ,
                 thread_id=thread.id,
                 direction="in",
-                channel="sms",
                 body=f"ping {i}",
                 status="delivered",
             )
@@ -334,7 +288,6 @@ async def test_thread_tenant_isolation(
         id=new_id("thread"),
         business_id=other.id,
         client_id=foreign.id,
-        channel="sms",
         status="open",
     )
     db.add(thread)
@@ -351,18 +304,14 @@ async def test_send_to_foreign_client_404(
     foreign = await factory.client(business=other)
     foreign.phone = "+15145550000"
     await db.flush()
-    res = await as_owner.post(
-        "/v1/messages", json={"client_id": foreign.id, "channel": "sms", "body": "Hi"}
-    )
+    res = await as_owner.post("/v1/messages", json={"client_id": foreign.id, "body": "Hi"})
     assert res.status_code == 404
 
 
 async def test_staff_cannot_send_a_broadcast_403(
     as_staff: httpx.AsyncClient, sms: FakeSmsSender
 ) -> None:
-    res = await as_staff.post(
-        "/v1/broadcasts", json={"name": "Promo", "channel": "sms", "body": "Sale!"}
-    )
+    res = await as_staff.post("/v1/broadcasts", json={"name": "Promo", "body": "Sale!"})
     assert res.status_code == 403
     assert sms.sent == []
 
@@ -392,11 +341,9 @@ async def test_broadcast_excludes_other_business(
     foreign.phone = "+15145559999"  # fully contactable, but a different business
     await _agree_to_texts(db)
     now = await local_hour(db, 12)
-    res = await as_owner.post(
-        "/v1/broadcasts", json={"name": "Ours only", "channel": "sms", "body": "Sale!"}
-    )
+    res = await as_owner.post("/v1/broadcasts", json={"name": "Ours only", "body": "Sale!"})
     assert res.status_code == 200, res.text
-    await run_due_broadcasts(db, sms, email, FakePushSender(), now)
+    await run_due_broadcasts(db, sms, FakeEmailSender(), FakePushSender(), now)
     assert res.json()["recipient_count"] == 1  # only our own client, never the foreign one
     assert [m.to for m in sms.sent] == ["+15145559001"]
 
@@ -415,10 +362,10 @@ async def test_broadcast_audience_tag_filter(
     now = await local_hour(db, 12)
     res = await as_owner.post(
         "/v1/broadcasts",
-        json={"name": "VIP sale", "channel": "sms", "body": "Hi", "audience": {"tags": ["vip"]}},
+        json={"name": "VIP sale", "body": "Hi", "audience": {"tags": ["vip"]}},
     )
     assert res.status_code == 200, res.text
-    await run_due_broadcasts(db, sms, email, FakePushSender(), now)
+    await run_due_broadcasts(db, sms, FakeEmailSender(), FakePushSender(), now)
     assert res.json()["recipient_count"] == 1
     assert len(sms.sent) == 1 and sms.sent[0].to == "+15145559001"  # only the tagged client
 
@@ -432,7 +379,7 @@ async def test_schedule_broadcast_does_not_send_now(
     future = (clock.now() + timedelta(days=1)).isoformat()
     res = await as_owner.post(
         "/v1/broadcasts",
-        json={"name": "Promo", "channel": "sms", "body": "Soon", "scheduled_at": future},
+        json={"name": "Promo", "body": "Soon", "scheduled_at": future},
     )
     assert res.status_code == 200, res.text
     assert res.json()["status"] == "scheduled"
@@ -441,9 +388,7 @@ async def test_schedule_broadcast_does_not_send_now(
     assert row.status == "scheduled" and row.scheduled_at is not None and row.body == "Soon"
 
 
-async def test_run_due_broadcasts_sends_when_due(
-    db: AsyncSession, sms: FakeSmsSender, email: FakeEmailSender
-) -> None:
+async def test_run_due_broadcasts_sends_when_due(db: AsyncSession, sms: FakeSmsSender) -> None:
     await db.execute(update(Client).where(Client.business_id == BIZ).values(phone=None))
     db.add(_active_client(name="Due", phone="+15145559004", tags=[]))
     await _agree_to_texts(db)
@@ -453,7 +398,6 @@ async def test_run_due_broadcasts_sends_when_due(
         id=new_id("broadcast"),
         business_id=BIZ,
         name="Scheduled",
-        channel="sms",
         body="Hello",
         audience={},
         status="scheduled",
@@ -461,21 +405,18 @@ async def test_run_due_broadcasts_sends_when_due(
     )
     db.add(broadcast)
     await db.flush()
-    assert await run_due_broadcasts(db, sms, email, FakePushSender(), now) == 1
+    assert await run_due_broadcasts(db, sms, FakeEmailSender(), FakePushSender(), now) == 1
     assert len(sms.sent) == 1 and sms.sent[0].to == "+15145559004"
     row = (await db.execute(select(Broadcast).where(Broadcast.id == broadcast.id))).scalar_one()
     assert row.status == "sent"
 
 
-async def test_run_due_broadcasts_skips_future(
-    db: AsyncSession, sms: FakeSmsSender, email: FakeEmailSender
-) -> None:
+async def test_run_due_broadcasts_skips_future(db: AsyncSession, sms: FakeSmsSender) -> None:
     now = datetime(2020, 1, 2, tzinfo=UTC)
     broadcast = Broadcast(
         id=new_id("broadcast"),
         business_id=BIZ,
         name="NotYet",
-        channel="sms",
         body="x",
         audience={},
         status="scheduled",
@@ -483,7 +424,7 @@ async def test_run_due_broadcasts_skips_future(
     )
     db.add(broadcast)
     await db.flush()
-    assert await run_due_broadcasts(db, sms, email, FakePushSender(), now) == 0
+    assert await run_due_broadcasts(db, sms, FakeEmailSender(), FakePushSender(), now) == 0
     assert sms.sent == []
 
 
@@ -491,9 +432,7 @@ async def test_a_text_goes_to_the_e164_number_of_a_phone_stored_as_typed(
     as_owner: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender
 ) -> None:
     cid = await _client_with_contact(db, phone="(514) 555-1234")
-    ok = await as_owner.post(
-        "/v1/messages", json={"client_id": cid, "channel": "sms", "body": "Hi"}
-    )
+    ok = await as_owner.post("/v1/messages", json={"client_id": cid, "body": "Hi"})
     assert ok.status_code == 200, ok.text
     assert [m.to for m in sms.sent] == ["+15145551234"]
 
@@ -522,7 +461,7 @@ async def test_a_visit_note_carries_the_visit_link(
     visit = await _visit_for(db, cid, "tok_visit_note")
     res = await as_owner.post(
         "/v1/messages",
-        json={"client_id": cid, "channel": "sms", "body": "Bella was great", "booking_id": visit},
+        json={"client_id": cid, "body": "Bella was great", "booking_id": visit},
     )
     assert res.status_code == 200, res.text
     [sent] = sms.sent
@@ -539,6 +478,6 @@ async def test_a_visit_note_for_another_clients_visit_is_refused(
     visit = await _visit_for(db, other, "tok_other")
     res = await as_owner.post(
         "/v1/messages",
-        json={"client_id": cid, "channel": "sms", "body": "Note", "booking_id": visit},
+        json={"client_id": cid, "body": "Note", "booking_id": visit},
     )
     assert res.status_code == 404

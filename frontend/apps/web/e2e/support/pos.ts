@@ -213,7 +213,7 @@ export async function ringUpCash(
             .click();
     const ticket = page.getByRole("complementary", { name: d.ticket, exact: true });
     await ticket.getByRole("button").filter({ hasText: d.chooseClient }).click();
-    await ticket.getByRole("searchbox", { name: d.clientSearch, exact: true }).fill(client.email);
+    await ticket.getByRole("searchbox", { name: d.clientSearch, exact: true }).fill(client.name);
     await ticket.getByRole("button").filter({ hasText: client.name }).click();
     await expect(ticket).toContainText(client.name);
     await ticket.getByRole("button", { name: d.charge(sale.charge), exact: true }).click();
@@ -409,7 +409,7 @@ export async function ringCash(
     await ticket.getByRole("button").filter({ hasText: d.chooseClient }).click();
     await ticket
         .getByRole("searchbox", { name: d.clientSearch, exact: true })
-        .fill(sale.client.email);
+        .fill(sale.client.name);
     await ticket.getByRole("button").filter({ hasText: sale.client.name }).click();
     await expect(ticket).toContainText(sale.client.name);
     await ticket.getByRole("button", { name: d.charge(sale.charge), exact: true }).click();

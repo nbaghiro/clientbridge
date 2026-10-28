@@ -56,11 +56,11 @@ async def test_a_client_stored_as_typed_is_found_by_its_e164_number(
     legacy.phone = "(250) 555-0177"
     await db.flush()
     found = await find_or_create_by_contact(
-        db, business.id, name="Online", email=None, phone="+12505550177", source="online_booking"
+        db, business.id, name="Online", phone="+12505550177", source="online_booking"
     )
     assert found.id == legacy.id
     other = await factory.business(name="Other Typed Phones")
     fresh = await find_or_create_by_contact(
-        db, other.id, name="Online", email=None, phone="+12505550177", source="online_booking"
+        db, other.id, name="Online", phone="+12505550177", source="online_booking"
     )
     assert fresh.id != legacy.id and isinstance(fresh, Client)

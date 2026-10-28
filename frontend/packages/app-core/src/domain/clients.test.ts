@@ -11,37 +11,23 @@ const ZONE = "America/Vancouver";
 
 const r = strings.clients.record;
 
-const client = (id: string, name: string, email: string | null, phone: string | null) =>
-    ({ id, name, email, phone, status: "active", lifetime_value_cents: null }) satisfies ClientRow;
+const client = (id: string, name: string, phone: string | null) =>
+    ({ id, name, phone, status: "active", lifetime_value_cents: null }) satisfies ClientRow;
 
 const ROWS = [
-    client("cl_ann", "Ann Tremblay", "ann@x.test", "+16045550001"),
-    client("cl_ben", "ben", null, null),
-    client("cl_cara", "Cara", "cara@studio.test", "+12505550202"),
+    client("cl_ann", "Ann Tremblay", "+16045550001"),
+    client("cl_ben", "ben", null),
+    client("cl_cara", "Cara", "+12505550202"),
 ];
 
 describe("filterClients", () => {
-    it("distinguishes clients with the same name using their email", () => {
-        const clients = [
-            client("cl_ann_home", "Ann Tremblay", "ann.home@example.ca", null),
-            client("cl_ann_work", "Ann Tremblay", "ann.work@example.ca", null),
-        ];
-        expect(filterClients(clients, "Ann Tremblay").map((c) => c.id)).toEqual([
-            "cl_ann_home",
-            "cl_ann_work",
-        ]);
-        expect(filterClients(clients, "ann.work@example.ca").map((c) => c.id)).toEqual([
-            "cl_ann_work",
-        ]);
-    });
-    it("matches name and email without case, and phone digits as stored", () => {
+    it("matches names without case and phone digits as stored", () => {
         expect(filterClients(ROWS, "")).toBe(ROWS);
         expect(filterClients(ROWS, "   ")).toBe(ROWS);
         expect(filterClients(ROWS, "ANN").map((c) => c.id)).toEqual(["cl_ann"]);
         expect(filterClients(ROWS, " Ben ").map((c) => c.id)).toEqual(["cl_ben"]);
-        expect(filterClients(ROWS, "studio.TEST").map((c) => c.id)).toEqual(["cl_cara"]);
         expect(filterClients(ROWS, "604555").map((c) => c.id)).toEqual(["cl_ann"]);
-        expect(filterClients(ROWS, ".test").map((c) => c.id)).toEqual(["cl_ann", "cl_cara"]);
+        expect(filterClients(ROWS, "2505550202").map((c) => c.id)).toEqual(["cl_cara"]);
         expect(filterClients(ROWS, "zzz")).toEqual([]);
     });
 });

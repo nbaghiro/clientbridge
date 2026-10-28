@@ -123,7 +123,7 @@ async def invoice_evidence(invoice_id: str | None, receipts: bool = False) -> di
                     "SELECT d.id, d.key, d.state, p.id AS payment_id FROM deliveries d "
                     "JOIN payments p ON d.key LIKE 'stripe:payment:' || p.id || ':%' "
                     "WHERE p.invoice_id=:id AND p.business_id=:business "
-                    "AND d.business_id=:business AND d.payload->>'channel'='email' ORDER BY d.id"
+                    "AND d.business_id=:business AND d.payload->>'channel'='sms' ORDER BY d.id"
                 ),
                 {"id": invoice_id, "business": BUSINESS},
             )
@@ -887,7 +887,6 @@ async def setup_action(action: str, invoice_id: str | None) -> dict[str, object]
                 raise ValueError("registered invoice customer changed")
             customer = await stripe.Customer.create_async(
                 name=client.name,
-                email=client.email or "",
                 metadata=owned_tags,
                 stripe_account=account,
                 idempotency_key=f"browser:{run}:{invoice.id}:customer",
@@ -1122,7 +1121,6 @@ async def create_deposit_customer(
     fixture: DepositFixture,
     account: str,
     name: str,
-    email: str,
 ) -> stripe.Customer:
     registered = [f for f in deposit_fixtures(state) if f.client == fixture.client]
     if registered != [fixture] or state.get("account") != account:
@@ -1132,7 +1130,6 @@ async def create_deposit_customer(
     owner = fixture.booking if fixture.kind == "booking" else f"enrolment:{fixture.client}"
     customer = await stripe.Customer.create_async(
         name=name,
-        email=email,
         metadata=expected,
         stripe_account=account,
         idempotency_key=f"browser:{state['run_id']}:deposit:{owner}:customer",
@@ -1167,9 +1164,7 @@ async def register_client(
     fixture = DepositFixture(kind="enrolment", client=client_id)
     fixtures.append(fixture)
     state["deposit_fixtures"] = [item.model_dump(exclude_none=True) for item in fixtures]
-    customer = await create_deposit_customer(
-        path, state, fixture, account, client.name, client.email or ""
-    )
+    customer = await create_deposit_customer(path, state, fixture, account, client.name)
     fixture.customer = customer.id
     state["deposit_fixtures"] = [item.model_dump(exclude_none=True) for item in fixtures]
     save(path, state)
@@ -1243,9 +1238,7 @@ async def deposit_action(action: str, booking_id: str, invoice_id: str | None) -
             _, client = await validate_booking(db, fixture)
             if client.stripe_customer_id not in (None, fixture.customer):
                 raise ValueError("registered deposit client customer changed")
-            customer = await create_deposit_customer(
-                path, state, fixture, account, client.name, client.email or ""
-            )
+            customer = await create_deposit_customer(path, state, fixture, account, client.name)
             if client.stripe_customer_id not in (None, customer.id):
                 raise ValueError("deposit DB customer ownership mismatch")
             fixture.customer = customer.id
@@ -2494,7 +2487,6 @@ async def register_purchaser(
             save_clients(path, state, fixtures)
             customer = await stripe.Customer.create_async(
                 name=client.name,
-                email=client.email or "",
                 metadata=expected,
                 test_clock=created.id,
                 stripe_account=account,
@@ -2503,7 +2495,6 @@ async def register_purchaser(
         else:
             customer = await stripe.Customer.create_async(
                 name=client.name,
-                email=client.email or "",
                 metadata=expected,
                 stripe_account=account,
                 idempotency_key=f"{key}:customer",

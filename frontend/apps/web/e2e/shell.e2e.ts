@@ -544,9 +544,8 @@ test("owner: clients, records, notes, subjects, wallet and merge", async ({ page
         await main.getByRole("button", { name: strings.clients.tidy.select }).click();
         // A seeded near-duplicate with no money or saved cards, so the merge isn't blocked.
         await main.getByRole("checkbox", { name: "Grace Lin", exact: true }).check();
-        await main.getByRole("searchbox").fill(runEmail("robin@example.com"));
-        await expect(main.getByText(runEmail("robin@example.com"), { exact: true })).toBeVisible();
-        const duplicate = main.getByRole("checkbox", { name: "Robin Bennett", exact: true });
+        await main.getByRole("searchbox").fill("Robin Ashgrove");
+        const duplicate = main.getByRole("checkbox", { name: "Robin Ashgrove", exact: true });
         await expect(duplicate).toHaveCount(1);
         await duplicate.check();
         await main.getByRole("searchbox").clear();

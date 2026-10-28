@@ -127,7 +127,7 @@ export function BookingComposer({
                                             }
                                             title={m.client.name}
                                             detail={formatParts([
-                                                m.client.email,
+                                                formatPhone(m.client.phone),
                                                 formatList(m.subjects, "unit"),
                                             ])}
                                             onPress={() => {

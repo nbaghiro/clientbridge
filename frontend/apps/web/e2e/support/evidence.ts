@@ -1,5 +1,6 @@
-import { expect, type APIRequestContext } from "@playwright/test";
-import { runSetting, runUrl } from "@clientbridge/config/e2e/run";
+import type { APIRequestContext } from "@playwright/test";
+import { runSetting } from "@clientbridge/config/e2e/run";
+import { type Text, textsTo } from "./auth";
 import { select } from "./db";
 
 export interface PaymentEvidence {
@@ -33,24 +34,14 @@ export async function paymentEvidence(invoiceId: string): Promise<PaymentEvidenc
         deliveries: await select<PaymentEvidence["deliveries"][number]>`
             SELECT d.id, d.state FROM deliveries d
             JOIN payments p ON d.key LIKE 'payment:' || p.id || ':%'
-            WHERE p.invoice_id = ${invoiceId} AND d.payload->>'channel' = 'email'
+            WHERE p.invoice_id = ${invoiceId} AND d.payload->>'channel' = 'sms'
             ORDER BY d.id`,
     };
 }
 
-export async function receiptMessages(
-    request: APIRequestContext,
-    email: string,
-): Promise<{ ID: string; Subject: string; Snippet: string }[]> {
-    const base = runUrl("MAILPIT_URL");
-    const response = await request.get(`${base}/api/v1/search`, {
-        params: { query: `to:${email} subject:receipt`, limit: 100 },
-    });
-    expect(response.status()).toBe(200);
-    const body = (await response.json()) as {
-        messages: { ID: string; Subject: string; Snippet: string }[];
-    };
-    return body.messages;
+/** The payment receipts texted to `phone`; the invoice itself is texted to the same number. */
+export async function receiptMessages(request: APIRequestContext, phone: string): Promise<Text[]> {
+    return (await textsTo(request, phone)).filter((text) => text.Snippet.includes("was received"));
 }
 
 /** Refuses to run unless the stack is a dev stack whose mail lands in a local sink. */

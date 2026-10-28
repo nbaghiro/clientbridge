@@ -4,13 +4,11 @@
       "clients": [
         "created_by",
         "name",
-        "email",
         "phone",
         "user_id",
         "tags",
         "status",
         "custom_fields",
-        "preferred_channel",
         "archived_at",
         "id",
         "business_id",
@@ -41,7 +39,6 @@
       ],
       "consents": [
         "client_id",
-        "channel",
         "status",
         "source",
         "recorded_by",
@@ -192,7 +189,6 @@
       ],
       "threads": [
         "client_id",
-        "channel",
         "status",
         "id",
         "business_id",
@@ -502,7 +498,6 @@
         "subtotal_cents",
         "tax_total_cents",
         "total_cents",
-        "receipt_email",
         "receipt_phone",
         "source",
         "pickup_status",
@@ -514,7 +509,6 @@
         "picked_up_at",
         "paid_at",
         "note",
-        "receipt_channel",
         "receipt_sent_at",
         "id",
         "business_id",
@@ -644,7 +638,6 @@
       "broadcasts": [
         "created_by",
         "name",
-        "channel",
         "body",
         "audience",
         "status",
@@ -718,7 +711,6 @@
       "messages": [
         "thread_id",
         "direction",
-        "channel",
         "sent_by",
         "body",
         "status",

@@ -9,6 +9,7 @@ from clientbridge.core.command import Command, run_command
 from clientbridge.core.deps import Principal, assert_role
 from clientbridge.core.errors import AppError, Conflict, NotFound, Unprocessable
 from clientbridge.core.ids import new_id
+from clientbridge.core.phones import e164
 from clientbridge.core.scoping import scoped
 from clientbridge.integrations.stripe import PaymentGateway
 from clientbridge.models.billing import Invoice, Line, Order
@@ -91,7 +92,6 @@ class OrderService:
                 staff_id=self.principal.staff_id,
                 number=await next_order_number(self.db, self.biz),
                 status="open",
-                receipt_email=data.receipt_email,
                 receipt_phone=data.receipt_phone,
                 note=data.note,
             )
@@ -130,7 +130,7 @@ class OrderService:
                 await ledger.reverse_order_redemptions(self.db, order)
             if "discount" in data.model_fields_set:
                 set_discount(order, data.discount)
-            for key in ("client_id", "receipt_email", "receipt_phone", "note"):
+            for key in ("client_id", "receipt_phone", "note"):
                 if key in data.model_fields_set:
                     setattr(order, key, getattr(data, key))
             if data.lines is not None:
@@ -389,22 +389,16 @@ class OrderService:
         ]
 
     async def send_receipt(self, order_id: str, data: OrderReceiptIn) -> OrderOut:
-        """Choose where a paid sale's receipt goes and queue it for the router to send."""
+        """Text a paid sale's receipt to the given number, queued for the router to send."""
         order = await self._order(order_id)
         if await _status(self.db, order) not in ("paid", "refunded"):
             raise Conflict("a receipt is sent once the sale is paid")
-        to = data.to.strip()
-        if data.channel == "email" and ("@" not in to or "." not in to.split("@")[-1]):
-            raise Unprocessable("that email address doesn't look right")
-        if data.channel == "sms" and sum(ch.isdigit() for ch in to) < 10:
+        to = e164(data.to)
+        if to is None:
             raise Unprocessable("that phone number doesn't look right")
 
         async def run(cmd: Command) -> OrderOut:
-            if data.channel == "email":
-                order.receipt_email = to
-            else:
-                order.receipt_phone = to
-            order.receipt_channel = data.channel
+            order.receipt_phone = to
             order.receipt_sent_at = clock.now()
             order.receipt_token = order.receipt_token or secrets.token_urlsafe(16)
             await self.db.flush()
@@ -647,7 +641,6 @@ async def order_out(db: AsyncSession, order: Order, lines: list[Line]) -> OrderO
         amount_paid_cents=paid,
         balance_cents=max(0, due),
         paid_at=paid_at,
-        receipt_email=order.receipt_email,
         receipt_phone=order.receipt_phone,
         source=order.source,
         pickup_status=order.pickup_status,
@@ -660,7 +653,6 @@ async def order_out(db: AsyncSession, order: Order, lines: list[Line]) -> OrderO
         gift_card_cents=gift,
         due_cents=max(0, due),
         tip_cents=tip,
-        receipt_channel=order.receipt_channel,
         receipt_sent_at=order.receipt_sent_at,
         lines=[line_out(ln) for ln in lines],
     )

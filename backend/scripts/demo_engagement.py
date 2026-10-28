@@ -47,24 +47,17 @@ def _intake_time(ctx: DemoContext, client_id: str) -> datetime:
     return min(first - timedelta(days=2), ctx.now - timedelta(days=2))
 
 
-def _thread(ctx: DemoContext, client_id: str, channel: str, when: datetime) -> Thread:
-    existing = next(
-        (t for t in ctx.all(Thread) if (t.client_id, t.channel) == (client_id, channel)), None
-    )
+def _thread(ctx: DemoContext, client_id: str, when: datetime) -> Thread:
+    existing = next((t for t in ctx.all(Thread) if t.client_id == client_id), None)
     if existing is not None:
         existing.created_at = min(existing.created_at, when)
         existing.updated_at = max(existing.updated_at, when)
         return existing
     suffix = client_id.removeprefix("cl_")
-    stable = (channel == "sms" and client_id != "cl_sophie") or (
-        channel == "email" and client_id == "cl_sophie"
-    )
-    tid = f"th_{suffix}" if stable else f"th_{suffix}_{channel}"
     thread = Thread(
-        id=tid,
+        id=f"th_{suffix}",
         business_id=ctx.business_id,
         client_id=client_id,
-        channel=channel,
         status="open",
         created_at=when,
         updated_at=when,
@@ -90,7 +83,6 @@ def _message(
             business_id=ctx.business_id,
             thread_id=thread.id,
             direction=direction,
-            channel=thread.channel,
             sent_by=ctx.owner_id if direction == "out" else None,
             body=body,
             status=status,
@@ -106,50 +98,43 @@ def _message(
 
 def _consents(ctx: DemoContext) -> None:
     for client in ctx.all(Client):
-        if client.status != "active" or client.deleted_at is not None:
+        if client.status != "active" or client.deleted_at is not None or not client.phone:
             continue
-        for channel in ("email", "sms"):
-            if not (client.email if channel == "email" else client.phone):
-                continue
-            implied = client.id == "cl_sophie"
-            when = ctx.now - timedelta(days=30 if implied else 90)
-            when = max(when, client.created_at)
-            ctx.add(
-                Consent(
-                    id=f"cns_{client.id}_{channel}",
-                    business_id=ctx.business_id,
-                    client_id=client.id,
-                    channel=channel,
-                    status="implied" if implied else "granted",
-                    source="online_booking" if implied else "in_person",
-                    recorded_by=ctx.owner_id,
-                    expires_at=ctx.now + timedelta(days=150) if implied else None,
-                    created_at=when,
-                    updated_at=when,
-                )
+        implied = client.id == "cl_sophie"
+        when = ctx.now - timedelta(days=30 if implied else 90)
+        when = max(when, client.created_at)
+        ctx.add(
+            Consent(
+                id=f"cns_{client.id}",
+                business_id=ctx.business_id,
+                client_id=client.id,
+                status="implied" if implied else "granted",
+                source="online_booking" if implied else "in_person",
+                recorded_by=ctx.owner_id,
+                expires_at=ctx.now + timedelta(days=150) if implied else None,
+                created_at=when,
+                updated_at=when,
             )
-    for client_id, channel in (("cl_noah", "sms"), ("cl_fatima", "email")):
-        when = ctx.now - timedelta(days=12)
-        if any(c.id == client_id for c in ctx.all(Client)):
-            ctx.add(
-                Consent(
-                    id=f"cns_{client_id}_{channel}_withdrawn",
-                    business_id=ctx.business_id,
-                    client_id=client_id,
-                    channel=channel,
-                    status="withdrawn",
-                    source="preferences",
-                    recorded_by=None,
-                    created_at=when,
-                    updated_at=when,
-                )
+        )
+    when = ctx.now - timedelta(days=12)
+    if any(c.id == "cl_noah" for c in ctx.all(Client)):
+        ctx.add(
+            Consent(
+                id="cns_cl_noah_withdrawn",
+                business_id=ctx.business_id,
+                client_id="cl_noah",
+                status="withdrawn",
+                source="in_person",
+                recorded_by=ctx.owner_id,
+                created_at=when,
+                updated_at=when,
             )
+        )
 
 
 def _conversations(ctx: DemoContext) -> None:
     for client_id in ("cl_amelie", "cl_marcus", "cl_david", "cl_sophie", "cl_olivia"):
         client = ctx.get(Client, client_id)
-        channel = "email" if client_id == "cl_sophie" else "sms"
         visits = _visits(ctx, client_id)
         upcoming = [
             (b, s)
@@ -162,7 +147,7 @@ def _conversations(ctx: DemoContext) -> None:
             if b.status == "completed" and s.ends_at < ctx.now - timedelta(hours=1)
         ]
         when = ctx.now - timedelta(hours=4)
-        thread = _thread(ctx, client_id, channel, when)
+        thread = _thread(ctx, client_id, when)
         if upcoming:
             booking, slot = upcoming[0]
             pet = ctx.get(Subject, booking.subject_id) if booking.subject_id else None
@@ -179,7 +164,7 @@ def _conversations(ctx: DemoContext) -> None:
                 "Thank you! Is there anything I should bring?",
                 when + timedelta(minutes=14),
                 direction="in",
-                status="delivered" if client_id == "cl_sophie" else "read",
+                status="read",
             )
         elif completed:
             booking, slot = completed[-1]
@@ -208,7 +193,7 @@ def _conversations(ctx: DemoContext) -> None:
                 "Happy to help plan your next visit. Let us know which service you need.",
                 when,
             )
-    thread = _thread(ctx, "cl_olivia", "sms", ctx.now - timedelta(hours=2))
+    thread = _thread(ctx, "cl_olivia", ctx.now - timedelta(hours=2))
     _message(
         ctx,
         thread,
@@ -216,7 +201,7 @@ def _conversations(ctx: DemoContext) -> None:
         ctx.now - timedelta(hours=2),
         status="failed",
     )
-    thread = _thread(ctx, "cl_sophie", "email", ctx.now - timedelta(minutes=20))
+    thread = _thread(ctx, "cl_sophie", ctx.now - timedelta(minutes=20))
     _message(
         ctx,
         thread,
@@ -228,11 +213,10 @@ def _conversations(ctx: DemoContext) -> None:
 
 
 def _broadcasts(ctx: DemoContext) -> None:
-    campaigns: list[tuple[str, str, str, dict[str, object], str, str, datetime]] = [
+    campaigns: list[tuple[str, str, dict[str, object], str, str, datetime]] = [
         (
             "bro_holiday",
             "Studio visit reminders",
-            "email",
             {"all": True},
             "sent",
             "Please bring your pet's vaccination details to your next visit. "
@@ -242,7 +226,6 @@ def _broadcasts(ctx: DemoContext) -> None:
         (
             "bro_deshed",
             "Seasonal coat care",
-            "sms",
             {"tags": ["regular", "vip"]},
             "sent",
             "Brush regularly between grooms. Ask Birchbark which coat-care "
@@ -252,7 +235,6 @@ def _broadcasts(ctx: DemoContext) -> None:
         (
             "bro_winback",
             "A welcome back for Bandit",
-            "sms",
             {"tags": ["churn-risk"]},
             "scheduled",
             "We would love to see you again. Reply when you are ready "
@@ -260,7 +242,7 @@ def _broadcasts(ctx: DemoContext) -> None:
             ctx.now + timedelta(days=1),
         ),
     ]
-    for bid, name, channel, audience, status, body, when in campaigns:
+    for bid, name, audience, status, body, when in campaigns:
         tags = audience.get("tags")
         candidates = [
             c
@@ -274,14 +256,10 @@ def _broadcasts(ctx: DemoContext) -> None:
             history = [
                 c
                 for c in ctx.all(Consent)
-                if c.client_id == client.id
-                and c.channel == channel
-                and c.created_at <= min(when, ctx.now)
+                if c.client_id == client.id and c.created_at <= min(when, ctx.now)
             ]
             consent = max(history, key=lambda c: (c.created_at, c.id), default=None)
-            if (client.phone if channel == "sms" else client.email) and allows_marketing(
-                consent, when
-            ):
+            if client.phone and allows_marketing(consent, when):
                 recipients.append(client)
         ctx.add(
             Broadcast(
@@ -289,7 +267,6 @@ def _broadcasts(ctx: DemoContext) -> None:
                 business_id=ctx.business_id,
                 created_by=ctx.owner_id,
                 name=name,
-                channel=channel,
                 body=body,
                 audience=audience,
                 status=status,
@@ -303,7 +280,7 @@ def _broadcasts(ctx: DemoContext) -> None:
         if status == "sent":
             for index, client in enumerate(sorted(recipients, key=lambda c: c.id)):
                 sent = when + timedelta(seconds=index)
-                thread = _thread(ctx, client.id, channel, sent)
+                thread = _thread(ctx, client.id, sent)
                 _message(
                     ctx,
                     thread,
@@ -420,7 +397,6 @@ def _intakes(ctx: DemoContext, created: datetime) -> None:
         answers: dict[str, object] = {
             "owner_name": client.name,
             "owner_phone": client.phone,
-            "owner_email": client.email,
             "home_address": "1840 Oak Bay Avenue, Victoria, BC" if index % 2 == 0 else None,
             "pet_name": pet.name,
             "species": "Cat" if pet.attributes.get("species") == "cat" else "Dog",

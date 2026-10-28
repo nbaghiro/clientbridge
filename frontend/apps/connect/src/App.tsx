@@ -12,7 +12,6 @@ import { PublicForm } from "./pages/PublicForm";
 import { PublicLanding } from "./pages/PublicLanding";
 import { PublicManage } from "./pages/PublicManage";
 import { PublicPay } from "./pages/PublicPay";
-import { PublicPreferences } from "./pages/PublicPreferences";
 import { PublicReceipt } from "./pages/PublicReceipt";
 import { PublicOrder } from "./pages/PublicOrder";
 import { PublicPaymentSetup } from "./pages/PublicPaymentSetup";
@@ -45,7 +44,6 @@ function SiteRoutes() {
                     <Route path="/m/:token" element={<PublicManage />} />
                     <Route path="/form/:token" element={<PublicForm />} />
                     <Route path="/contract/:token" element={<PublicContract />} />
-                    <Route path="/prefs/:token" element={<PublicPreferences />} />
                     <Route path="/:slug" element={<PublicBooking />} />
                     <Route path="*" element={<NotFound />} />
                 </Routes>

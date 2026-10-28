@@ -4,31 +4,10 @@ msgstr ""
 msgid "admin_demo.declined"
 msgstr ""
 
-msgid "admin_demo.groom"
-msgstr ""
-
 msgid "admin_demo.login"
 msgstr ""
 
-msgid "admin_demo.message"
-msgstr ""
-
-msgid "admin_demo.nails"
-msgstr ""
-
-msgid "booking.action"
-msgstr ""
-
-msgid "booking.pay_deposit"
-msgstr ""
-
 msgid "booking_canceled.body"
-msgstr ""
-
-msgid "booking_canceled.heading"
-msgstr ""
-
-msgid "booking_canceled.subject"
 msgstr ""
 
 msgid "booking_confirmed.body"
@@ -40,46 +19,19 @@ msgstr ""
 msgid "booking_confirmed.body_link"
 msgstr ""
 
-msgid "booking_confirmed.deposit_due"
-msgstr ""
-
-msgid "booking_confirmed.heading"
-msgstr ""
-
-msgid "booking_confirmed.subject"
-msgstr ""
-
 msgid "booking_departed.body"
 msgstr ""
 
 msgid "booking_departed.body_now"
 msgstr ""
 
-msgid "booking_departed.heading"
-msgstr ""
-
 msgid "booking_departed.someone"
-msgstr ""
-
-msgid "booking_departed.subject"
 msgstr ""
 
 msgid "booking_reassigned.body"
 msgstr ""
 
-msgid "booking_reassigned.heading"
-msgstr ""
-
-msgid "booking_reassigned.subject"
-msgstr ""
-
 msgid "booking_released.body"
-msgstr ""
-
-msgid "booking_released.heading"
-msgstr ""
-
-msgid "booking_released.subject"
 msgstr ""
 
 msgid "booking_reminder.body"
@@ -88,52 +40,16 @@ msgstr ""
 msgid "booking_reminder.body_link"
 msgstr ""
 
-msgid "booking_reminder.heading"
-msgstr ""
-
-msgid "booking_reminder.subject"
-msgstr ""
-
 msgid "booking_requested.body"
-msgstr ""
-
-msgid "booking_requested.heading"
-msgstr ""
-
-msgid "booking_requested.subject"
 msgstr ""
 
 msgid "booking_rescheduled.body"
 msgstr ""
 
-msgid "booking_rescheduled.heading"
-msgstr ""
-
-msgid "booking_rescheduled.subject"
-msgstr ""
-
-msgid "broadcast.contact"
-msgstr ""
-
-msgid "broadcast.email"
-msgstr ""
-
-msgid "broadcast.mailing_address"
-msgstr ""
-
-msgid "broadcast.mailing_address_unit"
-msgstr ""
-
 msgid "broadcast.sms"
 msgstr ""
 
-msgid "consent_csv.channel"
-msgstr ""
-
 msgid "consent_csv.client"
-msgstr ""
-
-msgid "consent_csv.email"
 msgstr ""
 
 msgid "consent_csv.expires_at"
@@ -157,19 +73,7 @@ msgstr ""
 msgid "contact.subject"
 msgstr ""
 
-msgid "contract.action"
-msgstr ""
-
 msgid "contract_sent.body"
-msgstr ""
-
-msgid "contract_sent.heading"
-msgstr ""
-
-msgid "contract_sent.lead"
-msgstr ""
-
-msgid "contract_sent.subject"
 msgstr ""
 
 msgid "crew.job"
@@ -187,85 +91,28 @@ msgstr ""
 msgid "email.footer.account"
 msgstr ""
 
-msgid "email.footer.client"
-msgstr ""
-
 msgid "email.footer.company"
-msgstr ""
-
-msgid "email.footer.separator"
 msgstr ""
 
 msgid "email.footer.team"
 msgstr ""
 
-msgid "email.footer.visit_at"
-msgstr ""
-
 msgid "email.kind.account"
-msgstr ""
-
-msgid "email.kind.booking"
-msgstr ""
-
-msgid "email.kind.contract"
 msgstr ""
 
 msgid "email.kind.estimate"
 msgstr ""
 
-msgid "email.kind.form"
-msgstr ""
-
-msgid "email.kind.gift_card"
-msgstr ""
-
-msgid "email.kind.invoice"
-msgstr ""
-
-msgid "email.kind.message"
-msgstr ""
-
-msgid "email.kind.news"
-msgstr ""
-
 msgid "email.kind.order"
-msgstr ""
-
-msgid "email.kind.payment"
 msgstr ""
 
 msgid "email.kind.plan"
 msgstr ""
 
-msgid "email.kind.receipt"
-msgstr ""
-
-msgid "email.kind.refund"
-msgstr ""
-
-msgid "email.kind.review"
-msgstr ""
-
-msgid "email.kind.subscription"
-msgstr ""
-
 msgid "email.kind.team"
 msgstr ""
 
-msgid "email.kind.verification"
-msgstr ""
-
 msgid "email.kind.waitlist"
-msgstr ""
-
-msgid "email.sent_with"
-msgstr ""
-
-msgid "email.unsubscribe"
-msgstr ""
-
-msgid "estimate.action"
 msgstr ""
 
 msgid "estimate_accepted.body"
@@ -289,46 +136,13 @@ msgstr ""
 msgid "estimate_sent.body_link"
 msgstr ""
 
-msgid "estimate_sent.heading"
-msgstr ""
-
-msgid "estimate_sent.lead"
-msgstr ""
-
-msgid "estimate_sent.subject"
-msgstr ""
-
-msgid "form.action"
-msgstr ""
-
 msgid "form_sent.body"
-msgstr ""
-
-msgid "form_sent.heading"
-msgstr ""
-
-msgid "form_sent.lead"
-msgstr ""
-
-msgid "form_sent.subject"
 msgstr ""
 
 msgid "gift_card_issued.body"
 msgstr ""
 
-msgid "gift_card_issued.heading"
-msgstr ""
-
-msgid "gift_card_issued.lead"
-msgstr ""
-
-msgid "gift_card_issued.subject"
-msgstr ""
-
 msgid "inbound_message.push"
-msgstr ""
-
-msgid "invoice.action"
 msgstr ""
 
 msgid "invoice_line.program"
@@ -345,43 +159,16 @@ msgstr ""
 msgid "invoice_overdue.body_link"
 msgstr ""
 
-msgid "invoice_overdue.heading"
-msgstr ""
-
-msgid "invoice_overdue.lead"
-msgstr ""
-
-msgid "invoice_overdue.subject"
-msgstr ""
-
 msgid "invoice_reminder.body"
 msgstr ""
 
 msgid "invoice_reminder.body_link"
 msgstr ""
 
-msgid "invoice_reminder.heading"
-msgstr ""
-
-msgid "invoice_reminder.lead"
-msgstr ""
-
-msgid "invoice_reminder.subject"
-msgstr ""
-
 msgid "invoice_sent.body"
 msgstr ""
 
 msgid "invoice_sent.body_link"
-msgstr ""
-
-msgid "invoice_sent.heading"
-msgstr ""
-
-msgid "invoice_sent.lead"
-msgstr ""
-
-msgid "invoice_sent.subject"
 msgstr ""
 
 msgid "login_code.body"
@@ -403,9 +190,6 @@ msgstr ""
 msgid "login_code.subject"
 msgstr ""
 
-msgid "message.heading"
-msgstr ""
-
 msgid "online_order.body"
 msgstr ""
 
@@ -415,34 +199,13 @@ msgstr ""
 msgid "online_order.subject"
 msgstr ""
 
-msgid "order.action"
-msgstr ""
-
 msgid "order_ready.body"
-msgstr ""
-
-msgid "order_ready.heading"
-msgstr ""
-
-msgid "order_ready.subject"
 msgstr ""
 
 msgid "order_reminder.body"
 msgstr ""
 
-msgid "order_reminder.heading"
-msgstr ""
-
-msgid "order_reminder.subject"
-msgstr ""
-
 msgid "payment_failed.body"
-msgstr ""
-
-msgid "payment_failed.heading"
-msgstr ""
-
-msgid "payment_failed.subject"
 msgstr ""
 
 msgid "pickup.body"
@@ -480,28 +243,13 @@ msgstr ""
 msgid "receipt.body"
 msgstr ""
 
-msgid "receipt.heading"
-msgstr ""
-
-msgid "receipt.item"
-msgstr ""
-
 msgid "receipt.line"
-msgstr ""
-
-msgid "receipt.order_action"
 msgstr ""
 
 msgid "receipt.push"
 msgstr ""
 
-msgid "receipt.subject"
-msgstr ""
-
 msgid "receipt.subtotal"
-msgstr ""
-
-msgid "receipt.subtotal_label"
 msgstr ""
 
 msgid "receipt.tax"
@@ -510,13 +258,7 @@ msgstr ""
 msgid "receipt.tip"
 msgstr ""
 
-msgid "receipt.tip_label"
-msgstr ""
-
 msgid "receipt.total"
-msgstr ""
-
-msgid "receipt.total_label"
 msgstr ""
 
 msgid "recovery_code.body"
@@ -553,19 +295,7 @@ msgstr ""
 msgid "refund.body_credit_note"
 msgstr ""
 
-msgid "refund.heading"
-msgstr ""
-
-msgid "refund.subject"
-msgstr ""
-
 msgid "refund_failed.body"
-msgstr ""
-
-msgid "refund_failed.heading"
-msgstr ""
-
-msgid "refund_failed.subject"
 msgstr ""
 
 msgid "registration_code.body"
@@ -694,36 +424,7 @@ msgid_plural "returning_code.body"
 msgstr[0] ""
 msgstr[1] ""
 
-msgid "returning_code.heading"
-msgstr ""
-
-msgid "returning_code.lead"
-msgid_plural "returning_code.lead"
-msgstr[0] ""
-msgstr[1] ""
-
-msgid "returning_code.note"
-msgstr ""
-
-msgid "returning_code.subject"
-msgstr ""
-
-msgid "review.action"
-msgstr ""
-
 msgid "review_requested.body"
-msgstr ""
-
-msgid "review_requested.heading"
-msgstr ""
-
-msgid "review_requested.lead"
-msgstr ""
-
-msgid "review_requested.subject"
-msgstr ""
-
-msgid "sale_receipt.action"
 msgstr ""
 
 msgid "sale_receipt.body"
@@ -732,28 +433,10 @@ msgstr ""
 msgid "sale_receipt.body_numbered"
 msgstr ""
 
-msgid "sale_receipt.heading"
-msgstr ""
-
-msgid "sale_receipt.lead"
-msgstr ""
-
-msgid "sale_receipt.lead_numbered"
-msgstr ""
-
-msgid "sale_receipt.subject"
-msgstr ""
-
 msgid "seat_opened.body"
 msgstr ""
 
 msgid "seat_opened.body_link"
-msgstr ""
-
-msgid "seat_opened.heading"
-msgstr ""
-
-msgid "seat_opened.subject"
 msgstr ""
 
 msgid "series.separator"
@@ -762,28 +445,10 @@ msgstr ""
 msgid "series_booked.body"
 msgstr ""
 
-msgid "series_booked.heading"
-msgstr ""
-
-msgid "series_booked.subject"
-msgstr ""
-
 msgid "series_canceled.body"
 msgstr ""
 
-msgid "series_canceled.heading"
-msgstr ""
-
-msgid "series_canceled.subject"
-msgstr ""
-
 msgid "series_moved.body"
-msgstr ""
-
-msgid "series_moved.heading"
-msgstr ""
-
-msgid "series_moved.subject"
 msgstr ""
 
 msgid "signed_copy.signed_by"
@@ -813,19 +478,7 @@ msgstr ""
 msgid "subscription_canceled.body"
 msgstr ""
 
-msgid "subscription_canceled.heading"
-msgstr ""
-
-msgid "subscription_canceled.subject"
-msgstr ""
-
 msgid "subscription_past_due.body"
-msgstr ""
-
-msgid "subscription_past_due.heading"
-msgstr ""
-
-msgid "subscription_past_due.subject"
 msgstr ""
 
 msgid "trial.action"
@@ -895,12 +548,6 @@ msgstr ""
 msgid "visits_reassigned.body"
 msgstr ""
 
-msgid "visits_reassigned.heading"
-msgstr ""
-
-msgid "visits_reassigned.subject"
-msgstr ""
-
 msgid "waitlist.action"
 msgstr ""
 
@@ -934,24 +581,9 @@ msgstr ""
 msgid "waitlist_closed.body"
 msgstr ""
 
-msgid "waitlist_closed.heading"
-msgstr ""
-
-msgid "waitlist_closed.subject"
-msgstr ""
-
-msgid "waitlist_joined.action"
-msgstr ""
-
 msgid "waitlist_joined.body"
 msgstr ""
 
 msgid "waitlist_joined.body_link"
-msgstr ""
-
-msgid "waitlist_joined.heading"
-msgstr ""
-
-msgid "waitlist_joined.subject"
 msgstr ""
 

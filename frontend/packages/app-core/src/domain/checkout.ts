@@ -226,34 +226,45 @@ interface PublicPaymentSetup {
 
 interface PublicPaymentSetupClient {
     get: (token: string) => Promise<PublicPaymentSetup>;
-    start: (token: string) => Promise<PublicPaymentSetup>;
+    start: (token: string, email: string) => Promise<PublicPaymentSetup>;
 }
 
 export function createPublicPaymentSetupClient(baseUrl: string): PublicPaymentSetupClient {
-    const request = async (token: string, start = false): Promise<PublicPaymentSetup> => {
-        const response = await fetch(`${baseUrl}/payment-method${start ? "/start" : ""}`, {
-            method: start ? "POST" : "GET",
-            headers: { "X-Payment-Setup-Token": token },
+    const request = async (token: string, email?: string): Promise<PublicPaymentSetup> => {
+        const starting = email !== undefined;
+        const response = await fetch(`${baseUrl}/payment-method${starting ? "/start" : ""}`, {
+            method: starting ? "POST" : "GET",
+            headers: {
+                "X-Payment-Setup-Token": token,
+                ...(starting ? { "Content-Type": "application/json" } : {}),
+            },
+            ...(email === undefined ? {} : { body: JSON.stringify({ email }) }),
             cache: "no-store",
         });
         if (!response.ok)
             throw Object.assign(new Error(response.statusText), { status: response.status });
         return (await response.json()) as PublicPaymentSetup;
     };
-    return { get: (token) => request(token), start: (token) => request(token, true) };
+    return {
+        get: (token) => request(token),
+        start: (token, email) => request(token, email),
+    };
 }
 
 export function usePublicPaymentSetup(client: PublicPaymentSetupClient, token: string) {
     const resource = usePublicResource(client.get, token);
     const action = useAsyncAction();
+    const [payerEmail, setPayerEmail] = useState("");
     return {
         ...resource,
+        payerEmail,
+        setPayerEmail,
         busy: action.busy,
         error: action.error,
         start: () => {
             action.run(
                 async () => {
-                    resource.setData(await client.start(token));
+                    resource.setData(await client.start(token, payerEmail.trim()));
                 },
                 { errorMessage: strings.checkout.bankLinkError },
             );

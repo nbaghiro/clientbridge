@@ -15,15 +15,9 @@ from clientbridge.integrations.google_business import (
     GoogleTokens,
     HttpGoogleBusinessGateway,
 )
-from clientbridge.integrations.resend import Email
 from clientbridge.integrations.twilio import Sms
 from clientbridge.models.messaging import Delivery
-from clientbridge.schemas.deliveries import (
-    DELIVERY_PAYLOAD,
-    DeliveryPayload,
-    EmailDelivery,
-    SmsDelivery,
-)
+from clientbridge.schemas.deliveries import DELIVERY_PAYLOAD, DeliveryPayload, SmsDelivery
 
 
 class FakeGoogle(HttpGoogleBusinessGateway):
@@ -138,10 +132,6 @@ async def configure_google_review_profile(db: AsyncSession, enabled: bool = True
 async def review_deliveries(db: AsyncSession) -> list[DeliveryPayload]:
     rows = await db.scalars(select(Delivery).where(Delivery.key.startswith("review:")))
     return [DELIVERY_PAYLOAD.validate_python(row.payload) for row in rows]
-
-
-async def review_emails(db: AsyncSession) -> list[Email]:
-    return [item.message for item in await review_deliveries(db) if isinstance(item, EmailDelivery)]
 
 
 async def review_texts(db: AsyncSession) -> list[Sms]:

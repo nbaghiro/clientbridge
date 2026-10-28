@@ -190,8 +190,8 @@ async def test_intake_goes_once_to_each_new_client(
 ) -> None:
     form = ok(await as_owner.post("/v1/forms", json=INTAKE), 201).json()
     now = clock.now()
-    newcomer = await new_client(db, name="New Pup", email="newpup@example.ca")
-    regular = await new_client(db, name="Old Pal", email="oldpal@example.ca")
+    newcomer = await new_client(db, name="New Pup", phone="+16045550281")
+    regular = await new_client(db, name="Old Pal", phone=None)
     first_booking = await _book(db, newcomer, now - timedelta(hours=2))
     await _book(db, regular, now - timedelta(days=60))
     await _book(db, regular, now - timedelta(hours=1))
@@ -205,7 +205,7 @@ async def test_intake_goes_once_to_each_new_client(
     )
     ours = [(r.client_id, r.parent_id) for r in sent if r.client_id in {newcomer, regular}]
     assert ours == [(newcomer, first_booking)]
-    assert any(m.to == "newpup@example.ca" for m in email.sent)
+    assert any(m.to == "+16045550281" for m in sms.sent)
     assert await run_intake_forms(db, notifier, now) == 0  # never twice
 
 
@@ -218,7 +218,7 @@ async def test_a_failed_intake_send_leaves_the_client_eligible(
 ) -> None:
     form = ok(await as_owner.post("/v1/forms", json=INTAKE), 201).json()
     now = clock.now()
-    newcomer = await new_client(db, name="Retry Pup", email="retrypup@example.ca")
+    newcomer = await new_client(db, name="Retry Pup", phone="+16045550282")
     await _book(db, newcomer, now - timedelta(hours=2))
 
     await run_intake_forms(db, Notifier(DownEmailSender(), DownSmsSender(), push), now)
@@ -229,7 +229,7 @@ async def test_a_failed_intake_send_leaves_the_client_eligible(
 
     await run_intake_forms(db, Notifier(email, sms, push), now)
     assert len((await db.execute(responses)).scalars().all()) == 1
-    assert any(m.to == "retrypup@example.ca" for m in email.sent)
+    assert any(m.to == "+16045550282" for m in sms.sent)
 
 
 async def test_manual_forms_are_not_sent_by_the_job(
@@ -289,7 +289,7 @@ async def test_inactive_forms_are_not_sent_by_the_job(
 ) -> None:
     form = ok(await as_owner.post("/v1/forms", json={**INTAKE, "active": False}), 201).json()
     now = clock.now()
-    newcomer = await new_client(db, name="Quiet Pup", email="quietpup@example.ca")
+    newcomer = await new_client(db, name="Quiet Pup", phone=None)
     await _book(db, newcomer, now - timedelta(hours=1))
     await run_intake_forms(db, Notifier(email, sms, push), now)
     rows = await db.execute(select(FormResponse).where(FormResponse.form_id == form["id"]))
@@ -305,10 +305,10 @@ async def test_canceled_or_deleted_first_bookings_get_no_intake(
 ) -> None:
     form = ok(await as_owner.post("/v1/forms", json=INTAKE), 201).json()
     now = clock.now()
-    control = await new_client(db, name="Booked Pup", email="bookedpup@example.ca")
+    control = await new_client(db, name="Booked Pup", phone=None)
     await _book(db, control, now - timedelta(hours=1))
-    canceled = await new_client(db, name="Canceled Pup", email="canceledpup@example.ca")
-    deleted = await new_client(db, name="Deleted Pup", email="deletedpup@example.ca")
+    canceled = await new_client(db, name="Canceled Pup", phone=None)
+    deleted = await new_client(db, name="Deleted Pup", phone=None)
     gone = await db.get(Booking, await _book(db, canceled, now - timedelta(hours=1)))
     removed = await db.get(Booking, await _book(db, deleted, now - timedelta(hours=1)))
     assert gone is not None and removed is not None
@@ -332,7 +332,7 @@ async def test_another_business_form_never_reaches_our_client(
     db.add(theirs)
     await db.flush()
     now = clock.now()
-    ours = await new_client(db, name="Loyal Pup", email="loyalpup@example.ca")
+    ours = await new_client(db, name="Loyal Pup", phone=None)
     await _book(db, ours, now - timedelta(hours=1))
     await run_intake_forms(db, Notifier(email, sms, push), now)
     assert all(form_id != theirs.id for form_id, _ in await _intake_responses(db, {ours}))

@@ -415,7 +415,7 @@ async def test_pay_with_default_card(
     as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
 ) -> None:
     await enable_payments(db)
-    cid = await new_client(db, email=None, customer="cus_dflt")
+    cid = await new_client(db, phone=None, customer="cus_dflt")
     default = _saved_card(cid, ref="pm_default", default=True)
     other = _saved_card(cid, ref="pm_other_card", default=False)
     inv = _invoice_row(cid, number=9802)
@@ -431,7 +431,7 @@ async def test_pay_with_default_no_default_404(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     await enable_payments(db)
-    cid = await new_client(db, email=None, customer="cus_nodflt")
+    cid = await new_client(db, phone=None, customer="cus_nodflt")
     pm = _saved_card(cid, ref="pm_nondefault", default=False)
     inv = _invoice_row(cid, number=9803)
     db.add_all([pm, inv])

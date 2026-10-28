@@ -3,13 +3,12 @@ import hmac
 import secrets
 from datetime import timedelta
 
-from sqlalchemy import func, select, text
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
 from clientbridge.core.config import get_settings
 from clientbridge.core.errors import (
-    AppError,
     NotFound,
     TooManyRequests,
     Unauthorized,
@@ -20,8 +19,7 @@ from clientbridge.core.locale import locale_for
 from clientbridge.core.phones import e164, same_phone
 from clientbridge.core.scoping import scoped
 from clientbridge.core.security import hash_token
-from clientbridge.integrations.resend import EmailSender
-from clientbridge.integrations.twilio import Sms, SmsSender
+from clientbridge.integrations.twilio import Sms, SmsSender, sender_number
 from clientbridge.models.business import Business
 from clientbridge.models.clients import Client, Subject
 from clientbridge.models.returning import ReturningChallenge
@@ -35,7 +33,7 @@ from clientbridge.schemas.returning import (
     ReturningVerify,
     ReturningVisit,
 )
-from clientbridge.services.notifications import business_brand, client_email, returning_code
+from clientbridge.services.notifications import returning_code
 
 _CODE_MINUTES = 10
 
@@ -57,18 +55,14 @@ class ReturningService:
         return business
 
     async def request(
-        self, slug: str, data: ReturningRequest, sender: EmailSender, sms: SmsSender
+        self, slug: str, data: ReturningRequest, sms: SmsSender
     ) -> ReturningChallengeOut:
         business = await self._business(slug)
-        address = data.email.strip().lower() if data.email is not None else e164(data.phone or "")
-        if address is None:
+        number = e164(data.phone)
+        if number is None:
             raise Unprocessable("enter a valid phone number with country code")
-        channel = "email" if data.email is not None else "sms"
-        if channel == "sms" and business.sms_number is None:
-            raise AppError(
-                "business has no assigned SMS number", code="sms_unassigned", status_code=503
-            )
-        destination = _digest(f"{channel}:{address}")
+        sender_number(business.sms_number)
+        destination = _digest(number)
         now = clock.now()
         await self.db.execute(
             text("SELECT pg_advisory_xact_lock(hashtext(:key))"),
@@ -92,14 +86,7 @@ class ReturningService:
             (
                 await self.db.execute(
                     scoped(Client, business.id, soft_delete=True)
-                    .where(
-                        (
-                            func.lower(Client.email) == address
-                            if channel == "email"
-                            else same_phone(Client.phone, address)
-                        ),
-                        Client.status == "active",
-                    )
+                    .where(same_phone(Client.phone, number), Client.status == "active")
                     .limit(2)
                 )
             )
@@ -120,12 +107,8 @@ class ReturningService:
             )
         )
         await self.db.commit()
-        notice = returning_code(locale_for(business=business), business.name, code, _CODE_MINUTES)
-        if channel == "email":
-            brand = await business_brand(self.db, business)
-            await sender.send(client_email(business, brand, address, notice))
-        else:
-            await sms.send(Sms(to=address, body=notice.body, from_number=business.sms_number))
+        notice = returning_code(locale_for(business=business), code, _CODE_MINUTES)
+        await sms.send(Sms(to=number, body=notice, from_number=business.sms_number))
         return ReturningChallengeOut(challenge_id=challenge_id)
 
     async def verify(self, slug: str, data: ReturningVerify) -> ReturningVerified:
@@ -174,16 +157,8 @@ class ReturningService:
         ).scalar_one_or_none()
         if client is None:
             return None
-        contacts = []
-        if client.email is not None:
-            contacts.append(f"email:{client.email.strip().lower()}")
         phone = e164(client.phone) if client.phone is not None else None
-        if phone is not None:
-            contacts.append(f"sms:{phone}")
-        if not any(
-            hmac.compare_digest(_digest(contact), challenge.destination_hash)
-            for contact in contacts
-        ):
+        if phone is None or not hmac.compare_digest(_digest(phone), challenge.destination_hash):
             return None
         return client
 
@@ -261,7 +236,6 @@ class ReturningService:
         )
         return ReturningProfile(
             name=client.name,
-            email=client.email,
             phone=client.phone,
             subjects=[ReturningSubject(id=x.id, name=x.name) for x in subjects],
             last_visit=last,

@@ -109,9 +109,9 @@ flowchart LR
   still collect a deposit from a client's manage link, as it can be paid on an invoice, because the booking
   already exists; new bookings stay blocked.
 - **Customer ownership.** Each business has one connected account. Client Customers are created with a
-  stable business/client idempotency key and invariant creation parameters; name/email are applied in a
+  stable business/client idempotency key and invariant creation parameters; the name is applied in a
   separate update so a rolled-back creation can be retried after a rename; known-client Terminal payments
-  attach that same Customer, while walk-ins remain customerless. A later edit to a client's name or email
+  attach that same Customer, while walk-ins remain customerless. A later edit to a client's name
   updates their Customer after the edit commits (`payments.sync_customer`). That update is best effort: a
   failure is logged and the next edit tries again. A command retried more than 24 hours after a rollback
   can create a second Customer; it holds no payment method.

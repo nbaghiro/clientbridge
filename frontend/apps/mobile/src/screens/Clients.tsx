@@ -207,7 +207,7 @@ export function ClientsScreen() {
                                         {cl.name}
                                     </Text>
                                     <Text style={styles.rowSub} numberOfLines={1}>
-                                        {cl.phoneLabel || (cl.email ?? strings.clients.dash)}
+                                        {cl.phoneLabel || strings.clients.dash}
                                     </Text>
                                 </View>
                             </View>

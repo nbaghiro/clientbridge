@@ -11,7 +11,7 @@ from clientbridge.models.payments import Payment
 from clientbridge.services import ledger
 from clientbridge.services.earnings import cancel_returned_tips, load_earning
 from clientbridge.services.ledger import Leg
-from tests.conftest import FakeEmailSender, FakePaymentGateway
+from tests.conftest import FakeEmailSender, FakePaymentGateway, FakeSmsSender
 from tests.helpers import enable_payments, key, ok, payment, sent_invoice, settle, stripe_event
 
 BIZ = "bz_birchbark"
@@ -217,12 +217,16 @@ async def test_card_tip_settles_through_the_webhook(
 
 
 async def test_a_tipped_receipt_lists_the_tip_and_counts_it_in_the_total(
-    api: httpx.AsyncClient, as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
+    api: httpx.AsyncClient,
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    email: FakeEmailSender,
+    sms: FakeSmsSender,
 ) -> None:
     await enable_payments(db)
     sale = ok(
         await as_owner.post(
-            "/v1/orders", json={"lines": [SHAMPOO], "receipt_email": "walkin@example.ca"}
+            "/v1/orders", json={"lines": [SHAMPOO], "receipt_phone": "+12505550224"}
         ),
         201,
     ).json()
@@ -230,7 +234,8 @@ async def test_a_tipped_receipt_lists_the_tip_and_counts_it_in_the_total(
         await as_owner.post(f"/v1/orders/{sale['id']}/pay", json={"tip_cents": 500}, headers=key())
     ).json()
     await settle(api, db, intent["payment_id"])
-    (receipt,) = [m for m in email.sent if m.to == "walkin@example.ca"]
+    assert email.sent == []
+    (receipt,) = [m for m in sms.sent if m.to == "+12505550224"]
     assert "Your payment of $31.88" in receipt.body
     assert "Tip  $5.00" in receipt.body
     assert "Total  $31.88" in receipt.body
@@ -274,7 +279,7 @@ async def test_pay_link_takes_a_tip_for_the_invoice(
 
 
 async def test_a_second_tipped_instalment_receipt_counts_every_tip_on_the_invoice(
-    api: httpx.AsyncClient, unauth: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
+    api: httpx.AsyncClient, unauth: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender
 ) -> None:
     await enable_payments(db)
     inv = await sent_invoice(db, total=10000, pay_token="tok_two")
@@ -293,7 +298,7 @@ async def test_a_second_tipped_instalment_receipt_counts_every_tip_on_the_invoic
     assert invoice is not None
     client = await db.get(Client, invoice.client_id)
     assert client is not None
-    client.email = "pat@example.ca"  # seeded contacts use reserved addresses, which never send
+    client.phone = "+15145550223"
     first = Payment(
         id=new_id("payment"),
         business_id=BIZ,
@@ -318,7 +323,7 @@ async def test_a_second_tipped_instalment_receipt_counts_every_tip_on_the_invoic
         )
     ).scalar_one()
     await settle(api, db, second.id)
-    (receipt,) = [m for m in email.sent if "Your payment of $60.00" in m.body]
+    (receipt,) = [m for m in sms.sent if "Your payment of $60.00" in m.body]
     assert "Tip  $15.00" in receipt.body
     assert "Total  $115.00" in receipt.body
 

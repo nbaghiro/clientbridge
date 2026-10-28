@@ -8,17 +8,16 @@ const api = () => runUrl("VITE_API_URL");
 const BIRCHBARK_NUMBER = demoPhone("+12365550190");
 
 export interface CommunicationEvidence {
-    threads: { id: string; channel: string }[];
+    threads: { id: string }[];
     messages: {
         id: string;
         thread_id: string;
         direction: string;
-        channel: string;
         body: string | null;
         status: string;
         provider_ref: string | null;
     }[];
-    consents: { channel: string; status: string; source: string }[];
+    consents: { status: string; source: string }[];
     deliveries: {
         id: string;
         channel: string;
@@ -44,13 +43,13 @@ export async function communicationEvidence(
     type Evidence = CommunicationEvidence;
     return {
         threads: await select<Evidence["threads"][number]>`
-            SELECT id, channel FROM threads WHERE client_id = ${clientId} ORDER BY id`,
+            SELECT id FROM threads WHERE client_id = ${clientId} ORDER BY id`,
         messages: await select<Evidence["messages"][number]>`
-            SELECT m.id, m.thread_id, m.direction, m.channel, m.body, m.status, m.provider_ref
+            SELECT m.id, m.thread_id, m.direction, m.body, m.status, m.provider_ref
             FROM messages m JOIN threads t ON t.id = m.thread_id
             WHERE t.client_id = ${clientId} ORDER BY m.created_at, m.id`,
         consents: await select<Evidence["consents"][number]>`
-            SELECT channel, status, source FROM consents WHERE client_id = ${clientId}
+            SELECT status, source FROM consents WHERE client_id = ${clientId}
             ORDER BY created_at, id`,
         deliveries: await select<Evidence["deliveries"][number]>`
             SELECT d.id, d.payload->>'channel' AS channel, d.state, d.error, d.provider_ref,
@@ -58,7 +57,7 @@ export async function communicationEvidence(
                 d.payload->'message'->>'to' AS recipient
             FROM deliveries d JOIN clients c ON c.id = ${clientId}
                 AND d.business_id = c.business_id
-                AND d.payload->'message'->>'to' IN (c.email, c.phone)
+                AND d.payload->'message'->>'to' = c.phone
             ORDER BY d.created_at, d.id`,
         webhooks: await select<Evidence["webhooks"][number]>`
             SELECT id, provider, event, status, payload FROM webhooks

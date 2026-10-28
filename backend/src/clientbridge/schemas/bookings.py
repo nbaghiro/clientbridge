@@ -82,7 +82,6 @@ class BookingCheck(BaseModel):
 class ReminderPreview(BaseModel):
     """The reminder a visit gets, word for word, and when the job sends it."""
 
-    subject: str
     body: str
     sends_at: datetime = Field(description="24 hours before the visit")
     sent_at: datetime | None

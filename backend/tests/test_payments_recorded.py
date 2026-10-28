@@ -8,7 +8,7 @@ from clientbridge.core import clock
 from clientbridge.core.ids import new_id
 from clientbridge.models.clients import Client
 from clientbridge.models.payments import Payment, PaymentMethod
-from tests.conftest import BIZ, Factory, FakeEmailSender
+from tests.conftest import BIZ, Factory, FakeSmsSender
 from tests.helpers import (
     business_balance,
     client_id,
@@ -25,9 +25,9 @@ def _pay(method: str, amount: int, **extra: object) -> dict[str, object]:
 
 
 async def test_cash_part_payment_then_the_rest(
-    as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
+    as_owner: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender
 ) -> None:
-    cid = await client_id(db, email="payer@example.ca")
+    cid = await client_id(db)
     inv = await sent_invoice(db, client=cid, total=5661)
     cash_before = await business_balance(db, "cash")
 
@@ -44,7 +44,7 @@ async def test_cash_part_payment_then_the_rest(
     assert first["balance_cents"] == 3661
     assert (await invoice(db, inv)).status == "partial"
     assert await business_balance(db, "cash") == cash_before + 2000
-    assert any("Receipt" in m.subject for m in email.sent)
+    assert any("Your payment of" in m.body for m in sms.sent)
 
     row = (await db.execute(select(Payment).where(Payment.id == first["payment_id"]))).scalar_one()
     assert (row.provider, row.method, row.tendered_cents, row.note) == (
@@ -237,9 +237,9 @@ async def test_foreign_invoice_is_not_found(
 
 
 async def test_same_key_records_once(
-    as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
+    as_owner: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender
 ) -> None:
-    cid = await client_id(db, email="replay@example.ca")
+    cid = await client_id(db, phone="+16045550320")
     inv = await sent_invoice(db, client=cid, total=3000)
     headers = key()
     first = ok(
@@ -258,13 +258,13 @@ async def test_same_key_records_once(
     count = (await db.execute(select(Payment.id).where(Payment.invoice_id == inv))).scalars().all()
     assert len(count) == 1
     assert (await invoice(db, inv)).balance_cents == 2000
-    assert len([mail for mail in email.sent if "Receipt" in mail.subject]) == 1
+    assert len([text for text in sms.sent if text.to == "+16045550320"]) == 1
 
 
 async def test_no_receipt_when_not_asked(
-    as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
+    as_owner: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender
 ) -> None:
-    cid = await client_id(db, email="quiet@example.ca")
+    cid = await client_id(db)
     inv = await sent_invoice(db, client=cid, total=3000)
     ok(
         await as_owner.post(
@@ -272,4 +272,4 @@ async def test_no_receipt_when_not_asked(
         ),
         201,
     )
-    assert not any("Receipt" in m.subject for m in email.sent)
+    assert sms.sent == []

@@ -1,6 +1,6 @@
 from collections.abc import Sequence
 
-from sqlalchemy import ColumnElement, func, or_, select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
@@ -86,11 +86,9 @@ class ClientService:
                 business_id=self.biz,
                 created_by=self.principal.user_id,
                 name=data.name.strip(),
-                email=data.email,
                 phone=data.phone,
                 tags=clean_tags(data.tags),
                 custom_fields=data.custom_fields,
-                preferred_channel=data.preferred_channel,
             )
             self.db.add(client)
             await self.db.flush()
@@ -151,7 +149,7 @@ class ClientService:
             idempotency_key=idempotency_key,
             request={"client_id": client_id, "data": data},
         )
-        if data.model_fields_set & {"name", "email"}:
+        if "name" in data.model_fields_set:
             await sync_customer(self.db, gateway, await load_client(self.db, self.biz, client_id))
         return out
 
@@ -283,7 +281,7 @@ class ClientService:
                 raise NotFound("client not found")
             kept, gone = by_id[client_id], by_id[data.from_client_id]
             await self._assert_mergeable(gone)
-            for field in ("name", "phone", "email"):
+            for field in ("name", "phone"):
                 if data.fields.get(field) == "other" or getattr(kept, field) in (None, ""):
                     setattr(kept, field, getattr(gone, field))
             kept.tags = kept.tags + [t for t in gone.tags if t not in kept.tags]
@@ -348,30 +346,23 @@ class ClientService:
             raise Conflict("the other record has a saved payment method, so it can't be merged")
 
     async def _merge_threads(self, kept_id: str, gone_id: str) -> None:
-        threads = (
-            (
-                await self.db.execute(
-                    scoped(Thread, self.biz).where(Thread.client_id.in_([kept_id, gone_id]))
-                )
-            )
-            .scalars()
-            .all()
+        rows = await self.db.execute(
+            scoped(Thread, self.biz).where(Thread.client_id.in_([kept_id, gone_id]))
         )
-        kept_by_channel = {t.channel: t for t in threads if t.client_id == kept_id}
-        for thread in threads:
-            if thread.client_id != gone_id:
-                continue
-            target = kept_by_channel.get(thread.channel)
-            if target is None:
-                thread.client_id = kept_id
-                continue
-            await self.db.execute(
-                scoped_update(Message, self.biz)
-                .where(Message.thread_id == thread.id)
-                .values(thread_id=target.id)
-            )
-            await self.db.flush()
-            await self.db.delete(thread)
+        threads = {thread.client_id: thread for thread in rows.scalars().all()}
+        gone, kept = threads.get(gone_id), threads.get(kept_id)
+        if gone is None:
+            return
+        if kept is None:
+            gone.client_id = kept_id
+            return
+        await self.db.execute(
+            scoped_update(Message, self.biz)
+            .where(Message.thread_id == gone.id)
+            .values(thread_id=kept.id)
+        )
+        await self.db.flush()
+        await self.db.delete(gone)
 
 
 async def load_client(db: AsyncSession, biz: str, client_id: str) -> Client:
@@ -389,36 +380,27 @@ async def find_or_create_by_contact(
     business_id: str,
     *,
     name: str,
-    email: str | None,
     phone: str | None,
     source: str,
 ) -> Client:
-    """Match a client by email or phone, else create one tagged with its source."""
-    email = email.strip().lower() if email else None
+    """Match a client by phone, else create one tagged with its source."""
     phone = e164(phone) if phone else None
-    contacts = sorted(value for value in (email, phone) if value)
-    for contact in contacts:
+    existing: list[Client] = []
+    if phone:
         await db.execute(
             select(
                 func.pg_advisory_xact_lock(
-                    func.hashtextextended(f"contact:{business_id}:{contact}", 0)
+                    func.hashtextextended(f"contact:{business_id}:{phone}", 0)
                 )
             )
         )
-    match: list[ColumnElement[bool]] = []
-    if email:
-        match.append(func.lower(Client.email) == email)
-    if phone:
-        match.append(same_phone(Client.phone, phone))
-    existing = (
-        list(
+        existing = list(
             await db.scalars(
-                scoped(Client, business_id, soft_delete=True).where(or_(*match)).limit(2)
+                scoped(Client, business_id, soft_delete=True)
+                .where(same_phone(Client.phone, phone))
+                .limit(2)
             )
         )
-        if match
-        else []
-    )
     if len(existing) > 1:
         raise Conflict("contact details match different clients", code="contact_ambiguous")
     if existing:
@@ -427,7 +409,6 @@ async def find_or_create_by_contact(
         id=new_id("client"),
         business_id=business_id,
         name=name,
-        email=email,
         phone=phone,
         tags=[],
         status="active",

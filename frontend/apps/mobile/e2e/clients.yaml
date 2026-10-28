@@ -1,22 +1,22 @@
 appId: ${APP_ID}
 name: NATIVE-CRM-01 Native client creation and editing survive process restarts
 ---
-- evalScript: ${output.clientRun = String(Date.now()) + String(Math.floor(Math.random() * 100000))}
 - evalScript: ${output.clientName = "Sophie Bennett"}
 - evalScript: ${output.editedName = "Sophie Laurent"}
-- evalScript: ${output.clientEmail = "sophie." + output.clientRun + "@example.ca"}
+# a fresh number outside 555, so no earlier run's client already has it
+- evalScript: ${output.clientExchange = String(700 + Math.floor(Math.random() * 200))}
+- evalScript: ${output.clientLine = String(1000 + Math.floor(Math.random() * 9000))}
+- evalScript: ${output.clientPhone = "250" + output.clientExchange + output.clientLine}
+- evalScript: ${output.clientPhoneLabel = "(250) " + output.clientExchange + "-" + output.clientLine}
 - runFlow: helpers/owner.yaml
 - tapOn: "Clients"
 - tapOn: "Add"
 - assertVisible: "Add client"
 - tapOn: "First and last name"
 - inputText: ${output.clientName}
-- tapOn: "name@example.com"
-- inputText: ${output.clientEmail}
+- tapOn: "250 555 0100"
+- inputText: ${output.clientPhone}
 - hideKeyboard
-- tapOn:
-      text: "Email"
-      below: "Preferred contact"
 - tapOn: "Add"
 - extendedWaitUntil:
       visible: "Book"
@@ -26,8 +26,8 @@ name: NATIVE-CRM-01 Native client creation and editing survive process restarts
 - stopApp
 - runFlow: helpers/owner.yaml
 - tapOn: "Clients"
-- tapOn: "Search name, phone, email or pet"
-- inputText: ${output.clientEmail}
+- tapOn: "Search name, phone or pet"
+- inputText: ${output.clientPhone}
 - hideKeyboard
 - extendedWaitUntil:
       visible: ${".*" + output.clientName + ".*"}
@@ -37,7 +37,7 @@ name: NATIVE-CRM-01 Native client creation and editing survive process restarts
 - extendedWaitUntil:
       visible: "Edit client"
       timeout: 15000
-- assertVisible: ${output.clientEmail}
+- assertVisible: ${output.clientPhoneLabel}
 - tapOn:
       text: ${output.clientName}
       point: "95%,50%"
@@ -53,8 +53,8 @@ name: NATIVE-CRM-01 Native client creation and editing survive process restarts
 - stopApp
 - runFlow: helpers/owner.yaml
 - tapOn: "Clients"
-- tapOn: "Search name, phone, email or pet"
-- inputText: ${output.clientEmail}
+- tapOn: "Search name, phone or pet"
+- inputText: ${output.clientPhone}
 - hideKeyboard
 - extendedWaitUntil:
       visible: ${".*" + output.editedName + ".*"}
@@ -64,7 +64,7 @@ name: NATIVE-CRM-01 Native client creation and editing survive process restarts
 - assertVisible: "Book"
 - tapOn: "Edit"
 - assertVisible: "Edit client"
-- assertVisible: ${output.clientEmail}
+- assertVisible: ${output.clientPhoneLabel}
 - assertVisible: ${output.editedName}
 - tapOn: "Cancel"
 - takeScreenshot: native-client-edited-after-restart

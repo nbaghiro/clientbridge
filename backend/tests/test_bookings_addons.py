@@ -65,7 +65,7 @@ def _online(starts: str = OPENING, **extra: object) -> dict[str, object]:
         "item_id": GROOM,
         "staff_id": "st_owner",
         "starts_at": starts,
-        "client": {"name": "Long Visit", "email": "long-visit@example.com"},
+        "client": {"name": "Long Visit", "phone": "+16045550158"},
         **extra,
     }
 

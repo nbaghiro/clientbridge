@@ -6,8 +6,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.services.messaging import run_due_broadcasts
 from tests.conftest import FakeEmailSender, FakePushSender, FakeSmsSender
-from tests.google_business import configure_google_review_profile, review_emails
-from tests.helpers import local_hour, ok, text_in, unread
+from tests.google_business import configure_google_review_profile
+from tests.helpers import local_hour, ok, queued_subjects, text_in, unread
 
 
 async def _client(api: httpx.AsyncClient, **contact: str | list[str] | bool) -> str:
@@ -15,17 +15,15 @@ async def _client(api: httpx.AsyncClient, **contact: str | list[str] | bool) -> 
     return str(created.json()["id"])
 
 
-async def test_form_is_sent_and_answered(
-    as_owner: httpx.AsyncClient, email: FakeEmailSender
-) -> None:
+async def test_form_is_sent_and_answered(as_owner: httpx.AsyncClient, sms: FakeSmsSender) -> None:
     api = as_owner
-    cid = await _client(api, email="form-flow@example.ca")
+    cid = await _client(api, phone="+16045550276")
     sent = ok(
         await api.post("/v1/forms/send", json={"form_id": "frm_satisfaction", "client_id": cid}),
         201,
     ).json()
     assert sent["status"] == "draft"
-    assert any(f"/form/{sent['token']}" in m.body for m in email.sent)
+    assert any(f"/form/{sent['token']}" in m.body for m in sms.sent)
 
     form = ok(await api.get(f"/form/{sent['token']}")).json()
     assert form["completed"] is False
@@ -40,17 +38,15 @@ async def test_form_is_sent_and_answered(
     assert again.status_code == 409
 
 
-async def test_contract_is_sent_and_signed(
-    as_owner: httpx.AsyncClient, email: FakeEmailSender
-) -> None:
+async def test_contract_is_sent_and_signed(as_owner: httpx.AsyncClient, sms: FakeSmsSender) -> None:
     api = as_owner
-    cid = await _client(api, email="sign-flow@example.ca")
+    cid = await _client(api, phone="+16045550277")
     sent = ok(
         await api.post("/v1/contracts/send", json={"contract_id": "con_waiver", "client_id": cid}),
         201,
     ).json()
     assert sent["status"] == "pending"
-    assert any(f"/contract/{sent['token']}" in m.body for m in email.sent)
+    assert any(f"/contract/{sent['token']}" in m.body for m in sms.sent)
 
     context = ok(await api.get(f"/contract/{sent['token']}")).json()
     assert context["status"] == "pending" and context["body"]
@@ -70,15 +66,17 @@ async def test_contract_is_sent_and_signed(
 
 
 async def test_review_invitation_links_directly_to_google(
-    as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
+    as_owner: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender
 ) -> None:
     url = "https://g.page/r/1/review"
     await configure_google_review_profile(db)
-    cid = await _client(as_owner, email="review-flow@example.ca")
+    cid = await _client(as_owner, phone="+16045550278")
     request = ok(await as_owner.post("/v1/reviews/request", json={"client_id": cid}), 201).json()
     assert request["requested_at"]
     assert "token" not in request and "rating" not in request
-    assert any(url in m.body for m in await review_emails(db))
+    [notice] = await queued_subjects(db, f"review:{request['id']}")
+    assert url in notice
+    assert sms.sent == []
 
 
 async def test_messages_and_broadcasts(
@@ -86,9 +84,7 @@ async def test_messages_and_broadcasts(
 ) -> None:
     api = as_owner
     cid = await _client(api, phone="+16045550899", tags=["flowvip"], marketing_consent=True)
-    sent = ok(
-        await api.post("/v1/messages", json={"client_id": cid, "channel": "sms", "body": "Hi"})
-    ).json()
+    sent = ok(await api.post("/v1/messages", json={"client_id": cid, "body": "Hi"})).json()
     assert (sent["direction"], sent["status"]) == ("out", "sent")
     assert sms.sent[-1].to == "+16045550899"
 
@@ -105,7 +101,6 @@ async def test_messages_and_broadcasts(
             "/v1/broadcasts",
             json={
                 "name": "Flow promo",
-                "channel": "sms",
                 "body": "Sale",
                 "audience": {"tags": ["flowvip"]},
             },

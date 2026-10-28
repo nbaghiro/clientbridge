@@ -22,19 +22,16 @@ import { formatParts, formatPhone } from "../format";
 import { isConnectionFailure, type Load, useAsyncAction } from "../hooks";
 import { strings } from "../strings";
 import type { Intent, SelectOption } from "../ui";
-import { type ChannelConsent, consentFor, smsSegments, useConsents } from "./broadcasts";
+import { type MarketingConsent, consentFor, smsSegments, useConsents } from "./broadcasts";
 import { useClients } from "./clients";
 import { staffNameSql } from "./staff";
 import { useReplicaLoad } from "./sync";
-
-export type Channel = "sms" | "email";
 
 const m = strings.messaging;
 
 interface ThreadRow {
     id: string;
     client_id: string;
-    channel: string;
     last_message_at: string | null;
     unread_count: number;
     status: string;
@@ -43,7 +40,7 @@ interface ThreadRow {
 }
 
 export const THREADS_SQL = `
-SELECT t.id, t.client_id, t.channel,
+SELECT t.id, t.client_id,
        (SELECT MAX(m.created_at) FROM messages m WHERE m.thread_id = t.id) AS last_message_at,
        (SELECT COUNT(*) FROM messages m
         WHERE m.thread_id = t.id AND m.direction = 'in' AND m.status != 'read') AS unread_count,
@@ -61,7 +58,7 @@ export function useThreads(): ThreadRow[] {
 }
 
 export const INBOX_SQL = `
-SELECT t.id, t.client_id, t.channel, t.status, c.name AS client_name, c.phone, c.email,
+SELECT t.id, t.client_id, t.status, c.name AS client_name, c.phone,
        (SELECT MAX(m.created_at) FROM messages m WHERE m.thread_id = t.id) AS last_message_at,
        (SELECT COUNT(*) FROM messages m
         WHERE m.thread_id = t.id AND m.direction = 'in' AND m.status != 'read') AS unread_count,
@@ -74,13 +71,13 @@ LEFT JOIN clients c ON c.id = t.client_id
 ORDER BY last_message_at DESC`;
 
 export const CONVERSATION_SQL = `
-SELECT m.id, m.direction, m.channel, m.body, m.status, m.created_at, ${staffNameSql("st")} AS author
+SELECT m.id, m.direction, m.body, m.status, m.created_at, ${staffNameSql("st")} AS author
 FROM messages m LEFT JOIN staff st ON st.user_id = m.sent_by
 WHERE m.thread_id = ? ORDER BY m.created_at`;
 
 // The client beside a thread: contact, subjects, what they owe and their next visit after `?`.
 export const INBOX_CLIENT_SQL = `
-SELECT c.id, c.name, c.email, c.phone,
+SELECT c.id, c.name, c.phone,
        (SELECT GROUP_CONCAT(s.name, ', ') FROM subjects s WHERE s.client_id = c.id) AS subject_names,
        (SELECT SUM(a.balance_cents) FROM accounts a WHERE a.owner_type = 'client'
           AND a.owner_id = c.id AND a.category = 'receivable') AS balance_cents,
@@ -96,11 +93,9 @@ FROM clients c WHERE c.id = ?`;
 interface InboxRow {
     id: string;
     client_id: string;
-    channel: string;
     status: string;
     client_name: string | null;
     phone: string | null;
-    email: string | null;
     last_message_at: string | null;
     unread_count: number;
     last_body: string | null;
@@ -113,7 +108,6 @@ export interface InboxThread extends InboxRow {
     subjects: string[];
     // The client replied STOP: texts are blocked until they reply START.
     textsOff: boolean;
-    channelKind: "sms" | "email";
 }
 
 export function resolveInboxTarget(
@@ -133,7 +127,7 @@ export function resolveInboxTarget(
     };
 }
 
-type InboxFilter = "all" | "unread" | "sms" | "email";
+type InboxFilter = "all" | "unread";
 
 export const INBOX_FILTERS: { key: InboxFilter; label: string }[] = [
     {
@@ -148,31 +142,13 @@ export const INBOX_FILTERS: { key: InboxFilter; label: string }[] = [
             return m.filters.unread;
         },
     },
-    {
-        key: "sms",
-        get label() {
-            return m.filters.sms;
-        },
-    },
-    {
-        key: "email",
-        get label() {
-            return m.filters.email;
-        },
-    },
 ];
 
 export function quickReplies(): { key: string; label: string; text: string }[] {
     return m.quickReplyOptions.map((q, i) => ({ key: String(i), label: q.label, text: q.text }));
 }
 
-export function channelLabel(channel: string): string {
-    if (channel === "sms") return m.channelSms;
-    if (channel === "email") return m.channelEmail;
-    return channel;
-}
-
-const stopped = (c: ChannelConsent): boolean => c.state === "opted_out" && c.source === "reply";
+const stopped = (c: MarketingConsent): boolean => c.state === "opted_out" && c.source === "reply";
 
 interface InboxView {
     load: Load;
@@ -198,17 +174,14 @@ export function useInbox(): InboxView {
             title: t.client_name ?? formatPhone(t.phone),
             ago: t.last_message_at === null ? "" : formatRelativeTime(t.last_message_at, zone, now),
             subjects: t.subject_names === null ? [] : t.subject_names.split(", "),
-            textsOff: stopped(consentFor(consents.map, t.client_id, "sms")),
-            channelKind: t.channel === "email" ? ("email" as const) : ("sms" as const),
+            textsOff: stopped(consentFor(consents.map, t.client_id)),
         }));
     }, [rows.data, consents.map, zone]);
     const filtered = useMemo(() => {
         const term = q.trim().toLowerCase();
         return threads.filter(
             (t) =>
-                (filter === "all" ||
-                    (filter === "unread" && t.unread_count > 0) ||
-                    t.channel === filter) &&
+                (filter === "all" || t.unread_count > 0) &&
                 (term === "" ||
                     [t.title, t.last_body ?? "", ...t.subjects].some((v) =>
                         v.toLowerCase().includes(term),
@@ -230,7 +203,6 @@ export function useInbox(): InboxView {
 interface ConversationRow {
     id: string;
     direction: string;
-    channel: string;
     body: string | null;
     status: string;
     created_at: string;
@@ -248,7 +220,6 @@ interface ThreadItem {
 interface ClientContextRow {
     id: string;
     name: string;
-    email: string | null;
     phone: string | null;
     subject_names: string | null;
     balance_cents: number | null;
@@ -259,7 +230,7 @@ interface ClientContextRow {
 export interface Conversation {
     days: { label: string; items: ThreadItem[] }[];
     client: ClientContextRow | null;
-    consent: Record<Channel, ChannelConsent>;
+    consent: MarketingConsent;
     nextVisit: string | null;
     // messages older than this device keeps, fetched page by page while online
     earlier: { show: boolean; busy: boolean; error: string | null; load: () => void };
@@ -373,10 +344,7 @@ export function useConversation(api: ApiLike, thread: InboxThread): Conversation
     return {
         days,
         client,
-        consent: {
-            sms: consentFor(consents.map, thread.client_id, "sms"),
-            email: consentFor(consents.map, thread.client_id, "email"),
-        },
+        consent: consentFor(consents.map, thread.client_id),
         nextVisit:
             client?.next_at === null || client === null
                 ? null
@@ -393,7 +361,7 @@ export function useConversation(api: ApiLike, thread: InboxThread): Conversation
     };
 }
 
-export function consentDetail(c: ChannelConsent, zone: string): string | null {
+export function consentDetail(c: MarketingConsent, zone: string): string | null {
     const b = strings.broadcasts;
     if (c.state === "implied" && c.expiresAt !== null)
         return m.consentImpliedUntil(formatDate(parseTimestamp(c.expiresAt), zone));
@@ -405,7 +373,7 @@ export function consentDetail(c: ChannelConsent, zone: string): string | null {
     return null;
 }
 
-export function consentLabel(c: ChannelConsent): { label: string; intent: Intent } {
+export function consentLabel(c: MarketingConsent): { label: string; intent: Intent } {
     switch (c.state) {
         case "express":
             return { label: m.consentState.express, intent: "success" };
@@ -436,7 +404,7 @@ class NotDelivered extends Error {}
 
 async function sendMessage(
     api: ApiLike,
-    input: { client_id: string; channel: Channel; body: string; booking_id?: string },
+    input: { client_id: string; body: string; booking_id?: string },
     attempt: { current: Attempt | null },
 ): Promise<void> {
     const sent = await api.post<{ status: string }>("/v1/messages", input, {
@@ -454,8 +422,6 @@ function sendFailure(e: unknown): string {
 }
 
 export interface ThreadComposer {
-    channel: Channel;
-    setChannel: (c: Channel) => void;
     body: string;
     setBody: (v: string) => void;
     busy: boolean;
@@ -466,22 +432,13 @@ export interface ThreadComposer {
     canSend: boolean;
 }
 
-/** A STOP reply blocks texts; email still reaches the client. */
 export function useThreadComposer(api: ApiLike, thread: InboxThread): ThreadComposer {
-    // until the person picks one, the channel follows the thread, whose STOP can sync in after opening
-    const [picked, setChannel] = useState<Channel | null>(null);
-    const channel = picked ?? (thread.textsOff || thread.channel === "email" ? "email" : "sms");
     const [body, setBody] = useState("");
-    const { busy, error, setError, run } = useAsyncAction();
+    const { busy, error, run } = useAsyncAction();
     const attempt = useRef<Attempt | null>(null);
-    const smsBlocked = thread.textsOff && channel === "sms";
+    const smsBlocked = thread.textsOff;
     const canSend = !smsBlocked && body.trim().length > 0;
     return {
-        channel,
-        setChannel: (c) => {
-            setError(null);
-            setChannel(c);
-        },
         body,
         setBody,
         busy,
@@ -489,16 +446,7 @@ export function useThreadComposer(api: ApiLike, thread: InboxThread): ThreadComp
         submit: () => {
             if (!canSend) return;
             run(
-                () =>
-                    sendMessage(
-                        api,
-                        {
-                            client_id: thread.client_id,
-                            channel,
-                            body: body.trim(),
-                        },
-                        attempt,
-                    ),
+                () => sendMessage(api, { client_id: thread.client_id, body: body.trim() }, attempt),
                 {
                     onSuccess: () => {
                         attempt.current = null;
@@ -518,8 +466,6 @@ interface NewMessage {
     clients: SelectOption<string>[];
     clientId: string;
     setClientId: (id: string) => void;
-    channel: Channel;
-    setChannel: (c: Channel) => void;
     body: string;
     setBody: (v: string) => void;
     smsBlocked: boolean;
@@ -529,7 +475,6 @@ interface NewMessage {
     submit: () => void;
 }
 
-/** Picks email when the client replied STOP to texts or never agreed to them. */
 export function useNewMessage(
     api: ApiLike,
     onSent: (sent: { clientId: string; name: string }) => void,
@@ -539,12 +484,10 @@ export function useNewMessage(
     const clients = useClients();
     const consents = useConsents();
     const [clientId, setClientIdRaw] = useState(initialClientId);
-    const [channel, setChannel] = useState<Channel>("sms");
     const [body, setBody] = useState("");
     const { busy, error, setError, run } = useAsyncAction();
     const attempt = useRef<Attempt | null>(null);
-    const sms = consentFor(consents.map, clientId, "sms");
-    const smsBlocked = channel === "sms" && stopped(sms);
+    const smsBlocked = stopped(consentFor(consents.map, clientId));
     return {
         clients: clients.map((c) => ({
             key: c.id,
@@ -555,10 +498,7 @@ export function useNewMessage(
         setClientId: (id) => {
             setClientIdRaw(id);
             setError(null);
-            setChannel(stopped(consentFor(consents.map, id, "sms")) ? "email" : "sms");
         },
-        channel,
-        setChannel,
         body,
         setBody,
         smsBlocked,
@@ -576,18 +516,14 @@ export function useNewMessage(
             }
             if (smsBlocked) return;
             const name = clients.find((c) => c.id === clientId)?.name ?? "";
-            run(
-                () =>
-                    sendMessage(api, { client_id: clientId, channel, body: body.trim() }, attempt),
-                {
-                    onSuccess: () => {
-                        attempt.current = null;
-                        setBody("");
-                        onSent({ clientId, name });
-                    },
-                    errorMessage: sendFailure,
+            run(() => sendMessage(api, { client_id: clientId, body: body.trim() }, attempt), {
+                onSuccess: () => {
+                    attempt.current = null;
+                    setBody("");
+                    onSent({ clientId, name });
                 },
-            );
+                errorMessage: sendFailure,
+            });
         },
     };
 }
@@ -613,7 +549,6 @@ export function useVisitNote(
     clientId: string | null,
     bookingId: string | null,
 ): VisitNote {
-    const consents = useConsents();
     const sharedPhotos =
         useQuery<{ n: number }>(SHARED_PHOTOS_SQL, [bookingId ?? ""]).data[0]?.n ?? 0;
     const [body, setBody] = useState("");
@@ -633,14 +568,11 @@ export function useVisitNote(
         sent,
         submit: () => {
             if (clientId === null || bookingId === null || body.trim() === "") return;
-            const channel: Channel = stopped(consentFor(consents.map, clientId, "sms"))
-                ? "email"
-                : "sms";
             run(
                 () =>
                     sendMessage(
                         api,
-                        { client_id: clientId, channel, body: body.trim(), booking_id: bookingId },
+                        { client_id: clientId, body: body.trim(), booking_id: bookingId },
                         attempt,
                     ),
                 {

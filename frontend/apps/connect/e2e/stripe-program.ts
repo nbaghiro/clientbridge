@@ -90,7 +90,7 @@ export async function prepareProgram(owner: Page) {
         owner,
         "POST",
         "/v1/clients",
-        { name: booker.name, email: booker.email, preferred_channel: "email" },
+        { name: booker.name, phone: booker.phone },
         201,
     );
     await registerEnrolmentClient(client.id);

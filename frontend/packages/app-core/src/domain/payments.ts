@@ -166,7 +166,7 @@ interface RecordTarget {
     invoiceId: string;
     label: string;
     clientId: string;
-    clientEmail: string | null;
+    clientPhone: string | null;
     balanceCents: number;
 }
 
@@ -286,7 +286,7 @@ export function usePaymentRecorder(api: ApiLike, target: RecordTarget): PaymentR
             received_on: dated ? receivedOn : null,
             note: blankToNull(note),
             payment_method_id: method === "saved_card" ? card?.id : null,
-            send_receipt: sendReceipt && target.clientEmail !== null,
+            send_receipt: sendReceipt && target.clientPhone !== null,
         };
         const key = attemptKey(keyRef, [target.invoiceId, body]);
         run(
@@ -318,8 +318,8 @@ export function usePaymentRecorder(api: ApiLike, target: RecordTarget): PaymentR
                 ];
                 if (changeCents > 0)
                     lines.push(r.giveChange(formatMoney(changeCents, BUSINESS_CURRENCY)));
-                if (body.send_receipt && target.clientEmail !== null)
-                    lines.push(r.receiptSent(target.clientEmail));
+                if (body.send_receipt && target.clientPhone !== null)
+                    lines.push(r.receiptSent(target.clientPhone));
                 setDone({ title: r.doneTitle, lines, paidInFull: res.balance_cents === 0 });
             },
             { errorMessage: r.error },
@@ -361,7 +361,7 @@ export function usePaymentRecorder(api: ApiLike, target: RecordTarget): PaymentR
         setNote,
         sendReceipt,
         setSendReceipt,
-        receiptTo: target.clientEmail,
+        receiptTo: target.clientPhone,
         amountCents,
         afterCents,
         resultLabel: afterCents === 0 ? r.resultPaid : r.resultPartial,

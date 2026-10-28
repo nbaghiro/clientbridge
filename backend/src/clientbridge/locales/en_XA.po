@@ -4,35 +4,11 @@ msgstr "[Ɓîŕçĥƀåŕķ Þéţ Šţûðîö~~~~~~~]"
 msgid "admin_demo.declined"
 msgstr "[Ţöö ƒåŕ öûţ öƒ ţöŵñ~~~~~~~]"
 
-msgid "admin_demo.groom"
-msgstr "[Ƒûļļ ĝŕööɱ, ļåŕĝé ðöĝ~~~~~~~~]"
-
 msgid "admin_demo.login"
 msgstr "[Šîĝñ-îñ çöðé~~~~~]"
 
-msgid "admin_demo.message"
-msgstr ""
-"[Šéé ýöû Ţĥûŕšðåý.\n"
-"\n"
-"Ɓŕîñĝ Ɓîšçûîţ'š ļéåšĥ.~~~~~~~~~~~~~~~]"
-
-msgid "admin_demo.nails"
-msgstr "[Ñåîļ ĝŕîñð~~~~]"
-
-msgid "booking.action"
-msgstr "[Çĥåñĝé öŕ çåñçéļ~~~~~~]"
-
-msgid "booking.pay_deposit"
-msgstr "[Þåý ðéþöšîţ~~~~]"
-
 msgid "booking_canceled.body"
 msgstr "[Ýöûŕ åþþöîñţɱéñţ ŵîţĥ {business} öñ {when} ŵåš çåñçéļéð.~~~~~~~~~~~~~~]"
-
-msgid "booking_canceled.heading"
-msgstr "[Åþþöîñţɱéñţ çåñçéļéð~~~~~~~]"
-
-msgid "booking_canceled.subject"
-msgstr "[Åþþöîñţɱéñţ çåñçéļéð — {business}~~~~~~~~~]"
 
 msgid "booking_confirmed.body"
 msgstr "[Ýöû'ŕé ƀööķéð ƒöŕ {when} ŵîţĥ {business}.~~~~~~~~~]"
@@ -43,47 +19,20 @@ msgstr "[Ýöû'ŕé ƀööķéð ƒöŕ {when} ŵîţĥ {business}. Þļéåš�
 msgid "booking_confirmed.body_link"
 msgstr "[Ýöû'ŕé ƀööķéð ƒöŕ {when} ŵîţĥ {business}. Çĥåñĝé öŕ çåñçéļ: {link}~~~~~~~~~~~~~~~~]"
 
-msgid "booking_confirmed.deposit_due"
-msgstr "[Þļéåšé þåý ţĥé {amount} ðéþöšîţ, ŵĥîçĥ çöɱéš öƒƒ ýöûŕ ƀîļļ åţ ţĥé ṽîšîţ.~~~~~~~~~~~~~~~~~~~~~~~]"
-
-msgid "booking_confirmed.heading"
-msgstr "[Ýöû'ŕé ƀööķéð~~~~~]"
-
-msgid "booking_confirmed.subject"
-msgstr "[Ɓööķîñĝ çöñƒîŕɱéð — {business}~~~~~~~]"
-
 msgid "booking_departed.body"
 msgstr "[{member} ƒŕöɱ {business} éẋþéçţš ţö åŕŕîṽé åŕöûñð {time} åñð îš öñ ţĥé ŵåý ñöŵ.~~~~~~~~~~~~~~~~~~~~]"
 
 msgid "booking_departed.body_now"
 msgstr "[{member} ƒŕöɱ {business} îš öñ ţĥé ŵåý ţö ýöû ñöŵ.~~~~~~~~~~~~]"
 
-msgid "booking_departed.heading"
-msgstr "[Öñ ţĥé ŵåý~~~~]"
-
 msgid "booking_departed.someone"
 msgstr "[Å ɱéɱƀéŕ öƒ ţĥé ţéåɱ~~~~~~~]"
-
-msgid "booking_departed.subject"
-msgstr "[{member} ƒŕöɱ {business} îš öñ ţĥé ŵåý~~~~~~~]"
 
 msgid "booking_reassigned.body"
 msgstr "[Ýöûŕ åþþöîñţɱéñţ ŵîţĥ {business} öñ {when} îš ñöŵ ŵîţĥ {member}.~~~~~~~~~~~~~~]"
 
-msgid "booking_reassigned.heading"
-msgstr "[Ñéŵ þŕöṽîðéŕ ƒöŕ ýöûŕ åþþöîñţɱéñţ~~~~~~~~~~~~]"
-
-msgid "booking_reassigned.subject"
-msgstr "[Ñéŵ þŕöṽîðéŕ ƒöŕ ýöûŕ åþþöîñţɱéñţ — {business}~~~~~~~~~~~~~]"
-
 msgid "booking_released.body"
 msgstr "[Ýöûŕ åþþöîñţɱéñţ ŵîţĥ {business} öñ {when} ŵåš ŕéļéåšéð ƀéçåûšé îţš ðéþöšîţ ŵåšñ'ţ þåîð. Ýöû'ŕé ŵéļçöɱé ţö ƀööķ åĝåîñ.~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]"
-
-msgid "booking_released.heading"
-msgstr "[Åþþöîñţɱéñţ ŕéļéåšéð~~~~~~~]"
-
-msgid "booking_released.subject"
-msgstr "[Åþþöîñţɱéñţ ŕéļéåšéð — {business}~~~~~~~~~]"
 
 msgid "booking_reminder.body"
 msgstr "[Ŕéɱîñðéŕ: ýöû ĥåṽé åñ åþþöîñţɱéñţ öñ {when} ŵîţĥ {business}.~~~~~~~~~~~~~~~~]"
@@ -91,59 +40,17 @@ msgstr "[Ŕéɱîñðéŕ: ýöû ĥåṽé åñ åþþöîñţɱéñţ öñ {wh
 msgid "booking_reminder.body_link"
 msgstr "[Ŕéɱîñðéŕ: ýöû ĥåṽé åñ åþþöîñţɱéñţ öñ {when} ŵîţĥ {business}. Çĥåñĝé öŕ çåñçéļ: {link}~~~~~~~~~~~~~~~~~~~~~~~]"
 
-msgid "booking_reminder.heading"
-msgstr "[Åþþöîñţɱéñţ ŕéɱîñðéŕ~~~~~~~]"
-
-msgid "booking_reminder.subject"
-msgstr "[Åþþöîñţɱéñţ ŕéɱîñðéŕ — {business}~~~~~~~~~]"
-
 msgid "booking_requested.body"
 msgstr "[{business} ŕéçéîṽéð ýöûŕ ŕéǫûéšţ ƒöŕ {when} åñð ŵîļļ ļéţ ýöû ķñöŵ öñçé îţ'š çöñƒîŕɱéð.~~~~~~~~~~~~~~~~~~~~~~~~~]"
-
-msgid "booking_requested.heading"
-msgstr "[Ŕéǫûéšţ ŕéçéîṽéð~~~~~~]"
-
-msgid "booking_requested.subject"
-msgstr "[Ɓööķîñĝ ŕéǫûéšţ ŕéçéîṽéð — {business}~~~~~~~~~~]"
 
 msgid "booking_rescheduled.body"
 msgstr "[Ýöûŕ åþþöîñţɱéñţ ŵîţĥ {business} ŵåš ɱöṽéð ţö {when}, åñð ţĥé éåŕļîéŕ ţîɱé îš ñö ļöñĝéŕ ƀööķéð.~~~~~~~~~~~~~~~~~~~~~~~~~~~~]"
 
-msgid "booking_rescheduled.heading"
-msgstr "[Åþþöîñţɱéñţ ŕéšçĥéðûļéð~~~~~~~~~]"
-
-msgid "booking_rescheduled.subject"
-msgstr "[Åþþöîñţɱéñţ ŕéšçĥéðûļéð — {business}~~~~~~~~~~]"
-
-msgid "broadcast.contact"
-msgstr "[Çöñţåçţ: {contact}~~~~]"
-
-msgid "broadcast.email"
-msgstr ""
-"[{body}\n"
-"\n"
-"{business}\n"
-"{address}\n"
-"Çöñţåçţ: {contact}\n"
-"Ûñšûƀšçŕîƀé öŕ çĥåñĝé ŵĥåţ ýöû ĝéţ: {link}~~~~~~~~~~~~~~~~~~]"
-
-msgid "broadcast.mailing_address"
-msgstr "[{street}, {city}, {province} {postal_code}~~]"
-
-msgid "broadcast.mailing_address_unit"
-msgstr "[{unit}, {street}, {city}, {province} {postal_code}~~~]"
-
 msgid "broadcast.sms"
 msgstr "[{business}: {body} Ŕéþļý {keyword} ţö öþţ öûţ.~~~~~~~~]"
 
-msgid "consent_csv.channel"
-msgstr "[çĥåññéļ~~~]"
-
 msgid "consent_csv.client"
 msgstr "[çļîéñţ~~~]"
-
-msgid "consent_csv.email"
-msgstr "[éɱåîļ~~]"
 
 msgid "consent_csv.expires_at"
 msgstr "[éẋþîŕéš_åţ~~~~]"
@@ -166,20 +73,8 @@ msgstr "[šţåţûš~~~]"
 msgid "contact.subject"
 msgstr "[Çöñţåçţ ƒöŕɱ: {name}~~~~~]"
 
-msgid "contract.action"
-msgstr "[Ŕéṽîéŵ åñð šîĝñ~~~~~~]"
-
 msgid "contract_sent.body"
 msgstr "[{business} ĥåš åšķéð ýöû ţö šîĝñ ţĥé çöñţŕåçţ \"{contract}\": {link}~~~~~~~~~~~~~~]"
-
-msgid "contract_sent.heading"
-msgstr "[Þļéåšé šîĝñ {contract}~~~~~]"
-
-msgid "contract_sent.lead"
-msgstr "[{business} ĥåš åšķéð ýöû ţö šîĝñ ţĥé çöñţŕåçţ \"{contract}\".~~~~~~~~~~~~~~]"
-
-msgid "contract_sent.subject"
-msgstr "[{business}: þļéåšé šîĝñ \"{contract}\"~~~~~~]"
 
 msgid "crew.job"
 msgstr "[{service} · {client}~~]"
@@ -196,86 +91,29 @@ msgstr "[Þåýɱéñţ ðîšþûţéð: {amount}. Ŕéṽîéŵ ţĥé ðîš�
 msgid "email.footer.account"
 msgstr "[Ýöû'ŕé ĝéţţîñĝ ţĥîš éɱåîļ ƀéçåûšé ţĥîš åððŕéšš ŵåš ûšéð ţö šîĝñ ûþ öŕ šîĝñ îñ öñ Çļîéñţƀŕîðĝé.~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]"
 
-msgid "email.footer.client"
-msgstr "[Ýöû'ŕé ĝéţţîñĝ ţĥîš éɱåîļ ƀéçåûšé ýöû'ŕé å çļîéñţ öƒ {business}.~~~~~~~~~~~~~~~~~~~]"
-
 msgid "email.footer.company"
 msgstr "[ÇļîéñţƁŕîðĝé Îñç., 3704 Ļåķéþöîñţ Ðŕ, Šéṽéŕñ, Öñţåŕîö Ļ3Ṽ 8Ṁ9, Çåñåðå~~~~~~~~~~~~~~~~~~~~~~~~~]"
-
-msgid "email.footer.separator"
-msgstr "[ · ~~]"
 
 msgid "email.footer.team"
 msgstr "[Ýöû'ŕé ĝéţţîñĝ ţĥîš éɱåîļ ƀéçåûšé ýöû ŵöŕķ ŵîţĥ {business} öñ Çļîéñţƀŕîðĝé.~~~~~~~~~~~~~~~~~~~~~~~]"
 
-msgid "email.footer.visit_at"
-msgstr "[Ṽîšîţ åððŕéšš: {address}~~~~~~]"
-
 msgid "email.kind.account"
 msgstr "[Åççöûñţ~~~]"
-
-msgid "email.kind.booking"
-msgstr "[Ɓööķîñĝ~~~]"
-
-msgid "email.kind.contract"
-msgstr "[Çöñţŕåçţ~~~]"
 
 msgid "email.kind.estimate"
 msgstr "[Éšţîɱåţé~~~]"
 
-msgid "email.kind.form"
-msgstr "[Ƒöŕɱ~~]"
-
-msgid "email.kind.gift_card"
-msgstr "[Ĝîƒţ çåŕð~~~~]"
-
-msgid "email.kind.invoice"
-msgstr "[Îñṽöîçé~~~]"
-
-msgid "email.kind.message"
-msgstr "[Ṁéššåĝé~~~]"
-
-msgid "email.kind.news"
-msgstr "[Ñéŵš~~]"
-
 msgid "email.kind.order"
 msgstr "[Öŕðéŕ~~]"
-
-msgid "email.kind.payment"
-msgstr "[Þåýɱéñţ~~~]"
 
 msgid "email.kind.plan"
 msgstr "[Þļåñ~~]"
 
-msgid "email.kind.receipt"
-msgstr "[Ŕéçéîþţ~~~]"
-
-msgid "email.kind.refund"
-msgstr "[Ŕéƒûñð~~~]"
-
-msgid "email.kind.review"
-msgstr "[Ŕéṽîéŵ~~~]"
-
-msgid "email.kind.subscription"
-msgstr "[Šûƀšçŕîþţîöñ~~~~~]"
-
 msgid "email.kind.team"
 msgstr "[Ţéåɱ~~]"
 
-msgid "email.kind.verification"
-msgstr "[Ṽéŕîƒîçåţîöñ~~~~~]"
-
 msgid "email.kind.waitlist"
 msgstr "[Ŵåîţļîšţ~~~]"
-
-msgid "email.sent_with"
-msgstr "[Šéñţ ŵîţĥ Çļîéñţƀŕîðĝé~~~~~~~~]"
-
-msgid "email.unsubscribe"
-msgstr "[Ûñšûƀšçŕîƀé öŕ çĥåñĝé ŵĥåţ ýöû ĝéţ~~~~~~~~~~~~]"
-
-msgid "estimate.action"
-msgstr "[Ṽîéŵ éšţîɱåţé~~~~~]"
 
 msgid "estimate_accepted.body"
 msgstr "[Éšţîɱåţé #{number} ŵåš åççéþţéð.~~~~~~~~~]"
@@ -298,47 +136,14 @@ msgstr "[Éšţîɱåţé #{number} ƒöŕ {amount} ƒŕöɱ {business}~~~~~~~~]
 msgid "estimate_sent.body_link"
 msgstr "[Éšţîɱåţé #{number} ƒöŕ {amount} ƒŕöɱ {business} — ŕéåð åñð åççéþţ îţ åţ {link}~~~~~~~~~~~~~~~~~]"
 
-msgid "estimate_sent.heading"
-msgstr "[Éšţîɱåţé #{number} ƒöŕ {amount}~~~~~~]"
-
-msgid "estimate_sent.lead"
-msgstr "[Ĥéŕé îš ýöûŕ éšţîɱåţé ƒŕöɱ {business}. Ýöû çåñ ŕéåð îţ, ţĥéñ åççéþţ öŕ ðéçļîñé îţ.~~~~~~~~~~~~~~~~~~~~~~~~~~]"
-
-msgid "estimate_sent.subject"
-msgstr "[Éšţîɱåţé #{number} ƒŕöɱ {business}~~~~~~]"
-
-msgid "form.action"
-msgstr "[Öþéñ ƒöŕɱ~~~~]"
-
 msgid "form_sent.body"
 msgstr "[{business} ĥåš åšķéð ýöû ţö çöɱþļéţé ţĥé ƒöŕɱ \"{form}\": {link}~~~~~~~~~~~~~~]"
-
-msgid "form_sent.heading"
-msgstr "[Þļéåšé çöɱþļéţé {form}~~~~~~]"
-
-msgid "form_sent.lead"
-msgstr "[{business} ĥåš åšķéð ýöû ţö çöɱþļéţé ţĥé ƒöŕɱ \"{form}\".~~~~~~~~~~~~~~]"
-
-msgid "form_sent.subject"
-msgstr "[{business}: þļéåšé çöɱþļéţé \"{form}\"~~~~~~~]"
 
 msgid "gift_card_issued.body"
 msgstr "[Ýöû'ṽé ŕéçéîṽéð å {amount} ĝîƒţ çåŕð ƒŕöɱ {business}. Çöðé: {code}~~~~~~~~~~~~~~~]"
 
-msgid "gift_card_issued.heading"
-msgstr "[Ýöû'ṽé ŕéçéîṽéð å {amount} ĝîƒţ çåŕð~~~~~~~~~~]"
-
-msgid "gift_card_issued.lead"
-msgstr "[{business} šéñţ ýöû å ĝîƒţ çåŕð. Ûšé ţĥîš çöðé ŵĥéñ ýöû ƀööķ öŕ þåý.~~~~~~~~~~~~~~~~~~~~~]"
-
-msgid "gift_card_issued.subject"
-msgstr "[Ýöû'ṽé ŕéçéîṽéð å ĝîƒţ çåŕð ƒŕöɱ {business}~~~~~~~~~~~~]"
-
 msgid "inbound_message.push"
 msgstr "[Ṁéššåĝé ƒŕöɱ {client}: {body}~~~~~~]"
-
-msgid "invoice.action"
-msgstr "[Þåý îñṽöîçé~~~~]"
 
 msgid "invoice_line.program"
 msgid_plural "invoice_line.program"
@@ -354,44 +159,17 @@ msgstr "[Îñṽöîçé #{number} ƒöŕ {amount} ƒŕöɱ {business} îš ö�
 msgid "invoice_overdue.body_link"
 msgstr "[Îñṽöîçé #{number} ƒöŕ {amount} ƒŕöɱ {business} îš öṽéŕðûé — þåý åţ {link}~~~~~~~~~~~~~~~]"
 
-msgid "invoice_overdue.heading"
-msgstr "[Îñṽöîçé #{number} îš öṽéŕðûé~~~~~~~]"
-
-msgid "invoice_overdue.lead"
-msgstr "[{amount} îš šţîļļ öŵîñĝ öñ ţĥîš îñṽöîçé ƒŕöɱ {business}.~~~~~~~~~~~~~~]"
-
-msgid "invoice_overdue.subject"
-msgstr "[Îñṽöîçé #{number} öṽéŕðûé — {business}~~~~~~~]"
-
 msgid "invoice_reminder.body"
 msgstr "[Å ŕéɱîñðéŕ ƒŕöɱ {business}: îñṽöîçé #{number} ĥåš {amount} šţîļļ ţö þåý~~~~~~~~~~~~~~~~]"
 
 msgid "invoice_reminder.body_link"
 msgstr "[Å ŕéɱîñðéŕ ƒŕöɱ {business}: îñṽöîçé #{number} ĥåš {amount} šţîļļ ţö þåý. Þåý åţ {link}~~~~~~~~~~~~~~~~~~~]"
 
-msgid "invoice_reminder.heading"
-msgstr "[Å ŕéɱîñðéŕ åƀöûţ îñṽöîçé #{number}~~~~~~~~~~]"
-
-msgid "invoice_reminder.lead"
-msgstr "[{amount} îš šţîļļ ţö þåý öñ ţĥîš îñṽöîçé ƒŕöɱ {business}.~~~~~~~~~~~~~~]"
-
-msgid "invoice_reminder.subject"
-msgstr "[Ŕéɱîñðéŕ: îñṽöîçé #{number} ƒŕöɱ {business}~~~~~~~~~]"
-
 msgid "invoice_sent.body"
 msgstr "[Îñṽöîçé #{number} ƒöŕ {amount} ƒŕöɱ {business}~~~~~~~]"
 
 msgid "invoice_sent.body_link"
 msgstr "[Îñṽöîçé #{number} ƒöŕ {amount} ƒŕöɱ {business} — þåý åţ {link}~~~~~~~~~~~]"
-
-msgid "invoice_sent.heading"
-msgstr "[Îñṽöîçé #{number} ƒöŕ {amount}~~~~~]"
-
-msgid "invoice_sent.lead"
-msgstr "[Ĥéŕé îš ýöûŕ îñṽöîçé ƒŕöɱ {business}.~~~~~~~~~~]"
-
-msgid "invoice_sent.subject"
-msgstr "[Îñṽöîçé #{number} ƒŕöɱ {business}~~~~~~]"
 
 msgid "login_code.body"
 msgid_plural "login_code.body"
@@ -412,9 +190,6 @@ msgstr "[Îƒ ýöû ðîð ñöţ ţŕý ţö šîĝñ îñ, ýöû çåñ îĝ
 msgid "login_code.subject"
 msgstr "[Ýöûŕ Çļîéñţƀŕîðĝé šîĝñ-îñ çöðé~~~~~~~~~~~]"
 
-msgid "message.heading"
-msgstr "[Å ɱéššåĝé ƒŕöɱ {business}~~~~~~]"
-
 msgid "online_order.body"
 msgstr "[Å çļîéñţ þåîð {amount} ƒöŕ åñ öñļîñé öŕðéŕ. Îţ îš ŵåîţîñĝ ûñðéŕ Þåýɱéñţš, Šåļéš.~~~~~~~~~~~~~~~~~~~~~~~~~~]"
 
@@ -424,35 +199,14 @@ msgstr "[Öñļîñé öŕðéŕ þåîð~~~~~~]"
 msgid "online_order.subject"
 msgstr "[Öñļîñé öŕðéŕ þåîð: {amount}, ƒöŕ þîçķûþ~~~~~~~~~~~]"
 
-msgid "order.action"
-msgstr "[Ṽîéŵ öŕðéŕ~~~~]"
-
 msgid "order_ready.body"
 msgstr "[Ýöûŕ öŕðéŕ ƒŕöɱ {business} îš ŕéåðý ţö þîçķ ûþ.~~~~~~~~~~~~~]"
-
-msgid "order_ready.heading"
-msgstr "[Ýöûŕ öŕðéŕ îš ŕéåðý~~~~~~~]"
-
-msgid "order_ready.subject"
-msgstr "[Ýöûŕ öŕðéŕ ƒŕöɱ {business} îš ŕéåðý~~~~~~~~~]"
 
 msgid "order_reminder.body"
 msgstr "[Ýöûŕ öŕðéŕ îš ŕéåðý ţö çöļļéçţ ƒŕöɱ {business}. Þļéåšé çöñţåçţ ţĥé šţûðîö îƒ ýöû ñééð ɱöŕé ţîɱé.~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]"
 
-msgid "order_reminder.heading"
-msgstr "[Ýöûŕ öŕðéŕ îš ŵåîţîñĝ~~~~~~~~]"
-
-msgid "order_reminder.subject"
-msgstr "[Ýöûŕ öŕðéŕ îš ŵåîţîñĝ åţ {business}~~~~~~~~~]"
-
 msgid "payment_failed.body"
 msgstr "[Ýöûŕ þåýɱéñţ öƒ {amount} ţö {business} ƒåîļéð. Þļéåšé ţŕý åĝåîñ.~~~~~~~~~~~~~~~~~]"
-
-msgid "payment_failed.heading"
-msgstr "[Ýöûŕ þåýɱéñţ ðîðñ'ţ ĝö ţĥŕöûĝĥ~~~~~~~~~~~]"
-
-msgid "payment_failed.subject"
-msgstr "[Þåýɱéñţ ƒåîļéð — {business}~~~~~~]"
 
 msgid "pickup.body"
 msgstr "[Çöļļéçţ ýöûŕ öŕðéŕ åţ {business}. Ŵé'ļļ ļéţ ýöû ķñöŵ ŵĥéñ îţ'š ŕéåðý.~~~~~~~~~~~~~~~~~~~~~]"
@@ -489,29 +243,14 @@ msgstr "[Çļîéñţƀŕîðĝé Ţéåɱ~~~~~~]"
 msgid "receipt.body"
 msgstr "[Ţĥåñķ ýöû! Ýöûŕ þåýɱéñţ öƒ {amount} ţö {business} ŵåš ŕéçéîṽéð.~~~~~~~~~~~~~~~~]"
 
-msgid "receipt.heading"
-msgstr "[Þåýɱéñţ ŕéçéîṽéð~~~~~~]"
-
-msgid "receipt.item"
-msgstr "[{item} ẋ{quantity}~]"
-
 msgid "receipt.line"
 msgstr "[{item} ẋ{quantity}  {amount}~~]"
-
-msgid "receipt.order_action"
-msgstr "[Ţŕåçķ ýöûŕ öŕðéŕ~~~~~~]"
 
 msgid "receipt.push"
 msgstr "[Þåýɱéñţ ŕéçéîṽéð: {amount}~~~~~~~]"
 
-msgid "receipt.subject"
-msgstr "[Ŕéçéîþţ ƒŕöɱ {business}~~~~~]"
-
 msgid "receipt.subtotal"
 msgstr "[Šûƀţöţåļ  {amount}~~~~]"
-
-msgid "receipt.subtotal_label"
-msgstr "[Šûƀţöţåļ~~~]"
 
 msgid "receipt.tax"
 msgstr "[{tax}  {amount}~]"
@@ -519,14 +258,8 @@ msgstr "[{tax}  {amount}~]"
 msgid "receipt.tip"
 msgstr "[Ţîþ  {amount}~~]"
 
-msgid "receipt.tip_label"
-msgstr "[Ţîþ~~]"
-
 msgid "receipt.total"
 msgstr "[Ţöţåļ  {amount}~~~]"
-
-msgid "receipt.total_label"
-msgstr "[Ţöţåļ~~]"
 
 msgid "recovery_code.body"
 msgid_plural "recovery_code.body"
@@ -562,20 +295,8 @@ msgstr "[Å ŕéƒûñð öƒ {amount} ƒŕöɱ {business} ŵåš îššûéð.~
 msgid "refund.body_credit_note"
 msgstr "[Å ŕéƒûñð öƒ {amount} ƒŕöɱ {business} ŵåš îššûéð. Çŕéðîţ ñöţé {credit_note}.~~~~~~~~~~~~~~~~]"
 
-msgid "refund.heading"
-msgstr "[Ŕéƒûñð îššûéð~~~~~]"
-
-msgid "refund.subject"
-msgstr "[Ŕéƒûñð ƒŕöɱ {business}~~~~~]"
-
 msgid "refund_failed.body"
 msgstr "[Ýöûŕ ƀåñķ çöûļð ñöţ çöɱþļéţé ţĥé ŕéƒûñð öƒ {amount} ƒŕöɱ {business}. {business} ŵîļļ åŕŕåñĝé îţ åñöţĥéŕ ŵåý.~~~~~~~~~~~~~~~~~~~~~~~~~~~~]"
-
-msgid "refund_failed.heading"
-msgstr "[Ŕéƒûñð ñöţ çöɱþļéţéð~~~~~~~]"
-
-msgid "refund_failed.subject"
-msgstr "[Ŕéƒûñð ñöţ çöɱþļéţéð — {business}~~~~~~~~~]"
 
 msgid "registration_code.body"
 msgid_plural "registration_code.body"
@@ -700,40 +421,11 @@ msgstr "[ţöţåļ_çéñţš~~~~]"
 
 msgid "returning_code.body"
 msgid_plural "returning_code.body"
-msgstr[0] "[Ýöûŕ ṽéŕîƒîçåţîöñ çöðé îš {code}. Îţ éẋþîŕéš îñ {count} ɱîñûţé. Ûšé îţ ţö ƒîñð ýöûŕ ðéţåîļš åñð þŕéṽîöûš ṽîšîţ. Îƒ ýöû ðîð ñöţ ŕéǫûéšţ îţ, îĝñöŕé ţĥîš éɱåîļ.~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]"
-msgstr[1] "[Ýöûŕ ṽéŕîƒîçåţîöñ çöðé îš {code}. Îţ éẋþîŕéš îñ {count} ɱîñûţéš. Ûšé îţ ţö ƒîñð ýöûŕ ðéţåîļš åñð þŕéṽîöûš ṽîšîţ. Îƒ ýöû ðîð ñöţ ŕéǫûéšţ îţ, îĝñöŕé ţĥîš éɱåîļ.~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]"
-
-msgid "returning_code.heading"
-msgstr "[Ýöûŕ ṽéŕîƒîçåţîöñ çöðé~~~~~~~~]"
-
-msgid "returning_code.lead"
-msgid_plural "returning_code.lead"
-msgstr[0] "[Ûšé ţĥîš çöðé ţö ƒîñð ýöûŕ ðéţåîļš åñð þŕéṽîöûš ṽîšîţ ŵîţĥ {business}. Îţ éẋþîŕéš îñ {count} ɱîñûţé.~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]"
-msgstr[1] "[Ûšé ţĥîš çöðé ţö ƒîñð ýöûŕ ðéţåîļš åñð þŕéṽîöûš ṽîšîţ ŵîţĥ {business}. Îţ éẋþîŕéš îñ {count} ɱîñûţéš.~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]"
-
-msgid "returning_code.note"
-msgstr "[Îƒ ýöû ðîð ñöţ ŕéǫûéšţ îţ, ýöû çåñ îĝñöŕé ţĥîš éɱåîļ.~~~~~~~~~~~~~~~~~~~]"
-
-msgid "returning_code.subject"
-msgstr "[Ýöûŕ ƀööķîñĝ ṽéŕîƒîçåţîöñ çöðé ƒöŕ {business}~~~~~~~~~~~~~]"
-
-msgid "review.action"
-msgstr "[Ŕéṽîéŵ öñ Ĝööĝļé~~~~~~]"
+msgstr[0] "[Ýöûŕ ṽéŕîƒîçåţîöñ çöðé îš {code}. Îţ éẋþîŕéš îñ {count} ɱîñûţé. Ûšé îţ ţö ƒîñð ýöûŕ ðéţåîļš åñð þŕéṽîöûš ṽîšîţ. Îƒ ýöû ðîð ñöţ ŕéǫûéšţ îţ, îĝñöŕé ţĥîš ɱéššåĝé.~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]"
+msgstr[1] "[Ýöûŕ ṽéŕîƒîçåţîöñ çöðé îš {code}. Îţ éẋþîŕéš îñ {count} ɱîñûţéš. Ûšé îţ ţö ƒîñð ýöûŕ ðéţåîļš åñð þŕéṽîöûš ṽîšîţ. Îƒ ýöû ðîð ñöţ ŕéǫûéšţ îţ, îĝñöŕé ţĥîš ɱéššåĝé.~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]"
 
 msgid "review_requested.body"
 msgstr "[Ţĥåñķš ƒöŕ çĥööšîñĝ {business}! Ļéåṽé å ŕéṽîéŵ öñ Ĝööĝļé: {link}~~~~~~~~~~~~~~~~~]"
-
-msgid "review_requested.heading"
-msgstr "[Ĥöŵ ŵåš ýöûŕ ṽîšîţ?~~~~~~~]"
-
-msgid "review_requested.lead"
-msgstr "[Ţĥåñķš ƒöŕ çĥööšîñĝ {business}. Ýöû çåñ ļéåṽé å ŕéṽîéŵ öñ Ĝööĝļé ţö šĥåŕé ýöûŕ éẋþéŕîéñçé.~~~~~~~~~~~~~~~~~~~~~~~~~~~~]"
-
-msgid "review_requested.subject"
-msgstr "[Ĥöŵ ŵåš ýöûŕ ṽîšîţ ţö {business}?~~~~~~~~~]"
-
-msgid "sale_receipt.action"
-msgstr "[Ṽîéŵ ŕéçéîþţ~~~~~]"
 
 msgid "sale_receipt.body"
 msgstr "[Ţĥåñķ ýöû ƒöŕ ṽîšîţîñĝ {business}. Ýöûŕ ŕéçéîþţ: {link}~~~~~~~~~~~~~~]"
@@ -741,29 +433,11 @@ msgstr "[Ţĥåñķ ýöû ƒöŕ ṽîšîţîñĝ {business}. Ýöûŕ ŕéç�
 msgid "sale_receipt.body_numbered"
 msgstr "[Ţĥåñķ ýöû ƒöŕ ṽîšîţîñĝ {business}. Ýöûŕ ŕéçéîþţ ƒöŕ šåļé Š-{number}: {link}~~~~~~~~~~~~~~~~~~]"
 
-msgid "sale_receipt.heading"
-msgstr "[Ţĥåñķš ƒöŕ ṽîšîţîñĝ~~~~~~~]"
-
-msgid "sale_receipt.lead"
-msgstr "[Ţĥåñķ ýöû ƒöŕ ṽîšîţîñĝ {business}. Ýöûŕ ŕéçéîþţ îš ŕéåðý ţö ṽîéŵ.~~~~~~~~~~~~~~~~~~~~]"
-
-msgid "sale_receipt.lead_numbered"
-msgstr "[Ţĥåñķ ýöû ƒöŕ ṽîšîţîñĝ {business}. Ýöûŕ ŕéçéîþţ ƒöŕ šåļé Š-{number} îš ŕéåðý ţö ṽîéŵ.~~~~~~~~~~~~~~~~~~~~~~~~]"
-
-msgid "sale_receipt.subject"
-msgstr "[Ýöûŕ ŕéçéîþţ ƒŕöɱ {business}~~~~~~~]"
-
 msgid "seat_opened.body"
 msgstr "[Å šéåţ öþéñéð ûþ îñ {name} ŵîţĥ {business} öñ {when}, šö ýöû'ŕé ƀööķéð.~~~~~~~~~~~~~~~~~~]"
 
 msgid "seat_opened.body_link"
 msgstr "[Å šéåţ öþéñéð ûþ îñ {name} ŵîţĥ {business} öñ {when}, šö ýöû'ŕé ƀööķéð. Çĥåñĝé öŕ çåñçéļ: {link}~~~~~~~~~~~~~~~~~~~~~~~~]"
-
-msgid "seat_opened.heading"
-msgstr "[Ýöû ĥåṽé å šéåţ~~~~~~]"
-
-msgid "seat_opened.subject"
-msgstr "[Å šéåţ öþéñéð ûþ îñ {name}~~~~~~~]"
 
 msgid "series.separator"
 msgstr "[; ~]"
@@ -771,29 +445,11 @@ msgstr "[; ~]"
 msgid "series_booked.body"
 msgstr "[Ýöû'ŕé ƀööķéð ŵîţĥ {business} ƒöŕ ţĥéšé ṽîšîţš: {whens}~~~~~~~~~~~~~~]"
 
-msgid "series_booked.heading"
-msgstr "[Ýöûŕ ṽîšîţš åŕé ƀööķéð~~~~~~~~]"
-
-msgid "series_booked.subject"
-msgstr "[Ýöûŕ ṽîšîţš åŕé ƀööķéð — {business}~~~~~~~~~]"
-
 msgid "series_canceled.body"
 msgstr "[Ţĥéšé ṽîšîţš ŵîţĥ {business} ŵéŕé çåñçéļéð: {whens}~~~~~~~~~~~~]"
 
-msgid "series_canceled.heading"
-msgstr "[Ýöûŕ ṽîšîţš ŵéŕé çåñçéļéð~~~~~~~~~]"
-
-msgid "series_canceled.subject"
-msgstr "[Ýöûŕ ṽîšîţš ŵéŕé çåñçéļéð — {business}~~~~~~~~~~]"
-
 msgid "series_moved.body"
 msgstr "[Ýöûŕ ṽîšîţš ŵîţĥ {business} ĥåṽé ñéŵ ţîɱéš: {whens}~~~~~~~~~~~~]"
-
-msgid "series_moved.heading"
-msgstr "[Ýöûŕ ṽîšîţš ŵéŕé ɱöṽéð~~~~~~~~]"
-
-msgid "series_moved.subject"
-msgstr "[Ýöûŕ ṽîšîţš ŵéŕé ɱöṽéð — {business}~~~~~~~~~]"
 
 msgid "signed_copy.signed_by"
 msgstr "[— Šîĝñéð ƀý {name}~~~~~]"
@@ -822,20 +478,8 @@ msgstr "[Šûƀšçŕîþţîöñ~~~~~]"
 msgid "subscription_canceled.body"
 msgstr "[Ýöûŕ šûƀšçŕîþţîöñ ţö {business} ŵåš çåñçéļéð.~~~~~~~~~~~~~]"
 
-msgid "subscription_canceled.heading"
-msgstr "[Šûƀšçŕîþţîöñ çåñçéļéð~~~~~~~~]"
-
-msgid "subscription_canceled.subject"
-msgstr "[Šûƀšçŕîþţîöñ çåñçéļéð — {business}~~~~~~~~~]"
-
 msgid "subscription_past_due.body"
 msgstr "[Ýöûŕ šûƀšçŕîþţîöñ þåýɱéñţ ţö {business} ƒåîļéð. Þļéåšé ûþðåţé ýöûŕ þåýɱéñţ ɱéţĥöð.~~~~~~~~~~~~~~~~~~~~~~~~~~]"
-
-msgid "subscription_past_due.heading"
-msgstr "[Þåýɱéñţ þåšţ ðûé~~~~~~]"
-
-msgid "subscription_past_due.subject"
-msgstr "[Þåýɱéñţ þåšţ ðûé — {business}~~~~~~~]"
 
 msgid "trial.action"
 msgstr "[Çĥööšé å þļåñ~~~~~]"
@@ -907,12 +551,6 @@ msgstr ""
 msgid "visits_reassigned.body"
 msgstr "[Ţĥéšé ṽîšîţš ŵîţĥ {business} åŕé ñöŵ ŵîţĥ {member}: {whens}~~~~~~~~~~~~]"
 
-msgid "visits_reassigned.heading"
-msgstr "[Ñéŵ þŕöṽîðéŕ ƒöŕ ýöûŕ ṽîšîţš~~~~~~~~~~]"
-
-msgid "visits_reassigned.subject"
-msgstr "[Ñéŵ þŕöṽîðéŕ ƒöŕ ýöûŕ ṽîšîţš — {business}~~~~~~~~~~~]"
-
 msgid "waitlist.action"
 msgstr "[Šéé ţĥé ƒéåţûŕéš~~~~~~]"
 
@@ -950,24 +588,9 @@ msgstr "[Ýöû'ŕé åļŕéåðý öñ ţĥé Çļîéñţƀŕîðĝé ŵåî�
 msgid "waitlist_closed.body"
 msgstr "[{name} ŵîţĥ {business} öñ {when} ƒîļļéð ûþ ƀéƒöŕé å šéåţ öþéñéð ƒöŕ ýöû, šö ýöûŕ þļåçé öñ ţĥé ŵåîţļîšţ ĥåš çļöšéð. Ýöû'ŕé ŵéļçöɱé ţö ƀööķ åñöţĥéŕ šéššîöñ.~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]"
 
-msgid "waitlist_closed.heading"
-msgstr "[Ţĥé çļåšš ƒîļļéð ûþ~~~~~~~]"
-
-msgid "waitlist_closed.subject"
-msgstr "[{name} ƒîļļéð ûþ~~~~]"
-
-msgid "waitlist_joined.action"
-msgstr "[Šéé öŕ ļéåṽé ţĥé ŵåîţļîšţ~~~~~~~~~]"
-
 msgid "waitlist_joined.body"
 msgstr "[{name} ŵîţĥ {business} öñ {when} îš ƒûļļ, šö ýöû'ŕé öñ ţĥé ŵåîţļîšţ. Îƒ å šéåţ öþéñš ûþ ƀéƒöŕé îţ šţåŕţš, ýöû'ļļ ƀé ƀööķéð îñţö îţ åñð ĝéţ å ɱéššåĝé.~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]"
 
 msgid "waitlist_joined.body_link"
 msgstr "[{name} ŵîţĥ {business} öñ {when} îš ƒûļļ, šö ýöû'ŕé öñ ţĥé ŵåîţļîšţ. Îƒ å šéåţ öþéñš ûþ ƀéƒöŕé îţ šţåŕţš, ýöû'ļļ ƀé ƀööķéð îñţö îţ åñð ĝéţ å ɱéššåĝé. Šéé öŕ ļéåṽé ţĥé ŵåîţļîšţ: {link}~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]"
-
-msgid "waitlist_joined.heading"
-msgstr "[Ýöû'ŕé öñ ţĥé ŵåîţļîšţ~~~~~~~~]"
-
-msgid "waitlist_joined.subject"
-msgstr "[Ýöû'ŕé öñ ţĥé ŵåîţļîšţ ƒöŕ {name}~~~~~~~~~~]"
 

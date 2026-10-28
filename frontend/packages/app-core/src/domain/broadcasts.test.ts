@@ -32,7 +32,6 @@ describe("consent", () => {
     const now = new Date("2026-10-07T12:00:00Z");
     const row = (status: string, expires: string | null = null) => ({
         client_id: "cl_ann",
-        channel: "sms",
         status,
         source: "form",
         created_at: "2026-01-01T00:00:00Z",
@@ -62,15 +61,9 @@ describe("consent", () => {
         });
     });
 
-    it("looks a client's channel up, reading a missing one as never asked", () => {
-        const map = new Map([
-            [
-                "cl_ann",
-                { sms: consentOf(row("granted"), now), email: consentOf(row("withdrawn"), now) },
-            ],
-        ]);
-        expect(consentFor(map, "cl_ann", "sms").state).toBe("express");
-        expect(consentFor(map, "cl_ann", "email").state).toBe("opted_out");
-        expect(consentFor(map, "cl_ben", "sms")).toEqual(consentOf(undefined));
+    it("looks up SMS consent, reading a missing client as never asked", () => {
+        const map = new Map([["cl_ann", consentOf(row("granted"), now)]]);
+        expect(consentFor(map, "cl_ann").state).toBe("express");
+        expect(consentFor(map, "cl_ben")).toEqual(consentOf(undefined));
     });
 });

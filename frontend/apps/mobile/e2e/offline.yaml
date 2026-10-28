@@ -10,11 +10,11 @@ onFlowComplete:
 ---
 - runFlow: helpers/owner.yaml
 - tapOn: "Clients"
-- tapOn: "Search name, phone, email or pet"
-- inputText: "olivia.m+${E2E_NAMESPACE}@example.test"
+- tapOn: "Search name, phone or pet"
+- inputText: "Olivia Martin"
 - hideKeyboard
 - extendedWaitUntil:
-      visible: ".*Olivia Martin.*"
+      visible: "Bandit"
       timeout: 60000
 - runScript:
       file: helpers/control.js
@@ -29,13 +29,14 @@ onFlowComplete:
       timeout: 60000
 - assertNotVisible: "Sign in"
 - tapOn: "Clients"
-- tapOn: "Search name, phone, email or pet"
-- inputText: "olivia.m+${E2E_NAMESPACE}@example.test"
+- tapOn: "Search name, phone or pet"
+- inputText: "Olivia Martin"
 - hideKeyboard
 - extendedWaitUntil:
-      visible: ".*Olivia Martin.*"
+      visible: "Bandit"
       timeout: 30000
-- tapOn: ".*Olivia Martin.*"
+- tapOn: "Bandit"
+- assertVisible: "Olivia Martin"
 - assertVisible: "Book"
 - assertVisible: "Bandit"
 - takeScreenshot: offline-client-record

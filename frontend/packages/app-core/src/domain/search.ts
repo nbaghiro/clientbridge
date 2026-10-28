@@ -41,7 +41,7 @@ interface SearchGroup {
 }
 
 export const SEARCH_CLIENTS_SQL =
-    "SELECT id, name, email, phone, status FROM clients WHERE status = 'active' ORDER BY name COLLATE NOCASE";
+    "SELECT id, name, phone, status FROM clients WHERE status = 'active' ORDER BY name COLLATE NOCASE";
 
 // Param: the start of today (ISO); earlier visits are found through the client.
 export const SEARCH_BOOKINGS_SQL = `
@@ -64,7 +64,6 @@ WHERE active = 1 ORDER BY name COLLATE NOCASE`;
 interface ClientHitRow {
     id: string;
     name: string;
-    email: string | null;
     phone: string | null;
     status: string;
 }
@@ -135,9 +134,7 @@ export function searchHits(
     if (q.length === 0) return out;
     const digits = q.replace(/\D/g, "");
     const clients = data.clients.filter(
-        (c) =>
-            has(q, c.name, c.email) ||
-            (digits.length >= 3 && phoneDigits(c.phone).includes(digits)),
+        (c) => has(q, c.name) || (digits.length >= 3 && phoneDigits(c.phone).includes(digits)),
     );
     out.clients = clients.map((c) => ({
         id: c.id,
@@ -147,7 +144,7 @@ export function searchHits(
         target: "client",
         refId: c.id,
         title: c.name,
-        detail: formatParts([formatPhone(c.phone), c.email]),
+        detail: formatPhone(c.phone),
         meta: c.status === "active" ? null : s.inactiveClient,
         metaIntent: c.status === "active" ? null : "neutral",
     }));

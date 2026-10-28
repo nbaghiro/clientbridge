@@ -11,11 +11,10 @@ const data = {
         {
             id: "cl_1",
             name: "Marcus Bennett",
-            email: "marcus@x.test",
             phone: "+12505550202",
             status: "active",
         },
-        { id: "cl_2", name: "Olivia Martin", email: null, phone: null, status: "archived" },
+        { id: "cl_2", name: "Olivia Martin", phone: null, status: "archived" },
     ],
     bookings: [
         {
@@ -55,7 +54,7 @@ const data = {
 const now = new Date("2026-10-06T16:00:00Z");
 
 describe("searchHits", () => {
-    it("finds clients by name, email or any phone format, with book and message for the top one", () => {
+    it("finds clients by name or any phone format, with book and message for the top one", () => {
         const hits = searchHits("mar", data, now, ZONE);
         expect(hits.clients.map((h) => h.id)).toEqual(["cl_1", "cl_2"]);
         expect(hits.clients[1]?.meta).toBe(strings.search.inactiveClient);

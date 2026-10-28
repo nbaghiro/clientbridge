@@ -64,7 +64,7 @@ test("REF-E2E-01 cash partial refund and remainder issue exact tax credit notes"
     await openInvoice(page, {
         id: fixture.invoiceId,
         name: fixture.client.name,
-        email: fixture.client.email,
+        phone: fixture.client.phone,
     });
     await expect(
         page
@@ -106,7 +106,7 @@ test("REF-E2E-01 cash partial refund and remainder issue exact tax credit notes"
     await openInvoice(page, {
         id: fixture.invoiceId,
         name: fixture.client.name,
-        email: fixture.client.email,
+        phone: fixture.client.phone,
     });
     await expect(
         page

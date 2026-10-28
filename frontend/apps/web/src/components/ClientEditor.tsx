@@ -7,15 +7,12 @@ import {
     canManagePayments,
     strings,
     useClientEditor,
-    formatParts,
     usePeoplePhotos,
 } from "@clientbridge/app-core";
 import {
     Avatar,
     Button,
-    Choice,
     confirm,
-    Field,
     Modal,
     Notice,
     TagInput,
@@ -52,9 +49,7 @@ function DuplicateCard({
                 <p className="mt-0.5 text-xs text-ink-soft">
                     {s.duplicateBody(match.reasons.join(s.and))}
                 </p>
-                <p className="mt-0.5 truncate text-xs text-muted">
-                    {formatParts([match.client.phoneLabel, match.client.email])}
-                </p>
+                <p className="mt-0.5 truncate text-xs text-muted">{match.client.phoneLabel}</p>
                 <div className="mt-2 flex gap-2">
                     <Button size="sm" onPress={onOpen}>
                         {s.duplicateOpen}
@@ -84,46 +79,20 @@ function ClientFields({ editor }: { editor: ClientEditor }) {
                 autoComplete="name"
                 autoFocus={editor.mode === "add"}
             />
-            <div className="grid gap-4 sm:grid-cols-2">
-                <TextField
-                    label={s.phoneLabel}
-                    type="tel"
-                    value={draft.phone}
-                    onChange={(v) => {
-                        set("phone", v);
-                    }}
-                    placeholder={s.phonePlaceholder}
-                    hint={s.phoneHint}
-                    error={errors.phone}
-                    autoComplete="tel"
-                />
-                <TextField
-                    label={s.emailLabel}
-                    type="email"
-                    value={draft.email}
-                    onChange={(v) => {
-                        set("email", v);
-                    }}
-                    placeholder={s.emailPlaceholder}
-                    error={errors.email}
-                    autoComplete="email"
-                />
-            </div>
+            <TextField
+                label={s.phoneLabel}
+                type="tel"
+                required
+                value={draft.phone}
+                onChange={(v) => {
+                    set("phone", v);
+                }}
+                placeholder={s.phonePlaceholder}
+                hint={s.phoneHint}
+                error={errors.phone}
+                autoComplete="tel"
+            />
             {errors.contact !== undefined ? <Notice tone="danger">{errors.contact}</Notice> : null}
-            <Field label={s.channelLabel}>
-                <Choice
-                    layout="segmented"
-                    label={s.channelLabel}
-                    options={[
-                        { key: "sms", label: s.channelText },
-                        { key: "email", label: s.channelEmail },
-                    ]}
-                    value={draft.channel}
-                    onChange={(v) => {
-                        set("channel", v);
-                    }}
-                />
-            </Field>
             <TagInput
                 label={s.tagsLabel}
                 tags={draft.tags}

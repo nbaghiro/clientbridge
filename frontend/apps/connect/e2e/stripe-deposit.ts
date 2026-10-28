@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { expect, type Frame, type Page } from "@playwright/test";
-import { formatMoney, strings } from "@clientbridge/app-core/public";
+import { formatMoney, formatPhone, strings } from "@clientbridge/app-core/public";
 import {
     bookingApi,
     createBookingFixture,
@@ -117,19 +117,21 @@ export async function invoiceVisitUi(
         tax_total_cents: number;
     };
     expect(invoice).toMatchObject({ status: "draft", total_cents: 11200, tax_total_cents: 1200 });
-    return { id: invoice.id, name: booking.booking.clientName, email: booking.booking.clientEmail };
+    return { id: invoice.id, name: booking.booking.clientName, phone: booking.booking.clientPhone };
 }
 
 export async function sendBookingInvoiceUi(
     page: Page,
-    invoice: { id: string; name: string; email: string },
+    invoice: { id: string; name: string; phone: string },
 ): Promise<number> {
     await openInvoice(page, invoice);
     await page.getByRole("button", { name: strings.billing.sendInvoice, exact: true }).click();
     const review = page
         .getByRole("dialog")
         .filter({ has: page.getByRole("heading", { name: strings.previews.title, exact: true }) });
-    await expect(review.getByText(invoice.email, { exact: false }).first()).toBeVisible();
+    await expect(
+        review.getByText(formatPhone(invoice.phone), { exact: false }).first(),
+    ).toBeVisible();
     const pending = page.waitForResponse(
         (r) =>
             new URL(r.url()).pathname === `/v1/invoices/${invoice.id}/send` &&

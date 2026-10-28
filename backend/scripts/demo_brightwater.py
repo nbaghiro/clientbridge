@@ -1,6 +1,5 @@
 """Brightwater Home Cleaning: a four-person house cleaner in Calgary, built on the demo engine."""
 
-import unicodedata
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
 
@@ -196,8 +195,7 @@ ITEMS: tuple[tuple[str, ItemKind, str, int, int | None, str, str], ...] = (
         0,
         None,
         "Gift cards",
-        "A gift card for any clean or add-on, emailed to the person you choose with your note. "
-        "It doesn't expire.",
+        "A gift card for any clean or add-on. We text the code, and it doesn't expire.",
     ),
 )
 COLORS = {
@@ -449,7 +447,6 @@ class Household:
     rooms: int
     access: str
     pets: str | None = None
-    email: str | None = None
     phone: str | None = None
 
 
@@ -722,7 +719,6 @@ PRAIRIE_LANE = Household(
     4,
     "Fob from the Prairie Lane office on 10 Street NW, or the lockbox at the front entrance, "
     "code 3304. Tenant is gone by the clean date.",
-    email="units.prairielane@example.test",
 )
 # the other units Prairie Lane manages: key, unit name, address, entry
 UNITS = (
@@ -1050,11 +1046,6 @@ def _clock(when: datetime) -> str:
     return f"{when:%I:%M %p}".removeprefix("0")
 
 
-def _email(name: str) -> str:
-    plain = "".join(c for c in unicodedata.normalize("NFKD", name.lower()) if c.isascii())
-    return f"{plain.replace(' ', '.').replace('-', '')}@example.test"
-
-
 def _subject_name(address: str) -> str:
     parts = [part.strip() for part in address.split(",")]
     return ", ".join(parts[:2]) if parts[0].startswith("Unit") else parts[0]
@@ -1131,10 +1122,8 @@ class Brightwater(Demo):
         self.client(
             home.key,
             home.name,
-            home.email or _email(home.name),
             home.phone or f"+1403555{100 + index:04}",
             tags=tags or [],
-            channel="email" if tags or index % 3 == 0 else "sms",
             fields={"source": ("referral", "google", "neighbourhood group")[index % 3]},
             subject=_subject_name(home.address),
             attributes=_attributes(home),
@@ -1678,8 +1667,8 @@ class Brightwater(Demo):
         self.note(
             "cl_bw_prairielane",
             "client",
-            "Invoices go to units.prairielane@example.test and are paid by e-Transfer within 14 "
-            "days. Book move-outs the day after the tenant leaves; the office sends the fob.",
+            "Invoices are texted to the property office and paid by e-Transfer within 14 days. "
+            "Book move-outs the day after the tenant leaves; the office sends the fob.",
             self.at(-130, 11),
         )
 
@@ -1975,13 +1964,13 @@ class Brightwater(Demo):
 
     def engagement(self) -> None:
         self.consents()
-        self.withdraw("home_05", "email", self.now - timedelta(days=41))
+        self.withdraw("home_05", self.now - timedelta(days=41))
         self.broadcast(
             "spring",
             "Spring deep cleans",
             "Spring is when most of our clients book a deep clean. If you'd like the baseboards, "
             "inside cabinets, the oven or the inside windows done this spring, book a deep clean "
-            "online or reply to this email and we'll find a time. Regular clients can add any "
+            "online or reply to this message and we'll find a time. Regular clients can add any "
             "of these to their next visit instead.",
             self.at(-190, 10),
         )
@@ -2026,7 +2015,7 @@ class Brightwater(Demo):
             when = luis.submitted_at + timedelta(hours=2)
             staff = ctx.get(Booking, luis.parent_id or "").staff_id
             cleaner = next(p.name.split()[0] for p in SPEC.people if p.staff_id == staff)
-            thread = self.thread("luis", "email", when)
+            thread = self.thread("luis", when)
             self.say(
                 thread,
                 f"Thanks for the feedback, Luis, and sorry about the late start. {cleaner}'s "
@@ -2040,7 +2029,7 @@ class Brightwater(Demo):
         ctx = self.ctx
         sofia = ctx.get(Booking, "bk_bw_sofia")
         when = sofia.created_at + timedelta(hours=3)
-        thread = self.thread("sofia", "email", when)
+        thread = self.thread("sofia", when)
         self.say(
             thread,
             "Hi, I booked a first clean online and filled in the home details. Is it okay that "
@@ -2056,7 +2045,7 @@ class Brightwater(Demo):
         )
         daniel = ctx.get(Estimate, "est_bw_daniel")
         when = daniel.created_at + timedelta(minutes=10)
-        thread = self.thread("daniel", "email", when)
+        thread = self.thread("daniel", when)
         self.say(
             thread,
             "Hi Daniel, your move-out quote is ready. The oven and fridge are included; the "
@@ -2077,7 +2066,7 @@ class Brightwater(Demo):
         )
         chidi = ctx.get(Booking, "bk_bw_chidi")
         if chidi.departed_at is not None:
-            thread = self.thread("chidi", "sms", chidi.departed_at)
+            thread = self.thread("chidi", chidi.departed_at)
             self.say(
                 thread,
                 "Hi Chidi, Harpreet from Brightwater is on her way and should be there in about "
@@ -2093,7 +2082,7 @@ class Brightwater(Demo):
             )
         linh = ctx.get(Booking, "bk_bw_linh")
         when = min(linh.created_at + timedelta(days=1), self.now - timedelta(days=1))
-        thread = self.thread("linh", "sms", when)
+        thread = self.thread("linh", when)
         self.say(
             thread,
             "Hi, could we move this week's clean back a day? I have a contractor coming in.",
@@ -2109,7 +2098,7 @@ class Brightwater(Demo):
         teresita = ctx.get(Booking, "bk_bw_teresita_gift")
         if teresita.completed_at is not None:
             when = teresita.completed_at + timedelta(hours=4)
-            thread = self.thread("teresita", "sms", when)
+            thread = self.thread("teresita", when)
             self.say(
                 thread,
                 "Thank you so much. My daughter gave me this for Mother's Day and the house "
@@ -2127,7 +2116,7 @@ class Brightwater(Demo):
         reclean = ctx.get(Booking, "bk_bw_kevin_reclean")
         if kevin.submitted_at is not None:
             when = kevin.submitted_at + timedelta(hours=1)
-            thread = self.thread("kevin", "email", when)
+            thread = self.thread("kevin", when)
             self.say(
                 thread,
                 "Hi Kevin, thank you for telling us, and I'm sorry the bathroom baseboards and "
@@ -2154,7 +2143,7 @@ class Brightwater(Demo):
         brandon = ctx.get(Booking, "bk_bw_brandon_late")
         if brandon.canceled_at is not None:
             when = brandon.canceled_at
-            thread = self.thread("brandon", "sms", when)
+            thread = self.thread("brandon", when)
             self.say(
                 thread,
                 "Sorry, something came up at work and I won't be home today. Can we cancel?",
@@ -2171,11 +2160,11 @@ class Brightwater(Demo):
         overdue = ctx.get(Invoice, "inv_bw_prairielane_sunnyside")
         if overdue.overdue_notified_at is not None:
             when = overdue.overdue_notified_at + timedelta(hours=3)
-            thread = self.thread("prairielane", "email", when)
+            thread = self.thread("prairielane", when)
             self.say(
                 thread,
                 f"Hello, invoice {overdue.number} for the move-out clean at Unit 304, 1110 3 "
-                "Avenue NW is past due. You can pay by card from the invoice email or by "
+                "Avenue NW is past due. You can pay by card from the invoice link or by "
                 "e-Transfer to hello@brightwater.example.",
                 when,
             )

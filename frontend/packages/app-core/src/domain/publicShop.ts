@@ -70,7 +70,7 @@ interface PublicShopClient {
     placeOrder(
         slug: string,
         input: {
-            client: { name: string; email: string | null; phone: string | null };
+            client: { name: string; phone: string | null };
             lines: { itemId: string; quantity: number }[];
             pickup_from: string | null;
             pickup_to: string | null;
@@ -168,8 +168,6 @@ interface PublicShopForm {
     subtotalCents: number;
     name: string;
     setName: (v: string) => void;
-    email: string;
-    setEmail: (v: string) => void;
     phone: string;
     setPhone: (v: string) => void;
     canOrder: boolean;
@@ -273,7 +271,6 @@ function usePublicShop(
     const [pickupFrom, setPickupFrom] = useState(draft.pickupFrom ?? "");
     const [note, setNote] = useState(draft.note ?? "");
     const [notifySms, setNotifySms] = useState(draft.notifySms !== "false");
-    const [email, setEmail] = useState(draft.email ?? "");
     const [phone, setPhone] = useState(draft.phone ?? "");
     const pendingKey = `connect-order:${slug}`;
     const [pending] = useState(() => storedPending(storage, pendingKey));
@@ -295,9 +292,9 @@ function usePublicShop(
         writePublicDraft(
             storage,
             draftKey,
-            paid ? null : { name, email, phone, note, pickupFrom, notifySms: String(notifySms) },
+            paid ? null : { name, phone, note, pickupFrom, notifySms: String(notifySms) },
         );
-    }, [storage, draftKey, paid, name, email, phone, note, pickupFrom, notifySms]);
+    }, [storage, draftKey, paid, name, phone, note, pickupFrom, notifySms]);
 
     useEffect(() => {
         if (
@@ -316,10 +313,7 @@ function usePublicShop(
         });
     };
     const lines = Object.entries(cart).map(([itemId, quantity]) => ({ itemId, quantity }));
-    const canOrder =
-        lines.length > 0 &&
-        name.trim().length > 0 &&
-        (email.trim().length > 0 || phone.trim().length > 0);
+    const canOrder = lines.length > 0 && name.trim().length > 0 && phone.trim().length > 0;
 
     const submit = (): void => {
         if (!canOrder) {
@@ -333,7 +327,6 @@ function usePublicShop(
         const previous = key.current?.key;
         const attempt = attemptKey(key, {
             name: name.trim(),
-            email: email.trim(),
             phone: phone.trim(),
             lines,
             pickupFrom,
@@ -357,7 +350,6 @@ function usePublicShop(
                     {
                         client: {
                             name: name.trim(),
-                            email: email.trim() || null,
                             phone: normalizePhone(phone),
                         },
                         lines,
@@ -395,8 +387,6 @@ function usePublicShop(
         subtotalCents: cartSubtotal(shop?.items ?? [], cart),
         name,
         setName,
-        email,
-        setEmail,
         phone,
         setPhone,
         canOrder,

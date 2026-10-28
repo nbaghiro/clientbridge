@@ -30,7 +30,7 @@ def _body(starts: str = OPENING, staff: str = "st_owner", **extra: object) -> di
         "item_id": "it_groom_sm",
         "staff_id": staff,
         "starts_at": starts,
-        "client": {"name": "Web Booker", "email": "web@example.ca"},
+        "client": {"name": "Web Booker", "phone": "+16045550261"},
         **extra,
     }
 
@@ -127,7 +127,7 @@ async def test_lead_time_and_horizon_bound_open_times_and_booking(
 
 
 async def test_booking_keeps_subject_note_and_returns_a_manage_link(
-    api: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
+    api: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender
 ) -> None:
     await _policy(db, approve_new_clients=False)
     res = await api.post(
@@ -143,7 +143,7 @@ async def test_booking_keeps_subject_note_and_returns_a_manage_link(
     assert pet is not None and pet.name == "Biscuit"
     note = (await db.execute(select(Note.body).where(Note.parent_id == booking.id))).scalar_one()
     assert note == "Nervous with dryers"
-    assert f"/m/{body['manage_token']}" in email.sent[-1].body
+    assert f"/m/{body['manage_token']}" in sms.sent[-1].body
     view = (await api.get(f"/manage/{body['manage_token']}")).json()
     assert view["subject"] == "pet" and view["subject_name"] == "Biscuit"
 
@@ -177,7 +177,7 @@ async def test_addons_must_be_offered_with_the_service(
 
 @pytest.mark.parametrize("pending", [False, True])
 async def test_booking_replays_on_the_same_key(
-    api: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender, pending: bool
+    api: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender, pending: bool
 ) -> None:
     await _policy(db, approve_new_clients=pending)
     headers = key()
@@ -209,19 +209,19 @@ async def test_booking_replays_on_the_same_key(
             )
         )
     )
-    assert len(deliveries) == len(email.sent) == 1
+    assert len(deliveries) == len(sms.sent) == 1
     assert deliveries[0].state == "accepted"
     if pending:
-        assert "will let you know once it's confirmed." in email.sent[0].body
+        assert "will let you know once it's confirmed." in sms.sent[0].body
     else:
-        assert f"/m/{first.json()['manage_token']}" in email.sent[0].body
-    assert email.sent[0].subject.startswith(
-        "Booking request received" if pending else "Booking confirmed"
+        assert f"/m/{first.json()['manage_token']}" in sms.sent[0].body
+    assert sms.sent[0].body.startswith(
+        "Birchbark Pet Studio received your request for" if pending else "You're booked for"
     )
 
 
 async def test_booking_refuses_a_key_reused_for_a_different_choice(
-    api: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
+    api: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender
 ) -> None:
     headers = key()
     first = await api.post(f"/book/{SLUG}", json=_body(), headers=headers)
@@ -231,7 +231,7 @@ async def test_booking_refuses_a_key_reused_for_a_different_choice(
     assert changed.json()["error"] == "idempotency_key_reused"
     notes = await db.execute(select(Note.id).where(Note.parent_id == first.json()["booking_id"]))
     assert notes.scalars().all() == []
-    assert len(email.sent) == 1
+    assert len(sms.sent) == 1
     deliveries = list(
         await db.scalars(
             select(Delivery).where(
@@ -305,37 +305,38 @@ async def test_a_pending_request_is_acknowledged_then_confirmed_on_approval(
     as_owner: httpx.AsyncClient,
     db: AsyncSession,
     email: FakeEmailSender,
+    sms: FakeSmsSender,
 ) -> None:
     await _policy(db, approve_new_clients=True)
     headers = key()
     res = await api.post(f"/book/{SLUG}", json=_body(), headers=headers)
     assert res.json()["status"] == "pending"
-    assert [m.subject for m in email.sent] == ["Booking request received — Birchbark Pet Studio"]
-    notifier = Notifier(email, FakeSmsSender(), FakePushSender())
+    assert len(sms.sent) == 1
+    assert sms.sent[-1].body.startswith("Birchbark Pet Studio received your request for")
+    assert "will let you know once it's confirmed." in sms.sent[-1].body
+    notifier = Notifier(email, sms, FakePushSender())
     day_before = datetime.fromisoformat(OPENING) - timedelta(hours=20)
     await run_reminders(db, notifier, day_before)
     booking = await db.get(Booking, res.json()["booking_id"], populate_existing=True)
     assert booking is not None and booking.reminded_at is None and booking.confirmed_at is None
     approved = await as_owner.patch(f"/v1/bookings/{booking.id}", json={"status": "confirmed"})
     assert approved.status_code == 200, approved.text
-    assert email.sent[-1].subject.startswith("Booking confirmed")
+    assert sms.sent[-1].body.startswith("You're booked for")
+    assert email.sent == []
     approved_at = await db.scalar(select(Booking.confirmed_at).where(Booking.id == booking.id))
     assert approved_at is not None
-    sent = len(email.sent)
+    sent = len(sms.sent)
     await as_owner.patch(f"/v1/bookings/{booking.id}", json={"status": "confirmed"})
-    assert len(email.sent) == sent
+    assert len(sms.sent) == sent
 
     replayed = await api.post(f"/book/{SLUG}", json=_body(), headers=headers)
     assert replayed.json() == res.json()
-    assert len(email.sent) == sent == 2
+    assert len(sms.sent) == sent == 2
     canceled = await as_owner.patch(f"/v1/bookings/{booking.id}", json={"status": "canceled"})
     assert canceled.status_code == 200
-    assert (
-        len(email.sent) == 3
-        and email.sent[-1].subject == "Appointment canceled — Birchbark Pet Studio"
-    )
+    assert len(sms.sent) == 3 and sms.sent[-1].body.endswith("was canceled.")
     replayed = await api.post(f"/book/{SLUG}", json=_body(), headers=headers)
-    assert replayed.json() == res.json() and len(email.sent) == 3
+    assert replayed.json() == res.json() and len(sms.sent) == 3 and email.sent == []
 
 
 async def test_days_name_closures_on_23_and_25_hour_days(
@@ -419,8 +420,8 @@ async def _booked_subject(api: httpx.AsyncClient, db: AsyncSession, **extra: obj
 
 
 @pytest.mark.parametrize("kind", ["property", "site", "vehicle"])
-async def test_a_place_visit_points_directions_and_emails_at_the_place(
-    api: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender, kind: str
+async def test_a_place_visit_points_directions_at_the_place(
+    api: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender, kind: str
 ) -> None:
     await _kind(db, kind)
     body = _body(subject_name="Shop", subject_address="880 Douglas St")
@@ -428,12 +429,12 @@ async def test_a_place_visit_points_directions_and_emails_at_the_place(
     assert res.status_code == 200, res.text
     view = (await api.get(f"/manage/{res.json()['manage_token']}")).json()
     assert view["address"] == "880 Douglas St" and view["at_place"] is True
-    assert email.sent and "Visit address: 880 Douglas St" in (email.sent[-1].html or "")
+    assert len(sms.sent) == 1
 
 
 @pytest.mark.parametrize("kind", ["pet", "site", "vehicle"])
 async def test_a_visit_without_a_place_address_points_at_the_business(
-    api: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender, kind: str
+    api: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender, kind: str
 ) -> None:
     business = await db.get(Business, BIZ)
     assert business is not None
@@ -442,7 +443,7 @@ async def test_a_visit_without_a_place_address_points_at_the_business(
     assert res.status_code == 200, res.text
     view = (await api.get(f"/manage/{res.json()['manage_token']}")).json()
     assert view["address"] == business.brand.get("address") and view["at_place"] is False
-    assert all("Visit address" not in (m.html or "") for m in email.sent)
+    assert len(sms.sent) == 1
 
 
 @pytest.mark.parametrize("kind", ["property", "site", "vehicle"])

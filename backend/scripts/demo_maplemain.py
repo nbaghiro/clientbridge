@@ -660,83 +660,83 @@ FEEDBACK_FIELDS: tuple[DocField, ...] = (
     ("book_again", "checkbox", "I'd book with my stylist again", None, False, ()),
 )
 
-# key, name, preferred channel, days since they first came in (None: dated by their bookings)
-CLIENTS: tuple[tuple[str, str, str, int | None], ...] = (
-    ("farah", "Farah Ansari", "email", None),
-    ("grace", "Grace Liu", "sms", -940),
-    ("olivia", "Olivia Lambert", "sms", -610),
-    ("tamara", "Tamara Brown", "sms", -380),
-    ("sofia", "Sofia Romano", "email", None),
-    ("elena", "Elena Papadakis", "sms", -1020),
-    ("david", "David Okonkwo", "sms", -500),
-    ("priyanka", "Priyanka Menon", "email", None),
-    ("amira", "Amira Yusuf", "sms", -720),
-    ("robert", "Robert Kowalczyk", "email", -860),
-    ("chloe", "Chloé Bouchard", "sms", None),
-    ("mariana", "Mariana Costa", "sms", -980),
-    ("nkechi", "Nkechi Adeyemi", "sms", -650),
-    ("hannah", "Hannah Goldberg", "email", -540),
-    ("thanh", "Thanh Nguyen", "sms", -470),
-    ("rachel", "Rachel O'Brien", "sms", -830),
-    ("zainab", "Zainab Hussain", "sms", -300),
-    ("kavya", "Kavya Raman", "sms", -260),
-    ("maria", "Maria Fernandes", "sms", -1000),
-    ("yasmin", "Yasmin Farahani", "email", -760),
-    ("carmen", "Carmen Vargas", "sms", -420),
-    ("aaliyah", "Aaliyah Grant", "sms", -330),
-    ("natasha", "Natasha Volkova", "sms", -690),
-    ("lauren", "Lauren Mitchell", "email", -560),
-    ("meera", "Meera Shah", "sms", -900),
-    ("jessica", "Jessica Tran", "sms", -280),
-    ("alicia", "Alicia Campbell", "sms", -610),
-    ("fatima", "Fatima Abdi", "sms", -350),
-    ("sarah", "Sarah Cohen", "email", -870),
-    ("nicole", "Nicole Fraser", "sms", -520),
-    ("angela", "Angela Rossi", "sms", -1040),
-    ("joanna", "Joanna Nowak", "sms", -440),
-    ("christine", "Christine Dela Cruz", "sms", -600),
-    ("mina", "Mina Kang", "sms", -310),
-    ("leah", "Leah Silver", "email", -730),
-    ("dimitra", "Dimitra Georgiou", "sms", -1060),
-    ("shanice", "Shanice Williams", "sms", -390),
-    ("anjali", "Anjali Mehta", "sms", -270),
-    ("erin", "Erin Kelly", "sms", -480),
-    ("sunita", "Sunita Thapa", "sms", -360),
-    ("bianca", "Bianca Moreira", "sms", -640),
-    ("ayesha", "Ayesha Malik", "sms", -250),
-    ("kim", "Kimberly Ho", "sms", -580),
-    ("patricia", "Patricia Alvarez", "sms", -950),
-    ("noor", "Noor Karimi", "sms", -230),
-    ("julia", "Julia Lambert", "email", -700),
-    ("tenzin", "Tenzin Dolma", "sms", -340),
-    ("samantha", "Samantha Clarke", "sms", -460),
-    ("vanessa", "Vanessa Pereira", "sms", -810),
-    ("hiba", "Hiba Mansour", "sms", -290),
-    ("rosa", "Rosa Bianchi", "sms", -1080),
-    ("adwoa", "Adwoa Mensah", "sms", -400),
-    ("megan", "Megan Walsh", "sms", -240),
-    ("lucia", "Lucía Herrera", "email", -530),
-    ("jiwoo", "Ji-woo Han", "sms", -320),
-    ("claire", "Claire Fitzgerald", "email", -670),
-    ("folake", "Folake Adebayo", "sms", -410),
-    ("irene", "Irene Wong", "sms", -990),
-    ("katarina", "Katarina Petrović", "sms", -560),
-    ("ashley", "Ashley Kim", "sms", -260),
-    ("roya", "Roya Ahmadi", "sms", -750),
-    ("gwen", "Gwen Taylor", "email", -890),
-    ("paula", "Paula Medeiros", "sms", -620),
-    ("deepa", "Deepa Krishnan", "sms", -510),
-    ("kevin", "Kevin Lam", "sms", -800),
-    ("andre", "André Baptiste", "sms", -680),
-    ("daniel", "Daniel Ferreira", "sms", -430),
-    ("omar", "Omar Haidari", "sms", -370),
-    ("ethan", "Ethan Clarke", "sms", -300),
-    ("brandon", "Brandon Walsh", "sms", -450),
-    ("marco", "Marco DeLuca", "sms", -920),
-    ("madison", "Madison Hughes", "email", None),
-    ("lina", "Lina Zhao", "sms", None),
-    ("sana", "Sana Qureshi", "sms", None),
-    ("jamal", "Jamal Ibrahim", "sms", None),
+# key, name, days since they first came in (None: dated by their bookings)
+CLIENTS: tuple[tuple[str, str, int | None], ...] = (
+    ("farah", "Farah Ansari", None),
+    ("grace", "Grace Liu", -940),
+    ("olivia", "Olivia Lambert", -610),
+    ("tamara", "Tamara Brown", -380),
+    ("sofia", "Sofia Romano", None),
+    ("elena", "Elena Papadakis", -1020),
+    ("david", "David Okonkwo", -500),
+    ("priyanka", "Priyanka Menon", None),
+    ("amira", "Amira Yusuf", -720),
+    ("robert", "Robert Kowalczyk", -860),
+    ("chloe", "Chloé Bouchard", None),
+    ("mariana", "Mariana Costa", -980),
+    ("nkechi", "Nkechi Adeyemi", -650),
+    ("hannah", "Hannah Goldberg", -540),
+    ("thanh", "Thanh Nguyen", -470),
+    ("rachel", "Rachel O'Brien", -830),
+    ("zainab", "Zainab Hussain", -300),
+    ("kavya", "Kavya Raman", -260),
+    ("maria", "Maria Fernandes", -1000),
+    ("yasmin", "Yasmin Farahani", -760),
+    ("carmen", "Carmen Vargas", -420),
+    ("aaliyah", "Aaliyah Grant", -330),
+    ("natasha", "Natasha Volkova", -690),
+    ("lauren", "Lauren Mitchell", -560),
+    ("meera", "Meera Shah", -900),
+    ("jessica", "Jessica Tran", -280),
+    ("alicia", "Alicia Campbell", -610),
+    ("fatima", "Fatima Abdi", -350),
+    ("sarah", "Sarah Cohen", -870),
+    ("nicole", "Nicole Fraser", -520),
+    ("angela", "Angela Rossi", -1040),
+    ("joanna", "Joanna Nowak", -440),
+    ("christine", "Christine Dela Cruz", -600),
+    ("mina", "Mina Kang", -310),
+    ("leah", "Leah Silver", -730),
+    ("dimitra", "Dimitra Georgiou", -1060),
+    ("shanice", "Shanice Williams", -390),
+    ("anjali", "Anjali Mehta", -270),
+    ("erin", "Erin Kelly", -480),
+    ("sunita", "Sunita Thapa", -360),
+    ("bianca", "Bianca Moreira", -640),
+    ("ayesha", "Ayesha Malik", -250),
+    ("kim", "Kimberly Ho", -580),
+    ("patricia", "Patricia Alvarez", -950),
+    ("noor", "Noor Karimi", -230),
+    ("julia", "Julia Lambert", -700),
+    ("tenzin", "Tenzin Dolma", -340),
+    ("samantha", "Samantha Clarke", -460),
+    ("vanessa", "Vanessa Pereira", -810),
+    ("hiba", "Hiba Mansour", -290),
+    ("rosa", "Rosa Bianchi", -1080),
+    ("adwoa", "Adwoa Mensah", -400),
+    ("megan", "Megan Walsh", -240),
+    ("lucia", "Lucía Herrera", -530),
+    ("jiwoo", "Ji-woo Han", -320),
+    ("claire", "Claire Fitzgerald", -670),
+    ("folake", "Folake Adebayo", -410),
+    ("irene", "Irene Wong", -990),
+    ("katarina", "Katarina Petrović", -560),
+    ("ashley", "Ashley Kim", -260),
+    ("roya", "Roya Ahmadi", -750),
+    ("gwen", "Gwen Taylor", -890),
+    ("paula", "Paula Medeiros", -620),
+    ("deepa", "Deepa Krishnan", -510),
+    ("kevin", "Kevin Lam", -800),
+    ("andre", "André Baptiste", -680),
+    ("daniel", "Daniel Ferreira", -430),
+    ("omar", "Omar Haidari", -370),
+    ("ethan", "Ethan Clarke", -300),
+    ("brandon", "Brandon Walsh", -450),
+    ("marco", "Marco DeLuca", -920),
+    ("madison", "Madison Hughes", None),
+    ("lina", "Lina Zhao", None),
+    ("sana", "Sana Qureshi", None),
+    ("jamal", "Jamal Ibrahim", None),
 )
 SOURCES = ("a friend", "instagram", "google", "walk-in")
 POOLS: dict[str, tuple[str, ...]] = {
@@ -910,11 +910,6 @@ PHOTO_CLIENTS = (
     "deepa",
     "gwen",
 )
-
-
-def _email(name: str) -> str:
-    plain = name.translate(str.maketrans("éíć", "eic")).replace("'", "").replace("-", "")
-    return ".".join(plain.lower().split()) + "@example.test"
 
 
 def _clock(when: datetime) -> str:
@@ -1189,13 +1184,11 @@ class MapleMain(Demo):
         )
 
     def clients(self) -> None:
-        for index, (key, name, channel, since) in enumerate(CLIENTS):
+        for index, (key, name, since) in enumerate(CLIENTS):
             self.client(
                 key,
                 name,
-                _email(name),
                 f"+1416555{100 + index:04}",
-                channel="email" if channel == "email" else "sms",
                 fields={"source": SOURCES[index % len(SOURCES)]},
                 since=None if since is None else self.at(since, 11),
             )
@@ -1636,7 +1629,7 @@ class MapleMain(Demo):
         self.visit("sana_partial", "sana", PARTIAL, GABRIELA, 6, settle=None)
 
     def unpaid(self) -> None:
-        """Full highlights the card reader couldn't take, invoiced by email and still unpaid."""
+        """Full highlights the card reader couldn't take, invoiced and still unpaid."""
         visit = self.visit("roya_highlights", "roya", FULL, GABRIELA, -27, settle=None)
         assert visit is not None
         self.deposit(visit, visit.created_at + timedelta(minutes=10))
@@ -1644,7 +1637,7 @@ class MapleMain(Demo):
         assert invoice is not None
         invoice.notes = (
             "Full highlights with Gabriela. The card reader was offline at checkout, so the "
-            "balance after your deposit was sent by email."
+            "balance after your deposit."
         )
 
     def formula_notes(self) -> None:
@@ -1760,13 +1753,13 @@ class MapleMain(Demo):
 
     def engagement(self) -> None:
         self.consents()
-        self.withdraw("julia", "email", self.at(-50, 9))
+        self.withdraw("julia", self.at(-50, 9))
         self.broadcast(
             "holidays",
             "Holiday colour bookings",
             "Our November and December calendar is open. Colour appointments before the "
             "holidays fill early, so if you'd like highlights or balayage before then, book "
-            "online or reply to this email and we'll find a time. Gift cards are available at "
+            "online or reply to this message and we'll find a time. Gift cards are available at "
             "the front desk in any amount. We're closed December 25 to 27.",
             self.at(-21, 10),
         )
@@ -1853,7 +1846,7 @@ class MapleMain(Demo):
         ctx = self.ctx
         farah = ctx.get(Booking, "bk_mm_farah_consult")
         when = farah.created_at + timedelta(hours=3)
-        thread = self.thread("farah", "email", when)
+        thread = self.thread("farah", when)
         self.say(
             thread,
             "Hi, I booked a consultation online and filled in the form. Is one visit usually "
@@ -1872,7 +1865,7 @@ class MapleMain(Demo):
         grace = ctx.get(Booking, "bk_mm_grace_4")
         if grace.completed_at is not None:
             when = grace.completed_at + timedelta(hours=4)
-            thread = self.thread("grace", "sms", when)
+            thread = self.thread("grace", when)
             self.say(
                 thread,
                 "Thank you, Gabriela, the colour is perfect again. See you in six weeks.",
@@ -1887,7 +1880,7 @@ class MapleMain(Demo):
             )
         tamara = ctx.get(Booking, "bk_mm_tamara")
         when = tamara.starts_at + timedelta(minutes=25)
-        thread = self.thread("tamara", "sms", when)
+        thread = self.thread("tamara", when)
         self.say(
             thread,
             "Hi Tamara, we had you booked with Gabriela at "
@@ -1910,7 +1903,7 @@ class MapleMain(Demo):
         )
         bride = ctx.get(Booking, "bk_mm_sofia_bride")
         when = bride.created_at - timedelta(minutes=30)
-        thread = self.thread("sofia", "email", when)
+        thread = self.thread("sofia", when)
         self.say(
             thread,
             "Thank you for the trial! Could we book the wedding morning for me and four "
@@ -1926,7 +1919,7 @@ class MapleMain(Demo):
             bride.created_at + timedelta(minutes=20),
             sender=OWNER,
         )
-        gift = self.thread("david", "sms", self.at(-46, 18))
+        gift = self.thread("david", self.at(-46, 18))
         self.say(
             gift,
             "Hi, can I buy a $150 gift card for my partner's birthday? She'd like a cut with "
@@ -1936,14 +1929,14 @@ class MapleMain(Demo):
         )
         self.say(
             gift,
-            "Of course. You can pay at the front desk or over the phone, and we'll email you "
-            "the gift card to pass on. It's good for any service or product.",
+            "Of course. You can pay at the front desk or over the phone, and we'll text you "
+            "the gift card code to pass on. It's good for any service or product.",
             self.at(-46, 18, 25),
         )
         robert = ctx.get(Booking, "bk_mm_robert")
         if robert.completed_at is not None:
             when = robert.completed_at + timedelta(days=1, hours=2)
-            thread = self.thread("robert", "email", when)
+            thread = self.thread("robert", when)
             self.say(
                 thread,
                 "Hi Robert, it's Leila. Thank you for the feedback, and I'm sorry about the "
@@ -1961,7 +1954,7 @@ class MapleMain(Demo):
             )
         noor = ctx.get(Booking, "bk_mm_noor")
         when = noor.created_at - timedelta(minutes=20)
-        thread = self.thread("noor", "sms", when)
+        thread = self.thread("noor", when)
         self.say(
             thread,
             "Hi, could I move my cut with Tessa to later in the week? My original day doesn't "

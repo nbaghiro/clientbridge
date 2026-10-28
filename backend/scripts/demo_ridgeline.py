@@ -1,6 +1,5 @@
 """Ridgeline Strength Studio: a three-coach training studio in Edmonton, on the demo engine."""
 
-import unicodedata
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
 
@@ -467,7 +466,7 @@ MEMBERSHIP_BODY = "\n\n".join(
         "the first person on the waitlist gets it and a text to let them know.",
         "Health\nYou've filled in the health questionnaire, and you'll tell your coach about any "
         "change in your health or a new injury before your next class.",
-        "Cancelling\nYou can cancel at any time from the link in your receipt email "
+        "Cancelling\nYou can cancel at any time from the link in your receipt text "
         "or by asking at the desk, and the cancellation takes effect at the end of the month "
         "you've paid for. We don't refund part months.",
     )
@@ -552,15 +551,6 @@ PEOPLE = (
 )
 SETTLEMENTS: tuple[Settle, ...] = ("card", "card", "cash", "etransfer", "card", "card")
 CANCELED_AT = -32  # Carmen's unlimited membership ends; she's moving to Calgary
-
-
-def _ascii(name: str) -> str:
-    return unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode().lower()
-
-
-def _email(name: str) -> str:
-    first, last = name.split(" ", 1)
-    return f"{_ascii(first)}.{_ascii(last).replace(' ', '').replace(chr(39), '')}@example.test"
 
 
 def _offering(row: tuple[str, ItemKind, str, int, int | None, str, str]) -> Offering:
@@ -723,7 +713,7 @@ SPEC = BusinessSpec(
         Stage(
             "Four-star feedback about parking, with a reply",
             "anita",
-            ("fr_rl_feedback_anita", "th_rl_anita_email"),
+            ("fr_rl_feedback_anita", "th_rl_anita"),
         ),
         Stage("Paid by Tap to Pay with a retail add-on", "jordan", ("ord_rl_jordan",)),
         Stage(
@@ -806,10 +796,8 @@ class Ridgeline(Demo):
             self.client(
                 member.key,
                 member.name,
-                _email(member.name),
                 f"+1780555{100 + index:04}",
                 tags=tags,
-                channel="email" if index % 3 == 0 else "sms",
                 fields={"source": ("referral", "google", "walk-in", "instagram")[index % 4]},
                 since=self.at(member.since, 12) if long_time else None,
             )
@@ -1427,14 +1415,14 @@ class Ridgeline(Demo):
 
     def engagement(self) -> None:
         self.consents()
-        self.withdraw("kyle", "email", self.now - timedelta(days=60))
+        self.withdraw("kyle", self.now - timedelta(days=60))
         self.broadcast(
             "fall",
             "Fall timetable",
             "Our fall timetable starts on Monday. Strength runs at 6:00 on Monday, Wednesday and "
             "Friday and at 5:30 pm on Monday and Wednesday. Mobility moves to Tuesday and "
             "Thursday at 6:00 pm, and Strong seniors stays at 10:30 on Monday and Wednesday. "
-            "Book online as usual, and reply to this email if you have any questions.",
+            "Book online as usual, and reply if you have any questions.",
             self.at(-44, 10),
         )
         walter = self.latest("walter", SENIORS)
@@ -1474,7 +1462,7 @@ class Ridgeline(Demo):
     def conversations(self) -> None:
         ctx = self.ctx
         when = self.now - timedelta(hours=16)
-        thread = self.thread("hailey", "email", when)
+        thread = self.thread("hailey", when)
         self.say(
             thread,
             "Hi, I booked the free intro for this week. What should I wear, and is it okay that "
@@ -1492,7 +1480,7 @@ class Ridgeline(Demo):
         )
         linh = ctx.get(Booking, "bk_rl_linh_today")
         when = min(linh.created_at + timedelta(days=4), self.now - timedelta(hours=5))
-        thread = self.thread("linh", "sms", when)
+        thread = self.thread("linh", when)
         self.say(
             thread,
             "Hi, something came up at work. Could I move my session to later in the day?",
@@ -1514,11 +1502,11 @@ class Ridgeline(Demo):
             max(failed, self.now - timedelta(days=20)) + timedelta(hours=26),
             self.now - timedelta(hours=3),
         )
-        thread = self.thread("kyle", "sms", when)
+        thread = self.thread("kyle", when)
         self.say(
             thread,
             "Hi Kyle, the card on file was declined for this month's 8-class membership. You "
-            "can update it from the link in your receipt email, or we can take a new card at "
+            "can update it from the link in your receipt text, or we can take a new card at "
             "your next class. You can keep booking in the meantime.",
             when,
         )
@@ -1531,7 +1519,7 @@ class Ridgeline(Demo):
         farah = ctx.get(Booking, "bk_rl_full_farah")
         assert farah.confirmed_at is not None
         when = farah.confirmed_at + timedelta(minutes=20)
-        thread = self.thread("farah", "sms", when)
+        thread = self.thread("farah", when)
         self.say(
             thread,
             "Just saw I got a spot in strength. Thank you, I'll be there.",
@@ -1543,7 +1531,7 @@ class Ridgeline(Demo):
         )
         devon = ctx.get(Booking, "bk_rl_full_devon")
         when = devon.created_at + timedelta(minutes=30)
-        thread = self.thread("devon", "sms", when)
+        thread = self.thread("devon", when)
         self.say(thread, "Am I next on the waitlist for the strength class?", when, sender=None)
         self.say(
             thread,
@@ -1552,7 +1540,7 @@ class Ridgeline(Demo):
         )
         ended = self.ended["carmen"]
         when = ended - timedelta(days=12)
-        thread = self.thread("carmen", "email", when)
+        thread = self.thread("carmen", when)
         self.say(
             thread,
             "Hi Jenna, we're moving to Calgary at the end of the month, so I need to cancel my "
@@ -1570,7 +1558,7 @@ class Ridgeline(Demo):
         response = ctx.get(FormResponse, "fr_rl_feedback_anita")
         assert response.submitted_at is not None
         when = response.submitted_at + timedelta(hours=2)
-        thread = self.thread("anita", "email", when)
+        thread = self.thread("anita", when)
         self.say(
             thread,
             "Thanks for the feedback, Anita. Street parking on Whyte is hard after 5. The lot "
@@ -1588,7 +1576,7 @@ class Ridgeline(Demo):
         walter = ctx.get(FormResponse, "fr_rl_feedback_walter")
         assert walter.submitted_at is not None
         when = walter.submitted_at + timedelta(hours=1)
-        thread = self.thread("walter", "sms", when)
+        thread = self.thread("walter", when)
         self.say(
             thread,
             "Thank you for the kind words, Walter. Simran will be pleased to hear it.",

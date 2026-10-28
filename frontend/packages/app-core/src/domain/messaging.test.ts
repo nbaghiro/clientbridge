@@ -6,20 +6,22 @@ import { strings } from "../strings";
 import { type InboxThread, resolveInboxTarget, useThreadComposer } from "./messaging";
 
 const threads = [
-    { id: "sms-1", client_id: "client-1" },
-    { id: "email-1", client_id: "client-1" },
+    { id: "thread-1", client_id: "client-1" },
+    { id: "thread-3", client_id: "client-3" },
 ];
 
 describe("inbox navigation", () => {
-    it("opens the notification's exact thread when a client has multiple channels", () => {
-        expect(resolveInboxTarget(threads, { threadId: "email-1", clientId: "client-1" })).toEqual({
-            threadId: "email-1",
-            clientId: null,
-        });
+    it("opens the notification's exact thread", () => {
+        expect(resolveInboxTarget(threads, { threadId: "thread-3", clientId: "client-3" })).toEqual(
+            {
+                threadId: "thread-3",
+                clientId: null,
+            },
+        );
     });
     it("opens the client's most recent conversation", () => {
         expect(resolveInboxTarget(threads, { clientId: "client-1" })).toEqual({
-            threadId: "sms-1",
+            threadId: "thread-1",
             clientId: null,
         });
     });
@@ -47,11 +49,9 @@ afterEach(cleanup);
 const thread: InboxThread = {
     id: "th_1",
     client_id: "cl_1",
-    channel: "sms",
     status: "open",
     client_name: "Pat",
     phone: null,
-    email: null,
     last_message_at: null,
     unread_count: 0,
     last_body: null,
@@ -60,7 +60,6 @@ const thread: InboxThread = {
     ago: "",
     subjects: [],
     textsOff: false,
-    channelKind: "sms",
 };
 
 function apiWith(post: ApiLike["post"]): ApiLike {
@@ -127,20 +126,4 @@ it("keeps the draft and says so when the provider refused the message", async ()
     expect(result.current.error).toBeNull();
     expect(post).toHaveBeenCalledTimes(2);
     expect(post.mock.calls[1]?.[2]).not.toEqual(post.mock.calls[0]?.[2]);
-});
-
-it("moves an untouched reply to email when the thread's STOP arrives after opening", () => {
-    const api = apiWith(vi.fn());
-    const { result, rerender } = renderHook(({ t }) => useThreadComposer(api, t), {
-        initialProps: { t: thread },
-    });
-    expect(result.current.channel).toBe("sms");
-    rerender({ t: { ...thread, textsOff: true } });
-    expect(result.current.channel).toBe("email");
-    act(() => {
-        result.current.setChannel("sms");
-    });
-    rerender({ t: { ...thread, textsOff: true, last_body: "STOP" } });
-    expect(result.current.channel).toBe("sms");
-    expect(result.current.smsBlocked).toBe(true);
 });

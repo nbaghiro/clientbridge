@@ -452,13 +452,12 @@ async def test_foreign_business_slot_does_not_block(
     assert res.status_code == 201
 
 
-CL_AMELIE = "cl_amelie"  # seeded client with email + phone
+CL_AMELIE = "cl_amelie"
 SEEDED_CARD = "pm_demo_4242"  # cl_amelie's seeded default-card provider ref
 
 
-async def deliverable_email(db: AsyncSession, client_id: str) -> None:
-    """Seeded contacts use reserved addresses, which the delivery job never sends to."""
-    await db.execute(update(Client).where(Client.id == client_id).values(email="pat@example.ca"))
+async def deliverable_phone(db: AsyncSession, client_id: str) -> None:
+    await db.execute(update(Client).where(Client.id == client_id).values(phone="+15145550223"))
 
 
 async def deposit_booking(
@@ -503,9 +502,10 @@ async def test_collect_deposit_default_card_settles_and_receipts(
     db: AsyncSession,
     gateway: FakePaymentGateway,
     email: FakeEmailSender,
+    sms: FakeSmsSender,
 ) -> None:
     await enable_payments(db)
-    await deliverable_email(db, CL_AMELIE)
+    await deliverable_phone(db, CL_AMELIE)
     bid = await deposit_booking(as_owner, db, starts="2027-06-01T10:00:00Z")
     res = await as_owner.post(f"/v1/bookings/{bid}/deposit?payment_method_id=default")
     assert res.status_code == 200, res.text
@@ -527,7 +527,8 @@ async def test_collect_deposit_default_card_settles_and_receipts(
     assert webhook.status_code == 200
     booking = (await db.execute(select(Booking).where(Booking.id == bid))).scalar_one()
     assert booking.deposit_status == "collected"
-    assert len(email.sent) >= 1  # deposit receipt to the client
+    assert email.sent == []
+    assert any(message.to == "+15145550223" for message in sms.sent)
 
 
 async def test_collect_deposit_interactive_returns_secret(
@@ -777,10 +778,11 @@ async def test_deposit_settle_redelivery_collects_once_no_second_receipt(
     db: AsyncSession,
     gateway: FakePaymentGateway,
     email: FakeEmailSender,
+    sms: FakeSmsSender,
 ) -> None:
     # A new event id for the same intent gets past webhook dedup and must hit the settled guard
     await enable_payments(db)
-    await deliverable_email(db, CL_AMELIE)
+    await deliverable_phone(db, CL_AMELIE)
     bid = await deposit_booking(as_owner, db, starts="2027-06-14T10:00:00Z")
     pay = (await as_owner.post(f"/v1/bookings/{bid}/deposit?payment_method_id=default")).json()
     pi_id = await provider_ref(db, pay["payment_id"])
@@ -791,8 +793,8 @@ async def test_deposit_settle_redelivery_collects_once_no_second_receipt(
     )
     booking = (await db.execute(select(Booking).where(Booking.id == bid))).scalar_one()
     assert booking.deposit_status == "collected"
-    receipts = len(email.sent)
-    assert receipts >= 1  # the deposit receipt fired on the first settle
+    receipts = len(sms.sent)
+    assert receipts >= 1
 
     await as_owner.post(
         "/webhooks/stripe",
@@ -801,7 +803,7 @@ async def test_deposit_settle_redelivery_collects_once_no_second_receipt(
     )
     booking = (await db.execute(select(Booking).where(Booking.id == bid))).scalar_one()
     assert booking.deposit_status == "collected"  # still collected, not re-collected
-    assert len(email.sent) == receipts  # no second receipt — the settle no-oped
+    assert len(sms.sent) == receipts
     assert gateway.charged_methods.count(SEEDED_CARD) == 1  # never re-charged
 
 
@@ -989,10 +991,10 @@ async def _online_booking(
 async def _reap(
     db: AsyncSession,
     gateway: FakePaymentGateway | None = None,
-    email: FakeEmailSender | None = None,
+    sms: FakeSmsSender | None = None,
     now: datetime = NOW,
 ) -> int:
-    notifier = Notifier(email or FakeEmailSender(), FakeSmsSender(), FakePushSender())
+    notifier = Notifier(FakeEmailSender(), sms or FakeSmsSender(), FakePushSender())
     return await run_reap_unpaid_bookings(db, gateway or FakePaymentGateway(), notifier, now)
 
 
@@ -1004,7 +1006,7 @@ async def _unpaid_online(api: httpx.AsyncClient, db: AsyncSession) -> tuple[str,
             "item_id": "it_groom_lg",
             "staff_id": ST_OWNER,
             "starts_at": "2027-03-02T16:00:00Z",
-            "client": {"name": "Late Payer", "email": "late@example.com"},
+            "client": {"name": "Late Payer", "phone": "+16045550277"},
         },
     )
     assert res.status_code == 200, res.text
@@ -1022,16 +1024,21 @@ async def _fresh(db: AsyncSession, booking_id: str) -> str:
 
 
 async def test_reaper_cancels_the_open_intent_and_tells_the_client(
-    api: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway, email: FakeEmailSender
+    api: httpx.AsyncClient,
+    db: AsyncSession,
+    gateway: FakePaymentGateway,
+    email: FakeEmailSender,
+    sms: FakeSmsSender,
 ) -> None:
     bid, ref = await _unpaid_online(api, db)
-    sent = len(email.sent)
-    assert await _reap(db, gateway, email, clock.now()) >= 1
+    sms.sent.clear()
+    assert await _reap(db, gateway, sms, clock.now()) >= 1
     assert await _fresh(db, bid) == "canceled"
     assert (await payment(db, await deposit_payment(db, bid))).status == "canceled"
     assert ref in gateway.canceled_intents
-    released = [m for m in email.sent[sent:] if m.to == "late@example.com"]
-    assert len(released) == 1 and "deposit" in released[0].body
+    assert email.sent == []
+    assert len(sms.sent) == 1 and sms.sent[0].to == "+16045550277"
+    assert "deposit" in sms.sent[0].body.lower()
 
 
 async def test_reaper_releases_a_booking_whose_card_failed(
@@ -1114,7 +1121,7 @@ async def _booking_at(db: AsyncSession, starts_at: datetime, *, status: str = "c
         .first()
     )
     assert cid
-    await db.execute(update(Client).where(Client.id == cid).values(email="rem@example.ca"))
+    await db.execute(update(Client).where(Client.id == cid).values(phone="+15145550000"))
     iid = (
         (await db.execute(select(Item.id).where(Item.business_id == BIZ).limit(1)))
         .scalars()
@@ -1159,7 +1166,8 @@ async def test_reminds_upcoming_booking(
     bid = await _booking_at(db, NOW + timedelta(hours=12))
     sent = await run_reminders(db, _notifier(email, sms, push), NOW)
     assert sent == 1
-    assert len(email.sent) == 1 and email.sent[0].to == "rem@example.ca"
+    assert email.sent == []
+    assert len(sms.sent) == 1 and sms.sent[0].to == "+15145550000"
     bk = (await db.execute(select(Booking).where(Booking.id == bid))).scalar_one()
     assert bk.reminded_at is not None
 
@@ -1169,7 +1177,7 @@ async def test_skips_booking_outside_window(
 ) -> None:
     await _booking_at(db, NOW + timedelta(hours=48))  # beyond 24h
     assert await run_reminders(db, _notifier(email, sms, push), NOW) == 0
-    assert email.sent == []
+    assert email.sent == [] and sms.sent == []
 
 
 async def test_reminder_is_deduped(
@@ -1233,7 +1241,7 @@ async def _booking_for(
     return booking.id
 
 
-async def test_reminder_reaches_client_email_and_sms(
+async def test_reminder_reaches_client_by_sms_only(
     db: AsyncSession, email: FakeEmailSender, sms: FakeSmsSender, push: FakePushSender
 ) -> None:
     bid = await _booking_at(db, NOW + timedelta(hours=12))
@@ -1241,9 +1249,8 @@ async def test_reminder_reaches_client_email_and_sms(
     await db.execute(update(Client).where(Client.id == cid).values(phone="+15145550000"))
     await db.flush()
     assert await run_reminders(db, _notifier(email, sms, push), NOW) == 1
-    assert len(email.sent) == 1 and email.sent[0].to == "rem@example.ca"
+    assert email.sent == []
     assert len(sms.sent) == 1 and sms.sent[0].to == "+15145550000"
-    # a reminder is a client-facing notice (email + SMS) — it does not fan out to staff push
     assert push.sent == []
 
 
@@ -1256,9 +1263,10 @@ async def test_global_scan_is_multi_tenant_and_deduped(
 ) -> None:
     await _booking_at(db, NOW + timedelta(hours=12))  # a booking in the seeded business
     other = await factory.business(name="Second Studio")
+    other.sms_number = "+16045550198"
     staff = await factory.staff(business=other)
     client = await factory.client(business=other)
-    client.email = "second@example.ca"
+    client.phone = "+15145550001"
     await db.flush()
     await _booking_for(
         db,
@@ -1270,13 +1278,14 @@ async def test_global_scan_is_multi_tenant_and_deduped(
     notifier = _notifier(email, sms, push)
     # the cron scan is global (not tenant-scoped): both businesses' bookings are reminded
     assert await run_reminders(db, notifier, NOW) == 2
-    assert {m.to for m in email.sent} >= {"rem@example.ca", "second@example.ca"}
+    assert email.sent == []
+    assert {m.to for m in sms.sent} >= {"+15145550000", "+15145550001"}
     # per-booking dedup (reminded_at) holds across tenants — a second pass reminds nobody
     assert await run_reminders(db, notifier, NOW) == 0
 
 
 async def test_a_second_cancel_is_a_no_op_with_no_second_notice(
-    as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
+    as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender, sms: FakeSmsSender
 ) -> None:
     await reachable(db, CL_AMELIE)
     created = await as_owner.post(
@@ -1289,11 +1298,12 @@ async def test_a_second_cancel_is_a_no_op_with_no_second_notice(
         },
     )
     bid = created.json()["id"]
-    sent = len(email.sent)
+    sms.sent.clear()
     for _ in range(2):
         res = await as_owner.patch(f"/v1/bookings/{bid}", json={"status": "canceled"})
         assert res.status_code == 200 and res.json()["status"] == "canceled"
-    assert len(email.sent) == sent + 1
+    assert email.sent == []
+    assert len(sms.sent) == 1
 
 
 async def test_a_concurrent_unlocked_insert_reports_the_staff_overlap(db: AsyncSession) -> None:

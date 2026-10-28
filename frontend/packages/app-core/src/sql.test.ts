@@ -122,7 +122,7 @@ function seed(): void {
         { id: "st_new", role: "staff", status: "invited", invite_email: "new@birch.test" },
     ]);
     scoped("clients", [
-        { id: "cl_ann", name: "Ann", email: "ann@x.test", phone: "+16045550001", status: "active" },
+        { id: "cl_ann", name: "Ann", phone: "+16045550001", status: "active" },
         { id: "cl_ben", name: "ben", status: "active" },
     ]);
     scoped("items", [
@@ -518,13 +518,6 @@ function seed(): void {
         {
             id: "th_1",
             client_id: "cl_ann",
-            channel: "sms",
-            status: "open",
-        },
-        {
-            id: "th_2",
-            client_id: "cl_ben",
-            channel: "email",
             status: "open",
         },
     ]);
@@ -533,7 +526,6 @@ function seed(): void {
             id: "m_1",
             thread_id: "th_1",
             direction: "out",
-            channel: "sms",
             body: "Hi Ann",
             status: "sent",
             created_at: "2026-06-26T10:00:00Z",
@@ -542,7 +534,6 @@ function seed(): void {
             id: "m_2",
             thread_id: "th_1",
             direction: "in",
-            channel: "sms",
             body: "Hello",
             status: "received",
             created_at: "2026-06-26T10:30:00Z",
@@ -551,19 +542,9 @@ function seed(): void {
             id: "m_3",
             thread_id: "th_1",
             direction: "in",
-            channel: "sms",
             body: "See you soon",
             status: "received",
             created_at: "2026-06-26T11:00:00Z",
-        },
-        {
-            id: "m_4",
-            thread_id: "th_2",
-            direction: "out",
-            channel: "email",
-            body: "Receipt",
-            status: "sent",
-            created_at: "2026-06-25T11:00:00Z",
         },
     ]);
     scoped("review_requests", [
@@ -1355,10 +1336,10 @@ describe("app-core SQL against the replica schema", () => {
                 legal_phone: "+16045550142",
             },
         ]);
-        expect(pick(run("INVOICES_SQL"), "id", "client_email", "paid_cents", "paid_at")).toEqual([
-            { id: "inv_1", client_email: "ann@x.test", paid_cents: 5000, paid_at: TS },
-            { id: "inv_3", client_email: null, paid_cents: 2000, paid_at: TS },
-            { id: "inv_2", client_email: null, paid_cents: 0, paid_at: null },
+        expect(pick(run("INVOICES_SQL"), "id", "paid_cents", "paid_at")).toEqual([
+            { id: "inv_1", paid_cents: 5000, paid_at: TS },
+            { id: "inv_3", paid_cents: 2000, paid_at: TS },
+            { id: "inv_2", paid_cents: 0, paid_at: null },
         ]);
         const on1 = (source: string): Row => ({
             subject_type: "invoice",
@@ -1600,12 +1581,10 @@ describe("app-core SQL against the replica schema", () => {
     it("lists threads with unread counts and their messages", () => {
         expect(pick(run("THREADS_SQL"), "id", "unread_count", "last_body", "client_name")).toEqual([
             { id: "th_1", unread_count: 2, last_body: "See you soon", client_name: "Ann" },
-            { id: "th_2", unread_count: 0, last_body: "Receipt", client_name: "ben" },
         ]);
         expect(run("CONVERSATION_SQL", ["th_1"]).map((r) => r.id)).toEqual(["m_1", "m_2", "m_3"]);
         expect(pick(run("INBOX_SQL"), "id", "unread_count", "subject_names")).toEqual([
             { id: "th_1", unread_count: 2, subject_names: null },
-            { id: "th_2", unread_count: 0, subject_names: null },
         ]);
         expect(
             pick(
@@ -1715,7 +1694,7 @@ describe("app-core SQL against the replica schema", () => {
                 .sort(),
         ).toEqual(["st_amy", "st_owner"]);
         expect(run("SALE_CLIENT_SQL", ["cl_ann"])).toEqual([
-            { id: "cl_ann", name: "Ann", email: "ann@x.test", phone: "+16045550001" },
+            { id: "cl_ann", name: "Ann", phone: "+16045550001" },
         ]);
         expect(run("SALE_CARDS_SQL", ["cl_ben"])).toEqual([]);
         expect(run("SALE_CLIENT_NAMES_SQL").length).toBe(2);
@@ -2133,25 +2112,19 @@ describe("app-core SQL against the replica schema", () => {
             {
                 id: "cns_1",
                 client_id: "cl_ann",
-                channel: "sms",
                 status: "granted",
                 source: "in_person",
                 recorded_by: "us_owner",
             },
         ]);
-        db.run("UPDATE clients SET tags = ?, preferred_channel = 'email' WHERE id = 'cl_ann'", [
-            '["vip","regular"]',
-        ]);
+        db.run("UPDATE clients SET tags = ? WHERE id = 'cl_ann'", ['["vip","regular"]']);
 
         const ann = run("CLIENT_SQL", [new Date().toISOString(), "cl_ann"])[0];
-        expect(
-            pick([ann ?? {}], "subject_names", "next_visit_at", "tags", "preferred_channel"),
-        ).toEqual([
+        expect(pick([ann ?? {}], "subject_names", "next_visit_at", "tags")).toEqual([
             {
                 subject_names: "Rex",
                 next_visit_at: "2026-11-05T17:00:00Z",
                 tags: '["vip","regular"]',
-                preferred_channel: "email",
             },
         ]);
         const after = run("CLIENT_SQL", ["2026-11-05T18:00:01Z", "cl_ann"])[0];
@@ -2308,7 +2281,6 @@ describe("app-core SQL against the replica schema", () => {
             {
                 id: "cns_x1",
                 client_id: "cl_ben",
-                channel: "email",
                 status: "granted",
                 source: "form",
                 created_at: "2026-06-01T00:00:00Z",
@@ -2316,24 +2288,21 @@ describe("app-core SQL against the replica schema", () => {
             {
                 id: "cns_x2",
                 client_id: "cl_ben",
-                channel: "email",
                 status: "withdrawn",
-                source: "unsubscribe",
+                source: "in_person",
                 created_at: "2026-06-26T10:15:00Z",
             },
         ]);
         expect(
             pick(
                 run("LATEST_CONSENTS_SQL").filter((r) => r.client_id === "cl_ben"),
-                "channel",
                 "status",
             ),
-        ).toEqual([{ channel: "email", status: "withdrawn" }]);
+        ).toEqual([{ status: "withdrawn" }]);
         scoped("consents", [
             {
                 id: "cns_s1",
                 client_id: "cl_ben",
-                channel: "sms",
                 status: "withdrawn",
                 source: "reply",
                 created_at: "2026-06-20T08:00:00Z",
@@ -2341,7 +2310,6 @@ describe("app-core SQL against the replica schema", () => {
             {
                 id: "cns_s2",
                 client_id: "cl_ben",
-                channel: "sms",
                 status: "granted",
                 source: "in_person",
                 created_at: "2026-06-21T08:00:00Z",
@@ -2357,7 +2325,6 @@ describe("app-core SQL against the replica schema", () => {
             {
                 id: "cns_s3",
                 client_id: "cl_ben",
-                channel: "sms",
                 status: "granted",
                 source: "reply",
                 created_at: "2026-06-22T08:00:00Z",
@@ -2373,7 +2340,6 @@ describe("app-core SQL against the replica schema", () => {
             {
                 id: "bc_1",
                 name: "Promo",
-                channel: "sms",
                 body: "Sale",
                 audience: '{"all":true}',
                 status: "sent",
@@ -2387,7 +2353,6 @@ describe("app-core SQL against the replica schema", () => {
                 id: "m_bc",
                 thread_id: "th_1",
                 direction: "out",
-                channel: "sms",
                 body: "Sale",
                 status: "sent",
                 broadcast_id: "bc_1",

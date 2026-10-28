@@ -235,7 +235,7 @@ WHERE c.id IN (SELECT client_id FROM packages
 ORDER BY c.name COLLATE NOCASE`;
 
 export const WALLET_CLIENT_SQL = `
-SELECT c.id, c.name, c.email, c.phone FROM clients c WHERE c.id = ?`;
+SELECT c.id, c.name, c.phone FROM clients c WHERE c.id = ?`;
 
 // Packages, plans and gift cards in one shape; each part takes its own owner filter.
 const walletRows = (pkg: string, sub: string, gift: string): string => `
@@ -426,7 +426,6 @@ function summarizeEntitlement(r: WalletRow, zone: string): EntitlementSummary {
 interface WalletClient {
     id: string;
     name: string;
-    email: string | null;
     phone: string | null;
 }
 
@@ -471,13 +470,7 @@ export function useEntitlementWallet(initialClientId: string | null = null): Ent
         clientId,
         setClientId,
         client,
-        contact:
-            client === null
-                ? ""
-                : formatParts([
-                      client.phone === null ? null : formatPhone(client.phone),
-                      client.email,
-                  ]),
+        contact: client === null ? "" : formatPhone(client.phone),
         summaries,
         totals: {
             deferredCents: summaries

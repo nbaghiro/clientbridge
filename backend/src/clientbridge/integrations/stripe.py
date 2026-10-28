@@ -619,13 +619,10 @@ class PaymentGateway(Protocol):
         self, account_id: str | None, *, since: datetime, limit: int
     ) -> list[MissedEvent]: ...
 
-    async def create_customer(
-        self, account_id: str, *, name: str, email: str | None, idempotency_key: str
-    ) -> str: ...
+    async def create_customer(self, account_id: str, *, name: str, idempotency_key: str) -> str: ...
 
-    async def update_customer(
-        self, account_id: str, customer_id: str, *, name: str, email: str | None
-    ) -> None: ...
+    async def update_customer(self, account_id: str, customer_id: str, *, name: str) -> None: ...
+
     async def create_setup_intent(self, account_id: str, *, customer_id: str) -> SetupIntentResult:
         """Save a card for later off-session use, without charging now."""
         ...
@@ -1243,26 +1240,18 @@ class StripeGateway:
         return missed
 
     @_keyed
-    async def create_customer(
-        self, account_id: str, *, name: str, email: str | None, idempotency_key: str
-    ) -> str:
+    async def create_customer(self, account_id: str, *, name: str, idempotency_key: str) -> str:
         params: CustomerCreateParams = {
             "stripe_account": account_id,
             "idempotency_key": idempotency_key,
         }
         customer = await stripe.Customer.create_async(**params)
-        await stripe.Customer.modify_async(
-            str(customer.id), stripe_account=account_id, name=name, email=email or ""
-        )
+        await stripe.Customer.modify_async(str(customer.id), stripe_account=account_id, name=name)
         return str(customer.id)
 
     @_keyed
-    async def update_customer(
-        self, account_id: str, customer_id: str, *, name: str, email: str | None
-    ) -> None:
-        await stripe.Customer.modify_async(
-            customer_id, stripe_account=account_id, name=name, email=email or ""
-        )
+    async def update_customer(self, account_id: str, customer_id: str, *, name: str) -> None:
+        await stripe.Customer.modify_async(customer_id, stripe_account=account_id, name=name)
 
     @_keyed
     async def create_setup_intent(self, account_id: str, *, customer_id: str) -> SetupIntentResult:

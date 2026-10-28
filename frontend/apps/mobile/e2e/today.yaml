@@ -34,7 +34,7 @@ name: Owner workday surfaces
 - takeScreenshot: booking-draft
 - runFlow: helpers/close-sheet.yaml
 - tapOn: "Clients"
-- assertVisible: "Search name, phone, email or pet"
+- assertVisible: "Search name, phone or pet"
 - takeScreenshot: clients
 - tapOn: "Add"
 - assertVisible: "Add client"

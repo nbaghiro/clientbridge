@@ -5,7 +5,7 @@ There is one seeded demo business per vertical the product serves, so each trade
 - **Password:** `demo1234` for every login.
 - **Where:** locally, and on staging at `https://app.staging.clientbridge.ca` and in the staging mobile app.
 - **Logins:** owners are `owner@<slug>.example` (Birchbark's is `hannah@`). Staff are `<firstname>@<slug>.example`.
-- **Safe to use:** every email and phone is a reserved address (`.example`, 555-0100 to 0199), so demo emails and texts never leave the app. On dev and staging a message to a demo client shows as sent without going to Resend or Twilio, and local email lands in Mailpit; production refuses reserved addresses ([operations.md](operations.md#delivery-recovery)).
+- **Safe to use:** every login email is a reserved address (`.example`) and every client phone is a reserved number (555-0100 to 0199), so demo mail and texts never leave the app. Clients have no email address; the demos reach them by text only. On staging a text to a demo client shows as sent without going to Twilio, and locally texts and email land in Mailpit; production refuses reserved addresses ([operations.md](operations.md#delivery-recovery)).
 - **Today's visits:** some demos show "checked in" and "on the way" only during their working hours. At other times those visits move to the next working day.
 - **Card payments:** these need the demo linked to the Stripe sandbox ([payments.md](payments.md#local-sandbox-setup)). Without that, use cash or manual payments.
 - **Staging smoke lane:** `make test-staging-smoke` signs in with these logins by default. `SMOKE_PASSWORD` and `SMOKE_OWNERS` (comma-separated emails) override them, and `SMOKE_DOMAIN` or the `SMOKE_*_URL` variables point it at another environment. It only reads, so it leaves the demo data as it was.
@@ -249,5 +249,5 @@ The sections below cover what each business adds.
 ## Not shown yet
 
 - **More than one resource per visit:** a visit holds one room, table, car or piece of equipment at most, and resources have no opening hours or maintenance windows of their own. Clients can't choose the room on Connect.
-- **Star reviews:** stored as review requests plus a feedback form's rating, so replies to feedback are sent by email.
+- **Star reviews:** stored as review requests plus a feedback form's rating, so replies to feedback are sent by text.
 - **Weather:** rain and snow days are ordinary reschedules.

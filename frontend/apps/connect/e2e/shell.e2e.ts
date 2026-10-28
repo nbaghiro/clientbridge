@@ -33,11 +33,6 @@ const PUBLIC_PAGES = [
         landmark: strings.publicContract.sign,
     },
     {
-        name: "preferences",
-        path: `/prefs/${links.prefs}`,
-        landmark: strings.publicPreferences.title,
-    },
-    {
         name: "order",
         path: on("shop", `/order/${links.order}`),
         landmark: strings.publicOrder.title,
@@ -57,7 +52,6 @@ const MISSING_PAGES = [
     [on("pay", "/m/missing-token"), strings.publicLanding.pageNotFoundTitle],
     ["/form/missing-token", strings.publicForm.notFoundTitle],
     ["/contract/missing-token", strings.publicContract.notFoundTitle],
-    ["/prefs/missing-token", strings.publicPreferences.notFoundTitle],
 ] as const;
 
 const slug = demoSlug("birchbark");

@@ -9,7 +9,6 @@ export * from "./domain/printing";
 export * from "./domain/checkout";
 export * from "./domain/publicForm";
 export * from "./domain/publicContract";
-export * from "./domain/publicPreferences";
 export * from "./datetime";
 export * from "./format";
 export * from "./payCode";

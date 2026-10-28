@@ -164,7 +164,7 @@ export function SendReview({ request, document, onResolve }: SendReviewProps) {
 
 function Outgoing({ preview }: { preview: OutgoingPreview }) {
     const s = strings.ui.review;
-    if (preview.email === null && preview.text === null)
+    if (preview.text === null)
         return (
             <Notice tone="info" banner>
                 {s.nothingSent}
@@ -172,21 +172,10 @@ function Outgoing({ preview }: { preview: OutgoingPreview }) {
         );
     return (
         <View style={styles.stack}>
-            {preview.email !== null ? (
-                <View style={styles.email}>
-                    <View style={styles.emailHead}>
-                        <Text style={styles.small}>{s.emailTo(preview.email.to)}</Text>
-                        <Text style={styles.subject}>{preview.email.subject}</Text>
-                    </View>
-                    <Text style={[styles.body, styles.emailBody]}>{preview.email.body}</Text>
-                </View>
-            ) : null}
-            {preview.text !== null ? (
-                <View style={styles.text}>
-                    <Text style={styles.small}>{s.textTo(formatPhone(preview.text.to))}</Text>
-                    <MessageBubble direction="out" width="full" body={preview.text.body} />
-                </View>
-            ) : null}
+            <View style={styles.text}>
+                <Text style={styles.small}>{s.textTo(formatPhone(preview.text.to))}</Text>
+                <MessageBubble direction="out" width="full" body={preview.text.body} />
+            </View>
         </View>
     );
 }
@@ -216,22 +205,6 @@ const styles = StyleSheet.create({
     muted: { marginTop: 4, fontFamily: theme.fonts.ui, fontSize: 14, color: c.muted },
     small: { fontFamily: theme.fonts.ui, fontSize: 12, color: c.muted },
     body: { fontFamily: theme.fonts.ui, fontSize: 14, lineHeight: 20, color: c.inkSoft },
-    subject: {
-        marginTop: 2,
-        fontFamily: theme.fonts.ui,
-        fontSize: 14,
-        fontWeight: "600",
-        color: c.ink,
-    },
-    email: { borderWidth: 1, borderColor: c.border, borderRadius: 10, overflow: "hidden" },
-    emailHead: {
-        borderBottomWidth: 1,
-        borderBottomColor: c.border,
-        backgroundColor: c.head,
-        paddingHorizontal: 14,
-        paddingVertical: 10,
-    },
-    emailBody: { paddingHorizontal: 14, paddingVertical: 12 },
     text: { gap: 8, borderRadius: 10, backgroundColor: c.bg, padding: 14 },
     actions: { gap: 8, marginTop: 4 },
 });

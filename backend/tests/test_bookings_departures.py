@@ -22,7 +22,6 @@ async def _client(db: AsyncSession, business_id: str = BIZ, phone: str | None = 
         id=new_id("client"),
         business_id=business_id,
         name="Maya Chen",
-        email="maya@example.test",
         phone=phone,
         tags=[],
         custom_fields={},
@@ -154,10 +153,10 @@ async def test_a_client_who_replied_stop_or_has_no_phone_gets_no_text(
         assert (await as_owner.post(f"/v1/bookings/{bid}/depart")).status_code == 200
         assert await _departed_at(db, bid) is not None
         assert await _texts(db, bid) == []
-    emails = await db.scalars(
+    notices = await db.scalars(
         select(Delivery).where(Delivery.key.startswith(f"booking:{silent}:depart"))
     )
-    assert emails.all() == []
+    assert notices.all() == []
 
 
 async def test_staff_cannot_set_off_for_another_members_booking_403(
