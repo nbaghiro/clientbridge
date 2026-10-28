@@ -19,7 +19,7 @@ There are two environments, each with one base domain `D` from which every hostn
 | `app.D`  | Staff web app; the WebAuthn RP ID                                                                        | `web`                       |
 | `admin.D` | Platform admin app                                                                                      | `web`                       |
 | `<slug>.D` | Connect: each business's public page, through a wildcard record, listener and route; the named hosts take precedence | `web`                       |
-| `book.D` | Connect: booking at `/<slug>`, the client's visit page (`/m/`), forms, contracts, message preferences and `embed.js` | `web`                       |
+| `book.D` | Connect: booking at `/<slug>`, the client's visit page (`/m/`), forms, contracts and `embed.js` | `web`                       |
 | `shop.D` | Connect: the online shop at `/<slug>` and pickup orders (`/order/`)                                      | `web`                       |
 | `pay.D`  | Connect: invoices (`/i/`), estimates (`/e/`), receipts (`/r/`) and bank account setup (`/setup`)         | `web`                       |
 | `api.D`  | The API, `/webhooks/*`, and the auth service's public API under `/auth/` (the Gateway strips the prefix) | `api`, `auth` (public port) |

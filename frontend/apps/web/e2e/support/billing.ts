@@ -331,6 +331,6 @@ export async function expectDocumentTotal(dialog: Locator, cents: number): Promi
     ).toBeVisible();
 }
 
-export async function documentMail(page: Page, client: DocumentClient): Promise<Text[]> {
+export async function documentTexts(page: Page, client: DocumentClient): Promise<Text[]> {
     return textsTo(page.request, client.phone);
 }

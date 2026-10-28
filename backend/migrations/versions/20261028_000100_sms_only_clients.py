@@ -40,10 +40,10 @@ def upgrade() -> None:
     )
     op.execute("DELETE FROM broadcasts WHERE channel = 'email'")
     op.execute("DELETE FROM threads WHERE channel = 'email'")
-    # dropping only a link opt-out could revive an older grant, so the rest goes; a STOP reply stays
+    op.execute("DELETE FROM consents WHERE channel = 'email'")
+    # deleting a text opt-out by link could revive an older grant, so it stays as a staff entry
     op.execute(
-        "DELETE FROM consents WHERE channel = 'email' OR (source <> 'reply' AND client_id IN"
-        f" (SELECT client_id FROM consents WHERE source IN ({_LINK_SOURCES})))"
+        f"UPDATE consents SET source = 'in_person' WHERE source IN ({_LINK_SOURCES}, 'complaint')"
     )
 
     op.drop_index("ix_clients_business_email", table_name="clients")

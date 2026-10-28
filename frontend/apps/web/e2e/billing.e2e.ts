@@ -9,7 +9,7 @@ import {
     composeDocument,
     createDocumentClient,
     documentEvidence,
-    documentMail,
+    documentTexts,
     expectDocumentTotal,
     fillDocumentLine,
     openDocument,
@@ -315,7 +315,7 @@ test.describe(() => {
             await review.getByRole("button", { name: strings.common.cancel, exact: true }).click();
             expect((await documentEvidence("invoice", draft.id)).document.status).toBe("draft");
             expect((await paymentEvidence(draft.id)).entries).toEqual([]);
-            expect(await documentMail(page, client)).toEqual([]);
+            expect(await documentTexts(page, client)).toEqual([]);
             await page
                 .getByRole("button", { name: strings.billing.sendInvoice, exact: true })
                 .click();
@@ -337,7 +337,7 @@ test.describe(() => {
             await expect(
                 other.getByRole("button", { name: strings.billing.edit, exact: true }),
             ).toHaveCount(0);
-            await expect.poll(async () => (await documentMail(page, client)).length).toBe(1);
+            await expect.poll(async () => (await documentTexts(page, client)).length).toBe(1);
             const issued = await paymentEvidence(draft.id);
             expect(
                 issued.entries

@@ -113,7 +113,7 @@ async def test_card_success_sends_receipt_and_push(
     assert len(push.sent) == 1 and push.sent[0].tokens == ["ExpoTok1"]
 
 
-async def test_no_contact_skips_client_channels(
+async def test_a_client_without_a_phone_gets_no_notice(
     as_owner: httpx.AsyncClient,
     db: AsyncSession,
     email: FakeEmailSender,
@@ -124,7 +124,7 @@ async def test_no_contact_skips_client_channels(
     cid = await _client_with_contact(db, phone=None)
     inv_id = await sent_invoice(db, client=cid, number=9600)
     await _pay_and_settle(as_owner, db, inv_id, "evt_n2")
-    assert email.sent == []  # nothing to send to
+    assert email.sent == []
     assert sms.sent == []
     assert push.sent == []  # no devices registered
 

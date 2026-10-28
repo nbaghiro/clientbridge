@@ -7,7 +7,7 @@ import {
     composeDocument,
     createDocumentClient,
     documentEvidence,
-    documentMail,
+    documentTexts,
     fillDocumentLine,
     openDocument,
     saveDocument,
@@ -65,8 +65,8 @@ export async function issueStripeInvoice(page: Page) {
         { category: "revenue", amount: -2000 },
     ]);
     expect(new Set(issued.entries.map((entry) => entry.journal_id)).size).toBe(1);
-    await expect.poll(async () => (await documentMail(page, client)).length).toBe(1);
-    const message = (await documentMail(page, client))[0];
+    await expect.poll(async () => (await documentTexts(page, client)).length).toBe(1);
+    const message = (await documentTexts(page, client))[0];
     if (!message) throw new Error("Invoice text is absent");
     const detail = await page.request.get(
         `${process.env.MAILPIT_URL}/api/v1/message/${message.ID}`,
@@ -84,7 +84,7 @@ export async function issueStripeInvoice(page: Page) {
     expect(parsed.pathname).toMatch(/^\/i\/[^/]+$/);
     const token = parsed.pathname.slice(3);
     const invoice = await registerStripeInvoice(page.request, { id: draft.id, pay_token: token });
-    return { invoice, client, url, invoiceMailId: message.ID };
+    return { invoice, client, url, invoiceTextId: message.ID };
 }
 
 export async function stripeReceiptEvidence(
@@ -127,7 +127,7 @@ export async function stripeReceipt(
     const message = (await receiptMessages(page.request, client.phone))[0];
     if (!message) throw new Error("Payment receipt is absent");
     expect(message.Snippet).toContain("$20.00");
-    return { ...evidence, mailId: message.ID };
+    return { ...evidence, textId: message.ID };
 }
 
 export async function controlStripeRelay(

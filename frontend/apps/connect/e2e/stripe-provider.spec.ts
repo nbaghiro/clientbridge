@@ -203,7 +203,7 @@ test("STRIPE-BROWSER-05 owner issues an invoice and emailed card checkout reache
         if (!paymentId) throw new Error("Settled payment is missing");
         for (const page of [owner, replica]) await expectPaid(page);
         const receipt = await stripeReceipt(owner, fixture.client, fixture.invoice.id, paymentId);
-        expect(receipt.mailId).not.toBe(fixture.invoiceMailId);
+        expect(receipt.textId).not.toBe(fixture.invoiceTextId);
         for (const page of [owner, replica]) {
             await page.reload();
             await openInvoice(page, ownerInvoice);

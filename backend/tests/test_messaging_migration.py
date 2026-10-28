@@ -78,6 +78,7 @@ async def _seed(conn: AsyncConnection) -> None:
         ("cl_text", None, "+14165550102", "sms"),
         ("cl_link", None, "+14165550104", "sms"),
         ("cl_stop", None, "+14165550105", "sms"),
+        ("cl_start", None, "+14165550106", "sms"),
     ):
         await conn.execute(
             text(
@@ -137,6 +138,8 @@ async def _seed(conn: AsyncConnection) -> None:
         ("cs_stop", "cl_stop", "sms", "withdrawn", "reply"),
         ("cs_stop_grant", "cl_stop", "sms", "granted", "in_person"),
         ("cs_stop_link", "cl_stop", "email", "withdrawn", "preferences"),
+        ("cs_start", "cl_start", "sms", "granted", "reply"),
+        ("cs_start_link", "cl_start", "sms", "withdrawn", "unsubscribe"),
     ):
         await _insert(
             conn,
@@ -243,7 +246,15 @@ async def test_cb0036_drops_client_email_and_channels_and_its_downgrade_restores
         assert set(await _ids(engine, "threads")) == {"th_both_sms", "th_text"}
         assert set(await _ids(engine, "messages")) == {"ms_both_sms", "ms_bc_text"}
         assert set(await _ids(engine, "broadcasts")) == {"bc_text"}
-        assert set(await _ids(engine, "consents")) == {"cs_text", "cs_stop"}
+        assert await _ids(engine, "consents", "source") == {
+            "cs_text": "in_person",
+            "cs_text_link": "in_person",
+            "cs_link": "in_person",
+            "cs_stop": "reply",
+            "cs_stop_grant": "in_person",
+            "cs_start": "reply",
+            "cs_start_link": "in_person",
+        }
         assert set(await _ids(engine, "deliveries")) == {
             "dl_owner",
             "dl_billing",
@@ -278,7 +289,7 @@ async def test_cb0036_drops_client_email_and_channels_and_its_downgrade_restores
             "or_none": None,
         }
         assert await _ids(engine, "clients", "email") == dict.fromkeys(
-            ("cl_both", "cl_mail", "cl_text", "cl_link", "cl_stop")
+            ("cl_both", "cl_mail", "cl_text", "cl_link", "cl_stop", "cl_start")
         )
     finally:
         await engine.dispose()

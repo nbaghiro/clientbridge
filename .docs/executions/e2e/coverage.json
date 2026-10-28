@@ -3446,7 +3446,7 @@
         "priority": "P1",
         "tier": "API + form UI",
         "setup": "Fresh client/subject/note forms",
-        "actions": "Submit whitespace, malformed email, explicit null required values, >4000 note body, invalid typed attributes",
+        "actions": "Submit whitespace, malformed phone, explicit null required values, >4000 note body, invalid typed attributes",
         "expected": "Defined 422 errors and no partial row/consent/subject creation; distinguish optional null-clearing from prohibited null state; server rules agree with UI where intended",
         "evidence": [
           "backend/src/clientbridge/schemas/clients.py:16",
@@ -5922,7 +5922,7 @@
         "priority": "P0",
         "tier": "Connect + sandbox",
         "title": "PAD complete authorization",
-        "setup": "Capability-enabled merchant, email client and fresh bank link",
+        "setup": "Capability-enabled merchant, a client with a phone and fresh bank link",
         "actions": "Open link without starting, start, complete verification, wait setup/mandate events",
         "assertions": "No intent on passive view; 24-hour initial and ten-day started lifecycle; active only after validated mandate; raw token not stored."
       },
@@ -16446,7 +16446,7 @@
     "visible_content": "Realistic people, pets, services and document text appropriate to the demo business",
     "run_identity": "UUIDs remain in email aliases, idempotency keys and fixture identifiers",
     "existing_records": "Historical fixture records retained; no database cleanup or renaming performed",
-    "selection": "Prefer record IDs and unique email search; do not silently select the first matching name"
+    "selection": "Prefer record IDs and unique phone search; do not silently select the first matching name"
   },
   "qualification_runs": [
     {
