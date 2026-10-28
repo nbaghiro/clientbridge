@@ -1,15 +1,15 @@
 import { strings } from "@clientbridge/app-core/public";
 import { expect, test } from "@playwright/test";
-import { documentApi } from "./documents";
-import { on } from "./hosts";
+import { documentApi } from "../support/documents";
+import { on } from "../support/hosts";
 import {
     enterStripeCard,
     openRegisteredStripeInvoice,
     stripeEvidence,
     stripeInvoice,
     submitStripeCard,
-} from "./stripe-provider";
-import { expectOneSettlement } from "./stripe-tabs";
+} from "./support/provider";
+import { expectOneSettlement } from "./support/tabs";
 
 test("STR-E06 one invoice in two tabs: a decline in the first, then both pay, and only one charge goes through", async ({
     context,

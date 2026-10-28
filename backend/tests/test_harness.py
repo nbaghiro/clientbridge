@@ -705,8 +705,12 @@ def test_every_browser_case_is_tagged_and_named_once() -> None:
     root = Path(__file__).resolve().parents[2] / "frontend" / "apps"
     sources = "\n".join(
         path.read_text()
-        for app in ("web", "connect")
-        for path in (root / app / "e2e").glob("*.ts")
+        for app, pattern in (
+            ("web", "*.ts"),
+            ("connect", "*.ts"),
+            ("connect", "stripe/*.stripe.ts"),
+        )
+        for path in (root / app / "e2e").glob(pattern)
         if "@browsers" in path.read_text()
     )
     identities = [identity for cases in BROWSER_CASES.values() for identity in cases.values()]
@@ -742,7 +746,7 @@ LANE_FILES = {
     "connect": ("connect", "*.e2e.ts"),
     "journeys": ("web", "journeys/*.journey.ts"),
     "filings": ("web", "*.filing.ts"),
-    "stripe": ("connect", "stripe-*.spec.ts"),
+    "stripe": ("connect", "stripe/*.stripe.ts"),
 }
 
 

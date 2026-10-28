@@ -1,8 +1,8 @@
 import { strings } from "@clientbridge/app-core/public";
 import { expect, test } from "@playwright/test";
 import { runPort } from "@clientbridge/config/e2e/run";
-import { saleEvidence, stockProduct } from "../../web/e2e/support/pos";
-import { signIn } from "../../web/e2e/support/session";
+import { saleEvidence, stockProduct } from "../../../web/e2e/support/pos";
+import { signIn } from "../../../web/e2e/support/session";
 import {
     cardFrame,
     choose,
@@ -10,8 +10,8 @@ import {
     paySheet,
     ringUpWalkIn,
     stripeIntent,
-} from "./stripe-desk";
-import { stripeReady } from "./stripe-provider";
+} from "./support/desk";
+import { stripeReady } from "./support/provider";
 
 test.use({ actionTimeout: 60_000 });
 const d = strings.pos.desk;

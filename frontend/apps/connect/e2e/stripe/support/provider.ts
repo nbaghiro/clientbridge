@@ -13,8 +13,8 @@ import {
 } from "@playwright/test";
 import { formatMoneyWithCurrency, strings } from "@clientbridge/app-core/public";
 
-import { documentApi, documentProvider } from "./documents";
-import { on } from "./hosts";
+import { documentApi, documentProvider } from "../../support/documents";
+import { on } from "../../support/hosts";
 import { demoId } from "@clientbridge/config/e2e/run";
 
 const execute = promisify(execFile);
@@ -67,7 +67,10 @@ async function probe(invoiceId?: string): Promise<string> {
     const { stdout } = await execute(
         "uv",
         ["run", "python", "-m", "e2e.stripe", "browser", ...(invoiceId ? [invoiceId] : [])],
-        { cwd: fileURLToPath(new URL("../../../../backend", import.meta.url)), timeout: 60_000 },
+        {
+            cwd: fileURLToPath(new URL("../../../../../../backend", import.meta.url)),
+            timeout: 60_000,
+        },
     );
     return stdout;
 }
@@ -121,7 +124,7 @@ export async function registerStripeInvoice(
     const ready = await stripeReady();
     // Record exact invoice/client ownership and tag its provider customer before UI creates an intent.
     await execute("uv", ["run", "python", "-m", "e2e.stripe", "setup", "register", invoice.id], {
-        cwd: fileURLToPath(new URL("../../../../backend", import.meta.url)),
+        cwd: fileURLToPath(new URL("../../../../../../backend", import.meta.url)),
         timeout: 60_000,
     });
     const publicResponse = await request.get(`${documentApi}/pay/${invoice.pay_token}`);

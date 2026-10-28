@@ -2,9 +2,9 @@ import { randomUUID } from "node:crypto";
 import { demoPerson } from "@clientbridge/config/e2e/demo";
 import { expect, type APIRequestContext } from "@playwright/test";
 import { demoId, runEmail, runUrl } from "@clientbridge/config/e2e/run";
-import { committed } from "../../web/e2e/support/documents";
-import { freshPhone } from "../../web/e2e/support/auth";
-import { requireLocalMail } from "../../web/e2e/support/evidence";
+import { committed } from "../../../web/e2e/support/documents";
+import { freshPhone } from "../../../web/e2e/support/auth";
+import { requireLocalMail } from "../../../web/e2e/support/evidence";
 
 export const documentApi = runUrl("VITE_API_URL");
 const auth = runUrl("VITE_AUTH_URL");

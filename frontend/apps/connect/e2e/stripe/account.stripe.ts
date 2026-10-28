@@ -1,9 +1,9 @@
 import { strings } from "@clientbridge/app-core/public";
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 import { runPort } from "@clientbridge/config/e2e/run";
-import { navigate, signIn } from "../../web/e2e/support/session";
-import { merchant, stripeFrame } from "./stripe-payouts";
-import { stripeReady } from "./stripe-provider";
+import { navigate, signIn } from "../../../web/e2e/support/session";
+import { merchant, stripeFrame } from "./support/payouts";
+import { stripeReady } from "./support/provider";
 
 test.use({ actionTimeout: 60_000 });
 

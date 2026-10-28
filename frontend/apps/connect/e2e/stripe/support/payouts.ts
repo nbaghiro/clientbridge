@@ -4,8 +4,8 @@ import { promisify } from "node:util";
 import { strings } from "@clientbridge/app-core/public";
 import { demoId } from "@clientbridge/config/e2e/run";
 import { expect, type Frame, type Page, type TestInfo } from "@playwright/test";
-import { select } from "../../web/e2e/support/db";
-import { artifact, periodDates, reports } from "../../web/e2e/support/reports";
+import { select } from "../../../../web/e2e/support/db";
+import { artifact, periodDates, reports } from "../../../../web/e2e/support/reports";
 
 const execute = promisify(execFile);
 const s = strings.payouts;
@@ -15,7 +15,10 @@ export async function merchant<T>(command: string, id = ""): Promise<T> {
     const { stdout } = await execute(
         "uv",
         ["run", "python", "-m", "e2e.merchant", command, ...(id ? [id] : [])],
-        { cwd: fileURLToPath(new URL("../../../../backend", import.meta.url)), timeout: 60_000 },
+        {
+            cwd: fileURLToPath(new URL("../../../../../../backend", import.meta.url)),
+            timeout: 60_000,
+        },
     );
     return JSON.parse(stdout) as T;
 }

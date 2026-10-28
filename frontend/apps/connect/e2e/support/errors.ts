@@ -1,6 +1,6 @@
 import type { Page } from "@playwright/test";
 
-import { offsiteLoadFailure } from "../../web/e2e/support/shell";
+import { offsiteLoadFailure } from "../../../web/e2e/support/shell";
 
 export function watchErrors(page: Page): string[] {
     const errors: string[] = [];

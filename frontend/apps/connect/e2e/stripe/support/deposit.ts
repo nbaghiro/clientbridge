@@ -6,11 +6,11 @@ import {
     createBookingFixture,
     createBookingThroughUi,
     openBooking,
-} from "../../web/e2e/support/bookings";
-import { openInvoice } from "../../web/e2e/support/billing";
-import { openRefund, type RefundFixture } from "../../web/e2e/support/refunds";
-import { enterStripeCard, stripeReady } from "./stripe-provider";
-import { registerStripeDeposit } from "./stripe-deposit-contract";
+} from "../../../../web/e2e/support/bookings";
+import { openInvoice } from "../../../../web/e2e/support/billing";
+import { openRefund, type RefundFixture } from "../../../../web/e2e/support/refunds";
+import { enterStripeCard, stripeReady } from "./provider";
+import { registerStripeDeposit } from "./depositContract";
 
 export async function prepareDepositBooking(page: Page) {
     await stripeReady();

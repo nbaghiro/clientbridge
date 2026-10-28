@@ -1,7 +1,7 @@
 import { strings } from "@clientbridge/app-core/public";
 import { expect, test } from "@playwright/test";
-import { on } from "./hosts";
-import { ownAddress } from "./network";
+import { on } from "./support/hosts";
+import { ownAddress } from "./support/network";
 
 test.beforeEach(async ({ context }, info) => {
     await ownAddress(context, info);

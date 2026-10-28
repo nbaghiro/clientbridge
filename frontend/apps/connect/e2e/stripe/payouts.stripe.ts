@@ -1,15 +1,15 @@
 import { CALENDAR, formatMoney, formatShortDay, strings } from "@clientbridge/app-core/public";
 import { expect, test, type Page } from "@playwright/test";
 import { demoId, runPort } from "@clientbridge/config/e2e/run";
-import { select } from "../../web/e2e/support/db";
-import { navigate, signIn } from "../../web/e2e/support/session";
+import { select } from "../../../web/e2e/support/db";
+import { navigate, signIn } from "../../../web/e2e/support/session";
 import {
     enterStripeCard,
     openStripeInvoice,
     settledStripeInvoice,
     stripeReady,
     submitStripeCard,
-} from "./stripe-provider";
+} from "./support/provider";
 import {
     bankDeposits,
     depositedCents,
@@ -18,7 +18,7 @@ import {
     stripeFrame,
     type PayoutSchedule,
     type StripePayout,
-} from "./stripe-payouts";
+} from "./support/payouts";
 
 test.use({ actionTimeout: 60_000 });
 const p = strings.payouts;

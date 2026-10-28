@@ -1,14 +1,14 @@
 import { expect, test, type Page } from "@playwright/test";
 import { formatMoney, formatPhone, strings } from "@clientbridge/app-core/public";
 import { runPort } from "@clientbridge/config/e2e/run";
-import { openInvoice } from "../../web/e2e/support/billing";
-import { openBooking } from "../../web/e2e/support/bookings";
-import { createClient } from "../../web/e2e/support/clients";
-import { redeemGift } from "../../web/e2e/support/entitlements";
-import { signIn } from "../../web/e2e/support/session";
-import { issueStripeInvoice } from "./stripe-bridge";
-import { depositEvidence, linkStripeDepositInvoice } from "./stripe-deposit-contract";
-import { collectDepositUi, invoiceVisitUi } from "./stripe-deposit";
+import { openInvoice } from "../../../web/e2e/support/billing";
+import { openBooking } from "../../../web/e2e/support/bookings";
+import { createClient } from "../../../web/e2e/support/clients";
+import { redeemGift } from "../../../web/e2e/support/entitlements";
+import { signIn } from "../../../web/e2e/support/session";
+import { issueStripeInvoice } from "./support/bridge";
+import { depositEvidence, linkStripeDepositInvoice } from "./support/depositContract";
+import { collectDepositUi, invoiceVisitUi } from "./support/deposit";
 import {
     DISPUTE_CARD,
     INQUIRY_CARD,
@@ -27,13 +27,13 @@ import {
     sellGiftCardByCard,
     startedDepositVisit,
     stripeDispute,
-} from "./stripe-disputes";
+} from "./support/disputes";
 import {
     enterStripeCard,
     openRegisteredStripeInvoice,
     settledStripeInvoice,
     submitStripeCard,
-} from "./stripe-provider";
+} from "./support/provider";
 
 const web = (): string => `http://localhost:${String(runPort("WEB_E2E_PORT"))}`;
 

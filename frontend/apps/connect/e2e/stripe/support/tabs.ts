@@ -1,7 +1,7 @@
 import { expect, type APIRequestContext } from "@playwright/test";
 import { demoId } from "@clientbridge/config/e2e/run";
-import { documentApi } from "./documents";
-import { stripeEvidence } from "./stripe-provider";
+import { documentApi } from "../../support/documents";
+import { stripeEvidence } from "./provider";
 
 /** The superseded attempt stays canceled and uncharged; the other one settles the invoice once. */
 export async function expectOneSettlement(

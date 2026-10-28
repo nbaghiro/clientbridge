@@ -76,7 +76,7 @@ export interface DepositEvidence {
 const execute = promisify(execFile);
 async function invoke<T>(args: string[]): Promise<T> {
     const { stdout } = await execute("uv", ["run", "python", "-m", "e2e.stripe", ...args], {
-        cwd: fileURLToPath(new URL("../../../../backend", import.meta.url)),
+        cwd: fileURLToPath(new URL("../../../../../../backend", import.meta.url)),
         timeout: 90_000,
     });
     return JSON.parse(stdout) as T;

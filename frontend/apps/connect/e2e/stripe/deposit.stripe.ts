@@ -1,21 +1,21 @@
 import { expect, test, type Page, type BrowserContext } from "@playwright/test";
 import { formatMoney, strings } from "@clientbridge/app-core/public";
-import { openInvoice, recordCash, expectPaid } from "../../web/e2e/support/billing";
-import { signIn } from "../../web/e2e/support/session";
+import { openInvoice, recordCash, expectPaid } from "../../../web/e2e/support/billing";
+import { signIn } from "../../../web/e2e/support/session";
 import {
     depositEvidence,
     linkStripeDepositInvoice,
     type DepositEvidence,
-} from "./stripe-deposit-contract";
+} from "./support/depositContract";
 import {
     prepareDepositBooking,
     collectDepositUi,
     invoiceVisitUi,
     sendBookingInvoiceUi,
     refundUi,
-} from "./stripe-deposit";
-import { expectDepositStage } from "./stripe-deposit-oracle";
-import { enrolWithCardDeposit, PROGRAM, prepareProgram, webBaseUrl } from "./stripe-program";
+} from "./support/deposit";
+import { expectDepositStage } from "./support/depositOracle";
+import { enrolWithCardDeposit, PROGRAM, prepareProgram, webBaseUrl } from "./support/program";
 import { runPort } from "@clientbridge/config/e2e/run";
 
 async function outstanding(

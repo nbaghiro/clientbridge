@@ -21,7 +21,7 @@
                 "playwright.stripe.config.ts",
                 "playwright.smoke.config.ts",
                 "e2e/**/*.e2e.ts",
-                "e2e/**/*.spec.ts",
+                "e2e/stripe/*.stripe.ts",
                 "e2e/smoke/*.smoke.ts"
             ],
             "playwright": false

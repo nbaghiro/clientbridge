@@ -1,9 +1,9 @@
 import { strings } from "@clientbridge/app-core/public";
 import { expect, type Frame, type Locator, type Page } from "@playwright/test";
-import { select } from "../../web/e2e/support/db";
-import { navigate } from "../../web/e2e/support/session";
-import type { StockedProduct } from "../../web/e2e/support/pos";
-import { merchant } from "./stripe-payouts";
+import { select } from "../../../../web/e2e/support/db";
+import { navigate } from "../../../../web/e2e/support/session";
+import type { StockedProduct } from "../../../../web/e2e/support/pos";
+import { merchant } from "./payouts";
 
 const d = strings.pos.desk;
 

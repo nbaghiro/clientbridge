@@ -9,13 +9,13 @@ import {
     bookingApi,
     createBookingFixture,
     type BookingRecord,
-} from "../../web/e2e/support/bookings";
-import type { ClientFixture } from "../../web/e2e/support/clients";
-import { select } from "../../web/e2e/support/db";
-import { openRefund } from "../../web/e2e/support/refunds";
-import { navigate } from "../../web/e2e/support/session";
-import { registerStripeDeposit } from "./stripe-deposit-contract";
-import { enterStripeCard } from "./stripe-provider";
+} from "../../../../web/e2e/support/bookings";
+import type { ClientFixture } from "../../../../web/e2e/support/clients";
+import { select } from "../../../../web/e2e/support/db";
+import { openRefund } from "../../../../web/e2e/support/refunds";
+import { navigate } from "../../../../web/e2e/support/session";
+import { registerStripeDeposit } from "./depositContract";
+import { enterStripeCard } from "./provider";
 
 const execute = promisify(execFile);
 
@@ -25,7 +25,7 @@ export const DISPUTE_CARD = "4000000000000259";
 
 export async function stripeHarness<T>(args: string[]): Promise<T> {
     const { stdout } = await execute("uv", ["run", "python", "-m", "e2e.stripe", ...args], {
-        cwd: fileURLToPath(new URL("../../../../backend", import.meta.url)),
+        cwd: fileURLToPath(new URL("../../../../../../backend", import.meta.url)),
         timeout: 360_000,
     });
     return JSON.parse(stdout) as T;

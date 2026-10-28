@@ -1,11 +1,11 @@
 import { strings } from "@clientbridge/app-core/public";
 import { freshPhone } from "../../web/e2e/support/auth";
 import { expect, test } from "@playwright/test";
-import { on } from "./hosts";
-import { links } from "./links";
-import { ownAddress, rewrite, type Json } from "./network";
+import { on } from "./support/hosts";
+import { links } from "./support/links";
+import { ownAddress, rewrite, type Json } from "./support/network";
 import { demoSlug, runUrl, demoId } from "@clientbridge/config/e2e/run";
-import { watchErrors } from "./errors";
+import { watchErrors } from "./support/errors";
 
 const slug = demoSlug("birchbark");
 const shopPage = on("shop", `/${slug}`);

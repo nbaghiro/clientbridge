@@ -1,12 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { formatMoney, strings } from "@clientbridge/app-core/public";
 import { expect, type Locator, type Page } from "@playwright/test";
-import { bookingApi } from "../../web/e2e/support/bookings";
-import type { ClientFixture } from "../../web/e2e/support/clients";
-import { navigate } from "../../web/e2e/support/session";
-import { select } from "../../web/e2e/support/db";
-import { type ChargeEvidence, cardFrame, stripeHarness } from "./stripe-disputes";
-import { enterStripeCard } from "./stripe-provider";
+import { bookingApi } from "../../../../web/e2e/support/bookings";
+import type { ClientFixture } from "../../../../web/e2e/support/clients";
+import { navigate } from "../../../../web/e2e/support/session";
+import { select } from "../../../../web/e2e/support/db";
+import { type ChargeEvidence, cardFrame, stripeHarness } from "./disputes";
+import { enterStripeCard } from "./provider";
 
 export const DAY = 86_400;
 

@@ -1,5 +1,5 @@
 import { expect } from "@playwright/test";
-import type { DepositEvidence, DepositFixture } from "./stripe-deposit-contract";
+import type { DepositEvidence, DepositFixture } from "./depositContract";
 
 export type DepositStage =
     "collected" | "draft" | "applied" | "paid" | "deposit_refunded" | "cash_refunded";

@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { stripeHarness } from "./stripe-disputes";
+import { stripeHarness } from "./support/disputes";
 
 interface Reconciliation {
     drifted: number;

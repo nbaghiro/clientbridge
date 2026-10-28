@@ -10,17 +10,17 @@ import {
     stripeEvidence,
     submitStripeCard,
     unpaidStripeInvoice,
-} from "./stripe-provider";
-import { signIn } from "../../web/e2e/support/session";
-import { expectPaid, openInvoice } from "../../web/e2e/support/billing";
+} from "./support/provider";
+import { signIn } from "../../../web/e2e/support/session";
+import { expectPaid, openInvoice } from "../../../web/e2e/support/billing";
 import {
     controlStripeRelay,
     issueStripeInvoice,
     stripeReceipt,
     stripeReceiptEvidence,
-} from "./stripe-bridge";
-import { documentApi } from "./documents";
-import { receiptMessages } from "../../web/e2e/support/evidence";
+} from "./support/bridge";
+import { documentApi } from "../support/documents";
+import { receiptMessages } from "../../../web/e2e/support/evidence";
 import { runPort } from "@clientbridge/config/e2e/run";
 
 const authenticatedCard = "4000000000003220";

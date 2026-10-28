@@ -12,11 +12,11 @@ import {
     openDocument,
     saveDocument,
     type DocumentClient,
-} from "../../web/e2e/support/billing";
-import { textInbox } from "../../web/e2e/support/auth";
-import { paymentEvidence, receiptMessages } from "../../web/e2e/support/evidence";
-import { on } from "./hosts";
-import { registerStripeInvoice, stripeReady } from "./stripe-provider";
+} from "../../../../web/e2e/support/billing";
+import { textInbox } from "../../../../web/e2e/support/auth";
+import { paymentEvidence, receiptMessages } from "../../../../web/e2e/support/evidence";
+import { on } from "../../support/hosts";
+import { registerStripeInvoice, stripeReady } from "./provider";
 
 const execute = promisify(execFile);
 
@@ -94,7 +94,7 @@ export async function stripeReceiptEvidence(
         "uv",
         ["run", "python", "-m", "e2e.stripe", "browser", invoiceId, "--receipts"],
         {
-            cwd: fileURLToPath(new URL("../../../../backend", import.meta.url)),
+            cwd: fileURLToPath(new URL("../../../../../../backend", import.meta.url)),
             timeout: 60_000,
         },
     );

@@ -1,6 +1,6 @@
 import { defineConfig } from "@playwright/test";
 
-import { PORTS, on } from "./e2e/hosts";
+import { PORTS, on } from "./e2e/support/hosts";
 import { runPreview, runNamespace } from "@clientbridge/config/e2e/run";
 
 const port = PORTS.default;
@@ -10,12 +10,14 @@ const chromium = process.env.CI ? {} : { channel: "chrome" };
 const siteUrl = process.env.VITE_SITE_URL;
 const apiUrl = process.env.VITE_API_URL;
 const pageUrl = process.env.BUSINESS_PAGE_URL;
+const otherLanes = ["stripe/**", "smoke/**"];
 
 // Needs the API on :8701 over a migrated, seeded Postgres: `make up migrate seed dev-api` first.
 export default defineConfig({
     testDir: "e2e",
     outputDir: process.env.E2E_OUTPUT_DIR ?? "test-results",
     testMatch: "*.e2e.ts",
+    testIgnore: otherLanes,
     timeout: 120_000,
     forbidOnly: Boolean(process.env.CI),
     expect: { timeout: 15_000 },
@@ -33,7 +35,7 @@ export default defineConfig({
     projects: [
         {
             name: "default",
-            testIgnore: "pseudo.e2e.ts",
+            testIgnore: ["pseudo.e2e.ts", ...otherLanes],
             use: { ...chromium, baseURL: on("book", "") },
         },
         {
@@ -44,7 +46,7 @@ export default defineConfig({
         // the cases tagged @browsers carry the storage, navigation and payment risk
         ...(["firefox", "webkit"] as const).map((browserName) => ({
             name: browserName,
-            testIgnore: "pseudo.e2e.ts",
+            testIgnore: ["pseudo.e2e.ts", ...otherLanes],
             grep: /@browsers/,
             use: { browserName, baseURL: on("book", "") },
         })),

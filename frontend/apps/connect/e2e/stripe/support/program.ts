@@ -7,20 +7,16 @@ import {
     strings,
 } from "@clientbridge/app-core/public";
 import { expect, type Browser, type Frame, type Page } from "@playwright/test";
-import { bookingApi } from "../../web/e2e/support/bookings";
+import { bookingApi } from "../../../../web/e2e/support/bookings";
 import {
     apiCall,
     connectUrl,
     fillConnectDetails,
     onlineBooker,
     teamMember,
-} from "../../web/e2e/support/visit";
-import { enterStripeCard, stripeReady } from "./stripe-provider";
-import {
-    bindEnrolment,
-    registerEnrolmentClient,
-    type DepositFixture,
-} from "./stripe-deposit-contract";
+} from "../../../../web/e2e/support/visit";
+import { enterStripeCard, stripeReady } from "./provider";
+import { bindEnrolment, registerEnrolmentClient, type DepositFixture } from "./depositContract";
 import { demoSlug, runEmail } from "@clientbridge/config/e2e/run";
 
 const b = strings.publicBooking;

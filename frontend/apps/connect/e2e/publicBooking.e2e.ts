@@ -1,10 +1,10 @@
 import { strings } from "@clientbridge/app-core/public";
 import { expect, test, type Page } from "@playwright/test";
-import { on } from "./hosts";
-import { links } from "./links";
-import { ownAddress, rewrite } from "./network";
+import { on } from "./support/hosts";
+import { links } from "./support/links";
+import { ownAddress, rewrite } from "./support/network";
 import { demoSlug, runUrl, demoId } from "@clientbridge/config/e2e/run";
-import { watchErrors } from "./errors";
+import { watchErrors } from "./support/errors";
 
 /** Matches what a copy function renders before its first argument, whatever that argument is. */
 const prefixOf = (copy: (value: string) => string): RegExp =>
