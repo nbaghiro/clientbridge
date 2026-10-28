@@ -13,6 +13,7 @@ export default defineConfig({
         "stripe-payouts.spec.ts",
         "stripe-desk.spec.ts",
         "stripe-tabs.spec.ts",
+        "stripe-account.spec.ts",
     ],
     outputDir: process.env.E2E_OUTPUT_DIR ?? "test-results/stripe-provider",
     timeout: 180_000,
