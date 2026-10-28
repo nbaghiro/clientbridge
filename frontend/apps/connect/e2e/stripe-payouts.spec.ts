@@ -1,4 +1,4 @@
-import { formatMoney, strings } from "@clientbridge/app-core/public";
+import { CALENDAR, formatMoney, formatShortDay, strings } from "@clientbridge/app-core/public";
 import { expect, test, type Page } from "@playwright/test";
 import { demoId, runPort } from "@clientbridge/config/e2e/run";
 import { select } from "../../web/e2e/support/db";
@@ -206,8 +206,13 @@ test.describe("payouts", () => {
                     .reduce((sum, leg) => sum + leg.amount_cents, 0);
                 expect(transit).toBe(0);
 
+                const paid = await merchant<StripePayout>("payout", payoutId);
+                const arrivalDay = new Date(paid.arrival_date * 1000).toISOString().slice(0, 10);
                 await page.reload();
                 await expect(row).toContainText(p.status.paid, { timeout: 60_000 });
+                await expect(row).toContainText(
+                    p.arrived(formatShortDay(new Date(paid.arrival_date * 1000), CALENDAR)),
+                );
                 await expect
                     .poll(() => depositedCents(page), { timeout: 60_000 })
                     .toBe(depositedBefore + net);
@@ -220,18 +225,14 @@ test.describe("payouts", () => {
                 )?.journal_id;
                 const deposits = await bankDeposits(page, info, "bank-deposits");
                 const arrival = await select<{ day: string }>`
-                    SELECT to_char(available_at AT TIME ZONE 'America/Vancouver', 'YYYY-MM-DD') AS day
+                    SELECT to_char(available_at AT TIME ZONE 'UTC', 'YYYY-MM-DD') AS day
                     FROM entries WHERE journal_id = ${paidJournal ?? ""} AND business_id = ${demoId("bz_birchbark")}
                     LIMIT 1`;
-                expect(deposits).toContainEqual([
-                    paidJournal,
-                    arrival[0]?.day,
-                    String(net),
-                    "paid",
-                ]);
+                expect(arrival[0]?.day).toBe(arrivalDay);
+                expect(deposits).toContainEqual([paidJournal, arrivalDay, String(net), "paid"]);
                 await info.attach("payout-settled", {
                     body: JSON.stringify({
-                        payout: await merchant<StripePayout>("payout", payoutId),
+                        payout: paid,
                         journals,
                         formatted: formatMoney(net, "CAD"),
                     }),

@@ -1127,7 +1127,6 @@ Size: S · Area: Money, tax and staff pay
 
 **To do:**
 
-- STR-E08's steps after its manual payout, from closing Stripe's confirmation to Bank deposits, once the sandbox payout it made has arrived ([Payments and Stripe](payments.md#sandbox-verification-record-2026-10-27)).
 - A browser test of a bank change in account management, to confirm who can pass Stripe's sign-in.
 
 **QA:**

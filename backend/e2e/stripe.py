@@ -2418,6 +2418,10 @@ def stack_main(argv: list[str]) -> int:
                 run_lane(args, directory, lease)
     except BaseException as error:
         print(f"Stripe browser run did not complete: {type(error).__name__}", file=sys.stderr)
+        if isinstance(error, subprocess.CalledProcessError):
+            print(f"failed command: {' '.join(map(str, error.cmd))}", file=sys.stderr)
+            if error.stderr:
+                print(error.stderr, file=sys.stderr)
         return 1
     return 0
 

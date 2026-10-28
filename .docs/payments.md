@@ -329,7 +329,9 @@ view-model.
 A payout moves through a `transit` account. `payout.created` posts `transit + / stripe −`, keyed by
 `payout:<id>` and dated when Stripe created it, because Stripe's balance drops then. `payout.paid` posts
 `bank + / transit −`, keyed by `payout:<id>:paid` and dated at the arrival date, so a payout counts as
-deposited only once Stripe says it arrived. A paid event that arrives before the creation books both, and
+deposited only once Stripe says it arrived. Stripe sends `arrival_date` as a calendar day at midnight UTC,
+so the Payouts page and the payouts CSV show that day in UTC. Reports that group by month in the business
+zone still place a payout arriving on the 1st in the month before, for zones west of UTC. A paid event that arrives before the creation books both, and
 replays book nothing new. A failed or canceled payout reverses whichever of the two journals exist,
 dated at the failure (`payout:<id>:failed` and `payout:<id>:paid:failed`); if the failure arrives first,
 the handler creates and reverses the original so a late creation or paid event can't resurrect it. The
@@ -693,9 +695,8 @@ the setup script prints the demo account ID. Follow the [test tiers](engineering
 for the complete harness and prerequisites. A green fake/contract suite is not a live payout sign-off.
 
 The Stripe browser lane ([test tiers](engineering.md#stripe-four-tiers-layered-by-cost)) runs each money
-flow against the sandbox's QA merchants. Two checks are still open: STR-E08's steps after its manual payout
-(closing Stripe's confirmation through to Bank deposits), which can run once the payout below has arrived,
-and a browser test of a bank change in account management (check 9 below).
+flow against the sandbox's QA merchants. One check is still open: a browser test of a bank change in
+account management (check 9 below).
 
 Manual sandbox pass:
 
@@ -763,6 +764,11 @@ The browser lane's STR-E08 made the funded manual payout the record above still 
 the QA merchant to a manual schedule in the embedded component, it paid out exactly its run's net
 (`po_1UVH2kFGqw0VgMVoe6SLqkyp`, CAD 18.90). Stripe's component hides the schedule and Pay out while a
 payout is on its way, so that case can run about once a day.
+
+On 2026-10-28 STR-E08 ran end to end (`po_1UVVhCFGqw0VgMVoRgmoxIVw`, CAD 18.90): the payout went to
+transit, stayed out of Deposited while in transit, then moved to the bank when Stripe marked it paid, with
+transit back at zero. That run showed the Payouts page dating the payout a day before Stripe's
+`arrival_date` in a zone west of UTC; the page now shows Stripe's day, matching the payouts CSV.
 
 ## Troubleshooting
 
