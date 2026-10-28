@@ -245,10 +245,16 @@ export async function fillDocumentLine(
     price: string,
     tax: "standard" | "federal_only" | "exempt",
 ): Promise<void> {
-    await editor
-        .getByRole("textbox", { name: strings.billing.description, exact: true })
-        .nth(index)
-        .fill(description);
+    const descriptions = editor.getByRole("textbox", {
+        name: strings.billing.description,
+        exact: true,
+    });
+    // A new document starts with no lines, so the first custom line is added here.
+    if ((await descriptions.count()) <= index)
+        await editor
+            .getByRole("button", { name: strings.billing.addCustomLine, exact: true })
+            .click();
+    await descriptions.nth(index).fill(description);
     await editor
         .getByRole("textbox", { name: strings.billing.qty, exact: true })
         .nth(index)

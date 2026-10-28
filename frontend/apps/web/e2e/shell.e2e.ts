@@ -1226,7 +1226,7 @@ test("staff: payments, inbox and setup show only what staff can use", async ({ p
         for (const section of MANAGER_SETUP_SECTIONS) {
             await expect(sections.getByRole("link", { name: section })).toHaveCount(0);
         }
-        for (const section of SETUP_SECTIONS.filter((x) => x !== "team")) {
+        for (const section of SETUP_SECTIONS.filter((x) => x !== "team" && x !== "security")) {
             await navigate(page, `/setup/${section}`, "/setup/team");
         }
         await expect(

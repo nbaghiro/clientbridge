@@ -112,7 +112,7 @@ test.describe(() => {
                 email: runEmail("owner@cedarcoast.example"),
                 password: "demo1234",
             });
-            await navigate(page, "/setup/plan");
+            await navigate(page, "/setup/security");
             const choose = page.getByRole("button", {
                 name: strings.plans.choose(strings.plans.team),
                 exact: true,
