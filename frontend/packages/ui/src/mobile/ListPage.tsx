@@ -1,4 +1,4 @@
-import { type ListPageProps, strings } from "@clientbridge/app-core";
+import { formatParts, type ListPageProps, strings } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 
@@ -8,6 +8,7 @@ import { Icon } from "./Icon";
 import { PageHeader } from "./PageHeader";
 import type { NativeProps } from "./props";
 import { SearchField } from "./SearchField";
+import { Select } from "./Select";
 import { Skeleton } from "./Skeleton";
 import { Tabs } from "./Tabs";
 
@@ -16,6 +17,7 @@ const c = theme.colors;
 export function ListPage<T, K extends string = string>({
     title,
     summary,
+    alert,
     action,
     accessory,
     segments,
@@ -56,16 +58,24 @@ export function ListPage<T, K extends string = string>({
                 <PageHeader
                     style={styles.header}
                     title={title}
-                    subtitle={summary}
+                    subtitle={alert !== undefined ? formatParts([summary, alert]) : summary}
                     actions={actions}
                 />
             ) : summary !== undefined || actions !== undefined ? (
                 <View style={[styles.header, styles.bare]}>
-                    <Text style={styles.summary}>{summary}</Text>
+                    <Text style={styles.summary}>
+                        {summary}
+                        {alert !== undefined ? (
+                            <Text style={styles.alert}>
+                                {strings.common.separator}
+                                {alert}
+                            </Text>
+                        ) : null}
+                    </Text>
                     {actions}
                 </View>
             ) : null}
-            {segments !== undefined ? (
+            {segments !== undefined && segments.layout !== "menu" ? (
                 <Tabs
                     variant="pill"
                     items={[...segments.items]}
@@ -73,13 +83,26 @@ export function ListPage<T, K extends string = string>({
                     onSelect={segments.onSelect}
                 />
             ) : null}
-            {search !== undefined ? (
-                <View style={styles.searchWrap}>
-                    <SearchField
-                        value={search.value}
-                        onChange={search.onChange}
-                        placeholder={search.placeholder}
-                    />
+            {search !== undefined || segments?.layout === "menu" ? (
+                <View style={[styles.searchWrap, styles.searchRow]}>
+                    {search !== undefined ? (
+                        <SearchField
+                            style={styles.search}
+                            value={search.value}
+                            onChange={search.onChange}
+                            placeholder={search.placeholder}
+                        />
+                    ) : null}
+                    {segments?.layout === "menu" ? (
+                        <Select
+                            name={segments.label ?? strings.ui.listShow}
+                            size="sm"
+                            width="auto"
+                            options={segments.items}
+                            value={segments.active}
+                            onChange={segments.onSelect}
+                        />
+                    ) : null}
                 </View>
             ) : null}
             <FlatList
@@ -163,7 +186,10 @@ const styles = StyleSheet.create({
         paddingVertical: 6,
     },
     actionText: { color: c.accentInk, fontFamily: theme.fonts.ui, fontSize: 13, fontWeight: "600" },
+    alert: { color: c.danFg, fontWeight: "600" },
     searchWrap: { marginHorizontal: 20, marginTop: 10, marginBottom: 8 },
+    searchRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+    search: { flex: 1 },
     list: { paddingHorizontal: 20, paddingBottom: 24 },
     head: { paddingTop: 8 },
     headText: {

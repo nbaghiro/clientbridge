@@ -10,6 +10,7 @@ import {
     useCatalogItems,
     useClients,
     useDocComposer,
+    useDocDraft,
     useLetterhead,
     formatParts,
     BUSINESS_CURRENCY,
@@ -42,7 +43,7 @@ import { DiscountForm } from "./SaleTicket";
 const c = theme.colors;
 const s = strings.billing;
 
-export interface DocEditorProps {
+interface DocFormProps {
     kind: "invoice" | "estimate";
     draft?: DocDraft | undefined;
     // A new document's client, when it is started from that client.
@@ -50,7 +51,37 @@ export interface DocEditorProps {
     onClose: () => void;
 }
 
-export function DocEditor({ kind, draft, clientId, onClose }: DocEditorProps) {
+/** A new invoice or estimate, or a saved one once its draft loads. */
+export function DocEditor({
+    kind,
+    id,
+    clientId,
+    onClose,
+}: {
+    kind: "invoice" | "estimate";
+    id: string | undefined;
+    clientId: string | undefined;
+    onClose: () => void;
+}) {
+    if (id === undefined) return <DocForm kind={kind} clientId={clientId} onClose={onClose} />;
+    return <SavedDoc kind={kind} id={id} onClose={onClose} />;
+}
+
+function SavedDoc({
+    kind,
+    id,
+    onClose,
+}: {
+    kind: "invoice" | "estimate";
+    id: string;
+    onClose: () => void;
+}) {
+    const draft = useDocDraft(kind, id);
+    if (draft === null) return null;
+    return <DocForm kind={kind} draft={draft} onClose={onClose} />;
+}
+
+function DocForm({ kind, draft, clientId, onClose }: DocFormProps) {
     const clients = useClients();
     const items = useCatalogItems();
     const catalog = useMemo(() => sellableItems(items), [items]);

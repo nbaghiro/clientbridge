@@ -6,15 +6,14 @@ import {
     minuteTop,
     offHourSpans,
     placeEvents,
+    openRecord,
     strings,
-    useBookingActions,
     useBookingComposer,
-    useBookingDetail,
     useBookingStart,
     useMoveEvent,
     usePeoplePhotos,
+    useOpenRecord,
     useScheduleBoard,
-    formatParts,
     useBusinessZone,
     minutesInto,
     dateKey,
@@ -24,9 +23,7 @@ import {
 import {
     Avatar,
     Button,
-    DetailView,
     Empty,
-    IconButton,
     LoadFailed,
     Modal,
     Notice,
@@ -35,8 +32,8 @@ import {
 } from "@clientbridge/ui";
 import { type PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from "react";
 
-import { BookingActionBar, BookingBody, BookingHeading } from "../components/BookingPanel";
-import { BookingComposer, RescheduleDialog } from "../components/BookingComposer";
+import { BookingComposer } from "../components/BookingComposer";
+import { BookingRecord } from "../components/BookingRecord";
 import {
     BlockCard,
     CalendarToolbar,
@@ -74,11 +71,9 @@ export function Schedule() {
     const lanesRef = useRef<HTMLDivElement>(null);
     const [composer, setComposer] = useState<ComposerSlot | null>(null);
     const [hover, setHover] = useState<{ lane: string; min: number } | null>(null);
-    const [moving, setMoving] = useState(false);
     const [linked, setLinked] = useState<string | null>(null);
-    const detail = useBookingDetail(board.selected, board.now);
-    const actions = useBookingActions(api, detail?.event ?? null, board.now);
     const linkedStart = useBookingStart(linked);
+    const openId = useOpenRecord("booking");
     const form = useBookingComposer(api, composer, board, () => {
         setComposer(null);
     });
@@ -117,17 +112,25 @@ export function Schedule() {
         });
     };
     useLinkIntent({ onCreate: openNew, onOpen: setLinked });
-    const { setAnchor, select: selectId } = board;
+    const { setAnchor, select: selectId, selectedId } = board;
     useEffect(() => {
         if (linked === null || linkedStart === null) return;
         setAnchor(linkedStart);
-        selectId(linked);
+        if (wide) selectId(linked);
+        else openRecord("booking", linked);
         setLinked(null);
-    }, [linked, linkedStart, setAnchor, selectId]);
+    }, [linked, linkedStart, wide, setAnchor, selectId]);
+    // The side rail holds the open visit only while it fits; narrower, it opens over the page.
+    useEffect(() => {
+        if (wide || selectedId === null) return;
+        openRecord("booking", selectedId);
+        selectId(null);
+    }, [wide, selectedId, selectId]);
 
     const select = (e: ScheduleEvent): void => {
         setComposer(null);
-        board.select(e.id);
+        if (wide) board.select(e.id);
+        else openRecord("booking", e.id);
     };
     const hoverAt = (lane: string) => (e: ReactPointerEvent<HTMLDivElement>) => {
         if (e.target !== e.currentTarget) {
@@ -152,24 +155,13 @@ export function Schedule() {
                 setComposer(null);
             }}
         />
-    ) : detail ? (
-        <div className="flex h-full min-h-0 flex-col">
-            <div className="flex items-start justify-between gap-3 border-b border-line px-5 py-4">
-                <BookingHeading detail={detail} />
-                <IconButton size="sm" icon="x" label={s.close} onPress={closeDetail} />
-            </div>
-            <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-5 py-4">
-                <BookingBody detail={detail} narrow />
-            </div>
-            <div className="border-t border-line px-5 py-3">
-                <BookingActionBar
-                    actions={actions}
-                    onReschedule={() => {
-                        setMoving(true);
-                    }}
-                />
-            </div>
-        </div>
+    ) : board.selectedId !== null ? (
+        <BookingRecord
+            key={board.selectedId}
+            id={board.selectedId}
+            variant="inline"
+            onClose={closeDetail}
+        />
     ) : (
         <div className="h-full overflow-y-auto">
             <ScheduleRail board={board} />
@@ -316,7 +308,10 @@ export function Schedule() {
                                                         verdict={mover.verdict}
                                                         pxPerMin={pxPerMin}
                                                         laneWidth={laneWidth()}
-                                                        selected={board.selectedId === p.event.id}
+                                                        selected={
+                                                            board.selectedId === p.event.id ||
+                                                            openId === p.event.id
+                                                        }
                                                         onSelect={select}
                                                         clickAllowed={grid.clickAllowed}
                                                     />
@@ -402,43 +397,6 @@ export function Schedule() {
                 ) : null}
             </div>
 
-            <Modal
-                flow
-                framed={false}
-                size="lg"
-                open={Boolean(detail) && (!wide || moving)}
-                onClose={() => {
-                    if (moving) setMoving(false);
-                    else closeDetail();
-                }}
-            >
-                {!wide && detail ? (
-                    <DetailView
-                        open={!moving}
-                        title={detail.event.headline}
-                        subtitle={formatParts([detail.event.serviceName, detail.event.timeLabel])}
-                        onClose={closeDetail}
-                        actions={
-                            <BookingActionBar
-                                actions={actions}
-                                onReschedule={() => {
-                                    setMoving(true);
-                                }}
-                            />
-                        }
-                    >
-                        <BookingBody detail={detail} withStatus />
-                    </DetailView>
-                ) : null}
-                {moving && detail ? (
-                    <RescheduleDialog
-                        event={detail.event}
-                        onClose={() => {
-                            setMoving(false);
-                        }}
-                    />
-                ) : null}
-            </Modal>
             {!wide && composer ? (
                 <Modal
                     variant="drawer"

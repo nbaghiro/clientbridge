@@ -17,10 +17,9 @@ import {
     offHourSpans,
     placeEvents,
     strings,
-    useBookingActions,
+    openRecord,
     useBookingComposer,
-    useBookingDetail,
-    useBookingStart,
+    useOpenRecord,
     usePeoplePhotos,
     useScheduleBoard,
     formatParts,
@@ -38,7 +37,6 @@ import {
     Button,
     CalendarEventCard,
     DateStrip,
-    DetailView,
     Empty,
     Icon,
     IconButton,
@@ -53,22 +51,17 @@ import {
     useTabletLayout,
     Badge,
 } from "@clientbridge/ui";
-import { type RouteProp, useNavigation, useRoute } from "@react-navigation/native";
+import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { PanResponder, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import {
-    BookingActionBar,
-    BookingBody,
-    BookingComposerSheet,
-    RescheduleSheet,
-} from "../components/BookingSheet";
+import { BookingComposerSheet } from "../components/BookingSheet";
 import { ScheduleRail } from "../components/ScheduleRail";
 import { api } from "../lib/api";
 import { useViewer } from "../lib/auth";
-import type { RootStackParamList, TabParamList } from "../navigation";
+import type { RootStackParamList } from "../navigation";
 
 const c = theme.colors;
 const s = strings.bookings;
@@ -109,11 +102,9 @@ export function ScheduleScreen() {
     const kind = useSubjectKind();
     const viewer = useViewer();
     const nav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-    const route = useRoute<RouteProp<TabParamList, "Schedule">>();
     const board = useScheduleBoard(viewer);
     const day = board.focus;
-    const detail = useBookingDetail(board.selected, board.now);
-    const actions = useBookingActions(api, detail?.event ?? null, board.now);
+    const openId = useOpenRecord("booking");
     const [composer, setComposer] = useState<ComposerSlot | null>(null);
     const [expanded, setExpanded] = useState(true);
     const [dragging, setDragging] = useState(false);
@@ -137,7 +128,6 @@ export function ScheduleScreen() {
     const hourPx = Math.max(MIN_HOUR, (viewport - GRID_PAD) / Math.max(1, endHour - startHour));
     const px = hourPx / 60;
     const draftTop = draft === null ? 0 : minuteTop(draft.start, startHour, px, zone);
-    const [moving, setMoving] = useState(false);
     const hours = hourMarks(startHour, endHour);
     const waiting = board.load.state === "loading" || board.load.state === "error";
     const openNew = (): void => {
@@ -154,7 +144,6 @@ export function ScheduleScreen() {
             form.place(staffId, at);
             return;
         }
-        board.select(null);
         setExpanded(true);
         setComposer({ staffId, start: at });
     };
@@ -162,14 +151,6 @@ export function ScheduleScreen() {
         setExpanded(false);
         scroll.current?.scrollTo({ y: Math.max(0, draftTop - 96), animated: true });
     };
-    const open = route.params?.open ?? null;
-    const openStart = useBookingStart(open);
-    const { setAnchor, select } = board;
-    useEffect(() => {
-        if (open === null || openStart === null) return;
-        setAnchor(openStart);
-        select(open);
-    }, [open, openStart, setAnchor, select]);
 
     const composerSheet = (
         <BookingComposerSheet
@@ -593,13 +574,13 @@ export function ScheduleScreen() {
                                                             }
                                                             flags={eventFlags(p.event).slice(0, 2)}
                                                             state={
-                                                                board.selectedId === p.event.id
+                                                                openId === p.event.id
                                                                     ? "selected"
                                                                     : "idle"
                                                             }
                                                             label={eventLabelFor(p.event)}
                                                             onPress={() => {
-                                                                board.select(p.event.id);
+                                                                openRecord("booking", p.event.id);
                                                             }}
                                                         />
                                                     </View>
@@ -667,45 +648,6 @@ export function ScheduleScreen() {
                     {tablet ? composer ? composerSheet : <ScheduleRail board={board} /> : null}
                 </View>
             </View>
-            <Modal
-                flow
-                framed={false}
-                size="xl"
-                open={detail !== null}
-                onClose={() => {
-                    if (moving) setMoving(false);
-                    else board.select(null);
-                }}
-            >
-                {detail ? (
-                    <DetailView
-                        open={!moving}
-                        title={detail.event.headline}
-                        subtitle={detail.event.serviceName}
-                        onClose={() => {
-                            board.select(null);
-                        }}
-                        actions={
-                            <BookingActionBar
-                                actions={actions}
-                                onReschedule={() => {
-                                    setMoving(true);
-                                }}
-                            />
-                        }
-                    >
-                        <BookingBody detail={detail} />
-                    </DetailView>
-                ) : null}
-                {moving && detail ? (
-                    <RescheduleSheet
-                        event={detail.event}
-                        onClose={() => {
-                            setMoving(false);
-                        }}
-                    />
-                ) : null}
-            </Modal>
             {!tablet && composer ? composerSheet : null}
         </SafeAreaView>
     );

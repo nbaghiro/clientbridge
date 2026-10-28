@@ -428,6 +428,9 @@
     "ui.listErrorBody": {
         "message": "[Çĥéçķ ýöûŕ çöññéçţîöñ, ţĥéñ ţŕý åĝåîñ. one two three]"
     },
+    "ui.listShow": {
+        "message": "[Šĥöŵ one]"
+    },
     "ui.retry": {
         "message": "[Ţŕý åĝåîñ one]"
     },
@@ -665,32 +668,11 @@
     "billing.segmentCount": {
         "message": "{label} {n, number}"
     },
-    "billing.statOutstanding": {
-        "message": "[Öûţšţåñðîñĝ one two]"
-    },
-    "billing.statOutstandingHint": {
-        "message": "[{n,plural,one{# îñṽöîçé} other{# îñṽöîçéš}} one two]"
-    },
-    "billing.statOverdue": {
-        "message": "[Öṽéŕðûé one]"
-    },
-    "billing.statOverdueHint": {
-        "message": "[{n,plural,one{# îñṽöîçé} other{# îñṽöîçéš} =0{Ñöţĥîñĝ öṽéŕðûé}} one two three]"
-    },
-    "billing.statPaid": {
-        "message": "[Þåîð, ļåšţ 30 ðåýš one two]"
-    },
-    "billing.statPaidHint": {
-        "message": "[{n,plural,one{# îñṽöîçé šéţţļéð} other{# îñṽöîçéš šéţţļéð}} one two three]"
-    },
-    "billing.statDrafts": {
-        "message": "[Đŕåƒţš one]"
-    },
-    "billing.statDraftsHint": {
-        "message": "[{n,plural,one{# ðŕåƒţ ţö šéñð} other{# ðŕåƒţš ţö šéñð} =0{Ñöţĥîñĝ ŵåîţîñĝ}} one two three]"
-    },
     "billing.summary": {
         "message": "[{n,plural,one{# îñṽöîçé} other{# îñṽöîçéš}} · {owed} öûţšţåñðîñĝ one two three]"
+    },
+    "billing.overdueAmount": {
+        "message": "[{owed} öṽéŕðûé one]"
     },
     "billing.estimatesSummary": {
         "message": "[{n,plural,one{# éšţîɱåţé} other{# éšţîɱåţéš}} · {open} ŵåîţîñĝ öñ çļîéñţš one two three]"
@@ -2297,6 +2279,9 @@
     "entitlements.segments.membership": {
         "message": "[Þļåñš one]"
     },
+    "entitlements.deskSummary": {
+        "message": "[{gift} öñ ĝîƒţ çåŕðš · {unused} ûñûšéð îñ þåçķåĝéš · {monthly} å ɱöñţĥ ƒŕöɱ þļåñš one two three four]"
+    },
     "entitlements.segmentCount": {
         "message": "{label} {count, number}"
     },
@@ -2800,6 +2785,12 @@
     },
     "bookings.loading": {
         "message": "[Ļöåðîñĝ ţĥé šçĥéðûļé one two]"
+    },
+    "bookings.recordMissingTitle": {
+        "message": "[Ṽîšîţ ñöţ åṽåîļåƀļé one two]"
+    },
+    "bookings.recordMissing": {
+        "message": "[Ţĥîš ṽîšîţ çåñ'ţ ƀé šĥöŵñ. Îţ ɱåý ĥåṽé ƀééñ çåñçéļéð, öŕ îţ'š öļðéŕ ţĥåñ ţĥé ṽîšîţš ţĥîš ðéṽîçé ķééþš. one two three four five six seven]"
     },
     "bookings.loadError": {
         "message": "[Çöûļðñ'ţ ļöåð ţĥé šçĥéðûļé one two three]"

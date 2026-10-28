@@ -38,7 +38,7 @@ const styles = StyleSheet.create({
         width: "100%",
         maxWidth: theme.layout.frame,
         alignSelf: "center",
-        marginTop: theme.layout.gutter / 4,
+        marginTop: theme.layout.gutter,
         marginBottom: theme.layout.gutter / 2,
         paddingHorizontal: theme.layout.gutter / 2,
     },

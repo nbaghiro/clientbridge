@@ -118,13 +118,26 @@ type NotificationCategory = "bookings" | "payments" | "messages";
 
 const META: Record<
     NotificationKind,
-    { category: NotificationCategory; icon: IconName; intent: Intent; link: ShellTarget }
+    {
+        category: NotificationCategory;
+        icon: IconName;
+        intent: Intent;
+        link: ShellTarget;
+        // the link opens this row's own record
+        withId?: true;
+    }
 > = {
     payment: { category: "payments", icon: "dollar", intent: "success", link: "payments" },
     deposit: { category: "payments", icon: "dollar", intent: "success", link: "schedule" },
     refund: { category: "payments", icon: "refresh", intent: "neutral", link: "payments" },
     order_new: { category: "payments", icon: "bag", intent: "accent", link: "orders" },
-    booking_new: { category: "bookings", icon: "calendar", intent: "accent", link: "schedule" },
+    booking_new: {
+        category: "bookings",
+        icon: "calendar",
+        intent: "accent",
+        link: "booking",
+        withId: true,
+    },
     booking_canceled: {
         category: "bookings",
         icon: "calendar",
@@ -132,7 +145,13 @@ const META: Record<
         link: "schedule",
     },
     message: { category: "messages", icon: "inbox", intent: "accent", link: "inbox" },
-    invoice_overdue: { category: "payments", icon: "receipt", intent: "danger", link: "invoice" },
+    invoice_overdue: {
+        category: "payments",
+        icon: "receipt",
+        intent: "danger",
+        link: "invoice",
+        withId: true,
+    },
 };
 
 interface NotificationItem {
@@ -148,6 +167,7 @@ interface NotificationItem {
     read: boolean;
     link: ShellTarget;
     refId: string;
+    linkId: string | null;
 }
 
 interface NotificationGroup {
@@ -194,11 +214,12 @@ function notificationItems(
     return rows
         .map((row) => {
             const at = parseTimestamp(row.at);
-            const meta = META[row.kind];
+            const { withId, ...meta } = META[row.kind];
             return {
                 id: row.id,
                 kind: row.kind,
                 ...meta,
+                linkId: withId ? row.ref_id : null,
                 ...describeRow(row, zone),
                 when: stampLabel(at, zone, now),
                 at,

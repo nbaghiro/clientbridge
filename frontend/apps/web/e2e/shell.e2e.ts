@@ -4,7 +4,7 @@ import { demoId, runEmail, runUrl } from "@clientbridge/config/e2e/run";
 import { expect, type Locator, type Page } from "@playwright/test";
 import { test } from "./support/session";
 import { offsiteLoadFailure } from "./support/shell";
-import { createInvoice, openInvoice } from "./support/billing";
+import { createInvoice, openInvoice, showOnly } from "./support/billing";
 import {
     bookingApi,
     cancelOwnedBooking,
@@ -630,13 +630,8 @@ test("owner: payments desk, records and their dialogs", async ({ page }) => {
     await walk.step("invoices: segments and new invoice", async () => {
         await navigate(page, "/payments/invoices");
         await openAndClose(page, /new invoice/i);
-        for (const label of Object.values(s.segments)) {
-            await main
-                .getByRole("button", { name: startsWith(label) })
-                .first()
-                .click();
-        }
-        await main.getByRole("button", { name: startsWith(s.segments.open) }).click();
+        for (const label of Object.values(s.segments)) await showOnly(page, startsWith(label));
+        await showOnly(page, startsWith(s.segments.open));
     });
 
     await walk.step("invoice record: payment, PDF and void", async () => {
@@ -663,14 +658,10 @@ test("owner: payments desk, records and their dialogs", async ({ page }) => {
     await walk.step("estimates: segments, record and convert", async () => {
         await main.getByText(s.estimates, { exact: true }).first().click();
         await openAndClose(page, /new estimate/i);
-        for (const label of Object.values(s.estimateSegments)) {
-            await main
-                .getByRole("button", { name: startsWith(label) })
-                .first()
-                .click();
-        }
+        for (const label of Object.values(s.estimateSegments))
+            await showOnly(page, startsWith(label));
         // a waiting estimate can still be converted; an accepted one may already be
-        await main.getByRole("button", { name: startsWith(s.estimateSegments.sent) }).click();
+        await showOnly(page, startsWith(s.estimateSegments.sent));
         await main.locator("button.block").first().click();
         const record = page.getByRole("dialog");
         await cancelConfirm(page, record.getByRole("button", { name: s.convert }), s.convertTitle);
@@ -796,10 +787,12 @@ test("owner: inbox messages, reviews, broadcasts, forms and contracts", async ({
         const details = main.getByRole("complementary", { name: m.details });
         await expect(details).toBeVisible();
         await details.getByRole("button", { name: m.openRecord }).click();
-        const record = main.getByRole("complementary", { name: strings.clients.record.pane });
+        const record = page.getByRole("dialog");
         await expect(
             record.getByRole("button", { name: strings.clients.record.addNote }),
         ).toBeVisible();
+        await page.keyboard.press("Escape");
+        await expect(details).toBeVisible();
     });
 
     await walk.step("reviews: Google connection required", async () => {

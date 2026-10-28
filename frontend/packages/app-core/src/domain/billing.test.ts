@@ -301,7 +301,7 @@ describe("invoice status and stats", () => {
         );
     });
 
-    it("totals what is outstanding, overdue, paid in the last 30 days and still in draft", () => {
+    it("totals the balance outstanding and overdue", () => {
         const daysAgo = (n: number): string =>
             zonedDate(2026, 10, 7 - n, 12, 0, ZONE).toISOString();
         const rows = [
@@ -324,17 +324,8 @@ describe("invoice status and stats", () => {
             }),
             invoice({ id: "void", status: "void", balance_cents: 0 }),
         ].map((r) => listRow(r, ZONE, now));
-        expect(invoiceStats(rows, ZONE, now)).toEqual({
-            outstandingCents: 8000,
-            outstandingCount: 2,
-            overdueCents: 5000,
-            overdueCount: 1,
-            paid30Cents: 10000,
-            paid30Count: 1,
-            draftCents: 7000,
-            draftCount: 1,
-        });
-        expect(invoiceStats([], ZONE, now).outstandingCents).toBe(0);
+        expect(invoiceStats(rows)).toEqual({ outstandingCents: 8000, overdueCents: 5000 });
+        expect(invoiceStats([]).outstandingCents).toBe(0);
     });
 });
 

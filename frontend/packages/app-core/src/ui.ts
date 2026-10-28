@@ -25,6 +25,9 @@ interface ListSegments<K extends string> {
     items: readonly { key: K; label: string }[];
     active: K;
     onSelect: (key: K) => void;
+    // "menu" folds the segments into a compact dropdown beside the search.
+    layout?: "segmented" | "menu" | undefined;
+    label?: string | undefined;
 }
 
 interface ListSearch {
@@ -36,6 +39,8 @@ interface ListSearch {
 export interface ListPageProps<T, K extends string = string> {
     title?: string | undefined;
     summary?: string | undefined;
+    // A warning after the summary, in the danger colour.
+    alert?: string | undefined;
     action?: UiAction | undefined;
     accessory?: ReactNode | undefined;
     segments?: ListSegments<K> | undefined;

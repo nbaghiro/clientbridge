@@ -51,7 +51,7 @@ function NotificationList({ view, onOpen }: { view: NotificationsView; onOpen: (
                                 onPress={() => {
                                     view.markRead(n.id);
                                     onOpen();
-                                    openLink(n.link, n.kind === "invoice_overdue" ? n.refId : null);
+                                    openLink(n.link, n.linkId);
                                 }}
                             />
                         ))}

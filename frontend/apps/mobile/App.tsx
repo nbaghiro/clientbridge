@@ -1,3 +1,4 @@
+import { NavigationBar } from "expo-navigation-bar";
 import { StatusBar } from "expo-status-bar";
 import { type ReactElement, type ReactNode, useCallback } from "react";
 import {
@@ -35,6 +36,7 @@ import { TaskHost } from "./src/components/TaskHost";
 import { api, identity, onSignedOut, selectBusiness } from "./src/lib/api";
 import { clearSession, getSession, rememberUser, signIn } from "./src/lib/auth";
 import { stripePublishableKey } from "./src/lib/config";
+import { isTablet } from "./src/lib/device";
 import { connectPowerSync, replica, signOut } from "./src/lib/powersync";
 import { registerForPush, unregisterFromPush, usePushTaps } from "./src/lib/push";
 import { useOpenLink } from "./src/lib/links";
@@ -107,7 +109,9 @@ function Tabs() {
 export function App() {
     return (
         <SafeAreaProvider onLayout={revealApp}>
-            <StatusBar style="dark" />
+            {/* tablets run full screen; a swipe from the edge brings the bars back for a moment */}
+            <StatusBar style="dark" hidden={isTablet} />
+            <NavigationBar hidden={isTablet} />
             <Root />
             <ConfirmHost />
         </SafeAreaProvider>

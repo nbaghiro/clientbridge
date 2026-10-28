@@ -159,6 +159,7 @@ interface Strings {
         readonly cardFallback: string;
         readonly listError: string;
         readonly listErrorBody: string;
+        readonly listShow: string;
         readonly retry: string;
         readonly retrying: string;
         readonly searchOptions: string;
@@ -244,15 +245,8 @@ interface Strings {
             readonly void: string;
         } & Labels;
         readonly segmentCount: (label: string, n: number) => string;
-        readonly statOutstanding: string;
-        readonly statOutstandingHint: (n: number) => string;
-        readonly statOverdue: string;
-        readonly statOverdueHint: (n: number) => string;
-        readonly statPaid: string;
-        readonly statPaidHint: (n: number) => string;
-        readonly statDrafts: string;
-        readonly statDraftsHint: (n: number) => string;
         readonly summary: (n: number, owed: string) => string;
+        readonly overdueAmount: (owed: string) => string;
         readonly estimatesSummary: (n: number, open: string) => string;
         readonly emptyInvoicesTitle: string;
         readonly emptyInvoicesBody: string;
@@ -823,6 +817,7 @@ interface Strings {
             readonly package: string;
             readonly membership: string;
         } & Labels;
+        readonly deskSummary: (gift: string, unused: string, monthly: string) => string;
         readonly segmentCount: (label: string, count: number) => string;
         readonly search: string;
         readonly colItem: string;
@@ -1003,6 +998,8 @@ interface Strings {
         readonly dayVisits: string;
         readonly noBookings: string;
         readonly loading: string;
+        readonly recordMissingTitle: string;
+        readonly recordMissing: string;
         readonly loadError: string;
         readonly timeUntil: (hours: number, minutes: number) => string;
         readonly statusLabel: (status: string) => string;

@@ -22,7 +22,7 @@ export function PaymentsScreen() {
     const [tab, setTab] = useState<PaymentsTabKey>(params?.tab ?? "invoices");
     useEffect(() => {
         if (params?.tab !== undefined) setTab(params.tab);
-    }, [params?.tab, params?.open]);
+    }, [params?.tab]);
     const current = tabs.find((t) => t.key === tab) ?? tabs[0];
 
     return (
@@ -30,19 +30,17 @@ export function PaymentsScreen() {
             {current === undefined ? null : (
                 <>
                     <Tabs items={tabs} active={current.key} onSelect={setTab} />
-                    <View style={styles.body}>
-                        {tabBody(current.key, tab === "invoices" ? params?.open : undefined)}
-                    </View>
+                    <View style={styles.body}>{tabBody(current.key)}</View>
                 </>
             )}
         </SafeAreaView>
     );
 }
 
-function tabBody(key: PaymentsTabKey, openId: string | undefined): ReactElement {
+function tabBody(key: PaymentsTabKey): ReactElement {
     switch (key) {
         case "invoices":
-            return <Invoices openId={openId} />;
+            return <Invoices />;
         case "sales":
             return <POS />;
         case "giftCards":

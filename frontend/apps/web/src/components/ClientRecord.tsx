@@ -1,7 +1,7 @@
 import {
     type ClientListRow,
     type ClientNote,
-    type ClientRecord,
+    type ClientDetail,
     type SubjectRow,
     formatDate,
     formatRelativeTime,
@@ -122,7 +122,7 @@ function RecordActions({
     manager,
     onEdit,
 }: {
-    record: ClientRecord;
+    record: ClientDetail;
     manager: boolean;
     onEdit: () => void;
 }) {
@@ -176,7 +176,7 @@ function RecordActions({
     );
 }
 
-export function RecordFacts({ record, manager }: { record: ClientRecord; manager: boolean }) {
+export function RecordFacts({ record, manager }: { record: ClientDetail; manager: boolean }) {
     const zone = useBusinessZone();
     const c = record.client;
     return (
@@ -581,7 +581,7 @@ export function ClientRecordView({
 }
 
 /** A client's record over the current page, with the same dialogs the Clients page opens from it. */
-export function ClientRecordTask({ clientId, onClose }: { clientId: string; onClose: () => void }) {
+export function ClientRecord({ clientId, onClose }: { clientId: string; onClose: () => void }) {
     const manager = canManagePayments(useRole());
     const directory = useClientDirectory();
     const [dialog, setDialog] = useState<ClientDialog | null>(null);
@@ -599,7 +599,7 @@ export function ClientRecordTask({ clientId, onClose }: { clientId: string; onCl
                 directory={directory.all}
                 onOpenClient={(id) => {
                     setDialog(null);
-                    replaceTask({ kind: "clientRecord", clientId: id });
+                    replaceTask({ kind: "record", type: "client", id });
                 }}
                 onMerged={() => {
                     setDialog(null);
@@ -614,14 +614,14 @@ export function ClientRecordTask({ clientId, onClose }: { clientId: string; onCl
 }
 
 /** A new client over the current page; saving opens their record in its place. */
-export function ClientEditorTask({ onClose }: { onClose: () => void }) {
+export function NewClient({ onClose }: { onClose: () => void }) {
     const directory = useClientDirectory();
     return (
         <ClientDialogs
             dialog={{ kind: "client", id: null }}
             directory={directory.all}
             onOpenClient={(id) => {
-                replaceTask({ kind: "clientRecord", clientId: id });
+                replaceTask({ kind: "record", type: "client", id });
             }}
             onMerged={onClose}
             onClose={onClose}

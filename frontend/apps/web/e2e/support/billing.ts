@@ -7,6 +7,13 @@ import { navigate } from "./session";
 import { runEmail, runUrl } from "@clientbridge/config/e2e/run";
 import { select } from "./db";
 
+/** Picks which records a Payments list shows, from its Show dropdown. */
+export async function showOnly(page: Page, option: RegExp): Promise<void> {
+    const show = strings.ui.listShow;
+    await page.getByRole("main").getByRole("combobox", { name: show, exact: true }).click();
+    await page.getByRole("listbox", { name: show }).getByRole("option", { name: option }).click();
+}
+
 export interface InvoiceFixture {
     id: string;
     email: string;

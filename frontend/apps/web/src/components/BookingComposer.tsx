@@ -1,8 +1,5 @@
 import {
     type ComposerSlot,
-    useBookingActions,
-    useBookingDetail,
-    useBookingStart,
     suggestedStart,
     useBookingComposer,
     useScheduleBoard,
@@ -26,7 +23,6 @@ import {
     Choice,
     DateField,
     DateStrip,
-    DetailView,
     Empty,
     IconButton,
     ListRow,
@@ -45,7 +41,6 @@ import { type ReactNode, type SubmitEvent, useEffect, useRef, useState } from "r
 
 import { api } from "../lib/api";
 import { useViewer } from "../lib/auth";
-import { BookingActionBar, BookingBody } from "./BookingPanel";
 import { DayPeek } from "./ScheduleGrid";
 
 const s = strings.bookings;
@@ -383,7 +378,7 @@ export function RescheduleDialog({
 }
 
 /** A new booking over the current page: the composer in a drawer, starting at the next open time. */
-export function BookingTask({
+export function NewBooking({
     clientId,
     estimateId,
     rebookId,
@@ -441,74 +436,6 @@ export function BookingTask({
                     />
                 )}
             </div>
-        </Modal>
-    );
-}
-
-/** A booking over the current page, with the same body and actions as the schedule's drawer. */
-export function BookingRecordTask({
-    bookingId,
-    onClose,
-}: {
-    bookingId: string;
-    onClose: () => void;
-}) {
-    const viewer = useViewer();
-    const board = useScheduleBoard(viewer);
-    const start = useBookingStart(bookingId);
-    const [moving, setMoving] = useState(false);
-    const { setAnchor, select } = board;
-    useEffect(() => {
-        if (start === null) return;
-        setAnchor(start);
-        select(bookingId);
-    }, [start, bookingId, setAnchor, select]);
-    const detail = useBookingDetail(board.selected, board.now);
-    const actions = useBookingActions(api, detail?.event ?? null, board.now);
-    return (
-        <Modal
-            flow
-            framed={false}
-            size="lg"
-            onClose={() => {
-                if (moving) setMoving(false);
-                else onClose();
-            }}
-        >
-            <DetailView
-                open={!moving}
-                title={detail?.event.headline ?? s.loading}
-                subtitle={
-                    detail === null
-                        ? undefined
-                        : formatParts([detail.event.serviceName, detail.event.timeLabel])
-                }
-                onClose={onClose}
-                actions={
-                    detail === null ? undefined : (
-                        <BookingActionBar
-                            actions={actions}
-                            onReschedule={() => {
-                                setMoving(true);
-                            }}
-                        />
-                    )
-                }
-            >
-                {detail === null ? (
-                    <Skeleton variant="row" count={4} label={s.loading} />
-                ) : (
-                    <BookingBody detail={detail} withStatus />
-                )}
-            </DetailView>
-            {moving && detail !== null ? (
-                <RescheduleDialog
-                    event={detail.event}
-                    onClose={() => {
-                        setMoving(false);
-                    }}
-                />
-            ) : null}
         </Modal>
     );
 }

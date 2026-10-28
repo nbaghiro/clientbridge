@@ -307,15 +307,16 @@ export type ShellTarget =
     | "search"
     | "notifications";
 
+export type RecordType = "client" | "booking" | "invoice" | "estimate";
+
 // Work a button starts over the page it sits on, so finishing or closing it leaves you where you were.
 type Task =
     | { kind: "checkout"; bookingId: string | null }
     | { kind: "booking"; clientId?: string; estimateId?: string; rebookId?: string }
-    | { kind: "bookingRecord"; bookingId: string }
-    | { kind: "doc"; doc: "invoice" | "estimate"; clientId?: string }
+    | { kind: "doc"; doc: "invoice" | "estimate"; id?: string; clientId?: string }
     | { kind: "refund"; paymentId: string }
     | { kind: "clientEditor" }
-    | { kind: "clientRecord"; clientId: string };
+    | { kind: "record"; type: RecordType; id: string };
 
 /** The task a link starts in place, or null when the link goes to a page. */
 export function taskFor(target: ShellTarget, refId: string | null): Task | null {
@@ -326,16 +327,18 @@ export function taskFor(target: ShellTarget, refId: string | null): Task | null 
         case "booking":
             return refId === null
                 ? { kind: "booking" }
-                : { kind: "bookingRecord", bookingId: refId };
+                : { kind: "record", type: target, id: refId };
         case "invoice":
         case "estimate":
-            return refId === null ? { kind: "doc", doc: target } : null;
+            return refId === null
+                ? { kind: "doc", doc: target }
+                : { kind: "record", type: target, id: refId };
         case "refunds":
             return refId === null ? null : { kind: "refund", paymentId: refId };
         case "client":
             return refId === null
                 ? { kind: "clientEditor" }
-                : { kind: "clientRecord", clientId: refId };
+                : { kind: "record", type: target, id: refId };
         default:
             return null;
     }
@@ -376,6 +379,17 @@ export function clearTasks(): void {
 
 export function useTask(): Task | null {
     return useSyncExternalStore(subscribeTasks, () => tasks.at(-1) ?? null);
+}
+
+/** Opens a record over the current page, the same way wherever its link sits. */
+export function openRecord(type: RecordType, id: string): void {
+    openTask({ kind: "record", type, id });
+}
+
+/** The id of the record of this type open on top, so its row can show as selected. */
+export function useOpenRecord(type: RecordType): string | null {
+    const task = useTask();
+    return task?.kind === "record" && task.type === type ? task.id : null;
 }
 
 export const DESTINATION_ICON: Record<DestinationKey, IconName> = {

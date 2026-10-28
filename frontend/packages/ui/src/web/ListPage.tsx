@@ -7,11 +7,13 @@ import { LoadFailed } from "./LoadFailed";
 import { Icon } from "./Icon";
 import type { WebProps } from "./props";
 import { SearchField } from "./SearchField";
+import { Select } from "./Select";
 import { Skeleton } from "./Skeleton";
 
 export function ListPage<T, K extends string = string>({
     title,
     summary,
+    alert,
     action,
     accessory,
     segments,
@@ -42,7 +44,15 @@ export function ListPage<T, K extends string = string>({
                             </h1>
                         ) : null}
                         {summary !== undefined ? (
-                            <p className="mt-0.5 text-sm text-muted">{summary}</p>
+                            <p className="mt-0.5 text-sm text-muted">
+                                {summary}
+                                {alert !== undefined ? (
+                                    <span className="font-medium text-danger">
+                                        {strings.common.separator}
+                                        {alert}
+                                    </span>
+                                ) : null}
+                            </p>
                         ) : null}
                     </div>
                     <div className="flex max-w-full flex-wrap items-center gap-3">
@@ -60,7 +70,28 @@ export function ListPage<T, K extends string = string>({
                 </header>
             ) : null}
 
-            {segments !== undefined || search !== undefined ? (
+            {segments?.layout === "menu" ? (
+                <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+                    {search !== undefined ? (
+                        <SearchField
+                            className="w-full sm:w-72"
+                            value={search.value}
+                            onChange={search.onChange}
+                            placeholder={search.placeholder}
+                        />
+                    ) : (
+                        <span />
+                    )}
+                    <Select
+                        name={segments.label ?? strings.ui.listShow}
+                        size="sm"
+                        width="auto"
+                        options={segments.items}
+                        value={segments.active}
+                        onChange={segments.onSelect}
+                    />
+                </div>
+            ) : segments !== undefined || search !== undefined ? (
                 <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
                     {segments !== undefined ? (
                         <Choice

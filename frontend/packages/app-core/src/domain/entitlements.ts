@@ -929,7 +929,7 @@ interface EntitlementDesk {
     q: string;
     setQ: (q: string) => void;
     rows: EntitlementDeskRow[];
-    totals: { deferredCents: number; giftCents: number; monthlyCents: number };
+    summary: string | undefined;
     emptyMessage: string;
 }
 
@@ -951,6 +951,11 @@ export function useEntitlementDesk(): EntitlementDesk {
     const needle = q.trim().toLowerCase();
     const live = (x: EntitlementSummary): boolean =>
         x.status === "active" || x.status === "past_due";
+    const money = (xs: EntitlementSummary[]): string =>
+        formatMoney(
+            xs.reduce((sum, x) => sum + x.valueCents, 0),
+            BUSINESS_CURRENCY,
+        );
     return {
         load,
         segment,
@@ -970,17 +975,14 @@ export function useEntitlementDesk(): EntitlementDesk {
                         v.toLowerCase().includes(needle),
                     )),
         ),
-        totals: {
-            deferredCents: all
-                .filter((x) => x.row.kind === "package")
-                .reduce((sum, x) => sum + x.valueCents, 0),
-            giftCents: all
-                .filter((x) => x.row.kind === "gift_card" && x.status === "active")
-                .reduce((sum, x) => sum + x.valueCents, 0),
-            monthlyCents: all
-                .filter((x) => x.row.kind === "membership" && live(x))
-                .reduce((sum, x) => sum + x.valueCents, 0),
-        },
+        summary:
+            load.state === "ready"
+                ? w.deskSummary(
+                      money(all.filter((x) => x.row.kind === "gift_card" && x.status === "active")),
+                      money(all.filter((x) => x.row.kind === "package")),
+                      money(all.filter((x) => x.row.kind === "membership" && live(x))),
+                  )
+                : undefined,
         emptyMessage: needle !== "" ? w.noMatch : w.emptySegment,
     };
 }

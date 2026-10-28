@@ -478,7 +478,7 @@ function toPlan(r: PlanDbRow, zone: string): ClientPlan {
     };
 }
 
-export interface ClientRecord {
+export interface ClientDetail {
     client: ClientListRow;
     subjects: SubjectRow[];
     notes: ClientNote[];
@@ -519,7 +519,7 @@ export function useClientRecord(
     api: ApiLike,
     clientId: string | null,
     viewerStaffId: string | null = null,
-): { load: Load; record: ClientRecord | null } {
+): { load: Load; record: ClientDetail | null } {
     const id = clientId ?? "";
     const earlier = useEarlierVisits(api, id);
     const now = useNow().toISOString();
