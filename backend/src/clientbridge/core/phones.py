@@ -37,6 +37,16 @@ def _phone(value: str | None) -> str | None:
 Phone = Annotated[str | None, AfterValidator(_phone)]
 
 
+def _required_phone(value: str) -> str:
+    parsed = _phone(value)
+    if parsed is None:
+        raise ValueError("provide a mobile number")
+    return parsed
+
+
+RequiredPhone = Annotated[str, AfterValidator(_required_phone)]
+
+
 def same_phone(column: InstrumentedAttribute[str | None], number: str) -> ColumnElement[bool]:
     """Matches an E.164 number against a stored phone, whether stored as E.164 or as typed."""
     digits = func.regexp_replace(column, "[^0-9]", "", "g")

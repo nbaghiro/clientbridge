@@ -14,6 +14,17 @@ _SOURCES = "'in_person', 'form', 'online_booking', 'reply'"
 _LINK_SOURCES = "'unsubscribe', 'preferences'"
 _EMAIL_THREADS = "SELECT id FROM threads WHERE channel = 'email'"
 _EMAIL_BROADCASTS = "SELECT id FROM broadcasts WHERE channel = 'email'"
+# a business's own mail goes to its billing email, its staff's sign-ins or their invites
+_CLIENT_MAIL = (
+    "d.payload->>'channel' = 'email' AND d.business_id IS NOT NULL"
+    " AND lower(d.payload->'message'->>'to') NOT IN ("
+    "SELECT lower(b.billing_email) FROM businesses b"
+    " WHERE b.id = d.business_id AND b.billing_email IS NOT NULL"
+    " UNION SELECT lower(u.email) FROM staff s JOIN users u ON u.id = s.user_id"
+    " WHERE s.business_id = d.business_id"
+    " UNION SELECT lower(s.invite_email) FROM staff s"
+    " WHERE s.business_id = d.business_id AND s.invite_email IS NOT NULL)"
+)
 
 
 def _add_sms_channel(table: str) -> None:
@@ -22,22 +33,17 @@ def _add_sms_channel(table: str) -> None:
 
 
 def upgrade() -> None:
-    # mail to a client carried a reply-to, a client or an inbox message; a business's own mail none
-    op.execute(
-        "DELETE FROM deliveries WHERE payload->>'channel' = 'email' AND business_id IS NOT NULL"
-        " AND (payload->'message'->>'reply_to' IS NOT NULL OR payload->>'client_id' IS NOT NULL"
-        " OR payload->>'message_id' IS NOT NULL)"
-    )
+    op.execute(f"DELETE FROM deliveries d WHERE {_CLIENT_MAIL}")
     op.execute(
         f"DELETE FROM messages WHERE channel = 'email' OR thread_id IN ({_EMAIL_THREADS})"
         f" OR broadcast_id IN ({_EMAIL_BROADCASTS})"
     )
     op.execute("DELETE FROM broadcasts WHERE channel = 'email'")
     op.execute("DELETE FROM threads WHERE channel = 'email'")
-    # dropping only a link opt-out could revive an older grant, so that client's history goes too
+    # dropping only a link opt-out could revive an older grant, so the rest goes; a STOP reply stays
     op.execute(
-        "DELETE FROM consents WHERE channel = 'email' OR client_id IN"
-        f" (SELECT client_id FROM consents WHERE source IN ({_LINK_SOURCES}))"
+        "DELETE FROM consents WHERE channel = 'email' OR (source <> 'reply' AND client_id IN"
+        f" (SELECT client_id FROM consents WHERE source IN ({_LINK_SOURCES})))"
     )
 
     op.drop_index("ix_clients_business_email", table_name="clients")
@@ -62,6 +68,7 @@ def upgrade() -> None:
     op.drop_constraint("ck_broadcasts_channel", "broadcasts", type_="check")
     op.drop_column("broadcasts", "channel")
 
+    op.execute("UPDATE orders SET receipt_sent_at = NULL WHERE receipt_channel = 'email'")
     op.drop_constraint("ck_orders_receipt_channel", "orders", type_="check")
     op.drop_column("orders", "receipt_channel")
     op.drop_column("orders", "receipt_email")
@@ -70,7 +77,10 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.add_column("orders", sa.Column("receipt_email", sa.String(), nullable=True))
     op.add_column("orders", sa.Column("receipt_channel", sa.String(), nullable=True))
-    op.execute("UPDATE orders SET receipt_channel = 'sms' WHERE receipt_sent_at IS NOT NULL")
+    op.execute(
+        "UPDATE orders SET receipt_channel = 'sms'"
+        " WHERE receipt_sent_at IS NOT NULL AND receipt_phone IS NOT NULL"
+    )
     op.create_check_constraint(
         "ck_orders_receipt_channel",
         "orders",

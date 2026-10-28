@@ -8008,7 +8008,7 @@ export interface components {
             /** Name */
             name: string;
             /** Phone */
-            phone?: string | null;
+            phone: string;
         };
         /** PublicBookingCreate */
         PublicBookingCreate: {

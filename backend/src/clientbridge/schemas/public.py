@@ -5,7 +5,7 @@ from typing import Literal
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from clientbridge.core.mirrors import Mirror
-from clientbridge.core.phones import Phone
+from clientbridge.core.phones import RequiredPhone
 from clientbridge.models.business import Business, ProvinceCode, Staff, SubjectKind
 from clientbridge.models.catalog import Item, ItemKind
 from clientbridge.models.scheduling import Booking, BookingStatus, DepositStatus
@@ -258,13 +258,7 @@ class ManageCancelResult(BaseModel):
 
 class PublicBookingClient(BaseModel):
     name: str
-    phone: Phone = None
-
-    @model_validator(mode="after")
-    def _contactable(self) -> "PublicBookingClient":
-        if not self.phone:
-            raise ValueError("provide a mobile number")
-        return self
+    phone: RequiredPhone
 
 
 class PublicBookingCreate(BaseModel):

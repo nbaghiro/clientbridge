@@ -5,6 +5,7 @@ import os
 import secrets
 import subprocess
 import sys
+from unittest.mock import ANY
 from uuid import uuid4
 
 from e2e.database import admin, on
@@ -47,6 +48,9 @@ async def _seed(conn: AsyncConnection) -> None:
             " false, '{}', 'active', now())"
         )
     )
+    await conn.execute(
+        text("UPDATE businesses SET billing_email = 'Billing@Test.ca' WHERE id = 'bz_a'")
+    )
     await _insert(conn, "users", id="us_a", identity_id=str(uuid4()), email="owner@test.ca")
     await _insert(
         conn,
@@ -58,11 +62,22 @@ async def _seed(conn: AsyncConnection) -> None:
         payee=False,
         status="active",
     )
+    await _insert(
+        conn,
+        "staff",
+        id="st_invited",
+        business_id="bz_a",
+        invite_email="new@test.ca",
+        role="staff",
+        payee=False,
+        status="invited",
+    )
     for client, email, phone, preferred in (
         ("cl_both", "both@test.ca", "+14165550101", "email"),
         ("cl_mail", "mail@test.ca", None, "email"),
         ("cl_text", None, "+14165550102", "sms"),
         ("cl_link", None, "+14165550104", "sms"),
+        ("cl_stop", None, "+14165550105", "sms"),
     ):
         await conn.execute(
             text(
@@ -119,6 +134,9 @@ async def _seed(conn: AsyncConnection) -> None:
         ("cs_complaint", "cl_both", "email", "withdrawn", "complaint"),
         ("cs_text_link", "cl_link", "sms", "granted", "in_person"),
         ("cs_link", "cl_link", "sms", "withdrawn", "unsubscribe"),
+        ("cs_stop", "cl_stop", "sms", "withdrawn", "reply"),
+        ("cs_stop_grant", "cl_stop", "sms", "granted", "in_person"),
+        ("cs_stop_link", "cl_stop", "email", "withdrawn", "preferences"),
     ):
         await _insert(
             conn,
@@ -133,7 +151,10 @@ async def _seed(conn: AsyncConnection) -> None:
     for delivery, payload in (
         ("dl_client", {"channel": "email", "client_id": "cl_both", "message": {"to": "b@t.ca"}}),
         ("dl_walkin", {"channel": "email", "message": {"to": "w@t.ca", "reply_to": "biz@t.ca"}}),
+        ("dl_gift", {"channel": "email", "message": {"to": "friend@t.ca", "tags": {}}}),
         ("dl_owner", {"channel": "email", "message": {"to": "owner@test.ca"}}),
+        ("dl_billing", {"channel": "email", "message": {"to": "billing@test.ca"}}),
+        ("dl_invite", {"channel": "email", "message": {"to": "new@test.ca"}}),
         ("dl_text", {"channel": "sms", "message_id": "ms_both_sms", "message": {"to": "+1"}}),
     ):
         await conn.execute(
@@ -222,8 +243,18 @@ async def test_cb0036_drops_client_email_and_channels_and_its_downgrade_restores
         assert set(await _ids(engine, "threads")) == {"th_both_sms", "th_text"}
         assert set(await _ids(engine, "messages")) == {"ms_both_sms", "ms_bc_text"}
         assert set(await _ids(engine, "broadcasts")) == {"bc_text"}
-        assert set(await _ids(engine, "consents")) == {"cs_text"}
-        assert set(await _ids(engine, "deliveries")) == {"dl_owner", "dl_text"}
+        assert set(await _ids(engine, "consents")) == {"cs_text", "cs_stop"}
+        assert set(await _ids(engine, "deliveries")) == {
+            "dl_owner",
+            "dl_billing",
+            "dl_invite",
+            "dl_text",
+        }
+        assert await _ids(engine, "orders", "receipt_sent_at") == {
+            "or_mail": None,
+            "or_text": ANY,
+            "or_none": None,
+        }
         assert await _ids(engine, "orders", "receipt_phone") == {
             "or_mail": None,
             "or_text": "+14165550103",
@@ -242,12 +273,12 @@ async def test_cb0036_drops_client_email_and_channels_and_its_downgrade_restores
         assert set((await _ids(engine, "threads", "channel")).values()) == {"sms"}
         assert set((await _ids(engine, "messages", "channel")).values()) == {"sms"}
         assert await _ids(engine, "orders", "receipt_channel") == {
-            "or_mail": "sms",
+            "or_mail": None,
             "or_text": "sms",
             "or_none": None,
         }
         assert await _ids(engine, "clients", "email") == dict.fromkeys(
-            ("cl_both", "cl_mail", "cl_text", "cl_link")
+            ("cl_both", "cl_mail", "cl_text", "cl_link", "cl_stop")
         )
     finally:
         await engine.dispose()
