@@ -14,7 +14,7 @@ onFlowComplete:
 - inputText: "Olivia Martin"
 - hideKeyboard
 - extendedWaitUntil:
-      visible: ".*Olivia Martin.*"
+      visible: "Bandit"
       timeout: 60000
 - runScript:
       file: helpers/control.js
@@ -33,9 +33,10 @@ onFlowComplete:
 - inputText: "Olivia Martin"
 - hideKeyboard
 - extendedWaitUntil:
-      visible: ".*Olivia Martin.*"
+      visible: "Bandit"
       timeout: 30000
-- tapOn: ".*Olivia Martin.*"
+- tapOn: "Bandit"
+- assertVisible: "Olivia Martin"
 - assertVisible: "Book"
 - assertVisible: "Bandit"
 - takeScreenshot: offline-client-record
