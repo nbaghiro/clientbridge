@@ -41,6 +41,24 @@ interface ReplicaFiles {
     remove: (filename: string) => Promise<void>;
 }
 
+/** How web tabs that share one sync worker hand its connection on when one of them stops syncing. */
+export interface ReplicaTabs {
+    shared: (db: CommonPowerSyncDatabase) => boolean;
+    /** Calls `reconnect` in one syncing tab after another tab hands off; the result stops listening. */
+    join: (filename: string, reconnect: () => Promise<void>) => () => void;
+    /** Runs `leave`, then has a syncing tab reconnect, also when this page dies before `leave` settles. */
+    handOff: (filename: string, leave: () => Promise<void>) => Promise<void>;
+}
+
+interface Active {
+    db: CommonPowerSyncDatabase;
+    identity: string;
+    filename: string;
+    shared: boolean;
+    connector: ManagedConnector | null;
+    stopListening: (() => void) | null;
+}
+
 // one queue of replica work; abandon() starts a fresh one when an open hangs
 interface Queue {
     tail: Promise<void>;
@@ -48,7 +66,7 @@ interface Queue {
     stopUploads: (() => Promise<void>) | null;
     history: SyncStreamSubscription[];
     stopHistory: (() => void) | null;
-    active: { db: CommonPowerSyncDatabase; identity: string; filename: string } | null;
+    active: Active | null;
 }
 
 function emptyQueue(): Queue {
@@ -82,6 +100,7 @@ export class ReplicaController {
     constructor(
         private readonly open: (filename: string) => CommonPowerSyncDatabase,
         private readonly files?: ReplicaFiles,
+        private readonly tabs?: ReplicaTabs,
     ) {}
 
     private serialize<T>(action: (queue: Queue) => Promise<T>): Promise<T> {
@@ -103,10 +122,30 @@ export class ReplicaController {
         queue.history = [];
     }
 
+    // a shared worker's stream may be writing through this tab's connection, so it stops before the close
+    private async detach(active: Active, close: boolean): Promise<void> {
+        const { db } = active;
+        const leave = async () => {
+            await db.disconnect();
+            if (close) await db.close();
+        };
+        active.stopListening?.();
+        active.stopListening = null;
+        if (active.shared && this.tabs) await this.tabs.handOff(active.filename, leave);
+        else await leave();
+    }
+
+    private listen(queue: Queue, active: Active): void {
+        if (!active.shared || !this.tabs || active.stopListening) return;
+        active.stopListening = this.tabs.join(active.filename, async () => {
+            if (queue.active !== active || !active.stopListening || !active.connector) return;
+            await active.db.connect(active.connector).catch(() => undefined);
+        });
+    }
+
     private async release(queue: Queue): Promise<void> {
         if (!queue.active) return;
-        await queue.active.db.disconnect();
-        await queue.active.db.close();
+        await this.detach(queue.active, true);
         queue.active = null;
     }
 
@@ -151,13 +190,21 @@ export class ReplicaController {
                     });
                     if (owner !== key) throw new Error("replica ownership mismatch");
                     if (abandoned(queue)) throw superseded();
-                    queue.active = { db, identity: key, filename: name };
+                    queue.active = {
+                        db,
+                        identity: key,
+                        filename: name,
+                        shared: this.tabs?.shared(db) ?? false,
+                        connector: null,
+                        stopListening: null,
+                    };
                 } catch (error) {
                     await db.close();
                     throw error;
                 }
             }
-            const db = queue.active.db;
+            const active = queue.active;
+            const db = active.db;
             if (generation !== this.generation) throw superseded();
             await db.disconnect();
             if (generation !== this.generation) throw superseded();
@@ -165,6 +212,8 @@ export class ReplicaController {
             // held until stop(), so the stream request carries them from its start
             queue.history = await subscribeHistory(db);
             for (const subscription of previous) subscription.unsubscribe();
+            active.connector = connector;
+            this.listen(queue, active);
             // with multi-tab sync off, a second tab's connect() waits for the first tab's sync lock
             db.connect(connector).catch(() => undefined);
             queue.stopUploads = connector.startUploads?.(db) ?? null;
@@ -184,7 +233,7 @@ export class ReplicaController {
             queue.stopHistory = null;
             await queue.stopUploads?.();
             queue.stopUploads = null;
-            await queue.active?.db.disconnect();
+            if (queue.active) await this.detach(queue.active, false);
         });
     }
 
@@ -206,6 +255,7 @@ export class ReplicaController {
         queue.stopHistory?.();
         queue.stopUploads?.().catch(() => undefined);
         for (const subscription of queue.history) subscription.unsubscribe();
+        queue.active?.stopListening?.();
         queue.active?.db.close().catch(() => undefined);
     }
 
@@ -225,7 +275,9 @@ export class ReplicaController {
                     names.add(active.filename);
                     this.files?.list(active.filename);
                 }
+                active.stopListening?.();
                 try {
+                    // sign-out ends the session in every tab, so no other tab takes the sync over
                     await active.db.disconnectAndClear();
                 } catch (error) {
                     failure = asError(error);
