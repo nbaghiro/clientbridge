@@ -1,6 +1,9 @@
 name: stripe-qa
 on:
   workflow_dispatch:
+  # nightly on main: one run a day keeps the QA merchants' balances and leases uncontended
+  schedule:
+    - cron: "0 10 * * *"
 permissions:
   contents: read
 concurrency:

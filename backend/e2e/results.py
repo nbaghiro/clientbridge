@@ -129,6 +129,7 @@ REQUIRED_CASES = {
         "STR-E07",
         "STR-E09",
         "STR-E12",
+        "STR-E13",
     ],
 }
 

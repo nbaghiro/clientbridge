@@ -129,6 +129,19 @@ async def account() -> dict[str, object]:
     }
 
 
+async def banks() -> dict[str, object]:
+    account = guard()
+    found = await stripe.Account.list_external_accounts_async(
+        account, object="bank_account", limit=100
+    )
+    return {
+        "banks": [
+            {"id": bank.id, "last4": bank.last4, "default": bank.default_for_currency}
+            for bank in found.data
+        ]
+    }
+
+
 async def mirror(state: str) -> dict[str, object]:
     """Mirror a payouts-paused account onto the run's business, or read it back from Stripe."""
     account = await validate_context()
@@ -154,6 +167,7 @@ async def mirror(state: str) -> dict[str, object]:
 
 COMMANDS: dict[str, Callable[[argparse.Namespace], Awaitable[dict[str, object]]]] = {
     "account": lambda _: account(),
+    "banks": lambda _: banks(),
     "intent": lambda args: intent(args.id),
     "charge": lambda args: charge(args.id),
     "payout": lambda args: payout(args.id),

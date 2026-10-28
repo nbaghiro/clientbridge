@@ -695,8 +695,7 @@ the setup script prints the demo account ID. Follow the [test tiers](engineering
 for the complete harness and prerequisites. A green fake/contract suite is not a live payout sign-off.
 
 The Stripe browser lane ([test tiers](engineering.md#stripe-four-tiers-layered-by-cost)) runs each money
-flow against the sandbox's QA merchants. One check is still open: a browser test of a bank change in
-account management (check 9 below).
+flow against the sandbox's QA merchants.
 
 Manual sandbox pass:
 
@@ -757,7 +756,7 @@ in the behaviour described above.
 | PAD mandate for memberships | `sub_1UVBMaFGqw5ObEW5OOAqbrGW`, `mandate_1UVBN7FGqw5ObEW59uyfzvwk` | An interval mandate left a membership's first invoice at `requires_confirmation`; a `default_for: ["invoice", "subscription"]` mandate took one-off charges and billed the membership unprompted. Stripe refuses `default_for` with an interval schedule. |
 | Undelivered events | `evt_3UUs9SFGqw5ObEW50HeXW0Am` | `delivery_success=false` works on the platform and per account, 30 days back. |
 | Closed v2 account | `acct_1UV9OGFGqwSdYFTi` | Retrievable with `closed: true`, which maps to `disabled_reason: closed`. |
-| Bank change in account management | none | Stripe's own sign-in gates it; whether only the representative can pass it needs a browser test. |
+| Bank change in account management | STR-E13 | Account management shows bank details only after Stripe's sign-in, which sends its code to the phone number on the Stripe account, so only the person holding that phone can change the bank. Sending the code shows an hCaptcha, so the lane checks the sign-in and that the bank accounts are unchanged, and a completed bank change stays a manual check. |
 | Standalone `tax_fee` and `stripe_fee` | 18 connected accounts | None exist in the sandbox; they are booked from the documented shape. |
 
 The browser lane's STR-E08 made the funded manual payout the record above still needed: after switching

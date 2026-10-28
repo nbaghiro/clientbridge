@@ -1125,10 +1125,6 @@ Size: S · Area: Money, tax and staff pay
 
 **Built:** Actual fees per payment, live payout statuses, payout contents, separate available/pending balances, embedded schedule editing and standard manual payouts. A payout is in transit from its creation and counts as deposited when Stripe marks it paid; failed and canceled payouts are reversed. An hourly job applies events Stripe couldn't deliver, and hourly reconciliation reads each business's new balance transactions, repairs recognized missing movements, compares source-level and account balances, and lists what it can't explain for platform admins. Settlement retries when the fees are not readable yet. See [Payments and Stripe](payments.md).
 
-**To do:**
-
-- A browser test of a bank change in account management, to confirm who can pass Stripe's sign-in.
-
 **QA:**
 
 1. After test payments, each fee matches Stripe's dashboard.
