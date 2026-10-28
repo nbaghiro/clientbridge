@@ -1573,55 +1573,38 @@ def with_stripe() -> Built:
     return build_cloud(STRIPE_SANDBOX)
 
 
-def _sandbox(built: Built, kind: str) -> list[Registered]:
+SANDBOX_SECRETS = {"STRIPE_TEST_SECRET_KEY", "STRIPE_TEST_PUBLISHABLE_KEY"}
+SANDBOX_VARIABLES = {
+    "STRIPE_TEST_PLATFORM": "acct_platform",
+    "STRIPE_TEST_CONNECTED_ACCOUNT": "acct_merchant_a",
+    "STRIPE_TEST_OTHER_ACCOUNT": "acct_merchant_b",
+}
+
+
+def _sandbox_secrets(built: Built) -> list[Registered]:
     return [
-        each for each in of_type(built, kind) if dig(each.inputs, "environment") == "stripe-sandbox"
+        each
+        for each in of_type(built, "github:index/actionsSecret:ActionsSecret")
+        if dig(each.inputs, "secretName") in SANDBOX_SECRETS
     ]
 
 
 def test_the_stripe_sandbox_waits_for_its_configuration(cloud: Built) -> None:
-    assert not _sandbox(cloud, "github:index/repositoryEnvironment:RepositoryEnvironment")
-    assert not _sandbox(cloud, "github:index/actionsEnvironmentSecret:ActionsEnvironmentSecret")
+    assert not _sandbox_secrets(cloud)
+    assert not set(_variables(cloud)) & set(SANDBOX_VARIABLES)
 
 
-def test_the_stripe_sandbox_hands_main_its_test_keys_and_merchants(with_stripe: Built) -> None:
-    (environment,) = _sandbox(
-        with_stripe, "github:index/repositoryEnvironment:RepositoryEnvironment"
-    )
-    assert dig(environment.inputs, "deploymentBranchPolicy") == {
-        "protectedBranches": False,
-        "customBranchPolicies": True,
-    }
-    (policy,) = _sandbox(
-        with_stripe,
-        "github:index/repositoryEnvironmentDeploymentPolicy:RepositoryEnvironmentDeploymentPolicy",
-    )
-    assert dig(policy.inputs, "branchPattern") == "main"
-    secrets = _sandbox(
-        with_stripe, "github:index/actionsEnvironmentSecret:ActionsEnvironmentSecret"
-    )
-    assert {str(dig(each.inputs, "secretName")) for each in secrets} == {
-        "STRIPE_TEST_SECRET_KEY",
-        "STRIPE_TEST_PUBLISHABLE_KEY",
-    }
+def test_the_stripe_sandbox_hands_actions_its_test_keys_and_merchants(with_stripe: Built) -> None:
+    secrets = _sandbox_secrets(with_stripe)
+    assert {str(dig(each.inputs, "secretName")) for each in secrets} == SANDBOX_SECRETS
     assert all(list(secret_values(each.inputs)) for each in secrets)
-    variables = {
-        str(dig(each.inputs, "variableName")): dig(each.inputs, "value")
-        for each in _sandbox(
-            with_stripe, "github:index/actionsEnvironmentVariable:ActionsEnvironmentVariable"
-        )
-    }
-    assert variables == {
-        "STRIPE_TEST_PLATFORM": "acct_platform",
-        "STRIPE_TEST_CONNECTED_ACCOUNT": "acct_merchant_a",
-        "STRIPE_TEST_OTHER_ACCOUNT": "acct_merchant_b",
-    }
+    variables = _variables(with_stripe)
+    assert {name: variables[name] for name in SANDBOX_VARIABLES} == SANDBOX_VARIABLES
     assert not with_stripe.secret_outputs
-    # the workflow reads exactly these names, and only from main, which the policy also requires
+    # the workflow reads exactly these names, and only runs from main
     jobs = dig(workflow("stripe-qa.yml"), "jobs")
     assert isinstance(jobs, dict)
     for job in jobs.values():
-        assert dig(job, "environment") == "stripe-sandbox"
         assert dig(job, "if") == "github.ref == 'refs/heads/main'"
         env = dig(job, "env")
         assert isinstance(env, dict)
@@ -1630,9 +1613,9 @@ def test_the_stripe_sandbox_hands_main_its_test_keys_and_merchants(with_stripe: 
             for value in env.values()
             if str(value).startswith("${{ ")
         }
-        assert read <= {
-            f"secrets.{name}" for name in ("STRIPE_TEST_SECRET_KEY", "STRIPE_TEST_PUBLISHABLE_KEY")
-        } | {f"vars.{name}" for name in variables}
+        assert read <= {f"secrets.{name}" for name in SANDBOX_SECRETS} | {
+            f"vars.{name}" for name in SANDBOX_VARIABLES
+        }
 
 
 @pytest.mark.parametrize(
