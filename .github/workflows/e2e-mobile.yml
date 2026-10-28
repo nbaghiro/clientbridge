@@ -41,7 +41,7 @@ jobs:
       - name: point the build at the native lane
         working-directory: backend
         run: |
-          uv run python -c 'from e2e.runner import native_urls
+          uv run python -c 'from e2e.native import native_urls
           for name, value in native_urls("android").items(): print(f"{name}={value}")' >> "$GITHUB_ENV"
       - uses: pnpm/action-setup@v6
         with:
