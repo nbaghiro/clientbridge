@@ -13,7 +13,7 @@ from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
 from clientbridge.models.billing import Invoice, Line, Order
 from clientbridge.models.business import Staff
-from clientbridge.models.catalog import ENTITLEMENT_KINDS, Item, Package
+from clientbridge.models.catalog import BOOKABLE_KINDS, ENTITLEMENT_KINDS, Item, Package
 from clientbridge.models.ledger import Account, Entry
 from clientbridge.models.payments import Payment
 from clientbridge.models.scheduling import Booking, Slot
@@ -662,7 +662,13 @@ def _line_split(
         return "retail", line.amount_cents * bps // 10000, bps
     if staff.rate_type == "percent" and staff.rate_bps is not None:
         return "percent", round(line.amount_cents * staff.rate_bps / 10000), staff.rate_bps
-    if staff.rate_type == "fixed" and staff.rate_cents is not None:
+    # a fixed rate is per visit, so only a catalog service or class sold without a booking earns it
+    if (
+        staff.rate_type == "fixed"
+        and staff.rate_cents is not None
+        and item is not None
+        and item.kind in BOOKABLE_KINDS
+    ):
         return "fixed", staff.rate_cents, staff.rate_cents
     return None
 

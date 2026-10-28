@@ -7946,7 +7946,11 @@
         "message": "Percent of the service price"
     },
     "staff.rateFixed": {
-        "message": "Fixed amount per booking"
+        "message": "Fixed amount per visit"
+    },
+    "staff.rateFixedHint": {
+        "message": "Paid once for each booked visit, or each catalog service sold at the register. Fees and custom lines don't earn it.",
+        "description": "Hint under the rate when a team member is paid a fixed amount per visit"
     },
     "staff.rateHourly": {
         "message": "Hourly rate"
@@ -7975,7 +7979,7 @@
         "args": ["rate"]
     },
     "staff.payFixed": {
-        "message": "{money} per booking",
+        "message": "{money} per visit",
         "args": ["money"]
     },
     "staff.payHourly": {

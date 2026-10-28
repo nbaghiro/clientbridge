@@ -7,7 +7,7 @@ import { strings } from "../strings";
 import type { OccurrenceRow } from "../ui";
 import { BRAND_COLOURS } from "./staff";
 import { formatShortDay } from "../datetime";
-import { removalFailure, removalOutcome, useStaffProfileForm } from "./staff";
+import { removalFailure, removalOutcome, useStaffPayForm, useStaffProfileForm } from "./staff";
 
 const t = strings.staff.team;
 
@@ -206,5 +206,27 @@ describe("useStaffProfileForm", () => {
             expect(result.current.error).toBe(strings.staff.team.profileError);
         });
         expect(done).not.toHaveBeenCalled();
+    });
+});
+
+describe("useStaffPayForm", () => {
+    it("explains what a fixed rate pays for only while fixed is chosen", () => {
+        const row = {
+            id: "st_1",
+            title: null,
+            role: "staff",
+            invite_email: null,
+            payee: 1,
+            rate_type: "percent",
+            rate_bps: 4000,
+            rate_cents: null,
+            retail_rate_bps: null,
+        };
+        const { result } = renderHook(() => useStaffPayForm(recordingApi(), row, vi.fn()));
+        expect(result.current.rateHint).toBeUndefined();
+        act(() => {
+            result.current.setRateType("fixed");
+        });
+        expect(result.current.rateHint).toBe(strings.staff.rateFixedHint);
     });
 });

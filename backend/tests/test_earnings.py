@@ -367,7 +367,7 @@ async def test_invoice_lines_without_a_booking_earn_by_kind(
     assert len(await _line_journals(db, inv_id)) == 2
 
 
-async def test_a_fixed_rate_earns_per_line_and_hourly_earns_nothing_without_a_visit(
+async def test_a_fixed_rate_earns_per_catalog_service_and_hourly_earns_nothing_without_a_visit(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     line: dict[str, object] = {
@@ -375,8 +375,10 @@ async def test_a_fixed_rate_earns_per_line_and_hourly_earns_nothing_without_a_vi
         "amount_cents": 2000,
         "staff_id": "st_diego",
     }
+    service = {**line, "item_id": await _kind_item(db, "service")}
+    fee = {**line, "description": "Travel fee", "amount_cents": 300}
     await _diego_pay(db, rate_type="fixed", rate=15.0)
-    fixed_id, _ = await _paid_loose_invoice(as_owner, db, [line, dict(line)])
+    fixed_id, _ = await _paid_loose_invoice(as_owner, db, [service, dict(service), fee])
     assert [cents for _, cents, _ in await _line_journals(db, fixed_id)] == [1500, 1500]
     await _diego_pay(db, rate_type="hourly", rate=30.0)
     hourly_id, _ = await _paid_loose_invoice(as_owner, db, [dict(line)])

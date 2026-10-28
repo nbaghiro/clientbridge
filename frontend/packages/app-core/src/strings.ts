@@ -2716,6 +2716,7 @@ interface Strings {
         readonly rateType: string;
         readonly ratePercent: string;
         readonly rateFixed: string;
+        readonly rateFixedHint: string;
         readonly rateHourly: string;
         readonly rateLabel: (type: string) => string;
         readonly retailRate: string;

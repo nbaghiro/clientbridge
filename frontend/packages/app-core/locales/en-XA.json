@@ -7353,7 +7353,10 @@
         "message": "[Þéŕçéñţ öƒ ţĥé šéŕṽîçé þŕîçé one two three]"
     },
     "staff.rateFixed": {
-        "message": "[Ƒîẋéð åɱöûñţ þéŕ ƀööķîñĝ one two three]"
+        "message": "[Ƒîẋéð åɱöûñţ þéŕ ṽîšîţ one two]"
+    },
+    "staff.rateFixedHint": {
+        "message": "[Þåîð öñçé ƒöŕ éåçĥ ƀööķéð ṽîšîţ, öŕ éåçĥ çåţåļöĝ šéŕṽîçé šöļð åţ ţĥé ŕéĝîšţéŕ. Ƒééš åñð çûšţöɱ ļîñéš ðöñ'ţ éåŕñ îţ. one two three four five six seven]"
     },
     "staff.rateHourly": {
         "message": "[Ĥöûŕļý ŕåţé one two]"
@@ -7380,7 +7383,7 @@
         "message": "[{rate, number, ::percent scale/0.01 .###} öƒ šéŕṽîçéš one two]"
     },
     "staff.payFixed": {
-        "message": "[{money} þéŕ ƀööķîñĝ one two]"
+        "message": "[{money} þéŕ ṽîšîţ one]"
     },
     "staff.payHourly": {
         "message": "[{money} åñ ĥöûŕ one]"

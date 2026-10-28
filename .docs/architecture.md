@@ -681,9 +681,10 @@ package covers accrues the same way when it's covered, on the session's share of
 
 Every other line, a line without a booking or a booked product such as an add-on, earns for its `staff_id` (else
 the visit's member, else a sale's seller) under `earning:line:<line>:<n>`, with the document as subject: service and
-custom lines at the service rate (percent of the line, or the fixed rate per line; hourly needs a visit), product
-lines on an invoice at the retail rate, and entitlements nothing. A sale's products earn its seller's retail
-commission instead, under `earning:order:<order>:<n>` with the order as both source and subject.
+custom lines at the service rate (percent of the line; a fixed rate only on a catalog service or class, once per
+line; hourly needs a visit), product lines on an invoice at the retail rate, and entitlements nothing. A sale's
+products earn its seller's retail commission instead, under `earning:order:<order>:<n>` with the order as both
+source and subject.
 
 Each accrual's `meta` carries what a member's own replica needs to show it, since it holds no documents: the
 basis, the rate, the base it was earned on, a label, the client and, for a visit, when the work was done.
