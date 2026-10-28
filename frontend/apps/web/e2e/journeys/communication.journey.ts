@@ -416,7 +416,11 @@ test("FLOW-06-B an accepted email reads Sent until the provider confirms it, and
             ["email.bounced", "processed"],
             ["email.delivered", "processed"],
         ]);
-        expect(final.deliveries).toEqual([]);
+        expect(final.deliveries).toEqual(
+            [first.id, second.id].map((id) =>
+                expect.objectContaining({ scope: `message:${id}`, state: "accepted" }),
+            ),
+        );
         for (const [index, replica] of [page, other].entries()) {
             const log = logs[index];
             if (log === undefined) throw new Error("A conversation is missing");
