@@ -25,6 +25,9 @@ REQUIRED_CASES = {
         "SEC-E2E-01",
         "SEC-E2E-02",
         "OFF-E2E-01",
+        "OFF-E2E-02",
+        "OFF-E2E-03",
+        "OFF-E2E-04",
         "SYN-E2E-08",
         "SYN-E2E-02",
         "CFG-E2E-01",
@@ -159,6 +162,62 @@ BROWSER_CASES = {
         "XB-E2E-14": "a client sees a deposit due on the manage link and how to pay it",
     },
     "stripe": {"XB-E2E-15": "STRIPE-BROWSER-01", "XB-E2E-16": "STRIPE-BROWSER-03"},
+}
+
+
+# the replica lifecycle cases, which make test-sync runs in every engine; the @opfs ones need OPFS
+SYNC_LIFECYCLE = [
+    "reauthentication preserves edits and account/environment switches isolate replicas",
+    "initialization opens only the account-scoped replica",
+    "tabs opening the same fresh replica at once both claim it",
+    "SYN-E2E-20",
+]
+SYNC_LIFECYCLE_OPFS = [
+    "close keeps the replica file and the next activation reopens it",
+    "discard with removeReplicaFiles leaves no file of the replica",
+    "replica files are removed only once no page holds them",
+    "SYN-E2E-22",
+    "SYN-E2E-23",
+    "SYN-E2E-27",
+    "SYN-E2E-28",
+]
+# the outbox cases, which also run on IndexedDB
+SYNC_HOURS = [
+    "hours proposals coalesce before upload and retain immutable identities after a lost response",
+    "a rejected week blocks its successors while unrelated staff edits proceed",
+    "a paused upload releases its lease even if its transport ignores cancellation",
+    "another editor cannot overwrite a proposal it did not observe",
+    "accepted work reconciles after access removal, while unsent work survives until "
+    "explicitly discarded",
+    "SYN-E2E-24",
+    "SYN-E2E-25",
+]
+ROLES = ("owner", "admin", "staff", "contractor", "multi", "foreign")
+# every case of make test-sync, by Playwright project; a case named by its whole title has no ID
+SYNC_CASES = {
+    "chromium": [
+        "browser tabs observe account replacement, bind replicas to their user and sign out",
+        "lost command response replays once and the accepted week returns through PowerSync",
+        *SYNC_HOURS,
+        *SYNC_LIFECYCLE,
+        *SYNC_LIFECYCLE_OPFS,
+        *(f"{role} receives only authorized businesses through the real service" for role in ROLES),
+        "selected-business queries isolate lists, details and aggregate subqueries",
+        "SYN-E2E-21",
+        "SYN-E2E-26",
+        "SYN-E2E-29",
+        *(
+            f"{role} receives no column outside its reviewed projection in any synced table"
+            for role in ROLES
+        ),
+        "live renames reach the replica; downgrade, deletion and removal purge its data",
+        "SYN-E2E-30",
+        "a write past the origin's quota on OPFS reads as storage full",
+    ],
+    "firefox": SYNC_LIFECYCLE + SYNC_LIFECYCLE_OPFS,
+    "webkit": SYNC_LIFECYCLE + SYNC_LIFECYCLE_OPFS,
+    "chromium-indexeddb": SYNC_LIFECYCLE + SYNC_HOURS,
+    "firefox-indexeddb": SYNC_LIFECYCLE + SYNC_HOURS,
 }
 
 

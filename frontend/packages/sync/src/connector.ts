@@ -26,10 +26,18 @@ export function createConnector(opts: ConnectorOptions): ManagedConnector {
             return { endpoint: opts.powersyncUrl, token };
         },
 
-        uploadData(): Promise<void> {
-            return Promise.reject(
-                new Error("Unexpected direct replica write; use the hours outbox"),
-            );
-        },
+        uploadData: discardDirectWrites,
     };
+}
+
+/** Records and drops a stray write to a synced table, since PowerSync applies no checkpoint while one waits. */
+export async function discardDirectWrites(db: CommonPowerSyncDatabase): Promise<void> {
+    for (let batch = await db.getCrudBatch(100); batch; batch = await db.getCrudBatch(100)) {
+        const dropped = batch.crud.map((entry) => `${entry.op} ${entry.table} ${entry.id}`);
+        await db.execute(
+            "INSERT OR REPLACE INTO device_prefs (id, value, updated_at) VALUES ('sync.droppedWrites', ?, ?)",
+            [JSON.stringify(dropped), new Date().toISOString()],
+        );
+        await batch.complete();
+    }
 }

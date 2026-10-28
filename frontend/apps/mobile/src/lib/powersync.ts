@@ -18,7 +18,7 @@ export async function connectPowerSync(api: Session) {
     const userId = (await getSession())?.user_id;
     if (!userId) throw new Error("a valid account identity is required");
     return replica.activate(
-        { userId, apiUrl, powersyncUrl },
+        { userId, scope: apiUrl },
         createConnector({ powersyncUrl, authFetch: api.forBusiness(null).authFetchFor(userId) }),
     );
 }

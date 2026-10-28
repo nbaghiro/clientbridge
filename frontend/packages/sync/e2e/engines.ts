@@ -5,7 +5,11 @@ import { test as base } from "@playwright/test";
 
 // Playwright's WebKit contexts browse privately, where OPFS refuses the replica, so WebKit gets a profile
 export const test = base.extend({
-    context: async ({ browserName, context, playwright, baseURL }, use) => {
+    context: async ({ browserName, context, playwright, baseURL }, use, testInfo) => {
+        if (testInfo.project.metadata.storage === "indexeddb")
+            await context.addInitScript(() => {
+                Object.assign(globalThis, { replicaStorage: "indexeddb" });
+            });
         if (browserName !== "webkit") {
             await use(context);
             return;

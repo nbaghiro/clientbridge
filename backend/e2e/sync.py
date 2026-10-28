@@ -11,8 +11,8 @@ import sys
 import threading
 import time
 from collections.abc import Callable
+from datetime import UTC, datetime, timedelta
 from datetime import time as hour
-from datetime import timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import IO
@@ -40,9 +40,11 @@ from clientbridge.models.business import Business, Staff, User
 from clientbridge.models.catalog import Item
 from clientbridge.models.clients import Client
 from clientbridge.models.ledger import Account, Entry
+from clientbridge.models.messaging import Message, Thread
 from clientbridge.models.payments import Payment
 from clientbridge.models.scheduling import Booking, Hours, Slot
 from e2e import tier
+from e2e.results import SYNC_CASES, Report
 from e2e.runner import environment, flush_redis, free_port, purge, stop
 from e2e.tier import DATABASE
 
@@ -67,6 +69,8 @@ async def seed() -> None:
                     name=name,
                     slug=f"sync-{name}-{get_settings().run_namespace}",
                     gst_hst_number="private-tax-number",
+                    # west of UTC, so a history read that used local dates would miss its boundary
+                    timezone="America/Vancouver",
                 )
             )
         for role in ("owner", "admin", "staff", "contractor", "multi", "foreign", "removed"):
@@ -144,8 +148,108 @@ async def seed() -> None:
                 )
             )
         await financial(db)
+        await history_edge(db)
         await db.commit()
     await engine.dispose()
+
+
+def history_start(now: datetime) -> datetime:
+    """The client's historyStart: the first of the month twelve months back, in UTC."""
+    first = now.astimezone(UTC).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    return first.replace(year=first.year - 1)
+
+
+# a visit and a message a millisecond either side of the history window's start, and at it
+EDGES = {"before": -1, "at": 0, "after": 1}
+
+
+async def history_edge(db: AsyncSession) -> None:
+    start = history_start(clock.now())
+    db.add(
+        Thread(
+            id=run_id("th_edge"),
+            business_id=run_id("bz_first"),
+            client_id=run_id("cl_first"),
+            channel="sms",
+        )
+    )
+    for name, offset in EDGES.items():
+        at = start + timedelta(milliseconds=offset)
+        db.add(
+            Slot(
+                id=run_id(f"sl_edge_{name}"),
+                business_id=run_id("bz_first"),
+                item_id=run_id("it_first"),
+                staff_id=run_id("st_owner"),
+                starts_at=at,
+                # a millisecond long, so the three slots of one member don't overlap
+                ends_at=at + timedelta(milliseconds=1),
+            )
+        )
+    await db.flush()
+    for name, offset in EDGES.items():
+        at = start + timedelta(milliseconds=offset)
+        db.add(
+            Booking(
+                id=run_id(f"bk_edge_{name}"),
+                business_id=run_id("bz_first"),
+                slot_id=run_id(f"sl_edge_{name}"),
+                starts_at=at,
+                staff_id=run_id("st_owner"),
+                client_id=run_id("cl_first"),
+                status="completed",
+                price_cents=6000,
+            )
+        )
+        db.add(
+            Message(
+                id=run_id(f"ms_edge_{name}"),
+                business_id=run_id("bz_first"),
+                thread_id=run_id("th_edge"),
+                direction="out",
+                channel="sms",
+                status="sent",
+                body=name,
+                created_at=at,
+            )
+        )
+
+
+async def history_pages() -> None:
+    """Every older visit and message the API pages return before the history window."""
+    require_run()
+    before = history_start(clock.now()).isoformat()
+    found: dict[str, list[str]] = {"visits": [], "messages": []}
+    try:
+        app = create_app()
+        app.dependency_overrides[get_identity_provider] = OwnerSession
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://verification"
+        ) as client:
+            headers = {"X-Session-Token": "sync-hours", "X-Business-Id": run_id("bz_first")}
+            for kind, path, params in (
+                ("visits", "/v1/bookings/visits", {"client_id": run_id("cl_first")}),
+                ("messages", f"/v1/threads/{run_id('th_edge')}/messages", {}),
+            ):
+                cursor: dict[str, str] = {"before": before}
+                while True:
+                    response = await client.get(
+                        path, params=params | cursor | {"limit": "2"}, headers=headers
+                    )
+                    response.raise_for_status()
+                    page = response.json()
+                    rows = page[kind]
+                    found[kind] += [row["id"] for row in rows]
+                    if not page["more"] or not rows:
+                        break
+                    last = rows[-1]
+                    cursor = {
+                        "before": last["starts_at" if kind == "visits" else "created_at"],
+                        "before_id": last["id"],
+                    }
+        print(json.dumps(found))
+    finally:
+        await engine.dispose()
 
 
 async def financial(db: AsyncSession) -> None:
@@ -580,7 +684,7 @@ def rotation_drill(
     return timings
 
 
-def verify(lease: tier.Lease, directory: Path, log: IO[bytes]) -> None:
+def verify(lease: tier.Lease, directory: Path, log: IO[bytes], selection: list[str]) -> None:
     namespace = lease.namespace
     base = environment() | {
         **tier.environment(),
@@ -623,13 +727,24 @@ def verify(lease: tier.Lease, directory: Path, log: IO[bytes]) -> None:
         }
         with (directory / "browser.log").open("wb") as browser_log:
             subprocess.run(
-                ["pnpm", "exec", "playwright", "test", "-c", "packages/sync/playwright.config.ts"],
+                [
+                    "pnpm",
+                    "exec",
+                    "playwright",
+                    "test",
+                    "-c",
+                    "packages/sync/playwright.config.ts",
+                    *selection,
+                ],
                 cwd=ROOT / "frontend",
                 env=browser,
                 check=True,
                 stdout=browser_log,
                 stderr=subprocess.STDOUT,
             )
+        report = Report.model_validate_json((directory / "browser" / "results.json").read_text())
+        # a selected run proves only what it ran; the full lane must run every required case
+        report.validate_evidence([], {} if selection else SYNC_CASES)
         if not accepted(sync_url, mint(current)):
             raise RuntimeError("PowerSync does not accept the current signing key")
         timings |= rotation_drill(sync_url, base, front, first, kid)
@@ -640,7 +755,7 @@ def verify(lease: tier.Lease, directory: Path, log: IO[bytes]) -> None:
     run([sys.executable, "-m", "scripts.replication_health"])
 
 
-def drill() -> None:
+def drill(selection: list[str]) -> None:
     directory = ROOT / ".scratchpad" / f"sync-{secrets.token_hex(6)}"
     directory.mkdir(parents=True)
     print(f"Sync diagnostics: {directory}", flush=True)
@@ -657,26 +772,32 @@ def drill() -> None:
             json.dumps({"namespace": lease.namespace, "slot": lease.slot}, indent=2)
         )
         try:
-            verify(lease, directory, log)
+            verify(lease, directory, log, selection)
         finally:
             purge(lease.namespace, lease.redis_url, directory / "purge.json")
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(prog="python -m e2e.sync", description=__doc__)
-    parser.add_argument("command", choices=("verify", "seed", "hours", "mutate", "caught-up"))
+    parser.add_argument(
+        "command", choices=("verify", "seed", "hours", "mutate", "caught-up", "history")
+    )
     parser.add_argument("argument", nargs="?", help="the hours body, or the mutation")
+    # verify passes what follows it to Playwright, to run a selection of the cases
+    if sys.argv[1:2] == ["verify"]:
+        drill(sys.argv[2:])
+        return
     args = parser.parse_args()
     if args.command in ("hours", "mutate") and args.argument is None:
         parser.error(f"{args.command} takes one argument")
-    if args.command == "verify":
-        drill()
-    elif args.command == "seed":
+    if args.command == "seed":
         asyncio.run(seed())
     elif args.command == "hours":
         asyncio.run(post_hours(args.argument))
     elif args.command == "mutate":
         asyncio.run(mutate(args.argument))
+    elif args.command == "history":
+        asyncio.run(history_pages())
     else:
         asyncio.run(caught_up())
 

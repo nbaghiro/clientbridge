@@ -33,6 +33,7 @@ from e2e.namespace import Renamer
 from e2e.results import (
     BROWSER_CASES,
     REQUIRED_CASES,
+    SYNC_CASES,
     WEBKIT_EXCLUDED,
     WEBKIT_EXCLUDED_TAG,
     Attempt,
@@ -753,6 +754,19 @@ def test_every_required_case_is_written_in_its_lanes_files() -> None:
     for platform in ("ios", "android"):
         for identity in REQUIRED_CASES[f"native-{platform}"]:
             assert f"name: {identity} " in flows, identity
+
+
+def test_every_sync_case_is_written_once_and_each_project_is_configured() -> None:
+    e2e = functional.ROOT / "frontend" / "packages" / "sync"
+    sources = "\n".join(path.read_text() for path in (e2e / "e2e").glob("*.e2e.ts"))
+    for project, cases in SYNC_CASES.items():
+        for identity in (case for case in cases if re.fullmatch(r"[A-Z]+-E2E-\d+", case)):
+            assert sources.count(f'"{identity} ') == 1, f"{project}: {identity}"
+    config = (e2e / "playwright.config.ts").read_text()
+    assert "forbidOnly: true" in config
+    for project in SYNC_CASES:
+        engine, _, storage = project.partition("-")
+        assert f'"{engine}"' in config and (not storage or f"-{storage}" in config), project
 
 
 def test_the_native_lane_runs_every_walkthrough_once_in_shard_order() -> None:

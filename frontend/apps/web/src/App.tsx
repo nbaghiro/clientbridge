@@ -79,8 +79,11 @@ const lifecycle = {
     },
     pause: () => replica.pause(),
     discard: async () => {
+        // started first, so the file is listed for deletion before anything can fail or the tab close
+        const discarded = signOut();
+        discarded.catch(() => undefined);
         await endSession();
-        await signOut();
+        await discarded;
     },
     subscribe: onSignedOut,
     clearCredentials: endSession,

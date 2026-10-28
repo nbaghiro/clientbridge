@@ -8,7 +8,7 @@ import type { CommonPowerSyncDatabase, SyncStatus } from "@powersync/common";
 import { usePowerSync, useQuery } from "@powersync/react";
 import { useCallback, useEffect, useReducer, useRef, useState, useSyncExternalStore } from "react";
 
-import type { ApiLike } from "../api";
+import { type ApiLike, failedStatus } from "../api";
 import {
     adoptZoneTable,
     formatTime,
@@ -23,16 +23,25 @@ export const DEVICE_PREF_SQL = "SELECT value FROM device_prefs WHERE id = ?";
 
 export type ReplicaStorage = "indexeddb" | "opfs";
 
+/** What the OPFS probe answered: access granted, refused with the error's name, or no answer at all. */
+export type OpfsProbe = { granted: true } | { granted: false; error: string } | null;
+
 /** WebKit keeps the replica in OPFS, since its IndexedDB can stall reopening it after a reload. */
 export async function replicaStorage(
     vendor: string,
-    opfsSyncAccess: () => Promise<boolean>,
+    opfsSyncAccess: () => Promise<OpfsProbe>,
 ): Promise<ReplicaStorage> {
     // Chromium and Firefox pass the OPFS probe too, so the engine still comes from the vendor
     const webkit: EngineVendor = "Apple Computer, Inc.";
     if (vendor !== webkit) return "indexeddb";
+    const probe = await opfsSyncAccess();
+    // falling back here would hide this window's OPFS file and the unsent edits in it
+    if (probe === null)
+        throw Object.assign(new Error("storage probe didn't answer"), { code: "replica_stuck" });
+    // a full disk still keeps the file; the open or the next write then reports the device full
+    if (probe.granted || probe.error === "QuotaExceededError") return "opfs";
     // a private window refuses OPFS sync access, and IndexedDB still keeps its data
-    return (await opfsSyncAccess()) ? "opfs" : "indexeddb";
+    return "indexeddb";
 }
 
 // the fixed navigator.vendor of each engine; Firefox reports an empty string
@@ -323,6 +332,8 @@ export function useSyncState(pollMs = 3000): SyncState {
     const [stalled, setStalled] = useState(false);
     const pendingSince = useRef<number | null>(null);
     const hasSynced = status.hasSynced ?? false;
+    // a large first download keeps arriving for longer than the timeout, so only a pause in it counts
+    const downloaded = status.downloadProgress?.downloadedOperations ?? 0;
     useEffect(() => {
         if (hasSynced) return undefined;
         setStalled(false);
@@ -332,7 +343,7 @@ export function useSyncState(pollMs = 3000): SyncState {
         return () => {
             clearTimeout(timer);
         };
-    }, [hasSynced]);
+    }, [hasSynced, downloaded]);
     const current = useRef(true);
     const read = useCallback(
         (live: () => boolean): Promise<PendingQueue | null> =>
@@ -438,11 +449,12 @@ function bounded<T>(work: Promise<T>): Promise<T> {
     });
 }
 
-/** Rejects with `replica_stuck` when the replica hasn't opened in 20 seconds, as when a dead page kept its file locks. */
-export function boundedOpen<T>(open: Promise<T>): Promise<T> {
+/** Abandons an open that hasn't finished in 20 seconds (a dead page kept its locks) and rejects with `replica_stuck`. */
+export function boundedOpen<T>(open: Promise<T>, abandon: () => void): Promise<T> {
     let timer: ReturnType<typeof setTimeout>;
     const timeout = new Promise<never>((_, reject) => {
         timer = setTimeout(() => {
+            abandon();
             reject(Object.assign(new Error("replica open timed out"), { code: "replica_stuck" }));
         }, 20_000);
     });
@@ -452,6 +464,12 @@ export function boundedOpen<T>(open: Promise<T>): Promise<T> {
 }
 
 type SessionFailure = "load" | "discard" | "reauthenticate" | "offline" | "stuck";
+
+// checkSession turns a 401 into no session, so any other HTTP refusal says nothing about it
+function refusedTransiently(error: unknown): boolean {
+    const status = failedStatus(error);
+    return status !== null && status !== 401;
+}
 
 function sessionFailure(
     error: unknown,
@@ -498,8 +516,10 @@ export function useReplicaSession(options: ReplicaSessionOptions) {
             } catch (error) {
                 cancelled = true;
                 if (current === generation.current) {
-                    setFailed(sessionFailure(error, action));
-                    options.pause().catch(() => undefined);
+                    const failure = sessionFailure(error, action);
+                    setFailed(failure);
+                    // a stuck open was abandoned already, and sign-out must not wait on it
+                    if (failure !== "stuck") options.pause().catch(() => undefined);
                 }
             } finally {
                 if (current === generation.current) setLoading(false);
@@ -557,8 +577,10 @@ export function useReplicaSession(options: ReplicaSessionOptions) {
             let cancelled = false;
             const current = generation.current;
             bounded(validateSession(() => cancelled || !active || current !== generation.current))
-                .catch(() => {
+                .catch((error: unknown) => {
                     cancelled = true;
+                    // a refusal that isn't about the session (rate limit, a proxy) keeps the app open
+                    if (refusedTransiently(error)) return;
                     if (active && current === generation.current) restore();
                 })
                 .finally(() => {

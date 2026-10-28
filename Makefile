@@ -342,7 +342,7 @@ demo-snapshot:
 
 .PHONY: test-sync replication-health
 test-sync:
-	cd backend && uv run python -m e2e.sync verify
+	cd backend && uv run python -m e2e.sync verify $(ARGS)
 
 # Readiness, an active replication slot, retained WAL (alert above 1 GiB) and lag (above 60 s).
 replication-health:

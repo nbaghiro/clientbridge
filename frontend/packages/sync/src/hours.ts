@@ -1,5 +1,7 @@
 import type { CommonPowerSyncDatabase } from "@powersync/common";
 
+import { replicaOwner } from "./lifecycle";
+
 export interface WeekDay {
     weekday: number;
     available: boolean;
@@ -45,10 +47,8 @@ export async function enqueueHours(
         const identity = await tx.get<{ value: string }>(
             "SELECT value FROM device_prefs WHERE id = 'sync.identity'",
         );
-        const parts: unknown = JSON.parse(identity.value);
-        if (!Array.isArray(parts) || typeof parts[2] !== "string")
-            throw new Error("missing replica owner");
-        const actorId = parts[2];
+        const actorId = replicaOwner(identity.value);
+        if (actorId === null) throw new Error("missing replica owner");
         if (repair) {
             const active = await tx.getOptional(
                 "SELECT id FROM hours_outbox WHERE business_id = ? AND staff_id = ? AND state = 'sending'",
@@ -159,6 +159,10 @@ export function strandedKey(businessId: string, staffId: string): string {
 }
 
 type HoursTransport = (path: string, init?: RequestInit) => Promise<Response>;
+
+const PLAN_RETRY_MS = 15 * 60_000;
+// failures that say nothing about the server, so the backoff they grew ends when the connection returns
+const CONNECTION_FAILURES = ["transport", "paused"];
 
 export async function uploadHoursOnce(
     db: CommonPowerSyncDatabase,
@@ -273,6 +277,12 @@ export async function uploadHoursOnce(
             [code, Date.now() + (delay ?? backoff * (0.8 + Math.random() * 0.4)), row.id],
         );
     };
+    const reject = async (body: { error?: unknown } | null, status: number): Promise<void> => {
+        await db.execute(
+            "UPDATE hours_outbox SET state = 'rejected', error_code = ? WHERE id = ? AND state != 'accepted'",
+            [typeof body?.error === "string" ? body.error : `http_${String(status)}`, row.id],
+        );
+    };
     const controller = new AbortController();
     const abort = (): void => {
         controller.abort();
@@ -319,6 +329,14 @@ export async function uploadHoursOnce(
                         [key, JSON.stringify(stranded), new Date().toISOString()],
                     );
             });
+        } else if (response.status === 402) {
+            const body = await abortable(
+                response.json() as Promise<{ error?: unknown }>,
+                controller.signal,
+            ).catch(() => null);
+            // a lapsed plan holds the week until a plan is chosen, rather than rejecting it
+            if (body?.error === "plan_required") await retry("plan_required", PLAN_RETRY_MS);
+            else await reject(body, response.status);
         } else if ([401, 408, 429].includes(response.status) || response.status >= 500) {
             const after = response.headers.get("Retry-After");
             const seconds = after === null ? NaN : Number(after);
@@ -333,15 +351,7 @@ export async function uploadHoursOnce(
                 response.json() as Promise<{ error?: unknown }>,
                 controller.signal,
             ).catch(() => null);
-            await db.execute(
-                "UPDATE hours_outbox SET state = 'rejected', error_code = ? WHERE id = ? AND state != 'accepted'",
-                [
-                    typeof body?.error === "string"
-                        ? body.error
-                        : `http_${String(response.status)}`,
-                    row.id,
-                ],
-            );
+            await reject(body, response.status);
         }
     } catch {
         await retry(signal.aborted ? "paused" : "transport");
@@ -375,6 +385,13 @@ export function startHoursUploads(
     const controller = new AbortController();
     let timer: ReturnType<typeof setTimeout> | undefined;
     let pending: Promise<void> = Promise.resolve();
+    let connected = db.currentStatus.connected;
+    const stopListening = db.registerListener({
+        statusChanged: (status) => {
+            if (status.connected && !connected) retryNow(db).catch(() => undefined);
+            connected = status.connected;
+        },
+    });
     const run = (): void => {
         pending = uploadHoursOnce(db, fetch, controller.signal)
             .then(() => undefined)
@@ -386,9 +403,18 @@ export function startHoursUploads(
     run();
     return async () => {
         controller.abort();
+        stopListening();
         clearTimeout(timer);
         await pending;
     };
+}
+
+/** Sends the weeks that waited out a lost connection on the next pass instead of after their backoff. */
+async function retryNow(db: CommonPowerSyncDatabase): Promise<void> {
+    await db.execute(
+        `UPDATE hours_outbox SET retry_at = 0 WHERE state = 'queued' AND error_code IN (${CONNECTION_FAILURES.map(() => "?").join(", ")})`,
+        CONNECTION_FAILURES,
+    );
 }
 
 export async function discardRejectedQueue(db: CommonPowerSyncDatabase): Promise<void> {

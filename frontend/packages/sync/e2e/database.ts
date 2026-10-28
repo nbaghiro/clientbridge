@@ -2,14 +2,19 @@ import { AppSchema } from "../src/schema";
 import { PowerSyncDatabase, WASQLiteVFS } from "@powersync/web";
 import { Schema, Table, column } from "@powersync/common";
 
-function opfs(dbFilename: string) {
-    return { dbFilename, vfs: WASQLiteVFS.OPFSCoopSyncVFS };
+// a project can run the suite on IndexedDB, the storage Chromium and Firefox use today
+const storage = (globalThis as { replicaStorage?: string }).replicaStorage;
+
+function replicaOptions(dbFilename: string) {
+    const vfs =
+        storage === "indexeddb" ? WASQLiteVFS.IDBBatchAtomicVFS : WASQLiteVFS.OPFSCoopSyncVFS;
+    return { dbFilename, vfs };
 }
 
 export async function openReplica(filename: string) {
     const db = new PowerSyncDatabase({
         schema: AppSchema,
-        database: opfs(filename),
+        database: replicaOptions(filename),
     });
     await db.init();
     return db;
@@ -32,7 +37,7 @@ export async function openModelReplica(filename: string, model: Record<string, s
                 ]),
             ),
         ),
-        database: opfs(filename),
+        database: replicaOptions(filename),
     });
     await db.init();
     return db;
@@ -56,21 +61,27 @@ export async function openAuthorizationReplica(filename: string) {
                 phone: column.text,
             }),
         }),
-        database: opfs(filename),
+        database: replicaOptions(filename),
     });
     await db.init();
     return db;
 }
 
-export { ReplicaController } from "../src/lifecycle";
+export { ReplicaController, replicaFilename } from "../src/lifecycle";
 export { removeReplicaFiles } from "../src/files";
 
 export function replicaDatabase(filename: string) {
-    return new PowerSyncDatabase({ schema: AppSchema, database: opfs(filename) });
+    return new PowerSyncDatabase({ schema: AppSchema, database: replicaOptions(filename) });
 }
 
 export const liveReplicas = new Map<string, PowerSyncDatabase>();
-export { businessQuery, selectReplicaBusiness } from "../src/scoping";
+export {
+    businessQuery,
+    keepTabBusiness,
+    selectBusinessPerTab,
+    selectReplicaBusiness,
+    selectionQuery,
+} from "../src/scoping";
 export { enqueueHours, uploadHoursOnce, discardRejectedQueue } from "../src/hours";
 export { subscribeHistory } from "../src/history";
 
@@ -82,3 +93,6 @@ export async function replicaFiles(name: string): Promise<string[]> {
 }
 
 export { isStorageFull } from "../../app-core/src/domain/sync";
+export { opfsSyncAccess } from "../../../apps/web/src/lib/storage";
+export { discardDirectWrites } from "../src/connector";
+export { startHoursUploads } from "../src/hours";
