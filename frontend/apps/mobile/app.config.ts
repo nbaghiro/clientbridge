@@ -76,7 +76,8 @@ const config: ExpoConfig = {
     owner: "clientbridge-ca",
     scheme: "clientbridge",
     version: "0.1.0",
-    orientation: "portrait",
+    // phones lock to portrait at startup (index.ts); tablets rotate
+    orientation: "default",
     icon: "./assets/icon.png",
     // Permission prompts and the display name, per language; Expo writes InfoPlist.strings and strings.xml.
     locales: { en: "./locales/en.json" },

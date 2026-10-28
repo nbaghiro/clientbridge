@@ -25,7 +25,6 @@ import {
     Meter,
     Modal,
     Notice,
-    Stat,
     StatusPill,
     TextField,
     confirm,
@@ -54,15 +53,11 @@ export function GiftCards() {
         openLink("refunds", paymentId);
     });
     const nothingYet = desk.load.state === "empty";
-    const ready = desk.load.state === "ready";
-    const figure = (cents: number): { cents: number | null; currency: string } => ({
-        cents: ready ? cents : null,
-        currency: BUSINESS_CURRENCY,
-    });
 
     return (
         <div className="@container space-y-6">
             <DeskBar
+                summary={desk.summary}
                 action={
                     nothingYet ? null : (
                         <>
@@ -88,18 +83,16 @@ export function GiftCards() {
                     )
                 }
             />
-            {nothingYet || desk.load.state === "error" ? null : (
-                <div className="grid grid-cols-1 gap-3 @2xl:grid-cols-3">
-                    <Stat label={w.giftLiability} {...figure(desk.totals.giftCents)} />
-                    <Stat label={w.deferred} {...figure(desk.totals.deferredCents)} />
-                    <Stat label={w.walletMonthly} {...figure(desk.totals.monthlyCents)} />
-                </div>
-            )}
             <ListPage<EntitlementDeskRow, EntitlementSegment>
                 segments={
                     nothingYet
                         ? undefined
-                        : { items: desk.segments, active: desk.segment, onSelect: desk.setSegment }
+                        : {
+                              items: desk.segments,
+                              active: desk.segment,
+                              onSelect: desk.setSegment,
+                              layout: "menu",
+                          }
                 }
                 search={
                     nothingYet

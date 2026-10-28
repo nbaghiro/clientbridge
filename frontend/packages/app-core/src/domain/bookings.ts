@@ -283,8 +283,7 @@ export function slotOverlapSql(start: string, end: string): string {
   AND ${utcSql("s.starts_at")} < datetime(${end}) AND ${utcSql("s.ends_at")} > datetime(${start})`;
 }
 
-// One row per visit; a class session (capacity over one) is one row with its seats counted.
-export const EVENTS_SQL = `
+const EVENT_SELECT = `
 SELECT s.id AS slot_id, s.starts_at, s.ends_at, s.staff_id, s.capacity, s.status AS slot_status,
        s.recurrence_id, s.resource_id,
        i.id AS item_id, i.name AS item_name, i.color AS item_color, i.price_cents AS item_price,
@@ -303,9 +302,16 @@ FROM slots s
 JOIN items i ON i.id = s.item_id
 ${slotBookingsJoin("AND s.capacity <= 1 AND x.deleted_at IS NULL AND x.status != 'canceled'")}
 LEFT JOIN clients c ON c.id = b.client_id
-LEFT JOIN subjects sj ON sj.id = b.subject_id
+LEFT JOIN subjects sj ON sj.id = b.subject_id`;
+
+// One row per visit; a class session (capacity over one) is one row with its seats counted.
+export const EVENTS_SQL = `${EVENT_SELECT}
 WHERE s.status != 'canceled' AND ${slotOverlapSql("?2", "?1")}
 ORDER BY s.starts_at`;
+
+// One visit by booking id, or a class session by slot id, the way the board shows it.
+export const BOOKING_EVENT_SQL = `${EVENT_SELECT}
+WHERE s.id IN (SELECT x.slot_id FROM bookings x WHERE x.id = ?1 UNION ALL SELECT ?1)`;
 
 function enrich(r: EventRow, staff: Map<string, StaffRow>, now: Date, zone: string): ScheduleEvent {
     const start = parseTimestamp(r.starts_at);
@@ -1242,7 +1248,6 @@ export interface ScheduleBoard {
     window: VisibleWindow;
     selectedId: string | null;
     select: (id: string | null) => void;
-    selected: ScheduleEvent | null;
     week: WeekStripDay[];
     avail: Availability;
     staff: Map<string, StaffRow>;
@@ -1342,7 +1347,6 @@ export function useScheduleBoard(
         window,
         selectedId,
         select,
-        selected: weekEvents.find((e) => e.id === selectedId) ?? null,
         week: weekStrip(anchor, weekEvents, avail, now),
         avail,
         staff: staff.byId,
@@ -1660,7 +1664,7 @@ function timingLabel(e: ScheduleEvent, now: Date, zone: string): string {
 }
 
 /** Everything the booking panel shows about one visit: client, subject, notes, deposit and history. */
-export function useBookingDetail(event: ScheduleEvent | null, now: Date): BookingDetail | null {
+function useBookingDetail(event: ScheduleEvent | null, now: Date): BookingDetail | null {
     const bookingId = event?.bookingId ?? "";
     const clientId = event?.clientId ?? "";
     const client = useQuery<DetailClientRow>(DETAIL_CLIENT_SQL, [clientId]).data.at(0) ?? null;
@@ -1873,6 +1877,34 @@ export function useBookingActions(
                 errorMessage: (e) => failureMessage(e, s.actionError),
             });
         },
+    };
+}
+
+interface BookingRecord {
+    // "missing" when the visit was canceled or isn't on this device (older than the synced window).
+    state: "loading" | "ready" | "missing";
+    detail: BookingDetail | null;
+    actions: BookingActions;
+    now: Date;
+}
+
+/** One visit's record by id, for opening it from anywhere: Today, search, a client or the bell. */
+export function useBookingRecord(api: ApiLike, id: string): BookingRecord {
+    const now = useNow();
+    const zone = useBusinessZone();
+    const staff = useActiveStaff();
+    const { data, isLoading } = useQuery<EventRow>(BOOKING_EVENT_SQL, [id]);
+    const event = useMemo(() => {
+        const row = data.find((r) => (r.booking_id ?? r.slot_id) === id);
+        return row === undefined ? null : enrich(row, staff.byId, now, zone);
+    }, [data, id, staff.byId, now, zone]);
+    const detail = useBookingDetail(event, now);
+    const actions = useBookingActions(api, event, now);
+    return {
+        state: event !== null ? "ready" : isLoading ? "loading" : "missing",
+        detail,
+        actions,
+        now,
     };
 }
 

@@ -200,7 +200,7 @@ function RefundForm({
 }
 
 /** A refund over the current page, for the payment a button named. */
-export function RefundTask({ paymentId, onClose }: { paymentId: string; onClose: () => void }) {
+export function Refund({ paymentId, onClose }: { paymentId: string; onClose: () => void }) {
     const desk = useRefundDesk(paymentId);
     if (desk.selected === null) return null;
     return (

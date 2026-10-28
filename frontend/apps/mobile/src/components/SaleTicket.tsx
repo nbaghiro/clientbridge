@@ -957,7 +957,7 @@ function ItemAdder({ sale }: { sale: SaleTicket }) {
 }
 
 /** Checkout over the current screen: a visit's ticket (or a new sale), extra items, then payment. */
-export function CheckoutTask({
+export function Checkout({
     bookingId,
     onClose,
 }: {

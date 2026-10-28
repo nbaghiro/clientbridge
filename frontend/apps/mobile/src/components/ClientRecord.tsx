@@ -131,7 +131,7 @@ function NoteLine({ note, manager }: { note: ClientNote; manager: boolean }) {
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
-export function RecordSheet({
+export function ClientRecordView({
     inline = false,
     visible,
     clientId,
@@ -475,7 +475,7 @@ export function RecordSheet({
 }
 
 /** A client's record over the current screen, with the editor, pet and note sheets it opens. */
-export function ClientRecordTask({ clientId, onClose }: { clientId: string; onClose: () => void }) {
+export function ClientRecord({ clientId, onClose }: { clientId: string; onClose: () => void }) {
     const manager = canManagePayments(useRole());
     const [ask, setAsk] = useState<RecordAsk | null>(null);
     return (
@@ -488,7 +488,7 @@ export function ClientRecordTask({ clientId, onClose }: { clientId: string; onCl
                 else onClose();
             }}
         >
-            <RecordSheet
+            <ClientRecordView
                 visible={ask === null}
                 clientId={clientId}
                 manager={manager}
@@ -499,7 +499,7 @@ export function ClientRecordTask({ clientId, onClose }: { clientId: string; onCl
                 ask={ask}
                 onOpen={(id) => {
                     setAsk(null);
-                    replaceTask({ kind: "clientRecord", clientId: id });
+                    replaceTask({ kind: "record", type: "client", id });
                 }}
                 onClose={() => {
                     setAsk(null);
@@ -510,13 +510,13 @@ export function ClientRecordTask({ clientId, onClose }: { clientId: string; onCl
 }
 
 /** A new client over the current screen; saving opens their record in its place. */
-export function ClientEditorTask({ onClose }: { onClose: () => void }) {
+export function NewClient({ onClose }: { onClose: () => void }) {
     return (
         <Modal flow framed={false} size="xl" onClose={onClose}>
             <AskSheet
                 ask={{ kind: "client", id: null }}
                 onOpen={(id) => {
-                    replaceTask({ kind: "clientRecord", clientId: id });
+                    replaceTask({ kind: "record", type: "client", id });
                 }}
                 onClose={onClose}
             />

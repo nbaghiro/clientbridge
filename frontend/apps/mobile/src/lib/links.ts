@@ -21,7 +21,6 @@ export function useOpenLink(): (target: ShellTarget, refId?: string | null) => v
             const openTabs = (params: RootStackParamList["Tabs"]): void => {
                 nav.dispatch(StackActions.popTo("Tabs", params));
             };
-            const only = refId === null ? {} : { open: refId };
             const tab = (screen: "Today" | "Schedule" | "Clients"): void => {
                 openTabs({ screen, params: undefined });
             };
@@ -31,7 +30,7 @@ export function useOpenLink(): (target: ShellTarget, refId?: string | null) => v
                     return;
                 case "schedule":
                 case "booking":
-                    openTabs({ screen: "Schedule", params: only });
+                    tab("Schedule");
                     return;
                 case "clients":
                 case "client":
@@ -44,11 +43,9 @@ export function useOpenLink(): (target: ShellTarget, refId?: string | null) => v
                     return;
                 case "invoices":
                 case "payments":
-                    nav.navigate("Payments", { tab: "invoices" });
-                    return;
                 case "invoice":
                 case "estimate":
-                    nav.navigate("Payments", { tab: "invoices", ...only });
+                    nav.navigate("Payments", { tab: "invoices" });
                     return;
                 case "giftCards":
                     nav.navigate("Payments", { tab: "giftCards" });

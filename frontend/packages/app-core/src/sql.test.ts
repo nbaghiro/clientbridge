@@ -1378,6 +1378,16 @@ describe("app-core SQL against the replica schema", () => {
         });
     });
 
+    it("reads one visit by booking id and a class session by slot id", () => {
+        expect(pick(run("BOOKING_EVENT_SQL", ["bk_1"]), "slot_id", "booking_id")).toEqual([
+            { slot_id: "ss_1", booking_id: "bk_1" },
+        ]);
+        expect(pick(run("BOOKING_EVENT_SQL", ["ss_3"]), "slot_id", "booking_id")).toEqual([
+            { slot_id: "ss_3", booking_id: null },
+        ]);
+        expect(run("BOOKING_EVENT_SQL", ["bk_none"])).toEqual([]);
+    });
+
     it("lists clients by name with their lifetime value", () => {
         expect(pick(run("CLIENTS_SQL"), "id", "lifetime_value_cents")).toEqual([
             { id: "cl_ann", lifetime_value_cents: 6750 },

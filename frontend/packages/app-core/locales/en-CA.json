@@ -477,6 +477,10 @@
     "ui.listErrorBody": {
         "message": "Check your connection, then try again."
     },
+    "ui.listShow": {
+        "message": "Show",
+        "description": "Label of the dropdown that picks which records a list shows"
+    },
     "ui.retry": {
         "message": "Try again"
     },
@@ -730,37 +734,13 @@
         "message": "{label} {n, number}",
         "args": ["label", "n"]
     },
-    "billing.statOutstanding": {
-        "message": "Outstanding"
-    },
-    "billing.statOutstandingHint": {
-        "message": "{n, plural, one {# invoice} other {# invoices}}",
-        "args": ["n"]
-    },
-    "billing.statOverdue": {
-        "message": "Overdue"
-    },
-    "billing.statOverdueHint": {
-        "message": "{n, plural, =0 {Nothing overdue} one {# invoice} other {# invoices}}",
-        "args": ["n"]
-    },
-    "billing.statPaid": {
-        "message": "Paid, last 30 days"
-    },
-    "billing.statPaidHint": {
-        "message": "{n, plural, one {# invoice settled} other {# invoices settled}}",
-        "args": ["n"]
-    },
-    "billing.statDrafts": {
-        "message": "Drafts"
-    },
-    "billing.statDraftsHint": {
-        "message": "{n, plural, =0 {Nothing waiting} one {# draft to send} other {# drafts to send}}",
-        "args": ["n"]
-    },
     "billing.summary": {
         "message": "{n, plural, one {# invoice} other {# invoices}} · {owed} outstanding",
         "args": ["n", "owed"]
+    },
+    "billing.overdueAmount": {
+        "message": "{owed} overdue",
+        "args": ["owed"]
     },
     "billing.estimatesSummary": {
         "message": "{n, plural, one {# estimate} other {# estimates}} · {open} waiting on clients",
@@ -2500,6 +2480,11 @@
     "entitlements.segments.membership": {
         "message": "Plans"
     },
+    "entitlements.deskSummary": {
+        "message": "{gift} on gift cards · {unused} unused in packages · {monthly} a month from plans",
+        "description": "the money summary above the list of every client's gift cards, packages and plans",
+        "args": ["gift", "unused", "monthly"]
+    },
     "entitlements.segmentCount": {
         "message": "{label} {count, number}",
         "description": "a filter chip with how many it holds, like Gift cards 4",
@@ -3044,6 +3029,12 @@
     },
     "bookings.loading": {
         "message": "Loading the schedule"
+    },
+    "bookings.recordMissingTitle": {
+        "message": "Visit not available"
+    },
+    "bookings.recordMissing": {
+        "message": "This visit can't be shown. It may have been canceled, or it's older than the visits this device keeps."
     },
     "bookings.loadError": {
         "message": "Couldn't load the schedule"

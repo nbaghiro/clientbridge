@@ -35,7 +35,7 @@ import { StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { MergeSheet, TagSheet } from "../components/ClientSheets";
-import { AskSheet, type RecordAsk, RecordSheet } from "../components/ClientRecord";
+import { AskSheet, type RecordAsk, ClientRecordView } from "../components/ClientRecord";
 import { api } from "../lib/api";
 import { useRole } from "../lib/auth";
 
@@ -420,7 +420,7 @@ export function ClientsScreen() {
                         </View>
                         {openId !== null ? (
                             <View style={styles.recordCard}>
-                                <RecordSheet
+                                <ClientRecordView
                                     key={openId}
                                     inline
                                     visible
@@ -448,7 +448,7 @@ export function ClientsScreen() {
                 }}
             >
                 {openId !== null && !tablet ? (
-                    <RecordSheet
+                    <ClientRecordView
                         visible={sheet === null}
                         clientId={openId}
                         manager={manager}

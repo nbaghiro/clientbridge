@@ -1,12 +1,9 @@
 import {
     type Channel,
-    type Conversation,
     INBOX_FILTERS,
     type InboxSegmentKey,
     type InboxThread,
     channelLabel,
-    consentDetail,
-    consentLabel,
     firstName,
     strings,
     useConversation,
@@ -18,16 +15,13 @@ import {
     useThreadComposer,
     visibleInboxSegments,
     quickReplies,
-    BUSINESS_CURRENCY,
-    useBusinessZone,
     kindWord,
     useSubjectKind,
-    openTask,
+    openRecord,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import {
     Backdrop,
-    Badge,
     Button,
     Choice,
     ConversationRow,
@@ -35,10 +29,8 @@ import {
     IconButton,
     PageHeader,
     SheetHeader,
-    KeyValueList,
     MessageBubble,
     Modal,
-    Money,
     Notice,
     SearchField,
     SearchSelect,
@@ -63,7 +55,6 @@ import { Loaded } from "../components/Loaded";
 import { SplitView } from "../components/SplitView";
 import { api } from "../lib/api";
 import { useRole } from "../lib/auth";
-import { useOpenLink } from "../lib/links";
 import type { TabParamList } from "../navigation";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -268,7 +259,6 @@ function ThreadView({ thread, onBack }: { thread: InboxThread; onBack?: () => vo
     const conversation = useConversation(api, thread);
     const composer = useThreadComposer(api, thread);
     useMarkThreadRead(api, thread);
-    const [details, setDetails] = useState(false);
     const scroll = useRef<ScrollView>(null);
     const newest = conversation.days.at(-1)?.items.at(-1)?.id;
     const scrolledTo = useRef<string | undefined>(undefined);
@@ -289,7 +279,7 @@ function ThreadView({ thread, onBack }: { thread: InboxThread; onBack?: () => vo
                     size="sm"
                     variant="outline"
                     onPress={() => {
-                        setDetails(true);
+                        openRecord("client", thread.client_id);
                     }}
                 >
                     {s.details}
@@ -390,117 +380,7 @@ function ThreadView({ thread, onBack }: { thread: InboxThread; onBack?: () => vo
                     </Text>
                 ) : null}
             </View>
-            {details ? (
-                <Modal
-                    open
-                    size="xl"
-                    onClose={() => {
-                        setDetails(false);
-                    }}
-                >
-                    <ScrollView>
-                        <ContextPanel
-                            thread={thread}
-                            conversation={conversation}
-                            onLeave={() => {
-                                setDetails(false);
-                            }}
-                        />
-                    </ScrollView>
-                </Modal>
-            ) : null}
         </KeyboardAvoidingView>
-    );
-}
-
-function ContextPanel({
-    thread,
-    conversation,
-    onLeave,
-}: {
-    thread: InboxThread;
-    conversation: Conversation;
-    onLeave: () => void;
-}) {
-    const kind = useSubjectKind();
-    const zone = useBusinessZone();
-    const openLink = useOpenLink();
-    const client = conversation.client;
-    const balance = client?.balance_cents ?? 0;
-    return (
-        <View style={styles.gap}>
-            <Text style={styles.threadTitle}>{thread.title}</Text>
-            {client?.email !== undefined && client.email !== null ? (
-                <Text style={styles.meta}>{client.email}</Text>
-            ) : null}
-            <View style={styles.headRow}>
-                <View style={styles.flex}>
-                    <Button
-                        full
-                        onPress={() => {
-                            onLeave();
-                            openTask({ kind: "booking", clientId: thread.client_id });
-                        }}
-                    >
-                        {s.book}
-                    </Button>
-                </View>
-                <View style={styles.flex}>
-                    <Button
-                        full
-                        variant="outline"
-                        onPress={() => {
-                            onLeave();
-                            openLink("client", thread.client_id);
-                        }}
-                    >
-                        {s.openRecord}
-                    </Button>
-                </View>
-            </View>
-            <KeyValueList
-                rows={[
-                    ...(kind === null
-                        ? []
-                        : [
-                              {
-                                  label: strings.subjects.many(kind),
-                                  value: client?.subject_names ?? "—",
-                              },
-                          ]),
-                    {
-                        label: s.balance,
-                        value:
-                            balance > 0 ? (
-                                <Money currency={BUSINESS_CURRENCY} cents={balance} />
-                            ) : (
-                                s.settled
-                            ),
-                        intent: balance > 0 ? "warning" : undefined,
-                    },
-                    { label: s.nextVisit, value: conversation.nextVisit ?? s.nothingBooked },
-                ]}
-            />
-            <Text style={styles.section}>{s.consentTitle}</Text>
-            {CHANNELS.map((ch) => {
-                const v = conversation.consent[ch];
-                const state = consentLabel(v);
-                const detail = consentDetail(v, zone);
-                return (
-                    <View key={ch} style={styles.consentRow}>
-                        <View style={styles.flex}>
-                            <Text style={styles.rowName}>{s.consentChannel[ch]}</Text>
-                            {detail !== null ? <Text style={styles.meta}>{detail}</Text> : null}
-                        </View>
-                        <Badge
-                            style={{ alignSelf: "center" }}
-                            label={state.label}
-                            intent={state.intent}
-                        />
-                    </View>
-                );
-            })}
-        </View>
     );
 }
 
@@ -614,15 +494,4 @@ const styles = StyleSheet.create({
         backgroundColor: c.surface,
     },
     gap: { gap: 12 },
-    section: {
-        color: c.muted,
-        fontFamily: theme.fonts.ui,
-        fontSize: 11,
-        fontWeight: "600",
-        letterSpacing: 0.5,
-        textTransform: "uppercase",
-        marginTop: 6,
-    },
-    consentRow: { flexDirection: "row", alignItems: "center", gap: 10 },
-    rowName: { color: c.ink, fontFamily: theme.fonts.ui, fontSize: 14, fontWeight: "600" },
 });

@@ -3,6 +3,7 @@ import { replicaFilename } from "@clientbridge/sync";
 import { expect } from "@playwright/test";
 import { newAccount } from "./support/auth";
 import { signUp } from "./support/business";
+import { showOnly } from "./support/billing";
 import { requireLocalMail } from "./support/evidence";
 import { navigate, opfsEntries, signIn, test } from "./support/session";
 import { offsiteLoadFailure } from "./support/shell";
@@ -71,9 +72,10 @@ test("a recorded payment holds the invoice until its new balance reaches this de
     await page.getByLabel(strings.auth.password, { exact: true }).fill("demo1234");
     await page.getByRole("button", { name: strings.auth.signIn, exact: true }).click();
     const main = page.getByRole("main");
-    await main
-        .getByRole("button", { name: new RegExp(`^${s.segments.open}`) })
-        .click({ timeout: 60_000 });
+    await expect(main.getByRole("combobox", { name: strings.ui.listShow })).toBeVisible({
+        timeout: 60_000,
+    });
+    await showOnly(page, new RegExp(`^${s.segments.open}`));
     await main.locator("button.block").first().click();
     const record = page.getByRole("dialog");
     await record.getByRole("button", { name: s.recordPayment }).click();

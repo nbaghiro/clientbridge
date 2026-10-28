@@ -11,6 +11,7 @@ import {
     useBookingActions,
     useBusinessZone,
     usePeoplePhotos,
+    openRecord,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import {
@@ -104,7 +105,7 @@ export function ScheduleRail({ board }: { board: ScheduleBoard }) {
     const toClose = needsClosing(day.events);
     const next = day.isToday ? upNext(day.events, board.now, 4) : day.events.slice(0, 8);
     const open = (e: ScheduleEvent): void => {
-        board.select(e.id);
+        openRecord("booking", e.id);
     };
     return (
         <ScrollView style={styles.rail} contentContainerStyle={styles.body}>

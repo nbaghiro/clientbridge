@@ -1,10 +1,11 @@
 import { closeTask, useTask } from "@clientbridge/app-core";
 
-import { BookingRecordTask, BookingTask } from "./BookingComposer";
-import { ClientEditorTask, ClientRecordTask } from "./ClientRecord";
+import { NewBooking } from "./BookingComposer";
+import { NewClient } from "./ClientRecord";
 import { DocEditor } from "./DocEditor";
-import { RefundTask } from "./RefundPanel";
-import { CheckoutTask } from "./SaleTicket";
+import { RecordHost } from "./RecordHost";
+import { Refund } from "./RefundPanel";
+import { Checkout } from "./SaleTicket";
 
 /** Mounted once in the shell: shows the task a button started, over whatever page is open. */
 export function TaskHost() {
@@ -13,7 +14,7 @@ export function TaskHost() {
     switch (task.kind) {
         case "checkout":
             return (
-                <CheckoutTask
+                <Checkout
                     key={task.bookingId ?? "sale"}
                     bookingId={task.bookingId}
                     onClose={closeTask}
@@ -21,34 +22,33 @@ export function TaskHost() {
             );
         case "booking":
             return (
-                <BookingTask
+                <NewBooking
                     clientId={task.clientId}
                     estimateId={task.estimateId}
                     rebookId={task.rebookId}
                     onClose={closeTask}
                 />
             );
-        case "bookingRecord":
+        case "doc":
             return (
-                <BookingRecordTask
-                    key={task.bookingId}
-                    bookingId={task.bookingId}
+                <DocEditor
+                    key={task.id ?? task.doc}
+                    kind={task.doc}
+                    id={task.id}
+                    clientId={task.clientId}
                     onClose={closeTask}
                 />
             );
-        case "doc":
-            return <DocEditor kind={task.doc} clientId={task.clientId} onClose={closeTask} />;
         case "refund":
-            return (
-                <RefundTask key={task.paymentId} paymentId={task.paymentId} onClose={closeTask} />
-            );
+            return <Refund key={task.paymentId} paymentId={task.paymentId} onClose={closeTask} />;
         case "clientEditor":
-            return <ClientEditorTask onClose={closeTask} />;
-        case "clientRecord":
+            return <NewClient onClose={closeTask} />;
+        case "record":
             return (
-                <ClientRecordTask
-                    key={task.clientId}
-                    clientId={task.clientId}
+                <RecordHost
+                    key={`${task.type}:${task.id}`}
+                    type={task.type}
+                    id={task.id}
                     onClose={closeTask}
                 />
             );

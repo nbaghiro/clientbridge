@@ -69,7 +69,7 @@ function RecordCard({
     );
 }
 
-function RecordSheet({
+function ClientRecordView({
     bookingId,
     start,
     onSaved,
@@ -175,7 +175,7 @@ export function BookingVisitRecords({ event }: { event: ScheduleEvent }) {
             <Text style={styles.muted}>{v.private}</Text>
             {records.error !== null ? <Notice tone="danger">{records.error}</Notice> : null}
             {writing !== null ? (
-                <RecordSheet
+                <ClientRecordView
                     bookingId={bookingId}
                     start={writing.start}
                     onSaved={(record) => {

@@ -1,4 +1,4 @@
-import { type DetailViewProps } from "@clientbridge/app-core";
+import { type DetailViewProps, strings } from "@clientbridge/app-core";
 import { DetailView, Modal } from "@clientbridge/ui";
 import { type ReactNode } from "react";
 
@@ -6,17 +6,29 @@ import { type ReactNode } from "react";
 export function DeskBar({
     switcher,
     summary,
+    alert,
     action,
 }: {
     switcher?: ReactNode;
     summary?: string | undefined;
+    alert?: string | undefined;
     action?: ReactNode;
 }) {
     return (
         <div className="flex flex-wrap items-center justify-between gap-3">
             {switcher ?? <span />}
             <div className="flex items-center gap-3">
-                {summary !== undefined ? <p className="text-sm text-muted">{summary}</p> : null}
+                {summary !== undefined ? (
+                    <p className="text-sm text-muted">
+                        {summary}
+                        {alert !== undefined ? (
+                            <span className="font-medium text-danger">
+                                {strings.common.separator}
+                                {alert}
+                            </span>
+                        ) : null}
+                    </p>
+                ) : null}
                 {action}
             </div>
         </div>

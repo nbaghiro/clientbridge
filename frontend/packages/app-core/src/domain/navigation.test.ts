@@ -6,10 +6,12 @@ import { strings } from "../strings";
 import {
     clearTasks,
     closeTask,
+    openRecord,
     openTask,
     replaceTask,
     setupSectionsFor,
     taskFor,
+    useOpenRecord,
     useTask,
     visibleInboxSegments,
     visiblePaymentsTabs,
@@ -83,34 +85,46 @@ describe("tasks", () => {
         expect(taskFor("checkout", "bk_1")).toEqual({ kind: "checkout", bookingId: "bk_1" });
         expect(taskFor("sale", null)).toEqual({ kind: "checkout", bookingId: null });
         expect(taskFor("booking", null)).toEqual({ kind: "booking" });
-        expect(taskFor("booking", "bk_1")).toEqual({ kind: "bookingRecord", bookingId: "bk_1" });
+        expect(taskFor("booking", "bk_1")).toEqual({ kind: "record", type: "booking", id: "bk_1" });
         expect(taskFor("invoice", null)).toEqual({ kind: "doc", doc: "invoice" });
         expect(taskFor("estimate", null)).toEqual({ kind: "doc", doc: "estimate" });
-        expect(taskFor("invoice", "inv_1")).toBeNull();
+        expect(taskFor("invoice", "inv_1")).toEqual({
+            kind: "record",
+            type: "invoice",
+            id: "inv_1",
+        });
+        expect(taskFor("estimate", "est_1")).toEqual({
+            kind: "record",
+            type: "estimate",
+            id: "est_1",
+        });
         expect(taskFor("message", "cl_1")).toBeNull();
         expect(taskFor("refunds", "pay_1")).toEqual({ kind: "refund", paymentId: "pay_1" });
         expect(taskFor("refunds", null)).toBeNull();
         expect(taskFor("client", null)).toEqual({ kind: "clientEditor" });
-        expect(taskFor("client", "cl_1")).toEqual({ kind: "clientRecord", clientId: "cl_1" });
+        expect(taskFor("client", "cl_1")).toEqual({ kind: "record", type: "client", id: "cl_1" });
         expect(taskFor("schedule", null)).toBeNull();
         expect(taskFor("invoices", null)).toBeNull();
     });
 
     it("stacks tasks so closing one shows the one it was opened from", () => {
         const { result } = renderHook(() => useTask());
+        const client = renderHook(() => useOpenRecord("client"));
         act(() => {
-            openTask({ kind: "clientRecord", clientId: "cl_1" });
+            openRecord("client", "cl_1");
             openTask({ kind: "booking", clientId: "cl_1" });
         });
         expect(result.current).toEqual({ kind: "booking", clientId: "cl_1" });
+        expect(client.result.current).toBeNull();
         act(() => {
-            replaceTask({ kind: "bookingRecord", bookingId: "bk_1" });
+            replaceTask({ kind: "record", type: "booking", id: "bk_1" });
         });
-        expect(result.current).toEqual({ kind: "bookingRecord", bookingId: "bk_1" });
+        expect(result.current).toEqual({ kind: "record", type: "booking", id: "bk_1" });
         act(() => {
             closeTask();
         });
-        expect(result.current).toEqual({ kind: "clientRecord", clientId: "cl_1" });
+        expect(result.current).toEqual({ kind: "record", type: "client", id: "cl_1" });
+        expect(client.result.current).toBe("cl_1");
         act(() => {
             clearTasks();
         });

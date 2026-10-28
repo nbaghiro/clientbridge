@@ -715,7 +715,7 @@ const styles = StyleSheet.create({
     },
     nextTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
     nextBody: { flexDirection: "row", alignItems: "center", gap: 12 },
-    nextBar: { width: 4, borderRadius: 2 },
+    nextBar: { width: 4, borderRadius: 2, alignSelf: "stretch" },
     nextTime: { color: c.inkSoft, fontFamily: theme.fonts.ui, fontSize: 13, fontWeight: "600" },
     nextClient: {
         color: c.ink,

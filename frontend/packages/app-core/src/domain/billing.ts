@@ -244,12 +244,12 @@ export function useInvoices(): InvoiceRow[] {
     return useQuery<InvoiceRow>(INVOICES_SQL).data;
 }
 
-export function useEstimates(): EstimateRow[] {
+function useEstimates(): EstimateRow[] {
     const today = dateKey(new Date(), useBusinessZone());
     return useQuery<EstimateRow>(ESTIMATES_SQL, [today]).data;
 }
 
-export function useLines(parentId: string): LineRow[] | null {
+function useLines(parentId: string): LineRow[] | null {
     const query = useQuery<LineRow>(LINES_SQL, [parentId]);
     return query.isLoading ? null : query.data;
 }
@@ -514,38 +514,15 @@ export function listRow(row: InvoiceRow, zone: string, now: Date = new Date()): 
 
 interface InvoiceStats {
     outstandingCents: number;
-    outstandingCount: number;
     overdueCents: number;
-    overdueCount: number;
-    paid30Cents: number;
-    paid30Count: number;
-    draftCents: number;
-    draftCount: number;
 }
 
-export function invoiceStats(
-    rows: readonly InvoiceListRow[],
-    zone: string,
-    now: Date = new Date(),
-): InvoiceStats {
-    const open = rows.filter((r) => inSegment("open", r));
-    const late = rows.filter((r) => r.late);
-    const since = addDays(now, -30, zone).toISOString();
-    const paid = rows.filter(
-        (r) => (r.status === "paid" || r.status === "refunded") && (r.row.paid_at ?? "") >= since,
-    );
-    const drafts = rows.filter((r) => r.status === "draft");
-    const sum = (xs: InvoiceListRow[], f: (r: InvoiceRow) => number | null): number =>
-        xs.reduce((a, r) => a + (f(r.row) ?? 0), 0);
+export function invoiceStats(rows: readonly InvoiceListRow[]): InvoiceStats {
+    const balance = (xs: InvoiceListRow[]): number =>
+        xs.reduce((a, r) => a + (r.row.balance_cents ?? 0), 0);
     return {
-        outstandingCents: sum(open, (r) => r.balance_cents),
-        outstandingCount: open.length,
-        overdueCents: sum(late, (r) => r.balance_cents),
-        overdueCount: late.length,
-        paid30Cents: sum(paid, (r) => r.paid_cents),
-        paid30Count: paid.length,
-        draftCents: sum(drafts, (r) => r.total_cents),
-        draftCount: drafts.length,
+        outstandingCents: balance(rows.filter((r) => inSegment("open", r))),
+        overdueCents: balance(rows.filter((r) => r.late)),
     };
 }
 
@@ -570,13 +547,13 @@ interface InvoiceDesk {
     q: string;
     setQ: (q: string) => void;
     rows: InvoiceListRow[];
-    stats: InvoiceStats;
     summary: string | undefined;
+    overdue: string | undefined;
     emptyMessage: string;
     nothingYet: boolean;
 }
 
-/** Invoices with the money strip, segment counts (void left out of All) and search. */
+/** Invoices with the money summary, segment counts (void left out of All) and search. */
 export function useInvoiceDesk(initialSegment: InvoiceSegment = "all"): InvoiceDesk {
     const query = useQuery<InvoiceRow>(INVOICES_SQL);
     const [segment, setSegment] = useState<InvoiceSegment>(initialSegment);
@@ -592,7 +569,7 @@ export function useInvoiceDesk(initialSegment: InvoiceSegment = "all"): InvoiceD
             ),
         [all, segment, q],
     );
-    const stats = invoiceStats(all, zone);
+    const stats = invoiceStats(all);
     const counted = all.filter((r) => r.status !== "void");
     return {
         load,
@@ -606,10 +583,13 @@ export function useInvoiceDesk(initialSegment: InvoiceSegment = "all"): InvoiceD
         q,
         setQ,
         rows,
-        stats,
         summary:
             load.state === "ready"
                 ? s.summary(counted.length, formatMoney(stats.outstandingCents, BUSINESS_CURRENCY))
+                : undefined,
+        overdue:
+            load.state === "ready" && stats.overdueCents > 0
+                ? s.overdueAmount(formatMoney(stats.overdueCents, BUSINESS_CURRENCY))
                 : undefined,
         emptyMessage: q !== "" ? s.emptySearch : s.emptySegment(s.segments[segment]),
         nothingYet: all.length === 0,
@@ -1503,6 +1483,16 @@ export function docDraft(row: InvoiceRow | EstimateRow, lines: readonly LineRow[
     };
 }
 
+/** A saved invoice or estimate as an editor draft, or null until its row and lines load. */
+export function useDocDraft(kind: "invoice" | "estimate", id: string): DocDraft | null {
+    const invoices = useInvoices();
+    const estimates = useEstimates();
+    const lines = useLines(id);
+    const row =
+        kind === "invoice" ? invoices.find((r) => r.id === id) : estimates.find((r) => r.id === id);
+    return row === undefined || lines === null ? null : docDraft(row, lines);
+}
+
 let lineSeq = 0;
 const keyed = (line: DraftLine): DraftLine & { key: string } => ({
     ...line,
@@ -1577,7 +1567,6 @@ export function useDocComposer(
     api: ApiLike,
     kind: "invoice" | "estimate",
     draft?: DocDraft,
-    onDone?: (id: string) => void,
 ): DocComposer {
     const [clientId, setClientId] = useState(draft?.clientId ?? "");
     const [lines, setLines] = useState(() => (draft !== undefined ? draft.lines.map(keyed) : []));
@@ -1701,7 +1690,6 @@ export function useDocComposer(
                     await api.post(`${path}/${id}/send`, {}, { idempotencyKey });
                     sendKey.current = null;
                     setSent(s.sentTitle(s.doc.kinds[kind]));
-                    onDone?.(id);
                 },
                 { errorMessage: s.sendError },
             );
