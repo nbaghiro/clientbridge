@@ -130,9 +130,9 @@ const styles = StyleSheet.create({
     refused: { borderWidth: 2, borderColor: c.danFg },
     draft: { borderWidth: 2, borderStyle: "dashed", borderColor: c.accent, borderLeftWidth: 3 },
     row: { flexDirection: "row", alignItems: "center", gap: 3, minWidth: 0 },
-    head: { flex: 1, fontSize: 12, fontWeight: "700" },
-    line: { flexShrink: 1, fontSize: 11 },
+    head: { flex: 1, fontFamily: theme.fonts.ui, fontSize: 12, fontWeight: "700" },
+    line: { flexShrink: 1, fontFamily: theme.fonts.ui, fontSize: 11 },
     strong: { fontWeight: "700" },
     swatch: { width: 6, height: 6, borderRadius: 3 },
-    time: { fontSize: 11, marginTop: 1, fontVariant: ["tabular-nums"] },
+    time: { fontFamily: theme.fonts.ui, fontSize: 11, marginTop: 1, fontVariant: ["tabular-nums"] },
 });

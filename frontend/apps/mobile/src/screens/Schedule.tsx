@@ -30,6 +30,7 @@ import {
     useSubjectKind,
     useCrewJob,
 } from "@clientbridge/app-core";
+import { INTENT_COLORS } from "@clientbridge/tokens";
 import { theme } from "@clientbridge/tokens/native";
 import {
     Avatar,
@@ -41,12 +42,16 @@ import {
     Empty,
     Icon,
     IconButton,
+    PageHeader,
+    SheetHeader,
     KeyValueList,
     LoadFailed,
     Modal,
     Notice,
     Select,
     Skeleton,
+    useTabletLayout,
+    Badge,
 } from "@clientbridge/ui";
 import { type RouteProp, useNavigation, useRoute } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -60,14 +65,42 @@ import {
     BookingComposerSheet,
     RescheduleSheet,
 } from "../components/BookingSheet";
+import { ScheduleRail } from "../components/ScheduleRail";
 import { api } from "../lib/api";
 import { useViewer } from "../lib/auth";
 import type { RootStackParamList, TabParamList } from "../navigation";
 
 const c = theme.colors;
 const s = strings.bookings;
-const HOUR = 64;
-const PX = HOUR / 60;
+
+const LEGEND = [
+    {
+        intent: "accent",
+        get label() {
+            return s.legendConfirmed;
+        },
+    },
+    {
+        intent: "warning",
+        get label() {
+            return s.legendPending;
+        },
+    },
+    {
+        intent: "success",
+        get label() {
+            return s.legendCompleted;
+        },
+    },
+    {
+        intent: "danger",
+        get label() {
+            return s.legendNoShow;
+        },
+    },
+] as const;
+const MIN_HOUR = 64;
+const GRID_PAD = 32;
 const GUTTER = 44;
 
 export function ScheduleScreen() {
@@ -86,6 +119,8 @@ export function ScheduleScreen() {
     const [dragging, setDragging] = useState(false);
     const [lanesWidth, setLanesWidth] = useState(0);
     const scroll = useRef<ScrollView>(null);
+    const tablet = useTabletLayout();
+    const [viewport, setViewport] = useState(0);
     const form = useBookingComposer(api, composer, board, () => {
         setComposer(null);
     });
@@ -98,23 +133,23 @@ export function ScheduleScreen() {
         day.date,
         zone,
     );
-    const draftTop = draft === null ? 0 : minuteTop(draft.start, startHour, PX, zone);
+    // Like the web grid, hours stretch to fill a tall screen and scroll once they reach the minimum.
+    const hourPx = Math.max(MIN_HOUR, (viewport - GRID_PAD) / Math.max(1, endHour - startHour));
+    const px = hourPx / 60;
+    const draftTop = draft === null ? 0 : minuteTop(draft.start, startHour, px, zone);
     const [moving, setMoving] = useState(false);
     const hours = hourMarks(startHour, endHour);
     const waiting = board.load.state === "loading" || board.load.state === "error";
-    const openNew = (
-        from: { estimateId?: string | undefined; rebookId?: string | undefined } = {},
-    ): void => {
+    const openNew = (): void => {
         const first = day.lanes.find((l) => l.hours) ?? day.lanes[0];
         setExpanded(true);
         setComposer({
             staffId: first?.id ?? viewer?.staffId ?? "",
             start: suggestedStart(day.date, board.now, board.window, zone),
-            ...from,
         });
     };
     const tapLane = (staffId: string, y: number): void => {
-        const at = minutesInto(day.date, startHour * 60 + Math.floor(y / PX / 15) * 15, zone);
+        const at = minutesInto(day.date, startHour * 60 + Math.floor(y / px / 15) * 15, zone);
         if (composer) {
             form.place(staffId, at);
             return;
@@ -127,338 +162,511 @@ export function ScheduleScreen() {
         setExpanded(false);
         scroll.current?.scrollTo({ y: Math.max(0, draftTop - 96), animated: true });
     };
-    const create = route.params?.create;
-    const estimate = route.params?.estimate;
-    const rebook = route.params?.rebook;
     const open = route.params?.open ?? null;
     const openStart = useBookingStart(open);
     const { setAnchor, select } = board;
-    useEffect(() => {
-        if (create !== undefined) openNew({ estimateId: estimate, rebookId: rebook });
-    }, [create]);
     useEffect(() => {
         if (open === null || openStart === null) return;
         setAnchor(openStart);
         select(open);
     }, [open, openStart, setAnchor, select]);
 
+    const composerSheet = (
+        <BookingComposerSheet
+            form={form}
+            expanded={expanded}
+            onExpand={() => {
+                setExpanded(true);
+            }}
+            onCollapse={showCalendar}
+            onClose={() => {
+                setComposer(null);
+            }}
+        />
+    );
+
     return (
-        <SafeAreaView edges={["top"]} style={styles.screen}>
-            <Backdrop />
-            <View style={styles.head}>
-                <View style={styles.flex}>
-                    <Text style={styles.title} accessibilityRole="header">
-                        {s.title}
-                    </Text>
-                    <Text style={styles.subtitle} numberOfLines={1}>
-                        {board.label}
-                    </Text>
-                </View>
-                <IconButton
-                    icon="users"
-                    label={s.viewClasses}
-                    onPress={() => {
-                        nav.navigate("Classes");
-                    }}
+        <SafeAreaView edges={["top"]} style={[styles.screen, tablet && styles.tabletScreen]}>
+            <View style={styles.flex}>
+                <Backdrop />
+                <PageHeader
+                    style={styles.head}
+                    title={s.title}
+                    subtitle={tablet ? undefined : board.label}
+                    actions={
+                        <>
+                            <IconButton
+                                icon="users"
+                                label={s.viewClasses}
+                                onPress={() => {
+                                    nav.navigate("Classes");
+                                }}
+                            />
+                            <IconButton
+                                icon="repeat"
+                                label={s.viewSeries}
+                                onPress={() => {
+                                    nav.navigate("Recurrences");
+                                }}
+                            />
+                            <Button
+                                style={{ alignSelf: "center" }}
+                                size="sm"
+                                icon="plus"
+                                onPress={() => {
+                                    openNew();
+                                }}
+                            >
+                                {s.newShort}
+                            </Button>
+                        </>
+                    }
                 />
-                <IconButton
-                    icon="repeat"
-                    label={s.viewSeries}
-                    onPress={() => {
-                        nav.navigate("Recurrences");
-                    }}
-                />
-                <Button
-                    style={{ alignSelf: "center" }}
-                    size="sm"
-                    icon="plus"
-                    onPress={() => {
-                        openNew();
-                    }}
-                >
-                    {s.newShort}
-                </Button>
-            </View>
-            {board.resourceOptions !== null ? (
-                <View style={styles.strip}>
-                    <Select
-                        name={s.resourceFilter}
-                        size="sm"
-                        value={board.resource}
-                        options={board.resourceOptions}
-                        onChange={board.setResource}
-                    />
-                </View>
-            ) : null}
-            <View style={styles.strip}>
-                <DateStrip
-                    label={s.railJump}
-                    days={board.week}
-                    value={day.key}
-                    onChange={(key) => {
-                        const hit = board.week.find((d) => d.key === key);
-                        if (hit) board.setAnchor(hit.date);
-                    }}
-                    onPrev={() => {
-                        board.setAnchor(addDays(board.anchor, -7, zone));
-                    }}
-                    onNext={() => {
-                        board.setAnchor(addDays(board.anchor, 7, zone));
-                    }}
-                    prevLabel={s.prev}
-                    nextLabel={s.next}
-                />
-            </View>
-            <Text style={styles.summary} numberOfLines={1}>
-                {waiting
-                    ? s.loading
-                    : formatParts([
-                          s.bookings(board.summary.visits, board.summary.classes),
-                          s.expectedAmount(
-                              formatMoney(board.summary.expectedCents, BUSINESS_CURRENCY),
-                          ),
-                          s.utilization(board.summary.utilization),
-                      ])}
-            </Text>
-
-            <View style={styles.lanesHead}>
-                <View style={{ width: GUTTER }} />
-                {day.lanes.map((l) => (
-                    <View key={l.id} style={styles.laneHead}>
-                        <Avatar name={l.name} src={photos.staff(l.id)} size="sm" color={l.color} />
-                        <View style={styles.flex}>
-                            <Text style={styles.laneName} numberOfLines={1}>
-                                {l.short}
-                            </Text>
-                            <Text style={styles.laneSub} numberOfLines={1}>
-                                {!l.hours && !l.unset ? s.off : s.bookings(l.events.length, 0)}
-                            </Text>
-                        </View>
-                    </View>
-                ))}
-            </View>
-
-            {board.load.state === "loading" ? (
-                <View style={styles.pad}>
-                    <Skeleton variant="row" count={6} label={s.loading} />
-                </View>
-            ) : board.load.state === "error" ? (
-                <View style={styles.pad}>
-                    <LoadFailed
-                        message={
-                            board.historyUnavailable ? strings.sync.historyUnavailable : s.loadError
-                        }
-                        onRetry={board.load.retry}
-                        retrying={board.load.retrying}
-                    />
-                </View>
-            ) : (
-                <ScrollView
-                    ref={scroll}
-                    scrollEnabled={!dragging}
-                    contentContainerStyle={[
-                        styles.gridWrap,
-                        composer ? { paddingBottom: expanded ? 560 : 200 } : null,
-                    ]}
-                >
-                    {day.closedNote !== null ? (
-                        <Notice tone="info" banner style={styles.closedNote}>
-                            {day.closedNote}
-                        </Notice>
-                    ) : day.events.length === 0 && !showDraft ? (
-                        <View style={styles.emptyBox}>
-                            {day.lanes.some((l) => l.hours !== null || l.unset) ? (
-                                <Empty
-                                    variant="card"
-                                    icon="calendar"
-                                    message={s.emptyDayTitle}
-                                    body={s.emptyDay}
-                                />
-                            ) : (
-                                <Empty
-                                    variant="card"
-                                    icon="moon"
-                                    message={s.nobodyWorking}
-                                    body={s.nobodyWorkingHint}
-                                />
-                            )}
-                        </View>
-                    ) : null}
-                    <View style={[styles.grid, { height: (endHour - startHour) * HOUR }]}>
-                        <View style={{ width: GUTTER }}>
-                            {hours.map((h, i) => (
-                                <Text key={h} style={[styles.hour, { top: i * HOUR - 7 }]}>
-                                    {i === 0 ? "" : formatHour(h)}
-                                </Text>
-                            ))}
-                        </View>
-                        <View
-                            style={styles.lanes}
-                            onLayout={(e) => {
-                                setLanesWidth(e.nativeEvent.layout.width);
-                            }}
-                        >
-                            {day.lanes.map((lane) => (
-                                <View key={lane.id} style={styles.lane}>
-                                    <Pressable
-                                        style={StyleSheet.absoluteFill}
-                                        accessibilityLabel={formatParts([s.newBooking, lane.short])}
-                                        onPress={(e) => {
-                                            tapLane(lane.id, e.nativeEvent.locationY);
+                <View style={tablet ? styles.board : styles.flex}>
+                    <View style={styles.flex}>
+                        {tablet ? (
+                            <>
+                                <View style={styles.toolbar}>
+                                    <Button variant="outline" size="sm" onPress={board.goToday}>
+                                        {s.today}
+                                    </Button>
+                                    <IconButton
+                                        size="sm"
+                                        icon="chevronLeft"
+                                        label={s.prev}
+                                        onPress={() => {
+                                            board.shift(-1);
                                         }}
                                     />
-                                    {offHourSpans(lane, startHour, endHour, zone).map((sp) => (
+                                    <IconButton
+                                        size="sm"
+                                        icon="chevronRight"
+                                        label={s.next}
+                                        onPress={() => {
+                                            board.shift(1);
+                                        }}
+                                    />
+                                    <Text style={styles.toolbarTitle} numberOfLines={1}>
+                                        {board.label}
+                                    </Text>
+                                    {board.resourceOptions !== null ? (
+                                        <Select
+                                            name={s.resourceFilter}
+                                            size="sm"
+                                            width="auto"
+                                            surface="surface"
+                                            style={styles.roomFilter}
+                                            value={board.resource}
+                                            options={board.resourceOptions}
+                                            onChange={board.setResource}
+                                        />
+                                    ) : null}
+                                </View>
+                                <View style={styles.figures}>
+                                    {[
+                                        {
+                                            label: s.booked,
+                                            value: s.bookings(
+                                                board.summary.visits,
+                                                board.summary.classes,
+                                            ),
+                                        },
+                                        {
+                                            label: s.expected,
+                                            value: formatMoney(
+                                                board.summary.expectedCents,
+                                                BUSINESS_CURRENCY,
+                                            ),
+                                        },
+                                        {
+                                            label: s.openTime,
+                                            value: s.hoursOpen(board.summary.openMin / 60),
+                                        },
+                                        {
+                                            label: s.chairTime,
+                                            value: s.utilization(board.summary.utilization),
+                                        },
+                                    ].map((it) => (
+                                        <Text key={it.label} style={styles.figureLabel}>
+                                            {it.label}{" "}
+                                            <Text style={styles.figureValue}>
+                                                {waiting ? s.dash : it.value}
+                                            </Text>
+                                        </Text>
+                                    ))}
+                                </View>
+                            </>
+                        ) : null}
+                        {tablet ? null : (
+                            <View style={styles.strip}>
+                                <DateStrip
+                                    label={s.railJump}
+                                    days={board.week}
+                                    value={day.key}
+                                    onChange={(key) => {
+                                        const hit = board.week.find((d) => d.key === key);
+                                        if (hit) board.setAnchor(hit.date);
+                                    }}
+                                    onPrev={() => {
+                                        board.setAnchor(addDays(board.anchor, -7, zone));
+                                    }}
+                                    onNext={() => {
+                                        board.setAnchor(addDays(board.anchor, 7, zone));
+                                    }}
+                                    prevLabel={s.prev}
+                                    nextLabel={s.next}
+                                />
+                            </View>
+                        )}
+                        {tablet ? null : (
+                            <View style={styles.summaryRow}>
+                                <Text style={[styles.summary, styles.flex]} numberOfLines={1}>
+                                    {waiting
+                                        ? s.loading
+                                        : formatParts([
+                                              s.bookings(
+                                                  board.summary.visits,
+                                                  board.summary.classes,
+                                              ),
+                                              s.expectedAmount(
+                                                  formatMoney(
+                                                      board.summary.expectedCents,
+                                                      BUSINESS_CURRENCY,
+                                                  ),
+                                              ),
+                                              s.utilization(board.summary.utilization),
+                                          ])}
+                                </Text>
+                                {board.resourceOptions !== null ? (
+                                    <Select
+                                        name={s.resourceFilter}
+                                        size="sm"
+                                        width="auto"
+                                        surface="surface"
+                                        style={styles.roomFilter}
+                                        value={board.resource}
+                                        options={board.resourceOptions}
+                                        onChange={board.setResource}
+                                    />
+                                ) : null}
+                            </View>
+                        )}
+
+                        <View style={styles.lanesHead}>
+                            <View style={{ width: GUTTER }} />
+                            {day.lanes.map((l) => (
+                                <View key={l.id} style={styles.laneHead}>
+                                    <Avatar
+                                        name={l.name}
+                                        src={photos.staff(l.id)}
+                                        size="sm"
+                                        color={l.color}
+                                    />
+                                    <View style={styles.flex}>
+                                        <Text style={styles.laneName} numberOfLines={1}>
+                                            {tablet ? l.name : l.short}
+                                        </Text>
+                                        <Text style={styles.laneSub} numberOfLines={1}>
+                                            {tablet
+                                                ? l.hoursLabel
+                                                : !l.hours && !l.unset
+                                                  ? s.off
+                                                  : s.bookings(l.events.length, 0)}
+                                        </Text>
+                                    </View>
+                                    {tablet ? (
+                                        <Badge label={l.events.length} variant="count" />
+                                    ) : null}
+                                </View>
+                            ))}
+                        </View>
+
+                        {board.load.state === "loading" ? (
+                            <View style={styles.pad}>
+                                <Skeleton variant="row" count={6} label={s.loading} />
+                            </View>
+                        ) : board.load.state === "error" ? (
+                            <View style={styles.pad}>
+                                <LoadFailed
+                                    message={
+                                        board.historyUnavailable
+                                            ? strings.sync.historyUnavailable
+                                            : s.loadError
+                                    }
+                                    onRetry={board.load.retry}
+                                    retrying={board.load.retrying}
+                                />
+                            </View>
+                        ) : (
+                            <ScrollView
+                                ref={scroll}
+                                scrollEnabled={!dragging}
+                                onLayout={(e) => {
+                                    setViewport(e.nativeEvent.layout.height);
+                                }}
+                                contentContainerStyle={[
+                                    styles.gridWrap,
+                                    composer && !tablet
+                                        ? { paddingBottom: expanded ? 560 : 200 }
+                                        : null,
+                                ]}
+                            >
+                                {day.closedNote !== null ? (
+                                    <Notice tone="info" banner style={styles.closedNote}>
+                                        {day.closedNote}
+                                    </Notice>
+                                ) : day.events.length === 0 && !showDraft ? (
+                                    <View style={styles.emptyBox}>
+                                        {day.lanes.some((l) => l.hours !== null || l.unset) ? (
+                                            <Empty
+                                                variant="card"
+                                                icon="calendar"
+                                                message={s.emptyDayTitle}
+                                                body={s.emptyDay}
+                                            />
+                                        ) : (
+                                            <Empty
+                                                variant="card"
+                                                icon="moon"
+                                                message={s.nobodyWorking}
+                                                body={s.nobodyWorkingHint}
+                                            />
+                                        )}
+                                    </View>
+                                ) : null}
+                                <View
+                                    style={[
+                                        styles.grid,
+                                        { height: (endHour - startHour) * hourPx },
+                                    ]}
+                                >
+                                    <View style={{ width: GUTTER }}>
+                                        {hours.map((h, i) => (
+                                            <Text
+                                                key={h}
+                                                style={[styles.hour, { top: i * hourPx - 7 }]}
+                                            >
+                                                {i === 0 ? "" : formatHour(h)}
+                                            </Text>
+                                        ))}
+                                    </View>
+                                    <View
+                                        style={styles.lanes}
+                                        onLayout={(e) => {
+                                            setLanesWidth(e.nativeEvent.layout.width);
+                                        }}
+                                    >
+                                        {day.lanes.map((lane) => (
+                                            <View key={lane.id} style={styles.lane}>
+                                                <Pressable
+                                                    style={StyleSheet.absoluteFill}
+                                                    accessibilityLabel={formatParts([
+                                                        s.newBooking,
+                                                        lane.short,
+                                                    ])}
+                                                    onPress={(e) => {
+                                                        tapLane(lane.id, e.nativeEvent.locationY);
+                                                    }}
+                                                />
+                                                {offHourSpans(lane, startHour, endHour, zone).map(
+                                                    (sp) => (
+                                                        <View
+                                                            key={sp.from}
+                                                            pointerEvents="none"
+                                                            style={[
+                                                                styles.off,
+                                                                {
+                                                                    top: sp.from * px,
+                                                                    height: (sp.to - sp.from) * px,
+                                                                },
+                                                            ]}
+                                                        />
+                                                    ),
+                                                )}
+                                                {hours.map((h, i) => (
+                                                    <View
+                                                        key={h}
+                                                        pointerEvents="none"
+                                                        style={[styles.line, { top: i * hourPx }]}
+                                                    />
+                                                ))}
+                                                {lane.blocks.map((b) => {
+                                                    const span = blockSpan(
+                                                        b,
+                                                        day.date,
+                                                        startHour,
+                                                        endHour,
+                                                        px,
+                                                        zone,
+                                                    );
+                                                    const job =
+                                                        b.kind === "job"
+                                                            ? (b.bookingId ?? null)
+                                                            : null;
+                                                    return span === null ? null : (
+                                                        <View
+                                                            key={b.id}
+                                                            pointerEvents={
+                                                                job !== null ? "box-none" : "none"
+                                                            }
+                                                            style={[
+                                                                styles.block,
+                                                                {
+                                                                    top: span.top,
+                                                                    height: Math.max(
+                                                                        20,
+                                                                        span.height - 2,
+                                                                    ),
+                                                                },
+                                                            ]}
+                                                        >
+                                                            <Icon
+                                                                name={
+                                                                    job !== null
+                                                                        ? "users"
+                                                                        : b.kind === "break"
+                                                                          ? "clock"
+                                                                          : "moon"
+                                                                }
+                                                                size={11}
+                                                                color={c.muted}
+                                                            />
+                                                            <Text
+                                                                style={styles.blockText}
+                                                                numberOfLines={1}
+                                                            >
+                                                                {b.label}
+                                                            </Text>
+                                                            {job !== null ? (
+                                                                <JobDetails bookingId={job} />
+                                                            ) : null}
+                                                        </View>
+                                                    );
+                                                })}
+                                                {placeEvents(
+                                                    lane.events,
+                                                    day.date,
+                                                    startHour,
+                                                    px,
+                                                    zone,
+                                                ).map((p) => (
+                                                    <View
+                                                        key={p.event.id}
+                                                        style={[
+                                                            styles.event,
+                                                            {
+                                                                top: p.top,
+                                                                height: p.height,
+                                                                left: `${p.leftPct}%`,
+                                                                width: `${p.widthPct}%`,
+                                                            },
+                                                        ]}
+                                                    >
+                                                        <CalendarEventCard
+                                                            headline={
+                                                                p.event.subjectName ??
+                                                                p.event.headline
+                                                            }
+                                                            detail={
+                                                                p.event.kind === "class"
+                                                                    ? s.classSeats(
+                                                                          p.event.bookedCount,
+                                                                          p.event.capacity,
+                                                                      )
+                                                                    : formatParts([
+                                                                          p.event.serviceName,
+                                                                          arrivalLabel(
+                                                                              p.event,
+                                                                              kind,
+                                                                          ),
+                                                                      ])
+                                                            }
+                                                            time={formatTime(p.event.start, zone)}
+                                                            intent={p.event.intent}
+                                                            color={p.event.color}
+                                                            density={
+                                                                p.height < 30
+                                                                    ? "compact"
+                                                                    : p.height < 58
+                                                                      ? "regular"
+                                                                      : "full"
+                                                            }
+                                                            flags={eventFlags(p.event).slice(0, 2)}
+                                                            state={
+                                                                board.selectedId === p.event.id
+                                                                    ? "selected"
+                                                                    : "idle"
+                                                            }
+                                                            label={eventLabelFor(p.event)}
+                                                            onPress={() => {
+                                                                board.select(p.event.id);
+                                                            }}
+                                                        />
+                                                    </View>
+                                                ))}
+                                            </View>
+                                        ))}
+                                        {showDraft ? (
+                                            <DraftCard
+                                                draft={draft}
+                                                lane={draftLane}
+                                                lanes={day.lanes.length}
+                                                top={draftTop}
+                                                height={((+draft.end - +draft.start) / 60_000) * px}
+                                                laneWidth={
+                                                    lanesWidth / Math.max(1, day.lanes.length)
+                                                }
+                                                pxPerMin={px}
+                                                onPlace={(lane, start) => {
+                                                    const id = day.lanes[lane]?.id;
+                                                    if (id !== undefined) form.place(id, start);
+                                                }}
+                                                onDragging={setDragging}
+                                            />
+                                        ) : null}
+                                    </View>
+                                    {day.isToday ? (
                                         <View
-                                            key={sp.from}
                                             pointerEvents="none"
                                             style={[
-                                                styles.off,
+                                                styles.now,
                                                 {
-                                                    top: sp.from * PX,
-                                                    height: (sp.to - sp.from) * PX,
+                                                    top: minuteTop(board.now, startHour, px, zone),
+                                                    left: GUTTER - 4,
+                                                },
+                                            ]}
+                                        >
+                                            <View style={styles.nowDot} />
+                                            <View style={styles.nowLine} />
+                                        </View>
+                                    ) : null}
+                                </View>
+                            </ScrollView>
+                        )}
+                        {tablet ? (
+                            <View style={styles.legend}>
+                                {LEGEND.map((l) => (
+                                    <View key={l.intent} style={styles.legendItem}>
+                                        <View
+                                            style={[
+                                                styles.swatch,
+                                                {
+                                                    backgroundColor:
+                                                        c[INTENT_COLORS[l.intent].soft],
+                                                    borderLeftColor:
+                                                        c[INTENT_COLORS[l.intent].line],
                                                 },
                                             ]}
                                         />
-                                    ))}
-                                    {hours.map((h, i) => (
-                                        <View
-                                            key={h}
-                                            pointerEvents="none"
-                                            style={[styles.line, { top: i * HOUR }]}
-                                        />
-                                    ))}
-                                    {lane.blocks.map((b) => {
-                                        const span = blockSpan(
-                                            b,
-                                            day.date,
-                                            startHour,
-                                            endHour,
-                                            PX,
-                                            zone,
-                                        );
-                                        const job = b.kind === "job" ? (b.bookingId ?? null) : null;
-                                        return span === null ? null : (
-                                            <View
-                                                key={b.id}
-                                                pointerEvents={job !== null ? "box-none" : "none"}
-                                                style={[
-                                                    styles.block,
-                                                    {
-                                                        top: span.top,
-                                                        height: Math.max(20, span.height - 2),
-                                                    },
-                                                ]}
-                                            >
-                                                <Icon
-                                                    name={
-                                                        job !== null
-                                                            ? "users"
-                                                            : b.kind === "break"
-                                                              ? "clock"
-                                                              : "moon"
-                                                    }
-                                                    size={11}
-                                                    color={c.muted}
-                                                />
-                                                <Text style={styles.blockText} numberOfLines={1}>
-                                                    {b.label}
-                                                </Text>
-                                                {job !== null ? (
-                                                    <JobDetails bookingId={job} />
-                                                ) : null}
-                                            </View>
-                                        );
-                                    })}
-                                    {placeEvents(lane.events, day.date, startHour, PX, zone).map(
-                                        (p) => (
-                                            <View
-                                                key={p.event.id}
-                                                style={[
-                                                    styles.event,
-                                                    {
-                                                        top: p.top,
-                                                        height: p.height,
-                                                        left: `${p.leftPct}%`,
-                                                        width: `${p.widthPct}%`,
-                                                    },
-                                                ]}
-                                            >
-                                                <CalendarEventCard
-                                                    headline={
-                                                        p.event.subjectName ?? p.event.headline
-                                                    }
-                                                    detail={
-                                                        p.event.kind === "class"
-                                                            ? s.classSeats(
-                                                                  p.event.bookedCount,
-                                                                  p.event.capacity,
-                                                              )
-                                                            : formatParts([
-                                                                  p.event.serviceName,
-                                                                  arrivalLabel(p.event, kind),
-                                                              ])
-                                                    }
-                                                    time={formatTime(p.event.start, zone)}
-                                                    intent={p.event.intent}
-                                                    color={p.event.color}
-                                                    density={
-                                                        p.height < 30
-                                                            ? "compact"
-                                                            : p.height < 58
-                                                              ? "regular"
-                                                              : "full"
-                                                    }
-                                                    flags={eventFlags(p.event).slice(0, 2)}
-                                                    state={
-                                                        board.selectedId === p.event.id
-                                                            ? "selected"
-                                                            : "idle"
-                                                    }
-                                                    label={eventLabelFor(p.event)}
-                                                    onPress={() => {
-                                                        board.select(p.event.id);
-                                                    }}
-                                                />
-                                            </View>
-                                        ),
-                                    )}
-                                </View>
-                            ))}
-                            {showDraft ? (
-                                <DraftCard
-                                    draft={draft}
-                                    lane={draftLane}
-                                    lanes={day.lanes.length}
-                                    top={draftTop}
-                                    height={((+draft.end - +draft.start) / 60_000) * PX}
-                                    laneWidth={lanesWidth / Math.max(1, day.lanes.length)}
-                                    onPlace={(lane, start) => {
-                                        const id = day.lanes[lane]?.id;
-                                        if (id !== undefined) form.place(id, start);
-                                    }}
-                                    onDragging={setDragging}
-                                />
-                            ) : null}
-                        </View>
-                        {day.isToday ? (
-                            <View
-                                pointerEvents="none"
-                                style={[
-                                    styles.now,
-                                    {
-                                        top: minuteTop(board.now, startHour, PX, zone),
-                                        left: GUTTER - 4,
-                                    },
-                                ]}
-                            >
-                                <View style={styles.nowDot} />
-                                <View style={styles.nowLine} />
+                                        <Text style={styles.legendText}>{l.label}</Text>
+                                    </View>
+                                ))}
                             </View>
                         ) : null}
                     </View>
-                </ScrollView>
-            )}
-
+                    {tablet ? composer ? composerSheet : <ScheduleRail board={board} /> : null}
+                </View>
+            </View>
             <Modal
                 flow
                 framed={false}
@@ -498,19 +706,7 @@ export function ScheduleScreen() {
                     />
                 ) : null}
             </Modal>
-            {composer ? (
-                <BookingComposerSheet
-                    form={form}
-                    expanded={expanded}
-                    onExpand={() => {
-                        setExpanded(true);
-                    }}
-                    onCollapse={showCalendar}
-                    onClose={() => {
-                        setComposer(null);
-                    }}
-                />
-            ) : null}
+            {!tablet && composer ? composerSheet : null}
         </SafeAreaView>
     );
 }
@@ -523,6 +719,7 @@ function DraftCard({
     top,
     height,
     laneWidth,
+    pxPerMin,
     onPlace,
     onDragging,
 }: {
@@ -532,11 +729,12 @@ function DraftCard({
     top: number;
     height: number;
     laneWidth: number;
+    pxPerMin: number;
     onPlace: (lane: number, start: Date) => void;
     onDragging: (on: boolean) => void;
 }) {
-    const latest = useRef({ draft, lane, lanes, laneWidth, onPlace, onDragging });
-    latest.current = { draft, lane, lanes, laneWidth, onPlace, onDragging };
+    const latest = useRef({ draft, lane, lanes, laneWidth, pxPerMin, onPlace, onDragging });
+    latest.current = { draft, lane, lanes, laneWidth, pxPerMin, onPlace, onDragging };
     const origin = useRef<{ lane: number; start: Date; last: string } | null>(null);
     const end = (): void => {
         origin.current = null;
@@ -557,7 +755,7 @@ function DraftCard({
                 if (o === null) return;
                 const shift = l.laneWidth === 0 ? 0 : Math.round(g.dx / l.laneWidth);
                 const target = Math.max(0, Math.min(l.lanes - 1, o.lane + shift));
-                const minutes = Math.round(g.dy / PX / 15) * 15;
+                const minutes = Math.round(g.dy / l.pxPerMin / 15) * 15;
                 const key = `${String(target)}|${String(minutes)}`;
                 if (key === o.last) return;
                 o.last = key;
@@ -604,19 +802,79 @@ function DraftCard({
 const styles = StyleSheet.create({
     screen: { flex: 1, backgroundColor: c.surface },
     flex: { flex: 1, minWidth: 0 },
+    // On a tablet the board is a card under the header, like the inbox, with the new booking beside it.
+    tabletScreen: { backgroundColor: "transparent" },
+    board: {
+        flex: 1,
+        flexDirection: "row",
+        marginHorizontal: 16,
+        marginBottom: 16,
+        marginTop: 4,
+        backgroundColor: c.surface,
+        borderRadius: theme.radius,
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: c.border,
+        overflow: "hidden",
+    },
     pad: { padding: 16 },
-    head: {
+    toolbar: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 6,
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        borderBottomWidth: StyleSheet.hairlineWidth,
+        borderBottomColor: c.border,
+    },
+    toolbarTitle: {
+        flex: 1,
+        minWidth: 0,
+        marginLeft: 6,
+        color: c.ink,
+        fontFamily: theme.fonts.display,
+        fontSize: theme.type.section,
+        fontWeight: "700",
+    },
+    figures: {
+        flexDirection: "row",
+        flexWrap: "wrap",
+        columnGap: 22,
+        rowGap: 4,
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        backgroundColor: c.bg,
+    },
+    figureLabel: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 12 },
+    figureValue: { color: c.ink, fontSize: 13, fontWeight: "600" },
+    legend: {
+        flexDirection: "row",
+        flexWrap: "wrap",
+        alignItems: "center",
+        columnGap: 16,
+        rowGap: 4,
+        paddingVertical: 10,
+        paddingLeft: GUTTER + 16,
+        paddingRight: 16,
+        borderTopWidth: StyleSheet.hairlineWidth,
+        borderTopColor: c.border,
+    },
+    legendItem: { flexDirection: "row", alignItems: "center", gap: 6 },
+    swatch: { width: 10, height: 10, borderRadius: 2, borderLeftWidth: 2 },
+    legendText: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 12 },
+    summaryRow: {
         flexDirection: "row",
         alignItems: "center",
         gap: 8,
-        paddingHorizontal: 16,
-        paddingTop: 8,
+        paddingRight: 12,
+        paddingTop: 4,
+        paddingBottom: 12,
     },
-    title: { color: c.ink, fontSize: 26, fontWeight: "700" },
-    subtitle: { color: c.muted, fontSize: 13, marginTop: 1 },
+    roomFilter: { width: 160 },
+    head: { paddingHorizontal: 16, paddingTop: 8 },
     strip: { paddingHorizontal: 8, paddingTop: 10 },
     summary: {
         color: c.muted,
+        fontFamily: theme.fonts.ui,
         fontSize: 12,
         paddingHorizontal: 16,
         paddingTop: 6,
@@ -639,11 +897,17 @@ const styles = StyleSheet.create({
         borderLeftWidth: 1,
         borderLeftColor: c.border,
     },
-    laneName: { color: c.ink, fontSize: 13, fontWeight: "700" },
-    laneSub: { color: c.muted, fontSize: 11 },
+    laneName: { color: c.ink, fontFamily: theme.fonts.ui, fontSize: 13, fontWeight: "700" },
+    laneSub: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 11 },
     gridWrap: { paddingBottom: 24, paddingTop: 8 },
     grid: { flexDirection: "row" },
-    hour: { position: "absolute", right: 6, fontSize: 10, color: c.muted },
+    hour: {
+        position: "absolute",
+        right: 6,
+        fontFamily: theme.fonts.ui,
+        fontSize: 10,
+        color: c.muted,
+    },
     lanes: { flex: 1, flexDirection: "row" },
     lane: { flex: 1, borderLeftWidth: 1, borderLeftColor: c.border },
     draft: { position: "absolute", zIndex: 5, paddingHorizontal: 2, paddingBottom: 2 },
@@ -656,7 +920,12 @@ const styles = StyleSheet.create({
         paddingVertical: 3,
         backgroundColor: c.danFg,
     },
-    draftProblemText: { color: c.surface, fontSize: 11, fontWeight: "700" },
+    draftProblemText: {
+        color: c.surface,
+        fontFamily: theme.fonts.ui,
+        fontSize: 11,
+        fontWeight: "700",
+    },
     off: { position: "absolute", left: 0, right: 0, backgroundColor: c.bg },
     line: { position: "absolute", left: 0, right: 0, height: 1, backgroundColor: c.borderSoft },
     block: {
@@ -668,12 +937,18 @@ const styles = StyleSheet.create({
         gap: 3,
         padding: 4,
         borderRadius: 6,
-        borderWidth: 1,
+        borderWidth: theme.borderWidth,
         borderColor: c.border,
         borderStyle: "dashed",
         backgroundColor: c.bg,
     },
-    blockText: { flex: 1, fontSize: 10, color: c.muted, fontWeight: "600" },
+    blockText: {
+        flex: 1,
+        fontFamily: theme.fonts.ui,
+        fontSize: 10,
+        color: c.muted,
+        fontWeight: "600",
+    },
     event: { position: "absolute", paddingHorizontal: 2, paddingBottom: 2 },
     now: {
         position: "absolute",
@@ -717,7 +992,11 @@ function JobSheet({ bookingId, onClose }: { bookingId: string; onClose: () => vo
     return (
         <Modal open onClose={onClose} size="sm">
             <View style={jobStyles.sheet}>
-                <Text style={jobStyles.title}>{job?.title ?? strings.bookings.crewJob}</Text>
+                <SheetHeader
+                    title={job?.title ?? strings.bookings.crewJob}
+                    onClose={onClose}
+                    closeLabel={strings.common.close}
+                />
                 {loading ? <Text style={jobStyles.muted}>{strings.common.loading}</Text> : null}
                 {error !== null ? <Notice tone="danger">{error}</Notice> : null}
                 {job !== null ? (
@@ -733,6 +1012,5 @@ function JobSheet({ bookingId, onClose }: { bookingId: string; onClose: () => vo
 
 const jobStyles = StyleSheet.create({
     sheet: { gap: 12, padding: 20 },
-    title: { color: c.ink, fontSize: 17, fontWeight: "700" },
-    muted: { color: c.muted, fontSize: 14 },
+    muted: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 14 },
 });

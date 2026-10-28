@@ -71,8 +71,14 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: c.border,
     },
-    label: { fontSize: 12, fontWeight: "700" },
+    label: { fontFamily: theme.fonts.ui, fontSize: 12, fontWeight: "700" },
     mainText: { color: c.ink },
     bufferText: { color: c.muted, fontWeight: "600" },
-    caption: { color: c.muted, fontSize: 12.5, marginTop: 8, lineHeight: 17 },
+    caption: {
+        color: c.muted,
+        fontFamily: theme.fonts.ui,
+        fontSize: 12.5,
+        marginTop: 8,
+        lineHeight: 17,
+    },
 });

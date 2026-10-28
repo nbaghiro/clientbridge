@@ -16,6 +16,7 @@ import {
     useBusinessZone,
     usePeoplePhotos,
     useSubjectKind,
+    openTask,
 } from "@clientbridge/app-core";
 import {
     Avatar,
@@ -31,6 +32,7 @@ import {
     Panel,
     Skeleton,
     TextField,
+    PageFrame,
 } from "@clientbridge/ui";
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
@@ -47,7 +49,6 @@ import { useWide } from "../components/ScheduleGrid";
 import { api } from "../lib/api";
 import { useRole, useViewer } from "../lib/auth";
 import { useLinkIntent, useOpenLink } from "../lib/links";
-import { PageFrame } from "../components/PageFrame";
 
 const r = strings.clients.record;
 const t = strings.clients.tidy;
@@ -74,12 +75,7 @@ function ClientList() {
     const [merged, setMerged] = useState<string | null>(null);
     const sel = useClientSelection(api, dir.all);
     const wide = useWide();
-    useLinkIntent({
-        onCreate: () => {
-            setDialog({ kind: "client", id: null });
-        },
-        onOpen: setOpenId,
-    });
+    useLinkIntent({ onOpen: setOpenId });
     const grid =
         kind === null
             ? selecting
@@ -594,7 +590,7 @@ function ClientPage({ clientId, view }: { clientId: string; view: View }) {
                             </Button>
                             <Button
                                 onPress={() => {
-                                    open("booking");
+                                    openTask({ kind: "booking", clientId: c.id });
                                 }}
                             >
                                 {r.book}

@@ -853,7 +853,7 @@ export function BookingBody({
             </div>
             <BookingResource key={`room:${detail.event.id}`} event={detail.event} />
             <Departure event={detail.event} />
-            <CheckInCard key={detail.event.id} event={detail.event} />
+            <CheckInCard key={`checkin:${detail.event.id}`} event={detail.event} />
             <DepositDue event={detail.event} />
             <BookingClient detail={detail} />
             <BookingRoster detail={detail} />
@@ -861,11 +861,14 @@ export function BookingBody({
             {detail.event.bookingId !== null ? <BookingPhotos event={detail.event} /> : null}
             {detail.event.bookingId !== null ? <BookingAddons event={detail.event} /> : null}
             {detail.event.bookingId !== null ? (
-                <BookingCrew key={detail.event.bookingId} event={detail.event} />
+                <BookingCrew key={`crew:${detail.event.bookingId}`} event={detail.event} />
             ) : null}
             {detail.event.bookingId !== null ? <BookingDocuments event={detail.event} /> : null}
             {detail.event.bookingId !== null ? (
-                <BookingTreatmentNotes key={detail.event.bookingId} event={detail.event} />
+                <BookingTreatmentNotes
+                    key={`notes:${detail.event.bookingId}`}
+                    event={detail.event}
+                />
             ) : null}
             <BookingHistory detail={detail} />
         </>

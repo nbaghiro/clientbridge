@@ -11,7 +11,7 @@ name: Owner workday surfaces
 - tapOn: "Notifications.*"
 - assertVisible: "Notifications"
 - takeScreenshot: notifications
-- tapOn: "Close"
+- tapOn: "Back|Go back|Navigate up"
 - tapOn: "Schedule"
 - assertVisible: "Classes"
 - assertVisible: "Repeat visits"

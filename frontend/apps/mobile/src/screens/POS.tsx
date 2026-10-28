@@ -13,7 +13,7 @@ import {
     strings,
     useCatalogItems,
     useCheckoutQueue,
-    useLinkedVisit,
+    openTask,
     usePackageCover,
     useRegisterCatalog,
     useSale,
@@ -33,6 +33,7 @@ import {
     LoadFailed,
     Modal,
     Notice,
+    Panel,
     SearchField,
     Skeleton,
     StatusPill,
@@ -44,13 +45,13 @@ import { SalesBoard, SalesHistory } from "../components/SaleOrders";
 import { TicketSheet } from "../components/SaleTicket";
 import { api, apiBaseUrl } from "../lib/api";
 import { useViewer } from "../lib/auth";
-import { useBookAgain, useOpenLink } from "../lib/links";
+import { useOpenLink } from "../lib/links";
 
 const d = strings.pos.desk;
 const c = theme.colors;
 
 /** Sales on a phone: the register, the front desk board and, for owners and admins, history. */
-export function POS({ linked }: { linked?: string | undefined }) {
+export function POS() {
     const viewer = useViewer();
     const role = viewer?.role ?? null;
     const sale = useSale(api, {
@@ -71,12 +72,7 @@ export function POS({ linked }: { linked?: string | undefined }) {
         <View style={styles.screen}>
             <Tabs items={views} active={view} onSelect={setView} variant="pill" label={d.title} />
             {view === "register" ? (
-                <Register
-                    sale={sale}
-                    linked={linked ?? null}
-                    ticketOpen={ticketOpen}
-                    setTicketOpen={setTicketOpen}
-                />
+                <Register sale={sale} ticketOpen={ticketOpen} setTicketOpen={setTicketOpen} />
             ) : (
                 <ScrollView contentContainerStyle={styles.body}>
                     {view === "board" ? (
@@ -179,24 +175,17 @@ const PLAN_KINDS: { key: WalletKind; label: string; icon: "tag" | "box" | "repea
 
 function Register({
     sale,
-    linked,
     ticketOpen,
     setTicketOpen,
 }: {
     sale: SaleTicket;
-    linked: string | null;
     ticketOpen: boolean;
     setTicketOpen: (open: boolean) => void;
 }) {
     const queue = useCheckoutQueue();
     const cover = usePackageCover(api);
-    useLinkedVisit(linked, queue, (visit) => {
-        sale.addVisit(visit);
-        setTicketOpen(true);
-    });
     const catalog = useRegisterCatalog();
     const openLink = useOpenLink();
-    const bookAgain = useBookAgain();
     const visitId = sale.visitId;
     const [selling, setSelling] = useState<WalletKind | null>(null);
     const onTicket = (id: string): number =>
@@ -228,7 +217,7 @@ function Register({
                     <>
                         <Text style={styles.heading}>{d.todaysVisits}</Text>
                         {cover.error !== null ? <Notice tone="danger">{cover.error}</Notice> : null}
-                        <View style={styles.visits}>
+                        <Panel flush>
                             {waiting.map((v) => (
                                 <VisitCard
                                     key={v.bookingId}
@@ -254,7 +243,7 @@ function Register({
                                     }
                                 />
                             ))}
-                        </View>
+                        </Panel>
                     </>
                 ) : null}
                 {catalog.load.state === "loading" ? (
@@ -347,8 +336,11 @@ function Register({
                     setTicketOpen(false);
                 }}
                 onBookNext={() => {
-                    if (visitId === null) openLink("booking");
-                    else bookAgain(visitId);
+                    openTask(
+                        visitId === null
+                            ? { kind: "booking" }
+                            : { kind: "booking", rebookId: visitId },
+                    );
                 }}
             />
             <Modal
@@ -381,15 +373,16 @@ const styles = StyleSheet.create({
     grow: { flex: 1 },
     heading: {
         color: c.muted,
+        fontFamily: theme.fonts.ui,
         fontSize: 11,
         fontWeight: "600",
         letterSpacing: 0.6,
         textTransform: "uppercase",
     },
-    name: { color: c.ink, fontSize: 15, fontWeight: "600" },
-    strong: { color: c.ink, fontSize: 14, fontWeight: "600" },
-    note: { color: c.muted, fontSize: 12 },
-    accent: { color: c.accent, fontSize: 13, fontWeight: "600" },
+    name: { color: c.ink, fontFamily: theme.fonts.ui, fontSize: 15, fontWeight: "600" },
+    strong: { color: c.ink, fontFamily: theme.fonts.ui, fontSize: 14, fontWeight: "600" },
+    note: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 12 },
+    accent: { color: c.accent, fontFamily: theme.fonts.ui, fontSize: 13, fontWeight: "600" },
     tools: {
         gap: 10,
         paddingHorizontal: 16,
@@ -399,13 +392,6 @@ const styles = StyleSheet.create({
         borderBottomColor: c.border,
     },
     time: { width: 72 },
-    visits: {
-        borderRadius: theme.radius,
-        borderWidth: 1,
-        borderColor: c.border,
-        backgroundColor: c.surface,
-        overflow: "hidden",
-    },
     visit: {
         flexDirection: "row",
         alignItems: "center",
@@ -425,7 +411,7 @@ const styles = StyleSheet.create({
         gap: 12,
         paddingHorizontal: 16,
         paddingVertical: 12,
-        borderTopWidth: 1,
+        borderTopWidth: theme.borderWidth,
         borderTopColor: c.border,
         backgroundColor: c.surface,
     },

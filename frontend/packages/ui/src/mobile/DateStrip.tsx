@@ -92,9 +92,16 @@ const styles = StyleSheet.create({
     arrow: { width: 24, alignItems: "center", justifyContent: "center" },
     day: { flex: 1, alignItems: "center", paddingVertical: 6, borderRadius: 10 },
     dayOn: { backgroundColor: c.accent },
-    dow: { fontSize: 11, fontWeight: "600", color: c.muted, textTransform: "uppercase" },
+    dow: {
+        fontFamily: theme.fonts.ui,
+        fontSize: 11,
+        fontWeight: "600",
+        color: c.muted,
+        textTransform: "uppercase",
+    },
     today: { color: c.accent },
     num: {
+        fontFamily: theme.fonts.ui,
         fontSize: 17,
         fontWeight: "700",
         color: c.ink,

@@ -7,7 +7,7 @@ import {
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import { StyleSheet, Text, View } from "react-native";
-import { Button, Modal, Notice, Skeleton, StatusPill } from "@clientbridge/ui";
+import { Button, Modal, Notice, SheetHeader, Skeleton, StatusPill } from "@clientbridge/ui";
 import * as WebBrowser from "expo-web-browser";
 
 import { api } from "../lib/api";
@@ -59,7 +59,7 @@ export function CheckInSheet({
     return (
         <Modal size="lg" onClose={onClose}>
             <View style={styles.body}>
-                <Text style={styles.title}>{ci.title}</Text>
+                <SheetHeader title={ci.title} onClose={onClose} />
                 {v === null ? (
                     <Skeleton variant="row" count={2} label={t.loading} />
                 ) : (
@@ -146,12 +146,11 @@ export function CheckInSheet({
 const styles = StyleSheet.create({
     notice: { marginBottom: 12, gap: 8 },
     body: { gap: 16 },
-    title: { color: c.ink, fontSize: 20, fontWeight: "700" },
     who: { gap: 4 },
-    name: { color: c.ink, fontSize: 16, fontWeight: "600" },
-    sub: { color: c.muted, fontSize: 14, lineHeight: 20 },
-    label: { color: c.muted, fontSize: 12, fontWeight: "600" },
+    name: { color: c.ink, fontFamily: theme.fonts.ui, fontSize: 16, fontWeight: "600" },
+    sub: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 14, lineHeight: 20 },
+    label: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 12, fontWeight: "600" },
     alerts: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
     need: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 4 },
-    needLabel: { flex: 1, color: c.ink, fontSize: 14 },
+    needLabel: { flex: 1, color: c.ink, fontFamily: theme.fonts.ui, fontSize: 14 },
 });

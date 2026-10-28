@@ -22,6 +22,14 @@ import {
     useBusinessZone,
     useNextVisit,
     useVisitNote,
+    itemMedia,
+    replaceTask,
+    sellableItems,
+    useCatalogItems,
+    useCheckoutQueue,
+    useLinkedVisit,
+    useSale,
+    mediaUrl,
 } from "@clientbridge/app-core";
 import {
     Avatar,
@@ -37,11 +45,14 @@ import {
     Modal,
     Notice,
     SearchField,
+    SearchSelect,
     TextField,
+    ItemImage,
 } from "@clientbridge/ui";
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 
-import { api } from "../lib/api";
+import { api, apiBaseUrl } from "../lib/api";
+import { useViewer } from "../lib/auth";
 
 const d = strings.pos.desk;
 
@@ -422,12 +433,27 @@ function DiscountSheet({ sale, onClose }: { sale: SaleTicket; onClose: () => voi
     );
 }
 
-export function TicketPanel({ sale, onCharge }: { sale: SaleTicket; onCharge: () => void }) {
+/** The register's ticket beside the tiles, or (with `onClose`) a checkout drawer's whole height. */
+export function TicketPanel({
+    sale,
+    onCharge,
+    adder,
+    onClose,
+}: {
+    sale: SaleTicket;
+    onCharge: () => void;
+    adder?: ReactNode;
+    onClose?: () => void;
+}) {
     const [selected, setSelected] = useState<string | null>(null);
     const [discounting, setDiscounting] = useState(false);
     return (
         <aside
-            className="sticky top-6 flex max-h-[calc(100vh-8rem)] w-[340px] shrink-0 flex-col overflow-hidden rounded-lg border border-line bg-surface shadow-card xl:w-[380px]"
+            className={
+                onClose === undefined
+                    ? "sticky top-6 flex max-h-[calc(100vh-8rem)] w-[340px] shrink-0 flex-col overflow-hidden rounded-lg border border-line bg-surface shadow-card xl:w-[380px]"
+                    : "flex h-full flex-col overflow-hidden bg-surface"
+            }
             aria-label={d.ticket}
         >
             <div className="flex items-center justify-between border-b border-line px-5 py-3.5">
@@ -435,14 +461,25 @@ export function TicketPanel({ sale, onCharge }: { sale: SaleTicket; onCharge: ()
                     <h2 className="font-display text-base font-bold text-ink">{d.ticket}</h2>
                     <span className="text-xs tabular-nums text-muted">{sale.number}</span>
                 </div>
-                {sale.isEmpty ? null : (
-                    <Button size="sm" variant="quiet" onPress={sale.clear}>
-                        {d.clear}
-                    </Button>
-                )}
+                <div className="flex items-center gap-1">
+                    {sale.isEmpty ? null : (
+                        <Button size="sm" variant="quiet" onPress={sale.clear}>
+                            {d.clear}
+                        </Button>
+                    )}
+                    {onClose === undefined ? null : (
+                        <IconButton
+                            size="sm"
+                            icon="x"
+                            label={strings.common.close}
+                            onPress={onClose}
+                        />
+                    )}
+                </div>
             </div>
             <div className="border-b border-line px-5 py-3.5">
                 <ClientPicker sale={sale} />
+                {adder}
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto px-5">
                 {sale.held !== null ? (
@@ -467,6 +504,14 @@ export function TicketPanel({ sale, onCharge }: { sale: SaleTicket; onCharge: ()
                                 <LineItem
                                     currency={BUSINESS_CURRENCY}
                                     title={v.title}
+                                    leading={
+                                        <ItemImage
+                                            src={mediaUrl(apiBaseUrl, v.imageFileId)}
+                                            name={v.title}
+                                            color={v.color}
+                                            size={36}
+                                        />
+                                    }
                                     meta={v.meta}
                                     tag={v.tag}
                                     cents={v.cents}
@@ -1070,5 +1115,79 @@ export function PaySheet({
                 </div>
             </div>
         </Modal>
+    );
+}
+
+/** Adds any sellable item to the ticket by name, where the register's tiles are out of reach. */
+function ItemAdder({ sale }: { sale: SaleTicket }) {
+    const all = useCatalogItems();
+    const items = useMemo(() => sellableItems(all), [all]);
+    return (
+        <div className="pt-3">
+            <SearchSelect
+                name={d.addItems}
+                placeholder={d.addItems}
+                options={items.map((i) => ({
+                    key: i.id,
+                    label: i.name,
+                    media: itemMedia(i),
+                    detail: formatMoney(i.price_cents ?? 0, BUSINESS_CURRENCY),
+                }))}
+                value=""
+                onChange={(id) => {
+                    const item = items.find((i) => i.id === id);
+                    if (item !== undefined) sale.addItem(item);
+                }}
+            />
+        </div>
+    );
+}
+
+/** Checkout over the current page: a visit's ticket (or a new sale), extra items, then payment. */
+export function CheckoutTask({
+    bookingId,
+    onClose,
+}: {
+    bookingId: string | null;
+    onClose: () => void;
+}) {
+    const viewer = useViewer();
+    const sale = useSale(api, {
+        viewerStaffId: viewer?.staffId ?? null,
+        platform: "web",
+        role: viewer?.role ?? null,
+    });
+    useLinkedVisit(bookingId, useCheckoutQueue(), sale.addVisit);
+    const [paying, setPaying] = useState(false);
+    const visitId = sale.visitId;
+    return (
+        <>
+            <Modal variant="drawer" size="lg" framed={false} onClose={onClose}>
+                <TicketPanel
+                    sale={sale}
+                    adder={<ItemAdder sale={sale} />}
+                    onClose={onClose}
+                    onCharge={() => {
+                        setPaying(true);
+                    }}
+                />
+            </Modal>
+            {paying ? (
+                <PaySheet
+                    sale={sale}
+                    onClose={() => {
+                        setPaying(false);
+                    }}
+                    onBookNext={() => {
+                        setPaying(false);
+                        replaceTask(
+                            visitId === null
+                                ? { kind: "booking" }
+                                : { kind: "booking", rebookId: visitId },
+                        );
+                    }}
+                />
+            ) : null}
+        </>
     );
 }

@@ -20,6 +20,10 @@ import {
     useBusinessZone,
     usePeoplePhotos,
     useSubjectKind,
+    openTask,
+    canManagePayments,
+    replaceTask,
+    useClientDirectory,
 } from "@clientbridge/app-core";
 import {
     ActionMenu,
@@ -48,7 +52,7 @@ import { ClientWallet } from "./ClientWallet";
 import { SubjectDialog } from "./ClientSubjects";
 import { api } from "../lib/api";
 import { ClientFormsSection } from "./TreatmentNotes";
-import { useViewer } from "../lib/auth";
+import { useRole, useViewer } from "../lib/auth";
 import { useOpenLink } from "../lib/links";
 
 const r = strings.clients.record;
@@ -129,7 +133,7 @@ function RecordActions({
             <Button
                 size="sm"
                 onPress={() => {
-                    open("booking");
+                    openTask({ kind: "booking", clientId: record.client.id });
                 }}
             >
                 {r.book}
@@ -148,7 +152,7 @@ function RecordActions({
                     size="sm"
                     variant="outline"
                     onPress={() => {
-                        open("invoice");
+                        openTask({ kind: "doc", doc: "invoice", clientId: record.client.id });
                     }}
                 >
                     {r.invoice}
@@ -573,5 +577,54 @@ export function ClientRecordView({
                 </DetailSection>
             ) : null}
         </DetailView>
+    );
+}
+
+/** A client's record over the current page, with the same dialogs the Clients page opens from it. */
+export function ClientRecordTask({ clientId, onClose }: { clientId: string; onClose: () => void }) {
+    const manager = canManagePayments(useRole());
+    const directory = useClientDirectory();
+    const [dialog, setDialog] = useState<ClientDialog | null>(null);
+    return (
+        <>
+            <ClientRecordView
+                visible
+                clientId={clientId}
+                manager={manager}
+                onClose={onClose}
+                onDialog={setDialog}
+            />
+            <ClientDialogs
+                dialog={dialog}
+                directory={directory.all}
+                onOpenClient={(id) => {
+                    setDialog(null);
+                    replaceTask({ kind: "clientRecord", clientId: id });
+                }}
+                onMerged={() => {
+                    setDialog(null);
+                    onClose();
+                }}
+                onClose={() => {
+                    setDialog(null);
+                }}
+            />
+        </>
+    );
+}
+
+/** A new client over the current page; saving opens their record in its place. */
+export function ClientEditorTask({ onClose }: { onClose: () => void }) {
+    const directory = useClientDirectory();
+    return (
+        <ClientDialogs
+            dialog={{ kind: "client", id: null }}
+            directory={directory.all}
+            onOpenClient={(id) => {
+                replaceTask({ kind: "clientRecord", clientId: id });
+            }}
+            onMerged={onClose}
+            onClose={onClose}
+        />
     );
 }

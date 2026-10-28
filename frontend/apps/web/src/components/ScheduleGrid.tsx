@@ -21,6 +21,13 @@ import {
     useBusinessZone,
     formatTimeRange,
     useCrewJob,
+    dateKey,
+    draftWindow,
+    formatShortDay,
+    minutesInto,
+    minuteTop,
+    offHourSpans,
+    placeEvents,
 } from "@clientbridge/app-core";
 import {
     Button,
@@ -738,5 +745,111 @@ export function Toast({
             <span>{children}</span>
             {action}
         </div>
+    );
+}
+
+/** One person's day, read-only apart from the new booking: tap a free time or drag the draft to move it. */
+export function DayPeek({
+    board,
+    staffId,
+    draft,
+    onPlace,
+}: {
+    board: ScheduleBoard;
+    staffId: string;
+    draft: BookingDraft | null;
+    onPlace: (start: Date) => void;
+}) {
+    const zone = useBusinessZone();
+    const laneRef = useRef<HTMLDivElement>(null);
+    const day = board.focus;
+    const lane = day.lanes.find((l) => l.id === staffId);
+    if (lane === undefined) return null;
+    const onDay =
+        draft !== null && draft.staffId === staffId && dateKey(draft.start, zone) === day.key;
+    const { startHour, endHour } = draftWindow(board.window, onDay ? draft : null, day.date, zone);
+    const hourPx = 44;
+    const pxPerMin = hourPx / 60;
+    const at = (min: number): Date => minutesInto(day.date, startHour * 60 + min, zone);
+    return (
+        <section className="space-y-2">
+            <div className="flex items-baseline justify-between gap-3">
+                <p className="text-sm font-medium text-ink-soft">{s.dayOf(lane.short)}</p>
+                <p className="text-xs text-muted">{formatShortDay(day.date, zone)}</p>
+            </div>
+            <div className="max-h-[300px] overflow-y-auto rounded-md border border-line bg-surface">
+                <div
+                    className="relative flex pt-2"
+                    style={{ height: (endHour - startHour) * hourPx + 8 }}
+                >
+                    <TimeGutter startHour={startHour} endHour={endHour} hourPx={hourPx} />
+                    <div
+                        ref={laneRef}
+                        className="relative min-w-0 flex-1 cursor-pointer border-l border-line"
+                        onClick={(e) => {
+                            if (e.target !== e.currentTarget) return;
+                            onPlace(at(Math.floor(e.nativeEvent.offsetY / pxPerMin / 15) * 15));
+                        }}
+                    >
+                        <OffHours
+                            spans={offHourSpans(lane, startHour, endHour, zone)}
+                            pxPerMin={pxPerMin}
+                        />
+                        <HourLines startHour={startHour} endHour={endHour} hourPx={hourPx} />
+                        {lane.blocks.map((b) => (
+                            <BlockCard
+                                key={b.id}
+                                block={b}
+                                startHour={startHour}
+                                endHour={endHour}
+                                pxPerMin={pxPerMin}
+                                dayStart={day.date}
+                            />
+                        ))}
+                        {placeEvents(lane.events, day.date, startHour, pxPerMin, zone).map((p) => (
+                            <div
+                                key={p.event.id}
+                                className="pointer-events-none absolute"
+                                style={{
+                                    top: p.top,
+                                    height: p.height,
+                                    left: `calc(${String(p.leftPct)}% + 3px)`,
+                                    width: `calc(${String(p.widthPct)}% - 6px)`,
+                                }}
+                            >
+                                <CalendarEventCard
+                                    headline={p.event.headline}
+                                    detail={p.event.serviceName}
+                                    time={formatTime(p.event.start, zone)}
+                                    intent={p.event.intent}
+                                    color={p.event.color}
+                                    density={p.height < 30 ? "compact" : "regular"}
+                                    flags={eventFlags(p.event)}
+                                    state="faded"
+                                    label={eventLabelFor(p.event)}
+                                />
+                            </div>
+                        ))}
+                        {onDay ? (
+                            <DraftCard
+                                draft={draft}
+                                lane={0}
+                                lanes={1}
+                                top={minuteTop(draft.start, startHour, pxPerMin, zone)}
+                                height={((+draft.end - +draft.start) / 60_000) * pxPerMin}
+                                pxPerMin={pxPerMin}
+                                laneWidth={() => laneRef.current?.clientWidth ?? 0}
+                                onPlace={(_, start) => {
+                                    onPlace(start);
+                                }}
+                            />
+                        ) : null}
+                        {day.isToday ? (
+                            <NowLine top={minuteTop(board.now, startHour, pxPerMin, zone)} />
+                        ) : null}
+                    </div>
+                </div>
+            </div>
+        </section>
     );
 }

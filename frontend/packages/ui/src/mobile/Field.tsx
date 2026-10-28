@@ -188,15 +188,29 @@ export function Toggle({
 }
 
 export const fieldStyles = StyleSheet.create({
-    label: { color: c.inkSoft, fontSize: 13, fontWeight: "600", marginBottom: 6, marginTop: 14 },
+    label: {
+        color: c.inkSoft,
+        fontFamily: theme.fonts.ui,
+        fontSize: 13,
+        fontWeight: "600",
+        marginBottom: 6,
+        marginTop: 14,
+    },
     optional: { color: c.muted, fontWeight: "400" },
     required: { color: c.danFg },
-    hint: { color: c.muted, fontSize: 12, marginTop: 6, lineHeight: 17 },
+    hint: {
+        color: c.muted,
+        fontFamily: theme.fonts.ui,
+        fontSize: 12,
+        marginTop: 6,
+        lineHeight: 17,
+    },
     input: {
         borderColor: c.border,
         borderWidth: theme.borderWidth,
         borderRadius: theme.radius,
         color: c.ink,
+        fontFamily: theme.fonts.ui,
         fontSize: 15,
         backgroundColor: c.bg,
     },
@@ -213,17 +227,17 @@ export const fieldStyles = StyleSheet.create({
         backgroundColor: c.bg,
         paddingLeft: 12,
     },
-    prefix: { color: c.muted, fontSize: 15 },
-    suffix: { color: c.muted, fontSize: 15, paddingRight: 12 },
+    prefix: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 15 },
+    suffix: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 15, paddingRight: 12 },
     bare: { borderWidth: 0, backgroundColor: "transparent", paddingLeft: 2 },
     prefixInput: { flex: 1 },
     toggle: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 6 },
     toggleText: { flex: 1 },
-    toggleLabel: { color: c.ink, fontSize: 14, fontWeight: "600" },
+    toggleLabel: { color: c.ink, fontFamily: theme.fonts.ui, fontSize: 14, fontWeight: "600" },
 });
 
 export const FIELD_SIZE = StyleSheet.create({
-    sm: { paddingHorizontal: 10, paddingVertical: 6, fontSize: 13 },
+    sm: { paddingHorizontal: 10, paddingVertical: 6, fontFamily: theme.fonts.ui, fontSize: 13 },
     md: { paddingHorizontal: 12, paddingVertical: 10 },
     lg: { paddingHorizontal: 13, paddingVertical: 13 },
 });

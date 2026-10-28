@@ -13,7 +13,7 @@ import {
     strings,
     useCatalogItems,
     useCheckoutQueue,
-    useLinkedVisit,
+    openTask,
     usePackageCover,
     usePeoplePhotos,
     useRegisterCatalog,
@@ -33,20 +33,21 @@ import {
     LoadFailed,
     Modal,
     Notice,
+    Panel,
     SearchField,
     Skeleton,
     StatusPill,
-    Tabs,
 } from "@clientbridge/ui";
-import { useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { type ReactNode, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 
 import { SellEntitlement } from "../components/EntitlementSales";
 import { SalesBoard, SalesHistory } from "../components/SaleOrders";
+import { DeskBar } from "../components/Desk";
 import { PaySheet, TicketPanel } from "../components/SaleTicket";
 import { api, apiBaseUrl } from "../lib/api";
 import { useViewer } from "../lib/auth";
-import { linkPath, useOpenLink } from "../lib/links";
+import { useOpenLink } from "../lib/links";
 
 const d = strings.pos.desk;
 
@@ -72,11 +73,21 @@ export function POS() {
         show("register");
     };
 
+    const switcher = (
+        <Choice<SalesView>
+            layout="segmented"
+            label={d.title}
+            options={views.map((v) => ({ key: v.key, label: v.label }))}
+            value={view}
+            onChange={show}
+        />
+    );
+
     return (
         <div className="space-y-6">
-            <Tabs items={views} active={view} onSelect={show} variant="pill" label={d.title} />
+            {view === "register" ? null : <DeskBar switcher={switcher} />}
             {view === "register" ? (
-                <Register sale={sale} linked={params.get("open")} />
+                <Register sale={sale} switcher={switcher} />
             ) : view === "board" ? (
                 <SalesBoard onResume={resume} />
             ) : (
@@ -182,12 +193,10 @@ const PLAN_KINDS: { key: WalletKind; label: string; icon: "tag" | "box" | "repea
     },
 ];
 
-function Register({ sale, linked }: { sale: SaleTicket; linked: string | null }) {
+function Register({ sale, switcher }: { sale: SaleTicket; switcher: ReactNode }) {
     const queue = useCheckoutQueue();
     const cover = usePackageCover(api);
-    const navigate = useNavigate();
     const visitId = sale.visitId;
-    useLinkedVisit(linked, queue, sale.addVisit);
     const catalog = useRegisterCatalog();
     const openLink = useOpenLink();
     const [paying, setPaying] = useState(false);
@@ -200,70 +209,66 @@ function Register({ sale, linked }: { sale: SaleTicket; linked: string | null })
     return (
         <div className="flex items-start gap-6">
             <section className="min-w-0 flex-1 space-y-5">
-                {linked === null ? null : (
-                    <Button
-                        variant="link"
-                        icon="chevronLeft"
-                        onPress={() => {
-                            openLink("today");
-                        }}
-                    >
-                        {d.backToToday}
-                    </Button>
-                )}
-                {noCatalog ? null : (
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                        <Choice
-                            layout="segmented"
-                            label={d.addExtras}
-                            options={catalog.filters}
-                            value={catalog.filter}
-                            onChange={catalog.setFilter}
-                        />
-                        <SearchField
-                            className="w-full sm:w-72"
-                            value={catalog.q}
-                            onChange={catalog.setQ}
-                            placeholder={d.searchShort}
-                        />
-                    </div>
-                )}
+                <DeskBar
+                    switcher={
+                        <div className="flex flex-wrap items-center gap-3">
+                            {switcher}
+                            {noCatalog ? null : (
+                                <Choice
+                                    layout="segmented"
+                                    label={d.addExtras}
+                                    options={catalog.filters}
+                                    value={catalog.filter}
+                                    onChange={catalog.setFilter}
+                                />
+                            )}
+                        </div>
+                    }
+                    action={
+                        noCatalog ? null : (
+                            <SearchField
+                                className="w-full sm:w-48"
+                                value={catalog.q}
+                                onChange={catalog.setQ}
+                                placeholder={d.searchShort}
+                            />
+                        )
+                    }
+                />
                 {queue.load.state === "error" ? (
                     <LoadFailed message={d.visitsError} body={d.catalogErrorBody} />
                 ) : waiting.length > 0 ? (
                     <section className="space-y-2">
                         {cover.error !== null ? <Notice tone="danger">{cover.error}</Notice> : null}
-                        <div className="flex items-baseline justify-between gap-3 px-1">
-                            <h2 className="text-sm font-semibold text-ink">{d.todaysVisits}</h2>
-                            <p className="text-xs text-muted">{d.todaysVisitsHint}</p>
-                        </div>
-                        <div className="divide-y divide-line-soft overflow-hidden rounded-lg border border-line bg-surface shadow-card">
-                            {waiting.map((v) => (
-                                <VisitRow
-                                    key={v.bookingId}
-                                    v={v}
-                                    onTicket={sale.hasVisit(v.bookingId)}
-                                    onCheckOut={() => {
-                                        sale.addVisit(v);
-                                    }}
-                                    covering={cover.busy === v.bookingId}
-                                    onCover={
-                                        v.packageId !== null &&
-                                        (v.state === "ready" || v.state === "inProgress")
-                                            ? () => {
-                                                  cover.cover(v, () => {
-                                                      const line = sale.lines.find(
-                                                          (l) => l.bookingId === v.bookingId,
-                                                      );
-                                                      if (line !== undefined)
-                                                          sale.removeLine(line.key);
-                                                  });
-                                              }
-                                            : null
-                                    }
-                                />
-                            ))}
-                        </div>
+                        <Panel flush title={d.todaysVisits} subtitle={d.todaysVisitsHint}>
+                            <div className="divide-y divide-line-soft">
+                                {waiting.map((v) => (
+                                    <VisitRow
+                                        key={v.bookingId}
+                                        v={v}
+                                        onTicket={sale.hasVisit(v.bookingId)}
+                                        onCheckOut={() => {
+                                            sale.addVisit(v);
+                                        }}
+                                        covering={cover.busy === v.bookingId}
+                                        onCover={
+                                            v.packageId !== null &&
+                                            (v.state === "ready" || v.state === "inProgress")
+                                                ? () => {
+                                                      cover.cover(v, () => {
+                                                          const line = sale.lines.find(
+                                                              (l) => l.bookingId === v.bookingId,
+                                                          );
+                                                          if (line !== undefined)
+                                                              sale.removeLine(line.key);
+                                                      });
+                                                  }
+                                                : null
+                                        }
+                                    />
+                                ))}
+                            </div>
+                        </Panel>
                     </section>
                 ) : null}
                 {catalog.load.state === "loading" ? (
@@ -353,11 +358,11 @@ function Register({ sale, linked }: { sale: SaleTicket; linked: string | null })
                     }}
                     onBookNext={() => {
                         setPaying(false);
-                        if (visitId === null) openLink("booking");
-                        else
-                            navigate(
-                                `${linkPath("booking")}&rebook=${encodeURIComponent(visitId)}`,
-                            )?.catch(() => undefined);
+                        openTask(
+                            visitId === null
+                                ? { kind: "booking" }
+                                : { kind: "booking", rebookId: visitId },
+                        );
                     }}
                 />
             ) : null}

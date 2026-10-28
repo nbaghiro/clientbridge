@@ -91,9 +91,9 @@ const styles = StyleSheet.create({
     },
     head: { flexDirection: "row", alignItems: "flex-start", gap: 10, padding: 14 },
     text: { flex: 1, minWidth: 0 },
-    title: { fontSize: 13.5, fontWeight: "700" },
-    titleLarge: { fontSize: 16 },
-    detail: { fontSize: 13, marginTop: 1, lineHeight: 18 },
+    title: { fontFamily: theme.fonts.ui, fontSize: 13.5, fontWeight: "700" },
+    titleLarge: { fontFamily: theme.fonts.ui, fontSize: 16 },
+    detail: { fontFamily: theme.fonts.ui, fontSize: 13, marginTop: 1, lineHeight: 18 },
     cardAction: { marginTop: 10 },
     body: { padding: 14 },
 });

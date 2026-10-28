@@ -2457,6 +2457,54 @@ describe("app-core SQL against the replica schema", () => {
         ]);
     });
 
+    it("reads the services that need a room", () => {
+        db.run("DELETE FROM items");
+        scoped("items", [
+            {
+                id: "it_massage",
+                kind: "service",
+                name: "Massage",
+                price_cents: 9000,
+                currency: "CAD",
+                active: 1,
+                resource_ids: '["rs_room1"]',
+            },
+            {
+                id: "it_old",
+                kind: "service",
+                name: "Old",
+                price_cents: 9000,
+                currency: "CAD",
+                active: 0,
+                resource_ids: '["rs_room1"]',
+            },
+            {
+                id: "it_nail",
+                kind: "service",
+                name: "Nails",
+                price_cents: 4000,
+                currency: "CAD",
+                active: 1,
+                resource_ids: "[]",
+            },
+        ]);
+        expect(run("RESOURCE_USERS_SQL")).toEqual([{ resource_id: "rs_room1", name: "Massage" }]);
+    });
+
+    it("knows whether the business offers classes", () => {
+        expect(run("OFFERS_CLASSES_SQL")).toEqual([{ offers: 1 }]);
+        db.run("DELETE FROM items");
+        db.run("DELETE FROM slots");
+        scoped("items", [
+            { id: "it_cut", kind: "service", name: "Cut", price_cents: 4000, currency: "CAD" },
+        ]);
+        expect(run("OFFERS_CLASSES_SQL")).toEqual([{ offers: 0 }]);
+        scoped("items", [
+            { id: "it_yoga", kind: "class", name: "Yoga", price_cents: 2000, currency: "CAD" },
+        ]);
+        expect(run("OFFERS_CLASSES_SQL")).toEqual([{ offers: 1 }]);
+    });
+
     it("reads programs, their days and who holds a seat, one per sibling", () => {
         scheduleRows();
         scoped("items", [

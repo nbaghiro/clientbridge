@@ -26,7 +26,7 @@ import {
 
 import { type ReactNode, useState } from "react";
 
-import { DeskPanel } from "../components/Desk";
+import { DeskBar, DeskPanel } from "../components/Desk";
 import { api } from "../lib/api";
 import { useOpenLink } from "../lib/links";
 
@@ -81,6 +81,7 @@ export function Earnings() {
     );
     return (
         <div className="@container space-y-6">
+            <DeskBar summary={e.summary} />
             {e.totals.pendingCents + e.totals.approvedCents + e.totals.paidYtdCents === 0 ? null : (
                 <div className="grid grid-cols-1 gap-3 @2xl:grid-cols-3">
                     <Stat

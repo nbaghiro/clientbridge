@@ -5,6 +5,7 @@ import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import { Empty } from "./Empty";
 import { LoadFailed } from "./LoadFailed";
 import { Icon } from "./Icon";
+import { PageHeader } from "./PageHeader";
 import type { NativeProps } from "./props";
 import { SearchField } from "./SearchField";
 import { Skeleton } from "./Skeleton";
@@ -32,32 +33,36 @@ export function ListPage<T, K extends string = string>({
     footer,
     style,
 }: NativeProps<ListPageProps<T, K>>) {
-    const hasHeader =
-        title !== undefined || summary !== undefined || action !== undefined || accessory;
+    const actions =
+        action !== undefined || accessory ? (
+            <View style={styles.headerActions}>
+                {accessory}
+                {action !== undefined ? (
+                    <Pressable
+                        style={styles.action}
+                        onPress={action.onPress}
+                        accessibilityRole="button"
+                        accessibilityLabel={action.label}
+                    >
+                        <Icon name="plus" size={14} color={c.accentInk} />
+                        <Text style={styles.actionText}>{action.label}</Text>
+                    </Pressable>
+                ) : null}
+            </View>
+        ) : undefined;
     return (
         <View style={[styles.page, style]}>
-            {hasHeader ? (
-                <View style={styles.header}>
-                    <View style={styles.headerText}>
-                        {title !== undefined ? <Text style={styles.title}>{title}</Text> : null}
-                        {summary !== undefined ? (
-                            <Text style={styles.summary}>{summary}</Text>
-                        ) : null}
-                    </View>
-                    <View style={styles.headerActions}>
-                        {accessory}
-                        {action !== undefined ? (
-                            <Pressable
-                                style={styles.action}
-                                onPress={action.onPress}
-                                accessibilityRole="button"
-                                accessibilityLabel={action.label}
-                            >
-                                <Icon name="plus" size={14} color={c.accentInk} />
-                                <Text style={styles.actionText}>{action.label}</Text>
-                            </Pressable>
-                        ) : null}
-                    </View>
+            {title !== undefined ? (
+                <PageHeader
+                    style={styles.header}
+                    title={title}
+                    subtitle={summary}
+                    actions={actions}
+                />
+            ) : summary !== undefined || actions !== undefined ? (
+                <View style={[styles.header, styles.bare]}>
+                    <Text style={styles.summary}>{summary}</Text>
+                    {actions}
                 </View>
             ) : null}
             {segments !== undefined ? (
@@ -144,19 +149,10 @@ export function ListPage<T, K extends string = string>({
 
 const styles = StyleSheet.create({
     page: { flex: 1 },
-    header: {
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        gap: 12,
-        paddingHorizontal: 20,
-        paddingTop: 8,
-        paddingBottom: 12,
-    },
-    headerText: { flexShrink: 1, minWidth: 0 },
+    header: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 12 },
+    bare: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 },
+    summary: { flexShrink: 1, color: c.muted, fontFamily: theme.fonts.ui, fontSize: 13 },
     headerActions: { flexDirection: "row", alignItems: "center", gap: 16 },
-    title: { color: c.ink, fontSize: 26, fontWeight: "700", letterSpacing: -0.4 },
-    summary: { color: c.muted, fontSize: 13, marginTop: 2 },
     action: {
         flexDirection: "row",
         alignItems: "center",
@@ -166,12 +162,13 @@ const styles = StyleSheet.create({
         paddingHorizontal: 11,
         paddingVertical: 6,
     },
-    actionText: { color: c.accentInk, fontSize: 13, fontWeight: "600" },
+    actionText: { color: c.accentInk, fontFamily: theme.fonts.ui, fontSize: 13, fontWeight: "600" },
     searchWrap: { marginHorizontal: 20, marginTop: 10, marginBottom: 8 },
     list: { paddingHorizontal: 20, paddingBottom: 24 },
     head: { paddingTop: 8 },
     headText: {
         color: c.muted,
+        fontFamily: theme.fonts.ui,
         fontSize: 11,
         fontWeight: "700",
         letterSpacing: 0.5,

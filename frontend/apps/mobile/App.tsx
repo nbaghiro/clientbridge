@@ -1,5 +1,5 @@
 import { StatusBar } from "expo-status-bar";
-import { type ReactNode, useCallback } from "react";
+import { type ReactElement, type ReactNode, useCallback } from "react";
 import {
     checkSession,
     strings,
@@ -21,14 +21,17 @@ import {
     ConfirmHost,
     configureStripe,
     LoadFailed,
+    PageFrame,
     Select,
     SendReviewHost,
+    useTabletLayout,
 } from "@clientbridge/ui";
 
 import { RecordPaper } from "./src/components/DocumentPreview";
 import { StripeAppProvider } from "./src/components/Stripe";
 import { Splash, revealApp } from "./src/components/Splash";
-import { TabBar } from "./src/components/TabBar";
+import { ShellBanners, TabBar } from "./src/components/TabBar";
+import { TaskHost } from "./src/components/TaskHost";
 import { api, identity, onSignedOut, selectBusiness } from "./src/lib/api";
 import { clearSession, getSession, rememberUser, signIn } from "./src/lib/auth";
 import { stripePublishableKey } from "./src/lib/config";
@@ -40,13 +43,11 @@ import type { RootStackParamList, TabParamList } from "./src/navigation";
 import { ScheduleScreen } from "./src/screens/Schedule";
 import { CatalogScreen } from "./src/screens/Catalog";
 import { ClientsScreen } from "./src/screens/Clients";
-import { GetSetUpScreen } from "./src/components/GetSetUp";
+import { GetSetUpScreen } from "./src/screens/GetSetUp";
 import { TaxesScreen } from "./src/screens/Taxes";
-import {
-    ClientHistoryScreen,
-    ClientSubjectsScreen,
-    ClientWalletScreen,
-} from "./src/components/ClientScreens";
+import { ClientHistoryScreen } from "./src/screens/ClientHistory";
+import { ClientSubjectsScreen } from "./src/screens/ClientSubjects";
+import { ClientWalletScreen } from "./src/screens/ClientWallet";
 import { InboxScreen } from "./src/screens/Inbox";
 import { NotificationsScreen } from "./src/screens/Notifications";
 import { SearchScreen } from "./src/screens/Search";
@@ -54,7 +55,6 @@ import { ConfirmEmailScreen, LoginScreen } from "./src/screens/Login";
 import { OnboardingScreen } from "./src/screens/Onboarding";
 import { PaymentsScreen } from "./src/screens/Payments";
 import { GettingPaidScreen } from "./src/screens/GettingPaid";
-import { PlansScreen } from "./src/screens/Plans";
 import { BusinessScreen, SetupScreen, TeamHoursScreen } from "./src/screens/Setup";
 import { TodayScreen } from "./src/screens/Today";
 import { ClassesScreen } from "./src/screens/Classes";
@@ -78,6 +78,7 @@ const navTheme = {
 
 function Tabs() {
     const open = useOpenLink();
+    const tablet = useTabletLayout();
     usePushTaps(
         useCallback(
             (threadId: string) => {
@@ -91,6 +92,9 @@ function Tabs() {
             initialRouteName="Today"
             tabBar={(props) => <TabBar {...props} />}
             screenOptions={{ headerShown: false }}
+            screenLayout={({ children }) => (
+                <PageFrame leading={tablet ? <ShellBanners /> : undefined}>{children}</PageFrame>
+            )}
         >
             <Tab.Screen name="Today" component={TodayScreen} />
             <Tab.Screen name="Inbox" component={InboxScreen} />
@@ -256,12 +260,13 @@ function AuthedApp({ onSignOut }: { onSignOut: () => void }) {
                         <NavigationContainer theme={navTheme}>
                             <RootStack.Navigator screenOptions={{ headerShown: false }}>
                                 <RootStack.Screen name="Tabs" component={Tabs} />
-                                <RootStack.Screen name="Search" component={SearchScreen} />
                                 <RootStack.Screen
-                                    name="Notifications"
-                                    component={NotificationsScreen}
+                                    name="Search"
+                                    component={SearchScreen}
+                                    layout={framed}
                                 />
                                 <RootStack.Group
+                                    screenLayout={framed}
                                     screenOptions={{
                                         headerShown: true,
                                         headerStyle: { backgroundColor: theme.colors.surface },
@@ -270,6 +275,11 @@ function AuthedApp({ onSignOut }: { onSignOut: () => void }) {
                                         headerBackTitle: "Back",
                                     }}
                                 >
+                                    <RootStack.Screen
+                                        name="Notifications"
+                                        component={NotificationsScreen}
+                                        options={{ title: strings.notifications.title }}
+                                    />
                                     <RootStack.Screen
                                         name="Payments"
                                         component={PaymentsScreen}
@@ -315,11 +325,6 @@ function AuthedApp({ onSignOut }: { onSignOut: () => void }) {
                                         options={{
                                             title: strings.navigation.setupSections.gettingPaid,
                                         }}
-                                    />
-                                    <RootStack.Screen
-                                        name="Plans"
-                                        component={PlansScreen}
-                                        options={{ title: strings.navigation.setupSections.plan }}
                                     />
                                     <RootStack.Screen
                                         name="ClientHistory"
@@ -378,6 +383,7 @@ function AuthedApp({ onSignOut }: { onSignOut: () => void }) {
                                     />
                                 </RootStack.Group>
                             </RootStack.Navigator>
+                            <TaskHost />
                         </NavigationContainer>
                         <SendReviewHost document={(d) => <RecordPaper {...d} />} />
                     </>
@@ -385,6 +391,10 @@ function AuthedApp({ onSignOut }: { onSignOut: () => void }) {
             </SignOutContext.Provider>
         </BusinessZoneContext.Provider>
     );
+}
+
+function framed({ children }: { children: ReactElement }) {
+    return <PageFrame size="md">{children}</PageFrame>;
 }
 
 const styles = StyleSheet.create({

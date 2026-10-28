@@ -25,7 +25,6 @@ import {
 import { api } from "../lib/api";
 import { useViewer } from "../lib/auth";
 import { useOpenLink } from "../lib/links";
-import { PageFrame } from "./PageFrame";
 
 const s = strings.recurrences;
 
@@ -64,7 +63,7 @@ export function SeriesComposer({ onDone }: { onDone?: () => void }) {
     const f = useSeriesComposer(api, useViewer());
     const openLink = useOpenLink();
     return (
-        <PageFrame className="space-y-6">
+        <div className="space-y-6">
             <PageHeader title={s.newTitle} subtitle={s.newSubtitle} />
             <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)]">
                 <div className="space-y-6">
@@ -252,6 +251,6 @@ export function SeriesComposer({ onDone }: { onDone?: () => void }) {
                     </section>
                 )}
             </div>
-        </PageFrame>
+        </div>
     );
 }

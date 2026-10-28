@@ -31,7 +31,9 @@ import {
     MessageBubble,
     Modal,
     Notice,
+    Panel,
     ProgressSteps,
+    SheetHeader,
     Stat,
     StatusPill,
     TextField,
@@ -130,7 +132,7 @@ function Home({ onCompose }: { onCompose: (seed: BroadcastSeed) => void }) {
             </View>
             {actions.error !== null ? <Notice tone="danger">{actions.error}</Notice> : null}
             {actions.exported !== null ? <Notice tone="success">{s.exportShared}</Notice> : null}
-            <Loaded load={home.load} loading={s.loading} failed={s.loadError}>
+            <Loaded flush load={home.load} loading={s.loading} failed={s.loadError}>
                 {noAudience ? null : (
                     <View style={styles.stats}>
                         <View style={styles.flex}>
@@ -162,7 +164,7 @@ function Home({ onCompose }: { onCompose: (seed: BroadcastSeed) => void }) {
                         }
                     />
                 ) : (
-                    <View style={styles.list}>
+                    <Panel flush>
                         {home.broadcasts.map((x) => (
                             <ListRow
                                 key={x.id}
@@ -179,7 +181,7 @@ function Home({ onCompose }: { onCompose: (seed: BroadcastSeed) => void }) {
                                 }}
                             />
                         ))}
-                    </View>
+                    </Panel>
                 )}
                 {noAudience ? null : (
                     <>
@@ -241,11 +243,18 @@ function Home({ onCompose }: { onCompose: (seed: BroadcastSeed) => void }) {
                         setOpen(null);
                     }}
                 >
+                    <SheetHeader
+                        title={open.name}
+                        subtitle={formatParts([
+                            s.viaChannel(open.channel),
+                            broadcastWhen(open, zone),
+                        ])}
+                        onClose={() => {
+                            setOpen(null);
+                        }}
+                        closeLabel={strings.common.close}
+                    />
                     <ScrollView contentContainerStyle={styles.gap}>
-                        <Text style={styles.title}>{open.name}</Text>
-                        <Text style={styles.meta}>
-                            {formatParts([s.viaChannel(open.channel), broadcastWhen(open, zone)])}
-                        </Text>
                         <KeyValueList
                             layout="stack"
                             columns={2}
@@ -356,7 +365,13 @@ function Composer({ seed, onDone }: { seed: BroadcastSeed; onDone: () => void })
                         />
                     </Field>
                     <AudiencePicker draft={draft} />
-                    <Loaded load={draft.load} loading={s.loading} failed={s.loadError} rows={2}>
+                    <Loaded
+                        flush
+                        load={draft.load}
+                        loading={s.loading}
+                        failed={s.loadError}
+                        rows={2}
+                    >
                         <AudienceSummary draft={draft} />
                     </Loaded>
                 </View>
@@ -477,7 +492,7 @@ function AudienceSummary({ draft }: { draft: BroadcastDraft }) {
     const a = draft.audience;
     if (a.matched === 0) return <Empty message={s.noAudience} body={s.noAudienceBody} />;
     return (
-        <View style={styles.card}>
+        <Panel style={styles.card}>
             <Text style={styles.count}>
                 {a.recipients.length}{" "}
                 <Text style={styles.meta}>{s.recipientsWord(a.recipients.length)}</Text>
@@ -500,46 +515,36 @@ function AudienceSummary({ draft }: { draft: BroadcastDraft }) {
                 </View>
             ))}
             {a.excluded.length > 0 ? <Text style={styles.meta}>{s.leftOutHelp}</Text> : null}
-        </View>
+        </Panel>
     );
 }
 
 const styles = StyleSheet.create({
     body: { padding: 16, paddingBottom: 40, gap: 12 },
     top: { flexDirection: "row", alignItems: "center", gap: 12 },
-    subtitle: { flex: 1, color: c.muted, fontSize: 13 },
+    subtitle: { flex: 1, color: c.muted, fontFamily: theme.fonts.ui, fontSize: 13 },
     stats: { flexDirection: "row", gap: 8 },
     flex: { flex: 1, minWidth: 0 },
-    list: {
-        backgroundColor: c.surface,
-        borderRadius: theme.radius,
-        borderWidth: 1,
-        borderColor: c.border,
-        overflow: "hidden",
-    },
-    card: {
-        backgroundColor: c.surface,
-        borderRadius: theme.radius,
-        borderWidth: 1,
-        borderColor: c.border,
-        padding: 14,
-        gap: 8,
-    },
+    card: { gap: 8 },
     sectionHead: {
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "space-between",
         marginTop: 10,
     },
-    sectionTitle: { color: c.ink, fontSize: 17, fontWeight: "700" },
+    sectionTitle: {
+        color: c.ink,
+        fontFamily: theme.fonts.ui,
+        fontSize: theme.type.section,
+        fontWeight: "700",
+    },
     gapTop: { marginTop: 10 },
-    title: { color: c.ink, fontSize: 20, fontWeight: "700" },
-    meta: { color: c.muted, fontSize: 13, lineHeight: 18 },
-    message: { color: c.inkSoft, fontSize: 14, lineHeight: 20 },
+    meta: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 13, lineHeight: 18 },
+    message: { color: c.inkSoft, fontFamily: theme.fonts.ui, fontSize: 14, lineHeight: 20 },
     row: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 4 },
-    rowName: { color: c.ink, fontSize: 14, fontWeight: "600" },
+    rowName: { color: c.ink, fontFamily: theme.fonts.ui, fontSize: 14, fontWeight: "600" },
     gap: { gap: 12 },
-    count: { color: c.ink, fontSize: 30, fontWeight: "700" },
+    count: { color: c.ink, fontFamily: theme.fonts.ui, fontSize: 30, fontWeight: "700" },
     actions: { flexDirection: "row", gap: 10, marginTop: 8 },
     done: { flex: 1, padding: 16, justifyContent: "center" },
 });

@@ -20,13 +20,13 @@ msgid "booking_canceled.subject"
 msgstr "Appointment canceled — {business}"
 
 msgid "booking_confirmed.body"
-msgstr "You're booked with {business} on {when}."
+msgstr "You're booked for {when} with {business}."
 
 msgid "booking_confirmed.body_deposit"
-msgstr "You're booked with {business} on {when}. Please pay the {amount} deposit, which comes off your bill at the visit: {link}"
+msgstr "You're booked for {when} with {business}. Please pay the {amount} deposit, which comes off your bill at the visit: {link}"
 
 msgid "booking_confirmed.body_link"
-msgstr "You're booked with {business} on {when}. Change or cancel: {link}"
+msgstr "You're booked for {when} with {business}. Change or cancel: {link}"
 
 msgid "booking_confirmed.deposit_due"
 msgstr "Please pay the {amount} deposit, which comes off your bill at the visit."
@@ -71,10 +71,10 @@ msgid "booking_released.subject"
 msgstr "Appointment released — {business}"
 
 msgid "booking_reminder.body"
-msgstr "Reminder: you have an appointment with {business} on {when}."
+msgstr "Reminder: you have an appointment on {when} with {business}."
 
 msgid "booking_reminder.body_link"
-msgstr "Reminder: you have an appointment with {business} on {when}. Change or cancel: {link}"
+msgstr "Reminder: you have an appointment on {when} with {business}. Change or cancel: {link}"
 
 msgid "booking_reminder.heading"
 msgstr "Appointment reminder"
@@ -83,7 +83,7 @@ msgid "booking_reminder.subject"
 msgstr "Appointment reminder — {business}"
 
 msgid "booking_requested.body"
-msgstr "{business} received your request for {when}. You'll hear back once it's confirmed."
+msgstr "{business} received your request for {when} and will let you know once it's confirmed."
 
 msgid "booking_requested.heading"
 msgstr "Request received"
@@ -92,7 +92,7 @@ msgid "booking_requested.subject"
 msgstr "Booking request received — {business}"
 
 msgid "booking_rescheduled.body"
-msgstr "Your appointment with {business} was moved to {when}."
+msgstr "Your appointment with {business} was moved to {when}, and the earlier time is no longer booked."
 
 msgid "booking_rescheduled.heading"
 msgstr "Appointment rescheduled"
@@ -733,7 +733,7 @@ msgid "series.separator"
 msgstr "; "
 
 msgid "series_booked.body"
-msgstr "You're booked with {business} on: {whens}."
+msgstr "You're booked with {business} for these visits: {whens}"
 
 msgid "series_booked.heading"
 msgstr "Your visits are booked"
@@ -742,7 +742,7 @@ msgid "series_booked.subject"
 msgstr "Your visits are booked — {business}"
 
 msgid "series_canceled.body"
-msgstr "These visits with {business} were canceled: {whens}."
+msgstr "These visits with {business} were canceled: {whens}"
 
 msgid "series_canceled.heading"
 msgstr "Your visits were canceled"
@@ -751,7 +751,7 @@ msgid "series_canceled.subject"
 msgstr "Your visits were canceled — {business}"
 
 msgid "series_moved.body"
-msgstr "Your visits with {business} are now on: {whens}."
+msgstr "Your visits with {business} have new times: {whens}"
 
 msgid "series_moved.heading"
 msgstr "Your visits were moved"
@@ -805,25 +805,25 @@ msgid "trial.action"
 msgstr "Choose a plan"
 
 msgid "trial_ending.body"
-msgstr "The free trial for {business} ends {when}. Choose Premium or Team to keep adding and changing records: {link}"
+msgstr "To keep adding and changing records after the free trial for {business} ends on {when}, choose Premium or Team: {link}"
 
 msgid "trial_ending.heading"
 msgstr "Your free trial ends soon"
 
 msgid "trial_ending.lead"
-msgstr "The free trial for {business} ends {when}. Choose Premium or Team to keep adding and changing records."
+msgstr "To keep adding and changing records after the free trial for {business} ends on {when}, choose Premium or Team."
 
 msgid "trial_ending.subject"
 msgstr "Your Clientbridge trial ends soon"
 
 msgid "trial_last_day.body"
-msgstr "The free trial for {business} ends {when}. After that the business becomes read-only: you can still sign in and see your records, and invoices you already sent can still be paid. Choose a plan to keep working: {link}"
+msgstr "After the free trial for {business} ends on {when}, the business becomes read-only: you can still sign in and see your records, and invoices you already sent can still be paid. Choose a plan to keep working: {link}"
 
 msgid "trial_last_day.heading"
 msgstr "Your free trial is about to end"
 
 msgid "trial_last_day.lead"
-msgstr "The free trial for {business} ends {when}. After that the business becomes read-only: you can still sign in and see your records, and invoices you already sent can still be paid."
+msgstr "After the free trial for {business} ends on {when}, the business becomes read-only: you can still sign in and see your records, and invoices you already sent can still be paid."
 
 msgid "trial_last_day.subject"
 msgstr "Your Clientbridge trial is about to end"
@@ -866,7 +866,7 @@ msgid "visit_note.body"
 msgstr "{note}\n\nPhotos and details from your visit: {link}"
 
 msgid "visits_reassigned.body"
-msgstr "These visits with {business} are now with {member}: {whens}."
+msgstr "These visits with {business} are now with {member}: {whens}"
 
 msgid "visits_reassigned.heading"
 msgstr "New provider for your visits"

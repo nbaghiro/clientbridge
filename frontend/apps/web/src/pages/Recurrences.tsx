@@ -24,6 +24,7 @@ import {
     Modal,
     Notice,
     OccurrenceList,
+    Panel,
     SearchField,
     Select,
     Skeleton,
@@ -250,7 +251,7 @@ function Record({ id }: { id: string }) {
     const past = rec.dates.filter((d) => d.past);
 
     return (
-        <div className="mx-auto max-w-3xl space-y-6 px-8 py-8">
+        <div className="space-y-6 px-6 py-6">
             <div className="flex flex-wrap items-start justify-between gap-4">
                 <div className="min-w-0">
                     <p className="text-sm text-muted">{r.serviceName}</p>
@@ -300,46 +301,47 @@ function Record({ id }: { id: string }) {
                 <Notice tone="danger">{rec.error}</Notice>
             ) : null}
 
-            <div className="grid grid-cols-2 gap-4 rounded-lg border border-line bg-surface px-5 py-4 shadow-card xl:grid-cols-3">
-                <Fact label={s.next} value={r.nextLabel} />
-                <Fact
-                    label={s.with}
-                    value={
-                        <span className="flex items-center gap-2">
-                            <Avatar name={r.staffName} src={photos.staff(r.staffId)} size="sm" />
-                            {r.staffName}
-                        </span>
-                    }
-                />
-                <div className="col-span-2 min-w-0 xl:col-span-1">
-                    <p className="text-xs font-medium uppercase tracking-wide text-muted">
-                        {s.colProgress}
-                    </p>
-                    <p className="mt-1 text-sm font-medium text-ink">{r.progress}</p>
-                    {r.ratio !== null ? (
-                        <div
-                            className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-bg"
-                            role="progressbar"
-                            aria-valuenow={Math.round(r.ratio * 100)}
-                            aria-valuemin={0}
-                            aria-valuemax={100}
-                        >
+            <Panel>
+                <div className="grid grid-cols-2 gap-4 xl:grid-cols-3">
+                    <Fact label={s.next} value={r.nextLabel} />
+                    <Fact
+                        label={s.with}
+                        value={
+                            <span className="flex items-center gap-2">
+                                <Avatar
+                                    name={r.staffName}
+                                    src={photos.staff(r.staffId)}
+                                    size="sm"
+                                />
+                                {r.staffName}
+                            </span>
+                        }
+                    />
+                    <div className="col-span-2 min-w-0 xl:col-span-1">
+                        <p className="text-xs font-medium uppercase tracking-wide text-muted">
+                            {s.colProgress}
+                        </p>
+                        <p className="mt-1 text-sm font-medium text-ink">{r.progress}</p>
+                        {r.ratio !== null ? (
                             <div
-                                className="h-full rounded-full bg-accent"
-                                style={{ width: `${String(Math.round(r.ratio * 100))}%` }}
-                            />
-                        </div>
-                    ) : null}
-                    <p className="mt-1 text-xs text-muted">{r.endsLabel}</p>
+                                className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-bg"
+                                role="progressbar"
+                                aria-valuenow={Math.round(r.ratio * 100)}
+                                aria-valuemin={0}
+                                aria-valuemax={100}
+                            >
+                                <div
+                                    className="h-full rounded-full bg-accent"
+                                    style={{ width: `${String(Math.round(r.ratio * 100))}%` }}
+                                />
+                            </div>
+                        ) : null}
+                        <p className="mt-1 text-xs text-muted">{r.endsLabel}</p>
+                    </div>
                 </div>
-            </div>
+            </Panel>
 
-            <section className="overflow-hidden rounded-lg border border-line bg-surface shadow-card">
-                <header className="border-b border-line px-5 py-3">
-                    <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">
-                        {s.upcoming}
-                    </h3>
-                </header>
+            <Panel flush title={s.upcoming}>
                 <div className="px-4">
                     {upcoming.length === 0 ? (
                         <p className="py-6 text-center text-sm text-muted">{s.noneLeft}</p>
@@ -365,7 +367,7 @@ function Record({ id }: { id: string }) {
                         </div>
                     </>
                 ) : null}
-            </section>
+            </Panel>
 
             {dialog === "change" ? (
                 <ChangeDialog

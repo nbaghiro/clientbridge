@@ -15,6 +15,7 @@ import {
     Notice,
     Skeleton,
     Stat,
+    Panel,
 } from "@clientbridge/ui";
 import { useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
@@ -41,15 +42,15 @@ export function RemindersScreen() {
                 />
             ) : (
                 <>
-                    <View style={styles.card}>
-                        <Text style={styles.cardTitle}>{s.remindersTitle}</Text>
+                    <Panel style={styles.card} title={s.remindersTitle}>
                         <Text style={styles.muted}>{s.remindersHint}</Text>
                         <Text style={styles.soft}>{s.rule}</Text>
                         {r.manageLink ? <Text style={styles.soft}>{s.includeLink}</Text> : null}
-                    </View>
-                    <View style={styles.card}>
-                        <View style={styles.headRow}>
-                            <Text style={styles.cardTitle}>{s.preview}</Text>
+                    </Panel>
+                    <Panel
+                        style={styles.card}
+                        title={s.preview}
+                        actions={
                             <Choice
                                 layout="segmented"
                                 label={s.preview}
@@ -60,7 +61,8 @@ export function RemindersScreen() {
                                 value={channel}
                                 onChange={setChannel}
                             />
-                        </View>
+                        }
+                    >
                         {r.previewLoading ? (
                             <Skeleton variant="line" count={3} label={s.loading} />
                         ) : r.preview === null ? (
@@ -84,15 +86,14 @@ export function RemindersScreen() {
                                 )}
                             </>
                         )}
-                    </View>
-                    <View style={styles.card}>
+                    </Panel>
+                    <Panel style={styles.card}>
                         <Stat
                             label={formatParts([s.deliveryTitle, s.sent])}
                             value={s.sentCount(r.sentWeek)}
                         />
-                    </View>
-                    <View style={styles.card}>
-                        <Text style={styles.cardTitle}>{s.endOfDayTitle}</Text>
+                    </Panel>
+                    <Panel style={styles.card} title={s.endOfDayTitle}>
                         <Text style={styles.muted}>
                             {r.autoComplete ? s.endOfDayAuto : s.endOfDayHint}
                         </Text>
@@ -107,7 +108,7 @@ export function RemindersScreen() {
                             <Text style={styles.muted}>{s.noneOpen}</Text>
                         ) : null}
                         {r.error !== null ? <Notice tone="danger">{r.error}</Notice> : null}
-                    </View>
+                    </Panel>
                 </>
             )}
         </ScrollView>
@@ -168,29 +169,15 @@ function OpenVisits({
 }
 
 const styles = StyleSheet.create({
-    screen: { flex: 1, backgroundColor: c.bg },
+    screen: { flex: 1 },
     body: { padding: 16, paddingBottom: 32, gap: 14 },
-    card: {
-        backgroundColor: c.surface,
-        borderRadius: theme.radius,
-        borderWidth: 1,
-        borderColor: c.border,
-        padding: 16,
-        gap: 8,
-    },
-    cardTitle: { color: c.ink, fontSize: 16, fontWeight: "700" },
-    headRow: {
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        gap: 8,
-    },
-    muted: { color: c.muted, fontSize: 13 },
-    soft: { color: c.inkSoft, fontSize: 14, lineHeight: 20 },
-    value: { color: c.ink, fontSize: 14, fontWeight: "600" },
+    card: { gap: 8 },
+    muted: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 13 },
+    soft: { color: c.inkSoft, fontFamily: theme.fonts.ui, fontSize: 14, lineHeight: 20 },
+    value: { color: c.ink, fontFamily: theme.fonts.ui, fontSize: 14, fontWeight: "600" },
     rowGap: { flexDirection: "row", alignItems: "center", gap: 12 },
     email: {
-        borderWidth: 1,
+        borderWidth: theme.borderWidth,
         borderColor: c.border,
         borderRadius: theme.radius,
         padding: 12,

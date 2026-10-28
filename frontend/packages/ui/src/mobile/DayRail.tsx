@@ -83,8 +83,20 @@ const styles = StyleSheet.create({
     },
     on: { backgroundColor: c.accent, borderColor: c.accent },
     disabled: { opacity: 0.5 },
-    weekday: { color: c.muted, fontSize: 11, fontWeight: "600", textTransform: "uppercase" },
-    number: { color: c.ink, fontSize: 18, fontWeight: "700", fontVariant: ["tabular-nums"] },
-    hint: { color: c.accent, fontSize: 11 },
+    weekday: {
+        color: c.muted,
+        fontFamily: theme.fonts.ui,
+        fontSize: 11,
+        fontWeight: "600",
+        textTransform: "uppercase",
+    },
+    number: {
+        color: c.ink,
+        fontFamily: theme.fonts.ui,
+        fontSize: 18,
+        fontWeight: "700",
+        fontVariant: ["tabular-nums"],
+    },
+    hint: { color: c.accent, fontFamily: theme.fonts.ui, fontSize: 11 },
     onText: { color: c.accentInk },
 });

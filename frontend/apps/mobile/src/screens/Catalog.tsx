@@ -1,4 +1,5 @@
 import {
+    type CatalogGroup,
     type ItemRow,
     itemMeta,
     itemPriceLabel,
@@ -21,28 +22,38 @@ import {
     ItemTile,
     ListRow,
     Modal,
+    Panel,
     SearchField,
+    SheetHeader,
     StatusPill,
+    Select,
     Tabs,
 } from "@clientbridge/ui";
 import { useState } from "react";
 import { FlatList, ScrollView, Share, StyleSheet, Text, View } from "react-native";
 
 import { ItemEditor } from "../components/ItemEditor";
-import { Inventory, Loaded } from "../components/Stock";
+import { Loaded } from "../components/Loaded";
+import { Inventory } from "../components/Stock";
 import { apiBaseUrl } from "../lib/api";
 import { shopUrl } from "../lib/config";
 
 const s = strings.catalog;
 const c = theme.colors;
 
-type View_ = "catalog" | "products" | "inventory";
+type View_ = CatalogGroup | "products" | "inventory";
 
 const VIEWS: { key: View_; label: string }[] = [
     {
-        key: "catalog",
+        key: "services",
         get label() {
-            return s.views.catalog;
+            return s.views.services;
+        },
+    },
+    {
+        key: "plans",
+        get label() {
+            return s.views.plans;
         },
     },
     {
@@ -60,7 +71,7 @@ const VIEWS: { key: View_; label: string }[] = [
 ];
 
 export function CatalogScreen() {
-    const [view, setView] = useState<View_>("catalog");
+    const [view, setView] = useState<View_>("services");
     return (
         <View style={styles.screen}>
             <View style={styles.tabs}>
@@ -72,7 +83,9 @@ export function CatalogScreen() {
                     label={s.viewsLabel}
                 />
             </View>
-            {view === "catalog" ? <CatalogList /> : null}
+            {view === "services" || view === "plans" ? (
+                <CatalogList key={view} group={view} />
+            ) : null}
             {view === "products" ? <ProductGrid /> : null}
             {view === "inventory" ? <Inventory /> : null}
         </View>
@@ -107,11 +120,19 @@ function CatalogRow({ item }: { item: ItemRow }) {
     );
 }
 
-function KindSheet({ onClose, onPick }: { onClose: () => void; onPick: (kind: string) => void }) {
-    const picker = useKindPicker();
+function KindSheet({
+    kinds,
+    onClose,
+    onPick,
+}: {
+    kinds: readonly string[];
+    onClose: () => void;
+    onPick: (kind: string) => void;
+}) {
+    const picker = useKindPicker(kinds);
     return (
         <Modal open onClose={onClose}>
-            <Text style={styles.sheetTitle}>{s.whatAdding}</Text>
+            <SheetHeader title={s.whatAdding} onClose={onClose} />
             <Text style={styles.summary}>{s.whatAddingHint}</Text>
             <View style={styles.tiles}>
                 <Choice
@@ -137,8 +158,8 @@ function KindSheet({ onClose, onPick }: { onClose: () => void; onPick: (kind: st
     );
 }
 
-function CatalogList() {
-    const view = useCatalogView();
+function CatalogList({ group }: { group: CatalogGroup }) {
+    const view = useCatalogView(group);
     const [choosing, setChoosing] = useState(false);
     const [open, setOpen] = useState<{ item: ItemRow | null; kind: string } | null>(null);
     const add = (
@@ -158,21 +179,22 @@ function CatalogList() {
                 <Text style={[styles.summary, styles.flex]}>{view.summary ?? ""}</Text>
                 {add}
             </View>
-            <View style={styles.search}>
+            <View style={[styles.search, styles.filterRow]}>
                 <SearchField
+                    style={styles.flex}
                     value={view.q}
                     onChange={view.setQ}
                     placeholder={s.searchPlaceholder}
                 />
-            </View>
-            {view.load.ready ? (
-                <Tabs
-                    variant="pill"
-                    items={view.filters}
-                    active={view.filter}
-                    onSelect={view.setFilter}
+                <Select
+                    name={s.filterLabel}
+                    size="sm"
+                    width="auto"
+                    options={view.statuses}
+                    value={view.status}
+                    onChange={view.setStatus}
                 />
-            ) : null}
+            </View>
             <ScrollView contentContainerStyle={styles.body}>
                 {view.load.state === "empty" ? (
                     <Empty
@@ -183,7 +205,12 @@ function CatalogList() {
                         actions={add}
                     />
                 ) : (
-                    <Loaded load={view.load} label={s.loadingCatalog} error={s.loadErrorCatalog}>
+                    <Loaded
+                        load={view.load}
+                        loading={s.loadingCatalog}
+                        failed={s.loadErrorCatalog}
+                        rows={5}
+                    >
                         {view.sections.length === 0 ? <Empty message={view.empty} /> : null}
                         {view.sections.map((sec) => (
                             <View key={sec.key} style={styles.section}>
@@ -191,7 +218,7 @@ function CatalogList() {
                                     <Text style={styles.secTitle}>{sec.title}</Text>
                                     <Text style={styles.count}>{s.countIn(sec.items.length)}</Text>
                                 </View>
-                                <View style={styles.card}>
+                                <Panel flush>
                                     {sec.items.map((i, n) => (
                                         <View key={i.id} style={n > 0 && styles.divider}>
                                             <ListRow
@@ -203,7 +230,7 @@ function CatalogList() {
                                             />
                                         </View>
                                     ))}
-                                </View>
+                                </Panel>
                             </View>
                         ))}
                     </Loaded>
@@ -211,6 +238,7 @@ function CatalogList() {
             </ScrollView>
             {choosing ? (
                 <KindSheet
+                    kinds={view.kinds}
                     onClose={() => {
                         setChoosing(false);
                     }}
@@ -271,19 +299,22 @@ function ProductGrid() {
                     />
                 </View>
             ) : null}
-            <View style={styles.search}>
+            <View style={[styles.search, styles.filterRow]}>
                 <SearchField
+                    style={styles.flex}
                     value={view.q}
                     onChange={view.setQ}
                     placeholder={s.searchPlaceholder}
                 />
+                <Select
+                    name={s.filterLabel}
+                    size="sm"
+                    width="auto"
+                    options={view.filters}
+                    value={view.filter}
+                    onChange={view.setFilter}
+                />
             </View>
-            <Tabs
-                variant="pill"
-                items={view.filters}
-                active={view.filter}
-                onSelect={view.setFilter}
-            />
             {view.load.state === "empty" ? (
                 <View style={styles.gate}>
                     <Empty
@@ -326,7 +357,12 @@ function ProductGrid() {
                 />
             ) : (
                 <View style={styles.gate}>
-                    <Loaded load={view.load} label={s.loadingProducts} error={s.loadErrorProducts}>
+                    <Loaded
+                        load={view.load}
+                        loading={s.loadingProducts}
+                        failed={s.loadErrorProducts}
+                        rows={5}
+                    >
                         {null}
                     </Loaded>
                 </View>
@@ -347,7 +383,7 @@ function ProductGrid() {
 }
 
 const styles = StyleSheet.create({
-    screen: { flex: 1, backgroundColor: c.bg },
+    screen: { flex: 1 },
     flexFill: { flex: 1 },
     flex: { flex: 1, minWidth: 0 },
     tabs: { paddingTop: 10 },
@@ -358,8 +394,9 @@ const styles = StyleSheet.create({
         paddingHorizontal: 16,
         paddingTop: 10,
     },
-    summary: { color: c.muted, fontSize: 13, marginTop: 2 },
+    summary: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 13, marginTop: 2 },
     search: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 6 },
+    filterRow: { flexDirection: "row", alignItems: "center", gap: 8 },
     body: { paddingHorizontal: 16, paddingBottom: 24, paddingTop: 4 },
     section: { marginTop: 16 },
     secHead: {
@@ -368,23 +405,26 @@ const styles = StyleSheet.create({
         alignItems: "baseline",
         marginBottom: 6,
     },
-    secTitle: { color: c.ink, fontSize: 15, fontWeight: "700" },
-    count: { color: c.muted, fontSize: 12.5 },
-    card: {
-        borderRadius: theme.radius + 2,
-        borderWidth: 1,
-        borderColor: c.border,
-        backgroundColor: c.surface,
-        overflow: "hidden",
+    secTitle: {
+        color: c.ink,
+        fontFamily: theme.fonts.ui,
+        fontSize: theme.type.section,
+        fontWeight: "700",
     },
+    count: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 12.5 },
     divider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.borderSoft },
     row: { flexDirection: "row", alignItems: "center", gap: 12 },
     dim: { opacity: 0.55 },
-    name: { color: c.ink, fontSize: 15.5, fontWeight: "600" },
-    meta: { color: c.muted, fontSize: 12.5, marginTop: 2 },
+    name: { color: c.ink, fontFamily: theme.fonts.ui, fontSize: 15.5, fontWeight: "600" },
+    meta: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 12.5, marginTop: 2 },
     right: { alignItems: "flex-end", gap: 4 },
-    price: { color: c.ink, fontSize: 14.5, fontWeight: "700", fontVariant: ["tabular-nums"] },
-    sheetTitle: { color: c.ink, fontSize: 19, fontWeight: "700" },
+    price: {
+        color: c.ink,
+        fontFamily: theme.fonts.ui,
+        fontSize: 14.5,
+        fontWeight: "700",
+        fontVariant: ["tabular-nums"],
+    },
     tiles: { marginTop: 14, marginBottom: 16 },
     grid: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 24 },
     gridRow: { gap: 10, marginBottom: 10 },

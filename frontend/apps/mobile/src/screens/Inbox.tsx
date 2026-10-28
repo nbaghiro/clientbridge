@@ -22,6 +22,7 @@ import {
     useBusinessZone,
     kindWord,
     useSubjectKind,
+    openTask,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import {
@@ -32,6 +33,8 @@ import {
     ConversationRow,
     Empty,
     IconButton,
+    PageHeader,
+    SheetHeader,
     KeyValueList,
     MessageBubble,
     Modal,
@@ -41,6 +44,7 @@ import {
     SearchSelect,
     Tabs,
     TextField,
+    useTabletLayout,
 } from "@clientbridge/ui";
 import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import { type RouteProp, useNavigation, useRoute } from "@react-navigation/native";
@@ -56,6 +60,7 @@ import {
 } from "react-native";
 
 import { Loaded } from "../components/Loaded";
+import { SplitView } from "../components/SplitView";
 import { api } from "../lib/api";
 import { useRole } from "../lib/auth";
 import { useOpenLink } from "../lib/links";
@@ -84,9 +89,7 @@ export function InboxScreen() {
     return (
         <SafeAreaView style={styles.screen} edges={["top"]}>
             <Backdrop />
-            <Text style={styles.inboxTitle} accessibilityRole="header">
-                {strings.navigation.inbox}
-            </Text>
+            <PageHeader style={styles.inboxTitle} title={strings.navigation.inbox} />
             {segments.length > 1 ? (
                 <Tabs items={segments} active={current} onSelect={setSegment} />
             ) : null}
@@ -145,8 +148,9 @@ function Messages() {
         setComposing(target.clientId);
     }, [params, inbox.load.hasData, inbox.threads, nav]);
     const open = inbox.threads.find((t) => t.id === openId) ?? null;
+    const tablet = useTabletLayout();
 
-    if (open !== null)
+    if (open !== null && !tablet)
         return (
             <ThreadView
                 key={open.id}
@@ -157,8 +161,8 @@ function Messages() {
             />
         );
 
-    return (
-        <View style={styles.screen}>
+    const list = (
+        <>
             <View style={styles.header}>
                 <View style={styles.headRow}>
                     <Text style={styles.meta}>{s.unreadCount(inbox.unread)}</Text>
@@ -186,7 +190,7 @@ function Messages() {
                 active={inbox.filter}
                 onSelect={inbox.setFilter}
             />
-            <Loaded load={inbox.load} loading={s.loading} failed={s.loadError} rows={6}>
+            <Loaded flush load={inbox.load} loading={s.loading} failed={s.loadError} rows={6}>
                 <FlatList
                     style={styles.flex}
                     contentContainerStyle={styles.listContent}
@@ -228,6 +232,20 @@ function Messages() {
                     )}
                 />
             </Loaded>
+        </>
+    );
+    return (
+        <View style={styles.screen}>
+            {tablet ? (
+                <SplitView
+                    list={list}
+                    detail={open !== null ? <ThreadView key={open.id} thread={open} /> : null}
+                    icon="inbox"
+                    placeholder={inbox.load.hasData ? s.selectThread : null}
+                />
+            ) : (
+                list
+            )}
             {composing !== null ? (
                 <NewMessageSheet
                     clientId={composing}
@@ -246,7 +264,7 @@ function Messages() {
     );
 }
 
-function ThreadView({ thread, onBack }: { thread: InboxThread; onBack: () => void }) {
+function ThreadView({ thread, onBack }: { thread: InboxThread; onBack?: () => void }) {
     const conversation = useConversation(api, thread);
     const composer = useThreadComposer(api, thread);
     useMarkThreadRead(api, thread);
@@ -260,7 +278,9 @@ function ThreadView({ thread, onBack }: { thread: InboxThread; onBack: () => voi
             behavior={Platform.OS === "ios" ? "padding" : undefined}
         >
             <View style={styles.threadHead}>
-                <IconButton icon="chevronLeft" label={s.back} onPress={onBack} />
+                {onBack !== undefined ? (
+                    <IconButton icon="chevronLeft" label={s.back} onPress={onBack} />
+                ) : null}
                 <Text style={[styles.threadTitle, styles.flex]} numberOfLines={1}>
                     {thread.title}
                 </Text>
@@ -379,7 +399,13 @@ function ThreadView({ thread, onBack }: { thread: InboxThread; onBack: () => voi
                     }}
                 >
                     <ScrollView>
-                        <ContextPanel thread={thread} conversation={conversation} />
+                        <ContextPanel
+                            thread={thread}
+                            conversation={conversation}
+                            onLeave={() => {
+                                setDetails(false);
+                            }}
+                        />
                     </ScrollView>
                 </Modal>
             ) : null}
@@ -390,9 +416,11 @@ function ThreadView({ thread, onBack }: { thread: InboxThread; onBack: () => voi
 function ContextPanel({
     thread,
     conversation,
+    onLeave,
 }: {
     thread: InboxThread;
     conversation: Conversation;
+    onLeave: () => void;
 }) {
     const kind = useSubjectKind();
     const zone = useBusinessZone();
@@ -410,7 +438,8 @@ function ContextPanel({
                     <Button
                         full
                         onPress={() => {
-                            openLink("booking");
+                            onLeave();
+                            openTask({ kind: "booking", clientId: thread.client_id });
                         }}
                     >
                         {s.book}
@@ -421,6 +450,7 @@ function ContextPanel({
                         full
                         variant="outline"
                         onPress={() => {
+                            onLeave();
                             openLink("client", thread.client_id);
                         }}
                     >
@@ -487,7 +517,7 @@ function NewMessageSheet({
     return (
         <Modal open size="xl" onClose={onClose}>
             <ScrollView contentContainerStyle={styles.gap} keyboardShouldPersistTaps="handled">
-                <Text style={styles.threadTitle}>{s.newMessageTitle}</Text>
+                <SheetHeader title={s.newMessageTitle} />
                 <SearchSelect
                     label={s.clientLabel}
                     value={msg.clientId}
@@ -533,14 +563,8 @@ function NewMessageSheet({
 const styles = StyleSheet.create({
     earlier: { gap: 8 },
     earlierAction: { flexDirection: "row", justifyContent: "center" },
-    inboxTitle: {
-        color: c.ink,
-        fontSize: 28,
-        fontWeight: "700",
-        paddingHorizontal: 20,
-        paddingVertical: 8,
-    },
-    screen: { flex: 1, backgroundColor: c.bg },
+    inboxTitle: { paddingHorizontal: 20, paddingVertical: 8 },
+    screen: { flex: 1 },
     flex: { flex: 1, minWidth: 0 },
     header: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 6, gap: 10 },
     headRow: {
@@ -549,7 +573,7 @@ const styles = StyleSheet.create({
         justifyContent: "space-between",
         gap: 10,
     },
-    meta: { color: c.muted, fontSize: 13, lineHeight: 18 },
+    meta: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 13, lineHeight: 18 },
     pad: { paddingHorizontal: 16, paddingTop: 8 },
     listContent: {
         paddingBottom: 24,
@@ -566,11 +590,17 @@ const styles = StyleSheet.create({
         borderBottomWidth: StyleSheet.hairlineWidth,
         backgroundColor: c.surface,
     },
-    threadTitle: { color: c.ink, fontSize: 17, fontWeight: "700" },
+    threadTitle: {
+        color: c.ink,
+        fontFamily: theme.fonts.ui,
+        fontSize: theme.type.section,
+        fontWeight: "700",
+    },
     messages: { padding: 16, gap: 12 },
     day: { gap: 10 },
     dayLabel: {
         color: c.muted,
+        fontFamily: theme.fonts.ui,
         fontSize: 11,
         fontWeight: "600",
         textAlign: "center",
@@ -586,6 +616,7 @@ const styles = StyleSheet.create({
     gap: { gap: 12 },
     section: {
         color: c.muted,
+        fontFamily: theme.fonts.ui,
         fontSize: 11,
         fontWeight: "600",
         letterSpacing: 0.5,
@@ -593,5 +624,5 @@ const styles = StyleSheet.create({
         marginTop: 6,
     },
     consentRow: { flexDirection: "row", alignItems: "center", gap: 10 },
-    rowName: { color: c.ink, fontSize: 14, fontWeight: "600" },
+    rowName: { color: c.ink, fontFamily: theme.fonts.ui, fontSize: 14, fontWeight: "600" },
 });

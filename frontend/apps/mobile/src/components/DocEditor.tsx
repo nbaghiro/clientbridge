@@ -16,21 +16,24 @@ import {
     currencyAffix,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import {
     Button,
     Checkbox,
     Choice,
+    confirm,
     DocTotals,
     Empty,
     IconButton,
     Modal,
     Notice,
+    Panel,
     PrintedDocument,
+    SearchSelect,
     Select,
+    SheetHeader,
     TextField,
-    confirm,
 } from "@clientbridge/ui";
 
 import { api } from "../lib/api";
@@ -42,16 +45,24 @@ const s = strings.billing;
 export interface DocEditorProps {
     kind: "invoice" | "estimate";
     draft?: DocDraft | undefined;
+    // A new document's client, when it is started from that client.
+    clientId?: string | undefined;
     onClose: () => void;
 }
 
-export function DocEditor({ kind, draft, onClose }: DocEditorProps) {
+export function DocEditor({ kind, draft, clientId, onClose }: DocEditorProps) {
     const clients = useClients();
     const items = useCatalogItems();
     const catalog = useMemo(() => sellableItems(items), [items]);
     const letterhead = useLetterhead(apiBaseUrl);
     const [current, setCurrent] = useState(kind);
     const form = useDocComposer(api, current, draft);
+    const picked = useRef(false);
+    useEffect(() => {
+        if (picked.current || clientId === undefined) return;
+        picked.current = true;
+        form.setClientId(clientId);
+    }, [clientId, form]);
     const [preview, setPreview] = useState(false);
     const [discounting, setDiscounting] = useState<string | null>(null);
     const client = clients.find((x) => x.id === form.clientId) ?? null;
@@ -76,19 +87,21 @@ export function DocEditor({ kind, draft, onClose }: DocEditorProps) {
 
     return (
         <Modal onClose={close} size="xl">
-            <View style={styles.head}>
-                <IconButton icon="x" label={strings.common.close} onPress={close} />
-                <Text style={styles.title}>{form.title}</Text>
-                <Button
-                    style={{ alignSelf: "center" }}
-                    variant="link"
-                    onPress={() => {
-                        setPreview((v) => !v);
-                    }}
-                >
-                    {preview ? s.edit : s.preview}
-                </Button>
-            </View>
+            <SheetHeader
+                title={form.title}
+                onClose={close}
+                closeLabel={strings.common.close}
+                actions={
+                    <Button
+                        variant="link"
+                        onPress={() => {
+                            setPreview((v) => !v);
+                        }}
+                    >
+                        {preview ? s.edit : s.preview}
+                    </Button>
+                }
+            />
 
             {draft === undefined && form.sent === null && !preview ? (
                 <Choice
@@ -124,10 +137,10 @@ export function DocEditor({ kind, draft, onClose }: DocEditorProps) {
             ) : (
                 <ScrollView style={styles.body} keyboardShouldPersistTaps="handled">
                     {form.editing && client !== null ? (
-                        <View style={styles.card}>
+                        <Panel style={styles.card}>
                             <Text style={styles.label}>{s.client}</Text>
                             <Text style={styles.strong}>{client.name}</Text>
-                        </View>
+                        </Panel>
                     ) : (
                         <Select
                             label={s.client}
@@ -151,7 +164,7 @@ export function DocEditor({ kind, draft, onClose }: DocEditorProps) {
                             <Text style={styles.note}>{form.rateNote}</Text>
                         </View>
                         {form.lines.map((l) => (
-                            <View key={l.key} style={styles.card}>
+                            <Panel key={l.key} style={styles.card}>
                                 <View style={styles.lineHead}>
                                     <View style={styles.grow}>
                                         <TextField
@@ -261,14 +274,14 @@ export function DocEditor({ kind, draft, onClose }: DocEditorProps) {
                                     </Button>
                                 )}
                                 {l.error !== null ? <Notice tone="danger">{l.error}</Notice> : null}
-                            </View>
+                            </Panel>
                         ))}
                         {catalog.length > 0 ? (
-                            <Select
+                            <SearchSelect
                                 name={s.addFromCatalog}
                                 value=""
+                                placeholder={s.addFromCatalog}
                                 options={[
-                                    { key: "", label: s.addFromCatalog },
                                     ...catalog.map((i) => ({
                                         key: i.id,
                                         label: formatParts([
@@ -291,7 +304,7 @@ export function DocEditor({ kind, draft, onClose }: DocEditorProps) {
                         ) : null}
                     </View>
 
-                    <View style={[styles.card, styles.section]}>
+                    <Panel style={[styles.card, styles.section]}>
                         {discounting === "doc" ? (
                             <DiscountForm
                                 title={s.discountTitle}
@@ -321,7 +334,7 @@ export function DocEditor({ kind, draft, onClose }: DocEditorProps) {
                             </Button>
                         )}
                         <DocTotals currency={BUSINESS_CURRENCY} lines={form.totals} />
-                    </View>
+                    </Panel>
 
                     <View style={styles.section}>
                         <Text style={styles.label}>
@@ -384,35 +397,38 @@ export function DocEditor({ kind, draft, onClose }: DocEditorProps) {
 }
 
 const styles = StyleSheet.create({
-    head: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 },
-    title: { flex: 1, textAlign: "center", fontSize: 17, fontWeight: "700", color: c.ink },
     body: { flexGrow: 0, maxHeight: 560 },
     section: { marginTop: 16, gap: 10 },
     sectionHead: { flexDirection: "row", justifyContent: "space-between", gap: 8 },
-    label: { fontSize: 14, fontWeight: "600", color: c.ink },
-    note: { fontSize: 12, color: c.muted, flexShrink: 1 },
-    strong: { fontSize: 15, fontWeight: "600", color: c.ink, marginTop: 2 },
-    card: {
-        borderWidth: 1,
-        borderColor: c.border,
-        borderRadius: 10,
-        backgroundColor: c.surface,
-        padding: 12,
-        gap: 10,
+    label: { fontFamily: theme.fonts.ui, fontSize: 14, fontWeight: "600", color: c.ink },
+    note: { fontFamily: theme.fonts.ui, fontSize: 12, color: c.muted, flexShrink: 1 },
+    strong: {
+        fontFamily: theme.fonts.ui,
+        fontSize: 15,
+        fontWeight: "600",
+        color: c.ink,
+        marginTop: 2,
     },
+    card: { gap: 10 },
     lineHead: { flexDirection: "row", alignItems: "center", gap: 8 },
     lineFields: { flexDirection: "row", gap: 10 },
     qty: { width: 80 },
     grow: { flex: 1 },
-    amount: { fontSize: 15, fontWeight: "700", color: c.ink, fontVariant: ["tabular-nums"] },
-    total: { fontSize: 20, fontWeight: "700", color: c.ink },
+    amount: {
+        fontFamily: theme.fonts.ui,
+        fontSize: 15,
+        fontWeight: "700",
+        color: c.ink,
+        fontVariant: ["tabular-nums"],
+    },
+    total: { fontFamily: theme.fonts.ui, fontSize: 20, fontWeight: "700", color: c.ink },
     footer: {
         flexDirection: "row",
         alignItems: "center",
         gap: 10,
         paddingTop: 12,
         marginTop: 8,
-        borderTopWidth: 1,
+        borderTopWidth: theme.borderWidth,
         borderTopColor: c.border,
     },
 });

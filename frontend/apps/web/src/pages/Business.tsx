@@ -43,7 +43,7 @@ const l = strings.business.legalAddress;
 export function Business() {
     const brand = useBrandForm(api);
     return (
-        <div className="max-w-3xl space-y-6">
+        <div className="space-y-6">
             <PageHeader
                 title={strings.navigation.setupSections.business}
                 subtitle={strings.business.subtitle}
@@ -268,7 +268,7 @@ function BrandPanel({ brand }: { brand: BrandForm }) {
         e.target.value = "";
     };
     return (
-        <>
+        <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
             <Panel
                 title={o.brandTitle}
                 subtitle={o.brandBody}
@@ -431,9 +431,9 @@ function BrandPanel({ brand }: { brand: BrandForm }) {
                     ) : null}
                 </div>
             </Panel>
-            <Panel title={o.preview}>
+            <Panel title={o.preview} className="xl:sticky xl:top-6">
                 <BookingPreview brand={brand} logo={logo} />
             </Panel>
-        </>
+        </div>
     );
 }

@@ -25,6 +25,8 @@ import {
     LoadFailed,
     Modal,
     Notice,
+    Panel,
+    SheetHeader,
     Skeleton,
     TextField,
     WeeklyHoursEditor,
@@ -99,7 +101,7 @@ export function Hours() {
                     </View>
                     {member.editable ? <PersonHours key={member.id} staffId={member.id} /> : null}
                     <Text style={styles.section}>{s.upcomingFor(firstName(member.name))}</Text>
-                    <View style={styles.list}>
+                    <Panel flush>
                         {coming.length === 0 ? (
                             <Text style={styles.empty}>{s.noTimeOff}</Text>
                         ) : null}
@@ -140,7 +142,7 @@ export function Hours() {
                                 ) : null}
                             </View>
                         ))}
-                    </View>
+                    </Panel>
                     {week.removeError !== null ? (
                         <Notice tone="danger">{week.removeError}</Notice>
                     ) : null}
@@ -172,8 +174,7 @@ export function Hours() {
 function PersonHours({ staffId }: { staffId: string }) {
     const editor = useWeekEditor(api, staffId);
     return (
-        <View style={styles.card}>
-            <Text style={styles.cardTitle}>{s.regularHours}</Text>
+        <Panel title={s.regularHours} style={styles.card}>
             <Text style={styles.muted}>{s.regularHoursHint}</Text>
             {!editor.ready ? (
                 <Loading label={s.loading} />
@@ -216,7 +217,7 @@ function PersonHours({ staffId }: { staffId: string }) {
                     {editor.saveLabel}
                 </Button>
             </View>
-        </View>
+        </Panel>
     );
 }
 
@@ -281,9 +282,7 @@ function TimeOffSheet({ staffId, onClose }: { staffId: string; onClose: () => vo
     return (
         <Modal onClose={onClose} size="xl">
             <ScrollView contentContainerStyle={styles.sheet} keyboardShouldPersistTaps="handled">
-                <Text accessibilityRole="header" style={styles.title}>
-                    {closure ? s.addClosure : s.addTimeOff}
-                </Text>
+                <SheetHeader title={closure ? s.addClosure : s.addTimeOff} />
                 <Text style={styles.muted}>{closure ? s.closuresHint : s.timeOffHint}</Text>
                 {form.staffOptions.length > 1 ? (
                     <>
@@ -374,20 +373,22 @@ function TimeOffSheet({ staffId, onClose }: { staffId: string; onClose: () => vo
 
 const styles = StyleSheet.create({
     body: { gap: 14, paddingTop: 8 },
-    sectionTitle: { fontSize: 18, fontWeight: "700", color: c.ink },
+    sectionTitle: {
+        fontFamily: theme.fonts.ui,
+        fontSize: theme.type.section,
+        fontWeight: "700",
+        color: c.ink,
+    },
     who: { flexDirection: "row", alignItems: "center", gap: 12, marginTop: 4 },
     whoText: { flex: 1, minWidth: 0 },
-    name: { fontSize: 18, fontWeight: "700", color: c.ink },
-    muted: { fontSize: 13, color: c.muted, marginTop: 2 },
-    card: {
-        backgroundColor: c.surface,
-        borderRadius: theme.radius,
-        borderWidth: 1,
-        borderColor: c.border,
-        padding: 16,
-        gap: 8,
+    name: {
+        fontFamily: theme.fonts.ui,
+        fontSize: theme.type.section,
+        fontWeight: "700",
+        color: c.ink,
     },
-    cardTitle: { fontSize: 16, fontWeight: "700", color: c.ink },
+    muted: { fontFamily: theme.fonts.ui, fontSize: 13, color: c.muted, marginTop: 2 },
+    card: { gap: 8 },
     saveRow: {
         flexDirection: "row",
         alignItems: "center",
@@ -398,6 +399,7 @@ const styles = StyleSheet.create({
         marginTop: 4,
     },
     section: {
+        fontFamily: theme.fonts.ui,
         fontSize: 12,
         fontWeight: "700",
         color: c.muted,
@@ -405,37 +407,49 @@ const styles = StyleSheet.create({
         letterSpacing: 0.5,
         marginTop: 4,
     },
-    list: {
-        backgroundColor: c.surface,
-        borderRadius: theme.radius,
-        borderWidth: 1,
-        borderColor: c.border,
+    empty: {
+        padding: 16,
+        fontFamily: theme.fonts.ui,
+        fontSize: 14,
+        color: c.muted,
+        textAlign: "center",
     },
-    empty: { padding: 16, fontSize: 14, color: c.muted, textAlign: "center" },
     row: { flexDirection: "row", alignItems: "center", gap: 12, padding: 14 },
     divider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.border },
     tile: { width: 24, alignItems: "center" },
-    rowTitle: { fontSize: 15, fontWeight: "600", color: c.ink },
+    rowTitle: { fontFamily: theme.fonts.ui, fontSize: 15, fontWeight: "600", color: c.ink },
     badge: { flexDirection: "row", marginTop: 6 },
     sheet: { paddingBottom: 12 },
-    title: { fontSize: 20, fontWeight: "700", color: c.ink },
-    label: { color: c.inkSoft, fontSize: 13, fontWeight: "600", marginBottom: 8, marginTop: 16 },
+    label: {
+        color: c.inkSoft,
+        fontFamily: theme.fonts.ui,
+        fontSize: 13,
+        fontWeight: "600",
+        marginBottom: 8,
+        marginTop: 16,
+    },
     summary: {
         marginTop: 18,
         padding: 14,
         borderRadius: theme.radius,
-        borderWidth: 1,
+        borderWidth: theme.borderWidth,
         borderColor: c.border,
         backgroundColor: c.bg,
         gap: 6,
     },
-    summaryTitle: { fontSize: 14, fontWeight: "700", color: c.ink },
-    summaryNote: { fontSize: 12, color: c.muted, lineHeight: 17 },
+    summaryTitle: { fontFamily: theme.fonts.ui, fontSize: 14, fontWeight: "700", color: c.ink },
+    summaryNote: { fontFamily: theme.fonts.ui, fontSize: 12, color: c.muted, lineHeight: 17 },
     warn: { color: c.warnFg },
     visit: { flexDirection: "row", alignItems: "center", gap: 8, paddingTop: 4 },
     bar: { width: 3, height: 20, borderRadius: 2 },
-    visitTime: { width: 104, fontSize: 13, color: c.muted, fontVariant: ["tabular-nums"] },
-    visitName: { flex: 1, fontSize: 13, color: c.ink },
+    visitTime: {
+        width: 104,
+        fontFamily: theme.fonts.ui,
+        fontSize: 13,
+        color: c.muted,
+        fontVariant: ["tabular-nums"],
+    },
+    visitName: { flex: 1, fontFamily: theme.fonts.ui, fontSize: 13, color: c.ink },
     footer: {
         flexDirection: "row",
         gap: 10,

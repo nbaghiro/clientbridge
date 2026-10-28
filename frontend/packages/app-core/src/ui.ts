@@ -112,7 +112,7 @@ export interface LoadFailedProps {
 
 export interface ModalProps {
     flow?: boolean | undefined;
-    // "drawer" slides in from the right on web for create and edit flows; phones keep their sheet.
+    // "drawer" slides in from the right on web and tablets (as do xl and flow); phones keep their sheet.
     variant?: "dialog" | "drawer" | undefined;
     open?: boolean | undefined;
     onClose: () => void;
@@ -336,6 +336,14 @@ export interface ChoiceProps<K extends string> {
     size?: "md" | "lg" | undefined;
 }
 
+export interface PageFrameProps {
+    children: ReactNode;
+    // Full-width content above the centred column, such as a sync banner.
+    leading?: ReactNode | undefined;
+    // "md" keeps lists and settings at a readable width; "lg" (the default) suits boards and splits.
+    size?: "md" | "lg" | undefined;
+}
+
 export interface PanelProps {
     title?: string | undefined;
     subtitle?: string | undefined;
@@ -494,6 +502,13 @@ export interface PaymentMethodFormProps {
     allowBank: boolean;
 }
 
+// An icon in a soft circle of its status colour, leading a row that asks for attention.
+export interface IconBadgeProps {
+    icon: IconName;
+    intent?: Intent | undefined;
+    size?: "sm" | "md" | undefined;
+}
+
 export interface ItemImageProps {
     src: string | null;
     name: string;
@@ -504,14 +519,29 @@ export interface ItemImageProps {
 export interface PageHeaderProps {
     title: string;
     subtitle?: string | undefined;
+    // A small line above the title, such as today's date.
+    leading?: ReactNode | undefined;
     actions?: ReactNode | undefined;
     // A tab row or filters under the title.
     children?: ReactNode | undefined;
 }
 
+// A sheet's top row: a close button, the centred title and the sheet's main action.
+export interface SheetHeaderProps {
+    title: string;
+    subtitle?: string | undefined;
+    // Without it the row has no close button, for a sheet that closes from its own buttons.
+    onClose?: (() => void) | undefined;
+    // The close button's text; Cancel unless the sheet only shows something.
+    closeLabel?: string | undefined;
+    actions?: ReactNode | undefined;
+}
+
 // The faint contour art in a corner behind a page; purely decorative.
 export interface BackdropProps {
-    corner?: "topRight" | "bottomRight" | undefined;
+    // The art is drawn for the top right and mirrored into the other corners.
+    corner?: "topRight" | "bottomRight" | "topLeft" | "bottomLeft" | undefined;
+    size?: "sm" | "md" | "lg" | undefined;
 }
 
 export interface AvatarProps {

@@ -369,7 +369,13 @@ const styles = StyleSheet.create({
     head: { gap: 10 },
     row: { flexDirection: "row", gap: 8, alignItems: "center" },
     cardBody: { gap: 8 },
-    balanceLabel: { color: c.ink, fontSize: 14, fontWeight: "600" },
-    figure: { color: c.ink, fontSize: 24, fontWeight: "700", fontVariant: ["tabular-nums"] },
+    balanceLabel: { color: c.ink, fontFamily: theme.fonts.ui, fontSize: 14, fontWeight: "600" },
+    figure: {
+        color: c.ink,
+        fontFamily: theme.fonts.ui,
+        fontSize: 24,
+        fontWeight: "700",
+        fontVariant: ["tabular-nums"],
+    },
     alert: { color: c.danFg },
 });

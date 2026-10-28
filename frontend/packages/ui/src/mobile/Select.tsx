@@ -149,6 +149,7 @@ export function SelectSheet<K extends string>({
     searchable,
     size = "md",
     surface,
+    width = "full",
     disabled = false,
     style,
     searchFirst,
@@ -164,7 +165,9 @@ export function SelectSheet<K extends string>({
         onChange?.(key);
     };
     const plain = options.every((o) => o.detail === undefined && o.group === undefined);
+    // A compact select beside other controls stays one line; only a full-width one lays its options out.
     const sheet =
+        width === "auto" ||
         searchFirst ||
         options.length > SEARCH_AFTER ||
         placeholder !== undefined ||
@@ -209,7 +212,7 @@ export function SelectSheet<K extends string>({
         );
     }
     return (
-        <View style={style}>
+        <View style={[width === "auto" && styles.auto, style]}>
             {label !== undefined ? <Label text={label} optional={false} /> : null}
             {sheet ? (
                 <PickerTrigger
@@ -276,16 +279,24 @@ export function SelectSheet<K extends string>({
 }
 
 const styles = StyleSheet.create({
+    auto: { minWidth: 132 },
     trigger: { flexDirection: "row", alignItems: "center", gap: 8 },
     open: { borderColor: c.accent },
     invalid: { borderColor: c.danFg },
-    text: { flex: 1, color: c.ink, fontSize: 15 },
-    small: { fontSize: 13 },
+    text: { flex: 1, color: c.ink, fontFamily: theme.fonts.ui, fontSize: 15 },
+    small: { fontFamily: theme.fonts.ui, fontSize: 13 },
     placeholder: { color: c.muted },
-    sheetTitle: { color: c.ink, fontSize: 18, fontWeight: "700", marginBottom: 12 },
+    sheetTitle: {
+        color: c.ink,
+        fontFamily: theme.fonts.ui,
+        fontSize: 18,
+        fontWeight: "700",
+        marginBottom: 12,
+    },
     list: { marginTop: 8, marginHorizontal: -8 },
     group: {
         color: c.muted,
+        fontFamily: theme.fonts.ui,
         fontSize: 11,
         fontWeight: "700",
         letterSpacing: 0.6,
@@ -304,9 +315,20 @@ const styles = StyleSheet.create({
     },
     rowOn: { backgroundColor: c.bg },
     rowOff: { opacity: 0.45 },
-    rowLabel: { flex: 1, color: c.inkSoft, fontSize: 15 },
+    rowLabel: { flex: 1, color: c.inkSoft, fontFamily: theme.fonts.ui, fontSize: 15 },
     rowChosen: { color: c.ink, fontWeight: "600" },
-    rowDetail: { color: c.muted, fontSize: 13, fontVariant: ["tabular-nums"] },
+    rowDetail: {
+        color: c.muted,
+        fontFamily: theme.fonts.ui,
+        fontSize: 13,
+        fontVariant: ["tabular-nums"],
+    },
     check: { width: 20, alignItems: "flex-end" },
-    empty: { color: c.muted, fontSize: 14, textAlign: "center", paddingVertical: 24 },
+    empty: {
+        color: c.muted,
+        fontFamily: theme.fonts.ui,
+        fontSize: 14,
+        textAlign: "center",
+        paddingVertical: 24,
+    },
 });

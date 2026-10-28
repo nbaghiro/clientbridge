@@ -14,15 +14,18 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Icon } from "./Icon";
+import { useTabletLayout } from "./layout";
 import type { NativeProps } from "./props";
 
 const c = theme.colors;
-const CHIP = 60;
+const CHIP = 68;
 const DEGREE = Math.PI / 180;
 
-// an even half-circle of chips, tightened for short menus
-function fan(count: number, radius: number): { dx: number; dy: number }[] {
-    const span = count > 5 ? 180 : 150;
+// an even arc of chips, narrower for short menus, with a gap kept between neighbours
+function fan(count: number, maxRadius: number): { dx: number; dy: number }[] {
+    const span = count > 5 ? 180 : count > 3 ? 120 : 100;
+    const step = (span / Math.max(1, count)) * DEGREE;
+    const radius = Math.min(maxRadius, (CHIP + 14) / (2 * Math.sin(step / 2)));
     return Array.from({ length: count }, (_, k) => {
         const angle = (90 + span / 2 - ((k + 0.5) * span) / count) * DEGREE;
         return { dx: radius * Math.cos(angle), dy: -radius * Math.sin(angle) };
@@ -41,6 +44,7 @@ export function ActionMenu({
     style,
 }: NativeProps<ActionMenuProps>) {
     const insets = useSafeAreaInsets();
+    const tablet = useTabletLayout();
     if (layout === "radial" && anchor !== undefined)
         return (
             <RadialMenu
@@ -59,7 +63,7 @@ export function ActionMenu({
             animationType="fade"
             onRequestClose={onClose}
         >
-            <View style={styles.root}>
+            <View style={[styles.root, tablet && styles.centred]}>
                 <Pressable
                     style={styles.backdrop}
                     onPress={onClose}
@@ -67,10 +71,13 @@ export function ActionMenu({
                     accessibilityLabel={strings.common.close}
                 />
                 <View
-                    style={[styles.sheet, { paddingBottom: insets.bottom + 12 }]}
+                    style={[
+                        styles.sheet,
+                        tablet ? styles.card : { paddingBottom: insets.bottom + 12 },
+                    ]}
                     accessibilityViewIsModal
                 >
-                    <View style={styles.grabber} />
+                    {tablet ? null : <View style={styles.grabber} />}
                     {title !== undefined ? (
                         <Text style={styles.title} accessibilityRole="header">
                             {title}
@@ -149,7 +156,7 @@ function RadialMenu({
             useNativeDriver: true,
         }).start();
     }, [open, progress]);
-    const spots = fan(items.length, Math.min(150, width / 2 - CHIP / 2 - 8));
+    const spots = fan(items.length, width / 2 - CHIP / 2 - 8);
     const turn = progress.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "45deg"] });
     return (
         <Modal
@@ -232,6 +239,14 @@ function RadialMenu({
 
 const styles = StyleSheet.create({
     root: { flex: 1, justifyContent: "flex-end" },
+    centred: { justifyContent: "center", alignItems: "center", padding: theme.layout.gutter },
+    card: {
+        width: "100%",
+        maxWidth: theme.layout.sheet,
+        borderRadius: 20,
+        paddingTop: 16,
+        paddingBottom: 16,
+    },
     backdrop: {
         position: "absolute",
         top: 0,
@@ -257,6 +272,7 @@ const styles = StyleSheet.create({
     },
     title: {
         color: c.muted,
+        fontFamily: theme.fonts.ui,
         fontSize: 12,
         fontWeight: "700",
         letterSpacing: 0.5,
@@ -274,7 +290,7 @@ const styles = StyleSheet.create({
         borderRadius: theme.radius,
     },
     tileIcon: { height: 36, alignItems: "center", justifyContent: "center" },
-    tileLabel: { color: c.ink, fontSize: 13, fontWeight: "600" },
+    tileLabel: { color: c.ink, fontFamily: theme.fonts.ui, fontSize: 13, fontWeight: "600" },
     row: {
         flexDirection: "row",
         alignItems: "center",
@@ -285,10 +301,11 @@ const styles = StyleSheet.create({
     },
     rowIcon: { width: 24, alignItems: "center" },
     rowText: { flex: 1 },
-    rowLabel: { color: c.ink, fontSize: 16, fontWeight: "600" },
-    rowHint: { color: c.muted, fontSize: 13, marginTop: 1 },
+    rowLabel: { color: c.ink, fontFamily: theme.fonts.ui, fontSize: 16, fontWeight: "600" },
+    rowHint: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 13, marginTop: 1 },
     pressed: { backgroundColor: c.bg },
-    dim: { backgroundColor: c.ink, opacity: 0.5 },
+    // A light veil: the page stays readable behind the chips.
+    dim: { backgroundColor: c.ink, opacity: 0.15 },
     spoke: { position: "absolute" },
     round: {
         width: CHIP,
@@ -306,7 +323,7 @@ const styles = StyleSheet.create({
         elevation: 4,
     },
     roundPressed: { backgroundColor: c.bg },
-    roundLabel: { color: c.inkSoft, fontSize: 10, fontWeight: "600" },
+    roundLabel: { color: c.inkSoft, fontFamily: theme.fonts.ui, fontSize: 11, fontWeight: "600" },
     dismiss: {
         position: "absolute",
         width: 52,

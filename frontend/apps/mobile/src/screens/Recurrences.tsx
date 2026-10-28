@@ -32,6 +32,9 @@ import {
     Skeleton,
     Stepper,
     Toggle,
+    PageHeader,
+    Panel,
+    SheetHeader,
 } from "@clientbridge/ui";
 import { useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
@@ -148,7 +151,7 @@ export function RecurrencesScreen() {
             ) : list.rows.length === 0 ? (
                 <Empty message={s.emptySearch} />
             ) : (
-                <View style={styles.list}>
+                <Panel flush style={styles.list}>
                     {list.rows.map((r) => (
                         <ListRow
                             key={r.id}
@@ -170,7 +173,7 @@ export function RecurrencesScreen() {
                             }}
                         />
                     ))}
-                </View>
+                </Panel>
             )}
         </ScrollView>
     );
@@ -210,8 +213,10 @@ function Record({ id, onBack }: { id: string; onBack: () => void }) {
             <Button size="sm" variant="link" icon="chevronLeft" onPress={onBack}>
                 {s.backToList}
             </Button>
-            <Text style={styles.muted}>{r.serviceName}</Text>
-            <Text style={styles.title}>{formatParts([r.subjectName, r.clientName])}</Text>
+            <PageHeader
+                title={formatParts([r.subjectName, r.clientName])}
+                leading={<Text style={styles.muted}>{r.serviceName}</Text>}
+            />
             <View style={styles.rowGap}>
                 <Icon name="repeat" size={15} color={c.inkSoft} />
                 <Text style={styles.soft}>{r.pattern}</Text>
@@ -229,7 +234,7 @@ function Record({ id, onBack }: { id: string; onBack: () => void }) {
             {rec.error !== null && dialog === null ? (
                 <Notice tone="danger">{rec.error}</Notice>
             ) : null}
-            <View style={styles.card}>
+            <Panel style={styles.card}>
                 <Text style={styles.label}>{s.next}</Text>
                 <Text style={styles.value}>{r.nextLabel}</Text>
                 <Text style={styles.label}>{s.with}</Text>
@@ -237,7 +242,7 @@ function Record({ id, onBack }: { id: string; onBack: () => void }) {
                 <Text style={styles.label}>{s.colProgress}</Text>
                 <Text style={styles.value}>{r.progress}</Text>
                 <Text style={styles.muted}>{r.endsLabel}</Text>
-            </View>
+            </Panel>
             {rec.stoppedNote !== null ? <Notice tone="info">{rec.stoppedNote}</Notice> : null}
             {rec.readOnly ? null : (
                 <View style={styles.actions}>
@@ -263,7 +268,7 @@ function Record({ id, onBack }: { id: string; onBack: () => void }) {
                 </View>
             )}
             <Text style={styles.section}>{s.upcoming}</Text>
-            <View style={styles.list}>
+            <Panel flush style={styles.list}>
                 {upcoming.length === 0 ? (
                     <Text style={styles.empty}>{s.noneLeft}</Text>
                 ) : (
@@ -272,16 +277,16 @@ function Record({ id, onBack }: { id: string; onBack: () => void }) {
                         rows={upcoming.map((o) => occurrenceRow(o, zone))}
                     />
                 )}
-            </View>
+            </Panel>
             {past.length > 0 ? (
                 <>
                     <Text style={styles.section}>{s.history}</Text>
-                    <View style={styles.list}>
+                    <Panel flush style={styles.list}>
                         <OccurrenceList
                             label={s.history}
                             rows={past.map((o) => occurrenceRow(o, zone))}
                         />
-                    </View>
+                    </Panel>
                 </>
             ) : null}
             {dialog === "change" ? (
@@ -299,7 +304,7 @@ function Record({ id, onBack }: { id: string; onBack: () => void }) {
                     }}
                 >
                     <View style={styles.sheet}>
-                        <Text style={styles.sheetTitle}>{s.cancelTitle}</Text>
+                        <SheetHeader title={s.cancelTitle} />
                         <Text style={styles.soft}>{rec.cancelSummary}</Text>
                         <Toggle
                             label={s.notifyClient}
@@ -338,7 +343,7 @@ function ChangeSheet({ rec, onClose }: { rec: SeriesRecord; onClose: () => void 
     return (
         <Modal size="xl" onClose={onClose}>
             <ScrollView contentContainerStyle={styles.sheet}>
-                <Text style={styles.sheetTitle}>{s.changeSeries}</Text>
+                <SheetHeader title={s.changeSeries} onClose={onClose} />
                 <Text style={styles.label}>{s.scope}</Text>
                 <Choice
                     layout="segmented"
@@ -458,8 +463,7 @@ function SeriesComposer({ onDone }: { onDone: () => void }) {
                 <Button size="sm" variant="link" icon="chevronLeft" onPress={onDone}>
                     {s.backToList}
                 </Button>
-                <Text style={styles.title}>{s.newTitle}</Text>
-                <Text style={styles.muted}>{s.newSubtitle}</Text>
+                <PageHeader title={s.newTitle} subtitle={s.newSubtitle} />
                 <SearchSelect
                     label={s.client}
                     placeholder={s.pickClient}
@@ -556,7 +560,7 @@ function SeriesComposer({ onDone }: { onDone: () => void }) {
                 <Text style={styles.section}>{s.dates}</Text>
                 {f.summary !== "" ? <Text style={styles.soft}>{f.summary}</Text> : null}
                 {f.ready ? (
-                    <View style={styles.list}>
+                    <Panel flush style={styles.list}>
                         <OccurrenceList
                             label={s.dates}
                             rows={f.occurrences.map((o) => occurrenceRow(o, zone))}
@@ -564,7 +568,7 @@ function SeriesComposer({ onDone }: { onDone: () => void }) {
                                 f.resolve(key, action === "shift" ? "shift" : "skip");
                             }}
                         />
-                    </View>
+                    </Panel>
                 ) : (
                     <Text style={styles.muted}>{s.datesHint}</Text>
                 )}
@@ -584,33 +588,25 @@ function SeriesComposer({ onDone }: { onDone: () => void }) {
 }
 
 const styles = StyleSheet.create({
-    screen: { flex: 1, backgroundColor: c.bg },
+    screen: { flex: 1 },
     body: { padding: 16, paddingBottom: 32, gap: 12 },
     headRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-    title: { color: c.ink, fontSize: 20, fontWeight: "700" },
-    muted: { color: c.muted, fontSize: 13 },
-    soft: { color: c.inkSoft, fontSize: 14 },
-    warn: { color: c.warnFg, fontSize: 12 },
+    muted: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 13 },
+    soft: { color: c.inkSoft, fontFamily: theme.fonts.ui, fontSize: 14 },
+    warn: { color: c.warnFg, fontFamily: theme.fonts.ui, fontSize: 12 },
     rowGap: { flexDirection: "row", alignItems: "center", gap: 10 },
-    list: {
-        backgroundColor: c.surface,
-        borderRadius: theme.radius,
-        borderWidth: 1,
-        borderColor: c.border,
-        overflow: "hidden",
-        paddingHorizontal: 8,
+    list: { paddingHorizontal: 8 },
+    card: { gap: 2 },
+    label: {
+        color: c.muted,
+        fontFamily: theme.fonts.ui,
+        fontSize: 12,
+        fontWeight: "600",
+        marginTop: 6,
     },
-    card: {
-        backgroundColor: c.surface,
-        borderRadius: theme.radius,
-        borderWidth: 1,
-        borderColor: c.border,
-        padding: 14,
-        gap: 2,
-    },
-    label: { color: c.muted, fontSize: 12, fontWeight: "600", marginTop: 6 },
-    value: { color: c.ink, fontSize: 15, fontWeight: "600" },
+    value: { color: c.ink, fontFamily: theme.fonts.ui, fontSize: 15, fontWeight: "600" },
     section: {
+        fontFamily: theme.fonts.ui,
         fontSize: 12,
         fontWeight: "700",
         color: c.muted,
@@ -618,10 +614,15 @@ const styles = StyleSheet.create({
         letterSpacing: 0.5,
         marginTop: 4,
     },
-    empty: { padding: 16, fontSize: 14, color: c.muted, textAlign: "center" },
+    empty: {
+        padding: 16,
+        fontFamily: theme.fonts.ui,
+        fontSize: 14,
+        color: c.muted,
+        textAlign: "center",
+    },
     actions: { flexDirection: "row", gap: 8 },
     sheet: { gap: 12, paddingBottom: 12 },
-    sheetTitle: { color: c.ink, fontSize: 18, fontWeight: "700" },
     foot: {
         padding: 16,
         gap: 6,

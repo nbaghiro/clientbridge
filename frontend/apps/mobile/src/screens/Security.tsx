@@ -4,8 +4,9 @@ import { Button, GoogleIcon, Loading, Notice, Panel, TextField } from "@clientbr
 import { Image, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { api, identity, openAuthSession } from "../lib/api";
-import { getSession, keepSessionToken, useUserId } from "../lib/auth";
+import { getSession, keepSessionToken, useRole, useUserId } from "../lib/auth";
 import { PersonPhoto } from "../components/PersonPhoto";
+import { Plans } from "./Plans";
 
 const c = theme.colors;
 const a = strings.auth;
@@ -21,6 +22,7 @@ const settingsOptions = {
 export function SecurityScreen() {
     const userId = useUserId();
     const s = useSecuritySettings(identity, settingsOptions);
+    const owner = useRole() === "owner";
 
     if (!s.ready && s.error === null) return <Loading label={a.securityTitle} />;
 
@@ -187,15 +189,16 @@ export function SecurityScreen() {
                     )}
                 </View>
             </Panel>
+            {owner ? <Plans /> : null}
         </ScrollView>
     );
 }
 
 const styles = StyleSheet.create({
-    screen: { flex: 1, backgroundColor: c.bg },
+    screen: { flex: 1 },
     body: { padding: 16, paddingBottom: 32, gap: 14 },
     stack: { gap: 10 },
-    soft: { color: c.inkSoft, fontSize: 14, lineHeight: 20 },
-    mono: { color: c.ink, fontSize: 13, fontFamily: "monospace", lineHeight: 20 },
+    soft: { color: c.inkSoft, fontFamily: theme.fonts.ui, fontSize: 14, lineHeight: 20 },
+    mono: { color: c.ink, fontSize: 13, fontFamily: theme.fonts.mono, lineHeight: 20 },
     qr: { width: 176, height: 176, borderRadius: theme.radius },
 });

@@ -10,6 +10,14 @@ export function useModalFlow(): boolean {
 
 const WIDTH = { sm: "max-w-sm", md: "max-w-md", lg: "max-w-lg", xl: "max-w-6xl" } as const;
 const DRAWER_WIDTH = { sm: "max-w-md", md: "max-w-lg", lg: "max-w-xl", xl: "max-w-5xl" } as const;
+// Only the top open dialog, the last in document order, answers Escape and traps Tab.
+const openDialogs = new Set<HTMLElement>();
+const isTop = (dialog: HTMLElement): boolean =>
+    [...openDialogs].every(
+        (other) =>
+            other === dialog ||
+            !(dialog.compareDocumentPosition(other) & Node.DOCUMENT_POSITION_FOLLOWING),
+    );
 const FOCUSABLE =
     'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
@@ -54,8 +62,9 @@ export function Modal({
             );
         (focusables()[0] ?? dialog).focus();
 
+        if (!inFlow) openDialogs.add(dialog);
         const onKey = (e: KeyboardEvent): void => {
-            if (inFlow) return;
+            if (inFlow || !isTop(dialog)) return;
             if (e.key === "Escape") {
                 onCloseRef.current();
                 return;
@@ -79,6 +88,7 @@ export function Modal({
         window.addEventListener("keydown", onKey);
         return () => {
             window.removeEventListener("keydown", onKey);
+            openDialogs.delete(dialog);
             returnTo?.focus();
         };
     }, [open, titleId, inFlow]);

@@ -3,8 +3,6 @@ import {
     type AttentionItem,
     type SetupProgress,
     type TodayActions,
-    type OwnerToday,
-    formatMoney,
     strings,
     useShellNav,
     visitAction,
@@ -13,7 +11,9 @@ import {
     useSubjectKind,
     formatList,
     formatParts,
-    BUSINESS_CURRENCY,
+    type TeamDay,
+    mediaUrl,
+    usePeoplePhotos,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import {
@@ -22,17 +22,24 @@ import {
     Empty,
     Icon,
     IconButton,
+    PageHeader,
+    Panel,
     ListRow,
     LoadFailed,
     Meter,
     Skeleton,
     StatusPill,
+    Avatar,
+    IconBadge,
+    ItemImage,
+    useTabletLayout,
 } from "@clientbridge/ui";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { ReactNode } from "react";
 import { Pressable, Share, StyleSheet, Text, View } from "react-native";
 
+import { apiBaseUrl } from "../lib/api";
 import { useViewer } from "../lib/auth";
 import { useOpenLink } from "../lib/links";
 import type { RootStackParamList } from "../navigation";
@@ -54,42 +61,46 @@ export function TodayHeader({
     const openLink = useOpenLink();
     const nav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
     return (
-        <View style={styles.header}>
-            <View style={styles.headerText}>
+        <PageHeader
+            style={styles.header}
+            title={greeting}
+            leading={
                 <Pressable onPress={onSecretTap} accessibilityRole="text">
                     <Text style={styles.date}>{dateLabel}</Text>
                 </Pressable>
-                <Text style={styles.greeting} accessibilityRole="header" numberOfLines={1}>
-                    {greeting}
-                </Text>
-            </View>
-            <IconButton
-                icon="search"
-                label={strings.navigation.search}
-                onPress={() => {
-                    openLink("search");
-                }}
-            />
-            <IconButton
-                icon="bell"
-                label={strings.navigation.notifications}
-                badge={bellCount}
-                onPress={() => {
-                    openLink("notifications");
-                }}
-            />
-            <IconButton
-                icon="settings"
-                label={strings.navigation.setup}
-                onPress={() => {
-                    nav.navigate("Setup");
-                }}
-            />
-        </View>
+            }
+            actions={
+                <>
+                    <IconButton
+                        icon="search"
+                        label={strings.navigation.search}
+                        onPress={() => {
+                            openLink("search");
+                        }}
+                    />
+                    <IconButton
+                        icon="bell"
+                        label={strings.navigation.notifications}
+                        badge={bellCount}
+                        onPress={() => {
+                            openLink("notifications");
+                        }}
+                    />
+                    <IconButton
+                        icon="settings"
+                        label={strings.navigation.setup}
+                        onPress={() => {
+                            nav.navigate("Setup");
+                        }}
+                    />
+                </>
+            }
+        />
     );
 }
 
-export function PaymentsSummary({ owner }: { owner?: OwnerToday }) {
+/** Sales for staff; for an owner, whose figures sit in the strip above, what is overdue. */
+export function PaymentsSummary({ owner = false }: { owner?: boolean }) {
     const openLink = useOpenLink();
     const nav = useShellNav(useViewer());
     const overdue = nav.badges.payments ?? 0;
@@ -110,45 +121,18 @@ export function PaymentsSummary({ owner }: { owner?: OwnerToday }) {
                 </Button>
             }
         >
-            {owner === undefined ? (
-                <View style={styles.card}>
+            {!owner ? (
+                <Panel flush>
                     <ListRow
                         icon="pos"
                         title={strings.navigation.paymentsTabs.sales}
                         meta={<Icon name="chevronRight" size={18} color={c.muted} />}
                         onPress={openPayments}
                     />
-                </View>
-            ) : owner.moneyLoad.state === "loading" ? (
-                <RowsLoading count={2} />
-            ) : owner.moneyLoad.state === "error" ? (
-                <NumbersFailed
-                    onRetry={owner.moneyLoad.retry}
-                    retrying={owner.moneyLoad.retrying}
-                />
+                </Panel>
             ) : (
-                <View style={styles.card}>
-                    <View style={styles.paymentFigures}>
-                        <View style={styles.flex}>
-                            <Text style={styles.kpiLabel}>{t.collected}</Text>
-                            <Text style={styles.kpiValue}>
-                                {formatMoney(owner.money.collectedCents, BUSINESS_CURRENCY)}
-                            </Text>
-                            <Text style={styles.kpiHint}>
-                                {t.collectedHint(owner.money.paymentCount)}
-                            </Text>
-                        </View>
-                        <View style={styles.flex}>
-                            <Text style={styles.kpiLabel}>{t.awaiting}</Text>
-                            <Text style={styles.kpiValue}>
-                                {formatMoney(owner.money.awaitingCents, BUSINESS_CURRENCY)}
-                            </Text>
-                            <Text style={styles.kpiHint}>
-                                {t.awaitingHint(owner.money.awaitingCount)}
-                            </Text>
-                        </View>
-                    </View>
-                    <View style={styles.paymentFooter}>
+                <Panel flush>
+                    <View style={styles.paymentRow}>
                         <Text style={styles.paymentCount}>
                             {overdue > 0
                                 ? strings.navigation.overduePayments(overdue)
@@ -165,7 +149,7 @@ export function PaymentsSummary({ owner }: { owner?: OwnerToday }) {
                             {strings.navigation.paymentsTabs.invoices}
                         </Button>
                     </View>
-                </View>
+                </Panel>
             )}
         </Section>
     );
@@ -176,42 +160,70 @@ export interface MobileKpi {
     value: string;
     hint: string;
     tone?: "ink" | "success" | undefined;
+    // How far through the day this figure is, drawn as a thin bar under it.
+    progress?: { value: number; max: number } | undefined;
 }
 
+/** The day's figures in one card: four across on a tablet, two by two on a phone. */
 export function KpiSummary({ items }: { items: MobileKpi[] }) {
-    return (
-        <View style={[styles.kpis, styles.paymentFiguresRow]}>
-            {items.map((k) => (
-                <View
-                    key={k.label}
-                    style={[styles.kpi, styles.flex]}
-                    accessible
-                    accessibilityLabel={formatList([k.label, k.value, k.hint], "unit")}
-                >
-                    <Text style={styles.kpiLabel}>{k.label}</Text>
-                    <Text style={[styles.kpiValue, k.tone === "success" && { color: c.success }]}>
-                        {k.value}
-                    </Text>
-                    <Text style={styles.kpiHint} numberOfLines={1}>
-                        {k.hint}
-                    </Text>
-                </View>
-            ))}
-        </View>
-    );
-}
-
-export function KpiSummaryLoading() {
+    const wide = useTabletLayout();
     return (
         <View style={styles.kpis}>
-            <View style={[styles.card, styles.flex]}>
-                <Skeleton variant="stat" count={2} columns={2} label={t.loading} />
+            <View style={styles.strip}>
+                {items.map((k) => (
+                    <View
+                        key={k.label}
+                        style={[styles.kpi, wide ? styles.kpiWide : styles.kpiHalf]}
+                        accessible
+                        accessibilityLabel={formatList([k.label, k.value, k.hint], "unit")}
+                    >
+                        <Text style={styles.kpiLabel}>{k.label}</Text>
+                        <Text
+                            style={[styles.kpiValue, k.tone === "success" && { color: c.success }]}
+                            numberOfLines={1}
+                            adjustsFontSizeToFit
+                            minimumFontScale={0.75}
+                        >
+                            {k.value}
+                        </Text>
+                        {k.progress !== undefined ? (
+                            <Meter
+                                style={styles.kpiMeter}
+                                value={k.progress.value}
+                                max={Math.max(1, k.progress.max)}
+                                label={k.hint}
+                                labelPosition="hidden"
+                                size="sm"
+                            />
+                        ) : null}
+                        <Text style={styles.kpiHint}>{k.hint}</Text>
+                    </View>
+                ))}
             </View>
         </View>
     );
 }
 
-function NumbersFailed({ onRetry, retrying }: { onRetry: () => void; retrying: boolean }) {
+/** The strip's four cards while the figures load, so nothing moves when they arrive. */
+export function KpiSummaryLoading() {
+    const wide = useTabletLayout();
+    return (
+        <View style={styles.kpis}>
+            <View style={styles.strip}>
+                {[0, 1, 2, 3].map((i) => (
+                    <View
+                        key={i}
+                        style={[styles.kpi, styles.kpiBare, wide ? styles.kpiWide : styles.kpiHalf]}
+                    >
+                        <Skeleton variant="stat" count={1} label={t.loading} />
+                    </View>
+                ))}
+            </View>
+        </View>
+    );
+}
+
+export function NumbersFailed({ onRetry, retrying }: { onRetry: () => void; retrying: boolean }) {
     return (
         <View>
             <LoadFailed
@@ -242,7 +254,7 @@ export function TodayFailed({ onRetry, retrying }: { onRetry: () => void; retryi
 export function QuietDay({ bookingLink }: { bookingLink: string | null }) {
     const openLink = useOpenLink();
     return (
-        <View style={styles.card}>
+        <Panel flush>
             <Empty
                 icon="calendar"
                 message={t.quietTitle}
@@ -272,15 +284,15 @@ export function QuietDay({ bookingLink }: { bookingLink: string | null }) {
                     </>
                 }
             />
-        </View>
+        </Panel>
     );
 }
 
 export function RowsLoading({ count = 4 }: { count?: number }) {
     return (
-        <View style={styles.card}>
+        <Panel flush>
             <Skeleton variant="row" count={count} label={t.loading} />
-        </View>
+        </Panel>
     );
 }
 
@@ -308,10 +320,16 @@ export function Section({
 
 export function NextCard({ item, children }: { item: AgendaItem; children?: ReactNode }) {
     const kind = useSubjectKind();
+    const photos = usePeoplePhotos();
     return (
-        <View style={styles.next}>
+        <Panel>
             <View style={styles.nextBody}>
                 <View style={[styles.nextBar, { backgroundColor: item.color ?? c.accent }]} />
+                <Avatar
+                    name={item.clientName}
+                    src={item.clientId === null ? null : photos.client(item.clientId)}
+                    size="lg"
+                />
                 <View style={styles.flex}>
                     <View style={styles.nextTop}>
                         <Text style={styles.nextTime}>
@@ -334,9 +352,23 @@ export function NextCard({ item, children }: { item: AgendaItem; children?: Reac
                     <Text style={styles.nextClient} numberOfLines={1}>
                         {item.clientName}
                     </Text>
-                    <Text style={styles.nextService} numberOfLines={1}>
-                        {formatParts([item.serviceName, t.withStaff(item.staffName)])}
-                    </Text>
+                    <View style={styles.nextWith}>
+                        <ItemImage
+                            src={mediaUrl(apiBaseUrl, item.serviceImageId)}
+                            name={item.serviceName}
+                            color={item.color}
+                            size={20}
+                        />
+                        <Text style={[styles.nextService, styles.flex]} numberOfLines={1}>
+                            {formatParts([item.serviceName, t.withStaff(item.staffName)])}
+                        </Text>
+                        <Avatar
+                            name={item.staffName}
+                            src={photos.staff(item.staffId)}
+                            size="sm"
+                            color={item.staffColor}
+                        />
+                    </View>
                     {item.pickup !== null ? (
                         <Text style={styles.nextService} numberOfLines={2}>
                             {item.pickup}
@@ -345,7 +377,7 @@ export function NextCard({ item, children }: { item: AgendaItem; children?: Reac
                 </View>
             </View>
             {children}
-        </View>
+        </Panel>
     );
 }
 
@@ -401,15 +433,14 @@ export function AttentionList({
 }) {
     const openLink = useOpenLink();
     return (
-        <View style={styles.card}>
+        <Panel flush>
             {items.length === 0 ? <Text style={styles.empty}>{empty}</Text> : null}
             {items.map((a, i) => {
                 const sent = actions.sent.has(a.key);
                 return (
                     <View key={a.key} style={i > 0 ? styles.divider : undefined}>
                         <ListRow
-                            icon={a.icon}
-                            intent={a.intent}
+                            leading={<IconBadge icon={a.icon} intent={a.intent} size="sm" />}
                             title={a.title}
                             detail={a.detail}
                             onPress={() => {
@@ -433,7 +464,7 @@ export function AttentionList({
                     </View>
                 );
             })}
-        </View>
+        </Panel>
     );
 }
 
@@ -445,13 +476,16 @@ export function AgendaRows({
     showStaff?: boolean;
 }) {
     return (
-        <View style={styles.card}>
+        <Panel flush>
             {items.map((item, i) => {
                 const done = item.state === "done";
                 return (
                     <View key={item.id} style={[styles.agendaRow, i > 0 && styles.divider]}>
                         <View style={styles.agendaTime}>
-                            <Text style={[styles.agendaClock, done && styles.muted]}>
+                            <Text
+                                style={[styles.agendaClock, done && styles.muted]}
+                                numberOfLines={1}
+                            >
                                 {item.time}
                             </Text>
                         </View>
@@ -463,6 +497,12 @@ export function AgendaRows({
                                     opacity: done ? 0.35 : 1,
                                 },
                             ]}
+                        />
+                        <ItemImage
+                            src={mediaUrl(apiBaseUrl, item.serviceImageId)}
+                            name={item.serviceName}
+                            color={item.color}
+                            size={32}
                         />
                         <View style={styles.flex}>
                             <Text
@@ -495,7 +535,37 @@ export function AgendaRows({
                     </View>
                 );
             })}
-        </View>
+        </Panel>
+    );
+}
+
+/** Who is working today and how many visits each has, as on the web's Today. */
+export function TeamToday({ team }: { team: TeamDay[] }) {
+    const photos = usePeoplePhotos();
+    return (
+        <Section title={t.team}>
+            <Panel flush>
+                {team.map((m, i) => (
+                    <View key={m.staffId} style={[styles.teamRow, i > 0 && styles.divider]}>
+                        <Avatar
+                            name={m.name}
+                            src={photos.staff(m.staffId)}
+                            size="sm"
+                            color={m.color}
+                        />
+                        <View style={styles.flex}>
+                            <Text style={styles.agendaClient} numberOfLines={1}>
+                                {m.name}
+                            </Text>
+                            <Text style={styles.agendaSub} numberOfLines={1}>
+                                {m.hours ?? t.teamOff}
+                            </Text>
+                        </View>
+                        <Text style={styles.paymentCount}>{t.teamCount(m.bookings)}</Text>
+                    </View>
+                ))}
+            </Panel>
+        </Section>
     );
 }
 
@@ -509,7 +579,7 @@ export function SetupGuide({ setup }: { setup: SetupProgress }) {
     const progress = strings.business.getSetUp.progress(setup.done, setup.total);
     return (
         <Section title={strings.business.getSetUp.gettingStarted}>
-            <View style={styles.card}>
+            <Panel flush>
                 <View style={styles.guideHead}>
                     <Text style={styles.stepsDone}>{progress}</Text>
                     <Meter
@@ -560,7 +630,7 @@ export function SetupGuide({ setup }: { setup: SetupProgress }) {
                         </Text>
                     </View>
                 ) : null}
-            </View>
+            </Panel>
         </Section>
     );
 }
@@ -568,7 +638,7 @@ export function SetupGuide({ setup }: { setup: SetupProgress }) {
 /** The day while nothing has been booked yet: one line and the booking link. */
 export function QuietSchedule({ bookingLink }: { bookingLink: string | null }) {
     return (
-        <View style={[styles.card, styles.pad]}>
+        <Panel>
             <Text style={styles.guideHint}>{t.guideNothingToday}</Text>
             {bookingLink === null ? null : (
                 <Button
@@ -582,52 +652,54 @@ export function QuietSchedule({ bookingLink }: { bookingLink: string | null }) {
                     {t.shareLink}
                 </Button>
             )}
-        </View>
+        </Panel>
     );
 }
 
 const styles = StyleSheet.create({
-    paymentFigures: { flexDirection: "row", gap: 16, padding: 16 },
-    paymentFooter: {
+    paymentRow: {
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "space-between",
-        borderTopWidth: 1,
-        borderTopColor: c.border,
         paddingHorizontal: 16,
         paddingVertical: 8,
     },
-    paymentCount: { color: c.muted, fontSize: 12 },
+    paymentCount: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 12 },
     flex: { flex: 1, minWidth: 0 },
-    header: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 4,
-        paddingHorizontal: 20,
-        paddingTop: 6,
-        paddingBottom: 10,
+    header: { paddingHorizontal: 20, paddingTop: 6, paddingBottom: 10 },
+    date: {
+        color: c.muted,
+        fontFamily: theme.fonts.ui,
+        fontSize: 13,
+        fontWeight: "600",
+        marginBottom: 1,
     },
-    headerText: { flex: 1, minWidth: 0 },
-    date: { color: c.muted, fontSize: 13, fontWeight: "600" },
-    greeting: { color: c.ink, fontSize: 24, fontWeight: "700", letterSpacing: -0.4, marginTop: 1 },
-    kpis: { paddingHorizontal: 20, gap: 10, paddingBottom: 4 },
-    paymentFiguresRow: { flexDirection: "row" },
+    kpis: { paddingHorizontal: 20, paddingBottom: 4 },
+    // Separate cards with the page showing between them, like the rest of Today.
+    strip: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
     kpi: {
+        paddingHorizontal: 14,
+        paddingVertical: 12,
         backgroundColor: c.surface,
         borderRadius: theme.radius,
-        borderWidth: 1,
+        borderWidth: theme.borderWidth,
         borderColor: c.border,
-        padding: 12,
     },
-    kpiLabel: { color: c.muted, fontSize: 12, fontWeight: "600" },
+    kpiWide: { flex: 1, minWidth: 0 },
+    // The stat skeleton brings its own padding, the same as a figure card's.
+    kpiBare: { paddingHorizontal: 0, paddingVertical: 0 },
+    kpiHalf: { flexBasis: "40%", flexGrow: 1, minWidth: 0 },
+    kpiMeter: { marginTop: 8 },
+    kpiLabel: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 12, fontWeight: "600" },
     kpiValue: {
         color: c.ink,
+        fontFamily: theme.fonts.ui,
         fontSize: 21,
         fontWeight: "700",
         marginTop: 4,
         fontVariant: ["tabular-nums"],
     },
-    kpiHint: { color: c.muted, fontSize: 11.5, marginTop: 2 },
+    kpiHint: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 11.5, marginTop: 2 },
     section: { paddingHorizontal: 20, marginTop: 22 },
     sectionHead: {
         flexDirection: "row",
@@ -635,31 +707,34 @@ const styles = StyleSheet.create({
         justifyContent: "space-between",
         marginBottom: 8,
     },
-    sectionTitle: { color: c.ink, fontSize: 17, fontWeight: "700" },
-    next: {
-        backgroundColor: c.surface,
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: c.border,
-        padding: 14,
+    sectionTitle: {
+        color: c.ink,
+        fontFamily: theme.fonts.ui,
+        fontSize: theme.type.section,
+        fontWeight: "700",
     },
     nextTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-    nextBody: { flexDirection: "row", gap: 12 },
+    nextBody: { flexDirection: "row", alignItems: "center", gap: 12 },
     nextBar: { width: 4, borderRadius: 2 },
-    nextTime: { color: c.inkSoft, fontSize: 13, fontWeight: "600" },
-    nextClient: { color: c.ink, fontSize: 19, fontWeight: "700", marginTop: 2 },
-    nextService: { color: c.muted, fontSize: 14, marginTop: 2 },
-    nextActions: { flexDirection: "row", gap: 10, marginTop: 12 },
-    card: {
-        backgroundColor: c.surface,
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: c.border,
-        overflow: "hidden",
+    nextTime: { color: c.inkSoft, fontFamily: theme.fonts.ui, fontSize: 13, fontWeight: "600" },
+    nextClient: {
+        color: c.ink,
+        fontFamily: theme.fonts.ui,
+        fontSize: 19,
+        fontWeight: "700",
+        marginTop: 2,
     },
+    nextService: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 14, marginTop: 2 },
+    nextActions: { flexDirection: "row", gap: 10, marginTop: 12 },
     divider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.border },
-    metaAction: { color: c.accent, fontSize: 13, fontWeight: "600" },
-    empty: { color: c.muted, fontSize: 14, textAlign: "center", paddingVertical: 24 },
+    metaAction: { color: c.accent, fontFamily: theme.fonts.ui, fontSize: 13, fontWeight: "600" },
+    empty: {
+        color: c.muted,
+        fontFamily: theme.fonts.ui,
+        fontSize: 14,
+        textAlign: "center",
+        paddingVertical: 24,
+    },
     agendaRow: {
         flexDirection: "row",
         alignItems: "center",
@@ -667,27 +742,52 @@ const styles = StyleSheet.create({
         paddingVertical: 11,
         paddingHorizontal: 14,
     },
-    agendaTime: { width: 74 },
-    agendaClock: { color: c.ink, fontSize: 13, fontWeight: "600", fontVariant: ["tabular-nums"] },
+    agendaTime: { width: 86 },
+    agendaClock: {
+        color: c.ink,
+        fontFamily: theme.fonts.ui,
+        fontSize: 13,
+        fontWeight: "600",
+        fontVariant: ["tabular-nums"],
+    },
     agendaBar: { width: 3, alignSelf: "stretch", borderRadius: 2 },
-    agendaClient: { color: c.ink, fontSize: 15, fontWeight: "600" },
-    agendaSub: { color: c.muted, fontSize: 13, marginTop: 1 },
+    teamRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 12,
+        paddingVertical: 10,
+        paddingHorizontal: 14,
+    },
+    nextWith: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 4 },
+    agendaClient: { color: c.ink, fontFamily: theme.fonts.ui, fontSize: 15, fontWeight: "600" },
+    agendaSub: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 13, marginTop: 1 },
     muted: { color: c.muted },
-    pad: { padding: 14 },
-    stepsDone: { color: c.muted, fontSize: 13, marginBottom: 8 },
+    stepsDone: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 13, marginBottom: 8 },
     guideHead: { padding: 14 },
     guideNext: {
         marginHorizontal: 14,
         marginBottom: 14,
         padding: 14,
         borderRadius: theme.radius,
-        borderWidth: 1,
+        borderWidth: theme.borderWidth,
         borderColor: c.accentLine,
         backgroundColor: c.accentWeak,
     },
-    guideEyebrow: { color: c.accent, fontSize: 12, fontWeight: "700" },
-    guideTitle: { color: c.ink, fontSize: 16, fontWeight: "700", marginTop: 4 },
-    guideHint: { color: c.muted, fontSize: 13, marginTop: 2, lineHeight: 18 },
+    guideEyebrow: { color: c.accent, fontFamily: theme.fonts.ui, fontSize: 12, fontWeight: "700" },
+    guideTitle: {
+        color: c.ink,
+        fontFamily: theme.fonts.ui,
+        fontSize: 16,
+        fontWeight: "700",
+        marginTop: 4,
+    },
+    guideHint: {
+        color: c.muted,
+        fontFamily: theme.fonts.ui,
+        fontSize: 13,
+        marginTop: 2,
+        lineHeight: 18,
+    },
     guideStart: { alignSelf: "flex-start", marginTop: 12 },
     guideRow: {
         flexDirection: "row",
@@ -696,5 +796,5 @@ const styles = StyleSheet.create({
         paddingHorizontal: 14,
         paddingVertical: 12,
     },
-    guideRowTitle: { color: c.ink, fontSize: 15, fontWeight: "600" },
+    guideRowTitle: { color: c.ink, fontFamily: theme.fonts.ui, fontSize: 15, fontWeight: "600" },
 });

@@ -1,7 +1,7 @@
 import {
     DESTINATIONS,
+    DESTINATION_ICON,
     type DestinationKey,
-    type IconName,
     strings,
     usePlanNotice,
     useShellNav,
@@ -12,7 +12,7 @@ import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ActionMenu, Icon, Notice, SyncBanner, confirm } from "@clientbridge/ui";
+import { ActionMenu, Icon, Notice, SyncBanner, confirm, useTabletLayout } from "@clientbridge/ui";
 
 import { api } from "../lib/api";
 import { useViewer } from "../lib/auth";
@@ -28,31 +28,13 @@ const TAB_DESTINATION: Record<string, DestinationKey> = {
     Inbox: "inbox",
 };
 
-const TAB_ICON: Record<DestinationKey, IconName> = {
-    today: "today",
-    schedule: "calendar",
-    clients: "clients",
-    payments: "invoices",
-    inbox: "inbox",
-};
-
 const destination = (name: string): DestinationKey => TAB_DESTINATION[name] ?? "today";
 
-export function TabBar({ state, navigation }: BottomTabBarProps) {
-    const insets = useSafeAreaInsets();
-    const nav = useShellNav(useViewer());
-    const openLink = useOpenLink();
-    const [menu, setMenu] = useState(false);
-    const [anchor, setAnchor] = useState<{ x: number; y: number } | undefined>(undefined);
-    const fab = useRef<View>(null);
+export function ShellBanners() {
     const { notice, rejectedCount, discardRejected } = useSyncState();
     const plan = usePlanNotice(useViewer()?.role ?? null);
-    const close = (): void => {
-        setMenu(false);
-    };
-
     return (
-        <View>
+        <>
             {notice !== null ? (
                 <SyncBanner
                     state={notice.state}
@@ -91,8 +73,35 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
                     {plan.message}
                 </Notice>
             ) : null}
+        </>
+    );
+}
+
+export function TabBar(props: BottomTabBarProps) {
+    return <BottomBar {...props} />;
+}
+
+function BottomBar({ state, navigation }: BottomTabBarProps) {
+    const insets = useSafeAreaInsets();
+    const tablet = useTabletLayout();
+    const nav = useShellNav(useViewer());
+    const openLink = useOpenLink();
+    const [menu, setMenu] = useState(false);
+    const [anchor, setAnchor] = useState<{ x: number; y: number } | undefined>(undefined);
+    const fab = useRef<View>(null);
+    const close = (): void => {
+        setMenu(false);
+    };
+
+    return (
+        <View>
+            {tablet ? null : <ShellBanners />}
             <View
-                style={[styles.bar, { paddingBottom: insets.bottom + 6 }]}
+                style={
+                    tablet
+                        ? [styles.bar, styles.floating, { marginBottom: insets.bottom + 8 }]
+                        : [styles.bar, { paddingBottom: insets.bottom + 6 }]
+                }
                 accessibilityRole="tablist"
             >
                 {state.routes.map((route, i) => {
@@ -118,7 +127,7 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
                             }}
                         >
                             <View>
-                                <Icon name={TAB_ICON[key]} size={23} color={color} />
+                                <Icon name={DESTINATION_ICON[key]} size={23} color={color} />
                                 {badge !== undefined && badge > 0 ? (
                                     <View style={styles.badge}>
                                         <Text style={styles.badgeText}>
@@ -182,7 +191,7 @@ const styles = StyleSheet.create({
         paddingTop: 8,
     },
     tab: { flex: 1, alignItems: "center", gap: 3 },
-    label: { fontSize: 10.5, fontWeight: "600" },
+    label: { fontFamily: theme.fonts.ui, fontSize: 10.5, fontWeight: "600" },
     badge: {
         position: "absolute",
         top: -4,
@@ -197,7 +206,7 @@ const styles = StyleSheet.create({
         alignItems: "center",
         justifyContent: "center",
     },
-    badgeText: { color: c.surface, fontSize: 9.5, fontWeight: "700" },
+    badgeText: { color: c.surface, fontFamily: theme.fonts.ui, fontSize: 9.5, fontWeight: "700" },
     fab: {
         width: 52,
         height: 52,
@@ -211,5 +220,19 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.2,
         shadowRadius: 6,
         shadowOffset: { width: 0, height: 3 },
+    },
+    // On a tablet the phone bar floats as a capsule below the page card.
+    floating: {
+        alignSelf: "center",
+        width: 520,
+        paddingBottom: 8,
+        borderRadius: 32,
+        borderTopWidth: 0,
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: c.border,
+        shadowColor: c.ink,
+        shadowOpacity: 0.08,
+        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 4 },
     },
 });

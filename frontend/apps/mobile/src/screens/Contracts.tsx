@@ -27,6 +27,9 @@ import {
     ListRow,
     Modal,
     Notice,
+    PageHeader,
+    Panel,
+    SheetHeader,
     StatusPill,
     TextField,
 } from "@clientbridge/ui";
@@ -77,7 +80,7 @@ export function Contracts() {
                     </Button>
                 )}
             </View>
-            <Loaded load={library.load} loading={s.loading} failed={s.loadError}>
+            <Loaded flush load={library.load} loading={s.loading} failed={s.loadError}>
                 {library.contracts.length === 0 ? (
                     <Empty
                         variant="card"
@@ -97,7 +100,7 @@ export function Contracts() {
                         }
                     />
                 ) : (
-                    <View style={styles.list}>
+                    <Panel flush>
                         {library.contracts.map((x) => (
                             <ListRow
                                 key={x.contract.id}
@@ -112,7 +115,7 @@ export function Contracts() {
                                 }}
                             />
                         ))}
-                    </View>
+                    </Panel>
                 )}
             </Loaded>
             {adding ? (
@@ -164,7 +167,7 @@ function ContractDetail({
                     {s.send}
                 </Button>
             </View>
-            <Text style={styles.title}>{k.name}</Text>
+            <PageHeader title={k.name} />
             <Text style={styles.meta}>
                 {formatParts([
                     s.version(k.version),
@@ -174,7 +177,7 @@ function ContractDetail({
             </Text>
             <Text style={styles.section}>{s.signatures}</Text>
             {summary.requests.length === 0 ? <Empty message={s.noSignatures} /> : null}
-            <View style={styles.list}>
+            <Panel flush>
                 {summary.requests.map((r) => {
                     const waiting = r.state === "pending" || r.state === "opened";
                     return (
@@ -228,7 +231,7 @@ function ContractDetail({
                         />
                     );
                 })}
-            </View>
+            </Panel>
             {actions.error !== null ? <Notice tone="danger">{actions.error}</Notice> : null}
             <Text style={styles.section}>{s.text}</Text>
             <ContractDocument
@@ -256,7 +259,7 @@ function ContractDetail({
                     }}
                 >
                     <View style={{ gap: 16 }}>
-                        <Text style={styles.section}>{s.editText}</Text>
+                        <SheetHeader title={s.editText} />
                         <TextField
                             label={s.text}
                             multiline
@@ -335,7 +338,7 @@ function NewContractSheet({
     return (
         <Modal open size="xl" onClose={onClose}>
             <ScrollView contentContainerStyle={styles.gap} keyboardShouldPersistTaps="handled">
-                <Text style={styles.title}>{s.newTitle}</Text>
+                <SheetHeader title={s.newTitle} />
                 <TextField
                     label={s.nameLabel}
                     value={draft.name}
@@ -376,24 +379,17 @@ function NewContractSheet({
 const styles = StyleSheet.create({
     body: { padding: 16, paddingBottom: 40, gap: 12 },
     top: { flexDirection: "row", alignItems: "center", gap: 12 },
-    subtitle: { flex: 1, color: c.muted, fontSize: 13 },
+    subtitle: { flex: 1, color: c.muted, fontFamily: theme.fonts.ui, fontSize: 13 },
     nav: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-    title: { color: c.ink, fontSize: 22, fontWeight: "700" },
-    meta: { color: c.muted, fontSize: 13, lineHeight: 18 },
+    meta: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 13, lineHeight: 18 },
     section: {
         color: c.muted,
+        fontFamily: theme.fonts.ui,
         fontSize: 11,
         fontWeight: "600",
         letterSpacing: 0.5,
         textTransform: "uppercase",
         marginTop: 8,
-    },
-    list: {
-        backgroundColor: c.surface,
-        borderRadius: theme.radius,
-        borderWidth: 1,
-        borderColor: c.border,
-        overflow: "hidden",
     },
     row: { flexDirection: "row", alignItems: "center", gap: 8 },
     flex: { flex: 1 },

@@ -18,6 +18,7 @@ import {
     Empty,
     Modal,
     Notice,
+    SheetHeader,
     TextField,
 } from "@clientbridge/ui";
 
@@ -47,19 +48,15 @@ export function RecordPayment({ rec, onClose }: { rec: InvoiceRecord; onClose: (
 
     return (
         <Modal onClose={onClose} size="xl">
+            <SheetHeader
+                title={r.title}
+                subtitle={r.subtitle(rec.row.client_name ?? "", rec.title)}
+            />
             <View style={styles.head}>
-                <View style={styles.headMain}>
-                    <Text style={styles.title}>{r.title}</Text>
-                    <Text style={styles.sub}>
-                        {r.subtitle(rec.row.client_name ?? "", rec.title)}
-                    </Text>
-                </View>
-                <View style={styles.headRight}>
-                    <Text style={styles.caps}>{strings.billing.balanceDue}</Text>
-                    <Text style={styles.balance}>
-                        {formatMoney(pay.balanceCents, BUSINESS_CURRENCY)}
-                    </Text>
-                </View>
+                <Text style={styles.caps}>{strings.billing.balanceDue}</Text>
+                <Text style={styles.balance}>
+                    {formatMoney(pay.balanceCents, BUSINESS_CURRENCY)}
+                </Text>
             </View>
             {pay.done !== null ? (
                 <Empty
@@ -211,15 +208,31 @@ export function RecordPayment({ rec, onClose }: { rec: InvoiceRecord; onClose: (
 }
 
 const styles = StyleSheet.create({
-    head: { flexDirection: "row", alignItems: "flex-start", gap: 12, marginBottom: 12 },
-    headMain: { flex: 1 },
-    headRight: { alignItems: "flex-end" },
-    title: { fontSize: 19, fontWeight: "700", color: c.ink },
-    sub: { fontSize: 13, color: c.muted, marginTop: 2 },
-    caps: { fontSize: 11, fontWeight: "600", letterSpacing: 0.5, color: c.muted },
-    balance: { fontSize: 19, fontWeight: "700", color: c.ink },
+    head: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 12,
+        marginTop: 8,
+        marginBottom: 12,
+    },
+    sub: { fontFamily: theme.fonts.ui, fontSize: 13, color: c.muted, marginTop: 2 },
+    caps: {
+        fontFamily: theme.fonts.ui,
+        fontSize: 11,
+        fontWeight: "600",
+        letterSpacing: 0.5,
+        color: c.muted,
+    },
+    balance: { fontFamily: theme.fonts.ui, fontSize: 19, fontWeight: "700", color: c.ink },
     body: { flexGrow: 0 },
-    label: { fontSize: 14, fontWeight: "600", color: c.ink, marginBottom: 8 },
+    label: {
+        fontFamily: theme.fonts.ui,
+        fontSize: 14,
+        fontWeight: "600",
+        color: c.ink,
+        marginBottom: 8,
+    },
     space: { marginTop: 14, gap: 10 },
     summary: { borderRadius: 10, backgroundColor: c.bg, padding: 12 },
     footer: { flexDirection: "row", gap: 10, paddingTop: 12, marginTop: 8 },

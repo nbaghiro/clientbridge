@@ -112,7 +112,7 @@ test.describe(() => {
                 email: runEmail("owner@cedarcoast.example"),
                 password: "demo1234",
             });
-            await navigate(page, "/setup/plan");
+            await navigate(page, "/setup/security");
             const choose = page.getByRole("button", {
                 name: strings.plans.choose(strings.plans.team),
                 exact: true,
@@ -125,7 +125,7 @@ test.describe(() => {
             await expect(stuck).toHaveCount(0);
 
             await page.goBack();
-            await expect(page).toHaveURL(/\/setup\/plan$/);
+            await expect(page).toHaveURL(/\/setup\/security$/);
             await expect(choose).toBeVisible({ timeout: 20_000 });
             await expect(stuck).toHaveCount(0);
         },

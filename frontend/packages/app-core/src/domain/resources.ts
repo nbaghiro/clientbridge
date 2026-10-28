@@ -8,6 +8,7 @@ import {
     useLoad,
     useRemote,
 } from "../hooks";
+import { formatList } from "../format";
 import { strings } from "../strings";
 import type { Intent } from "../ui";
 
@@ -20,6 +21,11 @@ export interface ResourceRow {
 }
 
 export const RESOURCES_SQL = "SELECT id, name, active FROM resources ORDER BY lower(name), id";
+
+export const RESOURCE_USERS_SQL = `
+SELECT j.value AS resource_id, i.name FROM items i, json_each(i.resource_ids) j
+WHERE i.active = 1 AND json_valid(i.resource_ids)
+ORDER BY lower(i.name), i.id`;
 
 /** The business's rooms and equipment from the replica, retired ones included. */
 export function useResources(): ResourceRow[] {
@@ -104,12 +110,25 @@ interface ResourceEntry {
     name: string;
     active: boolean;
     detail: string;
+    upcoming: string;
+    status: string;
     intent: Intent;
     toggleLabel: string;
+    // the services that can book it, by name
+    usedBy: string[];
+    usedByLine: string;
+}
+
+function usedByLine(names: string[]): string {
+    const [first, second] = names;
+    if (first === undefined) return s.usedByNone;
+    if (second === undefined || names.length === 2) return formatList(names);
+    return s.usedByMore(first, second, names.length - 2);
 }
 
 interface ResourceSettings {
     load: Load;
+    summary: string | undefined;
     entries: ResourceEntry[];
     toggle: (id: string) => void;
     toggling: string | null;
@@ -128,9 +147,15 @@ export function useResourceSettings(api: ApiLike): ResourceSettings {
     const { busy, error, run } = useAsyncAction();
     const [toggling, setToggling] = useState<string | null>(null);
     const rows = remote.data ?? [];
+    const users = useQuery<{ resource_id: string; name: string }>(RESOURCE_USERS_SQL).data;
     const load = useLoad([remote], rows.length === 0);
+    const usedBy = (id: string): string[] =>
+        users.filter((u) => u.resource_id === id).map((u) => u.name);
     return {
         load,
+        summary: load.ready
+            ? s.summary(rows.length, rows.filter((r) => !r.active).length)
+            : undefined,
         entries: rows.map((r) => ({
             id: r.id,
             name: r.name,
@@ -140,8 +165,12 @@ export function useResourceSettings(api: ApiLike): ResourceSettings {
                 : r.upcoming > 0
                   ? s.offUpcoming(r.upcoming)
                   : s.off,
+            upcoming: s.upcoming(r.upcoming),
+            status: r.active ? s.inService : s.turnedOff,
             intent: r.active ? "neutral" : "warning",
             toggleLabel: r.active ? s.turnOff : s.turnOn,
+            usedBy: usedBy(r.id),
+            usedByLine: usedByLine(usedBy(r.id)),
         })),
         toggle: (id) => {
             const row = rows.find((r) => r.id === id);

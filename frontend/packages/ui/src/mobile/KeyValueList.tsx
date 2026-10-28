@@ -48,14 +48,21 @@ const styles = StyleSheet.create({
         gap: 12,
     },
     divider: { borderTopColor: c.borderSoft, borderTopWidth: StyleSheet.hairlineWidth },
-    label: { color: c.muted, fontSize: 14 },
+    label: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 14 },
     stackLabel: {
         color: c.muted,
+        fontFamily: theme.fonts.ui,
         fontSize: 11,
         fontWeight: "600",
         letterSpacing: 0.4,
         textTransform: "uppercase",
     },
-    value: { color: c.ink, fontSize: 14, fontWeight: "600", marginTop: 3 },
+    value: {
+        color: c.ink,
+        fontFamily: theme.fonts.ui,
+        fontSize: 14,
+        fontWeight: "600",
+        marginTop: 3,
+    },
     right: { textAlign: "right", flexShrink: 1, marginTop: 0 },
 });

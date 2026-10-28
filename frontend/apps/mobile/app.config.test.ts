@@ -1,5 +1,6 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 
+import { theme } from "@clientbridge/tokens/native";
 import type { ExpoConfig } from "expo/config";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -20,6 +21,14 @@ afterEach(() => {
 });
 
 describe("app config", () => {
+    it("embeds every face of the theme's fonts", async () => {
+        const { FONT_FAMILIES } = await import("./app.config");
+        expect(FONT_FAMILIES.map((f) => f.fontFamily)).toEqual([theme.fonts.ui, theme.fonts.mono]);
+        for (const { path } of FONT_FAMILIES.flatMap((f) => f.fontDefinitions)) {
+            expect(existsSync(path)).toBe(true);
+        }
+    });
+
     it("keeps local builds on the local app id, hosts and no updates", async () => {
         const config = await load({});
         expect(config.ios?.bundleIdentifier).toBe("ca.clientbridge.app");

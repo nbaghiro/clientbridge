@@ -46,11 +46,19 @@ async function expectSignedCopy(
 ): Promise<void> {
     const row = main.getByRole("listitem").filter({ hasText: client.name });
     await row.getByRole("button", { name: c.signedCopy, exact: true }).click();
-    const copy = page.getByRole("dialog");
-    await expect(copy.getByText(clause(terms), { exact: true })).toBeVisible();
+    // The signed copy opens inside the contract's drawer, so the innermost dialog is the last one.
+    const copy = page.getByRole("dialog").last();
+    // The paper is drawn inline on narrow drawers and beside the details on wide ones; one shows.
+    await expect(
+        copy.getByText(clause(terms), { exact: true }).filter({ visible: true }),
+    ).toBeVisible();
     await expect(copy.getByText(clause(other), { exact: true })).toHaveCount(0);
-    await expect(copy.getByText(c.version(version), { exact: true }).first()).toBeVisible();
-    await expect(copy.getByText(client.name, { exact: true }).first()).toBeVisible();
+    await expect(
+        copy.getByText(c.version(version), { exact: true }).filter({ visible: true }).first(),
+    ).toBeVisible();
+    await expect(
+        copy.getByText(client.name, { exact: true }).filter({ visible: true }).first(),
+    ).toBeVisible();
     await copy.getByRole("button", { name: c.close, exact: true }).click();
 }
 

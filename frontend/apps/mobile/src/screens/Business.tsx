@@ -124,9 +124,15 @@ export function Business({ footer }: { footer?: ReactNode }) {
 
 const styles = StyleSheet.create({
     fill: { flex: 1 },
-    screen: { flex: 1, backgroundColor: c.bg },
+    screen: { flex: 1 },
     content: { padding: 16 },
-    note: { color: c.muted, fontSize: 13, marginBottom: 6, lineHeight: 18 },
+    note: {
+        color: c.muted,
+        fontFamily: theme.fonts.ui,
+        fontSize: 13,
+        marginBottom: 6,
+        lineHeight: 18,
+    },
     section: { marginTop: 22 },
     stack: { gap: 10 },
     submitGap: { marginTop: 22 },

@@ -63,7 +63,7 @@ test("FLOW-08-A an invited teammate holds a seat, joins, gains admin, and on rem
     await invite.getByRole("button", { name: strings.common.done, exact: true }).click();
     // the invite holds its seat before it is accepted
     expect(await planView(page)).toMatchObject({ seats: 1 });
-    await navigate(page, "/setup/plan");
+    await navigate(page, "/setup/security");
     await expect(page.getByText(p.seats(1), { exact: true })).toBeVisible({ timeout: 60_000 });
 
     const memberContext = await browser.newContext({ baseURL: baseURL ?? "" });
@@ -171,7 +171,7 @@ test("FLOW-08-A an invited teammate holds a seat, joins, gains admin, and on rem
         ]);
 
         expect(await planView(page)).toMatchObject({ seats: 0 });
-        await navigate(page, "/setup/plan");
+        await navigate(page, "/setup/security");
         await page.reload();
         await expect(page.getByText(p.seats(0), { exact: true })).toBeVisible({
             timeout: 60_000,

@@ -27,6 +27,8 @@ import {
     Loading,
     Modal,
     Notice,
+    PageHeader,
+    Panel,
     Tabs,
     TextField,
     Toggle,
@@ -98,7 +100,7 @@ function FormList({ onOpen }: { onOpen: (id: string) => void }) {
                     </Button>
                 )}
             </View>
-            <Loaded load={library.load} loading={s.loading} failed={s.loadError}>
+            <Loaded flush load={library.load} loading={s.loading} failed={s.loadError}>
                 {library.forms.length === 0 ? (
                     <Empty
                         variant="card"
@@ -118,7 +120,7 @@ function FormList({ onOpen }: { onOpen: (id: string) => void }) {
                         }
                     />
                 ) : (
-                    <View style={styles.list}>
+                    <Panel flush>
                         {library.forms.map((form) => {
                             const send = formSendLabel(form);
                             return (
@@ -138,7 +140,7 @@ function FormList({ onOpen }: { onOpen: (id: string) => void }) {
                                 />
                             );
                         })}
-                    </View>
+                    </Panel>
                 )}
             </Loaded>
         </ScrollView>
@@ -215,18 +217,15 @@ function Editor({
                     }}
                 />
             ) : null}
-            <View style={styles.head}>
-                <Text style={styles.title} accessibilityRole="header" numberOfLines={1}>
-                    {editor.name || s.untitledForm}
-                </Text>
-                <Text style={styles.meta}>
-                    {formatParts([
-                        s.fields(editor.fields.length),
-                        editor.sendOn === "booking" ? s.sendsOnBooking : s.sendsManually,
-                        editor.dirty ? s.unsaved : null,
-                    ])}
-                </Text>
-            </View>
+            <PageHeader
+                style={styles.head}
+                title={editor.name || s.untitledForm}
+                subtitle={formatParts([
+                    s.fields(editor.fields.length),
+                    editor.sendOn === "booking" ? s.sendsOnBooking : s.sendsManually,
+                    editor.dirty ? s.unsaved : null,
+                ])}
+            />
             <Tabs items={TABS} active={tab} onSelect={setTab} variant="pill" />
             {editor.error !== null ? (
                 <View style={styles.pad}>
@@ -239,7 +238,7 @@ function Editor({
                 {tab === "questions" ? (
                     <>
                         {editor.fields.length === 0 ? <Empty message={s.emptyFields} /> : null}
-                        <View style={styles.list}>
+                        <Panel flush>
                             {editor.fields.map((field, i) => (
                                 <ListRow
                                     key={field.key}
@@ -258,7 +257,7 @@ function Editor({
                                     }}
                                 />
                             ))}
-                        </View>
+                        </Panel>
                         <Button
                             variant="outline"
                             full
@@ -272,8 +271,7 @@ function Editor({
                     </>
                 ) : null}
                 {tab === "preview" ? (
-                    <View style={styles.card}>
-                        <Text style={styles.previewTitle}>{editor.name || s.untitledForm}</Text>
+                    <Panel title={editor.name || s.untitledForm} style={styles.card}>
                         {editor.preview.map((q) => (
                             <FormQuestion
                                 zone={zone}
@@ -287,7 +285,7 @@ function Editor({
                         <Button full size="lg" disabled>
                             {f.sendAnswers}
                         </Button>
-                    </View>
+                    </Panel>
                 ) : null}
                 {tab === "settings" ? (
                     <View style={styles.gap}>
@@ -475,10 +473,10 @@ function QuestionControls({ editor, field }: { editor: FormEditor; field: Editor
 }
 
 const styles = StyleSheet.create({
-    screen: { flex: 1, backgroundColor: c.bg },
+    screen: { flex: 1 },
     body: { padding: 16, paddingBottom: 40, gap: 12 },
     top: { flexDirection: "row", alignItems: "center", gap: 12 },
-    subtitle: { flex: 1, color: c.muted, fontSize: 13 },
+    subtitle: { flex: 1, color: c.muted, fontFamily: theme.fonts.ui, fontSize: 13 },
     nav: {
         flexDirection: "row",
         alignItems: "center",
@@ -488,25 +486,15 @@ const styles = StyleSheet.create({
     },
     navActions: { flexDirection: "row", alignItems: "center", gap: 8 },
     head: { paddingHorizontal: 16, paddingBottom: 10 },
-    title: { color: c.ink, fontSize: 24, fontWeight: "700" },
-    meta: { color: c.muted, fontSize: 13, marginTop: 3, lineHeight: 18 },
+    meta: {
+        color: c.muted,
+        fontFamily: theme.fonts.ui,
+        fontSize: 13,
+        marginTop: 3,
+        lineHeight: 18,
+    },
     pad: { paddingHorizontal: 16, paddingTop: 8 },
-    list: {
-        backgroundColor: c.surface,
-        borderRadius: theme.radius,
-        borderWidth: 1,
-        borderColor: c.border,
-        overflow: "hidden",
-    },
-    card: {
-        backgroundColor: c.surface,
-        borderRadius: theme.radius,
-        borderWidth: 1,
-        borderColor: c.border,
-        padding: 16,
-        gap: 14,
-    },
-    previewTitle: { color: c.ink, fontSize: 19, fontWeight: "700" },
+    card: { gap: 14 },
     num: {
         width: 24,
         height: 24,
@@ -515,7 +503,7 @@ const styles = StyleSheet.create({
         alignItems: "center",
         justifyContent: "center",
     },
-    numText: { color: c.muted, fontSize: 12, fontWeight: "700" },
+    numText: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 12, fontWeight: "700" },
     gap: { gap: 12 },
     option: { flexDirection: "row", alignItems: "center", gap: 8 },
     flex: { flex: 1 },

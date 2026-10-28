@@ -100,18 +100,19 @@ describe("stock", () => {
         expect(stockState({ ...base, track_stock: 0 })).toBe("untracked");
     });
 
-    it("filters archived items and kinds", () => {
+    it("filters by group and keeps archived items apart", () => {
         const rows = [
             base,
-            { ...base, id: "low", stock_on_hand: 1 },
-            { ...base, id: "old", active: 0 },
+            { ...base, id: "cut", kind: "service" },
+            { ...base, id: "old", kind: "service", active: 0 },
+            { ...base, id: "ten", kind: "package" },
         ];
-        const ids = (f: Parameters<typeof matchesFilter>[1]): string[] =>
-            rows.filter((r) => matchesFilter(r, f)).map((r) => r.id);
-        expect(ids("archived")).toEqual(["old"]);
-        expect(ids("all")).toEqual(["it_1", "low"]);
-        expect(ids("services")).toEqual([]);
-        expect(ids("plans")).toEqual([]);
+        const ids = (
+            ...f: [Parameters<typeof matchesFilter>[1], "active" | "archived"]
+        ): string[] => rows.filter((r) => matchesFilter(r, ...f)).map((r) => r.id);
+        expect(ids("services", "active")).toEqual(["cut"]);
+        expect(ids("services", "archived")).toEqual(["old"]);
+        expect(ids("plans", "active")).toEqual(["ten"]);
     });
 
     it("scales the meter so the low line sits at the middle", () => {

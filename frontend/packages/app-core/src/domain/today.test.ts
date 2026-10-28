@@ -22,6 +22,7 @@ const row = (over: Record<string, unknown>) => ({
     item_name: "Full Groom",
     item_kind: "service",
     item_color: "#3F5E80",
+    item_image_file_id: null,
     item_price_cents: 8000,
     booking_id: "bk_1",
     booking_status: "confirmed",

@@ -149,6 +149,14 @@ export const FREQUENCIES: { value: string; label: string }[] = [
     },
 ];
 
+/** An item's newest uploaded image, for any query that shows the item. */
+export function itemImageSql(item: string): string {
+    return `(SELECT f.id FROM files f
+        WHERE f.parent_type = 'item' AND f.parent_id = ${item}.id AND f.purpose = 'image'
+          AND f.uploaded_at IS NOT NULL
+        ORDER BY f.created_at DESC LIMIT 1)`;
+}
+
 export const ITEMS_SQL = `
 SELECT i.variant_parent_id, i.variant_label, i.id, i.kind, i.name, i.description, i.category, i.price_cents, i.currency,
        i.duration_min, i.capacity, i.active, i.color, i.online_bookable,
@@ -158,10 +166,7 @@ SELECT i.variant_parent_id, i.variant_label, i.id, i.kind, i.name, i.description
        i.covers_item_id, i.visits_per_period, i.member_discount_bps, i.gift_amounts, i.staff_ids,
        i.resource_ids,
        i.addon,
-       (SELECT f.id FROM files f
-        WHERE f.parent_type = 'item' AND f.parent_id = i.id AND f.purpose = 'image'
-          AND f.uploaded_at IS NOT NULL
-        ORDER BY f.created_at DESC LIMIT 1) AS image_file_id
+       ${itemImageSql("i")} AS image_file_id
 FROM items i ORDER BY i.active DESC, i.name COLLATE NOCASE`;
 
 // Units on paid sales and paid invoices since a cutoff; owners only, staff replicas have no ledger.
@@ -304,14 +309,16 @@ export function stockScale(onHand: number, lowAt: number | null): number {
     return Math.max(1, (lowAt ?? Math.max(onHand, 1)) * 2);
 }
 
-type CatalogFilter = "all" | "services" | "plans" | "archived";
+export type CatalogGroup = "services" | "plans";
+type CatalogStatus = "active" | "archived";
 
-export function matchesFilter(i: ItemRow, f: CatalogFilter): boolean {
-    if (f === "archived") return !isActive(i);
-    if (!isActive(i)) return false;
-    if (f === "services") return BOOKABLE_KINDS.includes(i.kind);
-    if (f === "plans") return (ENTITLEMENT_KINDS as readonly string[]).includes(i.kind);
-    return true;
+const GROUP_KINDS: Record<CatalogGroup, readonly string[]> = {
+    services: BOOKABLE_KINDS,
+    plans: ENTITLEMENT_KINDS,
+};
+
+export function matchesFilter(i: ItemRow, group: CatalogGroup, status: CatalogStatus): boolean {
+    return GROUP_KINDS[group].includes(i.kind) && isActive(i) === (status === "active");
 }
 
 interface CatalogSection {
@@ -340,9 +347,11 @@ export function groupByCategory(items: readonly ItemRow[]): CatalogSection[] {
 
 interface CatalogView {
     items: ItemRow[];
-    filter: CatalogFilter;
-    setFilter: (f: CatalogFilter) => void;
-    filters: { key: CatalogFilter; label: string }[];
+    // The kinds Add offers on this tab.
+    kinds: readonly string[];
+    status: CatalogStatus;
+    setStatus: (status: CatalogStatus) => void;
+    statuses: { key: CatalogStatus; label: string }[];
     q: string;
     setQ: (q: string) => void;
     sections: CatalogSection[];
@@ -351,41 +360,40 @@ interface CatalogView {
     load: Load;
 }
 
-/** The catalog grouped by category, with kind filters and their counts, and search. */
-export function useCatalogView(initial: CatalogFilter = "all"): CatalogView {
+/** One group of the catalog (services, or packages and memberships) by category, with search and archived items apart. */
+export function useCatalogView(group: CatalogGroup): CatalogView {
     const query = useQuery<ItemRow>(ITEMS_SQL);
     const items = query.data;
-    const load = useReplicaLoad([query], items.length === 0);
-    const [filter, setFilter] = useState<CatalogFilter>(initial);
+    const kinds = GROUP_KINDS[group];
+    const mine = useMemo(() => items.filter((i) => kinds.includes(i.kind)), [items, kinds]);
+    const load = useReplicaLoad([query], mine.length === 0);
+    const [status, setStatus] = useState<CatalogStatus>("active");
     const [q, setQ] = useState("");
     const sections = useMemo(
         () =>
             groupByCategory(
                 filterItems(
-                    items.filter((i) => matchesFilter(i, filter)),
+                    mine.filter((i) => matchesFilter(i, group, status)),
                     q,
                 ),
             ),
-        [items, filter, q],
+        [mine, group, status, q],
     );
-    const active = items.filter(isActive);
-    const lowCount = active.filter(isLow).length;
-    const count = (f: CatalogFilter): number => items.filter((i) => matchesFilter(i, f)).length;
-    const labels: [CatalogFilter, string][] = [
-        ["all", s.filterAll],
-        ["services", s.filterServices],
-        ["plans", s.filterPlans],
-        ["archived", s.filterArchived],
-    ];
+    const count = (st: CatalogStatus): number =>
+        mine.filter((i) => matchesFilter(i, group, st)).length;
     return {
         items,
-        filter,
-        setFilter,
-        filters: labels.map(([key, label]) => ({ key, label: s.filterCount(label, count(key)) })),
+        kinds,
+        status,
+        setStatus,
+        statuses: [
+            { key: "active", label: s.filterCount(s.filterActive, count("active")) },
+            { key: "archived", label: s.filterCount(s.filterArchived, count("archived")) },
+        ],
         q,
         setQ,
         sections,
-        summary: load.ready ? s.summary(active.length, lowCount) : undefined,
+        summary: load.ready ? s.countIn(count("active")) : undefined,
         empty: q !== "" ? s.noMatch : s.filterEmpty,
         load,
     };
@@ -1166,7 +1174,7 @@ export function usePlanEditor(
 }
 
 /** Add item, step one: the kind decides every field after it and can't change later. */
-export function useKindPicker(): {
+export function useKindPicker(kinds: readonly string[]): {
     kind: string | null;
     setKind: (k: string) => void;
     options: { key: string; label: string; detail: string }[];
@@ -1175,7 +1183,7 @@ export function useKindPicker(): {
     return {
         kind,
         setKind,
-        options: KIND_ORDER.map((k) => ({
+        options: KIND_ORDER.filter((k) => kinds.includes(k)).map((k) => ({
             key: k,
             label: KIND_LABEL[k] ?? k,
             detail: s.kindHints[k] ?? "",
@@ -1191,7 +1199,7 @@ function useUnitsSold(): Map<string, number> {
     return useMemo(() => new Map(rows.map((r) => [r.item_id, Math.round(r.units)])), [rows]);
 }
 
-export type ProductFilter = "all" | "lowStock" | "notOnline" | "archived";
+type ProductFilter = "all" | "lowStock" | "notOnline" | "archived";
 type ProductSort = "name" | "margin" | "stock";
 
 interface ProductRowView {

@@ -158,7 +158,7 @@ const styles = StyleSheet.create({
         alignItems: "center",
         justifyContent: "center",
     },
-    placeholderText: { color: c.muted, fontSize: 14 },
+    placeholderText: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 14 },
     clear: { position: "absolute", top: 8, right: 10 },
-    clearText: { color: c.accent, fontSize: 13, fontWeight: "600" },
+    clearText: { color: c.accent, fontFamily: theme.fonts.ui, fontSize: 13, fontWeight: "600" },
 });

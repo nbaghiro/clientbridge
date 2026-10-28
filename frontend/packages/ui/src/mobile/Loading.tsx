@@ -24,5 +24,10 @@ export function Loading({ label, inline = false, style }: NativeProps<LoadingPro
 const styles = StyleSheet.create({
     block: { paddingVertical: 32, alignItems: "center", gap: 8 },
     inline: { paddingVertical: 8, flexDirection: "row", alignItems: "center", gap: 8 },
-    label: { color: theme.colors.muted, fontSize: 14, textAlign: "center" },
+    label: {
+        color: theme.colors.muted,
+        fontFamily: theme.fonts.ui,
+        fontSize: 14,
+        textAlign: "center",
+    },
 });

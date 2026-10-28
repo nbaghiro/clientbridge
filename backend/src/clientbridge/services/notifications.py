@@ -398,7 +398,7 @@ def invite_link(token: str) -> str:
 
 def plan_link() -> str:
     """The owner's plan page in the web app."""
-    return f"{get_settings().web_base_url}/setup/plan"
+    return f"{get_settings().web_base_url}/setup/security"
 
 
 def clients_link() -> str:

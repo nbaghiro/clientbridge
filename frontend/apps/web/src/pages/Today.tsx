@@ -32,12 +32,15 @@ import {
     PaymentNotices,
     Skeleton,
     StatusPill,
+    PageFrame,
 } from "@clientbridge/ui";
 import { Fragment, type ReactNode } from "react";
 
 import {
     ActivityPanel,
     AttentionPanel,
+    FocusCard,
+    PaymentsPanel,
     FilingCard,
     KpiStrip,
     KpiStripLoading,
@@ -51,7 +54,6 @@ import { api } from "../lib/api";
 import { useViewer } from "../lib/auth";
 import { useOpenLink } from "../lib/links";
 import { CheckInLayer } from "../components/CheckInSheet";
-import { PageFrame } from "../components/PageFrame";
 
 const t = strings.today;
 
@@ -84,14 +86,14 @@ function MoneyStrip({ today }: { today: OwnerToday }) {
     if (moneyLoad.state === "loading") return <KpiStripLoading />;
     if (moneyLoad.state === "error")
         return (
-            <div className="rounded-lg border border-line bg-surface shadow-card">
+            <Panel flush>
                 <LoadFailed
                     message={t.numbersError}
                     body={t.numbersErrorBody}
                     onRetry={moneyLoad.retry}
                     retrying={moneyLoad.retrying}
                 />
-            </div>
+            </Panel>
         );
     return (
         <KpiStrip
@@ -100,6 +102,7 @@ function MoneyStrip({ today }: { today: OwnerToday }) {
                     label: t.booked,
                     value: String(view.agenda.length),
                     hint: t.bookedHint(view.done, view.remaining),
+                    progress: { value: view.done, max: view.agenda.length },
                 },
                 {
                     label: t.expected,
@@ -137,6 +140,7 @@ function OwnerTodayPage() {
     );
     const firstRun = load.hasData && layout.guide;
     const loading = load.state === "loading";
+    const focus = view.current ?? view.next;
 
     return (
         <PageFrame>
@@ -215,14 +219,20 @@ function OwnerTodayPage() {
                             </div>
                         </div>
                     ) : (
-                        <div className="mt-6 grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+                        <div className="mt-6 grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
                             <div className="min-w-0 space-y-6">
+                                {focus === null ? null : (
+                                    <FocusCard item={focus} actions={actions} />
+                                )}
                                 <SchedulePanel
                                     view={view}
                                     actions={actions}
                                     loading={loading}
                                     bookingLink={bookingLink}
                                 />
+                            </div>
+                            <div className="space-y-6">
+                                <PaymentsPanel />
                                 <AttentionPanel
                                     title={t.needsYou}
                                     items={view.attention}
@@ -230,8 +240,6 @@ function OwnerTodayPage() {
                                     loading={loading}
                                     empty={t.allClear}
                                 />
-                            </div>
-                            <div className="space-y-6">
                                 <TeamPanel team={view.team} />
                                 {loading || moneyLoad.state !== "ready" ? null : (
                                     <FilingCard
@@ -376,7 +384,7 @@ function StaffTodayPage() {
                     </div>
 
                     <div className="space-y-6">
-                        <div className="rounded-lg border border-line bg-surface p-5 shadow-card">
+                        <Panel>
                             <p className="text-xs font-medium text-muted">{t.staff.earnings}</p>
                             <p className="mt-1 font-display text-2xl font-bold tabular-nums text-success">
                                 {formatMoney(day.earnedCents, BUSINESS_CURRENCY)}
@@ -393,7 +401,7 @@ function StaffTodayPage() {
                                     ]}
                                 />
                             </div>
-                        </div>
+                        </Panel>
                         <Panel flush title={t.staff.messagesForYou}>
                             {view.attention.length === 0 ? (
                                 <p className="px-4 py-6 text-center text-sm text-muted">
@@ -441,12 +449,10 @@ function NextClient({
     const kind = useSubjectKind();
     const action = visitAction(item, kind);
     return (
-        <section
-            aria-label={t.staff.nextClient}
-            className="overflow-hidden rounded-lg border border-line bg-surface shadow-card"
-        >
-            <div className="flex items-center justify-between border-b border-line-soft px-5 py-3">
-                <h2 className="font-display text-sm font-bold text-ink">{t.staff.nextClient}</h2>
+        <Panel
+            flush
+            title={t.staff.nextClient}
+            actions={
                 <StatusPill
                     status={
                         item.checkedIn
@@ -459,7 +465,8 @@ function NextClient({
                     }
                     intent={item.checkedIn || item.state === "now" ? "success" : "accent"}
                 />
-            </div>
+            }
+        >
             <div className="flex flex-wrap items-start gap-5 p-5">
                 <Avatar
                     name={item.clientName}
@@ -522,6 +529,6 @@ function NextClient({
                     </span>
                 )}
             </div>
-        </section>
+        </Panel>
     );
 }

@@ -61,10 +61,16 @@ const styles = StyleSheet.create({
     },
     out: { backgroundColor: c.accent, borderBottomRightRadius: 6 },
     failed: { backgroundColor: c.danBg, borderBottomRightRadius: 6 },
-    body: { color: c.ink, fontSize: 15, lineHeight: 21 },
+    body: { color: c.ink, fontFamily: theme.fonts.ui, fontSize: 15, lineHeight: 21 },
     outText: { color: c.accentInk },
     failedText: { color: c.danFg },
-    meta: { color: c.muted, fontSize: 11, marginTop: 4, paddingHorizontal: 4 },
+    meta: {
+        color: c.muted,
+        fontFamily: theme.fonts.ui,
+        fontSize: 11,
+        marginTop: 4,
+        paddingHorizontal: 4,
+    },
     eventWrap: {
         alignSelf: "center",
         backgroundColor: c.surface2,
@@ -74,5 +80,5 @@ const styles = StyleSheet.create({
         marginVertical: 8,
         maxWidth: "90%",
     },
-    event: { color: c.muted, fontSize: 12, textAlign: "center" },
+    event: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 12, textAlign: "center" },
 });

@@ -21,6 +21,9 @@ name: Inbox tabs and payment access
       id: tab-inbox
 - assertNotVisible:
       id: tab-payments
+- scrollUntilVisible:
+      element: "View all"
+      direction: DOWN
 - tapOn: "View all"
 - assertVisible: "Search client or number"
 - tapOn: "Back|Go back|Navigate up"

@@ -41,10 +41,10 @@ const SETUP_SECTIONS = [
     "services",
     "team",
     "getting-paid",
-    "plan",
     "taxes",
     "online-booking",
     "reminders",
+    "security",
 ];
 const MANAGER_PAYMENTS_TABS = [
     strings.navigation.paymentsTabs.invoices,
@@ -60,7 +60,6 @@ const MANAGER_SETUP_SECTIONS = [
     strings.navigation.setupSections.business,
     strings.navigation.setupSections.services,
     strings.navigation.setupSections.gettingPaid,
-    strings.navigation.setupSections.plan,
     strings.navigation.setupSections.taxes,
     strings.navigation.setupSections.onlineBooking,
     strings.navigation.setupSections.reminders,
@@ -145,6 +144,11 @@ async function escapeDialog(page: Page): Promise<void> {
     await expect(page.getByRole("dialog")).toBeHidden();
 }
 
+async function escapeToDrawer(page: Page): Promise<void> {
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog")).toHaveCount(1);
+}
+
 async function openAndClose(page: Page, opener: string | RegExp): Promise<void> {
     await page.locator("main").getByRole("button", { name: opener }).first().click();
     await expect(page.getByRole("dialog")).toBeVisible();
@@ -198,8 +202,8 @@ test(
             const menu = page.getByRole("menu", { name: n.createMenu });
             await expect(menu.getByRole("menuitem")).toHaveCount(7);
             await page.keyboard.press("c");
-            await expect(page).toHaveURL(/\/clients$/);
             await expect(page.getByRole("dialog")).toBeVisible();
+            await expect(page).toHaveURL(/\/today$/);
             await escapeDialog(page);
         });
 
@@ -221,13 +225,15 @@ test(
         });
         await walk.step("create: sale", async () => {
             await create(c.sale.label);
-            await expect(page).toHaveURL(/\/payments\/sales$/);
-            await expect(main.getByText(strings.pos.desk.ticket, { exact: true })).toBeVisible();
+            const drawer = page.getByRole("dialog");
+            await expect(drawer.getByText(strings.pos.desk.ticket, { exact: true })).toBeVisible();
+            await expect(page).toHaveURL(/\/today$/);
+            await escapeDialog(page);
         });
         for (const [key, path] of [
-            ["invoice", /\/payments\/invoices$/],
-            ["estimate", /\/payments\/invoices\?doc=estimates$/],
-            ["client", /\/clients$/],
+            ["invoice", /\/today$/],
+            ["estimate", /\/today$/],
+            ["client", /\/today$/],
             ["message", /\/inbox$/],
         ] as const) {
             await walk.step(`create: ${key}`, async () => {
@@ -727,10 +733,16 @@ test("owner: payments desk, records and their dialogs", async ({ page }) => {
     });
 
     await walk.step("sales: orders and history", async () => {
-        await main.getByRole("tab", { name: d.ordersTitle }).click();
+        await main
+            .getByRole("group", { name: d.title })
+            .getByRole("button", { name: d.ordersTitle, exact: true })
+            .click();
         await expect(main.getByText(d.openTickets)).toBeVisible();
         await openAndClose(page, d.details);
-        await main.getByRole("tab", { name: d.history }).click();
+        await main
+            .getByRole("group", { name: d.title })
+            .getByRole("button", { name: d.history, exact: true })
+            .click();
         await expect(main.getByText(d.todaySales)).toBeVisible();
         await main.getByRole("searchbox", { name: d.historySearch, exact: true }).fill(TAP_CLIENT);
         await main
@@ -802,7 +814,7 @@ test("owner: inbox messages, reviews, broadcasts, forms and contracts", async ({
         await navigate(page, "/inbox?segment=broadcasts");
         await main.getByRole("button", { name: strings.broadcasts.newBroadcast }).first().click();
         await expect(page.getByText(strings.broadcasts.optOutNote)).toBeVisible();
-        await main.getByRole("button", { name: strings.broadcasts.back }).first().click();
+        await escapeDialog(page);
         const delivered = strings.broadcasts.delivered(0).replace("0", "\\d+");
         await main
             .getByRole("button", { name: new RegExp(delivered) })
@@ -824,8 +836,8 @@ test("owner: inbox messages, reviews, broadcasts, forms and contracts", async ({
         await expect(
             page.getByRole("dialog", { name: prefixOf(strings.forms.sendTitle) }),
         ).toBeVisible();
+        await escapeToDrawer(page);
         await escapeDialog(page);
-        await main.getByRole("button", { name: strings.forms.library, exact: true }).click();
         await main.getByRole("button", { name: strings.forms.newForm }).first().click();
         await expect(main.getByRole("button", { name: strings.forms.addQuestion })).toBeVisible();
     });
@@ -834,12 +846,14 @@ test("owner: inbox messages, reviews, broadcasts, forms and contracts", async ({
         await navigate(page, "/inbox?segment=contracts");
         await openAndClose(page, strings.contracts.newContract);
         await main.locator("button.block").first().click();
-        await openAndClose(page, strings.contracts.signedCopy);
+        await main.getByRole("button", { name: strings.contracts.signedCopy }).first().click();
+        await expect(page.getByRole("dialog")).toHaveCount(2);
+        await escapeToDrawer(page);
         await main.getByRole("button", { name: strings.contracts.send }).click();
         await expect(
             page.getByRole("dialog", { name: prefixOf(strings.contracts.sendTitle) }),
         ).toBeVisible();
-        await escapeDialog(page);
+        await escapeToDrawer(page);
         await main.getByRole("button", { name: strings.contracts.editText }).click();
         await main.getByRole("button", { name: strings.contracts.cancel, exact: true }).click();
         await expect(main.getByRole("button", { name: strings.contracts.editText })).toBeVisible();
@@ -871,6 +885,7 @@ test("owner: setup sections and their dialogs", async ({ page }) => {
     await walk.step("services: items, packages, products and inventory", async () => {
         await navigate(page, "/setup/services");
         await openFirstRow(page);
+        await main.getByRole("tab", { name: strings.catalog.views.plans }).click();
         await main.getByRole("button", { name: strings.catalog.addItem }).click();
         const picker = page.getByRole("dialog");
         await picker.getByText(strings.catalog.kindPackage, { exact: true }).click();
@@ -969,7 +984,7 @@ const ACCESSIBLE_PAGES = [
     "/inbox",
     "/setup/business",
     "/setup/services",
-    "/setup/plan",
+    "/setup/security",
 ];
 
 test("owner: key pages and records pass axe, show keyboard focus and keep hovered text readable", async ({
@@ -1149,7 +1164,11 @@ test("staff: payments, inbox and setup show only what staff can use", async ({ p
         for (const tab of MANAGER_PAYMENTS_TABS) {
             await expect(main.getByRole("tab", { name: tab, exact: true })).toHaveCount(0);
         }
-        await expect(main.getByRole("tab", { name: d.history })).toHaveCount(0);
+        await expect(
+            main
+                .getByRole("group", { name: d.title })
+                .getByRole("button", { name: d.history, exact: true }),
+        ).toHaveCount(0);
     });
 
     await walk.step("payments: owner-only links land on sales", async () => {
@@ -1163,7 +1182,10 @@ test("staff: payments, inbox and setup show only what staff can use", async ({ p
         await main.getByRole("button", { name: d.sellGiftCard, exact: true }).click();
         await expect(page.getByRole("dialog")).toBeVisible();
         await escapeDialog(page);
-        await main.getByRole("tab", { name: d.ordersTitle }).click();
+        await main
+            .getByRole("group", { name: d.title })
+            .getByRole("button", { name: d.ordersTitle, exact: true })
+            .click();
         await expect(main.getByText(d.openTickets)).toBeVisible();
     });
 
@@ -1204,7 +1226,7 @@ test("staff: payments, inbox and setup show only what staff can use", async ({ p
         for (const section of MANAGER_SETUP_SECTIONS) {
             await expect(sections.getByRole("link", { name: section })).toHaveCount(0);
         }
-        for (const section of SETUP_SECTIONS.filter((x) => x !== "team")) {
+        for (const section of SETUP_SECTIONS.filter((x) => x !== "team" && x !== "security")) {
             await navigate(page, `/setup/${section}`, "/setup/team");
         }
         await expect(

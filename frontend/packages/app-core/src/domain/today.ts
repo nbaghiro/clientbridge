@@ -41,7 +41,7 @@ import {
     useSubjectKind,
 } from "./subjects";
 import { utcSql } from "../datetime";
-import { useCatalogItems } from "./catalog";
+import { itemImageSql, useCatalogItems } from "./catalog";
 import { useEarnings } from "./earnings";
 import { useThreads } from "./messaging";
 import { type usePaymentNotices, useAccountNotices } from "./gettingPaid";
@@ -73,6 +73,7 @@ interface AgendaRow {
     item_name: string;
     item_kind: string;
     item_color: string | null;
+    item_image_file_id: string | null;
     item_price_cents: number | null;
     booking_id: string | null;
     booking_status: string | null;
@@ -94,7 +95,7 @@ interface AgendaRow {
 // Params: range end, range start (ISO). Canceled bookings drop out; a class slot keeps one row per seat.
 export const AGENDA_SQL = `
 SELECT s.id AS slot_id, s.starts_at, s.ends_at, s.staff_id, s.capacity,
-       i.name AS item_name, i.kind AS item_kind, i.color AS item_color,
+       i.name AS item_name, i.kind AS item_kind, i.color AS item_color, ${itemImageSql("i")} AS item_image_file_id,
        i.price_cents AS item_price_cents,
        b.id AS booking_id, b.status AS booking_status, b.price_cents, b.client_id,
        c.name AS client_name, c.phone AS client_phone, sj.attributes AS subject_attributes,
@@ -124,6 +125,7 @@ export interface AgendaItem {
     clientName: string;
     clientPhone: string | null;
     serviceName: string;
+    serviceImageId: string | null;
     staffId: string;
     staffName: string;
     staffColor: string | null;
@@ -178,6 +180,7 @@ export function buildAgenda(
                 serviceName: isClass
                     ? strings.today.classBooked(seats.length, r.capacity)
                     : r.item_name,
+                serviceImageId: r.item_image_file_id,
                 staffId: r.staff_id,
                 staffName: staffName(staff),
                 staffColor: r.staff_color,

@@ -35,6 +35,7 @@ import {
     Skeleton,
     Tabs,
     ui,
+    SheetHeader,
 } from "@clientbridge/ui";
 import { useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
@@ -214,7 +215,12 @@ export function Reports() {
                 }}
             >
                 <View style={{ gap: 16 }}>
-                    <Text style={styles.sheetTitle}>{s.packTitle}</Text>
+                    <SheetHeader
+                        title={s.packTitle}
+                        onClose={() => {
+                            setPacking(false);
+                        }}
+                    />
                     <Text style={ui.note}>{formatParts([spanLabel(r.span), s.packSubtitle])}</Text>
                     <Text style={ui.note}>{s.packIncluded}</Text>
                     {EXPORT_KINDS.map((kind) => (
@@ -407,10 +413,10 @@ const styles = StyleSheet.create({
     stack: { gap: 10 },
     caption: {
         color: c.muted,
+        fontFamily: theme.fonts.ui,
         fontSize: 12,
         fontWeight: "600",
         textTransform: "uppercase",
         letterSpacing: 0.5,
     },
-    sheetTitle: { fontSize: 18, fontWeight: "700", color: c.ink },
 });

@@ -34,6 +34,7 @@ import {
     TextField,
     Toggle,
     DateField,
+    SheetHeader,
 } from "@clientbridge/ui";
 import { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
@@ -47,43 +48,6 @@ const e = strings.clients.edit;
 const sj = strings.subjects;
 const h = strings.clients.history;
 const t = strings.clients.tidy;
-
-/** A sheet's top row: Cancel, the title, and the primary action. */
-function SheetHeader({
-    title,
-    onCancel,
-    action,
-    onAction,
-    busy = false,
-    disabled = false,
-}: {
-    title: string;
-    onCancel: () => void;
-    action?: string | undefined;
-    onAction?: (() => void) | undefined;
-    busy?: boolean | undefined;
-    disabled?: boolean | undefined;
-}) {
-    return (
-        <View style={styles.head}>
-            <View style={styles.side}>
-                <Button variant="link" onPress={onCancel}>
-                    {strings.common.cancel}
-                </Button>
-            </View>
-            <Text style={styles.title} accessibilityRole="header" numberOfLines={1}>
-                {title}
-            </Text>
-            <View style={[styles.side, styles.right]}>
-                {action !== undefined ? (
-                    <Button variant="link" busy={busy} disabled={disabled} onPress={onAction}>
-                        {action}
-                    </Button>
-                ) : null}
-            </View>
-        </View>
-    );
-}
 
 /** The one add and edit form, in a sheet; every client screen opens this. */
 export function ClientEditorSheet({
@@ -123,11 +87,17 @@ export function ClientEditorSheet({
         <Modal open onClose={onClose} size="xl">
             <SheetHeader
                 title={editor.mode === "add" ? e.addTitle : e.editTitle}
-                onCancel={onClose}
-                action={editor.mode === "add" ? strings.clients.addShort : e.done}
-                onAction={editor.submit}
-                busy={editor.busy}
-                disabled={editor.mode === "edit" && !editor.dirty}
+                onClose={onClose}
+                actions={
+                    <Button
+                        variant="link"
+                        busy={editor.busy}
+                        disabled={editor.mode === "edit" && !editor.dirty}
+                        onPress={editor.submit}
+                    >
+                        {editor.mode === "add" ? strings.clients.addShort : e.done}
+                    </Button>
+                }
             />
             {editor.archivedNote !== null ? (
                 <View style={styles.archived}>
@@ -325,10 +295,12 @@ export function SubjectSheet({
         <Modal open onClose={onClose} size="xl">
             <SheetHeader
                 title={form.mode === "add" ? sj.add(word) : sj.editNamed(form.name)}
-                onCancel={onClose}
-                action={sj.saveShort}
-                onAction={form.submit}
-                busy={form.busy}
+                onClose={onClose}
+                actions={
+                    <Button variant="link" busy={form.busy} onPress={form.submit}>
+                        {sj.saveShort}
+                    </Button>
+                }
             />
             <TextField
                 label={sj.nameLabel}
@@ -492,11 +464,17 @@ export function NoteSheet({
         <Modal open onClose={onClose} size="xl">
             <SheetHeader
                 title={strings.clients.record.addNoteTitle}
-                onCancel={onClose}
-                action={strings.clients.addShort}
-                onAction={comp.submit}
-                busy={comp.busy}
-                disabled={comp.body.trim() === ""}
+                onClose={onClose}
+                actions={
+                    <Button
+                        variant="link"
+                        busy={comp.busy}
+                        disabled={comp.body.trim() === ""}
+                        onPress={comp.submit}
+                    >
+                        {strings.clients.addShort}
+                    </Button>
+                }
             />
             <TextField
                 multiline
@@ -553,7 +531,7 @@ export function MergeSheet({
     };
     return (
         <Modal open onClose={onClose} size="xl">
-            <SheetHeader title={t.mergeTitle} onCancel={onClose} />
+            <SheetHeader title={t.mergeTitle} onClose={onClose} />
             <Text style={styles.label}>{t.whichToKeep}</Text>
             <Choice
                 layout="cards"
@@ -626,11 +604,17 @@ export function TagSheet({ sel, onClose }: { sel: ClientSelection; onClose: () =
         <Modal open onClose={onClose}>
             <SheetHeader
                 title={t.applyTags(n)}
-                onCancel={onClose}
-                action={t.apply}
-                onAction={sel.apply}
-                busy={sel.busy}
-                disabled={Object.keys(sel.pendingTags).length === 0}
+                onClose={onClose}
+                actions={
+                    <Button
+                        variant="link"
+                        busy={sel.busy}
+                        disabled={Object.keys(sel.pendingTags).length === 0}
+                        onPress={sel.apply}
+                    >
+                        {t.apply}
+                    </Button>
+                }
             />
             {sel.tagState.map((tag) => {
                 const pending = sel.pendingTags[tag.tag];
@@ -685,17 +669,6 @@ export function TagSheet({ sel, onClose }: { sel: ClientSelection; onClose: () =
 }
 
 const styles = StyleSheet.create({
-    head: {
-        flexDirection: "row",
-        alignItems: "center",
-        paddingBottom: 8,
-        marginBottom: 4,
-        borderBottomColor: c.borderSoft,
-        borderBottomWidth: StyleSheet.hairlineWidth,
-    },
-    side: { width: 84 },
-    right: { flexDirection: "row", justifyContent: "flex-end" },
-    title: { flex: 1, textAlign: "center", color: c.ink, fontSize: 17, fontWeight: "700" },
     archived: {
         backgroundColor: c.warnBg,
         borderRadius: theme.radius,
@@ -703,7 +676,7 @@ const styles = StyleSheet.create({
         marginTop: 12,
         gap: 10,
     },
-    archivedText: { color: c.warnFg, fontSize: 13, lineHeight: 18 },
+    archivedText: { color: c.warnFg, fontFamily: theme.fonts.ui, fontSize: 13, lineHeight: 18 },
     dup: {
         backgroundColor: c.warnBg,
         borderRadius: theme.radius,
@@ -712,14 +685,20 @@ const styles = StyleSheet.create({
         gap: 6,
     },
     dupHead: { flexDirection: "row", alignItems: "center", gap: 10 },
-    dupTitle: { flex: 1, color: c.ink, fontSize: 15, fontWeight: "700" },
-    dupBody: { color: c.inkSoft, fontSize: 13, lineHeight: 18 },
+    dupTitle: {
+        flex: 1,
+        color: c.ink,
+        fontFamily: theme.fonts.ui,
+        fontSize: 15,
+        fontWeight: "700",
+    },
+    dupBody: { color: c.inkSoft, fontFamily: theme.fonts.ui, fontSize: 13, lineHeight: 18 },
     row: { flexDirection: "row", alignItems: "center", gap: 8 },
     consent: {
         marginTop: 16,
         padding: 12,
         borderRadius: theme.radius,
-        borderWidth: 1,
+        borderWidth: theme.borderWidth,
         borderColor: c.border,
         backgroundColor: c.bg,
     },
@@ -729,11 +708,17 @@ const styles = StyleSheet.create({
         borderTopColor: c.borderSoft,
         borderTopWidth: StyleSheet.hairlineWidth,
     },
-    sectionTitle: { color: c.ink, fontSize: 15, fontWeight: "700" },
-    hint: { color: c.muted, fontSize: 12, lineHeight: 17 },
+    sectionTitle: {
+        color: c.ink,
+        fontFamily: theme.fonts.ui,
+        fontSize: theme.type.section,
+        fontWeight: "700",
+    },
+    hint: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 12, lineHeight: 17 },
     danger: { marginTop: 24, gap: 4 },
     label: {
         color: c.muted,
+        fontFamily: theme.fonts.ui,
         fontSize: 12,
         fontWeight: "600",
         textTransform: "uppercase",
@@ -741,7 +726,7 @@ const styles = StyleSheet.create({
         marginTop: 18,
         marginBottom: 8,
     },
-    value: { color: c.ink, fontSize: 15 },
+    value: { color: c.ink, fontFamily: theme.fonts.ui, fontSize: 15 },
     tagRow: {
         flexDirection: "row",
         alignItems: "center",

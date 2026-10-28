@@ -120,7 +120,7 @@ export function Remittances() {
                     </Notice>
                 ) : null}
                 <div className="grid gap-5 xl:grid-cols-[1.3fr_1fr]">
-                    <section className="rounded-lg border border-line bg-surface p-6 shadow-card">
+                    <Panel>
                         <p className="text-sm text-muted">{s.owed}</p>
                         <p className="mt-1 font-display text-4xl font-bold tabular-nums text-ink">
                             {formatMoney(t.federalSetAsideCents, BUSINESS_CURRENCY)}
@@ -154,10 +154,10 @@ export function Remittances() {
                                 </span>
                             </div>
                         ) : null}
-                    </section>
+                    </Panel>
 
                     {due !== null ? (
-                        <section className="flex flex-col rounded-lg border border-warn-bg bg-warn-bg/50 p-6">
+                        <Panel className="border-warn-bg bg-warn-bg/50 shadow-none">
                             <div className="flex items-center gap-2 text-warn-fg">
                                 <Icon name="clock" size={18} />
                                 <span className="text-sm font-semibold">
@@ -184,7 +184,7 @@ export function Remittances() {
                                     </div>
                                 ) : null}
                             </dl>
-                            <div className="mt-auto flex flex-wrap gap-2 pt-5">
+                            <div className="flex flex-wrap gap-2 pt-2">
                                 <Button
                                     onPress={() => {
                                         setFlash(null);
@@ -208,7 +208,7 @@ export function Remittances() {
                                     {s.reminder(formatShortDay(t.reminderOn, zone))}
                                 </p>
                             ) : null}
-                        </section>
+                        </Panel>
                     ) : null}
                 </div>
 

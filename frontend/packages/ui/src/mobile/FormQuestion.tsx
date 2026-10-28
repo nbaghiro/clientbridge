@@ -151,7 +151,13 @@ const styles = StyleSheet.create({
         padding: 12,
     },
     fileIcon: { width: 22, alignItems: "center" },
-    fileText: { flex: 1, color: c.ink, fontSize: 15, fontWeight: "600" },
+    fileText: {
+        flex: 1,
+        color: c.ink,
+        fontFamily: theme.fonts.ui,
+        fontSize: 15,
+        fontWeight: "600",
+    },
     check: {
         marginTop: 14,
         borderWidth: 1,

@@ -416,7 +416,7 @@ export function DoneCard({
     onManage: (() => void) | null;
 }) {
     const subject = flow.kind === null ? "" : flow.fields.subjectName.trim();
-    const when = (flow.when ?? "").replace(/\.$/, "");
+    const when = flow.when ?? "";
     const pending = flow.result?.status === "pending" || flow.waitlistBody !== null;
     return (
         <div className="text-center">

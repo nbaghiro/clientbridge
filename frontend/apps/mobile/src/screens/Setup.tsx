@@ -29,7 +29,6 @@ const SECTION_SCREEN: Partial<
         | "Services"
         | "Team"
         | "GettingPaid"
-        | "Plans"
         | "Taxes"
         | "OnlineBooking"
         | "Reminders"
@@ -43,7 +42,6 @@ const SECTION_SCREEN: Partial<
     resources: "Resources",
     team: "Team",
     gettingPaid: "GettingPaid",
-    plan: "Plans",
     taxes: "Taxes",
     onlineBooking: "OnlineBooking",
     reminders: "Reminders",
@@ -101,12 +99,12 @@ export function TeamHoursScreen() {
 
 const styles = StyleSheet.create({
     identity: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 16 },
-    screen: { flex: 1, backgroundColor: theme.colors.bg },
+    screen: { flex: 1 },
     content: { padding: 16 },
     group: {
         backgroundColor: theme.colors.surface,
         borderRadius: theme.radius,
-        borderWidth: 1,
+        borderWidth: theme.borderWidth,
         borderColor: theme.colors.border,
         overflow: "hidden",
     },
@@ -118,6 +116,11 @@ const styles = StyleSheet.create({
         paddingVertical: 15,
     },
     rowBorder: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.colors.border },
-    rowLabel: { color: theme.colors.ink, fontSize: 15, fontWeight: "500" },
+    rowLabel: {
+        color: theme.colors.ink,
+        fontFamily: theme.fonts.ui,
+        fontSize: 15,
+        fontWeight: "500",
+    },
     signOut: { flexDirection: "row", justifyContent: "center", paddingTop: 24 },
 });

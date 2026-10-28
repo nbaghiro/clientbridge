@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { Keyboard, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { IconButton } from "./IconButton";
+import { useTabletLayout } from "./layout";
 import { Modal, useModalFlow } from "./Modal";
 import type { NativeProps } from "./props";
 import { StatusPill } from "./StatusPill";
@@ -23,6 +24,7 @@ export function DetailView({
     style,
 }: NativeProps<DetailViewProps>) {
     const inFlow = useModalFlow();
+    const tablet = useTabletLayout();
     const body = useRef<ScrollView>(null);
     const scrollOffset = useRef(0);
     const scrolling = useRef(false);
@@ -41,7 +43,9 @@ export function DetailView({
     }, [open]);
 
     const frame = (
-        <View style={[styles.frame, (inFlow || variant === "inline") && styles.flowFrame]}>
+        <View
+            style={[styles.frame, (inFlow || tablet || variant === "inline") && styles.flowFrame]}
+        >
             <View style={styles.head}>
                 <View style={styles.headMain}>
                     {leading}
@@ -83,7 +87,7 @@ export function DetailView({
                         scrollOffset.current = event.nativeEvent.contentOffset.y;
                 }}
                 scrollEventThrottle={16}
-                style={styles.body}
+                style={[styles.body, tablet && styles.fillBody]}
                 contentContainerStyle={styles.bodyContent}
                 keyboardShouldPersistTaps="handled"
             >
@@ -97,7 +101,7 @@ export function DetailView({
     if (variant === "inline")
         return open ? <View style={[styles.inline, style]}>{frame}</View> : null;
     return (
-        <Modal style={style} open={open} onClose={onClose} framed={false}>
+        <Modal style={style} open={open} onClose={onClose} variant="drawer" framed={false}>
             {frame}
         </Modal>
     );
@@ -139,9 +143,10 @@ const styles = StyleSheet.create({
     },
     headMain: { flexDirection: "row", alignItems: "center", gap: 12, flex: 1 },
     headText: { flex: 1 },
-    title: { color: c.ink, fontSize: 18, fontWeight: "700" },
-    subtitle: { color: c.muted, fontSize: 13, marginTop: 2 },
+    title: { color: c.ink, fontFamily: theme.fonts.ui, fontSize: 18, fontWeight: "700" },
+    subtitle: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 13, marginTop: 2 },
     body: { flexGrow: 0, flexShrink: 1 },
+    fillBody: { flexGrow: 1 },
     bodyContent: { paddingBottom: 20 },
     footer: {
         flexDirection: "row",
@@ -165,6 +170,7 @@ const styles = StyleSheet.create({
     },
     sectionLabel: {
         color: c.muted,
+        fontFamily: theme.fonts.ui,
         fontSize: 11,
         fontWeight: "600",
         textTransform: "uppercase",

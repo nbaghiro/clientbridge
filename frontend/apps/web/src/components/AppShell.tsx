@@ -2,9 +2,8 @@ import { Backdrop, confirm } from "@clientbridge/ui";
 import {
     DESTINATIONS,
     mediaUrl,
+    DESTINATION_ICON,
     DESTINATION_TARGET,
-    type DestinationKey,
-    type IconName,
     type SyncNotice,
     strings,
     useNotifications,
@@ -33,16 +32,9 @@ import { connectPowerSync } from "../lib/powersync";
 import { getUserId, useViewer } from "../lib/auth";
 import { ShellContext, linkPath, useOpenLink } from "../lib/links";
 import { CommandPalette } from "./CommandPalette";
+import { TaskHost } from "./TaskHost";
 import { NotificationsPanel } from "./NotificationsPanel";
 import { SignOutDialog } from "./SignOutDialog";
-
-const ICON: Record<DestinationKey, IconName> = {
-    today: "today",
-    schedule: "calendar",
-    clients: "clients",
-    payments: "invoices",
-    inbox: "inbox",
-};
 
 const linkClass = ({ isActive }: { isActive: boolean }): string =>
     `flex items-center gap-3 rounded-md px-3 py-2 text-sm transition ${
@@ -65,7 +57,7 @@ function PlanBanner() {
                             size="sm"
                             variant="outline"
                             onPress={() => {
-                                const done = navigate("/setup/plan");
+                                const done = navigate("/setup/security");
                                 if (done) done.catch(() => undefined);
                             }}
                         >
@@ -180,6 +172,7 @@ export function AppShell({ onSignOut }: { onSignOut: () => void }) {
                     }}
                 />
             ) : null}
+            <TaskHost />
             <SignOutDialog
                 open={leaving}
                 pending={sync.pending}
@@ -311,7 +304,7 @@ function ShellBody({
                                 to={linkPath(DESTINATION_TARGET[key])}
                                 className={linkClass}
                             >
-                                <Icon name={ICON[key]} size={18} />
+                                <Icon name={DESTINATION_ICON[key]} size={18} />
                                 <span className="flex-1">{label}</span>
                                 {badge !== undefined && badge > 0 ? (
                                     <Badge label={badge} variant="count" />

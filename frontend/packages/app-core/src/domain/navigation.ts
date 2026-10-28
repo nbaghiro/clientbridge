@@ -1,3 +1,5 @@
+import { useSyncExternalStore } from "react";
+
 import { useBusinessQuery as useQuery } from "../hooks";
 
 import type { IconName } from "../icons";
@@ -10,7 +12,7 @@ import { staffName, staffNameSql } from "./staff";
 
 export type DestinationKey = "today" | "schedule" | "clients" | "payments" | "inbox";
 
-/** The five top-level destinations, in order. Each app maps `key` to its own route + icon. */
+/** The five top-level destinations, in order. Each app maps `key` to its own route. */
 export const DESTINATIONS: { key: DestinationKey; label: string }[] = [
     {
         key: "today",
@@ -168,7 +170,6 @@ export type SetupSectionKey =
     | "resources"
     | "team"
     | "gettingPaid"
-    | "plan"
     | "taxes"
     | "onlineBooking"
     | "reminders"
@@ -179,7 +180,6 @@ const SETUP_SECTIONS: {
     label: string;
     webOnly: boolean;
     managersOnly: boolean;
-    ownerOnly?: boolean;
 }[] = [
     {
         key: "start",
@@ -230,15 +230,6 @@ const SETUP_SECTIONS: {
         managersOnly: true,
     },
     {
-        key: "plan",
-        get label() {
-            return strings.navigation.setupSections.plan;
-        },
-        webOnly: false,
-        managersOnly: true,
-        ownerOnly: true,
-    },
-    {
         key: "taxes",
         get label() {
             return strings.navigation.setupSections.taxes;
@@ -277,10 +268,7 @@ export function setupSectionsFor(
     role: string | null,
 ): typeof SETUP_SECTIONS {
     return SETUP_SECTIONS.filter(
-        (s) =>
-            (platform === "web" || !s.webOnly) &&
-            (!s.managersOnly || canManagePayments(role)) &&
-            (s.ownerOnly !== true || role === "owner"),
+        (s) => (platform === "web" || !s.webOnly) && (!s.managersOnly || canManagePayments(role)),
     );
 }
 
@@ -318,6 +306,85 @@ export type ShellTarget =
     | "onlineBooking"
     | "search"
     | "notifications";
+
+// Work a button starts over the page it sits on, so finishing or closing it leaves you where you were.
+type Task =
+    | { kind: "checkout"; bookingId: string | null }
+    | { kind: "booking"; clientId?: string; estimateId?: string; rebookId?: string }
+    | { kind: "bookingRecord"; bookingId: string }
+    | { kind: "doc"; doc: "invoice" | "estimate"; clientId?: string }
+    | { kind: "refund"; paymentId: string }
+    | { kind: "clientEditor" }
+    | { kind: "clientRecord"; clientId: string };
+
+/** The task a link starts in place, or null when the link goes to a page. */
+export function taskFor(target: ShellTarget, refId: string | null): Task | null {
+    switch (target) {
+        case "checkout":
+        case "sale":
+            return { kind: "checkout", bookingId: refId };
+        case "booking":
+            return refId === null
+                ? { kind: "booking" }
+                : { kind: "bookingRecord", bookingId: refId };
+        case "invoice":
+        case "estimate":
+            return refId === null ? { kind: "doc", doc: target } : null;
+        case "refunds":
+            return refId === null ? null : { kind: "refund", paymentId: refId };
+        case "client":
+            return refId === null
+                ? { kind: "clientEditor" }
+                : { kind: "clientRecord", clientId: refId };
+        default:
+            return null;
+    }
+}
+
+let tasks: readonly Task[] = [];
+const taskListeners = new Set<() => void>();
+
+const setTasks = (next: readonly Task[]): void => {
+    tasks = next;
+    for (const listener of taskListeners) listener();
+};
+const subscribeTasks = (listener: () => void): (() => void) => {
+    taskListeners.add(listener);
+    return () => {
+        taskListeners.delete(listener);
+    };
+};
+
+/** Opens a task on top of any already open; closing it shows the one below again. */
+export function openTask(task: Task): void {
+    setTasks([...tasks, task]);
+}
+
+/** Swaps the top task for the next step of the same job, such as booking the visit just paid for. */
+export function replaceTask(task: Task): void {
+    setTasks([...tasks.slice(0, -1), task]);
+}
+
+export function closeTask(): void {
+    setTasks(tasks.slice(0, -1));
+}
+
+/** Closes every task, before a link leaves for another page. */
+export function clearTasks(): void {
+    if (tasks.length > 0) setTasks([]);
+}
+
+export function useTask(): Task | null {
+    return useSyncExternalStore(subscribeTasks, () => tasks.at(-1) ?? null);
+}
+
+export const DESTINATION_ICON: Record<DestinationKey, IconName> = {
+    today: "today",
+    schedule: "calendar",
+    clients: "clients",
+    payments: "card",
+    inbox: "inbox",
+};
 
 export const DESTINATION_TARGET: Record<DestinationKey, ShellTarget> = {
     today: "today",

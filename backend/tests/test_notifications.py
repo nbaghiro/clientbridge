@@ -325,7 +325,7 @@ async def test_booking_create_notifies_client(
     assert len(email.sent) == 1 and email.sent[0].to == "pat@example.ca"
     assert email.sent[0].reply_to == "hello@birchbark.example"
     assert len(sms.sent) == 1 and sms.sent[0].to == "+15145551234"
-    assert "on Saturday, May 1 at 10:00 a.m." in email.sent[0].body  # in the business timezone
+    assert "booked for Saturday, May 1 at 10:00 a.m." in email.sent[0].body  # business timezone
 
 
 async def test_booking_cancel_notifies_client(

@@ -1,3 +1,4 @@
+import { PageFrame } from "@clientbridge/ui";
 import { type SetupSectionKey, setupSectionsFor, strings } from "@clientbridge/app-core";
 import type { ReactElement } from "react";
 import { NavLink, Navigate, useParams } from "react-router-dom";
@@ -16,7 +17,6 @@ import { Hours } from "./Hours";
 import { Plans } from "./Plans";
 import { Taxes } from "./Taxes";
 import { Team } from "./Team";
-import { PageFrame } from "../components/PageFrame";
 
 const SETUP_SLUGS: Record<SetupSectionKey, string> = {
     start: "start",
@@ -25,14 +25,13 @@ const SETUP_SLUGS: Record<SetupSectionKey, string> = {
     resources: "rooms-and-equipment",
     team: "team",
     gettingPaid: "getting-paid",
-    plan: "plan",
     taxes: "taxes",
     onlineBooking: "online-booking",
     reminders: "reminders",
     security: "security",
 };
 
-function sectionBody(key: SetupSectionKey): ReactElement {
+function sectionBody(key: SetupSectionKey, owner: boolean): ReactElement {
     switch (key) {
         case "start":
             return <GetSetUp />;
@@ -53,14 +52,17 @@ function sectionBody(key: SetupSectionKey): ReactElement {
             );
         case "gettingPaid":
             return <GettingPaid />;
-        case "plan":
-            return <Plans />;
         case "onlineBooking":
             return <OnlineBooking />;
         case "reminders":
             return <Reminders />;
         case "security":
-            return <Security />;
+            return (
+                <div className="space-y-10">
+                    <Security />
+                    {owner ? <Plans /> : null}
+                </div>
+            );
     }
 }
 
@@ -97,7 +99,7 @@ export function Setup() {
                     ))}
                 </div>
             </nav>
-            <div className="min-w-0 flex-1">{sectionBody(current.key)}</div>
+            <div className="min-w-0 flex-1">{sectionBody(current.key, role === "owner")}</div>
         </PageFrame>
     );
 }

@@ -549,6 +549,7 @@ interface Strings {
             readonly sellGiftCard: string;
             readonly sellPackage: string;
             readonly sellMembership: string;
+            readonly addItems: string;
             readonly ticket: string;
             readonly clear: string;
             readonly walkIn: string;
@@ -590,7 +591,6 @@ interface Strings {
             readonly visitNotePhotos: (n: number) => string;
             readonly visitNoteSend: string;
             readonly visitNoteSent: string;
-            readonly backToToday: string;
             readonly todaysVisitsHint: string;
             readonly visitPaid: string;
             readonly visitInProgress: string;
@@ -775,6 +775,7 @@ interface Strings {
         readonly subtitle: string;
         readonly colMember: string;
         readonly colPay: string;
+        readonly summary: (n: number, waiting: number) => string;
         readonly toApprove: string;
         readonly toPay: string;
         readonly paidYtd: string;
@@ -1107,6 +1108,7 @@ interface Strings {
         readonly composerClientSearch: (kind: string) => string;
         readonly composerService: string;
         readonly composerServicePlaceholder: string;
+        readonly dayOf: (name: string) => string;
         readonly composerWith: string;
         readonly composerDate: string;
         readonly composerTime: string;
@@ -1447,12 +1449,24 @@ interface Strings {
         readonly namePlaceholder: string;
         readonly nameRequired: string;
         readonly save: string;
-        readonly rename: string;
         readonly turnOff: string;
         readonly turnOn: string;
         readonly off: string;
         readonly upcoming: (count: number) => string;
         readonly offUpcoming: (count: number) => string;
+        readonly summary: (n: number, off: number) => string;
+        readonly colUsedBy: string;
+        readonly usedByNone: string;
+        readonly servicesTitle: string;
+        readonly servicesHint: string;
+        readonly openServices: string;
+        readonly usedByMore: (first: string, second: string, more: number) => string;
+        readonly addShort: string;
+        readonly newTitle: string;
+        readonly colUpcoming: string;
+        readonly colStatus: string;
+        readonly inService: string;
+        readonly turnedOff: string;
         readonly empty: string;
         readonly emptyHint: string;
         readonly loading: string;
@@ -2087,11 +2101,11 @@ interface Strings {
             readonly sms: string;
             readonly email: string;
         } & Labels;
-        readonly filterLabel: string;
         readonly noThreadsFiltered: string;
         readonly noThreadsTitle: string;
         readonly noThreadsBody: string;
         readonly noMessagesYet: (name: string) => string;
+        readonly filterLabel: string;
         readonly selectThread: string;
         readonly thread: {
             readonly automatic: string;
@@ -2798,10 +2812,9 @@ interface Strings {
         readonly variantLabel: string;
         readonly standaloneProduct: string;
         readonly variantHint: string;
-        readonly title: string;
-        readonly summary: (items: number, low: number) => string;
         readonly views: {
-            readonly catalog: string;
+            readonly services: string;
+            readonly plans: string;
             readonly products: string;
             readonly inventory: string;
         } & Labels;
@@ -2810,8 +2823,8 @@ interface Strings {
         readonly addShort: string;
         readonly searchPlaceholder: string;
         readonly filterAll: string;
-        readonly filterServices: string;
-        readonly filterPlans: string;
+        readonly filterActive: string;
+        readonly filterLabel: string;
         readonly filterLowStock: string;
         readonly filterArchived: string;
         readonly shopLinkTitle: string;

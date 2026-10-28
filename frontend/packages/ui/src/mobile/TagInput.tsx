@@ -108,7 +108,14 @@ export function TagInput({
 }
 
 const styles = StyleSheet.create({
-    label: { color: c.inkSoft, fontSize: 13, fontWeight: "600", marginBottom: 6, marginTop: 14 },
+    label: {
+        color: c.inkSoft,
+        fontFamily: theme.fonts.ui,
+        fontSize: 13,
+        fontWeight: "600",
+        marginBottom: 6,
+        marginTop: 14,
+    },
     box: {
         flexDirection: "row",
         flexWrap: "wrap",
@@ -132,13 +139,20 @@ const styles = StyleSheet.create({
         paddingRight: 6,
         paddingVertical: 4,
     },
-    chipText: { flexShrink: 1, color: c.accentStrong, fontSize: 13, fontWeight: "600" },
+    chipText: {
+        flexShrink: 1,
+        color: c.accentStrong,
+        fontFamily: theme.fonts.ui,
+        fontSize: 13,
+        fontWeight: "600",
+    },
     input: {
         flexGrow: 1,
         flexBasis: 80,
         minWidth: 80,
         width: 80,
         color: c.ink,
+        fontFamily: theme.fonts.ui,
         fontSize: 15,
         paddingVertical: 3,
         paddingHorizontal: 4,
@@ -155,8 +169,8 @@ const styles = StyleSheet.create({
         paddingHorizontal: 10,
         paddingVertical: 5,
     },
-    optionText: { color: c.inkSoft, fontSize: 13, fontWeight: "600" },
-    count: { color: c.muted, fontSize: 12 },
+    optionText: { color: c.inkSoft, fontFamily: theme.fonts.ui, fontSize: 13, fontWeight: "600" },
+    count: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 12 },
     create: { borderStyle: "dashed", borderColor: c.accentLine },
     createText: { color: c.accent },
 });

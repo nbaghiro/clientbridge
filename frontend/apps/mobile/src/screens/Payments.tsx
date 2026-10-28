@@ -1,5 +1,4 @@
 import { type PaymentsTabKey, visiblePaymentsTabs } from "@clientbridge/app-core";
-import { theme } from "@clientbridge/tokens/native";
 import { type RouteProp, useRoute } from "@react-navigation/native";
 import { type ReactElement, useEffect, useState } from "react";
 import { StyleSheet, View } from "react-native";
@@ -23,7 +22,7 @@ export function PaymentsScreen() {
     const [tab, setTab] = useState<PaymentsTabKey>(params?.tab ?? "invoices");
     useEffect(() => {
         if (params?.tab !== undefined) setTab(params.tab);
-    }, [params?.tab, params?.create]);
+    }, [params?.tab, params?.open]);
     const current = tabs.find((t) => t.key === tab) ?? tabs[0];
 
     return (
@@ -32,14 +31,7 @@ export function PaymentsScreen() {
                 <>
                     <Tabs items={tabs} active={current.key} onSelect={setTab} />
                     <View style={styles.body}>
-                        {tabBody(
-                            current.key,
-                            tab === "invoices" ? params?.create : undefined,
-                            params?.compose ?? "invoice",
-                            tab === "invoices" || tab === "refunds" || tab === "sales"
-                                ? params?.open
-                                : undefined,
-                        )}
+                        {tabBody(current.key, tab === "invoices" ? params?.open : undefined)}
                     </View>
                 </>
             )}
@@ -47,21 +39,16 @@ export function PaymentsScreen() {
     );
 }
 
-function tabBody(
-    key: PaymentsTabKey,
-    createToken: number | undefined,
-    createKind: "invoice" | "estimate",
-    openId: string | undefined,
-): ReactElement {
+function tabBody(key: PaymentsTabKey, openId: string | undefined): ReactElement {
     switch (key) {
         case "invoices":
-            return <Invoices createToken={createToken} createKind={createKind} openId={openId} />;
+            return <Invoices openId={openId} />;
         case "sales":
-            return <POS linked={openId} />;
+            return <POS />;
         case "giftCards":
             return <GiftCards />;
         case "refunds":
-            return <Refunds openId={openId} />;
+            return <Refunds />;
         case "staffPay":
             return <Earnings />;
         case "taxReturns":
@@ -74,6 +61,6 @@ function tabBody(
 }
 
 const styles = StyleSheet.create({
-    screen: { flex: 1, backgroundColor: theme.colors.bg },
+    screen: { flex: 1 },
     body: { flex: 1, paddingTop: 8 },
 });

@@ -15,7 +15,7 @@ export function GetSetUp() {
     const pct = Math.round((list.done / list.total) * 100);
 
     return (
-        <div className="max-w-3xl space-y-6">
+        <div className="space-y-6">
             <PageHeader
                 title={strings.navigation.setupSections.start}
                 subtitle={o.body}

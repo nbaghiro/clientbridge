@@ -66,7 +66,7 @@ test("PLN-E2E-01 only the owner reads or changes the plan, in their own business
     const own = await page.request.get(`${apiBase()}/v1/plan`);
     expect(own.status(), await own.text()).toBe(200);
     expect(await own.json()).toMatchObject({ access: "active", plan: "team", seat_cap: SEAT_CAP });
-    await navigate(page, "/setup/plan");
+    await navigate(page, "/setup/security");
     await expect(page.getByRole("heading", { name: p.activeTitle(p.team) })).toBeVisible({
         timeout: 60_000,
     });
@@ -107,10 +107,7 @@ test("PLN-E2E-01 only the owner reads or changes the plan, in their own business
                 }),
             ];
             expect(calls.map((r) => r.status())).toEqual([403, 403, 403, 403]);
-            await navigate(other.page, "/setup/team");
-            await expect(
-                other.page.getByRole("link", { name: strings.navigation.setupSections.plan }),
-            ).toHaveCount(0);
+            await navigate(other.page, "/setup/security");
             await expect(
                 other.page.getByRole("heading", { name: p.activeTitle(p.team) }),
             ).toHaveCount(0);

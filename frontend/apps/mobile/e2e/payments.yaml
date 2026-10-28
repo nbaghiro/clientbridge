@@ -2,6 +2,9 @@ appId: ${APP_ID}
 name: Owner payment surfaces
 ---
 - runFlow: helpers/owner.yaml
+- scrollUntilVisible:
+      element: "View payments"
+      direction: DOWN
 - tapOn: "View payments"
 - assertVisible: "Search client or number"
 - takeScreenshot: invoices

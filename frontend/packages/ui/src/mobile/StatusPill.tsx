@@ -19,5 +19,5 @@ export function StatusPill({ status, intent, style }: NativeProps<StatusPillProp
 
 const styles = StyleSheet.create({
     badge: { alignSelf: "flex-start", borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 },
-    text: { fontSize: 11, fontWeight: "600" },
+    text: { fontFamily: theme.fonts.ui, fontSize: 11, fontWeight: "600" },
 });

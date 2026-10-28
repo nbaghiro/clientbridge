@@ -22,14 +22,14 @@ export function Security() {
     const header = <PageHeader title={strings.navigation.setupSections.security} />;
     if (!s.ready && s.error === null)
         return (
-            <div className="max-w-3xl space-y-6">
+            <div className="space-y-6">
                 {header}
                 <Loading label={a.securityTitle} />
             </div>
         );
 
     return (
-        <div className="max-w-3xl space-y-6">
+        <div className="space-y-6">
             {header}
             {s.notice !== null ? (
                 <Notice tone="success" banner>

@@ -1,6 +1,5 @@
 import {
     type ItemRow,
-    type Load,
     type StockRowView,
     formatMoney,
     mediaUrl,
@@ -24,54 +23,22 @@ import {
     IconButton,
     ItemImage,
     ListRow,
-    LoadFailed,
     Meter,
     Modal,
     Notice,
+    PageHeader,
     SearchField,
-    Skeleton,
     Stepper,
     TextField,
 } from "@clientbridge/ui";
-import { type ReactNode, useState } from "react";
+import { useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { api, apiBaseUrl } from "../lib/api";
+import { Loaded } from "./Loaded";
 
 const s = strings.catalog;
 const c = theme.colors;
-
-/** Loading draws placeholder rows, a failed load the shared retry card, anything else the content. */
-export function Loaded({
-    load,
-    label,
-    error,
-    children,
-}: {
-    load: Load;
-    label: string;
-    error: string;
-    children: ReactNode;
-}) {
-    if (load.state === "loading") {
-        return (
-            <View style={styles.card}>
-                <Skeleton variant="row" count={5} label={label} />
-            </View>
-        );
-    }
-    if (load.state === "error") {
-        return (
-            <LoadFailed
-                variant="card"
-                message={error}
-                onRetry={load.retry}
-                retrying={load.retrying}
-            />
-        );
-    }
-    return <>{children}</>;
-}
 
 function RestockSheet({
     item,
@@ -242,7 +209,7 @@ export function Inventory() {
                     body={s.emptyStockBody}
                 />
             ) : (
-                <Loaded load={inv.load} label={s.loadingStock} error={s.loadErrorStock}>
+                <Loaded load={inv.load} loading={s.loadingStock} failed={s.loadErrorStock} rows={5}>
                     <View style={styles.stats}>
                         <View style={styles.stat}>
                             <Text style={styles.statLabel}>{s.statLow}</Text>
@@ -269,17 +236,19 @@ export function Inventory() {
                         </Notice>
                     ) : null}
                     <Text style={styles.section}>{s.needsRestock}</Text>
-                    <View style={styles.card}>
+                    <Panel flush style={styles.card}>
                         {inv.attention.length === 0 ? (
                             <Text style={styles.empty}>{s.allGood}</Text>
                         ) : (
                             cards(inv.attention)
                         )}
-                    </View>
+                    </Panel>
                     {inv.others.length > 0 ? (
                         <>
                             <Text style={styles.section}>{s.allTracked}</Text>
-                            <View style={styles.card}>{cards(inv.others)}</View>
+                            <Panel flush style={styles.card}>
+                                {cards(inv.others)}
+                            </Panel>
                         </>
                     ) : null}
                     <Panel title={s.recentMoves}>
@@ -328,8 +297,7 @@ function ReceiveDelivery({
                         {s.backToInventory}
                     </Button>
                 </View>
-                <Text style={styles.title}>{s.receiveTitle}</Text>
-                <Text style={styles.meta}>{s.receiveSubtitle}</Text>
+                <PageHeader title={s.receiveTitle} subtitle={s.receiveSubtitle} />
                 {d.load.state === "empty" ? (
                     <Empty
                         variant="card"
@@ -338,7 +306,12 @@ function ReceiveDelivery({
                         body={s.emptyDeliveryBody}
                     />
                 ) : (
-                    <Loaded load={d.load} label={s.loadingProducts} error={s.loadErrorProducts}>
+                    <Loaded
+                        load={d.load}
+                        loading={s.loadingProducts}
+                        failed={s.loadErrorProducts}
+                        rows={5}
+                    >
                         <TextField
                             label={s.supplier}
                             placeholder={s.supplierPlaceholder}
@@ -357,7 +330,7 @@ function ReceiveDelivery({
                             <SearchField value={d.q} onChange={d.setQ} placeholder={s.addSearch} />
                         </View>
                         {d.candidates.length > 0 ? (
-                            <View style={styles.card}>
+                            <Panel flush style={styles.card}>
                                 {d.candidates.map((i) => (
                                     <ListRow
                                         key={i.id}
@@ -377,9 +350,9 @@ function ReceiveDelivery({
                                         }}
                                     />
                                 ))}
-                            </View>
+                            </Panel>
                         ) : null}
-                        <View style={styles.card}>
+                        <Panel flush style={styles.card}>
                             {d.lines.length === 0 ? (
                                 <Text style={styles.empty}>{s.deliveryEmpty}</Text>
                             ) : null}
@@ -449,7 +422,7 @@ function ReceiveDelivery({
                                     />
                                 </View>
                             ))}
-                        </View>
+                        </Panel>
                         <Text style={styles.meta}>{s.unitCostHint}</Text>
                         {d.error !== null ? (
                             <Notice tone="danger" banner>
@@ -490,20 +463,20 @@ const styles = StyleSheet.create({
     body: { padding: 16, paddingBottom: 32, gap: 10 },
     head: { flexDirection: "row", alignItems: "center", gap: 12 },
     back: { flexDirection: "row" },
-    title: { color: c.ink, fontSize: 22, fontWeight: "700", letterSpacing: -0.3 },
     stats: { flexDirection: "row", gap: 8 },
     stat: {
         flex: 1,
         padding: 12,
         borderRadius: theme.radius + 2,
-        borderWidth: 1,
+        borderWidth: theme.borderWidth,
         borderColor: c.border,
         backgroundColor: c.surface,
     },
     statWide: { flex: 1.6 },
-    statLabel: { color: c.muted, fontSize: 12 },
+    statLabel: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 12 },
     statValue: {
         color: c.ink,
+        fontFamily: theme.fonts.ui,
         fontSize: 21,
         fontWeight: "800",
         marginTop: 2,
@@ -513,28 +486,44 @@ const styles = StyleSheet.create({
     danger: { color: c.danFg },
     section: {
         color: c.muted,
+        fontFamily: theme.fonts.ui,
         fontSize: 12,
         fontWeight: "700",
         letterSpacing: 0.5,
         textTransform: "uppercase",
         marginTop: 8,
     },
-    card: {
-        borderRadius: theme.radius + 2,
-        borderWidth: 1,
-        borderColor: c.border,
-        backgroundColor: c.surface,
-        paddingHorizontal: 12,
-        overflow: "hidden",
-    },
+    card: { paddingHorizontal: 12 },
     divider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.borderSoft },
     row: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 12 },
-    name: { color: c.ink, fontSize: 15, fontWeight: "600" },
-    meta: { color: c.muted, fontSize: 12.5, marginTop: 2, lineHeight: 17 },
-    empty: { color: c.muted, fontSize: 14, paddingVertical: 20, textAlign: "center" },
-    suggestLine: { color: c.inkSoft, fontSize: 12.5, fontWeight: "600" },
+    name: { color: c.ink, fontFamily: theme.fonts.ui, fontSize: 15, fontWeight: "600" },
+    meta: {
+        color: c.muted,
+        fontFamily: theme.fonts.ui,
+        fontSize: 12.5,
+        marginTop: 2,
+        lineHeight: 17,
+    },
+    empty: {
+        color: c.muted,
+        fontFamily: theme.fonts.ui,
+        fontSize: 14,
+        paddingVertical: 20,
+        textAlign: "center",
+    },
+    suggestLine: {
+        color: c.inkSoft,
+        fontFamily: theme.fonts.ui,
+        fontSize: 12.5,
+        fontWeight: "600",
+    },
     sheetHead: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 4 },
-    sheetTitle: { color: c.ink, fontSize: 17, fontWeight: "700" },
+    sheetTitle: {
+        color: c.ink,
+        fontFamily: theme.fonts.ui,
+        fontSize: theme.type.section,
+        fontWeight: "700",
+    },
     suggest: { marginTop: 8, flexDirection: "row" },
     foot: { marginTop: 16 },
     search: { marginTop: 4 },
@@ -546,7 +535,13 @@ const styles = StyleSheet.create({
         justifyContent: "space-between",
         gap: 10,
     },
-    cost: { color: c.ink, fontSize: 14.5, fontWeight: "700", fontVariant: ["tabular-nums"] },
+    cost: {
+        color: c.ink,
+        fontFamily: theme.fonts.ui,
+        fontSize: 14.5,
+        fontWeight: "700",
+        fontVariant: ["tabular-nums"],
+    },
     bar: {
         flexDirection: "row",
         alignItems: "center",
@@ -557,5 +552,5 @@ const styles = StyleSheet.create({
         borderTopWidth: StyleSheet.hairlineWidth,
         borderTopColor: c.border,
     },
-    total: { flex: 1, color: c.ink, fontSize: 14.5, fontWeight: "600" },
+    total: { flex: 1, color: c.ink, fontFamily: theme.fonts.ui, fontSize: 14.5, fontWeight: "600" },
 });

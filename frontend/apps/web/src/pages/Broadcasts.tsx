@@ -24,12 +24,12 @@ import {
     Button,
     Choice,
     DetailSection,
-    DetailView,
     Empty,
     Field,
     Icon,
     KeyValueList,
     ListPage,
+    Modal,
     MessageBubble,
     Notice,
     Panel,
@@ -41,6 +41,7 @@ import {
 } from "@clientbridge/ui";
 import { useState } from "react";
 
+import { DeskPanel } from "../components/Desk";
 import { Loaded } from "../components/Loaded";
 import { api } from "../lib/api";
 import { useOpenLink } from "../lib/links";
@@ -78,21 +79,30 @@ function download(filename: string, content: string): void {
 
 export function Broadcasts() {
     const [composing, setComposing] = useState<BroadcastSeed | null>(null);
-    if (composing !== null)
-        return (
-            <Composer
-                seed={composing}
-                onDone={() => {
-                    setComposing(null);
+    return (
+        <>
+            <BroadcastsHome
+                onCompose={(seed) => {
+                    setComposing(seed);
                 }}
             />
-        );
-    return (
-        <BroadcastsHome
-            onCompose={(seed) => {
-                setComposing(seed);
-            }}
-        />
+            {composing !== null ? (
+                <Modal
+                    variant="drawer"
+                    size="xl"
+                    onClose={() => {
+                        setComposing(null);
+                    }}
+                >
+                    <Composer
+                        seed={composing}
+                        onDone={() => {
+                            setComposing(null);
+                        }}
+                    />
+                </Modal>
+            ) : null}
+        </>
     );
 }
 
@@ -331,8 +341,7 @@ function BroadcastsHome({ onCompose }: { onCompose: (seed: BroadcastSeed) => voi
                 </div>
             </Loaded>
             {open !== null ? (
-                <DetailView
-                    open
+                <DeskPanel
                     title={open.name}
                     subtitle={formatParts([s.viaChannel(open.channel), broadcastWhen(open, zone)])}
                     status={{
@@ -399,7 +408,7 @@ function BroadcastsHome({ onCompose }: { onCompose: (seed: BroadcastSeed) => voi
                             </span>
                         </p>
                     </DetailSection>
-                </DetailView>
+                </DeskPanel>
             ) : null}
         </div>
     );
@@ -424,32 +433,27 @@ function Composer({ seed, onDone }: { seed: BroadcastSeed; onDone: () => void })
 
     if (draft.sent !== null)
         return (
-            <div className="mx-auto max-w-lg py-16 text-center">
-                <Icon
-                    name={draft.sent.scheduled ? "clock" : "check"}
-                    size={32}
-                    className="mx-auto block text-ink-soft"
+            <div className="flex min-h-[60vh] items-center justify-center">
+                <Empty
+                    icon={draft.sent.scheduled ? "clock" : "check"}
+                    message={draft.sent.title}
+                    body={draft.sent.body}
+                    actions={
+                        <>
+                            <Button variant="outline" onPress={draft.reset}>
+                                {s.newAnother}
+                            </Button>
+                            <Button onPress={onDone}>{s.sentDone}</Button>
+                        </>
+                    }
                 />
-                <h2 className="mt-4 font-display text-2xl font-bold text-ink">
-                    {draft.sent.title}
-                </h2>
-                <p className="mt-2 text-sm text-muted">{draft.sent.body}</p>
-                <div className="mt-6 flex justify-center gap-2">
-                    <Button variant="outline" onPress={draft.reset}>
-                        {s.newAnother}
-                    </Button>
-                    <Button onPress={onDone}>{s.sentDone}</Button>
-                </div>
             </div>
         );
 
     return (
         <div>
-            <Button variant="link" icon="chevronLeft" onPress={onDone}>
-                {s.back}
-            </Button>
-            <h2 className="mt-2 font-display text-xl font-bold text-ink">{s.newBroadcast}</h2>
-            <div className="mt-5 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_300px] xl:grid-cols-[minmax(0,1fr)_340px]">
+            <h2 className="font-display text-xl font-bold text-ink">{s.newBroadcast}</h2>
+            <div className="mt-5 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
                 <div className="space-y-5">
                     <Panel>
                         <div className="space-y-4">
@@ -532,7 +536,7 @@ function Composer({ seed, onDone }: { seed: BroadcastSeed; onDone: () => void })
                         </Button>
                     </div>
                 </div>
-                <aside className="space-y-5 lg:sticky lg:top-6">
+                <aside className="space-y-5 lg:sticky lg:top-0">
                     <Panel title={s.audienceLabel}>
                         <Loaded load={draft.load} loading={s.loading} failed={s.loadError} rows={2}>
                             <AudienceSummary draft={draft} />

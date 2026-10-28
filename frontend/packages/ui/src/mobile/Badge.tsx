@@ -49,7 +49,7 @@ const styles = StyleSheet.create({
         flexShrink: 1,
         maxWidth: "100%",
     },
-    pillText: { fontSize: 11, fontWeight: "600" },
+    pillText: { fontFamily: theme.fonts.ui, fontSize: 11, fontWeight: "600" },
     count: {
         minWidth: 20,
         height: 20,
@@ -60,5 +60,5 @@ const styles = StyleSheet.create({
         paddingHorizontal: 5,
         alignSelf: "flex-start",
     },
-    countText: { color: c.accentInk, fontSize: 11, fontWeight: "700" },
+    countText: { color: c.accentInk, fontFamily: theme.fonts.ui, fontSize: 11, fontWeight: "700" },
 });

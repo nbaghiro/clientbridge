@@ -138,6 +138,6 @@ const styles = StyleSheet.create({
         borderBottomWidth: 1,
         borderColor: c.border,
     },
-    title: { flex: 1, fontSize: 18, fontWeight: "700", color: c.ink },
+    title: { flex: 1, fontFamily: theme.fonts.ui, fontSize: 18, fontWeight: "700", color: c.ink },
     content: { padding: 16, gap: 12 },
 });

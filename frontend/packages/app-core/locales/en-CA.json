@@ -1643,6 +1643,9 @@
     "pos.desk.sellMembership": {
         "message": "Membership"
     },
+    "pos.desk.addItems": {
+        "message": "Add a product or service"
+    },
     "pos.desk.ticket": {
         "message": "Ticket"
     },
@@ -1776,9 +1779,6 @@
     },
     "pos.desk.visitNoteSent": {
         "message": "Note sent with a link to the visit."
-    },
-    "pos.desk.backToToday": {
-        "message": "Back to Today"
     },
     "pos.desk.todaysVisitsHint": {
         "message": "Booked services ready to check out. Add products and add-ons after."
@@ -2093,7 +2093,7 @@
         "message": "Sales you ring up at the front desk and online orders appear here."
     },
     "pos.desk.historyFilterEmpty": {
-        "message": "Nothing here right now."
+        "message": "No sales match this filter."
     },
     "pos.desk.dayTotal": {
         "message": "{n, plural, one {# sale} other {# sales}} · {money}",
@@ -2368,6 +2368,10 @@
     },
     "earnings.colPay": {
         "message": "Pay"
+    },
+    "earnings.summary": {
+        "message": "{n, plural, one {# person} other {# people}} · {waiting, plural, =0 {nothing to approve} one {# waiting for approval} other {# waiting for approval}}",
+        "args": ["n", "waiting"]
     },
     "earnings.toApprove": {
         "message": "To approve"
@@ -3001,7 +3005,7 @@
         "args": ["who"]
     },
     "bookings.moved": {
-        "message": "Moved to {when}. The client gets an updated confirmation.",
+        "message": "Moved to {when}, and the client gets an updated confirmation.",
         "args": ["when"]
     },
     "bookings.undo": {
@@ -3380,6 +3384,10 @@
     },
     "bookings.composerServicePlaceholder": {
         "message": "Choose a service"
+    },
+    "bookings.dayOf": {
+        "message": "{name}'s day",
+        "args": ["name"]
     },
     "bookings.composerWith": {
         "message": "With"
@@ -4355,9 +4363,6 @@
     "resources.save": {
         "message": "Save"
     },
-    "resources.rename": {
-        "message": "Rename"
-    },
     "resources.turnOff": {
         "message": "Turn off"
     },
@@ -4374,6 +4379,47 @@
     "resources.offUpcoming": {
         "message": "Turned off. {count, plural, one {# upcoming visit still uses it} other {# upcoming visits still use it}} until moved.",
         "args": ["count"]
+    },
+    "resources.summary": {
+        "message": "{n, plural, one {# room or piece of equipment} other {# rooms and equipment}}{off, plural, =0 {} other { · # turned off}}",
+        "args": ["n", "off"]
+    },
+    "resources.colUsedBy": {
+        "message": "Used by"
+    },
+    "resources.usedByNone": {
+        "message": "No services yet"
+    },
+    "resources.servicesTitle": {
+        "message": "Services that need it"
+    },
+    "resources.servicesHint": {
+        "message": "Choose the rooms and equipment a service needs on the service itself, under Needs."
+    },
+    "resources.openServices": {
+        "message": "Open services"
+    },
+    "resources.usedByMore": {
+        "message": "{first}, {second} and {more, plural, one {# more} other {# more}}",
+        "args": ["first", "second", "more"]
+    },
+    "resources.addShort": {
+        "message": "Add"
+    },
+    "resources.newTitle": {
+        "message": "New room or equipment"
+    },
+    "resources.colUpcoming": {
+        "message": "Upcoming visits"
+    },
+    "resources.colStatus": {
+        "message": "Status"
+    },
+    "resources.inService": {
+        "message": "In service"
+    },
+    "resources.turnedOff": {
+        "message": "Turned off"
     },
     "resources.empty": {
         "message": "No rooms or equipment yet"
@@ -6342,9 +6388,6 @@
     "messaging.filters.email": {
         "message": "Email"
     },
-    "messaging.filterLabel": {
-        "message": "Show"
-    },
     "messaging.noThreadsFiltered": {
         "message": "Nothing matches. Try another filter or search."
     },
@@ -6357,6 +6400,9 @@
     "messaging.noMessagesYet": {
         "message": "No messages with {name} yet. Write the first one below.",
         "args": ["name"]
+    },
+    "messaging.filterLabel": {
+        "message": "Show"
     },
     "messaging.selectThread": {
         "message": "Choose a conversation to read and reply."
@@ -6650,7 +6696,7 @@
         "message": "Broadcast queued"
     },
     "broadcasts.queuedBody": {
-        "message": "It's quiet hours for your clients, so it goes out at {when}. {n, plural, one {# client} other {# clients}} will get it.",
+        "message": "It's quiet hours for your clients, so it goes out at {when} to {n, plural, one {# client} other {# clients}}.",
         "args": ["when", "n"],
         "description": "Broadcasts don't send between 9 p.m. and 9 a.m. in the business's time zone."
     },
@@ -8237,15 +8283,11 @@
     "catalog.variantHint": {
         "message": "Each variant keeps its own price, SKU and stock. Choose the main product shown in the shop."
     },
-    "catalog.title": {
-        "message": "Catalog"
+    "catalog.views.services": {
+        "message": "Services"
     },
-    "catalog.summary": {
-        "message": "{low, plural, =0 {{items, number} items} other {{items, number} items · # need restocking}}",
-        "args": ["items", "low"]
-    },
-    "catalog.views.catalog": {
-        "message": "Catalog"
+    "catalog.views.plans": {
+        "message": "Packages & memberships"
     },
     "catalog.views.products": {
         "message": "Products"
@@ -8268,11 +8310,11 @@
     "catalog.filterAll": {
         "message": "All"
     },
-    "catalog.filterServices": {
-        "message": "Services"
+    "catalog.filterActive": {
+        "message": "Active"
     },
-    "catalog.filterPlans": {
-        "message": "Packages & memberships"
+    "catalog.filterLabel": {
+        "message": "Show"
     },
     "catalog.filterLowStock": {
         "message": "Low stock"
@@ -12211,22 +12253,22 @@
         "message": "Request sent"
     },
     "publicBooking.pendingBody": {
-        "message": "The studio confirms new clients first. You'll hear back about {when}.",
+        "message": "The studio confirms new clients first. You'll hear back about {when} once they've looked at your request.",
         "args": ["when"]
     },
     "publicBooking.waitlistTitle": {
         "message": "You're on the waitlist"
     },
     "publicBooking.waitlistBody": {
-        "message": "{position, plural, =1 {You're first in line for {when}.} other {You're number # in line for {when}.}} If a seat opens up before the class, you'll be booked into it and get a message.",
+        "message": "{position, plural, =1 {For {when}, you're first in line.} other {For {when}, you're number # in line.}} If a seat opens up before the class, you'll be booked into it and get a message.",
         "args": ["position", "when"]
     },
     "publicBooking.doneBody": {
-        "message": "{name} is booked for {when}. A confirmation is on its way.",
+        "message": "{name} is booked for {when}, and a confirmation is on its way.",
         "args": ["name", "when"]
     },
     "publicBooking.doneNoSubject": {
-        "message": "You're booked for {when}. A confirmation is on its way.",
+        "message": "You're booked for {when}, and a confirmation is on its way.",
         "args": ["when"]
     },
     "publicBooking.addToCalendar": {
@@ -13109,7 +13151,7 @@
         "message": "Booking moved"
     },
     "publicManage.movedBody": {
-        "message": "See you {when}. Your deposit moved with it.",
+        "message": "Your visit is now {when}, and your deposit moved with it.",
         "args": ["when"]
     },
     "publicManage.back": {
@@ -13307,13 +13349,13 @@
         "message": "Sales tax"
     },
     "navigation.setupSections.onlineBooking": {
-        "message": "Online booking"
+        "message": "Booking page & rules"
     },
     "navigation.setupSections.reminders": {
-        "message": "Reminders"
+        "message": "Messages & reminders"
     },
     "navigation.setupSections.security": {
-        "message": "Sign-in & security"
+        "message": "Account & plan"
     },
     "navigation.inboxSegments.messages": {
         "message": "Messages"

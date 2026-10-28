@@ -1,9 +1,7 @@
 import { strings, useNotifications } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
-import { Button, Choice, Empty, IconButton, ListRow, LoadFailed, Skeleton } from "@clientbridge/ui";
-import { useNavigation } from "@react-navigation/native";
+import { Button, Choice, Empty, ListRow, LoadFailed, Panel, Skeleton } from "@clientbridge/ui";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useViewer } from "../lib/auth";
 import { useOpenLink } from "../lib/links";
@@ -14,24 +12,10 @@ const t = strings.notifications;
 /** The bell on a phone: the last week of what happened, grouped by day. */
 export function NotificationsScreen() {
     const view = useNotifications(useViewer());
-    const nav = useNavigation();
     const openLink = useOpenLink();
 
     return (
-        <SafeAreaView style={styles.screen} edges={["top"]}>
-            <View style={styles.bar}>
-                <IconButton
-                    icon="chevronLeft"
-                    label={strings.common.close}
-                    onPress={() => {
-                        nav.goBack();
-                    }}
-                />
-                <Text style={styles.barTitle} accessibilityRole="header">
-                    {t.title}
-                </Text>
-                <View style={styles.barSpacer} />
-            </View>
+        <View style={styles.screen}>
             <View style={styles.filters}>
                 <Choice
                     layout="segmented"
@@ -55,9 +39,9 @@ export function NotificationsScreen() {
             </View>
             <ScrollView contentContainerStyle={styles.body}>
                 {view.load.state === "loading" ? (
-                    <View style={styles.card}>
+                    <Panel flush>
                         <Skeleton variant="row" count={6} label={t.loading} />
-                    </View>
+                    </Panel>
                 ) : view.load.state === "error" ? (
                     <LoadFailed onRetry={view.load.retry} retrying={view.load.retrying} />
                 ) : view.groups.length === 0 ? (
@@ -70,7 +54,7 @@ export function NotificationsScreen() {
                     view.groups.map((g) => (
                         <View key={g.key}>
                             <Text style={styles.head}>{g.label}</Text>
-                            <View style={styles.card}>
+                            <Panel flush>
                                 {g.items.map((n, i) => (
                                     <View key={n.id} style={i > 0 ? styles.divider : undefined}>
                                         <ListRow
@@ -98,20 +82,17 @@ export function NotificationsScreen() {
                                         />
                                     </View>
                                 ))}
-                            </View>
+                            </Panel>
                         </View>
                     ))
                 )}
             </ScrollView>
-        </SafeAreaView>
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
-    screen: { flex: 1, backgroundColor: c.bg },
-    bar: { flexDirection: "row", alignItems: "center", paddingHorizontal: 8, paddingBottom: 4 },
-    barTitle: { flex: 1, textAlign: "center", color: c.ink, fontSize: 17, fontWeight: "700" },
-    barSpacer: { width: 44 },
+    screen: { flex: 1 },
     filters: {
         flexDirection: "row",
         alignItems: "center",
@@ -122,6 +103,7 @@ const styles = StyleSheet.create({
     body: { paddingHorizontal: 16, paddingBottom: 32 },
     head: {
         color: c.muted,
+        fontFamily: theme.fonts.ui,
         fontSize: 12,
         fontWeight: "700",
         letterSpacing: 0.5,
@@ -129,13 +111,6 @@ const styles = StyleSheet.create({
         marginTop: 14,
         marginBottom: 8,
         marginLeft: 4,
-    },
-    card: {
-        backgroundColor: c.surface,
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: c.border,
-        overflow: "hidden",
     },
     divider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.border },
 });

@@ -56,20 +56,17 @@ export function ProgramBoard({
                     />
                 </div>
             ) : board.programs.length === 0 ? (
-                <div className="flex justify-center px-5 py-12">
-                    <div className="w-[360px]">
-                        <Empty
-                            variant="card"
-                            icon="calendar"
-                            message={s.emptyTitle}
-                            body={s.emptyBody}
-                            actions={
-                                <Button size="sm" variant="outline" onPress={onSchedule}>
-                                    {s.newProgram}
-                                </Button>
-                            }
-                        />
-                    </div>
+                <div className="flex justify-center px-5 py-6">
+                    <Empty
+                        icon="calendar"
+                        message={s.emptyTitle}
+                        body={s.emptyBody}
+                        actions={
+                            <Button size="sm" variant="outline" onPress={onSchedule}>
+                                {s.newProgram}
+                            </Button>
+                        }
+                    />
                 </div>
             ) : (
                 <div className="flex min-h-0 flex-1">

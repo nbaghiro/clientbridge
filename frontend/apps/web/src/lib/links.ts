@@ -1,8 +1,8 @@
-import type { ShellTarget } from "@clientbridge/app-core";
+import { type ShellTarget, clearTasks, openTask, taskFor } from "@clientbridge/app-core";
 import { createContext, useCallback, useContext, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
-// `new` opens a target's create form and `open` one record; pages read both with useLinkIntent.
+// `new` opens a page's own create form and `open` one record; pages read both with useLinkIntent.
 const PATHS: Record<ShellTarget, string> = {
     today: "/today",
     schedule: "/schedule",
@@ -38,7 +38,7 @@ const PATHS: Record<ShellTarget, string> = {
     notifications: "/today",
 };
 
-const CREATES = new Set<ShellTarget>(["booking", "client", "invoice", "estimate", "message"]);
+const CREATES = new Set<ShellTarget>(["message"]);
 
 export function linkPath(target: ShellTarget, refId: string | null = null): string {
     const base = PATHS[target];
@@ -57,12 +57,18 @@ export const ShellContext = createContext<ShellControls>({
     openNotifications: () => undefined,
 });
 
-/** Opens what a shell target names: a page, a record, a create form, search or the bell. */
+/** Starts a task in place, or opens the page, search or the bell a shell target names. */
 export function useOpenLink(): (target: ShellTarget, refId?: string | null) => void {
     const navigate = useNavigate();
     const shell = useContext(ShellContext);
     return useCallback(
         (target, refId = null) => {
+            const task = taskFor(target, refId);
+            if (task !== null) {
+                openTask(task);
+                return;
+            }
+            clearTasks();
             if (target === "search") shell.openSearch();
             else if (target === "notifications") shell.openNotifications();
             else {

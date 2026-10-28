@@ -1,4 +1,11 @@
 import {
+    type ComposerSlot,
+    useBookingActions,
+    useBookingDetail,
+    useBookingStart,
+    suggestedStart,
+    useBookingComposer,
+    useScheduleBoard,
     type BookingComposer as BookingComposerForm,
     type ScheduleEvent,
     formatMoney,
@@ -19,6 +26,7 @@ import {
     Choice,
     DateField,
     DateStrip,
+    DetailView,
     Empty,
     IconButton,
     ListRow,
@@ -33,20 +41,25 @@ import {
     TimeSlotPicker,
     Toggle,
 } from "@clientbridge/ui";
-import type { SubmitEvent } from "react";
+import { type ReactNode, type SubmitEvent, useEffect, useRef, useState } from "react";
 
 import { api } from "../lib/api";
 import { useViewer } from "../lib/auth";
+import { BookingActionBar, BookingBody } from "./BookingPanel";
+import { DayPeek } from "./ScheduleGrid";
 
 const s = strings.bookings;
 
 /** The new-booking form beside the calendar, whose draft card it moves with. Sits in a rail or a modal. */
 export function BookingComposer({
     form,
+    peek,
     onDone,
     onCancel,
 }: {
     form: BookingComposerForm;
+    // The person's day, where there is no calendar beside the form to place the visit on.
+    peek?: ReactNode;
     onDone: () => void;
     onCancel: () => void;
 }) {
@@ -196,8 +209,12 @@ export function BookingComposer({
                     />
                 ) : null}
                 <p className="-mt-3 text-xs text-muted">
-                    {formatParts([form.item ? form.endsLabel : null, s.draftHint])}
+                    {formatParts([
+                        form.item ? form.endsLabel : null,
+                        peek === undefined ? s.draftHint : null,
+                    ])}
                 </p>
+                {peek}
                 {form.problem !== null ? (
                     <Notice tone="danger" banner>
                         {form.problem}
@@ -361,6 +378,137 @@ export function RescheduleDialog({
                     </div>
                 </div>
             </div>
+        </Modal>
+    );
+}
+
+/** A new booking over the current page: the composer in a drawer, starting at the next open time. */
+export function BookingTask({
+    clientId,
+    estimateId,
+    rebookId,
+    onClose,
+}: {
+    clientId?: string | undefined;
+    estimateId?: string | undefined;
+    rebookId?: string | undefined;
+    onClose: () => void;
+}) {
+    const viewer = useViewer();
+    const zone = useBusinessZone();
+    const board = useScheduleBoard(viewer);
+    const [slot, setSlot] = useState<ComposerSlot | null>(null);
+    const day = board.focus;
+    const first = day.lanes.find((l) => l.hours) ?? day.lanes[0];
+    useEffect(() => {
+        if (slot !== null || first === undefined) return;
+        setSlot({
+            staffId: first.id,
+            start: suggestedStart(day.date, board.now, board.window, zone),
+            estimateId,
+            rebookId,
+        });
+    }, [slot, first, day.date, board.now, board.window, zone, estimateId, rebookId]);
+    const form = useBookingComposer(api, slot, board, onClose);
+    const picked = useRef(false);
+    useEffect(() => {
+        if (picked.current || clientId === undefined || slot === null) return;
+        picked.current = true;
+        form.pickClient(clientId);
+    }, [clientId, slot, form]);
+    return (
+        <Modal variant="drawer" size="lg" framed={false} onClose={onClose}>
+            <div className="h-full overflow-hidden bg-surface">
+                {slot === null ? (
+                    <div className="p-5">
+                        <Skeleton variant="row" count={4} label={s.loading} />
+                    </div>
+                ) : (
+                    <BookingComposer
+                        form={form}
+                        peek={
+                            <DayPeek
+                                board={board}
+                                staffId={form.staffId}
+                                draft={form.draft}
+                                onPlace={(start) => {
+                                    form.place(form.staffId, start);
+                                }}
+                            />
+                        }
+                        onDone={onClose}
+                        onCancel={onClose}
+                    />
+                )}
+            </div>
+        </Modal>
+    );
+}
+
+/** A booking over the current page, with the same body and actions as the schedule's drawer. */
+export function BookingRecordTask({
+    bookingId,
+    onClose,
+}: {
+    bookingId: string;
+    onClose: () => void;
+}) {
+    const viewer = useViewer();
+    const board = useScheduleBoard(viewer);
+    const start = useBookingStart(bookingId);
+    const [moving, setMoving] = useState(false);
+    const { setAnchor, select } = board;
+    useEffect(() => {
+        if (start === null) return;
+        setAnchor(start);
+        select(bookingId);
+    }, [start, bookingId, setAnchor, select]);
+    const detail = useBookingDetail(board.selected, board.now);
+    const actions = useBookingActions(api, detail?.event ?? null, board.now);
+    return (
+        <Modal
+            flow
+            framed={false}
+            size="lg"
+            onClose={() => {
+                if (moving) setMoving(false);
+                else onClose();
+            }}
+        >
+            <DetailView
+                open={!moving}
+                title={detail?.event.headline ?? s.loading}
+                subtitle={
+                    detail === null
+                        ? undefined
+                        : formatParts([detail.event.serviceName, detail.event.timeLabel])
+                }
+                onClose={onClose}
+                actions={
+                    detail === null ? undefined : (
+                        <BookingActionBar
+                            actions={actions}
+                            onReschedule={() => {
+                                setMoving(true);
+                            }}
+                        />
+                    )
+                }
+            >
+                {detail === null ? (
+                    <Skeleton variant="row" count={4} label={s.loading} />
+                ) : (
+                    <BookingBody detail={detail} withStatus />
+                )}
+            </DetailView>
+            {moving && detail !== null ? (
+                <RescheduleDialog
+                    event={detail.event}
+                    onClose={() => {
+                        setMoving(false);
+                    }}
+                />
+            ) : null}
         </Modal>
     );
 }

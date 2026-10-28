@@ -644,7 +644,7 @@ function ManageDone({ mg }: { mg: ManageBookingFlow }) {
             </h1>
             <p className="mx-auto mt-2 max-w-sm text-sm text-muted">
                 {moved
-                    ? s.movedBody(mg.when.replace(/\.$/, ""))
+                    ? s.movedBody(mg.when)
                     : (mg.refundMessage ??
                       (mg.refundLabel === null
                           ? s.canceledNoDeposit

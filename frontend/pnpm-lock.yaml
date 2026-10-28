@@ -151,6 +151,12 @@ importers:
       '@clientbridge/ui':
         specifier: workspace:*
         version: link:../../packages/ui
+      '@expo-google-fonts/geist-mono':
+        specifier: 0.4.2
+        version: 0.4.2
+      '@expo-google-fonts/schibsted-grotesk':
+        specifier: 0.4.2
+        version: 0.4.2
       '@formatjs/intl-datetimeformat':
         specifier: 7.7.0
         version: 7.7.0
@@ -205,6 +211,9 @@ importers:
       expo-file-system:
         specifier: ~57.0.7
         version: 57.0.7(expo@57.0.26(@babel/core@7.29.7)(@expo/dom-webview@57.0.1)(react-dom@19.2.3(react@19.2.3))(react-native-web@0.21.3(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react-native-webview@13.16.1(react-native@0.86.3(@babel/core@7.29.7)(@react-native-community/cli@13.6.9)(@types/react@19.2.18)(react@19.2.3))(react@19.2.3))(react-native@0.86.3(@babel/core@7.29.7)(@react-native-community/cli@13.6.9)(@types/react@19.2.18)(react@19.2.3))(react@19.2.3)(typescript@6.0.3))(react-native@0.86.3(@babel/core@7.29.7)(@react-native-community/cli@13.6.9)(@types/react@19.2.18)(react@19.2.3))
+      expo-font:
+        specifier: ~57.0.4
+        version: 57.0.4(expo@57.0.26(@babel/core@7.29.7)(@expo/dom-webview@57.0.1)(react-dom@19.2.3(react@19.2.3))(react-native-web@0.21.3(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react-native-webview@13.16.1(react-native@0.86.3(@babel/core@7.29.7)(@react-native-community/cli@13.6.9)(@types/react@19.2.18)(react@19.2.3))(react@19.2.3))(react-native@0.86.3(@babel/core@7.29.7)(@react-native-community/cli@13.6.9)(@types/react@19.2.18)(react@19.2.3))(react@19.2.3)(typescript@6.0.3))(react-native@0.86.3(@babel/core@7.29.7)(@react-native-community/cli@13.6.9)(@types/react@19.2.18)(react@19.2.3))(react@19.2.3)
       expo-image-picker:
         specifier: ~57.0.20
         version: 57.0.20(expo@57.0.26(@babel/core@7.29.7)(@expo/dom-webview@57.0.1)(react-dom@19.2.3(react@19.2.3))(react-native-web@0.21.3(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react-native-webview@13.16.1(react-native@0.86.3(@babel/core@7.29.7)(@react-native-community/cli@13.6.9)(@types/react@19.2.18)(react@19.2.3))(react@19.2.3))(react-native@0.86.3(@babel/core@7.29.7)(@react-native-community/cli@13.6.9)(@types/react@19.2.18)(react@19.2.3))(react@19.2.3)(typescript@6.0.3))
@@ -1001,6 +1010,12 @@ packages:
   '@eslint/plugin-kit@0.7.3':
     resolution: {integrity: sha512-IkO+/KEUvwbVpiURZg+P7zF74z5Jxe0UgJxVni+RtoHQ6IZieXaO02kmadomap/q+l6bc/jdPGGqTjhuZnuz1Q==}
     engines: {node: ^20.19.0 || ^22.13.0 || >=24}
+
+  '@expo-google-fonts/geist-mono@0.4.2':
+    resolution: {integrity: sha512-Ei2dBHXBgCL0pNi1RSuWIroOsvaNBeyT+2oE/q9vQBzZyqWuKYZ5yrybTeIeDl7MEWTgxBVUjyrws3JVbVac8Q==}
+
+  '@expo-google-fonts/schibsted-grotesk@0.4.2':
+    resolution: {integrity: sha512-OqscHDqXmG/noftZFsGvGXiYoJGIZ1HFKXO7dNNEuitIKVA/qzNhrfoBK7upnxsVlC/AubnYEWeTS5QNw2A+HA==}
 
   '@expo/cli@57.0.27':
     resolution: {integrity: sha512-Jauk4chxmpVG5ElrMLTCwjFP20jbYU7PB4l3LYV8j+4e/3HU5jdl7qTQ4eVy1AaDUE9Ia2NCQ5A9kar2V1gaLg==}
@@ -5954,6 +5969,10 @@ snapshots:
     dependencies:
       '@eslint/core': 1.2.1
       levn: 0.4.1
+
+  '@expo-google-fonts/geist-mono@0.4.2': {}
+
+  '@expo-google-fonts/schibsted-grotesk@0.4.2': {}
 
   '@expo/cli@57.0.27(7vcnji26h2sfdjlzsmvahcwcya)':
     dependencies:

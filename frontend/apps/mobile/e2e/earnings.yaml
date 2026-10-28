@@ -2,6 +2,9 @@ appId: ${APP_ID}
 name: Staff pay totals retain their labels
 ---
 - runFlow: helpers/owner.yaml
+- scrollUntilVisible:
+      element: "View all"
+      direction: DOWN
 - tapOn: "View all"
 - swipe:
       from:

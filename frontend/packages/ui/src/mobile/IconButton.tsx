@@ -99,7 +99,7 @@ const styles = StyleSheet.create({
         alignItems: "center",
         justifyContent: "center",
     },
-    countText: { color: ON_DATA, fontSize: 10, fontWeight: "700" },
+    countText: { color: ON_DATA, fontFamily: theme.fonts.ui, fontSize: 10, fontWeight: "700" },
     dot: {
         position: "absolute",
         top: 8,

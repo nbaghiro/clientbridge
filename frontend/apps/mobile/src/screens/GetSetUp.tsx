@@ -31,6 +31,8 @@ import {
     LoadFailed,
     Modal,
     Notice,
+    Panel,
+    SheetHeader,
     Skeleton,
     SwatchPicker,
     TextField,
@@ -134,7 +136,7 @@ function BrandSheet({ brand, onClose }: { brand: BrandForm; onClose: () => void 
         <Modal open onClose={onClose} size="xl">
             <View style={styles.brandSections}>
                 <View style={styles.stack}>
-                    <Text style={styles.sheetTitle}>{o.brandTitle}</Text>
+                    <SheetHeader title={o.brandTitle} onClose={onClose} />
                     <Text style={styles.small}>{o.brandBody}</Text>
                 </View>
                 <View style={styles.logoRow}>
@@ -240,7 +242,7 @@ function BrandSheet({ brand, onClose }: { brand: BrandForm; onClose: () => void 
                     surface="surface"
                 />
                 <View style={styles.profileSection}>
-                    <Text style={styles.sheetTitle}>{o.profileTitle}</Text>
+                    <Text style={styles.sectionTitle}>{o.profileTitle}</Text>
                     <Text style={styles.small}>{o.profileHint}</Text>
                     {PUBLIC_PROFILE_FIELDS.map((field) => (
                         <TextField
@@ -367,7 +369,7 @@ export function GetSetUpScreen() {
                                 {o.progress(list.done, list.total)}
                             </Text>
                         </View>
-                        <View style={styles.card}>
+                        <Panel flush style={styles.card}>
                             <Checklist
                                 label={o.title}
                                 items={list.steps.map((t) => ({
@@ -384,20 +386,22 @@ export function GetSetUpScreen() {
                                     },
                                 }))}
                             />
-                        </View>
+                        </Panel>
                     </>
                 )}
-                <View style={[styles.card, styles.share]}>
-                    <View style={styles.shareHead}>
-                        <Text style={styles.shareTitle}>{o.shareTitle}</Text>
-                        {list.live ? (
+                <Panel
+                    title={o.shareTitle}
+                    actions={
+                        list.live ? (
                             <Badge
                                 style={{ alignSelf: "center" }}
                                 label={o.live}
                                 intent="success"
                             />
-                        ) : null}
-                    </View>
+                        ) : undefined
+                    }
+                    style={styles.share}
+                >
                     <Text style={styles.small}>{list.live ? o.shareBody : o.notLive}</Text>
                     <CopyField
                         label={o.shareTitle}
@@ -408,7 +412,7 @@ export function GetSetUpScreen() {
                             Share.share({ message: list.pageUrl }).catch(() => undefined);
                         }}
                     />
-                </View>
+                </Panel>
                 <Button
                     variant="outline"
                     icon="image"
@@ -442,35 +446,38 @@ export function GetSetUpScreen() {
 }
 
 const styles = StyleSheet.create({
-    screen: { flex: 1, backgroundColor: c.bg },
+    screen: { flex: 1 },
     content: { padding: 16, paddingBottom: 32, gap: 14 },
-    body: { color: c.muted, fontSize: 14, lineHeight: 20 },
+    body: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 14, lineHeight: 20 },
     progressRow: { flexDirection: "row", alignItems: "center", gap: 10 },
     track: { flex: 1, height: 8, borderRadius: 4, backgroundColor: c.surface2, overflow: "hidden" },
     fill: { height: 8, borderRadius: 4, backgroundColor: c.accent },
-    progressText: { color: c.inkSoft, fontSize: 13, fontWeight: "600" },
-    card: {
-        backgroundColor: c.surface,
-        borderRadius: theme.radius,
-        borderWidth: 1,
-        borderColor: c.border,
-        paddingHorizontal: 14,
+    progressText: { color: c.inkSoft, fontFamily: theme.fonts.ui, fontSize: 13, fontWeight: "600" },
+    card: { paddingHorizontal: 14 },
+    share: { gap: 10 },
+    small: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 13, lineHeight: 18 },
+    sectionTitle: {
+        color: c.ink,
+        fontFamily: theme.fonts.ui,
+        fontSize: theme.type.section,
+        fontWeight: "700",
+        marginBottom: 4,
     },
-    share: { paddingVertical: 14, gap: 10 },
-    shareHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-    shareTitle: { color: c.ink, fontSize: 16, fontWeight: "700" },
-    small: { color: c.muted, fontSize: 13, lineHeight: 18 },
-    sheetTitle: { color: c.ink, fontSize: 20, fontWeight: "700", marginBottom: 4 },
     logoRow: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
     brandSections: { gap: 16 },
     stack: { gap: 8 },
-    profileSection: { gap: 12, borderTopWidth: 1, borderTopColor: c.border, paddingTop: 20 },
+    profileSection: {
+        gap: 12,
+        borderTopWidth: theme.borderWidth,
+        borderTopColor: c.border,
+        paddingTop: 20,
+    },
     gap: { marginTop: 16 },
     grow: { flex: 1, minWidth: 0 },
     preview: {
         backgroundColor: c.surface,
         borderRadius: 14,
-        borderWidth: 1,
+        borderWidth: theme.borderWidth,
         borderColor: c.border,
         overflow: "hidden",
     },
@@ -482,10 +489,10 @@ const styles = StyleSheet.create({
         paddingHorizontal: 12,
         paddingVertical: 7,
         backgroundColor: c.head,
-        borderBottomWidth: 1,
+        borderBottomWidth: theme.borderWidth,
         borderBottomColor: c.border,
     },
-    url: { color: c.muted, fontSize: 11, fontFamily: "monospace", flexShrink: 1 },
+    url: { color: c.muted, fontSize: 11, fontFamily: theme.fonts.mono, flexShrink: 1 },
     head: {
         flexDirection: "row",
         alignItems: "center",
@@ -493,30 +500,43 @@ const styles = StyleSheet.create({
         paddingHorizontal: 14,
         paddingVertical: 10,
     },
-    name: { color: c.ink, fontSize: 16, fontWeight: "700" },
-    tagline: { color: c.muted, fontSize: 12, marginTop: 1 },
+    name: { color: c.ink, fontFamily: theme.fonts.ui, fontSize: 16, fontWeight: "700" },
+    tagline: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 12, marginTop: 1 },
     previewBody: {
         padding: 14,
-        borderTopWidth: 1,
+        borderTopWidth: theme.borderWidth,
         borderTopColor: c.border,
         backgroundColor: c.bg,
     },
-    stepTitle: { color: c.ink, fontSize: 18, fontWeight: "700", marginBottom: 2 },
+    stepTitle: {
+        color: c.ink,
+        fontFamily: theme.fonts.ui,
+        fontSize: theme.type.section,
+        fontWeight: "700",
+        marginBottom: 2,
+    },
     summary: {
         marginTop: 12,
         padding: 12,
         borderRadius: 10,
-        borderWidth: 1,
+        borderWidth: theme.borderWidth,
         borderColor: c.border,
         backgroundColor: c.surface,
     },
     section: {
         color: c.muted,
+        fontFamily: theme.fonts.ui,
         fontSize: 11,
         fontWeight: "700",
         letterSpacing: 0.5,
         textTransform: "uppercase",
         marginBottom: 8,
     },
-    powered: { color: c.muted, fontSize: 11, textAlign: "center", marginTop: 14 },
+    powered: {
+        color: c.muted,
+        fontFamily: theme.fonts.ui,
+        fontSize: 11,
+        textAlign: "center",
+        marginTop: 14,
+    },
 });

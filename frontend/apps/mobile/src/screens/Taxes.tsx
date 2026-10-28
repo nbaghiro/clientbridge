@@ -36,6 +36,7 @@ import {
     Skeleton,
     TextField,
     confirm,
+    Panel,
 } from "@clientbridge/ui";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 
@@ -87,7 +88,7 @@ export function TaxesScreen() {
         <View style={styles.screen}>
             <ScrollView contentContainerStyle={styles.content}>
                 <Text style={styles.small}>{s.subtitle}</Text>
-                <View style={styles.card}>
+                <Panel>
                     <Field label={s.registeredQ}>
                         <Choice
                             layout="cards"
@@ -188,10 +189,10 @@ export function TaxesScreen() {
                             {form.busy ? s.saving : s.save}
                         </Button>
                     </View>
-                </View>
+                </Panel>
 
                 {registered ? (
-                    <View style={[styles.card, styles.filing]}>
+                    <Panel style={styles.filing}>
                         <View style={styles.icon}>
                             <Icon name="calendar" size={20} color={c.inkSoft} />
                         </View>
@@ -224,11 +225,10 @@ export function TaxesScreen() {
                                 {formatMoney(form.filing.collectedCents, BUSINESS_CURRENCY)}
                             </Text>
                         </View>
-                    </View>
+                    </Panel>
                 ) : null}
 
-                <View style={styles.card}>
-                    <Text style={styles.title}>{s.exampleTitle(exampleSale())}</Text>
+                <Panel title={s.exampleTitle(exampleSale())}>
                     {TAX_CLASS_KEYS.map((cls) => {
                         const ex = taxExample(cls, form.province, registered, day);
                         return (
@@ -254,7 +254,7 @@ export function TaxesScreen() {
                             </View>
                         );
                     })}
-                </View>
+                </Panel>
 
                 <View>
                     <Text style={styles.section}>{s.classesTitle}</Text>
@@ -280,7 +280,7 @@ export function TaxesScreen() {
                     />
                 ) : null}
                 {items.items.length > 0 ? (
-                    <View style={[styles.card, styles.flush]}>
+                    <Panel flush style={styles.flush}>
                         {items.items.map((it, i) => (
                             <View key={it.id} style={[styles.item, i > 0 && styles.divider]}>
                                 <Checkbox
@@ -309,7 +309,7 @@ export function TaxesScreen() {
                                 />
                             </View>
                         ))}
-                    </View>
+                    </Panel>
                 ) : null}
                 {items.error !== null ? <Notice tone="danger">{items.error}</Notice> : null}
             </ScrollView>
@@ -342,16 +342,9 @@ export function TaxesScreen() {
 }
 
 const styles = StyleSheet.create({
-    screen: { flex: 1, backgroundColor: c.bg },
+    screen: { flex: 1 },
     content: { padding: 16, paddingBottom: 32, gap: 14 },
-    card: {
-        backgroundColor: c.surface,
-        borderRadius: theme.radius,
-        borderWidth: 1,
-        borderColor: c.border,
-        padding: 14,
-    },
-    flush: { paddingVertical: 0 },
+    flush: { paddingHorizontal: 14 },
     gap: { marginTop: 10 },
     flex: { flex: 1, minWidth: 0 },
     badges: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
@@ -361,12 +354,18 @@ const styles = StyleSheet.create({
         padding: 12,
         borderRadius: theme.radius,
         backgroundColor: c.bg,
-        borderWidth: 1,
+        borderWidth: theme.borderWidth,
         borderColor: c.border,
     },
-    small: { color: c.muted, fontSize: 12, lineHeight: 17 },
-    title: { color: c.ink, fontSize: 16, fontWeight: "700", marginBottom: 4 },
-    section: { color: c.ink, fontSize: 17, fontWeight: "700", marginTop: 6, marginBottom: 2 },
+    small: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 12, lineHeight: 17 },
+    section: {
+        color: c.ink,
+        fontFamily: theme.fonts.ui,
+        fontSize: theme.type.section,
+        fontWeight: "700",
+        marginTop: 6,
+        marginBottom: 2,
+    },
     exRow: {
         flexDirection: "row",
         alignItems: "center",
@@ -375,16 +374,28 @@ const styles = StyleSheet.create({
         borderTopWidth: StyleSheet.hairlineWidth,
         borderTopColor: c.borderSoft,
     },
-    exLabel: { color: c.ink, fontSize: 14, fontWeight: "600" },
-    total: { color: c.ink, fontSize: 15, fontWeight: "700", fontVariant: ["tabular-nums"] },
+    exLabel: { color: c.ink, fontFamily: theme.fonts.ui, fontSize: 14, fontWeight: "600" },
+    total: {
+        color: c.ink,
+        fontFamily: theme.fonts.ui,
+        fontSize: 15,
+        fontWeight: "700",
+        fontVariant: ["tabular-nums"],
+    },
     filing: { flexDirection: "row", gap: 12, alignItems: "flex-start" },
     icon: { paddingTop: 2 },
-    due: { color: c.ink, fontSize: 17, fontWeight: "700", marginTop: 1 },
+    due: {
+        color: c.ink,
+        fontFamily: theme.fonts.ui,
+        fontSize: 17,
+        fontWeight: "700",
+        marginTop: 1,
+    },
     right: { alignItems: "flex-end" },
     link: { marginTop: 6, alignItems: "flex-start" },
     item: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 11 },
     divider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.borderSoft },
-    itemName: { color: c.ink, fontSize: 15, fontWeight: "600" },
+    itemName: { color: c.ink, fontFamily: theme.fonts.ui, fontSize: 15, fontWeight: "600" },
     bulk: {
         padding: 14,
         gap: 10,
@@ -393,5 +404,5 @@ const styles = StyleSheet.create({
         borderTopColor: c.border,
     },
     bulkHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-    bulkText: { color: c.ink, fontSize: 14, fontWeight: "600" },
+    bulkText: { color: c.ink, fontFamily: theme.fonts.ui, fontSize: 14, fontWeight: "600" },
 });

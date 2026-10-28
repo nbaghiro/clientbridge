@@ -122,8 +122,8 @@ const styles = StyleSheet.create({
         opacity: 0.25,
     },
     beside: { flexDirection: "row", alignItems: "center", gap: 10 },
-    besideLabel: { fontSize: 12, fontWeight: "500" },
-    below: { fontSize: 12, color: c.muted, marginTop: 4 },
+    besideLabel: { fontFamily: theme.fonts.ui, fontSize: 12, fontWeight: "500" },
+    below: { fontFamily: theme.fonts.ui, fontSize: 12, color: c.muted, marginTop: 4 },
     head: {
         flexDirection: "row",
         justifyContent: "space-between",
@@ -131,6 +131,6 @@ const styles = StyleSheet.create({
         gap: 12,
         marginBottom: 8,
     },
-    label: { color: c.ink, fontSize: 15, fontWeight: "600" },
-    detail: { color: c.muted, fontSize: 12 },
+    label: { color: c.ink, fontFamily: theme.fonts.ui, fontSize: 15, fontWeight: "600" },
+    detail: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 12 },
 });

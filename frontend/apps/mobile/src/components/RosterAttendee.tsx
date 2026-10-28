@@ -97,8 +97,8 @@ const styles = StyleSheet.create({
     row: { flexDirection: "row", alignItems: "center", gap: 10, padding: 12 },
     divider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.border },
     flex: { flex: 1, minWidth: 0 },
-    subject: { color: c.ink, fontSize: 15, fontWeight: "600" },
-    muted: { color: c.muted, fontSize: 13 },
+    subject: { color: c.ink, fontFamily: theme.fonts.ui, fontSize: 15, fontWeight: "600" },
+    muted: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 13 },
     badges: { flexDirection: "row", gap: 6, marginTop: 4 },
     actions: { flexDirection: "row", alignItems: "center", gap: 6 },
 });

@@ -817,6 +817,8 @@ interface SaleLineView {
     // Products take a quantity; a booked visit or a service is one.
     quantity: number | null;
     grossCents: number;
+    imageFileId: string | null;
+    color: string | null;
 }
 
 interface SaleClient {
@@ -924,6 +926,8 @@ function saleLineView(l: SalePricedLine, staff: string | null): SaleLineView {
         originalCents: l.lineDiscountCents > 0 ? l.grossCents : null,
         quantity: l.kind === "product" && l.bookingId === null ? l.quantity : null,
         grossCents: l.grossCents,
+        imageFileId: l.imageFileId,
+        color: l.color,
     };
 }
 
