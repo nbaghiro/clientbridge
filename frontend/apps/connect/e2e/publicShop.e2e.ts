@@ -44,7 +44,7 @@ test("a client finds the shop from the landing page and fills a cart", async ({ 
 });
 
 test(
-    "product deep links, cart, and checkout contact details survive navigation and reload",
+    "XB-E2E-10 product deep links, cart, and checkout contact details survive navigation and reload",
     { tag: "@browsers" },
     async ({ page, request }) => {
         const response = await request.get(`${api}/book/${slug}/shop`);

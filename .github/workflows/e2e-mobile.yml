@@ -7,23 +7,20 @@ permissions:
 
 jobs:
   shards:
-    # Fails when a walkthrough is in no shard or in two, and hands the shard list to android.
+    # Splits the walkthroughs into shards of about equal length by their measured seconds, for android.
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:
       shards: ${{ steps.shards.outputs.shards }}
     steps:
       - uses: actions/checkout@v7
-      - name: check every walkthrough is in exactly one shard
+      - uses: astral-sh/setup-uv@v10.3.0
+      - run: uv sync --frozen
+        working-directory: backend
+      - name: balance the walkthroughs into shards
         id: shards
-        working-directory: frontend/apps/mobile/e2e
-        run: |
-          listed=$(jq -r '.[].flows[]' shards.json | sort)
-          present=$(ls *.yaml | sort)
-          if [ "$listed" != "$present" ] || [ -n "$(echo "$listed" | uniq -d)" ]; then
-            diff <(echo "$listed") <(echo "$present"); echo "update e2e/shards.json"; exit 1
-          fi
-          echo "shards=$(jq -c . shards.json)" >> "$GITHUB_OUTPUT"
+        working-directory: backend
+        run: echo "shards=$(uv run python -m e2e.shards --surface native --count 5)" >> "$GITHUB_OUTPUT"
 
   build:
     # An x86_64 release APK for the emulator; when the native fingerprint is cached only the JS bundle is rebuilt.

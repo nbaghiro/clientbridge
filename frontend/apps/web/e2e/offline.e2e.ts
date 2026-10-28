@@ -21,7 +21,7 @@ async function setOffline(context: BrowserContext, browserName: string, offline:
 }
 
 test(
-    "the production shell restores its replica offline and locks expired offline access without deleting it",
+    "XB-E2E-05 the production shell restores its replica offline and locks expired offline access without deleting it",
     { tag: ["@browsers", "@no-webkit"] },
     async ({ page, context, browserName }) => {
         test.skip(!process.env.CI, "Requires the production service worker");

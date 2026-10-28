@@ -127,7 +127,7 @@ test("every client page explains an invalid link without offering a transaction"
 });
 
 test(
-    "business navigation connects the shop, booking, and homepage sections on mobile",
+    "XB-E2E-09 business navigation connects the shop, booking, and homepage sections on mobile",
     { tag: "@browsers" },
     async ({ page }) => {
         await page.setViewportSize({ width: 390, height: 844 });

@@ -21,7 +21,7 @@ test("a client opens the manage link and the move picker", async ({ page }) => {
 });
 
 test(
-    "a client sees a deposit due on the manage link and how to pay it",
+    "XB-E2E-14 a client sees a deposit due on the manage link and how to pay it",
     { tag: "@browsers" },
     async ({ page }) => {
         const errors = watchErrors(page);

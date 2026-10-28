@@ -25,7 +25,16 @@ import pytest
 import stripe
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
-from e2e import builds, native, snapshot, stripe_clients, stripe_recovery, stripe_relay, tier
+from e2e import (
+    builds,
+    coverage,
+    native,
+    snapshot,
+    stripe_clients,
+    stripe_recovery,
+    stripe_relay,
+    tier,
+)
 from e2e import relay as tier_relay
 from e2e import runner as functional
 from e2e import shards as sharding
@@ -34,6 +43,7 @@ from e2e import stripe as stripe_lane
 from e2e.namespace import Renamer
 from e2e.results import (
     BROWSER_CASES,
+    CASES,
     REQUIRED_CASES,
     SYNC_CASES,
     WEBKIT_EXCLUDED,
@@ -713,61 +723,89 @@ def test_every_browser_case_is_tagged_and_named_once() -> None:
         for path in (root / app / "e2e").glob(pattern)
         if "@browsers" in path.read_text()
     )
-    identities = [identity for cases in BROWSER_CASES.values() for identity in cases.values()]
+    identities = [identity for cases in BROWSER_CASES.values() for identity in cases]
     assert len(identities) == len(set(identities))
-    assert len(set(BROWSER_CASES["web"]) | set(BROWSER_CASES["connect"])) == len(
-        BROWSER_CASES["web"]
-    ) + len(BROWSER_CASES["connect"])
-    for identity in identities:
-        assert re.search(rf'test\(\s*"{re.escape(identity)}[ "]', sources), identity
+    declared = re.findall(rf'test\(\s*"({CASE_ID}) [^"]*",\s*(\{{[^}}]*\}})', sources)
+    tagged = {identity for identity, options in declared if "@browsers" in options}
+    assert tagged == set(identities)
     tags = re.findall(r'tag: (\[[^\]]*\]|"[^"]*")', sources)
     assert sum('"@browsers"' in tag for tag in tags) == len(identities)
-    excluded = [BROWSER_CASES["web"][identity] for identity in sorted(WEBKIT_EXCLUDED)]
-    for title in excluded:
+    for identity in sorted(WEBKIT_EXCLUDED):
         assert re.search(
-            rf'test\(\s*"{re.escape(title)}[ "][\s\S]{{0,300}}?{WEBKIT_EXCLUDED_TAG}', sources
-        ), title
-    assert sum(WEBKIT_EXCLUDED_TAG in tag for tag in tags) == len(excluded)
+            rf'test\(\s*"{re.escape(identity)} [\s\S]{{0,300}}?{WEBKIT_EXCLUDED_TAG}', sources
+        ), identity
+    assert sum(WEBKIT_EXCLUDED_TAG in tag for tag in tags) == len(WEBKIT_EXCLUDED)
     config = (root / "web" / "playwright.config.ts").read_text()
     assert f"grepInvert: /{WEBKIT_EXCLUDED_TAG}/" in config
 
 
 def test_webkit_alone_drops_the_offline_reload_cases() -> None:
     cases = browser_cases("web")
-    offline = {BROWSER_CASES["web"][identity] for identity in WEBKIT_EXCLUDED}
-    assert offline <= set(cases["firefox"])
-    assert not offline & set(cases["webkit"])
-    assert set(cases["firefox"]) - set(cases["webkit"]) == offline
+    assert set(cases["firefox"]) >= WEBKIT_EXCLUDED
+    assert not WEBKIT_EXCLUDED & set(cases["webkit"])
+    assert set(cases["firefox"]) - set(cases["webkit"]) == WEBKIT_EXCLUDED
     assert browser_cases("connect")["webkit"] == browser_cases("connect")["firefox"]
 
 
+CASE_ID = r"[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)+"
 LANE_FILES = {
-    "web": ("web", "*.e2e.ts"),
-    "connect": ("connect", "*.e2e.ts"),
-    "journeys": ("web", "journeys/*.journey.ts"),
-    "filings": ("web", "*.filing.ts"),
-    "stripe": ("connect", "stripe/*.stripe.ts"),
+    "web": ("apps/web/e2e", "*.e2e.ts"),
+    "connect": ("apps/connect/e2e", "*.e2e.ts"),
+    "journeys": ("apps/web/e2e", "journeys/*.journey.ts"),
+    "filings": ("apps/web/e2e", "*.filing.ts"),
+    "stripe": ("apps/connect/e2e", "stripe/*.stripe.ts"),
+    "sync": ("packages/sync/e2e", "*.e2e.ts"),
+    "native-ios": ("apps/mobile/e2e", "*.yaml"),
+    "native-android": ("apps/mobile/e2e", "*.yaml"),
 }
 
 
-def test_every_required_case_is_written_in_its_lanes_files() -> None:
-    apps = functional.ROOT / "frontend" / "apps"
-    for lane, (surface, pattern) in LANE_FILES.items():
-        sources = "\n".join(path.read_text() for path in (apps / surface / "e2e").glob(pattern))
-        for identity in REQUIRED_CASES[lane]:
-            assert f'"{identity} ' in sources, f"{lane}: {identity}"
-    flows = "\n".join(path.read_text() for path in (native.MOBILE / "e2e").glob("*.yaml"))
-    for platform in ("ios", "android"):
-        for identity in REQUIRED_CASES[f"native-{platform}"]:
-            assert f"name: {identity} " in flows, identity
+def lane_sources(lane: str) -> str:
+    folder, pattern = LANE_FILES[lane]
+    paths = (functional.ROOT / "frontend" / folder).glob(pattern)
+    # Android leaves out the flows tagged ios
+    return "\n".join(
+        text
+        for text in (path.read_text() for path in paths)
+        if lane != "native-android" or "    - ios\n" not in text
+    )
+
+
+def written_cases(source: str) -> set[str]:
+    return set(re.findall(rf'"({CASE_ID}) ', source)) | set(
+        re.findall(rf"^name: ({CASE_ID}) ", source, re.MULTILINE)
+    )
+
+
+def test_every_registered_case_is_written_in_its_lanes_files() -> None:
+    for lane in LANE_FILES:
+        written = written_cases(lane_sources(lane))
+        for identity, case in CASES.items():
+            if lane in case.lanes and case.status != "deferred":
+                assert identity in written, f"{lane}: {identity}"
+
+
+def test_every_case_in_a_lanes_files_is_registered_for_that_lane() -> None:
+    for lane in LANE_FILES:
+        registered = {identity for identity, case in CASES.items() if lane in case.lanes}
+        assert written_cases(lane_sources(lane)) <= registered, lane
+
+
+def test_every_family_a_case_names_is_an_audit_family() -> None:
+    known = {family.id for family in coverage.families()}
+    for identity, case in CASES.items():
+        assert set(case.families) <= known, identity
+    assert sum(coverage.totals()["all"].values()) == len(known)
 
 
 def test_every_sync_case_is_written_once_and_each_project_is_configured() -> None:
     e2e = functional.ROOT / "frontend" / "packages" / "sync"
     sources = "\n".join(path.read_text() for path in (e2e / "e2e").glob("*.e2e.ts"))
-    for project, cases in SYNC_CASES.items():
-        for identity in (case for case in cases if re.fullmatch(r"[A-Z]+-E2E-\d+", case)):
-            assert sources.count(f'"{identity} ') == 1, f"{project}: {identity}"
+    listed = {case for cases in SYNC_CASES.values() for case in cases}
+    listed = {case for case in listed if re.fullmatch(CASE_ID, case)}
+    assert listed == {identity for identity, case in CASES.items() if "sync" in case.lanes}
+    for identity in listed:
+        assert sources.count(f'"{identity} ') == 1, identity
     config = (e2e / "playwright.config.ts").read_text()
     assert "forbidOnly: true" in config
     for project in SYNC_CASES:
@@ -775,13 +813,15 @@ def test_every_sync_case_is_written_once_and_each_project_is_configured() -> Non
         assert f'"{engine}"' in config and (not storage or f"-{storage}" in config), project
 
 
-def test_the_native_lane_runs_every_walkthrough_once_in_shard_order() -> None:
-    flows = native.native_flows([])
+def test_every_walkthrough_lands_in_exactly_one_native_shard() -> None:
     present = sorted(path.name for path in (native.MOBILE / "e2e").glob("*.yaml"))
-    assert sorted(Path(flow).name for flow in flows) == present
-    shards = json.loads((native.MOBILE / "e2e" / "shards.json").read_text())
-    assert flows == [f"e2e/{flow}" for shard in shards for flow in shard["flows"]]
+    shards = sharding.native_shards(5)
+    assert sorted(flow for shard in shards for flow in shard["flows"]) == present
+    assert [shard["id"] for shard in shards] == ["1", "2", "3", "4", "5"]
+    assert native.native_flows([]) == [f"e2e/{flow}" for flow in present]
     assert native.native_flows(["clients.yaml"]) == ["e2e/clients.yaml"]
+    with pytest.raises(ValueError, match="use fewer shards"):
+        sharding.native_shards(len(present) + 1)
 
 
 def test_first_attempts_separate_flakes_from_failures() -> None:

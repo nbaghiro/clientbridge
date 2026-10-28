@@ -12,7 +12,7 @@ test.afterEach(async ({ page }) => {
 });
 
 test(
-    "bank setup rejects a missing link and removes provider secrets from the URL",
+    "XB-E2E-13 bank setup rejects a missing link and removes provider secrets from the URL",
     { tag: "@browsers" },
     async ({ page }) => {
         await page.goto(

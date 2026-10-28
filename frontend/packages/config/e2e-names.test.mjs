@@ -30,7 +30,6 @@ describe("e2e file names", () => {
                 "apps/mobile/e2e/today.yaml",
                 "apps/mobile/e2e/setup.yaml",
                 "apps/mobile/e2e/auth.recovery.yaml",
-                "apps/mobile/e2e/shards.json",
                 "apps/mobile/e2e/helpers/owner.yaml",
             ),
             [],

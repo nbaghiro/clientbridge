@@ -179,7 +179,7 @@ function gridBookings(main: Locator): Locator {
 }
 
 test(
-    "owner: shell, today, create menu, search, notifications and account menu",
+    "XB-E2E-08 owner: shell, today, create menu, search, notifications and account menu",
     { tag: "@browsers" },
     async ({ page }) => {
         const walk = await signIn(page, OWNER);

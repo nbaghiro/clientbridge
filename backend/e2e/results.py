@@ -4,165 +4,42 @@ import argparse
 import json
 from collections.abc import Mapping
 from pathlib import Path
+from typing import Literal
 from xml.etree import ElementTree
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, TypeAdapter
 
+Lane = Literal[
+    "web", "connect", "journeys", "filings", "stripe", "native-ios", "native-android", "sync"
+]
+
+
+class Case(BaseModel):
+    lanes: list[Lane]
+    browsers: bool
+    families: list[str]
+    status: Literal["implemented", "verified", "needs_decision", "deferred"]
+
+
+CASES: dict[str, Case] = TypeAdapter(dict[str, Case]).validate_json(
+    Path(__file__).with_name("cases.json").read_bytes()
+)
+# a lane requires its implemented cases; one awaiting a decision or deferred is left out
 REQUIRED_CASES = {
-    "web": [
-        "BILL-PILOT-01",
-        "BILL-PILOT-02",
-        "CRM-E2E-01",
-        "CRM-E2E-02",
-        "CRM-E2E-03",
-        "CRM-E2E-04",
-        "SCH-PILOT-01",
-        "BILL-DOC-01",
-        "BILL-DOC-02",
-        "BILL-DOC-03",
-        "BILL-DOC-04",
-        "BILL-DOC-20",
-        "SEC-E2E-01",
-        "SEC-E2E-02",
-        "OFF-E2E-01",
-        "OFF-E2E-02",
-        "OFF-E2E-03",
-        "OFF-E2E-04",
-        "SYN-E2E-08",
-        "SYN-E2E-02",
-        "CFG-E2E-01",
-        "CFG-E2E-02",
-        "CFG-E2E-03",
-        "CFG-E2E-04",
-        "FILES-E2E-01",
-        "MSG-E2E-01",
-        "MSG-E2E-02",
-        "MSG-E2E-03",
-        "PAY-E2E-01",
-        "PAY-E2E-02",
-        "PAY-E2E-03",
-        "REF-E2E-01",
-        "SALE-E2E-01",
-        "SALE-E2E-02",
-        "ENT-E2E-01",
-        "ENT-E2E-02",
-        "ENT-E2E-03",
-        "CRM-E2E-08",
-        "FIN-REPORT-01",
-        "FIN-EXPORT-02",
-        "MSG-E2E-10",
-        "MSG-E2E-11",
-        "MSG-E2E-13",
-        "MSG-E2E-16",
-        "PLN-E2E-01",
-        "PLN-E2E-02",
-        "PLN-E2E-03",
-        "ID-E2E-01",
-        "OPS-E2E-01",
-        "OPS-E2E-02",
-        "OPS-E2E-03",
-        "SALE-E2E-10",
-        "SALE-E2E-11",
-        "STR-E10",
-    ],
-    "connect": [
-        "DOC-E2E-01",
-        "DOC-E2E-02",
-        "DOC-E2E-03",
-        "DOC-E2E-04",
-        "DOC-E2E-05",
-        "EMBED-E2E-01",
-        "DOC-E2E-06",
-        "SALE-E2E-03",
-        "OPS-E2E-04",
-        "OPS-E2E-05",
-        "OPS-E2E-06",
-    ],
-    "journeys": [
-        "CLS-E2E-01",
-        "CRM-E2E-05",
-        "CRM-E2E-06",
-        "CRM-E2E-07",
-        "SCH-E2E-03",
-        "SCH-E2E-04",
-        "SCH-E2E-05",
-        "SCH-E2E-06",
-        "SCH-E2E-07",
-        "CLS-E2E-02",
-        "MSG-E2E-14",
-        "MSG-E2E-15",
-        "SALE-E2E-12",
-        "FLOW-02-A",
-        "FLOW-02-B",
-        "FLOW-03-A",
-        "FLOW-03-B",
-        "FLOW-04-A",
-        "FLOW-04-B",
-        "FLOW-05-A",
-        "FLOW-05-B",
-        "FLOW-06-A",
-        "FLOW-07-A",
-        "FLOW-07-B",
-        "FLOW-08-A",
-        "FLOW-08-B",
-        "FLOW-09-A",
-        "FLOW-10-A",
-    ],
-    "filings": ["FIN-RETURN-03"],
-    "native-ios": ["NATIVE-CRM-01", "NATIVE-IOS-01", "NATIVE-IOS-02", "NATIVE-IOS-03"],
-    "native-android": ["NATIVE-CRM-01", "NATIVE-IOS-01", "NATIVE-IOS-02"],
-    "stripe": [
-        "STRIPE-BROWSER-01",
-        "STRIPE-BROWSER-02",
-        "STRIPE-BROWSER-03",
-        "STRIPE-BROWSER-04",
-        "STRIPE-BROWSER-05",
-        "STRIPE-BROWSER-06",
-        "FIN-DEPOSIT-04",
-        "FIN-DEPOSIT-10",
-        "STR-E01",
-        "STR-E02",
-        "STR-E03",
-        "STR-E04",
-        "STR-E05",
-        "STR-E06",
-        "STR-E07",
-        "STR-E09",
-        "STR-E12",
-        "STR-E13",
-    ],
+    lane: [
+        identity
+        for identity, case in CASES.items()
+        if lane in case.lanes and case.status in ("implemented", "verified")
+    ]
+    for lane in ("web", "connect", "journeys", "filings", "native-ios", "native-android", "stripe")
 }
 
 
 BROWSERS = ("firefox", "webkit")
-# the cases each Firefox and WebKit project must run, keyed by their cross-browser case ID
+# the cases each Firefox and WebKit project must run
 BROWSER_CASES = {
-    "web": {
-        "XB-E2E-01": "sign up, confirm the email with the mailed code, then open a business",
-        "XB-E2E-02": "recover a forgotten password with an emailed code, staying signed in only "
-        "here",
-        "XB-E2E-03": "changing the password signs out every other device",
-        "XB-E2E-04": "turn on an authenticator app, then sign in with its code",
-        "XB-E2E-05": "the production shell restores its replica offline and locks expired offline "
-        "access without deleting it",
-        "XB-E2E-06": "OFF-E2E-01",
-        "XB-E2E-07": "BILL-PILOT-02",
-        "XB-E2E-08": "owner: shell, today, create menu, search, notifications and account menu",
-        "XB-E2E-17": "XB-E2E-17",
-        "XB-E2E-20": "XB-E2E-20",
-        "XB-E2E-21": "XB-E2E-21",
-    },
-    "connect": {
-        "XB-E2E-09": "business navigation connects the shop, booking, and homepage sections on "
-        "mobile",
-        "XB-E2E-10": "product deep links, cart, and checkout contact details survive navigation "
-        "and reload",
-        "XB-E2E-11": "SALE-E2E-03",
-        "XB-E2E-12": "booking drafts restore contact details and remain scoped to their business",
-        "XB-E2E-13": "bank setup rejects a missing link and removes provider secrets from the URL",
-        "XB-E2E-14": "a client sees a deposit due on the manage link and how to pay it",
-    },
-    "stripe": {"XB-E2E-15": "STRIPE-BROWSER-01", "XB-E2E-16": "STRIPE-BROWSER-03"},
+    lane: [identity for identity, case in CASES.items() if case.browsers and lane in case.lanes]
+    for lane in ("web", "connect", "stripe")
 }
 
 
@@ -229,20 +106,18 @@ SYNC_CASES = {
 
 
 # Playwright's WebKit can't load a service-worker page offline; Chromium and Firefox run these
-WEBKIT_EXCLUDED = frozenset({"XB-E2E-05", "XB-E2E-06"})
+WEBKIT_EXCLUDED = frozenset({"XB-E2E-05", "OFF-E2E-01"})
 # the tag that keeps a case out of the WebKit project, matched by its grepInvert
 WEBKIT_EXCLUDED_TAG = "@no-webkit"
 
 
 def browser_cases(surface: str) -> dict[str, list[str]]:
-    cases = BROWSER_CASES.get(surface, {})
+    cases = BROWSER_CASES.get(surface, [])
     if not cases:
         return {}
     return {
         project: [
-            title
-            for identity, title in cases.items()
-            if project != "webkit" or identity not in WEBKIT_EXCLUDED
+            identity for identity in cases if project != "webkit" or identity not in WEBKIT_EXCLUDED
         ]
         for project in BROWSERS
     }

@@ -7,7 +7,7 @@ import random
 import re
 import subprocess
 from pathlib import Path
-from typing import cast
+from typing import TypedDict, cast
 
 from e2e.results import (
     Report,
@@ -55,31 +55,40 @@ def listed_cases(stack: "Stack", args: argparse.Namespace) -> list[Spec]:
 
 # the Playwright configs' workers per lane
 WORKERS = 2
+SECONDS = Path(__file__).with_name("seconds.json")
+FLOWS = ROOT / "frontend" / "apps" / "mobile" / "e2e"
 
 
-def shard_seconds(units: dict[str, int], picked: list[str]) -> float:
+def shard_seconds(units: dict[str, int], picked: list[str], workers: int = WORKERS) -> float:
     """A shard's expected wall time: workers share its cases, but one file runs on one worker."""
     files: dict[str, int] = {}
     for unit in picked:
         file = unit.rsplit(":", 1)[0]
         files[file] = files.get(file, 0) + units[unit]
-    return max(sum(files.values()) / WORKERS, max(files.values(), default=0))
+    return max(sum(files.values()) / workers, max(files.values(), default=0))
 
 
-def balanced(units: dict[str, int], shards: int) -> list[list[str]]:
+def balanced(units: dict[str, int], shards: int, workers: int = WORKERS) -> list[list[str]]:
     """Longest first, each to the shard whose expected wall time grows the least."""
     picked: list[list[str]] = [[] for _ in range(shards)]
     for unit, _ in sorted(units.items(), key=lambda item: (-item[1], item[0])):
-        best = min(range(shards), key=lambda i: (shard_seconds(units, [*picked[i], unit]), i))
+        best = min(
+            range(shards), key=lambda i: (shard_seconds(units, [*picked[i], unit], workers), i)
+        )
         picked[best].append(unit)
     return picked
+
+
+def usual_seconds(seconds: dict[str, int]) -> int:
+    """The median measured time, for a case or flow that has none yet."""
+    known = sorted(seconds.values())
+    return known[len(known) // 2] if known else 30
 
 
 def shard_filters(cases: list[Spec], seconds: dict[str, int], shard: str) -> list[str]:
     """This shard's cases as file:line filters, balanced by each case's measured seconds."""
     index, total = (int(part) for part in shard.split("/"))
-    known = sorted(seconds.values())
-    usual = known[len(known) // 2] if known else 30
+    usual = usual_seconds(seconds)
     units: dict[str, int] = {}
     for case in cases:
         # cases declared on one line, such as a loop's, can only be selected together
@@ -91,9 +100,44 @@ def shard_filters(cases: list[Spec], seconds: dict[str, int], shard: str) -> lis
     return sorted(picked)
 
 
+def measured_seconds() -> dict[str, dict[str, int]]:
+    return cast(dict[str, dict[str, int]], json.loads(SECONDS.read_text()))
+
+
 def case_seconds(surface: str) -> dict[str, int]:
-    path = ROOT / "frontend" / "apps" / playwright_app(surface) / "e2e" / "case-seconds.json"
-    return cast(dict[str, int], json.loads(path.read_text())) if path.is_file() else {}
+    return measured_seconds()["web"] if playwright_app(surface) == "web" else {}
+
+
+def flow_name(flow: Path) -> str:
+    """A Maestro flow's name, which its reports and measured seconds use."""
+    for line in flow.read_text().splitlines():
+        if line.startswith("name: "):
+            return line.removeprefix("name: ").strip()
+    return flow.stem
+
+
+class Shard(TypedDict):
+    id: str
+    name: str
+    flows: list[str]
+
+
+def native_shards(count: int) -> list[Shard]:
+    """The Maestro flows in shards of about equal length; one device runs a shard in turn."""
+    seconds = measured_seconds()["mobile"]
+    usual = usual_seconds(seconds)
+    units = {flow.name: seconds.get(flow_name(flow), usual) for flow in FLOWS.glob("*.yaml")}
+    shards = [sorted(picked) for picked in balanced(units, count, workers=1)]
+    if not all(shards):
+        raise ValueError(f"{count} shards leave one without flows; use fewer shards")
+    return [
+        Shard(
+            id=str(index),
+            name=", ".join(flow.removesuffix(".yaml") for flow in picked),
+            flows=picked,
+        )
+        for index, picked in enumerate(shards, 1)
+    ]
 
 
 def shuffled_config(stack: "Stack", args: argparse.Namespace, seed: int) -> str:
@@ -134,3 +178,15 @@ def shard(value: str) -> str:
     if not match or not 1 <= int(match[1]) <= int(match[2]):
         raise argparse.ArgumentTypeError("a shard is <index>/<total>, e.g. 2/3")
     return value
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(prog="python -m e2e.shards")
+    parser.add_argument("--surface", choices=("native",), required=True)
+    parser.add_argument("--count", type=int, required=True)
+    args = parser.parse_args()
+    print(json.dumps(native_shards(args.count)))
+
+
+if __name__ == "__main__":
+    main()

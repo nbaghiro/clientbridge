@@ -14,7 +14,7 @@ from contextlib import ExitStack, contextmanager
 from functools import partial
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import IO, Literal, cast
+from typing import IO, Literal
 
 from clientbridge.core import clock
 from e2e import tier
@@ -259,9 +259,8 @@ def build_native(platform: str) -> None:
 
 
 def native_flows(tests: list[str]) -> list[str]:
-    """The named flows, or every walkthrough in the order e2e/shards.json lists them."""
-    shards = cast(list[dict[str, object]], json.loads((MOBILE / "e2e" / "shards.json").read_text()))
-    names = tests or [str(flow) for shard in shards for flow in cast(list[object], shard["flows"])]
+    """The named flows, or every walkthrough in name order."""
+    names = tests or sorted(flow.name for flow in (MOBILE / "e2e").glob("*.yaml"))
     return [str(Path("e2e") / name) for name in names]
 
 

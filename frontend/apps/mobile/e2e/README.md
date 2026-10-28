@@ -13,11 +13,11 @@ make test-functional FUNCTIONAL_ARGS="--build-native android"
 make test-functional FUNCTIONAL_ARGS="--surface native --platform android --device emulator-5554"
 ```
 
-Without flow names the lane runs every flow in the order `shards.json` lists them; name flow files after the arguments to run only those, for example `... --device <udid> clients.yaml`. The build is `ca.clientbridge.app.e2e` ("Clientbridge E2E"), so a development build and its data stay untouched; the lane installs it fresh, and uninstalls it when it finishes. The build has `127.0.0.1` (iOS) or the emulator's `10.0.2.2` (Android) on ports 8794, 8795 and 8796 compiled in, and the lane forwards those to the run's API and the tier's auth and PowerSync, so no `adb reverse` is needed. Because those ports and Maestro's driver port 8797 are fixed, one native run at a time holds them. The lane never starts, boots or shuts down a device.
+Without flow names the lane runs every flow in file-name order; name flow files after the arguments to run only those, for example `... --device <udid> clients.yaml`. The build is `ca.clientbridge.app.e2e` ("Clientbridge E2E"), so a development build and its data stay untouched; the lane installs it fresh, and uninstalls it when it finishes. The build has `127.0.0.1` (iOS) or the emulator's `10.0.2.2` (Android) on ports 8794, 8795 and 8796 compiled in, and the lane forwards those to the run's API and the tier's auth and PowerSync, so no `adb reverse` is needed. Because those ports and Maestro's driver port 8797 are fixed, one native run at a time holds them. The lane never starts, boots or shuts down a device.
 
 Flows tagged `lane` call `helpers/control.js`, which asks the lane to cut the forwarded services (`offline`), restore them (`online`) or deliver a push (`push`). Going offline this way leaves the device's own network alone, unlike airplane mode, so a shared emulator stays usable. Flows tagged `ios` run only on iOS. The lane passes `APP_ID`, `E2E_NAMESPACE`, `MAILPIT_URL`, `AUTH_ADMIN_URL` and `CONTROL_URL`; the flows stop with an error when one is missing. Every run has its own copy of the core demo businesses, so the logins carry its namespace (`hannah+<namespace>@birchbark.example`), and a throwaway recovery login does too, which is how the tier routes its reset mail to the run.
 
-The reports land in `.scratchpad/e2e-<id>/`: `native-results.xml` (JUnit, checked against the required cases in `backend/e2e/results.py`), `native-artifacts/` screenshots, `native-debug/` Maestro and XCUITest logs, and `control.log`.
+The reports land in `.scratchpad/e2e-<id>/`: `native-results.xml` (JUnit, checked against the cases `backend/e2e/cases.json` registers for the platform), `native-artifacts/` screenshots, `native-debug/` Maestro and XCUITest logs, and `control.log`.
 
 On iOS the lane restarts the simulator's pasteboard daemon first. A stuck `pasted` blocks the app's main thread whenever a text field takes focus, which Maestro reports as `Unable to perform work on main run loop, process main thread busy for 30.0s`; that was the earlier iOS keyboard failure, not an app fault.
 
@@ -25,7 +25,7 @@ On iOS the lane restarts the simulator's pasteboard daemon first. A stuck `paste
 
 ## Coverage
 
-Each flow is named after the concept it covers, as `<concept>.yaml`, or `<concept>.<aspect>.yaml` when a concept has more than one flow. `shards.json` sets the order and splits the flows into CI's shards, and the `shards` job fails when a flow is in no shard or in two.
+Each flow is named after the concept it covers, as `<concept>.yaml`, or `<concept>.<aspect>.yaml` when a concept has more than one flow. CI's `shards` job splits the flows into five shards of about equal length with `python -m e2e.shards --surface native --count 5`, from each flow's measured seconds in `backend/e2e/seconds.json` (the median for a flow with none yet), so a new flow needs no shard list.
 
 | Flow                  | Checks                                                                                                                                                                  |
 | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

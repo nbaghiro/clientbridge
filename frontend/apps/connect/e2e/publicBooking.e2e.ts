@@ -160,7 +160,7 @@ test("anyone books with any member, and a refused or unreachable booking reads a
 });
 
 test(
-    "booking drafts restore contact details and remain scoped to their business",
+    "XB-E2E-12 booking drafts restore contact details and remain scoped to their business",
     { tag: "@browsers" },
     async ({ page }) => {
         // drafts live in book.'s session storage, so they are written on that origin first
