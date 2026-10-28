@@ -700,10 +700,10 @@ with basis `adjustment`, a reason and the member as subject.
 
 A pay moves the rows it names in one run, approving any still pending on the way, and settles with them the
 member's open clawbacks and returned tips whose earning or tip is paid, reversed or in the same run. A run that
-would pay a member nothing or less is refused. Every move locks the members' staff rows in id order, then the
-rows' subjects in sorted order. An undone payment keeps its run's id, so the run's CSV nets it out. A refund
-that fails cancels its returned tips that no pay has settled. An admin can't approve, pay or adjust their own
-pay; only the owner can.
+would pay a member less than nothing is refused; one that nets to nothing settles refunded work. Every move
+locks the members' staff rows in id order, then the rows' subjects in sorted order. An undone payment keeps its
+run's id, so the run's CSV nets it out. A refund that fails cancels its returned tips that no pay has settled.
+An admin can't approve, pay or adjust their own pay; only the owner can.
 
 Derived from the ledger rather than stored: an invoice's and order's balance and amount paid, gift card
 balances, package deferred revenue, client lifetime value, staff earnings and their status, tax payable per code, today's revenue, and Stripe

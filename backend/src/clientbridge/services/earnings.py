@@ -186,9 +186,10 @@ class EarningService:
                 totals: dict[str, int] = defaultdict(int)
                 for earning in ready:
                     totals[earning.staff_id] += earning.amount_cents
-                if any(total <= 0 for total in totals.values()):
+                # a run that nets to nothing settles refunded work against what took it back
+                if any(total < 0 for total in totals.values()):
                     raise Conflict(
-                        "a pay run must pay each member more than nothing", code="pay_not_positive"
+                        "a pay run can't pay a member less than nothing", code="pay_negative"
                     )
                 meta = {"run": new_id("pay_run")}
                 if through is not None:

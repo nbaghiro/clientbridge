@@ -77,7 +77,7 @@ const FAILURES: Record<string, (detail: FailureDetail) => string> = {
     idempotency_key_reused: () => strings.api.idempotencyKeyReused,
     concurrent_change: () => strings.api.concurrentChange,
     earning_moved: () => strings.api.earningMoved,
-    pay_not_positive: () => strings.api.payNotPositive,
+    pay_negative: () => strings.api.payNegative,
     own_pay: () => strings.api.ownPay,
     visit_not_started: () => strings.api.visitNotStarted,
     estimate_booked: () => strings.api.estimateBooked,

@@ -357,9 +357,9 @@
         "message": "This pay changed since it loaded. Check the list and try again.",
         "description": "Another device approved, paid or undid the same earning first."
     },
-    "api.payNotPositive": {
-        "message": "This pay comes to nothing or less, because refunds or deductions outweigh it. Pay it once more is earned.",
-        "description": "A pay run must pay each member a positive total."
+    "api.payNegative": {
+        "message": "This pay comes to less than nothing, because refunds or deductions outweigh it. Pay it once more is earned.",
+        "description": "A pay run can't pay a member a negative total."
     },
     "api.ownPay": {
         "message": "Only the owner can approve or pay your own earnings."
@@ -2483,6 +2483,13 @@
         "message": "Mark {amount} as paid to {name}?",
         "args": ["amount", "name"]
     },
+    "earnings.review.settleTitle": {
+        "message": "Settle with {name}?",
+        "args": ["name"]
+    },
+    "earnings.review.settleBody": {
+        "message": "These cancel out, so nothing changes hands. The work and what took it back are both marked paid."
+    },
     "earnings.review.payBody": {
         "message": "Do this once you've paid your team. No money moves from here."
     },
@@ -2503,6 +2510,10 @@
     },
     "earnings.review.undo": {
         "message": "Undo"
+    },
+    "earnings.settle": {
+        "message": "Settle",
+        "description": "Button that closes out picked staff pay rows that net to zero, such as refunded work and its clawback"
     },
     "earnings.payApproved": {
         "message": "Pay {amount}",

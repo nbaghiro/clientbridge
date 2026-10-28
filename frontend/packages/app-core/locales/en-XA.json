@@ -323,8 +323,8 @@
     "api.earningMoved": {
         "message": "[Ţĥîš þåý çĥåñĝéð šîñçé îţ ļöåðéð. Çĥéçķ ţĥé ļîšţ åñð ţŕý åĝåîñ. one two three four]"
     },
-    "api.payNotPositive": {
-        "message": "[Ţĥîš þåý çöɱéš ţö ñöţĥîñĝ öŕ ļéšš, ƀéçåûšé ŕéƒûñðš öŕ ðéðûçţîöñš öûţŵéîĝĥ îţ. Þåý îţ öñçé ɱöŕé îš éåŕñéð. one two three four five six seven]"
+    "api.payNegative": {
+        "message": "[Ţĥîš þåý çöɱéš ţö ļéšš ţĥåñ ñöţĥîñĝ, ƀéçåûšé ŕéƒûñðš öŕ ðéðûçţîöñš öûţŵéîĝĥ îţ. Þåý îţ öñçé ɱöŕé îš éåŕñéð. one two three four five six seven]"
     },
     "api.ownPay": {
         "message": "[Öñļý ţĥé öŵñéŕ çåñ åþþŕöṽé öŕ þåý ýöûŕ öŵñ éåŕñîñĝš. one two three four]"
@@ -2279,6 +2279,12 @@
     "earnings.review.payTitle": {
         "message": "[Ṁåŕķ {amount} åš þåîð ţö {name}? one two]"
     },
+    "earnings.review.settleTitle": {
+        "message": "[Šéţţļé ŵîţĥ {name}? one two]"
+    },
+    "earnings.review.settleBody": {
+        "message": "[Ţĥéšé çåñçéļ öûţ, šö ñöţĥîñĝ çĥåñĝéš ĥåñðš. Ţĥé ŵöŕķ åñð ŵĥåţ ţööķ îţ ƀåçķ åŕé ƀöţĥ ɱåŕķéð þåîð. one two three four five six]"
+    },
     "earnings.review.payBody": {
         "message": "[Đö ţĥîš öñçé ýöû'ṽé þåîð ýöûŕ ţéåɱ. Ñö ɱöñéý ɱöṽéš ƒŕöɱ ĥéŕé. one two three four]"
     },
@@ -2299,6 +2305,9 @@
     },
     "earnings.review.undo": {
         "message": "[Ûñðö one]"
+    },
+    "earnings.settle": {
+        "message": "[Šéţţļé one]"
     },
     "earnings.payApproved": {
         "message": "[Þåý {amount} one]"

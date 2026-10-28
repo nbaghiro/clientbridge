@@ -251,6 +251,34 @@ describe("useEarningApprovals", () => {
         expect(back?.title).toBe(strings.earnings.refundOf("Wash"));
     });
 
+    it("settles refunded work that nets to nothing, after asking", async () => {
+        rows.earnings = [
+            ...baseline(),
+            earning("e_cy_done", "st_cy", 500, { status: "approved" }),
+            earning("e_cy_done_back", "st_cy", -500, { basis: "clawback", of: "e_cy_done" }),
+        ];
+        const { result } = renderHook(() => useEarningApprovals(api, owner));
+        act(() => {
+            result.current.select("st_cy");
+            result.current.togglePick("e_cy_done");
+        });
+        expect(result.current.payLabel).toBe(strings.earnings.settle);
+        expect(result.current.canPay).toBe(true);
+        act(() => {
+            result.current.pay();
+        });
+        expect(review).toHaveBeenLastCalledWith(
+            expect.objectContaining({ title: strings.earnings.review.settleTitle("Cy") }),
+            expect.anything(),
+        );
+        await confirm();
+        expect(post).toHaveBeenLastCalledWith(
+            "/v1/earnings/pay",
+            { ids: ["e_cy_done"] },
+            expect.anything(),
+        );
+    });
+
     it("holds a returned tip back until the tip it returns is paid", () => {
         rows.earnings = [
             ...baseline(),
@@ -394,7 +422,7 @@ describe("useEarningApprovals", () => {
 
     it("shows the server's reason when a move is refused", async () => {
         post.mockImplementationOnce(() =>
-            Promise.reject(Object.assign(new Error("refused"), { code: "pay_not_positive" })),
+            Promise.reject(Object.assign(new Error("refused"), { code: "pay_negative" })),
         );
         const { result } = renderHook(() => useEarningApprovals(api, owner));
         act(() => {
@@ -404,7 +432,7 @@ describe("useEarningApprovals", () => {
             result.current.pay();
         });
         await confirm();
-        expect(result.current.error).toBe(strings.api.payNotPositive);
+        expect(result.current.error).toBe(strings.api.payNegative);
     });
 });
 
