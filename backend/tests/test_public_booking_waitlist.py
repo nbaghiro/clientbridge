@@ -8,7 +8,6 @@ from clientbridge.core.ids import new_id
 from clientbridge.models.catalog import Item
 from clientbridge.models.messaging import Delivery
 from clientbridge.models.scheduling import Booking, BookingStatus, Slot
-from clientbridge.services.deliveries import DELIVERIES_JOB
 from tests.conftest import BIZ, Factory, FakeJobs
 from tests.helpers import key, queued_subjects
 
@@ -126,7 +125,7 @@ async def test_a_seat_canceled_online_goes_to_the_first_person_waiting(
     jobs.work, jobs.enqueued = False, []
     res = await api.post(f"/manage/{leaving}/cancel", headers=key())
     assert res.status_code == 200, res.text
-    assert jobs.enqueued == [DELIVERIES_JOB]
+    assert jobs.enqueued == []  # the seat notice waits for the scheduled sweep
     seated = (await api.get(f"/manage/{waiting['manage_token']}")).json()
     assert seated["status"] == "confirmed" and seated["waitlist_position"] is None
     assert await queued_subjects(db, f"seat:{slot_id}:{waiting['booking_id']}") == [

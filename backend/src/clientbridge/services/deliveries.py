@@ -84,17 +84,16 @@ async def send_queued(
     transport_override: bool = False,
     leave: tuple[str, ...] = (),
 ) -> int:
-    """Send what this session queued; with `jobs`, only `inline` now and the rest by the worker."""
+    """Send what this session queued; with `jobs`, `inline` now, the rest woken; `leave` waits."""
     queued: dict[str, str] = db.info.pop(_QUEUED, {})
-    now = [identity for identity, key in queued.items() if key.split(":", 1)[0] not in leave]
-    if jobs is not None:
-        now = now[:inline]
+    due = [identity for identity, key in queued.items() if key.split(":", 1)[0] not in leave]
+    now = due if jobs is None else due[:inline]
     sent = 0
     for identity in now:
         sent += await dispatch(
             db, identity, email, sms, push, transport_override=transport_override
         )
-    if jobs is not None and len(now) < len(queued):
+    if jobs is not None and len(now) < len(due):
         await jobs.enqueue(DELIVERIES_JOB)
     return sent
 
