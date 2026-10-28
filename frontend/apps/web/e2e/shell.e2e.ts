@@ -709,8 +709,9 @@ test("owner: payments desk, records and their dialogs", async ({ page }) => {
         await expect(page.getByRole("dialog")).toContainText(d.discountScope);
         await escapeDialog(page);
         await ticket.getByRole("button", { name: /^Charge/ }).click();
-        await expect(page.getByRole("dialog")).toContainText(d.howPaying);
-        await escapeDialog(page);
+        const payment = page.getByRole("complementary", { name: d.payTitle, exact: true });
+        await expect(payment).toContainText(d.howPaying);
+        await payment.getByRole("button", { name: d.backToTicket, exact: true }).click();
         await ticket.getByRole("button", { name: d.clear }).click();
     });
 
