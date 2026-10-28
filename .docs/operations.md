@@ -154,7 +154,7 @@ this document remains the reference for Secret Manager, infrastructure and deplo
 
 ### Stripe sandbox for hosted CI
 
-`stripe-qa.yml` runs the backend sandbox suite and the real Stripe browser lane every night at 10:00 UTC and by hand, from `main` only. Both jobs read the protected GitHub environment `stripe-sandbox`: the secrets `STRIPE_TEST_SECRET_KEY` and `STRIPE_TEST_PUBLISHABLE_KEY`, and the variables `STRIPE_TEST_PLATFORM`, `STRIPE_TEST_CONNECTED_ACCOUNT` and `STRIPE_TEST_OTHER_ACCOUNT`. The cloud stack creates that environment from its config once all five keys are set, with a deployment branch policy that admits only `main`, the same rule the workflow's `if` applies. Until then it creates nothing, and a partly set group stops the stack.
+`stripe-qa.yml` runs the backend sandbox suite and the real Stripe browser lane by hand, from `main` only. Both jobs read the protected GitHub environment `stripe-sandbox`: the secrets `STRIPE_TEST_SECRET_KEY` and `STRIPE_TEST_PUBLISHABLE_KEY`, and the variables `STRIPE_TEST_PLATFORM`, `STRIPE_TEST_CONNECTED_ACCOUNT` and `STRIPE_TEST_OTHER_ACCOUNT`. The cloud stack creates that environment from its config once all five keys are set, with a deployment branch policy that admits only `main`, the same rule the workflow's `if` applies. Until then it creates nothing, and a partly set group stops the stack.
 
 CI uses its own pair of merchants, tagged `clientbridge_qa_environment=ci`, so a hosted run never shares a merchant lease with a local one. To create them, with the local `clientbridge` Stripe CLI profile on the sandbox platform:
 
