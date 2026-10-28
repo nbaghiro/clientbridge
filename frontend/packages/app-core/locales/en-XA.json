@@ -1211,6 +1211,9 @@
     "billing.doc.share": {
         "message": "[Šĥåŕé one]"
     },
+    "billing.backToInvoice": {
+        "message": "[Ɓåçķ ţö îñṽöîçé one two]"
+    },
     "billing.doc.back": {
         "message": "[Ɓåçķ one]"
     },
@@ -1567,9 +1570,6 @@
     },
     "pos.desk.giftCardPaid": {
         "message": "[Ĝîƒţ çåŕð one]"
-    },
-    "pos.desk.giftCardCredit": {
-        "message": "[{money} ƒŕöɱ å ĝîƒţ çåŕð one two]"
     },
     "pos.desk.giftCardBeforeTip": {
         "message": "[Åþþļý ţĥé ĝîƒţ çåŕð ƀéƒöŕé çĥööšîñĝ å ţîþ. one two three]"

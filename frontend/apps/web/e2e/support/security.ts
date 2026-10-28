@@ -96,11 +96,11 @@ export async function expectOwnerUnchanged(page: Page, fixture: SecurityFixture)
     await expect(
         page.getByRole("button", { name: strings.billing.rec.record("$6.00"), exact: true }),
     ).toBeVisible();
-    const paymentDialog = page.getByRole("dialog").last();
+    const payment = page.getByRole("region", { name: strings.billing.rec.title, exact: true });
     await expect(
-        paymentDialog.getByRole("heading", { name: strings.billing.rec.title, exact: true }),
+        payment.getByRole("heading", { name: strings.billing.rec.title, exact: true }),
     ).toBeVisible();
-    await paymentDialog.getByRole("button", { name: strings.common.close, exact: true }).click();
+    await payment.getByRole("button", { name: strings.billing.backToInvoice, exact: true }).click();
     await page
         .getByRole("dialog")
         .getByRole("button", { name: strings.common.close, exact: true })

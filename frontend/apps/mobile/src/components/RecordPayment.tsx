@@ -51,6 +51,8 @@ export function RecordPayment({ rec, onClose }: { rec: InvoiceRecord; onClose: (
             <SheetHeader
                 title={r.title}
                 subtitle={r.subtitle(rec.row.client_name ?? "", rec.title)}
+                onClose={onClose}
+                closeLabel={strings.billing.backToInvoice}
             />
             <View style={styles.head}>
                 <Text style={styles.caps}>{strings.billing.balanceDue}</Text>

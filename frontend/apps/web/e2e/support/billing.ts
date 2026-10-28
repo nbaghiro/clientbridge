@@ -92,7 +92,7 @@ export async function expectPaid(page: Page): Promise<void> {
     ).toHaveCount(0);
 }
 
-/** Records a manual payment through the invoice's dialog, for part of the balance when given. */
+/** Records a manual payment in the invoice's drawer, for part of the balance when given. */
 export async function recordPayment(
     page: Page,
     method: "cash" | "etransfer",
@@ -101,7 +101,7 @@ export async function recordPayment(
 ): Promise<string> {
     const r = strings.billing.rec;
     await page.getByRole("button", { name: strings.billing.recordPayment, exact: true }).click();
-    const dialog = page.getByRole("dialog", { name: r.title, exact: true });
+    const dialog = page.getByRole("region", { name: r.title, exact: true });
     await dialog
         .getByRole("group", { name: r.howPaid, exact: true })
         .getByRole("button")

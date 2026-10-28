@@ -666,23 +666,12 @@ function PayBody({
         );
     return (
         <View style={styles.stack}>
-            <View style={styles.row}>
-                <View style={styles.grow}>
-                    <Text style={styles.title}>{d.payTitle}</Text>
-                    <Text style={styles.soft}>{d.payFor(sale.client?.name ?? d.walkIn)}</Text>
-                </View>
-                <Text style={styles.big}>{formatMoney(due, BUSINESS_CURRENCY)}</Text>
-            </View>
-            {sale.totals.depositCents > 0 ? (
-                <Text style={styles.note}>
-                    {d.depositCredit(formatMoney(sale.totals.depositCents, BUSINESS_CURRENCY))}
-                </Text>
-            ) : null}
-            {sale.totals.giftCardCents > 0 ? (
-                <Text style={styles.note}>
-                    {d.giftCardCredit(formatMoney(sale.totals.giftCardCents, BUSINESS_CURRENCY))}
-                </Text>
-            ) : null}
+            <SheetHeader
+                title={d.payTitle}
+                subtitle={d.payFor(sale.client?.name ?? d.walkIn)}
+                onClose={sale.busy ? undefined : onBack}
+                closeLabel={d.backToTicket}
+            />
             <TipBlock sale={sale} />
             <GiftCardEntry sale={sale} />
             <Heading>{d.howPaying}</Heading>
@@ -698,6 +687,7 @@ function PayBody({
             {sale.method === "saved" && sale.savedCardLabel !== null ? (
                 <Text style={styles.soft}>{d.savedCardCharge(sale.savedCardLabel)}</Text>
             ) : null}
+            <DocTotals currency={BUSINESS_CURRENCY} lines={sale.totalLines} density="compact" />
             {sale.error !== null ? <Notice tone="danger">{sale.error}</Notice> : null}
             <Button
                 size="lg"
@@ -725,9 +715,6 @@ function PayBody({
                     {d.sendAsInvoice}
                 </Button>
             ) : null}
-            <Button variant="quiet" full onPress={onBack} disabled={sale.busy}>
-                {d.backToTicket}
-            </Button>
         </View>
     );
 }
@@ -989,12 +976,6 @@ const styles = StyleSheet.create({
         fontWeight: "600",
         letterSpacing: 0.6,
         textTransform: "uppercase",
-    },
-    title: {
-        color: c.ink,
-        fontFamily: theme.fonts.ui,
-        fontSize: theme.type.section,
-        fontWeight: "700",
     },
     big: {
         color: c.ink,

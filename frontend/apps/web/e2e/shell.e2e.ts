@@ -638,7 +638,7 @@ test("owner: payments desk, records and their dialogs", async ({ page }) => {
         await openInvoice(page, invoice);
         const record = page.getByRole("dialog");
         await record.getByRole("button", { name: s.recordPayment }).click();
-        await expect(page.getByRole("dialog", { name: s.rec.title, exact: true })).toContainText(
+        await expect(page.getByRole("region", { name: s.rec.title, exact: true })).toContainText(
             s.rec.howPaid,
         );
         await page.keyboard.press("Escape");

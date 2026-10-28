@@ -1322,6 +1322,10 @@
     "billing.doc.share": {
         "message": "Share"
     },
+    "billing.backToInvoice": {
+        "message": "Back to invoice",
+        "description": "Label of the back arrow that leaves recording a payment for the invoice's details"
+    },
     "billing.doc.back": {
         "message": "Back"
     },
@@ -1717,10 +1721,6 @@
     },
     "pos.desk.giftCardPaid": {
         "message": "Gift card"
-    },
-    "pos.desk.giftCardCredit": {
-        "message": "{money} from a gift card",
-        "args": ["money"]
     },
     "pos.desk.giftCardBeforeTip": {
         "message": "Apply the gift card before choosing a tip."

@@ -44,7 +44,7 @@ import { useSearchParams } from "react-router-dom";
 import { SellEntitlement } from "../components/EntitlementSales";
 import { SalesBoard, SalesHistory } from "../components/SaleOrders";
 import { DeskBar } from "../components/Desk";
-import { PaySheet, TicketPanel } from "../components/SaleTicket";
+import { TicketPanel } from "../components/SaleTicket";
 import { api, apiBaseUrl } from "../lib/api";
 import { useViewer } from "../lib/auth";
 import { useOpenLink } from "../lib/links";
@@ -199,7 +199,6 @@ function Register({ sale, switcher }: { sale: SaleTicket; switcher: ReactNode })
     const visitId = sale.visitId;
     const catalog = useRegisterCatalog();
     const openLink = useOpenLink();
-    const [paying, setPaying] = useState(false);
     const [selling, setSelling] = useState<WalletKind | null>(null);
     const onTicket = (id: string): number =>
         sale.lines.filter((l) => l.itemId === id).reduce((n, l) => n + l.quantity, 0);
@@ -346,26 +345,14 @@ function Register({ sale, switcher }: { sale: SaleTicket; switcher: ReactNode })
 
             <TicketPanel
                 sale={sale}
-                onCharge={() => {
-                    setPaying(true);
+                onBookNext={() => {
+                    openTask(
+                        visitId === null
+                            ? { kind: "booking" }
+                            : { kind: "booking", rebookId: visitId },
+                    );
                 }}
             />
-            {paying ? (
-                <PaySheet
-                    sale={sale}
-                    onClose={() => {
-                        setPaying(false);
-                    }}
-                    onBookNext={() => {
-                        setPaying(false);
-                        openTask(
-                            visitId === null
-                                ? { kind: "booking" }
-                                : { kind: "booking", rebookId: visitId },
-                        );
-                    }}
-                />
-            ) : null}
             {selling !== null ? (
                 <Modal
                     variant="drawer"
