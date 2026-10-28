@@ -48,8 +48,11 @@ test("CRM-E2E-05 verified returning customer books the selected existing pet and
             customer.getByRole("textbox", { name: strings.publicBooking.name, exact: true }),
         ).toHaveValue(fixture.clientName);
         await expect(
-            customer.getByRole("textbox", { name: strings.publicBooking.phone, exact: true }),
-        ).toHaveValue("");
+            customer.getByRole("textbox", {
+                name: `${strings.publicBooking.phone} *`,
+                exact: true,
+            }),
+        ).toHaveValue(fixture.clientPhone);
         const submitted = customer.waitForResponse(
             (r) =>
                 new URL(r.url()).pathname === `/book/${demoSlug("birchbark")}` &&
@@ -208,7 +211,7 @@ test("CRM-E2E-07 editing verified contact clears proof and keeps conflicting det
         expect(baseline.bookings).toEqual([]);
         expect(baseline.slots).toEqual([]);
         await customer
-            .getByRole("textbox", { name: strings.publicBooking.phone, exact: true })
+            .getByRole("textbox", { name: `${strings.publicBooking.phone} *`, exact: true })
             .fill(phone);
         const submitting = customer.waitForResponse(
             (r) =>
@@ -231,7 +234,10 @@ test("CRM-E2E-07 editing verified contact clears proof and keeps conflicting det
             customer.getByText(strings.api.contactAmbiguous, { exact: true }),
         ).toBeVisible();
         await expect(
-            customer.getByRole("textbox", { name: strings.publicBooking.phone, exact: true }),
+            customer.getByRole("textbox", {
+                name: `${strings.publicBooking.phone} *`,
+                exact: true,
+            }),
         ).toHaveValue(phone);
         await expect(
             customer.getByText(strings.publicBooking.slotTaken, { exact: true }),
@@ -305,10 +311,10 @@ async function bookVisit(
     throw new Error("No free hour for the visit");
 }
 
-async function openMerge(page: Page, run: string, kept: ClientFixture, other: ClientFixture) {
+async function openMerge(page: Page, search: string, kept: ClientFixture, other: ClientFixture) {
     await navigate(page, "/today");
     await navigate(page, "/clients");
-    await page.getByRole("searchbox").fill(run);
+    await page.getByRole("searchbox").fill(search);
     await page.getByRole("button", { name: t.select, exact: true }).click();
     await page.getByRole("checkbox", { name: kept.name, exact: true }).check();
     await page.getByRole("checkbox", { name: other.name, exact: true }).check();
@@ -447,15 +453,17 @@ test("FLOW-04-B a merge moves a duplicate's pet, note and visit onto the kept ti
     test.setTimeout(240_000);
     await signIn(page);
     const run = randomUUID();
-    const kept = await createClient(page, demoPerson(run), run);
+    // the numbers share all but their last digit, so one search finds the three and nobody else
+    const shared = freshPhone().slice(0, -1);
+    const kept = await createClient(page, demoPerson(run), `${shared}1`);
     const names = [`${run}:duplicate`, `${run}:paid`, `${run}:other`]
         .map((seed) => demoPerson(seed))
         .filter((name, index, all) => name !== kept.name && all.indexOf(name) === index);
     const [duplicateName, paidName] = names;
     if (duplicateName === undefined || paidName === undefined)
         throw new Error("Not enough distinct demo names");
-    const duplicate = await createClient(page, duplicateName, run);
-    const paid = await createClient(page, paidName, run);
+    const duplicate = await createClient(page, duplicateName, `${shared}2`);
+    const paid = await createClient(page, paidName, `${shared}3`);
     const petId = await addPet(page, duplicate, "Juniper");
     const note = "Juniper prefers a short trim around the paws.";
     await addClientNote(page, duplicate, note, "Juniper");
@@ -517,7 +525,7 @@ test("FLOW-04-B a merge moves a duplicate's pet, note and visit onto the kept ti
             }),
         ]);
 
-        const merge = await openMerge(page, run, kept, duplicate);
+        const merge = await openMerge(page, shared.slice(2), kept, duplicate);
         // the note is about Juniper, so it moves with the pet rather than counting on its own
         await expect(merge.getByRole("listitem")).toHaveText([
             t.moves.bookings(1),
@@ -549,7 +557,7 @@ test("FLOW-04-B a merge moves a duplicate's pet, note and visit onto the kept ti
         await page.reload();
         await expectTimeline(page, kept, [h.visit(service.name, "Juniper"), note]);
 
-        const refused = await openMerge(page, run, kept, paid);
+        const refused = await openMerge(page, shared.slice(2), kept, paid);
         await expect(refused.getByText(t.blockedMoney, { exact: true })).toBeVisible();
         await expect(
             refused.getByRole("button", { name: t.merge(kept.name), exact: true }),

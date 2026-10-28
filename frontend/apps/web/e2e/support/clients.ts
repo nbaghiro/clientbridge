@@ -280,7 +280,7 @@ export async function verifyReturning(
     const panel = page
         .locator("section")
         .filter({ has: page.getByRole("heading", { name: t.title, exact: true }) });
-    await panel.getByRole("textbox", { name: t.contact, exact: true }).fill(f.clientPhone);
+    await panel.getByRole("textbox", { name: t.contact }).fill(f.clientPhone);
     await panel.getByRole("button", { name: t.sendCode, exact: true }).click();
     await page
         .getByRole("textbox", { name: t.code, exact: true })

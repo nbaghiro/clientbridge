@@ -29,7 +29,7 @@ from clientbridge.integrations.resend import (
     SmtpEmailSender,
     get_test_email_sender,
 )
-from clientbridge.integrations.twilio import ConsoleSmsSender, Sms, SmsSender
+from clientbridge.integrations.twilio import ConsoleSmsSender, Sms, SmsSender, SmtpSmsSender
 from clientbridge.models.clients import Client
 from clientbridge.models.messaging import Delivery, DeliveryState, Message, MessageStatus
 from clientbridge.models.platform import Webhook, WebhookStatus
@@ -281,7 +281,7 @@ def _local_sink(
         if payload.transport and not transport_override:
             return payload.transport == "smtp" and bool(get_settings().smtp_url)
         return isinstance(email, SmtpEmailSender | ConsoleEmailSender)
-    return isinstance(payload, SmsDelivery) and isinstance(sms, ConsoleSmsSender)
+    return isinstance(payload, SmsDelivery) and isinstance(sms, ConsoleSmsSender | SmtpSmsSender)
 
 
 def _reserved(payload: DeliveryPayload) -> bool:

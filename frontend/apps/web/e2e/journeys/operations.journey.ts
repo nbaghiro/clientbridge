@@ -86,7 +86,7 @@ test("FLOW-10-A a desk payment is traceable in the operator console's ledger and
         headers: { Origin: origin, "Idempotency-Key": randomUUID() },
         data: {
             name: demoPerson(randomUUID()),
-            // a number set aside for fiction, so the invoice text reaches no one
+            // a number set aside for fiction, which the dev text transport refuses
             phone: "+12505550142",
         },
     });
@@ -110,8 +110,12 @@ test("FLOW-10-A a desk payment is traceable in the operator console's ledger and
     expect(invoice.status(), await invoice.text()).toBe(201);
     const deliveries = (await communicationEvidence(fictional)).deliveries;
     expect(deliveries).toEqual([
-        // outside production a reserved number is accepted in simulation and texts nobody
-        expect.objectContaining({ channel: "sms", state: "accepted" }),
+        // the dev text transport is a local sink, and the tier's Mailpit refuses a fictional number
+        expect.objectContaining({
+            channel: "sms",
+            state: "failed",
+            error: expect.stringMatching(/^smtp_5\d\d$/),
+        }),
     ]);
     const history = await admin<Page<{ id: string }>>(request, token, "/deliveries");
     // the console's delivery history is for operator test mail, not business notices

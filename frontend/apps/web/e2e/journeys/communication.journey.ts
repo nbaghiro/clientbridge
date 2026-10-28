@@ -83,7 +83,7 @@ test("FLOW-06-A a seat notice queued for the worker honours a STOP that arrives 
     });
     try {
         const phone = clientPhone();
-        const waiting = fixture.waiting;
+        const waiting = { ...fixture.waiting, phone };
         await setPhone(page, waiting, phone);
         const secondId = await addClassClient(page, fixture, fixture.second, "confirmed");
         const waitingId = await addClassClient(page, fixture, waiting, "waitlisted");
@@ -92,6 +92,11 @@ test("FLOW-06-A a seat notice queued for the worker honours a STOP that arrives 
             { client: fixture.second, id: secondId, status: "confirmed" },
             { client: waiting, id: waitingId, status: "waitlisted" },
         ]);
+        // joining the waitlist texts the client once, before any STOP
+        await expect
+            .poll(async () => (await textsTo(page.request, phone)).length, { timeout: 90_000 })
+            .toBe(1);
+        const waitlisted = await textsTo(page.request, phone);
         const before = await communicationEvidence(waiting.id);
         expect(before.consents).toEqual([]);
         expect(before.threads).toEqual([]);
@@ -195,7 +200,7 @@ test("FLOW-06-A a seat notice queued for the worker honours a STOP that arrives 
             fixture.slotId,
             waitingId,
         );
-        expect(await textsTo(page.request, phone)).toEqual([]);
+        expect(await textsTo(page.request, phone)).toEqual(waitlisted);
 
         const other = await observer.newPage();
         await signIn(other);
@@ -284,6 +289,11 @@ test("MSG-E2E-14 a STOP that arrives after a seat notice is queued keeps the wor
         const waitingId = await addClassClient(page, fixture, fixture.waiting, "waitlisted");
         const waiting = { client: fixture.waiting, id: waitingId, status: "waitlisted" };
         await expectClassState(fixture, [first, second, waiting]);
+        // joining the waitlist texts the client once, before any STOP
+        await expect
+            .poll(async () => (await textsTo(page.request, phone)).length, { timeout: 90_000 })
+            .toBe(1);
+        const waitlisted = await textsTo(page.request, phone);
         const scope = `seat:${fixture.slotId}:${waitingId}:`;
         expect(await deliveryRows(scope)).toEqual([]);
         expect(await clientOutreach(fixture.waiting.id)).toEqual({
@@ -329,7 +339,7 @@ test("MSG-E2E-14 a STOP that arrives after a seat notice is queued keeps the wor
             })
             .toEqual([["failed", "consent_withdrawn"]]);
         const settled = await deliveryRows(scope);
-        expect(await textsTo(page.request, phone)).toEqual([]);
+        expect(await textsTo(page.request, phone)).toEqual(waitlisted);
         expect(await clientOutreach(fixture.waiting.id)).toEqual(stopped);
 
         const log = await openInboxThread(page, fixture.waiting);
