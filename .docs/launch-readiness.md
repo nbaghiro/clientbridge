@@ -1127,8 +1127,8 @@ Size: S · Area: Money, tax and staff pay
 
 **To do:**
 
-- A run with Stripe test keys, including the sandbox checks in the [Stripe hardening plan](executions/stripe-hardening/plan.md#sandbox-checks).
-- The Stripe browser cases STR-E01 to STR-E12 from the same plan, once the end-to-end suite they build on is merged.
+- STR-E08's steps after its manual payout, from closing Stripe's confirmation to Bank deposits, once the sandbox payout it made has arrived ([Payments and Stripe](payments.md#sandbox-verification-record-2026-10-27)).
+- A browser test of a bank change in account management, to confirm who can pass Stripe's sign-in.
 
 **QA:**
 

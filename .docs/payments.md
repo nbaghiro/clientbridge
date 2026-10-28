@@ -689,12 +689,13 @@ Use the [categorized QA checklist](qa/payments.md) for scenario coverage and the
 | Frontend           | `make test-frontend` and normal lint/type gates | Shared view-model and client checks; not proof of successful embedded-provider interaction.                                                              |
 
 E2E uses `STRIPE_TEST_SECRET_KEY` and, for existing merchant scenarios, `STRIPE_TEST_CONNECTED_ACCOUNT`;
-the setup script prints the demo account ID. Follow the [test tiers](engineering.md#stripe-three-tiers-layered-by-cost)
+the setup script prints the demo account ID. Follow the [test tiers](engineering.md#stripe-four-tiers-layered-by-cost)
 for the complete harness and prerequisites. A green fake/contract suite is not a live payout sign-off.
 
-The [Stripe hardening execution](executions/stripe-hardening/plan.md) tracks the work still open from the
-October 26 review of every Stripe flow, including the sandbox checks and the Stripe browser cases, with its
-evidence in [progress](executions/stripe-hardening/progress.md).
+The Stripe browser lane ([test tiers](engineering.md#stripe-four-tiers-layered-by-cost)) runs each money
+flow against the sandbox's QA merchants. Two checks are still open: STR-E08's steps after its manual payout
+(closing Stripe's confirmation through to Bank deposits), which can run once the payout below has arrived,
+and a browser test of a bank change in account management (check 9 below).
 
 Manual sandbox pass:
 
@@ -737,6 +738,31 @@ Stripe displayed “On hold” and withheld the schedule controls; a test payout
 a CAD external account. Completing onboarding, editing the schedule through the embedded UI and
 creating a funded sandbox payout remain required before signing off that browser flow. The CLI
 round trips alone do not complete that QA.
+
+### Sandbox verification record, 2026-10-27
+
+These checks ran against the Clientbridge sandbox on Birchbark (`acct_1UPnLpFGqw5ObEW5`) at
+`2026-09-30.endive`, after the October 26 review of every Stripe flow. Each mismatch they found is fixed
+in the behaviour described above.
+
+| Check | Objects | Result |
+| --- | --- | --- |
+| PAD refund | `pi_3UV9NTFGqw5ObEW50YLhtfF7`, `pyr_1UV9PsFGqw5ObEW53BnAYjve` | A `pyr_` refund whose `payment_refund` transaction exists while the refund is still pending; reconciliation expects it until it settles. |
+| Returned application fee | `ch_3UV9IiFGqw5ObEW51mmgt0DW`, `txn_1UV9JLFGqw5ObEW5BTlr9sd7` | The fee comes back pro rata as an `adjustment` whose source is the charge, and `?source=` leaves it out. |
+| Failed refund | `re_3UV9JpFGqw5ObEW50zW5eBu7`, `txn_1UV9M1FGqw5ObEW5vp32TGxa` | Reported only by `refund.failed`; its `refund_failure` row is also missing from `?source=`, so reconciliation lists it by type. |
+| Dispute after a partial refund | `du_1UV9LxFGqw5ObEW5pv72TyEY` | An inquiry kept the full amount after a part refund; the reinstated part of a lost dispute is booked from the documented balance transactions, not observed. |
+| Refund during a dispute | `du_1UV9K5FGqw5ObEW5RLrvtdnC` | Refused with `charge_disputed` while disputed, allowed during an inquiry. Dispute ids are `du_`. |
+| Off-session PAD charge | `mandate_1UV9N2FGqw5ObEW5wikXrsZS`, `pi_3UV9NTFGqw5ObEW50YLhtfF7` | Succeeds only with `allowed_payment_method_types=["acss_debit"]` and the `mandate`. |
+| PAD mandate for memberships | `sub_1UVBMaFGqw5ObEW5OOAqbrGW`, `mandate_1UVBN7FGqw5ObEW59uyfzvwk` | An interval mandate left a membership's first invoice at `requires_confirmation`; a `default_for: ["invoice", "subscription"]` mandate took one-off charges and billed the membership unprompted. Stripe refuses `default_for` with an interval schedule. |
+| Undelivered events | `evt_3UUs9SFGqw5ObEW50HeXW0Am` | `delivery_success=false` works on the platform and per account, 30 days back. |
+| Closed v2 account | `acct_1UV9OGFGqwSdYFTi` | Retrievable with `closed: true`, which maps to `disabled_reason: closed`. |
+| Bank change in account management | none | Stripe's own sign-in gates it; whether only the representative can pass it needs a browser test. |
+| Standalone `tax_fee` and `stripe_fee` | 18 connected accounts | None exist in the sandbox; they are booked from the documented shape. |
+
+The browser lane's STR-E08 made the funded manual payout the record above still needed: after switching
+the QA merchant to a manual schedule in the embedded component, it paid out exactly its run's net
+(`po_1UVH2kFGqw0VgMVoe6SLqkyp`, CAD 18.90). Stripe's component hides the schedule and Pay out while a
+payout is on its way, so that case can run about once a day.
 
 ## Troubleshooting
 

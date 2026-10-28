@@ -176,16 +176,15 @@ References: [Stripe Connect testing](https://docs.stripe.com/connect/testing),
 
 ## Status
 
-The review findings this file used to track are fixed on the `fix/stripe-hardening` branch: reconciliation
+The review findings this file used to track are fixed (PR #60): reconciliation
 runs hourly from a per-business cursor kept as a `ledger.reconciled` audit (no checkpoint table), payouts
 move through the `transit` account category and count as deposited only once paid, an hourly job replays
 events Stripe couldn't deliver, and platform admins can list and acknowledge drift findings.
 [Payments and Stripe](../payments.md) describes the current behavior.
 
-The [Stripe hardening execution](../executions/stripe-hardening/plan.md) tracks what is still open, with
-evidence in its [progress](../executions/stripe-hardening/progress.md): the Stripe sandbox checks, the
-Stripe browser cases STR-E01 to STR-E12, which build on the end-to-end suite once it merges, and the final
-gate.
+The Stripe browser lane covers each money flow against the sandbox (STR-E01 to STR-E12, apart from the
+missed-event replay, which backend tests cover), and the sandbox checks are recorded in
+[Payments and Stripe](../payments.md#sandbox-verification-record-2026-10-27) with what is still open.
 
 No checklist group is declared fully covered. All IDs and variants in [payments.md](payments.md) remain
 the release inventory. The payout browser test in `frontend/apps/web/e2e/paymentAccount.e2e.ts` covers
