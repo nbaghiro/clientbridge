@@ -161,7 +161,10 @@ test(
         await expect(
             page.getByRole("heading", { name: strings.publicBooking.stepService }),
         ).toBeVisible();
-        await page.goBack();
+        // WebKit's goBack can fail across the host switch; the URL check below waits for the page.
+        await page.evaluate(() => {
+            history.back();
+        });
         await expect(page).toHaveURL(`${home}#team`);
         await expect(page.locator("#team")).toBeInViewport();
         expect(
