@@ -9,6 +9,8 @@ from clientbridge.models.clients import Client
 from clientbridge.models.ledger import Account, Entry
 from clientbridge.models.payments import Payment
 from clientbridge.services import ledger
+from clientbridge.services.earnings import cancel_returned_tips, load_earning
+from clientbridge.services.ledger import Leg
 from tests.conftest import FakeEmailSender, FakePaymentGateway
 from tests.helpers import enable_payments, key, ok, payment, sent_invoice, settle, stripe_event
 
@@ -423,3 +425,70 @@ async def test_the_platform_fee_covers_the_tip_too(
     charged, fee = gateway.charges[pay.provider_ref]
     assert charged == sale["total_cents"] + 500
     assert fee == charged * 30 // 10_000
+
+
+async def _tipped_sale(as_owner: httpx.AsyncClient) -> tuple[str, str]:
+    """A cash sale with a $3 tip for the owner, then refunded in full: (payment, refund)."""
+    sale = ok(await as_owner.post("/v1/orders", json={"lines": [SHAMPOO]}), 201).json()
+    paid = ok(
+        await as_owner.post(
+            f"/v1/orders/{sale['id']}/cash",
+            json={"tendered_cents": 5000, "tip_cents": 300},
+            headers=key(),
+        )
+    ).json()
+    pid = paid["payment_id"]
+    refund = ok(await as_owner.post(f"/v1/payments/{pid}/refund", json={}, headers=key()))
+    return pid, refund.json()["refund_id"]
+
+
+async def _journal(db: AsyncSession, ref: str) -> str:
+    journal = await ledger.journal_for(db, BIZ, ref)
+    assert journal is not None
+    return journal
+
+
+async def _tip_status(db: AsyncSession, journal: str) -> str:
+    earning = await load_earning(db, BIZ, journal)
+    assert earning is not None
+    return earning.status
+
+
+async def test_a_returned_tip_waits_for_the_tip_it_returns(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    pid, refund_id = await _tipped_sale(as_owner)
+    tip = await _journal(db, f"tip:{pid}:st_owner")
+    returned = await _journal(db, f"tip:{refund_id}:st_owner")
+    meta = (
+        await db.execute(select(Entry.meta).where(Entry.journal_id == returned).limit(1))
+    ).scalar_one()
+    assert meta["of"] == tip
+    other = await ledger.post(
+        db,
+        BIZ,
+        event="earning",
+        ref=f"earning:{new_id('booking')}:0",
+        legs=[
+            Leg("business", BIZ, "staff_cost", 1000),
+            Leg("staff", "st_owner", "payable", -1000, "pending"),
+        ],
+    )
+    assert other is not None
+    ok(await as_owner.post("/v1/earnings/pay", json={"ids": [other]}))
+    assert [await _tip_status(db, j) for j in (tip, returned)] == ["pending", "pending"]
+
+
+async def test_a_failed_refund_cancels_its_unpaid_returned_tip(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    pid, refund_id = await _tipped_sale(as_owner)
+    returned = await _journal(db, f"tip:{refund_id}:st_owner")
+    ok(await as_owner.post("/v1/earnings/approve", json={"ids": [returned]}))
+    refund, original = await db.get(Payment, refund_id), await db.get(Payment, pid)
+    assert refund is not None and original is not None
+    await cancel_returned_tips(db, refund, original)
+    await ledger.reverse_refund(db, refund, original)
+    assert await _tip_status(db, returned) == "reversed"
+    assert await ledger.journal_for(db, BIZ, f"tip:{refund_id}:st_owner:failed") is None
+    assert await _tip_status(db, await _journal(db, f"tip:{pid}:st_owner")) == "pending"

@@ -88,6 +88,14 @@ async def payouts_csv(
     return _csv_response(content, "payouts.csv")
 
 
+@reports_router.get("/staff-pay.csv")
+async def staff_pay_csv(
+    principal: CurrentPrincipal, db: DbSession, start: date, end: date, run: str | None = None
+) -> Response:
+    content = await ReportService(db, principal).staff_pay_csv(start, end, run)
+    return _csv_response(content, "staff-pay.csv")
+
+
 @reports_router.post(
     "/export",
     response_class=Response,

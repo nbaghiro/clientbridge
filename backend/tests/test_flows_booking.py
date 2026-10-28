@@ -114,14 +114,14 @@ async def test_online_booking_from_deposit_to_t4a(
     approved = ok(await api.post("/v1/earnings/approve", json={"ids": [journal]})).json()[
         "earnings"
     ][0]
-    assert approved["amount_cents"] == 5560  # 40% of the $110 service and its $29 add-on
-    assert approved["booking_id"] == bid and approved["status"] == "approved"
+    assert approved["amount_cents"] == 4400  # 40% of the $110 service; the add-on is a product
+    assert approved["subject_id"] == bid and approved["status"] == "approved"
     bank = await business_balance(db, "bank")
     paid_out = ok(await api.post("/v1/earnings/pay", json={"ids": [journal]})).json()
     assert paid_out["earnings"][0]["status"] == "paid"
-    assert await business_balance(db, "bank") == bank - 5560
+    assert await business_balance(db, "bank") == bank - 4400
     after = await _t4a(api, year)
-    assert after["st_owner"] - before.get("st_owner", 0) == 5560
+    assert "st_owner" not in before and "st_owner" not in after  # the owner has no T4A
 
 
 async def test_no_show_forfeits_the_deposit(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:

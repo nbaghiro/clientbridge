@@ -587,6 +587,9 @@ msgstr "amount_cents"
 msgid "report_csv.arrival"
 msgstr "arrival"
 
+msgid "report_csv.basis"
+msgstr "basis"
+
 msgid "report_csv.by_method"
 msgstr "method:{method}"
 
@@ -595,6 +598,12 @@ msgstr "code"
 
 msgid "report_csv.collected_cents"
 msgstr "collected_cents"
+
+msgid "report_csv.earning_id"
+msgstr "earning_id"
+
+msgid "report_csv.fees_cents"
+msgstr "fees_cents"
 
 msgid "report_csv.gross"
 msgstr "gross"
@@ -620,6 +629,9 @@ msgstr "net"
 msgid "report_csv.number"
 msgstr "number"
 
+msgid "report_csv.paid_on"
+msgstr "paid_on"
+
 msgid "report_csv.payout"
 msgstr "payout"
 
@@ -641,6 +653,9 @@ msgstr "refunded_cents"
 msgid "report_csv.refunds"
 msgstr "refunds"
 
+msgid "report_csv.run"
+msgstr "run"
+
 msgid "report_csv.sales_cents"
 msgstr "sales_cents"
 
@@ -658,6 +673,9 @@ msgstr "tax_collected_cents"
 
 msgid "report_csv.taxable_sales_cents"
 msgstr "taxable_sales_cents"
+
+msgid "report_csv.tips_cents"
+msgstr "tips_cents"
 
 msgid "report_csv.total_cents"
 msgstr "total_cents"

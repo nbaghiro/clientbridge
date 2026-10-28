@@ -353,6 +353,17 @@
         "description": "Refusing a change to an add-on product's length: count is how many upcoming, unbilled visits carry it",
         "args": ["count"]
     },
+    "api.earningMoved": {
+        "message": "This pay changed since it loaded. Check the list and try again.",
+        "description": "Another device approved, paid or undid the same earning first."
+    },
+    "api.payNotPositive": {
+        "message": "This pay comes to nothing or less, because refunds or deductions outweigh it. Pay it once more is earned.",
+        "description": "A pay run must pay each member a positive total."
+    },
+    "api.ownPay": {
+        "message": "Only the owner can approve or pay your own earnings."
+    },
     "common.amountWithCurrency": {
         "message": "{amount} {currency}",
         "args": ["amount", "currency"],
@@ -2403,14 +2414,18 @@
     "earnings.hourly": {
         "message": "Hourly rate"
     },
-    "earnings.sourceBooking": {
-        "message": "Booking"
-    },
     "earnings.sourceSale": {
         "message": "Product sale"
     },
+    "earnings.sourceRefund": {
+        "message": "Refunded",
+        "description": "An earning held back because the client was refunded part or all of what they paid."
+    },
     "earnings.sourceTip": {
         "message": "Tip"
+    },
+    "earnings.sourceAdjustment": {
+        "message": "Adjustment"
     },
     "earnings.tipTitle": {
         "message": "Tip"
@@ -2420,21 +2435,90 @@
         "args": ["n"]
     },
     "earnings.selectAll": {
-        "message": "Select all to approve"
+        "message": "Select all"
+    },
+    "earnings.viewLabel": {
+        "message": "Show"
+    },
+    "earnings.view.todo": {
+        "message": "To do",
+        "description": "Earnings still to approve or pay."
+    },
+    "earnings.view.paid": {
+        "message": "Paid"
+    },
+    "earnings.view.all": {
+        "message": "All"
+    },
+    "earnings.through": {
+        "message": "Work done through"
+    },
+    "earnings.throughHint": {
+        "message": "Pays everything earned on or before this day, approved or not. Leave it empty to pay only what's approved."
+    },
+    "earnings.paidOn": {
+        "message": "Paid {date}",
+        "args": ["date"]
+    },
+    "earnings.undoApproval": {
+        "message": "Undo approval"
+    },
+    "earnings.undoPayment": {
+        "message": "Undo payment"
+    },
+    "earnings.statement": {
+        "message": "Print statement"
+    },
+    "earnings.statementTitle": {
+        "message": "Pay statement"
+    },
+    "earnings.statementFor": {
+        "message": "{name}, paid {date}",
+        "args": ["name", "date"]
+    },
+    "earnings.total": {
+        "message": "Total"
+    },
+    "earnings.noPaid": {
+        "message": "Nothing has been paid to this team member yet."
+    },
+    "earnings.addAdjustment": {
+        "message": "Add adjustment"
+    },
+    "earnings.mine.subtitle": {
+        "message": "What you've earned from visits, sales and tips, with any bonuses or deductions. Your manager approves it, then pays it."
+    },
+    "earnings.mine.empty": {
+        "message": "Nothing to show yet. Your earnings show up here once you start earning."
     },
     "earnings.approveSelected": {
         "message": "{count, plural, =0 {Approve selected} one {Approve # earning} other {Approve # earnings}}",
         "args": ["count"]
     },
     "earnings.review.payTitle": {
-        "message": "Mark {amount} as paid?",
-        "args": ["amount"]
+        "message": "Mark {amount} as paid to {name}?",
+        "args": ["amount", "name"]
     },
     "earnings.review.payBody": {
         "message": "Do this once you've paid your team. No money moves from here."
     },
     "earnings.review.markPaid": {
         "message": "Mark paid"
+    },
+    "earnings.review.undoApprovalTitle": {
+        "message": "Undo this approval?"
+    },
+    "earnings.review.undoApprovalBody": {
+        "message": "It goes back to To approve."
+    },
+    "earnings.review.undoPaymentTitle": {
+        "message": "Undo this payment?"
+    },
+    "earnings.review.undoPaymentBody": {
+        "message": "It goes back to Approved, to pay. Use this when it was marked paid by mistake."
+    },
+    "earnings.review.undo": {
+        "message": "Undo"
     },
     "earnings.payApproved": {
         "message": "Pay {amount}",
@@ -2467,6 +2551,130 @@
     },
     "earnings.loading": {
         "message": "Loading staff pay…"
+    },
+    "earnings.removedMember": {
+        "message": "No longer on the team"
+    },
+    "earnings.owedOnRemove": {
+        "message": "{amount} of their pay hasn't been paid yet. It stays in Staff pay so you can still approve and pay it.",
+        "args": ["amount"]
+    },
+    "earnings.adjustment.title": {
+        "message": "Add an adjustment"
+    },
+    "earnings.adjustment.body": {
+        "message": "A bonus, or a deduction such as chair rent. It's approved and paid like any other earning."
+    },
+    "earnings.adjustment.kindLabel": {
+        "message": "Type"
+    },
+    "earnings.adjustment.bonus": {
+        "message": "Bonus"
+    },
+    "earnings.adjustment.deduction": {
+        "message": "Deduction"
+    },
+    "earnings.adjustment.amount": {
+        "message": "Amount"
+    },
+    "earnings.adjustment.reason": {
+        "message": "Reason"
+    },
+    "earnings.adjustment.reasonHint": {
+        "message": "Your team member sees this next to the amount."
+    },
+    "earnings.adjustment.save": {
+        "message": "Add adjustment"
+    },
+    "earnings.adjustment.amountInvalid": {
+        "message": "Enter an amount above zero."
+    },
+    "earnings.adjustment.reasonMissing": {
+        "message": "Add a reason so it's clear what the adjustment is for."
+    },
+    "earnings.adjustment.error": {
+        "message": "Couldn't add this adjustment. Please try again."
+    },
+    "earnings.sourceWork": {
+        "message": "Work",
+        "description": "An earning from a visit or a line someone did"
+    },
+    "earnings.refundOf": {
+        "message": "Refund of {title}",
+        "args": ["title"]
+    },
+    "earnings.tipRefunded": {
+        "message": "Tip refunded"
+    },
+    "earnings.owesBackOnRemove": {
+        "message": "Refunds and deductions come to {amount} more than their pay. It stays in Staff pay so you can settle it.",
+        "args": ["amount"]
+    },
+    "earnings.owesBack": {
+        "message": "Owes {amount} back",
+        "args": ["amount"]
+    },
+    "earnings.payeeFigures": {
+        "message": "{pending} to approve · {approved} to pay",
+        "args": ["pending", "approved"]
+    },
+    "earnings.part.work": {
+        "message": "Work"
+    },
+    "earnings.part.tips": {
+        "message": "Tips"
+    },
+    "earnings.part.adjustments": {
+        "message": "Adjustments"
+    },
+    "earnings.part.refunds": {
+        "message": "Refunds"
+    },
+    "earnings.workThrough": {
+        "message": "Work through {date}",
+        "args": ["date"]
+    },
+    "earnings.noneThrough": {
+        "message": "Nothing was earned on or before this day."
+    },
+    "earnings.undoRun": {
+        "message": "Undo this pay"
+    },
+    "earnings.downloadCsv": {
+        "message": "Download CSV"
+    },
+    "earnings.shareStatement": {
+        "message": "Share statement"
+    },
+    "earnings.readOnlySelf": {
+        "message": "Only the owner can approve or pay your own earnings."
+    },
+    "earnings.showReversed": {
+        "message": "Show reversed"
+    },
+    "earnings.from": {
+        "message": "From"
+    },
+    "earnings.to": {
+        "message": "To"
+    },
+    "earnings.undoPaymentFor": {
+        "message": "Undo payment for {row}",
+        "args": ["row"]
+    },
+    "earnings.undoApprovalFor": {
+        "message": "Undo approval for {row}",
+        "args": ["row"]
+    },
+    "earnings.review.undoRunTitle": {
+        "message": "Undo the {amount} paid to {name}?",
+        "args": ["amount", "name"]
+    },
+    "earnings.mine.noPaid": {
+        "message": "Nothing has been paid to you yet."
+    },
+    "earnings.mine.noEarnings": {
+        "message": "Nothing is waiting. New earnings show up here as you earn them."
     },
     "entitlements.segments.all": {
         "message": "All"
@@ -10558,6 +10766,9 @@
     "reports.library.payouts": {
         "message": "Bank deposits"
     },
+    "reports.library.staffPay": {
+        "message": "Staff pay"
+    },
     "reports.libraryHint.income": {
         "message": "Sales and how clients paid"
     },
@@ -10575,6 +10786,9 @@
     },
     "reports.libraryHint.payouts": {
         "message": "Payouts to your bank"
+    },
+    "reports.libraryHint.staffPay": {
+        "message": "Each earning marked paid"
     },
     "reports.pstTitle": {
         "message": "{code} collected",
@@ -10740,6 +10954,13 @@
     "reports.colPaid": {
         "message": "Paid"
     },
+    "reports.colTips": {
+        "message": "Of which tips"
+    },
+    "reports.tipsValue": {
+        "message": "{amount} in tips",
+        "args": ["amount"]
+    },
     "reports.qty": {
         "message": "{n, number, ::.00/w}",
         "args": ["n"]
@@ -10777,7 +10998,7 @@
         "args": ["y"]
     },
     "reports.t4aNote": {
-        "message": "Amounts paid to staff and contractors. Slips are due to payees and the CRA by the last day of February."
+        "message": "Amounts paid to each team member except the owner, with tips shown apart. Employees' pay belongs on a T4 from your payroll provider. Slips are due to payees and the CRA by the last day of February."
     },
     "reports.noT4a": {
         "message": "Nothing paid to staff this year yet."
@@ -13308,6 +13529,9 @@
     },
     "navigation.paymentsTabs.staffPay": {
         "message": "Staff pay"
+    },
+    "navigation.paymentsTabs.myPay": {
+        "message": "My pay"
     },
     "navigation.paymentsTabs.taxReturns": {
         "message": "Tax returns"

@@ -40,10 +40,8 @@ import {
 import { useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 
-import { File, Paths } from "expo-file-system";
-import { shareAsync } from "expo-sharing";
-
 import { api } from "../lib/api";
+import { shareFile } from "../lib/files";
 
 const s = strings.reports;
 const c = theme.colors;
@@ -55,16 +53,6 @@ const ICONS: Record<ReportKey, IconName> = {
     pst: "percent",
     t4a: "user",
 };
-
-async function shareFile(
-    content: string | Uint8Array,
-    filename: string,
-    mimeType: string,
-): Promise<void> {
-    const file = new File(Paths.cache, filename);
-    file.write(content);
-    await shareAsync(file.uri, { mimeType, dialogTitle: filename });
-}
 
 async function shareCsv(csv: string, filename: string): Promise<void> {
     await shareFile(csv, filename, "text/csv");
@@ -396,7 +384,15 @@ function ReportBody({ report, v }: { report: ReportKey; v: ReportsView }) {
                     ) : (
                         <KeyValueList
                             rows={v.t4a.map((row) => ({
-                                label: formatParts([row.name, s.paymentsValue(row.payments)]),
+                                label: formatParts([
+                                    row.name,
+                                    s.paymentsValue(row.payments),
+                                    row.tipsCents === 0
+                                        ? null
+                                        : s.tipsValue(
+                                              formatMoney(row.tipsCents, BUSINESS_CURRENCY),
+                                          ),
+                                ]),
                                 value: formatMoney(row.totalCents, BUSINESS_CURRENCY),
                             }))}
                         />

@@ -55,7 +55,9 @@ class StaffPayUpdate(Mirror):
 
     payee: bool | None = None
     rate_type: RateType | None = None
-    rate_bps: int | None = Field(default=None, ge=0, description="Percent rate in basis points")
+    rate_bps: int | None = Field(
+        default=None, ge=0, le=10000, description="Percent rate in basis points"
+    )
     rate_cents: int | None = Field(default=None, ge=0, description="Fixed or hourly rate")
     retail_rate_bps: int | None = Field(
         default=None, ge=0, le=10000, description="Commission on product sales in basis points"

@@ -18,6 +18,7 @@ import {
     usePeoplePhotos,
     useStaffPay,
     useRemoveMember,
+    useOwedPay,
     useStaffPayForm,
     useStaffProfileForm,
     useSeatCost,
@@ -281,6 +282,7 @@ function RemoveDialog({
         onRemoved();
     };
     const removal = useRemoveMember(api, member, team.members, finish);
+    const owed = useOwedPay(member.id);
     const outcome = removal.outcome;
     if (outcome !== null) {
         return (
@@ -350,6 +352,11 @@ function RemoveDialog({
                             <OccurrenceList rows={removal.visits} label={t.removeFuture} />
                         ) : null}
                     </>
+                ) : null}
+                {owed !== null ? (
+                    <Notice tone="info" banner>
+                        {owed}
+                    </Notice>
                 ) : null}
                 {removal.error !== null ? (
                     <Notice tone="danger" banner>

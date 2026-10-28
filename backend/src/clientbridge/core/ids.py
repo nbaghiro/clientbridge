@@ -34,6 +34,7 @@ PREFIXES: dict[str, str] = {
     "account": "acc",
     "entry": "ent",
     "journal": "jrn",
+    "pay_run": "prun",
     "thread": "th",
     "message": "msg",
     "delivery": "dlv",

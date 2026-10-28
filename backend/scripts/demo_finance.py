@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
 from clientbridge.core.deps import Principal
+from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
 from clientbridge.integrations.stripe import ChargeFees
 from clientbridge.models.billing import Estimate, Invoice, Line, Order
@@ -701,6 +702,7 @@ async def seed_earnings(db: AsyncSession, ctx: DemoContext) -> None:
         .all()
     )
     seen: set[str] = set()
+    runs: dict[tuple[str, date], str] = {}
     for entry in rows:
         if entry.journal_id in seen:
             continue
@@ -708,15 +710,50 @@ async def seed_earnings(db: AsyncSession, ctx: DemoContext) -> None:
         earning = await earnings.load_earning(db, ctx.business_id, entry.journal_id)
         if earning is None or entry.occurred_at + timedelta(days=2) >= ctx.now:
             continue
-        await earnings.advance_earning(
-            db, earning, "approved", occurred_at=entry.occurred_at + timedelta(days=1)
+        await earnings.move_earning(
+            db, earning, "approve", occurred_at=entry.occurred_at + timedelta(days=1)
         )
         if entry.occurred_at + timedelta(days=8) < ctx.now:
             current = await earnings.load_earning(db, ctx.business_id, entry.journal_id)
             assert current is not None
-            await earnings.advance_earning(
-                db, current, "paid", occurred_at=entry.occurred_at + timedelta(days=3)
-            )
+            paid_at = entry.occurred_at + timedelta(days=3)
+            run = runs.setdefault((current.staff_id, paid_at.date()), new_id("pay_run"))
+            await earnings.move_earning(db, current, "pay", occurred_at=paid_at, meta={"run": run})
+    await _seed_pay_corrections(db, ctx)
+
+
+async def _seed_pay_corrections(db: AsyncSession, ctx: DemoContext) -> None:
+    """Refund clawbacks, a bonus waiting for approval, and one payment undone and made again."""
+    for document in [*ctx.all(Invoice), *ctx.all(Order)]:
+        await earnings.claw_back(db, document)
+    payees = sorted(
+        (s for s in ctx.all(Staff) if s.payee and s.role != "owner" and s.status == "active"),
+        key=lambda s: s.id,
+    )
+    if not payees:
+        return
+    await earnings.post_adjustment(db, payees[0], 5000, "Holiday bonus")
+    paid = (
+        await db.execute(
+            scoped(Entry, ctx.business_id)
+            .with_only_columns(Entry.source_id, Entry.occurred_at)
+            .where(Entry.event == "staff_payment", Entry.owner_type == "staff")
+            .order_by(Entry.occurred_at.desc(), Entry.journal_id)
+            .limit(1)
+        )
+    ).first()
+    if paid is None or paid.source_id is None:
+        return
+    earning = await earnings.load_earning(db, ctx.business_id, paid.source_id)
+    assert earning is not None
+    await earnings.move_earning(db, earning, "unpay", occurred_at=paid.occurred_at)
+    await earnings.move_earning(
+        db,
+        earning,
+        "pay",
+        occurred_at=paid.occurred_at + timedelta(hours=1),
+        meta={"run": new_id("pay_run")},
+    )
 
 
 async def _stripe_held(

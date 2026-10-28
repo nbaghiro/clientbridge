@@ -271,9 +271,12 @@ escalates. Late opening events cannot reopen a won/lost dispute, and dispute fee
 only their newly observed increments, including after the case closed. Embedded dispute management
 handles evidence; our payment records and journals track the financial effect.
 
-Staff commission follows the document's paid status. When a refund leaves an invoice or sale anything other
-than paid, its pending commission is reversed in full; approved or paid commission stands. Reducing pending
-commission in proportion to a partial refund is decided but not built.
+Staff commission follows the money the business keeps. When a refund or a lost dispute returns part of an
+invoice, sale or package, each earning on it is clawed back by the same share as a negative pending earning,
+whether the earning is pending, approved or already paid. A clawback of paid pay settles with the member's next
+pay. A full refund reverses pending commission outright, a returned tip settles with the tip it returns, and a
+refund that fails takes its clawbacks back. The ledger rules are in
+[architecture](architecture.md#ledger-double-entry-append-only-servicesledgerpy).
 
 ## Payouts and schedules
 

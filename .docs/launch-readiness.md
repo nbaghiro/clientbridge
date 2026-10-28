@@ -1141,19 +1141,23 @@ Size: M · Area: Money, tax and staff pay
 
 **Surfaces:** Backend, web, iPhone and Android
 
-**Flow:** Staff earn from services and retail sales, the owner approves and pays, and the year-end T4A adds up.
+**Flow:** Staff earn from services, retail sales and tips, the owner approves and pays, and the year-end T4A adds up.
 
-**Built:** Pay rate and retail commission per staff member; earnings from paid booking invoices and sales; approve and mark paid; T4A report.
+**Built:** Pay rate and retail commission per staff member; earnings from paid booking invoices and sales, from lines without a booking and booked add-ons, and from visits a package covers; refunds of a document or a package claw back the refunded share, including after approval; adjustments for bonuses and deductions; approve, pay and undo by row or by pay run, a chosen set or everything done through a date; a pay settles the clawbacks that belong with it and never pays a member nothing or less; paid rows grouped by pay run with a statement under the business name and address (printed on web, shared on mobile) and the run's CSV; a staff pay CSV in the bookkeeper pack; My pay for staff and contractors; a T4A without the owner and with tips apart; removed members stay listed while they're owed or were paid this year; an admin can't move their own pay.
 
 **To do:**
 
-- Earnings from invoice lines that aren't bookings.
+- Payroll for employees (T4, CPP, EI and income tax withholding) is not built; the T4A lists every paid member but the owner.
+- A pass over Staff pay and My pay on the iPad simulator.
 
 **QA:**
 
 1. Set 40% on services and 10% on retail.
 2. A $100 groom and a $30 product: earnings $40 and $3.
-3. Approve and mark paid; the T4A includes $43.
+3. Refund half the groom after paying it: a $20 clawback appears, and the next pay settles it.
+4. Approve and mark paid, undo the payment, then pay again; the T4A includes the net amount once.
+5. Pay everything done through yesterday: today's work waits for the next run.
+6. Sign in as the stylist: My pay shows the same rows and statements, read-only.
 
 **Depends on:** Team invites and roles (CLI-7); Card and Tap to Pay checkout with receipts (CLI-30)
 

@@ -33,6 +33,7 @@ from clientbridge.schemas.entitlements import (
 from clientbridge.services import ledger
 from clientbridge.services.bookings import assert_subject
 from clientbridge.services.business import merchant_account
+from clientbridge.services.earnings import accrue_covered_visit
 from clientbridge.services.payments import (
     cancel_open_deposits,
     complete_when_done,
@@ -467,7 +468,8 @@ class PackageService:
             booking.package_id = package.id
             booking.status, booking.completed_at = "completed", now
             await complete_when_done(self.db, slot)
-            await ledger.post_consumption(self.db, package, booking_id=booking.id)
+            share = await ledger.post_consumption(self.db, package, booking_id=booking.id)
+            await accrue_covered_visit(self.db, booking, share, package.id)
             if used + 1 >= package.sessions_total:
                 package.status = "used"
             await self.db.flush()

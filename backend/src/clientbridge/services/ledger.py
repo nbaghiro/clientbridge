@@ -745,6 +745,15 @@ async def post_tips(
     for staff_id, cents in shares:
         if cents <= 0:
             continue
+        meta: dict[str, object] = {"basis": "tip", "client_id": payment.client_id}
+        tipped = (
+            await journal_for(db, payment.business_id, f"tip:{payment.id}:{staff_id}")
+            if sign < 0
+            else None
+        )
+        if tipped is not None:
+            # a returned tip settles with the tip it returns, like a clawback with its earning
+            meta["of"] = tipped
         await post(
             db,
             payment.business_id,
@@ -758,7 +767,7 @@ async def post_tips(
             source=("payment", source_id or payment.id),
             subject=subject,
             occurred_at=occurred_at or payment.paid_at,
-            meta={"basis": "tip"},
+            meta=meta,
         )
 
 
@@ -770,6 +779,26 @@ async def document_tips(db: AsyncSession, business_id: str, subject: tuple[str, 
     """Tips paid on an invoice or order, less what refunds and lost disputes returned."""
     rows = await _rows(db, business_id, _subject_legs(*subject) & (Entry.event != "tip"))
     return -sum(entry.amount_cents for entry, account in rows if account.category == "staff_cost")
+
+
+async def amount_kept(
+    db: AsyncSession, business_id: str, subject: tuple[str, str], category: str
+) -> tuple[int, int]:
+    """(still kept, first booked) of a document's revenue or a package's deferred revenue."""
+    # sessions used and breakage recognize revenue; only refunds and disputes give money back
+    rows = await _rows(
+        db,
+        business_id,
+        _subject_legs(*subject)
+        & (Account.category == category)
+        & Entry.event.not_in(("consumption", "breakage")),
+    )
+    booked = -sum(
+        entry.amount_cents
+        for entry, _ in rows
+        if entry.event not in ("refund", "dispute", "reversal")
+    )
+    return -sum(entry.amount_cents for entry, _ in rows), booked
 
 
 async def tip_returned(db: AsyncSession, original: Payment, returned: int, refund_id: str) -> int:
@@ -994,9 +1023,16 @@ async def reverse_refund(db: AsyncSession, refund: Payment, original: Payment) -
         )
     for staff_id, _ in tip_shares(original):
         tip = await journal_for(db, biz, f"tip:{refund.id}:{staff_id}")
-        if tip is not None:
+        # an unpaid returned tip was cancelled outright (earnings.cancel_returned_tips)
+        if tip is not None and await journal_for(db, biz, f"earning:{tip}:reversal") is None:
             await reverse(
-                db, biz, tip, ref=f"tip:{refund.id}:{staff_id}:failed", event="tip", source=source
+                db,
+                biz,
+                tip,
+                ref=f"tip:{refund.id}:{staff_id}:failed",
+                event="tip",
+                source=source,
+                meta={"basis": "tip", "client_id": original.client_id},
             )
 
 
@@ -1345,7 +1381,7 @@ async def post_consumption(
     *,
     occurred_at: datetime | None = None,
     booking_id: str | None = None,
-) -> None:
+) -> int:
     """Recognize one used session's share of prepaid package revenue (the last takes the rest)."""
     if booking_id is not None:
         booking = await db.get(Booking, booking_id)
@@ -1387,6 +1423,7 @@ async def post_consumption(
         occurred_at=occurred_at,
         source=("booking", booking_id) if booking_id else None,
     )
+    return share
 
 
 async def deposit_held(db: AsyncSession, booking: Booking) -> int:

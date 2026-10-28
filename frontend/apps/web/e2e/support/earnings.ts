@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { addDays, combineDayAndTime } from "@clientbridge/app-core/public";
-import { expect, type Page } from "@playwright/test";
+import { addDays, combineDayAndTime, strings } from "@clientbridge/app-core/public";
+import { expect, type Locator, type Page } from "@playwright/test";
 import { bookingApi, createBookingFixture } from "./bookings";
 import { select } from "./db";
 import { navigate } from "./session";
@@ -26,20 +26,30 @@ export function staffPayEvidence(bookingId: string): Promise<StaffPayEntry[]> {
         ORDER BY e.journal_id, e.leg`;
 }
 
+export async function makePayee(page: Page, staffId: string): Promise<void> {
+    const pay = await page.request.patch(`${bookingApi()}/v1/staff/${staffId}/pay`, {
+        headers: { Origin: new URL(page.url()).origin },
+        data: { payee: true, rate_type: "percent", rate_bps: 6000 },
+    });
+    expect(pay.status(), await pay.text()).toBe(200);
+}
+
 export async function createStaffPaySale(
     page: Page,
     staffId: string,
     onBooking: (id: string) => void,
-): Promise<{ bookingId: string; orderId: string; title: string }> {
+    title = "Full coat care visit",
+    daysAhead = 14,
+): Promise<{ bookingId: string; orderId: string; paymentId: string; title: string }> {
     const api = bookingApi();
     const origin = new URL(page.url()).origin;
-    const pay = await page.request.patch(`${api}/v1/staff/${staffId}/pay`, {
-        headers: { Origin: origin },
-        data: { payee: true, rate_type: "percent", rate_bps: 6000 },
-    });
-    expect(pay.status(), await pay.text()).toBe(200);
+    await makePayee(page, staffId);
     const fixture = await createBookingFixture(page);
-    const starts = combineDayAndTime(addDays(new Date(), 14, fixture.zone), "10:00", fixture.zone);
+    const starts = combineDayAndTime(
+        addDays(new Date(), daysAhead, fixture.zone),
+        "10:00",
+        fixture.zone,
+    );
     const created = await page.request.post(`${api}/v1/bookings`, {
         headers: { Origin: origin, "Idempotency-Key": randomUUID() },
         data: {
@@ -53,7 +63,6 @@ export async function createStaffPaySale(
     expect(created.status(), await created.text()).toBe(201);
     const booking = (await created.json()) as { id: string };
     onBooking(booking.id);
-    const title = "Full coat care visit";
     const sale = await page.request.post(`${api}/v1/orders`, {
         headers: { Origin: origin, "Idempotency-Key": randomUUID() },
         data: {
@@ -76,12 +85,53 @@ export async function createStaffPaySale(
         data: { tendered_cents: 10000 },
     });
     expect(settled.status(), await settled.text()).toBe(200);
-    expect(await settled.json()).toMatchObject({
-        amount_cents: 10000,
-        tip_cents: 0,
-        change_cents: 0,
+    const cash = (await settled.json()) as { payment_id: string };
+    expect(cash).toMatchObject({ amount_cents: 10000, tip_cents: 0, change_cents: 0 });
+    return { bookingId: booking.id, orderId: order.id, paymentId: cash.payment_id, title };
+}
+
+export interface StaffLedgerEntry {
+    journal_id: string;
+    event: string;
+    ref: string;
+    amount_cents: number;
+    category: string;
+    code: string;
+    basis: string | null;
+    run: string | null;
+}
+
+export function staffLedger(staffId: string): Promise<StaffLedgerEntry[]> {
+    return select<StaffLedgerEntry>`
+        SELECT e.journal_id, e.event, e.ref, e.amount_cents, a.category, a.code,
+            e.meta->>'basis' AS basis, e.meta->>'run' AS run
+        FROM entries e JOIN accounts a ON a.id = e.account_id
+        WHERE e.journal_id IN (
+            SELECT journal_id FROM entries WHERE owner_type = 'staff' AND owner_id = ${staffId})
+        ORDER BY e.journal_id, e.leg`;
+}
+
+export function legSum(
+    entries: StaffLedgerEntry[],
+    match: (entry: StaffLedgerEntry) => boolean,
+): number {
+    return entries.filter(match).reduce((sum, entry) => sum + entry.amount_cents, 0);
+}
+
+export async function refundSale(page: Page, paymentId: string, cents: number): Promise<void> {
+    const refunded = await page.request.post(`${bookingApi()}/v1/payments/${paymentId}/refund`, {
+        headers: { Origin: new URL(page.url()).origin, "Idempotency-Key": randomUUID() },
+        data: { amount_cents: cents, notify: false },
     });
-    return { bookingId: booking.id, orderId: order.id, title };
+    expect(refunded.status(), await refunded.text()).toBe(200);
+}
+
+export function statementBusiness(
+    staffId: string,
+): Promise<{ name: string; street_name: string; city: string }[]> {
+    return select<{ name: string; street_name: string; city: string }>`
+        SELECT b.name, b.street_name, b.city FROM businesses b
+        JOIN staff s ON s.business_id = b.id WHERE s.id = ${staffId}`;
 }
 
 export async function openStaffPay(page: Page, name: string) {
@@ -91,6 +141,10 @@ export async function openStaffPay(page: Page, name: string) {
         .filter({ has: page.getByText(name, { exact: true }) })
         .click({ timeout: 60_000 });
     return page.getByRole("complementary", { name, exact: true });
+}
+
+export async function showPaid(panel: Locator): Promise<void> {
+    await panel.getByRole("button", { name: strings.earnings.view.paid, exact: true }).click();
 }
 
 export function expectStaffJournals(

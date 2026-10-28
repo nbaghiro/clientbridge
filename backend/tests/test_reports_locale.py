@@ -8,7 +8,7 @@ import pytest
 
 from clientbridge.core.config import get_settings
 
-KINDS = ["income", "sales-by-item", "gst-hst", "pst", "t4a", "payouts"]
+KINDS = ["income", "sales-by-item", "gst-hst", "pst", "t4a", "payouts", "staff-pay"]
 PERIOD = {"start": "2000-01-01", "end": "2100-01-01"}
 
 

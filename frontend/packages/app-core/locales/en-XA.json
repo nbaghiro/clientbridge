@@ -320,6 +320,15 @@
     "api.addonLengthInUse": {
         "message": "[{count,plural,one{Ţĥîš åðð-öñ'š ļéñĝţĥ çåñ'ţ çĥåñĝé ŵĥîļé å ṽîšîţ çåŕŕîéš îţ. Ŕéɱöṽé îţ ƒŕöɱ # ûþçöɱîñĝ ṽîšîţ ƒîŕšţ, öŕ ŵåîţ ûñţîļ îţ'š ðöñé.} other{Ţĥîš åðð-öñ'š ļéñĝţĥ çåñ'ţ çĥåñĝé ŵĥîļé ṽîšîţš çåŕŕý îţ. Ŕéɱöṽé îţ ƒŕöɱ # ûþçöɱîñĝ ṽîšîţš ƒîŕšţ, öŕ ŵåîţ ûñţîļ ţĥéý'ŕé ðöñé.}} one two three four five six seven eight nine ten one two three four]"
     },
+    "api.earningMoved": {
+        "message": "[Ţĥîš þåý çĥåñĝéð šîñçé îţ ļöåðéð. Çĥéçķ ţĥé ļîšţ åñð ţŕý åĝåîñ. one two three four]"
+    },
+    "api.payNotPositive": {
+        "message": "[Ţĥîš þåý çöɱéš ţö ñöţĥîñĝ öŕ ļéšš, ƀéçåûšé ŕéƒûñðš öŕ ðéðûçţîöñš öûţŵéîĝĥ îţ. Þåý îţ öñçé ɱöŕé îš éåŕñéð. one two three four five six seven]"
+    },
+    "api.ownPay": {
+        "message": "[Öñļý ţĥé öŵñéŕ çåñ åþþŕöṽé öŕ þåý ýöûŕ öŵñ éåŕñîñĝš. one two three four]"
+    },
     "common.amountWithCurrency": {
         "message": "{amount} {currency}"
     },
@@ -2207,14 +2216,17 @@
     "earnings.hourly": {
         "message": "[Ĥöûŕļý ŕåţé one two]"
     },
-    "earnings.sourceBooking": {
-        "message": "[Ɓööķîñĝ one]"
-    },
     "earnings.sourceSale": {
         "message": "[Þŕöðûçţ šåļé one two]"
     },
+    "earnings.sourceRefund": {
+        "message": "[Ŕéƒûñðéð one]"
+    },
     "earnings.sourceTip": {
         "message": "[Ţîþ one]"
+    },
+    "earnings.sourceAdjustment": {
+        "message": "[Åðĵûšţɱéñţ one two]"
     },
     "earnings.tipTitle": {
         "message": "[Ţîþ one]"
@@ -2223,19 +2235,85 @@
         "message": "[Šåļé Š-{n, number, ::group-off} one]"
     },
     "earnings.selectAll": {
-        "message": "[Šéļéçţ åļļ ţö åþþŕöṽé one two]"
+        "message": "[Šéļéçţ åļļ one two]"
+    },
+    "earnings.viewLabel": {
+        "message": "[Šĥöŵ one]"
+    },
+    "earnings.view.todo": {
+        "message": "[Ţö ðö one]"
+    },
+    "earnings.view.paid": {
+        "message": "[Þåîð one]"
+    },
+    "earnings.view.all": {
+        "message": "[Åļļ one]"
+    },
+    "earnings.through": {
+        "message": "[Ŵöŕķ ðöñé ţĥŕöûĝĥ one two]"
+    },
+    "earnings.throughHint": {
+        "message": "[Þåýš éṽéŕýţĥîñĝ éåŕñéð öñ öŕ ƀéƒöŕé ţĥîš ðåý, åþþŕöṽéð öŕ ñöţ. Ļéåṽé îţ éɱþţý ţö þåý öñļý ŵĥåţ'š åþþŕöṽéð. one two three four five six seven]"
+    },
+    "earnings.paidOn": {
+        "message": "[Þåîð {date} one]"
+    },
+    "earnings.undoApproval": {
+        "message": "[Ûñðö åþþŕöṽåļ one two]"
+    },
+    "earnings.undoPayment": {
+        "message": "[Ûñðö þåýɱéñţ one two]"
+    },
+    "earnings.statement": {
+        "message": "[Þŕîñţ šţåţéɱéñţ one two]"
+    },
+    "earnings.statementTitle": {
+        "message": "[Þåý šţåţéɱéñţ one two]"
+    },
+    "earnings.statementFor": {
+        "message": "[{name}, þåîð {date} one]"
+    },
+    "earnings.total": {
+        "message": "[Ţöţåļ one]"
+    },
+    "earnings.noPaid": {
+        "message": "[Ñöţĥîñĝ ĥåš ƀééñ þåîð ţö ţĥîš ţéåɱ ɱéɱƀéŕ ýéţ. one two three]"
+    },
+    "earnings.addAdjustment": {
+        "message": "[Åðð åðĵûšţɱéñţ one two]"
+    },
+    "earnings.mine.subtitle": {
+        "message": "[Ŵĥåţ ýöû'ṽé éåŕñéð ƒŕöɱ ṽîšîţš, šåļéš åñð ţîþš, ŵîţĥ åñý ƀöñûšéš öŕ ðéðûçţîöñš. Ýöûŕ ɱåñåĝéŕ åþþŕöṽéš îţ, ţĥéñ þåýš îţ. one two three four five six seven]"
+    },
+    "earnings.mine.empty": {
+        "message": "[Ñöţĥîñĝ ţö šĥöŵ ýéţ. Ýöûŕ éåŕñîñĝš šĥöŵ ûþ ĥéŕé öñçé ýöû šţåŕţ éåŕñîñĝ. one two three four five]"
     },
     "earnings.approveSelected": {
         "message": "[{count,plural,one{Åþþŕöṽé # éåŕñîñĝ} other{Åþþŕöṽé # éåŕñîñĝš} =0{Åþþŕöṽé šéļéçţéð}} one two three four]"
     },
     "earnings.review.payTitle": {
-        "message": "[Ṁåŕķ {amount} åš þåîð? one two]"
+        "message": "[Ṁåŕķ {amount} åš þåîð ţö {name}? one two]"
     },
     "earnings.review.payBody": {
         "message": "[Đö ţĥîš öñçé ýöû'ṽé þåîð ýöûŕ ţéåɱ. Ñö ɱöñéý ɱöṽéš ƒŕöɱ ĥéŕé. one two three four]"
     },
     "earnings.review.markPaid": {
         "message": "[Ṁåŕķ þåîð one]"
+    },
+    "earnings.review.undoApprovalTitle": {
+        "message": "[Ûñðö ţĥîš åþþŕöṽåļ? one two]"
+    },
+    "earnings.review.undoApprovalBody": {
+        "message": "[Îţ ĝöéš ƀåçķ ţö Ţö åþþŕöṽé. one two three]"
+    },
+    "earnings.review.undoPaymentTitle": {
+        "message": "[Ûñðö ţĥîš þåýɱéñţ? one two]"
+    },
+    "earnings.review.undoPaymentBody": {
+        "message": "[Îţ ĝöéš ƀåçķ ţö Åþþŕöṽéð, ţö þåý. Ûšé ţĥîš ŵĥéñ îţ ŵåš ɱåŕķéð þåîð ƀý ɱîšţåķé. one two three four five]"
+    },
+    "earnings.review.undo": {
+        "message": "[Ûñðö one]"
     },
     "earnings.payApproved": {
         "message": "[Þåý {amount} one]"
@@ -2266,6 +2344,120 @@
     },
     "earnings.loading": {
         "message": "[Ļöåðîñĝ šţåƒƒ þåý… one two]"
+    },
+    "earnings.removedMember": {
+        "message": "[Ñö ļöñĝéŕ öñ ţĥé ţéåɱ one two]"
+    },
+    "earnings.owedOnRemove": {
+        "message": "[{amount} öƒ ţĥéîŕ þåý ĥåšñ'ţ ƀééñ þåîð ýéţ. Îţ šţåýš îñ Šţåƒƒ þåý šö ýöû çåñ šţîļļ åþþŕöṽé åñð þåý îţ. one two three four five six]"
+    },
+    "earnings.adjustment.title": {
+        "message": "[Åðð åñ åðĵûšţɱéñţ one two]"
+    },
+    "earnings.adjustment.body": {
+        "message": "[Å ƀöñûš, öŕ å ðéðûçţîöñ šûçĥ åš çĥåîŕ ŕéñţ. Îţ'š åþþŕöṽéð åñð þåîð ļîķé åñý öţĥéŕ éåŕñîñĝ. one two three four five six]"
+    },
+    "earnings.adjustment.kindLabel": {
+        "message": "[Ţýþé one]"
+    },
+    "earnings.adjustment.bonus": {
+        "message": "[Ɓöñûš one]"
+    },
+    "earnings.adjustment.deduction": {
+        "message": "[Đéðûçţîöñ one two]"
+    },
+    "earnings.adjustment.amount": {
+        "message": "[Åɱöûñţ one]"
+    },
+    "earnings.adjustment.reason": {
+        "message": "[Ŕéåšöñ one]"
+    },
+    "earnings.adjustment.reasonHint": {
+        "message": "[Ýöûŕ ţéåɱ ɱéɱƀéŕ šééš ţĥîš ñéẋţ ţö ţĥé åɱöûñţ. one two three]"
+    },
+    "earnings.adjustment.save": {
+        "message": "[Åðð åðĵûšţɱéñţ one two]"
+    },
+    "earnings.adjustment.amountInvalid": {
+        "message": "[Éñţéŕ åñ åɱöûñţ åƀöṽé žéŕö. one two three]"
+    },
+    "earnings.adjustment.reasonMissing": {
+        "message": "[Åðð å ŕéåšöñ šö îţ'š çļéåŕ ŵĥåţ ţĥé åðĵûšţɱéñţ îš ƒöŕ. one two three four]"
+    },
+    "earnings.adjustment.error": {
+        "message": "[Çöûļðñ'ţ åðð ţĥîš åðĵûšţɱéñţ. Þļéåšé ţŕý åĝåîñ. one two three four]"
+    },
+    "earnings.sourceWork": {
+        "message": "[Ŵöŕķ one]"
+    },
+    "earnings.refundOf": {
+        "message": "[Ŕéƒûñð öƒ {title} one]"
+    },
+    "earnings.tipRefunded": {
+        "message": "[Ţîþ ŕéƒûñðéð one two]"
+    },
+    "earnings.owesBackOnRemove": {
+        "message": "[Ŕéƒûñðš åñð ðéðûçţîöñš çöɱé ţö {amount} ɱöŕé ţĥåñ ţĥéîŕ þåý. Îţ šţåýš îñ Šţåƒƒ þåý šö ýöû çåñ šéţţļé îţ. one two three four five six]"
+    },
+    "earnings.owesBack": {
+        "message": "[Öŵéš {amount} ƀåçķ one]"
+    },
+    "earnings.payeeFigures": {
+        "message": "[{pending} ţö åþþŕöṽé · {approved} ţö þåý one two]"
+    },
+    "earnings.part.work": {
+        "message": "[Ŵöŕķ one]"
+    },
+    "earnings.part.tips": {
+        "message": "[Ţîþš one]"
+    },
+    "earnings.part.adjustments": {
+        "message": "[Åðĵûšţɱéñţš one two]"
+    },
+    "earnings.part.refunds": {
+        "message": "[Ŕéƒûñðš one]"
+    },
+    "earnings.workThrough": {
+        "message": "[Ŵöŕķ ţĥŕöûĝĥ {date} one two]"
+    },
+    "earnings.noneThrough": {
+        "message": "[Ñöţĥîñĝ ŵåš éåŕñéð öñ öŕ ƀéƒöŕé ţĥîš ðåý. one two three]"
+    },
+    "earnings.undoRun": {
+        "message": "[Ûñðö ţĥîš þåý one two]"
+    },
+    "earnings.downloadCsv": {
+        "message": "[Đöŵñļöåð ÇŠṼ one two]"
+    },
+    "earnings.shareStatement": {
+        "message": "[Šĥåŕé šţåţéɱéñţ one two]"
+    },
+    "earnings.readOnlySelf": {
+        "message": "[Öñļý ţĥé öŵñéŕ çåñ åþþŕöṽé öŕ þåý ýöûŕ öŵñ éåŕñîñĝš. one two three four]"
+    },
+    "earnings.showReversed": {
+        "message": "[Šĥöŵ ŕéṽéŕšéð one two]"
+    },
+    "earnings.from": {
+        "message": "[Ƒŕöɱ one]"
+    },
+    "earnings.to": {
+        "message": "[Ţö one]"
+    },
+    "earnings.undoPaymentFor": {
+        "message": "[Ûñðö þåýɱéñţ ƒöŕ {row} one two]"
+    },
+    "earnings.undoApprovalFor": {
+        "message": "[Ûñðö åþþŕöṽåļ ƒöŕ {row} one two]"
+    },
+    "earnings.review.undoRunTitle": {
+        "message": "[Ûñðö ţĥé {amount} þåîð ţö {name}? one two]"
+    },
+    "earnings.mine.noPaid": {
+        "message": "[Ñöţĥîñĝ ĥåš ƀééñ þåîð ţö ýöû ýéţ. one two three]"
+    },
+    "earnings.mine.noEarnings": {
+        "message": "[Ñöţĥîñĝ îš ŵåîţîñĝ. Ñéŵ éåŕñîñĝš šĥöŵ ûþ ĥéŕé åš ýöû éåŕñ ţĥéɱ. one two three four]"
     },
     "entitlements.segments.all": {
         "message": "[Åļļ one]"
@@ -9815,6 +10007,9 @@
     "reports.library.payouts": {
         "message": "[Ɓåñķ ðéþöšîţš one two]"
     },
+    "reports.library.staffPay": {
+        "message": "[Šţåƒƒ þåý one]"
+    },
     "reports.libraryHint.income": {
         "message": "[Šåļéš åñð ĥöŵ çļîéñţš þåîð one two three]"
     },
@@ -9832,6 +10027,9 @@
     },
     "reports.libraryHint.payouts": {
         "message": "[Þåýöûţš ţö ýöûŕ ƀåñķ one two]"
+    },
+    "reports.libraryHint.staffPay": {
+        "message": "[Éåçĥ éåŕñîñĝ ɱåŕķéð þåîð one two three]"
     },
     "reports.pstTitle": {
         "message": "[{code} çöļļéçţéð one two]"
@@ -9989,6 +10187,12 @@
     "reports.colPaid": {
         "message": "[Þåîð one]"
     },
+    "reports.colTips": {
+        "message": "[Öƒ ŵĥîçĥ ţîþš one two]"
+    },
+    "reports.tipsValue": {
+        "message": "[{amount} îñ ţîþš one]"
+    },
     "reports.qty": {
         "message": "{n, number, ::.00/w}"
     },
@@ -10020,7 +10224,7 @@
         "message": "[Çåļéñðåŕ ýéåŕ {y, number, ::group-off} one two]"
     },
     "reports.t4aNote": {
-        "message": "[Åɱöûñţš þåîð ţö šţåƒƒ åñð çöñţŕåçţöŕš. Šļîþš åŕé ðûé ţö þåýééš åñð ţĥé ÇŔÅ ƀý ţĥé ļåšţ ðåý öƒ Ƒéƀŕûåŕý. one two three four five six seven]"
+        "message": "[Åɱöûñţš þåîð ţö éåçĥ ţéåɱ ɱéɱƀéŕ éẋçéþţ ţĥé öŵñéŕ, ŵîţĥ ţîþš šĥöŵñ åþåŕţ. Éɱþļöýééš' þåý ƀéļöñĝš öñ å Ţ4 ƒŕöɱ ýöûŕ þåýŕöļļ þŕöṽîðéŕ. Šļîþš åŕé ðûé ţö þåýééš åñð ţĥé ÇŔÅ ƀý ţĥé ļåšţ ðåý öƒ Ƒéƀŕûåŕý. one two three four five six seven eight nine ten one two]"
     },
     "reports.noT4a": {
         "message": "[Ñöţĥîñĝ þåîð ţö šţåƒƒ ţĥîš ýéåŕ ýéţ. one two three]"
@@ -12406,6 +12610,9 @@
     },
     "navigation.paymentsTabs.staffPay": {
         "message": "[Šţåƒƒ þåý one]"
+    },
+    "navigation.paymentsTabs.myPay": {
+        "message": "[Ṁý þåý one]"
     },
     "navigation.paymentsTabs.taxReturns": {
         "message": "[Ţåẋ ŕéţûŕñš one two]"

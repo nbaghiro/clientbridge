@@ -39,6 +39,8 @@ REQUIRED_CASES = {
         "MSG-E2E-02",
         "MSG-E2E-03",
         "PAY-E2E-01",
+        "PAY-E2E-02",
+        "PAY-E2E-03",
         "REF-E2E-01",
         "SALE-E2E-01",
         "SALE-E2E-02",

@@ -740,7 +740,7 @@ function seed(): void {
             on("package", "pk_1"),
         );
     }
-    const earning = (id: string, payee: string, amount: number, subject: Row) => {
+    const earning = (id: string, payee: string, amount: number, subject: Row, meta = {}) => {
         journal(
             id,
             "earning",
@@ -749,7 +749,7 @@ function seed(): void {
                 ["a_cost", amount],
                 [payee, -amount],
             ],
-            subject,
+            { ...subject, meta: JSON.stringify(meta) },
         );
     };
     earning("j_e_pending", "a_pay_amy", 900, on("order", "ord_web"));
@@ -761,18 +761,67 @@ function seed(): void {
             ["a_cost", 300],
             ["a_pay_amy", -300],
         ],
-        { ...on("order", "ord_web", "pay_web"), meta: JSON.stringify({ basis: "tip" }) },
+        {
+            ...on("order", "ord_web", "pay_web"),
+            meta: JSON.stringify({ basis: "tip", client_id: "cl_ben" }),
+        },
     );
     earning("j_e_approved", "a_pay_owner", 4000, on("booking", "bk_1"));
-    earning("j_e_paid", "a_pay_owner", 1500, on("booking", "bk_4"));
+    earning("j_e_paid", "a_pay_owner", 1500, on("booking", "bk_4"), {
+        basis: "percent",
+        rate: 4000,
+        base: 3750,
+        label: "Groom",
+        client_id: "cl_ben",
+        worked_at: "2026-06-20T14:00:00+00:00",
+    });
+    earning("j_e_back", "a_pay_owner", -500, on("booking", "bk_4"), {
+        basis: "clawback",
+        of: "j_e_paid",
+    });
+    earning("j_e_repaid", "a_pay_owner", 100, on("booking", "bk_1"));
     earning("j_e_reversed", "a_pay_amy", 700, on("booking", "bk_4"));
-    journal("j_appr1", "approval", "approval:j_e_approved", [["a_pay_owner", 0]]);
-    journal("j_appr2", "approval", "approval:j_e_paid", [["a_pay_owner", 0]]);
-    journal("j_staffpay", "staff_payment", "staff_payment:j_e_paid", [["a_bank", -1500]]);
-    journal("j_rev", "reversal", "earning:j_e_reversed:reversal", [
-        ["a_cost", -700],
-        ["a_pay_amy", 700],
-    ]);
+    const stage = (id: string, event: string, ref: string, of: string, extra: Row = {}) => {
+        journal(id, event, ref, [["a_pay_owner", 0]], {
+            source_type: "journal",
+            source_id: of,
+            ...extra,
+        });
+    };
+    earning("j_e_undone", "a_pay_owner", 200, on("booking", "bk_1"));
+    earning("j_e_unpaid", "a_pay_owner", 300, on("booking", "bk_1"));
+    stage("j_appr1", "approval", "approval:j_e_approved:0", "j_e_approved");
+    stage("j_appr2", "approval", "approval:j_e_paid:0", "j_e_paid");
+    stage("j_staffpay", "staff_payment", "staff_payment:j_e_paid:0", "j_e_paid", {
+        meta: JSON.stringify({ run: "prun_1", through: "2026-06-19" }),
+    });
+    stage("j_appr5", "approval", "approval:j_e_repaid:0", "j_e_repaid");
+    stage("j_pay5", "staff_payment", "staff_payment:j_e_repaid:0", "j_e_repaid", {
+        occurred_at: "2026-06-21T00:00:00Z",
+        meta: JSON.stringify({ run: "prun_old" }),
+    });
+    stage("j_pay5u", "staff_payment", "staff_payment:j_e_repaid:0:undo", "j_e_repaid", {
+        occurred_at: "2026-06-22T00:00:00Z",
+    });
+    stage("j_pay6", "staff_payment", "staff_payment:j_e_repaid:1", "j_e_repaid", {
+        occurred_at: "2026-06-23T00:00:00Z",
+        meta: JSON.stringify({ run: "prun_new" }),
+    });
+    stage("j_appr3", "approval", "approval:j_e_undone:0", "j_e_undone");
+    stage("j_appr3u", "approval", "approval:j_e_undone:0:undo", "j_e_undone");
+    stage("j_appr4", "approval", "approval:j_e_unpaid:0", "j_e_unpaid");
+    stage("j_pay4", "staff_payment", "staff_payment:j_e_unpaid:0", "j_e_unpaid");
+    stage("j_pay4u", "staff_payment", "staff_payment:j_e_unpaid:0:undo", "j_e_unpaid");
+    journal(
+        "j_rev",
+        "reversal",
+        "earning:j_e_reversed:reversal",
+        [
+            ["a_cost", -700],
+            ["a_pay_amy", 700],
+        ],
+        { source_type: "journal", source_id: "j_e_reversed" },
+    );
     const payout = (id: string, ref: string, legs: [string, number][], at: string): void => {
         journal(id, ref.endsWith(":failed") ? "reversal" : "payout", ref, legs, {
             occurred_at: at,
@@ -1467,14 +1516,41 @@ describe("app-core SQL against the replica schema", () => {
         expect(pick(run("ALL_EARNINGS_SQL"), "id", "status", "amount_cents", "kind")).toEqual([
             { id: "j_e_pending", status: "pending", amount_cents: 900, kind: "earning" },
             { id: "j_tip", status: "pending", amount_cents: 300, kind: "tip" },
+            { id: "j_e_back", status: "pending", amount_cents: -500, kind: "earning" },
+            { id: "j_e_undone", status: "pending", amount_cents: 200, kind: "earning" },
             { id: "j_e_approved", status: "approved", amount_cents: 4000, kind: "earning" },
-            { id: "j_e_paid", status: "paid", amount_cents: 1500, kind: "earning" },
+            { id: "j_e_unpaid", status: "approved", amount_cents: 300, kind: "earning" },
+            { id: "j_e_repaid", status: "paid", amount_cents: 100, kind: "earning" },
             { id: "j_e_reversed", status: "reversed", amount_cents: 700, kind: "earning" },
+            { id: "j_e_paid", status: "paid", amount_cents: 1500, kind: "earning" },
         ]);
         expect(pick(run("ALL_EARNINGS_SQL"), "id", "client_name", "paid_at")[1]).toEqual({
             id: "j_tip",
             client_name: "ben",
             paid_at: null,
+        });
+    });
+
+    it("reads an earning's context from its own meta, as a member's replica holds no documents", () => {
+        const byId = new Map(run("ALL_EARNINGS_SQL").map((r) => [r.id, r]));
+        expect(byId.get("j_e_paid")).toMatchObject({
+            label: "Groom",
+            client_name: "ben",
+            base: 3750,
+            rate: 4000,
+            worked_at: "2026-06-20T14:00:00+00:00",
+            run: "prun_1",
+            through: "2026-06-19",
+        });
+        expect(byId.get("j_e_back")).toMatchObject({
+            basis: "clawback",
+            of_id: "j_e_paid",
+            label: "Groom",
+            client_name: "ben",
+        });
+        expect(byId.get("j_e_repaid")).toMatchObject({
+            paid_at: "2026-06-23T00:00:00Z",
+            run: "prun_new",
         });
         expect(run("PAYEES_SQL").map((r) => r.id)).toEqual(["st_amy", "st_owner"]);
     });

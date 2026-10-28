@@ -53,9 +53,16 @@ interface ReportSummary {
         number: string | null;
     };
     t4a_year: number;
-    t4a: { staff_id: string; name: string; payments: number; total_cents: number }[];
+    t4a: {
+        staff_id: string;
+        name: string;
+        payments: number;
+        total_cents: number;
+        tips_cents: number;
+    }[];
     months: { month: string; net_cents: number }[];
     payouts: { id: string }[];
+    staff_pay: number;
     rates: { code: string; rate_bps: number | null }[];
 }
 
@@ -103,7 +110,7 @@ export function spanLabel(span: ReportSpan): string {
 }
 
 export type ReportKey = "income" | "salesByItem" | "gstHst" | "pst" | "t4a";
-export type ExportKind = ReportKey | "payouts";
+export type ExportKind = ReportKey | "payouts" | "staffPay";
 
 export const EXPORT_KINDS: readonly ExportKind[] = [
     "income",
@@ -112,6 +119,7 @@ export const EXPORT_KINDS: readonly ExportKind[] = [
     "pst",
     "t4a",
     "payouts",
+    "staffPay",
 ];
 
 const SERVER_KIND: Record<ExportKind, string> = {
@@ -121,6 +129,7 @@ const SERVER_KIND: Record<ExportKind, string> = {
     pst: "pst",
     t4a: "t4a",
     payouts: "payouts",
+    staffPay: "staff-pay",
 };
 
 interface TaxLine {
@@ -175,7 +184,13 @@ export interface ReportsView {
         number: string | null;
     } | null;
     t4aYear: number;
-    t4a: { staffId: string; name: string; payments: number; totalCents: number }[];
+    t4a: {
+        staffId: string;
+        name: string;
+        payments: number;
+        totalCents: number;
+        tipsCents: number;
+    }[];
     t4aTotalCents: number;
     bars: MonthBar[];
     rows: Record<ExportKind, number>;
@@ -250,6 +265,7 @@ function buildView(r: ReportSummary, span: ReportSpan, now: Date, zone: string):
             name: t.name,
             payments: t.payments,
             totalCents: t.total_cents,
+            tipsCents: t.tips_cents,
         })),
         t4aTotalCents: r.t4a.reduce((n, t) => n + t.total_cents, 0),
         bars: r.months.map((m) => ({
@@ -266,6 +282,7 @@ function buildView(r: ReportSummary, span: ReportSpan, now: Date, zone: string):
             pst: provincialCode === null ? 0 : 1,
             t4a: r.t4a.length,
             payouts: r.payouts.length,
+            staffPay: r.staff_pay,
         },
     };
 }

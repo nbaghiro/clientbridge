@@ -605,6 +605,9 @@ msgstr "[åɱöûñţ_çéñţš~~~~~]"
 msgid "report_csv.arrival"
 msgstr "[åŕŕîṽåļ~~~]"
 
+msgid "report_csv.basis"
+msgstr "[ƀåšîš~~]"
+
 msgid "report_csv.by_method"
 msgstr "[ɱéţĥöð:{method}~~~]"
 
@@ -613,6 +616,12 @@ msgstr "[çöðé~~]"
 
 msgid "report_csv.collected_cents"
 msgstr "[çöļļéçţéð_çéñţš~~~~~~]"
+
+msgid "report_csv.earning_id"
+msgstr "[éåŕñîñĝ_îð~~~~]"
+
+msgid "report_csv.fees_cents"
+msgstr "[ƒééš_çéñţš~~~~]"
 
 msgid "report_csv.gross"
 msgstr "[ĝŕöšš~~]"
@@ -638,6 +647,9 @@ msgstr "[ñéţ~~]"
 msgid "report_csv.number"
 msgstr "[ñûɱƀéŕ~~~]"
 
+msgid "report_csv.paid_on"
+msgstr "[þåîð_öñ~~~]"
+
 msgid "report_csv.payout"
 msgstr "[þåýöûţ~~~]"
 
@@ -659,6 +671,9 @@ msgstr "[ŕéƒûñðéð_çéñţš~~~~~]"
 msgid "report_csv.refunds"
 msgstr "[ŕéƒûñðš~~~]"
 
+msgid "report_csv.run"
+msgstr "[ŕûñ~~]"
+
 msgid "report_csv.sales_cents"
 msgstr "[šåļéš_çéñţš~~~~]"
 
@@ -676,6 +691,9 @@ msgstr "[ţåẋ_çöļļéçţéð_çéñţš~~~~~~~]"
 
 msgid "report_csv.taxable_sales_cents"
 msgstr "[ţåẋåƀļé_šåļéš_çéñţš~~~~~~~]"
+
+msgid "report_csv.tips_cents"
+msgstr "[ţîþš_çéñţš~~~~]"
 
 msgid "report_csv.total_cents"
 msgstr "[ţöţåļ_çéñţš~~~~]"

@@ -5,7 +5,7 @@ from calendar import monthrange
 from datetime import UTC, date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import ColumnElement, Select, func, select
+from sqlalchemy import ColumnElement, Select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
@@ -31,8 +31,8 @@ from clientbridge.schemas.reports import (
     ReportRate,
     ReportSummary,
     SalesByItemRow,
+    StaffPayRow,
     T4APayee,
-    T4ARow,
 )
 from clientbridge.services import ledger
 from clientbridge.services.business import staff_name
@@ -140,33 +140,6 @@ class ReportService:
             ).with_only_columns(func.coalesce(func.sum(Entry.amount_cents), 0))
         )
         return -int(sales.scalar_one())
-
-    async def t4a_summary(self, year: int) -> list[T4ARow]:
-        tz = zone((await self._business()).timezone)
-        start = datetime(year, 1, 1, tzinfo=tz)
-        end = datetime(year + 1, 1, 1, tzinfo=tz)
-        paid = (
-            self._legs(
-                (Account.category == "payable") & (Account.code == "approved"),
-                Entry.event == "staff_payment",
-                start,
-                end,
-            )
-            .with_only_columns(Account.owner_id, func.sum(Entry.amount_cents).label("total"))
-            .group_by(Account.owner_id)
-            .subquery()
-        )
-        rows = await self.db.execute(
-            select(paid.c.owner_id, staff_name(), paid.c.total)
-            .join(Staff, Staff.id == paid.c.owner_id)
-            .order_by(paid.c.owner_id)
-        )
-        unnamed = message(await self._locale(), "report.unnamed_payee")
-        return [
-            T4ARow(staff_id=staff_id, name=name or unnamed, total_cents=int(total))
-            for staff_id, name, total in rows.tuples().all()
-            if total
-        ]
 
     def _legs(
         self,
@@ -290,20 +263,26 @@ class ReportService:
         return buf.getvalue()
 
     async def t4a_csv(self, year: int) -> str:
-        rows = await self.t4a_summary(year)
-        buf = io.StringIO()
-        writer = csv.writer(buf)
         locale = await self._locale()
-        writer.writerow(
+        return _csv(
             [
                 message(locale, "report_csv.staff_id"),
                 message(locale, "report_csv.name"),
+                message(locale, "report_csv.fees_cents"),
+                message(locale, "report_csv.tips_cents"),
                 message(locale, "report_csv.total_cents"),
-            ]
+            ],
+            [
+                [
+                    row.staff_id,
+                    row.name,
+                    row.total_cents - row.tips_cents,
+                    row.tips_cents,
+                    row.total_cents,
+                ]
+                for row in await self.t4a_payees(year)
+            ],
         )
-        for row in rows:
-            writer.writerow([row.staff_id, row.name, row.total_cents])
-        return buf.getvalue()
 
     async def summary(self, start: date, end: date) -> ReportSummary:
         """Every report for one period in a single read, plus net sales by month."""
@@ -338,6 +317,7 @@ class ReportService:
             t4a=await self.t4a_payees(end.year),
             months=await self._months(end, tz),
             payouts=await self.payouts(lo, hi),
+            staff_pay=len(await self.staff_payments(start, end)),
             rates=[ReportRate(code=code, rate_bps=bps) for code, bps in steady.items()],
         )
 
@@ -455,7 +435,95 @@ class ReportService:
             return await self.pst_csv(start, end)
         if kind == "t4a":
             return await self.t4a_csv(end.year)
+        if kind == "staff-pay":
+            return await self.staff_pay_csv(start, end)
         return await self.payouts_csv(start, end)
+
+    async def staff_payments(
+        self, start: date, end: date, run: str | None = None
+    ) -> list[StaffPayRow]:
+        """Each earning, tip and adjustment paid in the period; an undo nets out when it's made."""
+        tz = zone((await self._business()).timezone)
+        lo, hi = period_bounds(start, end, tz)
+        if run is not None:
+            # a run's later undos carry its id, so its CSV nets them out whenever they were made
+            hi = datetime.max.replace(tzinfo=UTC)
+        earnings = (
+            scoped(Entry, self.biz)
+            .with_only_columns(
+                Entry.journal_id.label("id"),
+                func.coalesce(Entry.meta["basis"].astext, Entry.event).label("basis"),
+            )
+            .where(Entry.owner_type == "staff", Entry.event.in_(("earning", "tip")))
+            .distinct()
+            .subquery()
+        )
+        stmt = (
+            self._legs(
+                (Account.category == "payable") & (Account.code == "approved"),
+                Entry.event == "staff_payment",
+                lo,
+                hi,
+            )
+            .outerjoin(earnings, earnings.c.id == Entry.source_id)
+            .with_only_columns(
+                Entry.occurred_at,
+                Account.owner_id,
+                Entry.source_id,
+                earnings.c.basis,
+                Entry.meta["run"].astext,
+                Entry.amount_cents,
+            )
+            .order_by(Entry.occurred_at, Entry.journal_id)
+        )
+        if run is not None:
+            stmt = stmt.where(Entry.meta["run"].astext == run)
+        found = (await self.db.execute(stmt)).tuples().all()
+        names = await self.db.execute(
+            scoped(Staff, self.biz)
+            .with_only_columns(Staff.id, staff_name())
+            .where(Staff.id.in_({row[1] for row in found}))
+        )
+        named = {staff_id: name for staff_id, name in names.tuples().all()}
+        unnamed = message(await self._locale(), "report.unnamed_payee")
+        return [
+            StaffPayRow(
+                paid_on=at.astimezone(tz).date(),
+                staff_id=staff_id,
+                name=named.get(staff_id) or unnamed,
+                earning_id=earning_id or "",
+                basis=kind or "",
+                run=pay_run or "",
+                amount_cents=cents,
+            )
+            for at, staff_id, earning_id, kind, pay_run, cents in found
+        ]
+
+    async def staff_pay_csv(self, start: date, end: date, run: str | None = None) -> str:
+        locale = await self._locale()
+        return _csv(
+            [
+                message(locale, "report_csv.paid_on"),
+                message(locale, "report_csv.staff_id"),
+                message(locale, "report_csv.name"),
+                message(locale, "report_csv.earning_id"),
+                message(locale, "report_csv.basis"),
+                message(locale, "report_csv.run"),
+                message(locale, "report_csv.amount_cents"),
+            ],
+            [
+                [
+                    row.paid_on.isoformat(),
+                    row.staff_id,
+                    row.name,
+                    row.earning_id,
+                    row.basis,
+                    row.run,
+                    row.amount_cents,
+                ]
+                for row in await self.staff_payments(start, end, run)
+            ],
+        )
 
     async def pst_csv(self, start: date, end: date) -> str:
         provincial = (await self.summary(start, end)).provincial
@@ -501,41 +569,33 @@ class ReportService:
         )
 
     async def t4a_payees(self, year: int) -> list[T4APayee]:
-        tz = zone((await self._business()).timezone)
-        start = datetime(year, 1, 1, tzinfo=tz)
-        end = datetime(year + 1, 1, 1, tzinfo=tz)
-        rows = await self.db.execute(
-            self._legs(
-                (Account.category == "payable") & (Account.code == "approved"),
-                Entry.event == "staff_payment",
-                start,
-                end,
-            )
-            .with_only_columns(
-                Account.owner_id,
-                func.count(func.distinct(Entry.journal_id)),
-                func.sum(Entry.amount_cents),
-            )
-            .group_by(Account.owner_id)
+        """What each member but the owner was paid in the calendar year, tips apart."""
+        rows = await self.staff_payments(date(year, 1, 1), date(year, 12, 31))
+        owners = await self.db.execute(
+            scoped(Staff, self.biz).with_only_columns(Staff.id).where(Staff.role == "owner")
         )
-        paid = {owner: (int(n), int(total)) for owner, n, total in rows.tuples().all() if total}
-        if not paid:
-            return []
-        names = await self.db.execute(
-            scoped(Staff, self.biz)
-            .with_only_columns(Staff.id, staff_name())
-            .where(Staff.id.in_(paid))
-        )
-        named = {staff_id: name for staff_id, name in names.tuples().all()}
-        unnamed = message(await self._locale(), "report.unnamed_payee")
+        skip = set(owners.scalars().all())
+        totals: dict[str, tuple[str, dict[str, int], int]] = {}
+        for row in rows:
+            if row.staff_id in skip:
+                continue
+            name, by_earning, tips = totals.get(row.staff_id, (row.name, {}, 0))
+            by_earning[row.earning_id] = by_earning.get(row.earning_id, 0) + row.amount_cents
+            totals[row.staff_id] = (
+                name,
+                by_earning,
+                tips + (row.amount_cents if row.basis == "tip" else 0),
+            )
         return [
             T4APayee(
                 staff_id=staff_id,
-                name=named.get(staff_id) or unnamed,
-                payments=count,
-                total_cents=total,
+                name=name,
+                payments=sum(1 for cents in by_earning.values() if cents),
+                total_cents=sum(by_earning.values()),
+                tips_cents=tips,
             )
-            for staff_id, (count, total) in sorted(paid.items())
+            for staff_id, (name, by_earning, tips) in sorted(totals.items())
+            if sum(by_earning.values())
         ]
 
 
