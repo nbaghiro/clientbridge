@@ -7,6 +7,7 @@ import {
     selectBusinessPerTab,
 } from "@clientbridge/sync";
 import { holdReplicaFile, removeReplicaFiles } from "@clientbridge/sync/files";
+import { browserTabs } from "@clientbridge/sync/tabs";
 import { boundedOpen, type ReplicaStorage, replicaStorage } from "@clientbridge/app-core";
 import { type DBAdapter, PowerSyncDatabase, WASQLiteVFS, type WebDBAdapter } from "@powersync/web";
 import { beforeSessionReplace, getUserId } from "./auth";
@@ -132,6 +133,7 @@ export const replica = new ReplicaController(
         },
         remove: removeOnSignOut,
     },
+    browserTabs,
 );
 
 beforeSessionReplace(() => replica.pause());

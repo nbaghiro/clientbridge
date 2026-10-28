@@ -1,14 +1,9 @@
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
 import { expect, test } from "@playwright/test";
 
-import { endpoint, fixture, token } from "./service";
+import { backend, endpoint, fixture, token } from "./service";
 
-async function command(body: string): Promise<string> {
-    const python = process.env.SYNC_TEST_PYTHON;
-    const cwd = process.env.SYNC_TEST_BACKEND;
-    if (!python || !cwd) throw new Error("SYNC_TEST_PYTHON is not set: run make test-sync");
-    return (await promisify(execFile)(python, ["-m", "e2e.sync", "hours", body], { cwd })).stdout;
+function command(body: string): Promise<string> {
+    return backend("hours", body);
 }
 
 test("lost command response replays once and the accepted week returns through PowerSync", async ({

@@ -1,14 +1,9 @@
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
 import { expect, test } from "@playwright/test";
 
-import { endpoint, fixture, token } from "./service";
+import { backend, endpoint, fixture, token } from "./service";
 
 async function mutate(action: string): Promise<void> {
-    const python = process.env.SYNC_TEST_PYTHON;
-    const cwd = process.env.SYNC_TEST_BACKEND;
-    if (!python || !cwd) throw new Error("SYNC_TEST_PYTHON is not set: run make test-sync");
-    await promisify(execFile)(python, ["-m", "e2e.sync", "mutate", action], { cwd });
+    await backend("mutate", action);
 }
 
 test("live renames reach the replica; downgrade, deletion and removal purge its data", async ({

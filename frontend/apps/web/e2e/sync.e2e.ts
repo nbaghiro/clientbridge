@@ -175,6 +175,10 @@ test(
         await page.getByRole("button", { name: o.signOut, exact: true }).click();
         const email = page.getByRole("textbox", { name: strings.auth.email, exact: true });
         await expect(email).toBeVisible({ timeout: 30_000 });
+        // the session ends in every tab, so the second leaves the replica too
+        await expect(
+            second.getByRole("textbox", { name: strings.auth.email, exact: true }),
+        ).toBeVisible({ timeout: 30_000 });
         await page.reload();
         await expect(email).toBeVisible();
         await expect.poll(mine).toEqual([]);
