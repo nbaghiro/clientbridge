@@ -621,7 +621,13 @@ export function useEarningApprovals(api: ApiLike, viewer: Viewer): EarningApprov
             if (!editable) return;
             afterReview(
                 {
-                    title: r.undoRunTitle(formatMoney(group.totalCents, BUSINESS_CURRENCY), name),
+                    title:
+                        group.totalCents === 0
+                            ? r.undoSettleTitle(name)
+                            : r.undoRunTitle(
+                                  formatMoney(group.totalCents, BUSINESS_CURRENCY),
+                                  name,
+                              ),
                     message: r.undoPaymentBody,
                     confirmLabel: r.undo,
                 },

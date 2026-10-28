@@ -2,15 +2,12 @@
 
 import itertools
 import json
-from collections.abc import Iterator
-from contextlib import contextmanager
 from datetime import UTC, datetime
 
 import httpx
-from sqlalchemy import Connection, event, select, update
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from clientbridge.core.db import engine
 from clientbridge.core.ids import new_id
 from clientbridge.models.billing import Invoice, Line, Order
 from clientbridge.models.business import Business, Staff
@@ -31,7 +28,7 @@ from clientbridge.services.ledger import Leg
 from clientbridge.services.lines import crew_note
 from clientbridge.services.payments import sync_invoice, sync_order
 from tests.conftest import Factory, book_invoice
-from tests.helpers import card_pay, settle
+from tests.helpers import card_pay, counting, settle
 from tests.helpers import key as retry_key
 
 BIZ = "bz_birchbark"
@@ -1069,26 +1066,13 @@ async def test_an_accrual_carries_what_a_member_needs_to_read_it(
     }
 
 
-@contextmanager
-def _counting() -> Iterator[list[str]]:
-    seen: list[str] = []
-
-    def count(_conn: Connection, _cursor: object, statement: str, *_: object) -> None:
-        seen.append(statement)
-
-    event.listen(engine.sync_engine, "before_cursor_execute", count)
-    try:
-        yield seen
-    finally:
-        event.remove(engine.sync_engine, "before_cursor_execute", count)
-
-
 async def test_a_document_with_nothing_refunded_skips_its_earnings(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     _, inv_id, _ = await _paid_booking(as_owner, db)
     invoice = await db.get(Invoice, inv_id)
     assert invoice is not None
-    with _counting() as seen:
+    with counting() as seen:
         await claw_back(db, invoice)
+    assert not [q for q in seen if q.lstrip().upper().startswith("INSERT")]
     assert len(seen) <= 3

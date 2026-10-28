@@ -819,6 +819,7 @@ interface Strings {
         readonly review: {
             readonly payTitle: (amount: string, name: string) => string;
             readonly settleTitle: (name: string) => string;
+            readonly undoSettleTitle: (name: string) => string;
             readonly settleBody: string;
             readonly payBody: string;
             readonly markPaid: string;

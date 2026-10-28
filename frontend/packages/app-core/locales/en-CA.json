@@ -2487,8 +2487,12 @@
         "message": "Settle with {name}?",
         "args": ["name"]
     },
+    "earnings.review.undoSettleTitle": {
+        "message": "Undo this settlement with {name}?",
+        "args": ["name"]
+    },
     "earnings.review.settleBody": {
-        "message": "These cancel out, so nothing changes hands. The work and what took it back are both marked paid."
+        "message": "These cancel out, so nothing changes hands. They're all marked paid together."
     },
     "earnings.review.payBody": {
         "message": "Do this once you've paid your team. No money moves from here."
@@ -7960,7 +7964,7 @@
         "message": "Fixed amount per visit"
     },
     "staff.rateFixedHint": {
-        "message": "Paid once for each booked visit, or each catalog service sold at the register. Fees and custom lines don't earn it.",
+        "message": "Paid once for each booked visit, and once for each catalog service line without a booking. Fees and custom lines don't earn it.",
         "description": "Hint under the rate when a team member is paid a fixed amount per visit"
     },
     "staff.rateHourly": {

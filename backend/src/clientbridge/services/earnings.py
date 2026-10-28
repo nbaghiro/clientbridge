@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from typing import Literal
 
-from sqlalchemy import ColumnElement, and_, or_
+from sqlalchemy import ColumnElement, Select, and_, case, func, literal, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.command import Command, run_command
@@ -13,7 +13,7 @@ from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
 from clientbridge.models.billing import Invoice, Line, Order
 from clientbridge.models.business import Staff
-from clientbridge.models.catalog import BOOKABLE_KINDS, ENTITLEMENT_KINDS, Item, Package
+from clientbridge.models.catalog import ENTITLEMENT_KINDS, Item, Package
 from clientbridge.models.ledger import Account, Entry
 from clientbridge.models.payments import Payment
 from clientbridge.models.scheduling import Booking, Slot
@@ -165,6 +165,8 @@ class EarningService:
                     for c in await _clawbacks_due(self.db, self.biz, staff_ids, ids)
                     if c not in ids
                 ]
+            elif move == "unpay":
+                todo = ids + [c for c in await _paid_with(self.db, self.biz, ids) if c not in ids]
             # a pay settles the clawbacks that travel with it and approves what it pays on the way
             subjects: set[tuple[str, str]] = set()
             for earning_id in todo:
@@ -428,10 +430,8 @@ async def _clawbacks_due(
             Entry.owner_type == "staff",
             Entry.owner_id.in_(staff_ids),
             Account.category == "payable",
-            or_(
-                Entry.meta["basis"].astext == "clawback",
-                and_(Entry.event == "tip", Entry.amount_cents > 0),
-            ),
+            _correction(),
+            Entry.journal_id.not_in(_settled_journals(business_id)),
         )
         .distinct()
         .order_by(Entry.journal_id)
@@ -446,6 +446,79 @@ async def _clawbacks_due(
         if statuses[journal] in ("pending", "approved")
         and (of is None or of in paying or statuses.get(of) in ("paid", "reversed"))
     ]
+
+
+def _correction() -> ColumnElement[bool]:
+    return or_(
+        Entry.meta["basis"].astext == "clawback",
+        and_(Entry.event == "tip", Entry.amount_cents > 0),
+    )
+
+
+def _settled_journals(business_id: str) -> Select[tuple[str | None]]:
+    """Journals already paid or reversed, so a pay never rereads its settled history."""
+    paid = Entry.event == "staff_payment"
+    net = func.sum(
+        case(
+            (paid & ~Entry.ref.endswith(":undo"), 1),
+            (paid, -1),
+            (Entry.ref == literal("earning:") + Entry.source_id + literal(":reversal"), 1),
+            else_=0,
+        )
+    )
+    return (
+        scoped(Entry, business_id)
+        .with_only_columns(Entry.source_id)
+        .where(Entry.source_type == "journal", Entry.event.in_(("staff_payment", "reversal")))
+        .group_by(Entry.source_id)
+        .having(net > 0)
+    )
+
+
+async def _paid_with(db: AsyncSession, business_id: str, earning_ids: list[str]) -> list[str]:
+    """Corrections paid in the same run as these earnings, so undoing one undoes them together."""
+    rows = await db.execute(
+        scoped(Entry, business_id)
+        .with_only_columns(Entry.journal_id, Entry.meta["of"].astext)
+        .join(Account, Account.id == Entry.account_id)
+        .where(
+            Entry.owner_type == "staff",
+            Account.category == "payable",
+            _correction(),
+            Entry.meta["of"].astext.in_(earning_ids),
+        )
+        .distinct()
+        .order_by(Entry.journal_id)
+    )
+    found = [(journal, of) for journal, of in rows.tuples().all() if of is not None]
+    runs = await _runs(db, business_id, set(earning_ids) | {j for j, _ in found})
+    return [j for j, of in found if runs.get(j) is not None and runs.get(j) == runs.get(of)]
+
+
+async def _runs(db: AsyncSession, business_id: str, journal_ids: set[str]) -> dict[str, str]:
+    """The pay run each journal is paid in now, leaving out payments since undone."""
+    rows = await db.execute(
+        scoped(Entry, business_id)
+        .with_only_columns(Entry.source_id, Entry.ref, Entry.meta["run"].astext)
+        .where(
+            Entry.source_type == "journal",
+            Entry.source_id.in_(sorted(journal_ids)),
+            Entry.event == "staff_payment",
+        )
+        .distinct()
+    )
+    found = rows.tuples().all()
+    undone = {ref.removesuffix(":undo") for _, ref, _ in found if ref.endswith(":undo")}
+    runs: dict[str, str] = {}
+    for source_id, ref, run in sorted(found, key=lambda row: row[1]):
+        if (
+            source_id is not None
+            and run is not None
+            and not ref.endswith(":undo")
+            and ref not in undone
+        ):
+            runs[source_id] = run
+    return runs
 
 
 async def _member_earnings(
@@ -687,12 +760,7 @@ def _line_split(
     if staff.rate_type == "percent" and staff.rate_bps is not None:
         return "percent", round(line.amount_cents * staff.rate_bps / 10000), staff.rate_bps
     # a fixed rate is per visit, so only a catalog service or class sold without a booking earns it
-    if (
-        staff.rate_type == "fixed"
-        and staff.rate_cents is not None
-        and item is not None
-        and item.kind in BOOKABLE_KINDS
-    ):
+    if staff.rate_type == "fixed" and staff.rate_cents is not None and item is not None:
         return "fixed", staff.rate_cents, staff.rate_cents
     return None
 

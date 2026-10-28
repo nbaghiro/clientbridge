@@ -1,16 +1,13 @@
 """Approving and paying several staff earnings in one command, all or none."""
 
-from collections.abc import Iterator
-from contextlib import contextmanager
 from datetime import timedelta
 from zoneinfo import ZoneInfo
 
 import httpx
-from sqlalchemy import Connection, event, select, update
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
-from clientbridge.core.db import engine
 from clientbridge.core.ids import new_id
 from clientbridge.models.business import Business, Staff
 from clientbridge.models.ledger import Entry
@@ -18,7 +15,7 @@ from clientbridge.services import ledger
 from clientbridge.services.earnings import load_earning
 from clientbridge.services.ledger import Leg
 from tests.conftest import BIZ, Factory, FakeIdentityProvider, session_token
-from tests.helpers import key
+from tests.helpers import counting, key
 
 
 async def _earning(
@@ -512,20 +509,6 @@ async def test_a_fully_clawed_back_earning_settles_at_nothing(
     assert await _bank(db) == bank
 
 
-@contextmanager
-def _counting() -> Iterator[list[str]]:
-    seen: list[str] = []
-
-    def count(_conn: Connection, _cursor: object, statement: str, *_: object) -> None:
-        seen.append(statement)
-
-    event.listen(engine.sync_engine, "before_cursor_execute", count)
-    try:
-        yield seen
-    finally:
-        event.remove(engine.sync_engine, "before_cursor_execute", count)
-
-
 async def _settled_clawbacks(as_owner: httpx.AsyncClient, db: AsyncSession, n: int) -> None:
     for _ in range(n):
         earning = await _earning(db, cents=200)
@@ -545,7 +528,7 @@ async def _settled_clawbacks(as_owner: httpx.AsyncClient, db: AsyncSession, n: i
 
 async def _pay_queries(as_owner: httpx.AsyncClient, db: AsyncSession) -> int:
     earning = await _earning(db)
-    with _counting() as seen:
+    with counting() as seen:
         res = await as_owner.post("/v1/earnings/pay", json={"ids": [earning]})
     assert res.status_code == 200, res.text
     return len(seen)
@@ -558,3 +541,28 @@ async def test_a_pay_reads_as_much_however_long_the_history(
     short = await _pay_queries(as_owner, db)
     await _settled_clawbacks(as_owner, db, 10)
     assert await _pay_queries(as_owner, db) == short
+
+
+async def test_undoing_settled_work_undoes_its_clawback_from_the_same_run(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    earning = await _earning(db)
+    clawback = await ledger.post(
+        db,
+        BIZ,
+        event="earning",
+        ref=f"earning:{earning}:clawback:0",
+        legs=[
+            Leg("business", BIZ, "staff_cost", -4000),
+            Leg("staff", "st_diego", "payable", 4000, "pending"),
+        ],
+        meta={"basis": "clawback", "of": earning},
+    )
+    assert clawback is not None
+    bank = await _bank(db)
+    assert (await as_owner.post("/v1/earnings/pay", json={"ids": [earning]})).status_code == 200
+    res = await as_owner.post("/v1/earnings/unpay", json={"ids": [earning]})
+    assert res.status_code == 200, res.text
+    assert {e["id"] for e in res.json()["earnings"]} == {earning, clawback}
+    assert [await _status(db, j) for j in (earning, clawback)] == ["approved", "approved"]
+    assert await _bank(db) == bank

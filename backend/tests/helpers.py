@@ -3,18 +3,20 @@
 import json
 import os
 import uuid
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping
+from contextlib import contextmanager
 from datetime import date, datetime, timedelta
 from typing import NoReturn
 
 import httpx
 import pytest
 from pydantic_settings import SettingsConfigDict
-from sqlalchemy import delete, select, text, update
+from sqlalchemy import Connection, delete, event, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
 from clientbridge.core.config import Settings, get_settings
+from clientbridge.core.db import engine
 from clientbridge.core.ids import new_id
 from clientbridge.integrations.resend import resend_signature
 from clientbridge.integrations.twilio import twilio_signature
@@ -465,3 +467,18 @@ async def booking_off_the_ledger(db: AsyncSession) -> Booking:
     )
     assert row is not None
     return row
+
+
+@contextmanager
+def counting() -> Iterator[list[str]]:
+    """Every SQL statement run inside the block, to keep a path's query count flat."""
+    seen: list[str] = []
+
+    def count(_conn: Connection, _cursor: object, statement: str, *_: object) -> None:
+        seen.append(statement)
+
+    event.listen(engine.sync_engine, "before_cursor_execute", count)
+    try:
+        yield seen
+    finally:
+        event.remove(engine.sync_engine, "before_cursor_execute", count)

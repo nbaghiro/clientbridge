@@ -2282,8 +2282,11 @@
     "earnings.review.settleTitle": {
         "message": "[Šéţţļé ŵîţĥ {name}? one two]"
     },
+    "earnings.review.undoSettleTitle": {
+        "message": "[Ûñðö ţĥîš šéţţļéɱéñţ ŵîţĥ {name}? one two three]"
+    },
     "earnings.review.settleBody": {
-        "message": "[Ţĥéšé çåñçéļ öûţ, šö ñöţĥîñĝ çĥåñĝéš ĥåñðš. Ţĥé ŵöŕķ åñð ŵĥåţ ţööķ îţ ƀåçķ åŕé ƀöţĥ ɱåŕķéð þåîð. one two three four five six]"
+        "message": "[Ţĥéšé çåñçéļ öûţ, šö ñöţĥîñĝ çĥåñĝéš ĥåñðš. Ţĥéý'ŕé åļļ ɱåŕķéð þåîð ţöĝéţĥéŕ. one two three four five]"
     },
     "earnings.review.payBody": {
         "message": "[Đö ţĥîš öñçé ýöû'ṽé þåîð ýöûŕ ţéåɱ. Ñö ɱöñéý ɱöṽéš ƒŕöɱ ĥéŕé. one two three four]"
@@ -7365,7 +7368,7 @@
         "message": "[Ƒîẋéð åɱöûñţ þéŕ ṽîšîţ one two]"
     },
     "staff.rateFixedHint": {
-        "message": "[Þåîð öñçé ƒöŕ éåçĥ ƀööķéð ṽîšîţ, öŕ éåçĥ çåţåļöĝ šéŕṽîçé šöļð åţ ţĥé ŕéĝîšţéŕ. Ƒééš åñð çûšţöɱ ļîñéš ðöñ'ţ éåŕñ îţ. one two three four five six seven]"
+        "message": "[Þåîð öñçé ƒöŕ éåçĥ ƀööķéð ṽîšîţ, åñð öñçé ƒöŕ éåçĥ çåţåļöĝ šéŕṽîçé ļîñé ŵîţĥöûţ å ƀööķîñĝ. Ƒééš åñð çûšţöɱ ļîñéš ðöñ'ţ éåŕñ îţ. one two three four five six seven eight]"
     },
     "staff.rateHourly": {
         "message": "[Ĥöûŕļý ŕåţé one two]"
