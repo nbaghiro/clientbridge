@@ -25,7 +25,14 @@ from clientbridge.models.catalog import (
     SubscriptionStatus,
 )
 from clientbridge.models.clients import Channel, Client, Consent, Note, NoteParent, Subject
-from clientbridge.models.documents import Contract, Form, FormField, FormResponse, Signature
+from clientbridge.models.documents import (
+    Contract,
+    Form,
+    FormField,
+    FormResponse,
+    Signature,
+    VisitRecord,
+)
 from clientbridge.models.messaging import Broadcast, Message, Thread
 from clientbridge.models.payments import Payment, PaymentMethod, SavedMethod
 from clientbridge.models.platform import Audit, File
@@ -1746,7 +1753,7 @@ class Demo:
                 refund.amount_cents = min(refund.amount_cents, original.amount_cents)
         self.stock(parents)
         forms = {form.id: form for form in ctx.all(Form)}
-        for response in ctx.all(FormResponse):
+        for response in [*ctx.all(FormResponse), *ctx.all(VisitRecord)]:
             response.definition = form_definition(
                 forms[response.form_id],
                 [f for f in ctx.all(FormField) if f.form_id == response.form_id],

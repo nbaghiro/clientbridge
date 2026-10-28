@@ -110,7 +110,12 @@ test("FLOW-10-A a desk payment is traceable in the operator console's ledger and
     expect(invoice.status(), await invoice.text()).toBe(201);
     const failed = (await communicationEvidence(unreachable)).deliveries;
     expect(failed).toEqual([
-        expect.objectContaining({ channel: "email", state: "failed", error: "reserved_address" }),
+        // outside production a reserved address reaches Mailpit, which refuses .invalid
+        expect.objectContaining({
+            channel: "email",
+            state: "failed",
+            error: expect.stringMatching(/^smtp_5\d\d$/),
+        }),
     ]);
     const history = await admin<Page<{ id: string }>>(request, token, "/deliveries");
     // the console's delivery history is for operator test mail, not business notices

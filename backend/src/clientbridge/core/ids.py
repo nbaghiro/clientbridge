@@ -41,6 +41,7 @@ PREFIXES: dict[str, str] = {
     "form": "frm",
     "form_field": "ff",
     "form_response": "fr",
+    "visit_record": "vr",
     "contract": "con",
     "signature": "sig",
     "review_request": "rrq",

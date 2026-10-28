@@ -1,16 +1,16 @@
 import {
     type FormAnswers,
     type ScheduleEvent,
-    type TreatmentNote,
+    type VisitRecord,
     answerRows,
-    canKeepNotes,
-    noteByline,
-    noteVisit,
+    canKeepRecords,
+    recordByline,
+    recordVisit,
     strings,
     useBusinessZone,
     useClientForms,
-    useTreatmentNoteForm,
-    useTreatmentNotes,
+    useVisitRecordForm,
+    useVisitRecords,
 } from "@clientbridge/app-core";
 import {
     Button,
@@ -27,19 +27,20 @@ import { api } from "../lib/api";
 import { useViewer } from "../lib/auth";
 
 const f = strings.forms;
+const v = strings.visitRecords;
 
-/** A submitted form's questions and answers, as the client or practitioner gave them. */
-function AnswerList({ response }: { response: FormAnswers }) {
+/** A form's questions and answers, as the client or practitioner gave them. */
+function AnswerList({ response }: { response: Pick<FormAnswers, "fields" | "answers"> }) {
     const zone = useBusinessZone();
     return <KeyValueList layout="stack" rows={answerRows(response, zone)} />;
 }
 
-function NoteCard({
-    note,
+function RecordCard({
+    record,
     visit,
     onAmend,
 }: {
-    note: TreatmentNote;
+    record: VisitRecord;
     visit?: boolean;
     onAmend?: (() => void) | undefined;
 }) {
@@ -48,38 +49,38 @@ function NoteCard({
         <li className="space-y-2 rounded-md border border-line bg-surface px-4 py-3">
             <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                    <p className="text-sm font-semibold text-ink">{note.form_name}</p>
+                    <p className="text-sm font-semibold text-ink">{record.form_name}</p>
                     <p className="text-xs text-muted">
-                        {visit === true ? noteVisit(note, zone) : noteByline(note, zone)}
+                        {visit === true ? recordVisit(record, zone) : recordByline(record, zone)}
                     </p>
                     {visit === true ? (
-                        <p className="text-xs text-muted">{noteByline(note, zone)}</p>
+                        <p className="text-xs text-muted">{recordByline(record, zone)}</p>
                     ) : null}
                 </div>
                 {onAmend !== undefined ? (
                     <Button size="sm" variant="link" onPress={onAmend}>
-                        {f.amendNote}
+                        {v.amend}
                     </Button>
                 ) : null}
             </div>
-            <AnswerList response={note} />
+            <AnswerList response={record} />
         </li>
     );
 }
 
-function NoteDialog({
+function RecordDialog({
     bookingId,
     start,
     onSaved,
     onClose,
 }: {
     bookingId: string;
-    start: TreatmentNote | null;
-    onSaved: (note: TreatmentNote) => void;
+    start: VisitRecord | null;
+    onSaved: (record: VisitRecord) => void;
     onClose: () => void;
 }) {
     const zone = useBusinessZone();
-    const form = useTreatmentNoteForm(api, bookingId, onSaved, start);
+    const form = useVisitRecordForm(api, bookingId, onSaved, start);
     return (
         <Modal onClose={onClose} size="lg">
             <form
@@ -90,18 +91,18 @@ function NoteDialog({
                 }}
             >
                 <h2 className="font-display text-lg font-bold text-ink">
-                    {start === null ? f.treatmentNote : f.amendTitle}
+                    {start === null ? v.newTitle : v.amendTitle}
                 </h2>
                 {start === null ? (
                     <Select
-                        label={f.noteForm}
+                        label={v.form}
                         options={form.forms}
                         value={form.formId === "" ? undefined : form.formId}
                         onChange={form.setFormId}
-                        placeholder={f.noteFormMissing}
+                        placeholder={v.formMissing}
                     />
                 ) : (
-                    <Notice tone="info">{f.amendHint}</Notice>
+                    <Notice tone="info">{v.amendHint}</Notice>
                 )}
                 {form.fields.map((q) => (
                     <FormQuestion
@@ -109,21 +110,21 @@ function NoteDialog({
                         zone={zone}
                         field={q}
                         value={form.answers[q.name]}
-                        onChange={(v) => {
-                            form.setAnswer(q.name, v);
+                        onChange={(answer) => {
+                            form.setAnswer(q.name, answer);
                         }}
                         chooseFileLabel={strings.publicForm.chooseFile}
                         selectPlaceholder={strings.publicForm.selectPlaceholder}
                     />
                 ))}
-                <p className="text-xs text-muted">{f.noteFinalHint}</p>
+                <p className="text-xs text-muted">{v.finalHint}</p>
                 {form.error !== null ? <Notice tone="danger">{form.error}</Notice> : null}
                 <div className="flex justify-end gap-2">
                     <Button variant="outline" onPress={onClose}>
                         {strings.common.cancel}
                     </Button>
                     <Button submit busy={form.busy} disabled={form.formId === ""}>
-                        {form.busy ? f.savingNote : f.saveNote}
+                        {form.busy ? v.saving : v.save}
                     </Button>
                 </div>
             </form>
@@ -131,16 +132,16 @@ function NoteDialog({
     );
 }
 
-/** The visit's treatment notes: written by its practitioner or a manager, and read on request. */
-export function BookingTreatmentNotes({ event }: { event: ScheduleEvent }) {
+/** The visit's records: written by its practitioner or a manager, and read on request. */
+export function BookingVisitRecords({ event }: { event: ScheduleEvent }) {
     const viewer = useViewer();
     const bookingId = event.bookingId ?? "";
-    const notes = useTreatmentNotes(api, { bookingId });
-    const [writing, setWriting] = useState<{ start: TreatmentNote | null } | null>(null);
-    if (bookingId === "" || !canKeepNotes(viewer, event.staffId)) return null;
+    const records = useVisitRecords(api, { bookingId });
+    const [writing, setWriting] = useState<{ start: VisitRecord | null } | null>(null);
+    if (bookingId === "" || !canKeepRecords(viewer, event.staffId)) return null;
     return (
         <DetailSection
-            title={f.treatmentNotes}
+            title={v.title}
             action={
                 <Button
                     size="sm"
@@ -150,28 +151,28 @@ export function BookingTreatmentNotes({ event }: { event: ScheduleEvent }) {
                         setWriting({ start: null });
                     }}
                 >
-                    {f.writeNote}
+                    {v.write}
                 </Button>
             }
         >
-            {notes.notes === null ? (
+            {records.records === null ? (
                 <Button
                     size="sm"
                     variant="outline"
                     icon="lock"
-                    busy={notes.busy}
-                    onPress={notes.show}
+                    busy={records.busy}
+                    onPress={records.show}
                 >
-                    {notes.busy ? f.loadingNotes : f.showNotes}
+                    {records.busy ? v.loading : v.show}
                 </Button>
-            ) : notes.notes.length === 0 ? (
-                <p className="text-sm text-muted">{f.noNotes}</p>
+            ) : records.records.length === 0 ? (
+                <p className="text-sm text-muted">{v.empty}</p>
             ) : (
                 <ul className="space-y-2">
-                    {notes.notes.map((n) => (
-                        <NoteCard
+                    {records.records.map((n) => (
+                        <RecordCard
                             key={n.id}
-                            note={n}
+                            record={n}
                             onAmend={() => {
                                 setWriting({ start: n });
                             }}
@@ -179,14 +180,14 @@ export function BookingTreatmentNotes({ event }: { event: ScheduleEvent }) {
                     ))}
                 </ul>
             )}
-            <p className="text-xs text-muted">{f.notesPrivate}</p>
-            {notes.error !== null ? <Notice tone="danger">{notes.error}</Notice> : null}
+            <p className="text-xs text-muted">{v.private}</p>
+            {records.error !== null ? <Notice tone="danger">{records.error}</Notice> : null}
             {writing !== null ? (
-                <NoteDialog
+                <RecordDialog
                     bookingId={bookingId}
                     start={writing.start}
-                    onSaved={(note) => {
-                        if (notes.notes !== null) notes.add(note);
+                    onSaved={(record) => {
+                        if (records.records !== null) records.add(record);
                         setWriting(null);
                     }}
                     onClose={() => {
@@ -198,10 +199,10 @@ export function BookingTreatmentNotes({ event }: { event: ScheduleEvent }) {
     );
 }
 
-/** A client's submitted forms for managers, and the notes on their visits that the viewer may read. */
+/** A client's submitted forms for managers, and the records of their visits the viewer may read. */
 export function ClientFormsSection({ clientId, manager }: { clientId: string; manager: boolean }) {
     const forms = useClientForms(api, clientId);
-    const notes = useTreatmentNotes(api, { clientId });
+    const records = useVisitRecords(api, { clientId });
     const open = forms.open;
     return (
         <DetailSection title={f.clientForms}>
@@ -233,26 +234,26 @@ export function ClientFormsSection({ clientId, manager }: { clientId: string; ma
                     </ul>
                 )
             ) : null}
-            {notes.notes === null ? (
+            {records.records === null ? (
                 <Button
                     size="sm"
                     variant="outline"
                     icon="lock"
-                    busy={notes.busy}
-                    onPress={notes.show}
+                    busy={records.busy}
+                    onPress={records.show}
                 >
-                    {notes.busy ? f.loadingNotes : f.showNotes}
+                    {records.busy ? v.loading : v.show}
                 </Button>
-            ) : notes.notes.length === 0 ? (
-                <p className="text-sm text-muted">{f.noNotes}</p>
+            ) : records.records.length === 0 ? (
+                <p className="text-sm text-muted">{v.empty}</p>
             ) : (
                 <ul className="space-y-2">
-                    {notes.notes.map((n) => (
-                        <NoteCard key={n.id} note={n} visit />
+                    {records.records.map((n) => (
+                        <RecordCard key={n.id} record={n} visit />
                     ))}
                 </ul>
             )}
-            {notes.error !== null ? <Notice tone="danger">{notes.error}</Notice> : null}
+            {records.error !== null ? <Notice tone="danger">{records.error}</Notice> : null}
             {forms.error !== null ? <Notice tone="danger">{forms.error}</Notice> : null}
             {open !== null ? (
                 <Modal onClose={forms.close} size="lg">

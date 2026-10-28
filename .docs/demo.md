@@ -5,7 +5,7 @@ There is one seeded demo business per vertical the product serves, so each trade
 - **Password:** `demo1234` for every login.
 - **Where:** locally, and on staging at `https://app.staging.clientbridge.ca` and in the staging mobile app.
 - **Logins:** owners are `owner@<slug>.example` (Birchbark's is `hannah@`). Staff are `<firstname>@<slug>.example`.
-- **Safe to use:** every email and phone is a reserved address (`.example`, 555-0100 to 0199), so demo emails and texts never leave the app.
+- **Safe to use:** every email and phone is a reserved address (`.example`, 555-0100 to 0199), so demo emails and texts never leave the app. On dev and staging a message to a demo client shows as sent without going to Resend or Twilio, and local email lands in Mailpit; production refuses reserved addresses ([operations.md](operations.md#delivery-recovery)).
 - **Today's visits:** some demos show "checked in" and "on the way" only during their working hours. At other times those visits move to the next working day.
 - **Card payments:** these need the demo linked to the Stripe sandbox ([payments.md](payments.md#local-sandbox-setup)). Without that, use cash or manual payments.
 - **Staging smoke lane:** `make test-staging-smoke` signs in with these logins by default. `SMOKE_PASSWORD` and `SMOKE_OWNERS` (comma-separated emails) override them, and `SMOKE_DOMAIN` or the `SMOKE_*_URL` variables point it at another environment. It only reads, so it leaves the demo data as it was.
@@ -59,7 +59,7 @@ The sections below cover what each business adds.
 | Classes with a waitlist | Birchbark, Cedar, Ridgeline, Lakeside |
 | Programs and camps (enrol in every day at once) | Lakeside, Ridgeline, Riverbend |
 | Pickup permissions | Lakeside |
-| Treatment notes and the insurance receipt | Harbourside (Maple and Main uses notes for colour formulas) |
+| Visit records and the insurance receipt | Harbourside (Maple and Main uses visit records for colour formulas) |
 | Gift cards | most demos; Brightwater and Clearcoat show one bought for a parent |
 | A trial plan | Cedar |
 
@@ -169,7 +169,7 @@ The sections below cover what each business adds.
   - Each treatment takes one of Rooms 1 to 3, and a couples massage takes both tables in the couples room.
 - **Try:**
   - the insurance receipt from a paid visit (staff from the booking, clients from their manage page);
-  - SOAP treatment notes, including one amendment;
+  - SOAP notes kept as visit records, including one amendment;
   - a 10-visit pack;
   - a weekly acupuncture series;
   - a couples massage on the two couples tables, which can't be booked twice at once;

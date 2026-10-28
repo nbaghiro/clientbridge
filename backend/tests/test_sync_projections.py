@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import get_args
 
 import pytest
+from scripts.db_access import logins
 from scripts.gen_sync_schema import (
     SYNC_STREAMS,
     StreamFilters,
@@ -42,7 +43,9 @@ def test_sensitive_server_fields_are_not_projected() -> None:
     }
     for table, columns in denied.items():
         assert columns.isdisjoint(projections[table]), table
-    assert {"sessions", "tokens", "sync_receipts", "commands"}.isdisjoint(projections)
+    assert {"sessions", "tokens", "sync_receipts", "commands", "visit_records"}.isdisjoint(
+        projections
+    )
     assert sorted(projections["users"]) == ["id", "name"]
 
 
@@ -154,12 +157,6 @@ def test_an_over_broad_rule_change_is_reported() -> None:
     ]
 
 
-def test_treatment_notes_never_reach_a_device() -> None:
-    queries = [line for line in SYNC_STREAMS.read_text().splitlines() if " FROM responses " in line]
-    assert queries
-    assert all(line.rstrip().endswith("AND token IS NOT NULL") for line in queries)
-
-
 def test_every_member_syncs_the_letterhead_address() -> None:
     letterhead = {"unit", "street_number", "street_name", "city", "province", "postal_code"}
     streams = stream_columns()
@@ -183,13 +180,9 @@ def test_replication_carries_only_device_columns_and_what_the_filters_read() -> 
     projected = synced_columns()
     published = published_columns()
     assert published.keys() == projected.keys() | filter_columns().keys()
-    extra = {
-        table: sorted(set(columns) - set(projected.get(table, [])))
-        for table, columns in published.items()
-        if set(columns) - set(projected.get(table, []))
-    }
-    # the form-link token decides which responses are client forms; devices never receive it
-    assert extra == {"responses": ["token"]}
+    assert all(
+        set(columns) <= set(projected.get(table, [])) for table, columns in published.items()
+    )
 
 
 def test_an_unknown_filter_column_fails_closed() -> None:
@@ -211,6 +204,21 @@ async def test_the_publication_carries_exactly_the_published_columns(db: AsyncSe
     )
     live = {str(row.tablename): sorted(row.attnames) for row in rows}
     assert live == {table: sorted(columns) for table, columns in published_columns().items()}
+
+
+async def test_visit_records_never_reach_the_replication_service(db: AsyncSession) -> None:
+    published = await db.scalar(
+        text(
+            "SELECT count(*) FROM pg_publication_tables"
+            " WHERE pubname = 'powersync' AND tablename = 'visit_records'"
+        )
+    )
+    readable = await db.scalar(
+        text("SELECT has_table_privilege(:role, 'visit_records', 'SELECT')"),
+        {"role": logins().source.role},
+    )
+    assert (published, readable) == (0, False)
+    assert "visit_records" not in published_columns()
 
 
 def test_role_checks_name_every_role_they_admit() -> None:

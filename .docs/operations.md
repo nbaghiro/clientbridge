@@ -287,6 +287,14 @@ acceptance is uncertain: inspect the provider by delivery ID before any manual r
 never blindly retries an expired send lease. Retry attempts stop after 23 hours to remain within the
 provider's idempotency window. Admin Email lab shows test-send history and exact returned status.
 
+Reserved recipients (the `.example`, `.test` and other reserved domains, and 555-0100 to 555-0199
+numbers that demo clients use) are handled by one rule in `services/deliveries.py`. In production a
+delivery to one fails with `reserved_address` before the provider is called. In dev and staging it
+is sent in simulation: the delivery is marked `accepted` and its message shows as sent, without
+calling Resend or Twilio. When a local transport that reaches no one is in use (Mailpit through
+`SMTP_URL`, or the console SMS sender), the delivery goes to it instead, so developers can still
+read the mail in Mailpit.
+
 Form migrations preserve existing answers and mark reconstructed definitions explicitly; they do not
 invent historical signatures. Evidence and delivery migrations reject destructive downgrades. Roll
 back application code only after checking schema compatibility, or apply a forward migration.

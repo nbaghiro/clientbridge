@@ -5,21 +5,19 @@ from datetime import date, datetime, time, timedelta
 from decimal import Decimal, InvalidOperation
 from typing import Literal
 
-from sqlalchemy import ColumnElement, delete, func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from clientbridge.core import clock
 from clientbridge.core.command import Command, run_command
-from clientbridge.core.deps import Principal, assert_can_act_as, assert_role, is_manager
-from clientbridge.core.errors import Conflict, Forbidden, NotFound, Unprocessable
+from clientbridge.core.deps import Principal, assert_role
+from clientbridge.core.errors import Conflict, NotFound, Unprocessable
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
 from clientbridge.models.business import Business
-from clientbridge.models.catalog import Item
 from clientbridge.models.clients import Client
 from clientbridge.models.documents import Form, FormField, FormResponse
-from clientbridge.models.scheduling import Booking, Slot
+from clientbridge.models.scheduling import Booking
 from clientbridge.schemas.forms import (
     FormAnswersOut,
     FormDefinition,
@@ -29,18 +27,12 @@ from clientbridge.schemas.forms import (
     FormSave,
     FormSend,
     PublicFormField,
-    TreatmentNoteCreate,
-    TreatmentNoteOut,
-    TreatmentNotes,
 )
-from clientbridge.services.business import staff_names
 from clientbridge.services.deliveries import delivery_key
 from clientbridge.services.notifications import Notifier, Outcome, queued_notifier
 from clientbridge.services.plans import serving
 
 _CHOICE_INPUTS = ("select", "multiselect")
-# answers staff can't give on a note: there is no upload or signing step for one
-_UNANSWERABLE = ("file", "image", "signature")
 
 
 class FormService:
@@ -163,6 +155,22 @@ class FormService:
         await self.db.flush()
         return out
 
+    async def response(self, response_id: str) -> FormAnswersOut:
+        """A client's submitted form, read back with the questions it answered."""
+        assert_role(
+            self.principal, "owner", "admin", message="only an owner or admin can read form answers"
+        )
+        row = (
+            await self.db.execute(
+                scoped(FormResponse, self.biz).where(
+                    FormResponse.id == response_id, FormResponse.status == "submitted"
+                )
+            )
+        ).scalar_one_or_none()
+        if row is None:
+            raise NotFound("response not found")
+        return _answers_out(row)
+
     def _assert_admin(self) -> None:
         assert_role(
             self.principal, "owner", "admin", message="only an owner or admin can send forms"
@@ -187,211 +195,9 @@ class FormService:
         return row
 
 
-class TreatmentNoteService:
-    """Staff notes on a visit, written with a manual form: final, unsynced, read with an audit."""
-
-    def __init__(self, db: AsyncSession, principal: Principal) -> None:
-        self.db = db
-        self.principal = principal
-        self.biz = principal.business_id
-
-    async def write(
-        self, data: TreatmentNoteCreate, idempotency_key: str | None
-    ) -> TreatmentNoteOut:
-        booking = await self._booking(data.booking_id)
-        assert_can_act_as(self.principal, booking.staff_id)
-        form = (
-            await self.db.execute(scoped(Form, self.biz).where(Form.id == data.form_id))
-        ).scalar_one_or_none()
-        if form is None:
-            raise NotFound("form not found")
-        if not form.active or form.send_on != "manual":
-            raise Unprocessable(
-                "only an active form sent by hand can be filled in on a visit",
-                code="form_not_fillable",
-            )
-        if data.amends is not None:
-            await self._note(data.amends, booking.id)
-
-        async def run(cmd: Command) -> TreatmentNoteOut:
-            definition = await snapshot_form(self.db, form)
-            fields = FormDefinition.model_validate(definition).fields
-            if any(f.input in _UNANSWERABLE and f.name in data.answers for f in fields):
-                raise Unprocessable("a note can't hold a file or a signature")
-            validate_answers(fields, data.answers)
-            now = clock.now()
-            name = (await staff_names(self.db, self.biz, [self.principal.staff_id])).get(
-                self.principal.staff_id
-            )
-            note = FormResponse(
-                id=new_id("form_response"),
-                business_id=self.biz,
-                form_id=form.id,
-                client_id=booking.client_id,
-                parent_type="booking",
-                parent_id=booking.id,
-                token=None,
-                status="submitted",
-                submitted_at=now,
-                definition=definition,
-                answers=data.answers,
-                signature={
-                    "user_id": self.principal.user_id,
-                    "staff_id": self.principal.staff_id,
-                    "name": name,
-                    "signed_at": now.isoformat(),
-                    "amends": data.amends,
-                },
-            )
-            self.db.add(note)
-            await self.db.flush()
-            cmd.record("treatment.write", entity_type="form_response", entity_id=note.id)
-            return (await self._out([note]))[0]
-
-        return await run_command(
-            self.db,
-            self.principal,
-            action="treatment.write",
-            run=run,
-            response_model=TreatmentNoteOut,
-            idempotency_key=idempotency_key,
-            request=data,
-        )
-
-    async def for_booking(self, booking_id: str) -> TreatmentNotes:
-        booking = await self._booking(booking_id)
-        assert_can_act_as(self.principal, booking.staff_id)
-        return await self._read(FormResponse.parent_id == booking.id)
-
-    async def for_client(self, client_id: str) -> TreatmentNotes:
-        """Every note on the client's visits that the reader may see, oldest first."""
-        client = (
-            await self.db.execute(
-                scoped(Client, self.biz, soft_delete=True).where(Client.id == client_id)
-            )
-        ).scalar_one_or_none()
-        if client is None:
-            raise NotFound("client not found")
-        return await self._read(FormResponse.client_id == client.id)
-
-    async def response(self, response_id: str) -> FormAnswersOut:
-        """One submitted response: a client's form for managers, or a treatment note."""
-        row = (
-            await self.db.execute(
-                scoped(FormResponse, self.biz).where(
-                    FormResponse.id == response_id, FormResponse.status == "submitted"
-                )
-            )
-        ).scalar_one_or_none()
-        if row is None:
-            raise NotFound("response not found")
-        if row.token is None:
-            if not self._may_read(row):
-                raise Forbidden("only the note's author or a manager can read it")
-            return (await self._audited([row]))[0]
-        assert_role(
-            self.principal, "owner", "admin", message="only an owner or admin can read form answers"
-        )
-        return _answers_out(row)
-
-    def _may_read(self, note: FormResponse) -> bool:
-        return is_manager(self.principal.role) or _author(note) == self.principal.staff_id
-
-    async def _read(self, *criteria: ColumnElement[bool]) -> TreatmentNotes:
-        rows = (
-            await self.db.execute(
-                scoped(FormResponse, self.biz)
-                .where(
-                    FormResponse.parent_type == "booking",
-                    FormResponse.token.is_(None),
-                    FormResponse.status == "submitted",
-                    *criteria,
-                )
-                .order_by(FormResponse.created_at, FormResponse.id)
-            )
-        ).scalars()
-        return TreatmentNotes(notes=await self._audited([r for r in rows if self._may_read(r)]))
-
-    async def _audited(self, notes: list[FormResponse]) -> list[TreatmentNoteOut]:
-        """The notes as read, with one audit entry per note committed alongside the read."""
-        if not notes:
-            return []
-
-        async def run(cmd: Command) -> TreatmentNotes:
-            for note in notes:
-                cmd.record("treatment.read", entity_type="form_response", entity_id=note.id)
-            return TreatmentNotes(notes=await self._out(notes))
-
-        result = await run_command(
-            self.db, self.principal, action="treatment.read", run=run, response_model=TreatmentNotes
-        )
-        return result.notes
-
-    async def _out(self, notes: list[FormResponse]) -> list[TreatmentNoteOut]:
-        ids = {n.parent_id for n in notes if n.parent_id is not None}
-        visits = {
-            booking_id: (starts_at, service)
-            for booking_id, starts_at, service in (
-                await self.db.execute(
-                    scoped(Booking, self.biz)
-                    .with_only_columns(Booking.id, Slot.starts_at, Item.name)
-                    .join(Slot, Slot.id == Booking.slot_id)
-                    .join(Item, Item.id == Slot.item_id)
-                    .where(Booking.id.in_(ids))
-                )
-            ).tuples()
-        }
-        out: list[TreatmentNoteOut] = []
-        for note in notes:
-            visit_at, service = visits[note.parent_id or ""]
-            out.append(
-                TreatmentNoteOut(
-                    **_answers_out(note).model_dump(),
-                    booking_id=note.parent_id or "",
-                    visit_at=visit_at,
-                    service=service,
-                )
-            )
-        return out
-
-    async def _booking(self, booking_id: str) -> Booking:
-        row = (
-            await self.db.execute(
-                scoped(Booking, self.biz, soft_delete=True).where(Booking.id == booking_id)
-            )
-        ).scalar_one_or_none()
-        if row is None:
-            raise NotFound("booking not found")
-        return row
-
-    async def _note(self, note_id: str, booking_id: str) -> FormResponse:
-        row = (
-            await self.db.execute(
-                scoped(FormResponse, self.biz).where(
-                    FormResponse.id == note_id,
-                    FormResponse.parent_type == "booking",
-                    FormResponse.parent_id == booking_id,
-                    FormResponse.token.is_(None),
-                )
-            )
-        ).scalar_one_or_none()
-        if row is None:
-            raise NotFound("note not found on this visit")
-        return row
-
-
-def _signed(response: FormResponse, key: str) -> str | None:
-    value = (response.signature or {}).get(key)
-    return value if isinstance(value, str) else None
-
-
-def _author(note: FormResponse) -> str | None:
-    return _signed(note, "staff_id")
-
-
 def _answers_out(response: FormResponse) -> FormAnswersOut:
     definition = FormDefinition.model_validate(response.definition)
-    note = response.token is None
+    signer = (response.signature or {}).get("name")
     return FormAnswersOut(
         id=response.id,
         form_id=response.form_id,
@@ -402,10 +208,7 @@ def _answers_out(response: FormResponse) -> FormAnswersOut:
         submitted_at=response.submitted_at,
         fields=definition.fields,
         answers=response.answers,
-        author_staff_id=_author(response) if note else None,
-        author_name=_signed(response, "name") if note else None,
-        signer_name=None if note else _signed(response, "name"),
-        amends=_signed(response, "amends") if note else None,
+        signer_name=signer if isinstance(signer, str) else None,
     )
 
 
@@ -525,7 +328,6 @@ async def run_intake_forms(db: AsyncSession, notifier: Notifier, now: datetime) 
 
 
 def _response_out(response: FormResponse) -> FormResponseOut:
-    assert response.token is not None
     return FormResponseOut(
         id=response.id,
         business_id=response.business_id,
