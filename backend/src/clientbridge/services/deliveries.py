@@ -10,6 +10,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
+from clientbridge.core.config import get_settings
 from clientbridge.core.emails import reserved_email
 from clientbridge.core.errors import AppError, Undelivered, Unprocessable
 from clientbridge.core.ids import new_id
@@ -17,8 +18,14 @@ from clientbridge.core.phones import e164, reserved_phone, same_phone
 from clientbridge.core.scoping import scoped, scoped_update
 from clientbridge.integrations.expo import Push, PushSender
 from clientbridge.integrations.jobs import Jobs
-from clientbridge.integrations.resend import Email, EmailSender, get_test_email_sender
-from clientbridge.integrations.twilio import Sms, SmsSender
+from clientbridge.integrations.resend import (
+    ConsoleEmailSender,
+    Email,
+    EmailSender,
+    SmtpEmailSender,
+    get_test_email_sender,
+)
+from clientbridge.integrations.twilio import ConsoleSmsSender, Sms, SmsSender
 from clientbridge.models.clients import Client
 from clientbridge.models.messaging import Delivery, DeliveryState, Message, MessageStatus
 from clientbridge.schemas.deliveries import (
@@ -134,7 +141,8 @@ async def dispatch(
         await _follow(db, row, payload)
         await db.commit()
         return False
-    if _reserved(payload):
+    reserved = _reserved(payload)
+    if reserved and get_settings().env == "prod":
         row.state, row.error, row.next_at = "failed", "reserved_address", None
         await _follow(db, row, payload)
         await db.commit()
@@ -147,6 +155,12 @@ async def dispatch(
         await _follow(db, row, payload)
         await db.commit()
         return False
+    if reserved and not _local_sink(payload, email, sms, transport_override):
+        # outside production a reserved recipient, such as a demo client, is sent in simulation
+        row.state, row.error, row.next_at = "accepted", None, None
+        await _follow(db, row, payload)
+        await db.commit()
+        return True
     claim = secrets.token_urlsafe(24)
     row.state, row.claim, row.next_at = "sending", claim, now + _LEASE
     key = row.id
@@ -251,6 +265,17 @@ async def _emails_withdrawn(db: AsyncSession, business_id: str, payload: Deliver
     if not isinstance(payload, EmailDelivery) or not payload.opt_out or payload.client_id is None:
         return False
     return await emails_withdrawn(db, business_id, payload.client_id)
+
+
+def _local_sink(
+    payload: DeliveryPayload, email: EmailSender, sms: SmsSender, transport_override: bool
+) -> bool:
+    """Whether the payload goes to a local transport that reaches no one: Mailpit or the console."""
+    if isinstance(payload, EmailDelivery):
+        if payload.transport and not transport_override:
+            return payload.transport == "smtp" and bool(get_settings().smtp_url)
+        return isinstance(email, SmtpEmailSender | ConsoleEmailSender)
+    return isinstance(payload, SmsDelivery) and isinstance(sms, ConsoleSmsSender)
 
 
 def _reserved(payload: DeliveryPayload) -> bool:

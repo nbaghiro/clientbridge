@@ -4326,7 +4326,7 @@
         "message": "[Öñļý ŵĥéñ šţåƒƒ šéñð îţ one two]"
     },
     "forms.sendManualHint": {
-        "message": "[Šéñð îţ ƒŕöɱ ĥéŕé ŵĥéñ å çļîéñţ ñééðš îţ. Šţåƒƒ çåñ åļšö ƒîļļ îţ îñ öñ å ṽîšîţ åš å ţŕéåţɱéñţ ñöţé. one two three four five six]"
+        "message": "[Šéñð îţ ƒŕöɱ ĥéŕé ŵĥéñ å çļîéñţ ñééðš îţ. Šţåƒƒ çåñ åļšö ƒîļļ îţ îñ öñ å ṽîšîţ åš å ṽîšîţ ŕéçöŕð. one two three four five six]"
     },
     "forms.requireSignature": {
         "message": "[Åšķ ƒöŕ å šîĝñåţûŕé åţ ţĥé éñð one two three]"
@@ -4391,71 +4391,74 @@
     "forms.answerAttached": {
         "message": "[Ƒîļé åţţåçĥéð one two]"
     },
-    "forms.writtenAt": {
-        "message": "[{date} åţ {time} one]"
-    },
-    "forms.amendment": {
-        "message": "[Åɱéñðɱéñţ one two]"
-    },
-    "forms.treatmentNotes": {
-        "message": "[Ţŕéåţɱéñţ ñöţéš one two]"
-    },
-    "forms.treatmentNote": {
-        "message": "[Ţŕéåţɱéñţ ñöţé one two]"
-    },
-    "forms.writeNote": {
-        "message": "[Ŵŕîţé å ţŕéåţɱéñţ ñöţé one two]"
-    },
-    "forms.amendNote": {
-        "message": "[Åɱéñð one]"
-    },
-    "forms.amendTitle": {
-        "message": "[Åɱéñð ţŕéåţɱéñţ ñöţé one two]"
-    },
-    "forms.amendHint": {
-        "message": "[Ţĥé öŕîĝîñåļ ñöţé šţåýš åš îţ ŵåš. Ţĥîš öñé îš šåṽéð åƒţéŕ îţ, ɱåŕķéð åš åñ åɱéñðɱéñţ. one two three four five six]"
-    },
-    "forms.noteForm": {
-        "message": "[Ƒöŕɱ one]"
-    },
-    "forms.noteFinalHint": {
-        "message": "[Å ţŕéåţɱéñţ ñöţé çåñ'ţ ƀé éðîţéð öŕ ðéļéţéð öñçé îţ'š šåṽéð. Ţö çöŕŕéçţ îţ, åðð åñ åɱéñðɱéñţ. one two three four five six]"
-    },
-    "forms.saveNote": {
-        "message": "[Šåṽé ñöţé one]"
-    },
-    "forms.savingNote": {
-        "message": "[Šåṽîñĝ ñöţé one two]"
-    },
-    "forms.noteFormMissing": {
-        "message": "[Åðð å ƒöŕɱ ţĥåţ'š šéñţ ƀý ĥåñð ƒîŕšţ, šûçĥ åš å ŠÖÅÞ ñöţé, îñ Ƒöŕɱš. one two three four]"
-    },
-    "forms.noteSaveError": {
-        "message": "[Ţĥé ñöţé çöûļð ñöţ ƀé šåṽéð. Þļéåšé ţŕý åĝåîñ. one two three]"
-    },
-    "forms.showNotes": {
-        "message": "[Šĥöŵ ţŕéåţɱéñţ ñöţéš one two]"
-    },
-    "forms.loadingNotes": {
-        "message": "[Ļöåðîñĝ ñöţéš one two]"
-    },
-    "forms.noNotes": {
-        "message": "[Ñö ţŕéåţɱéñţ ñöţéš ýéţ. one two]"
-    },
-    "forms.notesPrivate": {
-        "message": "[Öñļý ţĥé þŕåçţîţîöñéŕ ŵĥö ŵŕöţé å ñöţé åñð öŵñéŕš öŕ åðɱîñš çåñ ŕéåð îţ, åñð éåçĥ ŕéåð îš ŕéçöŕðéð. one two three four five six seven]"
-    },
-    "forms.notesLoadError": {
+    "forms.answersLoadError": {
         "message": "[Ţĥé åñšŵéŕš çöûļð ñöţ ƀé ļöåðéð. Þļéåšé ţŕý åĝåîñ. one two three four]"
     },
     "forms.clientForms": {
-        "message": "[Ƒöŕɱš åñð ţŕéåţɱéñţ ñöţéš one two three]"
+        "message": "[Ƒöŕɱš åñð ṽîšîţ ŕéçöŕðš one two]"
     },
     "forms.noClientForms": {
         "message": "[Ñö šûƀɱîţţéð ƒöŕɱš ýéţ. one two]"
     },
     "forms.viewAnswers": {
         "message": "[Ṽîéŵ åñšŵéŕš one two]"
+    },
+    "visitRecords.title": {
+        "message": "[Ṽîšîţ ŕéçöŕðš one two]"
+    },
+    "visitRecords.newTitle": {
+        "message": "[Ṽîšîţ ŕéçöŕð one two]"
+    },
+    "visitRecords.write": {
+        "message": "[Ŵŕîţé å ṽîšîţ ŕéçöŕð one two]"
+    },
+    "visitRecords.amend": {
+        "message": "[Åɱéñð one]"
+    },
+    "visitRecords.amendTitle": {
+        "message": "[Åɱéñð ṽîšîţ ŕéçöŕð one two]"
+    },
+    "visitRecords.amendHint": {
+        "message": "[Ţĥé öŕîĝîñåļ ŕéçöŕð šţåýš åš îţ ŵåš. Ţĥîš öñé îš šåṽéð åƒţéŕ îţ, ɱåŕķéð åš åñ åɱéñðɱéñţ. one two three four five six]"
+    },
+    "visitRecords.form": {
+        "message": "[Ƒöŕɱ one]"
+    },
+    "visitRecords.finalHint": {
+        "message": "[Å ṽîšîţ ŕéçöŕð çåñ'ţ ƀé éðîţéð öŕ ðéļéţéð öñçé îţ'š šåṽéð. Ţö çöŕŕéçţ îţ, åðð åñ åɱéñðɱéñţ. one two three four five six]"
+    },
+    "visitRecords.save": {
+        "message": "[Šåṽé ŕéçöŕð one two]"
+    },
+    "visitRecords.saving": {
+        "message": "[Šåṽîñĝ ŕéçöŕð one two]"
+    },
+    "visitRecords.formMissing": {
+        "message": "[Åðð å ƒöŕɱ ţĥåţ'š šéñţ ƀý ĥåñð ƒîŕšţ, šûçĥ åš å ŠÖÅÞ ñöţé, îñ Ƒöŕɱš. one two three four]"
+    },
+    "visitRecords.saveError": {
+        "message": "[Ţĥé ṽîšîţ ŕéçöŕð çöûļð ñöţ ƀé šåṽéð. Þļéåšé ţŕý åĝåîñ. one two three four]"
+    },
+    "visitRecords.show": {
+        "message": "[Šĥöŵ ṽîšîţ ŕéçöŕðš one two]"
+    },
+    "visitRecords.loading": {
+        "message": "[Ļöåðîñĝ ṽîšîţ ŕéçöŕðš one two]"
+    },
+    "visitRecords.empty": {
+        "message": "[Ñö ṽîšîţ ŕéçöŕðš ýéţ. one two]"
+    },
+    "visitRecords.private": {
+        "message": "[Öñļý ţĥé þŕåçţîţîöñéŕ ŵĥö ŵŕöţé å ŕéçöŕð åñð öŵñéŕš öŕ åðɱîñš çåñ ŕéåð îţ, åñð éåçĥ ŕéåð îš ŕéçöŕðéð. one two three four five six seven]"
+    },
+    "visitRecords.loadError": {
+        "message": "[Ṽîšîţ ŕéçöŕðš çöûļð ñöţ ƀé ļöåðéð. Þļéåšé ţŕý åĝåîñ. one two three four]"
+    },
+    "visitRecords.writtenAt": {
+        "message": "[{date} åţ {time} one]"
+    },
+    "visitRecords.amendment": {
+        "message": "[Åɱéñðɱéñţ one two]"
     },
     "forms.errors.name-missing": {
         "message": "[Ĝîṽé ţĥé ƒöŕɱ å ñåɱé. one two]"

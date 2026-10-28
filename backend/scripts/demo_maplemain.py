@@ -5,7 +5,7 @@ from datetime import UTC, date, datetime, time, timedelta
 from clientbridge.models.billing import Invoice
 from clientbridge.models.catalog import Item
 from clientbridge.models.clients import Client
-from clientbridge.models.documents import FormResponse
+from clientbridge.models.documents import VisitRecord
 from clientbridge.models.payments import Payment
 from clientbridge.models.platform import File
 from clientbridge.models.scheduling import Booking, BookingStatus, Slot
@@ -1069,7 +1069,7 @@ SPEC = BusinessSpec(
         Stage(
             "Colour formula noted on each visit",
             "grace",
-            ("fr_mm_formula_grace_4", "fr_mm_formula_natasha"),
+            ("vr_mm_formula_grace_4", "vr_mm_formula_natasha"),
         ),
         Stage("Visit invoice overdue", "roya", ("inv_mm_roya_highlights",)),
     ),
@@ -1648,7 +1648,7 @@ class MapleMain(Demo):
         )
 
     def formula_notes(self) -> None:
-        """Colour formulas the stylist wrote after each visit, kept off devices with no token."""
+        """Colour formulas the stylist wrote after each visit, as visit records off devices."""
         people = {person.staff_id: person for person in SPEC.people}
         for key, visit, minutes, answers in FORMULA_NOTES:
             booking = self.ctx.get(Booking, f"bk_mm_{visit}")
@@ -1656,17 +1656,13 @@ class MapleMain(Demo):
             person = people[booking.staff_id]
             written = booking.completed_at + timedelta(minutes=minutes)
             self.ctx.add(
-                FormResponse(
-                    id=f"fr_mm_formula_{key}",
+                VisitRecord(
+                    id=f"vr_mm_formula_{key}",
                     business_id=self.spec.id,
                     form_id=FORMULA_FORM,
                     client_id=booking.client_id,
-                    parent_type="booking",
-                    parent_id=booking.id,
-                    status="submitted",
-                    token=None,
+                    booking_id=booking.id,
                     answers=answers,
-                    submitted_at=written,
                     signature={
                         "user_id": person.user_id,
                         "staff_id": person.staff_id,

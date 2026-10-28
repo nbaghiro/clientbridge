@@ -2,19 +2,17 @@ import { useBusinessQuery as useQuery } from "../hooks";
 import { personMedia, usePeoplePhotos } from "./files";
 import { afterReview, outgoing } from "./previews";
 
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 
-import { formatLongDate, formatTime, parseTimestamp, readDate, useBusinessZone } from "../datetime";
+import { formatLongDate, parseTimestamp, readDate, useBusinessZone } from "../datetime";
 import { formatList, formatParts, formatPhone } from "../format";
 import { type Load, useAsyncAction } from "../hooks";
-import type { Viewer } from "./auth";
 import { type ClientRow, useClients } from "./clients";
-import { canManagePayments } from "./payments";
-import { type FormAnswer, type PublicFormField, isAnswered, optionPair } from "./publicForm";
+import { type PublicFormField, optionPair } from "./publicForm";
 import { useReplicaLoad } from "./sync";
 import { strings } from "../strings";
 import type { Intent, KeyValueRow, SelectOption } from "../ui";
-import { type ApiLike, type Attempt, attemptKey, failureMessage, newIdempotencyKey } from "../api";
+import { type ApiLike, failureMessage, newIdempotencyKey } from "../api";
 
 const FIELD_TYPE_LABEL: Record<string, string> = {
     get text() {
@@ -518,7 +516,7 @@ export function useSendToClient(
     };
 }
 
-/** A submitted response read back with the questions it was answered against. */
+/** A client's submitted form read back with the questions it was answered against. */
 export interface FormAnswers {
     id: string;
     form_id: string;
@@ -529,21 +527,8 @@ export interface FormAnswers {
     submitted_at: string | null;
     fields: PublicFormField[];
     answers: Record<string, unknown>;
-    author_staff_id: string | null;
-    author_name: string | null;
     signer_name: string | null;
-    amends: string | null;
 }
-
-/** A note staff wrote on a visit with a form; final once written, and never on a device. */
-export interface TreatmentNote extends FormAnswers {
-    booking_id: string;
-    visit_at: string;
-    service: string;
-}
-
-// Questions a note can't answer: a note has no upload or signing step.
-const UNANSWERABLE = ["file", "image", "signature"];
 
 function answerText(field: PublicFormField, value: unknown, zone: string): string {
     const f = strings.forms;
@@ -563,7 +548,10 @@ function answerText(field: PublicFormField, value: unknown, zone: string): strin
 }
 
 /** Each question with its answer as read, in the order the form asked them. */
-export function answerRows(response: FormAnswers, zone: string): KeyValueRow[] {
+export function answerRows(
+    response: Pick<FormAnswers, "fields" | "answers">,
+    zone: string,
+): KeyValueRow[] {
     return [...response.fields]
         .sort((a, b) => a.position - b.position)
         .map((field) => ({
@@ -572,177 +560,29 @@ export function answerRows(response: FormAnswers, zone: string): KeyValueRow[] {
         }));
 }
 
-/** Who wrote a note and when, and whether it corrects an earlier one. */
-export function noteByline(note: FormAnswers, zone: string): string {
-    const at = note.submitted_at === null ? null : parseTimestamp(note.submitted_at);
-    return formatParts([
-        note.author_name ?? note.signer_name,
-        at === null
-            ? null
-            : strings.forms.writtenAt(formatLongDate(at, zone), formatTime(at, zone)),
-        note.amends === null ? null : strings.forms.amendment,
-    ]);
-}
-
-/** The visit a note was written on: "60 minute massage · October 7, 2026". */
-export function noteVisit(note: TreatmentNote, zone: string): string {
-    return formatParts([note.service, formatLongDate(parseTimestamp(note.visit_at), zone)]);
-}
-
-export const NOTE_FORMS_SQL = `
-SELECT id, name FROM forms
-WHERE active = 1 AND send_on = 'manual'
-ORDER BY name COLLATE NOCASE`;
-
 export const CLIENT_FORMS_SQL = `
 SELECT r.id, f.name, r.submitted_at
 FROM responses r JOIN forms f ON f.id = r.form_id
 WHERE r.client_id = ? AND r.status = 'submitted'
 ORDER BY r.submitted_at DESC`;
 
-/** Who may write and read the notes on a visit: its practitioner, or an owner or admin. */
-export function canKeepNotes(viewer: Viewer | null, staffId: string | null): boolean {
-    return viewer !== null && (canManagePayments(viewer.role) || viewer.staffId === staffId);
-}
-
-function toField(q: QuestionRow): PublicFormField {
-    return {
-        id: q.id,
-        input: q.input,
-        name: q.name,
-        label: q.label,
-        help: q.help,
-        required: q.required === 1,
-        options: parseOptions(q.options),
-        position: q.position,
-    };
-}
-
-interface TreatmentNoteForm {
-    forms: SelectOption<string>[];
-    formId: string;
-    setFormId: (id: string) => void;
-    fields: PublicFormField[];
-    answers: Record<string, FormAnswer>;
-    setAnswer: (name: string, value: FormAnswer) => void;
-    amends: string | null;
-    busy: boolean;
-    error: string | null;
-    submit: () => void;
-}
-
-/** Fill in a manually sent form on a visit; the note is saved as final, or amends `start`. */
-export function useTreatmentNoteForm(
-    api: ApiLike,
-    bookingId: string,
-    onSaved: (note: TreatmentNote) => void,
-    start: TreatmentNote | null = null,
-): TreatmentNoteForm {
-    const forms = useQuery<{ id: string; name: string }>(NOTE_FORMS_SQL).data;
-    const [chosen, setChosen] = useState(start?.form_id ?? "");
-    const formId = chosen === "" ? (forms[0]?.id ?? "") : chosen;
-    const questions = useQuery<QuestionRow>(FORM_QUESTIONS_SQL, [formId]).data;
-    const fields = useMemo(
+/** A form's questions as the replica holds them, in order. */
+export function useFormQuestions(formId: string): PublicFormField[] {
+    const rows = useQuery<QuestionRow>(FORM_QUESTIONS_SQL, [formId]).data;
+    return useMemo(
         () =>
-            start !== null && start.form_id === formId
-                ? start.fields.filter((f) => !UNANSWERABLE.includes(f.input))
-                : questions.map(toField).filter((f) => !UNANSWERABLE.includes(f.input)),
-        [start, formId, questions],
+            rows.map((q) => ({
+                id: q.id,
+                input: q.input,
+                name: q.name,
+                label: q.label,
+                help: q.help,
+                required: q.required === 1,
+                options: parseOptions(q.options),
+                position: q.position,
+            })),
+        [rows],
     );
-    const [answers, setAnswers] = useState<Record<string, FormAnswer>>(() =>
-        start === null ? {} : (start.answers as Record<string, FormAnswer>),
-    );
-    const key = useRef<Attempt | null>(null);
-    const { busy, error, setError, run } = useAsyncAction();
-    const f = strings.forms;
-    return {
-        forms: forms.map((x) => ({ key: x.id, label: x.name })),
-        formId,
-        setFormId: (id) => {
-            setChosen(id);
-            setAnswers({});
-            setError(null);
-        },
-        fields,
-        answers,
-        setAnswer: (name, value) => {
-            setAnswers((a) => ({ ...a, [name]: value }));
-            setError(null);
-        },
-        amends: start?.id ?? null,
-        busy,
-        error,
-        submit: () => {
-            if (formId === "") {
-                setError(f.noteFormMissing);
-                return;
-            }
-            const missing = fields.find((x) => x.required && !isAnswered(answers[x.name]));
-            if (missing !== undefined) {
-                setError(strings.publicForm.answerRequired(missing.label));
-                return;
-            }
-            const known = new Set(fields.map((x) => x.name));
-            const body = {
-                form_id: formId,
-                booking_id: bookingId,
-                answers: Object.fromEntries(
-                    Object.entries(answers).filter(([name, v]) => known.has(name) && isAnswered(v)),
-                ),
-                amends: start?.id ?? null,
-            };
-            run(
-                async () => {
-                    const note = await api.post<TreatmentNote>("/v1/forms/treatment-notes", body, {
-                        idempotencyKey: attemptKey(key, body),
-                    });
-                    onSaved(note);
-                },
-                { errorMessage: (e) => failureMessage(e, f.noteSaveError) },
-            );
-        },
-    };
-}
-
-export interface TreatmentNotes {
-    notes: TreatmentNote[] | null;
-    busy: boolean;
-    error: string | null;
-    // Each read is recorded, so notes load only when someone asks to see them.
-    show: () => void;
-    add: (note: TreatmentNote) => void;
-}
-
-/** A visit's notes, or every note on a client's visits, loaded on request. */
-export function useTreatmentNotes(
-    api: ApiLike,
-    target: { bookingId: string } | { clientId: string },
-): TreatmentNotes {
-    const [notes, setNotes] = useState<TreatmentNote[] | null>(null);
-    const { busy, error, run } = useAsyncAction();
-    const query =
-        "bookingId" in target
-            ? `booking_id=${encodeURIComponent(target.bookingId)}`
-            : `client_id=${encodeURIComponent(target.clientId)}`;
-    return {
-        notes,
-        busy,
-        error,
-        show: () => {
-            run(
-                async () => {
-                    const out = await api.get<{ notes: TreatmentNote[] }>(
-                        `/v1/forms/treatment-notes?${query}`,
-                    );
-                    setNotes(out.notes);
-                },
-                { errorMessage: (e) => failureMessage(e, strings.forms.notesLoadError) },
-            );
-        },
-        add: (note) => {
-            setNotes((list) => [...(list ?? []), note]);
-        },
-    };
 }
 
 interface ClientForms {
@@ -778,7 +618,7 @@ export function useClientForms(api: ApiLike, clientId: string): ClientForms {
                 async () => {
                     setOpen(await api.get<FormAnswers>(`/v1/forms/responses/${responseId}`));
                 },
-                { errorMessage: (e) => failureMessage(e, strings.forms.notesLoadError) },
+                { errorMessage: (e) => failureMessage(e, strings.forms.answersLoadError) },
             );
         },
         close: () => {

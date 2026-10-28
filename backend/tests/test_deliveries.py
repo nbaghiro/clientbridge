@@ -1,4 +1,6 @@
 from datetime import timedelta
+from email.message import EmailMessage
+from typing import Literal
 
 import httpx
 import pytest
@@ -6,12 +8,15 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
+from clientbridge.core.config import get_settings
 from clientbridge.core.emails import reserved_email
 from clientbridge.core.errors import Unprocessable
+from clientbridge.core.ids import new_id
 from clientbridge.core.phones import reserved_phone
-from clientbridge.integrations.resend import Email
-from clientbridge.integrations.twilio import Sms
-from clientbridge.models.messaging import Delivery
+from clientbridge.integrations.resend import Email, SmtpEmailSender
+from clientbridge.integrations.twilio import ConsoleSmsSender, Sms
+from clientbridge.models.business import Business
+from clientbridge.models.messaging import Delivery, Message, Thread
 from clientbridge.schemas.deliveries import DeliveryPayload, EmailDelivery, SmsDelivery
 from clientbridge.services.consents import record_text_reply
 from clientbridge.services.deliveries import (
@@ -33,9 +38,14 @@ def text(to: str) -> SmsDelivery:
     return SmsDelivery(message=Sms(to=to, body="Reminder", from_number="+12365550190"))
 
 
-async def test_reserved_recipients_fail_without_reaching_the_provider(
-    db: AsyncSession, email: FakeEmailSender, sms: FakeSmsSender, push: FakePushSender
+async def test_in_production_reserved_recipients_fail_without_reaching_the_provider(
+    db: AsyncSession,
+    email: FakeEmailSender,
+    sms: FakeSmsSender,
+    push: FakePushSender,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    monkeypatch.setattr(get_settings(), "env", "prod")
     reserved: list[DeliveryPayload] = [
         EmailDelivery(message=Email(to="Pat@EXAMPLE.COM", subject="Hi", body="Hi")),
         EmailDelivery(message=Email(to="pat@mail.example.org", subject="Hi", body="Hi")),
@@ -57,6 +67,87 @@ async def test_reserved_recipients_fail_without_reaching_the_provider(
     assert {m.to for m in email.sent if m.tags.get("delivery") in ids} == {"pat@example.ca"}
     texted = {m.to for m in sms.sent}
     assert {"+12505550200", "+12505551234"} <= texted and "+12505550142" not in texted
+
+
+@pytest.mark.parametrize("env", ["dev", "staging"])
+async def test_outside_production_reserved_recipients_are_sent_in_simulation(
+    db: AsyncSession,
+    email: FakeEmailSender,
+    sms: FakeSmsSender,
+    push: FakePushSender,
+    factory: Factory,
+    monkeypatch: pytest.MonkeyPatch,
+    env: Literal["dev", "staging"],
+) -> None:
+    monkeypatch.setattr(get_settings(), "env", env)
+    business = await db.get(Business, BIZ)
+    assert business is not None
+    client = await factory.client(business=business)
+    thread = Thread(id=new_id("thread"), business_id=BIZ, client_id=client.id, channel="sms")
+    db.add(thread)
+    await db.flush()
+    message = Message(
+        id=new_id("message"),
+        business_id=BIZ,
+        thread_id=thread.id,
+        direction="out",
+        channel="sms",
+        body="Reminder",
+        status="queued",
+    )
+    db.add(message)
+    await db.flush()
+    sms_payload = SmsDelivery(
+        message=Sms(to="+12505550142", body="Reminder", from_number="+12365550190"),
+        message_id=message.id,
+    )
+    email_payload = EmailDelivery(
+        message=Email(to="hannah@birchbark.example", subject="Hi", body="Hi")
+    )
+    ids = [
+        await enqueue(db, sms_payload, key=f"simulated:{env}:sms", business_id=BIZ),
+        await enqueue(db, email_payload, key=f"simulated:{env}:email", business_id=BIZ),
+    ]
+    await db.commit()
+    assert [await dispatch(db, identity, email, sms, push) for identity in ids] == [True, True]
+    rows = list(await db.scalars(select(Delivery).where(Delivery.id.in_(ids))))
+    assert {(row.state, row.error, row.provider_ref) for row in rows} == {("accepted", None, None)}
+    assert (email.sent, sms.sent) == ([], [])
+    await db.refresh(message)
+    assert message.status == "sent"
+
+
+async def test_a_local_sink_receives_a_reserved_recipient_outside_production(
+    db: AsyncSession,
+    email: FakeEmailSender,
+    push: FakePushSender,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    mailpit: list[EmailMessage] = []
+
+    def deliver(_: SmtpEmailSender, message: EmailMessage) -> None:
+        mailpit.append(message)
+
+    monkeypatch.setattr(SmtpEmailSender, "_deliver", deliver)
+    smtp = SmtpEmailSender("smtp://localhost:1025", "no-reply@clientbridge.ca")
+    console = ConsoleSmsSender()
+    mail_id = await enqueue(
+        db,
+        EmailDelivery(message=Email(to="hannah@birchbark.example", subject="Hi", body="Hi")),
+        key="sink:email",
+        business_id=BIZ,
+    )
+    text_id = await enqueue(db, text("+12505550142"), key="sink:sms", business_id=BIZ)
+    await db.commit()
+    assert await dispatch(db, mail_id, smtp, console, push)
+    assert await dispatch(db, text_id, email, console, push)
+    assert [m["To"] for m in mailpit] == ["hannah@birchbark.example"]
+    monkeypatch.setattr(get_settings(), "env", "prod")
+    refused = await enqueue(db, text("+12505550143"), key="sink:prod", business_id=BIZ)
+    await db.commit()
+    assert not await dispatch(db, refused, email, console, push)
+    row = await db.get(Delivery, refused)
+    assert row is not None and (row.state, row.error) == ("failed", "reserved_address")
 
 
 @pytest.mark.parametrize(
@@ -360,3 +451,23 @@ async def test_a_text_queued_before_a_stop_is_skipped_for_consent(
     assert (rows[queued].state, rows[queued].error) == ("failed", "consent_withdrawn")
     assert rows[elsewhere].state == "accepted"
     assert len([m for m in sms.sent if m.to == "+12505551234"]) == 1
+
+
+async def test_a_stop_still_holds_back_a_simulated_text(
+    db: AsyncSession,
+    factory: Factory,
+    email: FakeEmailSender,
+    sms: FakeSmsSender,
+    push: FakePushSender,
+) -> None:
+    business = await factory.business()
+    client = await factory.client(business=business)
+    client.phone = "(250) 555-0142"
+    await db.flush()
+    queued = await enqueue(db, text("+12505550142"), key="notice:demo", business_id=business.id)
+    await db.commit()
+    await record_text_reply(db, client, stop=True)
+    await db.commit()
+    assert not await dispatch(db, queued, email, sms, push)
+    row = await db.get(Delivery, queued)
+    assert row is not None and (row.state, row.error) == ("failed", "consent_withdrawn")

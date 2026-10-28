@@ -27,6 +27,7 @@ from clientbridge.api import (
     reviews,
     staff,
     subjects,
+    visit_records,
     zones,
 )
 from clientbridge.api.plans import PlanWritable
@@ -67,6 +68,7 @@ api_router.include_router(reports.reports_router)
 api_router.include_router(reviews.router)
 api_router.include_router(messaging.router)
 api_router.include_router(forms.router)
+api_router.include_router(visit_records.router)
 api_router.include_router(contracts.router)
 api_router.include_router(contracts.signatures_router)
 api_router.include_router(files.router)

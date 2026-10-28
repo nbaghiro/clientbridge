@@ -265,6 +265,7 @@ async def test_needs_list_what_the_client_still_owes(
             form_id=form.id,
             client_id=client,
             status="submitted",
+            token=f"tok_{new_id('form_response')}",
             definition={},
         )
     )

@@ -51,7 +51,7 @@ import { ClientMergeDialog } from "./ClientMerge";
 import { ClientWallet } from "./ClientWallet";
 import { SubjectDialog } from "./ClientSubjects";
 import { api } from "../lib/api";
-import { ClientFormsSection } from "./TreatmentNotes";
+import { ClientFormsSection } from "./VisitRecords";
 import { useRole, useViewer } from "../lib/auth";
 import { useOpenLink } from "../lib/links";
 

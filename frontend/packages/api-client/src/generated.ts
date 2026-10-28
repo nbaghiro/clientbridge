@@ -3519,27 +3519,6 @@ export interface paths {
         patch: operations["update_form_v1_forms__form_id__patch"];
         trace?: never;
     };
-    "/v1/forms/treatment-notes": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Treatment Notes
-         * @description A visit's notes, or every note on a client's visits; each one read is audited.
-         */
-        get: operations["treatment_notes_v1_forms_treatment_notes_get"];
-        put?: never;
-        /** Write Treatment Note */
-        post: operations["write_treatment_note_v1_forms_treatment_notes_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/v1/forms/responses/{response_id}": {
         parameters: {
             query?: never;
@@ -3549,6 +3528,44 @@ export interface paths {
         };
         /** Form Response */
         get: operations["form_response_v1_forms_responses__response_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/visit-records": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Visit Records
+         * @description A visit's records, or every record on a client's visits; each one read is audited.
+         */
+        get: operations["visit_records_v1_visit_records_get"];
+        put?: never;
+        /** Write Visit Record */
+        post: operations["write_visit_record_v1_visit_records_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/visit-records/{record_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Visit Record */
+        get: operations["visit_record_v1_visit_records__record_id__get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -5876,22 +5893,10 @@ export interface components {
                 [key: string]: unknown;
             };
             /**
-             * Author Staff Id
-             * @description Who wrote a treatment note
-             */
-            author_staff_id?: string | null;
-            /** Author Name */
-            author_name?: string | null;
-            /**
              * Signer Name
-             * @description Who signed a client's form
+             * @description Who signed the form
              */
             signer_name?: string | null;
-            /**
-             * Amends
-             * @description The note this one corrects
-             */
-            amends?: string | null;
         };
         /** FormFieldIn */
         FormFieldIn: {
@@ -10095,76 +10100,6 @@ export interface components {
             /** Cents */
             cents: number;
         };
-        /** TreatmentNoteCreate */
-        TreatmentNoteCreate: {
-            /** Form Id */
-            form_id: string;
-            /** Booking Id */
-            booking_id: string;
-            /** Answers */
-            answers?: {
-                [key: string]: unknown;
-            };
-            /**
-             * Amends
-             * @description An earlier note on the same visit that this one corrects
-             */
-            amends?: string | null;
-        };
-        /** TreatmentNoteOut */
-        TreatmentNoteOut: {
-            /** Id */
-            id: string;
-            /** Form Id */
-            form_id: string;
-            /** Form Name */
-            form_name: string;
-            /** Client Id */
-            client_id: string | null;
-            /** Parent Type */
-            parent_type: ("client" | "subject" | "booking") | null;
-            /** Parent Id */
-            parent_id: string | null;
-            /** Submitted At */
-            submitted_at: string | null;
-            /** Fields */
-            fields: components["schemas"]["PublicFormField"][];
-            /** Answers */
-            answers: {
-                [key: string]: unknown;
-            };
-            /**
-             * Author Staff Id
-             * @description Who wrote a treatment note
-             */
-            author_staff_id?: string | null;
-            /** Author Name */
-            author_name?: string | null;
-            /**
-             * Signer Name
-             * @description Who signed a client's form
-             */
-            signer_name?: string | null;
-            /**
-             * Amends
-             * @description The note this one corrects
-             */
-            amends?: string | null;
-            /** Booking Id */
-            booking_id: string;
-            /**
-             * Visit At
-             * Format: date-time
-             */
-            visit_at: string;
-            /** Service */
-            service: string;
-        };
-        /** TreatmentNotes */
-        TreatmentNotes: {
-            /** Notes */
-            notes: components["schemas"]["TreatmentNoteOut"][];
-        };
         /** ValidationError */
         ValidationError: {
             /** Location */
@@ -10345,6 +10280,70 @@ export interface components {
              * @description The practitioner's title, with any credential and registration
              */
             practitioner_title?: string | null;
+        };
+        /** VisitRecordCreate */
+        VisitRecordCreate: {
+            /** Form Id */
+            form_id: string;
+            /** Booking Id */
+            booking_id: string;
+            /** Answers */
+            answers?: {
+                [key: string]: unknown;
+            };
+            /**
+             * Amends
+             * @description An earlier record on the same visit that this one corrects
+             */
+            amends?: string | null;
+        };
+        /**
+         * VisitRecordOut
+         * @description A record staff wrote on a visit, read back with the questions it answered.
+         */
+        VisitRecordOut: {
+            /** Id */
+            id: string;
+            /** Form Id */
+            form_id: string;
+            /** Form Name */
+            form_name: string;
+            /** Client Id */
+            client_id: string | null;
+            /** Booking Id */
+            booking_id: string;
+            /**
+             * Visit At
+             * Format: date-time
+             */
+            visit_at: string;
+            /** Service */
+            service: string;
+            /**
+             * Written At
+             * Format: date-time
+             */
+            written_at: string;
+            /** Fields */
+            fields: components["schemas"]["PublicFormField"][];
+            /** Answers */
+            answers: {
+                [key: string]: unknown;
+            };
+            /** Author Staff Id */
+            author_staff_id: string | null;
+            /** Author Name */
+            author_name: string | null;
+            /**
+             * Amends
+             * @description The record this one corrects
+             */
+            amends?: string | null;
+        };
+        /** VisitRecords */
+        VisitRecords: {
+            /** Records */
+            records: components["schemas"]["VisitRecordOut"][];
         };
         /** WeekDay */
         WeekDay: {
@@ -18085,80 +18084,6 @@ export interface operations {
             };
         };
     };
-    treatment_notes_v1_forms_treatment_notes_get: {
-        parameters: {
-            query?: {
-                booking_id?: string | null;
-                client_id?: string | null;
-            };
-            header?: {
-                "x-business-id"?: string;
-                "x-expected-user"?: string;
-                "x-session-token"?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TreatmentNotes"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    write_treatment_note_v1_forms_treatment_notes_post: {
-        parameters: {
-            query?: never;
-            header?: {
-                "Idempotency-Key"?: string | null;
-                "x-business-id"?: string;
-                "x-expected-user"?: string;
-                "x-session-token"?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["TreatmentNoteCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TreatmentNoteOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     form_response_v1_forms_responses__response_id__get: {
         parameters: {
             query?: never;
@@ -18181,6 +18106,115 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FormAnswersOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    visit_records_v1_visit_records_get: {
+        parameters: {
+            query?: {
+                booking_id?: string | null;
+                client_id?: string | null;
+            };
+            header?: {
+                "x-business-id"?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisitRecords"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    write_visit_record_v1_visit_records_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "x-business-id"?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VisitRecordCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisitRecordOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    visit_record_v1_visit_records__record_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
+            };
+            path: {
+                record_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisitRecordOut"];
                 };
             };
             /** @description Validation Error */

@@ -22,7 +22,7 @@ from clientbridge.integrations.twilio import get_sms_sender
 from clientbridge.models.billing import Invoice, Order
 from clientbridge.models.business import Business, Staff, User
 from clientbridge.models.clients import Client
-from clientbridge.models.documents import FormResponse, Signature
+from clientbridge.models.documents import FormResponse, Signature, VisitRecord
 from clientbridge.models.ledger import Account, Entry
 from clientbridge.models.messaging import Delivery, Thread
 from clientbridge.models.payments import Payment
@@ -345,6 +345,7 @@ class AdminService:
                     (Payment, "payment"),
                     (Signature, "signature"),
                     (FormResponse, "form_response"),
+                    (VisitRecord, "visit_record"),
                     (Thread, "thread"),
                 ):
                     related = (

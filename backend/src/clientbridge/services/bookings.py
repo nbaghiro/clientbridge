@@ -2059,14 +2059,7 @@ async def visit_needs(
                 FormResponse.status,
                 FormResponse.token,
             )
-            .where(
-                FormResponse.client_id.in_(clients),
-                # a treatment note is a staff response on a visit, never the client's intake
-                or_(
-                    FormResponse.token.is_not(None),
-                    FormResponse.parent_type.is_distinct_from("booking"),
-                ),
-            )
+            .where(FormResponse.client_id.in_(clients))
             .order_by(FormResponse.created_at)
         )
     ).all()

@@ -52,7 +52,7 @@ import { api } from "../lib/api";
 import { useViewer } from "../lib/auth";
 import { CheckInSheet } from "./CheckInSheet";
 import { DocumentPreview } from "./DocumentPreview";
-import { BookingTreatmentNotes } from "./TreatmentNotes";
+import { BookingVisitRecords } from "./VisitRecords";
 
 const s = strings.bookings;
 const c = strings.classes;
@@ -865,8 +865,8 @@ export function BookingBody({
             ) : null}
             {detail.event.bookingId !== null ? <BookingDocuments event={detail.event} /> : null}
             {detail.event.bookingId !== null ? (
-                <BookingTreatmentNotes
-                    key={`notes:${detail.event.bookingId}`}
+                <BookingVisitRecords
+                    key={`records:${detail.event.bookingId}`}
                     event={detail.event}
                 />
             ) : null}

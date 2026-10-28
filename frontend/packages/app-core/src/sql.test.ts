@@ -1795,7 +1795,7 @@ describe("app-core SQL against the replica schema", () => {
         ]);
         db.run("UPDATE forms SET send_on = 'manual' WHERE id IN ('frm_a', 'frm_z')");
         db.run("UPDATE forms SET send_on = 'booking' WHERE id = 'frm_b'");
-        expect(run("NOTE_FORMS_SQL").map((r) => r.id)).toEqual(["frm_a"]);
+        expect(run("RECORD_FORMS_SQL").map((r) => r.id)).toEqual(["frm_a"]);
         expect(pick(run("FORM_LIBRARY_SQL"), "id", "field_count", "submitted", "waiting")).toEqual([
             { id: "frm_a", field_count: 2, submitted: 1, waiting: 1 },
             { id: "frm_b", field_count: 0, submitted: 0, waiting: 0 },

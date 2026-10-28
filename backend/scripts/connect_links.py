@@ -46,12 +46,10 @@ async def _open_invoice(db: AsyncSession, biz: str) -> str:
 
 async def _form_draft(db: AsyncSession, biz: str, client_id: str) -> str:
     draft = select(FormResponse).where(
-        FormResponse.business_id == biz,
-        FormResponse.status == "draft",
-        FormResponse.token.is_not(None),
+        FormResponse.business_id == biz, FormResponse.status == "draft"
     )
     found = (await db.execute(draft.limit(1))).scalars().first()
-    if found is not None and found.token is not None:
+    if found is not None:
         return found.token
     form = (await db.execute(select(Form).where(Form.business_id == biz).limit(1))).scalar_one()
     response = FormResponse(
@@ -64,7 +62,7 @@ async def _form_draft(db: AsyncSession, biz: str, client_id: str) -> str:
         token=secrets.token_urlsafe(16),
     )
     db.add(response)
-    return str(response.token)
+    return response.token
 
 
 async def _pending_signature(db: AsyncSession, biz: str, client_id: str) -> str:
