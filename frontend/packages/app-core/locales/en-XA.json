@@ -323,8 +323,8 @@
     "api.earningMoved": {
         "message": "[Ţĥîš þåý çĥåñĝéð šîñçé îţ ļöåðéð. Çĥéçķ ţĥé ļîšţ åñð ţŕý åĝåîñ. one two three four]"
     },
-    "api.payNotPositive": {
-        "message": "[Ţĥîš þåý çöɱéš ţö ñöţĥîñĝ öŕ ļéšš, ƀéçåûšé ŕéƒûñðš öŕ ðéðûçţîöñš öûţŵéîĝĥ îţ. Þåý îţ öñçé ɱöŕé îš éåŕñéð. one two three four five six seven]"
+    "api.payNegative": {
+        "message": "[Ţĥîš þåý çöɱéš ţö ļéšš ţĥåñ ñöţĥîñĝ, ƀéçåûšé ŕéƒûñðš öŕ ðéðûçţîöñš öûţŵéîĝĥ îţ. Þåý îţ öñçé ɱöŕé îš éåŕñéð. one two three four five six seven]"
     },
     "api.ownPay": {
         "message": "[Öñļý ţĥé öŵñéŕ çåñ åþþŕöṽé öŕ þåý ýöûŕ öŵñ éåŕñîñĝš. one two three four]"
@@ -2279,6 +2279,15 @@
     "earnings.review.payTitle": {
         "message": "[Ṁåŕķ {amount} åš þåîð ţö {name}? one two]"
     },
+    "earnings.review.settleTitle": {
+        "message": "[Šéţţļé ŵîţĥ {name}? one two]"
+    },
+    "earnings.review.undoSettleTitle": {
+        "message": "[Ûñðö ţĥîš šéţţļéɱéñţ ŵîţĥ {name}? one two three]"
+    },
+    "earnings.review.settleBody": {
+        "message": "[Ţĥéšé çåñçéļ öûţ, šö ñöţĥîñĝ çĥåñĝéš ĥåñðš. Ţĥéý'ŕé åļļ ɱåŕķéð þåîð ţöĝéţĥéŕ. one two three four five]"
+    },
     "earnings.review.payBody": {
         "message": "[Đö ţĥîš öñçé ýöû'ṽé þåîð ýöûŕ ţéåɱ. Ñö ɱöñéý ɱöṽéš ƒŕöɱ ĥéŕé. one two three four]"
     },
@@ -2299,6 +2308,9 @@
     },
     "earnings.review.undo": {
         "message": "[Ûñðö one]"
+    },
+    "earnings.settle": {
+        "message": "[Šéţţļé one]"
     },
     "earnings.payApproved": {
         "message": "[Þåý {amount} one]"
@@ -7353,7 +7365,10 @@
         "message": "[Þéŕçéñţ öƒ ţĥé šéŕṽîçé þŕîçé one two three]"
     },
     "staff.rateFixed": {
-        "message": "[Ƒîẋéð åɱöûñţ þéŕ ƀööķîñĝ one two three]"
+        "message": "[Ƒîẋéð åɱöûñţ þéŕ ṽîšîţ one two]"
+    },
+    "staff.rateFixedHint": {
+        "message": "[Þåîð öñçé ƒöŕ éåçĥ ƀööķéð ṽîšîţ, åñð öñçé ƒöŕ éåçĥ çåţåļöĝ šéŕṽîçé ļîñé ŵîţĥöûţ å ƀööķîñĝ. Ƒééš åñð çûšţöɱ ļîñéš ðöñ'ţ éåŕñ îţ. one two three four five six seven eight]"
     },
     "staff.rateHourly": {
         "message": "[Ĥöûŕļý ŕåţé one two]"
@@ -7380,7 +7395,7 @@
         "message": "[{rate, number, ::percent scale/0.01 .###} öƒ šéŕṽîçéš one two]"
     },
     "staff.payFixed": {
-        "message": "[{money} þéŕ ƀööķîñĝ one two]"
+        "message": "[{money} þéŕ ṽîšîţ one]"
     },
     "staff.payHourly": {
         "message": "[{money} åñ ĥöûŕ one]"

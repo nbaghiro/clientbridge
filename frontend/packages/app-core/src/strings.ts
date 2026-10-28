@@ -123,7 +123,7 @@ interface Strings {
         readonly unsupportedCurrency: string;
         readonly addonLengthInUse: (count: number) => string;
         readonly earningMoved: string;
-        readonly payNotPositive: string;
+        readonly payNegative: string;
         readonly ownPay: string;
     };
     readonly previews: {
@@ -818,6 +818,9 @@ interface Strings {
         readonly approveSelected: (count: number) => string;
         readonly review: {
             readonly payTitle: (amount: string, name: string) => string;
+            readonly settleTitle: (name: string) => string;
+            readonly undoSettleTitle: (name: string) => string;
+            readonly settleBody: string;
             readonly payBody: string;
             readonly markPaid: string;
             readonly undoApprovalTitle: string;
@@ -827,6 +830,7 @@ interface Strings {
             readonly undo: string;
             readonly undoRunTitle: (amount: string, name: string) => string;
         };
+        readonly settle: string;
         readonly payApproved: (amount: string) => string;
         readonly working: string;
         readonly count: (count: number) => string;
@@ -2716,6 +2720,7 @@ interface Strings {
         readonly rateType: string;
         readonly ratePercent: string;
         readonly rateFixed: string;
+        readonly rateFixedHint: string;
         readonly rateHourly: string;
         readonly rateLabel: (type: string) => string;
         readonly retailRate: string;

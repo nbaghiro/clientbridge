@@ -814,6 +814,7 @@ interface StaffPayForm {
     setRateType: (v: string) => void;
     rate: string;
     setRate: (v: string) => void;
+    rateHint: string | undefined;
     retailPercent: string;
     setRetailPercent: (v: string) => void;
     busy: boolean;
@@ -870,6 +871,7 @@ export function useStaffPayForm(api: ApiLike, row: StaffPayRow, onDone: () => vo
         setRateType,
         rate,
         setRate,
+        rateHint: rateType === "fixed" ? strings.staff.rateFixedHint : undefined,
         retailPercent,
         setRetailPercent,
         busy,

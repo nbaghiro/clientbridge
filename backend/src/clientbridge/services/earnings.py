@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from typing import Literal
 
-from sqlalchemy import ColumnElement, and_, or_
+from sqlalchemy import ColumnElement, Select, and_, case, func, literal, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.command import Command, run_command
@@ -165,6 +165,8 @@ class EarningService:
                     for c in await _clawbacks_due(self.db, self.biz, staff_ids, ids)
                     if c not in ids
                 ]
+            elif move == "unpay":
+                todo = ids + [c for c in await _paid_with(self.db, self.biz, ids) if c not in ids]
             # a pay settles the clawbacks that travel with it and approves what it pays on the way
             subjects: set[tuple[str, str]] = set()
             for earning_id in todo:
@@ -186,9 +188,10 @@ class EarningService:
                 totals: dict[str, int] = defaultdict(int)
                 for earning in ready:
                     totals[earning.staff_id] += earning.amount_cents
-                if any(total <= 0 for total in totals.values()):
+                # a run that nets to nothing settles refunded work against what took it back
+                if any(total < 0 for total in totals.values()):
                     raise Conflict(
-                        "a pay run must pay each member more than nothing", code="pay_not_positive"
+                        "a pay run can't pay a member less than nothing", code="pay_negative"
                     )
                 meta = {"run": new_id("pay_run")}
                 if through is not None:
@@ -381,6 +384,26 @@ def _stage_of(journal_id: str, refs: list[tuple[str, str]]) -> str:
     return "approved" if net("approval") > 0 else "pending"
 
 
+async def _statuses(db: AsyncSession, business_id: str, journal_ids: set[str]) -> dict[str, str]:
+    """Many earnings' statuses in one read, as a pay run checks every open correction."""
+    refs: dict[str, list[tuple[str, str]]] = {journal: [] for journal in journal_ids}
+    if journal_ids:
+        rows = await db.execute(
+            scoped(Entry, business_id)
+            .with_only_columns(Entry.source_id, Entry.event, Entry.ref)
+            .where(
+                Entry.source_type == "journal",
+                Entry.source_id.in_(sorted(journal_ids)),
+                Entry.event.in_(("approval", "staff_payment", "reversal")),
+            )
+            .distinct()
+        )
+        for source_id, stage, ref in rows.tuples().all():
+            if source_id is not None:
+                refs[source_id].append((str(stage), ref))
+    return {journal: _stage_of(journal, found) for journal, found in refs.items()}
+
+
 async def _stage_refs(db: AsyncSession, business_id: str, journal_id: str) -> list[tuple[str, str]]:
     rows = await db.execute(
         scoped(Entry, business_id)
@@ -407,21 +430,95 @@ async def _clawbacks_due(
             Entry.owner_type == "staff",
             Entry.owner_id.in_(staff_ids),
             Account.category == "payable",
-            or_(
-                Entry.meta["basis"].astext == "clawback",
-                and_(Entry.event == "tip", Entry.amount_cents > 0),
-            ),
+            _correction(),
+            Entry.journal_id.not_in(_settled_journals(business_id)),
         )
         .distinct()
         .order_by(Entry.journal_id)
     )
-    due: list[str] = []
-    for journal, of in rows.tuples().all():
-        if await _status(db, business_id, journal) not in ("pending", "approved"):
-            continue
-        if of is None or of in paying or await _status(db, business_id, of) in ("paid", "reversed"):
-            due.append(journal)
-    return due
+    found = rows.tuples().all()
+    statuses = await _statuses(
+        db, business_id, {j for j, _ in found} | {of for _, of in found if of is not None}
+    )
+    return [
+        journal
+        for journal, of in found
+        if statuses[journal] in ("pending", "approved")
+        and (of is None or of in paying or statuses.get(of) in ("paid", "reversed"))
+    ]
+
+
+def _correction() -> ColumnElement[bool]:
+    return or_(
+        Entry.meta["basis"].astext == "clawback",
+        and_(Entry.event == "tip", Entry.amount_cents > 0),
+    )
+
+
+def _settled_journals(business_id: str) -> Select[tuple[str | None]]:
+    """Journals already paid or reversed, so a pay never rereads its settled history."""
+    paid = Entry.event == "staff_payment"
+    net = func.sum(
+        case(
+            (paid & ~Entry.ref.endswith(":undo"), 1),
+            (paid, -1),
+            (Entry.ref == literal("earning:") + Entry.source_id + literal(":reversal"), 1),
+            else_=0,
+        )
+    )
+    return (
+        scoped(Entry, business_id)
+        .with_only_columns(Entry.source_id)
+        .where(Entry.source_type == "journal", Entry.event.in_(("staff_payment", "reversal")))
+        .group_by(Entry.source_id)
+        .having(net > 0)
+    )
+
+
+async def _paid_with(db: AsyncSession, business_id: str, earning_ids: list[str]) -> list[str]:
+    """Corrections paid in the same run as these earnings, so undoing one undoes them together."""
+    rows = await db.execute(
+        scoped(Entry, business_id)
+        .with_only_columns(Entry.journal_id, Entry.meta["of"].astext)
+        .join(Account, Account.id == Entry.account_id)
+        .where(
+            Entry.owner_type == "staff",
+            Account.category == "payable",
+            _correction(),
+            Entry.meta["of"].astext.in_(earning_ids),
+        )
+        .distinct()
+        .order_by(Entry.journal_id)
+    )
+    found = [(journal, of) for journal, of in rows.tuples().all() if of is not None]
+    runs = await _runs(db, business_id, set(earning_ids) | {j for j, _ in found})
+    return [j for j, of in found if runs.get(j) is not None and runs.get(j) == runs.get(of)]
+
+
+async def _runs(db: AsyncSession, business_id: str, journal_ids: set[str]) -> dict[str, str]:
+    """The pay run each journal is paid in now, leaving out payments since undone."""
+    rows = await db.execute(
+        scoped(Entry, business_id)
+        .with_only_columns(Entry.source_id, Entry.ref, Entry.meta["run"].astext)
+        .where(
+            Entry.source_type == "journal",
+            Entry.source_id.in_(sorted(journal_ids)),
+            Entry.event == "staff_payment",
+        )
+        .distinct()
+    )
+    found = rows.tuples().all()
+    undone = {ref.removesuffix(":undo") for _, ref, _ in found if ref.endswith(":undo")}
+    runs: dict[str, str] = {}
+    for source_id, ref, run in sorted(found, key=lambda row: row[1]):
+        if (
+            source_id is not None
+            and run is not None
+            and not ref.endswith(":undo")
+            and ref not in undone
+        ):
+            runs[source_id] = run
+    return runs
 
 
 async def _member_earnings(
@@ -662,7 +759,8 @@ def _line_split(
         return "retail", line.amount_cents * bps // 10000, bps
     if staff.rate_type == "percent" and staff.rate_bps is not None:
         return "percent", round(line.amount_cents * staff.rate_bps / 10000), staff.rate_bps
-    if staff.rate_type == "fixed" and staff.rate_cents is not None:
+    # a fixed rate is per visit, so only a catalog service or class sold without a booking earns it
+    if staff.rate_type == "fixed" and staff.rate_cents is not None and item is not None:
         return "fixed", staff.rate_cents, staff.rate_cents
     return None
 
@@ -825,28 +923,38 @@ def _accrual() -> ColumnElement[bool]:
     return ~Entry.ref.contains(":clawback:")
 
 
+async def _any_clawback(db: AsyncSession, business_id: str, earnings: ColumnElement[bool]) -> bool:
+    """Whether any of these earnings was clawed back; with nothing refunded, none needs a look."""
+    found = await db.execute(
+        scoped(Entry, business_id).with_only_columns(Entry.id).where(earnings, ~_accrual()).limit(1)
+    )
+    return found.first() is not None
+
+
 async def claw_back(db: AsyncSession, document: Invoice | Order) -> None:
     """Hold back the refunded share of each earning on a document as a negative pending earning."""
     biz = document.business_id
     kind, document_id = _document_subject(document)
     kept, booked = await ledger.amount_kept(db, biz, (kind, document_id), "revenue")
     line_ids = [line.id for line, _ in await _lines(db, document)]
+    on_document = and_(
+        Entry.event == "earning",
+        Entry.owner_type == "staff",
+        or_(
+            and_(
+                Entry.subject_type == "booking",
+                Entry.source_type == "line",
+                Entry.source_id.in_(line_ids),
+            ),
+            and_(Entry.subject_type == kind, Entry.subject_id == document_id),
+        ),
+    )
+    if kept >= booked and not await _any_clawback(db, biz, on_document):
+        return
     rows = await db.execute(
         scoped(Entry, biz)
         .with_only_columns(Entry.journal_id)
-        .where(
-            Entry.event == "earning",
-            Entry.owner_type == "staff",
-            or_(
-                and_(
-                    Entry.subject_type == "booking",
-                    Entry.source_type == "line",
-                    Entry.source_id.in_(line_ids),
-                ),
-                and_(Entry.subject_type == kind, Entry.subject_id == document_id),
-            ),
-            _accrual(),
-        )
+        .where(on_document, _accrual())
         .distinct()
         .order_by(Entry.journal_id)
     )
@@ -867,16 +975,18 @@ async def claw_back_package(db: AsyncSession, package: Package) -> None:
     """The same for the visits a refunded package covered; their earnings are never reversed."""
     biz = package.business_id
     kept, booked = await ledger.amount_kept(db, biz, ("package", package.id), "deferred")
+    on_package = and_(
+        Entry.event == "earning",
+        Entry.owner_type == "staff",
+        Entry.source_type == "package",
+        Entry.source_id == package.id,
+    )
+    if kept >= booked and not await _any_clawback(db, biz, on_package):
+        return
     rows = await db.execute(
         scoped(Entry, biz)
         .with_only_columns(Entry.journal_id)
-        .where(
-            Entry.event == "earning",
-            Entry.owner_type == "staff",
-            Entry.source_type == "package",
-            Entry.source_id == package.id,
-            _accrual(),
-        )
+        .where(on_package, _accrual())
         .distinct()
         .order_by(Entry.journal_id)
     )

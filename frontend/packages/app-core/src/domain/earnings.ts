@@ -502,6 +502,7 @@ export function useEarningApprovals(api: ApiLike, viewer: Viewer): EarningApprov
               ? due
               : due.filter((r) => r.status === "approved");
     const payTotal = sum([...paying, ...travelling(mine, paying)]);
+    const settles = paying.length > 0 && payTotal === 0;
     const groups = useMemo(
         () =>
             paidGroups(mine, zone, editable).filter(
@@ -584,17 +585,19 @@ export function useEarningApprovals(api: ApiLike, viewer: Viewer): EarningApprov
             if (toApprove.length === 0) return;
             advance("approve", { ids: toApprove.map((x) => x.id) }, "approve");
         },
-        payLabel: e.payApproved(formatMoney(payTotal, BUSINESS_CURRENCY)),
-        canPay: editable && !busy && paying.length > 0 && payTotal > 0,
+        payLabel: settles ? e.settle : e.payApproved(formatMoney(payTotal, BUSINESS_CURRENCY)),
+        canPay: editable && !busy && paying.length > 0 && payTotal >= 0,
         pay: () => {
-            if (paying.length === 0 || payTotal <= 0) return;
+            if (paying.length === 0 || payTotal < 0) return;
             const ids = paying.map((x) => x.id);
             afterReview(
-                {
-                    title: r.payTitle(formatMoney(payTotal, BUSINESS_CURRENCY), name),
-                    message: r.payBody,
-                    confirmLabel: r.markPaid,
-                },
+                settles
+                    ? { title: r.settleTitle(name), message: r.settleBody, confirmLabel: e.settle }
+                    : {
+                          title: r.payTitle(formatMoney(payTotal, BUSINESS_CURRENCY), name),
+                          message: r.payBody,
+                          confirmLabel: r.markPaid,
+                      },
                 () => {
                     advance("pay", through === null ? { ids } : { ids, through }, "pay");
                 },
@@ -618,7 +621,13 @@ export function useEarningApprovals(api: ApiLike, viewer: Viewer): EarningApprov
             if (!editable) return;
             afterReview(
                 {
-                    title: r.undoRunTitle(formatMoney(group.totalCents, BUSINESS_CURRENCY), name),
+                    title:
+                        group.totalCents === 0
+                            ? r.undoSettleTitle(name)
+                            : r.undoRunTitle(
+                                  formatMoney(group.totalCents, BUSINESS_CURRENCY),
+                                  name,
+                              ),
                     message: r.undoPaymentBody,
                     confirmLabel: r.undo,
                 },

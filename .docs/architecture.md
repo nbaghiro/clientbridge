@@ -681,9 +681,10 @@ package covers accrues the same way when it's covered, on the session's share of
 
 Every other line, a line without a booking or a booked product such as an add-on, earns for its `staff_id` (else
 the visit's member, else a sale's seller) under `earning:line:<line>:<n>`, with the document as subject: service and
-custom lines at the service rate (percent of the line, or the fixed rate per line; hourly needs a visit), product
-lines on an invoice at the retail rate, and entitlements nothing. A sale's products earn its seller's retail
-commission instead, under `earning:order:<order>:<n>` with the order as both source and subject.
+custom lines at the service rate (percent of the line; a fixed rate only on a catalog service or class, once per
+line; hourly needs a visit), product lines on an invoice at the retail rate, and entitlements nothing. A sale's
+products earn its seller's retail commission instead, under `earning:order:<order>:<n>` with the order as both
+source and subject.
 
 Each accrual's `meta` carries what a member's own replica needs to show it, since it holds no documents: the
 basis, the rate, the base it was earned on, a label, the client and, for a visit, when the work was done.
@@ -699,10 +700,11 @@ with basis `adjustment`, a reason and the member as subject.
 
 A pay moves the rows it names in one run, approving any still pending on the way, and settles with them the
 member's open clawbacks and returned tips whose earning or tip is paid, reversed or in the same run. A run that
-would pay a member nothing or less is refused. Every move locks the members' staff rows in id order, then the
-rows' subjects in sorted order. An undone payment keeps its run's id, so the run's CSV nets it out. A refund
-that fails cancels its returned tips that no pay has settled. An admin can't approve, pay or adjust their own
-pay; only the owner can.
+would pay a member less than nothing is refused; one that nets to nothing settles refunded work. Every move
+locks the members' staff rows in id order, then the rows' subjects in sorted order. An undone payment keeps its
+run's id, so the run's CSV nets it out, and undoes the corrections paid with it in the same run. A refund
+that fails cancels its returned tips that no pay has settled.
+An admin can't approve, pay or adjust their own pay; only the owner can.
 
 Derived from the ledger rather than stored: an invoice's and order's balance and amount paid, gift card
 balances, package deferred revenue, client lifetime value, staff earnings and their status, tax payable per code, today's revenue, and Stripe

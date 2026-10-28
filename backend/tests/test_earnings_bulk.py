@@ -15,7 +15,7 @@ from clientbridge.services import ledger
 from clientbridge.services.earnings import load_earning
 from clientbridge.services.ledger import Leg
 from tests.conftest import BIZ, Factory, FakeIdentityProvider, session_token
-from tests.helpers import key
+from tests.helpers import counting, key
 
 
 async def _earning(
@@ -151,14 +151,14 @@ async def test_one_pay_shares_a_run(as_owner: httpx.AsyncClient, db: AsyncSessio
     assert len(runs.scalars().all()) == 1
 
 
-async def test_a_pay_that_comes_to_nothing_or_less_409(
+async def test_a_pay_that_comes_to_less_than_nothing_409(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     deduction = await _earning(db, cents=-500)
     await db.commit()  # a refused request rolls back; keep the setup
     res = await as_owner.post("/v1/earnings/pay", json={"ids": [deduction]})
     assert res.status_code == 409
-    assert res.json()["error"] == "pay_not_positive"
+    assert res.json()["error"] == "pay_negative"
     assert await _status(db, deduction) == "pending"
     earning = await _earning(db, cents=800)
     res = await as_owner.post("/v1/earnings/pay", json={"ids": [deduction, earning]})
@@ -483,3 +483,86 @@ async def test_a_run_csv_nets_out_a_payment_undone_days_later(
     assert res.status_code == 200, res.text
     rows = [line.split(",") for line in res.text.strip().splitlines()[1:]]
     assert sum(int(row[-1]) for row in rows) == 4000
+
+
+async def test_a_fully_clawed_back_earning_settles_at_nothing(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    earning = await _earning(db)
+    assert (await as_owner.post("/v1/earnings/approve", json={"ids": [earning]})).status_code == 200
+    clawback = await ledger.post(
+        db,
+        BIZ,
+        event="earning",
+        ref=f"earning:{earning}:clawback:0",
+        legs=[
+            Leg("business", BIZ, "staff_cost", -4000),
+            Leg("staff", "st_diego", "payable", 4000, "pending"),
+        ],
+        meta={"basis": "clawback", "of": earning},
+    )
+    assert clawback is not None
+    bank = await _bank(db)
+    res = await as_owner.post("/v1/earnings/pay", json={"ids": [earning]})
+    assert res.status_code == 200, res.text
+    assert [await _status(db, j) for j in (earning, clawback)] == ["paid", "paid"]
+    assert await _bank(db) == bank
+
+
+async def _settled_clawbacks(as_owner: httpx.AsyncClient, db: AsyncSession, n: int) -> None:
+    for _ in range(n):
+        earning = await _earning(db, cents=200)
+        await ledger.post(
+            db,
+            BIZ,
+            event="earning",
+            ref=f"earning:{earning}:clawback:0",
+            legs=[
+                Leg("business", BIZ, "staff_cost", -100),
+                Leg("staff", "st_diego", "payable", 100, "pending"),
+            ],
+            meta={"basis": "clawback", "of": earning},
+        )
+        assert (await as_owner.post("/v1/earnings/pay", json={"ids": [earning]})).status_code == 200
+
+
+async def _pay_queries(as_owner: httpx.AsyncClient, db: AsyncSession) -> int:
+    earning = await _earning(db)
+    with counting() as seen:
+        res = await as_owner.post("/v1/earnings/pay", json={"ids": [earning]})
+    assert res.status_code == 200, res.text
+    return len(seen)
+
+
+async def test_a_pay_reads_as_much_however_long_the_history(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await _settled_clawbacks(as_owner, db, 2)
+    short = await _pay_queries(as_owner, db)
+    await _settled_clawbacks(as_owner, db, 10)
+    assert await _pay_queries(as_owner, db) == short
+
+
+async def test_undoing_settled_work_undoes_its_clawback_from_the_same_run(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    earning = await _earning(db)
+    clawback = await ledger.post(
+        db,
+        BIZ,
+        event="earning",
+        ref=f"earning:{earning}:clawback:0",
+        legs=[
+            Leg("business", BIZ, "staff_cost", -4000),
+            Leg("staff", "st_diego", "payable", 4000, "pending"),
+        ],
+        meta={"basis": "clawback", "of": earning},
+    )
+    assert clawback is not None
+    bank = await _bank(db)
+    assert (await as_owner.post("/v1/earnings/pay", json={"ids": [earning]})).status_code == 200
+    res = await as_owner.post("/v1/earnings/unpay", json={"ids": [earning]})
+    assert res.status_code == 200, res.text
+    assert {e["id"] for e in res.json()["earnings"]} == {earning, clawback}
+    assert [await _status(db, j) for j in (earning, clawback)] == ["approved", "approved"]
+    assert await _bank(db) == bank

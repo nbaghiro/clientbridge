@@ -590,7 +590,7 @@ class ReportService:
             T4APayee(
                 staff_id=staff_id,
                 name=name,
-                payments=sum(1 for cents in by_earning.values() if cents),
+                payments=sum(1 for cents in by_earning.values() if cents > 0),
                 total_cents=sum(by_earning.values()),
                 tips_cents=tips,
             )

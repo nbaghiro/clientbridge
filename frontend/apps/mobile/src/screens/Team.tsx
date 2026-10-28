@@ -173,6 +173,7 @@ function PaySection({ row }: { row: StaffPayRow }) {
                     />
                     <TextField
                         label={strings.staff.rateLabel(form.rateType)}
+                        hint={form.rateHint}
                         type="number"
                         value={form.rate}
                         onChange={form.setRate}

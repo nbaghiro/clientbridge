@@ -18,6 +18,7 @@ from clientbridge.models.payments import Payment
 from clientbridge.models.scheduling import Booking, Hours, Slot
 from clientbridge.services import ledger
 from clientbridge.services.earnings import (
+    claw_back,
     claw_back_package,
     ensure_earnings,
     load_earning,
@@ -27,7 +28,7 @@ from clientbridge.services.ledger import Leg
 from clientbridge.services.lines import crew_note
 from clientbridge.services.payments import sync_invoice, sync_order
 from tests.conftest import Factory, book_invoice
-from tests.helpers import card_pay, settle
+from tests.helpers import card_pay, counting, settle
 from tests.helpers import key as retry_key
 
 BIZ = "bz_birchbark"
@@ -367,7 +368,7 @@ async def test_invoice_lines_without_a_booking_earn_by_kind(
     assert len(await _line_journals(db, inv_id)) == 2
 
 
-async def test_a_fixed_rate_earns_per_line_and_hourly_earns_nothing_without_a_visit(
+async def test_a_fixed_rate_earns_per_catalog_service_and_hourly_earns_nothing_without_a_visit(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     line: dict[str, object] = {
@@ -375,8 +376,10 @@ async def test_a_fixed_rate_earns_per_line_and_hourly_earns_nothing_without_a_vi
         "amount_cents": 2000,
         "staff_id": "st_diego",
     }
+    service = {**line, "item_id": await _kind_item(db, "service")}
+    fee = {**line, "description": "Travel fee", "amount_cents": 300}
     await _diego_pay(db, rate_type="fixed", rate=15.0)
-    fixed_id, _ = await _paid_loose_invoice(as_owner, db, [line, dict(line)])
+    fixed_id, _ = await _paid_loose_invoice(as_owner, db, [service, dict(service), fee])
     assert [cents for _, cents, _ in await _line_journals(db, fixed_id)] == [1500, 1500]
     await _diego_pay(db, rate_type="hourly", rate=30.0)
     hourly_id, _ = await _paid_loose_invoice(as_owner, db, [dict(line)])
@@ -1061,3 +1064,15 @@ async def test_an_accrual_carries_what_a_member_needs_to_read_it(
         "client_id": booking.client_id,
         "worked_at": booking.starts_at.isoformat(),
     }
+
+
+async def test_a_document_with_nothing_refunded_skips_its_earnings(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    _, inv_id, _ = await _paid_booking(as_owner, db)
+    invoice = await db.get(Invoice, inv_id)
+    assert invoice is not None
+    with counting() as seen:
+        await claw_back(db, invoice)
+    assert not [q for q in seen if q.lstrip().upper().startswith("INSERT")]
+    assert len(seen) <= 3

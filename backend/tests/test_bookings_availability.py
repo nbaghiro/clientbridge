@@ -1,20 +1,17 @@
-from collections.abc import Iterator
-from contextlib import contextmanager
 from datetime import UTC, date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 import httpx
-from sqlalchemy import event, update
-from sqlalchemy.engine import Connection
+from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
-from clientbridge.core.db import engine
 from clientbridge.models.business import Business
 from clientbridge.models.catalog import Item
 from clientbridge.models.scheduling import Hours
 from clientbridge.services.bookings import Availability, Away, Busy
 from tests.conftest import BIZ
+from tests.helpers import counting
 
 TZ = ZoneInfo("America/Vancouver")
 DAY = date(2027, 3, 2)
@@ -117,22 +114,8 @@ def test_a_class_session_with_seats_stays_open_and_an_excluded_slot_is_ignored()
     ]
 
 
-@contextmanager
-def _counting() -> Iterator[list[str]]:
-    seen: list[str] = []
-
-    def count(_conn: Connection, _cursor: object, statement: str, *_: object) -> None:
-        seen.append(statement)
-
-    event.listen(engine.sync_engine, "before_cursor_execute", count)
-    try:
-        yield seen
-    finally:
-        event.remove(engine.sync_engine, "before_cursor_execute", count)
-
-
 async def _queries(api: httpx.AsyncClient, path: str) -> int:
-    with _counting() as seen:
+    with counting() as seen:
         res = await api.get(path)
     assert res.status_code == 200, res.text
     return len(seen)
