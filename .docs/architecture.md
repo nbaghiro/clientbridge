@@ -186,7 +186,7 @@ outbound client message (one-to-one, class and broadcast) persist notification i
 before commit; no provider is called inside a command's transaction. After the commit a request sends at
 most one of its deliveries itself, the confirmation the person is waiting for, and enqueues the worker's
 `send_deliveries` job for the rest, so a staff removal or a series cancel answers without waiting on one
-provider call per visit. Webhooks send none inline. A client's online cancel leaves the seat notice it frees for the next scheduled sweep without waking the worker, so a STOP that arrives in between still keeps it from going. The worker also sweeps due deliveries every minute,
+provider call per visit. Webhooks send none inline. A client's online cancel leaves the seat notice it frees, and anything else past its one inline send, for the next scheduled sweep without waking the worker, so a STOP that arrives in between still keeps the seat notice from going. The worker also sweeps due deliveries every minute,
 which covers a lost enqueue. It claims work with a lease, sends after commit, and fences completion
 against callbacks. Known connection failures retry; uncertain acceptance or an expired in-flight lease
 becomes `ambiguous` and is not blindly resent. An outbound message's `status` follows its delivery:
