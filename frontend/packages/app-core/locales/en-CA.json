@@ -822,6 +822,10 @@
     "billing.actionError": {
         "message": "Couldn't do that. Nothing changed; try again."
     },
+    "billing.actionUnconfirmed": {
+        "message": "The connection dropped before we heard back. If it went through, it will show here in a moment; if not, try again.",
+        "description": "Shown when a send, reminder or other invoice or estimate action lost its connection, so it may or may not have happened"
+    },
     "billing.event.created": {
         "message": "Created"
     },
