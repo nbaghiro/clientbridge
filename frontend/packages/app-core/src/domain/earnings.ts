@@ -39,7 +39,7 @@ interface EarningRow {
     of_id: string | null;
 }
 
-// Context comes from the earning's meta (a member's replica holds no documents); stages net out undos.
+// Context is in meta (a member's replica has no documents); joins are grouped, never per row.
 const EARNINGS_SQL = `
 SELECT * FROM (
     SELECT e.journal_id AS id, e.owner_id AS staff_id, e.event AS kind,
@@ -78,11 +78,17 @@ SELECT * FROM (
         WHERE x.source_type = 'journal' AND x.event IN ('approval', 'staff_payment', 'reversal')
         GROUP BY x.source_id
     ) st ON st.source_id = e.journal_id
-    LEFT JOIN entries pay ON pay.source_type = 'journal' AND pay.source_id = e.journal_id
-        AND pay.event = 'staff_payment' AND pay.owner_type = 'staff' AND pay.ref NOT LIKE '%:undo'
-        AND pay.occurred_at = st.paid_at
-    LEFT JOIN entries og ON og.journal_id = json_extract(e.meta, '$.of') AND og.owner_type = 'staff'
-        AND og.event = 'earning'
+    LEFT JOIN (
+        SELECT source_id, occurred_at, MAX(meta) AS meta FROM entries
+        WHERE source_type = 'journal' AND event = 'staff_payment' AND owner_type = 'staff'
+            AND ref NOT LIKE '%:undo'
+        GROUP BY source_id, occurred_at
+    ) pay ON pay.source_id = e.journal_id AND pay.occurred_at = st.paid_at
+    LEFT JOIN (
+        SELECT journal_id, MAX(meta) AS meta FROM entries
+        WHERE owner_type = 'staff' AND event = 'earning'
+        GROUP BY journal_id
+    ) og ON og.journal_id = json_extract(e.meta, '$.of')
     LEFT JOIN clients c ON c.id = COALESCE(json_extract(e.meta, '$.client_id'), json_extract(og.meta, '$.client_id'))
     WHERE e.event IN ('earning', 'tip') AND e.owner_type = 'staff' AND e.amount_cents != 0
 )`;

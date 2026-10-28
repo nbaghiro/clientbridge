@@ -1165,10 +1165,22 @@ test("staff: payments, inbox and setup show only what staff can use", async ({ p
     });
 
     await walk.step("payments: owner-only links land on sales", async () => {
-        for (const tab of Object.keys(PAYMENTS_TABS).filter((x) => x !== "sales")) {
+        for (const tab of Object.keys(PAYMENTS_TABS).filter(
+            (x) => !["sales", "staff-pay"].includes(x),
+        )) {
             await navigate(page, `/payments/${tab}`, "/payments/sales");
             await expect(main.getByText(d.ticket, { exact: true })).toBeVisible();
         }
+    });
+
+    await walk.step("payments: staff pay is the member's own My pay", async () => {
+        await navigate(page, "/payments/staff-pay");
+        await expect(
+            main.getByRole("tab", { name: strings.navigation.paymentsTabs.myPay, exact: true }),
+        ).toBeVisible();
+        await expect(main.getByText(strings.earnings.mine.subtitle, { exact: true })).toBeVisible();
+        await expect(main.getByText(strings.earnings.colMember, { exact: true })).toHaveCount(0);
+        await navigate(page, "/payments/sales");
     });
 
     await walk.step("sales: gift card and orders", async () => {
