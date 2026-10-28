@@ -1,16 +1,16 @@
 import {
     type FormAnswers,
     type ScheduleEvent,
-    type TreatmentNote,
+    type VisitRecord,
     answerRows,
-    canKeepNotes,
-    noteByline,
-    noteVisit,
+    canKeepRecords,
+    recordByline,
+    recordVisit,
     strings,
     useBusinessZone,
     useClientForms,
-    useTreatmentNoteForm,
-    useTreatmentNotes,
+    useVisitRecordForm,
+    useVisitRecords,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import {
@@ -32,19 +32,20 @@ import { useViewer } from "../lib/auth";
 
 const c = theme.colors;
 const f = strings.forms;
+const v = strings.visitRecords;
 
-/** A submitted form's questions and answers, as the client or practitioner gave them. */
-function AnswerList({ response }: { response: FormAnswers }) {
+/** A form's questions and answers, as the client or practitioner gave them. */
+function AnswerList({ response }: { response: Pick<FormAnswers, "fields" | "answers"> }) {
     const zone = useBusinessZone();
     return <KeyValueList layout="stack" rows={answerRows(response, zone)} />;
 }
 
-function NoteCard({
-    note,
+function RecordCard({
+    record,
     visit = false,
     onAmend,
 }: {
-    note: TreatmentNote;
+    record: VisitRecord;
     visit?: boolean;
     onAmend?: (() => void) | undefined;
 }) {
@@ -53,48 +54,48 @@ function NoteCard({
         <Panel style={styles.card}>
             <View style={styles.head}>
                 <View style={styles.flex}>
-                    <Text style={styles.title}>{note.form_name}</Text>
-                    {visit ? <Text style={styles.muted}>{noteVisit(note, zone)}</Text> : null}
-                    <Text style={styles.muted}>{noteByline(note, zone)}</Text>
+                    <Text style={styles.title}>{record.form_name}</Text>
+                    {visit ? <Text style={styles.muted}>{recordVisit(record, zone)}</Text> : null}
+                    <Text style={styles.muted}>{recordByline(record, zone)}</Text>
                 </View>
                 {onAmend !== undefined ? (
                     <Button size="sm" variant="link" onPress={onAmend}>
-                        {f.amendNote}
+                        {v.amend}
                     </Button>
                 ) : null}
             </View>
-            <AnswerList response={note} />
+            <AnswerList response={record} />
         </Panel>
     );
 }
 
-function NoteSheet({
+function RecordSheet({
     bookingId,
     start,
     onSaved,
     onClose,
 }: {
     bookingId: string;
-    start: TreatmentNote | null;
-    onSaved: (note: TreatmentNote) => void;
+    start: VisitRecord | null;
+    onSaved: (record: VisitRecord) => void;
     onClose: () => void;
 }) {
     const zone = useBusinessZone();
-    const form = useTreatmentNoteForm(api, bookingId, onSaved, start);
+    const form = useVisitRecordForm(api, bookingId, onSaved, start);
     return (
         <Modal onClose={onClose} size="xl">
             <ScrollView contentContainerStyle={styles.sheet}>
-                <SheetHeader title={start === null ? f.treatmentNote : f.amendTitle} />
+                <SheetHeader title={start === null ? v.newTitle : v.amendTitle} />
                 {start === null ? (
                     <Select
-                        label={f.noteForm}
+                        label={v.form}
                         options={form.forms}
                         value={form.formId === "" ? undefined : form.formId}
                         onChange={form.setFormId}
-                        placeholder={f.noteFormMissing}
+                        placeholder={v.formMissing}
                     />
                 ) : (
-                    <Notice tone="info">{f.amendHint}</Notice>
+                    <Notice tone="info">{v.amendHint}</Notice>
                 )}
                 {form.fields.map((q) => (
                     <FormQuestion
@@ -102,14 +103,14 @@ function NoteSheet({
                         zone={zone}
                         field={q}
                         value={form.answers[q.name]}
-                        onChange={(v) => {
-                            form.setAnswer(q.name, v);
+                        onChange={(answer) => {
+                            form.setAnswer(q.name, answer);
                         }}
                         chooseFileLabel={strings.publicForm.chooseFile}
                         selectPlaceholder={strings.publicForm.selectPlaceholder}
                     />
                 ))}
-                <Text style={styles.muted}>{f.noteFinalHint}</Text>
+                <Text style={styles.muted}>{v.finalHint}</Text>
                 {form.error !== null ? <Notice tone="danger">{form.error}</Notice> : null}
                 <View style={styles.actions}>
                     <Button variant="outline" grow onPress={onClose}>
@@ -121,7 +122,7 @@ function NoteSheet({
                         disabled={form.formId === ""}
                         onPress={form.submit}
                     >
-                        {form.busy ? f.savingNote : f.saveNote}
+                        {form.busy ? v.saving : v.save}
                     </Button>
                 </View>
             </ScrollView>
@@ -129,15 +130,15 @@ function NoteSheet({
     );
 }
 
-/** The visit's treatment notes: written by its practitioner or a manager, and read on request. */
-export function BookingTreatmentNotes({ event }: { event: ScheduleEvent }) {
+/** The visit's records: written by its practitioner or a manager, and read on request. */
+export function BookingVisitRecords({ event }: { event: ScheduleEvent }) {
     const viewer = useViewer();
     const bookingId = event.bookingId ?? "";
-    const notes = useTreatmentNotes(api, { bookingId });
-    const [writing, setWriting] = useState<{ start: TreatmentNote | null } | null>(null);
-    if (bookingId === "" || !canKeepNotes(viewer, event.staffId)) return null;
+    const records = useVisitRecords(api, { bookingId });
+    const [writing, setWriting] = useState<{ start: VisitRecord | null } | null>(null);
+    if (bookingId === "" || !canKeepRecords(viewer, event.staffId)) return null;
     return (
-        <DetailSection title={f.treatmentNotes}>
+        <DetailSection title={v.title}>
             <View style={styles.actions}>
                 <Button
                     size="sm"
@@ -147,38 +148,38 @@ export function BookingTreatmentNotes({ event }: { event: ScheduleEvent }) {
                         setWriting({ start: null });
                     }}
                 >
-                    {f.writeNote}
+                    {v.write}
                 </Button>
-                {notes.notes === null ? (
+                {records.records === null ? (
                     <Button
                         size="sm"
                         variant="outline"
                         icon="lock"
-                        busy={notes.busy}
-                        onPress={notes.show}
+                        busy={records.busy}
+                        onPress={records.show}
                     >
-                        {notes.busy ? f.loadingNotes : f.showNotes}
+                        {records.busy ? v.loading : v.show}
                     </Button>
                 ) : null}
             </View>
-            {notes.notes?.length === 0 ? <Text style={styles.muted}>{f.noNotes}</Text> : null}
-            {notes.notes?.map((n) => (
-                <NoteCard
+            {records.records?.length === 0 ? <Text style={styles.muted}>{v.empty}</Text> : null}
+            {records.records?.map((n) => (
+                <RecordCard
                     key={n.id}
-                    note={n}
+                    record={n}
                     onAmend={() => {
                         setWriting({ start: n });
                     }}
                 />
             ))}
-            <Text style={styles.muted}>{f.notesPrivate}</Text>
-            {notes.error !== null ? <Notice tone="danger">{notes.error}</Notice> : null}
+            <Text style={styles.muted}>{v.private}</Text>
+            {records.error !== null ? <Notice tone="danger">{records.error}</Notice> : null}
             {writing !== null ? (
-                <NoteSheet
+                <RecordSheet
                     bookingId={bookingId}
                     start={writing.start}
-                    onSaved={(note) => {
-                        if (notes.notes !== null) notes.add(note);
+                    onSaved={(record) => {
+                        if (records.records !== null) records.add(record);
                         setWriting(null);
                     }}
                     onClose={() => {
@@ -190,10 +191,10 @@ export function BookingTreatmentNotes({ event }: { event: ScheduleEvent }) {
     );
 }
 
-/** A client's submitted forms for managers, and the notes on their visits that the viewer may read. */
+/** A client's submitted forms for managers, and the records of their visits the viewer may read. */
 export function ClientFormsSection({ clientId, manager }: { clientId: string; manager: boolean }) {
     const forms = useClientForms(api, clientId);
-    const notes = useTreatmentNotes(api, { clientId });
+    const records = useVisitRecords(api, { clientId });
     const open = forms.open;
     return (
         <DetailSection title={f.clientForms}>
@@ -221,24 +222,24 @@ export function ClientFormsSection({ clientId, manager }: { clientId: string; ma
                       </View>
                   ))
                 : null}
-            {notes.notes === null ? (
+            {records.records === null ? (
                 <View style={styles.actions}>
                     <Button
                         size="sm"
                         variant="outline"
                         icon="lock"
-                        busy={notes.busy}
-                        onPress={notes.show}
+                        busy={records.busy}
+                        onPress={records.show}
                     >
-                        {notes.busy ? f.loadingNotes : f.showNotes}
+                        {records.busy ? v.loading : v.show}
                     </Button>
                 </View>
-            ) : notes.notes.length === 0 ? (
-                <Text style={styles.muted}>{f.noNotes}</Text>
+            ) : records.records.length === 0 ? (
+                <Text style={styles.muted}>{v.empty}</Text>
             ) : (
-                notes.notes.map((n) => <NoteCard key={n.id} note={n} visit />)
+                records.records.map((n) => <RecordCard key={n.id} record={n} visit />)
             )}
-            {notes.error !== null ? <Notice tone="danger">{notes.error}</Notice> : null}
+            {records.error !== null ? <Notice tone="danger">{records.error}</Notice> : null}
             {forms.error !== null ? <Notice tone="danger">{forms.error}</Notice> : null}
             {open !== null ? (
                 <Modal onClose={forms.close} size="xl">

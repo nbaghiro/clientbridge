@@ -974,7 +974,7 @@
           "business_id IN managed"
         ],
         "responses": [
-          "business_id IN managed AND token IS NOT NULL"
+          "business_id IN managed"
         ],
         "signatures": [
           "business_id IN managed"

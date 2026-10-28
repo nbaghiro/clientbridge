@@ -268,7 +268,7 @@ shown after it.
 `sub_`subscriptions `gc_`gift_cards `stk_`inventory · `ses_`slots `bk_`bookings `bka_`addons `av_`hours
 `sch_`recurrences `rs_`resources · `inv_`invoices `est_`estimates `ord_`orders `ln_`lines · `pay_`payments
 `pm_`payment_methods `psl_`payment_setup_links `acc_`accounts `ent_`entries `jrn_`journal · `th_`threads `msg_`messages `bro_`broadcasts
-· `frm_`forms `ff_`fields `fr_`responses `con_`contracts `sig_`signatures · `rrq_`review requests (preserved historical invitation IDs remain unchanged)
+· `frm_`forms `ff_`fields `fr_`responses `vr_`visit_records (rows moved from responses keep `fr_`) `con_`contracts `sig_`signatures · `rrq_`review requests (preserved historical invitation IDs remain unchanged)
 · `fl_`files `aud_`audits `wh_`webhooks `dvt_`devices `idk_`commands `sur_`sync_receipts · `rtc_`returning_challenges
 
 ### Tables by domain
@@ -345,10 +345,11 @@ belongs to; `ref` + `leg` unique = idempotency; the account's owner is copied on
 count, inbound messages not yet `read`, are read from `messages`), `messages` (direction in/out,
 `broadcast_id`, `attachments`), `broadcasts` (audience JSONB + `scheduled_at`), and server-only `deliveries` (immutable typed payload, stable key, current transport state and fenced worker claim).
 
-**documents (5)** — `forms`, `fields` (`input` is one of 17 field types), `responses` (public-link token,
-`answers`, immutable issued `definition`, and optional submitted `signature` JSONB; a treatment note is a
-response with no token, written by staff on a booking with a form sent by hand, with its author in
-`signature`; it is final, never syncs, and each read is audited as `treatment.read`), `contracts` (template), `signatures` (public-link token; snapshots `signed_body` + captures
+**documents (6)** — `forms`, `fields` (`input` is one of 17 field types), `responses` (public-link token,
+`answers`, immutable issued `definition`, and optional submitted `signature` JSONB; every response is
+a client's, with a token), server-only `visit_records` (what staff write on a booking with a form sent
+by hand: `definition`, `answers` and the author in `signature`; final, read only by its author or a
+manager, and audited as `visit_record.read` on each read), `contracts` (template), `signatures` (public-link token; snapshots `signed_body` + captures
 `ip`; links a signature image file).
 
 **reviews (3)** — `review_requests` preserves invitation history. `google_business_connections`
@@ -428,7 +429,7 @@ build + permanent maintenance.)
 
 ### Database roles and replication
 
-`scripts/db_access.py` creates five roles (the fifth, `auth`, owns the `auth` database) and is run by `make up` and `make migrate`. `clientbridge_migrator` owns the application database and its schema and runs Alembic and the demo seed (`MIGRATION_DATABASE_URL`). `clientbridge_api` has data access without DDL (`DATABASE_URL`). `powersync_source` has `REPLICATION` and `SELECT` on synced tables only. `powersync_storage_owner` owns the `powersync_storage` database. The `powersync` publication lists the synced tables with column lists, generated from the stream config: the columns devices receive, the columns the stream filters and CTEs read, and each primary key (`published_columns()` in `scripts/gen_sync_schema.py`). Users' other columns, receipts, commands, audits and webhooks never reach the replication service, and changes to a token or secret column on a synced table never enter the replication stream. The one column published only for a filter is `responses.token`, which tells client forms from treatment notes. The grant stays table-level, because PowerSync 1.26.1 snapshots a table with `SELECT *`, which column grants would refuse; so an initial snapshot still copies whole rows of synced tables into PowerSync's storage, treatment notes included, until those rows next change. The auth service has its own `auth` database and role. `make replication-health` fails when PowerSync is not ready, its slot is inactive, retained WAL exceeds 1 GiB or replay lag exceeds 60 seconds, and reports each business's bucket count, operations and bytes in PowerSync's storage, what a new device of that business downloads before compaction.
+`scripts/db_access.py` creates five roles (the fifth, `auth`, owns the `auth` database) and is run by `make up` and `make migrate`. `clientbridge_migrator` owns the application database and its schema and runs Alembic and the demo seed (`MIGRATION_DATABASE_URL`). `clientbridge_api` has data access without DDL (`DATABASE_URL`). `powersync_source` has `REPLICATION` and `SELECT` on synced tables only. `powersync_storage_owner` owns the `powersync_storage` database. The `powersync` publication lists the synced tables with column lists, generated from the stream config: the columns devices receive, the columns the stream filters and CTEs read, and each primary key (`published_columns()` in `scripts/gen_sync_schema.py`). Users' other columns, receipts, commands, audits and webhooks never reach the replication service, and changes to a token or secret column on a synced table never enter the replication stream. Every published column is one devices receive. The grant stays table-level, because PowerSync 1.26.1 snapshots a table with `SELECT *`, which column grants would refuse; so an initial snapshot copies whole rows of synced tables into PowerSync's storage until those rows next change. Visit records live in their own table, outside the publication and the grant, so their text never reaches it. The auth service has its own `auth` database and role. `make replication-health` fails when PowerSync is not ready, its slot is inactive, retained WAL exceeds 1 GiB or replay lag exceeds 60 seconds, and reports each business's bucket count, operations and bytes in PowerSync's storage, what a new device of that business downloads before compaction.
 
 ### Attachments
 
@@ -569,8 +570,8 @@ Four auto-subscribed streams and three history streams implement the read model 
 - **`staff_self`** (per staff, sliced by `staff_id`) — a member's **own** addons, hours and recurrences,
   plus their own staff `accounts` and `entries` (earnings).
 - **`business_full`** (owner/admin only) — **all** members' addons, hours and recurrences, all financials
-  (including the whole ledger), review requests, broadcasts, form responses that have a client link
-  (treatment notes have none and stay on the server) and signatures.
+  (including the whole ledger), review requests, broadcasts, form responses and signatures. Visit
+  records stay on the server.
 - **`history_shared`**, **`history_self`**, **`history_full`**: messages for every member, a member's own
   slots and bookings, and every member's slots and bookings for owner/admin, each limited to the months
   the device subscribes (see the history window above).

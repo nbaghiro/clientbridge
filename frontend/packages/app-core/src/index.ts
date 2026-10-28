@@ -42,6 +42,7 @@ export * from "./domain/broadcasts";
 export * from "./domain/messaging";
 export * from "./domain/contracts";
 export * from "./domain/forms";
+export * from "./domain/visitRecords";
 export * from "./domain/publicResource";
 export * from "./domain/publicPay";
 export * from "./domain/publicEstimate";

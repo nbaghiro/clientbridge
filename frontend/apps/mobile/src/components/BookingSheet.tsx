@@ -95,7 +95,7 @@ import { api } from "../lib/api";
 import { useViewer } from "../lib/auth";
 import { CheckInSheet } from "./CheckInSheet";
 import { DocumentPreview } from "./DocumentPreview";
-import { BookingTreatmentNotes } from "./TreatmentNotes";
+import { BookingVisitRecords } from "./VisitRecords";
 
 const c = theme.colors;
 const s = strings.bookings;
@@ -701,7 +701,7 @@ export function BookingBody({ detail }: { detail: BookingDetail }) {
             {e.bookingId !== null ? <Crew key={`crew:${e.bookingId}`} event={e} /> : null}
             {e.bookingId !== null ? <Documents event={e} /> : null}
             {e.bookingId !== null ? (
-                <BookingTreatmentNotes key={`notes:${e.bookingId}`} event={e} />
+                <BookingVisitRecords key={`records:${e.bookingId}`} event={e} />
             ) : null}
             {detail.history.length > 0 ? (
                 <DetailSection title={s.detailHistory}>

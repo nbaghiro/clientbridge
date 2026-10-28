@@ -15,7 +15,7 @@ from clientbridge.integrations.stripe import PaymentGateway
 from clientbridge.models.billing import Estimate, Invoice, Order
 from clientbridge.models.catalog import GiftCard, Package, Subscription
 from clientbridge.models.clients import Client, Consent, Note, Subject
-from clientbridge.models.documents import FormResponse, Signature
+from clientbridge.models.documents import FormResponse, Signature, VisitRecord
 from clientbridge.models.ledger import Account
 from clientbridge.models.messaging import Message, Thread
 from clientbridge.models.payments import Payment, PaymentMethod
@@ -47,6 +47,7 @@ CLIENT_REFS: tuple[tuple[type[Base], str], ...] = (
     (Subject, "client_id"),
     (ReviewRequest, "client_id"),
     (FormResponse, "client_id"),
+    (VisitRecord, "client_id"),
     (Signature, "client_id"),
     (Package, "client_id"),
     (Subscription, "client_id"),

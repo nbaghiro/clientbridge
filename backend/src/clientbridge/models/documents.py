@@ -78,7 +78,7 @@ class FormResponse(PKMixin, BusinessScoped, TimestampMixin, Base):
     client_id: Mapped[str | None] = mapped_column(ForeignKey("clients.id"))
     parent_type: Mapped[DocumentParent | None] = mapped_column(String)
     parent_id: Mapped[str | None] = mapped_column(String)
-    token: Mapped[str | None] = mapped_column(String)  # public submit-link key (server-minted)
+    token: Mapped[str] = mapped_column(String, nullable=False)  # public submit-link key
     status: Mapped[ResponseStatus] = mapped_column(String, default="submitted", nullable=False)
     submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     opened_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -87,6 +87,25 @@ class FormResponse(PKMixin, BusinessScoped, TimestampMixin, Base):
     answers: Mapped[dict[str, object]] = mapped_column(
         JSONB, default=dict, nullable=False
     )  # keyed by field name
+
+
+class VisitRecord(PKMixin, BusinessScoped, TimestampMixin, Base):
+    __tablename__ = "visit_records"
+    __table_args__ = (
+        Index("ix_visit_records_booking", "business_id", "booking_id"),
+        Index("ix_visit_records_client", "client_id"),
+        Index("ix_visit_records_form", "form_id"),
+    )
+
+    form_id: Mapped[str] = mapped_column(ForeignKey("forms.id"), nullable=False)
+    client_id: Mapped[str | None] = mapped_column(ForeignKey("clients.id"))
+    booking_id: Mapped[str] = mapped_column(ForeignKey("bookings.id"), nullable=False)
+    definition: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    answers: Mapped[dict[str, object]] = mapped_column(
+        JSONB, default=dict, server_default="{}", nullable=False
+    )
+    # the author: user_id, staff_id, name, signed_at and the record it amends
+    signature: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
 
 
 class Contract(PKMixin, BusinessScoped, TimestampMixin, Base):

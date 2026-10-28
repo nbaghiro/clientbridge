@@ -48,7 +48,7 @@ import { useState } from "react";
 import { Linking, StyleSheet, Text, View } from "react-native";
 
 import { ClientEditorSheet, NoteSheet, SubjectSheet } from "./ClientSheets";
-import { ClientFormsSection } from "./TreatmentNotes";
+import { ClientFormsSection } from "./VisitRecords";
 import { api } from "../lib/api";
 import { useRole, useViewer } from "../lib/auth";
 import { useOpenLink } from "../lib/links";

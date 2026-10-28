@@ -6,7 +6,7 @@ from datetime import UTC, date, datetime, time, timedelta
 from clientbridge.models.billing import Invoice, Line
 from clientbridge.models.catalog import GiftCard, ItemKind, TaxClass
 from clientbridge.models.clients import Client
-from clientbridge.models.documents import FormResponse
+from clientbridge.models.documents import VisitRecord
 from clientbridge.models.payments import Payment
 from clientbridge.models.scheduling import Booking, Slot
 from scripts.demo_context import demo_business
@@ -850,7 +850,7 @@ class Harbourside(Demo):
         )
         self.retail()
         self.paperwork()
-        self.treatment_notes()
+        self.visit_records()
         self.engagement()
 
     def clock(self, when: datetime) -> str:
@@ -1325,8 +1325,8 @@ class Harbourside(Demo):
                 None,
             )
 
-    def treatment_notes(self) -> None:
-        """SOAP notes the practitioners wrote after some visits, kept off devices with no token."""
+    def visit_records(self) -> None:
+        """SOAP notes the practitioners wrote after some visits, as visit records off devices."""
         people = {person.staff_id: person for person in SPEC.people}
         for key, visit, minutes, answers in SOAP_NOTES:
             booking = self.ctx.get(Booking, f"bk_hs_{visit}")
@@ -1335,23 +1335,19 @@ class Harbourside(Demo):
             written = booking.completed_at + timedelta(minutes=minutes)
             amends = NOTE_AMENDS.get(key)
             self.ctx.add(
-                FormResponse(
-                    id=f"fr_hs_soap_{key}",
+                VisitRecord(
+                    id=f"vr_hs_soap_{key}",
                     business_id=self.spec.id,
                     form_id=SOAP,
                     client_id=booking.client_id,
-                    parent_type="booking",
-                    parent_id=booking.id,
-                    status="submitted",
-                    token=None,
+                    booking_id=booking.id,
                     answers=answers,
-                    submitted_at=written,
                     signature={
                         "user_id": person.user_id,
                         "staff_id": person.staff_id,
                         "name": person.name,
                         "signed_at": written.isoformat(),
-                        "amends": None if amends is None else f"fr_hs_soap_{amends}",
+                        "amends": None if amends is None else f"vr_hs_soap_{amends}",
                     },
                     created_at=written,
                     updated_at=written,

@@ -39,7 +39,14 @@ from clientbridge.models.billing import Estimate, Invoice, Line, Order
 from clientbridge.models.business import Business, Staff, User
 from clientbridge.models.catalog import GiftCard, Item, Package, StockMovement, Subscription
 from clientbridge.models.clients import Client, Consent, Note, Subject
-from clientbridge.models.documents import Contract, Form, FormField, FormResponse, Signature
+from clientbridge.models.documents import (
+    Contract,
+    Form,
+    FormField,
+    FormResponse,
+    Signature,
+    VisitRecord,
+)
 from clientbridge.models.ledger import Entry
 from clientbridge.models.messaging import Broadcast, Message, Thread
 from clientbridge.models.payments import Payment, PaymentMethod
@@ -1866,6 +1873,7 @@ INSERT_ORDER = [
     Order,
     Estimate,
     Booking,
+    VisitRecord,
     Addon,
     Message,
     Line,
@@ -2195,7 +2203,7 @@ def build_birchbark(as_of: datetime | None = None) -> DemoContext:
     for file in ctx.all(File):
         file.uploaded_at = now  # every demo file's bytes are uploaded before its row is written
     forms = {form.id: form for form in ctx.all(Form)}
-    for response in ctx.all(FormResponse):
+    for response in [*ctx.all(FormResponse), *ctx.all(VisitRecord)]:
         response.definition = form_definition(
             forms[response.form_id],
             [field for field in ctx.all(FormField) if field.form_id == response.form_id],

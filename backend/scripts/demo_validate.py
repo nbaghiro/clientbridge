@@ -19,7 +19,7 @@ from clientbridge.models.billing import Estimate, Invoice, Line
 from clientbridge.models.business import Business, Staff
 from clientbridge.models.catalog import GiftCard, Item, Package, StockMovement
 from clientbridge.models.clients import Subject
-from clientbridge.models.documents import Contract, FormResponse, Signature
+from clientbridge.models.documents import Contract, FormResponse, Signature, VisitRecord
 from clientbridge.models.scheduling import Booking, Hours, Recurrence, Resource, Slot, Weekday
 from clientbridge.schemas.forms import FormDefinition
 from clientbridge.schemas.subjects import ATTRIBUTES
@@ -224,6 +224,13 @@ def validate_graph(ctx: DemoContext) -> list[str]:
             errors.append(f"{response.id}: answers the form would reject")
         if definition.require_signature and not response.signature:
             errors.append(f"{response.id}: submitted without the signature the form requires")
+    for record in ctx.all(VisitRecord):
+        try:
+            validate_answers(
+                FormDefinition.model_validate(record.definition).fields, record.answers
+            )
+        except AppError:
+            errors.append(f"{record.id}: answers the form would reject")
     contracts = {r.id: r for r in ctx.all(Contract)}
     for signature in ctx.all(Signature):
         contract = contracts[signature.contract_id]
@@ -422,6 +429,7 @@ async def validate_database(
             Contract,
             Signature,
             FormResponse,
+            VisitRecord,
             Invoice,
             Estimate,
             Line,
