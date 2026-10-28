@@ -11,7 +11,7 @@ onFlowComplete:
 - runFlow: helpers/owner.yaml
 - tapOn: "Clients"
 - tapOn: "Search name, phone or pet"
-- inputText: "olivia.m+${E2E_NAMESPACE}@example.test"
+- inputText: "Olivia Martin"
 - hideKeyboard
 - extendedWaitUntil:
       visible: ".*Olivia Martin.*"
@@ -30,7 +30,7 @@ onFlowComplete:
 - assertNotVisible: "Sign in"
 - tapOn: "Clients"
 - tapOn: "Search name, phone or pet"
-- inputText: "olivia.m+${E2E_NAMESPACE}@example.test"
+- inputText: "Olivia Martin"
 - hideKeyboard
 - extendedWaitUntil:
       visible: ".*Olivia Martin.*"
