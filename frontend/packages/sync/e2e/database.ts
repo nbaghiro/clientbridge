@@ -1,4 +1,5 @@
 import { AppSchema } from "../src/schema";
+import { holdReplicaFile } from "../src/files";
 import { PowerSyncDatabase, WASQLiteVFS } from "@powersync/web";
 import { Schema, Table, column } from "@powersync/common";
 
@@ -71,7 +72,9 @@ export { ReplicaController, replicaFilename } from "../src/lifecycle";
 export { removeReplicaFiles } from "../src/files";
 
 export function replicaDatabase(filename: string) {
-    return new PowerSyncDatabase({ schema: AppSchema, database: replicaOptions(filename) });
+    const db = new PowerSyncDatabase({ schema: AppSchema, database: replicaOptions(filename) });
+    holdReplicaFile(db, filename);
+    return db;
 }
 
 export const liveReplicas = new Map<string, PowerSyncDatabase>();

@@ -1,4 +1,5 @@
 import { strings } from "@clientbridge/app-core/public";
+import { replicaFilename } from "@clientbridge/sync";
 import { expect } from "@playwright/test";
 import { newAccount } from "./support/auth";
 import { signUp } from "./support/business";
@@ -150,16 +151,21 @@ test(
         requireLocalMail();
         const account = newAccount("replica");
         const o = strings.business.onboarding;
-        const opened = async (): Promise<string[]> =>
-            (await opfsEntries(page)).filter((name) => name.startsWith("clientbridge-"));
+        // Playwright's WebKit shares one OPFS across profiles, so other cases' replicas can appear here
+        let files: string[] = [];
+        const mine = async (): Promise<string[]> =>
+            (await opfsEntries(page)).filter((name) => files.includes(name));
         await page.goto("/");
-        const before = await opened();
         await signUp(page, request, account);
         const onboarding = page.getByRole("heading", { name: o.title });
         await expect(onboarding).toBeVisible({ timeout: 60_000 });
-        const files = (await opened()).filter((name) => !before.includes(name));
+        const userId = await page.evaluate(() => localStorage.getItem("cb_user"));
+        expect(userId).not.toBeNull();
+        const name = replicaFilename({ userId: userId ?? "", scope: new URL(page.url()).origin });
+        files = [name, `${name}-journal`, `${name}-wal`];
         // until every engine keeps the replica in OPFS (web-storage T9), only WebKit has files here
-        if (browserName === "webkit") expect(files.length).toBeGreaterThan(0);
+        const kept = browserName === "webkit" ? files : [];
+        expect(await mine()).toEqual(kept);
 
         const second = await context.newPage();
         await second.goto("/");
@@ -171,15 +177,13 @@ test(
         await expect(email).toBeVisible({ timeout: 30_000 });
         await page.reload();
         await expect(email).toBeVisible();
-        await expect
-            .poll(async () => (await opened()).filter((name) => files.includes(name)))
-            .toEqual([]);
+        await expect.poll(mine).toEqual([]);
         expect(await page.evaluate(() => localStorage.getItem("cb_replica_trash"))).toBeNull();
 
         await email.fill(account.email);
         await page.getByLabel(strings.auth.password, { exact: true }).fill(account.password);
         await page.getByRole("button", { name: strings.auth.signIn, exact: true }).click();
         await expect(onboarding).toBeVisible({ timeout: 60_000 });
-        expect((await opened()).filter((name) => !before.includes(name))).toEqual(files);
+        expect(await mine()).toEqual(kept);
     },
 );
