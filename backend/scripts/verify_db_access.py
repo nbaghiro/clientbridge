@@ -16,7 +16,7 @@ from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncConnection, create_async_engine
 
 from scripts.db_access import literal, quote
-from scripts.gen_sync_schema import synced_tables
+from scripts.gen_sync_schema import published_columns, synced_tables
 
 ROOT = Path(__file__).resolve().parents[2]
 BACKEND = ROOT / "backend"
@@ -160,14 +160,20 @@ async def verify(address: str, env: Environment) -> list[str]:
             f"{env.app}: {source} reads {sorted(readable ^ synced)} wrongly",
             problems,
         )
-        published = await names(
-            conn, "SELECT tablename FROM pg_publication_tables WHERE pubname = 'powersync'"
+        published = {
+            str(row.tablename): sorted(row.attnames)
+            for row in await conn.execute(
+                text(
+                    "SELECT tablename, attnames FROM pg_publication_tables "
+                    "WHERE pubname = 'powersync'"
+                )
+            )
+        }
+        wanted = {table: sorted(columns) for table, columns in published_columns().items()}
+        differing = sorted(
+            t for t in published.keys() | wanted.keys() if published.get(t) != wanted.get(t)
         )
-        check(
-            published == synced,
-            f"{env.app}: publication differs on {sorted(published ^ synced)}",
-            problems,
-        )
+        check(not differing, f"{env.app}: publication differs on {differing}", problems)
         owner = await conn.scalar(
             text("SELECT pg_get_userbyid(pubowner) FROM pg_publication WHERE pubname = 'powersync'")
         )

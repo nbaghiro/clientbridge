@@ -61,8 +61,11 @@ AUTH_SERVE = ("kratos", *derived.AUTH_COMMAND)
 AUTH_MIGRATE = ("kratos", "migrate", "sql", "up", "-e", "--yes")
 POWERSYNC_CONFIG_DIR = "/config"
 POWERSYNC_START = ("node", "service/lib/entry.js", "start", "-r", "unified")
+POWERSYNC_COMPACT = ("node", "service/lib/entry.js", "compact")
 # its source and storage pools (max_pool_size defaults to 8 each) and the replication streams
 POWERSYNC_CONNECTIONS = 20
+# the compactor holds one pooled connection and one for its transactions, used one at a time
+COMPACT_CONNECTIONS = 2
 MIGRATE_CONNECTIONS = 8  # db_access as the admin, Alembic as the migrator, then the auth service
 
 # secrets secrets_init.py generates; the rest are added to Secret Manager by hand

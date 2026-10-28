@@ -155,8 +155,7 @@ export async function expectMessageCommitted(client: ClientFixture): Promise<Mes
     expect(evidence.audits).toEqual([
         { action: "message.send", entity_id: evidence.messages[0]?.id },
     ]);
-    // Inbox sends directly through SMTP; queued notification deliveries are a different path.
-    expect(evidence.deliveries).toEqual([]);
+    expect(evidence.deliveries).toEqual([{ id: expect.any(String), state: "accepted" }]);
     return evidence;
 }
 export async function expectMessageReplica(page: Page, client: ClientFixture): Promise<void> {

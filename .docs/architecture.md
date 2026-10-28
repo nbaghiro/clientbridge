@@ -181,11 +181,18 @@ a browser approximation; inspect actual deliveries in target email clients befor
 The waitlist confirmation is the one exception: the marketing site's server sends it, so `make gen-waitlist-email`
 writes it to `apps/site/server/waitlist-email.json` with the images the site's build serves at `/email/`.
 
-Payment settlement, refunds, booking creation, form sends, trial reminders and admin tests persist
-notification intent before commit. The delivery worker claims work with a lease, sends after commit,
-and fences completion against callbacks. Known connection failures retry; uncertain acceptance or an
-expired in-flight lease becomes `ambiguous` and is not blindly resent. Admin email history distinguishes
-provider acceptance from delivery. Other notification paths retain their existing status-marker flow.
+Payment settlement, refunds, booking creation, form sends, trial reminders, admin tests and every
+outbound client message (one-to-one, class and broadcast) persist notification intent in `deliveries`
+before commit; no provider is called inside a command's transaction. After the commit a request sends at
+most one of its deliveries itself, the confirmation the person is waiting for, and enqueues the worker's
+`send_deliveries` job for the rest, so a staff removal or a series cancel answers without waiting on one
+provider call per visit. Webhooks send none inline. A client's online cancel leaves the seat notice it frees, and anything else past its one inline send, for the next scheduled sweep without waking the worker, so a STOP that arrives in between still keeps the seat notice from going. The worker also sweeps due deliveries every minute,
+which covers a lost enqueue. It claims work with a lease, sends after commit, and fences completion
+against callbacks. Known connection failures retry; uncertain acceptance or an expired in-flight lease
+becomes `ambiguous` and is not blindly resent. An outbound message's `status` follows its delivery:
+`sent` once accepted, `failed` when refused or unconfirmed, `delivered` from the provider's callback,
+and `queued` only while a retry is pending, so the synced inbox shows what happened. Admin email history
+distinguishes provider acceptance from delivery.
 SMS uses the business's unique `sms_number` for outbound identity and inbound routing; a retired number
 cannot be reassigned to another business. Public abuse controls use Redis outside development.
 
@@ -421,7 +428,7 @@ build + permanent maintenance.)
 
 ### Database roles and replication
 
-`scripts/db_access.py` creates five roles (the fifth, `auth`, owns the `auth` database) and is run by `make up` and `make migrate`. `clientbridge_migrator` owns the application database and its schema and runs Alembic and the demo seed (`MIGRATION_DATABASE_URL`). `clientbridge_api` has data access without DDL (`DATABASE_URL`). `powersync_source` has `REPLICATION` and `SELECT` on synced tables only. `powersync_storage_owner` owns the `powersync_storage` database. The `powersync` publication lists exactly the synced tables, generated from the stream config, so users, receipts, commands, audits and webhooks never reach the replication service. The auth service has its own `auth` database and role. `make replication-health` fails when PowerSync is not ready, its slot is inactive, retained WAL exceeds 1 GiB or replay lag exceeds 60 seconds.
+`scripts/db_access.py` creates five roles (the fifth, `auth`, owns the `auth` database) and is run by `make up` and `make migrate`. `clientbridge_migrator` owns the application database and its schema and runs Alembic and the demo seed (`MIGRATION_DATABASE_URL`). `clientbridge_api` has data access without DDL (`DATABASE_URL`). `powersync_source` has `REPLICATION` and `SELECT` on synced tables only. `powersync_storage_owner` owns the `powersync_storage` database. The `powersync` publication lists the synced tables with column lists, generated from the stream config: the columns devices receive, the columns the stream filters and CTEs read, and each primary key (`published_columns()` in `scripts/gen_sync_schema.py`). Users' other columns, receipts, commands, audits and webhooks never reach the replication service, and changes to a token or secret column on a synced table never enter the replication stream. The one column published only for a filter is `responses.token`, which tells client forms from treatment notes. The grant stays table-level, because PowerSync 1.26.1 snapshots a table with `SELECT *`, which column grants would refuse; so an initial snapshot still copies whole rows of synced tables into PowerSync's storage, treatment notes included, until those rows next change. The auth service has its own `auth` database and role. `make replication-health` fails when PowerSync is not ready, its slot is inactive, retained WAL exceeds 1 GiB or replay lag exceeds 60 seconds, and reports each business's bucket count, operations and bytes in PowerSync's storage, what a new device of that business downloads before compaction.
 
 ### Attachments
 
@@ -575,8 +582,10 @@ the day the business is shut;
 
 Device read scope: staff = `business_shared` + `staff_limited` + `staff_self` + `history_shared` +
 `history_self` · owner/admin = `business_shared` + `staff_self` + `business_full` + all three history
-streams. `tests/fixtures/sync_projections.json` is the reviewed column list per stream, and
-`test_sync_projections` fails when a stream adds a column or sends pay, tax or billing columns to staff.
+streams. `tests/fixtures/sync_projections.json` is the reviewed column list per stream with each stream's
+CTEs and `WHERE` clauses, and `test_sync_projections` fails when a stream adds a column, changes a filter
+or a CTE, or sends pay, tax or billing columns to staff. Role checks in the CTEs name the roles they admit
+(`role = 'owner' OR role = 'admin'`), so a role added later reaches no stream until it is added there.
 Writes
 are authorized separately by typed services. Postgres RLS is an optional future
 defense-in-depth for the API, not the sync filter.

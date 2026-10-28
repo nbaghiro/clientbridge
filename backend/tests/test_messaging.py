@@ -6,16 +6,23 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
+from clientbridge.core.deps import Principal
 from clientbridge.core.ids import new_id
+from clientbridge.integrations.twilio import Sms
 from clientbridge.models.clients import Client
-from clientbridge.models.messaging import Broadcast, Message, Thread
+from clientbridge.models.messaging import Broadcast, Delivery, Message, Thread
 from clientbridge.models.scheduling import Booking
+from clientbridge.schemas.deliveries import SmsDelivery
+from clientbridge.schemas.messaging import MessageSend
 from clientbridge.services.consents import record_consent
-from clientbridge.services.messaging import run_due_broadcasts, unread_count
-from tests.conftest import Factory, FakeEmailSender, FakeSmsSender
+from clientbridge.services.deliveries import dispatch, enqueue, run_deliveries, send_queued
+from clientbridge.services.messaging import MessageService, run_due_broadcasts, unread_count
+from tests.clock import FROZEN
+from tests.conftest import OWNER_USER, Factory, FakeEmailSender, FakePushSender, FakeSmsSender
 from tests.helpers import local_hour, new_client
 
 BIZ = "bz_birchbark"
+OWNER = Principal(user_id=OWNER_USER, business_id=BIZ, staff_id="st_owner", role="owner")
 
 
 def _active_client(*, name: str, phone: str, tags: list[str]) -> Client:
@@ -118,10 +125,12 @@ async def test_send_email_path_as_staff(
     assert email.sent[0].body == "Hello"
     message_id = res.json()["id"]
     assert email.sent[0].reply_to == "hello@birchbark.example"
-    assert email.sent[0].idempotency_key == message_id
-    assert email.sent[0].tags == {"business": BIZ, "message": message_id}
+    delivery = await db.scalar(select(Delivery).where(Delivery.key == f"message:{message_id}"))
+    assert delivery is not None and delivery.state == "accepted"
+    assert email.sent[0].idempotency_key == delivery.id
+    assert email.sent[0].tags == {"business": BIZ, "message": message_id, "delivery": delivery.id}
     stored = (await db.execute(select(Message).where(Message.id == message_id))).scalar_one()
-    assert stored.provider_ref == "email_fake1"
+    assert stored.provider_ref == delivery.provider_ref == "email_fake1"
 
 
 async def test_missing_contact_is_422(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
@@ -162,6 +171,68 @@ async def test_failing_sender_marks_failed(
     assert status == "failed"
 
 
+async def test_a_message_reaches_the_provider_only_after_its_command_commits(
+    db: AsyncSession, sms: FakeSmsSender, email: FakeEmailSender, push: FakePushSender
+) -> None:
+    cid = await _client_with_contact(db, phone="+15145551234")
+    service = MessageService(db, OWNER)
+    queued = await service.send_message(MessageSend(client_id=cid, channel="sms", body="Hi"))
+    assert queued.status == "queued" and sms.sent == []
+    delivery = await db.scalar(select(Delivery).where(Delivery.key == f"message:{queued.id}"))
+    assert delivery is not None and delivery.state == "queued"
+    await send_queued(db, email, sms, push)
+    assert len(sms.sent) == 1 and (await service.message(queued.id)).status == "sent"
+
+
+async def test_a_message_waiting_for_a_retry_shows_queued_until_it_is_accepted(
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    sms: FakeSmsSender,
+    email: FakeEmailSender,
+    push: FakePushSender,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cid = await _client_with_contact(db, phone="+15145551234")
+    real = sms.send
+
+    async def offline(_: Sms) -> str | None:
+        raise httpx.ConnectError("offline")
+
+    monkeypatch.setattr(sms, "send", offline)
+    res = await as_owner.post(
+        "/v1/messages", json={"client_id": cid, "channel": "sms", "body": "Hi"}
+    )
+    assert res.status_code == 200 and res.json()["status"] == "queued"
+    monkeypatch.setattr(sms, "send", real)
+    clock.travel(FROZEN + timedelta(minutes=2))
+    await run_deliveries(db, email, sms, push)
+    stored = await db.get(Message, res.json()["id"], populate_existing=True)
+    assert stored is not None and stored.status == "sent" and stored.provider_ref is not None
+
+
+async def test_a_delivery_never_changes_another_business_message(
+    db: AsyncSession,
+    factory: Factory,
+    email: FakeEmailSender,
+    sms: FakeSmsSender,
+    push: FakePushSender,
+) -> None:
+    other = await factory.business()
+    cid = await _client_with_contact(db, phone="+15145551234")
+    sent = await MessageService(db, OWNER).send_message(
+        MessageSend(client_id=cid, channel="sms", body="Hi")
+    )
+    db.info.clear()
+    foreign = SmsDelivery(
+        message=Sms(to="+15145551234", body="x", from_number="+12365550190"), message_id=sent.id
+    )
+    identity = await enqueue(db, foreign, key="message:foreign", business_id=other.id)
+    await db.commit()
+    await dispatch(db, identity, email, sms, push)
+    stored = await db.get(Message, sent.id, populate_existing=True)
+    assert stored is not None and stored.status == "queued"
+
+
 async def test_send_is_idempotent(
     as_owner: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender
 ) -> None:
@@ -200,7 +271,7 @@ async def test_broadcast_fans_out(
     assert out["status"] == "sending" and out["scheduled_at"] is None
     assert out["recipient_count"] == 3
     assert sms.sent == []  # the job sends it, not the request
-    assert await run_due_broadcasts(db, sms, email, now) >= 1
+    assert await run_due_broadcasts(db, sms, email, FakePushSender(), now) >= 1
     assert len(sms.sent) == 3
 
 
@@ -325,7 +396,7 @@ async def test_broadcast_excludes_other_business(
         "/v1/broadcasts", json={"name": "Ours only", "channel": "sms", "body": "Sale!"}
     )
     assert res.status_code == 200, res.text
-    await run_due_broadcasts(db, sms, email, now)
+    await run_due_broadcasts(db, sms, email, FakePushSender(), now)
     assert res.json()["recipient_count"] == 1  # only our own client, never the foreign one
     assert [m.to for m in sms.sent] == ["+15145559001"]
 
@@ -347,7 +418,7 @@ async def test_broadcast_audience_tag_filter(
         json={"name": "VIP sale", "channel": "sms", "body": "Hi", "audience": {"tags": ["vip"]}},
     )
     assert res.status_code == 200, res.text
-    await run_due_broadcasts(db, sms, email, now)
+    await run_due_broadcasts(db, sms, email, FakePushSender(), now)
     assert res.json()["recipient_count"] == 1
     assert len(sms.sent) == 1 and sms.sent[0].to == "+15145559001"  # only the tagged client
 
@@ -390,7 +461,7 @@ async def test_run_due_broadcasts_sends_when_due(
     )
     db.add(broadcast)
     await db.flush()
-    assert await run_due_broadcasts(db, sms, email, now) == 1
+    assert await run_due_broadcasts(db, sms, email, FakePushSender(), now) == 1
     assert len(sms.sent) == 1 and sms.sent[0].to == "+15145559004"
     row = (await db.execute(select(Broadcast).where(Broadcast.id == broadcast.id))).scalar_one()
     assert row.status == "sent"
@@ -412,7 +483,7 @@ async def test_run_due_broadcasts_skips_future(
     )
     db.add(broadcast)
     await db.flush()
-    assert await run_due_broadcasts(db, sms, email, now) == 0
+    assert await run_due_broadcasts(db, sms, email, FakePushSender(), now) == 0
     assert sms.sent == []
 
 

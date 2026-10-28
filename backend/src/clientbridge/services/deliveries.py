@@ -5,7 +5,7 @@ from dataclasses import replace
 from datetime import timedelta
 
 import httpx
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,12 +14,13 @@ from clientbridge.core.emails import reserved_email
 from clientbridge.core.errors import AppError, Undelivered, Unprocessable
 from clientbridge.core.ids import new_id
 from clientbridge.core.phones import e164, reserved_phone, same_phone
-from clientbridge.core.scoping import scoped
+from clientbridge.core.scoping import scoped, scoped_update
 from clientbridge.integrations.expo import Push, PushSender
+from clientbridge.integrations.jobs import Jobs
 from clientbridge.integrations.resend import Email, EmailSender, get_test_email_sender
 from clientbridge.integrations.twilio import Sms, SmsSender
 from clientbridge.models.clients import Client
-from clientbridge.models.messaging import Delivery, DeliveryState
+from clientbridge.models.messaging import Delivery, DeliveryState, Message, MessageStatus
 from clientbridge.schemas.deliveries import (
     DELIVERY_PAYLOAD,
     DeliveryPayload,
@@ -33,6 +34,8 @@ _LEASE = timedelta(minutes=5)
 _RETRY = timedelta(minutes=1)
 _RETRY_WINDOW = timedelta(hours=23)
 _QUEUED = "queued_deliveries"
+# the worker function a request wakes for the deliveries it leaves
+DELIVERIES_JOB = "send_deliveries"
 
 
 def delivery_key(kind: str, subject_id: str, *, each: bool = False) -> str:
@@ -75,19 +78,24 @@ async def send_queued(
     email: EmailSender,
     sms: SmsSender,
     push: PushSender,
+    jobs: Jobs | None = None,
     *,
+    inline: int = 1,
     transport_override: bool = False,
     leave: tuple[str, ...] = (),
 ) -> int:
-    """Send what this session queued since the last call; `leave` kinds wait for the worker."""
+    """Send what this session queued; with `jobs`, `inline` now and the worker for the rest."""
     queued: dict[str, str] = db.info.pop(_QUEUED, {})
+    due = [identity for identity, key in queued.items() if key.split(":", 1)[0] not in leave]
+    now = due if jobs is None else due[:inline]
     sent = 0
-    for identity, key in queued.items():
-        if key.split(":", 1)[0] in leave:
-            continue
+    for identity in now:
         sent += await dispatch(
             db, identity, email, sms, push, transport_override=transport_override
         )
+    # waking the worker would send what `leave` holds back, so it then waits for the sweep
+    if jobs is not None and len(now) < len(due) == len(queued):
+        await jobs.enqueue(DELIVERIES_JOB)
     return sent
 
 
@@ -115,17 +123,20 @@ async def dispatch(
     ):
         await db.commit()
         return False
+    payload = DELIVERY_PAYLOAD.validate_python(row.payload)
     if row.state == "sending":
         row.state, row.error, row.next_at, row.claim = "ambiguous", "lease_expired", None, None
+        await _follow(db, row, payload)
         await db.commit()
         return False
     if now - row.created_at >= _RETRY_WINDOW:
         row.state, row.error, row.next_at = "failed", "retry_window_expired", None
+        await _follow(db, row, payload)
         await db.commit()
         return False
-    payload = DELIVERY_PAYLOAD.validate_python(row.payload)
     if _reserved(payload):
         row.state, row.error, row.next_at = "failed", "reserved_address", None
+        await _follow(db, row, payload)
         await db.commit()
         return False
     if row.business_id is not None and (
@@ -133,6 +144,7 @@ async def dispatch(
         or await _emails_withdrawn(db, row.business_id, payload)
     ):
         row.state, row.error, row.next_at = "failed", "consent_withdrawn", None
+        await _follow(db, row, payload)
         await db.commit()
         return False
     claim = secrets.token_urlsafe(24)
@@ -189,8 +201,32 @@ async def dispatch(
     row.state, row.error, row.provider_ref = state, error, reference
     row.next_at = clock.now() + _RETRY if state == "queued" else None
     row.claim = None
+    await _follow(db, row, payload)
     await db.commit()
     return state == "accepted"
+
+
+# an unconfirmed send shows as failed, as it did before messages went through deliveries
+_MESSAGE_STATUS: dict[DeliveryState, MessageStatus] = {
+    "accepted": "sent",
+    "failed": "failed",
+    "ambiguous": "failed",
+}
+
+
+async def _follow(db: AsyncSession, row: Delivery, payload: DeliveryPayload) -> None:
+    """The inbox message a delivery carries takes its outcome, never undoing a later one."""
+    status = _MESSAGE_STATUS.get(row.state)
+    if isinstance(payload, PushDelivery) or payload.message_id is None or row.business_id is None:
+        return
+    if status is None:  # still queued for a retry
+        return
+    earlier: tuple[MessageStatus, ...] = ("queued",) if status == "sent" else ("queued", "sent")
+    await db.execute(
+        scoped_update(Message, row.business_id)
+        .where(Message.id == payload.message_id, Message.status.in_(earlier))
+        .values(status=status, provider_ref=func.coalesce(Message.provider_ref, row.provider_ref))
+    )
 
 
 async def _texts_stopped(db: AsyncSession, business_id: str, payload: DeliveryPayload) -> bool:

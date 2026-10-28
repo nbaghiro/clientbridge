@@ -15,13 +15,14 @@ from clientbridge.models.messaging import Delivery
 from clientbridge.schemas.deliveries import DeliveryPayload, EmailDelivery, SmsDelivery
 from clientbridge.services.consents import record_text_reply
 from clientbridge.services.deliveries import (
+    DELIVERIES_JOB,
     delivery_key,
     dispatch,
     enqueue,
     run_deliveries,
     send_queued,
 )
-from tests.conftest import BIZ, Factory, FakeEmailSender, FakePushSender, FakeSmsSender
+from tests.conftest import BIZ, Factory, FakeEmailSender, FakeJobs, FakePushSender, FakeSmsSender
 
 
 def mail(body: str = "Receipt") -> EmailDelivery:
@@ -121,6 +122,53 @@ async def test_send_queued_sends_what_the_session_queued_once_and_then_forgets_i
     assert await send_queued(db, email, sms, push) == 2
     assert await send_queued(db, email, sms, push) == 0
     assert len(email.sent) == 2
+
+
+async def test_a_request_sends_one_notice_and_wakes_the_worker_for_the_rest(
+    db: AsyncSession,
+    email: FakeEmailSender,
+    sms: FakeSmsSender,
+    push: FakePushSender,
+    jobs: FakeJobs,
+) -> None:
+    jobs.work = False
+    for each in range(3):
+        await enqueue(db, mail(f"Notice {each}"), key=f"receipt:bulk{each}", business_id=BIZ)
+    await db.commit()
+    assert await send_queued(db, email, sms, push, jobs) == 1
+    assert [m.body for m in email.sent] == ["Notice 0"] and jobs.enqueued == [DELIVERIES_JOB]
+    assert await run_deliveries(db, email, sms, push) == 2
+    assert sorted(m.body for m in email.sent) == ["Notice 0", "Notice 1", "Notice 2"]
+
+
+async def test_a_request_with_nothing_left_does_not_wake_the_worker(
+    db: AsyncSession,
+    email: FakeEmailSender,
+    sms: FakeSmsSender,
+    push: FakePushSender,
+    jobs: FakeJobs,
+) -> None:
+    await enqueue(db, mail(), key="receipt:single", business_id=BIZ)
+    await db.commit()
+    assert await send_queued(db, email, sms, push, jobs) == 1
+    assert await send_queued(db, email, sms, push, jobs, inline=0) == 0
+    assert jobs.enqueued == []
+
+
+async def test_a_webhook_sends_nothing_inline_and_leaves_it_to_the_worker(
+    db: AsyncSession,
+    email: FakeEmailSender,
+    sms: FakeSmsSender,
+    push: FakePushSender,
+    jobs: FakeJobs,
+) -> None:
+    jobs.work = False
+    identity = await enqueue(db, mail(), key="receipt:webhook", business_id=BIZ)
+    await db.commit()
+    assert await send_queued(db, email, sms, push, jobs, inline=0) == 0
+    assert email.sent == [] and jobs.enqueued == [DELIVERIES_JOB]
+    row = await db.get(Delivery, identity)
+    assert row is not None and row.state == "queued"
 
 
 async def test_connection_failure_is_retried_once_and_accepted_delivery_is_not_resent(

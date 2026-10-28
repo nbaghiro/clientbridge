@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from typing import NamedTuple, TypedDict
 
 from sqlalchemy import BigInteger, Boolean, Float, Integer, Numeric, SmallInteger
 from sqlalchemy.types import TypeEngine
@@ -101,7 +102,105 @@ def synced_columns(rules: str | None = None) -> dict[str, list[str]]:
 
 
 def synced_tables() -> list[str]:
-    return list(synced_columns())
+    return list(published_columns())
+
+
+class Statements(NamedTuple):
+    ctes: dict[str, str]
+    queries: list[str]
+
+
+def stream_statements(rules: str | None = None) -> dict[str, Statements]:
+    """Each stream's CTEs and queries as written."""
+    streams: dict[str, Statements] = {}
+    section = ""
+    current = Statements({}, [])
+    for line in (SYNC_STREAMS.read_text() if rules is None else rules).splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        indent = len(line) - len(line.lstrip())
+        if indent <= 4:
+            if indent == 2 and stripped.endswith(":"):
+                current = streams.setdefault(stripped[:-1], Statements({}, []))
+            section = stripped
+            continue
+        if section == "with:":
+            name, _, sql = stripped.partition(": ")
+            current.ctes[name] = sql
+        elif section == "queries:":
+            current.queries.append(stripped.removeprefix("- "))
+    return streams
+
+
+StreamFilters = TypedDict("StreamFilters", {"with": dict[str, str], "where": dict[str, list[str]]})
+
+
+def stream_filters(rules: str | None = None) -> dict[str, StreamFilters]:
+    """Each stream's CTEs and each table's WHERE clauses, for review beside the projections."""
+    filters: dict[str, StreamFilters] = {}
+    for name, stream in stream_statements(rules).items():
+        where: dict[str, list[str]] = {}
+        for sql in stream.queries:
+            match = _SELECT.fullmatch(sql)
+            if match is None:
+                raise ValueError(f"Unsupported sync statement: {sql}")
+            where.setdefault(match.group(2), []).append(match.group(3) or "")
+        filters[name] = {"with": dict(stream.ctes), "where": where}
+    return filters
+
+
+_PARAMETER = re.compile(r"\b(?:auth\.user_id|subscription\.parameter)\([^()]*\)")
+_SUBQUERY = re.compile(r"\((SELECT [^()]*)\)")
+_SELECT = re.compile(r"SELECT (.+?) FROM (\w+)(?: WHERE (.+))?")
+_NAME = re.compile(r"(?<![\w.:'])([a-z_][a-z0-9_]*)\b(?!\s*[.(])")
+_KEYWORDS = {"and", "or", "in", "is", "not", "null", "true", "false"}
+
+
+def _read(select: str, ctes: set[str], found: dict[str, set[str]], *, projected: bool) -> None:
+    match = _SELECT.fullmatch(select.strip())
+    if match is None or "SELECT" in (match.group(3) or ""):
+        raise ValueError(f"Unsupported sync statement: {select}")
+    columns, table, where = match.groups()
+    names = {n.strip() for n in columns.split(",")} if projected else set()
+    names |= {n for n in _NAME.findall(where or "") if n not in _KEYWORDS | ctes}
+    for name in names:
+        if name not in Base.metadata.tables[table].c:
+            raise ValueError(f"Unknown filter column: {table}.{name}")
+    found.setdefault(table, set()).update(names)
+
+
+def _references(sql: str, ctes: set[str], found: dict[str, set[str]], *, projected: bool) -> None:
+    sql = re.sub(r"'[^']*'", "''", _PARAMETER.sub(":parameter", sql))
+    while (inner := _SUBQUERY.search(sql)) is not None:
+        _read(inner.group(1), ctes, found, projected=True)
+        sql = f"{sql[: inner.start()]}:subquery{sql[inner.end() :]}"
+    _read(sql, ctes, found, projected=projected)
+
+
+def filter_columns(rules: str | None = None) -> dict[str, set[str]]:
+    """The columns PowerSync reads to decide which rows reach whom: CTEs, filters, subqueries."""
+    found: dict[str, set[str]] = {}
+    for stream in stream_statements(rules).values():
+        names = set(stream.ctes)
+        for sql in stream.ctes.values():
+            _references(sql, names, found, projected=True)
+        for sql in stream.queries:
+            _references(sql, names, found, projected=False)
+    return found
+
+
+def published_columns(rules: str | None = None) -> dict[str, list[str]]:
+    """What replication carries: the device projections, the filter columns and the primary key."""
+    projections = synced_columns(rules)
+    filters = filter_columns(rules)
+    published: dict[str, list[str]] = {}
+    for name in [*projections, *(t for t in filters if t not in projections)]:
+        table = Base.metadata.tables[name]
+        wanted = set(projections.get(name, [])) | filters.get(name, set())
+        wanted |= {c.name for c in table.primary_key.columns}
+        published[name] = [c.name for c in table.columns if c.name in wanted]
+    return published
 
 
 def ps_type(type_: TypeEngine[object]) -> str:

@@ -15,7 +15,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncConnection, create_async_engine
 
 from clientbridge.core.config import get_settings
-from scripts.gen_sync_schema import synced_tables
+from scripts.gen_sync_schema import published_columns, synced_tables
 
 ADMIN_URL = os.environ.get(
     "ADMIN_DATABASE_URL",
@@ -238,6 +238,7 @@ async def grants(conn: AsyncConnection, found: Logins) -> None:
     )
     await conn.execute(text(f"GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO {api}"))
     await conn.execute(text(f"REVOKE SELECT ON ALL TABLES IN SCHEMA public FROM {source}"))
+    # whole tables: PowerSync's initial snapshot runs SELECT *, which column grants would refuse
     await conn.execute(text(f"GRANT SELECT ON {synced()} TO {source}"))
 
 
@@ -245,8 +246,16 @@ def synced() -> str:
     return ", ".join(f"public.{quote(t)}" for t in synced_tables())
 
 
+def published() -> str:
+    """Each synced table with only the columns devices or the stream filters read."""
+    return ", ".join(
+        f"public.{quote(table)} ({', '.join(quote(c) for c in columns)})"
+        for table, columns in published_columns().items()
+    )
+
+
 async def publication(admin_url: str, migrator: str) -> None:
-    """Publish only synced tables as their owner; an all-tables publication is replaced at once."""
+    """Publish only synced columns as their owner; an all-tables publication is replaced at once."""
     engine = create_async_engine(admin_url)
     async with engine.begin() as conn:
         current = (
@@ -264,9 +273,9 @@ async def publication(admin_url: str, migrator: str) -> None:
             await conn.execute(text(f"ALTER PUBLICATION powersync OWNER TO {quote(migrator)}"))
         await conn.execute(text(f"SET LOCAL ROLE {quote(migrator)}"))
         if current is None:
-            await conn.execute(text(f"CREATE PUBLICATION powersync FOR TABLE {synced()}"))
+            await conn.execute(text(f"CREATE PUBLICATION powersync FOR TABLE {published()}"))
         else:
-            await conn.execute(text(f"ALTER PUBLICATION powersync SET TABLE {synced()}"))
+            await conn.execute(text(f"ALTER PUBLICATION powersync SET TABLE {published()}"))
     await engine.dispose()
 
 

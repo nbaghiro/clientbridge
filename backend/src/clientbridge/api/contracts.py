@@ -2,7 +2,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Header
 
-from clientbridge.core.deps import CurrentPrincipal, DbSession, EmailDep, PushDep, SmsDep
+from clientbridge.core.deps import CurrentPrincipal, DbSession, EmailDep, JobsDep, PushDep, SmsDep
 from clientbridge.schemas.contracts import (
     ContractCreate,
     ContractOut,
@@ -25,10 +25,11 @@ async def send_contract(
     email: EmailDep,
     sms: SmsDep,
     push: PushDep,
+    jobs: JobsDep,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> SignatureOut:
     result = await ContractService(db, principal).send_contract(body, idempotency_key)
-    await send_queued(db, email, sms, push)
+    await send_queued(db, email, sms, push, jobs)
     return result
 
 
@@ -61,8 +62,9 @@ async def resend_signature_request(
     email: EmailDep,
     sms: SmsDep,
     push: PushDep,
+    jobs: JobsDep,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> SignatureOut:
     result = await ContractService(db, principal).resend(signature_id, idempotency_key)
-    await send_queued(db, email, sms, push)
+    await send_queued(db, email, sms, push, jobs)
     return result

@@ -3,7 +3,7 @@
 from datetime import UTC
 from typing import ClassVar
 
-from arq import cron
+from arq import cron, func
 from arq.connections import RedisSettings
 
 from clientbridge.core import clock
@@ -28,7 +28,7 @@ from clientbridge.services.bookings import (
     run_reap_unpaid_bookings,
     run_reminders,
 )
-from clientbridge.services.deliveries import run_deliveries
+from clientbridge.services.deliveries import DELIVERIES_JOB, run_deliveries
 from clientbridge.services.entitlements import run_expiry_sweeps
 from clientbridge.services.files import run_prune_pending_files
 from clientbridge.services.forms import run_intake_forms
@@ -68,7 +68,9 @@ async def complete_past_bookings(ctx: Context) -> int:
 
 async def send_due_broadcasts(ctx: Context) -> int:
     async with SessionLocal() as db:
-        return await run_due_broadcasts(db, get_sms_sender(), get_email_sender(), clock.now())
+        return await run_due_broadcasts(
+            db, get_sms_sender(), get_email_sender(), get_push_sender(), clock.now()
+        )
 
 
 async def sweep_overdue_invoices(ctx: Context) -> int:
@@ -174,7 +176,8 @@ class WorkerSettings:
     job_timeout = 900
     # the liveness probe runs `arq --check`, which fails once this heartbeat is a minute late
     health_check_interval = 60
-    functions: ClassVar[list[object]] = []
+    # a request enqueues send_deliveries for the notices it leaves; no result is kept
+    functions: ClassVar[list[object]] = [func(send_deliveries, name=DELIVERIES_JOB, keep_result=0)]
     cron_jobs: ClassVar[list[object]] = [
         cron(send_deliveries, second=15),
         cron(process_google_operations, second={5, 20, 35, 50}),

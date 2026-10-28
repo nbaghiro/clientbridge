@@ -8,6 +8,7 @@ from clientbridge.core.deps import (
     DbSession,
     EmailDep,
     GatewayDep,
+    JobsDep,
     PushDep,
     SmsDep,
 )
@@ -65,10 +66,11 @@ async def create_booking(
     email: EmailDep,
     sms: SmsDep,
     push: PushDep,
+    jobs: JobsDep,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> BookingOut:
     result = await BookingService(db, principal, gateway).create(body, idempotency_key)
-    await send_queued(db, email, sms, push)
+    await send_queued(db, email, sms, push, jobs)
     return result
 
 
@@ -82,9 +84,10 @@ async def patch_booking(
     email: EmailDep,
     sms: SmsDep,
     push: PushDep,
+    jobs: JobsDep,
 ) -> BookingOut:
     result = await BookingService(db, principal, gateway).patch(booking_id, body)
-    await send_queued(db, email, sms, push)
+    await send_queued(db, email, sms, push, jobs)
     return result
 
 
@@ -245,10 +248,11 @@ async def create_recurrence(
     email: EmailDep,
     sms: SmsDep,
     push: PushDep,
+    jobs: JobsDep,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> RecurrenceOut:
     result = await RecurrenceService(db, principal).create(body, idempotency_key)
-    await send_queued(db, email, sms, push)
+    await send_queued(db, email, sms, push, jobs)
     return result
 
 
@@ -261,9 +265,10 @@ async def change_recurrence(
     email: EmailDep,
     sms: SmsDep,
     push: PushDep,
+    jobs: JobsDep,
 ) -> RecurrenceChangeOut:
     result = await RecurrenceService(db, principal).change(recurrence_id, body)
-    await send_queued(db, email, sms, push)
+    await send_queued(db, email, sms, push, jobs)
     return result
 
 
@@ -277,9 +282,10 @@ async def cancel_recurrence(
     email: EmailDep,
     sms: SmsDep,
     push: PushDep,
+    jobs: JobsDep,
 ) -> RecurrenceCancelOut:
     result = await RecurrenceService(db, principal).cancel(recurrence_id, body, gateway)
-    await send_queued(db, email, sms, push)
+    await send_queued(db, email, sms, push, jobs)
     return result
 
 
@@ -314,10 +320,11 @@ async def add_to_class(
     email: EmailDep,
     sms: SmsDep,
     push: PushDep,
+    jobs: JobsDep,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> RosterEntry:
     result = await ClassService(db, principal, gateway).add(slot_id, body, idempotency_key)
-    await send_queued(db, email, sms, push)
+    await send_queued(db, email, sms, push, jobs)
     return result
 
 
@@ -332,9 +339,10 @@ async def update_class_roster(
     email: EmailDep,
     sms: SmsDep,
     push: PushDep,
+    jobs: JobsDep,
 ) -> RosterEntry:
     result = await ClassService(db, principal, gateway).act(slot_id, booking_id, body)
-    await send_queued(db, email, sms, push)
+    await send_queued(db, email, sms, push, jobs)
     return result
 
 
@@ -347,8 +355,12 @@ async def message_class(
     gateway: GatewayDep,
     email: EmailDep,
     sms: SmsDep,
+    push: PushDep,
+    jobs: JobsDep,
 ) -> ClassMessageOut:
-    return await ClassService(db, principal, gateway).message(slot_id, body, sms, email)
+    result = await ClassService(db, principal, gateway).message(slot_id, body)
+    await send_queued(db, email, sms, push, jobs)
+    return result
 
 
 online_router = APIRouter(prefix="/online-booking", tags=["online-booking"])

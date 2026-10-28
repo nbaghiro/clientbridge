@@ -6,7 +6,7 @@ import {
     replicaFilename,
     selectBusinessPerTab,
 } from "@clientbridge/sync";
-import { removeReplicaFiles } from "@clientbridge/sync/files";
+import { holdReplicaFile, removeReplicaFiles } from "@clientbridge/sync/files";
 import { boundedOpen, type ReplicaStorage, replicaStorage } from "@clientbridge/app-core";
 import { type DBAdapter, PowerSyncDatabase, WASQLiteVFS, type WebDBAdapter } from "@powersync/web";
 import { beforeSessionReplace, getUserId } from "./auth";
@@ -123,6 +123,7 @@ export async function sweepSignedOut(): Promise<void> {
 export const replica = new ReplicaController(
     (dbFilename) => {
         opened = new PowerSyncDatabase({ schema: AppSchema, database: { dbFilename, vfs } });
+        if (kind === "opfs") holdReplicaFile(opened, dbFilename);
         return opened;
     },
     {

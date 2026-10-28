@@ -723,7 +723,7 @@ def verify(lease: tier.Lease, directory: Path, log: IO[bytes], selection: list[s
                     for table in synced_tables()
                 }
             ),
-            "SYNC_TEST_PROJECTIONS": PROJECTIONS.read_text(),
+            "SYNC_TEST_PROJECTIONS": json.dumps(json.loads(PROJECTIONS.read_text())["projections"]),
         }
         with (directory / "browser.log").open("wb") as browser_log:
             subprocess.run(

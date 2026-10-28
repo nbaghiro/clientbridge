@@ -26,9 +26,7 @@ from clientbridge.core.ids import new_id
 from clientbridge.core.locale import locale_for, message
 from clientbridge.core.scoping import scoped, scoped_update
 from clientbridge.core.zones import zone
-from clientbridge.integrations.resend import EmailSender
 from clientbridge.integrations.stripe import PaymentGateway
-from clientbridge.integrations.twilio import SmsSender
 from clientbridge.models.billing import Estimate, Invoice, Line
 from clientbridge.models.business import Business, Staff
 from clientbridge.models.catalog import Item
@@ -94,7 +92,7 @@ from clientbridge.services.catalog import assert_offers, deposit_cents, load_ite
 from clientbridge.services.clients import load_client
 from clientbridge.services.deliveries import delivery_key
 from clientbridge.services.lines import crew_ids, crew_note, fetch_lines
-from clientbridge.services.messaging import dispatch_message, open_thread
+from clientbridge.services.messaging import open_thread, queue_message
 from clientbridge.services.notifications import (
     Notifier,
     Outcome,
@@ -2752,9 +2750,7 @@ class ClassService:
             self.db, self.principal, action="class.roster", run=run, response_model=RosterEntry
         )
 
-    async def message(
-        self, slot_id: str, data: ClassMessage, sms: SmsSender, email: EmailSender
-    ) -> ClassMessageOut:
+    async def message(self, slot_id: str, data: ClassMessage) -> ClassMessageOut:
         """One message to everyone booked, by text when they have a mobile, else by email."""
         slot = await self._session(slot_id)
         assert_can_act_as(self.principal, slot.staff_id)
@@ -2798,8 +2794,8 @@ class ClassService:
                 notice = message_notice(
                     locale_for(business=business, client=client), business.name, data.body
                 )
-                await dispatch_message(
-                    sms, email, channel, to, notice, message=note, business=business, brand=brand
+                await queue_message(
+                    self.db, to, notice, message=note, business=business, brand=brand
                 )
                 sent += 1
             await self.db.flush()

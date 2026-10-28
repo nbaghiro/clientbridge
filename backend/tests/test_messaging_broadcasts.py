@@ -15,8 +15,9 @@ from clientbridge.models.business import Business
 from clientbridge.models.clients import Channel, Client
 from clientbridge.models.messaging import Broadcast, Message
 from clientbridge.services.consents import prefs_token, record_consent, record_text_reply
+from clientbridge.services.deliveries import run_deliveries
 from clientbridge.services.messaging import open_thread, run_due_broadcasts
-from tests.conftest import Factory, FakeEmailSender, FakeSmsSender
+from tests.conftest import Factory, FakeEmailSender, FakePushSender, FakeSmsSender
 from tests.helpers import key, local_hour, ok
 
 BIZ = "bz_birchbark"
@@ -90,7 +91,7 @@ async def test_broadcast_reaches_only_clients_who_agreed(
         )
     ).json()
     assert (out["recipient_count"], out["excluded_count"]) == (2, 2)
-    await run_due_broadcasts(db, sms, email, now)
+    await run_due_broadcasts(db, sms, email, FakePushSender(), now)
     assert sorted(m.to for m in sms.sent) == ["+15145558000", "+15145558001"]
     assert all(m.body.endswith("Reply STOP to opt out.") for m in sms.sent)
 
@@ -106,7 +107,7 @@ async def test_email_broadcast_carries_a_signed_unsubscribe_link(
             json={"name": "News", "channel": "email", "body": "Hello", "audience": {"all": True}},
         )
     )
-    await run_due_broadcasts(db, FakeSmsSender(), email, now)
+    await run_due_broadcasts(db, FakeSmsSender(), email, FakePushSender(), now)
     to_agreed = next(m for m in email.sent if m.to == "agreed@example.ca")
     assert f"/prefs/{prefs_token(ids['agreed'])}" in to_agreed.body
     assert not any(m.to == "stopped@example.ca" for m in email.sent)
@@ -123,7 +124,7 @@ async def test_broadcast_row_keeps_its_counts(
             json={"name": "Tags", "channel": "sms", "body": "Hi", "audience": {"tags": ["promo"]}},
         )
     ).json()
-    await run_due_broadcasts(db, sms, email, now)
+    await run_due_broadcasts(db, sms, email, FakePushSender(), now)
     row = (await db.execute(select(Broadcast).where(Broadcast.id == out["id"]))).scalar_one()
     assert (row.recipient_count, row.excluded_count, row.status) == (2, 2, "sent")
 
@@ -165,7 +166,7 @@ async def test_cancel_a_scheduled_broadcast(
     out = ok(await as_owner.post(f"/v1/broadcasts/{bid}/cancel")).json()
     assert out["status"] == "canceled"
     later = clock.now() + timedelta(days=2)
-    await run_due_broadcasts(db, sms, email, later)
+    await run_due_broadcasts(db, sms, email, FakePushSender(), later)
     assert sms.sent == []  # a canceled broadcast never goes out
     assert (await as_owner.post(f"/v1/broadcasts/{bid}/cancel")).status_code == 409
 
@@ -219,7 +220,7 @@ async def test_the_job_sends_a_due_broadcast_and_keeps_its_counts(
     )
     await local_hour(db, 12)
     later = clock.now() + timedelta(days=2)
-    assert await run_due_broadcasts(db, sms, email, later) >= 1
+    assert await run_due_broadcasts(db, sms, email, FakePushSender(), later) >= 1
     row = (
         await db.execute(
             select(Broadcast).where(Broadcast.id == bid).execution_options(populate_existing=True)
@@ -262,7 +263,7 @@ async def test_a_broadcast_email_names_the_business_address_and_contact(
     await _brand(db, address="Downtown, by the harbour", email="hi@birchbark.example")
     await _legal_address(db, unit="Suite 4")
     ok(await as_owner.post("/v1/broadcasts", json=_promo(channel="email", body="News")))
-    await run_due_broadcasts(db, FakeSmsSender(), email, now)
+    await run_due_broadcasts(db, FakeSmsSender(), email, FakePushSender(), now)
     body = next(m.body for m in email.sent if m.to == "agreed@example.ca")
     assert "Suite 4, 1207 Government Street, Victoria, BC V8W 1Y9" in body
     assert "harbour" not in body and "hi@birchbark.example" in body
@@ -294,7 +295,7 @@ async def test_a_scheduled_broadcast_waits_when_its_address_is_removed(
     bid = await _scheduled(db)
     now = await local_hour(db, 12)
     await _legal_address(db, street_number=None)
-    assert await run_due_broadcasts(db, sms, email, now + timedelta(days=2)) == 0
+    assert await run_due_broadcasts(db, sms, email, FakePushSender(), now + timedelta(days=2)) == 0
     assert sms.sent == []
     assert (await db.get(Broadcast, bid)) is not None
 
@@ -311,9 +312,9 @@ async def test_an_immediate_broadcast_in_quiet_hours_is_queued_for_the_morning(
     assert business is not None
     local = morning.astimezone(ZoneInfo(business.timezone))
     assert local.time() == time(9) and timedelta(0) < morning - now < timedelta(hours=11)
-    assert await run_due_broadcasts(db, sms, email, now) == 0
+    assert await run_due_broadcasts(db, sms, email, FakePushSender(), now) == 0
     assert sms.sent == []
-    assert await run_due_broadcasts(db, sms, email, morning) >= 1
+    assert await run_due_broadcasts(db, sms, email, FakePushSender(), morning) >= 1
     row = await db.get(Broadcast, out["id"])
     assert row is not None and row.status == "sent"
     assert sorted(m.to for m in sms.sent) == ["+15145558000", "+15145558001"]
@@ -341,10 +342,10 @@ async def test_a_sending_broadcast_pauses_in_quiet_hours(
     bid = await _scheduled(db)
     await db.execute(update(Broadcast).where(Broadcast.id == bid).values(status="sending"))
     now = await local_hour(db, 22)
-    assert await run_due_broadcasts(db, sms, email, now) == 0
+    assert await run_due_broadcasts(db, sms, email, FakePushSender(), now) == 0
     assert sms.sent == []
     now = await local_hour(db, 10)
-    assert await run_due_broadcasts(db, sms, email, now) >= 1
+    assert await run_due_broadcasts(db, sms, email, FakePushSender(), now) >= 1
     assert len(sms.sent) == 2
 
 
@@ -393,13 +394,13 @@ async def test_a_broadcast_that_crashes_partway_resumes_without_duplicates(
     bid = out.json()["id"]
     crashing = _CrashingSms(crash_on=3)
     with pytest.raises(asyncio.CancelledError):
-        await run_due_broadcasts(db, crashing, email, now)
+        await run_due_broadcasts(db, crashing, email, FakePushSender(), now)
     assert len(crashing.sent) == 2
     row = await db.get(Broadcast, bid)
     assert row is not None and row.status == "sending"
 
     retry = FakeSmsSender()
-    assert await run_due_broadcasts(db, retry, email, now) >= 1
+    assert await run_due_broadcasts(db, retry, email, FakePushSender(), now) >= 1
     assert len(retry.sent) == 1
     delivered = [m.to for m in crashing.sent + retry.sent]
     assert len(delivered) == len(set(delivered)) == 3
@@ -409,8 +410,17 @@ async def test_a_broadcast_that_crashes_partway_resumes_without_duplicates(
         .all()
     )
     assert sorted(statuses) == ["queued", "sent", "sent", "sent"]  # the crashed send is not retried
-    assert await run_due_broadcasts(db, retry, email, now) == 0
+    assert await run_due_broadcasts(db, retry, email, FakePushSender(), now) == 0
     assert len(retry.sent) == 1
+    # once the crashed send's lease lapses, the sweep settles it instead of leaving it queued
+    clock.travel(clock.now() + timedelta(minutes=6))
+    await run_deliveries(db, email, retry, FakePushSender())
+    settled = (
+        (await db.execute(select(Message.status).where(Message.broadcast_id == bid)))
+        .scalars()
+        .all()
+    )
+    assert sorted(settled) == ["failed", "sent", "sent", "sent"] and len(retry.sent) == 1
 
 
 async def test_a_failed_send_is_recorded_and_the_rest_still_go(
@@ -431,7 +441,7 @@ async def test_a_failed_send_is_recorded_and_the_rest_still_go(
         await real(message)
 
     monkeypatch.setattr(sms, "send", flaky)
-    assert await run_due_broadcasts(db, sms, email, now) >= 1
+    assert await run_due_broadcasts(db, sms, email, FakePushSender(), now) >= 1
     statuses = (
         (await db.execute(select(Message.status).where(Message.broadcast_id == out.json()["id"])))
         .scalars()
@@ -462,7 +472,7 @@ async def test_a_recipient_with_a_message_already_is_skipped(
         )
     )
     await db.flush()
-    await run_due_broadcasts(db, sms, email, now)
+    await run_due_broadcasts(db, sms, email, FakePushSender(), now)
     assert [m.to for m in sms.sent] == ["+15145557001"]
 
 
@@ -513,7 +523,7 @@ async def test_consent_withdrawn_after_the_audience_is_chosen_skips_that_recipie
 
     monkeypatch.setattr(sms, "send", texted_then_stopped)
     monkeypatch.setattr(email, "send", mailed_then_unsubscribed)
-    assert await run_due_broadcasts(db, sms, email, now) >= 1
+    assert await run_due_broadcasts(db, sms, email, FakePushSender(), now) >= 1
     assert [m.to for m in [*sms.sent, *email.sent]] == [reached]
     row = (
         await db.execute(

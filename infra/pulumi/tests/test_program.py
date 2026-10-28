@@ -368,6 +368,39 @@ def test_powersync_runs_its_deployed_config_with_its_secrets(stacks: dict[str, B
         assert environment["POWERSYNC_CONFIG_PATH"] == "/config/powersync.deployed.yaml"
 
 
+def test_powersync_compacts_daily_one_environment_at_a_time(stacks: dict[str, Built]) -> None:
+    runs: list[tuple[int, int]] = []
+    for env, built in stacks.items():
+        served = named(built, "kubernetes:apps/v1:Deployment", "powersync")
+        (service,) = containers(served)
+        cron = named(built, "kubernetes:batch/v1:CronJob", "powersync-compact")
+        minute, hour, *daily = str(dig(cron.inputs, "spec", "schedule")).split()
+        assert daily == ["*", "*", "*"], env
+        assert dig(cron.inputs, "spec", "timeZone") == "Etc/UTC"
+        assert dig(cron.inputs, "spec", "concurrencyPolicy") == "Forbid"
+        job = dig(cron.inputs, "spec", "jobTemplate", "spec")
+        deadline = int(float(str(dig(job, "activeDeadlineSeconds"))))
+        # done before the 07:00 backup window
+        start = int(hour) * 3600 + int(minute) * 60
+        assert start + deadline <= 7 * 3600, env
+        runs.append((start, deadline))
+        spec = seed_pod(cron)
+        assert dig(spec, "serviceAccountName") == "powersync"
+        assert dig(spec, "restartPolicy") == "Never"
+        (container,) = listed(dig(spec, "containers"))
+        command = listed(dig(container, "command"))
+        assert command[-3:] == ["node", "service/lib/entry.js", "compact"]
+        assert dig(container, "image") == dig(service, "image")
+        assert env_vars(container) == env_vars(service)
+        assert exported(container) == exported(service) == set(deployment.POWERSYNC_SECRETS)
+        assert dig(container, "volumeMounts") == dig(service, "volumeMounts")
+        template = dig(served.inputs, "spec", "template", "spec")
+        assert dig(spec, "volumes") == dig(template, "volumes")
+        assert dig(spec, "initContainers") == dig(template, "initContainers")
+    (first, deadline), (second, _) = sorted(runs)
+    assert first + deadline <= second
+
+
 def test_the_database_keeps_point_in_time_recovery_and_logical_decoding(cloud: Built) -> None:
     (instance,) = of_type(cloud, "gcp:sql/databaseInstance:DatabaseInstance")
     config = dig(instance.inputs, "settings")
@@ -379,6 +412,8 @@ def test_the_database_keeps_point_in_time_recovery_and_logical_decoding(cloud: B
     assert dig(config, "ipConfiguration", "sslMode") == "ENCRYPTED_ONLY"
     flags = {dig(f, "name"): dig(f, "value") for f in listed(dig(config, "databaseFlags"))}
     assert flags["cloudsql.logical_decoding"] == "on"
+    # Cloud SQL's floor for the cap on WAL a replication slot may hold, in MB
+    assert flags["max_slot_wal_keep_size"] == "102400"
     assert dig(instance.inputs, "deletionProtection") is True
     # db_access.py creates every database as the environment's admin, so cloudsqlsuperuser owns none
     assert not of_type(cloud, "gcp:sql/database:Database")
@@ -983,7 +1018,9 @@ def test_the_connection_pools_fit_the_instance(cloud: Built, stacks: dict[str, B
         assert env_vars(api)["DB_MAX_OVERFLOW"] == "1"
     envs = environments.build("clientbridge.ca", "staging.clientbridge.ca")
     peak = sum(settings.peak_connections(env) for env in envs)
-    assert peak + database.RESERVED_CONNECTIONS <= database.MAX_CONNECTIONS
+    # one compaction at a time: test_powersync_compacts_daily_one_environment_at_a_time
+    compaction = settings.COMPACT_CONNECTIONS
+    assert peak + compaction + database.RESERVED_CONNECTIONS <= database.MAX_CONNECTIONS
     (instance,) = of_type(cloud, "gcp:sql/databaseInstance:DatabaseInstance")
     flags = listed(dig(instance.inputs, "settings", "databaseFlags"))
     assert {"name": "max_connections", "value": str(database.MAX_CONNECTIONS)} in flags
@@ -1137,10 +1174,13 @@ def test_no_stack_seeds_the_demo_on_deploy(stacks: dict[str, Built]) -> None:
 def test_only_staging_seeds_the_demo_nightly_after_migrate_and_auth(
     stacks: dict[str, Built],
 ) -> None:
-    assert not of_type(stacks["prod"], "kubernetes:batch/v1:CronJob")
+    assert not [
+        each
+        for each in of_type(stacks["prod"], "kubernetes:batch/v1:CronJob")
+        if dig(each.inputs, "metadata", "name") == "seed"
+    ]
     built = stacks["staging"]
-    (seed,) = of_type(built, "kubernetes:batch/v1:CronJob")
-    assert dig(seed.inputs, "metadata", "name") == "seed"
+    seed = named(built, "kubernetes:batch/v1:CronJob", "seed")
     assert dig(seed.inputs, "metadata", "annotations") is None
     assert dig(seed.inputs, "spec", "schedule") == "0 11 * * *"
     assert dig(seed.inputs, "spec", "timeZone") == "Etc/UTC"
@@ -1165,7 +1205,7 @@ def test_only_staging_seeds_the_demo_nightly_after_migrate_and_auth(
 
 
 def test_stagings_seed_has_room_for_every_demo_business(stacks: dict[str, Built]) -> None:
-    (seed,) = of_type(stacks["staging"], "kubernetes:batch/v1:CronJob")
+    seed = named(stacks["staging"], "kubernetes:batch/v1:CronJob", "seed")
     spec = seed_pod(seed)
     (container,) = listed(dig(spec, "containers"))
     assert dig(container, "resources", "requests") == {"cpu": "1", "memory": "2Gi"}
@@ -1184,7 +1224,7 @@ def test_stagings_seed_has_room_for_every_demo_business(stacks: dict[str, Built]
 def test_stagings_seed_writes_into_a_loopback_postgres_of_cloud_sqls_version(
     stacks: dict[str, Built],
 ) -> None:
-    (seed,) = of_type(stacks["staging"], "kubernetes:batch/v1:CronJob")
+    seed = named(stacks["staging"], "kubernetes:batch/v1:CronJob", "seed")
     spec = seed_pod(seed)
     (scratch,) = [
         each

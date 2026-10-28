@@ -1,13 +1,28 @@
 """Replication is a reviewed column allowlist, independent of model expansion."""
 
 import json
+import re
 from pathlib import Path
+from typing import get_args
 
 import pytest
-from scripts.gen_sync_schema import SYNC_STREAMS, gen_table, stream_columns, synced_columns
-from sqlalchemy import Column, MetaData, String
+from scripts.gen_sync_schema import (
+    SYNC_STREAMS,
+    StreamFilters,
+    filter_columns,
+    gen_table,
+    published_columns,
+    stream_columns,
+    stream_filters,
+    stream_statements,
+    synced_columns,
+)
+from sqlalchemy import Column, MetaData, String, text
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.db import Base
+from clientbridge.core.deps import is_manager
+from clientbridge.models.business import StaffRole
 
 
 def test_sensitive_server_fields_are_not_projected() -> None:
@@ -93,9 +108,12 @@ LIMITED_STREAMS = (
 )
 
 
-def projection_errors(streams: dict[str, dict[str, list[str]]]) -> list[str]:
-    reviewed = json.loads(SNAPSHOT.read_text())
-    errors = []
+def projection_errors(
+    streams: dict[str, dict[str, list[str]]], filters: dict[str, StreamFilters] | None = None
+) -> list[str]:
+    snapshot = json.loads(SNAPSHOT.read_text())
+    reviewed = snapshot["projections"]
+    errors: list[str] = []
     for stream in sorted(streams.keys() | reviewed.keys()):
         tables = streams.get(stream, {})
         approved = reviewed.get(stream, {})
@@ -108,6 +126,14 @@ def projection_errors(streams: dict[str, dict[str, list[str]]]) -> list[str]:
         for table, columns in OWNER_ONLY.items():
             for column in sorted(columns & set(streams.get(stream, {}).get(table, []))):
                 errors.append(f"{stream}.{table}.{column} reaches members who are not owner/admin")
+    current = stream_filters() if filters is None else filters
+    for stream in sorted(current.keys() | snapshot["filters"].keys()):
+        for part in ("with", "where"):
+            found = current.get(stream, {}).get(part, {})
+            approved = snapshot["filters"].get(stream, {}).get(part, {})
+            for name in sorted(found.keys() | approved.keys()):
+                if found.get(name) != approved.get(name):
+                    errors.append(f"{stream} {part} {name} differs from the reviewed snapshot")
     return errors
 
 
@@ -139,3 +165,66 @@ def test_every_member_syncs_the_letterhead_address() -> None:
     streams = stream_columns()
     for stream in ("staff_limited", "business_full"):
         assert letterhead | {"legal_phone"} <= set(streams[stream]["businesses"]), stream
+
+
+def test_a_loosened_filter_is_reported() -> None:
+    rules = SYNC_STREAMS.read_text().replace(
+        "FROM staff WHERE user_id = auth.user_id() AND status = 'active'",
+        "FROM staff WHERE user_id = auth.user_id()",
+        1,
+    )
+    assert rules != SYNC_STREAMS.read_text()
+    assert projection_errors(stream_columns(rules), stream_filters(rules)) == [
+        "business_shared with member differs from the reviewed snapshot"
+    ]
+
+
+def test_replication_carries_only_device_columns_and_what_the_filters_read() -> None:
+    projected = synced_columns()
+    published = published_columns()
+    assert published.keys() == projected.keys() | filter_columns().keys()
+    extra = {
+        table: sorted(set(columns) - set(projected.get(table, [])))
+        for table, columns in published.items()
+        if set(columns) - set(projected.get(table, []))
+    }
+    # the form-link token decides which responses are client forms; devices never receive it
+    assert extra == {"responses": ["token"]}
+
+
+def test_an_unknown_filter_column_fails_closed() -> None:
+    rules = """
+streams:
+  team:
+    with:
+      member: SELECT business_id FROM staff WHERE user_id = auth.user_id() AND secret = 'x'
+    queries:
+      - SELECT id, title FROM staff WHERE business_id IN member
+"""
+    with pytest.raises(ValueError, match=r"staff\.secret"):
+        filter_columns(rules)
+
+
+async def test_the_publication_carries_exactly_the_published_columns(db: AsyncSession) -> None:
+    rows = await db.execute(
+        text("SELECT tablename, attnames FROM pg_publication_tables WHERE pubname = 'powersync'")
+    )
+    live = {str(row.tablename): sorted(row.attnames) for row in rows}
+    assert live == {table: sorted(columns) for table, columns in published_columns().items()}
+
+
+def test_role_checks_name_every_role_they_admit() -> None:
+    roles = set(get_args(StaffRole))
+    managers = {role for role in roles if is_manager(role)}
+    admitted: dict[str, set[str]] = {}
+    for name, stream in stream_statements().items():
+        for sql in stream.ctes.values():
+            assert re.search(r"\brole\s*(!=|<>|NOT\b)", sql) is None, sql
+            named = set(re.findall(r"\brole = '(\w+)'", sql))
+            if named:
+                admitted[name] = named
+    assert admitted == {
+        "staff_limited": roles - managers,
+        "business_full": managers,
+        "history_full": managers,
+    }

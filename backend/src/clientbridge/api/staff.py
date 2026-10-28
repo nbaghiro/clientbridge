@@ -9,6 +9,7 @@ from clientbridge.core.deps import (
     EmailDep,
     FreshIdentity,
     GatewayDep,
+    JobsDep,
     PushDep,
     SmsDep,
 )
@@ -112,10 +113,11 @@ async def remove_member(
     email: EmailDep,
     sms: SmsDep,
     push: PushDep,
+    jobs: JobsDep,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> StaffRemoveOut:
     result = await StaffService(db).remove(
         principal, staff_id, body, gateway=gateway, idempotency_key=idempotency_key
     )
-    await send_queued(db, email, sms, push)
+    await send_queued(db, email, sms, push, jobs)
     return result

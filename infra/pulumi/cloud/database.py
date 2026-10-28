@@ -18,6 +18,8 @@ PROXY_ADDRESS = "127.0.0.1:5432"
 MAX_CONNECTIONS = 120
 RESERVED_CONNECTIONS = 5
 AUTH_MAX_CONNS = 5
+# a stuck slot gives up its WAL here instead of growing the shared disk; Cloud SQL's floor is 100 GB
+MAX_SLOT_WAL_KEEP_MB = 102400
 
 
 @dataclass(frozen=True)
@@ -58,6 +60,7 @@ def create(region: str, zone: str, net: network.Network) -> Instance:
             "database_flags": [
                 {"name": "cloudsql.logical_decoding", "value": "on"},
                 {"name": "max_connections", "value": str(MAX_CONNECTIONS)},
+                {"name": "max_slot_wal_keep_size", "value": str(MAX_SLOT_WAL_KEEP_MB)},
             ],
         },
         opts=pulumi.ResourceOptions(protect=True, depends_on=[net.private_services]),
