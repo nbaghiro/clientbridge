@@ -243,7 +243,7 @@ class Cloud:
     state_bucket: str  # the Pulumi state bucket and KMS key the bootstrap created
     state_key: str
     github_reviewer: str  # the GitHub user who approves production deploys
-    stripe_sandbox: StripeSandbox | None  # stripe-qa.yml's protected environment, once configured
+    stripe_sandbox: StripeSandbox | None  # the Stripe test keys Actions reads, once configured
 
 
 def load_cloud() -> Cloud:
