@@ -35,7 +35,7 @@ streams:
   staff_limited:
     auto_subscribe: true
     with:
-      limited: SELECT business_id FROM staff WHERE user_id = auth.user_id() AND status = 'active' AND role != 'owner' AND role != 'admin'
+      limited: SELECT business_id FROM staff WHERE user_id = auth.user_id() AND status = 'active' AND (role = 'staff' OR role = 'contractor')
     queries:
       - SELECT id, name, slug, timezone, province, unit, street_number, street_name, city, postal_code, legal_phone, brand, stripe_account_id, stripe_charges_enabled, tax_registered, tax_registered_on, setup_dismissed_at, plan_status, trial_ends_at, subject FROM businesses WHERE id IN limited
       - SELECT id, hours_revision, business_id, user_id, role, title, color, status, invite_email, invited_at, created_at, updated_at FROM staff WHERE business_id IN limited
@@ -60,7 +60,7 @@ streams:
   business_full:
     auto_subscribe: true
     with:
-      managed: SELECT business_id FROM staff WHERE user_id = auth.user_id() AND status = 'active' AND role != 'staff' AND role != 'contractor'
+      managed: SELECT business_id FROM staff WHERE user_id = auth.user_id() AND status = 'active' AND (role = 'owner' OR role = 'admin')
     queries:
       - SELECT id, name, slug, timezone, province, unit, street_number, street_name, city, postal_code, legal_phone, billing_email, gst_hst_number, qst_number, pst_number, filing_frequency, review_requests_enabled, brand, stripe_account_id, stripe_charges_enabled, tax_registered, tax_registered_on, setup_dismissed_at, plan, plan_status, trial_ends_at, subject FROM businesses WHERE id IN managed
       - SELECT id, hours_revision, business_id, user_id, role, payee, rate_type, rate_bps, rate_cents, retail_rate_bps, title, color, status, invite_email, invited_at, created_at, updated_at FROM staff WHERE business_id IN managed
@@ -100,7 +100,7 @@ streams:
 
   history_full:
     with:
-      managed: SELECT business_id FROM staff WHERE user_id = auth.user_id() AND status = 'active' AND role != 'staff' AND role != 'contractor'
+      managed: SELECT business_id FROM staff WHERE user_id = auth.user_id() AND status = 'active' AND (role = 'owner' OR role = 'admin')
     queries:
       - SELECT item_id, staff_id, resource_id, recurrence_id, starts_at, ends_at, capacity, status, id, business_id, created_at, updated_at FROM slots WHERE business_id IN managed AND substring(starts_at, 1, 7) IN subscription.parameter('months')
       - SELECT slot_id, starts_at, staff_id, client_id, subject_id, package_id, invoice_id, estimate_id, status, source, price_cents, deposit_amount_cents, deposit_status, confirmed_at, departed_at, checked_in_at, order_id, charged_at, completed_at, canceled_at, reminded_at, reschedule_count, id, business_id, created_at, updated_at, deleted_at FROM bookings WHERE business_id IN managed AND deleted_at IS NULL AND substring(starts_at, 1, 7) IN subscription.parameter('months')

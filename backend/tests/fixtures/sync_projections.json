@@ -872,7 +872,7 @@
     },
     "staff_limited": {
       "with": {
-        "limited": "SELECT business_id FROM staff WHERE user_id = auth.user_id() AND status = 'active' AND role != 'owner' AND role != 'admin'"
+        "limited": "SELECT business_id FROM staff WHERE user_id = auth.user_id() AND status = 'active' AND (role = 'staff' OR role = 'contractor')"
       },
       "where": {
         "businesses": [
@@ -916,7 +916,7 @@
     },
     "business_full": {
       "with": {
-        "managed": "SELECT business_id FROM staff WHERE user_id = auth.user_id() AND status = 'active' AND role != 'staff' AND role != 'contractor'"
+        "managed": "SELECT business_id FROM staff WHERE user_id = auth.user_id() AND status = 'active' AND (role = 'owner' OR role = 'admin')"
       },
       "where": {
         "businesses": [
@@ -1006,7 +1006,7 @@
     },
     "history_full": {
       "with": {
-        "managed": "SELECT business_id FROM staff WHERE user_id = auth.user_id() AND status = 'active' AND role != 'staff' AND role != 'contractor'"
+        "managed": "SELECT business_id FROM staff WHERE user_id = auth.user_id() AND status = 'active' AND (role = 'owner' OR role = 'admin')"
       },
       "where": {
         "slots": [

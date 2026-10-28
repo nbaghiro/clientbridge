@@ -1,7 +1,9 @@
 """Replication is a reviewed column allowlist, independent of model expansion."""
 
 import json
+import re
 from pathlib import Path
+from typing import get_args
 
 import pytest
 from scripts.gen_sync_schema import (
@@ -12,12 +14,15 @@ from scripts.gen_sync_schema import (
     published_columns,
     stream_columns,
     stream_filters,
+    stream_statements,
     synced_columns,
 )
 from sqlalchemy import Column, MetaData, String, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.db import Base
+from clientbridge.core.deps import is_manager
+from clientbridge.models.business import StaffRole
 
 
 def test_sensitive_server_fields_are_not_projected() -> None:
@@ -206,3 +211,20 @@ async def test_the_publication_carries_exactly_the_published_columns(db: AsyncSe
     )
     live = {str(row.tablename): sorted(row.attnames) for row in rows}
     assert live == {table: sorted(columns) for table, columns in published_columns().items()}
+
+
+def test_role_checks_name_every_role_they_admit() -> None:
+    roles = set(get_args(StaffRole))
+    managers = {role for role in roles if is_manager(role)}
+    admitted: dict[str, set[str]] = {}
+    for name, stream in stream_statements().items():
+        for sql in stream.ctes.values():
+            assert re.search(r"\brole\s*(!=|<>|NOT\b)", sql) is None, sql
+            named = set(re.findall(r"\brole = '(\w+)'", sql))
+            if named:
+                admitted[name] = named
+    assert admitted == {
+        "staff_limited": roles - managers,
+        "business_full": managers,
+        "history_full": managers,
+    }
