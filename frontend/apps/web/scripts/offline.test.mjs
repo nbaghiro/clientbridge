@@ -22,9 +22,12 @@ test("the offline shell caches the build manifest and the served config, and nev
         },
     };
     let offline = false;
+    let stalled = false;
     let fetched = 0;
     runInNewContext(
-        worker.replace("const ASSETS = [];", 'const ASSETS = ["/index.html", "/assets/app.js"];'),
+        worker
+            .replace("const ASSETS = [];", 'const ASSETS = ["/index.html", "/assets/app.js"];')
+            .replace("const NETWORK_MS = 3_000;", "const NETWORK_MS = 20;"),
         {
             URL,
             Response,
@@ -34,10 +37,13 @@ test("the offline shell caches the build manifest and the served config, and nev
                 addEventListener: (name, handler) => handlers.set(name, handler),
             },
             caches: { open: () => Promise.resolve(cache), keys: () => Promise.resolve([]) },
+            setTimeout,
             fetch: () =>
-                offline
-                    ? Promise.reject(new Error("offline"))
-                    : Promise.resolve(new Response(`online ${String(fetched++)}`)),
+                stalled
+                    ? new Promise(() => undefined)
+                    : offline
+                      ? Promise.reject(new Error("offline"))
+                      : Promise.resolve(new Response(`online ${String(fetched++)}`)),
         },
     );
     let installed;
@@ -55,6 +61,7 @@ test("the offline shell caches the build manifest and the served config, and nev
             respondWith: (work) => {
                 response = work;
             },
+            waitUntil: () => undefined,
         });
         return response;
     };
@@ -66,4 +73,8 @@ test("the offline shell caches the build manifest and the served config, and nev
     assert.equal(await request("/v1/me"), undefined);
     assert.equal(await request("/v1/bookings", "cors", "POST"), undefined);
     assert.equal(await request("/assets/app.js?token=secret"), undefined);
+    offline = false;
+    stalled = true;
+    assert.equal(await (await request("/config.js")).text(), "online 0");
+    assert.equal(await (await request("/schedule", "navigate")).text(), "/index.html");
 });
