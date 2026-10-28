@@ -168,12 +168,12 @@ async def test_export_zip_holds_one_csv_per_report(
 
 async def test_every_kind_exports(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
     await _sale(db)
-    kinds = ["income", "sales-by-item", "gst-hst", "pst", "t4a", "payouts"]
+    kinds = ["income", "sales-by-item", "gst-hst", "pst", "t4a", "payouts", "staff-pay"]
     res = await as_owner.post(
         "/v1/reports/export", json={"kinds": kinds, "start": "2015-01-01", "end": "2015-12-31"}
     )
     with zipfile.ZipFile(io.BytesIO(res.content)) as zf:
-        assert len(zf.namelist()) == 6
+        assert len(zf.namelist()) == 7
 
 
 async def test_pst_and_payout_csvs(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:

@@ -340,8 +340,7 @@ async def test_paid_sale_accrues_commission_on_products_only(
     approved = await as_owner.post("/v1/earnings/approve", json={"ids": [journal]})
     assert approved.status_code == 200, approved.text
     [earning] = approved.json()["earnings"]
-    assert earning["order_id"] == sale["id"]
-    assert earning["booking_id"] is None
+    assert (earning["subject_type"], earning["subject_id"]) == ("order", sale["id"])
     assert earning["amount_cents"] == 240  # 10% of the $24 shampoo, not the bath
     assert earning["status"] == "approved"
 

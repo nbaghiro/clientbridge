@@ -20,7 +20,7 @@ import {
 const n = strings.navigation;
 
 describe("what each role sees", () => {
-    it("shows managers every payments tab and staff only sales", () => {
+    it("shows managers every payments tab and staff sales and their own pay", () => {
         const all = [
             "invoices",
             "sales",
@@ -35,7 +35,9 @@ describe("what each role sees", () => {
         expect(visiblePaymentsTabs("admin").map((t) => t.key)).toEqual(all);
         expect(visiblePaymentsTabs("staff")).toEqual([
             { key: "sales", label: n.paymentsTabs.sales, managersOnly: false },
+            { key: "staffPay", label: n.paymentsTabs.myPay, managersOnly: false },
         ]);
+        expect(visiblePaymentsTabs("contractor").map((t) => t.key)).toEqual(["sales", "staffPay"]);
         expect(visiblePaymentsTabs(null).map((t) => t.key)).toEqual(["sales"]);
     });
 

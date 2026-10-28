@@ -427,6 +427,8 @@ async def test_staff_rate_is_held_in_the_unit_of_its_basis(as_owner: httpx.Async
         "/v1/staff/st_diego/pay", json={"rate_type": "percent", "rate_bps": 4250}
     )
     assert (pct.json()["rate_bps"], pct.json()["rate_cents"]) == (4250, None)
+    over = await as_owner.patch("/v1/staff/st_diego/pay", json={"rate_bps": 10001})
+    assert over.status_code == 422
     hourly = await as_owner.patch(
         "/v1/staff/st_diego/pay", json={"rate_type": "hourly", "rate_cents": 2400}
     )

@@ -35,19 +35,11 @@ import { useState } from "react";
 
 import { DeskBar } from "../components/Desk";
 import { api } from "../lib/api";
+import { saveFile } from "../lib/files";
 import { usePrintSheet } from "../lib/print";
 
 const s = strings.reports;
 const REPORTS: ReportKey[] = ["income", "salesByItem", "gstHst", "pst", "t4a"];
-
-function saveFile(blob: Blob, filename: string): void {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    a.click();
-    URL.revokeObjectURL(url);
-}
 
 async function downloadZip(request: PackRequest, filename: string): Promise<void> {
     const res = await api.authFetch("/v1/reports/export", {
@@ -375,6 +367,7 @@ function ReportBody({ report, v }: { report: ReportKey; v: ReportsView }) {
                                 <tr className="text-left">
                                     <th className={th}>{s.colPayee}</th>
                                     <th className={`${th} text-right`}>{s.colPayments}</th>
+                                    <th className={`${th} text-right`}>{s.colTips}</th>
                                     <th className={`${th} text-right`}>{s.colPaid}</th>
                                 </tr>
                             </thead>
@@ -386,6 +379,11 @@ function ReportBody({ report, v }: { report: ReportKey; v: ReportsView }) {
                                             className={`${td} pl-4 text-right tabular-nums text-ink-soft`}
                                         >
                                             {row.payments}
+                                        </td>
+                                        <td
+                                            className={`${td} pl-4 text-right tabular-nums text-ink-soft`}
+                                        >
+                                            {formatMoney(row.tipsCents, BUSINESS_CURRENCY)}
                                         </td>
                                         <td
                                             className={`${td} pl-4 text-right font-medium tabular-nums text-ink`}

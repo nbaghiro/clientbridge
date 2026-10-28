@@ -120,13 +120,22 @@ async def _add_order(db: AsyncSession, *, subtotal: int) -> str:
     return order.id
 
 
-async def _earn(db: AsyncSession, *, staff_id: str, amount: int, at: datetime, stage: str) -> None:
+async def _earn(
+    db: AsyncSession,
+    *,
+    staff_id: str,
+    amount: int,
+    at: datetime,
+    stage: str,
+    event: str = "earning",
+    run: str | None = None,
+) -> str:
     """Post one earning for a payee and advance it to `stage` (pending · approved · paid)."""
     ref = new_id("booking")
     journal = await ledger.post(
         db,
         BIZ,
-        event="earning",
+        event=event,
         ref=f"earning:{ref}:0",
         legs=[
             Leg("business", BIZ, "staff_cost", amount),
@@ -134,8 +143,9 @@ async def _earn(db: AsyncSession, *, staff_id: str, amount: int, at: datetime, s
         ],
         occurred_at=at,
     )
+    assert journal is not None
     if stage == "pending":
-        return
+        return journal
     await ledger.post(
         db,
         BIZ,
@@ -145,7 +155,7 @@ async def _earn(db: AsyncSession, *, staff_id: str, amount: int, at: datetime, s
             Leg("staff", staff_id, "payable", amount, "pending"),
             Leg("staff", staff_id, "payable", -amount, "approved"),
         ],
-        source=("journal", journal or ""),
+        source=("journal", journal),
         occurred_at=at,
     )
     if stage == "paid":
@@ -158,12 +168,14 @@ async def _earn(db: AsyncSession, *, staff_id: str, amount: int, at: datetime, s
                 Leg("staff", staff_id, "payable", amount, "approved"),
                 Leg("business", BIZ, "bank", -amount),
             ],
-            source=("journal", journal or ""),
+            source=("journal", journal),
             occurred_at=at,
+            meta={"run": run} if run else None,
         )
+    return journal
 
 
-async def _new_payee(db: AsyncSession, *, name: str) -> str:
+async def _new_payee(db: AsyncSession, *, name: str, role: str = "staff") -> str:
     user = User(
         id=new_id("user"),
         identity_id=str(uuid4()),
@@ -172,9 +184,7 @@ async def _new_payee(db: AsyncSession, *, name: str) -> str:
     )
     db.add(user)
     await db.flush()
-    staff = Staff(
-        id=new_id("staff"), business_id=BIZ, user_id=user.id, role="staff", status="active"
-    )
+    staff = Staff(id=new_id("staff"), business_id=BIZ, user_id=user.id, role=role, status="active")
     db.add(staff)
     await db.flush()
     return staff.id
@@ -272,7 +282,7 @@ async def test_t4a_sums_earnings_paid_in_year(
 
     res = await as_owner.get("/v1/reports/t4a.csv?year=2025")
     row = next(r for r in csv.reader(io.StringIO(res.text)) if r[0] == staff_id)
-    assert row[2] == "6000"  # paid only; approved-unpaid, pending and prior-year excluded
+    assert row[4] == "6000"  # paid only; approved-unpaid, pending and prior-year excluded
     assert row[1] == "Wade Payee"
 
 
@@ -285,10 +295,76 @@ async def test_t4a_csv_has_header_and_values(as_owner: httpx.AsyncClient, db: As
     assert res.headers["content-type"].startswith("text/csv")
     assert "attachment" in res.headers["content-disposition"]
     reader = list(csv.reader(io.StringIO(res.text)))
-    assert reader[0] == ["staff_id", "name", "total_cents"]
+    assert reader[0] == ["staff_id", "name", "fees_cents", "tips_cents", "total_cents"]
     row = next(r for r in reader[1:] if r[0] == staff_id)
-    assert row[1] == "Csv Payee"
-    assert row[2] == "7000"
+    assert row == [staff_id, "Csv Payee", "7000", "0", "7000"]
+
+
+async def test_t4a_leaves_out_the_owner_and_shows_tips_apart(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    staff_id = await _new_payee(db, name="Tipped Payee")
+    await _earn(db, staff_id=staff_id, amount=5000, at=IN_2025, stage="paid")
+    await _earn(db, staff_id=staff_id, amount=800, at=IN_2025, stage="paid", event="tip")
+    owner = await _new_payee(db, name="Owner Payee", role="owner")
+    await _earn(db, staff_id=owner, amount=9000, at=IN_2025, stage="paid")
+
+    res = await as_owner.get("/v1/reports/t4a.csv?year=2025")
+    rows = {r[0]: r for r in list(csv.reader(io.StringIO(res.text)))[1:]}
+    assert rows[staff_id] == [staff_id, "Tipped Payee", "5000", "800", "5800"]
+    assert owner not in rows
+    summary = await as_owner.get("/v1/reports/summary?start=2025-01-01&end=2025-12-31")
+    [payee] = [p for p in summary.json()["t4a"] if p["staff_id"] == staff_id]
+    assert (payee["payments"], payee["total_cents"], payee["tips_cents"]) == (2, 5800, 800)
+
+
+async def test_staff_pay_csv_lists_what_was_paid_in_the_period(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    staff_id = await _new_payee(db, name="Pay Csv")
+    await _earn(db, staff_id=staff_id, amount=6000, at=IN_2025, stage="paid")
+    await _earn(db, staff_id=staff_id, amount=4000, at=IN_2025, stage="approved")
+    await _earn(db, staff_id=staff_id, amount=5000, at=IN_2024, stage="paid")
+
+    res = await as_owner.get("/v1/reports/staff-pay.csv?start=2025-01-01&end=2025-12-31")
+    assert res.status_code == 200, res.text
+    assert "attachment; filename=staff-pay.csv" in res.headers["content-disposition"]
+    header, *rows = list(csv.reader(io.StringIO(res.text)))
+    assert header == ["paid_on", "staff_id", "name", "earning_id", "basis", "run", "amount_cents"]
+    mine = [r for r in rows if r[1] == staff_id]
+    assert [(r[0], r[2], r[4], r[6]) for r in mine] == [
+        ("2025-06-15", "Pay Csv", "earning", "6000")
+    ]
+
+
+async def test_staff_pay_csv_of_one_run(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
+    staff_id = await _new_payee(db, name="Run Csv")
+    await _earn(db, staff_id=staff_id, amount=6000, at=IN_2025, stage="paid", run="prun_one")
+    await _earn(db, staff_id=staff_id, amount=4000, at=IN_2025, stage="paid", run="prun_two")
+    res = await as_owner.get(
+        "/v1/reports/staff-pay.csv?start=2025-06-15&end=2025-06-15&run=prun_one"
+    )
+    rows = list(csv.reader(io.StringIO(res.text)))[1:]
+    assert [(r[1], r[5], r[6]) for r in rows] == [(staff_id, "prun_one", "6000")]
+
+
+async def test_staff_pay_counts_the_day_in_the_business_zone(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    staff_id = await _new_payee(db, name="Late Pay")
+    tz = await business_tz(db, BIZ)
+    late = datetime(2025, 12, 31, 23, 30, tzinfo=tz).astimezone(UTC)
+    await _earn(db, staff_id=staff_id, amount=700, at=late, stage="paid")
+    res = await as_owner.get("/v1/reports/staff-pay.csv?start=2025-12-31&end=2025-12-31")
+    rows = [r for r in list(csv.reader(io.StringIO(res.text)))[1:] if r[1] == staff_id]
+    assert [(r[0], r[6]) for r in rows] == [("2025-12-31", "700")]
+    t4a = await as_owner.get("/v1/reports/t4a.csv?year=2025")
+    assert any(r[0] == staff_id for r in csv.reader(io.StringIO(t4a.text)))
+
+
+async def test_staff_cannot_read_the_staff_pay_csv_403(as_staff: httpx.AsyncClient) -> None:
+    res = await as_staff.get("/v1/reports/staff-pay.csv?start=2025-01-01&end=2025-12-31")
+    assert res.status_code == 403
 
 
 async def test_income_csv_returns_text_csv(as_owner: httpx.AsyncClient) -> None:

@@ -1,5 +1,6 @@
 """Staff earnings on the ledger: accrue on a paid invoice, approve, pay; Stripe payouts."""
 
+import itertools
 import json
 from datetime import UTC, datetime
 
@@ -8,21 +9,29 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.ids import new_id
-from clientbridge.models.billing import Invoice, Line
+from clientbridge.models.billing import Invoice, Line, Order
 from clientbridge.models.business import Business, Staff
-from clientbridge.models.catalog import Item
+from clientbridge.models.catalog import Item, Package
 from clientbridge.models.clients import Client
 from clientbridge.models.ledger import Account, Entry
 from clientbridge.models.payments import Payment
-from clientbridge.models.scheduling import Booking, Slot
+from clientbridge.models.scheduling import Booking, Hours, Slot
 from clientbridge.services import ledger
-from clientbridge.services.earnings import ensure_earnings, load_earning, reverse_earnings
+from clientbridge.services.earnings import (
+    claw_back_package,
+    ensure_earnings,
+    load_earning,
+    reverse_earnings,
+)
 from clientbridge.services.ledger import Leg
+from clientbridge.services.lines import crew_note
+from clientbridge.services.payments import sync_invoice, sync_order
 from tests.conftest import Factory, book_invoice
 from tests.helpers import card_pay, settle
 from tests.helpers import key as retry_key
 
 BIZ = "bz_birchbark"
+_NUMBERS = itertools.count(9400)
 GOOD = {"Stripe-Signature": "good"}
 
 
@@ -36,15 +45,9 @@ async def _seed_id(db: AsyncSession, model: type[Client] | type[Item]) -> str:
     return row
 
 
-async def _diego_visit(
-    db: AsyncSession,
-    *,
-    rate_type: str = "percent",
-    rate: float = 60.0,
-    payee: bool = True,
-    end_hour: int = 16,
-    end_min: int = 0,
-) -> Booking:
+async def _diego_pay(
+    db: AsyncSession, *, rate_type: str = "percent", rate: float = 60.0, payee: bool = True
+) -> None:
     await db.execute(
         update(Business)
         .where(Business.id == BIZ)
@@ -61,6 +64,18 @@ async def _diego_visit(
         )
     )
     await db.flush()
+
+
+async def _diego_visit(
+    db: AsyncSession,
+    *,
+    rate_type: str = "percent",
+    rate: float = 60.0,
+    payee: bool = True,
+    end_hour: int = 16,
+    end_min: int = 0,
+) -> Booking:
+    await _diego_pay(db, rate_type=rate_type, rate=rate, payee=payee)
     cid = await _seed_id(db, Client)
     sess = Slot(
         id=new_id("slot"),
@@ -187,7 +202,7 @@ async def test_percent_payee_accrues_on_paid_invoice(
     [journal] = await _journals(db, booking_id)
     earning = await load_earning(db, BIZ, journal)
     assert earning is not None
-    assert earning.staff_id == "st_diego" and earning.booking_id == booking_id
+    assert earning.staff_id == "st_diego" and earning.subject == ("booking", booking_id)
     assert earning.amount_cents == 6000  # 60% of the $100 line
     assert earning.status == "pending"
     meta = (
@@ -255,6 +270,250 @@ async def test_refunded_register_sale_reverses_the_service_commission(
     assert await _payable(db, "st_diego", "pending") == before
 
 
+async def _kind_item(db: AsyncSession, kind: str) -> str:
+    item = (
+        await db.execute(select(Item.id).where(Item.business_id == BIZ, Item.kind == kind).limit(1))
+    ).scalar_one()
+    return item
+
+
+async def _paid_loose_invoice(
+    as_owner: httpx.AsyncClient, db: AsyncSession, lines: list[dict[str, object]]
+) -> tuple[str, str]:
+    """Pay + settle an invoice of lines without a booking; return (invoice_id, payment_id)."""
+    total = sum(int(str(line["amount_cents"])) for line in lines)
+    inv = Invoice(
+        id=new_id("invoice"),
+        business_id=BIZ,
+        client_id=await _seed_id(db, Client),
+        number=next(_NUMBERS),
+        status="sent",
+        currency="CAD",
+        subtotal_cents=total,
+        tax_total_cents=0,
+        total_cents=total,
+    )
+    db.add(inv)
+    await db.flush()
+    for position, line in enumerate(lines):
+        db.add(
+            Line(
+                id=new_id("line"),
+                business_id=BIZ,
+                invoice_id=inv.id,
+                quantity=1,
+                unit_amount_cents=line["amount_cents"],
+                position=position,
+                **line,
+            )
+        )
+    await db.flush()
+    await book_invoice(db, inv)
+    payment_id = await card_pay(as_owner, db, inv.id)
+    await settle(as_owner, db, payment_id)
+    return inv.id, payment_id
+
+
+async def _line_journals(db: AsyncSession, subject_id: str) -> list[tuple[str, int, str]]:
+    """(staff, amount, basis) of each accrual on a document, oldest first."""
+    rows = await db.execute(
+        select(Entry.owner_id, Entry.amount_cents, Entry.meta)
+        .where(
+            Entry.event == "earning",
+            Entry.subject_id == subject_id,
+            Entry.owner_type == "staff",
+            Entry.ref.startswith("earning:line:"),
+        )
+        .order_by(Entry.journal_id)
+    )
+    return [
+        (str(staff), -int(cents), str((meta or {}).get("basis")))
+        for staff, cents, meta in rows.tuples().all()
+    ]
+
+
+async def test_invoice_lines_without_a_booking_earn_by_kind(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await _diego_pay(db)
+    await db.execute(update(Staff).where(Staff.id == "st_diego").values(retail_rate_bps=1000))
+    inv_id, _ = await _paid_loose_invoice(
+        as_owner,
+        db,
+        [
+            {"description": "Nail trim", "amount_cents": 2000, "staff_id": "st_diego"},
+            {
+                "description": "Shampoo",
+                "amount_cents": 3000,
+                "staff_id": "st_diego",
+                "item_id": await _kind_item(db, "product"),
+            },
+            {
+                "description": "Gift card",
+                "amount_cents": 5000,
+                "staff_id": "st_diego",
+                "item_id": await _kind_item(db, "gift"),
+            },
+            {"description": "Unassigned", "amount_cents": 4000},
+        ],
+    )
+    assert await _line_journals(db, inv_id) == [
+        ("st_diego", 1200, "percent"),
+        ("st_diego", 300, "retail"),
+    ]
+    invoice = await db.get(Invoice, inv_id)
+    assert invoice is not None
+    await ensure_earnings(db, invoice)
+    assert len(await _line_journals(db, inv_id)) == 2
+
+
+async def test_a_fixed_rate_earns_per_line_and_hourly_earns_nothing_without_a_visit(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    line: dict[str, object] = {
+        "description": "Nail trim",
+        "amount_cents": 2000,
+        "staff_id": "st_diego",
+    }
+    await _diego_pay(db, rate_type="fixed", rate=15.0)
+    fixed_id, _ = await _paid_loose_invoice(as_owner, db, [line, dict(line)])
+    assert [cents for _, cents, _ in await _line_journals(db, fixed_id)] == [1500, 1500]
+    await _diego_pay(db, rate_type="hourly", rate=30.0)
+    hourly_id, _ = await _paid_loose_invoice(as_owner, db, [dict(line)])
+    assert await _line_journals(db, hourly_id) == []
+
+
+async def test_a_refund_reverses_and_claws_back_line_earnings(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await _diego_pay(db)
+    pending = await _payable(db, "st_diego", "pending")
+    inv_id, payment_id = await _paid_loose_invoice(
+        as_owner, db, [{"description": "Nail trim", "amount_cents": 2000, "staff_id": "st_diego"}]
+    )
+    assert await _payable(db, "st_diego", "pending") == pending - 1200
+    await _refund(as_owner, payment_id, 1000)
+    assert await _payable(db, "st_diego", "pending") == pending - 600
+    await _refund(as_owner, payment_id)
+    assert await _payable(db, "st_diego", "pending") == pending
+    journals = await db.execute(
+        select(Entry.journal_id)
+        .where(Entry.subject_id == inv_id, Entry.ref.startswith("earning:line:"))
+        .distinct()
+    )
+    [journal] = journals.scalars().all()
+    earning = await load_earning(db, BIZ, journal)
+    assert earning is not None and earning.status == "reversed"
+
+
+async def test_a_walk_in_service_at_the_register_earns_its_seller(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await _diego_pay(db)
+    created = await as_owner.post(
+        "/v1/orders", json={"lines": [{"description": "Nail trim", "unit_amount_cents": 2000}]}
+    )
+    assert created.status_code == 201, created.text
+    sale = created.json()["id"]
+    await db.execute(update(Order).where(Order.id == sale).values(staff_id="st_diego"))
+    paid = await as_owner.post(
+        f"/v1/orders/{sale}/cash", json={"tendered_cents": 5000}, headers=retry_key()
+    )
+    assert paid.status_code == 200, paid.text
+    assert await _line_journals(db, sale) == [("st_diego", 1200, "percent")]
+
+
+async def test_a_non_payee_earns_nothing_on_a_loose_line(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await _diego_pay(db, payee=False)
+    inv_id, _ = await _paid_loose_invoice(
+        as_owner, db, [{"description": "Nail trim", "amount_cents": 2000, "staff_id": "st_diego"}]
+    )
+    assert await _line_journals(db, inv_id) == []
+
+
+async def _covered_visit(
+    as_owner: httpx.AsyncClient, db: AsyncSession, *, paid: int, crew: bool = False
+) -> str:
+    """A started visit of Diego's covered by a five-session package bought for `paid`."""
+    booking = await _diego_visit(db)
+    start = datetime(2026, 10, 13, 15, tzinfo=UTC)
+    await db.execute(
+        update(Slot)
+        .where(Slot.id == booking.slot_id)
+        .values(starts_at=start, ends_at=start.replace(hour=16))
+    )
+    await db.execute(update(Booking).where(Booking.id == booking.id).values(starts_at=start))
+    slot = await db.get(Slot, booking.slot_id, populate_existing=True)
+    assert slot is not None
+    await db.execute(update(Item).where(Item.id == "it_pkg5").values(covers_item_id=slot.item_id))
+    plan = Package(
+        id=new_id("package"),
+        business_id=BIZ,
+        client_id=booking.client_id,
+        item_id="it_pkg5",
+        sessions_total=5,
+        status="active",
+    )
+    db.add(plan)
+    await db.flush()
+    await ledger.post(
+        db,
+        BIZ,
+        event="payment",
+        ref=f"payment:{plan.id}",
+        legs=[Leg("business", BIZ, "stripe", paid), Leg("package", plan.id, "deferred", -paid)],
+        subject=("package", plan.id),
+    )
+    if crew:
+        await db.execute(
+            update(Staff)
+            .where(Staff.id == "st_priya")
+            .values(payee=True, rate_type="fixed", rate_bps=None, rate_cents=700)
+        )
+        db.add(
+            Hours(
+                id=new_id("hours"),
+                business_id=BIZ,
+                staff_id="st_priya",
+                basis="exception",
+                starts_at=slot.starts_at,
+                ends_at=slot.ends_at,
+                available=False,
+                note=crew_note(booking.id),
+            )
+        )
+        await db.flush()
+    res = await as_owner.post(
+        f"/v1/packages/{plan.id}/cover", json={"booking_id": booking.id}, headers=retry_key()
+    )
+    assert res.status_code == 200, res.text
+    return booking.id
+
+
+async def test_a_package_covered_visit_earns_on_the_session_share(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    booking_id = await _covered_visit(as_owner, db, paid=20000)
+    [journal] = await _journals(db, booking_id)
+    earning = await load_earning(db, BIZ, journal)
+    assert earning is not None
+    assert (earning.staff_id, earning.amount_cents, earning.status) == ("st_diego", 2400, "pending")
+
+
+async def test_a_package_covered_visit_splits_between_its_crew(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    booking_id = await _covered_visit(as_owner, db, paid=20000, crew=True)
+    amounts: dict[str, int] = {}
+    for journal in await _journals(db, booking_id):
+        earning = await load_earning(db, BIZ, journal)
+        assert earning is not None
+        amounts[earning.staff_id] = earning.amount_cents
+    assert amounts == {"st_diego": 1200, "st_priya": 700}
+
+
 async def test_approve_then_pay_moves_payable_to_bank(
     as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory
 ) -> None:
@@ -270,8 +529,9 @@ async def test_approve_then_pay_moves_payable_to_bank(
     assert earning == {
         "id": journal,
         "staff_id": staff.id,
-        "booking_id": earning["booking_id"],
-        "order_id": None,
+        "subject_type": earning["subject_type"],
+        "subject_id": earning["subject_id"],
+        "basis": earning["basis"],
         "amount_cents": 6000,
         "status": "approved",
         "kind": "earning",
@@ -313,16 +573,110 @@ async def test_refund_reverses_pending_earning(
     assert again is not None and again.status == "pending" and again.amount_cents == 6000
 
 
-async def test_refund_leaves_approved_earning(
+async def _held(db: AsyncSession, journal: str) -> int:
+    """What clawbacks hold back from one earning, after any were reversed."""
+    rows = await db.execute(
+        select(Entry.journal_id, Entry.amount_cents)
+        .join(Account, Account.id == Entry.account_id)
+        .where(
+            Entry.ref.startswith(f"earning:{journal}:clawback:"),
+            Account.category == "payable",
+        )
+    )
+    total = 0
+    for clawback, cents in rows.tuples().all():
+        earning = await load_earning(db, BIZ, clawback)
+        assert earning is not None
+        total += 0 if earning.status == "reversed" else cents
+    return total
+
+
+async def _refund(as_owner: httpx.AsyncClient, payment_id: str, cents: int | None = None) -> str:
+    body = {} if cents is None else {"amount_cents": cents}
+    res = await as_owner.post(f"/v1/payments/{payment_id}/refund", json=body, headers=retry_key())
+    assert res.status_code == 200, res.text
+    return str(res.json()["refund_id"])
+
+
+async def test_refund_claws_back_an_approved_earning(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     booking_id, _, payment_id = await _paid_booking(as_owner, db)
     [journal] = await _journals(db, booking_id)
-    approved = await as_owner.post("/v1/earnings/approve", json={"ids": [journal]})
-    assert approved.status_code == 200
-    assert (
-        await as_owner.post(f"/v1/payments/{payment_id}/refund", json={}, headers=retry_key())
-    ).status_code == 200
+    assert (await as_owner.post("/v1/earnings/approve", json={"ids": [journal]})).status_code == 200
+    pending = await _payable(db, "st_diego", "pending")
+    await _refund(as_owner, payment_id)
+    earning = await load_earning(db, BIZ, journal)
+    assert earning is not None and earning.status == "approved"
+    assert await _held(db, journal) == 6000
+    assert await _payable(db, "st_diego", "pending") == pending + 6000
+
+
+async def test_partial_refund_claws_back_its_share_then_the_rest(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    pending = await _payable(db, "st_diego", "pending")
+    booking_id, inv_id, payment_id = await _paid_booking(as_owner, db)
+    [journal] = await _journals(db, booking_id)
+    await _refund(as_owner, payment_id, 2500)
+    invoice = await db.get(Invoice, inv_id)
+    assert invoice is not None and (await ledger.invoice_state(db, invoice))[0] == "paid"
+    earning = await load_earning(db, BIZ, journal)
+    assert earning is not None and earning.status == "pending"
+    assert await _held(db, journal) == 1500
+    assert await _payable(db, "st_diego", "pending") == pending - 4500
+
+    await _refund(as_owner, payment_id)
+    earning = await load_earning(db, BIZ, journal)
+    assert earning is not None and earning.status == "reversed"
+    assert await _held(db, journal) == 0
+    assert await _payable(db, "st_diego", "pending") == pending
+
+
+async def test_resyncing_a_refunded_invoice_claws_back_once(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    booking_id, inv_id, payment_id = await _paid_booking(as_owner, db)
+    [journal] = await _journals(db, booking_id)
+    await _refund(as_owner, payment_id, 5000)
+    await sync_invoice(db, inv_id)
+    await sync_invoice(db, inv_id)
+    clawbacks = await db.execute(
+        select(Entry.journal_id)
+        .where(Entry.ref.startswith(f"earning:{journal}:clawback:"))
+        .distinct()
+    )
+    assert len(clawbacks.scalars().all()) == 1
+    assert await _held(db, journal) == 3000
+
+
+async def test_a_failed_refund_returns_what_it_clawed_back(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    booking_id, _, payment_id = await _paid_booking(as_owner, db)
+    [journal] = await _journals(db, booking_id)
+    assert (await as_owner.post("/v1/earnings/approve", json={"ids": [journal]})).status_code == 200
+    refund_id = await _refund(as_owner, payment_id, 5000)
+    assert await _held(db, journal) == 3000
+    refund = await db.get(Payment, refund_id)
+    original = await db.get(Payment, payment_id)
+    assert refund is not None and original is not None
+    event = {
+        "id": f"evt_{refund_id}_failed",
+        "type": "refund.updated",
+        "account": "acct_earn",
+        "data": {
+            "object": {
+                "id": refund.provider_ref,
+                "payment_intent": original.provider_ref,
+                "amount": 5000,
+                "status": "failed",
+            }
+        },
+    }
+    res = await as_owner.post("/webhooks/stripe", content=json.dumps(event), headers=GOOD)
+    assert res.status_code == 200, res.text
+    assert await _held(db, journal) == 0
     earning = await load_earning(db, BIZ, journal)
     assert earning is not None and earning.status == "approved"
 
@@ -438,7 +792,7 @@ async def _two_member_invoice(db: AsyncSession) -> tuple[Booking, Invoice]:
         id=new_id("invoice"),
         business_id=BIZ,
         client_id=booking.client_id,
-        number=9302,
+        number=next(_NUMBERS),
         status="sent",
         currency="CAD",
         subtotal_cents=14000,
@@ -518,3 +872,192 @@ async def test_an_earning_posted_under_the_old_ref_still_counts(db: AsyncSession
         "st_priya": (2000, "pending"),
     }
     assert len(await _journals(db, booking.id)) == 2
+
+
+async def _sale_rows(db: AsyncSession, sale: str) -> list[tuple[str, int, str]]:
+    """(ref, cents, status) of each earning on a sale, oldest first."""
+    rows = await db.execute(
+        select(Entry.journal_id, Entry.ref, Entry.amount_cents)
+        .where(Entry.subject_id == sale, Entry.owner_type == "staff", Entry.event == "earning")
+        .order_by(Entry.journal_id)
+    )
+    found: list[tuple[str, int, str]] = []
+    for journal, ref, cents in rows.tuples().all():
+        earning = await load_earning(db, BIZ, journal)
+        assert earning is not None
+        found.append((ref.split(":")[1], -cents, earning.status))
+    return found
+
+
+async def test_a_mixed_sale_pays_its_retail_commission_once_after_a_failed_refund(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await _diego_pay(db)
+    await db.execute(update(Staff).where(Staff.id == "st_diego").values(retail_rate_bps=1000))
+    product = await _kind_item(db, "product")
+    created = await as_owner.post(
+        "/v1/orders",
+        json={
+            "lines": [
+                {"description": "Shampoo", "unit_amount_cents": 3000, "item_id": product},
+                {"description": "Nail trim", "unit_amount_cents": 2000},
+            ]
+        },
+    )
+    assert created.status_code == 201, created.text
+    sale = created.json()["id"]
+    await db.execute(update(Order).where(Order.id == sale).values(staff_id="st_diego"))
+    paid = await as_owner.post(
+        f"/v1/orders/{sale}/cash", json={"tendered_cents": 9000}, headers=retry_key()
+    )
+    assert paid.status_code == 200, paid.text
+    assert sorted((k, c) for k, c, _ in await _sale_rows(db, sale)) == [
+        ("line", 1200),
+        ("order", 300),
+    ]
+    pay_id = (
+        await db.execute(
+            select(Payment.id).where(Payment.order_id == sale, Payment.kind != "refund")
+        )
+    ).scalar_one()
+    refund_id = await _refund(as_owner, pay_id)
+    assert {status for _, _, status in await _sale_rows(db, sale)} == {"reversed"}
+
+    refund = await db.get(Payment, refund_id)
+    original = await db.get(Payment, pay_id)
+    assert refund is not None and original is not None
+    await ledger.reverse_refund(db, refund, original)
+    refund.status = "failed"
+    await db.flush()
+    await sync_order(db, sale)
+    await sync_order(db, sale)
+    live = [(k, c) for k, c, status in await _sale_rows(db, sale) if status != "reversed"]
+    assert sorted(live) == [("line", 1200), ("order", 300)]
+
+
+async def test_settled_clawbacks_stop_posting_once_the_earning_is_reversed(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    booking_id, inv_id, payment_id = await _paid_booking(as_owner, db)
+    [journal] = await _journals(db, booking_id)
+    await _refund(as_owner, payment_id, 2500)
+    clawbacks = [j for j in await _journals(db, booking_id) if j != journal]
+    assert (await as_owner.post("/v1/earnings/approve", json={"ids": clawbacks})).status_code == 200
+    await _refund(as_owner, payment_id)
+
+    async def refs() -> list[str]:
+        rows = await db.execute(
+            select(Entry.ref).where(Entry.ref.startswith(f"earning:{journal}:clawback:")).distinct()
+        )
+        return sorted(rows.scalars().all())
+
+    settled = await refs()
+    for _ in range(3):
+        await sync_invoice(db, inv_id)
+    assert await refs() == settled
+    assert await _held(db, journal) == 0  # the earning is reversed, so nothing is held back
+
+
+async def test_a_refunded_package_claws_back_its_covered_visits(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    booking_id = await _covered_visit(as_owner, db, paid=20000)
+    [journal] = await _journals(db, booking_id)
+    booking = await db.get(Booking, booking_id, populate_existing=True)
+    assert booking is not None and booking.package_id is not None
+    plan = await db.get(Package, booking.package_id)
+    assert plan is not None
+    await ledger.post(
+        db,
+        BIZ,
+        event="refund",
+        ref=f"refund:{plan.id}",
+        legs=[Leg("package", plan.id, "deferred", 10000), Leg("business", BIZ, "stripe", -10000)],
+        subject=("package", plan.id),
+    )
+    await claw_back_package(db, plan)
+    await claw_back_package(db, plan)
+    assert await _held(db, journal) == 1200
+    earning = await load_earning(db, BIZ, journal)
+    assert earning is not None and earning.status == "pending"
+
+
+async def test_an_expired_package_claws_back_only_what_was_refunded(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    booking_id = await _covered_visit(as_owner, db, paid=20000)
+    [journal] = await _journals(db, booking_id)
+    booking = await db.get(Booking, booking_id, populate_existing=True)
+    assert booking is not None and booking.package_id is not None
+    plan = await db.get(Package, booking.package_id)
+    assert plan is not None
+    await ledger.post_breakage(db, BIZ, owner_type="package", owner_id=plan.id, category="deferred")
+    await ledger.post(
+        db,
+        BIZ,
+        event="refund",
+        ref=f"refund:{plan.id}",
+        legs=[Leg("package", plan.id, "deferred", 10000), Leg("business", BIZ, "stripe", -10000)],
+        subject=("package", plan.id),
+    )
+    await claw_back_package(db, plan)
+    assert await _held(db, journal) == 1200
+
+
+async def test_a_booked_add_on_product_earns_retail_not_the_service_rate(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    booking_id, inv_id, _ = await _paid_booking(as_owner, db)
+    await db.execute(update(Staff).where(Staff.id == "st_diego").values(retail_rate_bps=1000))
+    product = await _kind_item(db, "product")
+    invoice = await db.get(Invoice, inv_id)
+    assert invoice is not None
+    db.add(
+        Line(
+            id=new_id("line"),
+            business_id=BIZ,
+            invoice_id=inv_id,
+            description="Shampoo",
+            item_id=product,
+            booking_id=booking_id,
+            quantity=1,
+            unit_amount_cents=2000,
+            amount_cents=2000,
+            position=1,
+        )
+    )
+    await db.flush()
+    await reverse_earnings(db, invoice)
+    await ensure_earnings(db, invoice)
+    amounts: list[int] = []
+    for journal in await _journals(db, booking_id):
+        earning = await load_earning(db, BIZ, journal)
+        if earning is not None and earning.status != "reversed":
+            amounts.append(earning.amount_cents)
+    assert amounts == [6000]  # 60% of the $100 service only
+    assert await _line_journals(db, inv_id) == [("st_diego", 200, "retail")]
+
+
+async def test_an_accrual_carries_what_a_member_needs_to_read_it(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    booking_id, _, _ = await _paid_booking(as_owner, db)
+    booking = await db.get(Booking, booking_id)
+    assert booking is not None
+    meta = (
+        await db.execute(
+            select(Entry.meta).where(
+                Entry.subject_id == booking_id,
+                Entry.event == "earning",
+                Entry.owner_type == "staff",
+            )
+        )
+    ).scalar_one()
+    assert meta == {
+        "basis": "percent",
+        "rate": 6000,
+        "base": 10000,
+        "label": "Service",
+        "client_id": booking.client_id,
+        "worked_at": booking.starts_at.isoformat(),
+    }

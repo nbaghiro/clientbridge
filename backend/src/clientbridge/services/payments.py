@@ -97,6 +97,9 @@ from clientbridge.services.business import (
 )
 from clientbridge.services.deliveries import delivery_key
 from clientbridge.services.earnings import (
+    cancel_returned_tips,
+    claw_back,
+    claw_back_purchase,
     ensure_earnings,
     ensure_order_earning,
     reverse_earnings,
@@ -2197,6 +2200,7 @@ async def _close_dispute(db: AsyncSession, data: dict[str, object]) -> None:
         await ledger.reinstate_dispute(db, payment, dispute_id, amount=back, net=back_net)
         if lost + await _refunded_cents(db, payment) >= payment.amount_cents:
             await _reverse_entitlement(db, payment)
+        await _claw_back_package(db, payment)
 
 
 def _credits(data: dict[str, object]) -> tuple[int, int]:
@@ -2458,6 +2462,7 @@ async def _apply_refund(db: AsyncSession, refund: Payment, payment: Payment) -> 
         await ledger.post_fee_return(db, payment, refund.id)
     if await _fully_refunded(db, payment):
         await _reverse_entitlement(db, payment)
+    await _claw_back_package(db, payment)
     await queued_notifier(db, refund.business_id, delivery_key("refund", refund.id)).on_refund(
         db, refund.id
     )
@@ -2466,6 +2471,7 @@ async def _apply_refund(db: AsyncSession, refund: Payment, payment: Payment) -> 
 async def _unapply_refund(db: AsyncSession, refund: Payment, payment: Payment) -> None:
     """Stripe failed a refund it had marked succeeded: the money is back, so is the credit."""
     await db.flush()
+    await cancel_returned_tips(db, refund, payment)
     await ledger.reverse_refund(db, refund, payment)
     returned = await ledger.journal_for(db, payment.business_id, f"fee_return:{refund.id}")
     if returned is not None:
@@ -2479,6 +2485,7 @@ async def _unapply_refund(db: AsyncSession, refund: Payment, payment: Payment) -
     await _sync_parent(db, payment)
     if not await _fully_refunded(db, payment):
         await _restore_entitlement(db, payment)
+    await _claw_back_package(db, payment)
 
 
 async def _sync_parent(db: AsyncSession, payment: Payment) -> None:
@@ -2553,6 +2560,12 @@ async def _reverse_entitlement(db: AsyncSession, payment: Payment) -> None:
     await entitlements.void_purchased_gift_card(db, payment.id)
 
 
+async def _claw_back_package(db: AsyncSession, payment: Payment) -> None:
+    if payment.invoice_id or payment.order_id or payment.booking_id:
+        return
+    await claw_back_purchase(db, payment)
+
+
 async def _restore_entitlement(db: AsyncSession, payment: Payment) -> None:
     """Reactivate a package/gift card voided by a refund that then failed."""
     if payment.invoice_id or payment.order_id or payment.booking_id:
@@ -2579,6 +2592,7 @@ async def sync_order(db: AsyncSession, order_id: str) -> None:
             await reverse_earnings(db, order)
         if status in ("refunded", "void"):
             await ledger.reverse_order_redemptions(db, order)
+    await claw_back(db, order)
     await _sync_visits(db, order, status, paid_at)
     order.paid_at = (order.paid_at or paid_at) if paid_at else None
     if order.source == "online":
@@ -2812,6 +2826,7 @@ async def sync_invoice(db: AsyncSession, invoice_id: str) -> None:
         await ensure_earnings(db, invoice)
     else:
         await reverse_earnings(db, invoice)
+    await claw_back(db, invoice)
 
 
 async def _record_payout(

@@ -1936,6 +1936,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/earnings/unapprove": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Unapprove Earnings */
+        post: operations["unapprove_earnings_v1_earnings_unapprove_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/earnings/unpay": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Unpay Earnings */
+        post: operations["unpay_earnings_v1_earnings_unpay_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/earnings/adjustments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add Adjustment */
+        post: operations["add_adjustment_v1_earnings_adjustments_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/estimates": {
         parameters: {
             query?: never;
@@ -3145,6 +3196,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/reports/staff-pay.csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Staff Pay Csv */
+        get: operations["staff_pay_csv_v1_reports_staff_pay_csv_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/reports/export": {
         parameters: {
             query?: never;
@@ -4146,6 +4214,18 @@ export interface components {
         AddonOffersPatch: {
             /** Offers */
             offers: components["schemas"]["AddonOffer"][];
+        };
+        /** AdjustmentIn */
+        AdjustmentIn: {
+            /** Staff Id */
+            staff_id: string;
+            /**
+             * Amount Cents
+             * @description Positive adds to their pay, negative deducts
+             */
+            amount_cents: number;
+            /** Reason */
+            reason: string;
         };
         /** AdminAccessInfo */
         AdminAccessInfo: {
@@ -5569,10 +5649,15 @@ export interface components {
             id: string;
             /** Staff Id */
             staff_id: string;
-            /** Booking Id */
-            booking_id: string | null;
-            /** Order Id */
-            order_id?: string | null;
+            /**
+             * Subject Type
+             * @description booking, invoice, order or staff
+             */
+            subject_type: string | null;
+            /** Subject Id */
+            subject_id: string | null;
+            /** Basis */
+            basis: string | null;
             /** Amount Cents */
             amount_cents: number;
             /** Status */
@@ -7657,6 +7742,16 @@ export interface components {
              */
             client_secret: string | null;
         };
+        /** PayIn */
+        PayIn: {
+            /** Ids */
+            ids: string[];
+            /**
+             * Through
+             * @description The last day of work this pay covers, kept on the pay run
+             */
+            through?: string | null;
+        };
         /** PaymentMethodOut */
         PaymentMethodOut: {
             /** Id */
@@ -9470,7 +9565,7 @@ export interface components {
         /** ReportExportIn */
         ReportExportIn: {
             /** Kinds */
-            kinds: ("income" | "sales-by-item" | "gst-hst" | "pst" | "t4a" | "payouts")[];
+            kinds: ("income" | "sales-by-item" | "gst-hst" | "pst" | "t4a" | "payouts" | "staff-pay")[];
             /**
              * Start
              * Format: date
@@ -9523,6 +9618,11 @@ export interface components {
              * @description Bank deposits that arrived in the period
              */
             payouts: components["schemas"]["PayoutRow"][];
+            /**
+             * Staff Pay
+             * @description Staff payments made in the period, as rows in its CSV
+             */
+            staff_pay: number;
             /** Rates */
             rates: components["schemas"]["ReportRate"][];
         };
@@ -9934,11 +10034,19 @@ export interface components {
             name: string;
             /**
              * Payments
-             * @description Payments made to the staff member in the calendar year
+             * @description Earnings, tips and adjustments paid in the calendar year
              */
             payments: number;
-            /** Total Cents */
+            /**
+             * Total Cents
+             * @description Everything paid in the year, tips included
+             */
             total_cents: number;
+            /**
+             * Tips Cents
+             * @description The part of the total that was tips
+             */
+            tips_cents: number;
         };
         /** TaxClassChange */
         TaxClassChange: {
@@ -14598,6 +14706,44 @@ export interface operations {
         };
         requestBody: {
             content: {
+                "application/json": components["schemas"]["PayIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EarningsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unapprove_earnings_v1_earnings_unapprove_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "x-business-id"?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
                 "application/json": components["schemas"]["EarningIdsIn"];
             };
         };
@@ -14609,6 +14755,82 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EarningsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unpay_earnings_v1_earnings_unpay_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "x-business-id"?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EarningIdsIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EarningsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_adjustment_v1_earnings_adjustments_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "x-business-id"?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdjustmentIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EarningOut"];
                 };
             };
             /** @description Validation Error */
@@ -17249,6 +17471,43 @@ export interface operations {
             query: {
                 start: string;
                 end: string;
+            };
+            header?: {
+                "x-business-id"?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    staff_pay_csv_v1_reports_staff_pay_csv_get: {
+        parameters: {
+            query: {
+                start: string;
+                end: string;
+                run?: string | null;
             };
             header?: {
                 "x-business-id"?: string;

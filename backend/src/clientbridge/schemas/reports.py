@@ -32,12 +32,6 @@ class GstHstReport(BaseModel):
     gst_hst_number: str | None
 
 
-class T4ARow(BaseModel):
-    staff_id: str
-    name: str
-    total_cents: int = Field(description="Earnings paid to the staff member in the calendar year")
-
-
 class SalesByItemRow(BaseModel):
     item_id: str
     name: str
@@ -48,11 +42,22 @@ class SalesByItemRow(BaseModel):
     refunded_cents: int = Field(description="Sales in the period that were refunded in full")
 
 
+class StaffPayRow(BaseModel):
+    paid_on: date
+    staff_id: str
+    name: str
+    earning_id: str
+    basis: str = Field(description="percent, fixed, rate, retail, tip, adjustment or clawback")
+    run: str = Field(description="The pay run, the payments made together in one go")
+    amount_cents: int = Field(description="Negative when a payment was undone or a deduction")
+
+
 class T4APayee(BaseModel):
     staff_id: str
     name: str
-    payments: int = Field(description="Payments made to the staff member in the calendar year")
-    total_cents: int
+    payments: int = Field(description="Earnings, tips and adjustments paid in the calendar year")
+    total_cents: int = Field(description="Everything paid in the year, tips included")
+    tips_cents: int = Field(description="The part of the total that was tips")
 
 
 class IncomeSummary(BaseModel):
@@ -101,10 +106,11 @@ class ReportSummary(BaseModel):
     t4a: list[T4APayee]
     months: list[MonthNet] = Field(description="Every month of the end date's year so far")
     payouts: list[PayoutRow] = Field(description="Bank deposits that arrived in the period")
+    staff_pay: int = Field(description="Staff payments made in the period, as rows in its CSV")
     rates: list[ReportRate]
 
 
-ExportKind = Literal["income", "sales-by-item", "gst-hst", "pst", "t4a", "payouts"]
+ExportKind = Literal["income", "sales-by-item", "gst-hst", "pst", "t4a", "payouts", "staff-pay"]
 
 
 class ReportExportIn(BaseModel):

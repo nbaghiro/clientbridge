@@ -122,6 +122,9 @@ interface Strings {
         readonly paymentProviderError: string;
         readonly unsupportedCurrency: string;
         readonly addonLengthInUse: (count: number) => string;
+        readonly earningMoved: string;
+        readonly payNotPositive: string;
+        readonly ownPay: string;
     };
     readonly previews: {
         readonly title: string;
@@ -787,17 +790,47 @@ interface Strings {
         readonly lineOf: (rate: string, base: string) => string;
         readonly fixed: string;
         readonly hourly: string;
-        readonly sourceBooking: string;
         readonly sourceSale: string;
+        readonly sourceRefund: string;
         readonly sourceTip: string;
+        readonly sourceAdjustment: string;
         readonly tipTitle: string;
         readonly saleTitle: (n: number) => string;
         readonly selectAll: string;
+        readonly viewLabel: string;
+        readonly view: {
+            readonly todo: string;
+            readonly paid: string;
+            readonly all: string;
+        } & Labels;
+        readonly through: string;
+        readonly throughHint: string;
+        readonly paidOn: (date: string) => string;
+        readonly undoApproval: string;
+        readonly undoPayment: string;
+        readonly statement: string;
+        readonly statementTitle: string;
+        readonly statementFor: (name: string, date: string) => string;
+        readonly total: string;
+        readonly noPaid: string;
+        readonly addAdjustment: string;
+        readonly mine: {
+            readonly subtitle: string;
+            readonly empty: string;
+            readonly noPaid: string;
+            readonly noEarnings: string;
+        } & Labels;
         readonly approveSelected: (count: number) => string;
         readonly review: {
-            readonly payTitle: (amount: string) => string;
+            readonly payTitle: (amount: string, name: string) => string;
             readonly payBody: string;
             readonly markPaid: string;
+            readonly undoApprovalTitle: string;
+            readonly undoApprovalBody: string;
+            readonly undoPaymentTitle: string;
+            readonly undoPaymentBody: string;
+            readonly undo: string;
+            readonly undoRunTitle: (amount: string, name: string) => string;
         };
         readonly payApproved: (amount: string) => string;
         readonly working: string;
@@ -809,6 +842,45 @@ interface Strings {
         readonly paidVia: string;
         readonly updateError: string;
         readonly loading: string;
+        readonly removedMember: string;
+        readonly owedOnRemove: (amount: string) => string;
+        readonly adjustment: {
+            readonly title: string;
+            readonly body: string;
+            readonly kindLabel: string;
+            readonly bonus: string;
+            readonly deduction: string;
+            readonly amount: string;
+            readonly reason: string;
+            readonly reasonHint: string;
+            readonly save: string;
+            readonly amountInvalid: string;
+            readonly reasonMissing: string;
+            readonly error: string;
+        } & Labels;
+        readonly sourceWork: string;
+        readonly refundOf: (title: string) => string;
+        readonly tipRefunded: string;
+        readonly owesBackOnRemove: (amount: string) => string;
+        readonly owesBack: (amount: string) => string;
+        readonly payeeFigures: (pending: string, approved: string) => string;
+        readonly part: {
+            readonly work: string;
+            readonly tips: string;
+            readonly adjustments: string;
+            readonly refunds: string;
+        } & Labels;
+        readonly workThrough: (date: string) => string;
+        readonly noneThrough: string;
+        readonly undoRun: string;
+        readonly downloadCsv: string;
+        readonly shareStatement: string;
+        readonly readOnlySelf: string;
+        readonly showReversed: string;
+        readonly from: string;
+        readonly to: string;
+        readonly undoPaymentFor: (row: string) => string;
+        readonly undoApprovalFor: (row: string) => string;
     };
     readonly entitlements: {
         readonly segments: {
@@ -3592,6 +3664,7 @@ interface Strings {
             readonly pst: string;
             readonly t4a: string;
             readonly payouts: string;
+            readonly staffPay: string;
         } & Labels;
         readonly libraryHint: {
             readonly income: string;
@@ -3600,6 +3673,7 @@ interface Strings {
             readonly pst: string;
             readonly t4a: string;
             readonly payouts: string;
+            readonly staffPay: string;
         } & Labels;
         readonly pstTitle: (code: string) => string;
         readonly noProvincial: string;
@@ -3659,6 +3733,8 @@ interface Strings {
         readonly refundedValue: (amount: string) => string;
         readonly paymentsValue: (n: number) => string;
         readonly colPaid: string;
+        readonly colTips: string;
+        readonly tipsValue: (amount: string) => string;
         readonly qty: (n: number) => string;
         readonly sold: (n: number) => string;
         readonly taxableSales: string;
@@ -4533,6 +4609,7 @@ interface Strings {
             readonly giftCards: string;
             readonly refunds: string;
             readonly staffPay: string;
+            readonly myPay: string;
             readonly taxReturns: string;
             readonly payouts: string;
             readonly reports: string;

@@ -7679,7 +7679,7 @@
           "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
         },
         {
-          "test_key": "backend/tests/test_earnings.py::test_refund_leaves_approved_earning",
+          "test_key": "backend/tests/test_earnings.py::test_refund_claws_back_an_approved_earning",
           "coverage": "partial_related_assertions_only",
           "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
         }
@@ -7735,7 +7735,7 @@
       "completion_gate": "Implement the full scenario with real rendered browser/native interactions wherever UI exists, real app/DB and sync observation, durable/provider side-effect oracle, explicit forbidden effects, and relevant restart/concurrency edges. Existing API/unit/provider assertions supplement the journey. Record successful execution per required lane; never count skips as proof.",
       "runtime_verified": false,
       "coverage": "partial",
-      "covered_by": ["PAY-E2E-01"],
+      "covered_by": ["PAY-E2E-01", "PAY-E2E-03"],
       "coverage_gap": "The T4A year amount and untouched foreign or control earnings are not asserted."
     },
     {
@@ -7754,7 +7754,7 @@
         "tier": "committed multi-session API",
         "setup": "Real earning sources, one approved and one pending; separate sessions and deterministic barriers.",
         "actions": "Pay mixed-state batch; race approve against full refund; reverse ID order in two overlapping batches.",
-        "assertions": "Invalid batch moves none; each earning lands in one permitted policy state; approved obligation stands, pending reverses; no double bank movement/deadlock500 leak."
+        "assertions": "Invalid batch moves none; each earning lands in one permitted policy state; a refund claws back an approved or paid earning and reverses a pending one; no double bank movement/deadlock500 leak."
       },
       "required_layers": ["browser", "integration"],
       "related_evidence": [
@@ -7891,7 +7891,7 @@
           "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
         },
         {
-          "test_key": "backend/tests/test_earnings.py::test_refund_leaves_approved_earning",
+          "test_key": "backend/tests/test_earnings.py::test_refund_claws_back_an_approved_earning",
           "coverage": "partial_related_assertions_only",
           "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
         },
@@ -7906,8 +7906,9 @@
       "canonical_id": "FIN12",
       "completion_gate": "Implement the full scenario with real rendered browser/native interactions wherever UI exists, real app/DB and sync observation, durable/provider side-effect oracle, explicit forbidden effects, and relevant restart/concurrency edges. Existing API/unit/provider assertions supplement the journey. Record successful execution per required lane; never count skips as proof.",
       "runtime_verified": false,
-      "coverage": "open",
-      "covered_by": []
+      "coverage": "partial",
+      "covered_by": ["PAY-E2E-02"],
+      "coverage_gap": "A tip split and its refund are not exercised; only a paid service earning's pro rata clawback netted into the next run, and that run undone, are."
     },
     {
       "id": "FIN13",
@@ -14407,6 +14408,64 @@
       "runtime_scope": "Explicit local diagnostic mode with concurrent source changes; hosted CI and stable-candidate run pending"
     },
     {
+      "id": "PAY-E2E-02",
+      "status": "verified",
+      "risk": "critical",
+      "layer": "browser",
+      "lane": "pr",
+      "implementation": ["frontend/apps/web/e2e/earnings.e2e.ts"],
+      "setup": "Fresh staff identity through real invite acceptance at 60% of services; two owned bookings with settled CAD100 cash sales; a CAD50 refund of the first sale through the API",
+      "actions": [
+        "Pick the first earning and pay it through UI while still pending",
+        "Observe the clawback row and the owes-back figure after the refund",
+        "Pick the second earning and pay it through UI",
+        "Undo that pay run through UI and reload"
+      ],
+      "expected": [
+        "First run: one pay journal under a prun_ run, bank -6000",
+        "Clawback: staff cost -3000, pending payable +3000",
+        "Second run: earning and clawback under one new run, bank -3000, staff payable nets to 0",
+        "Undo: two undo journals, bank back to -6000, approved payable -3000, both rows Approved and Pay CAD30 offered again"
+      ],
+      "boundaries": [
+        "Sales and the refund are API prerequisites, not credited UI creation",
+        "Manual payment recording does not execute a bank transfer",
+        "Tip splits and tip refunds remain separate cases"
+      ],
+      "related_audit_families": ["FIN12"],
+      "verified_on": "2026-10-27",
+      "evidence": [".scratchpad/e2e-252812007690/browser-results/results.json"],
+      "runtime_scope": "Local run on the shared tier; hosted CI pending"
+    },
+    {
+      "id": "PAY-E2E-03",
+      "status": "verified",
+      "risk": "high",
+      "layer": "browser",
+      "lane": "pr",
+      "implementation": ["frontend/apps/web/e2e/earnings.e2e.ts"],
+      "setup": "Fresh staff identity through real invite acceptance, made a payee through the API",
+      "actions": [
+        "Add a CAD50 Holiday bonus adjustment through UI",
+        "Pay it through UI",
+        "Sign in as the member in a separate browser and open My pay",
+        "Print the paid run's statement"
+      ],
+      "expected": [
+        "Adjustment: staff cost +5000, pending payable -5000; bank -5000 and payable nets to 0 after pay",
+        "Member sees only their own pay, with no team list and no undo",
+        "Statement carries the business name, street and city from the database, the title, the bonus and its amount"
+      ],
+      "boundaries": [
+        "Printing is observed by replacing window.print; no printer output is checked",
+        "Deductions and the owner-only rule for an admin's own pay remain separate cases"
+      ],
+      "related_audit_families": ["FIN08"],
+      "verified_on": "2026-10-27",
+      "evidence": [".scratchpad/e2e-252812007690/browser-results/results.json"],
+      "runtime_scope": "Local run on the shared tier; hosted CI pending"
+    },
+    {
       "id": "CFG-E2E-01",
       "status": "verified",
       "risk": "high",
@@ -16345,8 +16404,8 @@
     "families": 302,
     "overall": {
       "covered": 0,
-      "partial": 74,
-      "open": 228
+      "partial": 75,
+      "open": 227
     },
     "by_priority": {
       "P0": {
@@ -16356,8 +16415,8 @@
       },
       "P1": {
         "covered": 0,
-        "partial": 30,
-        "open": 116
+        "partial": 31,
+        "open": 115
       },
       "P1 capability": {
         "covered": 0,
@@ -16418,8 +16477,8 @@
       },
       "9": {
         "covered": 0,
-        "partial": 10,
-        "open": 12
+        "partial": 11,
+        "open": 11
       },
       "10": {
         "covered": 0,

@@ -651,29 +651,58 @@ the funds, so the ledger is the book of record, not the authority on whether mon
 
 What posts, and where:
 
-| Event                                   | Hook                                                                                                                     | Legs                                                                                                                                                                                                                               |
-| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Invoice issued / voided                 | `billing.send_invoice` / `void_invoice`                                                                                  | client receivable + / revenue − / tax(code) − ; void reverses                                                                                                                                                                      |
-| Payment settled                         | `payments._settle_payment` (Stripe webhook), `record_invoice_payment` (by hand), recurring `invoice.payment_succeeded`   | cash + / what it paid for −: invoice receivable, order revenue + tax, booking deposit, package deferred + tax, gift card liability                                                                                                 |
-| Fees                                    | same, from the charge's balance transaction (`gateway.get_payment_fees`)                                                 | processing fee + / platform fee + / Stripe − ; platform Stripe + / fee revenue −                                                                                                                                                   |
-| Refund (full or partial)                | `refund_payment`, `refund.created` / `refund.updated` (one refund row per Stripe refund)                                 | cash − / the original credit legs unwound pro rata (a credit note; fees stay with Stripe and the platform, except a refund we start for an expired or out-of-stock order, which returns the platform fee as `fee_return:<refund>`) |
-| Refund failed after it succeeded        | `refund.updated` or `refund.failed` (`ledger.reverse_refund`)                                                            | the refund journal reversed; a deposit's forfeit taken back by the refund is forfeited again                                                                                                                                       |
-| Dispute opened / won                    | `charge.dispute.created`, `.updated` or `.funds_withdrawn` (an escalated inquiry) / `.closed` won or `.funds_reinstated` | Stripe − / payer receivable + (+ dispute fee); won reverses, with the fee returned from the reinstating balance transaction                                                                                                        |
-| Dispute lost                            | `charge.dispute.closed` lost (`ledger.lose_dispute`)                                                                     | receivable cleared and the sale unwound pro rata like a refund (a write-off), capped at what the sale and any gift card or package still hold; the rest to `loss`; the document reads refunded                                     |
-| Stripe payout                           | `payout.created` / `payout.paid` (which also books the creation if it was missed) / `payout.failed` or `payout.canceled` | created: transit + / Stripe − ; paid, dated at arrival: bank + / transit − ; failed or canceled reverses whichever exist                                                                                                           |
-| Gift card redeemed                      | `entitlements.redeem_gift_card`                                                                                          | gift card liability + / revenue −                                                                                                                                                                                                  |
-| Package session used                    | `entitlements.consume_session`                                                                                           | deferred + / revenue − (the last session takes the remainder)                                                                                                                                                                      |
-| Gift card or package expired            | `entitlements.run_expiry_sweeps` (`ledger.post_breakage`)                                                                | gift card liability or deferred + / revenue − (breakage on the unused balance)                                                                                                                                                     |
-| Tax return filed                        | `POST /v1/payments/remittances` (`remittances`)                                                                          | tax(code) + per code owed for the period / bank − ; the period is in the journal's `meta`                                                                                                                                          |
-| Deposit forfeited                       | no-show in `bookings` (or settlement after it)                                                                           | deposit + / revenue − ; a refund or lost dispute takes the forfeit back first                                                                                                                                                      |
-| Deposit applied                         | invoice sent with the booking on a line, or the deposit settling after that (`bookings.apply_deposit`)                   | deposit + / client receivable − ; a void, a refund or a lost dispute of the deposit reverses it                                                                                                                                    |
-| Staff earning accrued / approved / paid | `earnings` (invoice fully paid, `/v1/earnings/approve`, `/v1/earnings/pay`)                                              | staff cost + / payable(pending) − ; pending → approved ; approved → bank                                                                                                                                                           |
+| Event                                    | Hook                                                                                                                     | Legs                                                                                                                                                                                                                               |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Invoice issued / voided                  | `billing.send_invoice` / `void_invoice`                                                                                  | client receivable + / revenue − / tax(code) − ; void reverses                                                                                                                                                                      |
+| Payment settled                          | `payments._settle_payment` (Stripe webhook), `record_invoice_payment` (by hand), recurring `invoice.payment_succeeded`   | cash + / what it paid for −: invoice receivable, order revenue + tax, booking deposit, package deferred + tax, gift card liability                                                                                                 |
+| Fees                                     | same, from the charge's balance transaction (`gateway.get_payment_fees`)                                                 | processing fee + / platform fee + / Stripe − ; platform Stripe + / fee revenue −                                                                                                                                                   |
+| Refund (full or partial)                 | `refund_payment`, `refund.created` / `refund.updated` (one refund row per Stripe refund)                                 | cash − / the original credit legs unwound pro rata (a credit note; fees stay with Stripe and the platform, except a refund we start for an expired or out-of-stock order, which returns the platform fee as `fee_return:<refund>`) |
+| Refund failed after it succeeded         | `refund.updated` or `refund.failed` (`ledger.reverse_refund`)                                                            | the refund journal reversed; a deposit's forfeit taken back by the refund is forfeited again                                                                                                                                       |
+| Dispute opened / won                     | `charge.dispute.created`, `.updated` or `.funds_withdrawn` (an escalated inquiry) / `.closed` won or `.funds_reinstated` | Stripe − / payer receivable + (+ dispute fee); won reverses, with the fee returned from the reinstating balance transaction                                                                                                        |
+| Dispute lost                             | `charge.dispute.closed` lost (`ledger.lose_dispute`)                                                                     | receivable cleared and the sale unwound pro rata like a refund (a write-off), capped at what the sale and any gift card or package still hold; the rest to `loss`; the document reads refunded                                     |
+| Stripe payout                            | `payout.created` / `payout.paid` (which also books the creation if it was missed) / `payout.failed` or `payout.canceled` | created: transit + / Stripe − ; paid, dated at arrival: bank + / transit − ; failed or canceled reverses whichever exist                                                                                                           |
+| Gift card redeemed                       | `entitlements.redeem_gift_card`                                                                                          | gift card liability + / revenue −                                                                                                                                                                                                  |
+| Package session used                     | `entitlements.consume_session`                                                                                           | deferred + / revenue − (the last session takes the remainder)                                                                                                                                                                      |
+| Gift card or package expired             | `entitlements.run_expiry_sweeps` (`ledger.post_breakage`)                                                                | gift card liability or deferred + / revenue − (breakage on the unused balance)                                                                                                                                                     |
+| Tax return filed                         | `POST /v1/payments/remittances` (`remittances`)                                                                          | tax(code) + per code owed for the period / bank − ; the period is in the journal's `meta`                                                                                                                                          |
+| Deposit forfeited                        | no-show in `bookings` (or settlement after it)                                                                           | deposit + / revenue − ; a refund or lost dispute takes the forfeit back first                                                                                                                                                      |
+| Deposit applied                          | invoice sent with the booking on a line, or the deposit settling after that (`bookings.apply_deposit`)                   | deposit + / client receivable − ; a void, a refund or a lost dispute of the deposit reverses it                                                                                                                                    |
+| Staff earning accrued / approved / paid  | `earnings` (document fully paid, package cover, `/v1/earnings/approve`, `/v1/earnings/pay`)                              | staff cost + / payable(pending) − ; pending → approved ; approved → bank, the run and the last day of work in the pay's `meta`                                                                                                     |
+| Staff earning approval or payment undone | `/v1/earnings/unapprove`, `/v1/earnings/unpay`                                                                           | the stage journal reversed under `<stage>:<earning>:<n>:undo`, dated when it's undone                                                                                                                                              |
+| Staff earning clawed back                | refund or failed refund of its document or package (`earnings.claw_back`, `claw_back_package`)                           | staff cost − / payable(pending) + for the refunded share, or back when a refund fails                                                                                                                                              |
+| Staff adjustment                         | `/v1/earnings/adjustments`                                                                                               | staff cost ± / payable(pending) ∓ ; then approved and paid like an earning                                                                                                                                                         |
 
-An earning accrues once per booking and member: a paid document's booking lines are grouped by the line's
-`staff_id`, or the booking's member and its crew in even shares when the line names none or names the lead, and
-each group earns at that member's rate under
+An earning accrues once per booking and member: a paid document's booked service and custom lines are grouped by
+the line's `staff_id`, or the booking's member and its crew in even shares when the line names none or names the
+lead, and each group earns at that member's rate under
 the ref `earning:<booking>:<staff>:<n>`, where `n` counts that member's earlier journals on the booking. A journal
-is found by its subject and the member's payable leg, so one posted under an older ref still counts.
+is found by its subject and the member's payable leg, so one posted under an older ref still counts. A visit a
+package covers accrues the same way when it's covered, on the session's share of the package price.
+
+Every other line, a line without a booking or a booked product such as an add-on, earns for its `staff_id` (else
+the visit's member, else a sale's seller) under `earning:line:<line>:<n>`, with the document as subject: service and
+custom lines at the service rate (percent of the line, or the fixed rate per line; hourly needs a visit), product
+lines on an invoice at the retail rate, and entitlements nothing. A sale's products earn its seller's retail
+commission instead, under `earning:order:<order>:<n>` with the order as both source and subject.
+
+Each accrual's `meta` carries what a member's own replica needs to show it, since it holds no documents: the
+basis, the rate, the base it was earned on, a label, the client and, for a visit, when the work was done.
+
+An earning's status counts its stage journals, each found by `source = ("journal", <earning>)`: approvals and
+payments net of their `:undo` reversals, and `earning:<earning>:reversal` for a reversed one. A refund reverses a
+pending earning when its document is fully refunded; otherwise `claw_back` holds back the refunded share (the
+document's revenue still booked over the revenue first booked) as a pending negative earning under
+`earning:<earning>:clawback:<n>`, and a failed refund posts it back. Each sync keeps the earning's open clawbacks
+equal to the refunded share and posts only when that changes. A refunded package claws back the visits it covered
+the same way, on the share of its deferred revenue refunded, and never reverses them. Adjustments are earnings
+with basis `adjustment`, a reason and the member as subject.
+
+A pay moves the rows it names in one run, approving any still pending on the way, and settles with them the
+member's open clawbacks and returned tips whose earning or tip is paid, reversed or in the same run. A run that
+would pay a member nothing or less is refused. Every move locks the members' staff rows in id order, then the
+rows' subjects in sorted order. An undone payment keeps its run's id, so the run's CSV nets it out. A refund
+that fails cancels its returned tips that no pay has settled. An admin can't approve, pay or adjust their own
+pay; only the owner can.
 
 Derived from the ledger rather than stored: an invoice's and order's balance and amount paid, gift card
 balances, package deferred revenue, client lifetime value, staff earnings and their status, tax payable per code, today's revenue, and Stripe
@@ -719,6 +748,11 @@ entitlement and its liability are created.
   shop refuses an order larger than the stock.
 - **Retail commission:** a paid sale accrues an earning for its staff member at `staff.retail_rate_bps` on the
   product lines before tax, using the same earning journals as bookings.
+- **Staff pay:** owners and admins approve, pay and undo from Payments → Staff pay, by row or by pay run; every
+  other member sees their own entries there as My pay. Paid rows are grouped by run, with a statement (printed on
+  web, shared as text on mobile) and the run's CSV. The T4A lists everything paid in the calendar year to each
+  member but the owner, with tips apart, and the staff pay CSV lists each payment in a period, an undo on the day
+  it was made.
 - **Online shop:** products marked `sell_online` are listed at `shop.D/<slug>` on Connect, and staff share that link and its QR code from Products. An order is paid by
   card, has `source = online`, and moves through `pickup_status` (unfulfilled, ready, picked up) from Sales.
 - **Booking add-ons:** products the owner offers at booking (`items.addon`, with `addon_for` naming the
@@ -937,8 +971,9 @@ Everything else — SQL, mutations, validation, status→`Intent` decisions, cop
 Both apps show the same five destinations from `domain/navigation.ts`: Today, Schedule, Clients, Payments
 and Inbox, plus Setup. Web renders them as a sidebar and mobile as a tab bar with a create button, with
 Inbox and Setup as icons in the header. Payments is one page with tabs (Invoices, Sales, Gift cards,
-Refunds, Staff pay, Tax returns, Payouts, Reports); staff see only Sales, because every other action is owner
-or admin on the backend. Inbox has Messages, Reviews, Broadcasts, Forms and Contracts; staff see only
+Refunds, Staff pay, Tax returns, Payouts, Reports); staff see Sales and their own pay (the Staff pay tab, named
+My pay and read-only), because every other action is owner or admin on the backend. Inbox has Messages,
+Reviews, Broadcasts, Forms and Contracts; staff see only
 Messages. Setup has Get set up, Business, Services & products, Team & hours, Getting paid, Plan (owner only),
 Sales tax, Online booking, Reminders and Sign-in & security, on both platforms; staff see only Team & hours
 and Sign-in & security, and can edit only their own hours. The visibility rules (`visiblePaymentsTabs`, `setupSectionsFor`,

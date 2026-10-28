@@ -18,6 +18,7 @@ import {
     usePeoplePhotos,
     useStaffPay,
     useRemoveMember,
+    useOwedPay,
     useStaffPayForm,
     useStaffProfileForm,
     useTeam,
@@ -246,6 +247,7 @@ function RemoveSheet({
         onRemoved();
     };
     const removal = useRemoveMember(api, member, team.members, finish);
+    const owed = useOwedPay(member.id);
     const outcome = removal.outcome;
     if (outcome !== null) {
         return (
@@ -319,6 +321,13 @@ function RemoveSheet({
                         </View>
                     ) : null}
                 </>
+            ) : null}
+            {owed !== null ? (
+                <View style={styles.gapSm}>
+                    <Notice tone="info" banner>
+                        {owed}
+                    </Notice>
+                </View>
             ) : null}
             {removal.error !== null ? (
                 <View style={styles.gapSm}>

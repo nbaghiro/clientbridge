@@ -116,7 +116,15 @@ const PAYMENTS_TABS: { key: PaymentsTabKey; label: string; managersOnly: boolean
 ];
 
 export function visiblePaymentsTabs(role: string | null): typeof PAYMENTS_TABS {
-    return PAYMENTS_TABS.filter((t) => !t.managersOnly || canManagePayments(role));
+    if (canManagePayments(role)) return PAYMENTS_TABS;
+    // every other member sees their own pay where managers see everyone's
+    return PAYMENTS_TABS.flatMap((t) =>
+        t.key === "staffPay" && role !== null
+            ? [{ ...t, label: strings.navigation.paymentsTabs.myPay, managersOnly: false }]
+            : t.managersOnly
+              ? []
+              : [t],
+    );
 }
 
 export type InboxSegmentKey = "messages" | "reviews" | "broadcasts" | "forms" | "contracts";
