@@ -6,7 +6,7 @@ import { useState } from "react";
 
 import { type Load } from "../hooks";
 import { strings } from "../strings";
-import { addDays, formatShortDay, parseTimestamp, useBusinessZone } from "../datetime";
+import { addDays, CALENDAR, formatShortDay, parseTimestamp, useBusinessZone } from "../datetime";
 import type { Intent } from "../ui";
 import { formatMoney, formatParts } from "../format";
 import { utcFromSql, utcSql } from "../datetime";
@@ -95,9 +95,12 @@ export function payoutStatusIntent(status: string): Intent {
           : "neutral";
 }
 
-function payoutWhen(row: PayoutRow, zone: string): string {
-    const at = row.arrival_at ?? row.occurred_at;
-    const when = formatShortDay(parseTimestamp(at), zone);
+export function payoutWhen(row: PayoutRow, zone: string): string {
+    // Stripe's arrival_date is a calendar day sent as its midnight UTC
+    const when =
+        row.arrival_at === null
+            ? formatShortDay(parseTimestamp(row.occurred_at), zone)
+            : formatShortDay(parseTimestamp(row.arrival_at), CALENDAR);
     if (row.status === "failed" || row.status === "canceled") return strings.payouts.returned(when);
     return row.status === "paid" ? strings.payouts.arrived(when) : strings.payouts.expected(when);
 }
