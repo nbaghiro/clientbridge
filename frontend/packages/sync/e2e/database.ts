@@ -1,5 +1,7 @@
 import { AppSchema } from "../src/schema";
 import { holdReplicaFile } from "../src/files";
+import { ReplicaController } from "../src/lifecycle";
+import { browserTabs } from "../src/tabs";
 import { PowerSyncDatabase, WASQLiteVFS } from "@powersync/web";
 import { Schema, Table, column } from "@powersync/common";
 
@@ -68,13 +70,21 @@ export async function openAuthorizationReplica(filename: string) {
     return db;
 }
 
-export { ReplicaController, replicaFilename } from "../src/lifecycle";
+export { replicaFilename } from "../src/lifecycle";
 export { removeReplicaFiles } from "../src/files";
 
 export function replicaDatabase(filename: string) {
     const db = new PowerSyncDatabase({ schema: AppSchema, database: replicaOptions(filename) });
     holdReplicaFile(db, filename);
     return db;
+}
+
+// the controller as the web app builds it, with tabs sharing the sync worker where the browser has one
+export function replicaController(
+    open: (filename: string) => PowerSyncDatabase = replicaDatabase,
+    files?: ConstructorParameters<typeof ReplicaController>[1],
+) {
+    return new ReplicaController(open, files, browserTabs);
 }
 
 export const liveReplicas = new Map<string, PowerSyncDatabase>();

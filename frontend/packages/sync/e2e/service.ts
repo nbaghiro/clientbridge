@@ -1,3 +1,6 @@
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+
 function required(name: string): string {
     const value = process.env[name];
     if (!value) throw new Error(`${name} is not set: run make test-sync`);
@@ -31,4 +34,11 @@ export function fixtures(ids: string[]): string[] {
 export function seeded(id: string): string {
     const suffix = `_${required("SYNC_TEST_NAMESPACE")}`;
     return id.endsWith(suffix) ? id.slice(0, -suffix.length) : id;
+}
+
+/** Runs a `python -m e2e.sync` command against the run's database and returns its output. */
+export async function backend(...args: string[]): Promise<string> {
+    const python = required("SYNC_TEST_PYTHON");
+    const cwd = required("SYNC_TEST_BACKEND");
+    return (await promisify(execFile)(python, ["-m", "e2e.sync", ...args], { cwd })).stdout;
 }

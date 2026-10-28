@@ -15911,6 +15911,7 @@
         "Sign in again"
       ],
       "expected": [
+        "The second tab shows the sign-in screen",
         "The account's OPFS entries are gone by the next page load",
         "No replica is left listed for deletion",
         "The next sign-in opens a new replica under the same name"
@@ -15943,12 +15944,11 @@
       ],
       "expected": [
         "The second tab opens within 10 seconds and reads the same businesses",
-        "With tab-local sync (WebKit), the second tab connects once the first closes"
+        "The second tab is connected again once the first closes"
       ],
       "forbidden": ["The second tab waiting on PowerSync's sync lock"],
       "boundaries": [
-        "Runs in Chromium, Firefox and WebKit on OPFS, and in Chromium and Firefox on IndexedDB",
-        "With a shared sync worker (Chromium, Firefox) one tab's close disconnects every tab; the case checks only that the second still reads"
+        "Runs in Chromium, Firefox and WebKit on OPFS, and in Chromium and Firefox on IndexedDB"
       ],
       "depends_on": ["sync_fixtures"],
       "related_audit_families": ["SYN01", "SYN04"]
@@ -16167,6 +16167,111 @@
       ],
       "depends_on": ["sync_fixtures"],
       "related_audit_families": ["SYN02", "SYN11"]
+    },
+    {
+      "id": "SYN-E2E-31",
+      "status": "implemented",
+      "layer": "browser",
+      "lane": "pr",
+      "risk": "high",
+      "implementation": [
+        "frontend/packages/sync/e2e/lifecycle.e2e.ts",
+        "frontend/packages/sync/src/lifecycle.ts",
+        "frontend/packages/sync/src/tabs.ts"
+      ],
+      "setup": "Two tabs of one profile syncing the same replica with a real owner token",
+      "actions": [
+        "Pause the first tab and rename the owner on the server",
+        "Close the first tab and restore the name",
+        "Reopen and pause the first tab, close the second and rename again"
+      ],
+      "expected": [
+        "Each server change reaches the second tab while the first is paused or closed",
+        "Once the last syncing tab closes, the paused tab receives nothing and is disconnected"
+      ],
+      "forbidden": [
+        "One tab's pause or close stopping sync for the other tabs"
+      ],
+      "boundaries": [
+        "Runs in Chromium, Firefox and WebKit on OPFS, and in Chromium and Firefox on IndexedDB"
+      ],
+      "depends_on": ["sync_fixtures"],
+      "related_audit_families": ["SYN01", "SYN04"]
+    },
+    {
+      "id": "SYN-E2E-32",
+      "status": "implemented",
+      "layer": "browser",
+      "lane": "pr",
+      "risk": "high",
+      "implementation": [
+        "frontend/packages/sync/e2e/lifecycle.e2e.ts",
+        "frontend/packages/sync/src/lifecycle.ts"
+      ],
+      "setup": "Two tabs of one profile syncing the same replica",
+      "actions": [
+        "Reload and reopen the first tab five times while the second writes a row each time",
+        "Rename the owner on the server"
+      ],
+      "expected": [
+        "After each reload the first tab reads every row the second wrote",
+        "Both tabs receive the rename"
+      ],
+      "boundaries": [
+        "Runs in Chromium and WebKit on OPFS and in Chromium on IndexedDB; not in Firefox, whose shared sync worker keeps the connection of every stream it restarts, so sync stops after six restarts"
+      ],
+      "depends_on": ["sync_fixtures"],
+      "related_audit_families": ["SYN01", "SYN15"]
+    },
+    {
+      "id": "SYN-E2E-33",
+      "status": "implemented",
+      "layer": "browser",
+      "lane": "pr",
+      "risk": "high",
+      "implementation": [
+        "frontend/packages/sync/e2e/lifecycle.e2e.ts",
+        "frontend/packages/sync/src/lifecycle.ts"
+      ],
+      "setup": "Two tabs of one profile syncing the same OPFS replica",
+      "actions": [
+        "Sign out (discard) in the first tab",
+        "Close the second tab"
+      ],
+      "expected": [
+        "Sync stops in both tabs and nothing reconnects it",
+        "The files stay while the second tab holds them and are removed once it closes"
+      ],
+      "boundaries": [
+        "OPFS only; the second tab's close stands in for the session change the web app reacts to (XB-E2E-20)"
+      ],
+      "depends_on": ["sync_fixtures"],
+      "related_audit_families": ["SYN04"]
+    },
+    {
+      "id": "SYN-E2E-34",
+      "status": "implemented",
+      "layer": "browser",
+      "lane": "pr",
+      "risk": "high",
+      "implementation": [
+        "frontend/packages/sync/e2e/lifecycle.e2e.ts",
+        "frontend/packages/sync/src/hours.ts"
+      ],
+      "setup": "Two tabs of one replica, both running the hours upload loop; a 1.5 second answer from the real hours command",
+      "actions": [
+        "Queue a week in the first tab",
+        "After it lands, queue the next week in the second"
+      ],
+      "expected": [
+        "Each operation is posted exactly once",
+        "The server revision is 2 and both tabs drain their outbox"
+      ],
+      "boundaries": [
+        "Runs in Chromium, Firefox and WebKit on OPFS, and in Chromium and Firefox on IndexedDB"
+      ],
+      "depends_on": ["sync_fixtures"],
+      "related_audit_families": ["SYN08", "SYN10"]
     },
     {
       "id": "OFF-E2E-02",

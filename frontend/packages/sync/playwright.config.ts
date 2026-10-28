@@ -28,13 +28,15 @@ export default defineConfig({
         ...(["firefox", "webkit"] as const).map((browserName) => ({
             name: browserName,
             testMatch: "lifecycle.e2e.ts",
+            // Firefox's shared sync worker keeps each restarted stream's connection; six stop sync
+            ...(browserName === "firefox" ? { grepInvert: /@stream-restarts/ } : {}),
             use: { browserName },
         })),
         // IndexedDB, which Chromium and Firefox keep the replica in until the OPFS switch
         ...(["chromium", "firefox"] as const).map((browserName) => ({
             name: `${browserName}-indexeddb`,
             testMatch: ["lifecycle.e2e.ts", "hours.e2e.ts"],
-            grepInvert: /@opfs/,
+            grepInvert: browserName === "firefox" ? /@opfs|@stream-restarts/ : /@opfs/,
             metadata: { storage: "indexeddb" },
             use: { browserName },
         })),

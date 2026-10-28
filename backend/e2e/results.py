@@ -171,7 +171,11 @@ SYNC_LIFECYCLE = [
     "initialization opens only the account-scoped replica",
     "tabs opening the same fresh replica at once both claim it",
     "SYN-E2E-20",
+    "SYN-E2E-31",
+    "SYN-E2E-34",
 ]
+# Firefox's shared sync worker keeps the connection of every stream it restarts, so it skips these
+SYNC_LIFECYCLE_RESTARTS = ["SYN-E2E-32"]
 SYNC_LIFECYCLE_OPFS = [
     "close keeps the replica file and the next activation reopens it",
     "discard with removeReplicaFiles leaves no file of the replica",
@@ -180,6 +184,7 @@ SYNC_LIFECYCLE_OPFS = [
     "SYN-E2E-23",
     "SYN-E2E-27",
     "SYN-E2E-28",
+    "SYN-E2E-33",
 ]
 # the outbox cases, which also run on IndexedDB
 SYNC_HOURS = [
@@ -200,6 +205,7 @@ SYNC_CASES = {
         "lost command response replays once and the accepted week returns through PowerSync",
         *SYNC_HOURS,
         *SYNC_LIFECYCLE,
+        *SYNC_LIFECYCLE_RESTARTS,
         *SYNC_LIFECYCLE_OPFS,
         *(f"{role} receives only authorized businesses through the real service" for role in ROLES),
         "selected-business queries isolate lists, details and aggregate subqueries",
@@ -215,8 +221,8 @@ SYNC_CASES = {
         "a write past the origin's quota on OPFS reads as storage full",
     ],
     "firefox": SYNC_LIFECYCLE + SYNC_LIFECYCLE_OPFS,
-    "webkit": SYNC_LIFECYCLE + SYNC_LIFECYCLE_OPFS,
-    "chromium-indexeddb": SYNC_LIFECYCLE + SYNC_HOURS,
+    "webkit": SYNC_LIFECYCLE + SYNC_LIFECYCLE_RESTARTS + SYNC_LIFECYCLE_OPFS,
+    "chromium-indexeddb": SYNC_LIFECYCLE + SYNC_LIFECYCLE_RESTARTS + SYNC_HOURS,
     "firefox-indexeddb": SYNC_LIFECYCLE + SYNC_HOURS,
 }
 

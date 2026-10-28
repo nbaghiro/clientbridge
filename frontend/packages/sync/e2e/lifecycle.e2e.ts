@@ -1,14 +1,79 @@
-import { expect } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 import { test } from "./engines";
-import { endpoint, fixture, token } from "./service";
+import { backend, endpoint, fixture, token } from "./service";
+
+interface TabWindow {
+    manager: {
+        pause: () => Promise<void>;
+        close: () => Promise<void>;
+        discard: (identity: { userId: string; scope: string }) => Promise<void>;
+    };
+    db: {
+        getAll: <T>(sql: string, params?: unknown[]) => Promise<T[]>;
+        execute: (sql: string, params?: unknown[]) => Promise<unknown>;
+        currentStatus: { connected: boolean };
+        database: { getConfiguration: () => { enableMultiTabs: boolean } };
+    };
+}
+
+// a tab of the account's replica as the web app opens it, syncing as the owner and uploading hours
+function openTab(tab: Page, userId: string): Promise<void> {
+    return tab.evaluate(
+        async ({ userId, endpoint, token }) => {
+            const { replicaController, removeReplicaFiles, startHoursUploads } =
+                await import("./database");
+            const removed: boolean[] = [];
+            const manager = replicaController(undefined, {
+                list: () => undefined,
+                remove: async (filename) => {
+                    const deadline = Date.now() + 10_000;
+                    let gone = await removeReplicaFiles(filename);
+                    while (!gone && Date.now() < deadline) {
+                        await new Promise((resolve) => setTimeout(resolve, 250));
+                        gone = await removeReplicaFiles(filename);
+                    }
+                    removed.push(gone);
+                },
+            });
+            const db = await manager.activate(
+                { userId, scope: "https://app.test" },
+                {
+                    fetchCredentials: () => Promise.resolve({ endpoint, token }),
+                    uploadData: () => Promise.resolve(),
+                    startUploads: (db) => startHoursUploads(db, (path, init) => fetch(path, init)),
+                },
+            );
+            await db.waitForFirstSync(AbortSignal.timeout(20_000));
+            Object.assign(window, { manager, db, removed });
+        },
+        { userId, endpoint: endpoint(), token: token("owner") },
+    );
+}
+
+function ownerName(tab: Page): Promise<string | null> {
+    return tab.evaluate(async (owner) => {
+        const { db } = window as unknown as TabWindow;
+        const rows = await db.getAll<{ name: string | null }>(
+            "SELECT name FROM users WHERE id = ?",
+            [owner],
+        );
+        return rows[0]?.name ?? null;
+    }, fixture("us_owner"));
+}
+
+function tabLocal(tab: Page): Promise<boolean> {
+    return tab.evaluate(
+        () => !(window as unknown as TabWindow).db.database.getConfiguration().enableMultiTabs,
+    );
+}
 
 test("reauthentication preserves edits and account/environment switches isolate replicas", async ({
     page,
 }) => {
     await page.goto("/");
     const result = await page.evaluate(async () => {
-        const { ReplicaController, replicaDatabase, enqueueHours } = await import("./database");
-        const manager = new ReplicaController(replicaDatabase);
+        const { replicaController, enqueueHours } = await import("./database");
+        const manager = replicaController();
         const connector = {
             fetchCredentials: () => Promise.resolve(null),
             uploadData: () => Promise.resolve(),
@@ -79,9 +144,9 @@ test("reauthentication preserves edits and account/environment switches isolate 
 test("initialization opens only the account-scoped replica", async ({ page }) => {
     await page.goto("/");
     const names = await page.evaluate(async () => {
-        const { ReplicaController, replicaDatabase } = await import("./database");
+        const { replicaController, replicaDatabase } = await import("./database");
         const opened: string[] = [];
-        const manager = new ReplicaController((name) => {
+        const manager = replicaController((name) => {
             opened.push(name);
             return replicaDatabase(name);
         });
@@ -103,8 +168,8 @@ test("tabs opening the same fresh replica at once both claim it", async ({ conte
     const results = await Promise.all(
         tabs.map((tab) =>
             tab.evaluate(async (user) => {
-                const { ReplicaController, replicaDatabase } = await import("./database");
-                const manager = new ReplicaController(replicaDatabase);
+                const { replicaController } = await import("./database");
+                const manager = replicaController();
                 try {
                     await manager.activate(
                         {
@@ -134,10 +199,10 @@ test(
         await page.goto("/");
         const result = await page.evaluate(
             async (userId) => {
-                const { ReplicaController, replicaDatabase, replicaFiles, enqueueHours } =
+                const { replicaController, replicaDatabase, replicaFiles, enqueueHours } =
                     await import("./database");
                 let name = "";
-                const manager = new ReplicaController((filename) => {
+                const manager = replicaController((filename) => {
                     name = filename;
                     return replicaDatabase(filename);
                 });
@@ -191,11 +256,11 @@ test(
         await page.goto("/");
         const result = await page.evaluate(
             async (userId) => {
-                const { ReplicaController, replicaDatabase, replicaFiles, removeReplicaFiles } =
+                const { replicaController, replicaDatabase, replicaFiles, removeReplicaFiles } =
                     await import("./database");
                 let name = "";
                 const removed: boolean[] = [];
-                const manager = new ReplicaController(
+                const manager = replicaController(
                     (filename) => {
                         name = filename;
                         return replicaDatabase(filename);
@@ -235,9 +300,9 @@ test(
         for (const tab of [holder, remover]) await tab.goto("/");
         const name = await holder.evaluate(
             async (userId) => {
-                const { ReplicaController, replicaDatabase } = await import("./database");
+                const { replicaController, replicaDatabase } = await import("./database");
                 let opened = "";
-                const manager = new ReplicaController((filename) => {
+                const manager = replicaController((filename) => {
                     opened = filename;
                     return replicaDatabase(filename);
                 });
@@ -281,8 +346,8 @@ test("SYN-E2E-20 a second connected tab opens the replica and takes over sync wh
     const open = (tab: typeof one) =>
         tab.evaluate(
             async ({ user, endpoint, token }) => {
-                const { ReplicaController, replicaDatabase } = await import("./database");
-                const manager = new ReplicaController(replicaDatabase);
+                const { replicaController } = await import("./database");
+                const manager = replicaController();
                 const started = performance.now();
                 const db = await manager.activate(
                     { userId: user, scope: "https://app.test" },
@@ -310,21 +375,11 @@ test("SYN-E2E-20 a second connected tab opens the replica and takes over sync wh
         (window as unknown as { manager: { close: () => Promise<void> } }).manager.close(),
     );
     const after = await two.evaluate(async () => {
-        const { db } = window as unknown as {
-            db: {
-                getAll: (sql: string) => Promise<{ id: string }[]>;
-                database: { getConfiguration: () => { enableMultiTabs: boolean } };
-            };
-        };
-        const rows = await db.getAll("SELECT id FROM businesses ORDER BY id");
-        return {
-            businesses: rows.map((row) => row.id),
-            tabLocal: !db.database.getConfiguration().enableMultiTabs,
-        };
+        const { db } = window as unknown as TabWindow;
+        const rows = await db.getAll<{ id: string }>("SELECT id FROM businesses ORDER BY id");
+        return rows.map((row) => row.id);
     });
-    expect(after.businesses).toEqual(first.businesses);
-    // a shared sync worker (Chromium, Firefox) stops for every tab when one disconnects
-    if (!after.tabLocal) return;
+    expect(after).toEqual(first.businesses);
     const connected = () =>
         two.evaluate(
             () =>
@@ -359,11 +414,11 @@ test(
         }, identity);
         const result = await tab.evaluate(
             async ({ identity, name }) => {
-                const { ReplicaController, replicaDatabase, removeReplicaFiles } =
+                const { replicaController, replicaDatabase, removeReplicaFiles } =
                     await import("./database");
                 const listed: string[] = [];
                 const removed: boolean[] = [];
-                const manager = new ReplicaController(replicaDatabase, {
+                const manager = replicaController(replicaDatabase, {
                     list: (filename) => listed.push(filename),
                     remove: async (filename) => {
                         removed.push(await removeReplicaFiles(filename));
@@ -428,7 +483,7 @@ test(
         await page.goto("/");
         const result = await page.evaluate(
             async (userId) => {
-                const { ReplicaController, replicaDatabase, replicaFiles, removeReplicaFiles } =
+                const { replicaController, replicaDatabase, replicaFiles, removeReplicaFiles } =
                     await import("./database");
                 const identity = { userId, scope: "https://app.test" };
                 const files = {
@@ -438,7 +493,7 @@ test(
                     },
                 };
                 let name = "";
-                const first = new ReplicaController((filename) => {
+                const first = replicaController((filename) => {
                     name = filename;
                     return replicaDatabase(filename);
                 }, files);
@@ -449,7 +504,7 @@ test(
                 await first.close();
                 const before = await replicaFiles(name);
                 // a page that never opened the replica, as on the verify-email screen
-                await new ReplicaController(replicaDatabase, files).discard(identity);
+                await replicaController(replicaDatabase, files).discard(identity);
                 return { before: before.length, after: await replicaFiles(name) };
             },
             `unopened-${String(Date.now())}`,
@@ -467,8 +522,8 @@ test(
         const activate = (endpoint: string) =>
             page.evaluate(
                 async ({ userId, endpoint, token }) => {
-                    const { ReplicaController, replicaDatabase } = await import("./database");
-                    const manager = new ReplicaController(replicaDatabase);
+                    const { replicaController } = await import("./database");
+                    const manager = replicaController();
                     const db = await manager.activate(
                         { userId, scope: "https://app.test" },
                         {
@@ -533,3 +588,235 @@ test(
         expect(answers).toEqual([{ granted: true }, { granted: true }, { granted: true }]);
     },
 );
+
+test("SYN-E2E-31 a tab that pauses or closes leaves the other tabs syncing, and the last one ends sync", async ({
+    context,
+}) => {
+    test.setTimeout(120_000);
+    const [one, two] = [await context.newPage(), await context.newPage()];
+    for (const tab of [one, two]) await tab.goto("/");
+    const user = `handoff-${String(Date.now())}`;
+    try {
+        await openTab(one, user);
+        await openTab(two, user);
+        expect(await ownerName(two)).toBe("owner");
+
+        await one.evaluate(() => (window as unknown as TabWindow).manager.pause());
+        await backend("mutate", "rename");
+        await expect.poll(() => ownerName(two), { timeout: 20_000 }).toBe("renamed");
+
+        await one.evaluate(() => (window as unknown as TabWindow).manager.close());
+        await backend("mutate", "restore_name");
+        await expect.poll(() => ownerName(two), { timeout: 20_000 }).toBe("owner");
+
+        // one reopens and pauses, so two is the last tab syncing when it closes
+        await openTab(one, user);
+        await one.evaluate(() => (window as unknown as TabWindow).manager.pause());
+        await two.evaluate(() => (window as unknown as TabWindow).manager.close());
+        await backend("mutate", "rename");
+        await one.waitForTimeout(5_000);
+        expect(await ownerName(one)).toBe("owner");
+        expect(
+            await one.evaluate(() => (window as unknown as TabWindow).db.currentStatus.connected),
+        ).toBe(false);
+    } finally {
+        await backend("mutate", "restore_name");
+    }
+});
+
+test(
+    "SYN-E2E-32 a tab reloading repeatedly while another writes leaves both current and syncing",
+    { tag: "@stream-restarts" },
+    async ({ context }) => {
+        test.setTimeout(180_000);
+        const [one, two] = [await context.newPage(), await context.newPage()];
+        for (const tab of [one, two]) await tab.goto("/");
+        const user = `reload-${String(Date.now())}`;
+        try {
+            await openTab(one, user);
+            await openTab(two, user);
+            const notes = (tab: Page) =>
+                tab.evaluate(async () =>
+                    (
+                        await (window as unknown as TabWindow).db.getAll<{ id: string }>(
+                            "SELECT id FROM device_prefs WHERE id LIKE 'note.%' ORDER BY id",
+                        )
+                    ).map((row) => row.id),
+                );
+            const written: string[] = [];
+            for (let round = 0; round < 5; round++) {
+                const id = `note.${String(round)}`;
+                written.push(id);
+                await Promise.all([
+                    one.reload().then(() => openTab(one, user)),
+                    two.evaluate(
+                        (id) =>
+                            (window as unknown as TabWindow).db.execute(
+                                "INSERT INTO device_prefs (id, value) VALUES (?, 'written')",
+                                [id],
+                            ),
+                        id,
+                    ),
+                ]);
+                expect(await notes(one)).toEqual(written);
+            }
+            expect(await notes(two)).toEqual(written);
+            await backend("mutate", "rename");
+            await expect.poll(() => ownerName(two), { timeout: 20_000 }).toBe("renamed");
+            await expect.poll(() => ownerName(one), { timeout: 20_000 }).toBe("renamed");
+        } finally {
+            await backend("mutate", "restore_name");
+        }
+    },
+);
+
+test(
+    "SYN-E2E-33 sign-out in one tab stops sync for every tab and removes the file once both close",
+    { tag: "@opfs" },
+    async ({ context }) => {
+        test.setTimeout(120_000);
+        const [one, two] = [await context.newPage(), await context.newPage()];
+        for (const tab of [one, two]) await tab.goto("/");
+        const identity = { userId: `sign-out-${String(Date.now())}`, scope: "https://app.test" };
+        await openTab(one, identity.userId);
+        await openTab(two, identity.userId);
+        const name = await one.evaluate(async (identity) => {
+            const { replicaFilename } = await import("./database");
+            return replicaFilename(identity);
+        }, identity);
+        const files = (tab: Page) =>
+            tab.evaluate(async (name) => {
+                const { replicaFiles } = await import("./database");
+                return replicaFiles(name);
+            }, name);
+
+        await one.evaluate((identity) => {
+            Object.assign(window, {
+                signedOut: (window as unknown as TabWindow).manager.discard(identity),
+            });
+        }, identity);
+        await expect
+            .poll(() =>
+                one.evaluate(() => (window as unknown as TabWindow).db.currentStatus.connected),
+            )
+            .toBe(false);
+        if (!(await tabLocal(two)))
+            await expect
+                .poll(() =>
+                    two.evaluate(() => (window as unknown as TabWindow).db.currentStatus.connected),
+                )
+                .toBe(false);
+        expect(await files(two)).toEqual([name, `${name}-journal`, `${name}-wal`]);
+
+        // what the session change makes the other tab do
+        await two.evaluate(() => (window as unknown as TabWindow).manager.close());
+        await one.evaluate(() => (window as unknown as { signedOut: Promise<void> }).signedOut);
+        expect(
+            await one.evaluate(() => (window as unknown as { removed: boolean[] }).removed),
+        ).toEqual([true]);
+        expect(await files(one)).toEqual([]);
+    },
+);
+
+test("SYN-E2E-34 weeks queued in two tabs of one replica each upload exactly once", async ({
+    context,
+}) => {
+    test.setTimeout(120_000);
+    const posted: string[] = [];
+    await context.route(`**/v1/hours/${fixture("st_owner")}/week`, async (route) => {
+        if (route.request().method() !== "POST") {
+            await route.fulfill({ status: 200, json: {} });
+            return;
+        }
+        const body = route.request().postData() ?? "";
+        posted.push(
+            (JSON.parse(body) as { request: { operation_id: string } }).request.operation_id,
+        );
+        // a slow answer leaves both tabs' upload loops time to reach the same week
+        await new Promise((resolve) => setTimeout(resolve, 1_500));
+        const result = JSON.parse(await backend("hours", body)) as { status: number; body: string };
+        await route.fulfill({
+            status: result.status,
+            body: result.body,
+            contentType: "application/json",
+        });
+    });
+    const [one, two] = [await context.newPage(), await context.newPage()];
+    for (const tab of [one, two]) await tab.goto("/");
+    const user = `uploads-${String(Date.now())}`;
+    const week = (start: string, end: string) =>
+        Array.from({ length: 7 }, (_, weekday) => ({
+            weekday,
+            available: true,
+            start_time: start,
+            end_time: end,
+        }));
+    const enqueue = (tab: Page, days: ReturnType<typeof week>) =>
+        tab.evaluate(
+            async ({ days, staff, business }) => {
+                const { enqueueHours } = await import("./database");
+                const { db } = window as unknown as {
+                    db: Parameters<typeof enqueueHours>[0];
+                };
+                const [staffRow] = await db.getAll<{ hours_revision: number }>(
+                    "SELECT hours_revision FROM staff WHERE id = ?",
+                    [staff],
+                );
+                const [previous] = await db.getAll<{ id: string; payload: string }>(
+                    "SELECT id, payload FROM hours_outbox WHERE staff_id = ? ORDER BY sequence DESC LIMIT 1",
+                    [staff],
+                );
+                return (
+                    await enqueueHours(
+                        db,
+                        staff,
+                        business,
+                        staffRow?.hours_revision ?? 0,
+                        days,
+                        [],
+                        false,
+                        previous ?? null,
+                    )
+                ).id;
+            },
+            { days, staff: fixture("st_owner"), business: fixture("bz_first") },
+        );
+    const settled = (tab: Page) =>
+        tab.evaluate(async (staff) => {
+            const { db } = window as unknown as TabWindow;
+            const [row] = await db.getAll<{ hours_revision: number }>(
+                "SELECT hours_revision FROM staff WHERE id = ?",
+                [staff],
+            );
+            const pending = await db.getAll("SELECT id FROM hours_outbox");
+            return { revision: row?.hours_revision ?? null, pending: pending.length };
+        }, fixture("st_owner"));
+    await backend("hours", "reset");
+    try {
+        await openTab(one, user);
+        await openTab(two, user);
+        const first = await enqueue(one, week("10:00:00", "16:00:00"));
+        await expect
+            .poll(() => settled(two), { timeout: 30_000 })
+            .toEqual({ revision: 1, pending: 0 });
+        const second = await enqueue(two, week("11:00:00", "17:00:00"));
+        for (const tab of [one, two])
+            await expect
+                .poll(() => settled(tab), { timeout: 30_000 })
+                .toEqual({
+                    revision: 2,
+                    pending: 0,
+                });
+        expect(posted).toEqual([first, second]);
+        const hours = await one.evaluate(async (staff) => {
+            const { db } = window as unknown as TabWindow;
+            return db.getAll<{ start_time: string }>(
+                "SELECT DISTINCT start_time FROM hours WHERE staff_id = ?",
+                [staff],
+            );
+        }, fixture("st_owner"));
+        expect(hours).toEqual([{ start_time: "11:00:00" }]);
+    } finally {
+        await backend("hours", "reset");
+    }
+});
