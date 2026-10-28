@@ -7,6 +7,7 @@ from clientbridge.core.deps import (
     DbSession,
     EmailDep,
     GatewayDep,
+    JobsDep,
     PushDep,
     SmsDep,
 )
@@ -51,10 +52,11 @@ async def enrol_in_program(
     email: EmailDep,
     sms: SmsDep,
     push: PushDep,
+    jobs: JobsDep,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> EnrolmentOut:
     result = await ProgramService(db, principal).enrol(program_id, body, idempotency_key)
-    await send_queued(db, email, sms, push)
+    await send_queued(db, email, sms, push, jobs)
     return result
 
 
@@ -68,7 +70,8 @@ async def cancel_enrolment(
     email: EmailDep,
     sms: SmsDep,
     push: PushDep,
+    jobs: JobsDep,
 ) -> EnrolmentCancelOut:
     result = await ProgramService(db, principal).withdraw(program_id, body, gateway)
-    await send_queued(db, email, sms, push)
+    await send_queued(db, email, sms, push, jobs)
     return result

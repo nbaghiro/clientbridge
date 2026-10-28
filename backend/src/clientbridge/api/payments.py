@@ -7,6 +7,7 @@ from clientbridge.core.deps import (
     DbSession,
     EmailDep,
     GatewayDep,
+    JobsDep,
     PushDep,
     SmsDep,
 )
@@ -141,13 +142,14 @@ async def refund_payment(
     email: EmailDep,
     sms: SmsDep,
     push: PushDep,
+    jobs: JobsDep,
     body: RefundIn,
     idempotency_key: Annotated[str, Header(alias="Idempotency-Key", min_length=8)],
 ) -> RefundOut:
     out = await PaymentService(db, principal, gateway).refund_payment(
         payment_id, body.amount_cents, idempotency_key, body.reason, body.notify
     )
-    await send_queued(db, email, sms, push)
+    await send_queued(db, email, sms, push, jobs)
     return out
 
 

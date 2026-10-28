@@ -7,6 +7,7 @@ from clientbridge.core.deps import (
     DbSession,
     EmailDep,
     GatewayDep,
+    JobsDep,
     PushDep,
     SmsDep,
 )
@@ -40,10 +41,11 @@ async def create_estimate(
     email: EmailDep,
     sms: SmsDep,
     push: PushDep,
+    jobs: JobsDep,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> EstimateOut:
     result = await BillingService(db, principal).create_estimate(body, idempotency_key)
-    await send_queued(db, email, sms, push)
+    await send_queued(db, email, sms, push, jobs)
     return result
 
 
@@ -62,10 +64,11 @@ async def send_estimate(
     email: EmailDep,
     sms: SmsDep,
     push: PushDep,
+    jobs: JobsDep,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> EstimateOut:
     result = await BillingService(db, principal).send_estimate(estimate_id, idempotency_key)
-    await send_queued(db, email, sms, push)
+    await send_queued(db, email, sms, push, jobs)
     return result
 
 
@@ -77,9 +80,10 @@ async def accept_estimate(
     email: EmailDep,
     sms: SmsDep,
     push: PushDep,
+    jobs: JobsDep,
 ) -> EstimateOut:
     result = await BillingService(db, principal).accept_estimate(estimate_id)
-    await send_queued(db, email, sms, push)
+    await send_queued(db, email, sms, push, jobs)
     return result
 
 
@@ -91,11 +95,12 @@ async def decline_estimate(
     email: EmailDep,
     sms: SmsDep,
     push: PushDep,
+    jobs: JobsDep,
     body: EstimateDecline | None = None,
 ) -> EstimateOut:
     reason = body.reason if body is not None else None
     result = await BillingService(db, principal).decline_estimate(estimate_id, reason)
-    await send_queued(db, email, sms, push)
+    await send_queued(db, email, sms, push, jobs)
     return result
 
 
@@ -120,10 +125,11 @@ async def create_invoice(
     email: EmailDep,
     sms: SmsDep,
     push: PushDep,
+    jobs: JobsDep,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> InvoiceOut:
     result = await BillingService(db, principal).create_invoice(body, idempotency_key)
-    await send_queued(db, email, sms, push)
+    await send_queued(db, email, sms, push, jobs)
     return result
 
 
@@ -154,10 +160,11 @@ async def send_invoice(
     email: EmailDep,
     sms: SmsDep,
     push: PushDep,
+    jobs: JobsDep,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> InvoiceOut:
     result = await BillingService(db, principal).send_invoice(invoice_id, idempotency_key)
-    await send_queued(db, email, sms, push)
+    await send_queued(db, email, sms, push, jobs)
     return result
 
 
@@ -169,10 +176,11 @@ async def remind_invoice(
     email: EmailDep,
     sms: SmsDep,
     push: PushDep,
+    jobs: JobsDep,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> InvoiceOut:
     result = await BillingService(db, principal).remind_invoice(invoice_id, idempotency_key)
-    await send_queued(db, email, sms, push)
+    await send_queued(db, email, sms, push, jobs)
     return result
 
 
@@ -191,10 +199,11 @@ async def record_invoice_payment(
     email: EmailDep,
     sms: SmsDep,
     push: PushDep,
+    jobs: JobsDep,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> InvoicePaymentOut:
     result = await PaymentService(db, principal, gateway).record_invoice_payment(
         invoice_id, body, idempotency_key
     )
-    await send_queued(db, email, sms, push)
+    await send_queued(db, email, sms, push, jobs)
     return result

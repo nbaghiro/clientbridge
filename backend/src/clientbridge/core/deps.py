@@ -10,6 +10,7 @@ from clientbridge.core.db import get_session
 from clientbridge.core.errors import AppError, Forbidden, Unauthorized
 from clientbridge.integrations.expo import PushSender, get_push_sender
 from clientbridge.integrations.identity import Credential, Identity, IdentityProvider
+from clientbridge.integrations.jobs import Jobs, get_jobs
 from clientbridge.integrations.kratos import get_identity_provider
 from clientbridge.integrations.resend import EmailSender, get_email_sender
 from clientbridge.integrations.s3 import FileStorage, get_file_storage
@@ -22,6 +23,7 @@ DbSession = Annotated[AsyncSession, Depends(get_session)]
 EmailDep = Annotated[EmailSender, Depends(get_email_sender)]
 SmsDep = Annotated[SmsSender, Depends(get_sms_sender)]
 PushDep = Annotated[PushSender, Depends(get_push_sender)]
+JobsDep = Annotated[Jobs, Depends(get_jobs)]
 IdentityDep = Annotated[IdentityProvider, Depends(get_identity_provider)]
 GatewayDep = Annotated[PaymentGateway, Depends(get_payment_gateway)]
 StorageDep = Annotated[FileStorage, Depends(get_file_storage)]

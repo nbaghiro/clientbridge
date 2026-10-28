@@ -14,6 +14,7 @@ from clientbridge.core.deps import (
     DbSession,
     EmailDep,
     GatewayDep,
+    JobsDep,
     PushDep,
     ResendWebhookSecretDep,
     SmsDep,
@@ -44,6 +45,7 @@ async def stripe_webhook(
     email: EmailDep,
     sms: SmsDep,
     push: PushDep,
+    jobs: JobsDep,
     stripe_signature: Annotated[str, Header(alias="Stripe-Signature")] = "",
 ) -> Response:
     try:
@@ -54,7 +56,7 @@ async def stripe_webhook(
     except WebhookVersionError as error:
         _log.error("webhook rejected version %s", error)
         return Response(status_code=400)
-    await send_queued(db, email, sms, push)
+    await send_queued(db, email, sms, push, jobs, inline=0)
     return Response(status_code=200)
 
 
@@ -66,6 +68,7 @@ async def sms_webhook(
     email: EmailDep,
     sms: SmsDep,
     push: PushDep,
+    jobs: JobsDep,
     x_twilio_signature: Annotated[str, Header(alias="X-Twilio-Signature")] = "",
 ) -> Response:
     form = parse_qsl((await request.body()).decode(), keep_blank_values=True)
@@ -84,7 +87,7 @@ async def sms_webhook(
         body=fields.get("Body", ""),
         message_sid=sid,
     )
-    await send_queued(db, email, sms, push)
+    await send_queued(db, email, sms, push, jobs, inline=0)
     return Response(status_code=200)
 
 

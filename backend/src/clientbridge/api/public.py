@@ -4,7 +4,15 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Header, Query, Request, Response
 from fastapi.responses import RedirectResponse
 
-from clientbridge.core.deps import DbSession, EmailDep, GatewayDep, PushDep, SmsDep, StorageDep
+from clientbridge.core.deps import (
+    DbSession,
+    EmailDep,
+    GatewayDep,
+    JobsDep,
+    PushDep,
+    SmsDep,
+    StorageDep,
+)
 from clientbridge.core.ratelimit import (
     public_booking_rate_limit,
     public_contract_rate_limit,
@@ -126,10 +134,11 @@ async def public_estimate_accept(
     email: EmailDep,
     sms: SmsDep,
     push: PushDep,
+    jobs: JobsDep,
     _: RateLimited,
 ) -> PublicEstimate:
     result = await PublicEstimateService(db).accept(token, data)
-    await send_queued(db, email, sms, push)
+    await send_queued(db, email, sms, push, jobs)
     return result
 
 
@@ -141,10 +150,11 @@ async def public_estimate_decline(
     email: EmailDep,
     sms: SmsDep,
     push: PushDep,
+    jobs: JobsDep,
     _: RateLimited,
 ) -> PublicEstimate:
     result = await PublicEstimateService(db).decline(token, data)
-    await send_queued(db, email, sms, push)
+    await send_queued(db, email, sms, push, jobs)
     return result
 
 
@@ -320,11 +330,12 @@ async def public_book(
     email: EmailDep,
     sms: SmsDep,
     push: PushDep,
+    jobs: JobsDep,
     _: BookingRateLimited,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key", min_length=8)] = None,
 ) -> PublicBookingResult:
     result = await PublicBookingService(db, gateway).book(slug, body, idempotency_key)
-    await send_queued(db, email, sms, push)
+    await send_queued(db, email, sms, push, jobs)
     return result
 
 
@@ -337,11 +348,12 @@ async def public_join_waitlist(
     email: EmailDep,
     sms: SmsDep,
     push: PushDep,
+    jobs: JobsDep,
     _: BookingRateLimited,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key", min_length=8)] = None,
 ) -> PublicBookingResult:
     result = await PublicBookingService(db, gateway).join_waitlist(slug, body, idempotency_key)
-    await send_queued(db, email, sms, push)
+    await send_queued(db, email, sms, push, jobs)
     return result
 
 
@@ -424,11 +436,12 @@ async def manage_reschedule(
     email: EmailDep,
     sms: SmsDep,
     push: PushDep,
+    jobs: JobsDep,
     _: BookingRateLimited,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key", min_length=8)] = None,
 ) -> ManagedBooking:
     result = await PublicManageService(db, gateway).reschedule(token, body, idempotency_key)
-    await send_queued(db, email, sms, push)
+    await send_queued(db, email, sms, push, jobs)
     return result
 
 
@@ -440,12 +453,13 @@ async def manage_cancel(
     email: EmailDep,
     sms: SmsDep,
     push: PushDep,
+    jobs: JobsDep,
     _: BookingRateLimited,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key", min_length=8)] = None,
 ) -> ManageCancelResult:
     result = await PublicManageService(db, gateway).cancel(token, idempotency_key)
     # a client's cancel never sends another client's seat notice itself; the worker does
-    await send_queued(db, email, sms, push, leave=("seat",))
+    await send_queued(db, email, sms, push, jobs, leave=("seat",))
     return result
 
 
@@ -481,11 +495,12 @@ async def public_manage_message(
     email: EmailDep,
     sms: SmsDep,
     push: PushDep,
+    jobs: JobsDep,
     _: BookingRateLimited,
     idempotency_key: Annotated[str, Header(alias="Idempotency-Key")],
 ) -> ManageMessageResult:
     result = await PublicManageService(db, gateway).message(token, data, idempotency_key)
-    await send_queued(db, email, sms, push)
+    await send_queued(db, email, sms, push, jobs)
     return result
 
 

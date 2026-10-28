@@ -19,6 +19,7 @@ from clientbridge.core.locale import locale_for, message
 from clientbridge.core.phones import e164, same_phone
 from clientbridge.core.scoping import scoped
 from clientbridge.core.zones import zone
+from clientbridge.integrations.expo import PushSender
 from clientbridge.integrations.resend import EmailSender
 from clientbridge.integrations.twilio import Sms, SmsSender
 from clientbridge.models.business import Business, Staff
@@ -26,6 +27,7 @@ from clientbridge.models.clients import Channel, Client
 from clientbridge.models.messaging import Broadcast, Delivery, Message, Thread
 from clientbridge.models.platform import Webhook, WebhookStatus
 from clientbridge.models.scheduling import Booking
+from clientbridge.schemas.deliveries import DeliveryPayload, EmailDelivery, SmsDelivery
 from clientbridge.schemas.messaging import (
     BroadcastOut,
     BroadcastSend,
@@ -52,7 +54,7 @@ from clientbridge.services.consents import (
     stopped_clients,
     texts_stopped,
 )
-from clientbridge.services.deliveries import delivery_key
+from clientbridge.services.deliveries import delivery_key, enqueue, send_queued
 from clientbridge.services.notifications import (
     Notice,
     broadcast_notice,
@@ -121,32 +123,32 @@ def contact_for(client: Client, channel: str) -> str | None:
     return client.email
 
 
-async def dispatch_message(
-    sms: SmsSender,
-    email: EmailSender,
-    channel: str,
+async def queue_message(
+    db: AsyncSession,
     to: str,
     notice: Notice,
     *,
     message: Message,
     business: Business,
     brand: Brand,
-) -> None:
-    """Hand the message to its channel adapter and record the outcome on the row, never raising."""
-    try:
-        if channel == "sms":
-            message.provider_ref = await sms.send(
-                Sms(to=to, body=notice.body, from_number=business.sms_number)
-            )
-        else:
-            message.provider_ref = await email.send(
-                client_email(business, brand, to, notice, message=message)
-            )
-    except Exception:
-        _log.exception("message channel send failed")
-        message.status = "failed"
-        return
-    message.status = "sent"
+    opt_out_client: str | None = None,
+) -> str:
+    """Queue the message on its channel; the delivery sends it and sets the row's status."""
+    payload: DeliveryPayload
+    if message.channel == "sms":
+        sms = Sms(to=to, body=notice.body, from_number=business.sms_number)
+        payload = SmsDelivery(message=sms, message_id=message.id)
+    else:
+        mail = client_email(business, brand, to, notice, message=message)
+        payload = EmailDelivery(
+            message=mail,
+            client_id=opt_out_client,
+            opt_out=opt_out_client is not None,
+            message_id=message.id,
+        )
+    return await enqueue(
+        db, payload, key=delivery_key("message", message.id), business_id=message.business_id
+    )
 
 
 async def broadcast_recipients(
@@ -280,7 +282,12 @@ async def _queue_recipient(db: AsyncSession, broadcast: Broadcast, client_id: st
 
 
 async def _send_broadcast(
-    db: AsyncSession, broadcast_id: str, sms: SmsSender, email: EmailSender, now: datetime
+    db: AsyncSession,
+    broadcast_id: str,
+    sms: SmsSender,
+    email: EmailSender,
+    push: PushSender,
+    now: datetime,
 ) -> bool:
     """Send a due broadcast one committed recipient at a time; True once every recipient is done."""
     broadcast = await _claim_broadcast(db, broadcast_id)
@@ -321,16 +328,23 @@ async def _send_broadcast(
             await db.commit()
             continue
         message = await _queue_recipient(db, claimed, client_id)
-        await db.commit()
         link = f"{prefs_url(client_id)}?unsubscribe=email"
         notice = broadcast_notice(locale, name, subject, body or "", link, address, contact)
         if channel == "sms":
             text = broadcast_text(locale, name, channel, body or "", link, address, contact)
             notice = replace(notice, body=text)
-        await dispatch_message(
-            sms, email, channel, to, notice, message=message, business=business, brand=brand
+        await queue_message(
+            db,
+            to,
+            notice,
+            message=message,
+            business=business,
+            brand=brand,
+            opt_out_client=client_id,
         )
+        # the message and its delivery commit together, so the sweep finishes what a crash leaves
         await db.commit()
+        await send_queued(db, email, sms, push)
     claimed = await _claim_broadcast(db, broadcast_id)
     if claimed is None:
         await db.commit()
@@ -410,7 +424,7 @@ async def process_inbound_sms(
 
 
 async def run_due_broadcasts(
-    db: AsyncSession, sms: SmsSender, email: EmailSender, now: datetime
+    db: AsyncSession, sms: SmsSender, email: EmailSender, push: PushSender, now: datetime
 ) -> int:
     """Send or resume each due broadcast outside quiet hours; returns how many finished."""
     due = (
@@ -437,21 +451,17 @@ async def run_due_broadcasts(
     await db.commit()
     finished = 0
     for broadcast_id in due:
-        finished += await _send_broadcast(db, broadcast_id, sms, email, now)
+        finished += await _send_broadcast(db, broadcast_id, sms, email, push, now)
     return finished
 
 
 class MessageService:
     """Outbound messages, sent as audited commands."""
 
-    def __init__(
-        self, db: AsyncSession, principal: Principal, sms: SmsSender, email: EmailSender
-    ) -> None:
+    def __init__(self, db: AsyncSession, principal: Principal) -> None:
         self.db = db
         self.principal = principal
         self.biz = principal.business_id
-        self.sms = sms
-        self.email = email
 
     async def send_message(
         self, data: MessageSend, idempotency_key: str | None = None
@@ -497,17 +507,9 @@ class MessageService:
             )
             self.db.add(message)
             await self.db.flush()
-            await dispatch_message(
-                self.sms,
-                self.email,
-                data.channel,
-                to,
-                notice,
-                message=message,
-                business=business,
-                brand=brand,
+            await queue_message(
+                self.db, to, notice, message=message, business=business, brand=brand
             )
-            await self.db.flush()
             cmd.record("message.send", entity_type="message", entity_id=message.id)
             return _message_out(message)
 
@@ -520,6 +522,15 @@ class MessageService:
             idempotency_key=idempotency_key,
             request=data,
         )
+
+    async def message(self, message_id: str) -> MessageOut:
+        """The message as it stands now, after its delivery has had its first try."""
+        message = (
+            await self.db.execute(scoped(Message, self.biz).where(Message.id == message_id))
+        ).scalar_one_or_none()
+        if message is None:
+            raise NotFound("message not found")
+        return _message_out(message)
 
     async def send_broadcast(
         self, data: BroadcastSend, idempotency_key: str | None = None

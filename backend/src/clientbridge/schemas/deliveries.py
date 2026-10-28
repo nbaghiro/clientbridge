@@ -16,11 +16,17 @@ class EmailDelivery(BaseModel):
     opt_out: bool = Field(
         default=False, description="The client's email opt-out stops it, checked again as it goes"
     )
+    message_id: str | None = Field(
+        default=None, description="The inbox message this sends; its status follows the outcome"
+    )
 
 
 class SmsDelivery(BaseModel):
     channel: Literal["sms"] = "sms"
     message: Sms
+    message_id: str | None = Field(
+        default=None, description="The inbox message this sends; its status follows the outcome"
+    )
 
 
 class PushDelivery(BaseModel):

@@ -7,8 +7,9 @@ from clientbridge.models.business import Business, Staff
 from clientbridge.models.catalog import Item
 from clientbridge.models.platform import Audit
 from clientbridge.models.scheduling import Booking, Recurrence, Slot
-from tests.conftest import BIZ, Factory, FakeEmailSender
-from tests.helpers import enable_payments, key, reachable, settle
+from clientbridge.services.deliveries import DELIVERIES_JOB, run_deliveries
+from tests.conftest import BIZ, Factory, FakeEmailSender, FakeJobs, FakePushSender, FakeSmsSender
+from tests.helpers import enable_payments, key, new_client, reachable, settle
 
 CL_AMELIE = "cl_amelie"
 FIRST = "2027-03-02T19:00:00Z"
@@ -194,6 +195,40 @@ async def test_removal_cancels_visits_and_series_and_tells_the_client(
     assert recurrence is not None and recurrence.status == "canceled"
     canceled = [m for m in email.sent if "canceled" in m.body]
     assert len(canceled) == 1 and "These visits" in canceled[0].body
+
+
+async def test_removing_a_member_with_many_clients_sends_one_notice_before_answering(
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    factory: Factory,
+    email: FakeEmailSender,
+    sms: FakeSmsSender,
+    push: FakePushSender,
+    jobs: FakeJobs,
+) -> None:
+    item = await _item(db)
+    leaving = await _member(db, factory, "Busy Bea")
+    clients = [await new_client(db, name=f"Bulk {each}") for each in range(3)]
+    for each, client in enumerate(clients):
+        await reachable(db, client, email=f"bulk{each}@birchbark.ca", phone=f"+1250555123{each}")
+        res = await as_owner.post(
+            "/v1/bookings",
+            json={
+                "client_id": client,
+                "item_id": item,
+                "staff_id": leaving,
+                "starts_at": f"2027-03-0{each + 2}T19:00:00Z",
+                "notify": False,
+            },
+        )
+        assert res.status_code == 201, res.text
+    jobs.work, jobs.enqueued = False, []
+    email.sent.clear()
+    assert (await _remove(as_owner, leaving, future="cancel")).status_code == 200
+    assert len(email.sent) == 1 and jobs.enqueued == [DELIVERIES_JOB]
+    await run_deliveries(db, email, sms, push)
+    told = {m.to for m in email.sent if "canceled" in m.body}
+    assert told == {f"bulk{each}@birchbark.ca" for each in range(3)}
 
 
 async def test_canceling_a_removed_members_visits_refunds_their_deposits(

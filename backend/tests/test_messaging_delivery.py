@@ -288,7 +288,7 @@ async def test_an_sms_send_records_the_provider_reference(
 ) -> None:
     cid = await new_client(db, email=None)
     client = (await db.execute(select(Client).where(Client.id == cid))).scalar_one()
-    client.phone = "+16045550123"
+    client.phone = "+16045550823"
     await db.flush()
     res = ok(
         await as_owner.post("/v1/messages", json={"client_id": cid, "channel": "sms", "body": "Hi"})

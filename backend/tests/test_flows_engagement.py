@@ -5,7 +5,7 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.services.messaging import run_due_broadcasts
-from tests.conftest import FakeEmailSender, FakeSmsSender
+from tests.conftest import FakeEmailSender, FakePushSender, FakeSmsSender
 from tests.google_business import configure_google_review_profile, review_emails
 from tests.helpers import local_hour, ok, text_in, unread
 
@@ -85,15 +85,15 @@ async def test_messages_and_broadcasts(
     as_owner: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender
 ) -> None:
     api = as_owner
-    cid = await _client(api, phone="+16045550199", tags=["flowvip"], marketing_consent=True)
+    cid = await _client(api, phone="+16045550899", tags=["flowvip"], marketing_consent=True)
     sent = ok(
         await api.post("/v1/messages", json={"client_id": cid, "channel": "sms", "body": "Hi"})
     ).json()
     assert (sent["direction"], sent["status"]) == ("out", "sent")
-    assert sms.sent[-1].to == "+16045550199"
+    assert sms.sent[-1].to == "+16045550899"
 
     for sid in ("SM_flow_1", "SM_flow_2"):
-        ok(await text_in(api, {"From": "+16045550199", "Body": "Reply", "MessageSid": sid}))
+        ok(await text_in(api, {"From": "+16045550899", "Body": "Reply", "MessageSid": sid}))
     assert await unread(db, sent["thread_id"]) == 2
     read = ok(await api.post(f"/v1/threads/{sent['thread_id']}/read")).json()
     assert (read["id"], read["unread_count"]) == (sent["thread_id"], 0)
@@ -112,7 +112,7 @@ async def test_messages_and_broadcasts(
         )
     ).json()
     assert (blast["status"], blast["recipient_count"]) == ("sending", 1)
-    await run_due_broadcasts(db, sms, FakeEmailSender(), now)
+    await run_due_broadcasts(db, sms, FakeEmailSender(), FakePushSender(), now)
     assert sms.sent[-1].body == "Birchbark Pet Studio: Sale Reply STOP to opt out."
 
 

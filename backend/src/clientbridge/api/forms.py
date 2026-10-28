@@ -2,7 +2,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Header
 
-from clientbridge.core.deps import CurrentPrincipal, DbSession, EmailDep, PushDep, SmsDep
+from clientbridge.core.deps import CurrentPrincipal, DbSession, EmailDep, JobsDep, PushDep, SmsDep
 from clientbridge.core.errors import Unprocessable
 from clientbridge.schemas.forms import (
     FormAnswersOut,
@@ -28,10 +28,11 @@ async def send_form(
     email: EmailDep,
     sms: SmsDep,
     push: PushDep,
+    jobs: JobsDep,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> FormResponseOut:
     result = await FormService(db, principal).send_form(body, idempotency_key)
-    await send_queued(db, email, sms, push)
+    await send_queued(db, email, sms, push, jobs)
     return result
 
 

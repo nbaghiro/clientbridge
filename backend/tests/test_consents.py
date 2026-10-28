@@ -21,7 +21,7 @@ from tests.google_business import configure_google_review_profile
 from tests.helpers import new_client, ok, text_in, texted
 
 BIZ = "bz_birchbark"
-PHONE = "+16045550177"
+PHONE = "+16045550877"
 
 
 async def _client(db: AsyncSession, *, name: str | None = None) -> str:
@@ -104,7 +104,7 @@ async def test_preferences_page_reads_and_saves(api: httpx.AsyncClient, db: Asyn
     token = prefs_token(cid)
     page = ok(await api.get(f"/prefs/{token}")).json()
     assert (page["email"], page["sms"]) == (False, False)
-    assert page["phone_hint"] == "•••0177" and page["email_hint"] == "p•••@example.ca"
+    assert page["phone_hint"] == "•••0877" and page["email_hint"] == "p•••@example.ca"
     saved = ok(await api.post(f"/prefs/{token}", json={"email": True, "sms": False})).json()
     assert (saved["email"], saved["sms"]) == (True, False)
     assert await _consents(db, cid, "email") == [("granted", "preferences")]

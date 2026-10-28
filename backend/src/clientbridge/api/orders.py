@@ -7,6 +7,7 @@ from clientbridge.core.deps import (
     DbSession,
     EmailDep,
     GatewayDep,
+    JobsDep,
     PushDep,
     SmsDep,
 )
@@ -87,10 +88,11 @@ async def pay_order_cash(
     email: EmailDep,
     sms: SmsDep,
     push: PushDep,
+    jobs: JobsDep,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> OrderCashOut:
     result = await OrderService(db, principal, gateway).pay_cash(order_id, data, idempotency_key)
-    await send_queued(db, email, sms, push)
+    await send_queued(db, email, sms, push, jobs)
     return result
 
 
@@ -118,9 +120,10 @@ async def send_order_receipt(
     email: EmailDep,
     sms: SmsDep,
     push: PushDep,
+    jobs: JobsDep,
 ) -> OrderOut:
     result = await OrderService(db, principal, gateway).send_receipt(order_id, data)
-    await send_queued(db, email, sms, push)
+    await send_queued(db, email, sms, push, jobs)
     return result
 
 
@@ -153,7 +156,8 @@ async def set_order_pickup(
     email: EmailDep,
     sms: SmsDep,
     push: PushDep,
+    jobs: JobsDep,
 ) -> OrderOut:
     result = await OrderService(db, principal, gateway).set_pickup(order_id, data)
-    await send_queued(db, email, sms, push)
+    await send_queued(db, email, sms, push, jobs)
     return result

@@ -36,8 +36,9 @@ from clientbridge.core.ratelimit import (
     public_pay_rate_limit,
     public_prefs_rate_limit,
 )
-from clientbridge.integrations.expo import Push, get_push_sender
+from clientbridge.integrations.expo import Push, PushSender, get_push_sender
 from clientbridge.integrations.identity import Credential, Identity, Login, unavailable
+from clientbridge.integrations.jobs import get_jobs
 from clientbridge.integrations.kratos import get_identity_provider
 from clientbridge.integrations.resend import Email, EmailSender, get_email_sender
 from clientbridge.integrations.s3 import FileStorage, get_file_storage
@@ -72,13 +73,14 @@ from clientbridge.integrations.stripe import (
     event_from,
     get_payment_gateway,
 )
-from clientbridge.integrations.twilio import Sms, get_sms_sender
+from clientbridge.integrations.twilio import Sms, SmsSender, get_sms_sender
 from clientbridge.main import app
 from clientbridge.models.billing import Invoice
 from clientbridge.models.business import Business, PlanStatus, Staff, SubjectKind, User
 from clientbridge.models.clients import Client
 from clientbridge.models.platform import Audit
 from clientbridge.services import ledger
+from clientbridge.services.deliveries import DELIVERIES_JOB, run_deliveries
 from clientbridge.services.plans import PLAN_PRICES
 from clientbridge.services.tax import TaxResult
 from tests.clock import FROZEN
@@ -218,6 +220,28 @@ class FakePushSender:
 @pytest.fixture
 def sms() -> FakeSmsSender:
     return FakeSmsSender()
+
+
+class FakeJobs:
+    """Records each job a request enqueues; with `work`, runs the deliveries as the worker would."""
+
+    def __init__(
+        self,
+        db: AsyncSession,
+        email: EmailSender,
+        sms: SmsSender,
+        push: PushSender,
+        *,
+        work: bool = True,
+    ) -> None:
+        self.db, self.email, self.sms, self.push = db, email, sms, push
+        self.work = work
+        self.enqueued: list[str] = []
+
+    async def enqueue(self, name: str) -> None:
+        self.enqueued.append(name)
+        if self.work and name == DELIVERIES_JOB:
+            await run_deliveries(self.db, self.email, self.sms, self.push)
 
 
 @pytest.fixture
@@ -871,12 +895,20 @@ def gateway() -> FakePaymentGateway:
 
 
 @pytest.fixture
+def jobs(
+    db: AsyncSession, email: FakeEmailSender, sms: FakeSmsSender, push: FakePushSender
+) -> FakeJobs:
+    return FakeJobs(db, email, sms, push)
+
+
+@pytest.fixture
 async def api(
     db: AsyncSession,
     email: FakeEmailSender,
     gateway: FakePaymentGateway,
     sms: FakeSmsSender,
     push: FakePushSender,
+    jobs: FakeJobs,
     storage: FakeFileStorage,
     identities: FakeIdentityProvider,
 ) -> AsyncIterator[httpx.AsyncClient]:
@@ -898,6 +930,7 @@ async def api(
     app.dependency_overrides[get_payment_gateway] = _gateway
     app.dependency_overrides[get_sms_sender] = lambda: sms
     app.dependency_overrides[get_push_sender] = lambda: push
+    app.dependency_overrides[get_jobs] = lambda: jobs
     app.dependency_overrides[get_file_storage] = _storage
     app.dependency_overrides[get_twilio_auth_token] = lambda: "testtoken"
     app.dependency_overrides[get_auth_email_secret] = lambda: "testsecret"
