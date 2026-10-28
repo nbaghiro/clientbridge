@@ -53,8 +53,12 @@ async function expectSignedCopy(
         copy.getByText(clause(terms), { exact: true }).filter({ visible: true }),
     ).toBeVisible();
     await expect(copy.getByText(clause(other), { exact: true })).toHaveCount(0);
-    await expect(copy.getByText(c.version(version), { exact: true }).first()).toBeVisible();
-    await expect(copy.getByText(client.name, { exact: true }).first()).toBeVisible();
+    await expect(
+        copy.getByText(c.version(version), { exact: true }).filter({ visible: true }).first(),
+    ).toBeVisible();
+    await expect(
+        copy.getByText(client.name, { exact: true }).filter({ visible: true }).first(),
+    ).toBeVisible();
     await copy.getByRole("button", { name: c.close, exact: true }).click();
 }
 
