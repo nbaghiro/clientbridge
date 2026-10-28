@@ -8,7 +8,7 @@ import stripe
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from tests.conftest import BIZ, Factory
-from tests.e2e.conftest import StripeEvents, StripeRun
+from tests.sandbox.conftest import StripeEvents, StripeRun
 
 from clientbridge.core.errors import AppError
 from clientbridge.models.business import Business, User
@@ -19,7 +19,7 @@ from clientbridge.services import ledger
 from clientbridge.services.business import apply_account_status
 from clientbridge.services.payments import recover_stripe_source
 
-pytestmark = [pytest.mark.e2e, pytest.mark.wall_clock]
+pytestmark = [pytest.mark.sandbox, pytest.mark.wall_clock]
 
 
 async def open_invoice(

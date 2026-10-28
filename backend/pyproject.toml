@@ -58,12 +58,12 @@ packages = ["src/clientbridge"]
 asyncio_mode = "auto"
 testpaths = ["tests"]
 # Deterministic by default (pytest-randomly installed so this is a real switch, not a no-op).
-# Drop `-p no:randomly` ad hoc to surface order-coupling. contract/e2e need an external service
+# Drop `-p no:randomly` ad hoc to surface order-coupling. contract/sandbox need an external service
 # (stripe-mock / Stripe test keys / the auth service) so they're out of the default run — see `make test-contract`.
-addopts = "-p no:randomly -m 'not contract and not e2e and not kratos'"
+addopts = "-p no:randomly -m 'not contract and not sandbox and not kratos'"
 markers = [
     "kratos: real KratosIdentityProvider against the local Kratos (`make up`)",
     "contract: real StripeGateway against stripe-mock (start it with `make stripe-mock`)",
-    "e2e: Stripe and Resend test-mode flows; skipped unless the provider's test key is set",
+    "sandbox: Stripe and Resend test-mode flows; skipped unless the provider's test key is set",
     "wall_clock: runs at real time, for tests against a clock outside the app (the auth service, Stripe, Resend)",
 ]

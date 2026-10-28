@@ -1301,7 +1301,7 @@ def main(argv: Sequence[str] | None = None, runner: Runner = cli_runner) -> int:
     print(f"  STRIPE_PUBLISHABLE_KEY={publishable}  (frontend/apps/mobile)")
     fixture = resolved.get(FIXTURE_BUSINESS)
     if fixture is not None:
-        print(f"  STRIPE_TEST_CONNECTED_ACCOUNT={fixture['id']}  (make test-e2e)")
+        print(f"  STRIPE_TEST_CONNECTED_ACCOUNT={fixture['id']}  (make test-sandbox)")
     print("\ndemo businesses:")
     for biz in DEMO_BUSINESSES:
         account = resolved.get(biz.id)

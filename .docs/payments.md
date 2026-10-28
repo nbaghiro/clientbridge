@@ -639,7 +639,7 @@ Secret and publishable keys must refer to the same mode/platform account. `core/
 secret key's mode: with `ENV=prod` it must be a live key (`sk_live_` or `rk_live_`), and every other
 environment, dev included, refuses a live key. Local CLI signing secrets are distinct from deployed
 endpoint secrets. See [secret deployment](operations.md#secrets) for Secret Manager names, mounting and
-rollout behavior. Test-only E2E settings are covered below.
+rollout behavior. Test-only sandbox settings are covered below.
 
 ## Staging and production setup
 
@@ -690,10 +690,10 @@ Use the [categorized QA checklist](qa/payments.md) for scenario coverage and the
 | ------------------ | ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Backend regression | `make test-backend`                             | Product behavior, ledger invariants, duplicate/out-of-order events, replay, reconciliation and tenant/role isolation with fakes and disposable Postgres. |
 | Stripe contract    | `make stripe-mock`, then `make test-contract`   | Real adapter request/response shapes against stripe-mock; not provider state or Accounts v2 behavior.                                                    |
-| Provider E2E       | `make test-e2e`                                 | Real sandbox behavior when test keys are configured; skipped otherwise. May create provider test objects.                                                |
+| Provider sandbox   | `make test-sandbox`                             | Real sandbox behavior when test keys are configured; skipped otherwise. May create provider test objects.                                                |
 | Frontend           | `make test-frontend` and normal lint/type gates | Shared view-model and client checks; not proof of successful embedded-provider interaction.                                                              |
 
-E2E uses `STRIPE_TEST_SECRET_KEY` and, for existing merchant scenarios, `STRIPE_TEST_CONNECTED_ACCOUNT`;
+The sandbox tier uses `STRIPE_TEST_SECRET_KEY` and, for existing merchant scenarios, `STRIPE_TEST_CONNECTED_ACCOUNT`;
 the setup script prints the demo account ID. Follow the [test tiers](engineering.md#stripe-four-tiers-layered-by-cost)
 for the complete harness and prerequisites. A green fake/contract suite is not a live payout sign-off.
 
@@ -817,7 +817,7 @@ Paths are repository-relative; shared frontend paths are under `frontend/package
 | Webhook, replay, recovery and reconciliation regressions           | `backend/tests/test_webhooks.py`, `test_webhooks_replay.py`, `test_payments_recovery.py`, `test_ledger_drift.py`, `test_ledger_jobs.py`, `test_ledger_migration.py`                     |
 | Refund, dispute, fee and error regressions                         | `backend/tests/test_payments_refunds.py`, `test_payments_disputes.py`, `test_payments_fees.py`, `test_payments_errors.py`, `test_orders_tips.py`                                        |
 | Charge lifecycle, Connect and membership regressions               | `backend/tests/test_orders_cancel.py`, `test_payments_stale_intents.py`, `test_payments_terminal.py`, `test_payments_connect.py`, `test_entitlements_subscriptions.py`, `test_plans.py` |
-| Provider contract and E2E tests                                    | `backend/tests/contract/test_stripe_contract.py`, `backend/tests/e2e/test_stripe_e2e.py`                                                                                                |
+| Provider contract and sandbox tests                                | `backend/tests/contract/test_stripe_contract.py`, `backend/tests/sandbox/test_stripe_sandbox.py`                                                                                        |
 
 Provider references: [embedded payouts](https://docs.stripe.com/connect/supported-embedded-components/payouts),
 [payout schedules](https://docs.stripe.com/connect/manage-payout-schedule),

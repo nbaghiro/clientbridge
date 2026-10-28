@@ -6,7 +6,7 @@ import pytest
 
 from clientbridge.integrations.resend import Email, ResendEmailSender
 
-pytestmark = [pytest.mark.e2e, pytest.mark.wall_clock]
+pytestmark = [pytest.mark.sandbox, pytest.mark.wall_clock]
 
 _KEY = os.environ.get("RESEND_TEST_API_KEY")
 _FROM = os.environ.get("RESEND_TEST_FROM")

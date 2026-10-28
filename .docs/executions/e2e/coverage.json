@@ -5373,17 +5373,17 @@
       "required_layers": ["browser", "provider", "integration"],
       "related_evidence": [
         {
-          "test_key": "backend/tests/e2e/test_payments_e2e.py::test_invoice_signed_webhook_replay_and_partial_refunds",
+          "test_key": "backend/tests/sandbox/test_payments_sandbox.py::test_invoice_signed_webhook_replay_and_partial_refunds",
           "coverage": "partial_related_assertions_only",
           "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
         },
         {
-          "test_key": "backend/tests/e2e/test_payments_e2e.py::test_external_refund_arrives_through_a_genuine_event",
+          "test_key": "backend/tests/sandbox/test_payments_sandbox.py::test_external_refund_arrives_through_a_genuine_event",
           "coverage": "partial_related_assertions_only",
           "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
         },
         {
-          "test_key": "backend/tests/e2e/test_payments_e2e.py::test_cross_business_refund_does_not_touch_stripe",
+          "test_key": "backend/tests/sandbox/test_payments_sandbox.py::test_cross_business_refund_does_not_touch_stripe",
           "coverage": "partial_related_assertions_only",
           "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
         }
@@ -5425,17 +5425,17 @@
       "required_layers": ["browser", "provider", "integration"],
       "related_evidence": [
         {
-          "test_key": "backend/tests/e2e/test_payments_e2e.py::test_decline_leaves_invoice_due_then_retry_settles_once",
+          "test_key": "backend/tests/sandbox/test_payments_sandbox.py::test_decline_leaves_invoice_due_then_retry_settles_once",
           "coverage": "partial_related_assertions_only",
           "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
         },
         {
-          "test_key": "backend/tests/e2e/test_payments_e2e.py::test_withheld_webhook_is_repaired_from_the_owned_charge",
+          "test_key": "backend/tests/sandbox/test_payments_sandbox.py::test_withheld_webhook_is_repaired_from_the_owned_charge",
           "coverage": "partial_related_assertions_only",
           "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
         },
         {
-          "test_key": "backend/tests/e2e/test_payments_e2e.py::test_invoice_signed_webhook_replay_and_partial_refunds",
+          "test_key": "backend/tests/sandbox/test_payments_sandbox.py::test_invoice_signed_webhook_replay_and_partial_refunds",
           "coverage": "partial_related_assertions_only",
           "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
         }
@@ -5616,7 +5616,7 @@
           "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
         },
         {
-          "test_key": "backend/tests/e2e/test_payments_e2e.py::test_invoice_signed_webhook_replay_and_partial_refunds",
+          "test_key": "backend/tests/sandbox/test_payments_sandbox.py::test_invoice_signed_webhook_replay_and_partial_refunds",
           "coverage": "partial_related_assertions_only",
           "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
         }
@@ -5790,7 +5790,7 @@
       "required_layers": ["browser", "provider", "integration"],
       "related_evidence": [
         {
-          "test_key": "backend/tests/e2e/test_payments_e2e.py::test_withheld_webhook_is_repaired_from_the_owned_charge",
+          "test_key": "backend/tests/sandbox/test_payments_sandbox.py::test_withheld_webhook_is_repaired_from_the_owned_charge",
           "coverage": "partial_related_assertions_only",
           "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
         },
@@ -5800,7 +5800,7 @@
           "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
         },
         {
-          "test_key": "backend/tests/e2e/test_payments_e2e.py::test_invoice_signed_webhook_replay_and_partial_refunds",
+          "test_key": "backend/tests/sandbox/test_payments_sandbox.py::test_invoice_signed_webhook_replay_and_partial_refunds",
           "coverage": "partial_related_assertions_only",
           "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
         }
@@ -6110,7 +6110,7 @@
       "required_layers": ["native", "provider", "integration"],
       "related_evidence": [
         {
-          "test_key": "backend/tests/e2e/test_stripe_e2e.py::test_terminal_intent_allows_card_present",
+          "test_key": "backend/tests/sandbox/test_stripe_sandbox.py::test_terminal_intent_allows_card_present",
           "coverage": "partial_related_assertions_only",
           "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
         },

@@ -4,13 +4,13 @@ from uuid import uuid4
 
 import pytest
 import stripe
-from tests.e2e.conftest import StripeRun
+from tests.sandbox.conftest import StripeRun
 
 from clientbridge.core import clock
 from clientbridge.core.errors import CardDeclined, Conflict
 from clientbridge.integrations.stripe import TERMS_REQUIREMENT, StripeGateway, merchant_capability
 
-pytestmark = [pytest.mark.e2e, pytest.mark.wall_clock]
+pytestmark = [pytest.mark.sandbox, pytest.mark.wall_clock]
 
 
 async def test_fresh_v2_account_reports_kyc_requirements(live_gateway: StripeGateway) -> None:
