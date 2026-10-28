@@ -86,6 +86,21 @@ export async function deleteIdentity(request: APIRequestContext, email: string):
         await request.delete(`${AUTH_ADMIN}/admin/identities/${identity.id}`);
 }
 
+/** Ends every session of the identity behind `email` and keeps the identity, as a revocation does. */
+export async function endSessions(request: APIRequestContext, email: string): Promise<void> {
+    const found = (await (
+        await request.get(`${AUTH_ADMIN}/admin/identities`, {
+            params: { credentials_identifier: email },
+        })
+    ).json()) as { id: string }[];
+    for (const identity of found) {
+        const ended = await request.delete(
+            `${AUTH_ADMIN}/admin/identities/${identity.id}/sessions`,
+        );
+        if (!ended.ok()) throw new Error(`ending sessions failed: ${String(ended.status())}`);
+    }
+}
+
 /** RFC 6238, as an authenticator app computes it from the base32 secret. */
 export function totp(secret: string, at = Date.now()): string {
     const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";

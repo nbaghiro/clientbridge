@@ -5,6 +5,7 @@ import { act, cleanup, renderHook } from "@testing-library/react";
 import { type ReactNode, createElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { BusinessZoneContext } from "../datetime";
 import {
     UPLOAD_NOTICE_AFTER_MS,
     arrivalState,
@@ -15,6 +16,8 @@ import {
     syncProblem,
     useSyncStatus,
     useReplicaSession,
+    useSyncState,
+    type OpfsProbe,
 } from "./sync";
 
 // unmount each hook, so a ticking timer cannot render after the file's DOM is torn down
@@ -24,18 +27,31 @@ afterEach(() => {
 });
 
 describe("replicaStorage", () => {
+    const webkit = "Apple Computer, Inc.";
+    const answer = (probe: OpfsProbe) => () => Promise.resolve(probe);
+
     it("keeps WebKit's replica in OPFS and every other engine's in IndexedDB", async () => {
-        const probe = vi.fn(() => Promise.resolve(true));
-        expect(await replicaStorage("Apple Computer, Inc.", probe)).toBe("opfs");
+        const probe = vi.fn(answer({ granted: true }));
+        expect(await replicaStorage(webkit, probe)).toBe("opfs");
         expect(await replicaStorage("Google Inc.", probe)).toBe("indexeddb");
         expect(await replicaStorage("", probe)).toBe("indexeddb");
         expect(probe).toHaveBeenCalledTimes(1);
     });
 
-    it("keeps WebKit's replica in IndexedDB when OPFS sync access is refused", async () => {
-        expect(await replicaStorage("Apple Computer, Inc.", () => Promise.resolve(false))).toBe(
-            "indexeddb",
-        );
+    it("falls back to IndexedDB only when OPFS sync access is refused", async () => {
+        const refused = answer({ granted: false, error: "InvalidStateError" });
+        expect(await replicaStorage(webkit, refused)).toBe("indexeddb");
+    });
+
+    it("keeps OPFS on a full disk, so the file with unsent edits stays in use", async () => {
+        const full = answer({ granted: false, error: "QuotaExceededError" });
+        expect(await replicaStorage(webkit, full)).toBe("opfs");
+    });
+
+    it("fails as stuck when the probe never answers, rather than falling back", async () => {
+        await expect(replicaStorage(webkit, answer(null))).rejects.toMatchObject({
+            code: "replica_stuck",
+        });
     });
 });
 
@@ -203,19 +219,25 @@ it("checks whether timed-out restore is invalidated before its delayed side effe
 });
 
 describe("a replica that doesn't open", () => {
-    it("fails as stuck after 20 seconds, so the shell shows its own recovery message", async () => {
+    it("abandons the open and fails as stuck after 20 seconds", async () => {
         vi.useFakeTimers();
-        const open = boundedOpen(new Promise<never>(() => undefined));
+        const abandon = vi.fn();
+        const open = boundedOpen(new Promise<never>(() => undefined), abandon);
         const outcome = expect(open).rejects.toMatchObject({ code: "replica_stuck" });
-        await vi.advanceTimersByTimeAsync(20_000);
+        await vi.advanceTimersByTimeAsync(19_999);
+        expect(abandon).not.toHaveBeenCalled();
+        await vi.advanceTimersByTimeAsync(1);
         await outcome;
+        expect(abandon).toHaveBeenCalledTimes(1);
     });
 
-    it("passes an open that answers in time", async () => {
-        expect(await boundedOpen(Promise.resolve("db"))).toBe("db");
+    it("passes an open that answers in time and abandons nothing", async () => {
+        const abandon = vi.fn();
+        expect(await boundedOpen(Promise.resolve("db"), abandon)).toBe("db");
+        expect(abandon).not.toHaveBeenCalled();
     });
 
-    it("maps replica_stuck to the stuck failure and keeps retry on restore", async () => {
+    it("maps replica_stuck to the stuck failure without queueing a pause behind the open", async () => {
         const options = {
             restore: () =>
                 Promise.reject(Object.assign(new Error("stuck"), { code: "replica_stuck" })),
@@ -230,5 +252,104 @@ describe("a replica that doesn't open", () => {
         });
         expect(result.current.failed).toBe("stuck");
         expect(result.current.retry).toBe(result.current.restore);
+        expect(options.pause).not.toHaveBeenCalled();
+    });
+});
+
+describe("a session check while the app is open", () => {
+    const db = {} as CommonPowerSyncDatabase;
+    const session = (validate: () => Promise<void>) => {
+        let resume: () => void = () => undefined;
+        const options = {
+            restore: vi.fn(() => Promise.resolve(db)),
+            validate,
+            subscribeResume: (refresh: () => void) => {
+                resume = refresh;
+                return () => undefined;
+            },
+            pause: () => Promise.resolve(),
+            discard: () => Promise.resolve(),
+            clearCredentials: () => Promise.resolve(),
+            subscribe: () => undefined,
+        };
+        return {
+            options,
+            resume: () => {
+                resume();
+            },
+        };
+    };
+
+    it.each([403, 429])("keeps the app open when /v1/me answers %i", async (status) => {
+        const { options, resume } = session(() =>
+            Promise.reject(Object.assign(new Error("refused"), { status })),
+        );
+        const { result } = renderHook(() => useReplicaSession(options));
+        await act(async () => {
+            await Promise.resolve();
+        });
+        expect(result.current.db).toBe(db);
+        await act(async () => {
+            resume();
+            await Promise.resolve();
+        });
+        expect(options.restore).toHaveBeenCalledTimes(1);
+        expect(result.current.db).toBe(db);
+    });
+
+    it("restores when the session is gone", async () => {
+        const { options, resume } = session(() => Promise.reject(new Error("signed out")));
+        renderHook(() => useReplicaSession(options));
+        await act(async () => {
+            await Promise.resolve();
+        });
+        await act(async () => {
+            resume();
+            await Promise.resolve();
+        });
+        expect(options.restore).toHaveBeenCalledTimes(2);
+    });
+});
+
+describe("a first sync that is still downloading", () => {
+    it("isn't reported as failed while operations keep arriving", async () => {
+        vi.useFakeTimers();
+        const listeners = new Set<{ statusChanged?: (status: unknown) => void }>();
+        const status = (downloaded: number) => ({
+            connected: true,
+            hasSynced: false,
+            downloadProgress: { downloadedOperations: downloaded },
+        });
+        let current = status(0);
+        const db = {
+            get currentStatus() {
+                return current;
+            },
+            registerListener(listener: { statusChanged?: (status: unknown) => void }) {
+                listeners.add(listener);
+                return () => listeners.delete(listener);
+            },
+            getAll: () => Promise.resolve([]),
+            get: () => Promise.resolve({ count: 0, failed: 0, awaiting: 0, oldest: null }),
+        } as unknown as CommonPowerSyncDatabase;
+        const wrapper = ({ children }: { children: ReactNode }) =>
+            createElement(
+                PowerSyncContext.Provider,
+                { value: db },
+                createElement(BusinessZoneContext.Provider, { value: "America/Toronto" }, children),
+            );
+        const { result } = renderHook(() => useSyncState(60_000), { wrapper });
+        for (const downloaded of [500, 1000, 1500]) {
+            await act(async () => {
+                await vi.advanceTimersByTimeAsync(15_000);
+                current = status(downloaded);
+                for (const listener of listeners) listener.statusChanged?.(current);
+            });
+        }
+        expect(result.current.firstSyncFailed).toBe(false);
+        await act(async () => {
+            await vi.advanceTimersByTimeAsync(20_000);
+        });
+        expect(result.current.firstSyncFailed).toBe(true);
     });
 });

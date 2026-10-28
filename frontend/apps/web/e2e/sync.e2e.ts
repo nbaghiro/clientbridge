@@ -128,6 +128,16 @@ test.describe(() => {
             await expect(page).toHaveURL(/\/setup\/security$/);
             await expect(choose).toBeVisible({ timeout: 20_000 });
             await expect(stuck).toHaveCount(0);
+            // no Playwright engine restored the page from the back-forward cache, so its events do
+            await page.evaluate(() => {
+                dispatchEvent(new PageTransitionEvent("pagehide", { persisted: true }));
+                dispatchEvent(new PageTransitionEvent("pageshow", { persisted: true }));
+            });
+            await expect(choose).toBeVisible({ timeout: 20_000 });
+            await expect(stuck).toHaveCount(0);
+            await expect(
+                page.getByText(strings.sync.problems.storage, { exact: true }),
+            ).toHaveCount(0);
         },
     );
 });
@@ -153,11 +163,9 @@ test(
 
         const second = await context.newPage();
         await second.goto("/");
-        // WebKit's second tab never gets the open file (web-storage progress, wave 2), so only Chromium and Firefox wait for it
-        if (browserName !== "webkit")
-            await expect(second.getByRole("heading", { name: o.title })).toBeVisible({
-                timeout: 60_000,
-            });
+        await expect(second.getByRole("heading", { name: o.title })).toBeVisible({
+            timeout: 60_000,
+        });
         await page.getByRole("button", { name: o.signOut, exact: true }).click();
         const email = page.getByRole("textbox", { name: strings.auth.email, exact: true });
         await expect(email).toBeVisible({ timeout: 30_000 });

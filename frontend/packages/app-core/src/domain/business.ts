@@ -1,4 +1,4 @@
-import { selectReplicaBusiness } from "@clientbridge/sync";
+import { keepTabBusiness, selectReplicaBusiness, selectionQuery } from "@clientbridge/sync";
 import { useBusinessQuery as useQuery } from "../hooks";
 import { usePowerSync, useQuery as useGlobalQuery } from "@powersync/react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -1073,11 +1073,12 @@ export function useBusinessSelection(bindApi: (businessId: string | null) => voi
     const businesses = useGlobalQuery<{ id: string; name: string }>(
         "SELECT id, name FROM businesses ORDER BY name, id",
     );
-    const selection = useGlobalQuery<{ business_id: string }>(
-        "SELECT business_id FROM business_selection WHERE id = 'current'",
-    );
+    const selection = useGlobalQuery<{ business_id: string }>(...selectionQuery());
     const selectedId =
         businesses.data.find((row) => row.id === selection.data[0]?.business_id)?.id ?? null;
+    useEffect(() => {
+        if (selectedId !== null) keepTabBusiness(db, selectedId).catch(() => undefined);
+    }, [db, selectedId]);
     const synced = useSyncStatus().hasSynced ?? false;
     const onlyId = businesses.data.length === 1 ? businesses.data[0]?.id : undefined;
     const [applied, setApplied] = useState<string | null | undefined>(undefined);

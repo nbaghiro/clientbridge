@@ -8,7 +8,9 @@ import type { Size } from "./report.ts";
 
 const HERE = fileURLToPath(new URL(".", import.meta.url));
 const FRONTEND = join(HERE, "..", "..", "..");
-const DIST = join(HERE, "dist");
+// another wa-sqlite package folder to build against, to compare its builds with the pinned one
+const WA_SQLITE = process.env.BENCH_WA_SQLITE;
+const DIST = WA_SQLITE ? join(HERE, "dist", "wa-sqlite") : join(HERE, "dist");
 
 export const PORT = Number(process.env.BENCH_PORT ?? 8795);
 
@@ -17,6 +19,9 @@ const config: InlineConfig = {
     configFile: false,
     logLevel: "warn",
     optimizeDeps: { exclude: ["@journeyapps/wa-sqlite", "@powersync/web"] },
+    ...(WA_SQLITE
+        ? { resolve: { alias: [{ find: /^@journeyapps\/wa-sqlite/, replacement: WA_SQLITE }] } }
+        : {}),
     worker: { format: "es" },
     build: { outDir: DIST, emptyOutDir: true, target: "es2022" },
     preview: { port: PORT, strictPort: true },
@@ -73,7 +78,10 @@ export function packages(): Record<string, string> {
     ];
     return Object.fromEntries(
         names.map((name) => {
-            const file = join(FRONTEND, "node_modules", name, "package.json");
+            const file =
+                name === "@journeyapps/wa-sqlite" && WA_SQLITE
+                    ? join(WA_SQLITE, "package.json")
+                    : join(FRONTEND, "node_modules", name, "package.json");
             const { version } = JSON.parse(readFileSync(file, "utf8")) as { version: string };
             return [name, version];
         }),

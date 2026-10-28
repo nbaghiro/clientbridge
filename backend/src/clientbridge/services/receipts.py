@@ -6,12 +6,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
 from clientbridge.core.command import request_hash
-from clientbridge.core.errors import Conflict, Forbidden, Unprocessable
+from clientbridge.core.errors import Conflict, Forbidden
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
 from clientbridge.models.business import Staff
 from clientbridge.models.platform import SyncReceipt
 from clientbridge.schemas.receipts import OperationIdentity
+
+RETRY_HORIZON = timedelta(days=90)
+# kept a day past the horizon, so a replay from a clock running ahead still finds its receipt
+RECEIPT_RETENTION = RETRY_HORIZON + timedelta(days=1)
 
 
 async def reserve_receipt(
@@ -22,10 +26,9 @@ async def reserve_receipt(
     db: AsyncSession,
 ) -> dict[str, int] | None:
     now = clock.now()
-    if request.created_at < now - timedelta(days=90):
+    # a device clock running ahead must not strand its edits, so a future time counts as now
+    if min(request.created_at, now) < now - RETRY_HORIZON:
         raise Conflict("upload is outside the 90-day retry horizon", code="upload_expired")
-    if request.created_at > now + timedelta(minutes=5):
-        raise Unprocessable("upload time is in the future", code="upload_clock_skew")
     member = await db.scalar(
         scoped(Staff, request.business_id).where(Staff.user_id == user_id, Staff.status == "active")
     )
@@ -64,7 +67,7 @@ async def reserve_receipt(
 async def run_prune_receipts(db: AsyncSession, now: datetime) -> int:
     rows = await db.scalars(
         select(SyncReceipt.id)
-        .where(SyncReceipt.created_at < now - timedelta(days=90))
+        .where(SyncReceipt.created_at < now - RECEIPT_RETENTION)
         .order_by(SyncReceipt.created_at, SyncReceipt.id)
         .limit(1000)
         .with_for_update(skip_locked=True)

@@ -9,7 +9,9 @@ import {
     selectHoursTime,
     type HoursCommand,
 } from "./support/hours";
+import { endSessions } from "./support/auth";
 import { navigate, signIn, test } from "./support/session";
+import type { Locator, Page } from "@playwright/test";
 
 // Firefox's emulated offline leaves the replica's token fetch pending, so it drops requests instead
 async function setOffline(context: BrowserContext, browserName: string, offline: boolean) {
@@ -226,3 +228,191 @@ test(
         }
     },
 );
+
+/** Saves a Monday-only week from 10:00 to 16:00 in the open editor and waits for the local copy. */
+async function saveMondayOnly(page: Page, editor: Locator): Promise<void> {
+    await selectHoursTime(page, editor, strings.ui.startOf(strings.hours.monday), "10:00");
+    await selectHoursTime(page, editor, strings.ui.endOf(strings.hours.monday), "16:00");
+    for (const day of [
+        strings.hours.tuesday,
+        strings.hours.wednesday,
+        strings.hours.thursday,
+        strings.hours.friday,
+    ])
+        await editor.getByRole("switch", { name: day, exact: true }).uncheck();
+    await editor.getByRole("button", { name: strings.hours.saveHours, exact: true }).click();
+    await expect(editor.getByText(strings.hours.savedLocally, { exact: true })).toBeVisible();
+}
+
+test("OFF-E2E-02 a week rejected after reconnecting is discarded from the shell, and the server keeps its own week", async ({
+    page,
+    context,
+    request,
+    browser,
+    browserName,
+}) => {
+    test.setTimeout(240_000);
+    const staff = await joinHoursStaff(page, request);
+    const observer = await browser.newContext({
+        baseURL: new URL(page.url()).origin,
+        viewport: { width: 1440, height: 900 },
+    });
+    try {
+        const owner = await observer.newPage();
+        await signIn(owner);
+        const editor = await openHours(page, staff.name);
+        await setOffline(context, browserName, true);
+        await saveMondayOnly(page, editor);
+        await page.keyboard.press("Escape");
+
+        // the owner changes the same week first, so the offline one no longer applies
+        const ownerEditor = await openHours(owner, staff.name);
+        await ownerEditor
+            .getByRole("switch", { name: strings.hours.friday, exact: true })
+            .uncheck();
+        await ownerEditor
+            .getByRole("button", { name: strings.hours.saveHours, exact: true })
+            .click();
+        await expect
+            .poll(async () => (await hoursEvidence(staff.id)).staff.hours_revision, {
+                timeout: 60_000,
+            })
+            .toBe(1);
+        const owners = await hoursEvidence(staff.id);
+
+        const rejected = page.waitForResponse(
+            (response) =>
+                new URL(response.url()).pathname === `/v1/hours/${staff.id}/week` &&
+                response.request().method() === "POST",
+            { timeout: 60_000 },
+        );
+        await setOffline(context, browserName, false);
+        expect((await rejected).status()).toBe(409);
+        const discard = page.getByRole("button", {
+            name: strings.sync.discardRejected,
+            exact: true,
+        });
+        await expect(page.getByText(strings.sync.problems.upload, { exact: true })).toBeVisible({
+            timeout: 30_000,
+        });
+        await discard.click();
+        await page
+            .getByRole("dialog")
+            .getByRole("button", { name: strings.sync.discardRejected, exact: true })
+            .click();
+        await expect(page.getByText(strings.sync.problems.upload, { exact: true })).toHaveCount(0, {
+            timeout: 30_000,
+        });
+        const reopened = await openHours(page, staff.name);
+        await expect(
+            reopened.getByRole("switch", { name: strings.hours.friday, exact: true }),
+        ).not.toBeChecked();
+        await expect(reopened.getByText(strings.hours.savedLocally, { exact: true })).toHaveCount(
+            0,
+        );
+        expect(await hoursEvidence(staff.id)).toEqual(owners);
+    } finally {
+        await setOffline(context, browserName, false);
+        await observer.close();
+        await staff.cleanup();
+    }
+});
+
+test("OFF-E2E-03 signing out with an unsent week names it, and confirming discards it", async ({
+    page,
+    context,
+    request,
+    browserName,
+}) => {
+    test.setTimeout(240_000);
+    const staff = await joinHoursStaff(page, request);
+    try {
+        const baseline = await hoursEvidence(staff.id);
+        const editor = await openHours(page, staff.name);
+        await setOffline(context, browserName, true);
+        await saveMondayOnly(page, editor);
+        await page.keyboard.press("Escape");
+        const sidebar = page.locator("aside");
+        await sidebar.getByRole("button", { name: strings.navigation.accountMenu }).click();
+        await page.getByRole("menuitem", { name: strings.navigation.signOut }).click();
+        const warning = page.getByRole("dialog");
+        await expect(warning.getByText(strings.sync.signOutBody(1), { exact: true })).toBeVisible();
+        await expect(warning.getByText(strings.sync.hoursChanged, { exact: true })).toBeVisible();
+        await warning
+            .getByRole("button", { name: strings.sync.signOutConfirm, exact: true })
+            .click();
+        const email = page.getByRole("textbox", { name: strings.auth.email, exact: true });
+        await expect(email).toBeVisible({ timeout: 30_000 });
+
+        await setOffline(context, browserName, false);
+        await signIn(page, staff.account);
+        const reopened = await openHours(page, staff.name);
+        await expect(
+            reopened.getByRole("switch", { name: strings.hours.friday, exact: true }),
+        ).toBeChecked();
+        await expect(reopened.getByText(strings.hours.savedLocally, { exact: true })).toHaveCount(
+            0,
+        );
+        expect(await hoursEvidence(staff.id)).toEqual(baseline);
+    } finally {
+        await setOffline(context, browserName, false);
+        await staff.cleanup();
+    }
+});
+
+test("OFF-E2E-04 a session ended while offline asks to sign in on reconnect and keeps the unsent week", async ({
+    page,
+    context,
+    request,
+    browserName,
+}) => {
+    test.setTimeout(240_000);
+    const staff = await joinHoursStaff(page, request);
+    try {
+        const baseline = await hoursEvidence(staff.id);
+        const editor = await openHours(page, staff.name);
+        await setOffline(context, browserName, true);
+        await saveMondayOnly(page, editor);
+        await endSessions(request, staff.account.email);
+        // the API trusts a checked session for 30 seconds, so the device stays away until a read is refused
+        const api = runUrl("VITE_API_URL");
+        await expect
+            .poll(
+                async () =>
+                    (
+                        await page.request.get(`${api}/v1/hours/${staff.id}/week`, {
+                            headers: {
+                                Origin: new URL(page.url()).origin,
+                                "X-Business-Id": baseline.staff.business_id,
+                            },
+                        })
+                    ).status(),
+                { timeout: 60_000, intervals: [2_000] },
+            )
+            .toBe(401);
+        await setOffline(context, browserName, false);
+        const email = page.getByRole("textbox", { name: strings.auth.email, exact: true });
+        await expect(email).toBeVisible({ timeout: 60_000 });
+        expect(await hoursEvidence(staff.id)).toEqual(baseline);
+
+        const confirmed = page.waitForResponse(
+            (response) =>
+                new URL(response.url()).pathname === `/v1/hours/${staff.id}/week` &&
+                response.request().method() === "POST" &&
+                response.status() === 200,
+            { timeout: 60_000 },
+        );
+        await signIn(page, staff.account);
+        await confirmed;
+        await expect
+            .poll(async () => (await hoursEvidence(staff.id)).receipts.length, {
+                timeout: 60_000,
+            })
+            .toBe(1);
+        const restored = await openHours(page, staff.name);
+        await expectMondayOnly(restored);
+    } finally {
+        await setOffline(context, browserName, false);
+        await staff.cleanup();
+    }
+});

@@ -1,4 +1,6 @@
+import { execFile } from "node:child_process";
 import { writeFileSync } from "node:fs";
+import { promisify } from "node:util";
 
 import { expect, test } from "@playwright/test";
 
@@ -159,6 +161,166 @@ test("selected-business queries isolate lists, details and aggregate subqueries"
     expect(JSON.stringify(result.plan)).toContain("INDEX");
 });
 
+test("SYN-E2E-21 a business switch in one tab leaves another tab's choice", async ({ context }) => {
+    const [a, b, c] = [await context.newPage(), await context.newPage(), await context.newPage()];
+    for (const tab of [a, b, c]) await tab.goto("/");
+    const filename = `tabs-scope-${crypto.randomUUID()}.db`;
+    const open = (tab: typeof a, key: string) =>
+        tab.evaluate(
+            async ({ endpoint, token, filename, key }) => {
+                const { openReplica, selectBusinessPerTab } = await import("./database");
+                selectBusinessPerTab(key);
+                const db = await openReplica(filename);
+                await db.connect({
+                    fetchCredentials: () => Promise.resolve({ endpoint, token }),
+                    uploadData: () => Promise.resolve(),
+                });
+                await db.waitForFirstSync(AbortSignal.timeout(20_000));
+                Object.assign(window, { db });
+            },
+            { endpoint: endpoint(), token: token("multi"), filename, key },
+        );
+    const choose = (tab: typeof a, business: string) =>
+        tab.evaluate(async (business) => {
+            const { selectReplicaBusiness } = await import("./database");
+            const { db } = window as unknown as {
+                db: Parameters<typeof selectReplicaBusiness>[0];
+            };
+            await selectReplicaBusiness(db, business);
+        }, business);
+    const chosen = (tab: typeof a) =>
+        tab.evaluate(async () => {
+            const { businessQuery, keepTabBusiness, selectionQuery } = await import("./database");
+            const { db } = window as unknown as { db: Parameters<typeof keepTabBusiness>[0] };
+            const [sql, parameters] = selectionQuery();
+            const row = await db.getOptional<{ business_id: string }>(sql, parameters);
+            if (row) await keepTabBusiness(db, row.business_id);
+            const scoped = await db.getAll<{ id: string }>(
+                businessQuery("SELECT id FROM businesses"),
+            );
+            return { selected: row?.business_id ?? null, scoped: scoped.map((r) => r.id) };
+        });
+    await open(a, "tab-a");
+    await open(b, "tab-b");
+    const [first, second] = [fixture("bz_first"), fixture("bz_second")];
+    await choose(a, first);
+    expect(await chosen(b)).toEqual({ selected: first, scoped: [first] });
+    await choose(a, second);
+    expect(await chosen(a)).toEqual({ selected: second, scoped: [second] });
+    expect(await chosen(b)).toEqual({ selected: first, scoped: [first] });
+    // a new tab starts from the last choice made in any tab
+    await open(c, "tab-c");
+    expect(await chosen(c)).toEqual({ selected: second, scoped: [second] });
+    await a.evaluate(async () => {
+        const { db } = window as unknown as {
+            db: { disconnectAndClear: () => Promise<void>; close: () => Promise<void> };
+        };
+        await db.disconnectAndClear();
+        await db.close();
+    });
+});
+
+test("SYN-E2E-26 a stray write to a synced table is dropped and the next checkpoint restores the row", async ({
+    page,
+}) => {
+    await page.goto("/");
+    const result = await page.evaluate(
+        async ({ endpoint, token, business }) => {
+            const { openReplica, discardDirectWrites } = await import("./database");
+            const db = await openReplica(`stray-${crypto.randomUUID()}.db`);
+            try {
+                await db.connect({
+                    fetchCredentials: () => Promise.resolve({ endpoint, token }),
+                    uploadData: discardDirectWrites,
+                });
+                await db.waitForFirstSync(AbortSignal.timeout(20_000));
+                const name = async () =>
+                    (
+                        await db.get<{ name: string }>("SELECT name FROM businesses WHERE id = ?", [
+                            business,
+                        ])
+                    ).name;
+                const original = await name();
+                await db.execute("UPDATE businesses SET name = 'stray' WHERE id = ?", [business]);
+                const deadline = Date.now() + 15_000;
+                let restored = await name();
+                while (restored !== original && Date.now() < deadline) {
+                    await new Promise((resolve) => setTimeout(resolve, 200));
+                    restored = await name();
+                }
+                const queued = await db.getAll("SELECT id FROM ps_crud");
+                const dropped = await db.getOptional<{ value: string }>(
+                    "SELECT value FROM device_prefs WHERE id = 'sync.droppedWrites'",
+                );
+                return { original, restored, queued: queued.length, dropped: dropped?.value };
+            } finally {
+                await db.disconnectAndClear();
+                await db.close();
+            }
+        },
+        { endpoint: endpoint(), token: token("owner"), business: fixture("bz_first") },
+    );
+    expect(result.restored).toBe(result.original);
+    expect(result.queued).toBe(0);
+    expect(result.dropped).toBe(JSON.stringify([`PATCH businesses ${fixture("bz_first")}`]));
+});
+
+async function historyPages(): Promise<{ visits: string[]; messages: string[] }> {
+    const python = process.env.SYNC_TEST_PYTHON;
+    const cwd = process.env.SYNC_TEST_BACKEND;
+    if (!python || !cwd) throw new Error("SYNC_TEST_PYTHON is not set: run make test-sync");
+    const { stdout } = await promisify(execFile)(python, ["-m", "e2e.sync", "history"], { cwd });
+    return JSON.parse(stdout.trim().split("\n").at(-1) ?? "{}") as {
+        visits: string[];
+        messages: string[];
+    };
+}
+
+test("SYN-E2E-29 visits and messages at the history window's start appear exactly once across the replica and the API", async ({
+    page,
+}) => {
+    await page.goto("/");
+    const replica = await page.evaluate(
+        async ({ endpoint, token }) => {
+            const { openReplica, subscribeHistory } = await import("./database");
+            const db = await openReplica(`history-${crypto.randomUUID()}.db`);
+            try {
+                const history = await subscribeHistory(db);
+                await db.connect({
+                    fetchCredentials: () => Promise.resolve({ endpoint, token }),
+                    uploadData: () => Promise.resolve(),
+                });
+                await Promise.all(
+                    history.map((stream) => stream.waitForFirstSync(AbortSignal.timeout(20_000))),
+                );
+                const ids = async (table: string) =>
+                    (
+                        await db.getAll<{ id: string }>(
+                            `SELECT id FROM ${table} WHERE id LIKE '%_edge_%' ORDER BY id`,
+                        )
+                    ).map((row) => row.id);
+                return { visits: await ids("bookings"), messages: await ids("messages") };
+            } finally {
+                await db.disconnectAndClear();
+                await db.close();
+            }
+        },
+        { endpoint: endpoint(), token: token("owner") },
+    );
+    const api = await historyPages();
+    const edges = ["before", "at", "after"];
+    for (const [kind, prefix] of [
+        ["visits", "bk_edge"],
+        ["messages", "ms_edge"],
+    ] as const) {
+        const seen = [...replica[kind], ...api[kind]].filter((id) => id.includes("_edge_"));
+        expect(seen.sort()).toEqual(fixtures(edges.map((edge) => `${prefix}_${edge}`)).sort());
+        expect(api[kind].filter((id) => id.includes("_edge_"))).toEqual(
+            fixtures([`${prefix}_before`]),
+        );
+    }
+});
+
 const FULL = [
     "business_shared",
     "business_full",
@@ -184,7 +346,8 @@ const AUDIENCE: Record<string, Record<string, string[]>> = {
     foreign: { bz_foreign: FULL },
 };
 const OWNER_ROWS = {
-    bookings: ["bk_owner", "bk_staff"],
+    // the history window starts at bk_edge_at; bk_edge_before and bk_archive are read from the API
+    bookings: ["bk_edge_after", "bk_edge_at", "bk_owner", "bk_staff"],
     invoices: ["inv_first"],
     payments: ["pay_first"],
     entries: ["en_0", "en_1"],

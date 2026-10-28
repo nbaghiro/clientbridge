@@ -1,42 +1,60 @@
 import type { Session } from "@clientbridge/api-client";
-import { AppSchema, createConnector, ReplicaController, replicaFilename } from "@clientbridge/sync";
+import {
+    AppSchema,
+    createConnector,
+    ReplicaController,
+    replicaFilename,
+    selectBusinessPerTab,
+} from "@clientbridge/sync";
 import { removeReplicaFiles } from "@clientbridge/sync/files";
 import { boundedOpen, type ReplicaStorage, replicaStorage } from "@clientbridge/app-core";
 import { type DBAdapter, PowerSyncDatabase, WASQLiteVFS, type WebDBAdapter } from "@powersync/web";
 import { beforeSessionReplace, getUserId } from "./auth";
+import { opfsSyncAccess } from "./storage";
 import { config } from "../config";
 
-const { apiUrl, powersyncUrl } = config;
+const { powersyncUrl } = config;
 
 const VFS = {
     indexeddb: WASQLiteVFS.IDBBatchAtomicVFS,
     opfs: WASQLiteVFS.OPFSCoopSyncVFS,
 } satisfies Record<ReplicaStorage, WASQLiteVFS>;
 
-function opfsSyncAccess(): Promise<boolean> {
-    return new Promise((resolve) => {
-        const worker = new Worker(new URL("./opfsProbe.ts", import.meta.url), { type: "module" });
-        const answer = (granted: boolean): void => {
-            worker.terminate();
-            resolve(granted);
-        };
-        worker.onmessage = (event: MessageEvent<unknown>) => {
-            answer(event.data === true);
-        };
-        worker.onerror = () => {
-            answer(false);
-        };
-    });
-}
-
 let storage: Promise<ReplicaStorage> | null = null;
 let vfs: WASQLiteVFS = VFS.indexeddb;
 
 /** Where this browser keeps the replica, decided once per page: navigator.vendor names the engine. */
 function replicaStorageKind(): Promise<ReplicaStorage> {
-    storage ??= replicaStorage(navigator.vendor, opfsSyncAccess);
+    // a probe that didn't answer is asked again on the next try
+    storage ??= replicaStorage(navigator.vendor, opfsSyncAccess).catch((error: unknown) => {
+        storage = null;
+        throw error;
+    });
     return storage;
 }
+
+// the page's origin, not the served URLs, so a new API or sync host keeps the file and its unsent edits
+function replicaIdentity(): { userId: string; scope: string } | null {
+    const userId = getUserId();
+    return userId ? { userId, scope: location.origin } : null;
+}
+
+const TAB = "cb_tab";
+
+// kept for the tab's life, reloads included, so switching business in one tab leaves the others
+function tabKey(): string {
+    try {
+        const kept = sessionStorage.getItem(TAB);
+        if (kept) return kept;
+        const key = crypto.randomUUID();
+        sessionStorage.setItem(TAB, key);
+        return key;
+    } catch {
+        return crypto.randomUUID();
+    }
+}
+
+selectBusinessPerTab(tabKey());
 
 let kind: ReplicaStorage | null = null;
 let opened: PowerSyncDatabase | null = null;
@@ -69,8 +87,10 @@ async function removeListed(name: string): Promise<boolean> {
 
 // another tab may still hold the file, so a sign-out keeps trying briefly and the next start tries again
 async function removeOnSignOut(name: string): Promise<void> {
-    if (kind !== "opfs") return;
-    keepTrash([...trash(), name]);
+    if ((await replicaStorageKind().catch(() => null)) !== "opfs") {
+        keepTrash(trash().filter((listed) => listed !== name));
+        return;
+    }
     const deadline = Date.now() + 5_000;
     while (!(await removeListed(name)) && Date.now() < deadline)
         await new Promise((resolve) => setTimeout(resolve, 500));
@@ -100,31 +120,41 @@ export async function sweepSignedOut(): Promise<void> {
     if ((await replicaStorageKind()) === "opfs") await sweep(null);
 }
 
-export const replica = new ReplicaController((dbFilename) => {
-    opened = new PowerSyncDatabase({ schema: AppSchema, database: { dbFilename, vfs } });
-    return opened;
-}, removeOnSignOut);
+export const replica = new ReplicaController(
+    (dbFilename) => {
+        opened = new PowerSyncDatabase({ schema: AppSchema, database: { dbFilename, vfs } });
+        return opened;
+    },
+    {
+        list: (name) => {
+            keepTrash([...trash(), name]);
+        },
+        remove: removeOnSignOut,
+    },
+);
 
 beforeSessionReplace(() => replica.pause());
 
 export async function connectPowerSync(api: Session) {
-    const userId = getUserId();
-    if (!userId) throw new Error("a valid account identity is required");
+    const identity = replicaIdentity();
+    if (!identity) throw new Error("a valid account identity is required");
     kind = await replicaStorageKind();
     vfs = VFS[kind];
-    const identity = { userId, apiUrl, powersyncUrl };
     if (kind === "opfs") await sweep(replicaFilename(identity)).catch(() => undefined);
     const db = await boundedOpen(
         replica.activate(
             identity,
             createConnector({
                 powersyncUrl,
-                authFetch: api.forBusiness(null).authFetchFor(userId),
+                authFetch: api.forBusiness(null).authFetchFor(identity.userId),
             }),
         ),
+        () => {
+            replica.abandon();
+        },
     );
     db.waitForFirstSync()
-        .then(askToPersistOnce)
+        .then(askToPersist)
         .catch(() => undefined);
     return db;
 }
@@ -136,19 +166,30 @@ function settled(work: Promise<void>, ms: number): Promise<void> {
     ]);
 }
 
+let restored: () => void = () => undefined;
+let staying: ReturnType<typeof setTimeout> | undefined;
+
 /** Every full-page navigation goes here: WebKit keeps a script-navigated page's OPFS locks (bug 316904). */
 export async function leave(url: string, how: "assign" | "replace" = "assign"): Promise<void> {
-    if (kind === "opfs") await settled(replica.close(), 2_000);
+    if (kind !== "opfs") {
+        location[how](url);
+        return;
+    }
+    await settled(replica.close(), 2_000);
     location[how](url);
+    // a navigation that never happens (stopped, or blocked) leaves this page running, so it reopens
+    clearTimeout(staying);
+    staying = setTimeout(() => {
+        restored();
+    }, 8_000);
 }
-
-let restored: () => void = () => undefined;
 
 export function onPageRestored(handler: () => void): void {
     restored = handler;
 }
 
 addEventListener("pagehide", () => {
+    clearTimeout(staying);
     if (kind === "opfs") replica.close().catch(() => undefined);
 });
 
@@ -159,11 +200,13 @@ addEventListener("pageshow", (event) => {
 
 const PERSIST_ASKED = "cb_persist_asked";
 
-// without persistence the browser may evict the replica; Firefox prompts, so each profile is asked once
-async function askToPersistOnce(): Promise<void> {
+// unpersisted storage can be evicted; Firefox prompts, so only it is asked just once per profile
+async function askToPersist(): Promise<void> {
     if (!("storage" in navigator) || (await navigator.storage.persisted())) return;
-    if (localStorage.getItem(PERSIST_ASKED) !== null) return;
-    localStorage.setItem(PERSIST_ASKED, "1");
+    if (/\bFirefox\//.test(navigator.userAgent)) {
+        if (localStorage.getItem(PERSIST_ASKED) !== null) return;
+        localStorage.setItem(PERSIST_ASKED, "1");
+    }
     await navigator.storage.persist();
 }
 
@@ -203,8 +246,9 @@ export async function storageFacts(): Promise<StorageFacts | null> {
     };
 }
 
+/** Clears and deletes this account's replica; listed for deletion at once, so a later start retries it. */
 export function signOut(): Promise<void> {
-    return replica.discard();
+    return replica.discard(replicaIdentity() ?? undefined);
 }
 
 export { powersyncUrl };

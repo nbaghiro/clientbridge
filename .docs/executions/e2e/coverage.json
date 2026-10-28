@@ -2711,7 +2711,7 @@
         "tier": "API + browser",
         "setup": "200 owned clients plus foreign/deleted IDs",
         "actions": "Tag/add/remove normalized variants; archive duplicates; try empty and 201 IDs and mixed foreign batch",
-        "expected": "1\u2013200 validation; distinct count correct; all-or-nothing scope rejection; repeated key one audit per target",
+        "expected": "1–200 validation; distinct count correct; all-or-nothing scope rejection; repeated key one audit per target",
         "evidence": [
           "backend/src/clientbridge/schemas/clients.py:63",
           "backend/src/clientbridge/services/clients.py:175"
@@ -3755,7 +3755,7 @@
         "priority": "P1",
         "tier": "API contract plus UI",
         "prerequisites": "Empty invoice draft and optional-only estimate draft",
-        "actions": "Compare create(send=true) and separate create\u2192send",
+        "actions": "Compare create(send=true) and separate create→send",
         "assertions": "Consistent validation policy; rejected path creates no issue journal/number/send; UI names missing line."
       },
       "required_layers": ["browser", "integration"],
@@ -4421,7 +4421,7 @@
         "tier": "browser real stack plus Stripe sandbox",
         "prerequisites": "Card-ready connected merchant and published product",
         "actions": "Public shop choose variant/contact/window, pay real test card, open status/receipt and merchant queue",
-        "assertions": "Server price not browser-supplied; one stock hold\u2192sale movement, paid then unfulfilled, actual receipt/status links, correct account and no cross-tenant visibility."
+        "assertions": "Server price not browser-supplied; one stock hold→sale movement, paid then unfulfilled, actual receipt/status links, correct account and no cross-tenant visibility."
       },
       "required_layers": ["browser", "provider", "integration"],
       "related_evidence": [
@@ -4776,7 +4776,7 @@
         "priority": "P1",
         "tier": "web/Connect real stack",
         "prerequisites": "Online paid order",
-        "actions": "Advance unfulfilled\u2192preparing\u2192ready\u2192picked_up; also skip directly forward and attempt backward/repeat",
+        "actions": "Advance unfulfilled→preparing→ready→picked_up; also skip directly forward and attempt backward/repeat",
         "assertions": "Forward jumps follow actual policy; backward/repeat conflict; 15-second customer polling catches final state, ready notification and timestamps correct."
       },
       "required_layers": ["browser", "integration"],
@@ -8682,7 +8682,7 @@
         "priority": "P0",
         "tier": "Connect + web + signed callback",
         "setup": "Client consented for SMS/email with scheduled broadcast",
-        "actions": "PostSTOP/ARR\u00caT, try staff toggle and prefs grant, send manual/reminder/broadcast, thenSTART",
+        "actions": "PostSTOP/ARRÊT, try staff toggle and prefs grant, send manual/reminder/broadcast, thenSTART",
         "assertions": "STOP remains authoritative untilSTART; correct channel-only effect; preferences cannot clear carrier stop; actual recipient lists and UI warnings agree."
       },
       "required_layers": ["browser", "integration"],
@@ -12089,7 +12089,7 @@
         "tier": "web + local replica + API",
         "title": "Account/environment switching",
         "setup": "A pending hours operation, B account, second endpoint configuration",
-        "actions": "Switch A\u2192B\u2192A and environment; finish old requests out of order",
+        "actions": "Switch A→B→A and environment; finish old requests out of order",
         "assertions": "Preserved A outbox only in A identity/environment; correct sync.identity claim; active discard only",
         "forbidden": "Old response/401 changing new session, operation uploaded as B, foreign cached data"
       },
@@ -13359,7 +13359,7 @@
         "priority": "P0",
         "tier": "deployed or Caddy real stack",
         "title": "Full contact journey",
-        "prerequisites": "Actual site host\u2192API route and captured email",
+        "prerequisites": "Actual site host→API route and captured email",
         "actions": "Submit valid form, invalid/duplicate-key/oversized/wrong-content-type/honeypot variants",
         "assertions": "303 lands on same site correct result; one appropriate captured message with reply-to; invalid/bot submits cause no sends."
       },
@@ -15882,12 +15882,14 @@
       ],
       "expected": [
         "The replica reopens within 20 seconds on the return and on Back",
-        "No stuck-open message"
+        "No stuck-open message",
+        "After a pagehide and a persisted pageshow, the page reopens its replica with no stuck or storage message"
       ],
       "forbidden": ["A splash that never ends", "The stuck-open message"],
       "boundaries": [
         "Proves the WebKit lock release only where the replica is in OPFS (WebKit today, every engine after web-storage T9)",
-        "Doesn't cover a real Stripe checkout page or a device lock"
+        "Doesn't cover a real Stripe checkout page or a device lock",
+        "Playwright's engines didn't restore the page from the back-forward cache, so the restore is driven by its events"
       ],
       "depends_on": ["seeded_stack"],
       "related_audit_families": ["SYN18"]
@@ -15902,7 +15904,7 @@
         "frontend/apps/web/e2e/sync.e2e.ts",
         "frontend/apps/web/src/lib/powersync.ts"
       ],
-      "setup": "A new account signed up through the UI, with no business; a second tab of the same browser",
+      "setup": "A new account signed up through the UI, with no business; a second tab of the same browser that opens the replica too",
       "actions": [
         "Sign out in the first tab while the second is open",
         "Reload",
@@ -15922,6 +15924,315 @@
       ],
       "depends_on": ["seeded_stack", "mailpit"],
       "related_audit_families": ["SYN03", "SYN04"]
+    },
+    {
+      "id": "SYN-E2E-20",
+      "status": "implemented",
+      "layer": "browser",
+      "lane": "pr",
+      "risk": "high",
+      "implementation": [
+        "frontend/packages/sync/e2e/lifecycle.e2e.ts",
+        "frontend/packages/sync/src/lifecycle.ts"
+      ],
+      "setup": "Two tabs of one profile, a real sync token",
+      "actions": [
+        "Open and sync the replica in the first tab",
+        "Open it in the second",
+        "Close the first"
+      ],
+      "expected": [
+        "The second tab opens within 10 seconds and reads the same businesses",
+        "With tab-local sync (WebKit), the second tab connects once the first closes"
+      ],
+      "forbidden": ["The second tab waiting on PowerSync's sync lock"],
+      "boundaries": [
+        "Runs in Chromium, Firefox and WebKit on OPFS, and in Chromium and Firefox on IndexedDB",
+        "With a shared sync worker (Chromium, Firefox) one tab's close disconnects every tab; the case checks only that the second still reads"
+      ],
+      "depends_on": ["sync_fixtures"],
+      "related_audit_families": ["SYN01", "SYN04"]
+    },
+    {
+      "id": "SYN-E2E-21",
+      "status": "implemented",
+      "layer": "browser",
+      "lane": "pr",
+      "risk": "high",
+      "implementation": [
+        "frontend/packages/sync/e2e/replication.e2e.ts",
+        "frontend/packages/sync/src/scoping.ts"
+      ],
+      "setup": "Three tabs on one replica of a member of two businesses",
+      "actions": [
+        "Choose a business in tab A, then switch it",
+        "Read tab B's selection",
+        "Open tab C"
+      ],
+      "expected": [
+        "Tab B keeps the business it had",
+        "Tab C starts from the last choice"
+      ],
+      "forbidden": ["Tab B following tab A's switch"],
+      "boundaries": [
+        "Scoping queries only; the web shell's remount is not driven here"
+      ],
+      "depends_on": ["sync_fixtures"],
+      "related_audit_families": ["SYN03"]
+    },
+    {
+      "id": "SYN-E2E-22",
+      "status": "implemented",
+      "layer": "browser",
+      "lane": "pr",
+      "risk": "high",
+      "implementation": [
+        "frontend/packages/sync/e2e/lifecycle.e2e.ts",
+        "frontend/packages/sync/src/lifecycle.ts"
+      ],
+      "setup": "Another tab holds the file's access-handle lock, as a dead page does",
+      "actions": [
+        "Activate, which waits",
+        "Abandon",
+        "Pause and sign out",
+        "Release the lock"
+      ],
+      "expected": [
+        "Pause and sign-out finish on a fresh queue",
+        "The file is listed for deletion and removed once released",
+        "The abandoned open fails as superseded and closes its replica"
+      ],
+      "boundaries": [
+        "OPFS only; the lock is held by a page, not by a WebKit navigation"
+      ],
+      "depends_on": ["sync_fixtures"],
+      "related_audit_families": ["SYN18", "SYN04"]
+    },
+    {
+      "id": "SYN-E2E-23",
+      "status": "implemented",
+      "layer": "browser",
+      "lane": "pr",
+      "risk": "high",
+      "implementation": ["frontend/packages/sync/e2e/lifecycle.e2e.ts"],
+      "setup": "A closed replica file and a controller that never opened it",
+      "actions": ["Discard by the account's identity"],
+      "expected": ["The database, journal and WAL files are gone"],
+      "boundaries": ["OPFS only"],
+      "depends_on": ["sync_fixtures"],
+      "related_audit_families": ["SYN04"]
+    },
+    {
+      "id": "SYN-E2E-24",
+      "status": "implemented",
+      "layer": "browser",
+      "lane": "pr",
+      "risk": "high",
+      "implementation": [
+        "frontend/packages/sync/e2e/hours.e2e.ts",
+        "frontend/packages/sync/src/hours.ts"
+      ],
+      "setup": "A queued week whose transport failures grew the backoff to its cap",
+      "actions": [
+        "Start the upload loop while disconnected",
+        "Connect to the real service"
+      ],
+      "expected": [
+        "Nothing is sent before the reconnect",
+        "The week is sent within seconds of it"
+      ],
+      "boundaries": ["The upload transport is a stub; the reconnect is real"],
+      "depends_on": ["sync_fixtures"],
+      "related_audit_families": ["SYN10", "SYN06"]
+    },
+    {
+      "id": "SYN-E2E-25",
+      "status": "implemented",
+      "layer": "browser",
+      "lane": "pr",
+      "risk": "high",
+      "implementation": [
+        "frontend/packages/sync/e2e/hours.e2e.ts",
+        "frontend/packages/sync/src/hours.ts"
+      ],
+      "setup": "A queued week",
+      "actions": ["Upload against a 402 plan_required answer"],
+      "expected": [
+        "The week stays queued with plan_required and waits at least 15 minutes"
+      ],
+      "forbidden": ["The week marked rejected"],
+      "boundaries": [
+        "The 402 is a stub; the plan gate itself is covered by backend tests"
+      ],
+      "depends_on": ["sync_fixtures"],
+      "related_audit_families": ["SYN12"]
+    },
+    {
+      "id": "SYN-E2E-26",
+      "status": "implemented",
+      "layer": "browser",
+      "lane": "pr",
+      "risk": "high",
+      "implementation": [
+        "frontend/packages/sync/e2e/replication.e2e.ts",
+        "frontend/packages/sync/src/connector.ts"
+      ],
+      "setup": "A synced replica with the production upload handler",
+      "actions": ["Update a synced row directly"],
+      "expected": [
+        "The write is reported, the upload queue empties and the server's value returns"
+      ],
+      "forbidden": ["Downloads frozen behind the local write"],
+      "boundaries": ["Chromium on OPFS"],
+      "depends_on": ["sync_fixtures"],
+      "related_audit_families": ["SYN15"]
+    },
+    {
+      "id": "SYN-E2E-27",
+      "status": "implemented",
+      "layer": "browser",
+      "lane": "pr",
+      "risk": "high",
+      "implementation": ["frontend/packages/sync/e2e/lifecycle.e2e.ts"],
+      "setup": "An OPFS replica with an unsent week, closed",
+      "actions": ["Reopen against an unreachable sync service"],
+      "expected": [
+        "The week and the synced business are still there, disconnected"
+      ],
+      "boundaries": [
+        "The page's own files still load from the dev server; offline boot through the service worker is XB-E2E-05"
+      ],
+      "depends_on": ["sync_fixtures"],
+      "related_audit_families": ["SYN05", "SYN17"]
+    },
+    {
+      "id": "SYN-E2E-28",
+      "status": "implemented",
+      "layer": "browser",
+      "lane": "pr",
+      "risk": "high",
+      "implementation": [
+        "frontend/packages/sync/e2e/lifecycle.e2e.ts",
+        "frontend/apps/web/src/lib/storage.ts",
+        "frontend/apps/web/src/lib/opfsProbe.ts"
+      ],
+      "setup": "Three tabs loading at once",
+      "actions": ["Probe OPFS sync access in each"],
+      "expected": ["Every tab is granted OPFS"],
+      "forbidden": ["A tab falling back because another probe held its file"],
+      "boundaries": [
+        "The probe's timeout and quota answers are covered by app-core unit tests"
+      ],
+      "depends_on": ["sync_fixtures"],
+      "related_audit_families": ["SYN18"]
+    },
+    {
+      "id": "SYN-E2E-29",
+      "status": "implemented",
+      "layer": "browser",
+      "lane": "pr",
+      "risk": "high",
+      "implementation": [
+        "frontend/packages/sync/e2e/replication.e2e.ts",
+        "backend/e2e/sync.py"
+      ],
+      "setup": "A visit and a message 1 ms before, at and after the history window's start, in a business west of UTC",
+      "actions": [
+        "Sync the history window",
+        "Page the API before the window's start"
+      ],
+      "expected": [
+        "Each row appears exactly once across the replica and the API",
+        "Only the earlier row comes from the API"
+      ],
+      "forbidden": ["A row in both, or in neither"],
+      "boundaries": [
+        "Owner visits and messages; staff-only visibility is covered by the projection cases"
+      ],
+      "depends_on": ["sync_fixtures"],
+      "related_audit_families": ["SYN13", "SYN14"]
+    },
+    {
+      "id": "SYN-E2E-30",
+      "status": "implemented",
+      "layer": "browser",
+      "lane": "pr",
+      "risk": "high",
+      "implementation": ["frontend/packages/sync/e2e/revocation.e2e.ts"],
+      "setup": "An admin replica, synced then disconnected",
+      "actions": ["Remove the member while disconnected", "Reconnect"],
+      "expected": ["The business is purged after the reconnect"],
+      "boundaries": [
+        "The outbox side of lost access is covered by the accepted-work reconciliation case"
+      ],
+      "depends_on": ["sync_fixtures"],
+      "related_audit_families": ["SYN02", "SYN11"]
+    },
+    {
+      "id": "OFF-E2E-02",
+      "status": "implemented",
+      "layer": "browser",
+      "lane": "pr",
+      "risk": "critical",
+      "implementation": ["frontend/apps/web/e2e/offline.e2e.ts"],
+      "setup": "Invited staff with an offline week; the owner in another browser",
+      "actions": [
+        "Save a week offline",
+        "The owner saves the same week",
+        "Reconnect",
+        "Discard from the shell"
+      ],
+      "expected": [
+        "The upload is refused with 409 and the shell offers Discard",
+        "After discarding, the editor shows the owner's week and the server is unchanged"
+      ],
+      "boundaries": ["Chromium"],
+      "depends_on": ["seeded_stack", "mailpit"],
+      "related_audit_families": ["SYN08", "SYN09"]
+    },
+    {
+      "id": "OFF-E2E-03",
+      "status": "implemented",
+      "layer": "browser",
+      "lane": "pr",
+      "risk": "critical",
+      "implementation": ["frontend/apps/web/e2e/offline.e2e.ts"],
+      "setup": "Invited staff with an offline week",
+      "actions": [
+        "Sign out from the account menu",
+        "Confirm",
+        "Sign in again online"
+      ],
+      "expected": [
+        "The dialog counts one unsent change and names it",
+        "After signing in again nothing is pending and the server never received the week"
+      ],
+      "boundaries": ["Chromium"],
+      "depends_on": ["seeded_stack", "mailpit"],
+      "related_audit_families": ["SYN04"]
+    },
+    {
+      "id": "OFF-E2E-04",
+      "status": "implemented",
+      "layer": "browser",
+      "lane": "pr",
+      "risk": "critical",
+      "implementation": ["frontend/apps/web/e2e/offline.e2e.ts"],
+      "setup": "Invited staff with an offline week",
+      "actions": [
+        "End the account's sessions while offline",
+        "Reconnect",
+        "Sign in again"
+      ],
+      "expected": [
+        "The shell asks to sign in",
+        "The week uploads once after signing in, and the editor shows it"
+      ],
+      "boundaries": [
+        "Chromium; the session ends through the auth service's admin API"
+      ],
+      "depends_on": ["seeded_stack", "mailpit"],
+      "related_audit_families": ["SYN05", "SYN07"]
     }
   ],
   "coverage_summary": {

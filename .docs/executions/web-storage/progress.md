@@ -7,7 +7,7 @@ Re-checked at the start of wave 0 with `gh api`, the WebKit Bugzilla REST API an
 | Gate                                                   | Status                                                                  | Last change |
 | ------------------------------------------------------ | ----------------------------------------------------------------------- | ----------- |
 | G1. powersync-js 785, multi-tab deadlocks              | Open                                                                    | 2026-10-20  |
-| G2. Chrome renderer crash on Windows (comment on 785)  | No Chromium issue linked yet. Our own run is T8.                        | 2026-10-20  |
+| G2. Chrome renderer crash on Windows (comment on 785)  | Passed on the runners: no crash in 30 navigations per VFS in Chrome and Edge (CI run 40598868652). | 2026-10-28  |
 | G3. powersync-js 808, Safari init hang                 | Open                                                                    | 2026-10-09  |
 | G4. powersync-js PR 811, `pagehide` termination        | Open, not merged                                                        | 2026-06-18  |
 | G5. WebKit 316904, worker locks kept on navigation     | NEW                                                                     | 2026-10-09  |
@@ -50,3 +50,62 @@ D1 to D5 are answered in the plan, each as recommended.
 - **Finding, WebKit two tabs (G1):** in Playwright's macOS WebKit with an on-disk profile, a second tab never opens the OPFS replica the first tab holds, even after 15 seconds idle and a retry; it shows the stuck-open message after 20 seconds. `f1a6066c`, before T5 and T6, behaves the same (the second tab stays on the splash past 60 seconds), so it predates this wave. `XB-E2E-20` keeps the second tab open but waits for it to load only in Chromium and Firefox. T7's concurrent-claim case in WebKit and T8 should confirm whether this is Playwright's WebKit, macOS only, or real Safari, before the switch.
 - **T7** (on `web-storage`): the sync suite's lifecycle cases also run in Firefox and WebKit, with WebKit on a temporary on-disk profile (`packages/sync/e2e/engines.ts`), and CI's sync job installs both browsers. `make test-sync` passed 40 of 40 (28 Chromium, 6 Firefox, 6 WebKit). The concurrent-claim case passed 20 of 20 in each engine, and the removal cases needed no extra wait in WebKit.
 - PLN-E2E-01 now compares only the plan rows of the shared demo businesses, since other cases add staff to them at the same time.
+
+## Bench results (CI run 40598868652 and a local Safari run)
+
+CI ran the T1 bench on 11 browser and OS pairs, all green. Each figure is the median of 10 runs of one first checkpoint of 24,361 rows (bz_demo_second), on GitHub-hosted runners. Full tables are in the run's `storage-bench-tables` artifact.
+
+### First checkpoint, ms (median)
+
+| platform | IndexedDB | OPFS (on disk) | memory |
+| --- | --- | --- | --- |
+| Safari 26.6.2, macOS runner | 12,702 | 1,355 | 959 |
+| Safari 26.3.1, local M-series Mac | crashed after 3 runs | 762 to 805 | 578 to 653 |
+| WebKit 26.6, macOS | 20,782 | 1,623 | 1,297 |
+| WebKit 26.6, Linux | 13,656 | 1,553 | 1,341 |
+| Chromium, Linux | 3,435 | 1,236 | 821 |
+| Chromium, macOS | 4,552 | 1,764 | 1,081 |
+| Firefox, Linux | 6,812 | 5,155 | 1,393 |
+| Firefox, macOS | 7,512 | 5,080 | 1,396 |
+| Chrome 156, Windows | 12,763 | 20,111 | 1,082 |
+| Edge 155, Windows | 7,597 | 11,189 | 666 |
+| Chromium, Windows | 11,014 | 13,323 | 1,128 |
+| Firefox, Windows | 15,060 | 18,180 | 1,497 |
+
+### What this shows
+
+- On every Apple engine, OPFS is 8 to 13 times faster than IndexedDB, and IndexedDB reloads in Safari ranged up to 10.5 s. This supports moving Safari off IndexedDB first.
+- On the Windows runners, OPFS is slower than IndexedDB in every browser: 1.6 times in Chrome, 1.5 times in Edge, 1.2 times in Firefox. The runners have real-time antivirus scanning, which may account for it, but that is not shown yet. The 10 first syncs on a real Windows device in T8 decide whether this blocks OPFS on Windows.
+- In Chromium private contexts, OPFS (9 to 20 s) is much slower than its on-disk profile (1.2 to 1.8 s on Linux and macOS). This supports D1, memory for private windows.
+- Memory is under 1.5 s everywhere.
+
+### G2: crashes during navigation (Windows)
+
+A script navigation during the first checkpoint, 30 runs per VFS:
+
+| browser | VFS | renderer crashes | other failures |
+| --- | --- | --- | --- |
+| Chrome 156 | IndexedDB | 0 | 0 |
+| Chrome 156 | OPFS | 0 | 0 |
+| Edge 155 | IndexedDB | 0 | 0 |
+| Edge 155 | OPFS | 0 | 0 |
+
+G2 passes on the runners.
+
+## Sync review fixes, 2026-10-28
+
+One branch for the client findings of the sync review, before T8 and T9.
+
+- **WebKit second tab (H2), root cause.** With multi-tab sync off, which PowerSync sets for WebKit and mobile browsers, `TabLocalStreamingSyncImplementation` lets one tab hold the `sync` Web Lock, and `AbstractStreamingSyncImplementation.connect()` resolves only after its own tab reports `connecting` and then stops. The second tab never gets the lock while the first syncs, so `ReplicaController.activate`, which awaited `db.connect()`, never returned and the open hit the 20-second stuck bound. Instrumented, the second tab passed `init`, the claim, `disconnect` and the history subscription in 110 ms and then waited in `connect()`. Playwright's macOS WebKit also resolves multi-tab off. The controller now starts the connection without waiting on it. `SYN-E2E-20` opens two connected tabs in all three engines and on IndexedDB, and in WebKit the second tab takes over syncing when the first closes.
+- **Finding for T9.** In Chromium and Firefox, where one shared worker syncs every tab, a tab that disconnects (close, pause, account switch) stops sync for the other tabs too. PowerSync's own close without a disconnect hung in our lifecycle cases, so the controller still disconnects. After the switch, `pagehide` in one tab would stop the others' sync until they reconnect, so T9 needs an answer.
+- **Stuck open (H1).** `ReplicaController.abandon()` swaps in a fresh queue, and `boundedOpen` calls it on timeout. An abandoned open closes its replica if it ever finishes, and the session hook doesn't queue a pause after a stuck failure. `SYN-E2E-22` holds the file's lock from another tab: pause and sign-out finish, the file is listed and later removed, and the abandoned open fails as superseded.
+- **Sign-out (H3).** `discard(identity)` lists the file before anything can fail and removes it by name even with nothing open; the web app starts it before ending the session. `SYN-E2E-23`.
+- **Probe (H4).** Unique file names, the error's name, 5 seconds and one retry; a quota error keeps OPFS and no answer fails as stuck. Unit tests in app-core, and `SYN-E2E-28` loads three tabs together in each engine.
+- **IndexedDB coverage.** `database.ts` takes the storage from the project; `chromium-indexeddb` and `firefox-indexeddb` run the lifecycle and outbox cases.
+- **IndexedDB slowdown.** Measured with the bench in Playwright's macOS WebKit at Cedar Coast's 24,361 rows, building the bench against wa-sqlite 2.0.10, 2.0.7 and 2.0.6 (`BENCH_WA_SQLITE`). On a quiet machine, eight runs each: 2.0.10's first checkpoint took 3.5 to 4.5 s private and 4.1 to 5.1 s on disk, 2.0.7's 3.9 to 4.9 s and 3.9 to 4.5 s. Both rose to 10 to 20 s in runs that overlapped other test lanes, and neither grew run over run within one browser. So the 2.0.10 async build doesn't explain the slowdown here; the earlier 31 and 54 s were taken on a loaded machine, and real Safari's growth to 30.6 s wasn't reproduced. OPFS took 0.8 to 1.7 s.
+- **Stray writes (server M8).** `uploadData` reports and completes the batch. `SYN-E2E-26`.
+- **Outbox.** A reconnect clears the backoff of weeks that failed on transport (`SYN-E2E-24`), and a 402 `plan_required` holds the week 15 minutes at a time (`SYN-E2E-25`). The server takes a future `created_at` as now and keeps receipts 91 days.
+- **Medium items.** The replica name uses the page origin (M5); a 403 or 429 on a focus check keeps the app open (M6); the service worker answers from the cache after 3 seconds (M7); the first-sync error waits for 20 seconds without download progress (M8); the business choice is per tab (M9, `SYN-E2E-21`); `leave()` reopens the replica if the page is still there 8 seconds later (M3); Chromium and Safari are asked for persistence again until they agree, Firefox once.
+- **Tests.** The sync lane sets `forbidOnly` and checks every case per project against `SYNC_CASES`. New: an OPFS reopen with an unsent week and no sync service (`SYN-E2E-27`), the history boundary exactly once (`SYN-E2E-29`), revocation while disconnected (`SYN-E2E-30`), and on the web the rejected-week discard, sign-out with an unsent week and a session ended offline (`OFF-E2E-02` to `04`). `XB-E2E-20` waits for the second tab in every engine and passed in all three locally. Back didn't restore the page from the back-forward cache in any Playwright engine, so `XB-E2E-21` now drives `pagehide` and a persisted `pageshow` and checks that the page reopens without the stuck or storage message; a real cached restore stays on the T8 Safari checklist.
+- **Upgrade.** A replica made by `@powersync/web` 2.4.2 with wa-sqlite 2.0.10 reopened under 2.5.0 in Chromium, Firefox and WebKit with `integrity_check` ok, the outbox row, the claim and a new write. This was a one-off script, not a lane.
+- The new replica names leave existing replica files unused, so unsent edits in them don't upload after this deploys. Testers should open the app with nothing pending first.

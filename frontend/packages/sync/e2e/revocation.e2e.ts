@@ -102,3 +102,59 @@ test("live renames reach the replica; downgrade, deletion and removal purge its 
         await mutate("restore_name");
     }
 });
+
+test("SYN-E2E-30 a device that lost access while disconnected purges the business when it reconnects", async ({
+    page,
+}) => {
+    await page.goto("/");
+    const count = () =>
+        page.evaluate(async () => {
+            const { liveReplicas } = await import("./database");
+            const db = liveReplicas.get("offline-revoke");
+            if (!db) throw new Error("missing replica");
+            return (await db.getAll("SELECT id FROM businesses")).length;
+        });
+    const connect = () =>
+        page.evaluate(
+            async ({ endpoint, token }) => {
+                const { liveReplicas } = await import("./database");
+                const db = liveReplicas.get("offline-revoke");
+                if (!db) throw new Error("missing replica");
+                await db.connect({
+                    fetchCredentials: () => Promise.resolve({ endpoint, token }),
+                    uploadData: () => Promise.resolve(),
+                });
+            },
+            { endpoint: endpoint(), token: token("admin") },
+        );
+    await page.evaluate(async () => {
+        const { openAuthorizationReplica, liveReplicas } = await import("./database");
+        liveReplicas.set(
+            "offline-revoke",
+            await openAuthorizationReplica(`offline-revoke-${crypto.randomUUID()}.db`),
+        );
+    });
+    try {
+        await connect();
+        await expect.poll(count, { timeout: 20_000 }).toBe(1);
+        await page.evaluate(async () => {
+            const { liveReplicas } = await import("./database");
+            await liveReplicas.get("offline-revoke")?.disconnect();
+        });
+        await mutate("remove");
+        expect(await count()).toBe(1);
+        await connect();
+        await expect.poll(count, { timeout: 20_000 }).toBe(0);
+    } finally {
+        await page.evaluate(async () => {
+            const { liveReplicas } = await import("./database");
+            const db = liveReplicas.get("offline-revoke");
+            if (db) {
+                await db.disconnectAndClear();
+                await db.close();
+            }
+            liveReplicas.delete("offline-revoke");
+        });
+        await mutate("restore");
+    }
+});

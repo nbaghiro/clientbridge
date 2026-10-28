@@ -1,4 +1,6 @@
-import { expect, test } from "@playwright/test";
+import { expect } from "@playwright/test";
+import { test } from "./engines";
+import { endpoint, token } from "./service";
 
 test("hours proposals coalesce before upload and retain immutable identities after a lost response", async ({
     page,
@@ -324,4 +326,95 @@ test("accepted work reconciles after access removal, while unsent work survives 
         refused: [{ state: "rejected" }],
         remaining: { count: 0 },
     });
+});
+
+test("SYN-E2E-24 a week that waited out a lost connection is sent when the connection returns", async ({
+    page,
+}) => {
+    await page.goto("/");
+    const result = await page.evaluate(
+        async ({ endpoint, token }) => {
+            const { openReplica, enqueueHours, uploadHoursOnce, startHoursUploads } =
+                await import("./database");
+            const db = await openReplica(`reconnect-hours-${crypto.randomUUID()}.db`);
+            await db.execute("INSERT INTO device_prefs (id, value) VALUES ('sync.identity', ?)", [
+                JSON.stringify(["https://app.test", "actor"]),
+            ]);
+            const days = Array.from({ length: 7 }, (_, weekday) => ({
+                weekday,
+                available: false,
+                start_time: null,
+                end_time: null,
+            }));
+            await enqueueHours(db, "staff", "business", 0, days, days);
+            await uploadHoursOnce(
+                db,
+                () => Promise.reject(new Error("offline")),
+                new AbortController().signal,
+            );
+            // an hour offline grew the backoff to its five-minute cap
+            await db.execute("UPDATE hours_outbox SET attempt_count = 9, retry_at = ?", [
+                Date.now() + 300_000,
+            ]);
+            const sent: number[] = [];
+            const started = Date.now();
+            const stop = startHoursUploads(db, () => {
+                sent.push(Date.now() - started);
+                return Promise.reject(new Error("still offline"));
+            });
+            await new Promise((resolve) => setTimeout(resolve, 1_500));
+            const beforeReconnect = sent.length;
+            await db.connect({
+                fetchCredentials: () => Promise.resolve({ endpoint, token }),
+                uploadData: () => Promise.resolve(),
+            });
+            const deadline = Date.now() + 10_000;
+            while (sent.length === beforeReconnect && Date.now() < deadline)
+                await new Promise((resolve) => setTimeout(resolve, 100));
+            await stop();
+            await db.disconnectAndClear();
+            await db.close();
+            return { beforeReconnect, afterReconnect: sent.length };
+        },
+        { endpoint: endpoint(), token: token("owner") },
+    );
+    expect(result.beforeReconnect).toBe(0);
+    expect(result.afterReconnect).toBe(1);
+});
+
+test("SYN-E2E-25 a lapsed plan holds a week instead of rejecting it", async ({ page }) => {
+    await page.goto("/");
+    const result = await page.evaluate(async () => {
+        const { openReplica, enqueueHours, uploadHoursOnce } = await import("./database");
+        const db = await openReplica(`lapsed-hours-${crypto.randomUUID()}.db`);
+        await db.execute("INSERT INTO device_prefs (id, value) VALUES ('sync.identity', ?)", [
+            JSON.stringify(["https://app.test", "actor"]),
+        ]);
+        const days = Array.from({ length: 7 }, (_, weekday) => ({
+            weekday,
+            available: false,
+            start_time: null,
+            end_time: null,
+        }));
+        await enqueueHours(db, "staff", "business", 0, days, days);
+        const before = Date.now();
+        await uploadHoursOnce(
+            db,
+            () =>
+                Promise.resolve(
+                    Response.json(
+                        { error: "plan_required", message: "the business is paused" },
+                        { status: 402 },
+                    ),
+                ),
+            new AbortController().signal,
+        );
+        const row = await db.get<{ state: string; error_code: string; retry_at: number }>(
+            "SELECT state, error_code, retry_at FROM hours_outbox",
+        );
+        await db.close();
+        return { ...row, waitMs: row.retry_at - before };
+    });
+    expect(result).toMatchObject({ state: "queued", error_code: "plan_required" });
+    expect(result.waitMs).toBeGreaterThanOrEqual(15 * 60_000);
 });

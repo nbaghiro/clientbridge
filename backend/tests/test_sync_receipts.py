@@ -51,7 +51,9 @@ async def test_retention_and_retry_horizon(as_owner: httpx.AsyncClient, db: Asyn
     body = week_body()
     assert (await as_owner.post(URL, json=body)).status_code == 200
     now = clock.now()
-    await db.execute(update(SyncReceipt).values(created_at=now - timedelta(days=91)))
+    await db.execute(update(SyncReceipt).values(created_at=now - timedelta(days=90, hours=23)))
+    assert await run_prune_receipts(db, now) == 0
+    await db.execute(update(SyncReceipt).values(created_at=now - timedelta(days=91, minutes=1)))
     assert await run_prune_receipts(db, now) == 1
     request = body["request"]
     assert isinstance(request, dict)
@@ -62,11 +64,16 @@ async def test_retention_and_retry_horizon(as_owner: httpx.AsyncClient, db: Asyn
     assert (await db.scalars(select(SyncReceipt))).first() is None
 
 
-async def test_future_operation_is_rejected(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
+async def test_a_device_clock_running_ahead_is_accepted(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
     body = week_body()
     request = body["request"]
     assert isinstance(request, dict)
-    request["created_at"] = (clock.now() + timedelta(minutes=6)).isoformat()
-    response = await as_owner.post(URL, json=body)
-    assert response.status_code == 422
-    assert (await db.scalars(select(SyncReceipt))).first() is None
+    request["created_at"] = (clock.now() + timedelta(days=2)).isoformat()
+    first = await as_owner.post(URL, json=body)
+    assert first.status_code == 200
+    replay = await as_owner.post(URL, json=body)
+    assert replay.status_code == 200
+    assert replay.json() == first.json()
+    assert len((await db.scalars(select(SyncReceipt))).all()) == 1

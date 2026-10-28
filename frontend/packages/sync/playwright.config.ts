@@ -14,8 +14,13 @@ export default defineConfig({
     testMatch: "*.e2e.ts",
     timeout: 30_000,
     workers: 1,
+    forbidOnly: true,
     outputDir: `${output}/results`,
-    reporter: [["list"], ["html", { outputFolder: `${output}/report`, open: "never" }]],
+    reporter: [
+        ["list"],
+        ["json", { outputFile: `${output}/results.json` }],
+        ["html", { outputFolder: `${output}/report`, open: "never" }],
+    ],
     use: { baseURL: `http://localhost:${port}` },
     projects: [
         { name: "chromium", use: { browserName: "chromium" } },
@@ -23,6 +28,14 @@ export default defineConfig({
         ...(["firefox", "webkit"] as const).map((browserName) => ({
             name: browserName,
             testMatch: "lifecycle.e2e.ts",
+            use: { browserName },
+        })),
+        // IndexedDB, which Chromium and Firefox keep the replica in until the OPFS switch
+        ...(["chromium", "firefox"] as const).map((browserName) => ({
+            name: `${browserName}-indexeddb`,
+            testMatch: ["lifecycle.e2e.ts", "hours.e2e.ts"],
+            grepInvert: /@opfs/,
+            metadata: { storage: "indexeddb" },
             use: { browserName },
         })),
     ],
