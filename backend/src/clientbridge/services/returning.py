@@ -9,7 +9,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from clientbridge.core import clock
 from clientbridge.core.config import get_settings
 from clientbridge.core.errors import (
-    AppError,
     NotFound,
     TooManyRequests,
     Unauthorized,
@@ -20,7 +19,7 @@ from clientbridge.core.locale import locale_for
 from clientbridge.core.phones import e164, same_phone
 from clientbridge.core.scoping import scoped
 from clientbridge.core.security import hash_token
-from clientbridge.integrations.twilio import Sms, SmsSender
+from clientbridge.integrations.twilio import Sms, SmsSender, sender_number
 from clientbridge.models.business import Business
 from clientbridge.models.clients import Client, Subject
 from clientbridge.models.returning import ReturningChallenge
@@ -62,10 +61,7 @@ class ReturningService:
         number = e164(data.phone)
         if number is None:
             raise Unprocessable("enter a valid phone number with country code")
-        if business.sms_number is None:
-            raise AppError(
-                "business has no assigned SMS number", code="sms_unassigned", status_code=503
-            )
+        sender_number(business.sms_number)
         destination = _digest(number)
         now = clock.now()
         await self.db.execute(

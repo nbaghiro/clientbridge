@@ -152,6 +152,7 @@ async def test_overdue_sweep_is_multi_tenant(
     inv_a = await sent_invoice(db, client=cid_a, due_at=NOW - timedelta(days=5))
 
     other = await factory.business(name="Second Tenant")
+    other.sms_number = "+16045550198"
     client_b = await factory.client(business=other, name="B Client")
     client_b.phone = "+16045550152"
     await db.flush()

@@ -191,12 +191,6 @@ async def dispatch(
                     )
                 )
             case SmsDelivery(message=message):
-                if message.from_number is None:
-                    raise AppError(
-                        "business has no assigned SMS number",
-                        code="sms_unassigned",
-                        status_code=503,
-                    )
                 reference = await sms.send(message)
             case PushDelivery(message=message):
                 await push.send(message)

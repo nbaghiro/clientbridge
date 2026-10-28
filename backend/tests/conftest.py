@@ -72,7 +72,7 @@ from clientbridge.integrations.stripe import (
     event_from,
     get_payment_gateway,
 )
-from clientbridge.integrations.twilio import Sms, SmsSender, get_sms_sender
+from clientbridge.integrations.twilio import Sms, SmsSender, get_sms_sender, sender_number
 from clientbridge.main import app
 from clientbridge.models.billing import Invoice
 from clientbridge.models.business import Business, PlanStatus, Staff, SubjectKind, User
@@ -190,6 +190,7 @@ class FakeSmsSender:
         self.sent: list[Sms] = []
 
     async def send(self, sms: Sms) -> str | None:
+        sender_number(sms.from_number)
         self.sent.append(sms)
         return f"sms_fake{len(self.sent)}"
 

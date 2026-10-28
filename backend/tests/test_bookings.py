@@ -1263,6 +1263,7 @@ async def test_global_scan_is_multi_tenant_and_deduped(
 ) -> None:
     await _booking_at(db, NOW + timedelta(hours=12))  # a booking in the seeded business
     other = await factory.business(name="Second Studio")
+    other.sms_number = "+16045550198"
     staff = await factory.staff(business=other)
     client = await factory.client(business=other)
     client.phone = "+15145550001"

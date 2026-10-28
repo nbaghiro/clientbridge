@@ -128,11 +128,13 @@ async def test_a_dev_text_lands_in_its_numbers_inbox_under_the_run(
 ) -> None:
     sender = SmtpSmsSender(email)
     await sender.send(Sms(to="+1 (250) 555-1234", body="Code 123456", from_number="+12365550190"))
+    await sender.send(Sms(to="+12505550142", body="Demo", from_number="+12365550190"))
     monkeypatch.setattr(get_settings(), "run_namespace", "0042")
     await sender.send(Sms(to="+12505551234", body="Reminder", from_number="+12365550190"))
     await sender.send(Sms(to="+12505550142", body="Fiction", from_number="+12365550190"))
     assert [(m.to, m.body) for m in email.sent] == [
         ("12505551234@sms.test", "Code 123456"),
+        ("12505550142@sms.test", "Demo"),
         ("12505551234+0042@sms.test", "Reminder"),
         ("12505550142+0042@sms.invalid", "Fiction"),
     ]
