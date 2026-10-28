@@ -50,7 +50,7 @@ export async function editClient(page: Page, client: ClientFixture): Promise<Loc
         client.name,
     );
     await expect(
-        editor.getByRole("textbox", { name: strings.clients.edit.phoneLabel, exact: true }),
+        editor.getByRole("textbox", { name: strings.clients.edit.phoneLabel }),
     ).toHaveValue(formatPhone(client.phone));
     return editor;
 }

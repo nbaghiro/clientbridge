@@ -41,7 +41,7 @@ export async function messageEvidence(clientId: string): Promise<MessageEvidence
             ORDER BY id`,
         deliveries: await select<MessageEvidence["deliveries"][number]>`
             SELECT id, state FROM deliveries
-            WHERE payload->'message'->'tags'->>'message' IN (
+            WHERE payload->>'message_id' IN (
                 SELECT id FROM messages
                 WHERE thread_id IN (SELECT id FROM threads WHERE client_id = ${clientId}))
             ORDER BY id`,

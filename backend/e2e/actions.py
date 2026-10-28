@@ -349,8 +349,8 @@ async def files_main(argv: list[str]) -> None:
         await engine.dispose()
 
 
-# a near-duplicate with no money or saved cards, so the merge flow is not blocked
-DUPLICATE = "Robin Bennett"
+# no money or saved cards, so a merge is not blocked; no demo name list has it, so it is unique
+DUPLICATE = "Robin Ashgrove"
 
 
 async def _has_series(db: AsyncSession, biz: str) -> bool:

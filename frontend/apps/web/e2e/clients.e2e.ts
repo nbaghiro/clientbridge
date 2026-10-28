@@ -46,7 +46,7 @@ test("CRM-E2E-01 create, edit, archive and restore persist across independent re
             .getByRole("textbox", { name: strings.clients.edit.nameLabel })
             .fill(original.name);
         await add
-            .getByRole("textbox", { name: strings.clients.edit.phoneLabel, exact: true })
+            .getByRole("textbox", { name: strings.clients.edit.phoneLabel })
             .fill(original.phone);
         const creating = clientCommand(page, "", "POST");
         await add.getByRole("button", { name: strings.clients.edit.add, exact: true }).click();
@@ -76,7 +76,7 @@ test("CRM-E2E-01 create, edit, archive and restore persist across independent re
                 .getByRole("textbox", { name: strings.clients.edit.nameLabel })
                 .fill(updated.name);
             await editor
-                .getByRole("textbox", { name: strings.clients.edit.phoneLabel, exact: true })
+                .getByRole("textbox", { name: strings.clients.edit.phoneLabel })
                 .fill(updated.phone);
             const saving = clientCommand(page, `/${client.id}`, "PATCH");
             await editor
@@ -411,7 +411,7 @@ test("CRM-E2E-04 directional merge preserves notes, pet and note history on the 
         await openClient(other, source);
         await navigate(page, "/today");
         await navigate(page, "/clients");
-        await page.getByRole("searchbox").fill(shared.slice(1));
+        await page.getByRole("searchbox").fill(shared.slice(2));
         await page.getByRole("button", { name: strings.clients.tidy.select, exact: true }).click();
         await page.getByRole("checkbox", { name: target.name, exact: true }).check();
         await page.getByRole("checkbox", { name: source.name, exact: true }).check();
@@ -487,7 +487,7 @@ test("CRM-E2E-04 directional merge preserves notes, pet and note history on the 
             other.getByText(strings.clients.record.goneBody, { exact: true }),
         ).toBeVisible();
         await navigate(other, "/clients");
-        await other.getByRole("searchbox").fill(source.phone.slice(1));
+        await other.getByRole("searchbox").fill(source.phone.slice(2));
         await expect(other.getByRole("button").filter({ hasText: source.name })).toHaveCount(0);
     } finally {
         await observer.close();
