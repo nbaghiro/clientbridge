@@ -160,21 +160,21 @@ Six adapters in `integrations/`, one per provider so they read apart from our ow
 
 ### Email design
 
-Every email goes out as plain text and as HTML from one layout, `core/email_layout.py`: a table-based page with
-inline styles (so Gmail, Outlook and Apple Mail keep it), light only like the site and the apps, with an
-eyebrow, a heading, paragraphs, and optional code box, receipt table, button and footer. Each builder in
-`services/notifications.py` returns a `Notice` (subject, the text that SMS and the plain email send, and the
-`EmailView` the HTML shows), with all copy in `en_CA.po`. Clientbridge's own mail (sign-in codes, invites, trial
-notices, alerts to a business's team) uses `platform_brand()`: the logo over the site's contour lines. Mail a
-business sends its clients uses `business_brand()`: its brand colour and its logo when the upload is PNG, JPEG or
-GIF (other formats show its name), and a "Sent with Clientbridge" line. The header and contour PNGs are bundled in `backend/src/clientbridge/email_assets/` and attached inline
-with Content-ID references by both Resend and SMTP. Only images used by a message are attached; the fixed
-art does not depend on the marketing site. Uploaded business logos still use the existing media URL.
-`make preview-emails` renders ten representative demo emails into `.scratchpad/emails/`, embedding the
-same image bytes as data URLs for browser previews. Mailpit shows the real MIME message in dev.
-Use `make preview-emails ARGS="--list"` to list samples, or `ARGS="--email invoice"` to preview one.
+Email is Clientbridge's own mail (sign-in codes, invites, trial notices, alerts to a business's team);
+clients are reached by text only. Every email goes out as plain text and as HTML from one layout,
+`core/email_layout.py`: a table-based page with inline styles (so Gmail, Outlook and Apple Mail keep it), light
+only like the site and the apps, with the logo over the site's contour lines, an eyebrow, a heading,
+paragraphs, and an optional code box, button, note and footer. Each email builder in `services/notifications.py`
+returns a `Notice` (subject, the plain text and the `EmailView` the HTML shows), and each text to a client is a
+plain string, with all copy in `en_CA.po`. The header and contour PNGs are bundled in
+`backend/src/clientbridge/email_assets/` and attached inline with Content-ID references by both Resend and
+SMTP. Only images used by a message are attached, so the art does not depend on the marketing site.
+`make preview-emails` renders the four sample emails (sign-in code, staff invite, trial ending, estimate
+declined) into `.scratchpad/emails/`, embedding the same image bytes as data URLs for browser previews.
+Mailpit shows the real MIME message in dev.
+Use `make preview-emails ARGS="--list"` to list samples, or `ARGS="--email staff-invite"` to preview one.
 To send a demo, explicitly choose a recipient, sample and transport:
-`make preview-emails ARGS="--email invoice --send-to you@example.com --transport resend"`.
+`make preview-emails ARGS="--email staff-invite --send-to you@example.com --transport resend"`.
 Resend needs `RESEND_API_KEY` and `EMAIL_FROM`; SMTP uses `SMTP_URL`. Sends carry a `[TEST]` subject,
 synthetic data and nonfunctional `.test` action links, without changing business records. The gallery is
 a browser approximation; inspect actual deliveries in target email clients before approving the design.
@@ -283,7 +283,7 @@ owner/admin/staff/contractor, payout config `payee`/`rate_type` with the rate in
 **clients (4)** — `clients` _(soft-del)_ (`tags[]`, `status`, `custom_fields`, `stripe_customer_id`), `subjects` _(soft-del)_ (no kind of their own: the business's `subject` says what they are, and
 `attributes` JSONB holds that kind's details, validated per kind in `schemas/subjects.py` with unknown keys kept), `notes` (polymorphic
 `parent_type`/`parent_id` over client/subject/booking, `created_by`), `consents` (one row per change to a
-client's marketing consent on a channel, with its `source`; the newest row holds, and an SMS STOP from the
+client's marketing consent, with its `source`; the newest row holds, and an SMS STOP from the
 client can only be lifted by the client's own START).
 
 **catalog (5)** — `items` (**one table drives the whole catalog** via `kind` service/class/product/package/
@@ -341,7 +341,7 @@ pending/approved stage), income (`revenue`, `fee_revenue`) and expenses (`proces
 `amount_cents`, debit positive; `event` = what happened; `source_*` = what caused it; `subject_*` = the entity it
 belongs to; `ref` + `leg` unique = idempotency; the account's owner is copied on for sync slicing).
 
-**messaging (4)** — `threads` (unique per business+client+channel; the last message time and the unread
+**messaging (4)** — `threads` (unique per business+client; the last message time and the unread
 count, inbound messages not yet `read`, are read from `messages`), `messages` (direction in/out,
 `broadcast_id`, `attachments`), `broadcasts` (audience JSONB + `scheduled_at`), and server-only `deliveries` (immutable typed payload, stable key, current transport state and fenced worker claim).
 
@@ -364,7 +364,7 @@ clears local credentials, cancels operations and stops new invitations. Google r
 
 Invitations resolve the linked location's Google review URL and enqueue delivery transactionally. A business-scoped
 lock serializes manual and automatic requests. A client gets at most one request in 30 days; the morning job skips
-archived clients and businesses with `review_requests_enabled` turned off. Email/text opt-outs remain enforced.
+archived clients and businesses with `review_requests_enabled` turned off. A text STOP is still enforced.
 Invitation history is not evidence of delivery or a review. No internal feedback collection, moderation or
 reviewer-to-client matching exists. See the [setup and pilot runbook](executions/google-business-reviews/runbook.md).
 
@@ -376,7 +376,7 @@ processed and kept on a failed row; server-only), `devices` (Expo push tokens), 
 user+device+operation for the hours outbox: payload hash and result, so a replayed upload returns the
 original answer; server-only).
 
-**returning (1)**: `returning_challenges` (a returning client's emailed code on the public pages: hashed
+**returning (1)**: `returning_challenges` (a returning client's texted code on the public pages: hashed
 destination, code and session, attempts and expiry; server-only).
 
 > **Note on tax:** there is **no `tax_rates` table** (dropped). Rates are effective-dated rows per province in
@@ -833,7 +833,7 @@ entitlement and its liability are created.
   409 `schedule_clash`, whose `detail` names the schedule, the first day that clashes and the problem
   (`not_offered` when the member doesn't teach the class). Canceled instead, the enrolments on it are
   canceled with their invoices voided, and the sessions ahead are canceled with the schedule.
-- **Receipts** list every line with its tax, and walk-in sales can take an email or phone for the receipt.
+- **Receipts** list every line with its tax, and walk-in sales can take a phone number for the receipt.
   Sales by item is a report with a CSV like the others.
 
 ### Online booking and manage links
@@ -864,8 +864,9 @@ recently texted that phone (`messaging.route_inbound_sms`, through `scoped()`); 
 is recorded as unmatched rather than guessed, and STOP or START applies only to the business it was routed
 to. A text number per business is launch work (CLI-45). The SMS webhook checks `X-Twilio-Signature`, and
 production refuses to boot without `TWILIO_AUTH_TOKEN`. Phones are stored as E.164 (`core/phones.py` and
-app-core `normalizePhone` share one rule). Only the client's own START lifts an SMS STOP. Broadcast email
-carries the business's mailing address and a contact method, and a broadcast without them is refused.
+app-core `normalizePhone` share one rule). Only the client's own START lifts an SMS STOP, and STOP is the
+only way a client opts out themselves; staff can also record a client's yes or no to offers. A broadcast is
+refused until the business has a legal address and a public contact method.
 Broadcasts are sent by the job one recipient at a time, claimed with `SKIP LOCKED` and saved before and after
 each send, so delivery is at most once, and they wait during quiet hours (21:00 to 09:00 local). An inbound
 text or Connect message pushes to the business's active staff devices.
@@ -875,8 +876,8 @@ text or Connect message pushes to the business's active staff devices.
 Owners and staff sign in through the auth service (see _Identity_): email and password, Google, and second
 factors, with the session in an HttpOnly cookie on web and a session token in SecureStore on mobile. The
 API holds no passwords, sessions or reset tokens; the only token it signs is the short-lived PowerSync JWT.
-Clients **book without an account** (name, phone and email on the public page); a returning client proves
-the mailbox with an emailed code (`returning_challenges`), and a future portal would link a client to a login
+Clients **book without an account** (name and phone on the public page); a returning client proves
+the phone with a texted code (`returning_challenges`), and a future portal would link a client to a login
 via `clients.user_id`.
 
 ---
@@ -1097,7 +1098,7 @@ page has one address:
 | Site       | Pages                                                                                         |
 | ---------- | --------------------------------------------------------------------------------------------- |
 | `<slug>.D` | The business's public page: about, services, team, hours and contact                          |
-| `book.D`   | `/<slug>` booking, `/m/<token>` visit, `/form/<token>`, `/contract/<token>`, `/prefs/<token>` |
+| `book.D`   | `/<slug>` booking, `/m/<token>` visit, `/form/<token>`, `/contract/<token>`                  |
 | `shop.D`   | `/<slug>` and `/<slug>/checkout`, `/order/<token>`                                            |
 | `pay.D`    | `/i/<token>` invoice, `/e/<token>` estimate, `/r/<token>` receipt, `/setup` bank account      |
 

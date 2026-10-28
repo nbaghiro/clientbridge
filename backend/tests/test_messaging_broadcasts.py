@@ -51,7 +51,7 @@ async def _audience(db: AsyncSession) -> dict[str, str]:
         expires_at=later,
     )
     await record_consent(
-        db, BIZ, ids["stopped"], status="withdrawn", source="unsubscribe", recorded_by=None
+        db, BIZ, ids["stopped"], status="withdrawn", source="reply", recorded_by=None
     )
     return ids
 
@@ -218,7 +218,7 @@ async def _legal_address(db: AsyncSession, **changes: object) -> None:
     await db.flush()
 
 
-async def test_a_broadcast_without_a_mailing_address_is_refused(
+async def test_a_broadcast_without_a_legal_address_or_contact_is_refused(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     await _audience(db)

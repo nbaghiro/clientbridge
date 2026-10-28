@@ -167,7 +167,7 @@ async def test_staff_cannot_issue_or_revoke_bank_links(as_staff: httpx.AsyncClie
     assert (await as_staff.delete("/v1/payments/pad-links/nope")).status_code == 403
 
 
-async def test_link_does_not_require_a_client_email_and_requires_connected_account(
+async def test_link_requires_a_connected_account(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     await enable_payments(db)

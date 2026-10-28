@@ -26,8 +26,6 @@ import {
     deliveryRows,
     headers,
     postInboundSms,
-    prefsLink,
-    type Contact,
 } from "../support/messaging";
 import { freshPhone, textsTo } from "../support/auth";
 import { signIn, navigate } from "../support/session";
@@ -225,8 +223,6 @@ test("FLOW-06-A a seat notice queued for the worker honours a STOP that arrives 
     }
 });
 
-const p = strings.publicPreferences;
-
 async function openInboxThread(page: Page, contact: { name: string }) {
     await navigate(page, "/today");
     await navigate(page, "/inbox");
@@ -352,17 +348,7 @@ test("MSG-E2E-14 a STOP that arrives after a seat notice is queued keeps the wor
     }
 });
 
-async function prefsPage(page: Page, contact: Contact) {
-    const context = await page.context().browser()?.newContext();
-    if (!context) throw new Error("No browser for the client");
-    const client = await context.newPage();
-    await client.goto(await prefsLink(contact.id));
-    await expect(client.getByRole("heading", { name: p.title, exact: true })).toBeVisible();
-    const hint = `•••${contact.phone.slice(-4)}`;
-    return { context, client, sms: client.getByRole("switch", { name: p.byTextTo(hint) }) };
-}
-
-test("MSG-E2E-15 a STOP holds against the staff toggle and the preferences page until the client replies START", async ({
+test("MSG-E2E-15 a STOP holds against the staff toggle until the client replies START", async ({
     page,
 }) => {
     test.setTimeout(300_000);
@@ -388,80 +374,52 @@ test("MSG-E2E-15 a STOP holds against the staff toggle and the preferences page 
     // only the client's own START lifts a STOP, so the staff toggle records nothing
     expect(consents((await clientOutreach(contact.id)).consents)).toEqual([["withdrawn", "reply"]]);
 
-    const prefs = await prefsPage(page, contact);
-    try {
-        await expect(prefs.sms).not.toBeChecked();
-        await prefs.sms.check();
-        const saved = prefs.client.waitForResponse(
-            (r) =>
-                new URL(r.url()).pathname.startsWith("/prefs/") && r.request().method() === "POST",
-        );
-        await prefs.client.getByRole("button", { name: p.save, exact: true }).click();
-        const response = await saved;
-        expect(response.status()).toBe(200);
-        expect(await response.json()).toMatchObject({ sms: false });
-        await prefs.client.reload();
-        await expect(prefs.sms).not.toBeChecked();
-        expect(consents((await clientOutreach(contact.id)).consents)).toEqual([
-            ["withdrawn", "reply"],
-        ]);
+    await navigate(page, "/inbox");
+    await page.getByRole("button", { name: s.newShort, exact: true }).click();
+    const dialog = page.getByRole("dialog");
+    await dialog.getByRole("combobox", { name: s.clientLabel, exact: true }).fill(contact.name);
+    await page.locator(`[role="option"][data-value="${contact.id}"]`).click({ timeout: 60_000 });
+    await expect(dialog.getByText(s.smsBlockedNew, { exact: true })).toBeVisible();
+    await expect(dialog.getByRole("button", { name: s.sendMessage, exact: true })).toBeDisabled();
+    const blocked = await page.request.post(`${apiBase()}/v1/messages`, {
+        data: { client_id: contact.id, body: "Are you free Friday?" },
+        headers: headers(page),
+    });
+    expect(blocked.status()).toBe(409);
+    expect((await clientOutreach(contact.id)).messages.map((m) => [m.direction, m.body])).toEqual([
+        ["in", "arrêt"],
+    ]);
+    await dialog.getByRole("button", { name: s.cancel, exact: true }).click();
 
-        await navigate(page, "/inbox");
-        await page.getByRole("button", { name: s.newShort, exact: true }).click();
-        const dialog = page.getByRole("dialog");
-        await dialog.getByRole("combobox", { name: s.clientLabel, exact: true }).fill(contact.name);
-        await page
-            .locator(`[role="option"][data-value="${contact.id}"]`)
-            .click({ timeout: 60_000 });
-        await expect(dialog.getByText(s.smsBlockedNew, { exact: true })).toBeVisible();
-        await expect(
-            dialog.getByRole("button", { name: s.sendMessage, exact: true }),
-        ).toBeDisabled();
-        const blocked = await page.request.post(`${apiBase()}/v1/messages`, {
-            data: { client_id: contact.id, body: "Are you free Friday?" },
-            headers: headers(page),
-        });
-        expect(blocked.status()).toBe(409);
-        expect(
-            (await clientOutreach(contact.id)).messages.map((m) => [m.direction, m.body]),
-        ).toEqual([["in", "arrêt"]]);
-        await dialog.getByRole("button", { name: s.cancel, exact: true }).click();
-
-        const start = await postInboundSms(page.request, {
-            from: contact.phone,
-            to: BIRCHBARK_SMS,
-            body: "START",
-        });
-        expect(start.response.status()).toBe(200);
-        expect(consents((await clientOutreach(contact.id)).consents)).toEqual([
-            ["withdrawn", "reply"],
-            ["granted", "reply"],
-        ]);
-        await prefs.client.reload();
-        await expect(prefs.sms).toBeChecked();
-
-        const log = await openInboxThread(page, contact);
-        await expect(log.getByText("START", { exact: true })).toHaveCount(1);
-        await expect(
-            page.getByText(s.textsOffTitle(contact.name.split(" ")[0] ?? ""), { exact: true }),
-        ).toHaveCount(0, { timeout: 60_000 });
-        const reply = page.getByRole("textbox", { name: s.replyPlaceholder, exact: true });
-        await reply.fill("Thanks for coming back. Friday at 10 works.");
-        const sent = page.waitForResponse(
-            (r) => new URL(r.url()).pathname === "/v1/messages" && r.request().method() === "POST",
-        );
-        await page.getByRole("button", { name: s.send, exact: true }).click();
-        const delivered = await sent;
-        expect(delivered.status()).toBe(200);
-        expect(await delivered.json()).toMatchObject({ status: "sent" });
-        expect(
-            (await clientOutreach(contact.id)).messages.map((m) => [m.direction, m.body, m.status]),
-        ).toEqual([
-            ["in", "arrêt", "read"],
-            ["in", "START", "read"],
-            ["out", "Thanks for coming back. Friday at 10 works.", "sent"],
-        ]);
-    } finally {
-        await prefs.context.close();
-    }
+    const start = await postInboundSms(page.request, {
+        from: contact.phone,
+        to: BIRCHBARK_SMS,
+        body: "START",
+    });
+    expect(start.response.status()).toBe(200);
+    expect(consents((await clientOutreach(contact.id)).consents)).toEqual([
+        ["withdrawn", "reply"],
+        ["granted", "reply"],
+    ]);
+    const log = await openInboxThread(page, contact);
+    await expect(log.getByText("START", { exact: true })).toHaveCount(1);
+    await expect(
+        page.getByText(s.textsOffTitle(contact.name.split(" ")[0] ?? ""), { exact: true }),
+    ).toHaveCount(0, { timeout: 60_000 });
+    const reply = page.getByRole("textbox", { name: s.replyPlaceholder, exact: true });
+    await reply.fill("Thanks for coming back. Friday at 10 works.");
+    const sent = page.waitForResponse(
+        (r) => new URL(r.url()).pathname === "/v1/messages" && r.request().method() === "POST",
+    );
+    await page.getByRole("button", { name: s.send, exact: true }).click();
+    const delivered = await sent;
+    expect(delivered.status()).toBe(200);
+    expect(await delivered.json()).toMatchObject({ status: "sent" });
+    expect(
+        (await clientOutreach(contact.id)).messages.map((m) => [m.direction, m.body, m.status]),
+    ).toEqual([
+        ["in", "arrêt", "read"],
+        ["in", "START", "read"],
+        ["out", "Thanks for coming back. Friday at 10 works.", "sent"],
+    ]);
 });

@@ -2289,7 +2289,7 @@ describe("app-core SQL against the replica schema", () => {
                 id: "cns_x2",
                 client_id: "cl_ben",
                 status: "withdrawn",
-                source: "unsubscribe",
+                source: "in_person",
                 created_at: "2026-06-26T10:15:00Z",
             },
         ]);

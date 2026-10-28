@@ -152,7 +152,7 @@
         "message": "This shop isn't taking online orders yet."
     },
     "api.contactAmbiguous": {
-        "message": "These contact details match more than one client. Check your email and phone number, or contact the business."
+        "message": "This phone number matches more than one client. Check the number, or contact the business."
     },
     "api.slotUnavailable": {
         "message": "That time is no longer open. Pick another time."
@@ -205,7 +205,7 @@
         "message": "This member still has upcoming visits. Choose whether to move or cancel them."
     },
     "api.broadcastAddressMissing": {
-        "message": "Add your legal address in Business settings before sending a broadcast. Canada's anti-spam law requires a mailing address in every broadcast."
+        "message": "Add your legal address in Business settings before sending a broadcast. Canada's anti-spam law requires a sender's mailing address."
     },
     "api.broadcastContactMissing": {
         "message": "Add a business email, phone number or website in Business settings before sending a broadcast."
@@ -6529,9 +6529,6 @@
         "message": "No messages with {name} yet. Write the first one below.",
         "args": ["name"]
     },
-    "messaging.filterLabel": {
-        "message": "Show"
-    },
     "messaging.selectThread": {
         "message": "Choose a conversation to read and reply."
     },
@@ -6627,7 +6624,7 @@
     "messaging.consentTitle": {
         "message": "Can we contact them?"
     },
-    "messaging.consentChannel.sms": {
+    "messaging.consentTexts": {
         "message": "Texts"
     },
     "messaging.consentState.express": {
@@ -6842,7 +6839,7 @@
         "message": "Write the message."
     },
     "broadcasts.errors.noRecipients": {
-        "message": "No one in this audience can get it. Pick another tag or channel."
+        "message": "No one in this audience can get it. Pick another tag."
     },
     "broadcasts.errors.pickTime": {
         "message": "Pick a send time in the future."
@@ -6912,7 +6909,7 @@
         "message": "Opt-outs"
     },
     "broadcasts.optOutsSubtitle": {
-        "message": "Kept for your records. These clients won't get broadcasts on that channel."
+        "message": "Kept for your records. These clients won't get broadcasts."
     },
     "broadcasts.noOptOuts": {
         "message": "No one has opted out."
@@ -6955,15 +6952,6 @@
     },
     "broadcasts.sources.reply": {
         "message": "STOP reply"
-    },
-    "broadcasts.sources.unsubscribe": {
-        "message": "Unsubscribe link"
-    },
-    "broadcasts.sources.preferences": {
-        "message": "Preferences page"
-    },
-    "broadcasts.sources.complaint": {
-        "message": "Spam complaint"
     },
     "broadcasts.resultsTitle": {
         "message": "Results"
@@ -7031,7 +7019,7 @@
         "message": "Ask for a review"
     },
     "reviews.requestBody": {
-        "message": "They get a text or email with your Google review link."
+        "message": "They get a text with your Google review link."
     },
     "reviews.requestClient": {
         "message": "Client"
@@ -7385,7 +7373,7 @@
         "message": "Legal address and phone"
     },
     "business.legalAddress.hint": {
-        "message": "Used for your plan, sales tax, card payments and the mailing address every broadcast must include. Clients only see the address you add to your public business page."
+        "message": "Used for your plan, sales tax, card payments and broadcasts, which must come from a business with a mailing address. Clients only see the address you add to your public business page."
     },
     "business.legalAddress.unit": {
         "message": "Unit or suite"
@@ -11979,7 +11967,7 @@
         "message": "Been here before?"
     },
     "publicReturning.intro": {
-        "message": "{kind, select, pet {Verify your email or phone to find your pets and last visit.} student {Verify your email or phone to find your students and last visit.} property {Verify your email or phone to find your properties and last visit.} site {Verify your email or phone to find your sites and last visit.} vehicle {Verify your email or phone to find your vehicles and last visit.} other {Verify your email or phone to find your last visit.}}",
+        "message": "{kind, select, pet {Verify your phone number to find your pets and last visit.} student {Verify your phone number to find your students and last visit.} property {Verify your phone number to find your properties and last visit.} site {Verify your phone number to find your sites and last visit.} vehicle {Verify your phone number to find your vehicles and last visit.} other {Verify your phone number to find your last visit.}}",
         "args": ["kind"],
         "description": "kind is what the business books besides the client: pet, student, property, site, vehicle, or none"
     },
@@ -13622,89 +13610,6 @@
         "message": "Your answers are with {business}. You can close this page.",
         "args": ["business"]
     },
-    "publicPreferences.title": {
-        "message": "Text preferences"
-    },
-    "publicPreferences.greeting": {
-        "message": "Hi {first}, choose what {business} sends you.",
-        "args": ["first", "business"]
-    },
-    "publicPreferences.offers": {
-        "message": "News and offers"
-    },
-    "publicPreferences.offersHint": {
-        "message": "Seasonal specials, new services and studio news. A few times a year."
-    },
-    "publicPreferences.byText": {
-        "message": "By text"
-    },
-    "publicPreferences.byTextTo": {
-        "message": "By text to {phone}",
-        "args": ["phone"]
-    },
-    "publicPreferences.reminders": {
-        "message": "Appointment messages"
-    },
-    "publicPreferences.remindersHint": {
-        "message": "Reminders, confirmations and receipts for visits you book. These always come so you don't miss a booking."
-    },
-    "publicPreferences.alwaysOn": {
-        "message": "Always on"
-    },
-    "publicPreferences.save": {
-        "message": "Save preferences"
-    },
-    "publicPreferences.saving": {
-        "message": "Saving"
-    },
-    "publicPreferences.saved": {
-        "message": "Saved. Changes apply right away."
-    },
-    "publicPreferences.unsubscribeAll": {
-        "message": "Unsubscribe from all news and offers"
-    },
-    "publicPreferences.unsubscribedTitle": {
-        "message": "You're unsubscribed"
-    },
-    "publicPreferences.unsubscribedBody": {
-        "message": "{business} won't send news or offers to {phone}. A message already on its way can take up to a day.",
-        "args": ["business", "phone"]
-    },
-    "publicPreferences.unsubscribedNoPhone": {
-        "message": "{business} won't send news or offers by text.",
-        "args": ["business"]
-    },
-    "publicPreferences.unsubscribedReminders": {
-        "message": "You'll still get reminders and receipts for visits you book."
-    },
-    "publicPreferences.resubscribe": {
-        "message": "Subscribe again"
-    },
-    "publicPreferences.resubscribedTitle": {
-        "message": "You're subscribed again"
-    },
-    "publicPreferences.resubscribedBody": {
-        "message": "Thanks for staying in touch with {business}.",
-        "args": ["business"]
-    },
-    "publicPreferences.manageAll": {
-        "message": "Manage text preferences"
-    },
-    "publicPreferences.notFoundTitle": {
-        "message": "This link has expired"
-    },
-    "publicPreferences.notFoundBody": {
-        "message": "Use the unsubscribe link in a newer message, or reply STOP to any text from us."
-    },
-    "publicPreferences.errorTitle": {
-        "message": "Your preferences didn't load"
-    },
-    "publicPreferences.errorBody": {
-        "message": "Check your connection and try again. Nothing has changed yet."
-    },
-    "publicPreferences.saveError": {
-        "message": "That didn't save. Try again."
-    },
     "publicLanding.poweredBy": {
         "message": "Powered by Clientbridge"
     },
@@ -13976,7 +13881,7 @@
         "args": ["q"]
     },
     "search.noResultsHint": {
-        "message": "Try a phone number, an email or an invoice number."
+        "message": "Try a name, a phone number or an invoice number."
     },
     "search.addClientNamed": {
         "message": "Add “{q}” as a new client",

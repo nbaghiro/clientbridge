@@ -15,7 +15,6 @@ INTAKE_FIELDS: tuple[Field, ...] = (
         True,
         (),
     ),
-    ("owner_email", "email", "Email", None, True, ()),
     ("home_address", "address", "Home address", None, False, ()),
     ("pet_name", "text", "Pet's name", None, True, ()),
     ("species", "select", "Species", None, True, ("Dog", "Cat")),
@@ -305,8 +304,8 @@ WAIVER_V2 = "\n\n".join(
         "After that, supervised waiting is $10 for each hour.",
         "Photos\nWe take before and after photos for your pet's record. We post them on social "
         "media only if you've agreed on your intake form, and you can change that at any time.",
-        "Payment\nPayment is due at pick-up by card, cash or e-Transfer. Emailed invoices are "
-        "due within 14 days. A deposit taken at booking is applied to the final invoice.",
+        "Payment\nPayment is due at pick-up by card, cash or e-Transfer. Invoices sent by "
+        "text are due within 14 days. A deposit taken at booking is applied to the final invoice.",
     )
 )
 

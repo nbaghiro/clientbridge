@@ -433,13 +433,13 @@ function CashBox({ sale }: { sale: SaleTicket }) {
 
 function ReceiptChooser({ sale }: { sale: SaleTicket }) {
     const r = sale.receipt;
-    const [choice, setChoice] = useState<"sms" | "none">(
-        sale.client?.phone != null ? "sms" : "none",
+    const [choice, setChoice] = useState<"text" | "skip">(
+        sale.client?.phone != null ? "text" : "skip",
     );
     if (r.sent !== null)
         return (
             <Notice tone="success">
-                {r.sent === "none" ? d.receiptSkipped : d.receiptSent(r.phone)}
+                {r.sent === "skipped" ? d.receiptSkipped : d.receiptSent(r.phone)}
             </Notice>
         );
     return (
@@ -448,13 +448,13 @@ function ReceiptChooser({ sale }: { sale: SaleTicket }) {
                 layout="segmented"
                 label={d.receiptTitle}
                 options={[
-                    { key: "sms", label: d.receiptText },
-                    { key: "none", label: d.receiptNone },
+                    { key: "text", label: d.receiptText },
+                    { key: "skip", label: d.receiptNone },
                 ]}
                 value={choice}
                 onChange={setChoice}
             />
-            {choice === "sms" ? (
+            {choice === "text" ? (
                 <TextField
                     label={d.receiptPhoneTo}
                     type="tel"
@@ -466,10 +466,11 @@ function ReceiptChooser({ sale }: { sale: SaleTicket }) {
                 variant="outline"
                 busy={r.busy}
                 onPress={() => {
-                    r.send(choice);
+                    if (choice === "text") r.send();
+                    else r.skip();
                 }}
             >
-                {choice === "sms" ? d.sendText : d.receiptNone}
+                {choice === "text" ? d.sendText : d.receiptNone}
             </Button>
             {r.error !== null ? <Notice tone="danger">{r.error}</Notice> : null}
         </View>

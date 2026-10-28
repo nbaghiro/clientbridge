@@ -12,7 +12,7 @@ from clientbridge.core.db import is_duplicate
 from clientbridge.core.deps import Principal, assert_role
 from clientbridge.core.errors import AppError, Conflict, NotFound, Unprocessable
 from clientbridge.core.ids import new_id
-from clientbridge.core.locale import locale_for, message
+from clientbridge.core.locale import locale_for
 from clientbridge.core.phones import e164, same_phone
 from clientbridge.core.scoping import scoped
 from clientbridge.core.zones import zone
@@ -155,48 +155,28 @@ async def _still_reachable(db: AsyncSession, broadcast: Broadcast, client_id: st
     return reachable[0][1] if reachable else None
 
 
-def _mailing_address(business: Business) -> str:
+def require_broadcast_identity(business: Business) -> None:
+    """Every broadcast's sender needs a legal address and a public way to reach them (CASL)."""
     try:
-        address = postal_address(business)
+        postal_address(business)
     except Unprocessable as missing:
         raise Unprocessable(
             "add the business legal address in Business settings before sending a broadcast",
             code="broadcast_address_missing",
         ) from missing
-    parts = {
-        "street": address.line1,
-        "city": address.city,
-        "province": address.province,
-        "postal_code": address.postal_code,
-    }
-    locale = locale_for(business=business)
-    if address.line2:
-        return message(locale, "broadcast.mailing_address_unit", unit=address.line2, **parts)
-    return message(locale, "broadcast.mailing_address", **parts)
-
-
-def broadcast_identity(business: Business) -> tuple[str, str]:
-    """The legal mailing address and a way to reach the business that every broadcast carries."""
     brand = business.brand or {}
-
-    def text(key: str) -> str:
-        value = brand.get(key)
-        return value.strip() if isinstance(value, str) else ""
-
-    address = _mailing_address(business)
-    contact = (
-        text("email")
-        or text("phone")
-        or (business.legal_phone or "")
-        or text("website")
-        or (business.billing_email or "")
+    contacts = (
+        brand.get("email"),
+        brand.get("phone"),
+        business.legal_phone,
+        brand.get("website"),
+        business.billing_email,
     )
-    if not contact:
+    if not any(isinstance(value, str) and value.strip() for value in contacts):
         raise Unprocessable(
             "add a business email, phone or website before sending a broadcast",
             code="broadcast_contact_missing",
         )
-    return address, contact
 
 
 async def _claim_broadcast(db: AsyncSession, broadcast_id: str) -> Broadcast | None:
@@ -256,7 +236,7 @@ async def _send_broadcast(
         await db.commit()
         return False
     try:
-        broadcast_identity(business)
+        require_broadcast_identity(business)
     except Unprocessable:
         _log.warning("broadcast %s waits for the business identity", broadcast.id)
         await db.commit()
@@ -481,7 +461,7 @@ class MessageService:
         business = await self.db.get(Business, self.biz)
         if business is None:
             raise NotFound("business not found")
-        broadcast_identity(business)
+        require_broadcast_identity(business)
         now = clock.now()
         requested = data.scheduled_at if data.scheduled_at and data.scheduled_at > now else now
         send_at = after_quiet_hours(requested, zone(business.timezone))

@@ -55,15 +55,6 @@ class Action:
 
 
 @dataclass(frozen=True)
-class Brand:
-    name: str
-    # the logo over the site's contour lines, the card's full width
-    header_url: str
-    # the site's contour lines along the foot of the card
-    art_url: str
-
-
-@dataclass(frozen=True)
 class EmailView:
     eyebrow: str
     heading: str
@@ -78,22 +69,27 @@ def _text(value: str) -> str:
     return escape(value).replace("\n", "<br>")
 
 
-def _art(brand: Brand) -> str:
+def _image_url(name: str, site: str | None) -> str:
+    return f"{site}/email/{name}.png" if site else f"cid:clientbridge-{name}"
+
+
+def _art(site: str | None) -> str:
     return (
         f'<tr><td style="padding:0;background:{SURFACE};border-radius:0 0 8px 8px;">'
-        f'<img src="{escape(brand.art_url)}" width="{_WIDTH}" height="{_ART_HEIGHT}" alt="" '
+        f'<img src="{escape(_image_url("contours", site))}" width="{_WIDTH}" '
+        f'height="{_ART_HEIGHT}" alt="" '
         'style="display:block;border:0;outline:none;width:100%;height:auto;'
         'border-radius:0 0 8px 8px;"></td></tr>'
     )
 
 
-def _header(brand: Brand) -> str:
+def _header(site: str | None) -> str:
     return (
         '<tr><td style="padding:0;background:#FFFFFF;'
         'border-radius:8px 8px 0 0;">'
-        f'<img src="{escape(brand.header_url)}" width="{_WIDTH}" height="{_HEADER_HEIGHT}" '
-        f'alt="{escape(brand.name)}" style="display:block;border:0;outline:none;width:100%;'
-        'height:auto;border-radius:8px 8px 0 0;"></td></tr>'
+        f'<img src="{escape(_image_url("header", site))}" width="{_WIDTH}" '
+        f'height="{_HEADER_HEIGHT}" alt="Clientbridge" style="display:block;border:0;'
+        'outline:none;width:100%;height:auto;border-radius:8px 8px 0 0;"></td></tr>'
     )
 
 
@@ -123,7 +119,7 @@ def _code(code: str) -> str:
     )
 
 
-def _body(brand: Brand, view: EmailView) -> str:
+def _body(view: EmailView, site: str | None) -> str:
     parts = [
         f'<p style="margin:0 0 10px 0;font-family:{_FONT};font-size:12px;font-weight:600;'
         f'letter-spacing:0.08em;text-transform:uppercase;color:{ACCENT};">'
@@ -148,7 +144,7 @@ def _body(brand: Brand, view: EmailView) -> str:
         )
     return (
         f'<tr><td class="cb-pad" style="padding:24px 40px 8px 40px;'
-        f'background:{SURFACE};">{"".join(parts)}</td></tr>{_art(brand)}'
+        f'background:{SURFACE};">{"".join(parts)}</td></tr>{_art(site)}'
     )
 
 
@@ -164,7 +160,7 @@ _PHONE = (
 )
 
 
-def render_html(brand: Brand, view: EmailView, *, preheader: str, lang: str) -> str:
+def render_html(view: EmailView, *, preheader: str, lang: str, site: str | None = None) -> str:
     """The whole document: table layout and inline styles, which every mail client keeps."""
     return (
         "<!doctype html>"
@@ -183,7 +179,7 @@ def render_html(brand: Brand, view: EmailView, *, preheader: str, lang: str) -> 
         '<tr><td><table role="presentation" cellpadding="0" cellspacing="0" border="0" '
         f'width="100%" style="border:1px solid {BORDER};border-radius:8px;'
         f'background:{SURFACE};">'
-        f"{_header(brand)}{_body(brand, view)}</table></td></tr>"
+        f"{_header(site)}{_body(view, site)}</table></td></tr>"
         f"{_footer(view)}"
         "</table></td></tr></table></body></html>"
     )

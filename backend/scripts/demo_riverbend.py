@@ -173,7 +173,7 @@ ITEMS: tuple[tuple[str, ItemKind, str, int, int | None, str, str], ...] = (
         0,
         None,
         "Gift cards",
-        "A gift card for lessons or the road test package, emailed with your note. It doesn't "
+        "A gift card for lessons or the road test package. We text the code, and it doesn't "
         "expire.",
     ),
 )

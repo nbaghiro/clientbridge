@@ -160,9 +160,7 @@ async def test_a_message_waiting_for_a_retry_shows_queued_until_it_is_accepted(
         raise httpx.ConnectError("offline")
 
     monkeypatch.setattr(sms, "send", offline)
-    res = await as_owner.post(
-        "/v1/messages", json={"client_id": cid, "channel": "sms", "body": "Hi"}
-    )
+    res = await as_owner.post("/v1/messages", json={"client_id": cid, "body": "Hi"})
     assert res.status_code == 200 and res.json()["status"] == "queued"
     monkeypatch.setattr(sms, "send", real)
     clock.travel(FROZEN + timedelta(minutes=2))

@@ -404,7 +404,6 @@ REGISTRATION_FIELDS: tuple[DocField, ...] = (
     ("school", "text", "School", None, True, ()),
     ("parent_name", "text", "Parent or guardian", None, True, ()),
     ("parent_phone", "phone", "Best phone number", None, True, ()),
-    ("parent_email", "email", "Email for invoices and lesson notes", None, True, ()),
     ("home_address", "address", "Home address", None, False, ()),
     ("subjects", "multiselect", "What would you like help with?", None, True, SUBJECTS),
     (
@@ -1723,7 +1722,6 @@ class Lakeside(Demo):
             "school": kid.school,
             "parent_name": family.parent,
             "parent_phone": client.phone or "",
-            "parent_email": f"{key}@example.test",
             "subjects": lessons,
             "learning_needs": kid.note
             or "Doing fine at school, but would like more confidence before tests.",
@@ -1902,7 +1900,7 @@ class Lakeside(Demo):
             "Fall term lessons start next week",
             "Fall lessons start next week. Weekly lessons keep the same day, time and tutor as "
             "last term unless we've told you otherwise, and the schedule is in your booking "
-            "emails. SAT prep starts on a Saturday in late September and has eight seats. If "
+            "texts. SAT prep starts on a Saturday in late September and has eight seats. If "
             "your child's after-school schedule has changed, reply to this text and we'll find "
             "a new time.",
             self.at(-49, 10),

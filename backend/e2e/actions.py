@@ -37,7 +37,6 @@ from clientbridge.models.catalog import Item
 from clientbridge.models.clients import Client, Subject
 from clientbridge.models.payments import Payment
 from clientbridge.models.scheduling import Recurrence, Slot
-from clientbridge.services.consents import prefs_url
 from clientbridge.services.notifications import inbound_message_alert_text
 from clientbridge.services.plans import PLAN_PRICES, apply_plan_subscription
 
@@ -287,14 +286,11 @@ async def outreach_main(argv: list[str]) -> None:
     parser = argparse.ArgumentParser(prog="python -m e2e.actions outreach")
     parser.add_argument("kind", choices=("clients", "webhooks", "deliveries", "broadcasts", "plan"))
     parser.add_argument("ids", nargs="+")
-    parser.add_argument("--prefs", action="store_true")
     args = parser.parse_args(argv)
     ids = list(args.ids)
     try:
         if args.kind == "clients":
             result = await clients(ids)
-            if args.prefs:
-                result["prefs"] = {client: prefs_url(client) for client in ids}
         elif args.kind == "webhooks":
             result = await webhooks(ids)
         elif args.kind == "deliveries":

@@ -2181,7 +2181,7 @@ interface Strings {
         readonly balance: string;
         readonly settled: string;
         readonly consentTitle: string;
-        readonly consentChannel: { readonly sms: string } & Labels;
+        readonly consentTexts: string;
         readonly consentState: {
             readonly express: string;
             readonly implied: string;
@@ -2295,9 +2295,6 @@ interface Strings {
             readonly form: string;
             readonly online_booking: string;
             readonly reply: string;
-            readonly unsubscribe: string;
-            readonly preferences: string;
-            readonly complaint: string;
         } & Labels;
         readonly resultsTitle: string;
         readonly messageTitle: string;
@@ -4651,34 +4648,6 @@ interface Strings {
         readonly signerName: string;
         readonly agree: (business: string) => string;
         readonly signatureRequired: string;
-    };
-    readonly publicPreferences: {
-        readonly title: string;
-        readonly greeting: (first: string, business: string) => string;
-        readonly offers: string;
-        readonly offersHint: string;
-        readonly byText: string;
-        readonly byTextTo: (phone: string) => string;
-        readonly reminders: string;
-        readonly remindersHint: string;
-        readonly alwaysOn: string;
-        readonly save: string;
-        readonly saving: string;
-        readonly saved: string;
-        readonly unsubscribeAll: string;
-        readonly unsubscribedTitle: string;
-        readonly unsubscribedBody: (business: string, phone: string) => string;
-        readonly unsubscribedNoPhone: (business: string) => string;
-        readonly unsubscribedReminders: string;
-        readonly resubscribe: string;
-        readonly resubscribedTitle: string;
-        readonly resubscribedBody: (business: string) => string;
-        readonly manageAll: string;
-        readonly notFoundTitle: string;
-        readonly notFoundBody: string;
-        readonly errorTitle: string;
-        readonly errorBody: string;
-        readonly saveError: string;
     };
     readonly publicLanding: {
         readonly poweredBy: string;

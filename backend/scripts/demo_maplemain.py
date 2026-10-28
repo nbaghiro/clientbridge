@@ -1929,8 +1929,8 @@ class MapleMain(Demo):
         )
         self.say(
             gift,
-            "Of course. You can pay at the front desk or over the phone, and we'll email you "
-            "the gift card to pass on. It's good for any service or product.",
+            "Of course. You can pay at the front desk or over the phone, and we'll text you "
+            "the gift card code to pass on. It's good for any service or product.",
             self.at(-46, 18, 25),
         )
         robert = ctx.get(Booking, "bk_mm_robert")

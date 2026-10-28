@@ -6,20 +6,22 @@ import { strings } from "../strings";
 import { type InboxThread, resolveInboxTarget, useThreadComposer } from "./messaging";
 
 const threads = [
-    { id: "sms-1", client_id: "client-1" },
-    { id: "email-1", client_id: "client-1" },
+    { id: "thread-1", client_id: "client-1" },
+    { id: "thread-3", client_id: "client-3" },
 ];
 
 describe("inbox navigation", () => {
-    it("opens the notification's exact thread when a client has multiple channels", () => {
-        expect(resolveInboxTarget(threads, { threadId: "email-1", clientId: "client-1" })).toEqual({
-            threadId: "email-1",
-            clientId: null,
-        });
+    it("opens the notification's exact thread", () => {
+        expect(resolveInboxTarget(threads, { threadId: "thread-3", clientId: "client-3" })).toEqual(
+            {
+                threadId: "thread-3",
+                clientId: null,
+            },
+        );
     });
     it("opens the client's most recent conversation", () => {
         expect(resolveInboxTarget(threads, { clientId: "client-1" })).toEqual({
-            threadId: "sms-1",
+            threadId: "thread-1",
             clientId: null,
         });
     });

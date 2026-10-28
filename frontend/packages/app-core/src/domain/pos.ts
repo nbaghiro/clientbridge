@@ -674,7 +674,7 @@ export function useDiscountEditor(initial: SaleDiscount | null, baseCents: numbe
 type SalePhase = "cart" | "pay" | "paid";
 export type SalePayMethod = "tap" | "saved" | "card" | "cash";
 type TipSplitMode = "byService" | "one";
-type ReceiptChannel = "sms" | "none";
+type ReceiptOutcome = "texted" | "skipped";
 
 interface TipShare {
     staffId: string;
@@ -938,8 +938,9 @@ interface SaleGiftCard {
 interface SaleReceiptForm {
     phone: string;
     setPhone: (v: string) => void;
-    sent: ReceiptChannel | null;
-    send: (channel: ReceiptChannel) => void;
+    sent: ReceiptOutcome | null;
+    send: () => void;
+    skip: () => void;
     busy: boolean;
     error: string | null;
 }
@@ -1000,7 +1001,7 @@ export function useSale(
     const [paidCents, setPaidCents] = useState(0);
     const [changeGiven, setChangeGiven] = useState<number | null>(null);
     const [held, setHeld] = useState<string | null>(null);
-    const [sent, setSent] = useState<ReceiptChannel | null>(null);
+    const [sent, setSent] = useState<ReceiptOutcome | null>(null);
     const [giftCode, setGiftCode] = useState("");
     const [invoiced, setInvoiced] = useState<string | null>(null);
     const invoiceAttempt = useRef<Attempt | null>(null);
@@ -1433,9 +1434,12 @@ export function useSale(
             phone: phone === "" ? formatPhone(client?.phone) : phone,
             setPhone,
             sent,
-            send: (channel) => {
-                if (channel === "none" || order === null) {
-                    setSent("none");
+            skip: () => {
+                setSent("skipped");
+            },
+            send: () => {
+                if (order === null) {
+                    setSent("skipped");
                     return;
                 }
                 const to = phone !== "" ? phone : (client?.phone ?? "");
@@ -1444,14 +1448,10 @@ export function useSale(
                     return;
                 }
                 receiptAction.run(
-                    () =>
-                        api.post(`/v1/orders/${order.id}/receipt`, {
-                            channel: "sms",
-                            to: to.trim(),
-                        }),
+                    () => api.post(`/v1/orders/${order.id}/receipt`, { to: to.trim() }),
                     {
                         onSuccess: () => {
-                            setSent(channel);
+                            setSent("texted");
                         },
                         errorMessage: d.receiptError,
                     },

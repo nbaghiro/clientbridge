@@ -10,11 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
 from clientbridge.core.config import get_settings
-from clientbridge.core.errors import TooManyRequests
-from clientbridge.core.ratelimit import RateLimiter, public_prefs_rate_limit
-from clientbridge.main import app
 from clientbridge.models.clients import Client, Consent
-from clientbridge.services.consents import prefs_token, record_consent
+from clientbridge.services.consents import record_consent
 from clientbridge.services.messaging import broadcast_recipients
 from tests.conftest import Factory, FakeSmsSender
 from tests.google_business import configure_google_review_profile
@@ -103,44 +100,7 @@ async def test_export_leaves_out_other_businesses(
     assert "Foreign Client" not in content
 
 
-async def test_preferences_page_reads_and_saves_sms(
-    api: httpx.AsyncClient, db: AsyncSession
-) -> None:
-    cid = await _client(db)
-    token = prefs_token(cid)
-    page = ok(await api.get(f"/prefs/{token}")).json()
-    assert page["sms"] is False
-    assert page["phone_hint"] == "•••0877"
-    saved = ok(await api.post(f"/prefs/{token}", json={"sms": True})).json()
-    assert saved["sms"] is True
-    assert await _consents(db, cid) == [("granted", "preferences")]
-    ok(await api.post(f"/prefs/{token}", json={"sms": True}))
-    assert len(await _consents(db, cid)) == 1
-
-
-async def test_one_click_unsubscribe(api: httpx.AsyncClient, db: AsyncSession) -> None:
-    cid = await _client(db)
-    await record_consent(db, BIZ, cid, status="granted", source="in_person", recorded_by=None)
-    token = prefs_token(cid)
-    out = ok(await api.post(f"/prefs/{token}/unsubscribe")).json()
-    assert out["sms"] is False
-    assert (await _consents(db, cid))[-1] == ("withdrawn", "unsubscribe")
-    ok(await api.post(f"/prefs/{token}/unsubscribe"))
-    assert len(await _consents(db, cid)) == 2
-
-
-async def test_preferences_link_must_be_signed(api: httpx.AsyncClient, db: AsyncSession) -> None:
-    cid = await _client(db)
-    assert (await api.get(f"/prefs/{cid}.forged")).status_code == 404
-    assert (await api.get("/prefs/nothing")).status_code == 404
-    forged = await api.post(f"/prefs/{cid}.forged", json={"sms": True})
-    assert forged.status_code == 404
-    unsubscribed = await api.post(f"/prefs/{cid}.forged/unsubscribe", json={})
-    assert unsubscribed.status_code == 404
-    assert await _consents(db, cid) == []
-
-
-async def test_implied_consent_lapses(api: httpx.AsyncClient, db: AsyncSession) -> None:
+async def test_implied_consent_lapses(db: AsyncSession) -> None:
     cid = await _client(db)
     await record_consent(
         db,
@@ -151,7 +111,8 @@ async def test_implied_consent_lapses(api: httpx.AsyncClient, db: AsyncSession) 
         recorded_by=None,
         expires_at=clock.now() - timedelta(days=1),
     )
-    assert ok(await api.get(f"/prefs/{prefs_token(cid)}")).json()["sms"] is False
+    recipients, _ = await broadcast_recipients(db, BIZ, {"all": True})
+    assert cid not in {client.id for client, _ in recipients}
 
 
 async def test_stop_reply_blocks_texts_until_start(
@@ -188,36 +149,6 @@ async def test_stopped_client_gets_no_reminder_texts(
     assert sms.sent == []
 
 
-async def test_preferences_are_rate_limited(api: httpx.AsyncClient, db: AsyncSession) -> None:
-    rl = RateLimiter(limit=1, window_s=60.0)
-
-    def limited() -> None:
-        if not rl.check("x", 0.0):
-            raise TooManyRequests("slow down")
-
-    app.dependency_overrides[public_prefs_rate_limit] = limited
-    token = prefs_token(await _client(db))
-    assert (await api.get(f"/prefs/{token}")).status_code == 200
-    assert (await api.get(f"/prefs/{token}")).status_code == 429
-
-
-async def test_a_deleted_clients_link_is_not_found(
-    api: httpx.AsyncClient, db: AsyncSession
-) -> None:
-    cid = await _client(db)
-    await db.execute(update(Client).where(Client.id == cid).values(deleted_at=clock.now()))
-    await db.flush()
-    assert (await api.get(f"/prefs/{prefs_token(cid)}")).status_code == 404
-
-
-async def test_unsubscribe_withdraws_sms_consent(api: httpx.AsyncClient, db: AsyncSession) -> None:
-    cid = await _client(db)
-    await record_consent(db, BIZ, cid, status="granted", source="in_person", recorded_by=None)
-    out = ok(await api.post(f"/prefs/{prefs_token(cid)}/unsubscribe")).json()
-    assert out["sms"] is False
-    assert (await _consents(db, cid))[-1] == ("withdrawn", "unsubscribe")
-
-
 async def test_export_needs_a_session(unauth: httpx.AsyncClient) -> None:
     assert (await unauth.post("/v1/consents/export")).status_code == 401
 
@@ -245,18 +176,6 @@ async def test_an_older_staff_grant_cannot_outrank_a_stop(
     blocked = await as_owner.post("/v1/messages", json={"client_id": cid, "body": "Back?"})
     assert blocked.status_code == 409
     assert PHONE not in [m.to for m in sms.sent]
-
-
-async def test_the_preferences_page_cannot_lift_a_stop(
-    api: httpx.AsyncClient, db: AsyncSession
-) -> None:
-    cid = await _client(db)
-    await _text_in(api, "STOP", "SM_sticky_3")
-    saved = ok(await api.post(f"/prefs/{prefs_token(cid)}", json={"sms": True}))
-    assert saved.json()["sms"] is False
-    assert await _consents(db, cid) == [("withdrawn", "reply")]
-    await _text_in(api, "START", "SM_sticky_4")
-    assert (await _consents(db, cid))[-1] == ("granted", "reply")
 
 
 pytestmark = pytest.mark.usefixtures("google_review_provider")

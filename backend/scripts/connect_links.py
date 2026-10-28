@@ -17,7 +17,6 @@ from clientbridge.models.clients import Client
 from clientbridge.models.documents import Contract, Form, FormResponse, Signature
 from clientbridge.models.scheduling import Booking, Slot
 from clientbridge.services import ledger
-from clientbridge.services.consents import prefs_token
 from clientbridge.services.forms import snapshot_form
 from scripts.demo_context import DEMO_IDS, FIXTURE_BUSINESS, run_id
 
@@ -143,7 +142,6 @@ async def main(biz: str) -> None:
             ),
             "form": await _form_draft(db, biz, client.id),
             "contract": await _pending_signature(db, biz, client.id),
-            "prefs": prefs_token(client.id),
         }
         await db.commit()
     await engine.dispose()

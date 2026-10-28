@@ -45,7 +45,6 @@ _public_pay_limiter = RateLimiter(limit=_PER_MINUTE, window_s=60.0)
 _public_form_limiter = RateLimiter(limit=_PER_MINUTE, window_s=60.0)
 _public_contract_limiter = RateLimiter(limit=_PER_MINUTE, window_s=60.0)
 _public_booking_limiter = RateLimiter(limit=_PER_MINUTE, window_s=60.0)
-_public_prefs_limiter = RateLimiter(limit=_PER_MINUTE, window_s=60.0)
 _public_invite_limiter = RateLimiter(limit=_PER_MINUTE, window_s=60.0)
 connect_refresh_limiter = RateLimiter(limit=6, window_s=60.0)
 
@@ -111,12 +110,6 @@ async def public_contract_rate_limit(request: Request) -> None:
 async def public_booking_rate_limit(request: Request) -> None:
     """Cap how fast one IP hits the unauthenticated booking endpoints."""
     if not await _allowed(request, "booking", _public_booking_limiter):
-        raise TooManyRequests("too many requests — please wait a moment")
-
-
-async def public_prefs_rate_limit(request: Request) -> None:
-    """Cap how fast one IP hits the unauthenticated message preference endpoints."""
-    if not await _allowed(request, "prefs", _public_prefs_limiter):
         raise TooManyRequests("too many requests — please wait a moment")
 
 

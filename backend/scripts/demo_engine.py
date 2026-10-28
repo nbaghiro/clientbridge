@@ -1481,6 +1481,7 @@ class Demo:
             )
 
     def withdraw(self, client_key: str, when: datetime) -> None:
+        """The client asked the desk to stop offers; a STOP reply would block reminders too."""
         client_id = self.client_id(client_key)
         self.ctx.add(
             Consent(
@@ -1488,7 +1489,8 @@ class Demo:
                 business_id=self.spec.id,
                 client_id=client_id,
                 status="withdrawn",
-                source="unsubscribe",
+                source="in_person",
+                recorded_by=self.spec.owner,
                 created_at=when,
                 updated_at=when,
             )

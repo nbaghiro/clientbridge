@@ -223,7 +223,7 @@ ITEMS: tuple[tuple[str, ItemKind, str, int, int | None, str, str], ...] = (
         0,
         None,
         "Gift cards",
-        "A gift card for any wash, detail or add-on, emailed with your note. It doesn't expire.",
+        "A gift card for any wash, detail or add-on. We text the code, and it doesn't expire.",
     ),
 )
 COLORS = {
@@ -1876,9 +1876,8 @@ class Clearcoat(Demo):
         self.note(
             "cl_ct_rosemont",
             "client",
-            "Invoices go to bureau.plomberierosemont@example.test and are paid by e-Transfer "
-            "within 14 days. The office keeps the vans in the yard on wash days; book Olivier "
-            "with Anh.",
+            "Invoices are texted to the office and paid by e-Transfer within 14 days. The office "
+            "keeps the vans in the yard on wash days; book Olivier with Anh.",
             self.at(-125, 11),
         )
 

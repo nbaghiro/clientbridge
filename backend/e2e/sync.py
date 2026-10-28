@@ -170,7 +170,6 @@ async def history_edge(db: AsyncSession) -> None:
             id=run_id("th_edge"),
             business_id=run_id("bz_first"),
             client_id=run_id("cl_first"),
-            channel="sms",
         )
     )
     for name, offset in EDGES.items():
@@ -207,7 +206,6 @@ async def history_edge(db: AsyncSession) -> None:
                 business_id=run_id("bz_first"),
                 thread_id=run_id("th_edge"),
                 direction="out",
-                channel="sms",
                 status="sent",
                 body=name,
                 created_at=at,

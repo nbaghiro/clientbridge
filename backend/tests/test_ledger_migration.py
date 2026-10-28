@@ -1,4 +1,4 @@
-"""cb0034 adds the transit and loss account categories."""
+"""cb0033 adds the transit and loss account categories."""
 
 import os
 import secrets
@@ -25,7 +25,7 @@ _ACCOUNT = text(
 )
 
 
-async def test_cb0034_takes_transit_and_loss_and_refuses_to_downgrade_while_one_exists() -> None:
+async def test_cb0033_takes_transit_and_loss_and_refuses_to_downgrade_while_one_exists() -> None:
     settings = get_settings()
     database = f"clientbridge_migration_{secrets.token_hex(4)}"
     url = on(settings.migration_database_url, database)
@@ -38,7 +38,7 @@ async def test_cb0034_takes_transit_and_loss_and_refuses_to_downgrade_while_one_
     engine = create_async_engine(url)
     try:
         _run(env, "scripts.db_access", "roles")
-        _run(env, "alembic", "upgrade", "cb0034")
+        _run(env, "alembic", "upgrade", "cb0033")
         async with engine.begin() as conn:
             await conn.execute(
                 text(
@@ -51,10 +51,10 @@ async def test_cb0034_takes_transit_and_loss_and_refuses_to_downgrade_while_one_
             await conn.execute(_ACCOUNT, {"id": "ac_transit", "category": "transit"})
             await conn.execute(_ACCOUNT, {"id": "ac_loss", "category": "loss"})
         with pytest.raises(subprocess.CalledProcessError):
-            _run(env, "alembic", "downgrade", "cb0033")
+            _run(env, "alembic", "downgrade", "cb0032")
         async with engine.begin() as conn:
             await conn.execute(text("DELETE FROM accounts"))
-        _run(env, "alembic", "downgrade", "cb0033")
+        _run(env, "alembic", "downgrade", "cb0032")
         async with engine.begin() as conn:
             with pytest.raises(IntegrityError):
                 await conn.execute(_ACCOUNT, {"id": "ac_loss", "category": "loss"})

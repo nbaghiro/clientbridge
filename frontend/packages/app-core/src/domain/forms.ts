@@ -457,7 +457,7 @@ export function sendOptions(
     });
 }
 
-/** One link by email, and by text when the client has a number; the server records the request. */
+/** One link, texted when the client has a number; the server records the request. */
 export function useSendToClient(
     api: ApiLike,
     path: "/v1/forms/send" | "/v1/contracts/send",

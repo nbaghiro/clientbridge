@@ -395,7 +395,7 @@ QUESTIONNAIRE_FIELDS: tuple[DocField, ...] = (
         "outfits",
         "longtext",
         "What are you planning to wear?",
-        "We're happy to look at outfit options by email before the day.",
+        "We're happy to look at outfit options by text before the day.",
         False,
         (),
     ),
@@ -512,7 +512,7 @@ RELEASE_FIELDS: tuple[DocField, ...] = (
     (
         "withdraw",
         "checkbox",
-        "I understand I can withdraw this release by email at any time, and that photos "
+        "I understand I can withdraw this release in writing at any time, and that photos "
         "already printed or published can't be recalled",
         None,
         True,

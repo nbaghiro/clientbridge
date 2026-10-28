@@ -841,41 +841,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/prefs/{token}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Public Preferences */
-        get: operations["public_preferences_prefs__token__get"];
-        put?: never;
-        /** Public Preferences Save */
-        post: operations["public_preferences_save_prefs__token__post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/prefs/{token}/unsubscribe": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Public Unsubscribe */
-        post: operations["public_unsubscribe_prefs__token__unsubscribe_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/v1/plan": {
         parameters: {
             query?: never;
@@ -8721,29 +8686,6 @@ export interface components {
             /** Horizon Days */
             horizon_days: number;
         };
-        /** PublicPreferences */
-        PublicPreferences: {
-            /** Business Name */
-            business_name: string;
-            brand: components["schemas"]["PublicBrand"];
-            /** First Name */
-            first_name: string;
-            /**
-             * Phone Hint
-             * @description The last four digits of the number on file
-             */
-            phone_hint: string | null;
-            /**
-             * Sms
-             * @description Offers and news by text
-             */
-            sms: boolean;
-        };
-        /** PublicPreferencesUpdate */
-        PublicPreferencesUpdate: {
-            /** Sms */
-            sms: boolean;
-        };
         /** PublicProfile */
         PublicProfile: {
             /** Business Name */
@@ -12008,103 +11950,6 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    public_preferences_prefs__token__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                token: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PublicPreferences"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    public_preferences_save_prefs__token__post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                token: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PublicPreferencesUpdate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PublicPreferences"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    public_unsubscribe_prefs__token__unsubscribe_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                token: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PublicPreferences"];
-                };
             };
             /** @description Validation Error */
             422: {

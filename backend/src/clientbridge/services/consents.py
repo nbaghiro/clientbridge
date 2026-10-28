@@ -1,7 +1,4 @@
-import base64
 import csv
-import hashlib
-import hmac
 import io
 from collections.abc import Sequence
 from datetime import datetime
@@ -9,7 +6,6 @@ from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
-from clientbridge.core.config import get_settings
 from clientbridge.core.deps import Principal, assert_role
 from clientbridge.core.ids import new_id
 from clientbridge.core.locale import locale_for, message
@@ -91,26 +87,6 @@ async def set_marketing_consent(
     )
 
 
-async def set_consent(
-    db: AsyncSession, client: Client, *, agreed: bool, source: ConsentSource
-) -> bool:
-    """Record a yes or no when it changes the current state; True if it did."""
-    if agreed and await texts_stopped(db, client.business_id, client.id):
-        return False
-    current = (await latest_consents(db, client.business_id, [client.id])).get(client.id)
-    if allows_marketing(current) == agreed:
-        return False
-    await record_consent(
-        db,
-        client.business_id,
-        client.id,
-        status="granted" if agreed else "withdrawn",
-        source=source,
-        recorded_by=None,
-    )
-    return True
-
-
 async def stopped_clients(
     db: AsyncSession, business_id: str, client_ids: Sequence[str]
 ) -> set[str]:
@@ -147,28 +123,6 @@ async def record_text_reply(db: AsyncSession, client: Client, *, stop: bool) -> 
         recorded_by=None,
     )
     return True
-
-
-def _prefs_signature(client_id: str) -> str:
-    key = get_settings().jwt_secret.encode()
-    digest = hmac.new(key, f"prefs:{client_id}".encode(), hashlib.sha256).digest()
-    return base64.urlsafe_b64encode(digest[:18]).decode()
-
-
-def prefs_token(client_id: str) -> str:
-    """The per-client link token for the message preferences page; it never expires (CASL)."""
-    return f"{client_id}.{_prefs_signature(client_id)}"
-
-
-def prefs_url(client_id: str) -> str:
-    return f"{get_settings().book_base_url}/prefs/{prefs_token(client_id)}"
-
-
-def client_id_for_prefs(token: str) -> str | None:
-    client_id, _, signature = token.rpartition(".")
-    if not client_id or not hmac.compare_digest(signature, _prefs_signature(client_id)):
-        return None
-    return client_id
 
 
 def _cell(value: str) -> str:

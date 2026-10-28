@@ -33,7 +33,6 @@ from clientbridge.schemas.billing import (
 )
 from clientbridge.schemas.bookings import BookingPolicy
 from clientbridge.schemas.business import BrandInput
-from clientbridge.schemas.consents import PublicPreferences, PublicPreferencesUpdate
 from clientbridge.schemas.contracts import PublicContractContext, PublicContractSign
 from clientbridge.schemas.files import PublicFileComplete, PublicFileCreate, PublicFileUpload
 from clientbridge.schemas.forms import (
@@ -119,12 +118,6 @@ from clientbridge.services.bookings import (
 from clientbridge.services.business import business_tz, local_today, staff_names
 from clientbridge.services.catalog import assert_offers, deposit_cents, offers
 from clientbridge.services.clients import find_or_create_by_contact
-from clientbridge.services.consents import (
-    allows_marketing,
-    client_id_for_prefs,
-    latest_consents,
-    set_consent,
-)
 from clientbridge.services.deliveries import delivery_key
 from clientbridge.services.files import (
     confirm_upload,
@@ -2206,53 +2199,6 @@ async def visit_receipt(db: AsyncSession, booking: Booking, business: Business) 
         practitioner=names.get(staff.id) if staff is not None else None,
         practitioner_title=staff.title if staff is not None else None,
     )
-
-
-class PublicPreferencesService:
-    """A client's own message preferences; the signed link is the only credential."""
-
-    def __init__(self, db: AsyncSession) -> None:
-        self.db = db
-
-    async def _resolve(self, token: str) -> tuple[Client, Business]:
-        client_id = client_id_for_prefs(token)
-        client = await self.db.get(Client, client_id) if client_id is not None else None
-        if client is None or client.deleted_at is not None:
-            raise NotFound("preferences link not found")
-        return client, await business_or_404(
-            self.db, client.business_id, "preferences link not found"
-        )
-
-    async def context(self, token: str) -> PublicPreferences:
-        client, business = await self._resolve(token)
-        return await self._out(client, business)
-
-    async def save(self, token: str, data: PublicPreferencesUpdate) -> PublicPreferences:
-        client, business = await self._resolve(token)
-        await set_consent(self.db, client, agreed=data.sms, source="preferences")
-        await self.db.commit()
-        return await self._out(client, business)
-
-    async def unsubscribe(self, token: str) -> PublicPreferences:
-        client, business = await self._resolve(token)
-        await set_consent(self.db, client, agreed=False, source="unsubscribe")
-        await self.db.commit()
-        return await self._out(client, business)
-
-    async def _out(self, client: Client, business: Business) -> PublicPreferences:
-        consent = (await latest_consents(self.db, business.id, [client.id])).get(client.id)
-        return PublicPreferences(
-            business_name=business.name,
-            brand=public_brand(business),
-            first_name=client.name.split(" ")[0],
-            phone_hint=_phone_hint(client.phone),
-            sms=allows_marketing(consent),
-        )
-
-
-def _phone_hint(phone: str | None) -> str | None:
-    digits = "".join(ch for ch in phone or "" if ch.isdigit())
-    return f"•••{digits[-4:]}" if len(digits) >= 4 else None
 
 
 _SCOPE = "shop.order"

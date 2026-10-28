@@ -22,7 +22,7 @@ import { formatParts, formatPhone } from "../format";
 import { isConnectionFailure, type Load, useAsyncAction } from "../hooks";
 import { strings } from "../strings";
 import type { Intent, SelectOption } from "../ui";
-import { type ChannelConsent, consentFor, smsSegments, useConsents } from "./broadcasts";
+import { type MarketingConsent, consentFor, smsSegments, useConsents } from "./broadcasts";
 import { useClients } from "./clients";
 import { staffNameSql } from "./staff";
 import { useReplicaLoad } from "./sync";
@@ -148,7 +148,7 @@ export function quickReplies(): { key: string; label: string; text: string }[] {
     return m.quickReplyOptions.map((q, i) => ({ key: String(i), label: q.label, text: q.text }));
 }
 
-const stopped = (c: ChannelConsent): boolean => c.state === "opted_out" && c.source === "reply";
+const stopped = (c: MarketingConsent): boolean => c.state === "opted_out" && c.source === "reply";
 
 interface InboxView {
     load: Load;
@@ -230,7 +230,7 @@ interface ClientContextRow {
 export interface Conversation {
     days: { label: string; items: ThreadItem[] }[];
     client: ClientContextRow | null;
-    consent: ChannelConsent;
+    consent: MarketingConsent;
     nextVisit: string | null;
     // messages older than this device keeps, fetched page by page while online
     earlier: { show: boolean; busy: boolean; error: string | null; load: () => void };
@@ -361,7 +361,7 @@ export function useConversation(api: ApiLike, thread: InboxThread): Conversation
     };
 }
 
-export function consentDetail(c: ChannelConsent, zone: string): string | null {
+export function consentDetail(c: MarketingConsent, zone: string): string | null {
     const b = strings.broadcasts;
     if (c.state === "implied" && c.expiresAt !== null)
         return m.consentImpliedUntil(formatDate(parseTimestamp(c.expiresAt), zone));
@@ -373,7 +373,7 @@ export function consentDetail(c: ChannelConsent, zone: string): string | null {
     return null;
 }
 
-export function consentLabel(c: ChannelConsent): { label: string; intent: Intent } {
+export function consentLabel(c: MarketingConsent): { label: string; intent: Intent } {
     switch (c.state) {
         case "express":
             return { label: m.consentState.express, intent: "success" };

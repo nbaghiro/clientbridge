@@ -257,8 +257,8 @@ POLICY_BODY = "\n\n".join(
         "This policy covers how to move or cancel a visit at Harbourside Massage and Wellness. "
         "It is demo text for a fictional business, not legal advice.",
         "Notice\nPlease give us at least 24 hours' notice to move or cancel. You can do it from "
-        "the link in your confirmation email, by text or by phone. We keep a short waitlist, "
-        "so an early cancellation usually lets someone else in.",
+        "the link in your confirmation text, by replying to it or by phone. We keep a short "
+        "waitlist, so an early cancellation usually lets someone else in.",
         "Late cancellations\nIf you cancel with less than 24 hours' notice, we charge half the "
         "treatment fee to the card on file. We'll waive it once a year for illness or an "
         "emergency; just tell us when you call.",

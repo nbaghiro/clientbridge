@@ -16,8 +16,6 @@ ConsentSource = Literal[
     "form",
     "online_booking",
     "reply",
-    "unsubscribe",
-    "preferences",
 ]
 
 

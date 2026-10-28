@@ -281,7 +281,7 @@ Size: S · Area: Clients
 **QA:**
 
 1. Add a client on a phone; find them by phone number on web.
-2. Edit their email on web; the phone shows the change.
+2. Edit their name on web; the phone shows the change.
 3. Archive them: gone from search and booking pickers, their invoices still there; restore them.
 
 **Depends on:** nothing
@@ -620,11 +620,11 @@ Size: S · Area: Scheduling
 
 **When this is done:** No visit is forgotten by the client or left open by staff.
 
-**Surfaces:** Backend, email and text
+**Surfaces:** Backend and text
 
 **Flow:** Clients get a reminder before each visit, and past visits close themselves at the end of the day.
 
-**Built:** A reminder the day before by email or text, previewed word for word under Setup › Reminders; past visits completed automatically after local midnight (on by default, switchable), and never-approved pending ones canceled.
+**Built:** A reminder text the day before, previewed word for word under Setup › Reminders; past visits completed automatically after local midnight (on by default, switchable), and never-approved pending ones canceled.
 
 **To do:**
 
@@ -716,11 +716,11 @@ Done when: A business can ring up sales, take card and Tap to Pay with tips and 
 QA pass:
 
 1. Ring up a groom and a shampoo for a client, and a walk-in sale with no client.
-2. Pay on web with card 4242 and email the receipt; on a real phone take Tap to Pay with a credit card and an Interac card; a declined card leaves the sale open with a clear message.
+2. Pay on web with card 4242 and text the receipt; on a real phone take Tap to Pay with a credit card and an Interac card; a declined card leaves the sale open with a clear message.
 3. Add a 15% tip to a $100 groom (no tax on the tip), and discount one line 10% and the sale $5; totals and tax match a hand calculation.
 4. Write an estimate on a phone, send, accept and convert it: the invoice keeps the lines, discount and tax.
 5. Create an invoice from a completed booking, send it and pay it through the link in a private window; void another; record $20 cash on a $50 invoice and charge the rest to the saved card.
-6. Each email has a matching PDF; download the invoice, estimate and receipt PDFs from a phone.
+6. Each invoice, estimate and receipt page has a matching PDF; download them from a phone.
 7. Sell a 5-visit package and use two visits, start a membership and advance the test clock a month, and sell a $100 gift card and redeem $40.
 8. Order two products in the online shop on a phone, mark the order ready and picked up; stock drops by one each.
 9. Refund $10 of a $50 payment, then the rest; refund a gift card purchase; open and win a test dispute on a package payment.
@@ -786,7 +786,7 @@ Size: M · Area: Front desk sales and orders
 
 **Flow:** Staff take payment by saved card, new card or Tap to Pay, and the client gets an itemised receipt.
 
-**Built:** Card checkout for sales on web and mobile, Tap to Pay on mobile with connection tokens scoped to the business's Terminal Location, cancelling an unfinished card or Tap to Pay checkout so the sale can be edited or paid in cash, abandoned staff-opened intents cancelled after a day, itemised receipts by email or text including walk-ins.
+**Built:** Card checkout for sales on web and mobile, Tap to Pay on mobile with connection tokens scoped to the business's Terminal Location, cancelling an unfinished card or Tap to Pay checkout so the sale can be edited or paid in cash, abandoned staff-opened intents cancelled after a day, itemised receipts by text including walk-ins.
 
 **To do:**
 
@@ -795,7 +795,7 @@ Size: M · Area: Front desk sales and orders
 
 **QA:**
 
-1. On web, pay a sale with card 4242 and send a receipt to an email.
+1. On web, pay a sale with card 4242 and text a receipt to a phone number.
 2. On a real phone, take a Tap to Pay payment.
 3. Try a declined card (4000 0000 0000 0002): the sale stays open with a clear message.
 4. The receipt lists each line, tax and total.
@@ -963,16 +963,16 @@ Size: M · Area: Invoices and payments
 
 **Flow:** Every invoice, estimate and receipt can be downloaded or attached as a PDF that matches the app.
 
-**Built:** Web pages and emails only.
+**Built:** Web pages only.
 
 **To do:**
 
 - PDFs with logo, address, GST/HST number, lines, taxes and totals.
-- Attached to the emails and downloadable on web and mobile.
+- Downloadable from the client's pages and on web and mobile.
 
 **QA:**
 
-1. Send an invoice and an estimate: each email has a matching PDF.
+1. Send an invoice and an estimate: each page has a matching PDF.
 2. Take a payment: the receipt PDF lists lines, tax and total.
 3. Download each from a phone.
 
@@ -1165,13 +1165,13 @@ Size: M · Area: Money, tax and staff pay
 
 ## 6. Talk to clients
 
-Done when: A business can text and email its clients from one inbox, send broadcasts, ask for reviews, and send forms and contracts.
+Done when: A business can text its clients from one inbox, send broadcasts, ask for reviews, and send forms and contracts.
 
 QA pass:
 
 1. Text a client and reply from their phone: the reply lands in the thread on web and mobile.
 2. Have two businesses text the same phone: each reply reaches only its business.
-3. Unsubscribe one client by link and reply STOP from another; a broadcast to their tag reaches everyone else, and each record shows the consent and opt-out date.
+3. Reply STOP from one client and record a no to offers for another; a broadcast to their tag reaches everyone else, and each record shows the consent and opt-out date.
 4. Configure a Google review link and request a review after a completed visit; confirm the invitation links directly to Google.
 5. Build an intake form with text, choice and a file upload; book as a new client, fill it in on a phone, and see the answers on web and mobile.
 6. Send a contract, sign it on a phone, and download the signed PDF with the signature, time and IP.
@@ -1186,9 +1186,9 @@ Size: L · Area: Messaging and documents
 
 **Surfaces:** Backend, web, iPhone and Android
 
-**Flow:** Staff text and email clients from one inbox, and replies always come back to the right business.
+**Flow:** Staff text clients from one inbox, and replies always come back to the right business.
 
-**Built:** Threads by text and email, new message, reply; one shared text number, with an inbound text routed to the business that last texted that phone (unmatched on a tie or no sender); Twilio signatures checked; phones stored as E.164; staff push on inbound texts and Connect messages.
+**Built:** Text threads, new message, reply; one shared text number, with an inbound text routed to the business that last texted that phone (unmatched on a tie or no sender); Twilio signatures checked; phones stored as E.164; staff push on inbound texts and Connect messages.
 
 **To do:**
 
@@ -1212,15 +1212,15 @@ Size: L · Area: Messaging and documents
 
 **Flow:** The owner sends a broadcast that reaches only clients who agreed to hear from them.
 
-**Built:** Scheduled broadcasts to tagged clients, sent one recipient at a time and resumable, held in quiet hours (21:00 to 09:00 local); a consent record per client and channel, a preferences link, sticky STOP for texts, email complaints withdrawing consent, and the business's address and contact in every broadcast email (CASL).
+**Built:** Scheduled broadcasts to tagged clients, sent one recipient at a time and resumable, held in quiet hours (21:00 to 09:00 local); a consent record per client, opt-out by a STOP reply or a staff-recorded no, sticky STOP that only the client's START lifts, and broadcasts refused until the business has a legal address and a contact method (CASL).
 
 **To do:**
 
-- One pass with Twilio and Resend test keys.
+- One pass with Twilio test keys.
 
 **QA:**
 
-1. Unsubscribe one client by link and reply STOP from another.
+1. Reply STOP from one client and record a no to offers for another.
 2. Broadcast to their tag: neither receives it, the rest do.
 3. Each client's consent and opt-out date shows on their record.
 
@@ -1513,7 +1513,7 @@ Not tracked yet. These are pulled in by demand once the launch stages are done.
     and form bodies are single text fields today, so supporting French and English versions of
     business-written content is a product and schema decision, not catalog work.
   - Almost every `locale_for(...)` call in `services/notifications.py` passes only the business, and one
-    locale serves the client's email and SMS and the staff push for the same event. Separate client and
+    locale serves the client's text and the staff push for the same event. Separate client and
     staff languages need the builders' signatures to change, not only the body of `locale_for`. Connect
     does not read `navigator.languages`, nothing records a visitor's language when they book, and gift card
     recipients have no locale source.

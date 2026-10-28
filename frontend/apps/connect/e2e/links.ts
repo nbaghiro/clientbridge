@@ -7,7 +7,6 @@ interface Links {
     manage: string;
     form: string;
     contract: string;
-    prefs: string;
 }
 
 // `make test-connect` mints these with backend/scripts/connect_links.py.

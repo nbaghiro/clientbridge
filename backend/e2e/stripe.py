@@ -123,7 +123,7 @@ async def invoice_evidence(invoice_id: str | None, receipts: bool = False) -> di
                     "SELECT d.id, d.key, d.state, p.id AS payment_id FROM deliveries d "
                     "JOIN payments p ON d.key LIKE 'stripe:payment:' || p.id || ':%' "
                     "WHERE p.invoice_id=:id AND p.business_id=:business "
-                    "AND d.business_id=:business AND d.payload->>'channel'='email' ORDER BY d.id"
+                    "AND d.business_id=:business AND d.payload->>'channel'='sms' ORDER BY d.id"
                 ),
                 {"id": invoice_id, "business": BUSINESS},
             )

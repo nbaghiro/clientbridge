@@ -1,5 +1,6 @@
-"""cb0033 deletes client email data and drops every channel column; its downgrade restores them."""
+"""cb0036 deletes client email data and link opt-outs and drops every channel column."""
 
+import json
 import os
 import secrets
 import subprocess
@@ -61,6 +62,7 @@ async def _seed(conn: AsyncConnection) -> None:
         ("cl_both", "both@test.ca", "+14165550101", "email"),
         ("cl_mail", "mail@test.ca", None, "email"),
         ("cl_text", None, "+14165550102", "sms"),
+        ("cl_link", None, "+14165550104", "sms"),
     ):
         await conn.execute(
             text(
@@ -115,6 +117,8 @@ async def _seed(conn: AsyncConnection) -> None:
         ("cs_text", "cl_text", "sms", "granted", "in_person"),
         ("cs_mail", "cl_both", "email", "granted", "form"),
         ("cs_complaint", "cl_both", "email", "withdrawn", "complaint"),
+        ("cs_text_link", "cl_link", "sms", "granted", "in_person"),
+        ("cs_link", "cl_link", "sms", "withdrawn", "unsubscribe"),
     ):
         await _insert(
             conn,
@@ -125,6 +129,19 @@ async def _seed(conn: AsyncConnection) -> None:
             channel=channel,
             status=status,
             source=source,
+        )
+    for delivery, payload in (
+        ("dl_client", {"channel": "email", "client_id": "cl_both", "message": {"to": "b@t.ca"}}),
+        ("dl_walkin", {"channel": "email", "message": {"to": "w@t.ca", "reply_to": "biz@t.ca"}}),
+        ("dl_owner", {"channel": "email", "message": {"to": "owner@test.ca"}}),
+        ("dl_text", {"channel": "sms", "message_id": "ms_both_sms", "message": {"to": "+1"}}),
+    ):
+        await conn.execute(
+            text(
+                "INSERT INTO deliveries (id, business_id, key, payload, state)"
+                " VALUES (:id, 'bz_a', :id, CAST(:payload AS jsonb), 'queued')"
+            ),
+            {"id": delivery, "payload": json.dumps(payload)},
         )
     for order, email, phone, channel in (
         ("or_mail", "walkin@test.ca", None, "email"),
@@ -183,7 +200,7 @@ async def _ids(engine: AsyncEngine, table: str, column: str = "id") -> dict[str,
         return {str(row[0]): row[1] for row in rows}
 
 
-async def test_cb0033_drops_client_email_and_channels_and_its_downgrade_restores_them() -> None:
+async def test_cb0036_drops_client_email_and_channels_and_its_downgrade_restores_them() -> None:
     settings = get_settings()
     database = f"clientbridge_migration_{secrets.token_hex(4)}"
     url = on(settings.migration_database_url, database)
@@ -196,16 +213,17 @@ async def test_cb0033_drops_client_email_and_channels_and_its_downgrade_restores
     engine = create_async_engine(url)
     try:
         _run(env, "scripts.db_access", "roles")
-        _run(env, "alembic", "upgrade", "cb0032")
+        _run(env, "alembic", "upgrade", "cb0035")
         async with engine.begin() as conn:
             await _seed(conn)
         before = await _schema(engine)
 
-        _run(env, "alembic", "upgrade", "cb0033")
+        _run(env, "alembic", "upgrade", "cb0036")
         assert set(await _ids(engine, "threads")) == {"th_both_sms", "th_text"}
         assert set(await _ids(engine, "messages")) == {"ms_both_sms", "ms_bc_text"}
         assert set(await _ids(engine, "broadcasts")) == {"bc_text"}
         assert set(await _ids(engine, "consents")) == {"cs_text"}
+        assert set(await _ids(engine, "deliveries")) == {"dl_owner", "dl_text"}
         assert await _ids(engine, "orders", "receipt_phone") == {
             "or_mail": None,
             "or_text": "+14165550103",
@@ -217,9 +235,9 @@ async def test_cb0033_drops_client_email_and_channels_and_its_downgrade_restores
             "constraints"
         ]
         source = next(c[2] for c in after["constraints"] if c[1] == "ck_consents_source")
-        assert "complaint" not in source
+        assert "complaint" not in source and "unsubscribe" not in source
 
-        _run(env, "alembic", "downgrade", "cb0032")
+        _run(env, "alembic", "downgrade", "cb0035")
         assert await _schema(engine) == before
         assert set((await _ids(engine, "threads", "channel")).values()) == {"sms"}
         assert set((await _ids(engine, "messages", "channel")).values()) == {"sms"}
@@ -229,7 +247,7 @@ async def test_cb0033_drops_client_email_and_channels_and_its_downgrade_restores
             "or_none": None,
         }
         assert await _ids(engine, "clients", "email") == dict.fromkeys(
-            ("cl_both", "cl_mail", "cl_text")
+            ("cl_both", "cl_mail", "cl_text", "cl_link")
         )
     finally:
         await engine.dispose()

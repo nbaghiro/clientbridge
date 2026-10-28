@@ -43,12 +43,6 @@ msgstr "{business} received your request for {when} and will let you know once i
 msgid "booking_rescheduled.body"
 msgstr "Your appointment with {business} was moved to {when}, and the earlier time is no longer booked."
 
-msgid "broadcast.mailing_address"
-msgstr "{street}, {city}, {province} {postal_code}"
-
-msgid "broadcast.mailing_address_unit"
-msgstr "{unit}, {street}, {city}, {province} {postal_code}"
-
 msgid "broadcast.sms"
 msgstr "{business}: {body} Reply {keyword} to opt out."
 

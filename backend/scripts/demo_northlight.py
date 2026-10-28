@@ -352,7 +352,7 @@ MAINTENANCE_BODY = "\n\n".join(
         "Response times\nWe aim to call back within one business day and visit within three "
         "business days for a camera or recorder that has stopped working.",
         "Price and renewal\nThe plan is billed yearly to the card on file and renews on the "
-        "same date each year. We'll email you 30 days before a renewal, and a change in price "
+        "same date each year. We'll text you 30 days before a renewal, and a change in price "
         "applies only from the next renewal.",
         "Cancelling\nYou can cancel at any time before the renewal date. A plan year that has "
         "started isn't refunded once its system check has been done.",

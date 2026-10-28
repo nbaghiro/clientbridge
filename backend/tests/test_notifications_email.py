@@ -7,7 +7,7 @@ import pytest
 from pydantic import ValidationError
 
 from clientbridge.core.config import Settings, get_settings
-from clientbridge.core.email_layout import Action, Brand, EmailView, render_html
+from clientbridge.core.email_layout import Action, EmailView, render_html
 from clientbridge.integrations.resend import (
     ConsoleEmailSender,
     Email,
@@ -99,20 +99,14 @@ async def test_smtp_mail_carries_the_html_as_an_alternative(
     assert parts["text/html"].strip() == "<p>Designed</p>"
 
 
-PLATFORM = Brand(
-    name="Clientbridge",
-    header_url="https://clientbridge.test/email/header.png",
-    art_url="https://clientbridge.test/email/contours.png",
-)
-
-
-def _render(brand: Brand, view: EmailView) -> str:
-    return render_html(brand, view, preheader="Preview text", lang="en-CA")
+def _render(view: EmailView) -> str:
+    return render_html(
+        view, preheader="Preview text", lang="en-CA", site="https://clientbridge.test"
+    )
 
 
 def test_the_layout_shows_every_part_of_the_view() -> None:
     page = _render(
-        PLATFORM,
         EmailView(
             eyebrow="Invoice",
             heading="Invoice #12 for $50.00",
@@ -133,11 +127,6 @@ def test_the_layout_shows_every_part_of_the_view() -> None:
 
 def test_every_value_is_escaped() -> None:
     page = _render(
-        Brand(
-            name="<b>Shady</b> & Co",
-            header_url="https://clientbridge.test/email/header.png",
-            art_url="https://clientbridge.test/email/contours.png",
-        ),
         EmailView(
             eyebrow="Message",
             heading="<script>alert(1)</script>",
@@ -145,13 +134,13 @@ def test_every_value_is_escaped() -> None:
             action=Action("Open", 'https://x.test/"onmouseover="steal()'),
         ),
     )
-    assert "<script>" not in page and "<img src=x>" not in page and "<b>Shady" not in page
-    assert "&lt;script&gt;" in page and "&amp; Co" in page
+    assert "<script>" not in page and "<img src=x>" not in page
+    assert "&lt;script&gt;" in page and "&amp; left" in page
     assert 'href="https://x.test/&quot;onmouseover=&quot;steal()"' in page
 
 
 def test_emails_are_light_like_the_site_and_the_apps() -> None:
-    page = _render(PLATFORM, EmailView("Waitlist", "You're on the list.", ("x",)))
+    page = _render(EmailView("Waitlist", "You're on the list.", ("x",)))
     assert '<meta name="color-scheme" content="light">' in page
     assert "prefers-color-scheme" not in page
 

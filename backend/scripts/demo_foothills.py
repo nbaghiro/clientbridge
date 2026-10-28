@@ -364,7 +364,7 @@ SNOW_BODY = "\n\n".join(
         "the spring cleanup at no charge. We aren't responsible for unmarked objects under "
         "the snow.",
         "Price and renewal\nThe plan is billed once for the season, in October, to your card on "
-        "file. It renews each October unless you cancel before September 30, and we'll email "
+        "file. It renews each October unless you cancel before September 30, and we'll text "
         "you a month before it renews.",
         "Cancelling\nYou can cancel before the season starts for a full refund. After November "
         "1, the plan isn't refunded.",
@@ -2211,7 +2211,7 @@ class Foothills(Demo):
         thread = self.thread("linda", when)
         self.say(
             thread,
-            "Hi, I saw the email about the snow plan. Does it include the sidewalk in front of "
+            "Hi, I saw the text about the snow plan. Does it include the sidewalk in front of "
             "the house? The city is strict about it.",
             when,
             sender=None,
@@ -2220,7 +2220,7 @@ class Foothills(Demo):
             thread,
             f"Hi {linda.name.split()[0]}, yes. The plan covers the driveway, the front walk and "
             "the city sidewalk, cleared within 24 hours of the snow stopping. You can sign up "
-            "from the link in the email and the plan starts on November 1.",
+            "from the link in the text and the plan starts on November 1.",
             when + timedelta(hours=2),
             sender=FOOTHILLS_OWNER,
         )

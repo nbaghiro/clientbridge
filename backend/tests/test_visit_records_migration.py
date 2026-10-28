@@ -1,4 +1,4 @@
-"""cb0036 moves staff-written visit records out of responses into their own table and back."""
+"""cb0035 moves staff-written visit records out of responses into their own table and back."""
 
 import json
 import os
@@ -66,7 +66,7 @@ async def _response(conn: AsyncConnection, id_: str, token: str | None, parent: 
 
 
 @pytest.mark.parametrize("stray", [False, True])
-async def test_cb0036_moves_records_out_of_responses_and_back(stray: bool) -> None:
+async def test_cb0035_moves_records_out_of_responses_and_back(stray: bool) -> None:
     settings = get_settings()
     database = f"clientbridge_migration_{secrets.token_hex(4)}"
     url = on(settings.migration_database_url, database)
@@ -80,19 +80,19 @@ async def test_cb0036_moves_records_out_of_responses_and_back(stray: bool) -> No
     engine = create_async_engine(url)
     try:
         assert _run(env, "scripts.db_access", "roles").returncode == 0
-        assert _run(env, "alembic", "upgrade", "cb0035").returncode == 0
+        assert _run(env, "alembic", "upgrade", "cb0034").returncode == 0
         async with owner.begin() as conn:
             await _graph(conn)
             await _response(conn, "fr_note", None, "bk_a")
             await _response(conn, "fr_intake", "tok", "bk_a")
             if stray:
                 await _response(conn, "fr_stray", None, "bk_missing")
-        upgraded = _run(env, "alembic", "upgrade", "cb0036")
+        upgraded = _run(env, "alembic", "upgrade", "cb0035")
         if stray:
             assert upgraded.returncode != 0
             async with engine.begin() as conn:
                 version = await conn.scalar(text("SELECT version_num FROM alembic_version"))
-                assert version == "cb0035"
+                assert version == "cb0034"
             return
         assert upgraded.returncode == 0
         async with engine.begin() as conn:
@@ -113,7 +113,7 @@ async def test_cb0036_moves_records_out_of_responses_and_back(stray: bool) -> No
                 )
             )
             assert nullable == "NO"
-        assert _run(env, "alembic", "downgrade", "cb0035").returncode == 0
+        assert _run(env, "alembic", "downgrade", "cb0034").returncode == 0
         async with engine.begin() as conn:
             back = (
                 (await conn.execute(text("SELECT * FROM responses WHERE id = 'fr_note'")))

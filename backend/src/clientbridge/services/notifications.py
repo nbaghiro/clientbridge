@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from clientbridge.core import clock
 from clientbridge.core.config import get_settings
 from clientbridge.core.deps import Principal
-from clientbridge.core.email_layout import Action, Brand, EmailView, inline_images, render_html
+from clientbridge.core.email_layout import Action, EmailView, inline_images, render_html
 from clientbridge.core.ids import new_id
 from clientbridge.core.locale import (
     currency_for,
@@ -97,17 +97,9 @@ def _lang(locale: str) -> str:
     return locale.replace("_", "-")
 
 
-def platform_brand() -> Brand:
-    return Brand(
-        name="Clientbridge",
-        header_url="cid:clientbridge-header",
-        art_url="cid:clientbridge-contours",
-    )
-
-
-def email_html(brand: Brand, view: EmailView, locale: str) -> str:
+def email_html(view: EmailView, locale: str, *, site: str | None = None) -> str:
     preheader = view.paragraphs[0] if view.paragraphs else view.heading
-    return render_html(brand, view, preheader=preheader, lang=_lang(locale))
+    return render_html(view, preheader=preheader, lang=_lang(locale), site=site)
 
 
 def business_email(business: Business, to: str, notice: Notice) -> Email:
@@ -117,7 +109,7 @@ def business_email(business: Business, to: str, notice: Notice) -> Email:
         message(locale, "email.footer.team", business=business.name),
         message(locale, "email.footer.company"),
     )
-    html = email_html(platform_brand(), replace(notice.view, footer=footer), locale)
+    html = email_html(replace(notice.view, footer=footer), locale)
     return Email(
         to=to,
         subject=notice.subject,
@@ -134,7 +126,7 @@ def account_email(to: str, notice: Notice, *, locale: str) -> Email:
         message(locale, "email.footer.account"),
         message(locale, "email.footer.company"),
     )
-    html = email_html(platform_brand(), replace(notice.view, footer=footer), locale)
+    html = email_html(replace(notice.view, footer=footer), locale)
     return Email(
         to=to,
         subject=notice.subject,

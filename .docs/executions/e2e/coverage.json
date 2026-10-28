@@ -1583,8 +1583,8 @@
       "canonical_id": "SCH02",
       "completion_gate": "Implement the full scenario with real rendered browser/native interactions wherever UI exists, real app/DB and sync observation, durable/provider side-effect oracle, explicit forbidden effects, and relevant restart/concurrency edges. Existing API/unit/provider assertions supplement the journey. Record successful execution per required lane; never count skips as proof.",
       "runtime_verified": false,
-      "coverage": "partial",
-      "covered_by": ["SCH-E2E-04"],
+      "coverage": "open",
+      "covered_by": [],
       "coverage_gap": "Owner approval, the confirmed timestamp and notice, the absence of reminders before approval and customer manage-link agreement are not asserted; only the pending request and its single acknowledgment are."
     },
     {
@@ -2519,7 +2519,7 @@
         "tier": "web + API + sync; native representative",
         "setup": "Fresh business of pet kind, two owner devices",
         "actions": "Create with padded name, formatted phone, duplicate tags, first pet and consent; reload and open on B",
-        "expected": "One client and subject; E164 phone; normalized tags; expected two-channel consent; same ID/details in both replicas; stable retry key prevents duplicate client",
+        "expected": "One client and subject; E164 phone; normalized tags; expected SMS consent; same ID/details in both replicas; stable retry key prevents duplicate client",
         "evidence": [
           "backend/src/clientbridge/services/clients.py:71",
           "frontend/packages/app-core/src/domain/clients.ts:691"
@@ -2528,7 +2528,7 @@
       "required_layers": ["browser", "native", "integration"],
       "related_evidence": [
         {
-          "test_key": "backend/tests/test_clients.py::test_create_with_first_pet_consent_and_channel",
+          "test_key": "backend/tests/test_clients.py::test_create_with_first_pet_and_sms_consent",
           "coverage": "partial_related_assertions_only",
           "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
         },
@@ -2550,7 +2550,7 @@
       "runtime_verified": false,
       "coverage": "partial",
       "covered_by": ["CRM-E2E-01", "NATIVE-CRM-01"],
-      "coverage_gap": "Padded-name trimming, E164 phone normalization, tag normalization, first pet and two-channel consent, and stable-key duplicate prevention on retry are not asserted."
+      "coverage_gap": "Padded-name trimming, E164 phone normalization, tag normalization, first pet and SMS consent, and stable-key duplicate prevention on retry are not asserted."
     },
     {
       "id": "CRM-E02",
@@ -2612,7 +2612,7 @@
         "priority": "P1",
         "tier": "web + Connect + API",
         "setup": "Two clients sharing normalized name/contact combinations",
-        "actions": "Show duplicate warning; ignore to create allowed duplicate; then public request email of A plus phone of B",
+        "actions": "Show duplicate warning; ignore to create allowed duplicate; then public request with the name of A and phone of B",
         "expected": "Manual duplicates are allowed when explicitly continued; public ambiguous contact refuses; no silent merge/reassignment",
         "evidence": [
           "frontend/packages/app-core/src/domain/clients.ts:570",
@@ -2692,7 +2692,7 @@
       "completion_gate": "Implement the full scenario with real rendered browser/native interactions wherever UI exists, real app/DB and sync observation, durable/provider side-effect oracle, explicit forbidden effects, and relevant restart/concurrency edges. Existing API/unit/provider assertions supplement the journey. Record successful execution per required lane; never count skips as proof.",
       "runtime_verified": false,
       "coverage": "partial",
-      "covered_by": ["CRM-E2E-01", "CRM-E2E-06"],
+      "covered_by": ["CRM-E2E-01"],
       "coverage_gap": "Role-based lifecycle policy, archive and restore through the status PATCH, audit rows, bulk paths and picker visibility are not asserted."
     },
     {
@@ -2900,7 +2900,7 @@
         "priority": "P1",
         "tier": "API + web",
         "setup": "Clients with conflicting dated grants/withdrawals/STOP/START, custom fields and photos",
-        "actions": "Merge in each direction and query effective channel permissions, target photo/details and old links",
+        "actions": "Merge in each direction and query effective SMS consent, target photo/details and old links",
         "expected": "History/provenance retained; effective policy explicit and safe; source photo/custom-field handling documented rather than silently assumed",
         "evidence": [
           "backend/src/clientbridge/services/clients.py:267",
@@ -2910,7 +2910,7 @@
       "required_layers": ["browser", "integration"],
       "related_evidence": [
         {
-          "test_key": "backend/tests/test_clients.py::test_create_with_first_pet_consent_and_channel",
+          "test_key": "backend/tests/test_clients.py::test_create_with_first_pet_and_sms_consent",
           "coverage": "partial_related_assertions_only",
           "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
         },
@@ -2925,7 +2925,7 @@
           "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
         }
       ],
-      "open_decisions": "Specify consent, photo, custom fields and preferred-channel merge precedence.",
+      "open_decisions": "Specify consent, photo and custom fields merge precedence.",
       "shared_seams": [],
       "canonical_id": "CRM-E09",
       "completion_gate": "Implement the full scenario with real rendered browser/native interactions wherever UI exists, real app/DB and sync observation, durable/provider side-effect oracle, explicit forbidden effects, and relevant restart/concurrency edges. Existing API/unit/provider assertions supplement the journey. Record successful execution per required lane; never count skips as proof.",
@@ -3139,7 +3139,7 @@
       "implementation": [],
       "audit": {
         "id": "CRM-E14",
-        "title": "Returning email/SMS proof to actual booking",
+        "title": "Returning SMS proof to actual booking",
         "priority": "P0",
         "tier": "Connect + API + captured provider",
         "setup": "Unique active customer, two subjects and completed visit; Mailpit/SMS sink",
@@ -3163,7 +3163,7 @@
           "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
         },
         {
-          "test_key": "backend/tests/test_returning.py::test_mailbox_proof_reveals_only_verified_profile",
+          "test_key": "backend/tests/test_returning.py::test_phone_proof_reveals_only_verified_profile",
           "coverage": "partial_related_assertions_only",
           "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
         }
@@ -3174,7 +3174,7 @@
       "completion_gate": "Implement the full scenario with real rendered browser/native interactions wherever UI exists, real app/DB and sync observation, durable/provider side-effect oracle, explicit forbidden effects, and relevant restart/concurrency edges. Existing API/unit/provider assertions supplement the journey. Record successful execution per required lane; never count skips as proof.",
       "runtime_verified": false,
       "coverage": "partial",
-      "covered_by": ["CRM-E2E-05", "CRM-E2E-07"],
+      "covered_by": ["CRM-E2E-07"],
       "coverage_gap": "SMS proof, usual-service selection, sensitive custom data exclusion and hashed storage of the code and token are not asserted."
     },
     {
@@ -3255,7 +3255,7 @@
           "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
         },
         {
-          "test_key": "backend/tests/test_returning.py::test_mailbox_proof_reveals_only_verified_profile",
+          "test_key": "backend/tests/test_returning.py::test_phone_proof_reveals_only_verified_profile",
           "coverage": "partial_related_assertions_only",
           "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
         },
@@ -3270,8 +3270,8 @@
       "canonical_id": "CRM-E16",
       "completion_gate": "Implement the full scenario with real rendered browser/native interactions wherever UI exists, real app/DB and sync observation, durable/provider side-effect oracle, explicit forbidden effects, and relevant restart/concurrency edges. Existing API/unit/provider assertions supplement the journey. Record successful execution per required lane; never count skips as proof.",
       "runtime_verified": false,
-      "coverage": "partial",
-      "covered_by": ["CRM-E2E-06"],
+      "coverage": "open",
+      "covered_by": [],
       "coverage_gap": "Request-shape privacy for unknown or ambiguous contacts, contact change, deletion or merge after verification, and old or foreign token and subject use are not asserted; only archive after verification is."
     },
     {
@@ -3288,8 +3288,8 @@
         "title": "Returning outage and stale UI responses",
         "priority": "P1",
         "tier": "provider fault + browser",
-        "setup": "Controlled email/SMS sink and two business slugs",
-        "actions": "Fail send after challenge commit; recover/retry; switch contact/channel/business while request/verify in flight",
+        "setup": "Controlled SMS sink and two business slugs",
+        "actions": "Fail send after challenge commit; recover/retry; switch phone/business while request/verify in flight",
         "expected": "Quota consumption/recovery documented; no stale profile/token applied to new business; no unbounded resend or privacy leak",
         "evidence": [
           "backend/src/clientbridge/services/returning.py:122",
@@ -3632,7 +3632,7 @@
       "required_layers": ["browser", "integration"],
       "related_evidence": [
         {
-          "test_key": "backend/tests/test_billing_invoices.py::test_send_assigns_number_and_emails",
+          "test_key": "backend/tests/test_billing_invoices.py::test_send_assigns_number_and_texts",
           "coverage": "partial_related_assertions_only",
           "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
         },
@@ -3680,7 +3680,7 @@
           "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
         },
         {
-          "test_key": "backend/tests/test_billing_invoices.py::test_send_assigns_number_and_emails",
+          "test_key": "backend/tests/test_billing_invoices.py::test_send_assigns_number_and_texts",
           "coverage": "partial_related_assertions_only",
           "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
         },
@@ -3766,7 +3766,7 @@
           "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
         },
         {
-          "test_key": "backend/tests/test_billing_invoices.py::test_send_assigns_number_and_emails",
+          "test_key": "backend/tests/test_billing_invoices.py::test_send_assigns_number_and_texts",
           "coverage": "partial_related_assertions_only",
           "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
         },
@@ -4222,8 +4222,8 @@
       "canonical_id": "BILL17",
       "completion_gate": "Implement the full scenario with real rendered browser/native interactions wherever UI exists, real app/DB and sync observation, durable/provider side-effect oracle, explicit forbidden effects, and relevant restart/concurrency edges. Existing API/unit/provider assertions supplement the journey. Record successful execution per required lane; never count skips as proof.",
       "runtime_verified": false,
-      "coverage": "partial",
-      "covered_by": ["STRIPE-BROWSER-05"],
+      "coverage": "open",
+      "covered_by": [],
       "coverage_gap": "Double submit, tip changes, network loss and refresh during confirmation, the pending or settling display and retail-only tip rejection are not exercised."
     },
     {
@@ -4279,7 +4279,7 @@
       "required_layers": ["browser", "integration"],
       "related_evidence": [
         {
-          "test_key": "backend/tests/test_billing_invoices.py::test_send_assigns_number_and_emails",
+          "test_key": "backend/tests/test_billing_invoices.py::test_send_assigns_number_and_texts",
           "coverage": "partial_related_assertions_only",
           "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
         },
@@ -4387,7 +4387,7 @@
           "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
         },
         {
-          "test_key": "backend/tests/test_orders_desk.py::test_receipt_by_email_or_text_after_payment",
+          "test_key": "backend/tests/test_orders_desk.py::test_receipt_by_text_after_payment",
           "coverage": "partial_related_assertions_only",
           "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
         },
@@ -5279,13 +5279,13 @@
         "priority": "P1",
         "tier": "web transport fault plus delivery sink",
         "prerequisites": "Cash paid order with receipt destination",
-        "actions": "Same-key cash retry, email/SMS receipt send failure and retry, ready notification failure",
+        "actions": "Same-key cash retry, SMS receipt send failure and retry, ready notification failure",
         "assertions": "One financial result; duplicate notifications detected, timestamps/status distinguish attempted/accepted/delivered; stable user recovery and inspectable delivery failure."
       },
       "required_layers": ["browser", "integration"],
       "related_evidence": [
         {
-          "test_key": "backend/tests/test_orders_desk.py::test_receipt_by_email_or_text_after_payment",
+          "test_key": "backend/tests/test_orders_desk.py::test_receipt_by_text_after_payment",
           "coverage": "partial_related_assertions_only",
           "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
         },
@@ -5295,7 +5295,7 @@
           "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
         },
         {
-          "test_key": "backend/tests/test_orders_desk.py::test_bad_receipt_email_422",
+          "test_key": "backend/tests/test_orders_desk.py::test_bad_receipt_phone_422",
           "coverage": "partial_related_assertions_only",
           "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
         }
@@ -5307,7 +5307,7 @@
       "runtime_verified": false,
       "coverage": "partial",
       "covered_by": ["SALE-E2E-02"],
-      "coverage_gap": "Email or SMS receipt send failure and retry, ready notification failure and delivery-state distinctions are not exercised; only the same-key cash retry is."
+      "coverage_gap": "SMS receipt send failure and retry, ready notification failure and delivery-state distinctions are not exercised; only the same-key cash retry is."
     },
     {
       "id": "SALE22",
@@ -5401,11 +5401,7 @@
       "completion_gate": "Implement the full scenario with real rendered browser/native interactions wherever UI exists, real app/DB and sync observation, durable/provider side-effect oracle, explicit forbidden effects, and relevant restart/concurrency edges. Existing API/unit/provider assertions supplement the journey. Record successful execution per required lane; never count skips as proof.",
       "runtime_verified": false,
       "coverage": "partial",
-      "covered_by": [
-        "STRIPE-BROWSER-01",
-        "STRIPE-BROWSER-05",
-        "STRIPE-BROWSER-06"
-      ],
+      "covered_by": ["STRIPE-BROWSER-01", "STRIPE-BROWSER-06"],
       "coverage_gap": "The customer page shows an optimistic paid state while the signed event is held, so pending-until-event is proven only for owner views and the reloaded customer page."
     },
     {
@@ -7420,7 +7416,7 @@
       "completion_gate": "Implement the full scenario with real rendered browser/native interactions wherever UI exists, real app/DB and sync observation, durable/provider side-effect oracle, explicit forbidden effects, and relevant restart/concurrency edges. Existing API/unit/provider assertions supplement the journey. Record successful execution per required lane; never count skips as proof.",
       "runtime_verified": false,
       "coverage": "partial",
-      "covered_by": ["BILL-PILOT-01", "FIN-REPORT-01", "STRIPE-BROWSER-05"],
+      "covered_by": ["BILL-PILOT-01", "FIN-REPORT-01"],
       "coverage_gap": "The exact taxable paid-invoice UI bridge on a second device with receipt shown once is split across cases: the taxable case observes reports, while the invoice UI and receipt cases use exempt invoices."
     },
     {
@@ -8492,8 +8488,8 @@
       "canonical_id": "MSG03",
       "completion_gate": "Implement the full scenario with real rendered browser/native interactions wherever UI exists, real app/DB and sync observation, durable/provider side-effect oracle, explicit forbidden effects, and relevant restart/concurrency edges. Existing API/unit/provider assertions supplement the journey. Record successful execution per required lane; never count skips as proof.",
       "runtime_verified": false,
-      "coverage": "partial",
-      "covered_by": ["MSG-E2E-03"],
+      "coverage": "open",
+      "covered_by": [],
       "coverage_gap": "Only what MSG-E2E-03 asserts is covered; the rest of this family's audit assertions are unverified."
     },
     {
@@ -8532,8 +8528,8 @@
       "canonical_id": "MSG04",
       "completion_gate": "Implement the full scenario with real rendered browser/native interactions wherever UI exists, real app/DB and sync observation, durable/provider side-effect oracle, explicit forbidden effects, and relevant restart/concurrency edges. Existing API/unit/provider assertions supplement the journey. Record successful execution per required lane; never count skips as proof.",
       "runtime_verified": false,
-      "coverage": "partial",
-      "covered_by": ["MSG-E2E-02"],
+      "coverage": "open",
+      "covered_by": [],
       "coverage_gap": "A crash between provider acceptance and commit, and a repeat after restart, are not exercised; only a dropped response after commit is."
     },
     {
@@ -8682,9 +8678,9 @@
         "title": "STOP and START across surfaces",
         "priority": "P0",
         "tier": "Connect + web + signed callback",
-        "setup": "Client consented for SMS/email with scheduled broadcast",
-        "actions": "PostSTOP/ARRÊT, try staff toggle and prefs grant, send manual/reminder/broadcast, thenSTART",
-        "assertions": "STOP remains authoritative untilSTART; correct channel-only effect; preferences cannot clear carrier stop; actual recipient lists and UI warnings agree."
+        "setup": "Client consented for SMS with scheduled broadcast",
+        "actions": "PostSTOP/ARRÊT, try staff toggle, send manual/reminder/broadcast, thenSTART",
+        "assertions": "STOP remains authoritative untilSTART; the staff toggle cannot clear a carrier stop; actual recipient lists and UI warnings agree."
       },
       "required_layers": ["browser", "integration"],
       "related_evidence": [
@@ -8741,11 +8737,6 @@
       "related_evidence": [
         {
           "test_key": "backend/tests/test_messaging_broadcasts.py::test_a_broadcast_that_crashes_partway_resumes_without_duplicates",
-          "coverage": "partial_related_assertions_only",
-          "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
-        },
-        {
-          "test_key": "backend/tests/test_messaging_broadcasts.py::test_a_broadcast_email_names_the_business_address_and_contact",
           "coverage": "partial_related_assertions_only",
           "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
         },
@@ -8847,11 +8838,6 @@
           "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
         },
         {
-          "test_key": "backend/tests/test_messaging_broadcasts.py::test_a_broadcast_email_names_the_business_address_and_contact",
-          "coverage": "partial_related_assertions_only",
-          "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
-        },
-        {
           "test_key": "backend/tests/test_messaging_broadcasts.py::test_broadcast_reaches_only_clients_who_agreed",
           "coverage": "partial_related_assertions_only",
           "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
@@ -8884,7 +8870,7 @@
         "title": "Audience boundaries and cap",
         "priority": "P1",
         "tier": "API + web preview",
-        "setup": "0,1,500,501 eligible contacts plus malformed phone/shared mailbox records",
+        "setup": "0,1,500,501 eligible contacts plus malformed and shared phone records",
         "actions": "Preview and submit all/tag audience",
         "assertions": "Correct cap/normalization/excluded counts and explanatory UI; deterministic selected recipients; zero-audience behavior decided between UI/API."
       },
@@ -8892,11 +8878,6 @@
       "related_evidence": [
         {
           "test_key": "backend/tests/test_messaging_broadcasts.py::test_a_recipient_with_a_message_already_is_skipped",
-          "coverage": "partial_related_assertions_only",
-          "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
-        },
-        {
-          "test_key": "backend/tests/test_messaging_broadcasts.py::test_a_broadcast_email_names_the_business_address_and_contact",
           "coverage": "partial_related_assertions_only",
           "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
         },
@@ -9016,7 +8997,7 @@
         "title": "Delivery retry classification",
         "priority": "P0",
         "tier": "worker + transport mocks",
-        "setup": "One queue row per email/SMS/push and test clock",
+        "setup": "One queue row per staff email, SMS and push and test clock",
         "actions": "Injectconnect timeout, pool timeout,429,4xx,5xx, read timeout; advance1min/5min/23h and replay",
         "assertions": "Expected queued/failed/ambiguous transitions, one accepted send, no retry after uncertain acceptance, payload key mismatch rejected and exact claim fencing."
       },
@@ -9064,12 +9045,12 @@
       "implementation": [],
       "audit": {
         "id": "MSG16",
-        "title": "Email callback convergence",
+        "title": "Staff email callback convergence",
         "priority": "P0",
         "tier": "signed HTTP + worker + web/admin",
         "setup": "Message and delivery with provider tags; callback can precede send commit",
-        "actions": "Send delivered/failure/complaint/sent in varied orders, duplicate event, stale signature and recent missing record",
-        "assertions": "503 only for recent pending reference; callback can resolve ambiguity; failed not revived; same-business shared mailbox complaint suppression; no cross-tenant mutations."
+        "actions": "Send delivered/failure/sent in varied orders, duplicate event, stale signature and recent missing record",
+        "assertions": "503 only for recent pending reference; callback can resolve ambiguity; failed not revived; no cross-tenant mutations."
       },
       "required_layers": ["browser", "provider", "integration"],
       "related_evidence": [
@@ -9111,9 +9092,9 @@
         "title": "Transactional partial-channel outcome",
         "priority": "P1",
         "tier": "real app + worker doubles",
-        "setup": "Successful payment/form/booking with both channels",
-        "actions": "Email succeeds, SMS fails; replay initiating request/event then recover worker",
-        "assertions": "Business mutation once; queued path channels independent; direct path limitations visible; accepted email not duplicated and missing SMS not falsely claimed delivered."
+        "setup": "Successful payment/form/booking with a client text and a staff push",
+        "actions": "Push succeeds, SMS fails; replay initiating request/event then recover worker",
+        "assertions": "Business mutation once; queued path channels independent; direct path limitations visible; accepted push not duplicated and missing SMS not falsely claimed delivered."
       },
       "required_layers": ["browser", "integration"],
       "related_evidence": [
@@ -9124,11 +9105,6 @@
         },
         {
           "test_key": "backend/tests/test_notifications.py::test_no_contact_skips_client_channels",
-          "coverage": "partial_related_assertions_only",
-          "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
-        },
-        {
-          "test_key": "backend/tests/test_notifications.py::test_tenant_email_builders_apply_the_conventions",
           "coverage": "partial_related_assertions_only",
           "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
         }
@@ -9224,12 +9200,12 @@
       "implementation": [],
       "audit": {
         "id": "MSG20",
-        "title": "Preferences export and locale",
+        "title": "Consent export and locale",
         "priority": "P1",
-        "tier": "Connect/web/API",
+        "tier": "web/API",
         "setup": "Granted/implied/withdrawn consent, malicious spreadsheet prefixes, Unicode, business/client locale",
-        "actions": "Open signedprefs, save/unsubscribe, tamper token, delete client, export as allowed and denied roles",
-        "assertions": "Nonexpiring valid token remains usable subject to client state; channel semantics exact; formula-safe CSV and full history scoped; locale and brand links preserved."
+        "actions": "Delete a client, then export as allowed and denied roles",
+        "assertions": "Formula-safe CSV and full history scoped to the business; locale preserved."
       },
       "required_layers": ["browser", "integration"],
       "related_evidence": [
@@ -10560,24 +10536,19 @@
         "priority": "P0",
         "tier": "browser plus worker",
         "title": "Manual invitation and response loss",
-        "setup": "Completed visit/client with captured email/SMS and active profile",
+        "setup": "Completed visit/client with a captured phone and active profile",
         "actions": "Request from visit; drop accepted response; retry; reload second device",
-        "assertions": "One request and intended delivery; correct Google link/unsubscribe; UI reconciles recorded success, does not fabricate feedback."
+        "assertions": "One request and intended delivery; correct Google link and STOP wording; UI reconciles recorded success, does not fabricate feedback."
       },
       "required_layers": ["browser", "provider", "integration"],
       "related_evidence": [
-        {
-          "test_key": "backend/tests/test_reviews.py::test_invitation_email_carries_an_unsubscribe_link",
-          "coverage": "partial_related_assertions_only",
-          "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
-        },
         {
           "test_key": "backend/tests/test_reviews.py::test_request_creates_invitation_and_links_to_google",
           "coverage": "partial_related_assertions_only",
           "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
         },
         {
-          "test_key": "backend/tests/test_reviews.py::test_invitation_skips_email_after_opt_out",
+          "test_key": "backend/tests/test_reviews.py::test_invitation_skips_text_after_stop",
           "coverage": "partial_related_assertions_only",
           "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
         }
@@ -10736,19 +10707,14 @@
         "priority": "P1",
         "tier": "worker delivery",
         "title": "Consent and unavailable contact",
-        "setup": "Clients email-withdrawn/SMS STOP/missing contacts",
+        "setup": "Clients with SMS STOP or no phone",
         "actions": "Queue invitation, change consent before dispatch/retry, simulate transport outage",
-        "assertions": "Correct channels and observable delivery outcome; define cooldown after no deliverable channel; no assertion that row means delivered."
+        "assertions": "Texts only where allowed, and observable delivery outcome; define cooldown after no deliverable channel; no assertion that row means delivered."
       },
       "required_layers": ["browser", "integration"],
       "related_evidence": [
         {
-          "test_key": "backend/tests/test_reviews.py::test_invitation_skips_email_after_opt_out",
-          "coverage": "partial_related_assertions_only",
-          "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
-        },
-        {
-          "test_key": "backend/tests/test_reviews.py::test_invitation_email_carries_an_unsubscribe_link",
+          "test_key": "backend/tests/test_reviews.py::test_invitation_skips_text_after_stop",
           "coverage": "partial_related_assertions_only",
           "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
         },
@@ -14130,12 +14096,12 @@
       "implementation": ["frontend/apps/mobile/e2e/clients.yaml"],
       "actions": [
         "Create Sophie Bennett through Android UI",
-        "Restart app and find record by unique email",
+        "Restart app and find record by unique phone",
         "Edit name to Sophie Laurent",
-        "Restart again and verify name and email in editor"
+        "Restart again and verify name and phone in editor"
       ],
       "expected": [
-        "One active committed client with exact final name and email",
+        "One active committed client with exact final name and phone",
         "Data survives both application restarts"
       ],
       "boundaries": [
@@ -14313,65 +14279,53 @@
     },
     {
       "id": "MSG-E2E-01",
-      "status": "verified",
+      "status": "implemented",
       "risk": "high",
       "layer": "browser",
       "lane": "pr",
       "implementation": ["frontend/apps/web/e2e/messaging.e2e.ts"],
-      "setup": "Fresh natural client with local Mailpit recipient",
+      "setup": "Fresh natural client whose texts land in the run's Mailpit SMS sink",
       "actions": [
         "Reject whitespace-only message",
-        "Compose and send multiline email through UI",
+        "Compose and send a multiline text through UI",
         "Observe second browser and reload both"
       ],
       "expected": [
         "One thread and sent message with exact body",
-        "One recipient-scoped Mailpit envelope and subject/body",
+        "One text in the client's number's Mailpit inbox with the exact body",
         "Exact audit and unchanged committed state after reload"
       ],
       "boundaries": [
-        "SMTP sink receipt is not external inbox delivery",
-        "Direct Inbox email dispatch does not use delivery queue; worker recovery is not covered",
+        "The Mailpit SMS sink is not carrier delivery",
+        "Worker recovery of a queued text is not covered",
         "Local isolated Chromium first pass; hosted CI pending"
       ],
-      "related_audit_families": [],
-      "verified_on": "2026-10-23",
-      "evidence": [
-        ".scratchpad/e2e-ef33866892c5/browser-results/results.json",
-        ".scratchpad/e2e-d2330cc48036/browser-results/results.json"
-      ],
-      "runtime_scope": "Real run-owned services; source changed concurrently, not fixed-release certification"
+      "related_audit_families": []
     },
     {
       "id": "MSG-E2E-02",
-      "status": "verified",
+      "status": "implemented",
       "risk": "high",
       "layer": "browser",
       "lane": "pr",
       "implementation": ["frontend/apps/web/e2e/messaging.e2e.ts"],
-      "setup": "Fresh natural client with local Mailpit recipient",
+      "setup": "Fresh natural client whose texts land in the run's Mailpit SMS sink",
       "actions": [
-        "Send real message and drop browser response after commit/SMTP",
+        "Send a real text and drop the browser response after commit and send",
         "Retry same body and key through UI",
         "Observe replicas and reload"
       ],
       "expected": [
-        "One committed message and one Mailpit email",
+        "One committed message and one text in Mailpit",
         "Unchanged evidence across retry",
         "Same message visible after reload"
       ],
       "boundaries": [
-        "Does not cover crash between SMTP acceptance and transaction commit",
-        "SMS, push and asynchronous delivery recovery remain separate",
+        "Does not cover a crash between provider acceptance and transaction commit",
+        "Push and asynchronous delivery recovery remain separate",
         "Local isolated Chromium first pass; hosted CI pending"
       ],
-      "related_audit_families": ["MSG04"],
-      "verified_on": "2026-10-23",
-      "evidence": [
-        ".scratchpad/e2e-ef33866892c5/browser-results/results.json",
-        ".scratchpad/e2e-d2330cc48036/browser-results/results.json"
-      ],
-      "runtime_scope": "Real run-owned services; source changed concurrently, not fixed-release certification"
+      "related_audit_families": ["MSG04"]
     },
     {
       "id": "PAY-E2E-01",
@@ -14795,12 +14749,12 @@
     },
     {
       "id": "CRM-E2E-05",
-      "status": "verified",
+      "status": "implemented",
       "risk": "high",
       "layer": "browser",
       "lane": "pr",
       "implementation": ["frontend/apps/web/e2e/journeys/client.journey.ts"],
-      "setup": "Owned client with two pets and online no-deposit service; actual Mailpit verification code",
+      "setup": "Owned client with two pets and online no-deposit service; actual texted verification code read from the Mailpit SMS sink",
       "actions": [
         "Verify existing customer through public UI",
         "Choose existing Clover pet and submit unchanged identity",
@@ -14813,27 +14767,21 @@
         "Provider heading/service persist after reload"
       ],
       "boundaries": [
-        "Email proof only; SMS/expiry/threshold/rate-limit branches remain separate",
+        "Phone proof only; expiry/threshold/rate-limit branches remain separate",
         "Fresh client has no last-visit history; no usual-service recommendation claim"
       ],
-      "related_audit_families": ["CRM-E14"],
-      "verified_on": "2026-10-23",
-      "evidence": [
-        ".scratchpad/e2e-282ac2170f9a/run.json",
-        ".scratchpad/e2e-282ac2170f9a/browser-results/results.json"
-      ],
-      "runtime_scope": "Strict unchanged-source production web/Connect and real backend/sync/worker/mail; first attempt, no skip/retry, owned cleanup passed"
+      "related_audit_families": ["CRM-E14"]
     },
     {
       "id": "CRM-E2E-06",
-      "status": "verified",
+      "status": "implemented",
       "risk": "high",
       "layer": "browser",
       "lane": "pr",
       "implementation": ["frontend/apps/web/e2e/journeys/client.journey.ts"],
       "setup": "Owned verified customer and public form prepared before archival",
       "actions": [
-        "Verify customer through real emailed code",
+        "Verify customer through a real texted code",
         "Archive through provider UI",
         "Submit prepared public form and reload provider"
       ],
@@ -14845,13 +14793,7 @@
       "boundaries": [
         "Archived-proof subset only; wrong-business/expiry/reused-code matrix remains open"
       ],
-      "related_audit_families": ["CRM-E04", "CRM-E16"],
-      "verified_on": "2026-10-23",
-      "evidence": [
-        ".scratchpad/e2e-282ac2170f9a/run.json",
-        ".scratchpad/e2e-282ac2170f9a/browser-results/results.json"
-      ],
-      "runtime_scope": "Strict unchanged-source production web/Connect and real backend/sync/worker/mail; first attempt, no skip/retry, owned cleanup passed"
+      "related_audit_families": ["CRM-E04", "CRM-E16"]
     },
     {
       "id": "CRM-E2E-07",
@@ -14916,12 +14858,12 @@
     },
     {
       "id": "SCH-E2E-04",
-      "status": "verified",
+      "status": "implemented",
       "risk": "high",
       "layer": "browser",
       "lane": "pr",
       "implementation": ["frontend/apps/web/e2e/journeys/visit.journey.ts"],
-      "setup": "Owned no-deposit service and unique contact, actual local mail and worker",
+      "setup": "Owned no-deposit service and unique contact, actual local SMS sink and worker",
       "actions": [
         "Commit real booking request then abort only its response",
         "Retry through same public UI",
@@ -14930,20 +14872,14 @@
       "expected": [
         "Same request body/key and identical response on retry",
         "One slot/booking/client/pet and zero payments",
-        "Exactly one accepted creation-scope delivery and same single email after replay",
+        "Exactly one accepted creation-scope delivery and same single text after replay",
         "Independent replica/reload agrees with authoritative state"
       ],
       "boundaries": [
         "Mounted-page retry only; no browser process-death durability claim",
         "Creation notification dedupe does not imply arbitrary provider-crash exactly-once delivery"
       ],
-      "related_audit_families": ["SCH02"],
-      "verified_on": "2026-10-23",
-      "evidence": [
-        ".scratchpad/e2e-282ac2170f9a/run.json",
-        ".scratchpad/e2e-282ac2170f9a/browser-results/results.json"
-      ],
-      "runtime_scope": "Strict unchanged-source production web/Connect and real backend/sync/worker/mail; first attempt, no skip/retry, owned cleanup passed"
+      "related_audit_families": ["SCH02"]
     },
     {
       "id": "FIN-REPORT-01",
@@ -15020,7 +14956,7 @@
     },
     {
       "id": "STRIPE-BROWSER-05",
-      "status": "verified",
+      "status": "implemented",
       "risk": "high",
       "layer": "provider",
       "lane": "scheduled",
@@ -15031,26 +14967,20 @@
       "setup": "Real owner session and uniquely owned natural customer; dedicated test-mode merchant",
       "actions": [
         "Create and issue CAD20 tax-exempt invoice through owner UI",
-        "Open exact emailed payment URL and pay through real Stripe.js",
+        "Open exact texted payment URL and pay through real Stripe.js",
         "Observe two owner replicas before reload, then reopen and reload"
       ],
       "expected": [
         "Balanced issuance with no initial payment",
         "One real successful charge and one exact settlement",
-        "One accepted durable receipt row and one distinct receipt email",
+        "One accepted durable receipt row and one distinct receipt text",
         "Both owner replicas retain paid state after reload"
       ],
       "boundaries": [
         "No deliberate event delay in this case",
         "Sandbox card payment only; not all deposit/refund/PAD states"
       ],
-      "related_audit_families": ["PAY-E01", "BILL17", "FIN01"],
-      "verified_on": "2026-10-23",
-      "evidence": [
-        ".scratchpad/e2e-bf4adfa3061f/run.json",
-        ".scratchpad/e2e-bf4adfa3061f/browser-results/results.json"
-      ],
-      "runtime_scope": "Strict unchanged-source six-case sandbox suite6/6 first attempt2.4m after cleanup lineage/shutdown hardening; five refunds plus one cancellation; provider/process/Docker cleanup passed; no remaining owned containers/volumes"
+      "related_audit_families": ["PAY-E01", "BILL17", "FIN01"]
     },
     {
       "id": "FIN-RETURN-03",
@@ -15504,7 +15434,7 @@
     },
     {
       "id": "MSG-E2E-03",
-      "status": "verified",
+      "status": "implemented",
       "risk": "high",
       "layer": "browser",
       "lane": "pr",
@@ -15512,34 +15442,31 @@
         "frontend/apps/web/e2e/messaging.e2e.ts",
         "backend/scripts/e2e_stack.py"
       ],
-      "setup": "Fresh natural client whose email is on the reserved .invalid domain, which the run's Mailpit refuses at RCPT",
+      "setup": "Fresh natural client renumbered to a reserved 555-01xx number, which the dev text transport refuses like a carrier",
       "actions": [
-        "Send an email message through the new-message composer",
+        "Send a text through the new-message composer",
         "Read the HTTP 200 status=failed response and the committed row",
-        "Correct the client's address through the API, then retry through the same open composer",
+        "Restore the client's number through the API, then retry through the same open composer",
         "Open the conversation, reload"
       ],
       "expected": [
         "Not-delivered error shown and the draft kept after the refused send",
-        "One failed message and one audit before the retry; no Mailpit mail",
-        "Retry uses a new idempotency key and sends once: failed then sent rows in one thread, one Mailpit mail",
+        "One failed message and one audit before the retry; no text in Mailpit",
+        "Retry uses a new idempotency key and sends once: failed then sent rows in one thread, one text in Mailpit",
         "Conversation shows the failed and the sent message, unchanged after reload"
       ],
       "forbidden": [
         "Draft cleared on a refused send",
         "Retry replaying the failed response",
-        "Second sent message or second mail"
+        "Second sent message or second text"
       ],
       "boundaries": [
-        "Address correction is API setup, not UI client editing",
-        "Refusal is SMTP 550 from Mailpit, not a real email provider",
+        "Number correction is API setup, not UI client editing",
+        "Refusal comes from the dev SMS sink, not a real carrier",
         "Does not cover provider acceptance followed by a rollback (MSG04)"
       ],
       "depends_on": ["seeded_stack", "mailpit", "read_only_database_observer"],
-      "related_audit_families": ["MSG03"],
-      "verified_on": "2026-10-25",
-      "evidence": [".scratchpad/e2e-3c87f92ea077/browser-results/results.json"],
-      "runtime_scope": "Local isolated stack, strict unchanged source for the run; other agents' source changed afterwards, not fixed-release certification"
+      "related_audit_families": ["MSG03"]
     },
     {
       "id": "SALE-E2E-03",
@@ -16404,19 +16331,19 @@
     "families": 302,
     "overall": {
       "covered": 0,
-      "partial": 75,
-      "open": 227
+      "partial": 70,
+      "open": 232
     },
     "by_priority": {
       "P0": {
         "covered": 0,
-        "partial": 44,
-        "open": 104
+        "partial": 41,
+        "open": 107
       },
       "P1": {
         "covered": 0,
-        "partial": 31,
-        "open": 115
+        "partial": 29,
+        "open": 117
       },
       "P1 capability": {
         "covered": 0,
@@ -16447,18 +16374,18 @@
       },
       "3": {
         "covered": 0,
-        "partial": 7,
-        "open": 15
+        "partial": 6,
+        "open": 16
       },
       "4": {
         "covered": 0,
-        "partial": 9,
-        "open": 11
+        "partial": 8,
+        "open": 12
       },
       "5": {
         "covered": 0,
-        "partial": 8,
-        "open": 12
+        "partial": 7,
+        "open": 13
       },
       "6": {
         "covered": 0,
@@ -16482,8 +16409,8 @@
       },
       "10": {
         "covered": 0,
-        "partial": 2,
-        "open": 19
+        "partial": 0,
+        "open": 21
       },
       "11": {
         "covered": 0,

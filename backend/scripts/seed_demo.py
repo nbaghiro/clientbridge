@@ -607,12 +607,11 @@ def seed_items(owner: str) -> None:
             )
 
 
-# id, name, email, phone, tags, ltv($), status, [pets], note
+# id, name, phone, tags, ltv($), status, [pets], note
 CLIENTS = [
     (
         "cl_amelie",
         "Amélie Tremblay",
-        "amelie.t@example.test",
         "+12505550180",
         ["regular", "vip"],
         1240,
@@ -623,7 +622,6 @@ CLIENTS = [
     (
         "cl_marcus",
         "Marcus Bennett",
-        "marcus.b@example.test",
         "+12505550181",
         ["regular"],
         880,
@@ -637,7 +635,6 @@ CLIENTS = [
     (
         "cl_sophie",
         "Sophie Nguyen",
-        "sophie.n@example.test",
         "+12505550182",
         ["new"],
         95,
@@ -648,7 +645,6 @@ CLIENTS = [
     (
         "cl_david",
         "David Okafor",
-        "david.o@example.test",
         "+12505550183",
         ["regular", "daycare"],
         2100,
@@ -659,7 +655,6 @@ CLIENTS = [
     (
         "cl_grace",
         "Grace Lin",
-        "grace.l@example.test",
         "+12505550184",
         ["regular"],
         640,
@@ -670,7 +665,6 @@ CLIENTS = [
     (
         "cl_liam",
         "Liam O'Connor",
-        "liam.oc@example.test",
         "+12505550185",
         ["regular", "vip"],
         1560,
@@ -681,7 +675,6 @@ CLIENTS = [
     (
         "cl_yuki",
         "Yuki Tanaka",
-        "yuki.t@example.test",
         "+12505550186",
         ["regular"],
         720,
@@ -692,7 +685,6 @@ CLIENTS = [
     (
         "cl_fatima",
         "Fatima Al-Sayed",
-        "fatima.a@example.test",
         "+12505550187",
         ["new"],
         0,
@@ -703,7 +695,6 @@ CLIENTS = [
     (
         "cl_noah",
         "Noah Schmidt",
-        "noah.s@example.test",
         "+12505550188",
         ["regular"],
         410,
@@ -714,7 +705,6 @@ CLIENTS = [
     (
         "cl_priscilla",
         "Priscilla Adeyemi",
-        "p.adeyemi@example.test",
         "+12505550189",
         ["regular", "daycare"],
         1890,
@@ -725,7 +715,6 @@ CLIENTS = [
     (
         "cl_ethan",
         "Ethan Wright",
-        "ethan.w@example.test",
         "+12505550190",
         [],
         150,
@@ -736,7 +725,6 @@ CLIENTS = [
     (
         "cl_olivia",
         "Olivia Martin",
-        "olivia.m@example.test",
         "+12505550191",
         ["churn-risk"],
         320,
@@ -748,7 +736,7 @@ CLIENTS = [
 
 
 def seed_clients(owner: str) -> None:
-    for cid, name, _email, phone, tags, _ltv, status, pets, note in CLIENTS:
+    for cid, name, phone, tags, _ltv, status, pets, note in CLIENTS:
         rows.append(
             Client(
                 id=cid,
@@ -1982,12 +1970,11 @@ def seed_calendar_filler() -> None:
 
 SERIES_VISITS = 8
 DISPUTED = "pay_1006"
-# client, name, email, phone, pet, pet name, breed, weight, day, item, member
+# client, name, phone, pet, pet name, breed, weight, day, item, member
 FIRST_VISITS = [
     (
         "cl_nadia",
         "Nadia Kowalczyk",
-        "nadia.k@example.test",
         "+12505550192",
         "sj_biscuit",
         "Biscuit",
@@ -2000,7 +1987,6 @@ FIRST_VISITS = [
     (
         "cl_tom",
         "Tom Becker",
-        "tom.b@example.test",
         "+12505550193",
         "sj_juno",
         "Juno",
@@ -2015,7 +2001,7 @@ FIRST_VISITS = [
 
 def seed_first_visits() -> None:
     """New clients' first online bookings, which wait for approval under the booking policy."""
-    for index, (cid, name, _email, phone, pid, pet, breed, kg, d, item_id, member) in enumerate(
+    for index, (cid, name, phone, pid, pet, breed, kg, d, item_id, member) in enumerate(
         FIRST_VISITS
     ):
         item = next(x for x in ITEMS if x[0] == item_id)

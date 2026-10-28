@@ -124,8 +124,8 @@ def _consents(ctx: DemoContext) -> None:
                 business_id=ctx.business_id,
                 client_id="cl_noah",
                 status="withdrawn",
-                source="preferences",
-                recorded_by=None,
+                source="in_person",
+                recorded_by=ctx.owner_id,
                 created_at=when,
                 updated_at=when,
             )
@@ -397,7 +397,6 @@ def _intakes(ctx: DemoContext, created: datetime) -> None:
         answers: dict[str, object] = {
             "owner_name": client.name,
             "owner_phone": client.phone,
-            "owner_email": f"{client_id.removeprefix('cl_')}@example.test",
             "home_address": "1840 Oak Bay Avenue, Victoria, BC" if index % 2 == 0 else None,
             "pet_name": pet.name,
             "species": "Cat" if pet.attributes.get("species") == "cat" else "Dog",

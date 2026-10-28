@@ -32,7 +32,6 @@ describe("consent", () => {
     const now = new Date("2026-10-07T12:00:00Z");
     const row = (status: string, expires: string | null = null) => ({
         client_id: "cl_ann",
-        channel: "sms",
         status,
         source: "form",
         created_at: "2026-01-01T00:00:00Z",

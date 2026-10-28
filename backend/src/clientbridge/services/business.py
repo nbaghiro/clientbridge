@@ -60,7 +60,6 @@ RESERVED_SLUGS = frozenset(
         "mail",
         "order",
         "pay",
-        "prefs",
         "resend",
         "rsend",
         "send",

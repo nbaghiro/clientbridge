@@ -228,7 +228,6 @@ export interface ClientOutreach {
     threads: ThreadRow[];
     messages: MessageRow[];
     consents: ConsentRow[];
-    prefs?: Record<string, string>;
 }
 export interface WebhookRow {
     id: string;
@@ -286,12 +285,6 @@ async function observe<T>(...args: string[]): Promise<T> {
     return JSON.parse(stdout) as T;
 }
 export const clientOutreach = (...ids: string[]) => observe<ClientOutreach>("clients", ...ids);
-export const prefsLink = async (id: string): Promise<string> => {
-    const found = await observe<ClientOutreach>("clients", id, "--prefs");
-    const link = found.prefs?.[id];
-    if (!link) throw new Error("The observer returned no preferences link");
-    return link;
-};
 export const webhookRows = async (...ids: string[]) =>
     (await observe<{ webhooks: WebhookRow[] }>("webhooks", ...ids)).webhooks;
 export const deliveryRows = async (prefix: string) =>

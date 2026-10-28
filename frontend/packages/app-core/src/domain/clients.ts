@@ -208,7 +208,7 @@ interface ClientDirectory {
     counts: Record<ClientSegment, number>;
 }
 
-/** The client list: Active and Archived, searched by name, phone, email, subject or tag. */
+/** The client list: Active and Archived, searched by name, phone, subject or tag. */
 export function useClientDirectory(): ClientDirectory {
     const now = useNow().toISOString();
     const query = useQuery<DirectoryRow>(CLIENT_DIRECTORY_SQL, [now]);

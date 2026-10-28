@@ -10,7 +10,7 @@ Connect used to serve every page on `book.`, `pay.` and `shop.` alike, with busi
 | --------------------------------------------------------------------------- | ---------------------------------------------- |
 | `<slug>.D`                                                                  | The business's public page, the link to share  |
 | `book.D/<slug>`                                                             | Booking (`?service=`, `?staff=`, `?starts=`)   |
-| `book.D/m/<token>`, `/form/<token>`, `/contract/<token>`, `/prefs/<token>` | A visit, intake form, contract and preferences |
+| `book.D/m/<token>`, `/form/<token>`, `/contract/<token>`                    | A visit, intake form and contract              |
 | `shop.D/<slug>`, `/<slug>/checkout`, `/order/<token>`                       | The shop and a pickup order                    |
 | `pay.D/i/<token>`, `/e/<token>`, `/r/<token>`, `/setup`                     | Invoice, estimate, receipt and bank setup      |
 

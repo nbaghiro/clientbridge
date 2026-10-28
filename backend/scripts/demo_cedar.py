@@ -266,7 +266,7 @@ LIABILITY = (
     "to the amount you paid for the visit."
 )
 ENDING = (
-    "Ending the agreement\nEither of us can end this agreement at any time by email. Visits "
+    "Ending the agreement\nEither of us can end this agreement at any time by text. Visits "
     "already booked are charged under the cancellation terms above."
 )
 AGREEMENT_V1 = "\n\n".join(
@@ -284,7 +284,7 @@ PLAN_BODY = "\n\n".join(
         "with the walker we agree on. Statutory holidays aren't included, and walks you skip "
         "aren't carried over to the next month.",
         "Billing\nThe plan is billed monthly in advance to the card on file, on the same day "
-        "each month. A change in price applies from the next billing date, and we'll email you "
+        "each month. A change in price applies from the next billing date, and we'll text you "
         "30 days before it does.",
         "Changes and pauses\nYou can change the walk time, or pause the plan for a month you're "
         "away, with seven days' notice before the next billing date.",
@@ -2380,7 +2380,7 @@ class Cedar(Demo):
             thread,
             "Thanks, Daniel. Not a problem. We'll start Juno on solo walks with a front-clip "
             "harness, and once she's settled we can try her with one or two calm dogs. The "
-            "intake form is in your email; the vet and how we get in are the important parts.",
+            "intake form is in your texts; the vet and how we get in are the important parts.",
             min(when + timedelta(minutes=50), self.now - timedelta(minutes=30)),
         )
         callum = ctx.get(Booking, "bk_cc_callum_stay")
@@ -2419,7 +2419,7 @@ class Cedar(Demo):
         self.say(
             thread,
             "Hi Ben, yes, Leila has those dates free. I've sent a quote for eight nights, with "
-            "midday walks for Murphy as an option. Accept it from the email and the dates are "
+            "midday walks for Murphy as an option. Accept it from the text and the dates are "
             "yours.",
             when + timedelta(hours=20),
         )
@@ -2436,7 +2436,7 @@ class Cedar(Demo):
         self.say(
             thread,
             "No problem, Ryan, we've cancelled it. As it's inside 24 hours, half the walk is "
-            "charged under our cancellation terms. The invoice is in your email.",
+            "charged under our cancellation terms. We've texted you the invoice.",
             when + timedelta(minutes=12),
         )
         chloe = ctx.get(Booking, "bk_cc_chloe_today")

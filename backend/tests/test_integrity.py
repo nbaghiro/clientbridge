@@ -44,7 +44,7 @@ async def test_database_refuses_values_outside_the_vocabulary(
 
 
 async def test_a_client_field_the_api_does_not_take_is_422(as_owner: httpx.AsyncClient) -> None:
-    for extra in ({"email": "lead@example.ca"}, {"preferred_channel": "sms"}, {"status": "lead"}):
+    for extra in ({"email": "lead@example.ca"}, {"status": "lead"}):
         res = await as_owner.post("/v1/clients", json={"name": "Lead", **extra})
         assert res.status_code == 422, extra
     ok = await as_owner.post("/v1/clients", json={"name": "Quiet"})

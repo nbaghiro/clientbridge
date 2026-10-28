@@ -466,7 +466,7 @@ MEMBERSHIP_BODY = "\n\n".join(
         "the first person on the waitlist gets it and a text to let them know.",
         "Health\nYou've filled in the health questionnaire, and you'll tell your coach about any "
         "change in your health or a new injury before your next class.",
-        "Cancelling\nYou can cancel at any time from the link in your receipt email "
+        "Cancelling\nYou can cancel at any time from the link in your receipt text "
         "or by asking at the desk, and the cancellation takes effect at the end of the month "
         "you've paid for. We don't refund part months.",
     )
@@ -1506,7 +1506,7 @@ class Ridgeline(Demo):
         self.say(
             thread,
             "Hi Kyle, the card on file was declined for this month's 8-class membership. You "
-            "can update it from the link in your receipt email, or we can take a new card at "
+            "can update it from the link in your receipt text, or we can take a new card at "
             "your next class. You can keep booking in the meantime.",
             when,
         )

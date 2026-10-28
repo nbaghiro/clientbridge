@@ -91,7 +91,7 @@ interface BroadcastRow {
 
 type ConsentState = "express" | "implied" | "none" | "opted_out";
 
-export interface ChannelConsent {
+export interface MarketingConsent {
     state: ConsentState;
     source: string | null;
     at: string | null;
@@ -99,7 +99,7 @@ export interface ChannelConsent {
 }
 
 /** Mirrors the server's check: agreed, or implied consent that hasn't lapsed. */
-export function consentOf(row: ConsentRow | undefined, now: Date = new Date()): ChannelConsent {
+export function consentOf(row: ConsentRow | undefined, now: Date = new Date()): MarketingConsent {
     if (row === undefined) return { state: "none", source: null, at: null, expiresAt: null };
     const base = { source: row.source, at: row.created_at, expiresAt: row.expires_at };
     if (row.status === "withdrawn") return { state: "opted_out", ...base };
@@ -110,9 +110,10 @@ export function consentOf(row: ConsentRow | undefined, now: Date = new Date()): 
     return { state: "express", ...base };
 }
 
-const canBroadcast = (c: ChannelConsent): boolean => c.state === "express" || c.state === "implied";
+const canBroadcast = (c: MarketingConsent): boolean =>
+    c.state === "express" || c.state === "implied";
 
-type ConsentMap = Map<string, ChannelConsent>;
+type ConsentMap = Map<string, MarketingConsent>;
 
 /** Every client's current SMS consent. */
 export function useConsents(): { map: ConsentMap; isLoading: boolean } {
@@ -137,7 +138,7 @@ export function useConsents(): { map: ConsentMap; isLoading: boolean } {
     return { map, isLoading: rows.isLoading || stopped.isLoading };
 }
 
-export function consentFor(map: ConsentMap, clientId: string): ChannelConsent {
+export function consentFor(map: ConsentMap, clientId: string): MarketingConsent {
     return map.get(clientId) ?? consentOf(undefined);
 }
 
