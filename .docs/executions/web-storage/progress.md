@@ -7,7 +7,7 @@ Re-checked at the start of wave 0 with `gh api`, the WebKit Bugzilla REST API an
 | Gate                                                   | Status                                                                  | Last change |
 | ------------------------------------------------------ | ----------------------------------------------------------------------- | ----------- |
 | G1. powersync-js 785, multi-tab deadlocks              | Open                                                                    | 2026-10-20  |
-| G2. Chrome renderer crash on Windows (comment on 785)  | No Chromium issue linked yet. Our own run is T8.                        | 2026-10-20  |
+| G2. Chrome renderer crash on Windows (comment on 785)  | Passed on the runners: no crash in 30 navigations per VFS in Chrome and Edge (CI run 40598868652). | 2026-10-28  |
 | G3. powersync-js 808, Safari init hang                 | Open                                                                    | 2026-10-09  |
 | G4. powersync-js PR 811, `pagehide` termination        | Open, not merged                                                        | 2026-06-18  |
 | G5. WebKit 316904, worker locks kept on navigation     | NEW                                                                     | 2026-10-09  |
@@ -50,3 +50,44 @@ D1 to D5 are answered in the plan, each as recommended.
 - **Finding, WebKit two tabs (G1):** in Playwright's macOS WebKit with an on-disk profile, a second tab never opens the OPFS replica the first tab holds, even after 15 seconds idle and a retry; it shows the stuck-open message after 20 seconds. `f1a6066c`, before T5 and T6, behaves the same (the second tab stays on the splash past 60 seconds), so it predates this wave. `XB-E2E-20` keeps the second tab open but waits for it to load only in Chromium and Firefox. T7's concurrent-claim case in WebKit and T8 should confirm whether this is Playwright's WebKit, macOS only, or real Safari, before the switch.
 - **T7** (on `web-storage`): the sync suite's lifecycle cases also run in Firefox and WebKit, with WebKit on a temporary on-disk profile (`packages/sync/e2e/engines.ts`), and CI's sync job installs both browsers. `make test-sync` passed 40 of 40 (28 Chromium, 6 Firefox, 6 WebKit). The concurrent-claim case passed 20 of 20 in each engine, and the removal cases needed no extra wait in WebKit.
 - PLN-E2E-01 now compares only the plan rows of the shared demo businesses, since other cases add staff to them at the same time.
+
+## Bench results (CI run 40598868652 and a local Safari run)
+
+CI ran the T1 bench on 11 browser and OS pairs, all green. Each figure is the median of 10 runs of one first checkpoint of 24,361 rows (bz_demo_second), on GitHub-hosted runners. Full tables are in the run's `storage-bench-tables` artifact.
+
+### First checkpoint, ms (median)
+
+| platform | IndexedDB | OPFS (on disk) | memory |
+| --- | --- | --- | --- |
+| Safari 26.6.2, macOS runner | 12,702 | 1,355 | 959 |
+| Safari 26.3.1, local M-series Mac | crashed after 3 runs | 762 to 805 | 578 to 653 |
+| WebKit 26.6, macOS | 20,782 | 1,623 | 1,297 |
+| WebKit 26.6, Linux | 13,656 | 1,553 | 1,341 |
+| Chromium, Linux | 3,435 | 1,236 | 821 |
+| Chromium, macOS | 4,552 | 1,764 | 1,081 |
+| Firefox, Linux | 6,812 | 5,155 | 1,393 |
+| Firefox, macOS | 7,512 | 5,080 | 1,396 |
+| Chrome 156, Windows | 12,763 | 20,111 | 1,082 |
+| Edge 155, Windows | 7,597 | 11,189 | 666 |
+| Chromium, Windows | 11,014 | 13,323 | 1,128 |
+| Firefox, Windows | 15,060 | 18,180 | 1,497 |
+
+### What this shows
+
+- On every Apple engine, OPFS is 8 to 13 times faster than IndexedDB, and IndexedDB reloads in Safari ranged up to 10.5 s. This supports moving Safari off IndexedDB first.
+- On the Windows runners, OPFS is slower than IndexedDB in every browser: 1.6 times in Chrome, 1.5 times in Edge, 1.2 times in Firefox. The runners have real-time antivirus scanning, which may account for it, but that is not shown yet. The 10 first syncs on a real Windows device in T8 decide whether this blocks OPFS on Windows.
+- In Chromium private contexts, OPFS (9 to 20 s) is much slower than its on-disk profile (1.2 to 1.8 s on Linux and macOS). This supports D1, memory for private windows.
+- Memory is under 1.5 s everywhere.
+
+### G2: crashes during navigation (Windows)
+
+A script navigation during the first checkpoint, 30 runs per VFS:
+
+| browser | VFS | renderer crashes | other failures |
+| --- | --- | --- | --- |
+| Chrome 156 | IndexedDB | 0 | 0 |
+| Chrome 156 | OPFS | 0 | 0 |
+| Edge 155 | IndexedDB | 0 | 0 |
+| Edge 155 | OPFS | 0 | 0 |
+
+G2 passes on the runners.
