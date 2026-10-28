@@ -1,4 +1,6 @@
-import { closeTask, useTask } from "@clientbridge/app-core";
+import { clearTasks, closeTask, useTask } from "@clientbridge/app-core";
+import { useLayoutEffect } from "react";
+import { useLocation } from "react-router-dom";
 
 import { NewBooking } from "./BookingComposer";
 import { NewClient } from "./ClientRecord";
@@ -10,6 +12,11 @@ import { Checkout } from "./SaleTicket";
 /** Mounted once in the shell: shows the task a button started, over whatever page is open. */
 export function TaskHost() {
     const task = useTask();
+    const { pathname } = useLocation();
+    // Back, forward or a typed address leaves the page a task was opened over; a page's own link opens after this.
+    useLayoutEffect(() => {
+        clearTasks();
+    }, [pathname]);
     if (task === null) return null;
     switch (task.kind) {
         case "checkout":
