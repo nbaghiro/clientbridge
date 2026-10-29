@@ -17,7 +17,7 @@ from clientbridge.integrations.stripe import (
 )
 
 # the local pair, the hosted CI pair, and the numbered pool pairs runs lease one at a time
-QA_ENVIRONMENT = re.compile(r"local|ci(-[1-9][0-9]?)?")
+QA_ENVIRONMENT = re.compile(r"local|ci-[1-9][0-9]?")
 
 ACCOUNT_PARAMS: AccountRetrieveParams = {
     "include": ["configuration.merchant", "defaults", "requirements"]

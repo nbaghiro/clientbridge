@@ -15,6 +15,7 @@ from clientbridge.core.config import get_settings
 from clientbridge.integrations.stripe import (
     STRIPE_API_VERSION,
 )
+from e2e.stripe_pool import checked, lease_file
 
 BUSINESS = run_id(FIXTURE_BUSINESS)
 
@@ -85,7 +86,8 @@ def tags(run: str, invoice: str, client: str) -> dict[str, str]:
 
 async def validate_context() -> str:
     account = guard()
-    lease = Path(__file__).resolve().parents[2] / ".scratchpad/stripe-qa.lock"
+    environment = checked(os.environ.get("STRIPE_BROWSER_ENVIRONMENT", "local"))
+    lease = lease_file(environment)
     with lease.open("a") as lock:
         try:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -95,9 +97,6 @@ async def validate_context() -> str:
             fcntl.flock(lock, fcntl.LOCK_UN)
             raise ValueError("runner must hold the shared Stripe QA merchant lease")
     await preflight(dict(os.environ))
-    environment = os.environ.get("STRIPE_BROWSER_ENVIRONMENT", "local")
-    if environment not in ("local", "ci"):
-        raise ValueError("browser fixtures require a dedicated local or CI merchant environment")
     for merchant_id, slot in (
         (account, "a"),
         (os.environ["STRIPE_TEST_OTHER_ACCOUNT"], "b"),

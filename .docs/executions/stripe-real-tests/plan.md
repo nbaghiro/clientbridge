@@ -1,6 +1,6 @@
 # Real Stripe in CI
 
-Status: in progress. Written 2026-10-29 on `stripe-real-tests`, based on `main` at `cb3f08c7`. The merchant pool (task 1) is set up; the rest is planned.
+Status: tasks 1 to 5 and 7 done on `stripe-real-tests`; task 6 waits for two weeks of runs. Written 2026-10-29, based on `main` at `cb3f08c7`. See [progress](progress.md).
 
 Today only the Stripe browser lane talks to real Stripe, and it runs by hand. Every other test, in CI and locally, uses the recording fake behind `PaymentGateway`. The fake is fast and deterministic, but it can't catch Stripe behaving differently from what we assumed: Stripe.js and 3D Secure in a real browser, the webhooks Stripe actually sends, the fees it really charges, and changes on its side. This plan runs real Stripe in CI at three levels, sized so a pull request doesn't wait on Stripe for long.
 
@@ -46,5 +46,5 @@ Today only the Stripe browser lane talks to real Stripe, and it runs by hand. Ev
 
 - **Rate limits.** Test mode has its own, lower limit. Task 3 measures one run and caps parallel runs at the pool size.
 - **Stripe outages.** A real-Stripe job can fail for reasons outside our code, which is why it starts as reporting only and why failures are labelled.
-- **Pool contamination.** A run that dies before cleanup leaves objects on its pair. The lane's recovery already finds and cleans run-owned objects by metadata; the nightly run also reconciles every pool pair.
+- **Pool contamination.** A run that dies before cleanup leaves objects on its pair. The browser lane's recovery step cleans run-owned objects from its manifest. API suite leftovers are only extra test objects: every run creates its own, and the payout tops up its balance first.
 - **Balance drain.** Refunds and lost disputes draw on a pair's available balance. Only the nightly run makes a manual payout, and it tops up its pair with a `pm_card_bypassPending` charge first.

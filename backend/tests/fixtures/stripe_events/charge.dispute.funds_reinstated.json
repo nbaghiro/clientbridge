@@ -1,0 +1,93 @@
+{
+  "amount": "integer",
+  "balance_transaction": "string",
+  "balance_transactions": [
+    {
+      "amount": "integer",
+      "available_on": "integer",
+      "balance_type": "string",
+      "created": "integer",
+      "currency": "string",
+      "description": "string",
+      "exchange_rate": "null",
+      "fee": "integer",
+      "fee_details": [
+        {
+          "amount": "integer",
+          "application": "null",
+          "currency": "string",
+          "description": "string",
+          "type": "string"
+        }
+      ],
+      "id": "string",
+      "net": "integer",
+      "object": "string",
+      "reporting_category": "string",
+      "source": "string",
+      "status": "string",
+      "type": "string"
+    }
+  ],
+  "charge": "string",
+  "created": "integer",
+  "currency": "string",
+  "enhanced_eligibility_types": [],
+  "evidence": {
+    "access_activity_log": "null",
+    "appeal": "null",
+    "billing_address": "null",
+    "cancellation_policy": "null",
+    "cancellation_policy_disclosure": "null",
+    "cancellation_rebuttal": "null",
+    "customer_communication": "null",
+    "customer_email_address": "null",
+    "customer_name": "string",
+    "customer_purchase_ip": "null",
+    "customer_signature": "null",
+    "duplicate_charge_documentation": "null",
+    "duplicate_charge_explanation": "null",
+    "duplicate_charge_id": "null",
+    "enhanced_evidence": {},
+    "product_description": "null",
+    "receipt": "null",
+    "refund_policy": "null",
+    "refund_policy_disclosure": "null",
+    "refund_refusal_explanation": "null",
+    "service_date": "null",
+    "service_documentation": "null",
+    "shipping_address": "null",
+    "shipping_carrier": "null",
+    "shipping_date": "null",
+    "shipping_documentation": "null",
+    "shipping_tracking_number": "null",
+    "uncategorized_file": "null",
+    "uncategorized_text": "string"
+  },
+  "evidence_details": {
+    "due_by": "integer",
+    "enhanced_eligibility": {},
+    "has_evidence": "boolean",
+    "past_due": "boolean",
+    "submission_count": "integer",
+    "submission_method": "string"
+  },
+  "id": "string",
+  "intended_submission_method": "string",
+  "is_charge_refundable": "boolean",
+  "livemode": "boolean",
+  "metadata": {},
+  "object": "string",
+  "payment_intent": "string",
+  "payment_method_details": {
+    "card": {
+      "brand": "string",
+      "case_type": "string",
+      "network": "string",
+      "network_reason_code": "string"
+    },
+    "type": "string"
+  },
+  "reason": "string",
+  "status": "string"
+}

@@ -11,6 +11,7 @@ from typing import NoReturn
 
 import httpx
 import pytest
+from e2e import stripe_shapes
 from pydantic_settings import SettingsConfigDict
 from sqlalchemy import Connection, delete, event, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -304,6 +305,9 @@ async def settle(
 
 
 async def stripe_event(api: httpx.AsyncClient, event_type: str, obj: Mapping[str, object]) -> None:
+    real = stripe_shapes.recorded(event_type)
+    drift = [] if real is None else stripe_shapes.differences(obj, real)
+    assert not drift, f"the fake {event_type} differs from real Stripe: {drift}"
     body = json.dumps(
         {
             "id": f"evt_{uuid.uuid4().hex}",

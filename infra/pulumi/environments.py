@@ -169,21 +169,13 @@ class Record:
 
 @dataclass(frozen=True)
 class StripeSandbox:
-    """The Stripe test platform and the two dedicated CI merchants stripe-qa.yml runs against."""
+    """The Stripe test platform's keys, for the real-Stripe runs; the merchants are in the pool."""
 
     secret_key: pulumi.Output[str]
     publishable_key: pulumi.Output[str]
-    platform: str
-    connected_account: str
-    other_account: str
 
 
 STRIPE_SANDBOX_SECRETS = ("stripeTestSecretKey", "stripeTestPublishableKey")
-STRIPE_SANDBOX_ACCOUNTS = (
-    "stripeTestPlatform",
-    "stripeTestConnectedAccount",
-    "stripeTestOtherAccount",
-)
 
 
 def stripe_test_key(value: str, prefixes: tuple[str, ...], name: str) -> str:
@@ -193,23 +185,14 @@ def stripe_test_key(value: str, prefixes: tuple[str, ...], name: str) -> str:
 
 
 def stripe_sandbox(config: pulumi.Config) -> StripeSandbox | None:
-    """None until every key is set, so the environment appears in one deliberate change."""
-    secrets = {name: config.get_secret(name) for name in STRIPE_SANDBOX_SECRETS}
-    accounts = {name: config.get(name) for name in STRIPE_SANDBOX_ACCOUNTS}
-    present = [name for name, value in {**secrets, **accounts}.items() if value is not None]
-    if not present:
+    """None until both keys are set, so the secrets appear in one deliberate change."""
+    secret, publishable = (config.get_secret(name) for name in STRIPE_SANDBOX_SECRETS)
+    if secret is None and publishable is None:
         return None
-    missing = sorted({*STRIPE_SANDBOX_SECRETS, *STRIPE_SANDBOX_ACCOUNTS} - {*present})
-    if missing:
-        raise ValueError(f"the Stripe sandbox needs every key; missing clientbridge:{missing}")
-    platform, connected, other = (str(accounts[name]) for name in STRIPE_SANDBOX_ACCOUNTS)
-    if not all(each.startswith("acct_") for each in (platform, connected, other)):
-        raise ValueError("the Stripe sandbox platform and merchants must be acct_ identifiers")
-    if len({platform, connected, other}) != 3:
-        raise ValueError("the Stripe sandbox platform and its two merchants must all differ")
-    secret, publishable = (secrets[name] for name in STRIPE_SANDBOX_SECRETS)
     if secret is None or publishable is None:
-        raise ValueError("the Stripe sandbox keys must be set with pulumi config set --secret")
+        raise ValueError(
+            f"the Stripe sandbox needs both keys: clientbridge:{STRIPE_SANDBOX_SECRETS}"
+        )
     return StripeSandbox(
         secret_key=secret.apply(
             lambda v: stripe_test_key(v, ("sk_test_", "rk_test_"), "stripeTestSecretKey")
@@ -217,9 +200,6 @@ def stripe_sandbox(config: pulumi.Config) -> StripeSandbox | None:
         publishable_key=publishable.apply(
             lambda v: stripe_test_key(v, ("pk_test_",), "stripeTestPublishableKey")
         ),
-        platform=platform,
-        connected_account=connected,
-        other_account=other,
     )
 
 

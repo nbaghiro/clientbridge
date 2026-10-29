@@ -36,6 +36,7 @@ from e2e.stripe_deposits import deposits_evidence_main, deposits_main
 from e2e.stripe_disputes import disputes_main
 from e2e.stripe_evidence import browser_main
 from e2e.stripe_fixtures import setup_main
+from e2e.stripe_pool import lease_file, pair, pairs
 from e2e.stripe_reconcile import plan_main, reconcile_main
 from e2e.stripe_recovery import recover_main
 from e2e.stripe_relay import Relay, delivery_main
@@ -43,10 +44,23 @@ from e2e.tier import ROOT
 
 
 def stack_credentials(
-    profile: str, merchants: Path, publishable_file: Path, mode: str
+    profile: str, merchants: Path, publishable_file: Path, mode: str, leased: str | None = None
 ) -> dict[str, str]:
-    if mode == "environment":
-        supplied = environment(None)
+    if mode == "environment" and leased is None:
+        raise ValueError("a run on environment credentials leases a pool pair with --pair")
+    env = _credentials(profile, merchants, publishable_file, mode, leased)
+    if leased is not None:
+        env |= pair(leased)
+        env["STRIPE_BROWSER_ENVIRONMENT"] = leased
+    asyncio.run(preflight(env))
+    return env
+
+
+def _credentials(
+    profile: str, merchants: Path, publishable_file: Path, mode: str, leased: str | None
+) -> dict[str, str]:
+    if mode == "environment" and leased is not None:
+        supplied = environment(None, pair(leased))
         publishable = supplied.get("STRIPE_PUBLISHABLE_KEY", "")
         if not publishable.startswith("pk_test_"):
             raise ValueError("protected environment requires a test publishable key")
@@ -61,8 +75,6 @@ def stack_credentials(
             )
         }
         env["STRIPE_SECRET_KEY"] = env["STRIPE_TEST_SECRET_KEY"]
-        env["STRIPE_BROWSER_ENVIRONMENT"] = "ci"
-        asyncio.run(preflight(env))
         return env
     if os.environ.get("CI"):
         raise ValueError("local CLI profile onboarding credentials are forbidden in CI")
@@ -93,7 +105,6 @@ def stack_credentials(
             )
         },
     }
-    asyncio.run(preflight(env))
     return env
 
 
@@ -237,7 +248,11 @@ def run_lane(args: argparse.Namespace, directory: Path, lease: tier.Lease) -> No
                 nonlocal prepared, relay
                 stack.env.update(
                     stack_credentials(
-                        args.profile, args.merchants, args.publishable_file, args.credentials
+                        args.profile,
+                        args.merchants,
+                        args.publishable_file,
+                        args.credentials,
+                        args.pair,
                     )
                 )
                 stack.env.update(
@@ -369,10 +384,13 @@ def stack_main(argv: list[str]) -> int:
     parser.add_argument("--allow-source-changes", action="store_true")
     # pays out of slot a's available balance, which cleanup refunds and lost disputes can drain
     parser.add_argument("--payout-case", action="store_true")
+    parser.add_argument("--pair", choices=pairs(), help="lease a CI pool pair instead")
     parser.add_argument("tests", nargs=argparse.REMAINDER)
     args = parser.parse_args(argv)
     if args.tests[:1] == ["--"]:
         args.tests = args.tests[1:]
+    if args.credentials == "environment" and args.pair is None:
+        parser.error("environment credentials lease a pool pair with --pair")
     if args.allow_source_changes and os.environ.get("CI"):
         parser.error("CI cannot accept source changes")
     if args.activation != "pointer" and os.environ.get("CI"):
@@ -381,7 +399,7 @@ def stack_main(argv: list[str]) -> int:
     directory.mkdir(parents=True)
     signal.signal(signal.SIGTERM, lambda _signal, _frame: sys.exit(143))
     try:
-        with (ROOT / ".scratchpad/stripe-qa.lock").open("a") as lock:
+        with lease_file(args.pair or "local", ROOT).open("a") as lock:
             try:
                 fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
             except BlockingIOError:

@@ -1,0 +1,143 @@
+name: stripe-real
+on:
+  workflow_call:
+    inputs:
+      nightly:
+        description: Also run the slow scenarios and the browser lane, and check the fake against real events.
+        type: boolean
+        default: false
+    secrets:
+      STRIPE_TEST_SECRET_KEY:
+        required: false
+      STRIPE_TEST_PUBLISHABLE_KEY:
+        required: false
+
+permissions:
+  contents: read
+
+# Real Stripe test mode on one leased pair of the QA merchant pool (backend/e2e/stripe_pool.json).
+jobs:
+  lease:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      pair: ${{ steps.lease.outputs.pair }}
+      ready: ${{ steps.lease.outputs.ready }}
+      payments: ${{ steps.changes.outputs.payments }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # a pull request checks out its merge commit, whose first parent is the base
+          fetch-depth: 2
+      - id: lease
+        env:
+          KEY: ${{ secrets.STRIPE_TEST_SECRET_KEY }}
+          RUN: ${{ github.run_number }}
+        run: |
+          size="$(jq '.pairs | length' backend/e2e/stripe_pool.json)"
+          echo "pair=ci-$(( RUN % size + 1 ))" >> "$GITHUB_OUTPUT"
+          if [ -n "$KEY" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice title=Real Stripe skipped::no sandbox key (a fork, or before the cloud stack sets it)"
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          fi
+      - id: changes
+        if: github.event_name == 'pull_request'
+        run: |
+          pattern='^backend/src/clientbridge/(integrations/stripe|services/(payments|ledger|billing|orders|entitlements|earnings|public|public_orders|remittances))\.py$'
+          pattern+='|^backend/(e2e/stripe|tests/sandbox/|scripts/stripe_qa)'
+          pattern+='|^frontend/packages/app-core/src/domain/(payments|payouts|checkout|publicPay|billing|pos)\.ts$'
+          pattern+='|^frontend/packages/ui/src/(web|mobile)/(CardForm|ChargeSheet|PaymentMethodForm)\.tsx$'
+          pattern+='|^frontend/apps/connect/(src/pages/Public(Pay|PaymentSetup|Order|Booking)\.tsx$|e2e/stripe)'
+          pattern+='|^\.github/workflows/stripe-'
+          if git diff --name-only HEAD^1 HEAD | grep -Eq "$pattern"; then
+            echo "payments=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "payments=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  api:
+    needs: lease
+    if: needs.lease.outputs.ready == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    # one run per pair at a time; the next run on a busy pair waits for it
+    concurrency:
+      group: stripe-pool-${{ needs.lease.outputs.pair }}
+      cancel-in-progress: false
+    env:
+      STRIPE_TEST_SECRET_KEY: ${{ secrets.STRIPE_TEST_SECRET_KEY }}
+      PAIR: ${{ needs.lease.outputs.pair }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+        with:
+          uv: backend
+      - uses: ./.github/actions/stripe-cli
+      - run: make test-tier
+      - name: run the real-Stripe scenarios on the leased pair
+        env:
+          ARGS: ${{ inputs.nightly && '--nightly --record check' || '' }}
+        run: make test-stripe-qa STRIPE_QA_ARGS="--pair $PAIR --output ../.scratchpad/stripe-qa/ci $ARGS"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: stripe-real-api
+          include-hidden-files: true
+          path: |
+            .scratchpad/stripe-qa/ci/results.json
+            .scratchpad/stripe-qa/ci/stripe_events
+          retention-days: 7
+          if-no-files-found: warn
+
+  browser:
+    needs: [lease, api]
+    if: needs.lease.outputs.ready == 'true' && (inputs.nightly || needs.lease.outputs.payments == 'true')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    concurrency:
+      group: stripe-pool-${{ needs.lease.outputs.pair }}
+      cancel-in-progress: false
+    env:
+      STRIPE_TEST_SECRET_KEY: ${{ secrets.STRIPE_TEST_SECRET_KEY }}
+      STRIPE_PUBLISHABLE_KEY: ${{ secrets.STRIPE_TEST_PUBLISHABLE_KEY }}
+      PAIR: ${{ needs.lease.outputs.pair }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+        with:
+          uv: backend
+          pnpm: "true"
+      - run: pnpm --filter connect exec playwright install --with-deps chromium firefox webkit
+        working-directory: frontend
+      - uses: ./.github/actions/stripe-cli
+      - run: make test-tier
+      - name: run the Stripe browser lane on the leased pair
+        run: make test-stripe-browser STRIPE_BROWSER_ARGS="--credentials environment --pair $PAIR"
+      - name: recover run-owned Stripe objects after incomplete cleanup
+        if: always()
+        working-directory: backend
+        run: |
+          set -euo pipefail
+          for state in ../.scratchpad/e2e-*/stripe-fixtures.json; do
+            [ -f "$state" ] || continue
+            cleanup_status="$(uv run python -c 'import json,sys; print(json.load(open(sys.argv[1])).get("provider_cleanup", "unknown"))' "$(dirname "$state")/run.json")"
+            if [ "$cleanup_status" != "passed" ]; then
+              uv run python -m e2e.stripe recover --credentials environment --pair "$PAIR" --state "$state" --apply
+            fi
+          done
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: stripe-real-browser
+          include-hidden-files: true
+          if-no-files-found: error
+          path: |
+            .scratchpad/e2e-*/run.json
+            .scratchpad/e2e-*/stripe-fixtures.json
+            .scratchpad/e2e-*/stripe-deliveries.json
+            .scratchpad/e2e-*/stripe-relay.json
+            .scratchpad/e2e-*/provider-recovery.json
+            .scratchpad/e2e-*/browser-results/results.json
+          retention-days: 7

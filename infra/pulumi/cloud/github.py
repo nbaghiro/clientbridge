@@ -87,7 +87,7 @@ def create(
 
 
 def sandbox(repository: str, stripe: StripeSandbox, opts: pulumi.ResourceOptions) -> None:
-    """The Stripe sandbox's test keys and CI merchants, for any workflow that runs against it."""
+    """The Stripe sandbox's test keys, for any workflow that runs against it."""
     secrets = {
         "STRIPE_TEST_SECRET_KEY": stripe.secret_key,
         # a secret only so Actions masks it, like the Firebase file
@@ -98,19 +98,6 @@ def sandbox(repository: str, stripe: StripeSandbox, opts: pulumi.ResourceOptions
             f"secret-{key.lower()}",
             repository=repository,
             secret_name=key,
-            value=value,
-            opts=opts,
-        )
-    variables = {
-        "STRIPE_TEST_PLATFORM": stripe.platform,
-        "STRIPE_TEST_CONNECTED_ACCOUNT": stripe.connected_account,
-        "STRIPE_TEST_OTHER_ACCOUNT": stripe.other_account,
-    }
-    for key, value in variables.items():
-        github.ActionsVariable(
-            f"variable-{key.lower()}",
-            repository=repository,
-            variable_name=key,
             value=value,
             opts=opts,
         )

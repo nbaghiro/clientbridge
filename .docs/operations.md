@@ -154,33 +154,30 @@ this document remains the reference for Secret Manager, infrastructure and deplo
 
 ### Stripe sandbox for hosted CI
 
-`stripe-qa.yml` runs the backend sandbox suite and the real Stripe browser lane by hand, from `main` only. Both jobs read the sandbox from repository-level Actions settings: the secrets `STRIPE_TEST_SECRET_KEY` and `STRIPE_TEST_PUBLISHABLE_KEY`, and the variables `STRIPE_TEST_PLATFORM`, `STRIPE_TEST_CONNECTED_ACCOUNT` and `STRIPE_TEST_OTHER_ACCOUNT`, so any workflow that runs against the sandbox can read them. Workflows on any branch can read repository secrets, which suits a sandbox key in a private repository but never a live one. The cloud stack sets them from its config once all five keys are set. Until then it sets nothing, and a partly set group stops the stack.
+`stripe-real.yml` runs real Stripe test mode in CI: the sandbox suite on every pull request, the browser lane on pull requests that change payments code, and both every night from `stripe-qa.yml` (see [the Stripe test tiers](engineering.md#stripe-four-tiers-layered-by-cost)). It reads two repository secrets, `STRIPE_TEST_SECRET_KEY` and `STRIPE_TEST_PUBLISHABLE_KEY`, which the callers pass explicitly so the job sees no other secret. Workflows on any branch can read repository secrets, which suits a sandbox key in a private repository but never a live one. The cloud stack sets both from its config once both are set; until then it sets nothing, the jobs skip with a notice, and setting only one stops the stack.
 
-CI uses its own pair of merchants, tagged `clientbridge_qa_environment=ci`, so a hosted run never shares a merchant lease with a local one. To create them, with the local `clientbridge` Stripe CLI profile on the sandbox platform:
+The merchants come from the checked-in pool, `backend/e2e/stripe_pool.json`: six pairs, `ci-1` to `ci-6`, on the sandbox platform, each account tagged `clientbridge_qa=payments` and `clientbridge_qa_environment=ci-N`. Each run's preflight refuses a pair that isn't tagged, isn't fully onboarded or doesn't settle in CAD. To add or repair a pair, with the local `clientbridge` Stripe CLI profile:
 
 ```sh
 cd backend
-uv run python -m scripts.stripe_qa_accounts --environment ci   # read-only: shows what exists
-uv run python -m scripts.stripe_qa_accounts --environment ci --apply --prepare --bank \
-  --onboarding-links --output ../.scratchpad/stripe-ci-merchants.json
+uv run python -m scripts.stripe_qa_accounts --environment ci-7   # read-only: shows what exists
+uv run python -m scripts.stripe_qa_accounts --environment ci-7 --apply --prepare --bank \
+  --onboarding-links --output ../.scratchpad/stripe-ci-7.json
 ```
 
-The second command creates the two accounts if they're missing (its idempotency keys make a rerun safe), fills in Stripe's documented test identity, attaches the Canadian test bank account and prints a Stripe-hosted onboarding link for each merchant that can't take charges yet. Opening each link accepts the terms, which no API call does for these accounts. Rerun the read-only command until both merchants show `charges_enabled` and `payouts_enabled` with nothing currently due.
+The second command creates the two accounts if they're missing (its idempotency keys make a rerun safe), fills in Stripe's documented test identity, attaches the Canadian test bank account and prints a Stripe-hosted onboarding link for each merchant that can't take charges yet. Opening each link in a visible browser accepts the terms, which no API call does for these accounts; Stripe challenges a headless browser with a captcha. Rerun the read-only command until both merchants show `charges_enabled` and `payouts_enabled` with nothing currently due, then add the pair to `stripe_pool.json`. The pool size in the workflow follows the manifest.
 
-Then set the stack config from the manifest and apply the cloud stack:
+To give CI the keys, set them on the cloud stack and apply it:
 
 ```sh
 cd infra/pulumi
 pulumi stack select cloud
 pulumi config set --secret stripeTestSecretKey      # the sandbox platform's sk_test_ or rk_test_ key
 pulumi config set --secret stripeTestPublishableKey # its pk_test_ key
-pulumi config set stripeTestPlatform acct_…
-pulumi config set stripeTestConnectedAccount acct_… # slot a in the manifest
-pulumi config set stripeTestOtherAccount acct_…     # slot b
 pulumi up
 ```
 
-The two keys are stored encrypted in `Pulumi.cloud.yaml`, and `tests/test_program.py` fails if either is committed in plain text. After `pulumi up`, run `stripe-qa` from `main` in the Actions tab; its preflight refuses merchants that aren't ready or aren't tagged for CI.
+The two keys are stored encrypted in `Pulumi.cloud.yaml`, and `tests/test_program.py` fails if either is committed in plain text. After `pulumi up`, the next pull request runs `stripe-real`, and `stripe-qa` can be started from `main` in the Actions tab.
 
 ### Resend
 

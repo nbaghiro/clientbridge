@@ -1,0 +1,11 @@
+{
+  "platform": "acct_1UPkgSFGqw7iO9oD",
+  "pairs": {
+    "ci-1": { "a": "acct_1UW1EAFGqwpchJj8", "b": "acct_1UW1EKFGqw5WPraS" },
+    "ci-2": { "a": "acct_1UW1EcFGqwCjmvBg", "b": "acct_1UW1EmFGqwyiuFg7" },
+    "ci-3": { "a": "acct_1UW1F2FGqwYug5E4", "b": "acct_1UW1FDFGqwSDkSq6" },
+    "ci-4": { "a": "acct_1UW1FUFGqwETL0Wd", "b": "acct_1UW1FfFGqwnv2Ulo" },
+    "ci-5": { "a": "acct_1UW1FvFGqwMR1MhI", "b": "acct_1UW1G6FGqwvqJNFk" },
+    "ci-6": { "a": "acct_1UW1GNFGqwQLONGh", "b": "acct_1UW1GWFGqw1tQVIQ" }
+  }
+}
