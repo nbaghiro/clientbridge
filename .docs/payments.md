@@ -201,8 +201,10 @@ An intent that nobody will finish is cancelled rather than left confirmable, so 
 - `cancel_stale_intents` (hourly at :45, `payments.run_cancel_stale_intents`) cancels staff-opened desk
   sale, gift card and package intents still pending a day after they opened, and pay-link and deposit
   card intents still pending after an hour, so an abandoned form never blocks voiding the invoice or
-  recording cash. Bank debits and online orders are left alone. It takes 200 per run, newest first; an
-  intent Stripe refuses to cancel is logged and left for the next run.
+  recording cash. A saved card charged on an invoice from the desk falls in the same hour: one still
+  pending then waits on an approval no one can give off-session. Bank debits and online orders are left
+  alone. It takes 200 per run, newest first; an intent Stripe refuses to cancel, because it is
+  processing or went through, is logged and left for the next run.
 - Canceling an intent Stripe already canceled counts as canceled, so a declined deposit attempt closed
   from Stripe's side no longer blocks paying the deposit again. An intent that is processing or
   succeeded still refuses, with `payment_in_progress`.
@@ -303,7 +305,11 @@ on the booking's open invoice under an application keyed by the failed refund, s
 is paid down again; if that invoice was paid or voided in the meantime, the deposit stays held. Any
 refund that fails or is canceled, including one still pending, pushes an alert to staff that opens the
 original payment, since the money still has to go back; the client is told only about a refund they had
-been told went through.
+been told went through. That includes the full refund of a payment that reached a voided invoice or sale:
+if it bounces, the client stays charged until staff return the money another way.
+
+The sale detail shows the tax a sale charged, from its payment and redemption journals; like a refunded
+card sale, a sale returned to its gift card keeps showing what it charged.
 
 A dispute withdrawal posts the disputed amount and fee. A win reinstates funds and any fee Stripe
 actually returns. A loss unwinds the sale through the ledger, capped at what the sale still carries: a
