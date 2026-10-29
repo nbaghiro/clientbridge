@@ -94,8 +94,8 @@ A new owner signs up, sets up the business, brings in the team, connects Stripe,
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at http://localhost:8700 and mobile in the iOS simulator. Email lands in Mailpit at http://localhost:8715.
-* **Staging:** https://app.staging.clientbridge.ca, with the same logins. Mobile waits on a staging build (CB-61). Mail to the demo's `.example` addresses isn't sent, so use an address you can read.
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at [http://localhost:8700](<http://localhost:8700>) and mobile in the iOS simulator. Email lands in Mailpit at [http://localhost:8715](<http://localhost:8715>).
+* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), with the same logins. Mobile waits on a staging build (CB-61). Mail to the demo's `.example` addresses isn't sent, so use an address you can read.
 
 **QA steps**
 
@@ -152,8 +152,8 @@ A new owner signs up, sets up the business, brings in the team, connects Stripe,
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at http://localhost:8700 and mobile in the iOS simulator. Email lands in Mailpit at http://localhost:8715.
-* **Staging:** https://app.staging.clientbridge.ca, with the same logins. Mobile waits on a staging build (CB-61). Mail to the demo's `.example` addresses isn't sent, so use an address you can read.
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at [http://localhost:8700](<http://localhost:8700>) and mobile in the iOS simulator. Email lands in Mailpit at [http://localhost:8715](<http://localhost:8715>).
+* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), with the same logins. Mobile waits on a staging build (CB-61). Mail to the demo's `.example` addresses isn't sent, so use an address you can read.
 
 **QA steps**
 
@@ -194,8 +194,8 @@ A new owner signs up, sets up the business, brings in the team, connects Stripe,
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile dev-connect`. Open web at http://localhost:8700, mobile in the iOS simulator and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`.
-* **Staging:** https://app.staging.clientbridge.ca and Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`, with the same logins. Mobile waits on a staging build (CB-61).
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile dev-connect`. Open web at [http://localhost:8700](<http://localhost:8700>), mobile in the iOS simulator and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`.
+* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>) and Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`, with the same logins. Mobile waits on a staging build (CB-61).
 
 **QA steps**
 
@@ -238,8 +238,8 @@ A new owner signs up, sets up the business, brings in the team, connects Stripe,
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at http://localhost:8700 and mobile in the iOS simulator. Email lands in Mailpit at http://localhost:8715.
-* **Staging:** https://app.staging.clientbridge.ca, with the same logins. Mobile waits on a staging build (CB-61). Mail to the demo's `.example` addresses isn't sent, so use an address you can read.
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at [http://localhost:8700](<http://localhost:8700>) and mobile in the iOS simulator. Email lands in Mailpit at [http://localhost:8715](<http://localhost:8715>).
+* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), with the same logins. Mobile waits on a staging build (CB-61). Mail to the demo's `.example` addresses isn't sent, so use an address you can read.
 
 **QA steps**
 
@@ -293,8 +293,8 @@ A new owner signs up, sets up the business, brings in the team, connects Stripe,
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile dev-connect`. Open web at http://localhost:8700, mobile in the iOS simulator and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`.
-* **Staging:** https://app.staging.clientbridge.ca and Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`, with the same logins. Mobile waits on a staging build (CB-61).
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile dev-connect`. Open web at [http://localhost:8700](<http://localhost:8700>), mobile in the iOS simulator and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`.
+* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>) and Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`, with the same logins. Mobile waits on a staging build (CB-61).
 
 **QA steps**
 
@@ -331,8 +331,8 @@ A new owner signs up, sets up the business, brings in the team, connects Stripe,
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at http://localhost:8700 and mobile in the iOS simulator. Run `make stripe-setup` once and keep `make stripe-listen` running for card steps.
-* **Staging:** https://app.staging.clientbridge.ca, with the same logins. Mobile waits on a staging build (CB-61). Card steps use the Stripe sandbox; the demos are linked but their Stripe onboarding isn't finished.
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at [http://localhost:8700](<http://localhost:8700>) and mobile in the iOS simulator. Run `make stripe-setup` once and keep `make stripe-listen` running for card steps.
+* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), with the same logins. Mobile waits on a staging build (CB-61). Card steps use the Stripe sandbox; the demos are linked but their Stripe onboarding isn't finished.
 
 **QA steps**
 
@@ -373,8 +373,8 @@ A new owner signs up, sets up the business, brings in the team, connects Stripe,
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile dev-connect`. Open web at http://localhost:8700, mobile in the iOS simulator and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`. Run `make stripe-setup` once and keep `make stripe-listen` running for card steps.
-* **Staging:** https://app.staging.clientbridge.ca and Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`, with the same logins. Mobile waits on a staging build (CB-61). Card steps use the Stripe sandbox; the demos are linked but their Stripe onboarding isn't finished.
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile dev-connect`. Open web at [http://localhost:8700](<http://localhost:8700>), mobile in the iOS simulator and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`. Run `make stripe-setup` once and keep `make stripe-listen` running for card steps.
+* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>) and Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`, with the same logins. Mobile waits on a staging build (CB-61). Card steps use the Stripe sandbox; the demos are linked but their Stripe onboarding isn't finished.
 
 **QA steps**
 
@@ -423,8 +423,8 @@ A new owner signs up, sets up the business, brings in the team, connects Stripe,
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at http://localhost:8700 and mobile in the iOS simulator.
-* **Staging:** https://app.staging.clientbridge.ca, with the same logins. Mobile waits on a staging build (CB-61).
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at [http://localhost:8700](<http://localhost:8700>) and mobile in the iOS simulator.
+* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), with the same logins. Mobile waits on a staging build (CB-61).
 
 **QA steps**
 
@@ -467,8 +467,8 @@ The business loads its clients, what they book for, and everything it sells.
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at http://localhost:8700 and mobile in the iOS simulator.
-* **Staging:** https://app.staging.clientbridge.ca, with the same logins. Mobile waits on a staging build (CB-61).
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at [http://localhost:8700](<http://localhost:8700>) and mobile in the iOS simulator.
+* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), with the same logins. Mobile waits on a staging build (CB-61).
 
 **QA steps**
 
@@ -508,8 +508,8 @@ The business loads its clients, what they book for, and everything it sells.
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile dev-connect`. Open web at http://localhost:8700, mobile in the iOS simulator and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`.
-* **Staging:** https://app.staging.clientbridge.ca and Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`, with the same logins. Mobile waits on a staging build (CB-61).
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile dev-connect`. Open web at [http://localhost:8700](<http://localhost:8700>), mobile in the iOS simulator and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`.
+* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>) and Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`, with the same logins. Mobile waits on a staging build (CB-61).
 
 **QA steps**
 
@@ -551,8 +551,8 @@ The business loads its clients, what they book for, and everything it sells.
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at http://localhost:8700 and mobile in the iOS simulator.
-* **Staging:** https://app.staging.clientbridge.ca, with the same logins. Mobile waits on a staging build (CB-61).
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at [http://localhost:8700](<http://localhost:8700>) and mobile in the iOS simulator.
+* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), with the same logins. Mobile waits on a staging build (CB-61).
 
 **QA steps**
 
@@ -592,8 +592,8 @@ The business loads its clients, what they book for, and everything it sells.
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at http://localhost:8700 and mobile in the iOS simulator.
-* **Staging:** https://app.staging.clientbridge.ca, with the same logins. Mobile waits on a staging build (CB-61).
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at [http://localhost:8700](<http://localhost:8700>) and mobile in the iOS simulator.
+* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), with the same logins. Mobile waits on a staging build (CB-61).
 
 **QA steps**
 
@@ -624,8 +624,8 @@ The business loads its clients, what they book for, and everything it sells.
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile dev-connect`. Open web at http://localhost:8700, mobile in the iOS simulator and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`. Run `make stripe-setup` once and keep `make stripe-listen` running for card steps.
-* **Staging:** https://app.staging.clientbridge.ca and Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`, with the same logins. Mobile waits on a staging build (CB-61). Card steps use the Stripe sandbox; the demos are linked but their Stripe onboarding isn't finished.
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile dev-connect`. Open web at [http://localhost:8700](<http://localhost:8700>), mobile in the iOS simulator and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`. Run `make stripe-setup` once and keep `make stripe-listen` running for card steps.
+* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>) and Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`, with the same logins. Mobile waits on a staging build (CB-61). Card steps use the Stripe sandbox; the demos are linked but their Stripe onboarding isn't finished.
 
 **QA steps**
 
@@ -664,8 +664,8 @@ The business loads its clients, what they book for, and everything it sells.
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at http://localhost:8700 and mobile in the iOS simulator.
-* **Staging:** https://app.staging.clientbridge.ca, with the same logins. Mobile waits on a staging build (CB-61).
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at [http://localhost:8700](<http://localhost:8700>) and mobile in the iOS simulator.
+* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), with the same logins. Mobile waits on a staging build (CB-61).
 
 **QA steps**
 
@@ -704,8 +704,8 @@ The business loads its clients, what they book for, and everything it sells.
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at http://localhost:8700 and mobile in the iOS simulator.
-* **Staging:** https://app.staging.clientbridge.ca, with the same logins. Mobile waits on a staging build (CB-61).
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at [http://localhost:8700](<http://localhost:8700>) and mobile in the iOS simulator.
+* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), with the same logins. Mobile waits on a staging build (CB-61).
 
 **QA steps**
 
@@ -752,8 +752,8 @@ The business loads its clients, what they book for, and everything it sells.
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at http://localhost:8700 and mobile in the iOS simulator.
-* **Staging:** https://app.staging.clientbridge.ca, with the same logins. Mobile waits on a staging build (CB-61).
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at [http://localhost:8700](<http://localhost:8700>) and mobile in the iOS simulator.
+* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), with the same logins. Mobile waits on a staging build (CB-61).
 
 **QA steps**
 
@@ -789,8 +789,8 @@ Staff set hours, book, run each visit from arrival to checkout, and nothing is l
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile dev-connect`. Open web at http://localhost:8700, mobile in the iOS simulator and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`.
-* **Staging:** https://app.staging.clientbridge.ca and Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`, with the same logins. Mobile waits on a staging build (CB-61).
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile dev-connect`. Open web at [http://localhost:8700](<http://localhost:8700>), mobile in the iOS simulator and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`.
+* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>) and Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`, with the same logins. Mobile waits on a staging build (CB-61).
 
 **QA steps**
 
@@ -835,8 +835,8 @@ Staff set hours, book, run each visit from arrival to checkout, and nothing is l
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at http://localhost:8700 and mobile in the iOS simulator.
-* **Staging:** https://app.staging.clientbridge.ca, with the same logins. Mobile waits on a staging build (CB-61).
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at [http://localhost:8700](<http://localhost:8700>) and mobile in the iOS simulator.
+* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), with the same logins. Mobile waits on a staging build (CB-61).
 
 **QA steps**
 
@@ -880,8 +880,8 @@ Staff set hours, book, run each visit from arrival to checkout, and nothing is l
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile worker`. Open web at http://localhost:8700 and mobile in the iOS simulator.
-* **Staging:** https://app.staging.clientbridge.ca, with the same logins. Mobile waits on a staging build (CB-61).
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile worker`. Open web at [http://localhost:8700](<http://localhost:8700>) and mobile in the iOS simulator.
+* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), with the same logins. Mobile waits on a staging build (CB-61).
 
 **QA steps**
 
@@ -917,8 +917,8 @@ Staff set hours, book, run each visit from arrival to checkout, and nothing is l
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at http://localhost:8700 and mobile in the iOS simulator.
-* **Staging:** https://app.staging.clientbridge.ca, with the same logins. Mobile waits on a staging build (CB-61).
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at [http://localhost:8700](<http://localhost:8700>) and mobile in the iOS simulator.
+* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), with the same logins. Mobile waits on a staging build (CB-61).
 
 **QA steps**
 
@@ -953,8 +953,8 @@ Staff set hours, book, run each visit from arrival to checkout, and nothing is l
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile dev-connect worker`. Open web at http://localhost:8700, mobile in the iOS simulator and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`. Texts land in Mailpit at http://localhost:8715.
-* **Staging:** https://app.staging.clientbridge.ca and Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`, with the same logins. Mobile waits on a staging build (CB-61). Texts to demo clients show as sent and go nowhere; real texts wait on the Twilio number (Trust Hub approval).
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile dev-connect worker`. Open web at [http://localhost:8700](<http://localhost:8700>), mobile in the iOS simulator and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`. Texts land in Mailpit at [http://localhost:8715](<http://localhost:8715>).
+* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>) and Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`, with the same logins. Mobile waits on a staging build (CB-61). Texts to demo clients show as sent and go nowhere; real texts wait on the Twilio number (Trust Hub approval).
 
 **QA steps**
 
@@ -992,8 +992,8 @@ Staff set hours, book, run each visit from arrival to checkout, and nothing is l
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at http://localhost:8700 and mobile in the iOS simulator.
-* **Staging:** https://app.staging.clientbridge.ca, with the same logins. Mobile waits on a staging build (CB-61).
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at [http://localhost:8700](<http://localhost:8700>) and mobile in the iOS simulator.
+* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), with the same logins. Mobile waits on a staging build (CB-61).
 
 **QA steps**
 
@@ -1031,8 +1031,8 @@ Staff set hours, book, run each visit from arrival to checkout, and nothing is l
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile worker`. Open web at http://localhost:8700 and mobile in the iOS simulator. Texts land in Mailpit at http://localhost:8715.
-* **Staging:** https://app.staging.clientbridge.ca, with the same logins. Mobile waits on a staging build (CB-61). Texts to demo clients show as sent and go nowhere; real texts wait on the Twilio number (Trust Hub approval).
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile worker`. Open web at [http://localhost:8700](<http://localhost:8700>) and mobile in the iOS simulator. Texts land in Mailpit at [http://localhost:8715](<http://localhost:8715>).
+* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), with the same logins. Mobile waits on a staging build (CB-61). Texts to demo clients show as sent and go nowhere; real texts wait on the Twilio number (Trust Hub approval).
 
 **QA steps**
 
@@ -1074,8 +1074,8 @@ Clients find the business, book and pay a deposit, and change their plans withou
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-connect worker`. Open web at http://localhost:8700 and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`. Run `make stripe-setup` once and keep `make stripe-listen` running for card steps.
-* **Staging:** https://app.staging.clientbridge.ca and Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`, with the same logins. Card steps use the Stripe sandbox; the demos are linked but their Stripe onboarding isn't finished.
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-connect worker`. Open web at [http://localhost:8700](<http://localhost:8700>) and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`. Run `make stripe-setup` once and keep `make stripe-listen` running for card steps.
+* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>) and Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`, with the same logins. Card steps use the Stripe sandbox; the demos are linked but their Stripe onboarding isn't finished.
 
 **QA steps**
 
@@ -1120,7 +1120,7 @@ Clients find the business, book and pay a deposit, and change their plans withou
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-connect`. Open Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`. Texts land in Mailpit at http://localhost:8715.
+* **Local:** `make up migrate seed`, then `make dev-api dev-connect`. Open Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`. Texts land in Mailpit at [http://localhost:8715](<http://localhost:8715>).
 * **Staging:** Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`. Texts to demo clients show as sent and go nowhere; real texts wait on the Twilio number (Trust Hub approval).
 
 **QA steps**
@@ -1159,8 +1159,8 @@ Clients find the business, book and pay a deposit, and change their plans withou
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-connect`. Open web at http://localhost:8700 and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`.
-* **Staging:** https://app.staging.clientbridge.ca and Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`, with the same logins.
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-connect`. Open web at [http://localhost:8700](<http://localhost:8700>) and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`.
+* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>) and Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`, with the same logins.
 
 **QA steps**
 
@@ -1193,7 +1193,7 @@ Clients find the business, book and pay a deposit, and change their plans withou
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-connect`. Open Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`. Texts land in Mailpit at http://localhost:8715.
+* **Local:** `make up migrate seed`, then `make dev-api dev-connect`. Open Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`. Texts land in Mailpit at [http://localhost:8715](<http://localhost:8715>).
 * **Staging:** Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`. Texts to demo clients show as sent and go nowhere; real texts wait on the Twilio number (Trust Hub approval).
 
 **QA steps**
@@ -1275,8 +1275,8 @@ Every way a client pays, at the desk, by link or online, ends in the right statu
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at http://localhost:8700 and mobile in the iOS simulator. Texts land in Mailpit at http://localhost:8715.
-* **Staging:** https://app.staging.clientbridge.ca, with the same logins. Mobile waits on a staging build (CB-61). Texts to demo clients show as sent and go nowhere; real texts wait on the Twilio number (Trust Hub approval).
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at [http://localhost:8700](<http://localhost:8700>) and mobile in the iOS simulator. Texts land in Mailpit at [http://localhost:8715](<http://localhost:8715>).
+* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), with the same logins. Mobile waits on a staging build (CB-61). Texts to demo clients show as sent and go nowhere; real texts wait on the Twilio number (Trust Hub approval).
 
 **QA steps**
 
@@ -1316,8 +1316,8 @@ Every way a client pays, at the desk, by link or online, ends in the right statu
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web`. Open web at http://localhost:8700. Run `make stripe-setup` once and keep `make stripe-listen` running for card steps.
-* **Staging:** https://app.staging.clientbridge.ca, with the same logins. Card steps use the Stripe sandbox; the demos are linked but their Stripe onboarding isn't finished.
+* **Local:** `make up migrate seed`, then `make dev-api dev-web`. Open web at [http://localhost:8700](<http://localhost:8700>). Run `make stripe-setup` once and keep `make stripe-listen` running for card steps.
+* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), with the same logins. Card steps use the Stripe sandbox; the demos are linked but their Stripe onboarding isn't finished.
 
 **QA steps**
 
@@ -1387,8 +1387,8 @@ Every way a client pays, at the desk, by link or online, ends in the right statu
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web`. Open web at http://localhost:8700. Run `make stripe-setup` once and keep `make stripe-listen` running for card steps.
-* **Staging:** https://app.staging.clientbridge.ca, with the same logins. Card steps use the Stripe sandbox; the demos are linked but their Stripe onboarding isn't finished.
+* **Local:** `make up migrate seed`, then `make dev-api dev-web`. Open web at [http://localhost:8700](<http://localhost:8700>). Run `make stripe-setup` once and keep `make stripe-listen` running for card steps.
+* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), with the same logins. Card steps use the Stripe sandbox; the demos are linked but their Stripe onboarding isn't finished.
 
 **QA steps**
 
@@ -1432,8 +1432,8 @@ Every way a client pays, at the desk, by link or online, ends in the right statu
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile dev-connect`. Open web at http://localhost:8700, mobile in the iOS simulator and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`. Texts land in Mailpit at http://localhost:8715.
-* **Staging:** https://app.staging.clientbridge.ca and Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`, with the same logins. Mobile waits on a staging build (CB-61). Texts to demo clients show as sent and go nowhere; real texts wait on the Twilio number (Trust Hub approval).
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile dev-connect`. Open web at [http://localhost:8700](<http://localhost:8700>), mobile in the iOS simulator and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`. Texts land in Mailpit at [http://localhost:8715](<http://localhost:8715>).
+* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>) and Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`, with the same logins. Mobile waits on a staging build (CB-61). Texts to demo clients show as sent and go nowhere; real texts wait on the Twilio number (Trust Hub approval).
 
 **QA steps**
 
@@ -1477,8 +1477,8 @@ Every way a client pays, at the desk, by link or online, ends in the right statu
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile dev-connect worker`. Open web at http://localhost:8700, mobile in the iOS simulator and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`. Run `make stripe-setup` once and keep `make stripe-listen` running for card steps. Texts land in Mailpit at http://localhost:8715.
-* **Staging:** https://app.staging.clientbridge.ca and Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`, with the same logins. Mobile waits on a staging build (CB-61). Card steps use the Stripe sandbox; the demos are linked but their Stripe onboarding isn't finished. Texts to demo clients show as sent and go nowhere; real texts wait on the Twilio number (Trust Hub approval).
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile dev-connect worker`. Open web at [http://localhost:8700](<http://localhost:8700>), mobile in the iOS simulator and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`. Run `make stripe-setup` once and keep `make stripe-listen` running for card steps. Texts land in Mailpit at [http://localhost:8715](<http://localhost:8715>).
+* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>) and Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`, with the same logins. Mobile waits on a staging build (CB-61). Card steps use the Stripe sandbox; the demos are linked but their Stripe onboarding isn't finished. Texts to demo clients show as sent and go nowhere; real texts wait on the Twilio number (Trust Hub approval).
 
 **QA steps**
 
@@ -1528,8 +1528,8 @@ Every way a client pays, at the desk, by link or online, ends in the right statu
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at http://localhost:8700 and mobile in the iOS simulator.
-* **Staging:** https://app.staging.clientbridge.ca, with the same logins. Mobile waits on a staging build (CB-61).
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at [http://localhost:8700](<http://localhost:8700>) and mobile in the iOS simulator.
+* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), with the same logins. Mobile waits on a staging build (CB-61).
 
 **QA steps**
 
@@ -1566,8 +1566,8 @@ Every way a client pays, at the desk, by link or online, ends in the right statu
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile dev-connect`. Open web at http://localhost:8700, mobile in the iOS simulator and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`.
-* **Staging:** https://app.staging.clientbridge.ca and Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`, with the same logins. Mobile waits on a staging build (CB-61).
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile dev-connect`. Open web at [http://localhost:8700](<http://localhost:8700>), mobile in the iOS simulator and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`.
+* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>) and Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`, with the same logins. Mobile waits on a staging build (CB-61).
 
 **QA steps**
 
@@ -1601,8 +1601,8 @@ Every way a client pays, at the desk, by link or online, ends in the right statu
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web`. Open web at http://localhost:8700. Run `make stripe-setup` once and keep `make stripe-listen` running for card steps.
-* **Staging:** https://app.staging.clientbridge.ca, with the same logins. Card steps use the Stripe sandbox; the demos are linked but their Stripe onboarding isn't finished.
+* **Local:** `make up migrate seed`, then `make dev-api dev-web`. Open web at [http://localhost:8700](<http://localhost:8700>). Run `make stripe-setup` once and keep `make stripe-listen` running for card steps.
+* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), with the same logins. Card steps use the Stripe sandbox; the demos are linked but their Stripe onboarding isn't finished.
 
 **QA steps**
 
@@ -1637,8 +1637,8 @@ Every way a client pays, at the desk, by link or online, ends in the right statu
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at http://localhost:8700 and mobile in the iOS simulator. Run `make stripe-setup` once and keep `make stripe-listen` running for card steps.
-* **Staging:** https://app.staging.clientbridge.ca, with the same logins. Mobile waits on a staging build (CB-61). Card steps use the Stripe sandbox; the demos are linked but their Stripe onboarding isn't finished.
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at [http://localhost:8700](<http://localhost:8700>) and mobile in the iOS simulator. Run `make stripe-setup` once and keep `make stripe-listen` running for card steps.
+* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), with the same logins. Mobile waits on a staging build (CB-61). Card steps use the Stripe sandbox; the demos are linked but their Stripe onboarding isn't finished.
 
 **QA steps**
 
@@ -1671,8 +1671,8 @@ Every way a client pays, at the desk, by link or online, ends in the right statu
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web worker`. Open web at http://localhost:8700. Run `make stripe-setup` once and keep `make stripe-listen` running for card steps.
-* **Staging:** https://app.staging.clientbridge.ca, with the same logins. Card steps use the Stripe sandbox; the demos are linked but their Stripe onboarding isn't finished.
+* **Local:** `make up migrate seed`, then `make dev-api dev-web worker`. Open web at [http://localhost:8700](<http://localhost:8700>). Run `make stripe-setup` once and keep `make stripe-listen` running for card steps.
+* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), with the same logins. Card steps use the Stripe sandbox; the demos are linked but their Stripe onboarding isn't finished.
 
 **QA steps**
 
@@ -1709,8 +1709,8 @@ Every way a client pays, at the desk, by link or online, ends in the right statu
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web worker`. Open web at http://localhost:8700. Run `make stripe-setup` once and keep `make stripe-listen` running for card steps.
-* **Staging:** https://app.staging.clientbridge.ca, with the same logins. Card steps use the Stripe sandbox; the demos are linked but their Stripe onboarding isn't finished.
+* **Local:** `make up migrate seed`, then `make dev-api dev-web worker`. Open web at [http://localhost:8700](<http://localhost:8700>). Run `make stripe-setup` once and keep `make stripe-listen` running for card steps.
+* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), with the same logins. Card steps use the Stripe sandbox; the demos are linked but their Stripe onboarding isn't finished.
 
 **QA steps**
 
@@ -1750,8 +1750,8 @@ Every way a client pays, at the desk, by link or online, ends in the right statu
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile dev-connect worker`. Open web at http://localhost:8700, mobile in the iOS simulator and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`. Run `make stripe-setup` once and keep `make stripe-listen` running for card steps. Texts land in Mailpit at http://localhost:8715.
-* **Staging:** https://app.staging.clientbridge.ca and Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`, with the same logins. Mobile waits on a staging build (CB-61). Card steps use the Stripe sandbox; the demos are linked but their Stripe onboarding isn't finished. Texts to demo clients show as sent and go nowhere; real texts wait on the Twilio number (Trust Hub approval).
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile dev-connect worker`. Open web at [http://localhost:8700](<http://localhost:8700>), mobile in the iOS simulator and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`. Run `make stripe-setup` once and keep `make stripe-listen` running for card steps. Texts land in Mailpit at [http://localhost:8715](<http://localhost:8715>).
+* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>) and Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`, with the same logins. Mobile waits on a staging build (CB-61). Card steps use the Stripe sandbox; the demos are linked but their Stripe onboarding isn't finished. Texts to demo clients show as sent and go nowhere; real texts wait on the Twilio number (Trust Hub approval).
 
 **QA steps**
 
@@ -1797,8 +1797,8 @@ Money goes back correctly, every figure agrees with Stripe and the bank, and the
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at http://localhost:8700 and mobile in the iOS simulator. Run `make stripe-setup` once and keep `make stripe-listen` running for card steps.
-* **Staging:** https://app.staging.clientbridge.ca, with the same logins. Mobile waits on a staging build (CB-61). Card steps use the Stripe sandbox; the demos are linked but their Stripe onboarding isn't finished.
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at [http://localhost:8700](<http://localhost:8700>) and mobile in the iOS simulator. Run `make stripe-setup` once and keep `make stripe-listen` running for card steps.
+* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), with the same logins. Mobile waits on a staging build (CB-61). Card steps use the Stripe sandbox; the demos are linked but their Stripe onboarding isn't finished.
 
 **QA steps**
 
@@ -1841,8 +1841,8 @@ Money goes back correctly, every figure agrees with Stripe and the bank, and the
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web`. Open web at http://localhost:8700. Run `make stripe-setup` once and keep `make stripe-listen` running for card steps.
-* **Staging:** https://app.staging.clientbridge.ca, with the same logins. Card steps use the Stripe sandbox; the demos are linked but their Stripe onboarding isn't finished.
+* **Local:** `make up migrate seed`, then `make dev-api dev-web`. Open web at [http://localhost:8700](<http://localhost:8700>). Run `make stripe-setup` once and keep `make stripe-listen` running for card steps.
+* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), with the same logins. Card steps use the Stripe sandbox; the demos are linked but their Stripe onboarding isn't finished.
 
 **QA steps**
 
@@ -1882,8 +1882,8 @@ Money goes back correctly, every figure agrees with Stripe and the bank, and the
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at http://localhost:8700 and mobile in the iOS simulator.
-* **Staging:** https://app.staging.clientbridge.ca, with the same logins. Mobile waits on a staging build (CB-61).
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at [http://localhost:8700](<http://localhost:8700>) and mobile in the iOS simulator.
+* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), with the same logins. Mobile waits on a staging build (CB-61).
 
 **QA steps**
 
@@ -1919,8 +1919,8 @@ Money goes back correctly, every figure agrees with Stripe and the bank, and the
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at http://localhost:8700 and mobile in the iOS simulator.
-* **Staging:** https://app.staging.clientbridge.ca, with the same logins. Mobile waits on a staging build (CB-61).
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at [http://localhost:8700](<http://localhost:8700>) and mobile in the iOS simulator.
+* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), with the same logins. Mobile waits on a staging build (CB-61).
 
 **QA steps**
 
@@ -1953,8 +1953,8 @@ Money goes back correctly, every figure agrees with Stripe and the bank, and the
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at http://localhost:8700 and mobile in the iOS simulator.
-* **Staging:** https://app.staging.clientbridge.ca, with the same logins. Mobile waits on a staging build (CB-61).
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at [http://localhost:8700](<http://localhost:8700>) and mobile in the iOS simulator.
+* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), with the same logins. Mobile waits on a staging build (CB-61).
 
 **QA steps**
 
@@ -1986,8 +1986,8 @@ Money goes back correctly, every figure agrees with Stripe and the bank, and the
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile worker`. Open web at http://localhost:8700 and mobile in the iOS simulator. Run `make stripe-setup` once and keep `make stripe-listen` running for card steps.
-* **Staging:** https://app.staging.clientbridge.ca, with the same logins. Mobile waits on a staging build (CB-61). Card steps use the Stripe sandbox; the demos are linked but their Stripe onboarding isn't finished.
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile worker`. Open web at [http://localhost:8700](<http://localhost:8700>) and mobile in the iOS simulator. Run `make stripe-setup` once and keep `make stripe-listen` running for card steps.
+* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), with the same logins. Mobile waits on a staging build (CB-61). Card steps use the Stripe sandbox; the demos are linked but their Stripe onboarding isn't finished.
 
 **QA steps**
 
@@ -2032,8 +2032,8 @@ Money goes back correctly, every figure agrees with Stripe and the bank, and the
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at http://localhost:8700 and mobile in the iOS simulator.
-* **Staging:** https://app.staging.clientbridge.ca, with the same logins. Mobile waits on a staging build (CB-61).
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at [http://localhost:8700](<http://localhost:8700>) and mobile in the iOS simulator.
+* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), with the same logins. Mobile waits on a staging build (CB-61).
 
 **QA steps**
 
@@ -2083,8 +2083,8 @@ The business texts clients from one inbox, respects consent, and sends forms, co
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at http://localhost:8700 and mobile in the iOS simulator. Texts land in Mailpit at http://localhost:8715.
-* **Staging:** https://app.staging.clientbridge.ca, with the same logins. Mobile waits on a staging build (CB-61). Texts to demo clients show as sent and go nowhere; real texts wait on the Twilio number (Trust Hub approval).
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at [http://localhost:8700](<http://localhost:8700>) and mobile in the iOS simulator. Texts land in Mailpit at [http://localhost:8715](<http://localhost:8715>).
+* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), with the same logins. Mobile waits on a staging build (CB-61). Texts to demo clients show as sent and go nowhere; real texts wait on the Twilio number (Trust Hub approval).
 
 **QA steps**
 
@@ -2132,8 +2132,8 @@ The business texts clients from one inbox, respects consent, and sends forms, co
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web`. Open web at http://localhost:8700. Texts land in Mailpit at http://localhost:8715.
-* **Staging:** https://app.staging.clientbridge.ca, with the same logins. Texts to demo clients show as sent and go nowhere; real texts wait on the Twilio number (Trust Hub approval).
+* **Local:** `make up migrate seed`, then `make dev-api dev-web`. Open web at [http://localhost:8700](<http://localhost:8700>). Texts land in Mailpit at [http://localhost:8715](<http://localhost:8715>).
+* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), with the same logins. Texts to demo clients show as sent and go nowhere; real texts wait on the Twilio number (Trust Hub approval).
 
 **QA steps**
 
@@ -2167,8 +2167,8 @@ The business texts clients from one inbox, respects consent, and sends forms, co
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile worker`. Open web at http://localhost:8700 and mobile in the iOS simulator. Texts land in Mailpit at http://localhost:8715.
-* **Staging:** https://app.staging.clientbridge.ca, with the same logins. Mobile waits on a staging build (CB-61). Texts to demo clients show as sent and go nowhere; real texts wait on the Twilio number (Trust Hub approval).
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile worker`. Open web at [http://localhost:8700](<http://localhost:8700>) and mobile in the iOS simulator. Texts land in Mailpit at [http://localhost:8715](<http://localhost:8715>).
+* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), with the same logins. Mobile waits on a staging build (CB-61). Texts to demo clients show as sent and go nowhere; real texts wait on the Twilio number (Trust Hub approval).
 
 **QA steps**
 
@@ -2204,8 +2204,8 @@ The business texts clients from one inbox, respects consent, and sends forms, co
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile dev-connect worker`. Open web at http://localhost:8700, mobile in the iOS simulator and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`. Texts land in Mailpit at http://localhost:8715.
-* **Staging:** https://app.staging.clientbridge.ca and Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`, with the same logins. Mobile waits on a staging build (CB-61). Texts to demo clients show as sent and go nowhere; real texts wait on the Twilio number (Trust Hub approval).
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile dev-connect worker`. Open web at [http://localhost:8700](<http://localhost:8700>), mobile in the iOS simulator and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`. Texts land in Mailpit at [http://localhost:8715](<http://localhost:8715>).
+* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>) and Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`, with the same logins. Mobile waits on a staging build (CB-61). Texts to demo clients show as sent and go nowhere; real texts wait on the Twilio number (Trust Hub approval).
 
 **QA steps**
 
@@ -2245,8 +2245,8 @@ The business texts clients from one inbox, respects consent, and sends forms, co
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile dev-connect`. Open web at http://localhost:8700, mobile in the iOS simulator and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`. Texts land in Mailpit at http://localhost:8715.
-* **Staging:** https://app.staging.clientbridge.ca and Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`, with the same logins. Mobile waits on a staging build (CB-61). Texts to demo clients show as sent and go nowhere; real texts wait on the Twilio number (Trust Hub approval).
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile dev-connect`. Open web at [http://localhost:8700](<http://localhost:8700>), mobile in the iOS simulator and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`. Texts land in Mailpit at [http://localhost:8715](<http://localhost:8715>).
+* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>) and Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`, with the same logins. Mobile waits on a staging build (CB-61). Texts to demo clients show as sent and go nowhere; real texts wait on the Twilio number (Trust Hub approval).
 
 **QA steps**
 
@@ -2288,8 +2288,8 @@ The business texts clients from one inbox, respects consent, and sends forms, co
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile worker`. Open web at http://localhost:8700 and mobile in the iOS simulator. Texts land in Mailpit at http://localhost:8715.
-* **Staging:** https://app.staging.clientbridge.ca, with the same logins. Mobile waits on a staging build (CB-61). Texts to demo clients show as sent and go nowhere; real texts wait on the Twilio number (Trust Hub approval). The Google review link waits on Business Profile API access.
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile worker`. Open web at [http://localhost:8700](<http://localhost:8700>) and mobile in the iOS simulator. Texts land in Mailpit at [http://localhost:8715](<http://localhost:8715>).
+* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), with the same logins. Mobile waits on a staging build (CB-61). Texts to demo clients show as sent and go nowhere; real texts wait on the Twilio number (Trust Hub approval). The Google review link waits on Business Profile API access.
 
 **QA steps**
 
@@ -2332,8 +2332,8 @@ Staff run their day on any device, online or not, and every device agrees.
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make up-app` for the production web build with its service worker at http://localhost:8751. Mobile needs a release build.
-* **Staging:** https://app.staging.clientbridge.ca and the staging store builds (CB-61).
+* **Local:** `make up migrate seed`, then `make up-app` for the production web build with its service worker at [http://localhost:8751](<http://localhost:8751>). Mobile needs a release build.
+* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>) and the staging store builds (CB-61).
 
 **QA steps**
 
@@ -2376,8 +2376,8 @@ Staff run their day on any device, online or not, and every device agrees.
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web`. Open web at http://localhost:8700.
-* **Staging:** https://app.staging.clientbridge.ca, with the same logins.
+* **Local:** `make up migrate seed`, then `make dev-api dev-web`. Open web at [http://localhost:8700](<http://localhost:8700>).
+* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), with the same logins.
 
 **QA steps**
 
@@ -2426,8 +2426,8 @@ Staff run their day on any device, online or not, and every device agrees.
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`, with a development build on a real phone, since the simulator gets no push. The web feed is at http://localhost:8700.
-* **Staging:** https://app.staging.clientbridge.ca and the staging store builds (CB-61) on real phones.
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`, with a development build on a real phone, since the simulator gets no push. The web feed is at [http://localhost:8700](<http://localhost:8700>).
+* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>) and the staging store builds (CB-61) on real phones.
 
 **QA steps**
 
@@ -2572,8 +2572,8 @@ Clientbridge runs for real: live payments and messages, the admin console, the p
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make configure-demo-admin`, restart `make dev-api` and run `make dev-admin`. Open http://localhost:8711 as hannah@birchbark.example.
-* **Staging:** https://admin.staging.clientbridge.ca, which needs a platform-admin grant on staging.
+* **Local:** `make up migrate seed`, then `make configure-demo-admin`, restart `make dev-api` and run `make dev-admin`. Open [http://localhost:8711](<http://localhost:8711>) as hannah@birchbark.example.
+* **Staging:** [https://admin.staging.clientbridge.ca](<https://admin.staging.clientbridge.ca>), which needs a platform-admin grant on staging.
 
 **QA steps**
 
@@ -2613,8 +2613,8 @@ Clientbridge runs for real: live payments and messages, the admin console, the p
 
 **Where to test**
 
-* **Local:** `make dev-site` at http://localhost:8710, and `make build-site` for the static build.
-* **Staging:** https://staging.clientbridge.ca, which robots.txt keeps out of search.
+* **Local:** `make dev-site` at [http://localhost:8710](<http://localhost:8710>), and `make build-site` for the static build.
+* **Staging:** [https://staging.clientbridge.ca](<https://staging.clientbridge.ca>), which robots.txt keeps out of search.
 
 **QA steps**
 
@@ -2656,7 +2656,7 @@ Clientbridge runs for real: live payments and messages, the admin console, the p
 **Where to test**
 
 * **Local:** Not applicable: this runs on staging with the store builds.
-* **Staging:** https://app.staging.clientbridge.ca, the Connect pages on `staging.clientbridge.ca` and the staging store builds (CB-61). Texts to demo clients show as sent and go nowhere; real texts wait on the Twilio number (Trust Hub approval).
+* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), the Connect pages on `staging.clientbridge.ca` and the staging store builds (CB-61). Texts to demo clients show as sent and go nowhere; real texts wait on the Twilio number (Trust Hub approval).
 
 **QA steps**
 
