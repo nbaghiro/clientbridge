@@ -108,3 +108,17 @@ async def cancel_subscription(
     return await SubscriptionService(db, principal, gateway).cancel_subscription(
         subscription_id, idempotency_key
     )
+
+
+@subscriptions_router.post("/{subscription_id}/cover", response_model=SubscriptionOut)
+async def cover_visit_with_membership(
+    subscription_id: str,
+    body: PackageCover,
+    principal: CurrentPrincipal,
+    db: DbSession,
+    gateway: GatewayDep,
+    idempotency_key: Annotated[str, Header(alias="Idempotency-Key", min_length=8)],
+) -> SubscriptionOut:
+    return await SubscriptionService(db, principal, gateway).cover_visit(
+        subscription_id, body, idempotency_key
+    )

@@ -524,7 +524,7 @@ const KIND_FIELDS: Record<string, ItemField[]> = {
     ],
     product: ["sku", "cost", "trackStock", "lowStockAt", "sellOnline"],
     package: ["sessionCount", "validityDays", "coversItemId"],
-    subscription: ["interval", "frequency", "visitsPerPeriod", "memberDiscount"],
+    subscription: ["interval", "frequency", "visitsPerPeriod", "memberDiscount", "coversItemId"],
     gift: ["giftAmounts"],
 };
 
@@ -610,7 +610,7 @@ export function itemFormError(v: ItemFormValues): string | null {
             return s.depositRequired;
         if (v.depositType === "percent" && value > 100) return s.depositPercentMax;
     }
-    if (shown("coversItemId") && v.coversItemId === "") return s.coversRequired;
+    if (v.kind === "package" && v.coversItemId === "") return s.coversRequired;
     if (v.kind === "package" && (toInt(v.sessionCount) ?? 0) <= 0) return s.sessionsRequired;
     if (v.kind === "class" && v.sessionCount.trim() !== "" && (toInt(v.sessionCount) ?? 0) <= 0)
         return s.programDaysInvalid;
@@ -1087,12 +1087,19 @@ interface PlanFacts {
 
 export interface PlanEditor extends Taxed {
     coverOptions: SelectOption<string>[];
+    /** A membership's included visits cover one service, or any when none is chosen. */
+    membershipCover: {
+        options: SelectOption<string>[];
+        value: string;
+        choose: (key: string) => void;
+    };
     giftChoices: number[];
     toggleGiftAmount: (cents: number) => void;
     facts: PlanFacts;
 }
 
 const GIFT_CHOICES = [2500, 5000, 7500, 10000, 15000, 20000];
+const ANY_SERVICE = "any";
 const PER_YEAR: Record<string, number> = { day: 365, week: 52, month: 12, year: 1 };
 
 function planFacts(v: ItemFormValues, covers: ItemRow | null, editing: boolean): PlanFacts {
@@ -1160,6 +1167,20 @@ export function usePlanEditor(
             label: formatParts([i.name, formatMoney(i.price_cents, BUSINESS_CURRENCY)]),
             media: itemMedia(i),
         })),
+        membershipCover: {
+            options: [
+                { key: ANY_SERVICE, label: s.anyService },
+                ...services.map((i) => ({
+                    key: i.id,
+                    label: formatParts([i.name, formatMoney(i.price_cents, BUSINESS_CURRENCY)]),
+                    media: itemMedia(i),
+                })),
+            ],
+            value: v.coversItemId === "" ? ANY_SERVICE : v.coversItemId,
+            choose: (key) => {
+                form.set("coversItemId", key === ANY_SERVICE ? "" : key);
+            },
+        },
         giftChoices: [...new Set([...GIFT_CHOICES, ...v.giftAmounts])].sort((a, b) => a - b),
         toggleGiftAmount: (cents) => {
             form.set(

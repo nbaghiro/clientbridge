@@ -258,6 +258,19 @@ saved card or bank account and the platform fee as `application_fee_percent`. It
 - When the business's own plan lapses, its memberships keep billing. The owner can still cancel them
   (`POST /v1/subscriptions/{id}/cancel` is allowed while lapsed) and is emailed once that memberships are
   still charging.
+- **Included visits.** A membership with visits each period covers that many started visits per billing
+  period, of one service or of any. The desk's checkout queue offers Use membership on such a visit
+  (after a package, when the client has one), which calls `POST /v1/subscriptions/{id}/cover`. The
+  command needs an idempotency key, locks the membership, applies the same rules as a package cover
+  (an open, unbilled visit that has started, with an unpaid deposit canceled first), counts the visits
+  covered since the period start (`current_period_end` less one interval) and refuses past the count
+  with `membership_visits_used`. The visit records the membership in `bookings.subscription_id` and is
+  completed. The period's price was revenue when it was billed, so a covered visit books no revenue;
+  staff earn on one visit's share of the period's price before tax.
+- **Member discount.** A desk sale or an invoice for a client with an active membership takes the best
+  member discount among their memberships on every retail line, as a line discount named Member
+  discount on the receipt. It follows the client chosen on the sale or invoice, and staff can clear it
+  on any line.
 
 ### Refunds and disputes
 

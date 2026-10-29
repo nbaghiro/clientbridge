@@ -547,6 +547,12 @@ function PlanFields({ ed }: { ed: PlanEditor }) {
                                     />
                                 </div>
                             </div>
+                            <SearchSelect
+                                label={s.membershipCovers}
+                                value={ed.membershipCover.value}
+                                options={ed.membershipCover.options}
+                                onChange={ed.membershipCover.choose}
+                            />
                             <div className="flex gap-3">
                                 <Num
                                     label={s.includes}

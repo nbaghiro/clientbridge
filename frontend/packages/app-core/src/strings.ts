@@ -71,6 +71,7 @@ interface Strings {
         readonly estimateOnVisit: string;
         readonly estimateChanged: string;
         readonly paymentInProgress: string;
+        readonly membershipVisitsUsed: string;
         readonly paymentMethodInUse: string;
         readonly cardDeclined: string;
         readonly paymentActionRequired: string;
@@ -576,6 +577,8 @@ interface Strings {
             readonly addDiscount: string;
             readonly todaysVisits: string;
             readonly usePackage: string;
+            readonly memberDiscount: string;
+            readonly useMembership: string;
             readonly coverError: string;
             readonly giftCardPaid: string;
             readonly giftCardBeforeTip: string;
@@ -3124,6 +3127,8 @@ interface Strings {
         readonly validForDays: string;
         readonly noExpiryHint: string;
         readonly billsEvery: string;
+        readonly anyService: string;
+        readonly membershipCovers: string;
         readonly includes: string;
         readonly includesHint: string;
         readonly memberPerk: string;

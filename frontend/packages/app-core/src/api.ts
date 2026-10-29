@@ -88,6 +88,7 @@ const FAILURES: Record<string, (detail: FailureDetail) => string> = {
     deposit_in_progress: () => strings.api.depositInProgress,
     payment_in_progress: () => strings.api.paymentInProgress,
     payment_method_in_use: () => strings.api.paymentMethodInUse,
+    membership_visits_used: () => strings.api.membershipVisitsUsed,
     card_declined: () => strings.api.cardDeclined,
     payment_action_required: () => strings.api.paymentActionRequired,
     checkout_paid: () => strings.api.checkoutPaid,

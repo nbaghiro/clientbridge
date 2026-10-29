@@ -315,8 +315,8 @@ def _assert_shape(item: Item) -> None:
         raise Unprocessable("only packages and classes have a session count")
     if (item.interval is not None or item.frequency is not None) and item.kind != "subscription":
         raise Unprocessable("only subscriptions repeat")
-    if item.covers_item_id is not None and item.kind != "package":
-        raise Unprocessable("only a package covers a service")
+    if item.covers_item_id is not None and item.kind not in ("package", "subscription"):
+        raise Unprocessable("only a package or membership covers a service")
     if (
         item.visits_per_period is not None or item.member_discount_bps is not None
     ) and item.kind != "subscription":

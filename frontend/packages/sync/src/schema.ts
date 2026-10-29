@@ -904,6 +904,7 @@ const bookings = new Table(
         client_id: column.text,
         subject_id: column.text,
         package_id: column.text,
+        subscription_id: column.text,
         invoice_id: column.text,
         estimate_id: column.text,
         status: column.text,
@@ -937,6 +938,7 @@ const bookings = new Table(
             bookings_staff: ["staff_id"],
             bookings_status: ["status"],
             bookings_subject: ["subject_id"],
+            bookings_subscription: ["subscription_id"],
         },
     },
 );

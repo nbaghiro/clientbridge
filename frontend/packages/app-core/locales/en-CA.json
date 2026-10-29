@@ -192,6 +192,9 @@
     "api.paymentInProgress": {
         "message": "A payment on this invoice is still going through. Wait for it to finish, then try again."
     },
+    "api.membershipVisitsUsed": {
+        "message": "This membership's included visits for the period are used. Ring the visit up instead."
+    },
     "api.paymentMethodInUse": {
         "message": "A membership still bills this card. Cancel the membership or move it to another card first."
     },
@@ -1731,8 +1734,14 @@
     "pos.desk.usePackage": {
         "message": "Use package"
     },
+    "pos.desk.memberDiscount": {
+        "message": "Member discount"
+    },
+    "pos.desk.useMembership": {
+        "message": "Use membership"
+    },
     "pos.desk.coverError": {
-        "message": "Couldn’t use the package. Try again."
+        "message": "Couldn’t cover the visit. Try again."
     },
     "pos.desk.giftCardPaid": {
         "message": "Gift card"
@@ -9220,6 +9229,12 @@
     },
     "catalog.billsEvery": {
         "message": "Bills every"
+    },
+    "catalog.anyService": {
+        "message": "Any service"
+    },
+    "catalog.membershipCovers": {
+        "message": "Visits cover"
     },
     "catalog.includes": {
         "message": "Visits each period"

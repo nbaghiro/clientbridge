@@ -1,7 +1,8 @@
 import secrets
+from calendar import monthrange
 from datetime import datetime, timedelta
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -45,7 +46,7 @@ from clientbridge.services.payments import (
     subscription_fee_percent,
     subscription_terms,
 )
-from clientbridge.services.tax import tax_for_amount
+from clientbridge.services.tax import tax_for_amount, tax_within
 
 _CODE_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567"  # base32, no easily-confused 0/1/8/9
 
@@ -432,21 +433,7 @@ class PackageService:
 
         async def run(cmd: Command) -> PackageOut:
             now = clock.now()
-            billed = booking.invoice_id is not None and (
-                (invoice := await self.db.get(Invoice, booking.invoice_id)) is not None
-                and invoice.status != "void"
-            )
-            if (
-                booking.status != "confirmed"
-                or booking.order_id is not None
-                or booking.charged_at is not None
-                or billed
-            ):
-                raise Conflict("only an open visit that isn't billed can use a package")
-            if booking.deposit_status == "collected":
-                raise Conflict("refund or apply this visit's deposit before using a package")
-            if slot.starts_at > now:
-                raise Conflict("a package covers a visit once it has started")
+            await assert_coverable(self.db, booking, slot)
             covers = (await self._item(package.item_id)).covers_item_id
             if package.client_id != booking.client_id or covers not in (None, slot.item_id):
                 raise Conflict("this package is for another client or service")
@@ -462,15 +449,12 @@ class PackageService:
             used = await ledger.sessions_used(self.db, package)
             if used >= package.sessions_total:
                 raise Conflict("no sessions left on this package")
-            if booking.deposit_status == "pending":
-                if not await cancel_open_deposits(self.db, self.gateway, booking):
-                    raise Conflict("this visit's deposit has just been paid")
-                booking.deposit_status = "none"
+            await release_pending_deposit(self.db, self.gateway, booking)
             booking.package_id = package.id
             booking.status, booking.completed_at = "completed", now
             await complete_when_done(self.db, slot)
             share = await ledger.post_consumption(self.db, package, booking_id=booking.id)
-            await accrue_covered_visit(self.db, booking, share, package.id)
+            await accrue_covered_visit(self.db, booking, share, ("package", package.id))
             if used + 1 >= package.sessions_total:
                 package.status = "used"
             await self.db.flush()
@@ -566,6 +550,49 @@ async def restore_purchased_package(db: AsyncSession, business_id: str, payment_
     if package is not None and package.status == "canceled":
         package.status = "active"
         await db.flush()
+
+
+async def assert_coverable(db: AsyncSession, booking: Booking, slot: Slot) -> None:
+    """A package or membership covers an open, unbilled visit once it has started."""
+    billed = booking.invoice_id is not None and (
+        (invoice := await db.get(Invoice, booking.invoice_id)) is not None
+        and invoice.status != "void"
+    )
+    if (
+        booking.status != "confirmed"
+        or booking.order_id is not None
+        or booking.charged_at is not None
+        or billed
+    ):
+        raise Conflict("only an open visit that isn't billed can be covered")
+    if booking.deposit_status == "collected":
+        raise Conflict("refund or apply this visit's deposit before covering it")
+    if slot.starts_at > clock.now():
+        raise Conflict("a visit is covered once it has started")
+
+
+async def release_pending_deposit(
+    db: AsyncSession, gateway: PaymentGateway, booking: Booking
+) -> None:
+    """A covered visit needs no deposit, so an unpaid one is canceled first."""
+    if booking.deposit_status != "pending":
+        return
+    if not await cancel_open_deposits(db, gateway, booking):
+        raise Conflict("this visit's deposit has just been paid")
+    booking.deposit_status = "none"
+
+
+def period_start(end: datetime, interval: int, frequency: str) -> datetime:
+    """The start of the billing period that ends at `end`."""
+    if frequency == "day":
+        return end - timedelta(days=interval)
+    if frequency == "week":
+        return end - timedelta(weeks=interval)
+    months = interval * (12 if frequency == "year" else 1)
+    index = end.year * 12 + end.month - 1 - months
+    year, month = divmod(index, 12)
+    day = min(end.day, monthrange(year, month + 1)[1])
+    return end.replace(year=year, month=month + 1, day=day)
 
 
 class SubscriptionService:
@@ -688,6 +715,74 @@ class SubscriptionService:
             response_model=SubscriptionOut,
             idempotency_key=idempotency_key,
             request={"subscription_id": subscription_id},
+        )
+
+    async def cover_visit(
+        self, subscription_id: str, data: PackageCover, idempotency_key: str
+    ) -> SubscriptionOut:
+        """Settle a started visit with one of the membership's included visits, completing it."""
+        sub = await self._subscription(subscription_id)
+        booking = await self.db.scalar(
+            scoped(Booking, self.biz, soft_delete=True)
+            .where(Booking.id == data.booking_id)
+            .with_for_update()
+        )
+        if booking is None:
+            raise NotFound("booking not found")
+        assert_can_act_as(self.principal, booking.staff_id)
+        slot = await self.db.get(Slot, booking.slot_id)
+        assert slot is not None
+
+        async def run(cmd: Command) -> SubscriptionOut:
+            # included visits are counted per period, so two covers of one membership take turns
+            await self.db.execute(
+                select(Subscription.id).where(Subscription.id == sub.id).with_for_update()
+            )
+            await self.db.refresh(sub)
+            await assert_coverable(self.db, booking, slot)
+            item = await self._item(sub.item_id)
+            if sub.client_id != booking.client_id or item.covers_item_id not in (
+                None,
+                slot.item_id,
+            ):
+                raise Conflict("this membership is for another client or service")
+            if sub.status != "active" or not item.visits_per_period:
+                raise Conflict("only an active membership with included visits covers a visit")
+            if sub.current_period_end is None or item.interval is None or item.frequency is None:
+                raise Conflict("this membership's billing period isn't known yet")
+            start = period_start(sub.current_period_end, item.interval, item.frequency)
+            used = await self.db.scalar(
+                scoped(Booking, self.biz)
+                .with_only_columns(func.count())
+                .where(Booking.subscription_id == sub.id, Booking.completed_at >= start)
+            )
+            if int(used or 0) >= item.visits_per_period:
+                raise Conflict(
+                    "this membership's visits for the period are used",
+                    code="membership_visits_used",
+                )
+            await release_pending_deposit(self.db, self.gateway, booking)
+            booking.subscription_id = sub.id
+            booking.status, booking.completed_at = "completed", clock.now()
+            await complete_when_done(self.db, slot)
+            # the period's price was revenue when billed; staff earn one visit's share of it
+            priced = await tax_within(
+                self.db, self.biz, item.price_cents, tax_class=item.tax_class, at=start
+            )
+            share = priced.subtotal_cents // item.visits_per_period
+            await accrue_covered_visit(self.db, booking, share, ("subscription", sub.id))
+            await self.db.flush()
+            cmd.record("subscription.cover", entity_type="booking", entity_id=booking.id)
+            return _subscription_out(sub)
+
+        return await run_command(
+            self.db,
+            self.principal,
+            action="subscription.cover",
+            run=run,
+            response_model=SubscriptionOut,
+            idempotency_key=idempotency_key,
+            request={"subscription_id": subscription_id, **data.model_dump()},
         )
 
     def _assert_admin(self) -> None:

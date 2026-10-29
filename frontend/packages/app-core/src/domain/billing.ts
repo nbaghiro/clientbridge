@@ -1,6 +1,6 @@
 import { useBusinessQuery as useQuery } from "../hooks";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { type ApiLike, type Attempt, attemptKey, failureMessage } from "../api";
 import {
@@ -324,6 +324,34 @@ export interface SaleDiscount {
     kind: DiscountKind;
     value: number;
     reason: string | null;
+}
+
+// the best member discount among a client's active memberships, on retail lines
+export const MEMBER_DISCOUNT_SQL = `
+SELECT MAX(i.member_discount_bps) AS bps FROM subscriptions su JOIN items i ON i.id = su.item_id
+WHERE su.client_id = ? AND su.status = 'active' AND i.member_discount_bps > 0`;
+export const RETAIL_ITEMS_SQL = "SELECT id FROM items WHERE kind = 'product'";
+
+/** The previous lines when no line changed, so an effect that applies a rule doesn't render again. */
+export function unchangedOr<T>(before: T[], after: T[]): T[] {
+    return after.every((item, i) => item === before[i]) ? before : after;
+}
+
+/** The member discount as a line discount, named so the receipt says what it is. */
+export function memberDiscount(bps: number): SaleDiscount {
+    return { kind: "percent", value: bps / 100, reason: strings.pos.desk.memberDiscount };
+}
+
+/** A retail line takes the member discount; one staff cleared or gave for another reason keeps its own. */
+export function withMemberDiscount<L extends { discount: SaleDiscount | null }>(
+    line: L,
+    retail: boolean,
+    bps: number | null,
+): L {
+    const member = line.discount?.reason === strings.pos.desk.memberDiscount;
+    if (!retail || (line.discount !== null && !member)) return line;
+    if (bps === null) return member ? { ...line, discount: null } : line;
+    return { ...line, discount: memberDiscount(bps) };
 }
 
 /** Split `total` in whole cents by weight, largest remainder first, so the parts always add up. */
@@ -1532,6 +1560,7 @@ interface DocComposer {
     discountBaseCents: number;
     addCatalogItem: (item: {
         id: string;
+        kind: string;
         name: string;
         price_cents: number | null;
         tax_class: string;
@@ -1571,6 +1600,22 @@ export function useDocComposer(
 ): DocComposer {
     const [clientId, setClientId] = useState(draft?.clientId ?? "");
     const [lines, setLines] = useState(() => (draft !== undefined ? draft.lines.map(keyed) : []));
+    const memberBps =
+        useQuery<{ bps: number | null }>(MEMBER_DISCOUNT_SQL, [clientId]).data[0]?.bps ?? null;
+    const retailKey = useQuery<{ id: string }>(RETAIL_ITEMS_SQL)
+        .data.map((r) => r.id)
+        .join(",");
+    useEffect(() => {
+        const retail = new Set(retailKey.split(","));
+        setLines((ls) =>
+            unchangedOr(
+                ls,
+                ls.map((l) =>
+                    withMemberDiscount(l, l.itemId !== null && retail.has(l.itemId), memberBps),
+                ),
+            ),
+        );
+    }, [memberBps, retailKey]);
     const [message, setMessage] = useState(draft?.notes ?? "");
     const [docDiscount, setDocDiscountState] = useState<SaleDiscount | null>(
         draft?.discount ?? null,
@@ -1826,7 +1871,10 @@ export function useDocComposer(
                 staffId: null,
                 taxClass: asTaxClass(item.tax_class),
                 optional: false,
-                discount: null,
+                discount:
+                    item.kind === "product" && memberBps !== null
+                        ? memberDiscount(memberBps)
+                        : null,
             });
             setLines((ls) => {
                 const last = ls.at(-1);

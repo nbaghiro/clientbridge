@@ -14,7 +14,7 @@ import {
     useCatalogItems,
     useCheckoutQueue,
     openTask,
-    usePackageCover,
+    useVisitCover,
     usePeoplePhotos,
     useRegisterCatalog,
     useSale,
@@ -146,7 +146,7 @@ function VisitRow({
             <StatusPill status={st.label} intent={st.intent} />
             {onCover === null ? null : (
                 <Button size="sm" variant="outline" busy={covering} onPress={onCover}>
-                    {d.usePackage}
+                    {v.cover?.label}
                 </Button>
             )}
             <div className="w-24 shrink-0 text-right">
@@ -195,7 +195,7 @@ const PLAN_KINDS: { key: WalletKind; label: string; icon: "tag" | "box" | "repea
 
 function Register({ sale, switcher }: { sale: SaleTicket; switcher: ReactNode }) {
     const queue = useCheckoutQueue();
-    const cover = usePackageCover(api);
+    const cover = useVisitCover(api);
     const visitId = sale.visitId;
     const catalog = useRegisterCatalog();
     const openLink = useOpenLink();
@@ -251,7 +251,7 @@ function Register({ sale, switcher }: { sale: SaleTicket; switcher: ReactNode })
                                         }}
                                         covering={cover.busy === v.bookingId}
                                         onCover={
-                                            v.packageId !== null &&
+                                            v.cover !== null &&
                                             (v.state === "ready" || v.state === "inProgress")
                                                 ? () => {
                                                       cover.cover(v, () => {

@@ -36,8 +36,11 @@ import {
     discountCents,
     docRates,
     issuedTaxes,
+    MEMBER_DISCOUNT_SQL,
     priceDoc,
     invoiceLabel,
+    unchangedOr,
+    withMemberDiscount,
 } from "./billing";
 import { afterReview, outgoing } from "./previews";
 import { utcBeforeSql, utcFromSql, utcSql } from "../datetime";
@@ -1010,6 +1013,17 @@ export function useSale(
     const giftAttempt = useRef<Attempt | null>(null);
     const giftAction = useAsyncAction();
     const client = useQuery<SaleClientRow>(SALE_CLIENT_SQL, [clientId ?? ""]).data[0] ?? null;
+    const memberBps =
+        useQuery<{ bps: number | null }>(MEMBER_DISCOUNT_SQL, [clientId ?? ""]).data[0]?.bps ??
+        null;
+    useEffect(() => {
+        setLines((ls) =>
+            unchangedOr(
+                ls,
+                ls.map((l) => withMemberDiscount(l, l.kind === "product", memberBps)),
+            ),
+        );
+    }, [memberBps]);
     const cards = useQuery<SavedCardRow>(SALE_CARDS_SQL, [clientId ?? ""]).data;
     const [phone, setPhone] = useState("");
     const keyRef = useRef<Attempt | null>(null);
@@ -1216,14 +1230,22 @@ export function useSale(
         },
         addItem: (item) => {
             edit((ls) => {
+                const fresh = withMemberDiscount(
+                    lineFromItem(item, { staffId: null }),
+                    item.kind === "product",
+                    memberBps,
+                );
                 const same = ls.find(
-                    (l) => l.itemId === item.id && l.bookingId === null && l.discount === null,
+                    (l) =>
+                        l.itemId === item.id &&
+                        l.bookingId === null &&
+                        JSON.stringify(l.discount) === JSON.stringify(fresh.discount),
                 );
                 if (same !== undefined && item.kind === "product")
                     return ls.map((l) =>
                         l.key === same.key ? { ...l, quantity: l.quantity + 1 } : l,
                     );
-                return [...ls, lineFromItem(item, { staffId: null })];
+                return [...ls, fresh];
             });
         },
         addVisit: (visit) => {
@@ -1552,7 +1574,12 @@ SELECT b.id AS booking_id, b.client_id, c.name AS client_name, b.staff_id, ${sta
        st.title AS staff_title, st.role AS staff_role, st.color AS staff_color, s.starts_at, s.ends_at,
        b.price_cents, b.deposit_status, b.deposit_amount_cents, b.order_id, b.charged_at,
        s.item_id, i.name AS item_name, i.kind AS item_kind, i.tax_class, i.color AS item_color,
-       i.price_cents AS item_price_cents, b.package_id,
+       i.price_cents AS item_price_cents, b.package_id, b.subscription_id,
+       (SELECT su.id FROM subscriptions su JOIN items si ON si.id = su.item_id
+        WHERE su.client_id = b.client_id AND su.status = 'active' AND b.status = 'confirmed'
+          AND si.visits_per_period IS NOT NULL
+          AND (si.covers_item_id IS NULL OR si.covers_item_id = s.item_id)
+        ORDER BY su.created_at LIMIT 1) AS cover_subscription_id,
        (SELECT p.id FROM packages p JOIN items pi ON pi.id = p.item_id
         WHERE p.client_id = b.client_id AND p.status = 'active' AND b.status = 'confirmed'
           AND (pi.covers_item_id IS NULL OR pi.covers_item_id = s.item_id)
@@ -1590,7 +1617,24 @@ interface QueueRow {
     item_color: string | null;
     item_price_cents: number | null;
     package_id: string | null;
+    subscription_id: string | null;
     cover_package_id: string | null;
+    cover_subscription_id: string | null;
+}
+
+/** What can settle a started visit instead of a sale: a package session or an included visit. */
+interface VisitCover {
+    via: "package" | "membership";
+    id: string;
+    label: string;
+}
+
+function visitCover(row: QueueRow): VisitCover | null {
+    if (row.cover_package_id !== null)
+        return { via: "package", id: row.cover_package_id, label: d.usePackage };
+    if (row.cover_subscription_id !== null)
+        return { via: "membership", id: row.cover_subscription_id, label: d.useMembership };
+    return null;
 }
 
 export interface CheckoutVisit {
@@ -1606,8 +1650,7 @@ export interface CheckoutVisit {
     end: Date;
     state: VisitState;
     depositCents: number;
-    // the client's active package for this service, which can settle the visit instead of a sale
-    packageId: string | null;
+    cover: VisitCover | null;
     line: SaleLine;
 }
 
@@ -1615,7 +1658,7 @@ function checkoutVisit(row: QueueRow, now: Date): CheckoutVisit {
     const start = parseTimestamp(row.starts_at);
     const end = parseTimestamp(row.ends_at);
     const state: VisitState =
-        row.charged_at !== null || row.package_id !== null
+        row.charged_at !== null || row.package_id !== null || row.subscription_id !== null
             ? "paid"
             : row.order_id !== null
               ? "onTicket"
@@ -1641,7 +1684,7 @@ function checkoutVisit(row: QueueRow, now: Date): CheckoutVisit {
         end,
         state,
         depositCents: row.deposit_status === "collected" ? (row.deposit_amount_cents ?? 0) : 0,
-        packageId: row.cover_package_id,
+        cover: visitCover(row),
         line: {
             key: nextKey(),
             itemId: row.item_id,
@@ -1710,14 +1753,14 @@ export function useLinkedVisit(
     }, [visit, addVisit]);
 }
 
-interface PackageCover {
+interface VisitCovering {
     busy: string | null;
     error: string | null;
     cover: (visit: CheckoutVisit, onDone: () => void) => void;
 }
 
-/** Settles a started visit with the client's package instead of ringing it up. */
-export function usePackageCover(api: ApiLike): PackageCover {
+/** Settles a started visit with the client's package or membership instead of ringing it up. */
+export function useVisitCover(api: ApiLike): VisitCovering {
     const [busy, setBusy] = useState<string | null>(null);
     const attempt = useRef<Attempt | null>(null);
     const action = useAsyncAction();
@@ -1725,13 +1768,14 @@ export function usePackageCover(api: ApiLike): PackageCover {
         busy: action.busy ? busy : null,
         error: action.error,
         cover: (visit, onDone) => {
-            const packageId = visit.packageId;
-            if (packageId === null) return;
+            const by = visit.cover;
+            if (by === null) return;
             setBusy(visit.bookingId);
+            const path = by.via === "package" ? "packages" : "subscriptions";
             action.run(
                 () =>
                     api.post(
-                        `/v1/packages/${packageId}/cover`,
+                        `/v1/${path}/${by.id}/cover`,
                         { booking_id: visit.bookingId },
                         { idempotencyKey: attemptKey(attempt, visit.bookingId) },
                     ),
