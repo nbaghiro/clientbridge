@@ -40,10 +40,12 @@ export async function messageEvidence(clientId: string): Promise<MessageEvidence
             WHERE thread_id IN (SELECT id FROM threads WHERE client_id = ${clientId})
             ORDER BY id`,
         deliveries: await select<MessageEvidence["deliveries"][number]>`
-            SELECT id, state FROM deliveries
-            WHERE payload->>'message_id' IN (
-                SELECT id FROM messages
-                WHERE thread_id IN (SELECT id FROM threads WHERE client_id = ${clientId}))
+            SELECT id, state FROM deliveries d
+            WHERE EXISTS (
+                SELECT 1 FROM jsonb_array_elements_text(d.payload->'message_ids') AS sent(id)
+                WHERE sent.id IN (
+                    SELECT id FROM messages
+                    WHERE thread_id IN (SELECT id FROM threads WHERE client_id = ${clientId})))
             ORDER BY id`,
         audits: await select<MessageEvidence["audits"][number]>`
             SELECT action, entity_id FROM audits
