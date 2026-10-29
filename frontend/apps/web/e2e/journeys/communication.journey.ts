@@ -27,7 +27,7 @@ import {
     headers,
     postInboundSms,
 } from "../support/messaging";
-import { freshPhone, textsTo } from "../support/auth";
+import { freshPhone, textsSince, textsTo } from "../support/auth";
 import { signIn, navigate } from "../support/session";
 import { demoId, demoPhone } from "@clientbridge/config/e2e/run";
 
@@ -92,11 +92,10 @@ test("FLOW-06-A a seat notice queued for the worker honours a STOP that arrives 
             { client: fixture.second, id: secondId, status: "confirmed" },
             { client: waiting, id: waitingId, status: "waitlisted" },
         ]);
-        // joining the waitlist texts the client once, before any STOP
+        // joining the waitlist texts the client before any STOP; the intake-form job may text too
         await expect
             .poll(async () => (await textsTo(page.request, phone)).length, { timeout: 90_000 })
-            .toBe(1);
-        const waitlisted = await textsTo(page.request, phone);
+            .toBeGreaterThan(0);
         const before = await communicationEvidence(waiting.id);
         expect(before.consents).toEqual([]);
         expect(before.threads).toEqual([]);
@@ -121,6 +120,7 @@ test("FLOW-06-A a seat notice queued for the worker honours a STOP that arrives 
             .click();
         const cancellation = await canceled;
         expect(cancellation.status(), await cancellation.text()).toBe(200);
+        const beforeStop = Date.now();
         const stop = await inboundText(page.request, { from: phone, body: "STOP" });
         const stoppedAt = new Date();
         expect(stop.status).toBe(200);
@@ -200,7 +200,7 @@ test("FLOW-06-A a seat notice queued for the worker honours a STOP that arrives 
             fixture.slotId,
             waitingId,
         );
-        expect(await textsTo(page.request, phone)).toEqual(waitlisted);
+        expect(await textsSince(page.request, phone, beforeStop)).toEqual([]);
 
         const other = await observer.newPage();
         await signIn(other);
@@ -289,11 +289,10 @@ test("MSG-E2E-14 a STOP that arrives after a seat notice is queued keeps the wor
         const waitingId = await addClassClient(page, fixture, fixture.waiting, "waitlisted");
         const waiting = { client: fixture.waiting, id: waitingId, status: "waitlisted" };
         await expectClassState(fixture, [first, second, waiting]);
-        // joining the waitlist texts the client once, before any STOP
+        // joining the waitlist texts the client before any STOP; the intake-form job may text too
         await expect
             .poll(async () => (await textsTo(page.request, phone)).length, { timeout: 90_000 })
-            .toBe(1);
-        const waitlisted = await textsTo(page.request, phone);
+            .toBeGreaterThan(0);
         const scope = `seat:${fixture.slotId}:${waitingId}:`;
         expect(await deliveryRows(scope)).toEqual([]);
         expect(await clientOutreach(fixture.waiting.id)).toEqual({
@@ -304,6 +303,7 @@ test("MSG-E2E-14 a STOP that arrives after a seat notice is queued keeps the wor
 
         await awayFromDeliveryTick();
         await cancelOnManagePage(page, fixture);
+        const beforeStop = Date.now();
         const stop = await postInboundSms(page.request, {
             from: phone,
             to: BIRCHBARK_SMS,
@@ -339,7 +339,7 @@ test("MSG-E2E-14 a STOP that arrives after a seat notice is queued keeps the wor
             })
             .toEqual([["failed", "consent_withdrawn"]]);
         const settled = await deliveryRows(scope);
-        expect(await textsTo(page.request, phone)).toEqual(waitlisted);
+        expect(await textsSince(page.request, phone, beforeStop)).toEqual([]);
         expect(await clientOutreach(fixture.waiting.id)).toEqual(stopped);
 
         const log = await openInboxThread(page, fixture.waiting);

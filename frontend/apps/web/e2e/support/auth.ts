@@ -82,6 +82,15 @@ export async function textsTo(request: APIRequestContext, phone: string): Promis
     return ((await response.json()) as { messages: Text[] }).messages;
 }
 
+/** The texts a number received at or after `since`, a time in milliseconds. */
+export async function textsSince(
+    request: APIRequestContext,
+    phone: string,
+    since: number,
+): Promise<Text[]> {
+    return (await textsTo(request, phone)).filter((text) => Date.parse(text.Created) >= since);
+}
+
 /** What `pick` finds in the newest text to `phone`. */
 async function texted(
     request: APIRequestContext,
