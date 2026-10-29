@@ -18,8 +18,9 @@ class EmailDelivery(BaseModel):
 class SmsDelivery(BaseModel):
     channel: Literal["sms"] = "sms"
     message: Sms
-    message_id: str | None = Field(
-        default=None, description="The inbox message this sends; its status follows the outcome"
+    message_ids: list[str] = Field(
+        default_factory=list[str],
+        description="The inbox messages this sends, one per client on the number; each follows it",
     )
 
 

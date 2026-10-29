@@ -101,15 +101,15 @@ def client_number(client: Client) -> str | None:
 
 
 async def queue_message(
-    db: AsyncSession, to: str, body: str, *, message: Message, business: Business
+    db: AsyncSession, to: str, body: str, *, messages: Sequence[Message], business: Business
 ) -> str:
-    """Queue the text; the delivery sends it and sets the row's status."""
+    """Queue one text for the rows it stands for; the delivery sends it and sets their status."""
     sms = Sms(to=to, body=body, from_number=business.sms_number)
     return await enqueue(
         db,
-        SmsDelivery(message=sms, message_id=message.id),
-        key=delivery_key("message", message.id),
-        business_id=message.business_id,
+        SmsDelivery(message=sms, message_ids=[message.id for message in messages]),
+        key=delivery_key("message", messages[0].id),
+        business_id=business.id,
     )
 
 
@@ -277,7 +277,7 @@ async def _send_broadcast(
             continue
         message = await _queue_recipient(db, claimed, client_id)
         text = broadcast_text(locale, name, body or "")
-        await queue_message(db, to, text, message=message, business=business)
+        await queue_message(db, to, text, messages=[message], business=business)
         # the message and its delivery commit together, so the sweep finishes what a crash leaves
         await db.commit()
         await send_queued(db, email, sms, push)
@@ -446,7 +446,7 @@ class MessageService:
             )
             self.db.add(message)
             await self.db.flush()
-            await queue_message(self.db, to, body, message=message, business=business)
+            await queue_message(self.db, to, body, messages=[message], business=business)
             cmd.record("message.send", entity_type="message", entity_id=message.id)
             return _message_out(message)
 

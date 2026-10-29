@@ -2766,17 +2766,11 @@ class ClassService:
 
         async def run(cmd: Command) -> ClassMessageOut:
             stopped = await stopped_clients(self.db, self.biz, [client.id for client in clients])
-            sent = 0
-            texted: set[str] = set()
+            notes: dict[str, list[Message]] = {}
             for client in clients:
                 to = client_number(client)
                 if not to or client.id in stopped:
                     continue
-                sent += 1
-                # one text reaches everyone booked on a shared number
-                if to in texted:
-                    continue
-                texted.add(to)
                 thread = await open_thread(self.db, self.biz, client.id)
                 note = Message(
                     id=new_id("message"),
@@ -2788,11 +2782,14 @@ class ClassService:
                     status="queued",
                 )
                 self.db.add(note)
-                await self.db.flush()
-                await queue_message(self.db, to, data.body, message=note, business=business)
+                notes.setdefault(to, []).append(note)
+            await self.db.flush()
+            # one text reaches everyone booked on a shared number, and each of their notes tracks it
+            for to, shared in notes.items():
+                await queue_message(self.db, to, data.body, messages=shared, business=business)
             await self.db.flush()
             cmd.record("class.message", entity_type="slot", entity_id=slot.id)
-            return ClassMessageOut(sent=sent)
+            return ClassMessageOut(sent=sum(len(shared) for shared in notes.values()))
 
         return await run_command(
             self.db,
