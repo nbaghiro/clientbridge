@@ -61,7 +61,7 @@ describe("useCheckout", () => {
 
     it("starts a new attempt after a refusal and keeps the key when the answer was lost", async () => {
         const keys: string[] = [];
-        const failures = [refused(402), refused(undefined), refused(undefined)];
+        const failures = [refused(402), refused(409), refused(undefined)];
         const charge = (input: { idempotencyKey: string }) => {
             keys.push(input.idempotencyKey);
             return Promise.reject(failures[keys.length - 1] ?? new Error("done"));
@@ -80,7 +80,7 @@ describe("useCheckout", () => {
                 expect(result.current.busy).toBe(false);
             });
         }
-        // a declined card is asked again under a new key; a network failure retries the same one
+        // a declined card is asked again under a new key; a conflict or lost answer keeps it
         expect(keys[1]).not.toBe(keys[0]);
         expect(keys[2]).toBe(keys[1]);
     });

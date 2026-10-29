@@ -159,3 +159,19 @@ def test_a_period_starts_one_interval_before_it_ends() -> None:
     assert period_start(end, 1, "year") == datetime(2025, 3, 31, 12, tzinfo=UTC)
     assert period_start(end, 2, "week") == end - timedelta(weeks=2)
     assert period_start(end, 3, "day") == end - timedelta(days=3)
+
+
+async def test_a_late_renewal_still_counts_this_periods_visits(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await enable_payments(db)
+    sub = await _membership(db, visits=1)
+    # the renewal webhook hasn't arrived, so the stored period ended two days ago
+    sub.current_period_end = clock.now() - timedelta(days=2)
+    earlier = await _started_visit(db, sub.client_id, hours_ago=3)
+    earlier.subscription_id = sub.id
+    earlier.status = "completed"
+    earlier.completed_at = clock.now() - timedelta(days=5)
+    visit = await _started_visit(db, sub.client_id)
+    await db.flush()
+    assert (await _cover(as_owner, sub.id, visit.id)).status_code == 200

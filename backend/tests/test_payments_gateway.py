@@ -78,6 +78,15 @@ async def test_canceling_an_intent_that_went_through_is_a_conflict(
     assert refused.value.code == "payment_in_progress"
 
 
+async def test_canceling_an_intent_the_account_doesnt_have_is_a_conflict(
+    gateway: StripeGateway, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(stripe.PaymentIntent, "cancel_async", _raises(_missing("intent")))
+    monkeypatch.setattr(stripe.PaymentIntent, "retrieve_async", _raises(_missing("intent")))
+    with pytest.raises(Conflict):
+        await gateway.cancel_payment_intent("acct_x", payment_intent_id="pi_gone")
+
+
 async def test_charge_of_a_card_from_another_account_is_a_conflict(
     gateway: StripeGateway, monkeypatch: pytest.MonkeyPatch
 ) -> None:

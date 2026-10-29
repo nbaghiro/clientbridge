@@ -45,6 +45,7 @@ import {
     type PostalParts,
     addressLines,
     discountReason,
+    MEMBER_DISCOUNT_REASON,
     longDate,
     printedDoc,
     shortDate,
@@ -339,7 +340,7 @@ export function unchangedOr<T>(before: T[], after: T[]): T[] {
 
 /** The member discount as a line discount, named so the receipt says what it is. */
 export function memberDiscount(bps: number): SaleDiscount {
-    return { kind: "percent", value: bps / 100, reason: strings.pos.desk.memberDiscount };
+    return { kind: "percent", value: bps / 100, reason: MEMBER_DISCOUNT_REASON };
 }
 
 /** A retail line takes the member discount; one staff cleared or gave for another reason keeps its own. */
@@ -348,7 +349,7 @@ export function withMemberDiscount<L extends { discount: SaleDiscount | null }>(
     retail: boolean,
     bps: number | null,
 ): L {
-    const member = line.discount?.reason === strings.pos.desk.memberDiscount;
+    const member = line.discount?.reason === MEMBER_DISCOUNT_REASON;
     if (!retail || (line.discount !== null && !member)) return line;
     if (bps === null) return member ? { ...line, discount: null } : line;
     return { ...line, discount: memberDiscount(bps) };
@@ -1605,7 +1606,10 @@ export function useDocComposer(
     const retailKey = useQuery<{ id: string }>(RETAIL_ITEMS_SQL)
         .data.map((r) => r.id)
         .join(",");
+    // a draft opens as it was saved; the discount follows a client chosen here
+    const clientChosen = useRef(false);
     useEffect(() => {
+        if (!clientChosen.current) return;
         const retail = new Set(retailKey.split(","));
         setLines((ls) =>
             unchangedOr(
@@ -1834,6 +1838,7 @@ export function useDocComposer(
         clientId,
         setClientId: (id) => {
             touch();
+            clientChosen.current = true;
             setClientId(id);
         },
         lines: composerLines,

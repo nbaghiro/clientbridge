@@ -88,9 +88,8 @@ export function useCheckout(
                         : { paymentMethodId: method, idempotencyKey },
                 );
             } catch (e) {
-                // a refusal is final, so the next press is a new attempt; a lost answer keeps its key
-                const status = failedStatus(e);
-                if (status !== null && status >= 400 && status < 500) keyRef.current = null;
+                // only a declined card is final; anything else may have charged, so it keeps its key
+                if (failedStatus(e) === 402) keyRef.current = null;
                 setError(paymentErrorMessage(e, errorMessage));
                 return;
             }

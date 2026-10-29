@@ -160,10 +160,12 @@ class OrderService:
                 raise Conflict(f"a {status} order can't be voided")
             order.status = "void"
             await ledger.reverse_order_redemptions(self.db, order)
-            await self._link_visits(order, [])
             await self.db.flush()
             if status == "paid":
+                # while the visits are still on the sale, so they stop reading as paid
                 await sync_order(self.db, order.id)
+            await self._link_visits(order, [])
+            await self.db.flush()
             cmd.record("order.void", entity_type="order", entity_id=order.id)
             lines = await fetch_lines(self.db, self.biz, "order", order.id)
             return await order_out(self.db, order, lines)

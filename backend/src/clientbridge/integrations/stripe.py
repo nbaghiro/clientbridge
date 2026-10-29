@@ -1451,10 +1451,8 @@ class StripeGateway:
             await stripe.Subscription.modify_async(
                 subscription_id, cancel_at_period_end=False, stripe_account=account_id
             )
-        except stripe.InvalidRequestError as exc:
-            if _missing(exc):
-                raise Conflict("this subscription is not on the business's Stripe account") from exc
-            raise
+        except stripe.InvalidRequestError as exc:  # missing, or already ended at Stripe
+            raise Conflict("this subscription can't be kept renewing") from exc
 
     @_keyed
     async def create_payment_intent(
@@ -1504,9 +1502,12 @@ class StripeGateway:
         try:
             await stripe.PaymentIntent.cancel_async(payment_intent_id, stripe_account=account_id)
         except stripe.InvalidRequestError as exc:
-            intent = await stripe.PaymentIntent.retrieve_async(
-                payment_intent_id, stripe_account=account_id
-            )
+            try:
+                intent = await stripe.PaymentIntent.retrieve_async(
+                    payment_intent_id, stripe_account=account_id
+                )
+            except stripe.InvalidRequestError:
+                raise Conflict("this payment can't be canceled") from exc
             if intent.status == "canceled":  # canceled before, by us or from Stripe's side
                 return
             # processing or succeeded: it can't be undone

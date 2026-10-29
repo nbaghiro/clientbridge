@@ -218,9 +218,9 @@ An intent that nobody will finish is cancelled rather than left confirmable, so 
 - Creating a membership locks the client and requires an idempotency key, so two quick creates can't
   both start billing. A saved card or bank account a membership still bills can't be removed
   (`payment_method_in_use`); one only canceled memberships used is removed after their link is
-  cleared, and Stripe is told last. Restoring an archived client undoes the end its archive
-  scheduled, and a trial that runs out with memberships still billing sends the owner the same
-  notice a lapsed plan does.
+  cleared, and Stripe is told last. Restoring an archived client undoes only the end its archive
+  scheduled; a Stripe refusal is logged and the restore goes ahead. A trial that runs out with
+  memberships still billing sends the owner the same notice a lapsed plan does.
 - Subscription creates use the command's idempotency key as Stripe's key, so a retry with a different card
   succeeds and a quick resubscribe starts a new subscription. The no-show charge keys on the card, so a
   new default card after a decline is a new charge.
@@ -263,14 +263,15 @@ saved card or bank account and the platform fee as `application_fee_percent`. It
   (after a package, when the client has one), which calls `POST /v1/subscriptions/{id}/cover`. The
   command needs an idempotency key, locks the membership, applies the same rules as a package cover
   (an open, unbilled visit that has started, with an unpaid deposit canceled first), counts the visits
-  covered since the period start (`current_period_end` less one interval) and refuses past the count
+  covered since the period start (`current_period_end` less one interval, rolled forward when a late
+  renewal left the stored end in the past) and refuses past the count
   with `membership_visits_used`. The visit records the membership in `bookings.subscription_id` and is
   completed. The period's price was revenue when it was billed, so a covered visit books no revenue;
   staff earn on one visit's share of the period's price before tax.
 - **Member discount.** A desk sale or an invoice for a client with an active membership takes the best
   member discount among their memberships on every retail line, as a line discount named Member
-  discount on the receipt. It follows the client chosen on the sale or invoice, and staff can clear it
-  on any line.
+  discount on the receipt. It follows a client chosen on the sale or invoice; a draft or held sale
+  opens as it was saved. Staff can clear it on any line.
 
 ### Refunds and disputes
 
@@ -487,8 +488,8 @@ business with a merchant account it re-reads the account (see above), then:
    records no finding and the balance check adds pending refunds back until they settle or fail.
 4. Compares the account balance with the ledger, then checks each account's cached balance against its
    entries. A balance that's off is first noted as `ledger.balance_unsettled`, since a charge whose
-   webhook is still on its way looks the same; it becomes a finding when the next run, within two
-   hours, still sees it off.
+   webhook is still on its way looks the same; it becomes a finding when the next check sees the same
+   residual again, however long until the business's next turn.
 
 A source that answers `retry_later` is skipped until 24 hours after its first transaction's `created`, then
 becomes a `ledger.transaction_drift` finding. A source whose repair raises anything else records a

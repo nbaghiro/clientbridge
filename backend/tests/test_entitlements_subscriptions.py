@@ -1219,6 +1219,20 @@ async def test_restoring_a_client_keeps_their_memberships_renewing(
     assert gateway.kept_subscriptions == ["sub_restore"]
 
 
+async def test_restoring_leaves_a_membership_the_archive_didnt_end(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await enable_payments(db)
+    sub = await _active_sub(db, "sub_not_scheduled")
+    client = await db.get(Client, sub.client_id)
+    assert client is not None
+    client.archived_at, client.status = clock.now(), "inactive"
+    await db.flush()
+    restored = await as_owner.post(f"/v1/clients/{sub.client_id}/restore", headers=key())
+    assert restored.status_code == 200, restored.text
+    assert gateway.kept_subscriptions == []
+
+
 async def test_a_card_a_membership_bills_cannot_be_removed(
     as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
 ) -> None:

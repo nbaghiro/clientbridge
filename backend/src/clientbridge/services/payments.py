@@ -19,7 +19,6 @@ from sqlalchemy import (
     func,
     or_,
     select,
-    update,
 )
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
@@ -590,7 +589,7 @@ class PaymentService:
             if billing is not None:
                 raise Conflict("a membership still bills this card", code="payment_method_in_use")
             await self.db.execute(
-                update(Subscription)
+                scoped_update(Subscription, self.biz)
                 .where(Subscription.payment_method_id == pm.id)
                 .values(payment_method_id=None)
             )
@@ -3305,7 +3304,23 @@ async def keep_memberships(
     )
     for sub in rows.all():
         assert sub.provider_ref is not None
-        await gateway.keep_subscription(account_id, subscription_id=sub.provider_ref)
+        last = await db.scalar(
+            scoped(Audit, business_id)
+            .with_only_columns(Audit.action)
+            .where(
+                Audit.entity_id == sub.id,
+                Audit.action.in_(("subscription.cancel_at_period_end", "subscription.keep")),
+            )
+            .order_by(Audit.id.desc())
+            .limit(1)
+        )
+        if last != "subscription.cancel_at_period_end":
+            continue  # only an end the archive scheduled is undone
+        try:
+            await gateway.keep_subscription(account_id, subscription_id=sub.provider_ref)
+        except Conflict:
+            _log.warning("membership %s could not be kept renewing", sub.id)
+            continue
         cmd.record("subscription.keep", entity_type="subscription", entity_id=sub.id)
 
 
@@ -4036,7 +4051,6 @@ def _drift(business_id: str, action: str, changes: dict[str, object]) -> Audit:
 _FINDINGS = ("ledger.transaction_drift", "ledger.transaction_failed")
 _DEFER_LIMIT = timedelta(hours=24)
 _RECONCILE_OVERLAP = timedelta(days=1)
-_BALANCE_SETTLE_WINDOW = timedelta(hours=2)
 _RECONCILE_BUDGET = timedelta(minutes=10)
 
 
@@ -4451,7 +4465,7 @@ async def _reconcile_balance(
     )
     theirs = await gateway.get_balance_cents(account_id, currency=BUSINESS_CURRENCY)
     residual = theirs - ours - int(explained or 0) + int(pending or 0)
-    if residual and not await _unsettled_last_run(db, business_id):
+    if residual and await _last_unsettled(db, business_id) != residual:
         # a charge whose webhook is still on its way shows here once; drift is what stays
         db.add(
             Audit(
@@ -4469,18 +4483,17 @@ async def _reconcile_balance(
     )
 
 
-async def _unsettled_last_run(db: AsyncSession, business_id: str) -> bool:
-    """Whether the previous hourly run already saw the balance off, so this one confirms it."""
+async def _last_unsettled(db: AsyncSession, business_id: str) -> int | None:
+    """The residual the previous check saw; the same one twice is drift, not a webhook in flight."""
     seen = await db.scalar(
         scoped(Audit, business_id)
-        .with_only_columns(Audit.id)
-        .where(
-            Audit.action == "ledger.balance_unsettled",
-            Audit.created_at >= clock.now() - _BALANCE_SETTLE_WINDOW,
-        )
+        .with_only_columns(Audit.changes)
+        .where(Audit.action == "ledger.balance_unsettled")
+        .order_by(Audit.id.desc())
         .limit(1)
     )
-    return seen is not None
+    residual = seen.get("residual_cents") if seen is not None else None
+    return residual if isinstance(residual, int) else None
 
 
 async def run_reconcile_payments(

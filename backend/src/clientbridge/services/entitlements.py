@@ -582,17 +582,29 @@ async def release_pending_deposit(
     booking.deposit_status = "none"
 
 
+def _shift(at: datetime, interval: int, frequency: str, sign: int) -> datetime:
+    if frequency == "day":
+        return at + sign * timedelta(days=interval)
+    if frequency == "week":
+        return at + sign * timedelta(weeks=interval)
+    months = sign * interval * (12 if frequency == "year" else 1)
+    index = at.year * 12 + at.month - 1 + months
+    year, month = divmod(index, 12)
+    day = min(at.day, monthrange(year, month + 1)[1])
+    return at.replace(year=year, month=month + 1, day=day)
+
+
 def period_start(end: datetime, interval: int, frequency: str) -> datetime:
     """The start of the billing period that ends at `end`."""
-    if frequency == "day":
-        return end - timedelta(days=interval)
-    if frequency == "week":
-        return end - timedelta(weeks=interval)
-    months = interval * (12 if frequency == "year" else 1)
-    index = end.year * 12 + end.month - 1 - months
-    year, month = divmod(index, 12)
-    day = min(end.day, monthrange(year, month + 1)[1])
-    return end.replace(year=year, month=month + 1, day=day)
+    return _shift(end, interval, frequency, -1)
+
+
+def current_period_start(end: datetime, interval: int, frequency: str) -> datetime:
+    """The start of the period in force now, rolling a period end a late renewal left behind."""
+    now = clock.now()
+    while end <= now:
+        end = _shift(end, interval, frequency, 1)
+    return period_start(end, interval, frequency)
 
 
 class SubscriptionService:
@@ -750,9 +762,9 @@ class SubscriptionService:
                 raise Conflict("only an active membership with included visits covers a visit")
             if sub.current_period_end is None or item.interval is None or item.frequency is None:
                 raise Conflict("this membership's billing period isn't known yet")
-            start = period_start(sub.current_period_end, item.interval, item.frequency)
+            start = current_period_start(sub.current_period_end, item.interval, item.frequency)
             used = await self.db.scalar(
-                scoped(Booking, self.biz)
+                scoped(Booking, self.biz, soft_delete=True)
                 .with_only_columns(func.count())
                 .where(Booking.subscription_id == sub.id, Booking.completed_at >= start)
             )

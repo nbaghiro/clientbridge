@@ -14,6 +14,7 @@ from clientbridge.models.business import Business
 from clientbridge.models.catalog import GiftCard, Item, StockMovement
 from clientbridge.models.ledger import Account, Entry
 from clientbridge.models.payments import Payment
+from clientbridge.models.scheduling import Booking
 from clientbridge.services import ledger
 from clientbridge.services.ledger import Leg
 from tests.conftest import BIZ, Factory, FakePaymentGateway, FakeSmsSender
@@ -646,6 +647,37 @@ async def test_a_sale_gift_cards_paid_in_full_can_be_returned_to_the_card(
     await db.refresh(card)
     assert await _balance(db, card) == 10000
     assert await _booked(db) == before
+
+
+async def test_returning_a_gift_card_sale_frees_its_visit_to_be_rung_up_again(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    booking = await db.scalar(
+        select(Booking)
+        .where(
+            Booking.business_id == BIZ,
+            Booking.invoice_id.is_(None),
+            Booking.order_id.is_(None),
+            Booking.charged_at.is_(None),
+            Booking.package_id.is_(None),
+        )
+        .order_by(Booking.id)
+        .limit(1)
+    )
+    assert booking is not None
+    await _active_card(db, code="GIFTVISIT", balance=20000)
+    line = {"description": "Visit", "unit_amount_cents": 4000, "booking_id": booking.id}
+    created = await as_owner.post("/v1/orders", json={"lines": [line]})
+    assert created.status_code == 201, created.text
+    sale = created.json()
+    assert (await _apply(as_owner, sale["id"], "GIFTVISIT")).json()["status"] == "paid"
+    assert (await as_owner.post(f"/v1/orders/{sale['id']}/void")).status_code == 200
+    freed = await db.scalar(
+        select(Booking).where(Booking.id == booking.id).execution_options(populate_existing=True)
+    )
+    assert freed is not None and (freed.order_id, freed.charged_at) == (None, None)
+    again = await as_owner.post("/v1/orders", json={"lines": [line]})
+    assert again.status_code == 201, again.text
 
 
 async def test_a_sale_paid_with_cash_is_refunded_rather_than_voided(

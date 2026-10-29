@@ -1016,7 +1016,10 @@ export function useSale(
     const memberBps =
         useQuery<{ bps: number | null }>(MEMBER_DISCOUNT_SQL, [clientId ?? ""]).data[0]?.bps ??
         null;
+    // a held sale resumes as it was saved; the discount follows a client chosen here
+    const clientChosen = useRef(false);
     useEffect(() => {
+        if (!clientChosen.current) return;
         setLines((ls) =>
             unchangedOr(
                 ls,
@@ -1225,6 +1228,7 @@ export function useSale(
         setClientId: (id) => {
             keyRef.current = null;
             setInvoiced(null);
+            clientChosen.current = true;
             setClientIdState(id);
             setChosen(null);
         },
@@ -1251,7 +1255,10 @@ export function useSale(
         addVisit: (visit) => {
             if (lines.some((l) => l.bookingId === visit.bookingId)) return;
             edit((ls) => [...ls, visit.line]);
-            if (clientId === null) setClientIdState(visit.clientId);
+            if (clientId === null) {
+                clientChosen.current = true;
+                setClientIdState(visit.clientId);
+            }
             if (visit.depositCents > 0)
                 setDeposits((m) => ({ ...m, [visit.bookingId]: visit.depositCents }));
         },
@@ -2153,12 +2160,13 @@ SELECT p.id, p.kind, p.method, p.amount_cents, p.tip_cents, p.tip_split, p.statu
 FROM payments p WHERE p.order_id = ? AND p.status IN ('succeeded', 'pending')
 ORDER BY p.paid_at`;
 
-// a sale's tax is posted on the journal of each payment that settled it
+// a sale's tax is posted on the journal of each payment and gift card redemption that settled it
 const SALE_TAX_BY_CODE_SQL = `
 SELECT a.code AS code, -SUM(e.amount_cents) AS cents
 FROM entries e JOIN accounts a ON a.id = e.account_id
 WHERE a.category = 'tax'
-  AND e.ref IN (SELECT 'payment:' || p.id FROM payments p WHERE p.order_id = ? AND p.kind = 'payment')
+  AND (e.ref IN (SELECT 'payment:' || p.id FROM payments p WHERE p.order_id = ?1 AND p.kind = 'payment')
+       OR (e.event = 'redemption' AND e.source_type = 'order' AND e.source_id = ?1))
 GROUP BY a.code ORDER BY a.code`;
 
 export const SALE_RECORD_SQL = `
