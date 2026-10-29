@@ -176,3 +176,11 @@ providers · deploys · jobs · alerts · restore). Use `.docs/reviews/<area>/` 
 task queue and progress; delete an execution's folder once it is implemented, after moving anything durable
 into the main docs. Keep raw logs and temporary artifacts in `.scratchpad/`. Update links after
 moves. See `.docs/README.md`; design system and IA remain in `.docs/design/app-explorer.html`.
+
+## Tickets (Linear)
+The launch plan is `.docs/launch-readiness.md` together with Linear's Launch QA initiative (workspace
+`clientbridgeca`, team Engineering, key `CB`): 9 areas and 68 tickets, each one user outcome tested on its own.
+Read "How tickets work" there before touching Linear. Don't create small tickets: work on a capability updates
+the ticket that covers it (its steps, Automated by or To automate lines), and a QA failure stays on its ticket.
+A new ticket is only for a new user outcome no ticket covers, agreed first. Change a ticket's text in the doc
+first, then copy it to Linear word for word; status lives only in Linear.

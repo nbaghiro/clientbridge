@@ -329,7 +329,7 @@ Public pages show no Google content, by decision: cached content may be kept for
   Also remove the out-of-date "Internal review removal deployment" section (`:423`).
 
 - architecture.md: add `process_google_operations` (every 15 seconds) to the worker schedule, and describe moderation states, caching and revocation.
-- launch-readiness.md: update CLI-47 and the stale QA steps at `:1175`, `:1237`, `:1241` and `:1245`.
+- launch-readiness.md: update CB-55, the reviews ticket, and its Linear description to match what shipped.
 - Also: demo.md `:40` and `:252`; engineering.md `:682` and the walkthrough notes; `.docs/reviews/product/web-and-connect.md:58, 146`; `.docs/reviews/product/mobile.md:156-158, 206`; the comment at `packages/app-core/src/domain/clients.ts:991`.
 
 **8.2 Close out.** When the feature is live, move what lasts into architecture.md and operations.md and delete this folder and its README entry.

@@ -521,7 +521,7 @@ a non-2xx reply makes it retry.
   cluster. `scripts.verify_kratos` runs the pinned Kratos with that environment and the Kratos contract
   against it.
 - **Not built in** — Kratos OSS has no login lockout; production rate-limits the auth service's
-  `/auth/self-service/*` paths at the proxy (CLI-5). The admin API must stay on the private network.
+  `/auth/self-service/*` paths at the proxy (CB-1). The admin API must stay on the private network.
 
 ## Authorization & visibility
 
@@ -864,7 +864,7 @@ takes cards.
 All businesses share one platform SMS number today. An inbound text goes to the business that most
 recently texted that phone (`messaging.route_inbound_sms`, through `scoped()`); with no sender or a tie it
 is recorded as unmatched rather than guessed, and STOP or START applies only to the business it was routed
-to. A text number per business is launch work (CLI-45). The SMS webhook checks `X-Twilio-Signature`, and
+to. Each business texts from its own number, assigned in the admin console (CB-49). The SMS webhook checks `X-Twilio-Signature`, and
 production refuses to boot without `TWILIO_AUTH_TOKEN`. Phones are stored as E.164 (`core/phones.py` and
 app-core `normalizePhone` share one rule). Only the client's own START lifts an SMS STOP, and STOP is the
 only way a client opts out themselves; staff can also record a client's yes or no to offers. A broadcast is

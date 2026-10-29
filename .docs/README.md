@@ -7,7 +7,7 @@ Keep the root for the main, maintained documentation. Reviews, explorations and 
 | [Architecture](architecture.md)         | System, data model, synchronization, authorization and client architecture.                    |
 | [Engineering](engineering.md)           | Development conventions, testing, local setup and shipping workflow.                           |
 | [Demo](demo.md)                         | Demo businesses, logins and what each shows.                                                   |
-| [Launch readiness](launch-readiness.md) | Product scope, launch work and deferred capabilities.                                          |
+| [Launch readiness](launch-readiness.md) | The launch plan and QA tickets (mirrored in Linear), and deferred capabilities.                |
 | [Payments](payments.md) | Stripe accounts, merchant payments, payouts, platform billing, setup, recovery and QA. |
 | [Operations](operations.md)             | Environments, stacks, settings and secrets, provider setup, deploys, jobs, alerts and restore. |
 

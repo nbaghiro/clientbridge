@@ -1,1469 +1,2503 @@
 # Launch readiness
 
-The work between today and the finished product, as seven stages in order. Each stage is a state of the product, written as what a business can do, and it is done when its QA pass runs clean on web, iPhone and Android, as the owner and as staff. The stories in a stage are the flows that get it there. Work through the stages in order; the last step of stage 7 is the final release pass.
+The work between today and launch, as 9 areas and 68 tickets. Each ticket is one outcome a business can rely on, and it is done when its QA steps pass on the platforms it names. Once a ticket passes, nobody needs to come back to it. The tickets are also the launch QA plan: each lists the e2e cases that prove it, the cases still to write and what can only be checked by hand.
 
-This file is the source of truth for every ticket. Each story below has its full description, in the same text as its Linear issue. Linear is the tracker: https://linear.app/clientbridgeca/initiative/launch-2e6ce8efe3c9, where each stage is a project closed by its QA pass milestone and dependencies are blocks relations. Size: S is up to two days (estimate 1), M up to a week (3) and L more than a week (5).
+Linear tracks status: the [Launch QA initiative](https://linear.app/clientbridgeca/initiative/launch-qa-2ad161486768) in the `clientbridgeca` workspace, team Engineering (key `CB`). Each area is a project, each ticket an issue whose description is the ticket's text below, and each dependency a `blocks` relation. The [Launch QA board](https://linear.app/clientbridgeca/view/e48dd1630428) shows every ticket by state.
 
-## Keeping Linear in sync
+## How tickets work
 
-- This file comes first. A new story is written here, under its stage, in the layout below: the heading `### <Title> (CLI-n)`, a line with its size and area, then When this is done, Surfaces, Flow, Built, To do, QA and Depends on. When this is done is the story's done-when line.
-- Then the story is created in Linear with the same title and description, in its stage project and that stage's QA pass milestone, with its Area label, its estimate and a blocks relation from each story it depends on. Its `CLI-n` key goes back into the heading and the stage table.
-- Status lives in Linear. When work ships, the Built and To do lines are updated here first and copied to Linear.
-- A periodic check compares this file with Linear: titles, descriptions, stage, area, estimate and dependencies. Drift is fixed in Linear from this file, not the other way round.
-- Linear is changed through its GraphQL API with `linear --workspace clientbridgeca api '<query>' --variables-json '<json>'`. A dependency is `issueRelationCreate` with type `blocks`, from the prerequisite (`issueId`) to the story that depends on it (`relatedIssueId`). Priority is not used.
+- **This file and Linear are the plan.** Don't create a ticket for every piece of work. Work on a capability belongs to the ticket that already covers it: update that ticket's steps, Automated by or To automate lines rather than opening a new one.
+- **A new ticket is a new user outcome** that no ticket covers and that can be tested on its own in one QA session. Small fixes, follow-ups and e2e cases are not tickets; they go on the ticket they serve. Agree a new ticket before creating it.
+- **A QA failure stays on its ticket.** Record what failed on the ticket and move it to QA failed; fix it and move it back to Ready for QA. Only open a separate issue for a bug that blocks other tickets.
+- **This file comes first.** Change a ticket's text here, then copy it to the Linear description so the two match word for word. Status lives only in Linear: Backlog, Todo, In Progress, Ready for QA, In QA, QA failed, Done.
+- **Every ticket uses one layout:** Covers, Before you start, QA steps (each with its expected result), Done when, By hand only (when needed), Automated by, To automate and Depends on. Each one carries an Automation label in Linear (Automated, Partly automated or Manual).
+- **Linear changes go through its API:** `linear --workspace clientbridgeca api '<query>' --variables-json '<json>'`. A dependency is `issueRelationCreate` with type `blocks`, from the prerequisite (`issueId`) to the ticket that waits on it (`relatedIssueId`). Priority isn't used.
 
-| Stage                           | Story                                                          | Linear | Size |
-| ------------------------------- | -------------------------------------------------------------- | ------ | ---- |
-| 1. Get set up                   | Sign-up, sign-in and password reset                            | CLI-5  | S    |
-| 1. Get set up                   | Onboarding, business profile and branding                      | CLI-6  | S    |
-| 1. Get set up                   | Team invites and roles                                         | CLI-7  | S    |
-| 1. Get set up                   | Stripe connect and payout status                               | CLI-8  | S    |
-| 1. Get set up                   | Tax registration and per-item tax classes                      | CLI-9  | M    |
-| 1. Get set up                   | Plan subscription, trial and billing                           | CLI-10 | L    |
-| 2. Load clients and the catalog | Client records: add, edit, archive, search                     | CLI-11 | S    |
-| 2. Load clients and the catalog | Pets, students and properties on clients                       | CLI-12 | M    |
-| 2. Load clients and the catalog | Notes and client history timeline                              | CLI-13 | M    |
-| 2. Load clients and the catalog | Saved cards and bank accounts                                  | CLI-14 | S    |
-| 2. Load clients and the catalog | Tags and duplicate merging                                     | CLI-15 | M    |
-| 2. Load clients and the catalog | Services and classes: duration, buffers, capacity, deposits    | CLI-16 | S    |
-| 2. Load clients and the catalog | Products: SKU, cost, price, images (web and mobile)            | CLI-17 | M    |
-| 2. Load clients and the catalog | Stock tracking, low stock and restock                          | CLI-18 | S    |
-| 2. Load clients and the catalog | Packages, memberships and gift card items                      | CLI-19 | S    |
-| 3. Book and complete a visit    | Staff hours, time off and closures                             | CLI-20 | M    |
-| 3. Book and complete a visit    | Calendar: create, move, cancel, complete, no-show              | CLI-21 | M    |
-| 3. Book and complete a visit    | Recurring bookings                                             | CLI-22 | M    |
-| 3. Book and complete a visit    | Classes                                                        | CLI-23 | M    |
-| 3. Book and complete a visit    | Reminders and end-of-day completion                            | CLI-24 | S    |
-| 3. Book and complete a visit    | Booking page with deposits and embedding                       | CLI-25 | S    |
-| 3. Book and complete a visit    | Booking add-ons                                                | CLI-26 | S    |
-| 3. Book and complete a visit    | Client self-service cancel and reschedule                      | CLI-28 | M    |
-| 4. Get paid                     | Online shop and pickup orders                                  | CLI-27 | M    |
-| 4. Get paid                     | Sales with services and products                               | CLI-29 | S    |
-| 4. Get paid                     | Card and Tap to Pay checkout with receipts                     | CLI-30 | M    |
-| 4. Get paid                     | Interac debit on Tap to Pay                                    | CLI-31 | M    |
-| 4. Get paid                     | Tips at checkout                                               | CLI-32 | M    |
-| 4. Get paid                     | Discounts                                                      | CLI-33 | M    |
-| 4. Get paid                     | Estimates: create, send, accept, convert                       | CLI-34 | S    |
-| 4. Get paid                     | Invoices: create, send, void, pay link                         | CLI-35 | S    |
-| 4. Get paid                     | Recording payments in the app                                  | CLI-36 | M    |
-| 4. Get paid                     | PDF invoices, estimates and receipts                           | CLI-37 | M    |
-| 4. Get paid                     | Packages, memberships and gift cards: sell, use, renew, expire | CLI-38 | M    |
-| 4. Get paid                     | Refunds and chargebacks                                        | CLI-39 | S    |
-| 5. See the money                | Today dashboard                                                | CLI-40 | S    |
-| 5. See the money                | Reports: income, sales by item, GST/HST, T4A                   | CLI-41 | S    |
-| 5. See the money                | Tax returns and remittance                                     | CLI-42 | S    |
-| 5. See the money                | Stripe reconciliation, fees and payouts                        | CLI-43 | S    |
-| 5. See the money                | Staff pay: earnings, approval, payment                         | CLI-44 | M    |
-| 6. Talk to clients              | Two-way inbox with a text number per business                  | CLI-45 | L    |
-| 6. Talk to clients              | Broadcasts with consent and opt-out                            | CLI-46 | L    |
-| 6. Talk to clients              | Google review invitations                                 | CLI-47 | M    |
-| 6. Talk to clients              | Intake forms                                                   | CLI-48 | S    |
-| 6. Talk to clients              | Contracts, signing and signed PDFs                             | CLI-49 | M    |
-| 7. Go live                      | Production hosting, deploys and security                       | CLI-50 | L    |
-| 7. Go live                      | Backups, monitoring and alerts                                 | CLI-51 | M    |
-| 7. Go live                      | iPhone and Android store release                               | CLI-52 | M    |
-| 7. Go live                      | Marketing site launch                                          | CLI-53 | S    |
-| 7. Go live                      | Final release QA and sign-off                                  | CLI-54 | M    |
+| Area | Ticket | Linear | Automation |
+| --- | --- | --- | --- |
+| 1. Get set up | Sign up, sign in and recover access on every platform | CB-1 | Partly automated |
+| 1. Get set up | Turn on two-step sign-in | CB-2 | Partly automated |
+| 1. Get set up | Onboard a business and see its brand on every client page | CB-3 | Partly automated |
+| 1. Get set up | Invite the team and hold every role to its list | CB-4 | Partly automated |
+| 1. Get set up | Connect Stripe and know when payments and payouts work | CB-5 | Partly automated |
+| 1. Get set up | Run the trial, buy a plan, bill seats and go read-only | CB-6 | Partly automated |
+| 1. Get set up | Charge the right sales tax in every province | CB-7 | Partly automated |
+| 2. Clients and catalog | Keep a client record up to date from any device | CB-8 | Partly automated |
+| 2. Clients and catalog | Record what each client books for | CB-9 | Partly automated |
+| 2. Clients and catalog | Keep notes, photos and the client's story in one place | CB-10 | Partly automated |
+| 2. Clients and catalog | Tag clients and merge duplicates without losing anything | CB-11 | Partly automated |
+| 2. Clients and catalog | Save a client's card or bank account and charge it | CB-12 | Partly automated |
+| 2. Clients and catalog | Set up services, classes and shared resources that book the way they read | CB-13 | Partly automated |
+| 2. Clients and catalog | Set up products and keep stock true to the shelf | CB-14 | Automated |
+| 2. Clients and catalog | Set up packages, memberships and gift card items | CB-15 | Manual |
+| 3. Run the schedule | Set hours, time off and closures that decide open times | CB-16 | Partly automated |
+| 3. Run the schedule | Book, move and cancel visits from the calendar | CB-17 | Partly automated |
+| 3. Run the schedule | Run a visit from On my way to checkout | CB-18 | Manual |
+| 3. Run the schedule | Book and manage repeat visits | CB-19 | Manual |
+| 3. Run the schedule | Run classes, waitlists and programs | CB-20 | Automated |
+| 3. Run the schedule | Work a job with a crew, visit records and photos | CB-21 | Manual |
+| 3. Run the schedule | Remind clients before each visit | CB-22 | Manual |
+| 3. Run the schedule | Remove a team member without stranding a visit | CB-23 | Partly automated |
+| 4. Book online | Take a booking online with a deposit | CB-24 | Partly automated |
+| 4. Book online | Let returning clients book as themselves | CB-25 | Automated |
+| 4. Book online | Add products to a booking and bill them once | CB-26 | Automated |
+| 4. Book online | Let clients reschedule or cancel from their link | CB-27 | Partly automated |
+| 4. Book online | Put the business page and booking on the business's own site | CB-28 | Automated |
+| 5. Get paid | Ring up a sale at the desk and send the receipt | CB-29 | Partly automated |
+| 5. Get paid | Take card payments at the desk | CB-30 | Partly automated |
+| 5. Get paid | Take Tap to Pay on real phones | CB-31 | Manual |
+| 5. Get paid | Add tips and discounts that add up by hand | CB-32 | Partly automated |
+| 5. Get paid | Quote with an estimate and turn it into an invoice | CB-33 | Automated |
+| 5. Get paid | Invoice, send by text and get paid by link | CB-34 | Automated |
+| 5. Get paid | Record any payment on an invoice | CB-35 | Partly automated |
+| 5. Get paid | Print or share invoices, estimates, receipts and statements | CB-36 | Manual |
+| 5. Get paid | Take deposits and apply them to the bill | CB-37 | Partly automated |
+| 5. Get paid | Sell and redeem gift cards | CB-38 | Partly automated |
+| 5. Get paid | Sell, use and expire packages | CB-39 | Partly automated |
+| 5. Get paid | Run memberships through renewals and failures | CB-40 | Partly automated |
+| 5. Get paid | Fill online shop orders from cart to pickup | CB-41 | Partly automated |
+| 6. After the sale | Refund correctly and unwind what the sale created | CB-42 | Automated |
+| 6. After the sale | Handle chargebacks to their outcome | CB-43 | Automated |
+| 6. After the sale | See the day on Today | CB-44 | Partly automated |
+| 6. After the sale | Hand the bookkeeper reports that add up | CB-45 | Partly automated |
+| 6. After the sale | Record filed GST/HST returns | CB-46 | Automated |
+| 6. After the sale | Match payouts and fees with Stripe | CB-47 | Partly automated |
+| 6. After the sale | Pay the team | CB-48 | Partly automated |
+| 7. Talk to clients | Text clients from one inbox, on the business's own number | CB-49 | Automated |
+| 7. Talk to clients | Honour STOP and consent everywhere | CB-50 | Automated |
+| 7. Talk to clients | Send broadcasts only to clients who agreed | CB-51 | Partly automated |
+| 7. Talk to clients | See every message before it leaves | CB-52 | Partly automated |
+| 7. Talk to clients | Collect intake forms before the first visit | CB-53 | Partly automated |
+| 7. Talk to clients | Send contracts and keep what was signed | CB-54 | Automated |
+| 7. Talk to clients | Ask for Google reviews after visits | CB-55 | Partly automated |
+| 8. Mobile, devices and sync | Keep working offline and come back cleanly | CB-56 | Automated |
+| 8. Mobile, devices and sync | Keep tabs and devices in step | CB-57 | Automated |
+| 8. Mobile, devices and sync | Lose access, lose the data | CB-58 | Automated |
+| 8. Mobile, devices and sync | Notify staff on their phones | CB-59 | Partly automated |
+| 8. Mobile, devices and sync | Run the day on iPhone, Android and iPad | CB-60 | Partly automated |
+| 8. Mobile, devices and sync | Ship store builds staff can install | CB-61 | Manual |
+| 9. Platform, admin and launch | Run production safely on its own hosts | CB-62 | Partly automated |
+| 9. Platform, admin and launch | Restore from backup and hear about errors first | CB-63 | Manual |
+| 9. Platform, admin and launch | Use live providers safely | CB-64 | Manual |
+| 9. Platform, admin and launch | Operate the platform from the admin console | CB-65 | Partly automated |
+| 9. Platform, admin and launch | Launch a marketing site that makes no claim the product can't back | CB-66 | Partly automated |
+| 9. Platform, admin and launch | Keep every word from the catalog and every page accessible | CB-67 | Automated |
+| 9. Platform, admin and launch | Run the final release pass and sign off | CB-68 | Manual |
 
 ---
 
 ## 1. Get set up
 
-Done when: A business can sign up, set up its profile, invite staff, connect Stripe, switch on tax and pick a plan.
+A new owner signs up, sets up the business, brings in the team, connects Stripe, picks a plan and charges the right tax.
 
-QA pass:
+### Sign up, sign in and recover access on every platform (CB-1)
 
-1. From the marketing site, sign up with a new email and enter the emailed code; sign out and back in on web, iPhone and Android, then with Google and with an authenticator code.
-2. Finish onboarding, set the colour, tagline and logo, and check that the booking, pay and shop pages use them.
-3. Invite a staff member and an admin; as staff, see only your own bookings and hours, and have a refund, a void and editing another member's hours refused.
-4. Connect Stripe with the test identity until the status reads ready, then take a $10 test card payment.
-5. Switch on tax for an Ontario business: a $100 invoice charges $13 HST and an exempt line charges nothing.
-6. Check the 14-day trial, subscribe to Premium yearly, and see the seat count rise when a staff member joins.
+**Covers:** Web Login and Sign-in & security, mobile Login, the auth service, Mailpit or real email on staging
+**Before you start:** A fresh email address you can read; a Google account on the same address; web, an iPhone and an Android phone with the staging build
 
-Run it in order on one business, on web, iPhone and Android, as the owner and again as staff where the steps involve roles.
+**QA steps**
 
-### Sign-up, sign-in and password reset (CLI-5)
+1. From the marketing site, click Start free.
+   **Expect:** the browser lands on `/signup`, not the sign-in page.
+2. Sign up with the new email and enter a wrong code, then the mailed code.
+   **Expect:** the wrong code is refused with a plain message; the right one opens onboarding.
+3. Reload while confirming.
+   **Expect:** you stay signed in and are not sent back to confirm again.
+4. Sign out and back in on web, iPhone and Android.
+   **Expect:** each lands on Today; on mobile, killing and reopening the app keeps you signed in.
+5. Reset the password with the emailed code on web.
+   **Expect:** you are signed in on that device only; the old password fails.
+6. Change the password in Setup > Sign-in & security.
+   **Expect:** the other devices are signed out at their next request.
+7. Sign in with Google on the same address.
+   **Expect:** the same account and business open; on mobile the Google button shows the unavailable state.
+8. Try a wrong password five times.
+   **Expect:** the same error each time and no detail about whether the account exists.
 
-Size: S · Area: Accounts and settings
+**Done when:** Every step passes on web, iPhone and Android with no workaround, and the session behaviour matches the steps above.
 
-**When this is done:** A new owner gets in and back in on every platform without help.
+**By hand only**
 
-**Surfaces:** Backend, web, iPhone and Android
+* Google sign-in with a real Google account (consent screen, callback on the staging host).
+* Proxy rate limiting on `/auth/self-service/*`, which only exists on the deployed gateway.
 
-**Flow:** A new owner signs up, verifies their email, signs out and back in, resets a forgotten password, signs in with Google and turns on two-step verification.
+**Automated by**
 
-**Built:** the auth service, self-hosted Ory Kratos, for email and password, email verification and recovery codes, Google sign-in, authenticator apps, backup codes and security keys (web), and the Sign-in & security settings; `/signup` has its own URL; web holds an HttpOnly session cookie and mobile a session token. Invites need the invited address verified.
+* `XB-E2E-01 (web)`
+* `XB-E2E-02 (web)`
+* `XB-E2E-03 (web)`
+* `NATIVE-IOS-01 (native-ios, native-android)`
+* `web: auth.e2e.ts › signup has its own entry link and invites explain a missing token`
+* `web: auth.e2e.ts › reloading while confirming the email keeps the new account signed in`
+* `web: auth.e2e.ts › an account whose identity was recreated confirms its email instead of looping`
+* `web: auth.e2e.ts › auth errors offer a clean return to sign in`
+* `web: auth.e2e.ts › sign-in, signup and reset validation at <width>px`
+* `mobile: auth.recovery.yaml (recovery end to end, unregistered)`
+* `mobile: staff.yaml (sign-in entry and Google unavailable, unregistered)`
 
-**To do:**
+**To automate**
 
-- Deploy the auth service under the API host at `api.<base>/auth` (the Gateway strips the prefix) with its own `auth` database, the host-only `__Host-cb_session` session cookie, WebAuthn for `app.<base>`, and the admin API on the private network only.
-- Production secrets: `AUTH_COOKIE_SECRET` and `AUTH_CIPHER_SECRET` (32 characters; passed to Kratos as `SECRETS_COOKIE` and `SECRETS_CIPHER`, and it refuses to start without them, since `kratos.yml` holds none) and `AUTH_EMAIL_HOOK_SECRET` (set on both the auth service and the API), with `COURIER_HTTP_REQUEST_CONFIG_URL` pointing at the API over the private network and the auth service running its courier (`--watch-courier` or `kratos courier watch`); Resend needs the verified sending domain and the three email settings (see Email delivery in engineering.md).
-- Set `BASE_DOMAIN` (`clientbridge.ca`, `staging.clientbridge.ca`): it derives `WEB_BASE_URL` (`app.`), the only origin that gets credentialed CORS and may send the session cookie, and `CORS_ALLOW_ORIGINS` (`book.`, `pay.` and `shop.`), served without credentials; the marketing site makes no API calls. Set `TRUSTED_PROXY_HOPS=2` behind Google's load balancer.
-- Google OAuth client with the auth service's callbacks (`https://api.clientbridge.ca/auth/self-service/methods/oidc/callback/google` and the same path on `api.staging.clientbridge.ca`) and consent screen; set `GOOGLE_OAUTH_CLIENT_ID`/`SECRET`.
-- Rate limits on `/auth/self-service/*` at the proxy: Kratos OSS has no login lockout.
-- Security keys on mobile (native passkeys need associated domains); mobile has authenticator apps and backup codes, and tells a key-only account to add one of those on the web.
+* `ID-E2E-02` in `apps/web/e2e/auth.e2e.ts`: Wrong then right verification code, then sign-in from a second context reaches the same business (family ID01).
+* `ID-E2E-03` in `apps/web/e2e/auth.e2e.ts`: An old session is refused on its next business action after recovery (ID03).
+* `NATIVE-AUTH-01` in `apps/mobile/e2e/auth.session.yaml`: Register NATIVE-IOS-01's Android run and add sign-in after a password change elsewhere.
 
-**QA:**
+**Depends on:** Nothing
 
-1. From the marketing site, click Start free and sign up with a new email; enter the emailed code.
-2. Sign out and in on web, iPhone and Android.
-3. Reset the password with the emailed code, then sign in with Google on the same address.
-4. Turn on an authenticator app in Setup › Sign-in & security; sign out and back in with a code on each platform.
-5. Try a wrong password repeatedly: the error is the same each time, no account detail leaks, and the proxy starts refusing.
+### Turn on two-step sign-in (CB-2)
 
-**Depends on:** nothing
+**Covers:** Setup > Sign-in & security on web and mobile
+**Before you start:** An owner account from CB-1; an authenticator app; a security key or platform passkey on a laptop
 
-### Onboarding, business profile and branding (CLI-6)
+**QA steps**
 
-Size: S · Area: Accounts and settings
+1. Turn on an authenticator app on web.
+   **Expect:** a QR code and a code check; backup codes are shown once.
+2. Sign out and in with a wrong code, then the right one.
+   **Expect:** the wrong code is refused; the right one signs in.
+3. Sign in with one backup code, then try it again.
+   **Expect:** the first use works, the second is refused.
+4. Repeat sign-in with a code on iPhone and Android.
+   **Expect:** both accept the authenticator code.
+5. On web, add a security key, sign in with password and key, then remove it.
+   **Expect:** the removed key no longer signs in.
+6. On mobile, sign in to an account whose only second factor is a key.
+   **Expect:** the app asks to add an authenticator or backup codes on the web.
 
-**When this is done:** A new business looks like itself on its public pages within five minutes of signing up.
+**Done when:** Each factor can be added, used and removed, and a used backup code never works twice.
 
-**Surfaces:** Backend, web, iPhone and Android
+**By hand only**
 
-**Flow:** After sign-up the owner names the business, picks a web address and province, then sets contact details, logo, colour and tagline.
+* Native passkeys are not built; check only the mobile fallback message.
 
-**Built:** Onboarding (name, web address, province), Setup › Business with contact details, timezone, brand colour, tagline and logo upload on web.
+**Automated by**
 
-**To do:**
+* `XB-E2E-04 (web)`
 
-- Logo upload on mobile (shared with the products images story).
-- Empty states on every screen that tell a new business what to do next.
+**To automate**
 
-**QA:**
+* `ID-E2E-04` in `apps/web/e2e/auth.e2e.ts`: Backup codes: use, reuse refused, regenerate, old code refused (ID04).
+* `ID-E2E-05` in `apps/web/e2e/auth.e2e.ts`: Security key with Playwright's virtual authenticator: register, sign in, remove, removed key refused (ID05).
 
-1. Finish onboarding as a new owner and land on Today.
-2. Set the colour, tagline and logo; the booking page, pay page and shop use all three.
-3. Open every main screen with no data: each explains what to add first.
+**Depends on:** CB-1
 
-**Depends on:** Sign-up, sign-in and password reset (CLI-5)
+### Onboard a business and see its brand on every client page (CB-3)
 
-### Team invites and roles (CLI-7)
+**Covers:** Web and mobile Onboarding, Setup > Business, Get set up, Connect business, booking, pay and shop pages
+**Before you start:** A new account from CB-1 with no business
 
-Size: S · Area: Accounts and settings
+**QA steps**
 
-**When this is done:** Each role sees and can do exactly its list, on web, iPhone and Android.
+1. Onboard a Nova Scotia pet groomer.
+   **Expect:** Today opens; Setup shows the Atlantic zone, HST registration off and pets as the subject.
+2. Onboard a home cleaning business and a client-only salon on other accounts.
+   **Expect:** the cleaner records properties; the salon shows no subject fields anywhere.
+3. Set colour, tagline, logo and cover on web, then change the logo from a phone.
+   **Expect:** the business page, booking page, pay page and shop all show the new brand and favicon.
+4. Open Today, Schedule, Clients, Payments and Inbox with no data.
+   **Expect:** each explains what to add first; the Get set up checklist ticks items as they are done.
+5. Try to change the province after onboarding.
+   **Expect:** it is locked, with a reason.
 
-**Surfaces:** Backend, web, iPhone and Android
+**Done when:** A new business looks like itself on every Connect page within five minutes of signing up, and each industry gets the right subject.
 
-**Flow:** The owner invites staff and admins by email; each signs in and sees only what their role allows.
+**By hand only**
 
-**Built:** Owner, admin and staff roles, email invites, accept-invite page, role gates on every screen and endpoint.
+* Logo taken with the phone camera (native image picker).
 
-**To do:**
+**Automated by**
 
-- A full manual pass and fixes for anything it finds.
+* `ID-E2E-01 (web)`
+* `XB-E2E-01 (web)`
+* `connect: publicLanding.e2e.ts › business favicon follows the homepage and booking branding`
+* `connect: publicLanding.e2e.ts › empty businesses do not advertise unavailable services or products`
+* `web: auth.e2e.ts › existing business never flashes onboarding during sign-in or a slow reload`
 
-**QA:**
+**To automate**
 
-1. Invite a staff member and an admin; accept both in other browsers.
-2. As staff: own bookings and hours only, Payments › Sales only, Setup › Team and hours only.
-3. As staff, try a refund, a void and editing another member's hours: each is refused.
-4. As admin: everything except owner-only settings.
+* `CFG-E2E-05` in `apps/web/e2e/business.e2e.ts`: Brand colour, logo and cover set in Setup reach the booking, pay and shop pages (CFG08).
+* `CFG-E2E-06` in `apps/web/e2e/business.e2e.ts`: Province is locked after onboarding (CFG07); client-only industry shows no subject fields.
 
-**Depends on:** Onboarding, business profile and branding (CLI-6)
+**Depends on:** CB-1
 
-### Stripe connect and payout status (CLI-8)
+### Invite the team and hold every role to its list (CB-4)
 
-Size: S · Area: Accounts and settings
+**Covers:** Setup > Team & hours, accept-invite page, role gates on every screen and endpoint, web and mobile
+**Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234; two fresh email addresses for invitees
 
-**When this is done:** An owner knows at a glance whether they can take payments and why not.
+**QA steps**
 
-**Surfaces:** Backend, web, iPhone and Android
+1. Invite a staff member and an admin; accept each in another browser.
+   **Expect:** each joins with the invited, verified address; an account with another email is refused.
+2. Resend one invite and revoke another, then open the revoked link.
+   **Expect:** the revoked link explains it is no longer valid.
+3. As staff on web, iPhone and Android: open every destination.
+   **Expect:** own bookings and hours only, Payments > Sales and My pay only, Inbox > Messages only, Setup > Team & hours and Sign-in & security only.
+4. As staff, try a refund, a void, a restock and editing another member's hours.
+   **Expect:** each is refused with a worded reason.
+5. As admin: open owner-only settings (Plan).
+   **Expect:** everything else is reachable; Plan is not.
+6. Set a member's title, colour, photo and the services they offer.
+   **Expect:** the schedule and booking page reflect them.
+7. Downgrade the admin to staff while they have the app open on two devices.
+   **Expect:** finance screens disappear on both.
 
-**Flow:** The owner connects a Stripe account from Setup › Getting paid, completes verification and sees when they can take payments and receive payouts.
+**Done when:** Each role sees and can do exactly its list on web, iPhone and Android, and the server refuses the rest.
 
-**Built:** Accounts v2 connected accounts with embedded onboarding and account management, verification status mirrored from Stripe's thin account events, each due requirement worded from the catalog (`requirementCopy`) with Stripe's reason when it rejected a detail, a payouts-paused state when cards work but payouts are held, a Refresh that reads the account from Stripe (`POST /v1/connect/refresh`), closed accounts shown as disabled, and `make stripe-setup`, which creates Accounts v2 test merchants for the demo.
+**Automated by**
 
-**To do:**
+* `SEC-E2E-01 (web)`
+* `SEC-E2E-02 (web)`
+* `SYN-E2E-02 (web)`
+* `FLOW-08-A (journeys)`
+* `MSG-E2E-13 (web)`
+* `SALE-E2E-11 (web)`
+* `PLN-E2E-01 (web)`
+* `web: auth.e2e.ts › an invite joins the account that signs up with the invited email`
+* `web: auth.e2e.ts › an invite refuses an account with a different email`
+* `web: auth.e2e.ts › an invitee who skipped confirming the email verifies, then joins`
+* `web: shell.e2e.ts › staff: payments, inbox and setup show only what staff can use`
+* `mobile: staff.yaml (reduced Payments, Inbox and Setup, unregistered)`
 
-- Stripe test keys added locally and one full pass in test mode.
+**To automate**
 
-**QA:**
+* `TEAM-E2E-01` in `apps/web/e2e/staff.e2e.ts`: Invite lifecycle: two simultaneous accepts, revoke then old URL, resend, expiry (ID07, CFG18).
+* `TEAM-E2E-02` in `apps/web/e2e/staff.e2e.ts`: Admin sees everything but Plan; contractor matches staff (CFG12).
 
-1. Start onboarding, complete Stripe's test identity, return to the app: status reads ready.
-2. Leave a requirement unfinished: the app says exactly what is missing.
-3. Take a $10 test card payment once ready.
+**Depends on:** CB-3
 
-**Depends on:** Onboarding, business profile and branding (CLI-6)
+### Connect Stripe and know when payments and payouts work (CB-5)
 
-### Tax registration and per-item tax classes (CLI-9)
+**Covers:** Setup > Getting paid on web and mobile, Stripe embedded onboarding and account management
+**Before you start:** Staging with Stripe in test mode; a new business from CB-3 with no Stripe account
 
-Size: M · Area: Accounts and settings
+**QA steps**
 
-**When this is done:** Every taxed figure matches a hand calculation for the province.
+1. Start onboarding and complete Stripe's test identity.
+   **Expect:** back in the app, Getting paid reads ready for payments and payouts.
+2. On another business, leave a requirement unfinished.
+   **Expect:** the app names exactly what is missing in plain words, with Stripe's reason when it rejected a detail.
+3. Put payouts on hold in the Stripe sandbox and press Check again.
+   **Expect:** Getting paid shows payouts paused while cards still work.
+4. Open bank details in account management.
+   **Expect:** Stripe asks for its own sign-in code before showing them.
+5. Take a $10 test card payment once ready (card 4242).
+   **Expect:** the payment is recorded and appears in Payments.
 
-**Surfaces:** Backend, web, iPhone and Android
+**Done when:** An owner can tell at a glance whether they can take payments and receive payouts, and why not.
 
-**Flow:** The owner marks the business as tax-registered with its numbers, and each item charges the right tax for the province.
+**By hand only**
 
-**Built:** Tax engine for every province with dated rates (Nova Scotia HST 14% from 2025-04-01) applied on the supply date in the business zone, the same rates on devices (`taxRates.ts`), tax fixed at issue; tax class per item (standard, GST or HST only, exempt) copied onto each line; the registration switch and numbers under Setup › Sales tax on web and mobile.
+* Completing Stripe-hosted identity verification as a person.
 
-**To do:**
+**Automated by**
 
-- Confirm with an accountant which services carry PST in BC, Saskatchewan and Manitoba, then set defaults per item kind.
+* `STR-E09 (stripe)`
+* `STR-E13 (stripe)`
+* `web: payouts.e2e.ts › payment account entrypoints preserve navigation when payment tools are offline`
+* `connect: smoke/staff.smoke.ts › signs in to today and reads the payment account`
 
-**QA:**
+**To automate**
 
-1. Ontario business, tax on: a $100 invoice charges $13 HST.
-2. BC business: a service set to GST only and a product set to standard; PST only on the product.
-3. An exempt line charges nothing.
-4. Tax off: nothing is charged anywhere.
+* `STR-E14` in `apps/connect/e2e/stripe/account.stripe.ts`: A new Accounts v2 merchant with one requirement due shows its wording, then ready after the requirement is met (PAY-E16).
 
-**Depends on:** Onboarding, business profile and branding (CLI-6)
+**Depends on:** CB-3
 
-### Plan subscription, trial and billing (CLI-10)
+### Run the trial, buy a plan, bill seats and go read-only (CB-6)
 
-Size: L · Area: Accounts and settings
+**Covers:** Setup > Plan on web and mobile, Stripe Checkout and Billing Portal, shell notices, the read-only gate on API and Connect
+**Before you start:** Staging with Stripe in test mode; a new business on its trial; Cedar Coast Pet Care for an existing trial; Stripe test clocks
 
-**When this is done:** Every business is either trialing, paying through Stripe, or read-only, and the owner can see which and why.
+**QA steps**
 
-**Surfaces:** Backend, web, iPhone and Android
+1. Open Plan on a new business.
+   **Expect:** 14 days of trial, no card asked for.
+2. Subscribe to Premium yearly during the trial.
+   **Expect:** Checkout shows the remaining trial and the tax line; the plan page shows the yearly price after returning.
+3. Invite a staff member on Premium.
+   **Expect:** the seat quantity in Stripe rises by one; the last free seat on a trial fills once and the next invite is refused.
+4. Open the Billing Portal and change the card.
+   **Expect:** the return lands on Setup > Plan.
+5. Advance a test clock past a failed renewal.
+   **Expect:** past due, then read-only after cancellation; records stay readable and exportable.
+6. While read-only, try a booking from Connect and a new invoice.
+   **Expect:** both are refused in words; the owner can still revoke invites, cancel broadcasts and settle money.
+7. Check the trial reminder text near day 14.
+   **Expect:** one reminder at 09:00 local.
 
-**Flow:** A new business gets a 14-day trial without a card, the owner picks Premium or Team, monthly or yearly, in Stripe Checkout, and later manages the payment method, invoices and cancellation in the Stripe Billing Portal. When the trial ends without a plan, or Stripe ends the subscription, the business becomes read-only and keeps its data. The design is in the Platform billing section of `.docs/architecture.md`.
+**Done when:** Every business is trialing, paying through Stripe or read-only, and the owner can see which and why.
 
-**Built:** the plan columns on `businesses` (migration `cb0007`), the owner-only plan endpoints (`GET /v1/plan`, checkout, change, portal), the platform subscription webhook handler, Premium seat billing with the daily seat sync, the trial reminder job, the read-only gate (402 `plan_required`, public flows 409 `business_unavailable`), the web plan page and shell notices, the read-only plan section on mobile; plan Checkout (customer account, flexible billing mode, trial carry-over, automatic tax), the Billing Portal and plan item changes; onboarding that reuses an account created for billing; `scripts.stripe_setup` planning the products, the five lookup-key prices, the portal configuration and the platform webhook endpoint; the two plans on the marketing site's pricing page; the contract tier for the Checkout, Portal and subscription calls; a paying subscription whose created event was missed is adopted at Checkout, on the plan page and before the portal, and a stale event for a replaced subscription changes nothing; a lapsed owner can still cancel client memberships and is emailed that they keep charging.
+**By hand only**
 
-**To do:**
+* Stripe Tax registrations and Smart Retries settings in the live Dashboard.
 
-- The e2e tier against a Test Clock: Checkout with `customer_account` at the pinned version, trial carry-over, renewal, a failed payment through past due to cancellation, and a yearly plan with the monthly seat item.
-- Live mode: `scripts.stripe_setup` refuses live mode, so create the objects in the live Dashboard with the same ids and metadata the script uses, so a later sandbox comparison and the backend find them:
-  - Products `clientbridge_premium`, `clientbridge_team` and `clientbridge_seat` with tax code `txcd_10103001`.
-  - CAD recurring prices, tax behaviour exclusive, with lookup keys `premium_month` (49.99), `premium_year` (499.90), `team_month` (99.99), `team_year` (999.90) and `seat_month` (10.00).
-  - A Billing Portal configuration with `metadata.clientbridge=portal`: payment method update, invoice history, email and address updates, cancellation at period end, no subscription update, return URL `https://<web host>/setup/plan`. Its id goes in `STRIPE_PORTAL_CONFIGURATION`.
-  - Webhook endpoints at the pinned API version: the Connect endpoint (`connect=true`, `metadata.clientbridge=connect_webhook`) and the platform endpoint (`connect=false`, `metadata.clientbridge=platform_webhook`) for `customer.subscription.created`, `.updated` and `.deleted`, whose signing secret goes in `STRIPE_PLATFORM_WEBHOOK_SECRET`; and the thin event destination (`metadata.clientbridge=account_events`). Production refuses to start without `STRIPE_PLATFORM_WEBHOOK_SECRET` and `STRIPE_PORTAL_CONFIGURATION`.
-- Dashboard: Stripe Tax with the head office address and our GST/HST and QST registrations, Billing customer emails, and Smart Retries that cancel the subscription after the last retry.
+**Automated by**
 
-**QA:**
+* `PLN-E2E-01 (web)`
+* `PLN-E2E-02 (web)`
+* `PLN-E2E-03 (web)`
+* `FLOW-08-B (journeys)`
+* `SYN-E2E-25 (sync)`
+* `OPS-E2E-02 (web)`
 
-1. Sign up: the trial shows 14 days and no card is asked for.
-2. Subscribe to Premium yearly during the trial: Checkout shows the remaining trial and the tax line, and the plan page shows the yearly price after returning.
-3. Invite a staff member on Premium: the seat quantity in Stripe goes up by one.
-4. Let a test clock run past a failed renewal: the business shows past due, then read-only after cancellation.
+**To automate**
 
-**Depends on:** Onboarding, business profile and branding (CLI-6); Team invites and roles (CLI-7)
+* `PLN-E2E-04` in `apps/connect/e2e/stripe/plans.stripe.ts`: Premium monthly Checkout on a test clock, renewal, failed payment to past due to lapsed (PLN01, PLN13, PLN14).
+* `PLN-E2E-05` in `apps/connect/e2e/stripe/plans.stripe.ts`: Yearly plan with the monthly seat item; seat quantity follows invites (PLN04).
+* `PLN-E2E-06` in `apps/web/e2e/plans.e2e.ts`: Portal return and plan change with a lost response (PLN05, PLN07).
 
----
+**Depends on:** CB-4, CB-5
 
-## 2. Load clients and the catalog
+### Charge the right sales tax in every province (CB-7)
 
-Done when: A business can add its clients and their pets, then its services, products and stock, packages and gift card items.
+**Covers:** Setup > Sales tax on web and mobile, item tax class, invoice and sale tax lines
+**Before you start:** Maple and Main Hair Studio (ON, HST), Birchbark (BC, GST + PST), Clearcoat Mobile Detailing (QC, GST + QST), a new Nova Scotia business
 
-QA pass:
+**QA steps**
 
-1. Add a client on a phone, find them by phone number on web, edit them, then archive and restore them.
-2. Add a dog with breed, weight and temperament, and a note; the note and the client timeline show on web.
-3. Save card 4242 on a phone and a bank account on web, make the card the default, and remove the older card.
-4. Tag two clients and merge a duplicate: every booking and invoice ends up under one client.
-5. Create a 60-minute service with a 10-minute buffer and a 25% deposit, and a class of 6; both show on the booking page with the right times, prices and deposit.
-6. Add a product with SKU, cost, price and a photo taken on the phone, track its stock at 3 with low at 1, and find it in Sales, the invoice editor and the shop.
-7. Create a 5-visit package, a monthly membership and a gift card; each opens its own checkout in Sales.
+1. Ontario, tax on: invoice a $100 service.
+   **Expect:** $13 HST.
+2. BC: a service set to GST only and a product set to standard on one invoice.
+   **Expect:** GST on both, PST only on the product.
+3. Mark one line exempt.
+   **Expect:** no tax on it.
+4. Quebec: invoice a $100 service.
+   **Expect:** GST and QST as separate lines.
+5. Nova Scotia: invoice dated after 2025-04-01.
+   **Expect:** 14% HST.
+6. Turn tax registration off.
+   **Expect:** nothing is charged anywhere, including the shop and booking deposits.
+7. Change a tax setting after issuing an invoice.
+   **Expect:** the issued invoice keeps its tax.
 
-Run it in order on one business, on web, iPhone and Android, as the owner and again as staff where the steps involve roles.
+**Done when:** Every taxed figure matches a hand calculation for the province.
 
-### Client records: add, edit, archive, search (CLI-11)
+**Automated by**
 
-Size: S · Area: Clients
+* `ID-E2E-01 (web)`
+* `BILL-DOC-01 (web)`
 
-**When this is done:** A client record can be kept up to date from any device.
+**To automate**
 
-**Surfaces:** Backend, web, iPhone and Android
+* `BILL-DOC-21` in `apps/web/e2e/billing.e2e.ts`: Golden tax matrix for ON, BC, QC and NS with exempt and GST-only lines, plus tax off (FIN02, FIN03).
 
-**Flow:** Staff add a client, find them by name or phone, edit their details and archive them without losing their history.
+**Depends on:** CB-3
 
-**Built:** Add and search on web and mobile; lifetime value for owners and admins.
+## 2. Clients and catalog
 
-**To do:**
+The business loads its clients, what they book for, and everything it sells.
 
-- Edit contact details and status.
-- Archive and restore a client; archived clients leave search and pickers.
+### Keep a client record up to date from any device (CB-8)
 
-**QA:**
+**Covers:** Clients on web and mobile, the command palette and mobile Search, booking pickers
+**Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234
 
-1. Add a client on a phone; find them by phone number on web.
-2. Edit their name on web; the phone shows the change.
-3. Archive them: gone from search and booking pickers, their invoices still there; restore them.
+**QA steps**
 
-**Depends on:** nothing
+1. Add a client on a phone.
+   **Expect:** they appear on web within seconds; a duplicate phone warns.
+2. Find them by phone number in the web directory and the command palette.
+   **Expect:** both find them.
+3. Edit their name on web.
+   **Expect:** the phone shows the change.
+4. Archive them.
+   **Expect:** gone from search and booking pickers; their invoices remain; restore brings them back.
+5. Archive two clients in bulk, then restore one.
+   **Expect:** each ends in the state chosen.
+6. As owner, then as staff, open a client.
+   **Expect:** lifetime value shows only for the owner and admin.
 
-### Pets, students and properties on clients (CLI-12)
+**Done when:** A client record reads the same on web, iPhone and Android after every change.
 
-Size: M · Area: Clients
+**Automated by**
 
-**When this is done:** Staff always know which pet, student or property a visit is for.
+* `CRM-E2E-01 (web)`
+* `NATIVE-CRM-01 (native-ios, native-android)`
+* `CRM-E2E-06 (journeys)`
+* `FLOW-04-A (journeys)`
+* `mobile: clients.record.yaml (walk, unregistered)`
 
-**Surfaces:** Backend, web, iPhone, Android and Connect
+**To automate**
 
-**Flow:** The owner chooses their industry at onboarding, and Clientbridge maps it to what clients book
-for: pets, students, properties, sites, or only the client. The industry itself is not stored. Staff
-record each client's subjects with that kind's details, and the subject shows on its bookings. Owners
-cannot change the kind afterwards; a platform admin can change it from the business's page in the admin
-app, and existing subjects and their details are kept. A business that books only the client shows no
-subject fields anywhere.
+* `CRM-E2E-09` in `apps/web/e2e/clients.e2e.ts`: Directory and command palette search by name, phone and subject, and staff without lifetime value (CRM-E18).
 
-**Built:** `businesses.subject` (pet, student, property, site, vehicle or NULL) synced to devices; per-kind details
-validated on the server (pet: species, breed, weight, birthday, sex, temperament, coat, allergies, vet,
-rabies vaccine, style; student: birthday, grade, school, allergies; property: address, rooms, access,
-pets; site: address, building type, access, pets, internet, recorder location and an equipment list with
-model, serial, location, install date and warranty end; vehicle: make, model, year, colour, plate, size,
-address, parking spot and notes); add, edit and remove from the client record on web and mobile; the subject picker in the booking
-composer, series and classes; Connect asks for the subject's name, and a property, site or vehicle business also
-asks for the address of a new one and matches it to the client's existing place by name and address; seeded demo pets.
+**Depends on:** CB-4
 
-**To do:**
+### Record what each client books for (CB-9)
 
-- Show the subject on the invoice line.
+**Covers:** Client record subjects on web and mobile, booking composer, Connect details step
+**Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234; Brightwater Home Cleaning (properties); Lakeside Learning Studio (students); Northlight Security (sites); Clearcoat (vehicles)
 
-**QA:**
+**QA steps**
 
-1. Add a dog with breed, weight and temperament to a client.
-2. Book the dog; the groomer sees the dog on the booking on their phone.
-3. Onboard a home cleaning business; add a property with an address and access notes; book it online from
-   Connect with a new property name and address, and check the property and address on the client record.
-4. Onboard a tutoring business; add a student with a grade and school; check the booking composer offers
-   the student.
-5. In the admin app, change the pet business's edition to properties, and check the existing pets still
-   show with their details kept.
-6. Onboard a business that books only the client; check that no subject fields show on the client
-   record, the booking composer or Connect.
+1. Add a dog with breed, weight and temperament.
+   **Expect:** it shows on the record on web and mobile.
+2. Book the dog.
+   **Expect:** the groomer sees the dog on the booking on their phone.
+3. At Brightwater, book online with a new property name and address.
+   **Expect:** the property and address appear on the client record.
+4. At Lakeside, add a student with grade and school, and set who may collect them with one must-not-collect person.
+   **Expect:** the composer offers the student; the alert shows on their visits.
+5. At Northlight, add equipment to a site.
+   **Expect:** model, serial and warranty end are kept.
+6. In the admin console, change Birchbark's edition to properties.
+   **Expect:** existing pets still show with their details.
+7. Remove a subject that has past visits.
+   **Expect:** the history still names it.
 
-**Depends on:** Client records: add, edit, archive, search (CLI-11)
+**Done when:** Staff always know which pet, student, property, site or vehicle a visit is for.
 
-### Notes and client history timeline (CLI-13)
+**Automated by**
 
-Size: M · Area: Clients
+* `CRM-E2E-03 (web)`
+* `CRM-E2E-08 (web)`
+* `CRM-E2E-05 (journeys)`
+* `OPS-E2E-02 (web)`
 
-**When this is done:** The full story of a client fits on one screen.
+**To automate**
 
-**Surfaces:** Backend, web, iPhone and Android
+* `CRM-E2E-10` in `apps/web/e2e/clients.e2e.ts`: Pickup permissions and the must-not-collect alert on a student's visit.
+* `CRM-E2E-11` in `apps/web/e2e/journeys/client.journey.ts`: Connect booking with a new property address matched to the client's existing place (CRM-E10, CRM-E11).
 
-**Flow:** Staff add notes to a client and see everything that has happened with them in one timeline.
+**Depends on:** CB-8
 
-**Built:** Notes in the data and synced; the client panel shows saved methods, subscriptions and packages.
+### Keep notes, photos and the client's story in one place (CB-10)
 
-**To do:**
+**Covers:** Client notes, booking notes, photos, client history on web and mobile
+**Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234; a client with a year of history
 
-- Add and edit notes on the client.
-- A timeline of bookings, invoices, payments, messages and notes, newest first.
+**QA steps**
 
-**QA:**
+1. Add a note on a phone and pin it on web.
+   **Expect:** both devices show it pinned.
+2. Delete the note after the confirm.
+   **Expect:** it is gone on both devices.
+3. Add a note to a booking.
+   **Expect:** it shows on the booking panel for staff.
+4. Upload a client photo on web.
+   **Expect:** it appears on mobile and Connect avatars only after the upload is confirmed.
+5. After a visit, open the timeline.
+   **Expect:** booking, invoice, payment and message, newest first.
+6. Scroll past the device's history window.
+   **Expect:** older items load from the server without gaps or duplicates.
 
-1. Add a note on a phone; it shows on web.
-2. After a visit, the timeline lists the booking, invoice, payment and message in order.
+**Done when:** The full story of a client fits on one screen and agrees across devices.
 
-**Depends on:** Client records: add, edit, archive, search (CLI-11)
+**Automated by**
 
-### Saved cards and bank accounts (CLI-14)
+* `CRM-E2E-02 (web)`
+* `FILES-E2E-01 (web)`
+* `FLOW-04-A (journeys)`
+* `SYN-E2E-29 (sync)`
+* `web: sync.e2e.ts › history older than the device window is read from the API`
 
-Size: S · Area: Clients
+**To automate**
 
-**When this is done:** Saved methods can be managed from any device and charged reliably.
+* `CRM-E2E-12` in `apps/web/e2e/journeys/client.journey.ts`: Timeline order after a visit: booking, invoice, payment and message (CRM-E19).
 
-**Surfaces:** Backend, web, iPhone and Android
+**Depends on:** CB-8
 
-**Flow:** Staff save a client's card or bank account (pre-authorized debit), make one the default and remove old ones.
+### Tag clients and merge duplicates without losing anything (CB-11)
 
-**Built:** Add a card on web and mobile, bank account on web, make default, remove; only chargeable methods can be default.
+**Covers:** Client tags, merge dialog on web and mobile
+**Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234; a seeded duplicate client
 
-**To do:**
+**QA steps**
 
-- Bank account entry on mobile.
-- A run with Stripe test keys.
+1. Tag two clients from the directory.
+   **Expect:** the tag shows on both records and as a broadcast audience.
+2. Merge the duplicate into the kept record.
+   **Expect:** pets, notes and visits move to the kept record; note history survives.
+3. Try to merge a record that has payments into another.
+   **Expect:** refused with a reason; nothing moves.
 
-**QA:**
+**Done when:** Duplicates can be cleaned up without losing a subject, note or visit, and money is never moved by a merge.
 
-1. Add card 4242 on a phone and make it default.
-2. Add a bank account on web; its mandate shows active.
-3. Remove the older card; it can no longer be charged.
+**Automated by**
 
-**Depends on:** Stripe connect and payout status (CLI-8); Client records: add, edit, archive, search (CLI-11)
+* `CRM-E2E-04 (web)`
+* `FLOW-04-B (journeys)`
 
-### Tags and duplicate merging (CLI-15)
+**To automate**
 
-Size: M · Area: Clients
+* `CRM-E2E-13` in `apps/web/e2e/clients.e2e.ts`: Set and remove tags in bulk; the broadcast audience count follows (CRM-E05).
 
-**When this is done:** Duplicates can be cleaned up without losing anything.
+**Depends on:** CB-8
 
-**Surfaces:** Backend, web, iPhone and Android
+### Save a client's card or bank account and charge it (CB-12)
 
-**Flow:** Staff tag clients for broadcasts and merge two records that are the same person.
+**Covers:** Client wallet on web and mobile, Connect payment setup page, Stripe SetupIntents and PAD mandates
+**Before you start:** Staging with Stripe in test mode; Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234
 
-**Built:** Tags in the data, used as broadcast audiences.
+**QA steps**
 
-**To do:**
+1. Save card 4242 on a phone and make it default.
+   **Expect:** it shows as default on web.
+2. Send a payment setup link and add a bank account from it.
+   **Expect:** the mandate shows active; provider secrets are gone from the address bar.
+3. Open the setup link with a missing token.
+   **Expect:** a plain explanation and no form.
+4. Remove the older card.
+   **Expect:** it can no longer be charged or chosen as default.
+5. On mobile, try to add a bank account.
+   **Expect:** the app says to add it on the web.
 
-- Set and remove tags in the app.
-- Merge two clients, moving bookings, invoices, payments, pets and messages.
+**Done when:** Saved methods can be managed from any device and only chargeable ones can be default.
 
-**QA:**
+**By hand only**
 
-1. Tag two clients and send a broadcast to the tag.
-2. Merge a duplicate: every booking and invoice now sits under one client.
+* A real Canadian PAD debit clearing, which takes business days.
 
-**Depends on:** Client records: add, edit, archive, search (CLI-11)
+**Automated by**
 
-### Services and classes: duration, buffers, capacity, deposits (CLI-16)
+* `XB-E2E-13 (connect)`
 
-Size: S · Area: Catalog and inventory
+**To automate**
 
-**When this is done:** What the owner sets is exactly what clients can book.
+* `STR-E15` in `apps/connect/e2e/stripe/wallet.stripe.ts`: Save a card with a real SetupIntent, make it default, charge it on an invoice, detach it (PAY-E11, PAY-E12).
+* `STR-E16` in `apps/connect/e2e/stripe/wallet.stripe.ts`: PAD mandate through the setup page, debit settles after processing (PAY-E13, PAY-E15).
 
-**Surfaces:** Backend, web, iPhone and Android
+**Depends on:** CB-5, CB-8
 
-**Flow:** The owner sets up services and classes with length, buffers, capacity and deposit, and they appear on the booking page.
+### Set up services, classes and shared resources that book the way they read (CB-13)
 
-**Built:** A full item editor on web and mobile with every field by kind; only services and classes can be booked online.
+**Covers:** Services & products editor on web and mobile, Setup > Resources, booking page
+**Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234; Ridgeline Strength Studio (Studio and Turf); Riverbend Driving School (three cars)
 
-**To do:**
+**QA steps**
 
-- A manual pass of every field against the booking engine.
+1. Create a 60-minute service with a 10-minute buffer and a 25% deposit, offered by two members.
+   **Expect:** the booking page offers only those members, with the right times, price and deposit.
+2. Create a class of 6 and a three-day program.
+   **Expect:** both appear on the booking page; the program books every day at once.
+3. Give a service a pool of two rooms and book both at one time.
+   **Expect:** a third overlapping booking is refused in the calendar and hidden on Connect.
+4. Edit the price.
+   **Expect:** the booking page shows the new price.
+5. Enter a price in another currency through the API.
+   **Expect:** refused with the catalog copy and nothing saved.
+6. Remove a member from a service.
+   **Expect:** they stop being offered on Connect and in the calendar.
 
-**QA:**
+**Done when:** What the owner sets on a service, class or resource is exactly what clients and staff can book.
 
-1. Create a 60-minute service with a 10-minute buffer and a 25% deposit.
-2. Create a class of 6.
-3. Both show on the booking page with the right times, price and deposit; edit the price and see it update.
+**Automated by**
 
-**Depends on:** Tax registration and per-item tax classes (CLI-9)
+* `SCH-E2E-05 (journeys)`
+* `SCH-E2E-06 (journeys)`
+* `STR-E10 (web)`
+* `CLS-E2E-02 (journeys)`
 
-### Products: SKU, cost, price, images (web and mobile) (CLI-17)
+**To automate**
 
-Size: M · Area: Catalog and inventory
+* `CFG-E2E-07` in `apps/web/e2e/catalog.e2e.ts`: Buffers and deposit percentage on a service match the slots and deposit Connect offers (CFG05, CFG03).
 
-**When this is done:** A product is set up once and sells the same way everywhere.
+**Depends on:** CB-4, CB-7
 
-**Surfaces:** Backend, web, iPhone and Android
+### Set up products and keep stock true to the shelf (CB-14)
 
-**Flow:** The owner adds retail products with SKU, cost, price, tax class and an image, and sells them everywhere.
+**Covers:** Item editor and Stock on web and mobile, Sales, invoice editor, shop
+**Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234
 
-**Built:** Products with SKU, cost and tax class in the item editor; image upload on web; products in Sales, invoices, the shop and add-ons.
+**QA steps**
 
-**To do:**
+1. Add a shampoo with SKU, cost, price, a photo taken on the phone, stock 3 and low at 1.
+   **Expect:** it shows in Sales, the invoice editor and the shop with its image.
+2. Reuse its SKU on another product.
+   **Expect:** refused as taken.
+3. Sell 2 at the desk.
+   **Expect:** 1 left and flagged low.
+4. Refund one.
+   **Expect:** 2 left. Restock 5: 7 left, no longer low.
+5. Lose the network while saving opening stock, then retry.
+   **Expect:** one product and one stock movement.
+6. Archive the product.
+   **Expect:** it leaves every selling screen; restore brings it back.
 
-- Image upload on mobile (image picker and a new native build), also used for the logo.
-- Archive and restore a product.
+**Done when:** A product is set up once, sells the same way everywhere, and the count matches the shelf after a day of sales.
 
-**QA:**
+**By hand only**
 
-1. Add a shampoo with SKU, cost, price and a photo taken on the phone.
-2. It shows in Sales, the invoice editor and the shop with its image.
-3. Archive it: it leaves every selling screen; restore it.
+* Photo from the phone camera.
 
-**Depends on:** Tax registration and per-item tax classes (CLI-9)
+**Automated by**
 
-### Stock tracking, low stock and restock (CLI-18)
+* `CFG-E2E-01 (web)`
+* `CFG-E2E-02 (web)`
+* `CFG-E2E-03 (web)`
+* `CFG-E2E-04 (web)`
+* `SALE-E2E-01 (web)`
+* `SALE-E2E-10 (web)`
+* `FLOW-03-A (journeys)`
+* `FLOW-03-B (journeys)`
 
-Size: S · Area: Catalog and inventory
+**To automate**
 
-**When this is done:** The count in the app matches the shelf after a day of sales.
+* `CFG-E2E-08` in `apps/web/e2e/catalog.e2e.ts`: Archive and restore a product: it leaves Sales, invoices, the shop and add-ons (CFG04).
 
-**Surfaces:** Backend, web, iPhone and Android
+**Depends on:** CB-7
 
-**Flow:** Stock counts drop as products sell, rise on refunds and restocks, and low items are flagged.
+### Set up packages, memberships and gift card items (CB-15)
 
-**Built:** Optional stock per product, movements on paid and refunded sales and invoices (a repeated webhook can't move stock twice), restock, low-stock filter.
+**Covers:** Item editor for entitlement kinds on web and mobile, Sales tiles
+**Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234
 
-**To do:**
+**QA steps**
 
-- A manual pass across every way a product can be sold.
+1. Create a 5-visit package valid for a year for one pet.
+   **Expect:** saved with sessions, validity and the subject rule.
+2. Create a monthly membership covering one service, with a 10% member perk on products.
+   **Expect:** saved; the editor explains existing members keep their price.
+3. Create an open-amount gift card with suggested amounts.
+   **Expect:** saved.
+4. Open Sales.
+   **Expect:** each opens its own checkout and none can be added as a plain cart line.
 
-**QA:**
+**Done when:** Each entitlement kind can be set up without touching the database.
 
-1. Track stock on a product: set 3, low at 1.
-2. Sell 2 at the desk: 1 left and flagged low.
-3. Refund one: 2 left. Restock 5: 7 left, no longer low.
-4. Order more than the stock in the online shop: refused.
+**Automated by**
 
-**Depends on:** Products: SKU, cost, price, images (web and mobile) (CLI-17)
+* No e2e case yet
 
-### Packages, memberships and gift card items (CLI-19)
+**To automate**
 
-Size: S · Area: Catalog and inventory
+* `ENT-E2E-04` in `apps/web/e2e/entitlements.e2e.ts`: Create each entitlement kind in the editor and check it refuses plain cart lines (ENT21).
 
-**When this is done:** Each kind can be set up without touching the database.
+**Depends on:** CB-7
 
-**Surfaces:** Backend, web, iPhone and Android
+## 3. Run the schedule
 
-**Flow:** The owner sets up prepaid packages, monthly memberships and gift cards as items, ready to sell.
+Staff set hours, book, run each visit from arrival to checkout, and nothing is left open.
 
-**Built:** Item fields for package sessions and validity, subscription interval and frequency, open-amount gift cards; these kinds can't be sold as plain lines.
+### Set hours, time off and closures that decide open times (CB-16)
 
-**To do:**
+**Covers:** Setup > Team & hours on web and mobile, time off and closures, Connect open times
+**Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234
 
-- A manual pass of each kind's fields.
+**QA steps**
 
-**QA:**
+1. Set a member to Tuesday to Saturday, 10 to 4.
+   **Expect:** Connect offers nothing on Monday for them.
+2. Add a day off next week.
+   **Expect:** no times that day for them; others unaffected.
+3. Close the business on a holiday.
+   **Expect:** no one is bookable that day; the closed day stays reachable on the schedule.
+4. As staff, edit your own hours offline, reload, reconnect.
+   **Expect:** the week is sent exactly once.
+5. Edit the same week in two browsers.
+   **Expect:** one conflict, repaired explicitly without losing either edit.
+6. Change hours so a future visit falls outside them.
+   **Expect:** the visit is listed for review.
 
-1. Create a 5-visit package valid for a year, a monthly membership and a gift card.
-2. Each appears in Sales under its own checkout, not in the cart.
+**Done when:** Open times always match when people are actually working.
 
-**Depends on:** Tax registration and per-item tax classes (CLI-9)
+**Automated by**
 
----
+* `OFF-E2E-01 (web)`
+* `OFF-E2E-02 (web)`
+* `OFF-E2E-03 (web)`
+* `OFF-E2E-04 (web)`
+* `SYN-E2E-08 (web)`
+* `SYN-E2E-24 (sync)`
+* `SYN-E2E-34 (sync)`
+* `sync: hours.e2e.ts (five unregistered hours outbox tests)`
+* `web: shell.e2e.ts › owner: a closed day stays reachable, open times read in the business zone and reschedule changes weeks`
+* `mobile: offline.hours.yaml (unregistered)`
 
-## 3. Book and complete a visit
+**To automate**
 
-Done when: A business can set its hours, book from the calendar and from its public page with a deposit, send reminders, let clients reschedule, and complete the visit.
+* `SCH-E2E-08` in `apps/web/e2e/hours.e2e.ts`: Time off and a closure set from the UI remove those times on Connect (SCH19, CFG14).
 
-QA pass:
+**Depends on:** CB-4
 
-1. Set a staff member's hours to Tuesday to Saturday, 10 to 4, add a day off and close the business on a holiday; the booking page offers only open times.
-2. Book from the calendar, drag the visit to a new time, and try to double-book the same person: refused.
-3. Create a weekly series of 6 across a daylight-saving change, move it to another weekday, then cancel it.
-4. Fill a class of 6 online: the 7th is refused and the roster lists all six.
-5. As a new client on a phone, book a service with a shampoo add-on and a deposit paid with card 4242; the booking shows on web and the staff phone with the deposit collected. Repeat inside an embedded page.
-6. Set reminders to 2 hours before and book for later today: the reminder arrives with the right time and address.
-7. From the confirmation link, reschedule; cancel inside the cut-off (refused) and outside it (the slot opens and the deposit follows the policy).
-8. Complete one visit and mark another a no-show (the deposit is kept); leave a third open past the end of the day: it is completed next morning. Repeat on iPhone and Android, including the week view.
+### Book, move and cancel visits from the calendar (CB-17)
 
-Run it in order on one business, on web, iPhone and Android, as the owner and again as staff where the steps involve roles.
+**Covers:** Schedule on web (day, week, month, staff, agenda) and mobile (day and agenda), booking composer and panel
+**Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234
 
-### Staff hours, time off and closures (CLI-20)
+**QA steps**
 
-Size: M · Area: Scheduling
+1. Book from the composer.
+   **Expect:** a draft follows the form on the calendar, then the visit appears on web and the member's phone.
+2. Try to double-book the same member.
+   **Expect:** refused, naming the clash.
+3. Drag the visit to a new time and resize it.
+   **Expect:** the move check passes and both devices show the new time.
+4. Move into a slot where the room is taken.
+   **Expect:** refused with free alternatives named.
+5. Cancel the visit.
+   **Expect:** the slot opens on Connect.
+6. Open each view on web and both views on mobile.
+   **Expect:** the same visits in the business zone, even from a laptop in another zone.
 
-**When this is done:** Open times always match when people are actually working.
+**Done when:** Every booking change made on one device shows the same on every other.
 
-**Surfaces:** Backend, web, iPhone and Android
+**By hand only**
 
-**Flow:** Each staff member's weekly hours, days off and business closures decide what can be booked.
+* Drag on a phone and a tablet.
 
-**Built:** Weekly hours per staff member on web and mobile; time off for one member and closures for everyone (`/v1/time-off`), shown on the schedule; open times respect all three, and an hours change that leaves future visits outside the hours shows them for review; removing a member reassigns or cancels their future visits.
+**Automated by**
 
-**To do:**
+* `SCH-PILOT-01 (web)`
+* `SCH-E2E-05 (journeys)`
+* `web: shell.e2e.ts › owner: schedule, booking panel, classes and repeat visits`
+* `web: shell.e2e.ts › owner: a closed day stays reachable…`
+* `mobile: today.yaml (walk, unregistered)`
 
-- The remaining scheduling design work tracked in `.docs/executions/scheduling/plan.md` (late-cancel policy, hours model, service-to-staff mapping, rolling recurrences, class timetables, local wall times).
+**To automate**
 
-**QA:**
+* `SCH-E2E-09` in `apps/web/e2e/bookings.e2e.ts`: Resize and reassign across replicas with the move check's problem and alternatives (SCH01, SCH04).
 
-1. Set Tuesday to Saturday, 10 to 4: the booking page offers nothing on Monday for them.
-2. Add a day off next week: no times that day; other staff unaffected.
-3. Close the business on a holiday: no one is bookable.
+**Depends on:** CB-16, CB-13
 
-**Depends on:** Team invites and roles (CLI-7)
+### Run a visit from On my way to checkout (CB-18)
 
-### Calendar: create, move, cancel, complete, no-show (CLI-21)
+**Covers:** Today and the booking panel on web and mobile, check-in sheet, Complete and No-show, auto-complete job
+**Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234; Northlight Security for On my way; a visit with a form and a deposit outstanding
 
-Size: M · Area: Scheduling
+**QA steps**
 
-**When this is done:** Every visit ends in the right state from any device.
+1. Tap On my way on a house call.
+   **Expect:** the preview shows the text; the client gets it; Today shows the member on the way.
+2. Check the client in.
+   **Expect:** the sheet lists what the visit still needs (form, contract, deposit) with links to finish each; undo restores the visit.
+3. Open checkout from the visit.
+   **Expect:** the ticket opens with the visit on it.
+4. Mark one visit Completed and another No-show.
+   **Expect:** both refused before start; after start, the no-show keeps its deposit.
+5. Leave a third visit open past midnight.
+   **Expect:** it is completed the next morning; a never-approved request is cancelled.
 
-**Surfaces:** Backend, web, iPhone and Android
+**Done when:** Every visit ends in the right state from any device, and none is left open overnight.
 
-**Flow:** Staff book, move and cancel visits, then mark each one completed or a no-show.
+**Automated by**
 
-**Built:** Day, week, month, staff and agenda views on web (day and agenda on mobile), create, drag to reschedule, cancel, double-booking checks for staff; Complete and No-show on web and mobile, refused before the visit starts.
+* `STR-E04 (stripe), forfeited deposit only`
 
-**To do:**
+**To automate**
 
-- Week view on mobile.
+* `SCH-E2E-10` in `apps/web/e2e/journeys/visit.journey.ts`: On my way, check-in with needs, undo, checkout with the visit on the ticket (SCH12, SCH13).
+* `SCH-E2E-11` in `apps/web/e2e/journeys/visit.journey.ts`: No-show forfeits the deposit; complete and no-show refused before start (SCH11).
+* `SCH-E2E-12` in `apps/web/e2e/journeys/visit.journey.ts`: The worker completes past visits and cancels stale requests overnight (SCH17).
 
-**QA:**
+**Depends on:** CB-17
 
-1. Book, drag to a new time, try to double-book the same person (refused).
-2. Mark one visit completed and another a no-show; a deposit on the no-show is kept.
-3. Repeat on iPhone and Android, including the week view.
+### Book and manage repeat visits (CB-19)
 
-**Depends on:** Services and classes: duration, buffers, capacity, deposits (CLI-16); Staff hours, time off and closures (CLI-20)
+**Covers:** Series composer and Repeat visits on web and mobile
+**Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234
 
-### Recurring bookings (CLI-22)
+**QA steps**
 
-Size: M · Area: Scheduling
+1. Create a weekly series of 6 across a daylight-saving change.
+   **Expect:** every visit keeps its local time.
+2. Create a series of 61.
+   **Expect:** refused at 60, with an end date offered instead.
+3. Change one visit, then this and following, then all.
+   **Expect:** each scope changes only the visits it names.
+4. Move the series to another weekday, then cancel it from one visit.
+   **Expect:** every future visit is cancelled; past ones stay.
+5. Create a series where one date clashes.
+   **Expect:** the clash is named with suggestions.
 
-**When this is done:** A regular client's series can be managed in one action.
+**Done when:** A regular client's series can be managed in one action and never drifts across DST.
 
-**Surfaces:** Backend, web, iPhone and Android
+**Automated by**
 
-**Flow:** Staff book a repeating visit and later change or cancel the whole series.
+* `web: shell.e2e.ts › owner: schedule, booking panel, classes and repeat visits (walk only)`
 
-**Built:** Weekly or monthly series with a set number of visits, created from one form, kept at the same local time.
+**To automate**
 
-**To do:**
+* `SCH-E2E-13` in `apps/web/e2e/bookings.e2e.ts`: Weekly series across DST, change following, cancel all (SCH14, SCH22).
+* `SCH-E2E-14` in `apps/web/e2e/bookings.e2e.ts`: Series retry notices and a clashing date (SCH15).
 
-- Edit or cancel the whole series.
-- Series longer than 60 visits.
-- One confirmation for the series instead of one per visit.
+**Depends on:** CB-17
 
-**QA:**
+### Run classes, waitlists and programs (CB-20)
 
-1. Create a weekly series of 6 across a daylight-saving change: every visit keeps its time.
-2. Move the series to a new weekday, then cancel it from one visit.
+**Covers:** Classes and program board on web and mobile, Connect class and program booking, seat notices
+**Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234 (puppy class); Lakeside Learning Studio (Fall Coding Camp); Ridgeline (full class)
 
-**Depends on:** Calendar: create, move, cancel, complete, no-show (CLI-21)
+**QA steps**
 
-### Classes (CLI-23)
+1. Fill a class of 6 online.
+   **Expect:** the 7th joins the waitlist; the roster lists all six.
+2. Cancel one seat.
+   **Expect:** the first person waiting is promoted and texted once.
+3. Reply STOP from the waiting client before the notice goes.
+   **Expect:** no notice is sent.
+4. Enrol a family in the camp on Connect with a card deposit.
+   **Expect:** every day is booked, one invoice for the whole camp, the deposit part-pays it.
+5. Cancel the enrolment.
+   **Expect:** every day ahead is cancelled, the invoice voided and the deposit refunded.
 
-Size: M · Area: Scheduling
+**Done when:** Classes and programs run without touching the database, and every seat and invoice agrees.
 
-**When this is done:** Classes run without touching the database.
+**Automated by**
 
-**Surfaces:** Backend, web, iPhone and Android
+* `CLS-E2E-01 (journeys)`
+* `CLS-E2E-02 (journeys)`
+* `FLOW-06-A (journeys)`
+* `MSG-E2E-14 (journeys)`
+* `FIN-DEPOSIT-10 (stripe)`
 
-**Flow:** A business runs group classes with a capacity.
+**To automate**
 
-**Built:** Class capacity and seat counts in the booking engine.
+* `CLS-E2E-03` in `apps/web/e2e/journeys/entitlements.journey.ts`: Cancel a program enrolment: days cancelled, invoice voided, deposit refunded (SCH07).
 
-**To do:**
+**Depends on:** CB-13
 
-- A class roster.
+### Work a job with a crew, visit records and photos (CB-21)
 
-**QA:**
+**Covers:** Booking panel crew, visit records, job photos on web and mobile, insurance receipt
+**Before you start:** Northlight Security (two-person install); Harbourside Massage and Wellness (SOAP notes); Foothills Lawn and Garden (photos)
 
-1. Create a class of 6, book 6 online; the 7th is refused.
-2. Open the roster: all six listed.
+**QA steps**
 
-**Depends on:** Calendar: create, move, cancel, complete, no-show (CLI-21)
+1. Add a helper to an install.
+   **Expect:** the helper's calendar is blocked for the visit; a busy helper is refused.
+2. Move the install.
+   **Expect:** the helper's block moves with it, or the move is refused if they can't follow.
+3. Pay the install.
+   **Expect:** the line's earning is shared evenly between lead and helper at their own rates.
+4. Write a SOAP note on a Harbourside visit, then amend it.
+   **Expect:** both versions are kept with author and time.
+5. Open the insurance receipt for a paid visit as staff and from the client's manage page.
+   **Expect:** practitioner, registration and lines are right.
+6. Add before and after photos and share them.
+   **Expect:** the client sees them on their manage page.
 
-### Reminders and end-of-day completion (CLI-24)
+**Done when:** A job's crew, records and photos are correct on every device and on the client's page.
 
-Size: S · Area: Scheduling
+**Automated by**
 
-**When this is done:** No visit is forgotten by the client or left open by staff.
+* No e2e case yet
 
-**Surfaces:** Backend and text
+**To automate**
 
-**Flow:** Clients get a reminder before each visit, and past visits close themselves at the end of the day.
+* `SCH-E2E-15` in `apps/web/e2e/journeys/visit.journey.ts`: Crew block follows a move, refuses a busy helper, splits the earning (SCH01, FIN07).
+* `SCH-E2E-16` in `apps/web/e2e/bookings.e2e.ts`: Visit record create and amend, then the insurance receipt on Connect.
+* `DOC-E2E-07` in `apps/web/e2e/files.e2e.ts`: Job photos shared to the manage page and revoked (DOC17).
 
-**Built:** A reminder text the day before, previewed word for word under Setup › Reminders; past visits completed automatically after local midnight (on by default, switchable), and never-approved pending ones canceled.
+**Depends on:** CB-17
 
-**To do:**
+### Remind clients before each visit (CB-22)
 
-- Choose when reminders go out.
+**Covers:** Setup > Reminders on web and mobile, reminder texts
+**Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234; a client with a real phone on staging
 
-**QA:**
+**QA steps**
 
-1. Set reminders to 2 hours before; book for later today: the reminder arrives with the right time and address.
-2. Leave a visit open past the end of the day: it is completed next morning.
+1. Open Setup > Reminders.
+   **Expect:** the next visit's reminder shows word for word with its send time.
+2. Book a visit for tomorrow.
+   **Expect:** the reminder arrives the day before with the right time, address and manage link.
+3. Turn the manage link off.
+   **Expect:** the next reminder carries no link.
+4. Move the visit after the reminder went.
+   **Expect:** no second reminder for the old time; the client gets the rescheduled text.
 
-**Depends on:** Calendar: create, move, cancel, complete, no-show (CLI-21)
+**Done when:** No visit is forgotten by the client, and the reminder says exactly what the preview showed.
 
-### Booking page with deposits and embedding (CLI-25)
+**By hand only**
 
-Size: S · Area: Online booking and shop
+* Delivery to a real handset.
 
-**When this is done:** A client can book and pay a deposit without contacting the business.
+**Automated by**
 
-**Surfaces:** Backend, Connect (client pages), web, iPhone and Android
+* No e2e case yet
 
-**Flow:** A client books on the business's page, pays the deposit, and the visit appears for staff; the page can sit on the business's own website.
+**To automate**
 
-**Built:** A public booking page per business with services, staff choice, open times, deposit checkout and new-client creation; an embed snippet.
+* `MSG-E2E-17` in `apps/web/e2e/journeys/communication.journey.ts`: The worker sends one reminder matching the preview, and none after a reschedule (SCH18).
 
-**To do:**
+**Depends on:** CB-17, CB-49
 
-- A run with Stripe test keys.
+### Remove a team member without stranding a visit (CB-23)
 
-**QA:**
+**Covers:** Setup > Team & hours removal dialog, schedule, Connect
+**Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234
+
+**QA steps**
+
+1. Remove a member with future visits, a series and a class schedule, choosing reassign.
+   **Expect:** the summary lists what moved; each visit lands on a member who offers the service.
+2. Remove another, choosing cancel.
+   **Expect:** their visits are cancelled and clients told.
+3. Remove a member when no one can take a schedule.
+   **Expect:** refused, naming the schedule and day.
+4. Open Staff pay.
+   **Expect:** the removed member is still listed while owed.
+
+**Done when:** Removing someone never leaves a visit without a member or a seat without a teacher.
+
+**Automated by**
+
+* `FLOW-08-A (journeys)`
+* `SCH-E2E-06 (journeys)`
+
+**To automate**
+
+* `TEAM-E2E-03` in `apps/web/e2e/journeys/team.journey.ts`: Removal with reassignment of a series and a class schedule, and the refused case (CFG10, CFG11).
+
+**Depends on:** CB-17
+
+## 4. Book online
+
+Clients find the business, book and pay a deposit, and change their plans without calling.
+
+### Take a booking online with a deposit (CB-24)
+
+**Covers:** Connect booking page, Setup > Online booking, approvals on the schedule, the reaper job
+**Before you start:** Staging with Stripe in test mode; Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234 (approval for new clients); Cedar Coast (no approval)
+
+**QA steps**
 
 1. As a new client on a phone, book a service with a deposit and pay with card 4242.
-2. The booking shows on web and the staff phone with the deposit collected; the client exists.
-3. Paste the embed snippet into a test page: booking works inside it.
+   **Expect:** Birchbark shows a request waiting for approval; the deposit is collected.
+2. Approve the request on the schedule.
+   **Expect:** the client is told; the visit shows on web and the member's phone with the deposit.
+3. At Cedar Coast, book a 30-minute walk.
+   **Expect:** confirmed at once.
+4. Change lead time, horizon and start step in Setup.
+   **Expect:** Connect offers only times inside them.
+5. Two browsers race for the last time.
+   **Expect:** one wins; the loser sees the time taken and nothing else is created.
+6. Start a deposit and abandon it.
+   **Expect:** the reaper cancels the booking and frees the time.
+7. Reload half way through.
+   **Expect:** the contact details are restored, for that business only.
 
-**Depends on:** Stripe connect and payout status (CLI-8); Services and classes: duration, buffers, capacity, deposits (CLI-16); Staff hours, time off and closures (CLI-20)
+**Done when:** A client can book and pay a deposit without contacting the business, and staff see exactly what was booked and paid.
 
-### Booking add-ons (CLI-26)
+**Automated by**
 
-Size: S · Area: Online booking and shop
+* `SCH-E2E-03 (journeys)`
+* `SCH-E2E-04 (journeys)`
+* `XB-E2E-12 (connect)`
+* `FIN-DEPOSIT-04 (stripe)`
+* `connect: publicBooking.e2e.ts › a new client's online booking waits for approval and opens the manage link`
+* `connect: publicBooking.e2e.ts › a client books a confirmed visit where new clients need no approval`
+* `connect: publicBooking.e2e.ts › anyone books with any member, and a refused or unreachable booking reads as such`
 
-**When this is done:** Add-ons always reach the invoice and are charged once.
+**To automate**
 
-**Surfaces:** Backend, Connect, web, iPhone and Android
+* `STR-E17` in `apps/connect/e2e/stripe/deposit.stripe.ts`: New client pays a booking deposit with a real card; owner approves; deposit applied on the invoice (SCH08, SCH02).
+* `SCH-E2E-17` in `apps/web/e2e/journeys/visit.journey.ts`: Payment versus reaper race on an unpaid deposit (SCH10).
 
-**Flow:** While booking, a client adds products to the visit; they land on the visit's invoice.
+**Depends on:** CB-5, CB-13, CB-16
 
-**Built:** An optional add-on step on the booking page, before the time; add-ons stored on the booking; an add-on with a duration lengthens the visit, and the booking page offers only times long enough; Create invoice from the booking includes them as lines that count toward the member's earning; staff can add and remove them before invoicing, and the visit grows or shrinks with them.
+### Let returning clients book as themselves (CB-25)
 
-**To do:**
+**Covers:** Connect returning-client verification by SMS code
+**Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234; a client with a pet and a real phone on staging
 
-- A manual pass end to end.
+**QA steps**
 
-**QA:**
+1. Book as a returning client and verify the texted code.
+   **Expect:** the existing pet is offered and the stored contact is kept.
+2. Edit the contact details after verifying.
+   **Expect:** the proof is cleared and nothing is written until confirmed.
+3. Archive the client, then try to book with the old proof.
+   **Expect:** refused.
+4. Enter wrong codes past the limit.
+   **Expect:** verification locks with a plain message.
 
-1. Book with a shampoo add-on.
-2. Staff see it on the booking on a phone and remove nothing.
-3. Create the invoice from the booking: the shampoo is a line, the deposit reduces the balance.
+**Done when:** A returning client books their own pet without retyping it, and nobody else can.
 
-**Depends on:** Products: SKU, cost, price, images (web and mobile) (CLI-17); Booking page with deposits and embedding (CLI-25)
+**By hand only**
 
-### Client self-service cancel and reschedule (CLI-28)
+* The code arriving on a real phone.
 
-Size: M · Area: Online booking and shop
+**Automated by**
 
-**When this is done:** Clients can change plans without staff, and the rules are enforced.
+* `CRM-E2E-05 (journeys)`
+* `CRM-E2E-06 (journeys)`
+* `CRM-E2E-07 (journeys)`
 
-**Surfaces:** Backend, Connect, web, iPhone and Android
+**To automate**
 
-**Flow:** A client cancels or moves their own booking from a link, within the business's rules.
+* `CRM-E2E-14` in `apps/web/e2e/journeys/client.journey.ts`: Verification threshold and two concurrent verifications (CRM-E15).
 
-**Built:** A manage link (`/m/<token>` on Connect) in confirmations and reminders; cancel and reschedule within the business's cut-offs and move limit, enforced on the server under the member and booking locks, with a paid deposit refunded on an allowed cancel and refusals worded from their codes.
+**Depends on:** CB-24
 
-**To do:**
+### Add products to a booking and bill them once (CB-26)
 
-- A late-cancel policy that keeps the deposit (scheduling plan G5).
+**Covers:** Connect extras step, booking panel add-ons, invoice from booking
+**Before you start:** Brightwater Home Cleaning (add-ons that lengthen the visit); Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234
 
-**QA:**
+**QA steps**
+
+1. Book an oven clean add-on online.
+   **Expect:** only times long enough are offered; the visit is longer by the add-on's minutes.
+2. As staff, add another add-on where the time after is taken.
+   **Expect:** refused as no room.
+3. Remove one add-on.
+   **Expect:** the visit shortens, never below the service length.
+4. Create the invoice from the booking.
+   **Expect:** each add-on is a line, counted toward the member's earning, and the deposit reduces the balance.
+
+**Done when:** Add-ons always reach the invoice, are charged once and keep the visit's length right.
+
+**Automated by**
+
+* `SCH-E2E-07 (journeys)`
+* `BILL-DOC-03 (web)`
+
+**To automate**
+
+* `SCH-E2E-18` in `apps/web/e2e/journeys/visit.journey.ts`: Staff add-on refused with visit_no_room; removal never shortens below the service (CFG15).
+
+**Depends on:** CB-24, CB-14
+
+### Let clients reschedule or cancel from their link (CB-27)
+
+**Covers:** Connect manage page `/m/<token>`
+**Before you start:** Staging with Stripe in test mode; Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234
+
+**QA steps**
 
 1. From the confirmation link, move a booking to another open time.
-2. Cancel inside the cut-off: refused with the reason.
-3. Cancel outside it: the slot opens and the deposit follows the policy.
+   **Expect:** staff see the new time; the move limit counts down.
+2. Cancel inside the cut-off.
+   **Expect:** refused with the reason.
+3. Cancel outside it.
+   **Expect:** the slot opens and a paid deposit is refunded.
+4. On a booking with a deposit due, pay it from the link.
+   **Expect:** the deposit is collected once even with two tabs.
+5. Open the receipt and shared photos, and send the business a message.
+   **Expect:** the message lands in the Inbox thread.
 
-**Depends on:** Booking page with deposits and embedding (CLI-25)
+**Done when:** Clients change their plans without staff, and the business's rules are enforced on the server.
 
-## 4. Get paid
+**Automated by**
 
-Done when: A business can ring up sales, take card and Tap to Pay with tips and discounts, send estimates and invoices, record payments, hand out PDFs, refund, and sell packages and gift cards.
+* `XB-E2E-14 (connect)`
+* `connect: publicManage.e2e.ts › a client opens the manage link and the move picker`
+* `connect: publicBooking.e2e.ts › cancel through the manage link (inside two tests)`
 
-QA pass:
+**To automate**
 
-1. Ring up a groom and a shampoo for a client, and a walk-in sale with no client.
-2. Pay on web with card 4242 and text the receipt; on a real phone take Tap to Pay with a credit card and an Interac card; a declined card leaves the sale open with a clear message.
-3. Add a 15% tip to a $100 groom (no tax on the tip), and discount one line 10% and the sale $5; totals and tax match a hand calculation.
-4. Write an estimate on a phone, send, accept and convert it: the invoice keeps the lines, discount and tax.
-5. Create an invoice from a completed booking, send it and pay it through the link in a private window; void another; record $20 cash on a $50 invoice and charge the rest to the saved card.
-6. Each invoice, estimate and receipt page has a matching PDF; download them from a phone.
-7. Sell a 5-visit package and use two visits, start a membership and advance the test clock a month, and sell a $100 gift card and redeem $40.
-8. Order two products in the online shop on a phone, mark the order ready and picked up; stock drops by one each.
-9. Refund $10 of a $50 payment, then the rest; refund a gift card purchase; open and win a test dispute on a package payment.
+* `SCH-E2E-19` in `apps/connect/e2e/publicManage.e2e.ts`: Reschedule to a new time, cancel inside the cut-off refused, cancel outside it refunds (SCH05, SCH09).
+* `STR-E18` in `apps/connect/e2e/stripe/deposit.stripe.ts`: Pay a pending deposit from the manage link with a real card.
 
-Run it in order on one business, on web, iPhone and Android, as the owner and again as staff where the steps involve roles.
+**Depends on:** CB-24
 
-### Online shop and pickup orders (CLI-27)
+### Put the business page and booking on the business's own site (CB-28)
 
-Size: M · Area: Online booking and shop
+**Covers:** Connect business page, embed script and widgets, host routing
+**Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234; a scratch HTML page on another origin
 
-**When this is done:** Online orders are paid, prepared and collected without a phone call.
+**QA steps**
 
-**Surfaces:** Backend, Connect, web, iPhone and Android
+1. Open `<slug>.D` on a phone.
+   **Expect:** cover, logo, services and links to booking and the shop on their own hosts.
+2. Paste the embed snippet into the scratch page.
+   **Expect:** the drawer opens and closes with focus restored; an inline widget below the fold sizes itself.
+3. Book a visit inside the embedded page.
+   **Expect:** the booking completes and shows on the schedule.
+4. Post a message to the widget from another window.
+   **Expect:** ignored; the brand renders as text.
+5. Open a booking link on the wrong host and an invalid token.
+   **Expect:** not found or a plain explanation, never a transaction.
 
-**Flow:** A client orders products from the business's shop page, pays by card, and collects them once staff mark the order ready.
+**Done when:** A business can send clients to its page or embed booking on its own site, and each works on a phone.
 
-**Built:** A shop page per business for products marked sell online, card payment, pickup orders in Sales with Mark ready and Picked up, notifications to owner and client.
+**Automated by**
 
-**To do:**
+* `EMBED-E2E-01 (connect)`
+* `OPS-E2E-06 (connect)`
+* `XB-E2E-09 (connect)`
+* `connect: embed.e2e.ts › the single-script booking drawer opens, closes and restores focus`
+* `connect: shell.e2e.ts › every client page explains an invalid link without offering a transaction`
+* `connect: smoke/connect.smoke.ts (hosts, framing, widgets)`
 
-- A run with Stripe test keys.
+**To automate**
 
-**QA:**
+* `EMBED-E2E-02` in `apps/connect/e2e/embed.e2e.ts`: A booking completed inside the embed reaches the staff schedule (OPS15).
 
-1. On a phone, order a shampoo and a brush and pay with card 4242.
-2. The owner is notified; the order shows in Sales as waiting for pickup.
-3. Mark it ready: the client gets the message. Mark it picked up.
-4. Stock dropped by one each.
+**Depends on:** CB-24
 
-**Depends on:** Stripe connect and payout status (CLI-8); Stock tracking, low stock and restock (CLI-18)
+## 5. Get paid
 
-### Sales with services and products (CLI-29)
+Every way a client pays, at the desk, by link or online, ends in the right status, receipt and stock.
 
-Size: S · Area: Front desk sales and orders
+### Ring up a sale at the desk and send the receipt (CB-29)
 
-**When this is done:** Any sale can be rung up in under a minute.
+**Covers:** Sales on web and mobile: ticket, held tickets, cash, receipts by text
+**Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234
 
-**Surfaces:** Backend, web, iPhone and Android
-
-**Flow:** Staff ring up services and products for a client or a walk-in, and the sale is recorded with tax.
-
-**Built:** Sales on web and mobile; cart with services, classes and products; client optional; gift cards, packages and subscriptions open their own checkout.
-
-**To do:**
-
-- A manual pass on web and both phones.
-
-**QA:**
+**QA steps**
 
 1. Ring up a groom and a shampoo for a client.
-2. Ring up a walk-in sale with no client.
-3. Open the gift card tile: it opens the gift card checkout, not the cart.
+   **Expect:** totals and tax by line.
+2. Ring up a walk-in with no client and pay $50 cash on a $43 total.
+   **Expect:** $7 change, sale Paid.
+3. Hold a ticket on web and resume it on a phone.
+   **Expect:** the same lines, then paid once.
+4. Lose the response after paying cash and retry.
+   **Expect:** one payment and one stock movement.
+5. Text the receipt to a phone number.
+   **Expect:** the receipt lists each line, tax and total.
+6. As front-desk staff, sell past zero stock.
+   **Expect:** allowed; void and restock are refused.
 
-**Depends on:** Products: SKU, cost, price, images (web and mobile) (CLI-17)
+**Done when:** Any sale can be rung up in under a minute and is recorded once with tax.
 
-### Card and Tap to Pay checkout with receipts (CLI-30)
+**Automated by**
 
-Size: M · Area: Front desk sales and orders
+* `SALE-E2E-01 (web)`
+* `SALE-E2E-02 (web)`
+* `SALE-E2E-11 (web)`
+* `mobile: payments.yaml (walk, unregistered)`
 
-**When this is done:** Every way of paying at the desk ends in a paid sale and a correct receipt.
+**To automate**
 
-**Surfaces:** Backend, web, iPhone and Android
+* `SALE-E2E-13` in `apps/web/e2e/pos.e2e.ts`: Hold a ticket, resume on a second device, pay once (SALE07).
+* `SALE-E2E-14` in `apps/web/e2e/pos.e2e.ts`: Walk-in receipt by text matches the sale, with a failed send retried (SALE21).
 
-**Flow:** Staff take payment by saved card, new card or Tap to Pay, and the client gets an itemised receipt.
+**Depends on:** CB-14
 
-**Built:** Card checkout for sales on web and mobile, Tap to Pay on mobile with connection tokens scoped to the business's Terminal Location, cancelling an unfinished card or Tap to Pay checkout so the sale can be edited or paid in cash, abandoned staff-opened intents cancelled after a day, itemised receipts by text including walk-ins.
+### Take card payments at the desk (CB-30)
 
-**To do:**
+**Covers:** Sales card checkout on web, saved card, gift card and package tender
+**Before you start:** Staging with Stripe in test mode; Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234
 
-- A run with Stripe test keys.
-- Tap to Pay on real iPhone and Android hardware.
+**QA steps**
 
-**QA:**
+1. Pay a sale with card 4242.
+   **Expect:** Paid on web and phones.
+2. Try the declined card 4000 0000 0000 0002.
+   **Expect:** the sale stays open with a clear message.
+3. Start a card checkout, cancel it and pay cash.
+   **Expect:** Stripe shows the intent cancelled; the sale is paid once in cash.
+4. Charge a client's saved card.
+   **Expect:** Paid without the card form.
+5. Pay part with a gift card and the rest in cash.
+   **Expect:** both tenders on the receipt; the gift balance drops.
 
-1. On web, pay a sale with card 4242 and text a receipt to a phone number.
-2. On a real phone, take a Tap to Pay payment.
-3. Try a declined card (4000 0000 0000 0002): the sale stays open with a clear message.
-4. The receipt lists each line, tax and total.
+**Done when:** Every way of paying at the desk except Tap to Pay ends in a paid sale and a correct receipt.
 
-**Depends on:** Stripe connect and payout status (CLI-8); Sales with services and products (CLI-29)
+**Automated by**
 
-### Interac debit on Tap to Pay (CLI-31)
+* `STR-E05 (stripe)`
+* `STRIPE-BROWSER-02 (stripe), invoice decline`
 
-Size: M · Area: Front desk sales and orders
+**To automate**
 
-**When this is done:** Interac debit cards pay at the desk like credit cards.
+* `STR-E19` in `apps/connect/e2e/stripe/desk.stripe.ts`: Desk card checkout with 4242 and with a decline, then saved-card charge (SALE01, PAY-E02).
+* `SALE-E2E-15` in `apps/web/e2e/pos.e2e.ts`: Gift card part tender with cash remainder (SALE06, ENT06).
 
-**Surfaces:** Backend, iPhone and Android
+**Depends on:** CB-29, CB-5
 
-**Flow:** A client pays at the desk with an Interac debit card by Tap to Pay, and the sale or invoice is paid as it would be by credit card.
+### Take Tap to Pay on real phones (CB-31)
 
-**Built:** Nothing. Terminal PaymentIntents are created with `card_present` only, so a Canadian debit card that only carries Interac cannot pay by Tap to Pay.
+**Covers:** Mobile Sales and invoice payment with Stripe Terminal
+**Before you start:** Staging with Stripe in test mode; an NFC iPhone and an NFC Android phone with the store builds; Stripe test cards for Terminal
 
-**To do:**
+**QA steps**
 
-- Add `interac_present` to the Terminal PaymentIntent's payment method types for Canadian businesses.
-- Decide whether an Interac debit payment is stored as a card payment or as a method of its own, and show it that way on receipts, reports and the payment record.
-- Check how Stripe refunds `interac_present` payments, since some must be made with the card on the reader, and offer the right path in the refund dialog.
+1. On iPhone, ring up a product and pay with Tap to Pay.
+   **Expect:** Paid; receipt sent.
+2. On Android, take Tap to Pay on an invoice.
+   **Expect:** Paid on web too.
+3. Cancel mid-tap.
+   **Expect:** the sale can be edited or paid in cash.
+4. Tap an Interac-only debit card.
+   **Expect:** today it cannot pay (only `card_present`); record the behaviour.
 
-**QA:**
+**Done when:** Tap to Pay works on both platforms, and an interrupted tap never leaves a stuck sale.
 
-1. On a real phone with a Canadian test business, take a Tap to Pay payment with an Interac test card: the sale is Paid.
-2. Refund it: the refund follows Stripe's Interac rules and the sale reads Refunded.
-3. The receipt and the income report name the payment method.
+**By hand only**
 
-**Depends on:** Card and Tap to Pay checkout with receipts (CLI-30)
+* All of it: Tap to Pay needs real NFC hardware and the store-signed app.
+* Interac debit on Tap to Pay is not built (doc CLI-31).
 
-### Tips at checkout (CLI-32)
+**Automated by**
 
-Size: M · Area: Front desk sales and orders
+* No e2e case yet
 
-**When this is done:** Every tip reaches the right person and never carries tax.
+**Depends on:** CB-29, CB-61
 
-**Surfaces:** Backend, web, iPhone, Android and Connect (pay link)
+### Add tips and discounts that add up by hand (CB-32)
 
-**Flow:** A client adds a tip when paying, and it goes to the staff member who served them.
+**Covers:** Sales, invoice and estimate editors, pay link tip, Tap to Pay tip, member perk
+**Before you start:** Staging with Stripe in test mode; Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234; a client with a membership that has a product perk
 
-**Built:** Nothing; payments carry no tip.
+**QA steps**
 
-**To do:**
+1. Ring up a $100 groom with a 15% tip.
+   **Expect:** $15 tip, no tax on it.
+2. Discount one line 10% and the sale $5.
+   **Expect:** totals and tax match a hand calculation.
+3. As staff, discount a sale 50%.
+   **Expect:** applied without approval.
+4. Pay an invoice on the pay link with a custom tip.
+   **Expect:** the tip shows on the receipt and under the member in Staff pay.
+5. Sell a product to the member.
+   **Expect:** the perk discount applies.
+6. Tip a crew visit.
+   **Expect:** the tip follows the crew's shares.
 
-- A tip choice (percentages and custom) at the desk, on Tap to Pay and on the pay link.
-- The tip owed to the staff member on the ledger, outside sales tax, added to their earnings.
-- Tips on receipts, in the income report and in Staff pay.
+**Done when:** Every discounted total and tax matches a hand calculation, and every tip reaches the right person untaxed.
 
-**QA:**
+**By hand only**
 
-1. Ring up a $100 groom and add a 15% tip: no tax on the tip.
-2. Tip on a pay link and on Tap to Pay.
-3. Each tip shows under the right staff member in Staff pay and apart from sales in reports.
-4. Refund a tipped payment: the tip is reversed from the earnings.
+* Tip on Tap to Pay (hardware).
 
-**Depends on:** Card and Tap to Pay checkout with receipts (CLI-30); Staff pay: earnings, approval, payment (CLI-44)
+**Automated by**
 
-### Discounts (CLI-33)
+* `BILL-DOC-01 (web), discounts`
+* `DOC-E2E-06 (connect), discounted estimate`
+* `FLOW-02-A (journeys), discount carried through conversion`
 
-Size: M · Area: Front desk sales and orders
+**To automate**
 
-**When this is done:** Every discounted total and its tax match a hand calculation.
+* `SALE-E2E-16` in `apps/web/e2e/pos.e2e.ts`: Line and sale discounts with a percent tip, exact cents and tax (SALE01).
+* `PAY-E2E-04` in `apps/web/e2e/earnings.e2e.ts`: Tips from desk and pay link land on the right member and outside sales (FIN12).
+* `STR-E20` in `apps/connect/e2e/stripe/provider.stripe.ts`: Pay link with a tip settles one charge (BILL17).
 
-**Surfaces:** Backend, web, iPhone and Android
+**Depends on:** CB-30
 
-**Flow:** Staff take an amount or a percentage off a line or a whole sale, invoice or estimate, and tax follows the discounted price.
+### Quote with an estimate and turn it into an invoice (CB-33)
 
-**Built:** Nothing.
+**Covers:** Estimate editor on web and mobile, Connect estimate page, convert, book from estimate
+**Before you start:** Northlight Security (estimates with optional lines)
 
-**To do:**
+**QA steps**
 
-- Line and whole-document discounts as a percentage or amount, with a reason.
-- Tax after the discount; discounts on documents, receipts and reports.
-- Staff apply any discount without approval.
+1. Write an estimate on a phone with an optional line and send it.
+   **Expect:** the preview shows the text; the client gets it.
+2. As the client, tick the optional line and accept.
+   **Expect:** the same discounted total is accepted.
+3. Convert it.
+   **Expect:** one draft invoice with the accepted lines, discount and tax.
+4. Decline another estimate.
+   **Expect:** it cannot be converted.
+5. Lose the send response.
+   **Expect:** the estimate reads unconfirmed, then sent, and texts once.
+6. Book the job from the accepted estimate.
+   **Expect:** the booking links to it and the estimate books once.
 
-**QA:**
+**Done when:** A quote becomes a bill without retyping anything.
 
-1. Discount one line 10% and the whole sale $5: totals and tax match a hand calculation.
-2. Convert a discounted estimate: the discount carries to the invoice.
-3. As staff, discount a sale 50%: it is applied without an approval step.
+**Automated by**
 
-**Depends on:** Sales with services and products (CLI-29); Invoices: create, send, void, pay link (CLI-35)
+* `BILL-DOC-02 (web)`
+* `BILL-DOC-20 (web)`
+* `DOC-E2E-06 (connect)`
+* `FLOW-02-A (journeys)`
+* `connect: publicEstimate.e2e.ts › a client reads an estimate and a receipt`
+* `mobile: billing.yaml (walk, unregistered)`
 
-### Estimates: create, send, accept, convert (CLI-34)
+**To automate**
 
-Size: S · Area: Invoices and payments
+* `BILL-DOC-22` in `apps/web/e2e/billing.e2e.ts`: Decline refuses conversion; late public answer after conversion (BILL10).
 
-**When this is done:** A quote becomes a bill without retyping anything.
+**Depends on:** CB-7
 
-**Surfaces:** Backend, web, iPhone and Android
+### Invoice, send by text and get paid by link (CB-34)
 
-**Flow:** Staff write an estimate, send it, the client accepts it, and it becomes an invoice.
+**Covers:** Invoice editor on web and mobile, Connect pay and receipt pages, overdue sweep
+**Before you start:** Staging with Stripe in test mode; Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234
 
-**Built:** One editor on web and mobile, catalog or free-text lines, draft editing, send, accept, decline, convert.
-
-**To do:**
-
-- A manual pass on every platform.
-
-**QA:**
-
-1. Write an estimate on a phone and send it.
-2. Accept it, convert it: the invoice has the same lines and tax.
-3. Decline another: it can't be converted.
-
-**Depends on:** Tax registration and per-item tax classes (CLI-9); Products: SKU, cost, price, images (web and mobile) (CLI-17)
-
-### Invoices: create, send, void, pay link (CLI-35)
-
-Size: S · Area: Invoices and payments
-
-**When this is done:** Invoices move from draft to paid or void with the right status everywhere.
-
-**Surfaces:** Backend, web, iPhone, Android and Connect (pay page)
-
-**Flow:** Staff invoice a client, send it, and the client pays through the link; unpaid invoices can be voided.
-
-**Built:** Create and edit drafts, send, void (blocked while a payment is in progress), invoice from a booking, pay link by card, tax lines per province.
-
-**To do:**
-
-- A run with Stripe test keys.
-
-**QA:**
+**QA steps**
 
 1. Create an invoice from a completed booking and send it.
-2. Pay through the link in a private window with card 4242: Paid on web and phones.
-3. Void another unpaid invoice; try to void one with a payment in progress: refused.
+   **Expect:** the preview matches the text that arrives.
+2. Pay through the link in a private window with card 4242.
+   **Expect:** Paid on web and phones, receipt texted.
+3. Pay another with a 3DS card, then close the challenge on a third.
+   **Expect:** settles only after authentication; the closed one stays unpaid after reload.
+4. Open one invoice in two tabs; decline in the first, pay in both.
+   **Expect:** one charge.
+5. Void an unpaid invoice; try to void one with a payment in progress.
+   **Expect:** the second is refused.
+6. Leave an invoice past due.
+   **Expect:** overdue on Today at 07:00 local; the reminder preview matches what is sent.
 
-**Depends on:** Stripe connect and payout status (CLI-8); Estimates: create, send, accept, convert (CLI-34)
+**Done when:** Invoices move from draft to paid or void with the right status everywhere.
 
-### Recording payments in the app (CLI-36)
+**Automated by**
 
-Size: M · Area: Invoices and payments
+* `BILL-DOC-01 (web)`
+* `BILL-DOC-03 (web)`
+* `BILL-DOC-04 (web)`
+* `STRIPE-BROWSER-01 (stripe)`
+* `STRIPE-BROWSER-02 (stripe)`
+* `STRIPE-BROWSER-03 (stripe)`
+* `STRIPE-BROWSER-04 (stripe)`
+* `STRIPE-BROWSER-05 (stripe)`
+* `STRIPE-BROWSER-06 (stripe)`
+* `STR-E06 (stripe)`
+* `connect: publicPay.e2e.ts › a client opens an invoice and sees how to pay it`
+* `web: previews.e2e.ts › a reminder shows the message before it goes out, and cancelling sends nothing`
 
-**When this is done:** Every way a client actually pays can be recorded on the invoice.
+**To automate**
 
-**Surfaces:** Backend, web, iPhone and Android
+* `BILL-DOC-23` in `apps/web/e2e/billing.e2e.ts`: Void refused while a payment is in progress (BILL12); the overdue sweep runs once (BILL16).
 
-**Flow:** Staff take payment on an invoice in the app: charge a saved card, or record cash or a received e-Transfer.
+**Depends on:** CB-33, CB-5
 
-**Built:** Record payment on web and mobile: charge a saved card or the reader, or record cash with change, an e-Transfer or a cheque received, with partial amounts.
+### Record any payment on an invoice (CB-35)
 
-**To do:**
+**Covers:** Record payment on web and mobile invoices
+**Before you start:** Staging with Stripe in test mode; Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234; a client with a saved card
 
-- A run with Stripe test keys.
+**QA steps**
 
-**QA:**
+1. Record $20 cash on a $50 invoice.
+   **Expect:** Partial.
+2. Charge the rest to the saved card.
+   **Expect:** Paid.
+3. Record an e-Transfer received and a cheque on others.
+   **Expect:** each shows its method on the receipt and in reports.
+4. Lose the response after recording cash and retry.
+   **Expect:** one payment.
+5. Check Today and the income report.
+   **Expect:** both payments appear.
 
-1. Record $20 cash on a $50 invoice: Partial.
-2. Charge the rest to the saved card: Paid.
-3. Today and reports show both payments.
+**Done when:** Every way a client actually pays can be recorded on the invoice and counted once.
 
-**Depends on:** Saved cards and bank accounts (CLI-14); Invoices: create, send, void, pay link (CLI-35)
+**Automated by**
 
-### PDF invoices, estimates and receipts (CLI-37)
+* `BILL-PILOT-01 (web)`
+* `BILL-PILOT-02 (web)`
+* `FLOW-02-B (journeys)`
+* `web: sync.e2e.ts › a recorded payment holds the invoice until its new balance reaches this device`
 
-Size: M · Area: Invoices and payments
+**To automate**
 
-**When this is done:** Every PDF matches its record in the app.
+* `STR-E21` in `apps/connect/e2e/stripe/provider.stripe.ts`: Charge the remainder to a saved card from Record payment (PAY-E05).
 
-**Surfaces:** Backend, web, iPhone and Android
+**Depends on:** CB-34, CB-12
 
-**Flow:** Every invoice, estimate and receipt can be downloaded or attached as a PDF that matches the app.
+### Print or share invoices, estimates, receipts and statements (CB-36)
 
-**Built:** Web pages only.
+**Covers:** Printed document view on web, share on mobile, Connect pages
+**Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234
 
-**To do:**
+**QA steps**
 
-- PDFs with logo, address, GST/HST number, lines, taxes and totals.
-- Downloadable from the client's pages and on web and mobile.
+1. Print an invoice, an estimate and a receipt from web.
+   **Expect:** logo, address, GST/HST number, lines, taxes and totals match the record.
+2. Share the same from a phone.
+   **Expect:** the client can open it.
+3. Decide whether a downloadable PDF is still a launch requirement.
+   **Expect:** a written decision on this ticket.
 
-**QA:**
+**Done when:** Every printed document matches its record, and the PDF question is decided.
 
-1. Send an invoice and an estimate: each page has a matching PDF.
-2. Take a payment: the receipt PDF lists lines, tax and total.
-3. Download each from a phone.
+**By hand only**
 
-**Depends on:** Invoices: create, send, void, pay link (CLI-35)
+* Physical print output.
 
-### Packages, memberships and gift cards: sell, use, renew, expire (CLI-38)
+**Automated by**
 
-Size: M · Area: Invoices and payments
+* No e2e case yet
 
-**When this is done:** Every balance in the app matches what was sold, used or charged.
+**To automate**
 
-**Surfaces:** Backend, web, iPhone and Android
+* `BILL-DOC-24` in `apps/web/e2e/billing.e2e.ts`: Printed invoice content matches the record (BILL18).
 
-**Flow:** Clients buy prepaid visits, memberships and gift cards, then use, renew and let them expire, with balances always right.
+**Depends on:** CB-34
 
-**Built:** Sell each through its own checkout; one session used per visit; monthly charges by Stripe with an invoice each period, carrying the platform fee, taxed by the business's registration when each period starts and with one past-due notice per failed invoice; existing members keep their price when the item's price changes, and the item editor says so; archiving a client ends their memberships at period end; redeem gift cards by code; expiry books the unused balance as revenue.
+### Take deposits and apply them to the bill (CB-37)
 
-**To do:**
+**Covers:** Deposit on booking, invoice from booking, no-show and cancel paths
+**Before you start:** Staging with Stripe in test mode; Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234
 
-- Pause a membership.
-- A full pass with Stripe's test clock.
+**QA steps**
 
-**QA:**
+1. Book with a $25 deposit and invoice the visit.
+   **Expect:** the invoice's balance is reduced by $25.
+2. Cancel an allowed booking with a paid deposit.
+   **Expect:** refunded in full.
+3. Mark a deposit visit a no-show.
+   **Expect:** the deposit is kept as revenue.
+4. Refund a deposit already applied to an issued invoice.
+   **Expect:** the invoice reopens for that amount.
 
-1. Sell a 5-visit package, use two visits: 3 remain.
-2. Start a membership, advance Stripe's test clock a month: the second invoice is Paid.
-3. Sell a $100 gift card, redeem $40: $60 remains.
-4. Run the expiry job: expired balances move to revenue.
+**Done when:** Every deposit ends applied, refunded or kept, and the books agree.
 
-**Depends on:** Saved cards and bank accounts (CLI-14); Packages, memberships and gift card items (CLI-19)
+**Automated by**
 
-### Refunds and chargebacks (CLI-39)
+* `BILL-DOC-03 (web)`
+* `FIN-DEPOSIT-04 (stripe)`
+* `FIN-DEPOSIT-10 (stripe)`
+* `STR-E04 (stripe)`
 
-Size: S · Area: Invoices and payments
+**To automate**
 
-**When this is done:** Money and the client's entitlements agree after every case.
+* `FIN-DEPOSIT-14` in `apps/connect/e2e/stripe/deposit.stripe.ts`: Deposit before and after the invoice is issued, and the no-show forfeit (BILL12, SCH11, FIN05).
 
-**Surfaces:** Backend, web, iPhone and Android
+**Depends on:** CB-24
 
-**Flow:** Staff refund all or part of a payment, and chargebacks are tracked to their outcome.
+### Sell and redeem gift cards (CB-38)
 
-**Built:** Full, partial and repeated refunds as credit notes; dashboard refunds recorded, including failed ones; deposits, stock and entitlements unwound; disputes book the withdrawn funds and fee, a won dispute reverses them. A refund that fails after succeeding is reversed, and a lost dispute is written off with the sale unwound and the document reading refunded; an open or won case leaves it paid. A lost dispute never takes sales or tax below zero: money lost twice, and the used part of a gift card or package, goes to a loss account, and a deposit's forfeit is taken back first. A payment under dispute can't be refunded, and a dispute inquiry alerts staff.
+**Covers:** Gift cards on web and mobile, gift card checkout, redemption at the desk
+**Before you start:** Staging with Stripe in test mode; Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234
 
-**To do:**
+**QA steps**
 
-- Suspend a disputed gift card or package while the case is open.
+1. Sell a $100 gift card for cash to a recipient.
+   **Expect:** active with a code.
+2. Sell one by card.
+   **Expect:** active only after the payment settles.
+3. Redeem $40, then try to spend $70.
+   **Expect:** $60 remains; overspend refused.
+4. Spend the rest exactly.
+   **Expect:** balance $0 and exhausted.
 
-**QA:**
+**Done when:** Every gift card balance matches what was sold and spent.
 
-1. Refund $10 of $50, then the rest: Refunded, tax set aside drops.
-2. Refund a gift card purchase: it can't be redeemed.
-3. Open a test dispute on a package payment: suspended; win it: restored.
+**Automated by**
 
-**Depends on:** Card and Tap to Pay checkout with receipts (CLI-30); Packages, memberships and gift cards: sell, use, renew, expire (CLI-38)
+* `ENT-E2E-01 (web)`
 
-## 5. See the money
+**To automate**
 
-Done when: A business can see its day, its reports and its tax returns, reconcile with Stripe and pay its staff.
+* `ENT-E2E-05` in `apps/connect/e2e/stripe/entitlements.stripe.ts`: Card gift card purchase pending to active, decline retry (ENT02, ENT03).
+* `ENT-E2E-06` in `apps/web/e2e/entitlements.e2e.ts`: Last balance race between two desks (ENT05).
 
-QA pass:
+**Depends on:** CB-15, CB-30
 
-1. Take a payment: Today updates on web and phones within seconds and matches the day's income report.
-2. After a test week, check each report's totals against the sales and payments made, and open each CSV in a spreadsheet.
-3. Record the quarter's GST/HST return: tax set aside drops by the amount filed, and the same period is refused a second time.
-4. Check each fee against Stripe's dashboard, see a test payout under Bank deposits once Stripe marks it paid, and confirm the hourly reconciliation reports no difference.
-5. Set 40% on services and 10% on retail; a $100 groom and a $30 product earn $40 and $3; approve, mark paid, and find $43 on the T4A.
+### Sell, use and expire packages (CB-39)
 
-Run it in order on one business, on web, iPhone and Android, as the owner and again as staff where the steps involve roles.
+**Covers:** Package checkout, cover at the desk and on invoices, expiry job
+**Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234 (5-bath pack for one pet)
 
-### Today dashboard (CLI-40)
+**QA steps**
 
-Size: S · Area: Money, tax and staff pay
+1. Sell a 5-visit package for one pet; use two visits.
+   **Expect:** 3 remain.
+2. Try to cover the sibling's visit.
+   **Expect:** refused in words.
+3. Use the final session from two desks at once.
+   **Expect:** settled once.
+4. Change the item's price after selling.
+   **Expect:** the sold package keeps its benefits.
+5. Run the expiry job on an expired package and an expired gift card.
+   **Expect:** their unused balances move to revenue.
 
-**When this is done:** Today answers how the day is going without opening a report.
+**Done when:** Every package balance matches what was sold and used, and expiry books the rest once.
 
-**Surfaces:** Backend, web, iPhone and Android
+**Automated by**
 
-**Flow:** The owner opens Today and sees revenue, money awaiting payment, tax set aside and recent activity.
+* `ENT-E2E-02 (web)`
+* `ENT-E2E-03 (web)`
+* `FLOW-07-A (journeys)`
+* `FLOW-07-B (journeys)`
 
-**Built:** Revenue today, awaiting payment, GST/HST set aside, recent activity, synced live to every device.
+**To automate**
 
-**To do:**
+* `ENT-E2E-07` in `apps/web/e2e/entitlements.e2e.ts`: Expiry boundary before and after the sweep for a package and a gift card (ENT13).
 
-- Today's schedule on the same screen.
-- The next GST/HST filing date.
+**Depends on:** CB-15, CB-29
 
-**QA:**
+### Run memberships through renewals and failures (CB-40)
 
-1. Take a payment: Today updates on web and phones within seconds.
-2. Figures match the income report for the day.
+**Covers:** Membership checkout, Stripe subscriptions, client panel, covered visits
+**Before you start:** Staging with Stripe in test mode; Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234; Stripe test clocks
 
-**Depends on:** Card and Tap to Pay checkout with receipts (CLI-30)
+**QA steps**
 
-### Reports: income, sales by item, GST/HST, T4A (CLI-41)
+1. Start a monthly membership on a saved card.
+   **Expect:** active with the first invoice Paid.
+2. Advance the test clock a month.
+   **Expect:** the second invoice is Paid and taxed at the current registration.
+3. Fail a renewal.
+   **Expect:** past due and exactly one notice per failed invoice.
+4. Book a covered service.
+   **Expect:** it is covered at the desk.
+5. Cancel, then sell the same membership again.
+   **Expect:** one active subscription.
+6. Archive the client.
+   **Expect:** the membership ends at period end.
 
-Size: S · Area: Money, tax and staff pay
+**Done when:** Every membership balance matches what Stripe charged, and failures are told once.
 
-**When this is done:** A bookkeeper can work from the downloads without questions.
+**By hand only**
 
-**Surfaces:** Backend, web, iPhone and Android
+* Pause is not built; record whether it is still a launch need.
 
-**Flow:** The owner runs reports for any period and downloads them for the bookkeeper.
+**Automated by**
 
-**Built:** Income, sales by item, GST/HST (PST and QST apart) and T4A, with CSV downloads, in the business timezone.
+* `STR-E07 (stripe)`
 
-**To do:**
+**To automate**
 
-- A manual pass against hand totals.
+* `ENT-E2E-08` in `apps/connect/e2e/stripe/memberships.stripe.ts`: Cancel and resell, lost cancel response, covered visit (ENT18, ENT19, ENT20).
 
-**QA:**
+**Depends on:** CB-15, CB-12
 
-1. After a test week, check each report's totals against the sales and payments made.
-2. Download each CSV and open it in a spreadsheet.
+### Fill online shop orders from cart to pickup (CB-41)
 
-**Depends on:** Card and Tap to Pay checkout with receipts (CLI-30)
+**Covers:** Connect shop and order page, Sales > Orders on web and mobile, pickup reminder job
+**Before you start:** Staging with Stripe in test mode; Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234
 
-### Tax returns and remittance (CLI-42)
+**QA steps**
 
-Size: S · Area: Money, tax and staff pay
+1. On a phone, order a shampoo and a brush and pay with card 4242.
+   **Expect:** the owner is notified; the order waits for pickup.
+2. Order more than the stock.
+   **Expect:** refused.
+3. Mark ready.
+   **Expect:** the client gets the message; the order page shows ready.
+4. Mark picked up, then try to move it back.
+   **Expect:** refused.
+5. Lose the order response and reload.
+   **Expect:** the order resumes with one key.
+6. Leave a ready order uncollected.
+   **Expect:** one pickup reminder at 09:00 local.
 
-**When this is done:** Tax set aside always equals what is still owed to the CRA.
+**Done when:** Online orders are paid, prepared and collected without a phone call, and stock drops once.
 
-**Surfaces:** Backend, web, iPhone and Android
+**Automated by**
 
-**Flow:** At the end of a period the owner records the return they filed, and tax set aside resets.
+* `SALE-E2E-03 (connect)`
+* `SALE-E2E-12 (journeys)`
+* `FLOW-03-A (journeys)`
+* `FLOW-03-B (journeys)`
+* `XB-E2E-10 (connect)`
+* `connect: publicShop.e2e.ts (four unregistered tests)`
 
-**Built:** Record a filed return per period; tax set aside drops by the amount; overlapping or unfinished periods refused.
+**To automate**
 
-**To do:**
+* `STR-E22` in `apps/connect/e2e/stripe/shop.stripe.ts`: Shop order paid with a real card, ready and picked up (SALE02).
+* `SALE-E2E-17` in `apps/web/e2e/journeys/stock.journey.ts`: Final-unit race between two online checkouts (SALE03).
 
-- A manual pass with real quarter totals.
+**Depends on:** CB-14, CB-5
 
-**QA:**
+## 6. After the sale
+
+Money goes back correctly, every figure agrees with Stripe and the bank, and the team is paid.
+
+### Refund correctly and unwind what the sale created (CB-42)
+
+**Covers:** Refund panel on web and mobile, credit notes, Stripe refunds
+**Before you start:** Staging with Stripe in test mode; Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234
+
+**QA steps**
+
+1. Refund $10 of a $50 payment, then the rest.
+   **Expect:** credit notes with exact tax; invoice reads Refunded; tax set aside drops.
+2. Refund part of a desk sale, then the rest.
+   **Expect:** stock returns once, on the final refund only.
+3. Refund an unused package in full.
+   **Expect:** cancelled on both devices and no longer usable.
+4. Refund a gift card purchase.
+   **Expect:** it can no longer be redeemed.
+5. Refund a paid groom after staff pay was paid.
+   **Expect:** a clawback appears for the next run.
+6. Refund in the Stripe dashboard.
+   **Expect:** recorded in the app; a refund that later fails is reversed.
+
+**Done when:** Money, stock, entitlements and staff pay agree after every refund.
+
+**Automated by**
+
+* `REF-E2E-01 (web)`
+* `SALE-E2E-10 (web)`
+* `FLOW-02-B (journeys)`
+* `FLOW-03-B (journeys)`
+* `FLOW-07-B (journeys)`
+* `FIN-DEPOSIT-04 (stripe)`
+* `PAY-E2E-02 (web)`
+
+**To automate**
+
+* `STR-E23` in `apps/connect/e2e/stripe/refunds.stripe.ts`: Pending refund that fails later is reversed; dashboard refund recorded (PAY-E07).
+* `ENT-E2E-09` in `apps/web/e2e/entitlements.e2e.ts`: Refunded gift card can't be redeemed (ENT08).
+
+**Depends on:** CB-34, CB-38
+
+### Handle chargebacks to their outcome (CB-43)
+
+**Covers:** Disputes in Payments, Stripe test disputes
+**Before you start:** Staging with Stripe in test mode; Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234
+
+**QA steps**
+
+1. Open a test inquiry.
+   **Expect:** staff are alerted; no money moves.
+2. Escalate to a dispute and lose it.
+   **Expect:** the sale is unwound once; the document reads refunded; a part refund made during the inquiry fails.
+3. Lose a dispute on a part-used gift card.
+   **Expect:** only what it still holds is taken back; the rest is a loss.
+4. Win a dispute.
+   **Expect:** funds and fee reversed; the document stays paid.
+5. Try to refund a payment under dispute.
+   **Expect:** refused.
+
+**Done when:** Money and the client's entitlements agree after every dispute outcome.
+
+**By hand only**
+
+* Suspending a disputed package or gift card while open is not built (doc CLI-39 to do).
+
+**Automated by**
+
+* `STR-E02 (stripe)`
+* `STR-E03 (stripe)`
+* `STR-E04 (stripe)`
+
+**To automate**
+
+* `STR-E24` in `apps/connect/e2e/stripe/disputes.stripe.ts`: A won dispute reverses funds and fee (PAY-E19).
+
+**Depends on:** CB-42
+
+### See the day on Today (CB-44)
+
+**Covers:** Today on web and mobile, owner and staff
+**Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234
+
+**QA steps**
+
+1. Take a payment.
+   **Expect:** Today updates on web and phones within seconds.
+2. Compare revenue, awaiting payment and tax set aside to the day's income and GST/HST reports.
+   **Expect:** equal to the cent.
+3. Check the agenda, team day and attention items.
+   **Expect:** overdue invoices and open visits are listed with actions.
+4. Check the next filing date.
+   **Expect:** shown when it is 30 days away or less.
+5. Sign in as staff.
+   **Expect:** their own day only, no money.
+
+**Done when:** Today answers how the day is going without opening a report.
+
+**Automated by**
+
+* `XB-E2E-08 (web), walk`
+* `web: shell.e2e.ts › staff: today, schedule and clients`
+* `mobile: today.yaml (walk, unregistered)`
+
+**To automate**
+
+* `FIN-REPORT-11` in `apps/web/e2e/reports.e2e.ts`: Today's figures equal the income and GST/HST report for the same day after sales and a refund (FIN16).
+
+**Depends on:** CB-34
+
+### Hand the bookkeeper reports that add up (CB-45)
+
+**Covers:** Payments > Reports on web and mobile, CSV downloads, bookkeeper ZIP
+**Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234 after a test week of sales, refunds and pay
+
+**QA steps**
+
+1. Run income, sales by item, GST/HST, PST, T4A, payouts and staff pay for the week.
+   **Expect:** totals match the sales and payments made.
+2. Download each CSV and the bookkeeper ZIP and open them in a spreadsheet.
+   **Expect:** the same cents as on screen; empty periods disable export.
+3. Run the reports from a laptop in another time zone.
+   **Expect:** the same day boundaries, in the business zone.
+4. As staff, open Reports.
+   **Expect:** not available.
+
+**Done when:** A bookkeeper can work from the downloads without questions.
+
+**Automated by**
+
+* `FIN-REPORT-01 (web)`
+* `FIN-EXPORT-02 (web)`
+
+**To automate**
+
+* `FIN-REPORT-12` in `apps/web/e2e/reports.e2e.ts`: Sales by item, GST/HST with PST apart and T4A CSVs against hand totals (FIN17, FIN11).
+
+**Depends on:** CB-42
+
+### Record filed GST/HST returns (CB-46)
+
+**Covers:** Payments > Tax returns on web and mobile
+**Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234 with a completed quarter
+
+**QA steps**
 
 1. Download the quarter's GST/HST report and record the return.
-2. Today's tax set aside drops by the amount filed.
-3. Try the same period again: refused.
+   **Expect:** tax set aside drops by the amount filed.
+2. Record the same period again.
+   **Expect:** refused.
+3. Record an unfinished period.
+   **Expect:** refused.
+4. Record both federal and provincial returns.
+   **Expect:** each clears its own tax.
 
-**Depends on:** Reports: income, sales by item, GST/HST, T4A (CLI-41)
+**Done when:** Tax set aside always equals what is still owed.
 
-### Stripe reconciliation, fees and payouts (CLI-43)
+**Automated by**
 
-Size: S · Area: Money, tax and staff pay
+* `FIN-RETURN-03 (filings)`
 
-**When this is done:** Our figures and Stripe's agree to the cent.
+**To automate**
 
-**Surfaces:** Backend, web, iPhone and Android
+* `FIN-RETURN-13` in `apps/web/e2e/remittances.filing.ts`: Overlap and partial-range rejection matrix (FIN14, FIN15).
 
-**Flow:** Every payment's Stripe fee and every payout to the bank is recorded and agrees with Stripe.
+**Depends on:** CB-45
 
-**Built:** Actual fees per payment, live payout statuses, payout contents, separate available/pending balances, embedded schedule editing and standard manual payouts. A payout is in transit from its creation and counts as deposited when Stripe marks it paid; failed and canceled payouts are reversed. An hourly job applies events Stripe couldn't deliver, and hourly reconciliation reads each business's new balance transactions, repairs recognized missing movements, compares source-level and account balances, and lists what it can't explain for platform admins. Settlement retries when the fees are not readable yet. See [Payments and Stripe](payments.md).
+### Match payouts and fees with Stripe (CB-47)
 
-**QA:**
+**Covers:** Payments > Payouts on web and mobile, Stripe dashboard, reconciliation job, admin drift
+**Before you start:** Staging with Stripe in test mode; Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234 linked to the Stripe sandbox
 
-1. After test payments, each fee matches Stripe's dashboard.
-2. Change an automatic schedule, then exercise manual payouts in Stripe sandbox; verify persistence, role gates and pending/in-transit/paid/failed/canceled display.
-3. Withhold a payment event and let the replay job apply it; verify there are no duplicate entries and that the hourly reconciliation reports no unexplained difference.
+**QA steps**
 
-**Depends on:** Stripe connect and payout status (CLI-8)
+1. After test payments, compare each fee to Stripe's dashboard.
+   **Expect:** equal.
+2. Change the automatic payout schedule.
+   **Expect:** saved in Stripe; staff cannot.
+3. Create a manual payout.
+   **Expect:** in transit, left out of Deposited until paid, then under Bank deposits.
+4. Page through payout history and a payout's contents.
+   **Expect:** older pages load and return to newest.
+5. Withhold a payment event and let the replay job apply it.
+   **Expect:** no duplicate entries.
+6. After the hourly reconciliation, open the admin drift page.
+   **Expect:** no unexplained difference for the run.
 
-### Staff pay: earnings, approval, payment (CLI-44)
+**Done when:** Our figures and Stripe's agree to the cent.
 
-Size: M · Area: Money, tax and staff pay
+**By hand only**
 
-**When this is done:** Earnings match the rates by hand.
+* A real bank deposit arriving.
 
-**Surfaces:** Backend, web, iPhone and Android
+**Automated by**
 
-**Flow:** Staff earn from services, retail sales and tips, the owner approves and pays, and the year-end T4A adds up.
+* `STR-E01 (stripe)`
+* `STR-E08 (stripe, needs_decision)`
+* `STR-E12 (stripe)`
+* `FLOW-10-A (journeys)`
+* `web: payouts.e2e.ts › payout contents paginate and clear when switching to a manual payout`
+* `web: payouts.e2e.ts › payout history reaches older pages and returns to the newest page`
 
-**Built:** Pay rate and retail commission per staff member; earnings from paid booking invoices and sales, from lines without a booking and booked add-ons, and from visits a package covers; refunds of a document or a package claw back the refunded share, including after approval; adjustments for bonuses and deductions; approve, pay and undo by row or by pay run, a chosen set or everything done through a date; a pay settles the clawbacks that belong with it and never pays a member less than nothing, and settles refunded work that nets to nothing; paid rows grouped by pay run with a statement under the business name and address (printed on web, shared on mobile) and the run's CSV; a staff pay CSV in the bookkeeper pack; My pay for staff and contractors; a T4A without the owner and with tips apart; removed members stay listed while they're owed or were paid this year; an admin can't move their own pay.
+**To automate**
 
-**To do:**
+* `STR-E25` in `apps/connect/e2e/stripe/reconciliation.stripe.ts`: Withheld webhook replayed once and reconciled (PAY-E10, FIN19).
 
-- Payroll for employees (T4, CPP, EI and income tax withholding) is not built; the T4A lists every paid member but the owner.
-- A pass over Staff pay and My pay on the iPad simulator.
+**Depends on:** CB-34
 
-**QA:**
+### Pay the team (CB-48)
+
+**Covers:** Payments > Staff pay and My pay on web and mobile, statements, T4A
+**Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234 (Diego on commission)
+
+**QA steps**
 
 1. Set 40% on services and 10% on retail.
-2. A $100 groom and a $30 product: earnings $40 and $3.
-3. Refund half the groom after paying it: a $20 clawback appears, and the next pay settles it.
-4. Approve and mark paid, undo the payment, then pay again; the T4A includes the net amount once.
-5. Pay everything done through yesterday: today's work waits for the next run.
-6. Sign in as the stylist: My pay shows the same rows and statements, read-only.
+   **Expect:** saved per member.
+2. A $100 groom and a $30 product.
+   **Expect:** earnings $40 and $3.
+3. Refund half the groom after paying it.
+   **Expect:** a $20 clawback; the next pay settles it.
+4. Approve and pay, undo the payment, pay again.
+   **Expect:** the T4A counts the net once.
+5. Pay everything done through yesterday.
+   **Expect:** today's work waits.
+6. Add a bonus adjustment.
+   **Expect:** it shows in the run and the statement.
+7. Sign in as the groomer.
+   **Expect:** My pay shows the same rows and statements, read-only.
 
-**Depends on:** Team invites and roles (CLI-7); Card and Tap to Pay checkout with receipts (CLI-30)
+**Done when:** Earnings match the rates by hand and the T4A adds up.
 
----
+**By hand only**
 
-## 6. Talk to clients
+* iPad layout of Staff pay (doc CLI-44 to do).
 
-Done when: A business can text its clients from one inbox, send broadcasts, ask for reviews, and send forms and contracts.
+**Automated by**
 
-QA pass:
+* `PAY-E2E-01 (web)`
+* `PAY-E2E-02 (web)`
+* `PAY-E2E-03 (web)`
+* `mobile: earnings.yaml (walk, unregistered)`
 
-1. Text a client and reply from their phone: the reply lands in the thread on web and mobile.
-2. Have two businesses text the same phone: each reply reaches only its business.
-3. Reply STOP from one client and record a no to offers for another; a broadcast to their tag reaches everyone else, and each record shows the consent and opt-out date.
-4. Configure a Google review link and request a review after a completed visit; confirm the invitation links directly to Google.
-5. Build an intake form with text, choice and a file upload; book as a new client, fill it in on a phone, and see the answers on web and mobile.
-6. Send a contract, sign it on a phone, and download the signed PDF with the signature, time and IP.
+**To automate**
 
-Run it in order on one business, on web, iPhone and Android, as the owner and again as staff where the steps involve roles.
+* `PAY-E2E-05` in `apps/web/e2e/earnings.e2e.ts`: Rate matrix (percent, fixed per visit, hourly, retail) and a pay-through-date cut-off (FIN07, FIN09).
+* `PAY-E2E-06` in `apps/web/e2e/earnings.e2e.ts`: T4A after pay, undo and repay, owner left out (FIN11).
 
-### Two-way inbox with a text number per business (CLI-45)
+**Depends on:** CB-4, CB-29
 
-Size: L · Area: Messaging and documents
+## 7. Talk to clients
 
-**When this is done:** No reply can reach the wrong business.
+The business texts clients from one inbox, respects consent, and sends forms, contracts and review requests.
 
-**Surfaces:** Backend, web, iPhone and Android
+### Text clients from one inbox, on the business's own number (CB-49)
 
-**Flow:** Staff text clients from one inbox, and replies always come back to the right business.
+**Covers:** Inbox on web and mobile, Twilio inbound webhook, admin SMS assignment
+**Before you start:** Staging with Stripe in test mode with Twilio; two businesses with their own numbers; a real phone
 
-**Built:** Text threads, new message, reply; one shared text number, with an inbound text routed to the business that last texted that phone (unmatched on a tie or no sender); Twilio signatures checked; phones stored as E.164; staff push on inbound texts and Connect messages.
+**QA steps**
 
-**To do:**
+1. Text a client and reply from their phone.
+   **Expect:** the reply lands in the same thread on web and mobile.
+2. Text the same phone from both businesses.
+   **Expect:** each reply reaches only the business whose number it answers.
+3. Send an unsigned or repeated inbound webhook.
+   **Expect:** nothing changes.
+4. Make the provider refuse a message.
+   **Expect:** the draft is kept; retry sends it once.
+5. As staff, message a client.
+   **Expect:** allowed; broadcasts and exports stay closed.
 
-- A text number per business, with replies routed by number and STOP scoped to that business.
-- Run `scripts/normalize_phones.py` on existing rows once approved (it waits for approval as a data change).
+**Done when:** No reply can reach the wrong business, and nothing is sent twice.
 
-**QA:**
+**By hand only**
 
-1. Text a client; reply from their phone: the reply lands in the thread on web and mobile.
-2. Two businesses text the same client phone: each reply reaches only its business.
+* A real handset reply through Twilio and carrier delivery.
 
-**Depends on:** Client records: add, edit, archive, search (CLI-11)
+**Automated by**
 
-### Broadcasts with consent and opt-out (CLI-46)
+* `MSG-E2E-01 (web)`
+* `MSG-E2E-02 (web)`
+* `MSG-E2E-03 (web)`
+* `MSG-E2E-10 (web)`
+* `MSG-E2E-11 (web)`
+* `MSG-E2E-13 (web)`
+* `mobile: messaging.yaml, messaging.navigation.yaml (walks, unregistered)`
 
-Size: L · Area: Messaging and documents
+**To automate**
 
-**When this is done:** An opted-out client can't receive a broadcast.
+* `MSG-E2E-18` in `apps/web/e2e/messaging.e2e.ts`: First-thread contention from two devices (MSG05).
 
-**Surfaces:** Backend, web, iPhone and Android
+**Depends on:** CB-8, CB-65
 
-**Flow:** The owner sends a broadcast that reaches only clients who agreed to hear from them.
+### Honour STOP and consent everywhere (CB-50)
 
-**Built:** Scheduled broadcasts to tagged clients, sent one recipient at a time and resumable, held in quiet hours (21:00 to 09:00 local); a consent record per client, opt-out by a STOP reply or a staff-recorded no, sticky STOP that only the client's START lifts, and broadcasts refused until the business has a legal address and a contact method (CASL).
+**Covers:** Client record consent, inbound STOP and START, staff toggle, consent export
+**Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234
 
-**To do:**
+**QA steps**
 
-- One pass with Twilio test keys.
+1. Reply STOP from a client.
+   **Expect:** every device shows texts off; queued notices to them are not sent.
+2. Turn texts back on from the staff toggle.
+   **Expect:** refused until the client replies START.
+3. Record a no to offers for another client.
+   **Expect:** shown on the record with the date.
+4. Export consents.
+   **Expect:** a CSV with each client's state and dates.
 
-**QA:**
+**Done when:** An opted-out client can't be texted by the business except what the law allows.
 
-1. Reply STOP from one client and record a no to offers for another.
-2. Broadcast to their tag: neither receives it, the rest do.
-3. Each client's consent and opt-out date shows on their record.
+**Automated by**
 
-**Depends on:** Tags and duplicate merging (CLI-15); Two-way inbox with a text number per business (CLI-45)
+* `FLOW-06-A (journeys)`
+* `MSG-E2E-14 (journeys)`
+* `MSG-E2E-15 (journeys)`
 
-### Google review invitations (CLI-47)
+**To automate**
 
-Size: M · Area: Messaging and documents
+* `MSG-E2E-19` in `apps/web/e2e/messaging.e2e.ts`: Consent export and a staff-recorded no to offers (MSG20).
 
-**When this is done:** Clients receive neutral invitations directly to Google after appointments.
+**Depends on:** CB-49
 
-**Surfaces:** Backend, web, iPhone and Android
+### Send broadcasts only to clients who agreed (CB-51)
 
-**Flow:** Save a Google review link, request a review manually or after a completed visit, and view invitation history.
+**Covers:** Inbox > Broadcasts on web and mobile, broadcast job
+**Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234
 
-**Built:** Direct Google invitations, booking/client validation and request history. Internal collection, approval, publication, replies and public ratings are removed.
+**QA steps**
 
-**To do:** Google Business Profile account/location connection, online review reads and explicit Google reply management; see the Google Business reviews execution plan.
+1. Broadcast to a tag that includes a STOP client and a no-to-offers client.
+   **Expect:** neither receives it; the rest do.
+2. Check the audience count before sending.
+   **Expect:** it excludes both.
+3. Schedule one inside quiet hours.
+   **Expect:** held until 09:00 local.
+4. Cancel a scheduled broadcast.
+   **Expect:** nobody is messaged.
+5. Try a broadcast on a business with no legal address.
+   **Expect:** refused with a reason.
 
-**QA:**
+**Done when:** An opted-out client never receives a broadcast.
 
-1. Requests require a saved Google URL and appropriate manager access.
-2. An invitation links directly to Google and records the client and optional completed booking.
-3. Duplicate booking requests are rejected; old internal submission and moderation endpoints return 404.
+**Automated by**
 
-**Depends on:** Calendar: create, move, cancel, complete, no-show (CLI-21)
+* `MSG-E2E-16 (web)`
+* `PLN-E2E-03 (web)`
 
-### Intake forms (CLI-48)
+**To automate**
 
-Size: S · Area: Messaging and documents
+* `MSG-E2E-20` in `apps/web/e2e/journeys/communication.journey.ts`: Broadcast to a tag skips STOP and no-offers clients; quiet hours hold (MSG11, MSG12, MSG13).
+* `MSG-E2E-21` in `apps/web/e2e/journeys/communication.journey.ts`: Consent changes during fan-out (MSG09).
 
-**When this is done:** The business has every new client's answers before the visit.
+**Depends on:** CB-50, CB-11
 
-**Surfaces:** Backend, Connect (form page), web, iPhone and Android
+### See every message before it leaves (CB-52)
 
-**Flow:** The owner builds an intake form; clients fill it in before their first visit, and answers sit on their record.
+**Covers:** Send previews on web and mobile, delivery queue
+**Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234
 
-**Built:** Form builder on web, public form page, responses stored.
+**QA steps**
 
-**To do:**
+1. Send an invoice, an estimate, a receipt, a ready notice, a form, a contract and a review request.
+   **Expect:** each preview shows word for word the text that arrives.
+2. Cancel from a preview.
+   **Expect:** nothing is sent.
+3. Make the SMS provider fail once.
+   **Expect:** the delivery is retried and sent once.
 
-- The builder on mobile.
-- Send automatically to new clients when they book.
-- Size and type limits on uploads.
+**Done when:** Nothing leaves the app that the person did not see first, and failed sends are retried, not lost.
 
-**QA:**
+**Automated by**
 
-1. Build a form with text, choice and a file upload.
-2. Book as a new client: the form arrives; fill it in on a phone.
-3. Answers show on the client's record on web and mobile.
+* `BILL-DOC-04 (web)`
+* `BILL-DOC-20 (web)`
+* `web: previews.e2e.ts › a reminder shows the message before it goes out, and cancelling sends nothing`
 
-**Depends on:** Client records: add, edit, archive, search (CLI-11)
+**To automate**
 
-### Contracts, signing and signed PDFs (CLI-49)
+* `MSG-E2E-22` in `apps/web/e2e/previews.e2e.ts`: Previews for ready, departed, rescheduled, form, contract and review match the delivered text (MSG17).
+* `MSG-E2E-23` in `apps/web/e2e/messaging.e2e.ts`: Delivery retry classification (MSG15).
 
-Size: M · Area: Messaging and documents
+**Depends on:** CB-49
 
-**When this is done:** A signed contract can be produced on request.
+### Collect intake forms before the first visit (CB-53)
 
-**Surfaces:** Backend, Connect (sign page), web, iPhone and Android
+**Covers:** Forms on web and mobile, Connect form page, intake job
+**Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234
 
-**Flow:** The owner sends a contract, the client signs online, and a signed PDF is kept.
+**QA steps**
 
-**Built:** Contract drafts on web, online signing with time and IP recorded.
+1. Build a form with text, choice and a file upload on mobile.
+   **Expect:** saved and shown on web.
+2. Book as a new client.
+   **Expect:** the form is texted by the intake job once.
+3. Fill it on a phone with a PDF and an oversized file.
+   **Expect:** the PDF uploads; the oversized file is refused.
+4. Submit twice.
+   **Expect:** one response, with consent recorded.
+5. Edit the form while the client has it open.
+   **Expect:** their answers keep the questions they saw; the next send asks the new ones.
+6. Open the answers on web and mobile.
+   **Expect:** on the client's record.
 
-**To do:**
+**Done when:** The business has every new client's answers before the visit.
 
-- A signed-contract PDF with signature, time, IP and the text as signed.
-- Contracts on mobile.
+**Automated by**
 
-**QA:**
+* `DOC-E2E-01 (connect)`
+* `FLOW-05-B (journeys)`
+* `connect: publicForm.e2e.ts › a client starts a form and a contract`
+* `mobile: messaging.yaml (form editor walk, unregistered)`
 
-1. Send a contract and sign it on a phone.
-2. Download the signed PDF from the client's record: signature, time and IP are on it.
+**To automate**
 
-**Depends on:** Client records: add, edit, archive, search (CLI-11)
+* `DOC-E2E-08` in `apps/connect/e2e/publicForm.e2e.ts`: Real file upload and the size and type matrix (DOC05, DOC06).
+* `DOC-E2E-09` in `apps/web/e2e/journeys/documents.journey.ts`: Intake job sends once to a new client (DOC10).
 
----
+**Depends on:** CB-24
 
-## 7. Go live
+### Send contracts and keep what was signed (CB-54)
 
-Done when: Clientbridge runs in production with backups and monitoring, the apps are in the stores, the site is live and the final release pass is clean.
+**Covers:** Contracts on web and mobile, Connect contract page
+**Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234
 
-QA pass:
+**QA steps**
 
-1. Deploy a tagged build to staging, run the QA pass of stages 1 to 6 there, and check the security headers.
-2. Take a real $1 payment in live mode and refund it.
-3. Restore last night's backup into a scratch database and open a business from it; trigger a test error on each surface and check the alert.
-4. Install from TestFlight and the Play internal track, sign in as owner and staff, edit working hours offline and see them reach web; confirm online-only commands explain that a connection is required, and get a push for an online booking.
-5. Check that the live site has no placeholders, every claim holds, and Start free creates an account.
-6. Run the final release pass: an owner day on web, a staff day on iPhone and Android, the client side on a phone, money that agrees to the cent, and changes made at once and offline that end up the same everywhere.
+1. Send a contract and sign it with a typed name on a phone.
+   **Expect:** signature, time and IP kept with the text as signed.
+2. Sign another by drawing, clear and redraw.
+   **Expect:** only the final stroke is kept.
+3. Decline one, then try to sign it from a stale tab.
+   **Expect:** refused.
+4. Publish new terms while a contract is open.
+   **Expect:** the client must review and consent again; earlier signatures keep their version.
+5. Download a signed copy.
+   **Expect:** today there is no signed PDF; record whether one is needed for launch.
 
-Run it in order on one business, on web, iPhone and Android, as the owner and again as staff where the steps involve roles.
+**Done when:** A signed contract can be produced on request with its version, time and IP.
 
-### Production hosting, deploys and security (CLI-50)
+**By hand only**
 
-Size: L · Area: Platform and launch
+* Signed PDF output is not built.
 
-**When this is done:** Staging passes and production deploys with one command.
+**Automated by**
 
-**Surfaces:** Backend, job worker, web, Connect and the marketing site
+* `DOC-E2E-02 (connect)`
+* `DOC-E2E-03 (connect)`
+* `DOC-E2E-04 (connect)`
+* `DOC-E2E-05 (connect)`
+* `FLOW-05-A (journeys)`
 
-**Flow:** Every part of the system runs in production on its own subdomain, deploys from CI, and is locked down.
+**To automate**
 
-**Built:** Local Docker stack; CI builds and tests every app; production secrets checked at startup, including a live Stripe key in production and a test key everywhere else; Stripe API version pinned; `make infra-providers` leaves production's Stripe objects to the live Dashboard.
+* `DOC-E2E-10` in `apps/web/e2e/journeys/documents.journey.ts`: Contract create, publish and resend with a lost response (DOC14).
 
-**To do:**
+**Depends on:** CB-49
 
-- Follow the deploy plan in `.docs/executions/deploy/plan.md` (tasks D00 to D15).
-- Production hosting for the API, worker, web, Connect and the site on their subdomains.
-- Deploys from CI to staging and production.
-- A production CORS allow-list and security headers (HSTS, CSP, frame and host protection).
-- Stripe live keys and the live webhook at the pinned version.
+### Ask for Google reviews after visits (CB-55)
 
-**QA:**
+**Covers:** Inbox > Reviews on web and mobile, review request job, Google Business Profile connection
+**Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234; a Google review link; after Google approval, a test Business Profile
 
-1. Deploy a tagged build to staging and run every story's QA there.
-2. Scan the response headers: all present.
-3. Take a real $1 payment in live mode and refund it.
+**QA steps**
 
-**Depends on:** nothing
+1. Save the Google review link.
+   **Expect:** requests are allowed only with a link and for managers.
+2. Request a review after a completed visit.
+   **Expect:** the text links straight to Google and the history shows the client and booking.
+3. Request again for the same booking.
+   **Expect:** refused; the job asks each client at most once in 30 days.
+4. Open Reviews without a connection.
+   **Expect:** the unavailable, unlinked and empty states read clearly.
+5. After Google approval, connect a profile, read reviews and reply.
+   **Expect:** the reply appears on Google.
 
-### Backups, monitoring and alerts (CLI-51)
+**Done when:** Clients get neutral invitations straight to Google, and the owner can reply once Google approves access.
 
-Size: M · Area: Platform and launch
+**By hand only**
 
-**When this is done:** A restore is timed and documented, and every surface reports errors.
+* Real Google OAuth and replies, blocked on Business Profile API approval.
 
-**Surfaces:** Backend, web, iPhone and Android
+**Automated by**
 
-**Flow:** Data is backed up and can be restored, and we hear about errors before customers do.
+* `web: shell.e2e.ts › Google Reviews distinguishes unavailable, unlinked and empty profiles`
 
-**Built:** Nothing in production.
+**To automate**
 
-**To do:**
+* `REV-E2E-01` in `apps/web/e2e/reviews.e2e.ts`: Manual invitation, duplicate booking refused, history (REV07, REV08).
+* `REV-E2E-02` in `apps/web/e2e/reviews.e2e.ts`: Connect and select a profile against a recording Google fake (REV01, REV05).
 
-- Logs, alerts and the restore drill follow the deploy plan in `.docs/executions/deploy/plan.md` (tasks D10 and D11).
-- Daily backups and point-in-time recovery for the database and the sync store.
-- One timed restore drill, written down.
-- Error tracking with alerts on every surface.
+**Depends on:** CB-18
 
-**QA:**
+## 8. Mobile, devices and sync
 
-1. Restore last night's backup into a scratch database and open a business from it.
-2. Trigger a test error on each surface: an alert arrives with the stack trace and the business.
+Staff run their day on any device, online or not, and every device agrees.
 
-**Depends on:** Production hosting, deploys and security (CLI-50)
+### Keep working offline and come back cleanly (CB-56)
 
-### iPhone and Android store release (CLI-52)
+**Covers:** Web production build with its service worker, mobile release build
+**Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234; a release build on a phone; a production web build
 
-Size: M · Area: Platform and launch
+**QA steps**
 
-**When this is done:** Both store builds pass every mobile step in the stories above.
+1. Open the web app offline after a visit.
+   **Expect:** the shell and replica load.
+2. Edit hours offline, close the tab, reopen online.
+   **Expect:** the week replays once.
+3. Try an online-only action offline (a refund).
+   **Expect:** the app says a connection is needed.
+4. Let the session expire while offline, then reconnect.
+   **Expect:** asked to sign in; the unsent week is kept.
+5. Relaunch the phone app with no server reachable.
+   **Expect:** Today and a client record open from the device.
 
-**Surfaces:** iPhone and Android
+**Done when:** Nothing written offline is lost or sent twice, and the app is honest about what needs a connection.
 
-**Flow:** Staff install the app from the stores and run their day on it, online or offline, with notifications.
+**By hand only**
 
-**Built:** Both apps with the same screens as web, offline sync, push notifications, Tap to Pay and the app icon.
+* Airplane mode on a real phone (the lane cuts services instead).
 
-**To do:**
+**Automated by**
 
-- Mobile build profiles against staging and production follow the deploy plan in `.docs/executions/deploy/plan.md` (task D09).
-- Signing, store listings and production builds pointed at production.
-- Push certificates for production.
+* `OFF-E2E-01 (web)`
+* `OFF-E2E-04 (web)`
+* `XB-E2E-05 (web)`
+* `FLOW-09-A (journeys)`
+* `NATIVE-IOS-02 (native-ios, native-android)`
+* `SYN-E2E-27 (sync)`
 
-**QA:**
+**To automate**
+
+* `NATIVE-OFF-01` in `apps/mobile/e2e/offline.hours.yaml`: Edit hours offline on the phone and see them reach web after reconnect (register the flow).
+
+**Depends on:** CB-16
+
+### Keep tabs and devices in step (CB-57)
+
+**Covers:** Web tabs on OPFS and IndexedDB, sign-out, account switch, sync health and debug panel
+**Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234; Chrome, Safari and Firefox
+
+**QA steps**
+
+1. Open three tabs, close the one syncing.
+   **Expect:** another takes over; all stay current.
+2. Sign out in one tab.
+   **Expect:** every tab stops; the replica files are removed once both close.
+3. Sign in as another account on the same browser.
+   **Expect:** a new replica; nothing from the first account.
+4. Use a private window.
+   **Expect:** the replica lives in IndexedDB and reopens after reload.
+5. Fill storage past quota.
+   **Expect:** the app says storage is full.
+6. Make the same change on web and a phone at once.
+   **Expect:** both end the same.
+
+**Done when:** Every tab and device shows the same data, and an account's data never leaks to the next account.
+
+**By hand only**
+
+* Sync health and the debug panel are read by eye.
+
+**Automated by**
+
+* `SYN-E2E-20 (sync)`
+* `SYN-E2E-21 (sync)`
+* `SYN-E2E-22 (sync)`
+* `SYN-E2E-23 (sync)`
+* `SYN-E2E-26 (sync)`
+* `SYN-E2E-28 (sync)`
+* `SYN-E2E-29 (sync)`
+* `SYN-E2E-31 (sync)`
+* `SYN-E2E-32 (sync)`
+* `SYN-E2E-33 (sync)`
+* `XB-E2E-17 (web)`
+* `XB-E2E-20 (web)`
+* `XB-E2E-21 (web)`
+* `sync: lifecycle.e2e.ts and storage.e2e.ts (unregistered tests)`
+
+**Depends on:** CB-1
+
+### Lose access, lose the data (CB-58)
+
+**Covers:** Replication rules, revocation purge on web and mobile
+**Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234
+
+**QA steps**
+
+1. Downgrade an admin to staff while their devices are open.
+   **Expect:** finance data disappears from the replica.
+2. Remove a member who is offline, then let them reconnect.
+   **Expect:** the business is purged on reconnect.
+3. Check each role's replica columns.
+   **Expect:** nothing outside the reviewed projection.
+
+**Done when:** A device only ever holds what its user may see now.
+
+**Automated by**
+
+* `SYN-E2E-02 (web)`
+* `SYN-E2E-30 (sync)`
+* `sync: revocation.e2e.ts › live renames reach the replica; downgrade, deletion and removal purge its data`
+* `sync: replication.e2e.ts (role projection tests, unregistered)`
+
+**To automate**
+
+* `NATIVE-SYN-01` in `apps/mobile/e2e/offline.yaml`: A removed member's phone purges the business on relaunch.
+
+**Depends on:** CB-4
+
+### Notify staff on their phones (CB-59)
+
+**Covers:** Push registration, notifications feed on web and mobile
+**Before you start:** Staging with Stripe in test mode; store builds on an iPhone and an Android phone
+
+**QA steps**
+
+1. Book online.
+   **Expect:** the member's phone gets a push.
+2. Send a Connect message.
+   **Expect:** a push that opens that client's conversation when tapped.
+3. Open the notifications feed on web and mobile.
+   **Expect:** the same items, marked seen.
+
+**Done when:** Staff hear about new bookings and messages on their phones.
+
+**By hand only**
+
+* Real APNs and FCM delivery with production credentials.
+
+**Automated by**
+
+* `NATIVE-IOS-03 (native-ios)`
+
+**To automate**
+
+* `NATIVE-PUSH-01` in `apps/mobile/e2e/notifications.yaml`: Run the push tap flow on Android too (MSG18).
+
+**Depends on:** CB-61
+
+### Run the day on iPhone, Android and iPad (CB-60)
+
+**Covers:** Every mobile screen on phone and tablet
+**Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234; store builds
+
+**QA steps**
+
+1. Walk Today, Schedule, Clients, Payments, Inbox and Setup as owner and as staff.
+   **Expect:** each matches web for that role.
+2. Open a client record and edit it on iPhone.
+   **Expect:** the editor opens (known iOS regression in `regressions/client-editor.yaml`).
+3. Run the same on an iPad.
+   **Expect:** full-screen tablet layout with records in place.
+
+**Done when:** A staff member can run their whole day on any supported device.
+
+**By hand only**
+
+* iPad layout review.
+* iOS native runs are local only.
+
+**Automated by**
+
+* `NATIVE-CRM-01 (native-ios, native-android)`
+* `NATIVE-IOS-01 (native-ios, native-android)`
+* `mobile: today.yaml, setup.yaml, payments.yaml, messaging.yaml, clients.record.yaml, staff.yaml, billing.yaml, earnings.yaml (walks, unregistered)`
+
+**To automate**
+
+* `NATIVE-CRM-02` in `apps/mobile/e2e/clients.record.yaml`: Fix and fold `regressions/client-editor.yaml` into the default suite.
+
+**Depends on:** CB-1
+
+### Ship store builds staff can install (CB-61)
+
+**Covers:** EAS builds, TestFlight, Play internal track, OTA updates
+**Before you start:** Staging and production build profiles
+
+**QA steps**
 
 1. Install from TestFlight and the Play internal track; sign in as owner and staff.
-2. Airplane mode, add a note, reconnect: it reaches web.
-3. Book online: the staff phone gets a push.
+   **Expect:** both point at the right environment.
+2. Ship a JS-only change as an EAS update.
+   **Expect:** installed apps pick it up within two starts.
+3. Check the native fingerprint on a config change.
+   **Expect:** the deploy asks for a store build.
 
-**Depends on:** Production hosting, deploys and security (CLI-50)
+**Done when:** Both store builds install, sign in and update the way the operations doc says.
 
-### Marketing site launch (CLI-53)
+**By hand only**
 
-Size: S · Area: Platform and launch
+* Store submission, signing and review.
 
-**When this is done:** The live site makes no claim the product can't back.
+**Automated by**
 
-**Surfaces:** Marketing site
+* No e2e case yet
 
-**Flow:** A visitor reads the site, trusts what it says, and signs up.
+**Depends on:** CB-62
 
-**Built:** Home, features, solutions with eight trade pages, pricing, legal shells and credits; content, link, accessibility and Lighthouse checks in CI; a waitlist build for the time before the app is deployed (`VITE_WAITLIST=1`, `render.yaml`), whose sign-ups go to a Resend segment.
+## 9. Platform, admin and launch
 
-**To do:**
+Clientbridge runs in production, we can see and fix it, the site is honest, and the final pass is clean.
 
-- Privacy policy and terms from a lawyer; prices and the platform fee; a contact address.
-- Remove or build every capability a page describes that doesn't exist yet.
-- Point Start free at the sign-up page and deploy on the main domain, replacing the waitlist build on Render, and email the waitlist.
+### Run production safely on its own hosts (CB-62)
 
-**QA:**
+**Covers:** API, worker, web, Connect, admin and site on their subdomains; auth service; PowerSync
+**Before you start:** Staging and production
 
-1. Search the built site for "\[" placeholders: none.
-2. Walk each trade page against the app; every claim holds.
-3. From the live site, Start free creates an account.
+**QA steps**
 
-**Depends on:** Sign-up, sign-in and password reset (CLI-5); Production hosting, deploys and security (CLI-50)
+1. Deploy a tagged build to staging.
+   **Expect:** every service healthy; `/ready` reports the database.
+2. Scan response headers on each host.
+   **Expect:** HSTS, CSP, frame and host protections present; only embeddable pages may be framed.
+3. Call the API from a disallowed origin.
+   **Expect:** no credentialed CORS.
+4. Hammer the auth endpoints.
+   **Expect:** the proxy starts refusing.
+5. Rotate the PowerSync signing key.
+   **Expect:** devices keep syncing.
 
-### Final release QA and sign-off (CLI-54)
+**Done when:** Staging passes and production deploys with one command.
 
-Size: M · Area: Platform and launch
+**By hand only**
 
-**When this is done:** Every launch story is done, this pass is clean, no bug that blocks launch is open, and both founders sign off.
+* Production deploy and DNS.
 
-**Surfaces:** Everything
+**Automated by**
 
-**Flow:** One full pass of the product as owners, staff and clients use it, across devices, before launch.
+* `connect: smoke/connect.smoke.ts (config, redirects, framing, health)`
+* `OPS-E2E-06 (connect)`
 
-**Built:** Demo business Birchbark Pet Studio; owner hannah@birchbark.example and staff priya@birchbark.example, password demo1234.
+**To automate**
 
-**To do:**
+* `OPS-E2E-07` in `apps/connect/e2e/smoke/headers.smoke.ts`: Security headers and CORS per host on the deployed stack (ID12, OPS17).
 
-- Run the pass on staging with the store builds; log each failure as a bug linked to its story.
+**Depends on:** Nothing
 
-**QA:**
+### Restore from backup and hear about errors first (CB-63)
 
-1. Owner day on web: schedule, walk-in, invoices, a gift card and a package, one refund.
-2. Staff day on iPhone, then Android: own bookings, a note, a deposit, a Tap to Pay sale.
-3. Client side on a phone: book, add a product, fill a form, sign, pay, order from the shop.
-4. Money: Today, reports, staff pay and Stripe agree to the cent.
-5. Sync: changes made at once and offline end up the same everywhere.
+**Covers:** Cloud SQL backups and PITR, error tracking, alerts
+**Before you start:** Staging
 
-**Depends on:** nothing
+**QA steps**
 
-## Final release pass (CLI-54)
+1. Restore last night's backup into a scratch database and open a business.
+   **Expect:** data as of the backup; the drill is timed and written down.
+2. Trigger a test error on API, worker, web, Connect, admin and mobile.
+   **Expect:** an alert with the stack trace and the business.
+3. Stop the worker.
+   **Expect:** the liveness probe fails within a minute.
 
-The last step of stage 7: one full pass of the product as owners, staff and clients use it, on staging with the store builds. Log each failure as a bug linked to its story. The full story is under stage 7.
+**Done when:** A restore is timed and documented, and every surface reports errors.
 
-1. Owner day on web: schedule, walk-in, invoices, a gift card and a package, one refund.
-2. Staff day on iPhone, then Android: own bookings, a note, a deposit, a Tap to Pay sale.
-3. Client side on a phone: book, add a product, fill a form, sign, pay, order from the shop.
-4. Money: Today, reports, staff pay and Stripe agree to the cent.
-5. Sync: changes made at once and offline end up the same everywhere.
+**By hand only**
 
-Done when: Every launch story is done, this pass is clean, no bug that blocks launch is open, and both founders sign off.
+* All of it: infrastructure drills.
+
+**Automated by**
+
+* No e2e case yet
+
+**Depends on:** CB-62
+
+### Use live providers safely (CB-64)
+
+**Covers:** Stripe live, Twilio, Resend, Expo push, Google, object storage in production
+**Before you start:** Production with live keys
+
+**QA steps**
+
+1. Take a real $1 card payment in live mode and refund it.
+   **Expect:** both recorded; fees match Stripe.
+2. Send a real text and email from production.
+   **Expect:** delivered from the production sender.
+3. Upload a photo.
+   **Expect:** stored in the production bucket and served.
+4. Check webhook endpoints.
+   **Expect:** live, at the pinned API version, signatures verified.
+
+**Done when:** Every provider works in production with production credentials.
+
+**By hand only**
+
+* Live payments, real carriers and real email are manual by nature.
+
+**Automated by**
+
+* `STR-E12 (stripe), sandbox only`
+
+**Depends on:** CB-62
+
+### Operate the platform from the admin console (CB-65)
+
+**Covers:** Admin app pages and `/v1/admin`
+**Before you start:** An operator account; a non-operator account
+
+**QA steps**
+
+1. Open the console as a non-operator and as an operator.
+   **Expect:** only the operator gets in; pages are not cached.
+2. Unverify the operator's email.
+   **Expect:** they lose the console on the next check.
+3. Search businesses, people and payments; open a payment.
+   **Expect:** its ledger and activity show.
+4. Change a business's edition.
+   **Expect:** the owner's app follows; the plan does not change.
+5. Assign and retire an SMS number.
+   **Expect:** inbound texts follow the assignment.
+6. Acknowledge a drift finding and send an email sample.
+   **Expect:** recorded once.
+
+**Done when:** Operators can find and fix what they need, and nobody else can.
+
+**Automated by**
+
+* `OPS-E2E-01 (web)`
+* `OPS-E2E-02 (web)`
+* `OPS-E2E-03 (web)`
+* `FLOW-10-A (journeys)`
+
+**To automate**
+
+* `OPS-E2E-08` in `apps/web/e2e/admin.e2e.ts`: SMS number assignment and retirement (OPS07).
+* `OPS-E2E-09` in `apps/web/e2e/admin.e2e.ts`: Drift acknowledge and email sample replay (OPS08, OPS09).
+
+**Depends on:** CB-62
+
+### Launch a marketing site that makes no claim the product can't back (CB-66)
+
+**Covers:** Marketing site pages, contact form, waitlist build
+**Before you start:** The built site on staging
+
+**QA steps**
+
+1. Search the built site for placeholders.
+   **Expect:** none, including legal pages.
+2. Walk each trade page against the app.
+   **Expect:** every claim holds.
+3. Send the contact form, then a bot post.
+   **Expect:** the team gets one email; the bot post is dropped.
+4. Open each demo link.
+   **Expect:** the seeded business page opens.
+5. From the live site, Start free.
+   **Expect:** `/signup` creates an account; Sign in reaches the app.
+
+**Done when:** The live site makes no claim the product can't back, and every link works.
+
+**By hand only**
+
+* Legal review of the privacy policy and terms.
+* Claim-by-claim review against the product.
+
+**Automated by**
+
+* `OPS-E2E-04 (connect)`
+* `OPS-E2E-05 (connect)`
+* `site CI: content, link, accessibility and Lighthouse checks (`make test-site`)`
+
+**To automate**
+
+* `OPS-E2E-10` in `apps/connect/e2e/site.e2e.ts`: Start free and Sign in links reach `/signup` and the app (OPS12).
+
+**Depends on:** CB-1
+
+### Keep every word from the catalog and every page accessible (CB-67)
+
+**Covers:** Web, Connect and mobile copy, axe and keyboard checks
+**Before you start:** Development builds with the en-XA pseudo-locale
+
+**QA steps**
+
+1. Run web and Connect in en-XA.
+   **Expect:** every visible string is bracketed and accented; nothing overflows.
+2. Run axe on key pages.
+   **Expect:** no violations; keyboard focus visible; hovered text readable.
+
+**Done when:** No inline copy ships, and key pages pass accessibility checks.
+
+**By hand only**
+
+* Screen-reader pass on mobile.
+
+**Automated by**
+
+* `web: pseudo.e2e.ts › key pages read every text from the en-XA catalog`
+* `connect: pseudo.e2e.ts`
+* `web: shell.e2e.ts › owner: key pages and records pass axe…`
+* `connect: shell.e2e.ts › passes axe…`
+
+**Depends on:** Nothing
+
+### Run the final release pass and sign off (CB-68)
+
+**Covers:** Everything, on staging with the store builds
+**Before you start:** Staging with Stripe in test mode; Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234; Chrome and Safari on a laptop; one iPhone and one Android phone with the store builds
+
+**QA steps**
+
+1. Owner day on web: schedule, a walk-in, two invoices paid by link and saved card, a gift card and a package, one refund.
+   **Expect:** no errors; statuses right.
+2. Staff day on iPhone, then Android: own bookings, move one, add a note, collect a deposit, a Tap to Pay sale.
+   **Expect:** matches web.
+3. Client side on a phone: book with a deposit, fill a form, sign a contract, pay an invoice, order from the shop.
+   **Expect:** each reaches staff.
+4. Money: Today, income, GST/HST, staff pay and Stripe's balance.
+   **Expect:** agree to the cent.
+5. Sync: the same change on web and a phone at once, and offline hours.
+   **Expect:** the same everywhere.
+6. Log each failure as a bug linked to its ticket with step, result, expected, device and screenshot.
+
+**Done when:** Every ticket above has passed, this pass is clean, no launch-blocking bug is open, and both founders sign off.
+
+**By hand only**
+
+* The whole pass is a human sign-off.
+
+**Automated by**
+
+* No e2e case yet
+
+**Depends on:** CB-1, CB-8, CB-17, CB-24, CB-34, CB-47, CB-49, CB-60, CB-64
 
 ---
 
 ## After launch
 
-Not tracked yet. These are pulled in by demand once the launch stages are done.
+Not tracked in Linear. These are pulled in by demand once the launch tickets pass.
 
 - **Growth and commerce:** multiple locations per business (needs a location model), loyalty and rewards,
   online gift card purchase and balance check.
@@ -1473,7 +2507,7 @@ Not tracked yet. These are pulled in by demand once the launch stages are done.
   availability and fees in the Stripe docs first; provider fees are higher than card fees, so the
   platform fee for these methods needs a decision.
 - **Platform and scale:** a public developer API with keys and outbound webhooks (`webhooks` is inbound
-  only), a platform admin role and support console, custom permissions (`contractor` has staff permissions
+  only), custom permissions (`contractor` has staff permissions
   today), suspending or offboarding a business through `businesses.status`.
 - **Feature depth:** membership pause, trial and plan change, package sessions used automatically on
   booking, a cancellation policy with a late-cancel fee, configurable reminders, Google and iCal calendar
@@ -1493,7 +2527,7 @@ Not tracked yet. These are pulled in by demand once the launch stages are done.
   on create), a decision on `clients.custom_fields`.
 - **Sync follow-ups:** window the money tables with balances, lifetime value and old invoice status
   served by the API, because at 50k clients the ledger screens take 3 to 12 seconds on a device;
-  browser-tab coordination and native resume; sanitized sync diagnostics and retention; whether the hours
+  native resume; sanitized sync diagnostics and retention; whether the hours
   editor can express "no hours set"; an offline check on iOS, which the simulator cannot do per app.
 - **A second language:** the catalogs, formatter and gates are in place with English only (see
   _Locale and time zones_ in the architecture doc). Adding French needs the translated catalog files,
