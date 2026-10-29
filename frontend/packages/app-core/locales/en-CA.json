@@ -11876,6 +11876,13 @@
     "publicPay.paidTitle": {
         "message": "This invoice is paid, thank you"
     },
+    "publicPay.closedTitle": {
+        "message": "Nothing is due on this invoice"
+    },
+    "publicPay.closedBody": {
+        "message": "{businessName} closed this invoice, so there's nothing to pay. Contact them if you have a question about it.",
+        "args": ["businessName"]
+    },
     "publicPay.paidBody": {
         "message": "Your payment to {businessName} is complete. A receipt will follow from the business.",
         "args": ["businessName"]

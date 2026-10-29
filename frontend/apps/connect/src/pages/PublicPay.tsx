@@ -178,6 +178,15 @@ export function PublicPay() {
                                 {pp.paidBody(invoice.business_name)}
                             </p>
                         </div>
+                    ) : form.closed ? (
+                        <div className="flex flex-col items-center py-6 text-center">
+                            <h2 className="font-display text-xl font-bold text-ink">
+                                {pp.closedTitle}
+                            </h2>
+                            <p className="mt-1 max-w-xs text-sm text-ink-soft">
+                                {pp.closedBody(invoice.business_name)}
+                            </p>
+                        </div>
                     ) : !form.online ? (
                         <div className="space-y-4">
                             <h2 className="font-display text-xl font-bold text-ink">

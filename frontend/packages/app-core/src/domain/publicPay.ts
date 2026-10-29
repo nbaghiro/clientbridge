@@ -243,6 +243,8 @@ type PublicPayStatus = "loading" | "not-found" | "error" | "ready" | "paid";
 interface PublicPayForm {
     status: PublicPayStatus;
     invoice: PublicInvoice | null;
+    /** Voided or refunded: nothing is due, so the page offers no payment. */
+    closed: boolean;
     online: boolean;
     contact: ContactAction[];
     card: PublicCardIntent | null;
@@ -284,6 +286,7 @@ export function usePublicPayForm(pay: PublicPayClient, token: string): PublicPay
     return {
         status,
         invoice,
+        closed: invoice?.status === "void" || invoice?.status === "refunded",
         online: invoice?.accepts_card === true,
         contact: invoice !== null ? contactActions(invoice) : [],
         card,

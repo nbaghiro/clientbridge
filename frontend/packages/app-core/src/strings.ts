@@ -4059,6 +4059,8 @@ interface Strings {
         readonly offlineBody: (businessName: string) => string;
         readonly payByCard: string;
         readonly paidTitle: string;
+        readonly closedTitle: string;
+        readonly closedBody: (businessName: string) => string;
         readonly paidBody: (businessName: string) => string;
         readonly cardStartError: string;
         readonly credit: (method: string, when: string) => string;

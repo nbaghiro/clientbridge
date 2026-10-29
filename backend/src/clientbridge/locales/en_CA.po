@@ -82,6 +82,9 @@ msgstr "A client's bank asked about a {amount} payment. Answer it in Payments be
 msgid "dispute.push"
 msgstr "Payment disputed: {amount}. Review the dispute details."
 
+msgid "refund.failed_push"
+msgstr "A refund of {amount} didn't go through. Check the payment and return the money another way."
+
 msgid "email.footer.account"
 msgstr "You're getting this email because this address was used to sign up or sign in on Clientbridge."
 

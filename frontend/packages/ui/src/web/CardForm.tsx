@@ -122,6 +122,12 @@ function ConfirmForm({
                     setError(result.error.message ?? failed);
                     return;
                 }
+                // only a payment that went through, or a debit on its way, counts as done
+                const status = "paymentIntent" in result ? result.paymentIntent.status : null;
+                if (status !== null && status !== "succeeded" && status !== "processing") {
+                    setError(failed);
+                    return;
+                }
                 onDone();
             },
             { errorMessage: failed },

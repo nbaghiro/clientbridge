@@ -101,6 +101,7 @@ def _builders() -> dict[str, Render]:
         ),
         "dispute_alert_text": lambda c: n.dispute_alert_text(c, amount(c)),
         "dispute_inquiry_alert_text": lambda c: n.dispute_inquiry_alert_text(c, amount(c)),
+        "refund_failed_alert_text": lambda c: n.refund_failed_alert_text(c, amount(c)),
         "invoice_sent_message": lambda c: (
             n.invoice_sent_message(c, 1001, amount(c), NAME, LINK),
             n.invoice_sent_message(c, 1001, amount(c), NAME, ""),

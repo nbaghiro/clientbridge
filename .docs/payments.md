@@ -181,6 +181,8 @@ An intent that nobody will finish is cancelled rather than left confirmable, so 
   ones.
 - Completing a visit cancels its unpaid deposit intent. A deposit that still settles after the visit
   finished without it is refunded, as after a cancellation.
+- Connect's card form counts a payment as done only once Stripe reports it succeeded or processing.
+  A voided or refunded invoice's pay link shows that nothing is due instead of a Pay button.
 - The pay link sends the balance its page shows, and `POST /pay/{token}/card` refuses a different live
   balance, or an invoice that was paid or voided meanwhile, with 409 `invoice_changed`; the page then
   reloads. The response carries the amount the card will be charged, which labels the card form.
@@ -275,7 +277,10 @@ application to an invoice, then marks the deposit refunded. The forfeit reversal
 dispute. A refund that fails after it succeeded reverses the refund journal, forfeits the deposit again
 (`restore_forfeit`) and restores a gift card or package the refund had voided. A held deposit goes back
 on the booking's open invoice under an application keyed by the failed refund, so the invoice it reopened
-is paid down again; if that invoice was paid or voided in the meantime, the deposit stays held.
+is paid down again; if that invoice was paid or voided in the meantime, the deposit stays held. Any
+refund that fails or is canceled, including one still pending, pushes an alert to staff that opens the
+original payment, since the money still has to go back; the client is told only about a refund they had
+been told went through.
 
 A dispute withdrawal posts the disputed amount and fee. A win reinstates funds and any fee Stripe
 actually returns. A loss unwinds the sale through the ledger, capped at what the sale still carries: a
@@ -291,7 +296,10 @@ cover the whole purchase. The income report counts lost-dispute reversals with r
 sales.
 
 An inquiry (`warning_needs_response`) alerts staff once and books nothing; money moves only if it
-escalates. Late opening events cannot reopen a won/lost dispute, and dispute fees and returned fees post
+escalates. A `prevented` dispute, which the card network settled before any funds left, also books
+nothing and leaves the payment refundable, as does a status we don't know, which is logged. A visit
+cancel skips refunding a disputed deposit, so the dispute decides that money and the cancel still goes
+through; an online order with a disputed payment is refused as "contact the business". Late opening events cannot reopen a won/lost dispute, and dispute fees and returned fees post
 only their newly observed increments, including after the case closed. Embedded dispute management
 handles evidence; our payment records and journals track the financial effect.
 

@@ -120,6 +120,7 @@ type WebhookNotice = Literal[
     "payment_failed",
     "refund",
     "refund_failed",
+    "refund_stalled",
     "payment_disputed",
     "dispute_inquiry",
     "gift_card_issued",
@@ -2119,7 +2120,12 @@ async def _reconcile_refund(
             return None
         if refund.status in ("failed", "canceled") and status == "pending":
             return None
+        stalled = refund.status == "pending" and status in ("failed", "canceled")
         refund.status = status
+        if stalled:
+            # a refund that never reached the client still has to, so staff learn it failed
+            await db.flush()
+            return WebhookOutcome("refund_stalled", refund.id)
     else:
         refund = Payment(
             id=new_id("payment"),
@@ -2150,8 +2156,9 @@ async def _reconcile_refund(
 
 async def _record_dispute(db: AsyncSession, data: dict[str, object]) -> str | None:
     """A chargeback was opened — book the pulled funds + fee and return the disputed payment."""
-    if _inquiry(data):
-        return None  # no funds are withdrawn unless it escalates to a dispute
+    if _inquiry(data) or data.get("status") == "prevented":
+        # no funds are withdrawn for an inquiry, nor for a dispute the card network prevented
+        return None
     payment = await _disputed_payment(db, data)
     if payment is None:
         return None
@@ -2191,9 +2198,11 @@ def _track_dispute(payment: Payment, data: dict[str, object]) -> None:
     match status:
         case str("won" | "lost" | "under_review" as settled):
             payment.dispute_status = settled
+        case "needs_response":
+            payment.dispute_status = "needs_response"
         case _:
-            if status == "needs_response" or payment.dispute_status is None:
-                payment.dispute_status = "needs_response"
+            # a status we don't know withdrew nothing we booked, so it never blocks a refund
+            _log.warning("dispute %s has status %s", data.get("id"), status)
 
 
 async def _update_dispute(db: AsyncSession, data: dict[str, object]) -> str | None:
@@ -3495,6 +3504,8 @@ async def refund_deposit(db: AsyncSession, gateway: PaymentGateway, booking: Boo
         raise Conflict("contact the business to refund this deposit")
     total = 0
     for payment in deposits:
+        if _disputed(payment):
+            continue  # the dispute decides where this deposit goes; the cancel still stands
         refunded = await _refunded_cents(db, payment)
         left = payment.amount_cents - refunded
         if left <= 0 or payment.provider_ref is None:
@@ -3538,7 +3549,10 @@ async def refund_online_order(db: AsyncSession, gateway: PaymentGateway, order: 
     )
     if await has_pending_order_refund(db, order):
         raise Conflict("a refund is already being processed")
-    if any(payment.provider_ref is None or payment.provider != "stripe" for payment in payments):
+    if any(
+        payment.provider_ref is None or payment.provider != "stripe" or _disputed(payment)
+        for payment in payments
+    ):
         raise Conflict("contact the business to refund this payment")
     total = 0
     for payment in payments:
@@ -3919,6 +3933,8 @@ async def notify_payment_outcome(
             pass
         case "refund_failed":
             await notifier.on_refund_failed(db, outcome.target_id)
+        case "refund_stalled":
+            await notifier.on_refund_failed(db, outcome.target_id, client_told=False)
         case "payment_disputed":
             await notifier.on_payment_disputed(db, outcome.target_id)
         case "dispute_inquiry":

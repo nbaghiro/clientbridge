@@ -295,6 +295,9 @@ msgstr ""
 msgid "refund.body_credit_note"
 msgstr ""
 
+msgid "refund.failed_push"
+msgstr ""
+
 msgid "refund_failed.body"
 msgstr ""
 

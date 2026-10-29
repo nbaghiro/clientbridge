@@ -11057,6 +11057,12 @@
     "publicPay.paidTitle": {
         "message": "[Ţĥîš îñṽöîçé îš þåîð, ţĥåñķ ýöû one two three]"
     },
+    "publicPay.closedTitle": {
+        "message": "[Ñöţĥîñĝ îš ðûé öñ ţĥîš îñṽöîçé one two three]"
+    },
+    "publicPay.closedBody": {
+        "message": "[{businessName} çļöšéð ţĥîš îñṽöîçé, šö ţĥéŕé'š ñöţĥîñĝ ţö þåý. Çöñţåçţ ţĥéɱ îƒ ýöû ĥåṽé å ǫûéšţîöñ åƀöûţ îţ. one two three four five six]"
+    },
     "publicPay.paidBody": {
         "message": "[Ýöûŕ þåýɱéñţ ţö {businessName} îš çöɱþļéţé. Å ŕéçéîþţ ŵîļļ ƒöļļöŵ ƒŕöɱ ţĥé ƀûšîñéšš. one two three four five]"
     },

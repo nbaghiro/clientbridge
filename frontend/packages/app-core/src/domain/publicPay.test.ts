@@ -259,6 +259,23 @@ describe("starting a card payment", () => {
     });
 });
 
+describe("a closed invoice", () => {
+    it("offers no payment once the invoice is voided or refunded", async () => {
+        for (const status of ["void", "refunded"]) {
+            const client = {
+                getPublicInvoice: () =>
+                    Promise.resolve(publicInvoice({ status, balance_cents: 0 })),
+                payCard: () => Promise.reject(new Error("never")),
+            };
+            const { result } = renderHook(() => usePublicPayForm(client, "tok"));
+            await waitFor(() => {
+                expect(result.current.status).toBe("ready");
+            });
+            expect(result.current.closed).toBe(true);
+        }
+    });
+});
+
 describe("printed documents in the pseudo-locale", () => {
     afterEach(async () => {
         await setPseudoLocale(false);

@@ -377,6 +377,11 @@ def dispute_alert_text(locale: str, amount: str) -> str:
     return message(locale, "dispute.push", amount=amount)
 
 
+def refund_failed_alert_text(locale: str, amount: str) -> str:
+    """Staff push body when a refund bounced or was canceled, so the money still has to go back."""
+    return message(locale, "refund.failed_push", amount=amount)
+
+
 def dispute_inquiry_alert_text(locale: str, amount: str) -> str:
     """Staff push body when a client's bank asks about a charge before any chargeback."""
     return message(locale, "dispute.inquiry_push", amount=amount)
@@ -922,18 +927,27 @@ class Notifier:
         notice = refund_message(locale, amount, business.name, payment.credit_note)
         await self._to_client(db, payment.client_id, notice)
 
-    async def on_refund_failed(self, db: AsyncSession, refund_payment_id: str) -> None:
-        """Tell the client a refund they were told about bounced at their bank."""
+    async def on_refund_failed(
+        self, db: AsyncSession, refund_payment_id: str, *, client_told: bool = True
+    ) -> None:
+        """Alert staff that a refund didn't go through, and the client if they were told it did."""
         payment = await db.get(Payment, refund_payment_id)
-        if payment is None or not payment.refund_notify or payment.status == "succeeded":
+        if payment is None or payment.status == "succeeded":
             return
         business = await db.get(Business, payment.business_id)
         if business is None:
             return
         locale = locale_for(business=business)
         amount = format_money(locale, payment.amount_cents, payment.currency)
-        notice = refund_failed_message(locale, amount, business.name)
-        await self._to_client(db, payment.client_id, notice)
+        await self._alert_staff(
+            db,
+            business,
+            refund_failed_alert_text(locale, amount),
+            {"type": "payment", "payment_id": payment.parent_payment_id or payment.id},
+        )
+        if client_told and payment.refund_notify:
+            notice = refund_failed_message(locale, amount, business.name)
+            await self._to_client(db, payment.client_id, notice)
 
     async def on_payment_failed(self, db: AsyncSession, payment_id: str) -> None:
         """Tell the client a one-off charge failed."""
