@@ -31,11 +31,11 @@ def test_numbers_become_e164_or_are_refused(typed: str, stored: str | None) -> N
 
 async def test_a_new_client_phone_is_stored_as_e164(as_owner: httpx.AsyncClient) -> None:
     out = ok(
-        await as_owner.post("/v1/clients", json={"name": "Typed", "phone": "(250) 555-0101"}), 201
+        await as_owner.post("/v1/clients", json={"name": "Typed", "phone": "(604) 555-7101"}), 201
     ).json()
-    assert out["phone"] == "+12505550101"
-    edited = ok(await as_owner.patch(f"/v1/clients/{out['id']}", json={"phone": "6045550102"}))
-    assert edited.json()["phone"] == "+16045550102"
+    assert out["phone"] == "+16045557101"
+    edited = ok(await as_owner.patch(f"/v1/clients/{out['id']}", json={"phone": "6045557102"}))
+    assert edited.json()["phone"] == "+16045557102"
     cleared = ok(await as_owner.patch(f"/v1/clients/{out['id']}", json={"phone": " "}))
     assert cleared.json()["phone"] is None
 

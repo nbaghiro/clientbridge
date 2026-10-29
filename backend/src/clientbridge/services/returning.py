@@ -82,16 +82,11 @@ class ReturningService:
         )
         if len(recent) >= 3:
             raise TooManyRequests("please wait before requesting another code")
-        clients = (
-            (
-                await self.db.execute(
-                    scoped(Client, business.id, soft_delete=True)
-                    .where(same_phone(Client.phone, number), Client.status == "active")
-                    .limit(2)
-                )
-            )
-            .scalars()
-            .all()
+        client_id = await self.db.scalar(
+            scoped(Client, business.id, soft_delete=True)
+            .with_only_columns(Client.id)
+            .where(same_phone(Client.phone, number), Client.status == "active")
+            .limit(1)
         )
         challenge_id = new_id("returning_challenge")
         code = f"{secrets.randbelow(1_000_000):06d}"
@@ -99,7 +94,7 @@ class ReturningService:
             ReturningChallenge(
                 id=challenge_id,
                 business_id=business.id,
-                client_id=clients[0].id if len(clients) == 1 else None,
+                client_id=client_id,
                 destination_hash=destination,
                 code_hash=_digest(f"{challenge_id}:{code}"),
                 expires_at=now + timedelta(minutes=_CODE_MINUTES),

@@ -331,14 +331,7 @@ function Thread({
                             <span className="font-semibold">
                                 {s.textsOffTitle(thread.title.split(" ")[0] ?? "")}
                             </span>{" "}
-                            {thread.textsOffBody}
-                        </Notice>
-                    </div>
-                ) : null}
-                {conversation.sharedWith !== null ? (
-                    <div className="mx-5 mt-4">
-                        <Notice tone="info" banner>
-                            {conversation.sharedWith}
+                            {s.textsOffBody}
                         </Notice>
                     </div>
                 ) : null}

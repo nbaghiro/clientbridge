@@ -28,6 +28,7 @@ from tests.helpers import (
     key,
     payment_by_ref,
     stripe_event,
+    unique_phone,
 )
 
 BIZ = "bz_birchbark"
@@ -64,7 +65,7 @@ async def _new_client(db: AsyncSession, *, business_id: str = BIZ, name: str = "
         id=new_id("client"),
         business_id=business_id,
         name=name,
-        phone="+16045550223",
+        phone=unique_phone(),
         tags=[],
         custom_fields={},
     )
@@ -620,7 +621,8 @@ async def test_invoice_payment_failed_sets_past_due_and_notifies(
         await db.execute(select(Subscription.status).where(Subscription.id == sub.id))
     ).scalar_one()
     assert status == "past_due"
-    assert any(m.to == "+16045550223" for m in sms.sent)
+    phone = await db.scalar(select(Client.phone).where(Client.id == cid))
+    assert any(m.to == phone for m in sms.sent)
 
 
 async def test_subscription_deleted_notifies_client(
@@ -652,7 +654,8 @@ async def test_subscription_deleted_notifies_client(
         await db.execute(select(Subscription.status).where(Subscription.id == sub.id))
     ).scalar_one()
     assert status == "canceled"
-    assert any(m.to == "+16045550223" for m in sms.sent)
+    phone = await db.scalar(select(Client.phone).where(Client.id == cid))
+    assert any(m.to == phone for m in sms.sent)
 
 
 async def test_an_expired_incomplete_membership_reads_as_canceled(

@@ -23,7 +23,7 @@ from clientbridge.integrations.twilio import Sms, SmsSender
 from clientbridge.models.business import Business, Staff
 from clientbridge.models.clients import Client
 from clientbridge.models.messaging import Broadcast, Message, Thread
-from clientbridge.models.platform import Webhook
+from clientbridge.models.platform import Audit, Webhook
 from clientbridge.models.scheduling import Booking
 from clientbridge.schemas.deliveries import SmsDelivery
 from clientbridge.schemas.messaging import (
@@ -102,15 +102,15 @@ def client_number(client: Client) -> str | None:
 
 
 async def queue_message(
-    db: AsyncSession, to: str, body: str, *, messages: Sequence[Message], business: Business
+    db: AsyncSession, to: str, body: str, *, message: Message, business: Business
 ) -> str:
-    """Queue one text for the rows it stands for; the delivery sends it and sets their status."""
+    """Queue the text; the delivery sends it and sets the row's status."""
     sms = Sms(to=to, body=body, from_number=business.sms_number)
     return await enqueue(
         db,
-        SmsDelivery(message=sms, message_ids=[message.id for message in messages]),
-        key=delivery_key("message", messages[0].id),
-        business_id=business.id,
+        SmsDelivery(message=sms, message_id=message.id),
+        key=delivery_key("message", message.id),
+        business_id=message.business_id,
     )
 
 
@@ -122,17 +122,8 @@ async def broadcast_recipients(
     if not audience.all and audience.tags:
         query = query.where(Client.tags.overlap(audience.tags))
     clients = (await db.execute(query.order_by(Client.id))).scalars().all()
-    out = _one_per_number(await _reachable(db, business_id, clients))
+    out = await _reachable(db, business_id, clients)
     return out[:_BROADCAST_CAP], len(clients) - len(out[:_BROADCAST_CAP])
-
-
-def _one_per_number(recipients: list[tuple[Client, str]]) -> list[tuple[Client, str]]:
-    """Clients sharing a number get one copy, sent to the one first by id."""
-    first: dict[str, str] = {}
-    for client, to in recipients:
-        if to not in first or client.id < first[to]:
-            first[to] = client.id
-    return [(client, to) for client, to in recipients if first[to] == client.id]
 
 
 async def _reachable(
@@ -257,6 +248,16 @@ async def _send_broadcast(
         # retrying a stored audience that no longer validates would fail the same way every run
         _log.error("broadcast %s canceled: its audience is invalid: %s", broadcast.id, invalid)
         broadcast.status = "canceled"
+        db.add(
+            Audit(
+                id=new_id("audit"),
+                business_id=broadcast.business_id,
+                action="broadcast.cancel",
+                entity_type="broadcast",
+                entity_id=broadcast.id,
+                changes={"reason": "invalid_audience"},
+            )
+        )
         await db.commit()
         return False
     recipients, excluded = await broadcast_recipients(db, broadcast.business_id, audience)
@@ -284,7 +285,7 @@ async def _send_broadcast(
             continue
         message = await _queue_recipient(db, claimed, client_id)
         text = broadcast_text(locale, name, body or "")
-        await queue_message(db, to, text, messages=[message], business=business)
+        await queue_message(db, to, text, message=message, business=business)
         # the message and its delivery commit together, so the sweep finishes what a crash leaves
         await db.commit()
         await send_queued(db, email, sms, push)
@@ -298,22 +299,13 @@ async def _send_broadcast(
 
 
 async def route_inbound_sms(db: AsyncSession, number: str, destination: str) -> Client | None:
-    """Of the business's clients on the number, the one a reply most likely answers."""
+    """The business's one live client on the number, archived or not, as it still holds it."""
     business_id = await db.scalar(select(Business.id).where(Business.sms_number == destination))
     if business_id is None:
         return None
-    latest = (
-        scoped(Message, business_id)
-        .with_only_columns(func.max(Message.created_at))
-        .join(Thread, Thread.id == Message.thread_id)
-        .where(Thread.client_id == Client.id, Message.broadcast_id.is_(None))
-        .correlate(Client)
-        .scalar_subquery()
-    )
     return await db.scalar(
         scoped(Client, business_id, soft_delete=True)
         .where(same_phone(Client.phone, number))
-        .order_by((Client.status == "active").desc(), latest.desc().nulls_last(), Client.id)
         .limit(1)
     )
 
@@ -453,7 +445,7 @@ class MessageService:
             )
             self.db.add(message)
             await self.db.flush()
-            await queue_message(self.db, to, body, messages=[message], business=business)
+            await queue_message(self.db, to, body, message=message, business=business)
             cmd.record("message.send", entity_type="message", entity_id=message.id)
             return _message_out(message)
 

@@ -58,7 +58,7 @@ interface Strings {
         readonly outOfStock: string;
         readonly pickupWindowTaken: string;
         readonly shopNotReady: string;
-        readonly contactAmbiguous: string;
+        readonly phoneTaken: string;
         readonly slotUnavailable: string;
         readonly classSeat: string;
         readonly classMove: string;
@@ -1798,7 +1798,6 @@ interface Strings {
             readonly call: string;
             readonly text: string;
             readonly textsStopped: (when: string) => string;
-            readonly textsStoppedByClient: (when: string) => string;
             readonly inProgress: string;
             readonly depositDue: (amount: string) => string;
             readonly depositPaid: (amount: string) => string;
@@ -1839,12 +1838,11 @@ interface Strings {
             readonly saving: string;
             readonly done: string;
             readonly duplicateTitle: (name: string) => string;
-            readonly duplicateBody: (reasons: string) => string;
+            readonly duplicateBody: string;
+            readonly phoneTakenTitle: (name: string) => string;
+            readonly phoneTakenBody: string;
             readonly duplicateOpen: string;
             readonly duplicateKeep: string;
-            readonly reasonPhone: string;
-            readonly reasonName: string;
-            readonly and: string;
             readonly archive: string;
             readonly archiveTitle: (name: string) => string;
             readonly archiveBody: string;
@@ -2191,8 +2189,6 @@ interface Strings {
         ];
         readonly textsOffTitle: (name: string) => string;
         readonly textsOffBody: string;
-        readonly textsOffBodyByClient: string;
-        readonly sharedNumber: (names: string) => string;
         readonly manyTexts: (segments: number) => string;
         readonly textsOffShort: string;
         readonly details: string;
@@ -2250,7 +2246,6 @@ interface Strings {
             readonly opted_out: string;
             readonly no_consent: string;
             readonly no_contact: string;
-            readonly shared_number: string;
         } & Labels;
         readonly leftOutHelp: string;
         readonly previewLabel: string;

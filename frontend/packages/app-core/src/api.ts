@@ -70,7 +70,7 @@ const FAILURES: Record<string, (detail: FailureDetail) => string> = {
     shop_not_ready: () => strings.api.shopNotReady,
     mixed_currencies: () => strings.api.mixedCurrencies,
     slot_unavailable: () => strings.api.slotUnavailable,
-    contact_ambiguous: () => strings.api.contactAmbiguous,
+    phone_taken: () => strings.api.phoneTaken,
     class_seat: () => strings.api.classSeat,
     class_move: () => strings.api.classMove,
     recurrence_too_long: () => strings.api.recurrenceTooLong,

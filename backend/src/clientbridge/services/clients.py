@@ -75,8 +75,26 @@ class ClientService:
         self.principal = principal
         self.biz = principal.business_id
 
+    async def _assert_phone_free(self, phone: str | None, client_id: str | None = None) -> None:
+        """A number belongs to one live client per business, archived ones included."""
+        if not phone:
+            return
+        holder = await self.db.scalar(
+            scoped(Client, self.biz, soft_delete=True)
+            .with_only_columns(Client.id)
+            .where(same_phone(Client.phone, phone), Client.id != client_id)
+            .limit(1)
+        )
+        if holder is not None:
+            raise Conflict(
+                "another client already has this phone number",
+                code="phone_taken",
+                detail={"client_id": holder},
+            )
+
     async def create(self, data: ClientCreate, idempotency_key: str | None = None) -> ClientOut:
         async def run(cmd: Command) -> ClientOut:
+            await self._assert_phone_free(data.phone)
             client_id = new_id("client")
             subject = (
                 None
@@ -127,6 +145,8 @@ class ClientService:
         async def run(cmd: Command) -> ClientOut:
             client = await load_client(self.db, self.biz, client_id)
             changes = data.model_dump(exclude_unset=True, exclude={"marketing_consent"})
+            if "phone" in changes:
+                await self._assert_phone_free(data.phone, client.id)
             if "tags" in changes:
                 changes["tags"] = clean_tags(data.tags or [])
             for key, value in changes.items():
@@ -287,6 +307,10 @@ class ClientService:
                 raise NotFound("client not found")
             kept, gone = by_id[client_id], by_id[data.from_client_id]
             await self._assert_mergeable(gone)
+            # the merged record lets go of its number before the kept one can take it
+            gone.deleted_at = clock.now()
+            gone.custom_fields = {**gone.custom_fields, "merged_into": kept.id}
+            await self.db.flush()
             for field in ("name", "phone"):
                 if data.fields.get(field) == "other" or getattr(kept, field) in (None, ""):
                     setattr(kept, field, getattr(gone, field))
@@ -303,8 +327,6 @@ class ClientService:
                 .where(Note.parent_type == "client", Note.parent_id == gone.id)
                 .values(parent_id=kept.id)
             )
-            gone.deleted_at = clock.now()
-            gone.custom_fields = {**gone.custom_fields, "merged_into": kept.id}
             await self.db.flush()
             await self.db.refresh(kept)
             cmd.record(
@@ -391,9 +413,8 @@ async def find_or_create_by_contact(
     phone: str | None,
     source: str,
 ) -> Client:
-    """Match a client by phone, else create one tagged with its source."""
+    """Match the client on the phone, else create one tagged with its source."""
     phone = e164(phone) if phone else None
-    existing: list[Client] = []
     if phone:
         await db.execute(
             select(
@@ -402,17 +423,13 @@ async def find_or_create_by_contact(
                 )
             )
         )
-        existing = list(
-            await db.scalars(
-                scoped(Client, business_id, soft_delete=True)
-                .where(same_phone(Client.phone, phone))
-                .limit(2)
-            )
+        existing = await db.scalar(
+            scoped(Client, business_id, soft_delete=True)
+            .where(same_phone(Client.phone, phone))
+            .limit(1)
         )
-    if len(existing) > 1:
-        raise Conflict("contact details match different clients", code="contact_ambiguous")
-    if existing:
-        return existing[0]
+        if existing is not None:
+            return existing
     client = Client(
         id=new_id("client"),
         business_id=business_id,

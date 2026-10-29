@@ -22,7 +22,7 @@ from clientbridge.models.platform import Audit, IdempotencyKey
 type Request = BaseModel | Mapping[str, object]
 
 # a lost race on one of these is the other request's success, not a server error
-_RACED_UNIQUES = ("ux_entries_ref_leg", "ux_inventory_line_reason")
+_RACED_UNIQUES = ("ux_entries_ref_leg", "ux_inventory_line_reason", "uq_clients_business_phone")
 
 
 def _lost_key_race(exc: IntegrityError) -> bool:

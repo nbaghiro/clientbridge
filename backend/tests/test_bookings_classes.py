@@ -2,17 +2,14 @@ from datetime import UTC, datetime
 
 import httpx
 import pytest
-from sqlalchemy import select, update
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.ids import new_id
 from clientbridge.models.catalog import Item
-from clientbridge.models.clients import Client
-from clientbridge.models.messaging import Delivery, Message, Thread
+from clientbridge.models.messaging import Message, Thread
 from clientbridge.models.scheduling import Booking, Slot
-from clientbridge.schemas.deliveries import DELIVERY_PAYLOAD, SmsDelivery
 from clientbridge.services.bookings import booked_count, run_reminders
-from clientbridge.services.deliveries import run_deliveries
 from clientbridge.services.notifications import Notifier
 from tests.conftest import (
     BIZ,
@@ -154,50 +151,6 @@ async def test_message_skips_and_does_not_count_a_client_who_replied_stop(
         .where(Message.body == "Bring a toy")
     )
     assert rows.scalars().all() == [CLIENTS[0]]
-
-
-async def test_message_texts_a_shared_number_once_and_notes_it_for_everyone_on_it(
-    as_owner: httpx.AsyncClient,
-    db: AsyncSession,
-    email: FakeEmailSender,
-    sms: FakeSmsSender,
-    push: FakePushSender,
-) -> None:
-    sid = await _class(db, capacity=2)
-    await db.execute(update(Client).where(Client.id == CLIENTS[1]).values(phone="+12505550180"))
-    await _add(as_owner, sid, CLIENTS[0])
-    await _add(as_owner, sid, CLIENTS[1])
-    res = await as_owner.post(f"/v1/classes/{sid}/message", json={"body": "Bring a toy"})
-    assert res.status_code == 200, res.text
-    assert res.json()["sent"] == 2
-    notes = dict(
-        (
-            await db.execute(
-                select(Thread.client_id, Message.id)
-                .join(Message, Message.thread_id == Thread.id)
-                .where(Message.body == "Bring a toy")
-            )
-        )
-        .tuples()
-        .all()
-    )
-    assert set(notes) == {CLIENTS[0], CLIENTS[1]}
-    texts = [
-        payload
-        for payload in (
-            DELIVERY_PAYLOAD.validate_python(row.payload)
-            for row in await db.scalars(select(Delivery).where(Delivery.business_id == BIZ))
-        )
-        if isinstance(payload, SmsDelivery) and set(payload.message_ids) & set(notes.values())
-    ]
-    assert len(texts) == 1 and set(texts[0].message_ids) == set(notes.values())
-    await run_deliveries(db, email, sms, push)
-    statuses = await db.scalars(
-        select(Message.status)
-        .where(Message.id.in_(notes.values()))
-        .execution_options(populate_existing=True)
-    )
-    assert list(statuses) == ["sent", "sent"]
 
 
 async def test_a_repeated_class_message_texts_each_client_once(

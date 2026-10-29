@@ -37,6 +37,13 @@ def test_demo_preflight_rejects_a_phone_not_stored_as_e164() -> None:
     assert f"{client.id}: phone is not stored as E.164" in validate_graph(ctx)
 
 
+def test_demo_preflight_rejects_two_live_clients_on_one_phone() -> None:
+    ctx = build_demo(datetime(2026, 10, 8, 16, tzinfo=UTC), core=True)
+    holder, other = sorted((row for row in ctx.all(Client) if row.phone), key=lambda c: c.id)[:2]
+    other.phone = holder.phone
+    assert f"{other.id}: phone is already {holder.id}'s" in validate_graph(ctx)
+
+
 async def test_demo_preflight_rejects_an_estimate_both_booked_and_invoiced(
     db: AsyncSession,
 ) -> None:

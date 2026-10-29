@@ -18,17 +18,11 @@ import {
     useBusinessZone,
     utcSql,
 } from "../datetime";
-import { formatList, formatParts, formatPhone } from "../format";
+import { formatParts, formatPhone } from "../format";
 import { isConnectionFailure, type Load, useAsyncAction } from "../hooks";
 import { strings } from "../strings";
 import type { Intent, SelectOption } from "../ui";
-import {
-    type MarketingConsent,
-    consentFor,
-    smsSegments,
-    textsStopped,
-    useConsents,
-} from "./broadcasts";
+import { type MarketingConsent, consentFor, smsSegments, useConsents } from "./broadcasts";
 import { useClients } from "./clients";
 import { staffNameSql } from "./staff";
 import { useReplicaLoad } from "./sync";
@@ -98,19 +92,6 @@ SELECT m.id, m.direction, m.body, m.status, m.created_at, ${staffNameSql("st")} 
 FROM messages m LEFT JOIN staff st ON st.user_id = m.sent_by
 WHERE m.thread_id = ? ORDER BY m.created_at`;
 
-export const SHARED_NUMBER_SQL = `
-SELECT o.name FROM clients c
-JOIN clients o ON o.phone = c.phone AND o.id != c.id
-WHERE c.id = ? AND c.phone IS NOT NULL AND c.phone != ''
-  AND o.business_id = c.business_id AND o.status = 'active' AND o.deleted_at IS NULL
-ORDER BY o.name COLLATE NOCASE, o.id`;
-
-/** "This number is shared with …" naming the client's active sharers, or null for none. */
-function useSharedNumber(clientId: string): string | null {
-    const names = useQuery<{ name: string }>(SHARED_NUMBER_SQL, [clientId]).data;
-    return names.length === 0 ? null : m.sharedNumber(formatList(names.map((r) => r.name)));
-}
-
 // The client beside a thread: contact, subjects, what they owe and their next visit after `?`.
 export const INBOX_CLIENT_SQL = `
 SELECT c.id, c.name, c.phone,
@@ -143,10 +124,8 @@ export interface InboxThread extends InboxRow {
     title: string;
     ago: string;
     subjects: string[];
-    // The client or their number replied STOP: texts are blocked until the matching START.
+    // The client's number replied STOP: texts are blocked until it replies START.
     textsOff: boolean;
-    // Why texts are off: the number's STOP, or the client's own.
-    textsOffBody: string;
 }
 
 export function resolveInboxTarget(
@@ -211,12 +190,9 @@ export function useInbox(): InboxView {
             title: t.client_name ?? formatPhone(t.phone),
             ago: t.last_message_at === null ? "" : formatRelativeTime(t.last_message_at, zone, now),
             subjects: t.subject_names === null ? [] : t.subject_names.split(", "),
-            textsOff: textsStopped(consents.map, t.client_id),
-            textsOffBody: consents.stoppedByClient.has(t.client_id)
-                ? m.textsOffBodyByClient
-                : m.textsOffBody,
+            textsOff: consents.stopped.has(t.client_id),
         }));
-    }, [rows.data, consents.map, consents.stoppedByClient, zone]);
+    }, [rows.data, consents.stopped, zone]);
     const filtered = useMemo(() => {
         const term = q.trim().toLowerCase();
         return threads.filter(
@@ -269,8 +245,6 @@ interface ClientContextRow {
 
 export interface Conversation {
     days: { label: string; items: ThreadItem[] }[];
-    // Other active clients on the same number, any of whom may have sent a reply.
-    sharedWith: string | null;
     client: ClientContextRow | null;
     consent: MarketingConsent;
     nextVisit: string | null;
@@ -364,7 +338,6 @@ export function useConversation(api: ApiLike, thread: InboxThread): Conversation
     const client =
         useQuery<ClientContextRow>(INBOX_CLIENT_SQL, [iso, iso, thread.client_id]).data[0] ?? null;
     const consents = useConsents();
-    const sharedWith = useSharedNumber(thread.client_id);
     const days = useMemo(() => {
         const out: Conversation["days"] = [];
         for (const r of rows) {
@@ -390,7 +363,6 @@ export function useConversation(api: ApiLike, thread: InboxThread): Conversation
     }, [rows, zone]);
     return {
         days,
-        sharedWith,
         client,
         consent: consentFor(consents.map, thread.client_id),
         nextVisit:
@@ -544,7 +516,7 @@ export function useNewMessage(
     const [body, setBody] = useState("");
     const { busy, error, setError, run } = useAsyncAction();
     const attempt = useRef<Attempt | null>(null);
-    const smsBlocked = textsStopped(consents.map, clientId);
+    const smsBlocked = consents.stopped.has(clientId);
     return {
         clients: clients.map((c) => ({
             key: c.id,

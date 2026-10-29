@@ -14,7 +14,7 @@ from clientbridge.models.platform import Audit
 from clientbridge.models.scheduling import Booking, Slot
 from clientbridge.schemas.deliveries import DELIVERY_PAYLOAD, SmsDelivery
 from tests.conftest import BIZ, Factory
-from tests.helpers import replied_stop
+from tests.helpers import replied_stop, unique_phone
 
 
 async def _client(db: AsyncSession, business_id: str = BIZ, phone: str | None = None) -> Client:
@@ -38,9 +38,9 @@ async def _booking(
     status: str = "confirmed",
     starts_at: datetime = datetime(2027, 8, 3, 17, tzinfo=UTC),
     business_id: str = BIZ,
-    phone: str | None = "+12505550142",
+    phone: str | None = "",
 ) -> str:
-    client = await _client(db, business_id, phone)
+    client = await _client(db, business_id, unique_phone() if phone == "" else phone)
     item_id = await db.scalar(
         select(Item.id).where(Item.business_id == business_id, Item.kind == "service").limit(1)
     )

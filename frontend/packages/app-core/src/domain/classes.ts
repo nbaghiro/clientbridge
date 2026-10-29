@@ -1,4 +1,4 @@
-import { BUSINESS_CURRENCY, formatMoney, formatParts } from "../format";
+import { BUSINESS_CURRENCY, formatMoney, formatParts, normalizePhone } from "../format";
 import { useBusinessQuery as useQuery } from "../hooks";
 
 import { useRef, useState } from "react";
@@ -17,7 +17,7 @@ import { type Load, useAsyncAction } from "../hooks";
 import { strings } from "../strings";
 import type { Intent } from "../ui";
 import { slotOverlapSql } from "./bookings";
-import { textsStopped, useConsents } from "./broadcasts";
+import { useConsents } from "./broadcasts";
 import { segmentNote, textLengthError } from "./messaging";
 import { afterReview } from "./previews";
 import { useNow } from "../hooks";
@@ -359,8 +359,8 @@ export function useClassBoard(api: ApiLike): ClassBoard {
             .filter(
                 (r) =>
                     r.status === "confirmed" &&
-                    (r.client_phone ?? "") !== "" &&
-                    !textsStopped(consents.map, r.client_id),
+                    normalizePhone(r.client_phone) !== null &&
+                    !consents.stopped.has(r.client_id),
             )
             .map((r) => r.client_id),
     ).size;

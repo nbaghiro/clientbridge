@@ -68,7 +68,7 @@ async def test_create_with_first_pet_and_sms_consent(
         "/v1/clients",
         json={
             "name": "  Nora Vance ",
-            "phone": "2505550190",
+            "phone": "6045550148",
             "tags": ["New ", "new", "Puppy"],
             "marketing_consent": True,
             "subject": {"name": "Pip", "attributes": {"breed": "Beagle", "weight_kg": 9}},
@@ -268,7 +268,7 @@ async def test_merge_moves_records_and_threads(
     gone = (
         await as_owner.post(
             "/v1/clients",
-            json={"name": "Gone", "phone": "2505550111", "tags": ["b"], "subject": {"name": "Rex"}},
+            json={"name": "Gone", "phone": "6045550149", "tags": ["b"], "subject": {"name": "Rex"}},
         )
     ).json()["id"]
     await as_owner.post(
@@ -286,7 +286,7 @@ async def test_merge_moves_records_and_threads(
     )
     assert res.status_code == 200, res.text
     body = res.json()
-    assert (body["name"], body["phone"], body["tags"]) == ("Gone", "+12505550111", ["a", "b"])
+    assert (body["name"], body["phone"], body["tags"]) == ("Gone", "+16045550149", ["a", "b"])
     replay = await as_owner.post(
         f"/v1/clients/{kept}/merge",
         json={"from_client_id": gone, "fields": {"name": "other"}},
@@ -448,19 +448,101 @@ async def test_client_update_replays_without_overwriting_a_later_edit(
     assert row is not None and row.name == "Later edit"
 
 
-async def test_public_contact_matching_refuses_two_different_clients(db: AsyncSession) -> None:
-    from clientbridge.core.errors import Conflict
+async def test_public_contact_matching_reuses_the_client_on_the_number(
+    db: AsyncSession,
+) -> None:
     from clientbridge.services.clients import find_or_create_by_contact
 
-    first = await db.get(Client, "cl_amelie")
-    second = await db.get(Client, "cl_marcus")
-    assert first is not None and second is not None
-    first.phone = second.phone = "+16045550111"
-    await db.flush()
-    with pytest.raises(Conflict, match="contact"):
-        await find_or_create_by_contact(
-            db, BIZ, name="Ambiguous", phone=second.phone, source="book"
+    holder = await db.get(Client, "cl_amelie")
+    assert holder is not None and holder.phone is not None
+    found = await find_or_create_by_contact(
+        db, BIZ, name="Someone Else", phone=holder.phone, source="online_booking"
+    )
+    assert found.id == holder.id
+
+
+async def _phone_of(db: AsyncSession, client_id: str) -> str:
+    row = await db.get(Client, client_id)
+    assert row is not None and row.phone is not None
+    return row.phone
+
+
+async def test_a_phone_another_client_holds_is_409_on_create_and_update(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    phone = await _phone_of(db, "cl_amelie")
+    created = await as_owner.post("/v1/clients", json={"name": "Twin", "phone": phone})
+    assert created.status_code == 409
+    assert created.json()["error"] == "phone_taken"
+    assert created.json()["detail"] == {"client_id": "cl_amelie"}
+    updated = await as_owner.patch("/v1/clients/cl_marcus", json={"phone": phone})
+    assert updated.status_code == 409 and updated.json()["detail"] == {"client_id": "cl_amelie"}
+    assert await _phone_of(db, "cl_marcus") != phone
+
+
+async def test_a_client_can_keep_or_resave_their_own_phone(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    phone = await _phone_of(db, "cl_amelie")
+    res = await as_owner.patch("/v1/clients/cl_amelie", json={"phone": phone, "name": "Amélie"})
+    assert res.status_code == 200, res.text
+
+
+async def test_an_archived_client_still_holds_their_phone(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    phone = await _phone_of(db, "cl_amelie")
+    ok = await as_owner.post("/v1/clients/cl_amelie/archive")
+    assert ok.status_code == 200, ok.text
+    res = await as_owner.post("/v1/clients", json={"name": "Twin", "phone": phone})
+    assert res.status_code == 409 and res.json()["error"] == "phone_taken"
+
+
+async def test_a_merge_hands_the_other_record_s_phone_to_a_client_without_one(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    phone = "+16045550144"
+    gone = (await as_owner.post("/v1/clients", json={"name": "Gone", "phone": phone})).json()["id"]
+    kept = (await as_owner.post("/v1/clients", json={"name": "Kept"})).json()["id"]
+    merged = await as_owner.post(f"/v1/clients/{kept}/merge", json={"from_client_id": gone})
+    assert merged.status_code == 200, merged.text
+    assert merged.json()["phone"] == phone
+    assert (await _client(db, gone))["deleted_at"] is not None
+
+
+async def test_merging_onto_the_other_record_s_phone_keeps_one_holder(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    kept = (
+        await as_owner.post("/v1/clients", json={"name": "Kept", "phone": "+16045550146"})
+    ).json()["id"]
+    gone = (
+        await as_owner.post("/v1/clients", json={"name": "Gone", "phone": "+16045550147"})
+    ).json()["id"]
+    merged = await as_owner.post(
+        f"/v1/clients/{kept}/merge", json={"from_client_id": gone, "fields": {"phone": "other"}}
+    )
+    assert merged.status_code == 200, merged.text
+    assert merged.json()["phone"] == "+16045550147"
+    taken = await as_owner.post("/v1/clients", json={"name": "Twin", "phone": "+16045550147"})
+    assert taken.json()["detail"] == {"client_id": kept}
+
+
+async def test_the_database_refuses_a_second_live_client_on_a_phone(db: AsyncSession) -> None:
+    from sqlalchemy.exc import IntegrityError
+
+    db.add(
+        Client(
+            id=new_id("client"),
+            business_id=BIZ,
+            name="Twin",
+            phone=await _phone_of(db, "cl_amelie"),
+            tags=[],
+            custom_fields={},
         )
+    )
+    with pytest.raises(IntegrityError, match="uq_clients_business_phone"):
+        await db.flush()
 
 
 async def test_merge_refuses_pending_money_even_before_ledger_posting(

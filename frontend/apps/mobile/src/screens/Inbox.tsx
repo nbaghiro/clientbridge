@@ -305,15 +305,8 @@ function ThreadView({ thread, onBack }: { thread: InboxThread; onBack?: () => vo
                     <Notice tone="danger" banner>
                         {strings.common.twoSentences(
                             s.textsOffTitle(firstName(thread.title)),
-                            thread.textsOffBody,
+                            s.textsOffBody,
                         )}
-                    </Notice>
-                </View>
-            ) : null}
-            {conversation.sharedWith !== null ? (
-                <View style={styles.pad}>
-                    <Notice tone="info" banner>
-                        {conversation.sharedWith}
                     </Notice>
                 </View>
             ) : null}

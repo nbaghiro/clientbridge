@@ -98,7 +98,7 @@ async def test_outside_production_reserved_recipients_are_sent_in_simulation(
     await db.flush()
     sms_payload = SmsDelivery(
         message=Sms(to="+12505550142", body="Reminder", from_number="+12365550190"),
-        message_ids=[message.id],
+        message_id=message.id,
     )
     email_payload = EmailDelivery(
         message=Email(to="hannah@birchbark.example", subject="Hi", body="Hi")
@@ -472,7 +472,7 @@ async def test_a_stop_still_holds_back_a_simulated_text(
     assert row is not None and (row.state, row.error) == ("failed", "consent_withdrawn")
 
 
-async def test_a_text_for_a_client_who_replied_stop_from_another_number_is_held(
+async def test_a_stop_stays_with_the_number_when_its_client_moves_to_another(
     db: AsyncSession,
     factory: Factory,
     email: FakeEmailSender,
@@ -481,12 +481,10 @@ async def test_a_text_for_a_client_who_replied_stop_from_another_number_is_held(
 ) -> None:
     business = await factory.business()
     mover = await factory.client(business=business)
-    sharer = await factory.client(business=business)
-    mover.phone = "(250) 555-1235"
-    sharer.phone = "(250) 555-1234"
+    mover.phone = "+12505551235"
     await db.flush()
     await replied_stop(db, mover.id)
-    mover.phone = sharer.phone
+    mover.phone = "+12505551234"
     thread = Thread(id=new_id("thread"), business_id=business.id, client_id=mover.id)
     db.add(thread)
     await db.flush()
@@ -500,17 +498,17 @@ async def test_a_text_for_a_client_who_replied_stop_from_another_number_is_held(
     )
     db.add(note)
     await db.flush()
-    held = SmsDelivery(
+    moved = SmsDelivery(
         message=Sms(to="+12505551234", body="Reminder", from_number="+12365550190"),
-        message_ids=[note.id],
+        message_id=note.id,
     )
-    queued = await enqueue(db, held, key="message:mover", business_id=business.id)
-    notice = await enqueue(db, text("+12505551234"), key="notice:sharer", business_id=business.id)
+    queued = await enqueue(db, moved, key="message:mover", business_id=business.id)
+    old = await enqueue(db, text("+12505551235"), key="notice:old", business_id=business.id)
     await db.commit()
     await run_deliveries(db, email, sms, push)
     rows = {
-        r.id: r for r in await db.scalars(select(Delivery).where(Delivery.id.in_([queued, notice])))
+        r.id: r for r in await db.scalars(select(Delivery).where(Delivery.id.in_([queued, old])))
     }
-    assert (rows[queued].state, rows[queued].error) == ("failed", "consent_withdrawn")
-    assert rows[notice].state == "accepted"
-    assert await db.scalar(select(Message.status).where(Message.id == note.id)) == "failed"
+    assert rows[queued].state == "accepted"
+    assert (rows[old].state, rows[old].error) == ("failed", "consent_withdrawn")
+    assert await db.scalar(select(Message.status).where(Message.id == note.id)) == "sent"

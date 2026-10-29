@@ -4,7 +4,14 @@ import { useBusinessQuery as useQuery } from "../hooks";
 
 import { useMemo, useRef, useState } from "react";
 
-import { type ApiLike, type Attempt, attemptKey, failureMessage } from "../api";
+import {
+    type ApiLike,
+    type Attempt,
+    attemptKey,
+    failedCode,
+    failedDetail,
+    failureMessage,
+} from "../api";
 import {
     dateKey,
     formatDate,
@@ -370,19 +377,17 @@ function toNote(r: NoteDbRow, viewerStaffId: string | null): ClientNote {
     };
 }
 
-// A STOP holds until the matching START, whatever staff record; the client's own STOP shows first.
+// A STOP holds for the number until it replies START, whatever staff record.
 export const CLIENT_TEXTS_STOPPED_SQL = `
-SELECT created_at, own FROM (${TEXTS_STOPPED_SQL}) WHERE client_id = ?
-ORDER BY own DESC, created_at DESC LIMIT 1`;
+SELECT created_at FROM (${TEXTS_STOPPED_SQL}) WHERE client_id = ? LIMIT 1`;
 
-/** "Texts stopped" with the day the client or their number replied STOP, or null. */
+/** "Texts stopped" with the day the client's number replied STOP, or null. */
 function useTextsStopped(clientId: string): string | null {
     const zone = useBusinessZone();
-    const stop = useQuery<{ created_at: string; own: number }>(CLIENT_TEXTS_STOPPED_SQL, [clientId])
-        .data[0];
-    if (stop === undefined) return null;
-    const when = formatDate(parseTimestamp(stop.created_at), zone);
-    return stop.own === 1 ? s.record.textsStoppedByClient(when) : s.record.textsStopped(when);
+    const stop = useQuery<{ created_at: string }>(CLIENT_TEXTS_STOPPED_SQL, [clientId]).data[0];
+    return stop === undefined
+        ? null
+        : s.record.textsStopped(formatDate(parseTimestamp(stop.created_at), zone));
 }
 
 export const CLIENT_METHODS_SQL = `
@@ -558,10 +563,11 @@ export function useClientRecord(
 
 export interface DuplicateMatch {
     client: ClientListRow;
-    reasons: string[];
+    // A number belongs to one client, so this one can't be saved until it changes.
+    phoneTaken: boolean;
 }
 
-/** Existing clients that share a phone or the exact name with what is being typed. */
+/** Existing clients holding the phone being typed, then any with the exact name. */
 function findDuplicates(
     draft: { name: string; phone: string },
     rows: readonly ClientListRow[],
@@ -569,16 +575,26 @@ function findDuplicates(
 ): DuplicateMatch[] {
     const phone = normalizePhone(draft.phone);
     const name = fold(draft.name);
-    return rows
-        .filter((c) => c.id !== exceptId)
-        .map((c) => {
-            const reasons: string[] = [];
-            if (phone !== null && normalizePhone(c.phone) === phone)
-                reasons.push(s.edit.reasonPhone);
-            if (name.length > 3 && fold(c.name) === name) reasons.push(s.edit.reasonName);
-            return { client: c, reasons };
-        })
-        .filter((m) => m.reasons.length > 0);
+    const others = rows.filter((c) => c.id !== exceptId);
+    return [
+        ...others
+            .filter((c) => phone !== null && normalizePhone(c.phone) === phone)
+            .map((c) => ({ client: c, phoneTaken: true })),
+        ...others
+            .filter((c) => name.length > 3 && fold(c.name) === name)
+            .map((c) => ({ client: c, phoneTaken: false })),
+    ];
+}
+
+/** The client a refused save named as already holding the phone, for as long as it is typed. */
+function takenMatch(
+    taken: { phone: string; clientId: string } | null,
+    phone: string,
+    rows: readonly ClientListRow[],
+): DuplicateMatch | null {
+    if (taken?.phone !== normalizePhone(phone)) return null;
+    const holder = rows.find((c) => c.id === taken.clientId);
+    return holder === undefined ? null : { client: holder, phoneTaken: true };
 }
 
 interface ClientDraft {
@@ -665,6 +681,7 @@ export function useClientEditor(
     }
     const [tried, setTried] = useState(false);
     const [ignored, setIgnored] = useState(false);
+    const [taken, setTaken] = useState<{ phone: string; clientId: string } | null>(null);
     const { busy, error, setError, run } = useAsyncAction();
     const attempt = useRef<Attempt | null>(null);
     const set = <K extends keyof ClientDraft>(key: K, value: ClientDraft[K]): void => {
@@ -673,54 +690,74 @@ export function useClientEditor(
     };
     const contactChanged =
         client === null || draft.name !== initial.name || draft.phone !== initial.phone;
-    const duplicates = ignored || !contactChanged ? [] : findDuplicates(draft, directory, clientId);
+    const found = contactChanged ? findDuplicates(draft, directory, clientId) : [];
+    const refused = takenMatch(taken, draft.phone, directory);
+    const duplicates = [
+        ...(refused !== null && !found.some((m) => m.phoneTaken) ? [refused] : []),
+        ...found.filter((m) => m.phoneTaken || !ignored),
+    ];
     const dirty = JSON.stringify(draft) !== JSON.stringify(initial);
+
+    // a refusal naming a client this device knows shows as that match; any other stays an error
+    const holdsPhone = (e: unknown, phone: string | null): boolean => {
+        const holder = failedDetail(e).client_id;
+        if (failedCode(e) !== "phone_taken" || phone === null || typeof holder !== "string")
+            return false;
+        setTaken({ phone, clientId: holder });
+        return directory.some((c) => c.id === holder);
+    };
 
     const submit = (): void => {
         setTried(true);
         if (Object.keys(validateDraft(draft)).length > 0) return;
+        if (duplicates.some((m) => m.phoneTaken)) return;
         const body = {
             name: draft.name.trim(),
             phone: normalizePhone(draft.phone),
             tags: draft.tags,
         };
         const subjectName = draft.subjectName.trim();
-        run(
-            async () => {
-                if (client === null) {
-                    const input = {
-                        ...body,
-                        marketing_consent: draft.consent,
-                        subject:
-                            kind === null || subjectName === ""
-                                ? null
-                                : {
-                                      name: subjectName,
-                                      attributes: {
-                                          [leadField(kind).key]: blankToNull(draft.subjectDetail),
-                                      },
-                                  },
-                    };
-                    const saved = await api.post<{ id: string }>("/v1/clients", input, {
-                        idempotencyKey: attemptKey(attempt, input),
-                    });
-                    attempt.current = null;
-                    onSaved(saved.id);
-                    return;
-                }
+        const write = async (): Promise<void> => {
+            if (client === null) {
                 const input = {
                     ...body,
-                    ...(draft.consent === initial.consent
-                        ? {}
-                        : { marketing_consent: draft.consent }),
+                    marketing_consent: draft.consent,
+                    subject:
+                        kind === null || subjectName === ""
+                            ? null
+                            : {
+                                  name: subjectName,
+                                  attributes: {
+                                      [leadField(kind).key]: blankToNull(draft.subjectDetail),
+                                  },
+                              },
                 };
-                await api.patch(`/v1/clients/${client.id}`, input, {
-                    idempotencyKey: attemptKey(attempt, [client.id, input]),
+                const saved = await api.post<{ id: string }>("/v1/clients", input, {
+                    idempotencyKey: attemptKey(attempt, input),
                 });
                 attempt.current = null;
-                onSaved(client.id);
+                onSaved(saved.id);
+                return;
+            }
+            const input = {
+                ...body,
+                ...(draft.consent === initial.consent ? {} : { marketing_consent: draft.consent }),
+            };
+            await api.patch(`/v1/clients/${client.id}`, input, {
+                idempotencyKey: attemptKey(attempt, [client.id, input]),
+            });
+            attempt.current = null;
+            onSaved(client.id);
+        };
+        run(
+            async () => {
+                try {
+                    await write();
+                } catch (e) {
+                    if (!holdsPhone(e, body.phone)) throw e;
+                }
             },
-            { errorMessage: s.edit.saveError },
+            { errorMessage: (e) => failureMessage(e, s.edit.saveError) },
         );
     };
 

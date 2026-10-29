@@ -182,34 +182,22 @@ test("CRM-E2E-06 archiving a verified customer revokes their proof before public
     }
 });
 
-test("CRM-E2E-07 editing verified contact clears proof and keeps conflicting details editable without writes", async ({
+test("CRM-E2E-07 editing a verified phone clears proof, so the visit is booked for the number typed", async ({
     page,
     browser,
 }) => {
     await signIn(page);
     const fixture = await returningFixture(page);
-    // two other clients share the number, so a booking under it cannot pick one of them
-    const others = [await createClient(page), await createClient(page)];
     const phone = freshPhone();
     const evidence = () => contactEvidence([fixture.clientPhone, phone], fixture.itemId);
-    const unclaimed = await evidence();
-    expect(unclaimed.clients.map((c) => c.id)).toEqual([fixture.clientId]);
-    for (const other of others) {
-        const assigned = await page.request.patch(`${bookingApi()}/v1/clients/${other.id}`, {
-            headers: { Origin: new URL(page.url()).origin },
-            data: { phone },
-        });
-        expect(assigned.status(), await assigned.text()).toBe(200);
-    }
     const customerContext = await browser.newContext();
+    let bookingId: string | undefined;
     try {
         const customer = await customerContext.newPage();
         await verifyReturning(customer, fixture, 1);
         const baseline = await evidence();
-        expect(baseline.clients).toHaveLength(3);
-        expect(baseline.subjects).toHaveLength(2);
+        expect(baseline.clients.map((c) => c.id)).toEqual([fixture.clientId]);
         expect(baseline.bookings).toEqual([]);
-        expect(baseline.slots).toEqual([]);
         await customer
             .getByRole("textbox", { name: `${strings.publicBooking.phone} *`, exact: true })
             .fill(phone);
@@ -228,25 +216,22 @@ test("CRM-E2E-07 editing verified contact clears proof and keeps conflicting det
             subject_id: null,
             client: { name: fixture.clientName, phone },
         });
-        expect(response.status(), await response.text()).toBe(409);
-        expect(await response.json()).toMatchObject({ error: "contact_ambiguous" });
-        await expect(
-            customer.getByText(strings.api.contactAmbiguous, { exact: true }),
-        ).toBeVisible();
-        await expect(
-            customer.getByRole("textbox", {
-                name: `${strings.publicBooking.phone} *`,
-                exact: true,
-            }),
-        ).toHaveValue(phone);
-        await expect(
-            customer.getByText(strings.publicBooking.slotTaken, { exact: true }),
-        ).toHaveCount(0);
-        expect(await evidence()).toEqual(baseline);
-        await customer.reload();
-        expect(await evidence()).toEqual(baseline);
+        expect(response.status(), await response.text()).toBe(200);
+        bookingId = ((await response.json()) as { booking_id: string }).booking_id;
+        const booked = await evidence();
+        const typed = booked.clients.find((c) => c.phone === phone);
+        expect(typed?.id).toBeDefined();
+        expect(typed?.id).not.toBe(fixture.clientId);
+        expect(booked.clients.find((c) => c.id === fixture.clientId)).toEqual(baseline.clients[0]);
+        expect(booked.bookings).toEqual([
+            expect.objectContaining({ id: bookingId, client_id: typed?.id, subject_id: null }),
+        ]);
     } finally {
-        await customerContext.close();
+        try {
+            if (bookingId) await cancelOwnedBooking(page, bookingId);
+        } finally {
+            await customerContext.close();
+        }
     }
 });
 

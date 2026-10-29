@@ -151,8 +151,8 @@
     "api.shopNotReady": {
         "message": "This shop isn't taking online orders yet."
     },
-    "api.contactAmbiguous": {
-        "message": "This phone number matches more than one client. Check the number, or contact the business."
+    "api.phoneTaken": {
+        "message": "Another client already has this phone number. Each number belongs to one client."
     },
     "api.slotUnavailable": {
         "message": "That time is no longer open. Pick another time."
@@ -5466,11 +5466,6 @@
         "message": "Their number replied STOP on {when}. Texts stay off until it replies START.",
         "args": ["when"]
     },
-    "clients.record.textsStoppedByClient": {
-        "message": "They replied STOP on {when}. Texts stay off until they reply START.",
-        "description": "The client's own STOP, which holds on any number they move to",
-        "args": ["when"]
-    },
     "clients.record.inProgress": {
         "message": "In progress"
     },
@@ -5590,23 +5585,20 @@
         "args": ["name"]
     },
     "clients.edit.duplicateBody": {
-        "message": "Same {reasons}. Open their record instead of adding a second one.",
-        "args": ["reasons"]
+        "message": "Same name. Open their record instead of adding a second one."
+    },
+    "clients.edit.phoneTakenTitle": {
+        "message": "{name} already has this phone number",
+        "args": ["name"]
+    },
+    "clients.edit.phoneTakenBody": {
+        "message": "Each number belongs to one client. Open their record, or enter a different number."
     },
     "clients.edit.duplicateOpen": {
         "message": "Open record"
     },
     "clients.edit.duplicateKeep": {
         "message": "Add anyway"
-    },
-    "clients.edit.reasonPhone": {
-        "message": "phone number"
-    },
-    "clients.edit.reasonName": {
-        "message": "name"
-    },
-    "clients.edit.and": {
-        "message": " and "
     },
     "clients.edit.archive": {
         "message": "Archive client"
@@ -6663,15 +6655,6 @@
     "messaging.textsOffBody": {
         "message": "Their number replied STOP. Texts stay off until it replies START."
     },
-    "messaging.textsOffBodyByClient": {
-        "message": "They replied STOP. Texts stay off until they reply START.",
-        "description": "The client's own STOP, which holds on any number they move to"
-    },
-    "messaging.sharedNumber": {
-        "message": "This number is shared with {names}.",
-        "description": "Above a conversation whose number other active clients also have; names is a list such as \"Sam and Lee\"",
-        "args": ["names"]
-    },
     "messaging.manyTexts": {
         "message": "{segments, plural, one {This will send as # text.} other {This will send as # texts, each billed separately.}}",
         "description": "Shown under a composer once a message runs past three billed SMS segments",
@@ -6843,12 +6826,8 @@
     "broadcasts.reasons.no_contact": {
         "message": "No contact on file"
     },
-    "broadcasts.reasons.shared_number": {
-        "message": "Shares a number",
-        "description": "Another client on the same mobile number gets the one copy sent to it; their name follows"
-    },
     "broadcasts.leftOutHelp": {
-        "message": "Clients who opted out or never agreed are skipped, and checked again at send time. A number shared by several clients gets one copy."
+        "message": "Clients who opted out or never agreed are skipped, and checked again at send time."
     },
     "broadcasts.previewLabel": {
         "message": "Preview"

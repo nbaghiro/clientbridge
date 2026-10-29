@@ -6,6 +6,7 @@ import type { ApiLike } from "../api";
 import {
     AUDIENCE_CLIENTS_SQL,
     LATEST_CONSENTS_SQL,
+    TEXTS_STOPPED_SQL,
     consentFor,
     consentOf,
     smsSegments,
@@ -23,10 +24,11 @@ const granted = (client_id: string) => ({
 const replica: Record<string, unknown[]> = {
     [AUDIENCE_CLIENTS_SQL]: [
         { id: "cl_b", name: "Bea", phone: "+16045550001", tags: null },
-        { id: "cl_a", name: "Al", phone: "+16045550001", tags: null },
+        { id: "cl_a", name: "Al", phone: "+16045550003", tags: null },
         { id: "cl_c", name: "Cy", phone: "+16045550002", tags: null },
     ],
     [LATEST_CONSENTS_SQL]: ["cl_a", "cl_b", "cl_c"].map(granted),
+    [TEXTS_STOPPED_SQL]: [{ client_id: "cl_b", created_at: "2026-02-01T00:00:00Z" }],
 };
 
 vi.mock("../hooks", async (importOriginal) => ({
@@ -47,7 +49,7 @@ vi.mock("./sync", async (importOriginal) => ({
 }));
 
 describe("broadcast audience", () => {
-    it("sends a shared number one copy, to the client first by id, as the server does", () => {
+    it("leaves out a client whose number replied STOP, though they once agreed", () => {
         const api = {
             get: vi.fn(),
             getText: vi.fn(),
@@ -58,14 +60,7 @@ describe("broadcast audience", () => {
         const { result } = renderHook(() => useBroadcastDraft(api as ApiLike));
         const { recipients, excluded } = result.current.audience;
         expect(recipients.map((r) => r.id)).toEqual(["cl_a", "cl_c"]);
-        expect(excluded).toEqual([
-            {
-                id: "cl_b",
-                name: "Bea",
-                reason: "shared_number",
-                detail: "Al",
-            },
-        ]);
+        expect(excluded.map((x) => [x.id, x.reason])).toEqual([["cl_b", "opted_out"]]);
     });
 });
 

@@ -200,7 +200,7 @@ async def test_a_delivery_never_changes_another_business_message(
     sent = await MessageService(db, OWNER).send_message(MessageSend(client_id=cid, body="Hi"))
     db.info.clear()
     foreign = SmsDelivery(
-        message=Sms(to="+15145551234", body="x", from_number="+12365550190"), message_ids=[sent.id]
+        message=Sms(to="+15145551234", body="x", from_number="+12365550190"), message_id=sent.id
     )
     identity = await enqueue(db, foreign, key="message:foreign", business_id=other.id)
     await db.commit()

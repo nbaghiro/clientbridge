@@ -214,7 +214,7 @@ test("FLOW-06-A a seat notice queued for the worker honours a STOP that arrives 
             ).toBeVisible();
             const record = await openClient(replica, waiting);
             await expect(record).toContainText(
-                strings.clients.record.textsStoppedByClient(formatDate(stoppedAt, zone)),
+                strings.clients.record.textsStopped(formatDate(stoppedAt, zone)),
             );
         }
         await testInfo.attach("seat-notice-delivery", {

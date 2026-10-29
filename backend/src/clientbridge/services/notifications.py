@@ -43,7 +43,7 @@ from clientbridge.schemas.auth import AuthEmailIn
 from clientbridge.schemas.forms import FormDefinition
 from clientbridge.services import ledger
 from clientbridge.services.business import staff_names
-from clientbridge.services.consents import texts_stopped
+from clientbridge.services.consents import number_stopped, texts_stopped
 from clientbridge.services.deliveries import DeliveryQueue, QueuedEmail, QueuedPush, QueuedSms
 from clientbridge.services.lines import LineParent, fetch_lines, issued_at
 from clientbridge.services.tax import issued_tax
@@ -759,7 +759,7 @@ class Notifier:
         if payment.client_id is not None:
             await self._to_client(db, payment.client_id, notice)
         elif order is not None:
-            await self._to_contact(order.receipt_phone, notice, business=business)
+            await self._to_contact(db, order.receipt_phone, notice, business=business)
         await self._alert_staff(
             db, business, push_body, {"type": "payment", "payment_id": payment_id}
         )
@@ -806,7 +806,7 @@ class Notifier:
             order.number,
             receipt_link(order.receipt_token),
         )
-        await self._to_contact(order.receipt_phone, notice, business=business)
+        await self._to_contact(db, order.receipt_phone, notice, business=business)
 
     async def on_invoice_sent(self, db: AsyncSession, invoice_id: str) -> None:
         invoice = await db.get(Invoice, invoice_id)
@@ -1040,7 +1040,7 @@ class Notifier:
         locale = locale_for(business=business)
         amount = format_money(locale, card.initial_cents, payment.currency)
         notice = gift_card_issued_message(locale, business.name, amount, card.code)
-        await self._to_contact(card.recipient, notice, business=business)
+        await self._to_contact(db, card.recipient, notice, business=business)
 
     async def on_booking_reminder(self, db: AsyncSession, booking_id: str) -> Outcome:
         booking = await db.get(Booking, booking_id)
@@ -1302,9 +1302,12 @@ class Notifier:
             format_money(locale, tips, cur) if tips else None,
         )
 
-    async def _to_contact(self, phone: str | None, notice: str, *, business: Business) -> None:
+    async def _to_contact(
+        self, db: AsyncSession, phone: str | None, notice: str, *, business: Business
+    ) -> None:
+        """A text to a number typed in for a sale or a gift, unless that number replied STOP."""
         number = e164(phone) if phone else None
-        if number:
+        if number and not await number_stopped(db, business.id, number):
             await self._safe(
                 self.sms.send(Sms(to=number, body=notice, from_number=business.sms_number))
             )

@@ -71,12 +71,19 @@ def validate_graph(ctx: DemoContext) -> list[str]:
     business = ctx.get(Business, ctx.business_id)
     zone = ZoneInfo(business.timezone)
     rules = next((b.rules for b in DEMO_BUSINESSES if b.id == ctx.business_id), ())
-    # devices match shared numbers by exact text, so seeded phones are E.164 like the API's
+    # devices match numbers by their digits, but the API stores and compares E.164
     errors.extend(
         f"{client.id}: phone is not stored as E.164"
         for client in ctx.all(Client)
         if client.phone and e164(client.phone) != client.phone
     )
+    holders: dict[str, str] = {}
+    for client in sorted(ctx.all(Client), key=lambda c: c.id):
+        if client.phone is None or client.deleted_at is not None:
+            continue
+        if client.phone in holders:
+            errors.append(f"{client.id}: phone is already {holders[client.phone]}'s")
+        holders.setdefault(client.phone, client.id)
     if business.subject is not None:
         for subject in pets.values():
             try:
