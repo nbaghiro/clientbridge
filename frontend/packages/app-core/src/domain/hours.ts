@@ -1,7 +1,14 @@
 import type { SelectOption } from "../ui";
 import { personMedia, usePeoplePhotos } from "./files";
 import { isStorageFull } from "./sync";
-import { discardRejectedHours, enqueueHours, strandedKey, type WeekDay } from "@clientbridge/sync";
+import {
+    businessQuery,
+    discardRejectedHours,
+    enqueueHours,
+    strandedKey,
+    type WeekDay,
+} from "@clientbridge/sync";
+import type { CommonPowerSyncDatabase } from "@powersync/common";
 import { useBusinessQuery as useQuery } from "../hooks";
 import { usePowerSync } from "@powersync/react";
 import { useEffect, useRef, useState } from "react";
@@ -341,25 +348,93 @@ const timeOptions = (): { key: string; label: string }[] => clockOptions(30, "06
 // Server weekdays count from Monday (0); the editor starts the week where the locale does.
 const editorOrder = (weekday: number): number => (weekday - ((firstWeekday() + 6) % 7) + 7) % 7;
 
+const STAFF_REVISION_SQL = "SELECT hours_revision FROM staff WHERE id = ? AND business_id = ?";
+const QUEUED_WEEK_SQL =
+    "SELECT id, payload, base, state, result_revision FROM hours_outbox WHERE staff_id = ? AND business_id = ? ORDER BY sequence DESC LIMIT 1";
+
+interface QueuedWeek {
+    id: string;
+    payload: string;
+    base: string;
+    state: string;
+    result_revision: number | null;
+}
+
+interface WeekBasis {
+    revision: number;
+    id: string | null;
+    payload: string;
+    base: WeekDay[];
+}
+
+function awaitsServer(
+    latest: QueuedWeek | null | undefined,
+    revision: number | undefined,
+): boolean {
+    return (
+        latest != null &&
+        (latest.state !== "accepted" ||
+            revision === undefined ||
+            revision < (latest.result_revision ?? Infinity))
+    );
+}
+
+/** The week the editor opens on, read in one transaction so the revision, the outbox and the hours agree. */
+async function openingWeek(
+    db: CommonPowerSyncDatabase,
+    staffId: string,
+    businessId: string,
+): Promise<{ basis: WeekBasis; days: DayHours[] } | null> {
+    return db.readTransaction(async (tx) => {
+        const staff = await tx.getOptional<{ hours_revision: number }>(
+            businessQuery(STAFF_REVISION_SQL),
+            [staffId, businessId],
+        );
+        if (!staff) return null;
+        const latest = await tx.getOptional<QueuedWeek>(businessQuery(QUEUED_WEEK_SQL), [
+            staffId,
+            businessId,
+        ]);
+        if (latest !== null && awaitsServer(latest, staff.hours_revision)) {
+            const proposal = JSON.parse(latest.payload) as {
+                days: WeekDay[];
+                expected_revision: number;
+            };
+            return {
+                basis: {
+                    revision: proposal.expected_revision + 1,
+                    id: latest.id,
+                    payload: latest.payload,
+                    base: JSON.parse(latest.base) as WeekDay[],
+                },
+                days: fromWeekDays(proposal.days),
+            };
+        }
+        const seeded = seedDays(
+            await tx.getAll<RecurringRow>(businessQuery(RECURRING_HOURS_SQL), [staffId]),
+        );
+        return {
+            basis: {
+                revision: staff.hours_revision,
+                id: latest?.id ?? null,
+                payload: latest?.payload ?? "",
+                base: toWeekDays(seeded),
+            },
+            days: seeded,
+        };
+    });
+}
+
 /** Key the editor by staff ID; pending proposals remain separate from authoritative hours. */
 export function useWeekEditor(api: ApiLike, staffId: string | null): WeekEditor {
     const db = usePowerSync();
     const businessId = useBusinessId();
-    const { data, isLoading } = useQuery<RecurringRow>(RECURRING_HOURS_SQL, [staffId ?? ""]);
-    const staff = useQuery<{ hours_revision: number }>(
-        "SELECT hours_revision FROM staff WHERE id = ? AND business_id = ?",
-        [staffId ?? "", businessId ?? ""],
-    );
-    const queued = useQuery<{
-        id: string;
-        payload: string;
-        base: string;
-        state: string;
-        result_revision: number | null;
-    }>(
-        "SELECT id, payload, base, state, result_revision FROM hours_outbox WHERE staff_id = ? AND business_id = ? ORDER BY sequence DESC LIMIT 1",
-        [staffId ?? "", businessId ?? ""],
-    );
+    const { data } = useQuery<RecurringRow>(RECURRING_HOURS_SQL, [staffId ?? ""]);
+    const staff = useQuery<{ hours_revision: number }>(STAFF_REVISION_SQL, [
+        staffId ?? "",
+        businessId ?? "",
+    ]);
+    const queued = useQuery<QueuedWeek>(QUEUED_WEEK_SQL, [staffId ?? "", businessId ?? ""]);
     const rejection = useQuery<{ id: string; error_code: string | null }>(
         "SELECT id, error_code FROM hours_outbox WHERE staff_id = ? AND business_id = ? AND state = 'rejected' LIMIT 1",
         [staffId ?? "", businessId ?? ""],
@@ -368,57 +443,31 @@ export function useWeekEditor(api: ApiLike, staffId: string | null): WeekEditor 
     const stranded = useStrandedNote(staffId);
     const latest = queued.data[0];
     const revision = staff.data[0]?.hours_revision;
-    const waiting =
-        latest !== undefined &&
-        (latest.state !== "accepted" ||
-            revision === undefined ||
-            revision < (latest.result_revision ?? Infinity));
+    const waiting = awaitsServer(latest, revision);
     const { busy, error, setError, run } = useAsyncAction();
     const [days, setDays] = useState<DayHours[] | null>(null);
-    const basis = useRef<{
-        revision: number;
-        id: string | null;
-        payload: string;
-        base: WeekDay[];
-    } | null>(null);
+    const basis = useRef<WeekBasis | null>(null);
     const rebased = useRef<string | null>(null);
     const [saved, setSaved] = useState(false);
 
+    const known = revision !== undefined;
+    // the live reads refresh one by one after a sync, so the opening week comes from one snapshot
     useEffect(() => {
-        if (
-            days === null &&
-            !isLoading &&
-            !queued.isLoading &&
-            revision !== undefined &&
-            staffId !== null
-        ) {
-            if (waiting) {
-                try {
-                    const proposal = JSON.parse(latest.payload) as {
-                        days: WeekDay[];
-                        expected_revision: number;
-                    };
-                    basis.current = {
-                        revision: proposal.expected_revision + 1,
-                        id: latest.id,
-                        payload: latest.payload,
-                        base: JSON.parse(latest.base) as WeekDay[],
-                    };
-                    setDays(fromWeekDays(proposal.days));
-                } catch {
-                    setError(s.saveError);
-                }
-            } else {
-                basis.current = {
-                    revision,
-                    id: latest?.id ?? null,
-                    payload: latest?.payload ?? "",
-                    base: toWeekDays(seedDays(data)),
-                };
-                setDays(seedDays(data));
-            }
-        }
-    }, [days, isLoading, queued.isLoading, data, staffId, waiting, latest, revision, setError]);
+        if (days !== null || staffId === null || businessId === null || !known) return;
+        let current = true;
+        openingWeek(db, staffId, businessId)
+            .then((opening) => {
+                if (!current || opening === null) return;
+                basis.current = opening.basis;
+                setDays(opening.days);
+            })
+            .catch(() => {
+                if (current) setError(s.saveError);
+            });
+        return () => {
+            current = false;
+        };
+    }, [db, days, staffId, businessId, known, setError]);
 
     // A conflict shows the server's current week with only this person's own changes laid over it.
     useEffect(() => {
