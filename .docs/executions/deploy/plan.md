@@ -1,6 +1,6 @@
 # Deploy plan
 
-**Status: in progress; see [progress](progress.md).** This plan puts Clientbridge into production and staging on GKE Autopilot with a managed Cloud SQL database, sized for the lowest cost that keeps the design we would run at scale. It covers [CLI-50](../../launch-readiness.md#production-hosting-deploys-and-security-cli-50), [CLI-51](../../launch-readiness.md#backups-monitoring-and-alerts-cli-51) and the backend half of [CLI-52](../../launch-readiness.md#iphone-and-android-store-release-cli-52). The [task queue](tasks.json) holds 16 dependency-ordered tasks; [progress](progress.md) records what has been done. Implementation starts only on the user's go; commits, pushes and schema changes stay separate approvals, consistent with `CLAUDE.md`.
+**Status: in progress; see [progress](progress.md).** This plan puts Clientbridge into production and staging on GKE Autopilot with a managed Cloud SQL database, sized for the lowest cost that keeps the design we would run at scale. It covers [CB-62](../../launch-readiness.md#run-production-safely-on-its-own-hosts-cb-62), [CB-64](../../launch-readiness.md#use-live-providers-safely-cb-64), [CB-63](../../launch-readiness.md#restore-from-backup-and-hear-about-errors-first-cb-63) and the backend half of [CB-61](../../launch-readiness.md#ship-store-builds-staff-can-install-cb-61). The [task queue](tasks.json) holds 16 dependency-ordered tasks; [progress](progress.md) records what has been done. Implementation starts only on the user's go; commits, pushes and schema changes stay separate approvals, consistent with `CLAUDE.md`.
 
 ## Shape
 
@@ -194,7 +194,7 @@ Dependencies in the [task queue](tasks.json) control the order; the stages below
 | Build the foundation           | D05 to D07 | `pulumi up` creates the network, cluster, database, buckets, secrets, Gateway and CI identity from nothing, and a second run changes nothing.                   |
 | Run staging                    | D08 to D10 | Staging deploys from CI on every push to `main`, with every provider in test mode and logs and alerts working.                                                  |
 | Prove recovery and the product | D11 to D12 | A point-in-time restore of staging completes from the runbook, and every stage's QA pass is clean on staging.                                                   |
-| Go live                        | D13 to D15 | Production deploys behind approval, live providers are connected, the $1 live payment and refund in CLI-50 pass, and `operations.md` describes how it all runs. |
+| Go live                        | D13 to D15 | Production deploys behind approval, live providers are connected, the $1 live payment and refund in CB-64 pass, and `operations.md` describes how it all runs. |
 
 ## Risks to test on real infrastructure
 
