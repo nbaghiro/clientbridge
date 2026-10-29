@@ -25,7 +25,6 @@ APIS = (
     "iamcredentials.googleapis.com",
     "logging.googleapis.com",
     "monitoring.googleapis.com",
-    # Business Profile: on before Google approves access, which its application form requires
     "mybusiness.googleapis.com",
     "mybusinessaccountmanagement.googleapis.com",
     "mybusinessbusinessinformation.googleapis.com",
