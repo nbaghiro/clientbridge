@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
 from clientbridge.core.ids import new_id
-from clientbridge.integrations.stripe import AccountBalance
+from clientbridge.integrations.stripe import AccountBalance, ConnectAccount
 from clientbridge.models.business import Business
 from clientbridge.models.ledger import Entry
 from clientbridge.models.payments import Payment
@@ -47,6 +47,27 @@ async def test_matching_balance_records_no_drift(
     gateway.balance_cents = await _ledger_stripe(db)
     await run_reconcile_payments(db, gateway)
     assert await _drifts(db, BIZ) == []
+
+
+async def test_reconciling_re_reads_an_account_whose_event_was_lost(
+    db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await _connect(db, BIZ, "acct_recon_paused")
+    gateway.balance_cents = await _ledger_stripe(db)
+    gateway.accounts["acct_recon_paused"] = ConnectAccount(
+        id="acct_recon_paused",
+        charges_enabled=True,
+        payouts_enabled=False,
+        disabled_reason=None,
+        currently_due=[],
+        eventually_due=[],
+        past_due=["external_account"],
+        card_status="active",
+    )
+    await run_reconcile_payments(db, gateway)
+    business = await db.get(Business, BIZ, populate_existing=True)
+    assert business is not None
+    assert (business.stripe_charges_enabled, business.stripe_payouts_enabled) == (True, False)
 
 
 async def test_mismatch_is_audited_with_both_figures(

@@ -92,7 +92,10 @@ async def test_estimate_to_invoice_partial_pay_and_refund(
     db.add(card)
     await db.flush()
     body = {"method": "card", "amount_cents": 5000, "payment_method_id": card.id}
-    intent = ok(await api.post(f"/v1/invoices/{converted['id']}/payments", json=body), 201).json()
+    intent = ok(
+        await api.post(f"/v1/invoices/{converted['id']}/payments", json=body, headers=retry_key()),
+        201,
+    ).json()
     await settle(api, db, intent["payment_id"])
     partial = await invoice(db, converted["id"])
     assert (partial.status, partial.amount_paid_cents, partial.balance_cents) == (
@@ -181,6 +184,7 @@ async def test_remittance_files_the_tax_payable(
                 "period_start": unfiled.isoformat(),
                 "period_end": (today - timedelta(days=1)).isoformat(),
             },
+            headers=retry_key(),
         ),
         201,
     ).json()

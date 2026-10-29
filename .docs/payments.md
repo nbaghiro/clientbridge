@@ -88,11 +88,13 @@ flowchart LR
   use it.
 - **Closed accounts.** `v2.core.account.closed` fetches the account like any account event. If Stripe can
   no longer return it, the event alone marks the business disabled (`disabled_reason: closed`, charges and
-  payouts off). Reconciliation and event replay don't skip a closed account yet, and offboarding a business
-  is not built.
+  payouts off). Reconciliation and event replay skip a closed account. Offboarding a business is not
+  built.
 - **Recorded by hand**: cash, cheques and e-Transfers received outside the app (`provider` manual, the
   e-Transfer method stored as `etransfer`); cash lands in the till's `cash` account, a cheque or e-Transfer
-  in `bank`. There is no e-Transfer request or matching.
+  in `bank`. There is no e-Transfer request or matching. Recording one, paying a desk sale in cash,
+  applying a gift card and filing a tax remittance all require an `Idempotency-Key`, so a retry never
+  records the money twice.
 - **PAD/EFT**: pre-authorized debit for recurring. Staff on web or mobile send the client a payment setup link,
   and the client authorizes the bank account on Connect `pay.D/setup`. A charge on a saved bank account is
   recorded as `bank_eft` (`charge_method`) by the invoice, deposit, entitlement and sale builders, and its
@@ -363,6 +365,7 @@ the handler creates and reverses the original so a late creation or paid event c
 bank leg is still an accounting movement, not independent evidence of receipt. Reports, the payouts CSV
 and the 30-day Deposited figure read only bank legs, so the Deposited figure counts paid payouts by
 arrival date, independently of the visible history page. Revenue reports never count payouts as sales.
+The payouts CSV names each row by Stripe's payout id, which matches the bank deposit.
 
 Balances, fees and charge history still use the local ledger. Live payout status requires the API and
 Stripe; the payout page currently depends on that online read. No payout-status table is mirrored
@@ -413,7 +416,9 @@ same rule applies to replays and to reconciliation.
 `replay_missed_events` (`payments.run_replay_missed_events`) asks Stripe for events from the last seven
 days that it couldn't deliver (`GET /v1/events?delivery_success=false`), first on the platform and then on
 each connected account, up to 100 per account and 500 per run. It skips event types we don't subscribe to
-(plan events on the platform, `PAYMENT_EVENTS` on connected accounts) and events already processed. For
+(plan events on the platform, `PAYMENT_EVENTS` on connected accounts) and events already processed, and
+only the events it still applies count against the 500, since Stripe keeps listing an event until a later
+delivery of it succeeds. For
 the rest it re-fetches the object at the pinned API version and applies the event the object's current
 state stands for: a PaymentIntent replays as succeeded, canceled or failed, or not at all while it's still
 in progress, a payout as its current status and a SetupIntent as succeeded or failed. The event is applied
@@ -421,8 +426,9 @@ through the normal webhook path under its original id, so a later delivery of th
 nothing, and its notices use the delivery queue and the one-day rule above.
 
 Thin v2 account events don't appear in that list. `GET /v2/core/events` lists them, but it can't filter by
-delivery, so the replay re-reads every account still in progress instead, and a missed KYC event also
-waits for the next account event, reconciliation of the business or the Refresh button.
+delivery, so the replay re-reads every account still in progress, and reconciliation re-reads every
+merchant account each hour, so a paused account whose event was lost is mirrored within the hour. Every
+read of an account takes the business lock first, so an older read never lands after a newer one.
 
 ### Reconciliation
 
@@ -536,9 +542,9 @@ every account we create carries ours whichever configuration it starts with.
   events, including its own `deleted`, find it ended and change nothing. An event for a subscription that
   has ended and isn't the business's current one leaves the business as it is.
 - A missed `customer.subscription.created` doesn't strand a paying business. When a new Checkout finds a
-  completed Checkout whose subscription is billing, it adopts that subscription and answers `plan_active`;
-  `GET /v1/plan` (where the Checkout return lands) does the same for a business that isn't on a live plan,
-  and the portal endpoint for one with no subscription recorded.
+  completed Checkout whose subscription is billing, it adopts that subscription and answers `plan_active`,
+  and the portal endpoint does the same for a business with no subscription recorded. `GET /v1/plan`
+  only reads, so a paid Checkout whose event was missed shows once the hourly replay applies it.
 - Lapsed: the business can sign in and read. `api/plans.writable` answers every other write with 402
   `plan_required`, except sign-in, the plan endpoints, devices, onboarding, staff removal, data export,
   refunds and cancelling a client membership; public booking, the shop and estimate acceptance answer 409

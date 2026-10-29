@@ -135,6 +135,7 @@ async def test_summary_reads_every_report(as_owner: httpx.AsyncClient, db: Async
     assert body["months"][2]["net_cents"] == 5000
     assert [p["amount_cents"] for p in body["payouts"]] == [5000]
     assert body["payouts"][0]["status"] == "paid"
+    assert str(body["payouts"][0]["payout_id"]).startswith("po_")
     assert body["t4a_year"] == 2015
     assert {r["code"] for r in body["rates"]} >= {"GST"}
 
@@ -182,7 +183,8 @@ async def test_pst_and_payout_csvs(as_owner: httpx.AsyncClient, db: AsyncSession
     assert pst.status_code == 200
     assert pst.text.splitlines()[0] == "code,rate_bps,taxable_sales_cents,collected_cents,number"
     payouts = await as_owner.get(f"/v1/reports/payouts.csv?{YEAR}")
-    assert payouts.text.splitlines()[1].endswith(",5000,paid")
+    row = payouts.text.splitlines()[1]
+    assert row.startswith("po_") and row.endswith(",5000,paid")
 
 
 async def test_export_without_reports_422(as_owner: httpx.AsyncClient) -> None:

@@ -21,6 +21,7 @@ from clientbridge.services.remittances import RemittanceService
 from clientbridge.services.reports import add_months, due_date, period_of
 from clientbridge.services.tax import TaxResult
 from tests.conftest import BIZ, Factory
+from tests.helpers import key as retry_key
 
 Q1 = {"period_start": "2021-01-01", "period_end": "2021-03-31"}
 IN_Q1 = datetime(2021, 2, 15, 18, tzinfo=UTC)
@@ -81,6 +82,7 @@ async def test_gst_with_credits_and_pst_file_apart(
             "confirmation": "CRA 6601 2290 7731",
             "filed_on": "2021-04-20",
         },
+        headers=retry_key(),
     )
     assert federal.status_code == 201, federal.text
     body = federal.json()
@@ -95,6 +97,7 @@ async def test_gst_with_credits_and_pst_file_apart(
     provincial = await as_owner.post(
         "/v1/payments/remittances",
         json={**Q1, "family": "provincial", "confirmation": "eTaxBC 10-2283-901"},
+        headers=retry_key(),
     )
     assert provincial.status_code == 201, provincial.text
     assert provincial.json()["by_code"] == {"PST": 3808}
@@ -108,21 +111,27 @@ async def test_gst_with_credits_and_pst_file_apart(
 async def test_family_overlap_is_per_family(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
     await _invoice(db, issued_at=IN_Q1, tax={"GST": 500, "PST": 700})
     federal = {**Q1, "family": "federal"}
-    assert (await as_owner.post("/v1/payments/remittances", json=federal)).status_code == 201
+    assert (
+        await as_owner.post("/v1/payments/remittances", json=federal, headers=retry_key())
+    ).status_code == 201
     again = await as_owner.post(
-        "/v1/payments/remittances", json=federal, headers={"Idempotency-Key": "refile"}
+        "/v1/payments/remittances", json=federal, headers={"Idempotency-Key": "refile-q1-federal"}
     )
     assert again.status_code == 409
-    every = await as_owner.post("/v1/payments/remittances", json=Q1)
+    every = await as_owner.post("/v1/payments/remittances", json=Q1, headers=retry_key())
     assert every.status_code == 409
     provincial = {**Q1, "family": "provincial"}
-    assert (await as_owner.post("/v1/payments/remittances", json=provincial)).status_code == 201
+    assert (
+        await as_owner.post("/v1/payments/remittances", json=provincial, headers=retry_key())
+    ).status_code == 201
 
 
 async def test_credits_above_collected_422(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
     await _invoice(db, issued_at=IN_Q1, tax={"GST": 500})
     res = await as_owner.post(
-        "/v1/payments/remittances", json={**Q1, "family": "federal", "itc_cents": 501}
+        "/v1/payments/remittances",
+        json={**Q1, "family": "federal", "itc_cents": 501},
+        headers=retry_key(),
     )
     assert res.status_code == 422
     assert res.json()["error"] == "invalid_itc"
@@ -130,7 +139,9 @@ async def test_credits_above_collected_422(as_owner: httpx.AsyncClient, db: Asyn
 
 async def test_credits_on_a_provincial_return_422(as_owner: httpx.AsyncClient) -> None:
     res = await as_owner.post(
-        "/v1/payments/remittances", json={**Q1, "family": "provincial", "itc_cents": 100}
+        "/v1/payments/remittances",
+        json={**Q1, "family": "provincial", "itc_cents": 100},
+        headers=retry_key(),
     )
     assert res.status_code == 422
     assert res.json()["error"] == "invalid_itc"
@@ -139,7 +150,9 @@ async def test_credits_on_a_provincial_return_422(as_owner: httpx.AsyncClient) -
 async def test_filed_in_the_future_422(as_owner: httpx.AsyncClient) -> None:
     tomorrow = (clock.today(UTC) + timedelta(days=2)).isoformat()
     res = await as_owner.post(
-        "/v1/payments/remittances", json={**Q1, "family": "federal", "filed_on": tomorrow}
+        "/v1/payments/remittances",
+        json={**Q1, "family": "federal", "filed_on": tomorrow},
+        headers=retry_key(),
     )
     assert res.status_code == 422
     assert res.json()["error"] == "invalid_filed_on"
@@ -150,11 +163,15 @@ async def test_a_family_with_nothing_owed_files_a_nil_return(
 ) -> None:
     await _invoice(db, issued_at=IN_Q1, tax={"GST": 500})
     gst = await _balance(db, "tax", "GST")
-    res = await as_owner.post("/v1/payments/remittances", json={**Q1, "family": "provincial"})
+    res = await as_owner.post(
+        "/v1/payments/remittances", json={**Q1, "family": "provincial"}, headers=retry_key()
+    )
     assert res.status_code == 201, res.text
     assert (res.json()["by_code"], res.json()["total_cents"]) == ({}, 0)
     assert await _balance(db, "tax", "GST") == gst
-    federal = await as_owner.post("/v1/payments/remittances", json={**Q1, "family": "federal"})
+    federal = await as_owner.post(
+        "/v1/payments/remittances", json={**Q1, "family": "federal"}, headers=retry_key()
+    )
     assert federal.status_code == 201 and federal.json()["total_cents"] == 500
 
 
@@ -184,6 +201,7 @@ async def test_filings_list_periods_and_returns(
     filed = await as_owner.post(
         "/v1/payments/remittances",
         json={**window, "family": "federal", "confirmation": "CRA 1"},
+        headers=retry_key(),
     )
     assert filed.status_code == 201, filed.text
     after = (await as_owner.get("/v1/payments/remittances")).json()
@@ -230,7 +248,9 @@ async def test_other_business_returns_stay_apart(
     other = await factory.business()
     await factory.client(business=other)
     await _invoice(db, issued_at=IN_Q1, tax={"GST": 777}, business_id=other.id)
-    res = await as_owner.post("/v1/payments/remittances", json={**Q1, "family": "federal"})
+    res = await as_owner.post(
+        "/v1/payments/remittances", json={**Q1, "family": "federal"}, headers=retry_key()
+    )
     assert res.status_code == 201, res.text
     assert (res.json()["by_code"], res.json()["total_cents"]) == ({}, 0)
     filings = (await as_owner.get("/v1/payments/remittances")).json()
@@ -267,7 +287,9 @@ async def test_a_one_day_return_leaves_the_rest_of_its_period_due(
     assert (status, due) == ("due", due_date(end, "quarterly").isoformat())
 
     one_day = {"period_start": start.isoformat(), "period_end": start.isoformat()}
-    filed = await as_owner.post("/v1/payments/remittances", json={**one_day, "family": "federal"})
+    filed = await as_owner.post(
+        "/v1/payments/remittances", json={**one_day, "family": "federal"}, headers=retry_key()
+    )
     assert filed.status_code == 201, filed.text
     assert await _federal(as_owner, start) == (status, due)
 
@@ -276,7 +298,9 @@ async def test_a_one_day_return_leaves_the_rest_of_its_period_due(
         "period_end": end.isoformat(),
         "family": "federal",
     }
-    assert (await as_owner.post("/v1/payments/remittances", json=rest)).status_code == 201
+    assert (
+        await as_owner.post("/v1/payments/remittances", json=rest, headers=retry_key())
+    ).status_code == 201
     status, due = await _federal(as_owner, start)
     assert status == "filed"
     assert due != due_date(end, "quarterly").isoformat()

@@ -89,7 +89,7 @@ async def pay_order_cash(
     sms: SmsDep,
     push: PushDep,
     jobs: JobsDep,
-    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+    idempotency_key: Annotated[str, Header(alias="Idempotency-Key", min_length=8)],
 ) -> OrderCashOut:
     result = await OrderService(db, principal, gateway).pay_cash(order_id, data, idempotency_key)
     await send_queued(db, email, sms, push, jobs)
@@ -103,7 +103,7 @@ async def apply_order_gift_card(
     principal: CurrentPrincipal,
     db: DbSession,
     gateway: GatewayDep,
-    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+    idempotency_key: Annotated[str, Header(alias="Idempotency-Key", min_length=8)],
 ) -> OrderOut:
     return await OrderService(db, principal, gateway).apply_gift_card(
         order_id, data, idempotency_key

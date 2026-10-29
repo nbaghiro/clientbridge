@@ -4,6 +4,7 @@ import json
 from datetime import timedelta
 
 import httpx
+import pytest
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -11,6 +12,7 @@ from clientbridge.core import clock
 from clientbridge.integrations.stripe import MissedEvent
 from clientbridge.models.messaging import Delivery
 from clientbridge.models.payments import Payment
+from clientbridge.services import payments
 from clientbridge.services.payments import run_replay_missed_events
 from tests.conftest import FakePaymentGateway
 from tests.helpers import STRIPE, card_pay, enable_payments, provider_ref, sent_invoice
@@ -96,3 +98,40 @@ async def test_a_missed_event_replays_from_the_objects_current_state_once(
     payment = await db.get(Payment, pay_id, populate_existing=True)
     assert payment is not None and payment.status == "succeeded"
     assert await run_replay_missed_events(db, gateway) == 0
+
+
+async def test_events_already_applied_do_not_use_up_the_replay_budget(
+    api: httpx.AsyncClient,
+    db: AsyncSession,
+    gateway: FakePaymentGateway,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    pay_id, pi = await _invoice_payment(api, db)
+    applied_pi = await provider_ref(db, (await _invoice_payment(api, db))[0])
+    now = int(clock.now().timestamp())
+    res = await api.post(
+        "/webhooks/stripe", content=_succeeded("evt_applied", applied_pi, now), headers=STRIPE
+    )
+    assert res.status_code == 200
+    gateway.objects[("acct_test", "payment_intent", pi)] = {
+        "id": pi,
+        "object": "payment_intent",
+        "status": "succeeded",
+    }
+
+    def missed(event_id: str, intent: str, hours: int) -> MissedEvent:
+        return MissedEvent(
+            id=event_id,
+            type="payment_intent.succeeded",
+            account="acct_test",
+            created=clock.now() - timedelta(hours=hours),
+            object_type="payment_intent",
+            object_id=intent,
+        )
+
+    # Stripe lists an event as undelivered until a later delivery of it succeeds
+    gateway.missed["acct_test"] = [missed("evt_applied", applied_pi, 1), missed("evt_lost", pi, 2)]
+    monkeypatch.setattr(payments, "_REPLAY_PER_RUN", 1)
+    assert await run_replay_missed_events(db, gateway) == 1
+    payment = await db.get(Payment, pay_id, populate_existing=True)
+    assert payment is not None and payment.status == "succeeded"

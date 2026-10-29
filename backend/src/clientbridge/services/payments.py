@@ -230,8 +230,9 @@ class PaymentService:
         if business.stripe_account_id is not None and await allow_action(
             business.id, "connect_refresh", connect_refresh_limiter
         ):
+            locked = await self._locked_business()
             account = await self.gateway.get_account(business.stripe_account_id)
-            apply_account_status(business, account)
+            apply_account_status(locked, account)
             await self.db.commit()
         return await self.status()
 
@@ -1924,22 +1925,48 @@ async def run_replay_missed_events(db: AsyncSession, gateway: PaymentGateway) ->
             break
         try:
             missed = await gateway.undelivered_events(
-                account, since=since, limit=min(budget, _REPLAY_PER_ACCOUNT)
+                account, since=since, limit=_REPLAY_PER_ACCOUNT
             )
         except Exception:
             _log.exception("listing undelivered stripe events failed for %s", account)
             continue
-        budget -= len(missed)
         for event in missed:
+            if budget <= 0:
+                break
+            if not await _awaits_replay(db, event):
+                continue  # already applied or not ours to apply, so it costs no budget
+            budget -= 1
             applied += await _replay(db, gateway, event)
     return applied
 
 
+async def _awaits_replay(db: AsyncSession, missed: MissedEvent) -> bool:
+    wanted = PLAN_EVENTS if missed.account is None else PAYMENT_EVENTS
+    if missed.type not in wanted or missed.object_type not in _REPLAYED:
+        return False
+    applied = await db.scalar(
+        select(Webhook.id).where(Webhook.id == missed.id, Webhook.status == "processed")
+    )
+    return applied is None
+
+
+async def _locked_by_account(db: AsyncSession, account_id: str) -> Business | None:
+    """The account's business, locked so an older read of it never lands after a newer one."""
+    return await db.scalar(
+        select(Business)
+        .where(Business.stripe_account_id == account_id)
+        .with_for_update(key_share=True)
+        .execution_options(populate_existing=True)
+    )
+
+
 async def _resync_account(db: AsyncSession, gateway: PaymentGateway, business: Business) -> None:
-    """Thin account events list without a delivery filter, so an account in progress is re-read."""
+    """Re-read an account from Stripe: thin account events can't be listed as undelivered."""
     assert business.stripe_account_id is not None
     try:
-        apply_account_status(business, await gateway.get_account(business.stripe_account_id))
+        locked = await _locked_by_account(db, business.stripe_account_id)
+        if locked is not None:
+            apply_account_status(locked, await gateway.get_account(business.stripe_account_id))
         await db.commit()
     except Exception:
         await db.rollback()
@@ -1947,14 +1974,7 @@ async def _resync_account(db: AsyncSession, gateway: PaymentGateway, business: B
 
 
 async def _replay(db: AsyncSession, gateway: PaymentGateway, missed: MissedEvent) -> int:
-    wanted = PLAN_EVENTS if missed.account is None else PAYMENT_EVENTS
-    resource = _REPLAYED.get(missed.object_type)
-    if missed.type not in wanted or resource is None:
-        return 0
-    if await db.scalar(
-        select(Webhook.id).where(Webhook.id == missed.id, Webhook.status == "processed")
-    ):
-        return 0
+    resource = _REPLAYED[missed.object_type]
     try:
         current = await gateway.retrieve(missed.account, resource, missed.object_id)
         event_type = _type_for_state(missed.type, current)
@@ -2259,9 +2279,7 @@ async def _refresh_account(
     """Mirror a connected account's current state after Stripe reports a change to it."""
     if account_id is None:
         return
-    business = (
-        await db.execute(select(Business).where(Business.stripe_account_id == account_id))
-    ).scalar_one_or_none()
+    business = await _locked_by_account(db, account_id)
     if business is None:
         return
     try:
@@ -4398,6 +4416,8 @@ async def run_reconcile_payments(
             found = 0
             account_id = None if _closed(business) else merchant_account(business)
             if account_id is not None:
+                # a lost account event would otherwise leave a paused account looking enabled
+                await _resync_account(db, gateway, business)
                 found += await reconcile_stripe_transactions(db, gateway, identity, account_id)
                 found += await _reconcile_balance(db, gateway, identity, account_id)
             stale = await ledger.stale_accounts(db, identity)

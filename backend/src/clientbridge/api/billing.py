@@ -200,7 +200,7 @@ async def record_invoice_payment(
     sms: SmsDep,
     push: PushDep,
     jobs: JobsDep,
-    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+    idempotency_key: Annotated[str, Header(alias="Idempotency-Key", min_length=8)],
 ) -> InvoicePaymentOut:
     result = await PaymentService(db, principal, gateway).record_invoice_payment(
         invoice_id, body, idempotency_key

@@ -7707,6 +7707,11 @@ export interface components {
         PayoutRow: {
             /** Id */
             id: string;
+            /**
+             * Payout Id
+             * @description Stripe's payout id, which the bank deposit matches
+             */
+            payout_id: string | null;
             /** Amount Cents */
             amount_cents: number;
             /** Arrival At */
@@ -14382,8 +14387,8 @@ export interface operations {
     record_invoice_payment_v1_invoices__invoice_id__payments_post: {
         parameters: {
             query?: never;
-            header?: {
-                "Idempotency-Key"?: string | null;
+            header: {
+                "Idempotency-Key": string;
                 "x-business-id"?: string;
                 "x-expected-user"?: string;
                 "x-session-token"?: string;
@@ -15294,8 +15299,8 @@ export interface operations {
     record_remittance_v1_payments_remittances_post: {
         parameters: {
             query?: never;
-            header?: {
-                "Idempotency-Key"?: string | null;
+            header: {
+                "Idempotency-Key": string;
                 "x-business-id"?: string;
                 "x-expected-user"?: string;
                 "x-session-token"?: string;
@@ -15517,8 +15522,8 @@ export interface operations {
     pay_order_cash_v1_orders__order_id__cash_post: {
         parameters: {
             query?: never;
-            header?: {
-                "Idempotency-Key"?: string | null;
+            header: {
+                "Idempotency-Key": string;
                 "x-business-id"?: string;
                 "x-expected-user"?: string;
                 "x-session-token"?: string;
@@ -15557,8 +15562,8 @@ export interface operations {
     apply_order_gift_card_v1_orders__order_id__gift_card_post: {
         parameters: {
             query?: never;
-            header?: {
-                "Idempotency-Key"?: string | null;
+            header: {
+                "Idempotency-Key": string;
                 "x-business-id"?: string;
                 "x-expected-user"?: string;
                 "x-session-token"?: string;

@@ -85,6 +85,7 @@ class MonthNet(BaseModel):
 
 class PayoutRow(BaseModel):
     id: str
+    payout_id: str | None = Field(description="Stripe's payout id, which the bank deposit matches")
     amount_cents: int
     arrival_at: datetime | None
     status: str = Field(description="paid, or failed when the bank returned it")

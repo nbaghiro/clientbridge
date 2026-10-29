@@ -69,7 +69,7 @@ async def test_an_invoice_with_money_taken_cannot_be_voided(
     body = {"client_id": cid, "lines": [_line()], "send": True}
     inv = ok(await as_owner.post("/v1/invoices", json=body), 201).json()
     cash = {"method": "cash", "amount_cents": 1000}
-    ok(await as_owner.post(f"/v1/invoices/{inv['id']}/payments", json=cash), 201)
+    ok(await as_owner.post(f"/v1/invoices/{inv['id']}/payments", json=cash, headers=key()), 201)
     refused = await as_owner.post(f"/v1/invoices/{inv['id']}/void")
     assert refused.status_code == 409 and refused.json()["error"] == "invoice_has_payments"
 

@@ -382,6 +382,7 @@ async def test_public_invoice_carries_the_document(
     paid = await as_owner.post(
         f"/v1/invoices/{sent['id']}/payments",
         json={"method": "etransfer", "amount_cents": 5000, "send_receipt": False},
+        headers=key(),
     )
     assert paid.status_code == 201, paid.text
     page = (await as_owner.get(f"/pay/{sent['pay_token']}")).json()

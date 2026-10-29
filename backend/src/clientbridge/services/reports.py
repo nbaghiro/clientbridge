@@ -399,24 +399,32 @@ class ReportService:
     async def payouts(self, lo: datetime, hi: datetime) -> list[PayoutRow]:
         rows = await self.db.execute(
             self._legs(Account.category == "bank", Entry.event == "payout", lo, hi)
-            .with_only_columns(Entry.journal_id, Entry.ref, Entry.amount_cents, Entry.available_at)
+            .with_only_columns(
+                Entry.journal_id,
+                Entry.ref,
+                Entry.amount_cents,
+                Entry.available_at,
+                Entry.source_type,
+                Entry.source_id,
+            )
             .order_by(Entry.occurred_at.desc())
         )
         payouts = rows.tuples().all()
         failed = await self.db.execute(
             scoped(Entry, self.biz)
             .with_only_columns(Entry.ref)
-            .where(Entry.ref.in_([f"{ref}:failed" for _, ref, _, _ in payouts]))
+            .where(Entry.ref.in_([f"{row[1]}:failed" for row in payouts]))
         )
         returned = set(failed.scalars().all())
         return [
             PayoutRow(
                 id=journal_id,
+                payout_id=source_id if source_type == "stripe_payout" else None,
                 amount_cents=int(cents),
                 arrival_at=arrival,
                 status="failed" if f"{ref}:failed" in returned else "paid",
             )
-            for journal_id, ref, cents, arrival in payouts
+            for journal_id, ref, cents, arrival, source_type, source_id in payouts
         ]
 
     async def export_zip(self, kinds: list[ExportKind], start: date, end: date) -> bytes:
@@ -562,7 +570,7 @@ class ReportService:
             ],
             [
                 [
-                    p.id,
+                    p.payout_id or p.id,
                     p.arrival_at.date().isoformat() if p.arrival_at else "",
                     p.amount_cents,
                     p.status,

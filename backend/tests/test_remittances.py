@@ -18,6 +18,7 @@ from clientbridge.services.tax import TaxResult
 from tests.conftest import BIZ, Factory, book_invoice
 from tests.helpers import business_today
 from tests.helpers import client_id as seeded_client
+from tests.helpers import key as retry_key
 
 Q1 = {"period_start": "2021-01-01", "period_end": "2021-03-31"}
 IN_Q1 = datetime(2021, 2, 15, 18, tzinfo=UTC)
@@ -84,7 +85,7 @@ async def test_filing_moves_tax_payable_to_the_bank(
     report = (await as_owner.get(f"/v1/reports/gst-hst?{q1}")).json()
     bank = await ledger.balance(db, BIZ, owner_type="business", owner_id=BIZ, category="bank")
 
-    res = await as_owner.post("/v1/payments/remittances", json=Q1)
+    res = await as_owner.post("/v1/payments/remittances", json=Q1, headers=retry_key())
     assert res.status_code == 201, res.text
     assert res.json()["by_code"] == {"GST": 500, "PST": 700}
     assert res.json()["total_cents"] == 1200
@@ -106,13 +107,17 @@ async def test_overlapping_or_refiled_period_409(
 ) -> None:
     await _q1_tax(db)
     seeded = await _remittances(db)
-    assert (await as_owner.post("/v1/payments/remittances", json=Q1)).status_code == 201
+    assert (
+        await as_owner.post("/v1/payments/remittances", json=Q1, headers=retry_key())
+    ).status_code == 201
     again = await as_owner.post(
         "/v1/payments/remittances", json=Q1, headers={"Idempotency-Key": "another-filing"}
     )
     assert again.status_code == 409
     overlap = {"period_start": "2021-03-01", "period_end": "2021-05-31"}
-    assert (await as_owner.post("/v1/payments/remittances", json=overlap)).status_code == 409
+    assert (
+        await as_owner.post("/v1/payments/remittances", json=overlap, headers=retry_key())
+    ).status_code == 409
     assert await _remittances(db) == seeded + 1
 
 
@@ -121,7 +126,7 @@ async def test_period_with_no_tax_owed_files_once_as_a_nil_return(
 ) -> None:
     empty = {"period_start": "2020-01-01", "period_end": "2020-03-31"}
     seeded = await _remittances(db)
-    res = await as_owner.post("/v1/payments/remittances", json=empty)
+    res = await as_owner.post("/v1/payments/remittances", json=empty, headers=retry_key())
     assert res.status_code == 201, res.text
     assert (res.json()["by_code"], res.json()["total_cents"]) == ({}, 0)
     again = await as_owner.post(
@@ -133,7 +138,7 @@ async def test_period_with_no_tax_owed_files_once_as_a_nil_return(
 
 async def test_period_ending_before_it_starts_422(as_owner: httpx.AsyncClient) -> None:
     backwards = {"period_start": "2021-03-31", "period_end": "2021-01-01"}
-    res = await as_owner.post("/v1/payments/remittances", json=backwards)
+    res = await as_owner.post("/v1/payments/remittances", json=backwards, headers=retry_key())
     assert res.status_code == 422
     assert res.json()["error"] == "invalid_period"
 
@@ -141,14 +146,16 @@ async def test_period_ending_before_it_starts_422(as_owner: httpx.AsyncClient) -
 async def test_staff_cannot_file_403(as_staff: httpx.AsyncClient, db: AsyncSession) -> None:
     await _q1_tax(db)
     seeded = await _remittances(db)
-    assert (await as_staff.post("/v1/payments/remittances", json=Q1)).status_code == 403
+    assert (
+        await as_staff.post("/v1/payments/remittances", json=Q1, headers=retry_key())
+    ).status_code == 403
     assert await _remittances(db) == seeded
 
 
 async def test_replayed_filing_posts_once(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
     await _q1_tax(db)
     seeded = await _remittances(db)
-    headers = {"Idempotency-Key": "file-q1"}
+    headers = {"Idempotency-Key": "file-q1-once"}
     first = await as_owner.post("/v1/payments/remittances", json=Q1, headers=headers)
     retry = await as_owner.post("/v1/payments/remittances", json=Q1, headers=headers)
     assert first.status_code == retry.status_code == 201
@@ -165,7 +172,7 @@ async def test_other_business_tax_is_not_filed(
         db, business_id=other.id, client_id=stranger.id, number=1, tax={"GST": 9999}
     )
     await _q1_tax(db)
-    res = await as_owner.post("/v1/payments/remittances", json=Q1)
+    res = await as_owner.post("/v1/payments/remittances", json=Q1, headers=retry_key())
     assert res.json()["by_code"] == {"GST": 500, "PST": 700}
     assert await _remittances(db, other.id) == 0
 
@@ -175,7 +182,9 @@ async def test_period_that_has_not_ended_is_422(
 ) -> None:
     today = (await business_today(db)).isoformat()
     res = await as_owner.post(
-        "/v1/payments/remittances", json={"period_start": "2021-01-01", "period_end": today}
+        "/v1/payments/remittances",
+        json={"period_start": "2021-01-01", "period_end": today},
+        headers=retry_key(),
     )
     assert res.status_code == 422
     assert res.json()["error"] == "invalid_period"
@@ -194,7 +203,7 @@ async def test_two_businesses_can_file_the_same_period(
     filed = await RemittanceService(db, principal).record(RemittanceIn.model_validate(Q1), None)
     assert filed.total_cents == 300
     await _q1_tax(db)
-    res = await as_owner.post("/v1/payments/remittances", json=Q1)
+    res = await as_owner.post("/v1/payments/remittances", json=Q1, headers=retry_key())
     assert res.status_code == 201, res.text
 
 
