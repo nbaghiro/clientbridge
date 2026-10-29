@@ -162,6 +162,9 @@ async def test_reconciliation_detects_a_ledger_only_stripe_journal(
             ledger.Leg("business", BIZ, "processing_fee", 500),
         ],
     )
+    # the first run sees it once, as a webhook still on its way would be; the next confirms it
+    assert await run_reconcile_payments(db, gateway) == 0
+    assert await _drifts(db, BIZ) == []
     assert await run_reconcile_payments(db, gateway) == 1
     findings = await _drifts(db, BIZ)
     assert len(findings) == 1

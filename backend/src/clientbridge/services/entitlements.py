@@ -89,8 +89,8 @@ async def _record_cash(
 async def _settle_cash(db: AsyncSession, payment: Payment) -> None:
     """Book the cash and activate what it bought, once the entitlement row points at it."""
     await ledger.post_payment(db, payment)
-    await activate_purchased_package(db, payment.id)
-    await activate_purchased_gift_card(db, payment.id)
+    await activate_purchased_package(db, payment.business_id, payment.id)
+    await activate_purchased_gift_card(db, payment.business_id, payment.id)
 
 
 class GiftCardService:
@@ -268,10 +268,12 @@ async def _gift_card_out(db: AsyncSession, card: GiftCard) -> GiftCardOut:
     )
 
 
-async def activate_purchased_gift_card(db: AsyncSession, payment_id: str) -> str | None:
+async def activate_purchased_gift_card(
+    db: AsyncSession, business_id: str, payment_id: str
+) -> str | None:
     """Activate the gift card a settled purchase paid for; returns its id."""
     card = (
-        await db.execute(select(GiftCard).where(GiftCard.payment_id == payment_id))
+        await db.execute(scoped(GiftCard, business_id).where(GiftCard.payment_id == payment_id))
     ).scalar_one_or_none()
     if card is not None and card.status == "pending":
         card.status = "active"
@@ -280,20 +282,20 @@ async def activate_purchased_gift_card(db: AsyncSession, payment_id: str) -> str
     return None
 
 
-async def void_purchased_gift_card(db: AsyncSession, payment_id: str) -> None:
+async def void_purchased_gift_card(db: AsyncSession, business_id: str, payment_id: str) -> None:
     """Void the gift card a refunded purchase charge paid for (pending/active → void)."""
     card = (
-        await db.execute(select(GiftCard).where(GiftCard.payment_id == payment_id))
+        await db.execute(scoped(GiftCard, business_id).where(GiftCard.payment_id == payment_id))
     ).scalar_one_or_none()
     if card is not None and card.status in ("pending", "active"):
         card.status = "void"
         await db.flush()
 
 
-async def restore_purchased_gift_card(db: AsyncSession, payment_id: str) -> None:
+async def restore_purchased_gift_card(db: AsyncSession, business_id: str, payment_id: str) -> None:
     """Reactivate the gift card voided by a refund that Stripe then failed (void → active)."""
     card = (
-        await db.execute(select(GiftCard).where(GiftCard.payment_id == payment_id))
+        await db.execute(scoped(GiftCard, business_id).where(GiftCard.payment_id == payment_id))
     ).scalar_one_or_none()
     if card is not None and card.status == "void":
         card.status = "active"
@@ -536,30 +538,30 @@ async def _package_out(db: AsyncSession, package: Package) -> PackageOut:
     )
 
 
-async def activate_purchased_package(db: AsyncSession, payment_id: str) -> None:
+async def activate_purchased_package(db: AsyncSession, business_id: str, payment_id: str) -> None:
     """Activate the package a settled purchase charge paid for (pending → active)."""
     package = (
-        await db.execute(select(Package).where(Package.payment_id == payment_id))
+        await db.execute(scoped(Package, business_id).where(Package.payment_id == payment_id))
     ).scalar_one_or_none()
     if package is not None and package.status == "pending":
         package.status = "active"
         await db.flush()
 
 
-async def void_purchased_package(db: AsyncSession, payment_id: str) -> None:
+async def void_purchased_package(db: AsyncSession, business_id: str, payment_id: str) -> None:
     """Void the package a refunded purchase charge paid for (pending/active → canceled)."""
     package = (
-        await db.execute(select(Package).where(Package.payment_id == payment_id))
+        await db.execute(scoped(Package, business_id).where(Package.payment_id == payment_id))
     ).scalar_one_or_none()
     if package is not None and package.status in ("pending", "active"):
         package.status = "canceled"
         await db.flush()
 
 
-async def restore_purchased_package(db: AsyncSession, payment_id: str) -> None:
+async def restore_purchased_package(db: AsyncSession, business_id: str, payment_id: str) -> None:
     """Reactivate the package canceled by a refund that Stripe then failed (canceled → active)."""
     package = (
-        await db.execute(select(Package).where(Package.payment_id == payment_id))
+        await db.execute(scoped(Package, business_id).where(Package.payment_id == payment_id))
     ).scalar_one_or_none()
     if package is not None and package.status == "canceled":
         package.status = "active"

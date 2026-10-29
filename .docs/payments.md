@@ -295,7 +295,9 @@ a lost purchase is booked to `loss` as well; the card or package is voided once 
 cover the whole purchase. The income report counts lost-dispute reversals with refunds instead of as lower
 sales.
 
-An inquiry (`warning_needs_response`) alerts staff once and books nothing; money moves only if it
+Dispute and payment-failure events find their payment within the business whose account sent the event,
+as settlement does, so an event can never touch another business's payment. An inquiry
+(`warning_needs_response`) alerts staff once and books nothing; money moves only if it
 escalates. A `prevented` dispute, which the card network settled before any funds left, also books
 nothing and leaves the payment refundable, as does a status we don't know, which is logged. A visit
 cancel skips refunding a disputed deposit, so the dispute decides that money and the cancel still goes
@@ -440,9 +442,10 @@ read of an account takes the business lock first, so an older read never lands a
 
 ### Reconciliation
 
-`reconcile_ledger` (`payments.run_reconcile_payments`) visits businesses least recently reconciled first
-and stops starting new businesses after ten minutes, inside the worker's 900-second job timeout. For each
-business with a merchant account it:
+`reconcile_ledger` (`payments.run_reconcile_payments`) visits businesses never reconciled first, then the
+rest in an order that changes each hour, so a business the budget missed is near the front of a later run.
+It stops starting new businesses after ten minutes, inside the worker's 900-second job timeout. For each
+business with a merchant account it re-reads the account (see above), then:
 
 1. Reads the balance transactions created since its cursor, less a day of overlap. The cursor is a
    `ledger.reconciled` audit holding the newest transaction id and `created` that a run reached; each run
@@ -461,7 +464,9 @@ business with a merchant account it:
    expected: its debit is already in Stripe's balance while the ledger books it on success, so the source
    records no finding and the balance check adds pending refunds back until they settle or fail.
 4. Compares the account balance with the ledger, then checks each account's cached balance against its
-   entries.
+   entries. A balance that's off is first noted as `ledger.balance_unsettled`, since a charge whose
+   webhook is still on its way looks the same; it becomes a finding when the next run, within two
+   hours, still sees it off.
 
 A source that answers `retry_later` is skipped until 24 hours after its first transaction's `created`, then
 becomes a `ledger.transaction_drift` finding. A source whose repair raises anything else records a

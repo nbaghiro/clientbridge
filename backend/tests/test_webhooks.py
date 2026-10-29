@@ -268,6 +268,7 @@ async def test_charge_dispute_alerts_staff(
     api: httpx.AsyncClient, db: AsyncSession, push: FakePushSender
 ) -> None:
     cid = await client_id(db)
+    await enable_payments(db, "acct_d")
     db.add(
         Payment(
             id="pay_disp",

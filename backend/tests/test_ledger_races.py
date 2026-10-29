@@ -145,8 +145,9 @@ async def test_two_posts_on_one_ref_write_one_journal(
                 return exc
             return None
 
-    winner, loser = await race.run(lambda: post(True), lambda: post(False))
-    assert winner is None and loser is not None
+    first, second = await race.run(lambda: post(True), lambda: post(False))
+    # the second waits on the first's account locks, then finds its journal and returns it
+    assert first is None and second is None
     async with SessionLocal() as check:
         assert await _journals(check, ref) == 1
         assert (

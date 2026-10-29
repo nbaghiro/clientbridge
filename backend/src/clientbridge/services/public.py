@@ -1793,6 +1793,8 @@ class PublicPayService:
 
     async def pay_card(self, token: str, data: PublicPayIn) -> PublicCardIntent:
         invoice, business = await self._resolve(token)
+        # two tabs serialize here, so neither opens an intent the other then cancels at Stripe
+        await self.db.execute(select(Invoice.id).where(Invoice.id == invoice.id).with_for_update())
         try:
             amount = await assert_payable(self.db, invoice)
         except Conflict as exc:

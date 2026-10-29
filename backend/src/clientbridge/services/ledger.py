@@ -88,6 +88,10 @@ async def post(
     if sum(leg.amount_cents for leg in legs) != 0:
         raise UnbalancedJournal(ref)
     accounts = await _lock_accounts(db, business_id, currency, {leg.key for leg in legs})
+    # a concurrent post of the same ref held these locks first, and may have committed it
+    existing = await journal_for(db, business_id, ref)
+    if existing is not None:
+        return existing
     journal_id = new_id("journal")
     at = occurred_at or clock.now()
     for index, leg in enumerate(legs):
