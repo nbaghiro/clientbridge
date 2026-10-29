@@ -36,6 +36,7 @@ from clientbridge.schemas.reports import (
 )
 from clientbridge.services import ledger
 from clientbridge.services.business import staff_name
+from clientbridge.services.ledger import BUSINESS_CURRENCY
 from clientbridge.services.tax import FAMILY_CODES, rates_on
 
 _CASH = ("stripe", "bank", "cash")
@@ -154,7 +155,12 @@ class ReportService:
         stmt = (
             scoped(Entry, self.biz)
             .join(Account, Account.id == Entry.account_id)
-            .where(account, Entry.occurred_at >= lo, Entry.occurred_at < hi)
+            .where(
+                account,
+                Entry.currency == BUSINESS_CURRENCY,
+                Entry.occurred_at >= lo,
+                Entry.occurred_at < hi,
+            )
         )
         return stmt if entry is None else stmt.where(entry)
 
@@ -633,6 +639,7 @@ class DashboardService:
             .with_only_columns(func.coalesce(func.sum(Entry.amount_cents), 0))
             .join_from(Entry, Account, Account.id == Entry.account_id)
             .where(
+                Entry.currency == BUSINESS_CURRENCY,
                 Account.category.in_(("stripe", "bank", "cash")),
                 Entry.event.in_(_MONEY_BACK),
                 ~ledger.orphaned(),

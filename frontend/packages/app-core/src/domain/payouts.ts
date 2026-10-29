@@ -8,7 +8,7 @@ import { type Load } from "../hooks";
 import { strings } from "../strings";
 import { addDays, CALENDAR, formatShortDay, parseTimestamp, useBusinessZone } from "../datetime";
 import type { Intent } from "../ui";
-import { formatMoney, formatParts } from "../format";
+import { BUSINESS_CURRENCY, formatMoney, formatParts } from "../format";
 import { utcFromSql, utcSql } from "../datetime";
 import { useReplicaLoad } from "./sync";
 
@@ -22,13 +22,13 @@ interface PayoutRow {
 
 export const STRIPE_BALANCE_SQL = `
 SELECT COALESCE(SUM(balance_cents), 0) AS cents FROM accounts
-WHERE owner_type = 'business' AND category = 'stripe'`;
+WHERE owner_type = 'business' AND category = 'stripe' AND currency = '${BUSINESS_CURRENCY}'`;
 
 export const DEPOSITS_SINCE_SQL = `
 SELECT COALESCE(SUM(e.amount_cents), 0) AS cents
 FROM entries e JOIN accounts a ON a.id = e.account_id
 WHERE a.owner_type = 'business' AND a.category = 'bank' AND e.event = 'payout'
-  AND e.amount_cents > 0
+  AND a.currency = '${BUSINESS_CURRENCY}' AND e.amount_cents > 0
   AND NOT EXISTS (SELECT 1 FROM entries r WHERE r.ref = e.ref || ':failed')
   AND ${utcFromSql("e.occurred_at", "?1")} AND ${utcSql("e.occurred_at")} >= datetime(?1)`;
 
@@ -37,6 +37,7 @@ export const FEES_SINCE_SQL = `
 SELECT COALESCE(SUM(e.amount_cents), 0) AS cents
 FROM entries e JOIN accounts a ON a.id = e.account_id
 WHERE a.owner_type = 'business' AND a.category IN ('processing_fee', 'platform_fee')
+  AND a.currency = '${BUSINESS_CURRENCY}'
   AND ${utcFromSql("e.occurred_at", "?1")} AND ${utcSql("e.occurred_at")} >= datetime(?1)`;
 
 interface ChargeRow {

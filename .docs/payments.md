@@ -37,8 +37,12 @@ flowchart LR
 - **Currency.** Every price and charge is in CAD. `SUPPORTED_CURRENCIES` in `services/ledger.py` holds
   the currencies the ledger books, and `ledger.supported()` checks it for every journal, item create and
   update (422 `unsupported_currency`), sale creation and every charge builder before Stripe is called.
-  Ledger accounts are already keyed by currency, so adding one means adding it to that set and checking
-  fees and reports. A Stripe object in another currency that reaches us anyway, such as a payout or a
+  Ledger accounts are already keyed by currency. Every business-wide total (dashboard figures, reports,
+  the GST/HST return, remittances, reconciliation's balance check, and the app's Stripe balance,
+  Deposited, fees and client balances) reads only `BUSINESS_CURRENCY`, the currency the books are kept
+  in, so a second currency can't mix into them; totals of one document already share its currency.
+  Supporting USD still needs a per-business currency in place of that constant, its Stripe setup and
+  its tax. A Stripe object in another currency that reaches us anyway, such as a payout or a
   membership renewal, is refused once as a `payout.refused` or `payment.refused` audit and never booked.
 - **Application fee.** `services/payments.application_fee_cents` computes integer cents as
   `amount × clamp(ceiling_bps − estimated_stripe_bps, 0, max_bps) / 10000`, rounded down.

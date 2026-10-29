@@ -129,7 +129,8 @@ SELECT c.id, c.name, c.phone, c.status, c.tags, c.archived_at,
           WHERE sj.client_id = c.id AND sj.deleted_at IS NULL) AS subject_names,
        ${nextVisitSql("c.id")} AS next_visit_at,
        (SELECT SUM(a.balance_cents) FROM accounts a WHERE a.owner_type = 'client'
-          AND a.owner_id = c.id AND a.category = 'receivable') AS balance_cents
+          AND a.owner_id = c.id AND a.category = 'receivable'
+          AND a.currency = '${BUSINESS_CURRENCY}') AS balance_cents
 FROM clients c`;
 
 export const CLIENT_DIRECTORY_SQL = `${DIRECTORY_SELECT} ORDER BY c.name COLLATE NOCASE`;

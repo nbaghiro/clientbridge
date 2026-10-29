@@ -4445,9 +4445,9 @@ async def _reconcile_balance(
         db, business_id, owner_type="business", owner_id=business_id, category="stripe"
     )
     pending = await db.scalar(
-        _pending_refunds(business_id).with_only_columns(
-            func.coalesce(func.sum(Payment.amount_cents), 0)
-        )
+        _pending_refunds(business_id)
+        .where(Payment.currency == BUSINESS_CURRENCY)
+        .with_only_columns(func.coalesce(func.sum(Payment.amount_cents), 0))
     )
     theirs = await gateway.get_balance_cents(account_id, currency=BUSINESS_CURRENCY)
     residual = theirs - ours - int(explained or 0) + int(pending or 0)

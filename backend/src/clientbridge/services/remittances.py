@@ -22,7 +22,7 @@ from clientbridge.schemas.payments import (
     TaxFilings,
 )
 from clientbridge.services import ledger
-from clientbridge.services.ledger import Leg
+from clientbridge.services.ledger import BUSINESS_CURRENCY, Leg
 from clientbridge.services.reports import (
     ReportService,
     add_months,
@@ -312,6 +312,7 @@ class RemittanceService:
             .join_from(Entry, Account, Account.id == Entry.account_id)
             .where(
                 Account.category == "tax",
+                Entry.currency == BUSINESS_CURRENCY,
                 Entry.event != "remittance",
                 Entry.occurred_at >= lo,
                 Entry.occurred_at < hi,
@@ -327,7 +328,7 @@ class RemittanceService:
         rows = await self.db.execute(
             scoped(Account, self.biz)
             .with_only_columns(Account.code, func.sum(Account.balance_cents))
-            .where(Account.category == "tax")
+            .where(Account.category == "tax", Account.currency == BUSINESS_CURRENCY)
             .group_by(Account.code)
         )
         return {code: -int(cents) for code, cents in rows.tuples().all()}

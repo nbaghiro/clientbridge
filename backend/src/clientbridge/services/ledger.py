@@ -192,10 +192,11 @@ async def balance(
 
 
 async def account_total(db: AsyncSession, business_id: str, where: ColumnElement[bool]) -> int:
+    """A business-wide total, in the currency its books are kept in, so currencies never mix."""
     total = await db.execute(
         scoped(Account, business_id)
         .with_only_columns(func.coalesce(func.sum(Account.balance_cents), 0))
-        .where(where)
+        .where(where, Account.currency == BUSINESS_CURRENCY)
     )
     return int(total.scalar_one())
 
