@@ -25,7 +25,6 @@ APIS = (
     "iamcredentials.googleapis.com",
     "logging.googleapis.com",
     "monitoring.googleapis.com",
-    "mybusiness.googleapis.com",
     "mybusinessaccountmanagement.googleapis.com",
     "mybusinessbusinessinformation.googleapis.com",
     "mybusinesslodging.googleapis.com",
@@ -40,10 +39,13 @@ APIS = (
     "sts.googleapis.com",
 )
 
+# Google lets a project enable the reviews API only once it approves Business Profile access
+AFTER_APPROVAL = ("mybusiness.googleapis.com",)
+
 _SERVICE_TYPE = "gcp:projects/service:Service"
 
 
-def create(project: str) -> list[gcp.projects.Service]:
+def create(project: str, approved: bool) -> list[gcp.projects.Service]:
     return [
         gcp.projects.Service(
             api.removesuffix(".googleapis.com"),
@@ -53,7 +55,7 @@ def create(project: str) -> list[gcp.projects.Service]:
             disable_on_destroy=False,
             disable_dependent_services=False,
         )
-        for api in APIS
+        for api in (*APIS, *(AFTER_APPROVAL if approved else ()))
     ]
 
 
