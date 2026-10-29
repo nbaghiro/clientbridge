@@ -3,8 +3,6 @@
 import pulumi
 import pulumi_gcp as gcp
 
-from cloud.google_business import APIS as GOOGLE_BUSINESS_APIS
-
 # serviceusage and cloudresourcemanager are enabled by hand first: Pulumi needs them for the rest
 APIS = (
     "androidpublisher.googleapis.com",
@@ -13,6 +11,7 @@ APIS = (
     "billingbudgets.googleapis.com",
     "certificatemanager.googleapis.com",
     "clouderrorreporting.googleapis.com",
+    "cloudkms.googleapis.com",
     "cloudquotas.googleapis.com",
     "cloudresourcemanager.googleapis.com",
     "compute.googleapis.com",
@@ -26,6 +25,14 @@ APIS = (
     "iamcredentials.googleapis.com",
     "logging.googleapis.com",
     "monitoring.googleapis.com",
+    # Business Profile: on before Google approves access, which its application form requires
+    "mybusiness.googleapis.com",
+    "mybusinessaccountmanagement.googleapis.com",
+    "mybusinessbusinessinformation.googleapis.com",
+    "mybusinesslodging.googleapis.com",
+    "mybusinessnotifications.googleapis.com",
+    "mybusinessplaceactions.googleapis.com",
+    "mybusinessverifications.googleapis.com",
     "secretmanager.googleapis.com",
     "servicenetworking.googleapis.com",
     "serviceusage.googleapis.com",
@@ -47,10 +54,7 @@ def create(project: str) -> list[gcp.projects.Service]:
             disable_on_destroy=False,
             disable_dependent_services=False,
         )
-        for api in (
-            *APIS,
-            *(GOOGLE_BUSINESS_APIS if pulumi.Config().get_bool("googleBusinessEnabled") else ()),
-        )
+        for api in APIS
     ]
 
 

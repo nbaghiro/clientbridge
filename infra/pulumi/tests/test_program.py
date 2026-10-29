@@ -609,6 +609,7 @@ def test_the_cloud_stack_exports_what_environment_stacks_read(cloud: Built) -> N
         assert keys(dig(shared, "secrets")) == set(settings.CATALOG)
         assert dig(shared, "bucket") == f"{config_for('cloud')['gcp:project']}-{env}-files"
     assert dig(cloud.outputs, "cluster", "endpoint") == "gke-1234.us-east1.gke.goog"
+    assert cloud.outputs["projectNumber"] == "123456789"
 
 
 def workflow(name: str) -> dict[str, object]:
@@ -1528,7 +1529,7 @@ def test_no_route_matches_by_method(stacks: dict[str, Built]) -> None:
                 )
 
 
-def test_google_business_resources_are_gated_and_use_a_separate_key() -> None:
+def test_business_profile_apis_are_always_on_and_the_key_is_gated() -> None:
     disabled = build_cloud()
     assert not any("google-business" in item.name for item in disabled.resources)
     enabled = build_cloud({"clientbridge:googleBusinessEnabled": "true"})
@@ -1549,14 +1550,17 @@ def test_google_business_resources_are_gated_and_use_a_separate_key() -> None:
     assert all(
         item.inputs["role"] == "roles/cloudkms.cryptoKeyEncrypterDecrypter" for item in grants
     )
-    enabled_apis = {
-        item.inputs["service"]
-        for item in enabled.resources
-        if item.type == "gcp:projects/service:Service"
-    }
-    assert "mybusiness.googleapis.com" in enabled_apis
-    assert "mybusinessaccountmanagement.googleapis.com" in enabled_apis
-    assert "mybusinessbusinessinformation.googleapis.com" in enabled_apis
+    disabled_apis, enabled_apis = (
+        {item.inputs["service"] for item in of_type(built, "gcp:projects/service:Service")}
+        for built in (disabled, enabled)
+    )
+    assert disabled_apis == enabled_apis == set(services.APIS)
+    assert {
+        "cloudkms.googleapis.com",
+        "mybusiness.googleapis.com",
+        "mybusinessaccountmanagement.googleapis.com",
+        "mybusinessbusinessinformation.googleapis.com",
+    } <= disabled_apis
 
 
 STRIPE_SANDBOX = {
