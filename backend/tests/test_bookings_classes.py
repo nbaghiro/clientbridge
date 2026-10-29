@@ -7,9 +7,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.ids import new_id
 from clientbridge.models.catalog import Item
-from clientbridge.models.messaging import Message
+from clientbridge.models.messaging import Message, Thread
 from clientbridge.models.scheduling import Booking, Slot
 from clientbridge.services.bookings import booked_count, run_reminders
+from clientbridge.services.consents import record_consent
 from clientbridge.services.notifications import Notifier
 from tests.conftest import (
     BIZ,
@@ -133,6 +134,66 @@ async def test_message_goes_to_everyone_booked(
     assert res.json()["sent"] == 2
     rows = await db.execute(select(Message.id).where(Message.body == "Bring a toy"))
     assert len(rows.scalars().all()) == 2
+
+
+async def test_message_skips_and_does_not_count_a_client_who_replied_stop(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    sid = await _class(db, capacity=2)
+    await _add(as_owner, sid, CLIENTS[0])
+    await _add(as_owner, sid, CLIENTS[1])
+    await record_consent(db, BIZ, CLIENTS[1], status="withdrawn", source="reply", recorded_by=None)
+    res = await as_owner.post(f"/v1/classes/{sid}/message", json={"body": "Bring a toy"})
+    assert res.status_code == 200, res.text
+    assert res.json()["sent"] == 1
+    rows = await db.execute(
+        select(Thread.client_id)
+        .join(Message, Message.thread_id == Thread.id)
+        .where(Message.body == "Bring a toy")
+    )
+    assert rows.scalars().all() == [CLIENTS[0]]
+
+
+async def test_a_repeated_class_message_texts_each_client_once(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    sid = await _class(db, capacity=2)
+    await _add(as_owner, sid, CLIENTS[0])
+    await _add(as_owner, sid, CLIENTS[1])
+    headers = {"Idempotency-Key": "class-msg-1"}
+    url = f"/v1/classes/{sid}/message"
+    first = await as_owner.post(url, json={"body": "Bring a toy"}, headers=headers)
+    second = await as_owner.post(url, json={"body": "Bring a toy"}, headers=headers)
+    assert first.json() == second.json() == {"sent": 2}
+    rows = await db.execute(select(Message.id).where(Message.body == "Bring a toy"))
+    assert len(rows.scalars().all()) == 2
+
+
+async def test_a_class_message_key_reused_on_another_class_is_refused(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    first = await _class(db, capacity=2)
+    second = await _class(db, capacity=2, day=7)
+    await _add(as_owner, first, CLIENTS[0])
+    await _add(as_owner, second, CLIENTS[1])
+    headers = {"Idempotency-Key": "class-msg-2"}
+    sent = await as_owner.post(f"/v1/classes/{first}/message", json={"body": "Hi"}, headers=headers)
+    assert sent.status_code == 200, sent.text
+    other = await as_owner.post(
+        f"/v1/classes/{second}/message", json={"body": "Hi"}, headers=headers
+    )
+    assert other.status_code == 422 and other.json()["error"] == "idempotency_key_reused"
+
+
+@pytest.mark.parametrize("body", ["", "   ", "x" * 1001])
+async def test_an_empty_or_oversized_class_message_is_422(
+    as_owner: httpx.AsyncClient, db: AsyncSession, body: str
+) -> None:
+    sid = await _class(db, capacity=2)
+    await _add(as_owner, sid, CLIENTS[0])
+    res = await as_owner.post(f"/v1/classes/{sid}/message", json={"body": body})
+    assert res.status_code == 422
+    assert (await db.execute(select(Message.id).where(Message.body == body))).first() is None
 
 
 async def test_client_already_on_the_roster_is_refused(

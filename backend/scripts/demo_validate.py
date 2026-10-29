@@ -15,10 +15,11 @@ from clientbridge.core import clock
 from clientbridge.core.db import Base, SessionLocal, engine
 from clientbridge.core.deps import Principal
 from clientbridge.core.errors import AppError
+from clientbridge.core.phones import e164
 from clientbridge.models.billing import Estimate, Invoice, Line
 from clientbridge.models.business import Business, Staff
 from clientbridge.models.catalog import GiftCard, Item, Package, StockMovement
-from clientbridge.models.clients import Subject
+from clientbridge.models.clients import Client, Subject
 from clientbridge.models.documents import Contract, FormResponse, Signature, VisitRecord
 from clientbridge.models.scheduling import Booking, Hours, Recurrence, Resource, Slot, Weekday
 from clientbridge.schemas.forms import FormDefinition
@@ -70,6 +71,12 @@ def validate_graph(ctx: DemoContext) -> list[str]:
     business = ctx.get(Business, ctx.business_id)
     zone = ZoneInfo(business.timezone)
     rules = next((b.rules for b in DEMO_BUSINESSES if b.id == ctx.business_id), ())
+    # devices match shared numbers by exact text, so seeded phones are E.164 like the API's
+    errors.extend(
+        f"{client.id}: phone is not stored as E.164"
+        for client in ctx.all(Client)
+        if client.phone and e164(client.phone) != client.phone
+    )
     if business.subject is not None:
         for subject in pets.values():
             try:

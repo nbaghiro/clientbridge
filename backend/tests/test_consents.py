@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from clientbridge.core import clock
 from clientbridge.core.config import get_settings
 from clientbridge.models.clients import Client, Consent
+from clientbridge.schemas.messaging import BroadcastAudience
 from clientbridge.services.consents import record_consent
 from clientbridge.services.messaging import broadcast_recipients
 from tests.conftest import Factory, FakeSmsSender
@@ -111,7 +112,7 @@ async def test_implied_consent_lapses(db: AsyncSession) -> None:
         recorded_by=None,
         expires_at=clock.now() - timedelta(days=1),
     )
-    recipients, _ = await broadcast_recipients(db, BIZ, {"all": True})
+    recipients, _ = await broadcast_recipients(db, BIZ, BroadcastAudience(all=True))
     assert cid not in {client.id for client, _ in recipients}
 
 
@@ -171,7 +172,7 @@ async def test_an_older_staff_grant_cannot_outrank_a_stop(
     cid = await _client(db)
     await _text_in(as_owner, "STOP", "SM_sticky_2")
     await record_consent(db, BIZ, cid, status="granted", source="in_person", recorded_by=None)
-    recipients, _ = await broadcast_recipients(db, BIZ, {"all": True})
+    recipients, _ = await broadcast_recipients(db, BIZ, BroadcastAudience(all=True))
     assert cid not in {client.id for client, _ in recipients}
     blocked = await as_owner.post("/v1/messages", json={"client_id": cid, "body": "Back?"})
     assert blocked.status_code == 409

@@ -22,12 +22,26 @@ import { formatParts, formatPhone } from "../format";
 import { isConnectionFailure, type Load, useAsyncAction } from "../hooks";
 import { strings } from "../strings";
 import type { Intent, SelectOption } from "../ui";
-import { type MarketingConsent, consentFor, smsSegments, useConsents } from "./broadcasts";
+import {
+    type MarketingConsent,
+    consentFor,
+    smsSegments,
+    textsStopped,
+    useConsents,
+} from "./broadcasts";
 import { useClients } from "./clients";
 import { staffNameSql } from "./staff";
 import { useReplicaLoad } from "./sync";
 
 const m = strings.messaging;
+// TextBody in the backend's schemas/messaging.py, which counts code points after trimming
+const TEXT_MAX_LENGTH = 1000;
+
+/** Why a text is too long to send, or null when the server will take it. */
+export function textLengthError(body: string): string | null {
+    const count = Array.from(body.trim()).length;
+    return count > TEXT_MAX_LENGTH ? m.tooLong(TEXT_MAX_LENGTH, count) : null;
+}
 
 interface ThreadRow {
     id: string;
@@ -58,7 +72,7 @@ export function useThreads(): ThreadRow[] {
 }
 
 export const INBOX_SQL = `
-SELECT t.id, t.client_id, t.status, c.name AS client_name, c.phone,
+SELECT t.id, t.client_id, t.status, t.created_at, c.name AS client_name, c.phone,
        (SELECT MAX(m.created_at) FROM messages m WHERE m.thread_id = t.id) AS last_message_at,
        (SELECT COUNT(*) FROM messages m
         WHERE m.thread_id = t.id AND m.direction = 'in' AND m.status != 'read') AS unread_count,
@@ -94,6 +108,7 @@ interface InboxRow {
     id: string;
     client_id: string;
     status: string;
+    created_at: string;
     client_name: string | null;
     phone: string | null;
     last_message_at: string | null;
@@ -106,7 +121,7 @@ export interface InboxThread extends InboxRow {
     title: string;
     ago: string;
     subjects: string[];
-    // The client replied STOP: texts are blocked until they reply START.
+    // The client's number replied STOP: texts are blocked until it replies START.
     textsOff: boolean;
 }
 
@@ -148,8 +163,6 @@ export function quickReplies(): { key: string; label: string; text: string }[] {
     return m.quickReplyOptions.map((q, i) => ({ key: String(i), label: q.label, text: q.text }));
 }
 
-const stopped = (c: MarketingConsent): boolean => c.state === "opted_out" && c.source === "reply";
-
 interface InboxView {
     load: Load;
     threads: InboxThread[];
@@ -174,7 +187,7 @@ export function useInbox(): InboxView {
             title: t.client_name ?? formatPhone(t.phone),
             ago: t.last_message_at === null ? "" : formatRelativeTime(t.last_message_at, zone, now),
             subjects: t.subject_names === null ? [] : t.subject_names.split(", "),
-            textsOff: stopped(consentFor(consents.map, t.client_id)),
+            textsOff: textsStopped(consents.map, t.client_id),
         }));
     }, [rows.data, consents.map, zone]);
     const filtered = useMemo(() => {
@@ -196,7 +209,7 @@ export function useInbox(): InboxView {
         setFilter,
         q,
         setQ,
-        unread: threads.filter((t) => t.unread_count > 0).length,
+        unread: filtered.filter((t) => t.unread_count > 0).length,
     };
 }
 
@@ -274,12 +287,16 @@ export function useConversation(api: ApiLike, thread: InboxThread): Conversation
     const zone = useBusinessZone();
     const iso = now.toISOString();
     const local = useQuery<ConversationRow>(CONVERSATION_SQL, [thread.id]).data;
-    const [older, setOlder] = useState<{ thread: string; rows: ConversationRow[]; more: boolean }>({
-        thread: thread.id,
+    // a thread opens with its first message, so one newer than this device's history is all here
+    const reachesBack = parseTimestamp(thread.created_at) < historyStart(now);
+    // a merge can move the thread's start earlier, which reopens the history to fetch
+    const from = `${thread.id} ${thread.created_at}`;
+    const [older, setOlder] = useState<{ from: string; rows: ConversationRow[]; more: boolean }>({
+        from,
         rows: [],
-        more: true,
+        more: reachesBack,
     });
-    const earlier = older.thread === thread.id ? older : { rows: [], more: true };
+    const earlier = older.from === from ? older : { rows: [], more: reachesBack };
     const fetching = useAsyncAction();
     const loadEarlier = (): void => {
         const oldest = earlier.rows[0] ?? local[0];
@@ -294,7 +311,7 @@ export function useConversation(api: ApiLike, thread: InboxThread): Conversation
                 );
                 const known = new Set(local.map((r) => r.id));
                 setOlder({
-                    thread: thread.id,
+                    from,
                     rows: [
                         ...page.messages.filter((r) => !known.has(r.id)).reverse(),
                         ...earlier.rows,
@@ -434,7 +451,7 @@ export interface ThreadComposer {
 
 export function useThreadComposer(api: ApiLike, thread: InboxThread): ThreadComposer {
     const [body, setBody] = useState("");
-    const { busy, error, run } = useAsyncAction();
+    const { busy, error, setError, run } = useAsyncAction();
     const attempt = useRef<Attempt | null>(null);
     const smsBlocked = thread.textsOff;
     const canSend = !smsBlocked && body.trim().length > 0;
@@ -445,6 +462,11 @@ export function useThreadComposer(api: ApiLike, thread: InboxThread): ThreadComp
         error,
         submit: () => {
             if (!canSend) return;
+            const tooLong = textLengthError(body);
+            if (tooLong !== null) {
+                setError(tooLong);
+                return;
+            }
             run(
                 () => sendMessage(api, { client_id: thread.client_id, body: body.trim() }, attempt),
                 {
@@ -487,7 +509,7 @@ export function useNewMessage(
     const [body, setBody] = useState("");
     const { busy, error, setError, run } = useAsyncAction();
     const attempt = useRef<Attempt | null>(null);
-    const smsBlocked = stopped(consentFor(consents.map, clientId));
+    const smsBlocked = textsStopped(consents.map, clientId);
     return {
         clients: clients.map((c) => ({
             key: c.id,
@@ -512,6 +534,11 @@ export function useNewMessage(
             }
             if (body.trim() === "") {
                 setError(m.writeMessage);
+                return;
+            }
+            const tooLong = textLengthError(body);
+            if (tooLong !== null) {
+                setError(tooLong);
                 return;
             }
             if (smsBlocked) return;
@@ -568,6 +595,11 @@ export function useVisitNote(
         sent,
         submit: () => {
             if (clientId === null || bookingId === null || body.trim() === "") return;
+            const tooLong = textLengthError(body);
+            if (tooLong !== null) {
+                setError(tooLong);
+                return;
+            }
             run(
                 () =>
                     sendMessage(

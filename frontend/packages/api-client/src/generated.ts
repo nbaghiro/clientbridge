@@ -5021,6 +5021,19 @@ export interface components {
             /** Public Staff Ids */
             public_staff_ids?: string[];
         };
+        /** BroadcastAudience */
+        BroadcastAudience: {
+            /**
+             * All
+             * @default false
+             */
+            all: boolean;
+            /**
+             * Tags
+             * @description The clients carrying any of these tags; none means every client
+             */
+            tags?: string[];
+        };
         /** BroadcastOut */
         BroadcastOut: {
             /** Id */
@@ -5051,13 +5064,7 @@ export interface components {
             name: string;
             /** Body */
             body: string;
-            /**
-             * Audience
-             * @description {}, {"all": true} or {"tags": [...]}
-             */
-            audience?: {
-                [key: string]: unknown;
-            };
+            audience?: components["schemas"]["BroadcastAudience"];
             /**
              * Scheduled At
              * @description A future time schedules the broadcast instead of sending now
@@ -13776,6 +13783,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
+                "Idempotency-Key"?: string | null;
                 "x-business-id"?: string;
                 "x-expected-user"?: string;
                 "x-session-token"?: string;

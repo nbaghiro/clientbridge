@@ -367,6 +367,8 @@ class ClientService:
             .where(Message.thread_id == gone.id)
             .values(thread_id=kept.id)
         )
+        # devices offer older messages only for a thread that began before their history
+        kept.created_at = min(kept.created_at, gone.created_at)
         await self.db.flush()
         await self.db.delete(gone)
 

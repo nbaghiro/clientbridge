@@ -197,7 +197,7 @@ export function Classes() {
                 >
                     <MessageClass
                         title={s.messageClassTitle(roster.session.name, roster.session.when)}
-                        hint={s.messageClassHint(roster.session.booked)}
+                        hint={s.messageClassHint(roster.textable)}
                         busy={board.messaging}
                         error={board.messageError}
                         onSend={(body) => {

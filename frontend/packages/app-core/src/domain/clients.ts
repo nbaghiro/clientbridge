@@ -32,6 +32,7 @@ import { type IconName, SUBJECT_ICON } from "../icons";
 import { strings } from "../strings";
 import type { Intent, TimelineEntry } from "../ui";
 import { utcSql } from "../datetime";
+import { TEXTS_STOPPED_SQL } from "./broadcasts";
 import { clientValueSql, invoiceStatusSql } from "./ledger";
 import {
     type SavedCardRow,
@@ -369,21 +370,17 @@ function toNote(r: NoteDbRow, viewerStaffId: string | null): ClientNote {
     };
 }
 
-// The client's newest STOP or START reply: a STOP holds until their own START, whatever staff record.
-export const CLIENT_TEXT_REPLY_SQL = `
-SELECT cn.status, cn.created_at FROM consents cn
-WHERE cn.client_id = ? AND cn.source = 'reply'
-ORDER BY cn.created_at DESC, cn.id DESC LIMIT 1`;
+// A STOP from the client's number holds until a START from it, whatever staff record.
+export const CLIENT_TEXTS_STOPPED_SQL = `
+SELECT created_at FROM (${TEXTS_STOPPED_SQL}) WHERE client_id = ?`;
 
-/** "Texts stopped by the client" with the day they replied STOP, or null while texts are allowed. */
+/** "Texts stopped" with the day their number replied STOP, or null while texts are allowed. */
 function useTextsStopped(clientId: string): string | null {
     const zone = useBusinessZone();
-    const reply = useQuery<{ status: string; created_at: string }>(CLIENT_TEXT_REPLY_SQL, [
-        clientId,
-    ]).data[0];
-    return reply?.status === "withdrawn"
-        ? s.record.textsStopped(formatDate(parseTimestamp(reply.created_at), zone))
-        : null;
+    const stop = useQuery<{ created_at: string }>(CLIENT_TEXTS_STOPPED_SQL, [clientId]).data[0];
+    return stop === undefined
+        ? null
+        : s.record.textsStopped(formatDate(parseTimestamp(stop.created_at), zone));
 }
 
 export const CLIENT_METHODS_SQL = `

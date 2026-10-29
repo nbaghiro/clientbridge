@@ -2354,8 +2354,8 @@ describe("app-core SQL against the replica schema", () => {
         expect(run("TEXTS_STOPPED_SQL")).toEqual([
             { client_id: "cl_ben", created_at: "2026-06-20T08:00:00Z" },
         ]);
-        expect(run("CLIENT_TEXT_REPLY_SQL", ["cl_ben"])).toEqual([
-            { status: "withdrawn", created_at: "2026-06-20T08:00:00Z" },
+        expect(run("CLIENT_TEXTS_STOPPED_SQL", ["cl_ben"])).toEqual([
+            { created_at: "2026-06-20T08:00:00Z" },
         ]);
         scoped("consents", [
             {
@@ -2367,10 +2367,38 @@ describe("app-core SQL against the replica schema", () => {
             },
         ]);
         expect(run("TEXTS_STOPPED_SQL")).toEqual([]);
-        expect(run("CLIENT_TEXT_REPLY_SQL", ["cl_ben"])).toEqual([
-            { status: "granted", created_at: "2026-06-22T08:00:00Z" },
+        expect(run("CLIENT_TEXTS_STOPPED_SQL", ["cl_ben"])).toEqual([]);
+        scoped("clients", [{ id: "cl_ann_spouse", name: "Sam", phone: "+16045550001" }]);
+        scoped("consents", [
+            {
+                id: "cns_s4",
+                client_id: "cl_ann",
+                status: "withdrawn",
+                source: "reply",
+                created_at: "2026-06-23T08:00:00Z",
+            },
         ]);
-        db.run("DELETE FROM consents WHERE id IN ('cns_s1', 'cns_s2', 'cns_s3')");
+        expect(run("CLIENT_TEXTS_STOPPED_SQL", ["cl_ann_spouse"])).toEqual([
+            { created_at: "2026-06-23T08:00:00Z" },
+        ]);
+        expect(run("CLIENT_TEXTS_STOPPED_SQL", ["cl_ben"])).toEqual([]);
+        scoped("consents", [
+            {
+                id: "cns_s5",
+                client_id: "cl_ann_spouse",
+                status: "withdrawn",
+                source: "reply",
+                created_at: "2026-06-24T08:00:00Z",
+            },
+        ]);
+        expect(run("TEXTS_STOPPED_SQL")).toEqual([
+            { client_id: "cl_ann", created_at: "2026-06-24T08:00:00Z" },
+            { client_id: "cl_ann_spouse", created_at: "2026-06-24T08:00:00Z" },
+        ]);
+        db.run(
+            "DELETE FROM consents WHERE id IN ('cns_s1', 'cns_s2', 'cns_s3', 'cns_s4', 'cns_s5')",
+        );
+        db.run("DELETE FROM clients WHERE id = 'cl_ann_spouse'");
         expect(run("AUDIENCE_CLIENTS_SQL").map((r) => r.id)).toEqual(["cl_ann", "cl_ben"]);
         scoped("broadcasts", [
             {

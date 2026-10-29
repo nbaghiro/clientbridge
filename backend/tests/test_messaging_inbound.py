@@ -2,18 +2,18 @@ from datetime import timedelta
 from urllib.parse import urlencode
 
 import httpx
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
 from clientbridge.core.config import get_settings
 from clientbridge.core.ids import new_id
 from clientbridge.integrations.twilio import twilio_signature
-from clientbridge.models.clients import Client
-from clientbridge.models.messaging import Message, Thread
+from clientbridge.models.clients import Client, Consent
+from clientbridge.models.messaging import Broadcast, Message, Thread
 from clientbridge.models.platform import Device, Webhook
 from clientbridge.services.consents import texts_stopped
-from clientbridge.services.messaging import unread_count
+from clientbridge.services.messaging import open_thread, unread_count
 from tests.conftest import BIZ, Factory, FakePushSender
 from tests.helpers import TWILIO_TOKEN, ok, summary, text_in, texted
 
@@ -112,6 +112,105 @@ async def test_stop_applies_only_to_the_business_it_was_routed_to(
     )
     assert await texts_stopped(db, rival.id, theirs.id)
     assert not await texts_stopped(db, BIZ, ours)
+
+
+async def test_a_stop_from_a_number_two_clients_share_stops_texts_to_both(
+    api: httpx.AsyncClient, as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    first = await _client_with_phone(db)
+    second = await _client_with_phone(db)
+    now = clock.now()
+    await texted(db, first, at=now - timedelta(hours=2))
+    ok(await text_in(api, {"From": PHONE, "Body": "STOP", "MessageSid": "SM_shared_stop"}))
+    assert await texts_stopped(db, BIZ, first) and await texts_stopped(db, BIZ, second)
+    for cid in (first, second):
+        res = await as_owner.post("/v1/messages", json={"client_id": cid, "body": "Still there?"})
+        assert res.status_code == 409
+    await texted(db, second, at=now - timedelta(hours=1))
+    ok(await text_in(api, {"From": PHONE, "Body": "START", "MessageSid": "SM_shared_start"}))
+    assert not await texts_stopped(db, BIZ, first) and not await texts_stopped(db, BIZ, second)
+
+
+async def test_a_stop_stays_with_the_number_when_a_sharer_moves_to_their_own(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    first = await _client_with_phone(db)
+    second = await _client_with_phone(db)
+    await texted(db, first)
+    ok(await text_in(api, {"From": PHONE, "Body": "STOP", "MessageSid": "SM_stop_moved"}))
+    replies = await db.scalars(
+        select(Consent.client_id).where(
+            Consent.client_id.in_([first, second]), Consent.source == "reply"
+        )
+    )
+    assert list(replies) == [first]
+    await db.execute(update(Client).where(Client.id == second).values(phone="+15145552222"))
+    assert await texts_stopped(db, BIZ, first) and not await texts_stopped(db, BIZ, second)
+
+
+async def test_a_client_added_after_a_stop_on_their_number_is_stopped_too(
+    api: httpx.AsyncClient, as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    first = await _client_with_phone(db)
+    await texted(db, first)
+    ok(await text_in(api, {"From": PHONE, "Body": "STOP", "MessageSid": "SM_stop_before"}))
+    later = await _client_with_phone(db)
+    assert await texts_stopped(db, BIZ, later)
+    res = await as_owner.post("/v1/messages", json={"client_id": later, "body": "Welcome"})
+    assert res.status_code == 409
+    ok(await text_in(api, {"From": PHONE, "Body": "START", "MessageSid": "SM_start_after"}))
+    assert not await texts_stopped(db, BIZ, first) and not await texts_stopped(db, BIZ, later)
+
+
+async def test_a_broadcast_does_not_move_where_a_shared_number_reply_lands(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    talking = await _client_with_phone(db)
+    sharer = await _client_with_phone(db)
+    now = clock.now()
+    await texted(db, talking, at=now - timedelta(hours=1))
+    broadcast = Broadcast(
+        id=new_id("broadcast"), business_id=BIZ, name="Promo", body="Sale", status="sent"
+    )
+    db.add(broadcast)
+    await db.flush()
+    thread = await open_thread(db, BIZ, sharer)
+    db.add(
+        Message(
+            id=new_id("message"),
+            business_id=BIZ,
+            thread_id=thread.id,
+            direction="out",
+            body="Sale",
+            status="sent",
+            broadcast_id=broadcast.id,
+            created_at=now,
+        )
+    )
+    await db.flush()
+    ok(await text_in(api, {"From": PHONE, "Body": "Yes, 3pm works", "MessageSid": "SM_after"}))
+    msg = await _inbound(db, "SM_after")
+    assert msg is not None
+    routed = (await db.execute(select(Thread).where(Thread.id == msg.thread_id))).scalar_one()
+    assert routed.client_id == talking
+
+
+async def test_a_reply_from_a_shared_number_lands_with_the_active_client_texted_last(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    earlier = await _client_with_phone(db)
+    later = await _client_with_phone(db)
+    archived = await _client_with_phone(db)
+    await db.execute(update(Client).where(Client.id == archived).values(status="inactive"))
+    now = clock.now()
+    await texted(db, earlier, at=now - timedelta(days=2))
+    await texted(db, later, at=now - timedelta(days=1))
+    await texted(db, archived, at=now)
+    ok(await text_in(api, {"From": PHONE, "Body": "On my way", "MessageSid": "SM_shared"}))
+    msg = await _inbound(db, "SM_shared")
+    assert msg is not None
+    thread = (await db.execute(select(Thread).where(Thread.id == msg.thread_id))).scalar_one()
+    assert thread.client_id == later
 
 
 async def test_a_number_without_an_assigned_destination_is_recorded_unmatched(

@@ -13,7 +13,7 @@ from clientbridge.core.config import get_settings
 from clientbridge.core.ids import new_id
 from clientbridge.models.billing import Estimate, Invoice
 from clientbridge.models.business import Business
-from clientbridge.models.clients import Consent
+from clientbridge.models.clients import Client, Consent
 from clientbridge.models.platform import File, FileParent
 from clientbridge.models.scheduling import Booking, Slot
 from tests.conftest import BIZ, Factory
@@ -28,6 +28,13 @@ def test_demo_preflight_rejects_corrupted_booking_timestamps() -> None:
     errors = validate_graph(ctx)
     assert f"{booking.id}: completion chronology" in errors
     assert f"{booking.id}: future confirmation" in errors
+
+
+def test_demo_preflight_rejects_a_phone_not_stored_as_e164() -> None:
+    ctx = build_demo(datetime(2026, 10, 8, 16, tzinfo=UTC), core=True)
+    client = next(row for row in ctx.all(Client) if row.phone)
+    client.phone = "(514) 555-1111"
+    assert f"{client.id}: phone is not stored as E.164" in validate_graph(ctx)
 
 
 async def test_demo_preflight_rejects_an_estimate_both_booked_and_invoiced(

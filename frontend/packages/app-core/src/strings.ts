@@ -83,6 +83,7 @@ interface Strings {
         readonly staffHasFutureWork: string;
         readonly broadcastAddressMissing: string;
         readonly broadcastContactMissing: string;
+        readonly noMobileNumber: string;
         readonly slugInvalid: string;
         readonly slugReserved: string;
         readonly slugTaken: string;
@@ -2210,6 +2211,7 @@ interface Strings {
         readonly cancel: string;
         readonly selectClient: string;
         readonly writeMessage: string;
+        readonly tooLong: (max: number, count: number) => string;
         readonly sendError: string;
         readonly notDelivered: string;
     };

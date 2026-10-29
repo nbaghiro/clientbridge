@@ -18,8 +18,8 @@ from clientbridge.core.db import is_duplicate
 from clientbridge.core.emails import reserved_email
 from clientbridge.core.errors import AppError, Undelivered, Unprocessable
 from clientbridge.core.ids import new_id
-from clientbridge.core.phones import e164, reserved_phone, same_phone
-from clientbridge.core.scoping import scoped, scoped_update
+from clientbridge.core.phones import e164, reserved_phone
+from clientbridge.core.scoping import scoped_update
 from clientbridge.integrations.expo import Push, PushSender
 from clientbridge.integrations.jobs import Jobs
 from clientbridge.integrations.resend import (
@@ -30,7 +30,6 @@ from clientbridge.integrations.resend import (
     get_test_email_sender,
 )
 from clientbridge.integrations.twilio import ConsoleSmsSender, Sms, SmsSender, SmtpSmsSender
-from clientbridge.models.clients import Client
 from clientbridge.models.messaging import Delivery, DeliveryState, Message, MessageStatus
 from clientbridge.models.platform import Webhook, WebhookStatus
 from clientbridge.schemas.deliveries import (
@@ -42,7 +41,7 @@ from clientbridge.schemas.deliveries import (
     PushDelivery,
     SmsDelivery,
 )
-from clientbridge.services.consents import stopped_clients
+from clientbridge.services.consents import number_stopped
 
 _log = logging.getLogger(__name__)
 _LEASE = timedelta(minutes=5)
@@ -257,14 +256,7 @@ async def _texts_stopped(db: AsyncSession, business_id: str, payload: DeliveryPa
     number = e164(payload.message.to)
     if number is None:
         return False
-    holders = list(
-        await db.scalars(
-            scoped(Client, business_id, soft_delete=True)
-            .with_only_columns(Client.id)
-            .where(same_phone(Client.phone, number))
-        )
-    )
-    return bool(holders) and bool(await stopped_clients(db, business_id, holders))
+    return await number_stopped(db, business_id, number)
 
 
 def _local_sink(

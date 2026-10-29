@@ -29,15 +29,18 @@ WHERE NOT EXISTS (
       AND (n.created_at > k.created_at OR (n.created_at = k.created_at AND n.id > k.id))
 )`;
 
-// Clients whose newest STOP or START reply was STOP: only their own START reply lifts it.
+// Clients whose E.164 number sent a STOP that no START has lifted, with its newest STOP.
 export const TEXTS_STOPPED_SQL = `
-SELECT k.client_id, k.created_at
+SELECT h.id AS client_id, MAX(k.created_at) AS created_at
 FROM consents k
+JOIN clients c ON c.id = k.client_id
+JOIN clients h ON h.id = c.id OR (c.phone != '' AND h.phone = c.phone)
 WHERE k.source = 'reply' AND k.status = 'withdrawn' AND NOT EXISTS (
     SELECT 1 FROM consents n
     WHERE n.client_id = k.client_id AND n.source = 'reply'
       AND (n.created_at > k.created_at OR (n.created_at = k.created_at AND n.id > k.id))
-)`;
+)
+GROUP BY h.id`;
 
 export const AUDIENCE_CLIENTS_SQL = `
 SELECT id, name, phone, tags FROM clients
@@ -140,6 +143,12 @@ export function useConsents(): { map: ConsentMap; isLoading: boolean } {
 
 export function consentFor(map: ConsentMap, clientId: string): MarketingConsent {
     return map.get(clientId) ?? consentOf(undefined);
+}
+
+/** Whether a STOP reply from the client's number has turned texts off. */
+export function textsStopped(map: ConsentMap, clientId: string): boolean {
+    const consent = consentFor(map, clientId);
+    return consent.state === "opted_out" && consent.source === "reply";
 }
 
 function parseList(raw: string | null): string[] {

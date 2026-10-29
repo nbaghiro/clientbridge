@@ -10,10 +10,10 @@ from clientbridge.core import clock
 from clientbridge.core.command import Command, run_command
 from clientbridge.core.db import is_duplicate
 from clientbridge.core.deps import Principal, assert_role
-from clientbridge.core.errors import AppError, Conflict, NotFound, Unprocessable
+from clientbridge.core.errors import Conflict, NotFound, Unprocessable
 from clientbridge.core.ids import new_id
 from clientbridge.core.locale import locale_for
-from clientbridge.core.phones import e164, same_phone
+from clientbridge.core.phones import e164
 from clientbridge.core.scoping import scoped
 from clientbridge.core.zones import zone
 from clientbridge.integrations.expo import PushSender
@@ -26,6 +26,7 @@ from clientbridge.models.platform import Webhook
 from clientbridge.models.scheduling import Booking
 from clientbridge.schemas.deliveries import SmsDelivery
 from clientbridge.schemas.messaging import (
+    BroadcastAudience,
     BroadcastOut,
     BroadcastSend,
     ConversationMessage,
@@ -43,6 +44,7 @@ from clientbridge.services.business import (
 from clientbridge.services.consents import (
     allows_marketing,
     latest_consents,
+    phone_holders,
     record_text_reply,
     stopped_clients,
     texts_stopped,
@@ -113,13 +115,12 @@ async def queue_message(
 
 
 async def broadcast_recipients(
-    db: AsyncSession, business_id: str, audience: dict[str, object]
+    db: AsyncSession, business_id: str, audience: BroadcastAudience
 ) -> tuple[Sequence[tuple[Client, str]], int]:
     """The audience members who agreed to marketing texts, and how many were left out."""
     query = scoped(Client, business_id, soft_delete=True).where(Client.status == "active")
-    tags = audience.get("tags")
-    if not audience.get("all") and isinstance(tags, list) and tags:
-        query = query.where(Client.tags.overlap([str(tag) for tag in tags]))
+    if not audience.all and audience.tags:
+        query = query.where(Client.tags.overlap(audience.tags))
     clients = (await db.execute(query.order_by(Client.id))).scalars().all()
     out = await _reachable(db, business_id, clients)
     return out[:_BROADCAST_CAP], len(clients) - len(out[:_BROADCAST_CAP])
@@ -241,7 +242,9 @@ async def _send_broadcast(
         _log.warning("broadcast %s waits for the business identity", broadcast.id)
         await db.commit()
         return False
-    recipients, excluded = await broadcast_recipients(db, broadcast.business_id, broadcast.audience)
+    recipients, excluded = await broadcast_recipients(
+        db, broadcast.business_id, BroadcastAudience.model_validate(broadcast.audience)
+    )
     broadcast.status = "sending"
     broadcast.recipient_count = len(recipients)
     broadcast.excluded_count = excluded
@@ -279,18 +282,26 @@ async def _send_broadcast(
     return True
 
 
-async def route_inbound_sms(db: AsyncSession, number: str, destination: str) -> Client | None:
+async def route_inbound_sms(db: AsyncSession, number: str, destination: str) -> list[Client]:
+    """The business's clients on the number, the one a reply most likely answers first."""
     business_id = await db.scalar(select(Business.id).where(Business.sms_number == destination))
     if business_id is None:
-        return None
-    clients = list(
+        return []
+    latest = (
+        scoped(Message, business_id)
+        .with_only_columns(func.max(Message.created_at))
+        .join(Thread, Thread.id == Message.thread_id)
+        .where(Thread.client_id == Client.id, Message.broadcast_id.is_(None))
+        .correlate(Client)
+        .scalar_subquery()
+    )
+    return list(
         await db.scalars(
-            scoped(Client, business_id, soft_delete=True)
-            .where(same_phone(Client.phone, number))
-            .limit(2)
+            phone_holders(business_id, number).order_by(
+                (Client.status == "active").desc(), latest.desc().nulls_last(), Client.id
+            )
         )
     )
-    return clients[0] if len(clients) == 1 else None
 
 
 async def process_inbound_sms(
@@ -303,11 +314,16 @@ async def process_inbound_sms(
         return
     number = e164(from_phone)
     destination = e164(to_phone)
-    client = await route_inbound_sms(db, number, destination) if number and destination else None
+    holders = await route_inbound_sms(db, number, destination) if number and destination else []
+    client = holders[0] if holders else None
     keyword = body.strip().upper()
     if client is not None:
-        if keyword in STOP_WORDS or keyword in START_WORDS:
-            await record_text_reply(db, client, stop=keyword in STOP_WORDS)
+        if keyword in STOP_WORDS:
+            await record_text_reply(db, client, stop=True)
+        elif keyword in START_WORDS:
+            # the carrier restarts the number, so it lifts a STOP whichever sharer sent it
+            for holder in holders:
+                await record_text_reply(db, holder, stop=False)
         thread = await open_thread(db, client.business_id, client.id)
         message = Message(
             id=new_id("message"),
@@ -393,7 +409,7 @@ class MessageService:
         client = await self._client(data.client_id)
         to = client_number(client)
         if not to:
-            raise AppError("client has no mobile number", status_code=422)
+            raise Unprocessable("client has no mobile number", code="no_mobile_number")
         if await texts_stopped(self.db, self.biz, client.id):
             raise Conflict("this client replied STOP, so texts to them are blocked")
         business = await self.db.get(Business, self.biz)
@@ -474,7 +490,7 @@ class MessageService:
                 created_by=self.principal.user_id,
                 name=data.name,
                 body=data.body,
-                audience=data.audience,
+                audience=data.audience.model_dump(exclude_defaults=True),
                 status="scheduled" if send_at > now else "sending",
                 scheduled_at=send_at if send_at > now else None,
                 recipient_count=len(recipients),

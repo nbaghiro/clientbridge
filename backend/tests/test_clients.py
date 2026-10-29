@@ -1,5 +1,7 @@
 """The clients REST endpoints, end-to-end against the seeded DB."""
 
+from datetime import UTC, datetime
+
 import httpx
 import pytest
 from sqlalchemy import text, update
@@ -263,6 +265,8 @@ async def test_merge_moves_records_and_threads(
     )
     await _thread_with_message(db, kept)
     await _thread_with_message(db, gone)
+    began = datetime(2024, 5, 1, tzinfo=UTC)
+    await db.execute(update(Thread).where(Thread.id == f"th_{gone}").values(created_at=began))
     headers = {"Idempotency-Key": "merge-1"}
     res = await as_owner.post(
         f"/v1/clients/{kept}/merge",
@@ -287,6 +291,8 @@ async def test_merge_moves_records_and_threads(
         )
     ).scalars()
     assert list(threads) == [f"th_{kept}"]
+    kept_thread = await db.get(Thread, f"th_{kept}", populate_existing=True)
+    assert kept_thread is not None and kept_thread.created_at == began
     assert await db.scalar(text("SELECT parent_id FROM notes WHERE body = 'Hi'")) == kept
     assert (await _client(db, gone))["deleted_at"] is not None
 

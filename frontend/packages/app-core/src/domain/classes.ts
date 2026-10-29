@@ -1,9 +1,9 @@
 import { BUSINESS_CURRENCY, formatMoney, formatParts } from "../format";
 import { useBusinessQuery as useQuery } from "../hooks";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 
-import { type ApiLike, failureMessage } from "../api";
+import { type ApiLike, type Attempt, attemptKey, failureMessage } from "../api";
 import {
     addDays,
     formatTimeRange,
@@ -17,6 +17,8 @@ import { type Load, useAsyncAction } from "../hooks";
 import { strings } from "../strings";
 import type { Intent } from "../ui";
 import { slotOverlapSql } from "./bookings";
+import { textsStopped, useConsents } from "./broadcasts";
+import { textLengthError } from "./messaging";
 import { afterReview } from "./previews";
 import { useNow } from "../hooks";
 import { resourceName, useResources } from "./resources";
@@ -210,6 +212,8 @@ export interface ClassRoster {
     setQuery: (q: string) => void;
     matches: SeatMatch[];
     add: (key: string) => void;
+    // the booked clients a class message reaches, as the server picks them
+    textable: number;
     // set on a program's day, which takes no single seats and has no waitlist
     programNote: string | null;
     notice: string | null;
@@ -308,6 +312,7 @@ export function useClassBoard(api: ApiLike): ClassBoard {
     const [notice, setNotice] = useState<string | null>(null);
     const { busy, error, run } = useAsyncAction();
     const sender = useAsyncAction();
+    const messageAttempt = useRef<Attempt | null>(null);
     const roster = rosterQ.data;
 
     const sessions: ClassSession[] = sessionsQ.data.map((r) => {
@@ -346,6 +351,17 @@ export function useClassBoard(api: ApiLike): ClassBoard {
     const current = selected ?? sessions[0]?.slotId ?? null;
     const session = sessions.find((x) => x.slotId === current) ?? null;
     const mine = roster.filter((b) => b.slot_id === current);
+    const consents = useConsents();
+    const textable = new Set(
+        mine
+            .filter(
+                (r) =>
+                    r.status === "confirmed" &&
+                    (r.client_phone ?? "") !== "" &&
+                    !textsStopped(consents.map, r.client_id),
+            )
+            .map((r) => r.client_id),
+    ).size;
     const entry = (r: RosterRow): RosterEntry => rosterEntry(kind, zone, r);
     const act = (
         key: string,
@@ -386,6 +402,11 @@ export function useClassBoard(api: ApiLike): ClassBoard {
         load,
         messageClass: (body, onSent) => {
             if (body.trim() === "" || current === null) return;
+            const tooLong = textLengthError(body);
+            if (tooLong !== null) {
+                sender.setError(tooLong);
+                return;
+            }
             const slotId = current;
             const text = body.trim();
             afterReview(
@@ -396,7 +417,9 @@ export function useClassBoard(api: ApiLike): ClassBoard {
                             const out = await api.post<{ sent: number }>(
                                 `/v1/classes/${slotId}/message`,
                                 { body: text },
+                                { idempotencyKey: attemptKey(messageAttempt, { slotId, text }) },
                             );
+                            messageAttempt.current = null;
                             onSent(out.sent);
                         },
                         { errorMessage: s.rosterError },
@@ -411,6 +434,7 @@ export function useClassBoard(api: ApiLike): ClassBoard {
                   session,
                   attendees: mine.filter((r) => r.status !== "waitlisted").map(entry),
                   waitlist: mine.filter((r) => r.status === "waitlisted").map(entry),
+                  textable,
                   checkIn: (key) => {
                       act(key, "check_in");
                   },

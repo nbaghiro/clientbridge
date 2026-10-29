@@ -90,6 +90,7 @@ from clientbridge.services import ledger
 from clientbridge.services.business import business_tz, load_staff, staff_name, staff_names
 from clientbridge.services.catalog import assert_offers, deposit_cents, load_item
 from clientbridge.services.clients import load_client
+from clientbridge.services.consents import stopped_clients
 from clientbridge.services.deliveries import delivery_key
 from clientbridge.services.lines import crew_ids, crew_note, fetch_lines
 from clientbridge.services.messaging import client_number, open_thread, queue_message
@@ -2740,8 +2741,10 @@ class ClassService:
             self.db, self.principal, action="class.roster", run=run, response_model=RosterEntry
         )
 
-    async def message(self, slot_id: str, data: ClassMessage) -> ClassMessageOut:
-        """One text to everyone booked who has a mobile number."""
+    async def message(
+        self, slot_id: str, data: ClassMessage, idempotency_key: str | None = None
+    ) -> ClassMessageOut:
+        """One text to everyone booked who has a mobile number and hasn't replied STOP."""
         slot = await self._session(slot_id)
         assert_can_act_as(self.principal, slot.staff_id)
         business = await self.db.get(Business, self.biz)
@@ -2761,10 +2764,11 @@ class ClassService:
         )
 
         async def run(cmd: Command) -> ClassMessageOut:
+            stopped = await stopped_clients(self.db, self.biz, [client.id for client in clients])
             sent = 0
             for client in clients:
                 to = client_number(client)
-                if not to:
+                if not to or client.id in stopped:
                     continue
                 thread = await open_thread(self.db, self.biz, client.id)
                 note = Message(
@@ -2785,7 +2789,13 @@ class ClassService:
             return ClassMessageOut(sent=sent)
 
         return await run_command(
-            self.db, self.principal, action="class.message", run=run, response_model=ClassMessageOut
+            self.db,
+            self.principal,
+            action="class.message",
+            run=run,
+            response_model=ClassMessageOut,
+            idempotency_key=idempotency_key,
+            request={"slot_id": slot_id, **data.model_dump(mode="json")},
         )
 
     async def _undo(self, booking: Booking) -> None:

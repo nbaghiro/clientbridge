@@ -154,9 +154,7 @@ export function ClassesScreen() {
                         <SheetHeader
                             title={s.messageClassTitle(roster.session.name, roster.session.when)}
                         />
-                        <Text style={styles.muted}>
-                            {s.messageClassHint(roster.session.booked)}
-                        </Text>
+                        <Text style={styles.muted}>{s.messageClassHint(roster.textable)}</Text>
                         <TextField
                             label={s.messageClassLabel}
                             multiline
