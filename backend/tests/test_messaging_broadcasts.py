@@ -487,3 +487,23 @@ async def test_a_lapsed_business_can_cancel_a_scheduled_broadcast_but_not_send_o
     canceled = await as_owner.post(f"/v1/broadcasts/{bid}/cancel")
     assert canceled.status_code == 200, canceled.text
     assert canceled.json()["status"] == "canceled"
+
+
+async def test_a_broadcast_whose_stored_audience_is_invalid_is_canceled_once(
+    db: AsyncSession, sms: FakeSmsSender, caplog: pytest.LogCaptureFixture
+) -> None:
+    await _audience(db)
+    bid = await _scheduled(db)
+    await db.execute(
+        update(Broadcast).where(Broadcast.id == bid).values(audience={"all": True, "tags": ["x"]})
+    )
+    now = await local_hour(db, 12)
+    later = now + timedelta(days=2)
+    await run_due_broadcasts(db, sms, FakeEmailSender(), FakePushSender(), later)
+    row = await db.get(Broadcast, bid, populate_existing=True)
+    assert row is not None and row.status == "canceled"
+    assert f"broadcast {bid} canceled" in caplog.text
+    assert not [m for m in sms.sent if "Soon" in m.body]
+    caplog.clear()
+    await run_due_broadcasts(db, sms, FakeEmailSender(), FakePushSender(), later)
+    assert bid not in caplog.text

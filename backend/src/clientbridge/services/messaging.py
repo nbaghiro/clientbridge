@@ -2,6 +2,7 @@ import logging
 from collections.abc import Sequence
 from datetime import datetime
 
+from pydantic import ValidationError
 from sqlalchemy import and_, func, literal, or_, select, tuple_, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -250,9 +251,15 @@ async def _send_broadcast(
         _log.warning("broadcast %s waits for the business identity", broadcast.id)
         await db.commit()
         return False
-    recipients, excluded = await broadcast_recipients(
-        db, broadcast.business_id, BroadcastAudience.model_validate(broadcast.audience)
-    )
+    try:
+        audience = BroadcastAudience.model_validate(broadcast.audience)
+    except ValidationError as invalid:
+        # retrying a stored audience that no longer validates would fail the same way every run
+        _log.error("broadcast %s canceled: its audience is invalid: %s", broadcast.id, invalid)
+        broadcast.status = "canceled"
+        await db.commit()
+        return False
+    recipients, excluded = await broadcast_recipients(db, broadcast.business_id, audience)
     broadcast.status = "sending"
     broadcast.recipient_count = len(recipients)
     broadcast.excluded_count = excluded
