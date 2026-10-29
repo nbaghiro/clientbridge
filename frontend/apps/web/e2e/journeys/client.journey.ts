@@ -223,8 +223,10 @@ test("CRM-E2E-07 editing a verified phone clears proof, so the visit is booked f
         expect(typed?.id).toBeDefined();
         expect(typed?.id).not.toBe(fixture.clientId);
         expect(booked.clients.find((c) => c.id === fixture.clientId)).toEqual(baseline.clients[0]);
+        const pet = booked.subjects.find((x) => x.client_id === typed?.id);
+        expect(pet?.id).toBeDefined();
         expect(booked.bookings).toEqual([
-            expect.objectContaining({ id: bookingId, client_id: typed?.id, subject_id: null }),
+            expect.objectContaining({ id: bookingId, client_id: typed?.id, subject_id: pet?.id }),
         ]);
     } finally {
         try {
