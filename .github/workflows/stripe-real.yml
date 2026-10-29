@@ -1,16 +1,13 @@
 name: stripe-real
 on:
   workflow_call:
-    inputs:
-      nightly:
-        description: Also run the slow scenarios and the browser lane, and check the fake against real events.
-        type: boolean
-        default: false
     secrets:
       STRIPE_TEST_SECRET_KEY:
         required: false
       STRIPE_TEST_PUBLISHABLE_KEY:
         required: false
+  # a full run by hand from the Actions tab, as if payments code had changed
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -27,7 +24,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          # a pull request checks out its merge commit, whose first parent is the base
+          # a pull request's merge commit and a squash-merged main commit both diff against their first parent
           fetch-depth: 2
       - id: lease
         env:
@@ -43,8 +40,13 @@ jobs:
             echo "ready=false" >> "$GITHUB_OUTPUT"
           fi
       - id: changes
-        if: github.event_name == 'pull_request'
+        env:
+          EVENT: ${{ github.event_name }}
         run: |
+          if [ "$EVENT" = workflow_dispatch ]; then
+            echo "payments=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           pattern='^backend/src/clientbridge/(integrations/stripe|services/(payments|ledger|billing|orders|entitlements|earnings|public|public_orders|remittances))\.py$'
           pattern+='|^backend/(e2e/stripe|tests/sandbox/|scripts/stripe_qa)'
           pattern+='|^frontend/packages/app-core/src/domain/(payments|payouts|checkout|publicPay|billing|pos)\.ts$'
@@ -78,8 +80,8 @@ jobs:
       - run: make test-tier
       - name: run the real-Stripe scenarios on the leased pair
         env:
-          ARGS: ${{ inputs.nightly && '--nightly --record check' || '' }}
-        run: make test-stripe-qa STRIPE_QA_ARGS="--pair $PAIR --output ../.scratchpad/stripe-qa/ci $ARGS"
+          ARGS: ${{ needs.lease.outputs.payments == 'true' && '--full' || '' }}
+        run: make test-stripe-qa STRIPE_QA_ARGS="--pair $PAIR --record check --output ../.scratchpad/stripe-qa/ci $ARGS"
       - uses: actions/upload-artifact@v7
         if: always()
         with:
@@ -93,7 +95,7 @@ jobs:
 
   browser:
     needs: [lease, api]
-    if: needs.lease.outputs.ready == 'true' && (inputs.nightly || needs.lease.outputs.payments == 'true')
+    if: needs.lease.outputs.ready == 'true' && needs.lease.outputs.payments == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     concurrency:

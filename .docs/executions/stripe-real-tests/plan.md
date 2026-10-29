@@ -1,6 +1,6 @@
 # Real Stripe in CI
 
-Status: tasks 1 to 5 and 7 done on `stripe-real-tests`; task 6 waits for two weeks of runs. Written 2026-10-29, based on `main` at `cb3f08c7`. See [progress](progress.md).
+Status: tasks 1 to 5 and 7 done on `stripe-real-tests`; task 6 waits for two weeks of runs. The nightly run was folded into the per-change runs (see progress). Written 2026-10-29, based on `main` at `cb3f08c7`. See [progress](progress.md).
 
 Today only the Stripe browser lane talks to real Stripe, and it runs by hand. Every other test, in CI and locally, uses the recording fake behind `PaymentGateway`. The fake is fast and deterministic, but it can't catch Stripe behaving differently from what we assumed: Stripe.js and 3D Secure in a real browser, the webhooks Stripe actually sends, the fees it really charges, and changes on its side. This plan runs real Stripe in CI at three levels, sized so a pull request doesn't wait on Stripe for long.
 

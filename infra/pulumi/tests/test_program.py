@@ -1607,12 +1607,8 @@ def test_the_stripe_sandbox_hands_actions_only_its_test_keys(with_stripe: Built)
             if str(value).startswith("${{ secrets.")
         }
         assert read <= {f"secrets.{name}" for name in SANDBOX_SECRETS}
-    for caller, job in (("stripe-qa.yml", "nightly"), ("ci.yml", "stripe-real")):
-        passed = dig(workflow(caller), "jobs", job, "secrets")
-        assert isinstance(passed, dict) and set(passed) == SANDBOX_SECRETS
-    assert dig(workflow("stripe-qa.yml"), "jobs", "nightly", "if") == (
-        "github.ref == 'refs/heads/main'"
-    )
+    passed = dig(workflow("ci.yml"), "jobs", "stripe-real", "secrets")
+    assert isinstance(passed, dict) and set(passed) == SANDBOX_SECRETS
     assert "stripe-real" not in str(dig(workflow("ci.yml"), "jobs", "ci-result", "needs"))
 
 

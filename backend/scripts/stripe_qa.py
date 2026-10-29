@@ -125,12 +125,12 @@ def annotate(cases: list[dict[str, str]]) -> None:
 
 
 def drift(fresh: Path, committed: Path = stripe_shapes.RECORDINGS) -> list[str]:
-    """What the committed recordings have that this run's real Stripe events no longer show."""
+    """What the committed recordings have that the events received in this run no longer show."""
     problems: list[str] = []
     for path in sorted(committed.glob("*.json")):
         found = stripe_shapes.recorded(path.stem, fresh)
+        # a scenario that expected the event already failed waiting for it
         if found is None:
-            problems.append(f"{path.stem}: not received in this run")
             continue
         expected = stripe_shapes.recorded(path.stem, committed)
         assert expected is not None
@@ -146,7 +146,7 @@ def main() -> int:
     parser.add_argument("--preflight", action="store_true")
     parser.add_argument("--pair", choices=pairs(), help="lease a CI pool pair")
     parser.add_argument(
-        "--nightly", action="store_true", help="also run the slow scenarios, such as a payout"
+        "--full", action="store_true", help="also run the slow scenarios, such as a payout"
     )
     parser.add_argument(
         "--record",
@@ -204,7 +204,7 @@ def main() -> int:
             "tests/sandbox/test_payments_sandbox_disputes.py",
             "tests/sandbox/test_payments_sandbox_payouts.py",
             "-m",
-            "sandbox" if args.nightly else "sandbox and not nightly",
+            "sandbox" if args.full else "sandbox and not slow",
             "-q",
             "--tb=short",
             f"--junitxml={junit}",

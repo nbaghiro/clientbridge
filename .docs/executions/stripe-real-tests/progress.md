@@ -29,17 +29,17 @@ Verified: STR-E01 passed on `ci-1` with provider cleanup clean, while the sandbo
 
 ## Task 3: real-Stripe API suite (done 2026-10-29)
 
-The existing sandbox suite (`tests/sandbox/`, `make test-stripe-qa`) is the API suite, with three new files of scenarios: 3D Secure required then canceled, a lost and a won dispute with Stripe's dispute test card and evidence values, and a manual payout from created (transit) to paid (bank). Each dispute test checks our Stripe ledger account against the charge's and the dispute's balance transactions. The payout is marked `nightly` and tops its pair up with a `pm_card_bypassPending` charge first, because earlier refunds and lost disputes drain the available balance.
+The existing sandbox suite (`tests/sandbox/`, `make test-stripe-qa`) is the API suite, with three new files of scenarios: 3D Secure required then canceled, a lost and a won dispute with Stripe's dispute test card and evidence values, and a manual payout from created (transit) to paid (bank). Each dispute test checks our Stripe ledger account against the charge's and the dispute's balance transactions. The payout is marked `slow` and runs with `--full` and tops its pair up with a `pm_card_bypassPending` charge first, because earlier refunds and lost disputes drain the available balance.
 
-Two real-Stripe problems found and fixed on the way: Stripe returns `lock_timeout` while it is still updating a new dispute (the tests now retry those reads), and a top-up charge reaches the available balance a few seconds after it succeeds (the payout test waits for it).
+In test mode Stripe can report a manual payout as paid already in its `payout.created` event, and our handler then books the transit and bank journals together, so the test checks both journals and the final balances rather than a moment in transit. Two real-Stripe problems found and fixed on the way: Stripe returns `lock_timeout` while it is still updating a new dispute (the tests now retry those reads), and a top-up charge reaches the available balance a few seconds after it succeeds (the payout test waits for it).
 
 Measured on `ci-2` from a laptop: 17 scenarios in 2m22s with the payout, 2m51s on the first run. A membership on a test clock was already covered by `test_stripe_sandbox.py`. A PAD debit to succeeded is not built yet; it needs the mandate flow and Stripe's simulated debit timing, and is the next scenario to add.
 
 ## Task 4: CI wiring (done 2026-10-29)
 
-- `.github/workflows/stripe-real.yml` (reusable): a lease job picks `ci-((run number mod pool size) + 1)` and applies the path filter; `api` runs the suite; `browser` runs the lane on payments pull requests and every night. Both hold the concurrency group `stripe-pool-ci-N`. With no sandbox key (a fork, or before `pulumi up`), the jobs skip with a notice.
+- `.github/workflows/stripe-real.yml` (reusable): a lease job picks `ci-((run number mod pool size) + 1)` and applies the path filter; `api` runs the suite; `browser` runs the lane when payments code changes or on a run started by hand. Both hold the concurrency group `stripe-pool-ci-N`. With no sandbox key (a fork, or before `pulumi up`), the jobs skip with a notice.
 - `ci.yml` calls it as `stripe-real` after lint, outside `ci-result`, passing only the two Stripe secrets.
-- `stripe-qa.yml` runs it nightly at 07:00 UTC on `main` with `nightly: true`.
+- There is no nightly run. Its cases run on every pull request and `main` commit instead: the drift check always, the slow payout scenario and the browser lane when payments code changes. `stripe-qa.yml` is removed, and `stripe-real.yml` can be started by hand for a full run.
 - `scripts/stripe_qa.py` labels each failure `Stripe rate limit`, `Stripe outage` or `Test failure` in the run's annotations and `results.json`.
 - `.github/actions/stripe-cli` installs the pinned, checksummed Stripe CLI for both jobs.
 
@@ -49,10 +49,10 @@ A known limit of GitHub concurrency groups: a group keeps one waiting run, so a 
 
 ## Task 5: keeping the fake honest (done 2026-10-29)
 
-`e2e/stripe_shapes.py` records the shape of real event objects (field names and types, metadata left open) and compares fakes with it. The sandbox run records with `--record`; `tests/fixtures/stripe_events/` holds the first recording, from `ci-2`, for nine event types. `stripe_event` in `tests/helpers.py` checks every fake webhook against it, and the nightly run fails when Stripe stops sending a recorded field. Payout, invoice and failed-refund events aren't recorded yet, because the PR suite doesn't produce them; the first nightly run with `--record update` adds the payout ones.
+`e2e/stripe_shapes.py` records the shape of real event objects (field names and types, metadata left open) and compares fakes with it. The sandbox run records with `--record`; `tests/fixtures/stripe_events/` holds the first recording, from `ci-2`, for nine event types. `stripe_event` in `tests/helpers.py` checks every fake webhook against it, and every CI run fails when an event it received no longer has a recorded field. The payout events were recorded from a full run on `ci-3`. Invoice and failed-refund events aren't recorded, because no sandbox scenario produces them.
 
 ## Left
 
-- Task 6: after two weeks of nightly and pull request runs without a Stripe-caused failure, add `stripe-real` to `ci-result`.
+- Task 6: after two weeks of runs without a Stripe-caused failure, add `stripe-real` to `ci-result`.
 - Apply the cloud stack with the two keys, so the jobs run.
 - A PAD debit scenario.

@@ -190,14 +190,11 @@ async def test_webhook_wait_preserves_other_event_types() -> None:
         stripe.api_key, stripe.api_version = previous_key, previous_version
 
 
-def test_sandbox_drift_names_a_missing_event_and_a_changed_field(tmp_path: Path) -> None:
+def test_sandbox_drift_names_a_changed_field_of_an_event_received(tmp_path: Path) -> None:
     committed, fresh = tmp_path / "committed", tmp_path / "fresh"
     committed.mkdir()
     (committed / "payout.paid.json").write_text('{"amount": "integer"}')
     (committed / "refund.created.json").write_text('{"amount": "integer"}')
     fresh.mkdir()
     (fresh / "payout.paid.json").write_text('{"amount": "string"}')
-    assert drift(fresh, committed) == [
-        "payout.paid.amount: no longer sent as integer",
-        "refund.created: not received in this run",
-    ]
+    assert drift(fresh, committed) == ["payout.paid.amount: no longer sent as integer"]

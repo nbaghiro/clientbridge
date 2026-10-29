@@ -154,7 +154,7 @@ this document remains the reference for Secret Manager, infrastructure and deplo
 
 ### Stripe sandbox for hosted CI
 
-`stripe-real.yml` runs real Stripe test mode in CI: the sandbox suite on every pull request, the browser lane on pull requests that change payments code, and both every night from `stripe-qa.yml` (see [the Stripe test tiers](engineering.md#stripe-four-tiers-layered-by-cost)). It reads two repository secrets, `STRIPE_TEST_SECRET_KEY` and `STRIPE_TEST_PUBLISHABLE_KEY`, which the callers pass explicitly so the job sees no other secret. Workflows on any branch can read repository secrets, which suits a sandbox key in a private repository but never a live one. The cloud stack sets both from its config once both are set; until then it sets nothing, the jobs skip with a notice, and setting only one stops the stack.
+`stripe-real.yml` runs real Stripe test mode in CI: the sandbox suite on every pull request and `main` commit, and the slow scenarios and the browser lane when payments code changes (see [the Stripe test tiers](engineering.md#stripe-four-tiers-layered-by-cost)). It reads two repository secrets, `STRIPE_TEST_SECRET_KEY` and `STRIPE_TEST_PUBLISHABLE_KEY`, which the callers pass explicitly so the job sees no other secret. Workflows on any branch can read repository secrets, which suits a sandbox key in a private repository but never a live one. The cloud stack sets both from its config once both are set; until then it sets nothing, the jobs skip with a notice, and setting only one stops the stack.
 
 The merchants come from the checked-in pool, `backend/e2e/stripe_pool.json`: six pairs, `ci-1` to `ci-6`, on the sandbox platform, each account tagged `clientbridge_qa=payments` and `clientbridge_qa_environment=ci-N`. Each run's preflight refuses a pair that isn't tagged, isn't fully onboarded or doesn't settle in CAD. To add or repair a pair, with the local `clientbridge` Stripe CLI profile:
 
@@ -177,7 +177,7 @@ pulumi config set --secret stripeTestPublishableKey # its pk_test_ key
 pulumi up
 ```
 
-The two keys are stored encrypted in `Pulumi.cloud.yaml`, and `tests/test_program.py` fails if either is committed in plain text. After `pulumi up`, the next pull request runs `stripe-real`, and `stripe-qa` can be started from `main` in the Actions tab.
+The two keys are stored encrypted in `Pulumi.cloud.yaml`, and `tests/test_program.py` fails if either is committed in plain text. After `pulumi up`, the next pull request runs `stripe-real`, and a full run can be started by hand from `stripe-real` in the Actions tab.
 
 ### Resend
 

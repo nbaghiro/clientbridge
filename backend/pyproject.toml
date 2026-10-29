@@ -65,6 +65,6 @@ markers = [
     "kratos: real KratosIdentityProvider against the local Kratos (`make up`)",
     "contract: real StripeGateway against stripe-mock (start it with `make stripe-mock`)",
     "sandbox: Stripe and Resend test-mode flows; skipped unless the provider's test key is set",
-    "nightly: sandbox scenarios too slow for every pull request, such as waiting on a real payout",
+    "slow: sandbox scenarios that wait minutes on Stripe, such as a real payout; run when payments code changes",
     "wall_clock: runs at real time, for tests against a clock outside the app (the auth service, Stripe, Resend)",
 ]

@@ -12,7 +12,7 @@ from tests.sandbox.test_payments_sandbox import confirm, deliver, open_invoice
 
 from clientbridge.services import ledger
 
-pytestmark = [pytest.mark.sandbox, pytest.mark.nightly, pytest.mark.wall_clock]
+pytestmark = [pytest.mark.sandbox, pytest.mark.slow, pytest.mark.wall_clock]
 
 
 async def _balance(db: AsyncSession, category: str) -> int:
@@ -81,8 +81,10 @@ async def test_a_manual_payout_moves_through_transit_to_the_bank(
         )
         stripe_events.owned.add(payout.id)
         await deliver(as_owner, *(await stripe_events.next("payout.created")))
-        assert await _balance(db, "transit") - transit == net
+        # test mode may report the payout paid on creation, which books both journals at once
+        assert await ledger.journal_for(db, BIZ, f"payout:{payout.id}") is not None
         await deliver(as_owner, *(await stripe_events.next("payout.paid", within=300)))
+        assert await ledger.journal_for(db, BIZ, f"payout:{payout.id}:paid") is not None
         assert await _balance(db, "transit") == transit
         assert await _balance(db, "bank") - bank == net
     finally:
