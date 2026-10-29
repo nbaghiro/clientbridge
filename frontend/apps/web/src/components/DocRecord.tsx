@@ -89,151 +89,165 @@ export function InvoicePanel({ id, onClose }: { id: string; onClose: () => void 
         >
             <div className="@container h-full">
                 <div className="grid h-full min-h-0 grid-cols-1 bg-surface @4xl:grid-cols-[26rem_minmax(0,1fr)]">
-                    <DetailView
-                        variant="inline"
-                        open
-                        className="@4xl:border-r @4xl:border-line"
-                        title={rec.title}
-                        subtitle={rec.row.client_name ?? undefined}
-                        status={{ status: rec.statusLabel, intent: rec.intent }}
-                        onClose={onClose}
-                        actions={
-                            <>
-                                <span className="@4xl:hidden">
-                                    <Button
-                                        variant="outline"
-                                        icon="receipt"
-                                        onPress={() => {
-                                            setPreviewing(true);
-                                        }}
-                                    >
-                                        {s.pdf}
-                                    </Button>
-                                </span>
-                                {rec.canEdit ? (
-                                    <Button
-                                        variant="outline"
-                                        icon="edit"
-                                        onPress={() => {
-                                            openTask({
-                                                kind: "doc",
-                                                doc: "invoice",
-                                                id: rec.row.id,
-                                            });
-                                        }}
-                                    >
-                                        {s.edit}
-                                    </Button>
-                                ) : null}
-                                {rec.canVoid ? (
-                                    <Button variant="quiet" busy={act.busy} onPress={voidIt}>
-                                        {s.void}
-                                    </Button>
-                                ) : null}
-                                {rec.canRemind ? (
-                                    <Button
-                                        variant="outline"
-                                        icon="bell"
-                                        busy={act.busy}
-                                        onPress={() => {
-                                            act.remind(rec);
-                                        }}
-                                    >
-                                        {s.remind}
-                                    </Button>
-                                ) : null}
-                                {rec.canSend ? (
-                                    <Button
-                                        icon="send"
-                                        busy={act.busy}
-                                        onPress={() => {
-                                            act.send(rec);
-                                        }}
-                                    >
-                                        {s.sendInvoice}
-                                    </Button>
-                                ) : null}
-                                {rec.canRecord ? (
-                                    <Button
-                                        icon="dollar"
-                                        onPress={() => {
-                                            setRecording(true);
-                                        }}
-                                    >
-                                        {s.recordPayment}
-                                    </Button>
-                                ) : null}
-                            </>
-                        }
-                    >
-                        {rec.settling !== null ? (
-                            <Notice tone="info" banner>
-                                {rec.settling === "arriving" ? s.settling : s.settlingLate}
-                            </Notice>
-                        ) : null}
-                        {act.notice !== null ? (
-                            <Notice tone="success" banner>
-                                {act.notice}
-                            </Notice>
-                        ) : null}
-                        {act.error !== null ? (
-                            <Notice tone="danger" banner>
-                                {act.error}
-                            </Notice>
-                        ) : null}
-                        <KeyValueList layout="stack" columns={2} rows={rec.facts} />
-                        <div className="@4xl:hidden">
-                            <DetailSection title={s.lines}>
-                                <div className="divide-y divide-line-soft rounded-lg border border-line">
-                                    {rec.lines.map((l) => (
-                                        <div
-                                            key={l.id}
-                                            className="flex items-start justify-between gap-4 px-4 py-3"
-                                        >
-                                            <div className="min-w-0">
-                                                <p className="text-sm text-ink">{l.description}</p>
-                                                <p className="text-xs text-muted">
-                                                    {rec.lineDetail(l)}
-                                                </p>
-                                            </div>
-                                            <Money
-                                                currency={BUSINESS_CURRENCY}
-                                                cents={l.amountCents}
-                                            />
-                                        </div>
-                                    ))}
-                                </div>
-                                <div className="mt-3 rounded-lg bg-bg px-4 py-3">
-                                    <DocTotals currency={BUSINESS_CURRENCY} lines={rec.totals} />
-                                </div>
-                            </DetailSection>
-                        </div>
-                        {rec.payUrl !== null ? (
-                            <DetailSection title={s.payLink}>
-                                <CopyField
-                                    label={s.payLink}
-                                    value={rec.payUrl}
-                                    copyLabel={s.copyLink}
-                                    copiedLabel={s.copied}
-                                />
-                            </DetailSection>
-                        ) : null}
-                        <PaymentsSection
-                            invoiceId={rec.row.id}
+                    {recording ? (
+                        <RecordPayment
                             rec={rec}
-                            canRefund={canManagePayments(role)}
+                            onClose={() => {
+                                setRecording(false);
+                            }}
                         />
-                        {rec.row.notes !== null ? (
-                            <DetailSection title={s.notes}>
-                                <p className="whitespace-pre-line text-sm text-ink-soft">
-                                    {rec.row.notes}
-                                </p>
+                    ) : (
+                        <DetailView
+                            variant="inline"
+                            open
+                            className="@4xl:border-r @4xl:border-line"
+                            title={rec.title}
+                            subtitle={rec.row.client_name ?? undefined}
+                            status={{ status: rec.statusLabel, intent: rec.intent }}
+                            onClose={onClose}
+                            actions={
+                                <>
+                                    <span className="@4xl:hidden">
+                                        <Button
+                                            variant="outline"
+                                            icon="receipt"
+                                            onPress={() => {
+                                                setPreviewing(true);
+                                            }}
+                                        >
+                                            {s.pdf}
+                                        </Button>
+                                    </span>
+                                    {rec.canEdit ? (
+                                        <Button
+                                            variant="outline"
+                                            icon="edit"
+                                            onPress={() => {
+                                                openTask({
+                                                    kind: "doc",
+                                                    doc: "invoice",
+                                                    id: rec.row.id,
+                                                });
+                                            }}
+                                        >
+                                            {s.edit}
+                                        </Button>
+                                    ) : null}
+                                    {rec.canVoid ? (
+                                        <Button variant="quiet" busy={act.busy} onPress={voidIt}>
+                                            {s.void}
+                                        </Button>
+                                    ) : null}
+                                    {rec.canRemind ? (
+                                        <Button
+                                            variant="outline"
+                                            icon="bell"
+                                            busy={act.busy}
+                                            onPress={() => {
+                                                act.remind(rec);
+                                            }}
+                                        >
+                                            {s.remind}
+                                        </Button>
+                                    ) : null}
+                                    {rec.canSend ? (
+                                        <Button
+                                            icon="send"
+                                            busy={act.busy}
+                                            onPress={() => {
+                                                act.send(rec);
+                                            }}
+                                        >
+                                            {s.sendInvoice}
+                                        </Button>
+                                    ) : null}
+                                    {rec.canRecord ? (
+                                        <Button
+                                            icon="dollar"
+                                            onPress={() => {
+                                                setRecording(true);
+                                            }}
+                                        >
+                                            {s.recordPayment}
+                                        </Button>
+                                    ) : null}
+                                </>
+                            }
+                        >
+                            {rec.settling !== null ? (
+                                <Notice tone="info" banner>
+                                    {rec.settling === "arriving" ? s.settling : s.settlingLate}
+                                </Notice>
+                            ) : null}
+                            {act.notice !== null ? (
+                                <Notice tone="success" banner>
+                                    {act.notice}
+                                </Notice>
+                            ) : null}
+                            {act.error !== null ? (
+                                <Notice tone="danger" banner>
+                                    {act.error}
+                                </Notice>
+                            ) : null}
+                            <KeyValueList layout="stack" columns={2} rows={rec.facts} />
+                            <div className="@4xl:hidden">
+                                <DetailSection title={s.lines}>
+                                    <div className="divide-y divide-line-soft rounded-lg border border-line">
+                                        {rec.lines.map((l) => (
+                                            <div
+                                                key={l.id}
+                                                className="flex items-start justify-between gap-4 px-4 py-3"
+                                            >
+                                                <div className="min-w-0">
+                                                    <p className="text-sm text-ink">
+                                                        {l.description}
+                                                    </p>
+                                                    <p className="text-xs text-muted">
+                                                        {rec.lineDetail(l)}
+                                                    </p>
+                                                </div>
+                                                <Money
+                                                    currency={BUSINESS_CURRENCY}
+                                                    cents={l.amountCents}
+                                                />
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <div className="mt-3 rounded-lg bg-bg px-4 py-3">
+                                        <DocTotals
+                                            currency={BUSINESS_CURRENCY}
+                                            lines={rec.totals}
+                                        />
+                                    </div>
+                                </DetailSection>
+                            </div>
+                            {rec.payUrl !== null ? (
+                                <DetailSection title={s.payLink}>
+                                    <CopyField
+                                        label={s.payLink}
+                                        value={rec.payUrl}
+                                        copyLabel={s.copyLink}
+                                        copiedLabel={s.copied}
+                                    />
+                                </DetailSection>
+                            ) : null}
+                            <PaymentsSection
+                                invoiceId={rec.row.id}
+                                rec={rec}
+                                canRefund={canManagePayments(role)}
+                            />
+                            {rec.row.notes !== null ? (
+                                <DetailSection title={s.notes}>
+                                    <p className="whitespace-pre-line text-sm text-ink-soft">
+                                        {rec.row.notes}
+                                    </p>
+                                </DetailSection>
+                            ) : null}
+                            <DetailSection title={s.history}>
+                                <ActivityTimeline entries={rec.timeline} />
                             </DetailSection>
-                        ) : null}
-                        <DetailSection title={s.history}>
-                            <ActivityTimeline entries={rec.timeline} />
-                        </DetailSection>
-                    </DetailView>
+                        </DetailView>
+                    )}
                     <div className="min-h-0 @max-4xl:hidden">
                         <DocumentPane
                             businessName={letterhead.name}
@@ -243,14 +257,6 @@ export function InvoicePanel({ id, onClose }: { id: string; onClose: () => void 
                     </div>
                 </div>
             </div>
-            {recording ? (
-                <RecordPayment
-                    rec={rec}
-                    onClose={() => {
-                        setRecording(false);
-                    }}
-                />
-            ) : null}
             {previewing ? (
                 <DocumentPreview
                     businessName={letterhead.name}

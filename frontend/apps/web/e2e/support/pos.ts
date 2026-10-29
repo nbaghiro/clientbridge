@@ -217,7 +217,7 @@ export async function ringUpCash(
     await ticket.getByRole("button").filter({ hasText: client.name }).click();
     await expect(ticket).toContainText(client.name);
     await ticket.getByRole("button", { name: d.charge(sale.charge), exact: true }).click();
-    const payment = page.getByRole("dialog", { name: d.payTitle, exact: true });
+    const payment = page.getByRole("complementary", { name: d.payTitle, exact: true });
     await payment
         .getByRole("group", { name: d.tip, exact: true })
         .getByRole("button", { name: d.tipNone, exact: true })
@@ -413,7 +413,7 @@ export async function ringCash(
     await ticket.getByRole("button").filter({ hasText: sale.client.name }).click();
     await expect(ticket).toContainText(sale.client.name);
     await ticket.getByRole("button", { name: d.charge(sale.charge), exact: true }).click();
-    const payment = page.getByRole("dialog", { name: d.payTitle, exact: true });
+    const payment = page.getByRole("complementary", { name: d.payTitle, exact: true });
     await payment
         .getByRole("group", { name: d.tip, exact: true })
         .getByRole("button", { name: d.tipNone, exact: true })

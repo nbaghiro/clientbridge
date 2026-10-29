@@ -433,19 +433,33 @@ function DiscountSheet({ sale, onClose }: { sale: SaleTicket; onClose: () => voi
 }
 
 /** The register's ticket beside the tiles, or (with `onClose`) a checkout drawer's whole height. */
+/** The sale from ticket to receipt in one panel: the lines, then payment, then the receipt. */
 export function TicketPanel({
     sale,
-    onCharge,
     adder,
     onClose,
+    onBookNext,
 }: {
     sale: SaleTicket;
-    onCharge: () => void;
     adder?: ReactNode;
     onClose?: () => void;
+    onBookNext: () => void;
 }) {
     const [selected, setSelected] = useState<string | null>(null);
     const [discounting, setDiscounting] = useState(false);
+    const [paying, setPaying] = useState(false);
+    useEffect(() => {
+        if (sale.invoiced !== null || sale.isEmpty) setPaying(false);
+    }, [sale.invoiced, sale.isEmpty]);
+    const step =
+        sale.phase === "paid"
+            ? "paid"
+            : sale.checkout.clientSecret !== null
+              ? "card"
+              : paying
+                ? "pay"
+                : "ticket";
+    const due = formatMoney(sale.totals.dueCents, BUSINESS_CURRENCY);
     return (
         <aside
             className={
@@ -453,15 +467,29 @@ export function TicketPanel({
                     ? "sticky top-6 flex max-h-[calc(100vh-8rem)] w-[340px] shrink-0 flex-col overflow-hidden rounded-lg border border-line bg-surface shadow-card xl:w-[380px]"
                     : "flex h-full flex-col overflow-hidden bg-surface"
             }
-            aria-label={d.ticket}
+            aria-label={step === "pay" || step === "card" ? d.payTitle : d.ticket}
         >
             <div className="flex items-center justify-between border-b border-line px-5 py-3.5">
-                <div className="flex items-baseline gap-2">
-                    <h2 className="font-display text-base font-bold text-ink">{d.ticket}</h2>
-                    <span className="text-xs tabular-nums text-muted">{sale.number}</span>
+                <div className="flex items-center gap-2">
+                    {step === "pay" ? (
+                        <IconButton
+                            size="sm"
+                            icon="chevronLeft"
+                            label={d.backToTicket}
+                            onPress={() => {
+                                setPaying(false);
+                            }}
+                        />
+                    ) : null}
+                    <h2 className="font-display text-base font-bold text-ink">
+                        {step === "pay" || step === "card" ? d.payTitle : d.ticket}
+                    </h2>
+                    {step === "ticket" ? (
+                        <span className="text-xs tabular-nums text-muted">{sale.number}</span>
+                    ) : null}
                 </div>
                 <div className="flex items-center gap-1">
-                    {sale.isEmpty ? null : (
+                    {sale.isEmpty || step !== "ticket" ? null : (
                         <Button size="sm" variant="quiet" onPress={sale.clear}>
                             {d.clear}
                         </Button>
@@ -476,134 +504,186 @@ export function TicketPanel({
                     )}
                 </div>
             </div>
-            <div className="border-b border-line px-5 py-3.5">
-                <ClientPicker sale={sale} />
-                {adder}
-            </div>
+            {step === "ticket" ? (
+                <div className="border-b border-line px-5 py-3.5">
+                    <ClientPicker sale={sale} />
+                    {adder}
+                </div>
+            ) : null}
             <div className="min-h-0 flex-1 overflow-y-auto px-5">
-                {sale.held !== null ? (
-                    <div className="pt-3">
-                        <Notice tone="success">{sale.held}</Notice>
+                {step === "pay" ? <PayStep sale={sale} /> : null}
+                {step === "card" ? (
+                    <div className="py-4">
+                        <ChargeSheet
+                            checkout={sale.checkout}
+                            methods={[]}
+                            amountLabel={due}
+                            submitLabel={d.charge(due)}
+                            busyLabel={d.charging}
+                            onSubmit={() => undefined}
+                            onCancel={sale.cancelCheckout}
+                        />
                     </div>
                 ) : null}
-                {sale.invoiced !== null ? (
-                    <div className="pt-3">
-                        <Notice tone="success">{sale.invoiced}</Notice>
+                {step === "paid" ? (
+                    <div className="py-5">
+                        <PaidSummary
+                            sale={sale}
+                            onNew={() => {
+                                sale.newSale();
+                                setPaying(false);
+                            }}
+                            onBookNext={() => {
+                                sale.newSale();
+                                setPaying(false);
+                                onBookNext();
+                            }}
+                        />
                     </div>
                 ) : null}
-                {sale.isEmpty ? (
-                    <div className="flex flex-col items-center gap-2 px-6 py-12 text-center">
-                        <Icon name="receipt" size={22} />
-                        <p className="text-sm text-muted">{d.emptyTicket}</p>
-                    </div>
-                ) : (
-                    <div className="divide-y divide-line-soft">
-                        {sale.views.map((v) => (
-                            <div key={v.key}>
-                                <LineItem
-                                    currency={BUSINESS_CURRENCY}
-                                    title={v.title}
-                                    leading={
-                                        <ItemImage
-                                            src={mediaUrl(apiBaseUrl, v.imageFileId)}
-                                            name={v.title}
-                                            color={v.color}
-                                            size={36}
+                {step === "ticket" ? (
+                    <>
+                        {sale.held !== null ? (
+                            <div className="pt-3">
+                                <Notice tone="success">{sale.held}</Notice>
+                            </div>
+                        ) : null}
+                        {sale.invoiced !== null ? (
+                            <div className="pt-3">
+                                <Notice tone="success">{sale.invoiced}</Notice>
+                            </div>
+                        ) : null}
+                        {sale.isEmpty ? (
+                            <div className="flex flex-col items-center gap-2 px-6 py-12 text-center">
+                                <Icon name="receipt" size={22} />
+                                <p className="text-sm text-muted">{d.emptyTicket}</p>
+                            </div>
+                        ) : (
+                            <div className="divide-y divide-line-soft">
+                                {sale.views.map((v) => (
+                                    <div key={v.key}>
+                                        <LineItem
+                                            currency={BUSINESS_CURRENCY}
+                                            title={v.title}
+                                            leading={
+                                                <ItemImage
+                                                    src={mediaUrl(apiBaseUrl, v.imageFileId)}
+                                                    name={v.title}
+                                                    color={v.color}
+                                                    size={36}
+                                                />
+                                            }
+                                            meta={v.meta}
+                                            tag={v.tag}
+                                            cents={v.cents}
+                                            originalCents={v.originalCents}
+                                            selected={selected === v.key}
+                                            quantity={
+                                                v.quantity === null
+                                                    ? undefined
+                                                    : {
+                                                          value: v.quantity,
+                                                          onChange: (n) => {
+                                                              sale.setQuantity(v.key, n);
+                                                          },
+                                                          label: d.quantity,
+                                                      }
+                                            }
+                                            onPress={() => {
+                                                setSelected(selected === v.key ? null : v.key);
+                                            }}
+                                            pressLabel={d.discountLine(v.title)}
+                                            onRemove={() => {
+                                                sale.removeLine(v.key);
+                                            }}
+                                            removeLabel={d.removeLine(v.title)}
                                         />
-                                    }
-                                    meta={v.meta}
-                                    tag={v.tag}
-                                    cents={v.cents}
-                                    originalCents={v.originalCents}
-                                    selected={selected === v.key}
-                                    quantity={
-                                        v.quantity === null
-                                            ? undefined
-                                            : {
-                                                  value: v.quantity,
-                                                  onChange: (n) => {
-                                                      sale.setQuantity(v.key, n);
-                                                  },
-                                                  label: d.quantity,
-                                              }
-                                    }
-                                    onPress={() => {
-                                        setSelected(selected === v.key ? null : v.key);
-                                    }}
-                                    pressLabel={d.discountLine(v.title)}
-                                    onRemove={() => {
-                                        sale.removeLine(v.key);
-                                    }}
-                                    removeLabel={d.removeLine(v.title)}
-                                />
-                                {selected === v.key ? (
-                                    <LineDiscountEditor
-                                        key={v.key}
-                                        sale={sale}
-                                        lineKey={v.key}
-                                        onDone={() => {
-                                            setSelected(null);
-                                        }}
-                                    />
-                                ) : null}
+                                        {selected === v.key ? (
+                                            <LineDiscountEditor
+                                                key={v.key}
+                                                sale={sale}
+                                                lineKey={v.key}
+                                                onDone={() => {
+                                                    setSelected(null);
+                                                }}
+                                            />
+                                        ) : null}
+                                    </div>
+                                ))}
                             </div>
-                        ))}
-                    </div>
-                )}
-                {sale.isEmpty ? null : (
-                    <div className="space-y-3 pb-4 pt-1">
-                        <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-dashed border-line px-3 py-2">
-                            <span className="text-xs text-muted">{d.taxFollows}</span>
-                            <div className="flex gap-2">
-                                <Button
-                                    size="sm"
-                                    variant="quiet"
-                                    busy={sale.busy && sale.phase === "cart"}
-                                    onPress={() => {
-                                        sale.hold();
-                                    }}
-                                >
-                                    {d.holdSale}
-                                </Button>
-                                <Button
-                                    size="sm"
-                                    variant="outline"
-                                    icon="percent"
-                                    onPress={() => {
-                                        setDiscounting(true);
-                                    }}
-                                >
-                                    {sale.saleDiscount !== null
-                                        ? d.discountedBy(discountLabel(sale.saleDiscount))
-                                        : d.addDiscount}
-                                </Button>
+                        )}
+                        {sale.isEmpty ? null : (
+                            <div className="space-y-3 pb-4 pt-1">
+                                <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-dashed border-line px-3 py-2">
+                                    <span className="text-xs text-muted">{d.taxFollows}</span>
+                                    <div className="flex gap-2">
+                                        <Button
+                                            size="sm"
+                                            variant="quiet"
+                                            busy={sale.busy && sale.phase === "cart"}
+                                            onPress={() => {
+                                                sale.hold();
+                                            }}
+                                        >
+                                            {d.holdSale}
+                                        </Button>
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            icon="percent"
+                                            onPress={() => {
+                                                setDiscounting(true);
+                                            }}
+                                        >
+                                            {sale.saleDiscount !== null
+                                                ? d.discountedBy(discountLabel(sale.saleDiscount))
+                                                : d.addDiscount}
+                                        </Button>
+                                    </div>
+                                </div>
                             </div>
-                        </div>
-                    </div>
-                )}
-            </div>
-            <div className="space-y-3 border-t border-line bg-surface px-5 pb-5 pt-3.5">
-                {sale.isEmpty ? null : (
-                    <DocTotals
-                        currency={BUSINESS_CURRENCY}
-                        lines={sale.totalLines}
-                        density="compact"
-                    />
-                )}
-                {sale.error !== null && sale.phase === "cart" ? (
-                    <Notice tone="danger">{sale.error}</Notice>
+                        )}
+                    </>
                 ) : null}
-                <Button
-                    size="lg"
-                    full
-                    onPress={onCharge}
-                    disabled={sale.isEmpty || !sale.ratesReady}
-                >
-                    {sale.isEmpty
-                        ? d.review
-                        : d.charge(formatMoney(sale.totals.dueCents, BUSINESS_CURRENCY))}
-                </Button>
             </div>
+            {step === "ticket" || step === "pay" ? (
+                <div className="space-y-3 border-t border-line bg-surface px-5 pb-5 pt-3.5">
+                    {sale.isEmpty ? null : (
+                        <DocTotals
+                            currency={BUSINESS_CURRENCY}
+                            lines={sale.totalLines}
+                            density="compact"
+                        />
+                    )}
+                    {sale.error !== null && (step === "pay" || sale.phase === "cart") ? (
+                        <Notice tone="danger">{sale.error}</Notice>
+                    ) : null}
+                    {step === "ticket" ? (
+                        <Button
+                            size="lg"
+                            full
+                            onPress={() => {
+                                setPaying(true);
+                            }}
+                            disabled={sale.isEmpty || !sale.ratesReady}
+                        >
+                            {sale.isEmpty ? d.review : d.charge(due)}
+                        </Button>
+                    ) : (
+                        <Button
+                            size="lg"
+                            full
+                            onPress={() => {
+                                sale.charge();
+                            }}
+                            busy={sale.busy}
+                            disabled={sale.method === "tap"}
+                        >
+                            {sale.busy ? d.charging : d.charge(due)}
+                        </Button>
+                    )}
+                </div>
+            ) : null}
             {discounting ? (
                 <DiscountSheet
                     sale={sale}
@@ -977,131 +1057,37 @@ function PaidSummary({
     );
 }
 
-/** Checkout A: one sheet for the tip, how the client pays and the charge, then the receipt. */
-export function PaySheet({
-    sale,
-    onClose,
-    onBookNext,
-}: {
-    sale: SaleTicket;
-    onClose: () => void;
-    onBookNext: () => void;
-}) {
-    const close = sale.busy ? () => undefined : onClose;
-    useEffect(() => {
-        if (sale.invoiced !== null) onClose();
-    }, [sale.invoiced, onClose]);
-    if (sale.phase === "paid") {
-        return (
-            <Modal open onClose={close} size="lg">
-                <PaidSummary
-                    sale={sale}
-                    onNew={() => {
-                        sale.newSale();
-                        onClose();
-                    }}
-                    onBookNext={() => {
-                        sale.newSale();
-                        onBookNext();
-                    }}
-                />
-            </Modal>
-        );
-    }
-    if (sale.checkout.clientSecret !== null) {
-        return (
-            <Modal open onClose={close} size="lg">
-                <ChargeSheet
-                    checkout={sale.checkout}
-                    methods={[]}
-                    amountLabel={formatMoney(sale.paidCents, BUSINESS_CURRENCY)}
-                    submitLabel={d.charge(formatMoney(sale.paidCents, BUSINESS_CURRENCY))}
-                    busyLabel={d.charging}
-                    onSubmit={() => undefined}
-                    onCancel={sale.cancelCheckout}
-                />
-            </Modal>
-        );
-    }
-    const due = sale.totals.dueCents;
+/** How the client pays: tip, gift card, then the method and its details. */
+function PayStep({ sale }: { sale: SaleTicket }) {
     return (
-        <Modal open onClose={close} size="lg">
-            <div className="-mr-2 max-h-[calc(100vh-7rem)] space-y-5 overflow-y-auto pr-2">
-                <div className="flex items-start justify-between gap-4">
-                    <div>
-                        <h2 className="font-display text-lg font-bold text-ink">{d.payTitle}</h2>
-                        <p className="mt-0.5 text-sm text-muted">
-                            {d.payFor(sale.client?.name ?? d.walkIn)}
-                        </p>
-                    </div>
-                    <div className="text-right">
-                        <p className="font-display text-3xl font-bold tabular-nums text-ink">
-                            {formatMoney(due, BUSINESS_CURRENCY)}
-                        </p>
-                        {sale.totals.depositCents > 0 ? (
-                            <p className="text-xs text-muted">
-                                {d.depositCredit(
-                                    formatMoney(sale.totals.depositCents, BUSINESS_CURRENCY),
-                                )}
-                            </p>
-                        ) : null}
-                        {sale.totals.giftCardCents > 0 ? (
-                            <p className="text-xs text-muted">
-                                {d.giftCardCredit(
-                                    formatMoney(sale.totals.giftCardCents, BUSINESS_CURRENCY),
-                                )}
-                            </p>
-                        ) : null}
-                    </div>
-                </div>
-                <TipBlock sale={sale} />
-                <GiftCardEntry sale={sale} />
-                <div>
-                    <Heading>{d.howPaying}</Heading>
-                    <Choice
-                        layout="tiles"
-                        label={d.howPaying}
-                        columns={2}
-                        value={sale.method}
-                        onChange={sale.setMethod}
-                        options={sale.payOptions}
-                    />
-                </div>
-                <MethodDetail sale={sale} />
-                {sale.error !== null ? (
-                    <Notice tone="danger" banner>
-                        {sale.error}
-                    </Notice>
-                ) : null}
-                <div className="flex items-center justify-between gap-3 border-t border-line pt-4">
-                    <div className="flex gap-2">
-                        <Button variant="quiet" onPress={onClose} disabled={sale.busy}>
-                            {d.backToTicket}
-                        </Button>
-                        {sale.canInvoice ? (
-                            <Button
-                                variant="outline"
-                                icon="send"
-                                disabled={sale.busy}
-                                onPress={sale.sendAsInvoice}
-                            >
-                                {d.sendAsInvoice}
-                            </Button>
-                        ) : null}
-                    </div>
-                    <Button
-                        size="lg"
-                        onPress={() => {
-                            sale.charge();
-                        }}
-                        busy={sale.busy}
-                        disabled={sale.method === "tap"}
-                    >
-                        {sale.busy ? d.charging : d.charge(formatMoney(due, BUSINESS_CURRENCY))}
-                    </Button>
-                </div>
+        <div className="space-y-5 py-4">
+            <p className="text-sm text-muted">{d.payFor(sale.client?.name ?? d.walkIn)}</p>
+            <TipBlock sale={sale} />
+            <GiftCardEntry sale={sale} />
+            <div>
+                <Heading>{d.howPaying}</Heading>
+                <Choice
+                    layout="tiles"
+                    label={d.howPaying}
+                    columns={2}
+                    value={sale.method}
+                    onChange={sale.setMethod}
+                    options={sale.payOptions}
+                />
             </div>
-        </Modal>
+            <MethodDetail sale={sale} />
+            {sale.canInvoice ? (
+                <Button
+                    variant="outline"
+                    icon="send"
+                    full
+                    disabled={sale.busy}
+                    onPress={sale.sendAsInvoice}
+                >
+                    {d.sendAsInvoice}
+                </Button>
+            ) : null}
+        </div>
     );
 }
 
@@ -1145,36 +1131,26 @@ export function Checkout({
         role: viewer?.role ?? null,
     });
     useLinkedVisit(bookingId, useCheckoutQueue(), sale.addVisit);
-    const [paying, setPaying] = useState(false);
     const visitId = sale.visitId;
     return (
-        <>
-            <Modal variant="drawer" size="lg" framed={false} onClose={onClose}>
-                <TicketPanel
-                    sale={sale}
-                    adder={<ItemAdder sale={sale} />}
-                    onClose={onClose}
-                    onCharge={() => {
-                        setPaying(true);
-                    }}
-                />
-            </Modal>
-            {paying ? (
-                <PaySheet
-                    sale={sale}
-                    onClose={() => {
-                        setPaying(false);
-                    }}
-                    onBookNext={() => {
-                        setPaying(false);
-                        replaceTask(
-                            visitId === null
-                                ? { kind: "booking" }
-                                : { kind: "booking", rebookId: visitId },
-                        );
-                    }}
-                />
-            ) : null}
-        </>
+        <Modal
+            variant="drawer"
+            size="lg"
+            framed={false}
+            onClose={sale.busy ? () => undefined : onClose}
+        >
+            <TicketPanel
+                sale={sale}
+                adder={<ItemAdder sale={sale} />}
+                onClose={onClose}
+                onBookNext={() => {
+                    replaceTask(
+                        visitId === null
+                            ? { kind: "booking" }
+                            : { kind: "booking", rebookId: visitId },
+                    );
+                }}
+            />
+        </Modal>
     );
 }

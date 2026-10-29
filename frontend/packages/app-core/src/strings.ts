@@ -449,6 +449,7 @@ interface Strings {
             readonly attachedVisit: string;
             readonly notSentYet: string;
         };
+        readonly backToInvoice: string;
         readonly refund: string;
         readonly refundBadge: string;
     };
@@ -572,7 +573,6 @@ interface Strings {
             readonly usePackage: string;
             readonly coverError: string;
             readonly giftCardPaid: string;
-            readonly giftCardCredit: (money: string) => string;
             readonly giftCardBeforeTip: string;
             readonly giftCardCode: string;
             readonly giftCardApply: string;
