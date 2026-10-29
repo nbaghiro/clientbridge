@@ -4,7 +4,7 @@ import { useBusinessQuery as useQuery } from "../hooks";
 
 import { useMemo, useRef, useState } from "react";
 
-import { type ApiLike, type Attempt, attemptKey } from "../api";
+import { type ApiLike, type Attempt, attemptKey, failureMessage } from "../api";
 import {
     dateKey,
     formatDate,
@@ -1248,7 +1248,7 @@ export function useClientWallet(api: ApiLike, clientId: string): ClientWallet {
     const { busy, error, run } = useAsyncAction();
     const act = (id: string, fn: () => Promise<unknown>, message: string): void => {
         setBusyId(id);
-        run(fn, { errorMessage: message });
+        run(fn, { errorMessage: (e) => failureMessage(e, message) });
     };
     return {
         load,

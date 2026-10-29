@@ -675,6 +675,10 @@ class PaymentGateway(Protocol):
         self, account_id: str, *, subscription_id: str, at_period_end: bool = False
     ) -> None: ...
 
+    async def keep_subscription(self, account_id: str, *, subscription_id: str) -> None:
+        """Undo a cancel at period end, so the subscription renews again."""
+        ...
+
     async def create_payment_intent(
         self,
         account_id: str,
@@ -1437,6 +1441,16 @@ class StripeGateway:
                 )
             else:
                 await stripe.Subscription.cancel_async(subscription_id, stripe_account=account_id)
+        except stripe.InvalidRequestError as exc:
+            if _missing(exc):
+                raise Conflict("this subscription is not on the business's Stripe account") from exc
+            raise
+
+    async def keep_subscription(self, account_id: str, *, subscription_id: str) -> None:
+        try:
+            await stripe.Subscription.modify_async(
+                subscription_id, cancel_at_period_end=False, stripe_account=account_id
+            )
         except stripe.InvalidRequestError as exc:
             if _missing(exc):
                 raise Conflict("this subscription is not on the business's Stripe account") from exc

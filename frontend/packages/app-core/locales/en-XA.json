@@ -167,6 +167,9 @@
     "api.paymentInProgress": {
         "message": "[Å þåýɱéñţ öñ ţĥîš îñṽöîçé îš šţîļļ ĝöîñĝ ţĥŕöûĝĥ. Ŵåîţ ƒöŕ îţ ţö ƒîñîšĥ, ţĥéñ ţŕý åĝåîñ. one two three four five six]"
     },
+    "api.paymentMethodInUse": {
+        "message": "[Å ɱéɱƀéŕšĥîþ šţîļļ ƀîļļš ţĥîš çåŕð. Çåñçéļ ţĥé ɱéɱƀéŕšĥîþ öŕ ɱöṽé îţ ţö åñöţĥéŕ çåŕð ƒîŕšţ. one two three four five six]"
+    },
     "api.cardDeclined": {
         "message": "[Ţĥé çåŕð ŵåš ðéçļîñéð. Ţŕý åñöţĥéŕ çåŕð öŕ þåýɱéñţ ɱéţĥöð. one two three four]"
     },
@@ -2146,6 +2149,18 @@
     },
     "pos.desk.refundDone": {
         "message": "[Ŕéƒûñðéð {money}. Çŕéðîţ ñöţé {cn} îš öñ îţš ŵåý ţö ţĥé çļîéñţ. one two three four]"
+    },
+    "pos.desk.returnGiftSale": {
+        "message": "[Ŕéţûŕñ ţö ĝîƒţ çåŕð one two]"
+    },
+    "pos.desk.returnGiftTitle": {
+        "message": "[Ŕéţûŕñ šåļé {n}? one two]"
+    },
+    "pos.desk.returnGiftBody": {
+        "message": "[Å ĝîƒţ çåŕð þåîð ƒöŕ ţĥîš šåļé. Ŕéţûŕñîñĝ îţ þûţš ţĥé åɱöûñţ ƀåçķ öñ ţĥé çåŕð åñð ɱåŕķš ţĥé šåļé ṽöîð. one two three four five six seven]"
+    },
+    "pos.desk.returnGiftDone": {
+        "message": "[{n} îš ŕéţûŕñéð ţö ţĥé ĝîƒţ çåŕð. one two three]"
     },
     "pos.desk.voidTitle": {
         "message": "[Ṽöîð šåļé {n}? one]"

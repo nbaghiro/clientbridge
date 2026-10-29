@@ -1334,7 +1334,6 @@ async def _redemption_tax(db: AsyncSession, biz: str, order_id: str, amount: int
 async def post_redemption(
     db: AsyncSession, card: GiftCard, amount: int, *, source: tuple[str, str] | None = None
 ) -> None:
-    remaining = await gift_card_balance(db, card)
     biz = card.business_id
     tax = (
         await _redemption_tax(db, biz, source[1], amount)
@@ -1345,9 +1344,7 @@ async def post_redemption(
         db,
         biz,
         event="redemption",
-        ref=f"redemption:{card.id}:{source[1]}:{new_id('journal')}"
-        if source
-        else f"redemption:{card.id}:{remaining}",
+        ref=f"redemption:{card.id}:{source[1] + ':' if source else ''}{new_id('journal')}",
         legs=[
             Leg("gift_card", card.id, "gift_card", amount),
             *(

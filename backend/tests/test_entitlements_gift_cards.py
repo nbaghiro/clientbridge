@@ -1,10 +1,13 @@
 """Gift-card purchase (charge now, grant on settlement) + redeem, against the seeded DB."""
 
+from datetime import timedelta
+
 import httpx
 import pytest
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.core.ids import new_id
 from clientbridge.models.billing import Order
 from clientbridge.models.business import Business
@@ -152,7 +155,7 @@ async def test_redeem_before_activation_409(as_owner: httpx.AsyncClient, db: Asy
         )
     ).json()
     res = await as_owner.post(
-        "/v1/gift-cards/redeem", json={"code": body["code"], "amount_cents": 1000}
+        "/v1/gift-cards/redeem", json={"code": body["code"], "amount_cents": 1000}, headers=key()
     )
     assert res.status_code == 409
 
@@ -257,7 +260,7 @@ async def test_purchase_non_gift_item_409(as_owner: httpx.AsyncClient, db: Async
 async def test_redeem_partial_then_balance(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
     card = await _active_card(db, code="REDEEMCODE01", balance=5000)
     res = await as_owner.post(
-        "/v1/gift-cards/redeem", json={"code": card.code, "amount_cents": 2000}
+        "/v1/gift-cards/redeem", json={"code": card.code, "amount_cents": 2000}, headers=key()
     )
     assert res.status_code == 200, res.text
     assert res.json()["balance_cents"] == 3000
@@ -266,7 +269,7 @@ async def test_redeem_partial_then_balance(as_owner: httpx.AsyncClient, db: Asyn
 
 async def test_redeem_unknown_code_404(as_owner: httpx.AsyncClient) -> None:
     res = await as_owner.post(
-        "/v1/gift-cards/redeem", json={"code": "NOPENOPENOPE", "amount_cents": 100}
+        "/v1/gift-cards/redeem", json={"code": "NOPENOPENOPE", "amount_cents": 100}, headers=key()
     )
     assert res.status_code == 404
 
@@ -274,27 +277,29 @@ async def test_redeem_unknown_code_404(as_owner: httpx.AsyncClient) -> None:
 async def test_redeem_over_balance_409(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
     card = await _active_card(db, code="OVERCODE0001", balance=5000)
     res = await as_owner.post(
-        "/v1/gift-cards/redeem", json={"code": card.code, "amount_cents": 6000}
+        "/v1/gift-cards/redeem", json={"code": card.code, "amount_cents": 6000}, headers=key()
     )
     assert res.status_code == 409
 
 
 async def test_redeem_zero_amount_409(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
     card = await _active_card(db, code="ZEROCODE0001", balance=5000)
-    res = await as_owner.post("/v1/gift-cards/redeem", json={"code": card.code, "amount_cents": 0})
+    res = await as_owner.post(
+        "/v1/gift-cards/redeem", json={"code": card.code, "amount_cents": 0}, headers=key()
+    )
     assert res.status_code == 409
 
 
 async def test_redeem_to_zero_marks_redeemed(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
     card = await _active_card(db, code="FULLCODE0001", balance=5000)
     full = await as_owner.post(
-        "/v1/gift-cards/redeem", json={"code": card.code, "amount_cents": 5000}
+        "/v1/gift-cards/redeem", json={"code": card.code, "amount_cents": 5000}, headers=key()
     )
     assert full.status_code == 200
     assert full.json()["balance_cents"] == 0
     assert full.json()["status"] == "redeemed"
     again = await as_owner.post(
-        "/v1/gift-cards/redeem", json={"code": card.code, "amount_cents": 1}
+        "/v1/gift-cards/redeem", json={"code": card.code, "amount_cents": 1}, headers=key()
     )
     assert again.status_code == 409
 
@@ -308,7 +313,7 @@ async def test_staff_cannot_purchase_403(as_staff: httpx.AsyncClient) -> None:
 
 async def test_staff_cannot_redeem_403(as_staff: httpx.AsyncClient) -> None:
     res = await as_staff.post(
-        "/v1/gift-cards/redeem", json={"code": "WHATEVER1234", "amount_cents": 100}
+        "/v1/gift-cards/redeem", json={"code": "WHATEVER1234", "amount_cents": 100}, headers=key()
     )
     assert res.status_code == 403
 
@@ -328,7 +333,7 @@ async def test_other_business_code_404(
     )
     await db.flush()
     res = await as_owner.post(
-        "/v1/gift-cards/redeem", json={"code": "OTHERBIZCODE", "amount_cents": 100}
+        "/v1/gift-cards/redeem", json={"code": "OTHERBIZCODE", "amount_cents": 100}, headers=key()
     )
     assert res.status_code == 404
 
@@ -425,7 +430,7 @@ async def test_refund_partially_redeemed_gift_card_blocked(
     ).json()
     await settle(as_owner, db, body["payment_id"], "evt_gc_partial_refund")
     redeemed = await as_owner.post(
-        "/v1/gift-cards/redeem", json={"code": body["code"], "amount_cents": 2000}
+        "/v1/gift-cards/redeem", json={"code": body["code"], "amount_cents": 2000}, headers=key()
     )
     assert redeemed.status_code == 200, redeemed.text
     # $20 of value already delivered → refunding the full $50 purchase must be blocked
@@ -451,10 +456,54 @@ async def test_redeem_replays_on_the_same_key(
     assert await ledger.gift_card_balance(db, card) == 3000
 
 
+async def test_a_redemption_at_a_balance_seen_before_still_redeems(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    card = await _active_card(db, code="SAMEBAL01", balance=8000)
+    body = {"code": card.code, "amount_cents": 2000}
+    assert (
+        await as_owner.post("/v1/gift-cards/redeem", json=body, headers=key())
+    ).status_code == 200
+    await ledger.post(
+        db,
+        BIZ,
+        event="reversal",
+        ref=f"test:topup:{card.id}",
+        legs=[Leg("gift_card", card.id, "gift_card", -2000), Leg("business", BIZ, "revenue", 2000)],
+        subject=("gift_card", card.id),
+    )
+    again = {"code": card.code, "amount_cents": 3000}
+    assert (
+        await as_owner.post("/v1/gift-cards/redeem", json=again, headers=key())
+    ).status_code == 200
+    assert await ledger.gift_card_balance(db, card) == 5000
+
+
+async def test_an_expired_card_is_refused_before_the_sweep_runs(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    card = await _active_card(db, code="EXPIRED01", balance=5000)
+    card.expires_at = clock.now() - timedelta(minutes=1)
+    await db.flush()
+    body = {"code": card.code, "amount_cents": 1000}
+    res = await as_owner.post("/v1/gift-cards/redeem", json=body, headers=key())
+    assert res.status_code == 409
+    await db.refresh(card)
+    assert await ledger.gift_card_balance(db, card) == 5000
+
+
+async def test_a_redemption_needs_an_idempotency_key(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    card = await _active_card(db, code="NOKEY0001", balance=5000)
+    body = {"code": card.code, "amount_cents": 1000}
+    assert (await as_owner.post("/v1/gift-cards/redeem", json=body)).status_code == 422
+
+
 @pytest.mark.parametrize("path", ["/v1/gift-cards", "/v1/gift-cards/redeem"])
 async def test_writes_need_a_session_401(unauth: httpx.AsyncClient, path: str) -> None:
     body = {"code": "WHATEVER1234", "amount_cents": 100, "purchaser_client_id": PURCHASER}
-    assert (await unauth.post(path, json=body)).status_code == 401
+    assert (await unauth.post(path, json=body, headers=key())).status_code == 401
 
 
 BRUSH = {"description": "Brush", "unit_amount_cents": 2900, "tax_class": "standard"}
@@ -582,6 +631,32 @@ async def test_voiding_a_gift_card_sale_gives_its_tax_back(
     assert (await as_owner.post(f"/v1/orders/{sale['id']}/void", headers=key())).status_code == 200
     assert await _booked(db) == before
     assert await _gst(as_owner) == gst_before
+
+
+async def test_a_sale_gift_cards_paid_in_full_can_be_returned_to_the_card(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    card = await _active_card(db, code="GIFTBACK", balance=10000)
+    before = await _booked(db)
+    sale = await _sale(as_owner)
+    assert (await _apply(as_owner, sale["id"], "GIFTBACK")).json()["status"] == "paid"
+    returned = await as_owner.post(f"/v1/orders/{sale['id']}/void")
+    assert returned.status_code == 200, returned.text
+    assert returned.json()["status"] == "void"
+    await db.refresh(card)
+    assert await _balance(db, card) == 10000
+    assert await _booked(db) == before
+
+
+async def test_a_sale_paid_with_cash_is_refunded_rather_than_voided(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    sale = await _sale(as_owner)
+    paid = await as_owner.post(
+        f"/v1/orders/{sale['id']}/cash", json={"tendered_cents": 10000}, headers=key()
+    )
+    assert paid.status_code == 200, paid.text
+    assert (await as_owner.post(f"/v1/orders/{sale['id']}/void")).status_code == 409
 
 
 async def test_refunding_the_rest_gives_the_gift_card_balance_back(

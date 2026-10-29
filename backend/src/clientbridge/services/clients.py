@@ -31,7 +31,11 @@ from clientbridge.schemas.clients import (
     ClientUpdate,
 )
 from clientbridge.services.consents import set_marketing_consent
-from clientbridge.services.payments import end_memberships_at_period_end, sync_customer
+from clientbridge.services.payments import (
+    end_memberships_at_period_end,
+    keep_memberships,
+    sync_customer,
+)
 from clientbridge.services.subjects import new_subject
 
 MANAGERS = ("owner", "admin")
@@ -176,6 +180,8 @@ class ClientService:
                     await end_memberships_at_period_end(
                         self.db, gateway, cmd, self.biz, [client.id]
                     )
+                else:
+                    await keep_memberships(self.db, gateway, cmd, self.biz, client.id)
             return ClientOut.model_validate(client)
 
         return await run_command(

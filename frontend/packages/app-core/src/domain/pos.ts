@@ -2190,7 +2190,8 @@ export function discountFrom(
     return { kind, value, reason };
 }
 
-type SaleActionKey = "preparing" | "receipt" | "refund" | "void" | "resume" | "ready" | "pickedUp";
+type SaleActionKey =
+    "preparing" | "receipt" | "refund" | "void" | "returnGift" | "resume" | "ready" | "pickedUp";
 
 interface SaleDetail {
     id: string;
@@ -2314,8 +2315,12 @@ export function useSaleDetail(
             actions.push({ key: "pickedUp", label: d.markPickedUp, tone: "primary" });
         if (status !== "open" && status !== "void")
             actions.push({ key: "receipt", label: d.resendReceipt, tone: "outline" });
-        if (manager && (status === "paid" || status === "partly_refunded"))
+        // gift cards paid this sale in full: there is no payment to refund, so it goes back to them
+        const giftPaid = status === "paid" && lastPaid === null && row.source !== "online";
+        if (manager && (status === "paid" || status === "partly_refunded") && !giftPaid)
             actions.push({ key: "refund", label: d.refund, tone: "outline" });
+        if (manager && giftPaid)
+            actions.push({ key: "returnGift", label: d.returnGiftSale, tone: "danger" });
         if (manager && status === "open")
             actions.push({ key: "void", label: d.voidSale, tone: "danger" });
         const staffOf = (sid: string): SaleStaffRow | undefined =>
@@ -2508,6 +2513,24 @@ export function useSaleActions(
                                     },
                                 ),
                             d.refundDone(formatMoney(cents, BUSINESS_CURRENCY), note),
+                        );
+                    },
+                );
+                return;
+            }
+            if (key === "returnGift") {
+                ask(
+                    {
+                        title: d.returnGiftTitle(detail.number),
+                        message: d.returnGiftBody,
+                        confirmLabel: d.returnGiftSale,
+                        destructive: true,
+                    },
+                    () => {
+                        go(
+                            key,
+                            () => api.post(`/v1/orders/${detail.id}/void`, {}),
+                            d.returnGiftDone(detail.number),
                         );
                     },
                 );

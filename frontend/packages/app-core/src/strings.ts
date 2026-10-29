@@ -71,6 +71,7 @@ interface Strings {
         readonly estimateOnVisit: string;
         readonly estimateChanged: string;
         readonly paymentInProgress: string;
+        readonly paymentMethodInUse: string;
         readonly cardDeclined: string;
         readonly paymentActionRequired: string;
         readonly invoiceChanged: string;
@@ -762,6 +763,10 @@ interface Strings {
             readonly refundBody: (money: string, card: string, cn: string) => string;
             readonly refundConfirm: (money: string) => string;
             readonly refundDone: (money: string, cn: string) => string;
+            readonly returnGiftSale: string;
+            readonly returnGiftTitle: (n: string) => string;
+            readonly returnGiftBody: string;
+            readonly returnGiftDone: (n: string) => string;
             readonly voidTitle: (n: string) => string;
             readonly voidBody: string;
             readonly voidDone: (n: string) => string;

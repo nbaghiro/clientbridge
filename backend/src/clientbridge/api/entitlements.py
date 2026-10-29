@@ -37,7 +37,7 @@ async def redeem_gift_card(
     principal: CurrentPrincipal,
     db: DbSession,
     gateway: GatewayDep,
-    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+    idempotency_key: Annotated[str, Header(alias="Idempotency-Key", min_length=8)],
 ) -> GiftCardOut:
     return await GiftCardService(db, principal, gateway).redeem_gift_card(body, idempotency_key)
 
@@ -90,7 +90,7 @@ async def create_subscription(
     principal: CurrentPrincipal,
     db: DbSession,
     gateway: GatewayDep,
-    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+    idempotency_key: Annotated[str, Header(alias="Idempotency-Key", min_length=8)],
 ) -> SubscriptionOut:
     return await SubscriptionService(db, principal, gateway).create_subscription(
         body, idempotency_key

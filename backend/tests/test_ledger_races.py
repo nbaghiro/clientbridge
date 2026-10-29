@@ -199,7 +199,9 @@ async def test_two_redemptions_of_one_card_cannot_overspend_it(
                     await race.hold(session)
                 else:
                     await race.join(session)
-                await service.redeem_gift_card(GiftCardRedeem(code=code, amount_cents=700))
+                await service.redeem_gift_card(
+                    GiftCardRedeem(code=code, amount_cents=700), f"race-redeem-{first}"
+                )
             except Conflict as exc:
                 return exc
             return None

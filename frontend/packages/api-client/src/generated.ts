@@ -15821,8 +15821,8 @@ export interface operations {
     redeem_gift_card_v1_gift_cards_redeem_post: {
         parameters: {
             query?: never;
-            header?: {
-                "Idempotency-Key"?: string | null;
+            header: {
+                "Idempotency-Key": string;
                 "x-business-id"?: string;
                 "x-expected-user"?: string;
                 "x-session-token"?: string;
@@ -15973,8 +15973,8 @@ export interface operations {
     create_subscription_v1_subscriptions_post: {
         parameters: {
             query?: never;
-            header?: {
-                "Idempotency-Key"?: string | null;
+            header: {
+                "Idempotency-Key": string;
                 "x-business-id"?: string;
                 "x-expected-user"?: string;
                 "x-session-token"?: string;

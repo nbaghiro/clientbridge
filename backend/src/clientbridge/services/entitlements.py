@@ -174,15 +174,14 @@ class GiftCardService:
             request=data,
         )
 
-    async def redeem_gift_card(
-        self, data: GiftCardRedeem, idempotency_key: str | None = None
-    ) -> GiftCardOut:
+    async def redeem_gift_card(self, data: GiftCardRedeem, idempotency_key: str) -> GiftCardOut:
         self._assert_admin()
         card = await self._by_code(data.code, lock=True)
 
         async def run(cmd: Command) -> GiftCardOut:
             remaining = await ledger.gift_card_balance(self.db, card)
-            if ledger.gift_card_status(card, remaining) != "active":
+            expired = card.expires_at is not None and card.expires_at <= clock.now()
+            if ledger.gift_card_status(card, remaining) != "active" or expired:
                 raise Conflict("only an active gift card can be redeemed")
             if data.amount_cents <= 0 or data.amount_cents > remaining:
                 raise Conflict("invalid redemption amount")
@@ -575,7 +574,7 @@ class SubscriptionService:
         self.gateway = gateway
 
     async def create_subscription(
-        self, data: SubscriptionCreate, idempotency_key: str | None = None
+        self, data: SubscriptionCreate, idempotency_key: str
     ) -> SubscriptionOut:
         self._assert_admin()
         business = await self._business()
@@ -599,6 +598,8 @@ class SubscriptionService:
         pm_ref = pm.provider_ref
 
         async def run(cmd: Command) -> SubscriptionOut:
+            # Stripe charges the first period on create, so two creates for a client never overlap
+            await self.db.execute(select(Client.id).where(Client.id == client.id).with_for_update())
             live = await self.db.scalar(
                 scoped(Subscription, self.biz)
                 .with_only_columns(Subscription.id)
@@ -626,7 +627,7 @@ class SubscriptionService:
                 payment_method_id=pm_ref,
                 metadata=subscription_terms(item, data.client_id),
                 application_fee_percent=subscription_fee_percent(pm.method),
-                idempotency_key=f"sub_{self.biz}_{idempotency_key or secrets.token_hex(16)}",
+                idempotency_key=f"sub_{self.biz}_{idempotency_key}",
             )
             row = Subscription(
                 id=new_id("subscription"),

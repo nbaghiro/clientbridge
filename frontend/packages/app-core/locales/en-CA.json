@@ -192,6 +192,9 @@
     "api.paymentInProgress": {
         "message": "A payment on this invoice is still going through. Wait for it to finish, then try again."
     },
+    "api.paymentMethodInUse": {
+        "message": "A membership still bills this card. Cancel the membership or move it to another card first."
+    },
     "api.cardDeclined": {
         "message": "The card was declined. Try another card or payment method."
     },
@@ -2335,6 +2338,20 @@
     "pos.desk.refundDone": {
         "message": "Refunded {money}. Credit note {cn} is on its way to the client.",
         "args": ["money", "cn"]
+    },
+    "pos.desk.returnGiftSale": {
+        "message": "Return to gift card"
+    },
+    "pos.desk.returnGiftTitle": {
+        "message": "Return sale {n}?",
+        "args": ["n"]
+    },
+    "pos.desk.returnGiftBody": {
+        "message": "A gift card paid for this sale. Returning it puts the amount back on the card and marks the sale void."
+    },
+    "pos.desk.returnGiftDone": {
+        "message": "{n} is returned to the gift card.",
+        "args": ["n"]
     },
     "pos.desk.voidTitle": {
         "message": "Void sale {n}?",

@@ -198,6 +198,7 @@ async def test_subscription_start_and_recurring_invoice(
         await api.post(
             "/v1/subscriptions",
             json={"client_id": MARCUS, "item_id": "it_daycare", "payment_method_id": "pm_marcus"},
+            headers=retry_key(),
         ),
         201,
     ).json()

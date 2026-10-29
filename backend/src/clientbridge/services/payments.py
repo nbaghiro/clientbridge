@@ -8,7 +8,7 @@ from datetime import UTC, datetime, time, timedelta
 from time import monotonic
 from typing import Literal
 
-from sqlalchemy import BigInteger, Integer, Select, Subquery, and_, cast, func, or_, select
+from sqlalchemy import BigInteger, Integer, Select, Subquery, and_, cast, func, or_, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -567,10 +567,24 @@ class PaymentService:
         provider_ref = pm.provider_ref
 
         async def run(cmd: Command) -> DetachResult:
-            if account_id is not None and provider_ref is not None:
-                await self.gateway.detach_payment_method(account_id, payment_method_id=provider_ref)
+            billing = await self.db.scalar(
+                scoped(Subscription, self.biz)
+                .with_only_columns(Subscription.id)
+                .where(Subscription.payment_method_id == pm.id, Subscription.status != "canceled")
+                .limit(1)
+            )
+            if billing is not None:
+                raise Conflict("a membership still bills this card", code="payment_method_in_use")
+            await self.db.execute(
+                update(Subscription)
+                .where(Subscription.payment_method_id == pm.id)
+                .values(payment_method_id=None)
+            )
             await self.db.delete(pm)
             await self.db.flush()
+            # the provider can't be undone, so it goes last, once the rows are sure to change
+            if account_id is not None and provider_ref is not None:
+                await self.gateway.detach_payment_method(account_id, payment_method_id=provider_ref)
             cmd.record(
                 "payment_method.detach", entity_type="payment_method", entity_id=payment_method_id
             )
@@ -3190,6 +3204,28 @@ async def end_memberships_at_period_end(
         cmd.record(
             "subscription.cancel_at_period_end", entity_type="subscription", entity_id=sub.id
         )
+
+
+async def keep_memberships(
+    db: AsyncSession, gateway: PaymentGateway, cmd: Command, business_id: str, client_id: str
+) -> None:
+    """A restored client's memberships renew again, undoing the end their archive scheduled."""
+    account_id = await db.scalar(
+        select(Business.stripe_account_id).where(Business.id == business_id)
+    )
+    if account_id is None:
+        return
+    rows = await db.scalars(
+        scoped(Subscription, business_id).where(
+            Subscription.client_id == client_id,
+            Subscription.status != "canceled",
+            Subscription.provider_ref.is_not(None),
+        )
+    )
+    for sub in rows.all():
+        assert sub.provider_ref is not None
+        await gateway.keep_subscription(account_id, subscription_id=sub.provider_ref)
+        cmd.record("subscription.keep", entity_type="subscription", entity_id=sub.id)
 
 
 async def _end_disputed_membership(

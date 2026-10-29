@@ -104,7 +104,7 @@ async def test_create_subscription_happy(
     cid = await client_id(db)
     item = await _sub_item(db)
     pm = await _saved_method(db, cid)
-    res = await as_owner.post("/v1/subscriptions", json=_body(cid, item.id, pm.id))
+    res = await as_owner.post("/v1/subscriptions", json=_body(cid, item.id, pm.id), headers=key())
     assert res.status_code == 201, res.text
     body = res.json()
     assert body["status"] == "active"
@@ -128,8 +128,8 @@ async def test_second_subscription_reuses_cached_price(
     c2 = await _new_client(db, name="Client Two")
     pm1 = await _saved_method(db, c1, ref="pm_c1")
     pm2 = await _saved_method(db, c2, ref="pm_c2")
-    r1 = await as_owner.post("/v1/subscriptions", json=_body(c1, item.id, pm1.id))
-    r2 = await as_owner.post("/v1/subscriptions", json=_body(c2, item.id, pm2.id))
+    r1 = await as_owner.post("/v1/subscriptions", json=_body(c1, item.id, pm1.id), headers=key())
+    r2 = await as_owner.post("/v1/subscriptions", json=_body(c2, item.id, pm2.id), headers=key())
     assert r1.status_code == 201 and r2.status_code == 201, (r1.text, r2.text)
     assert len(gateway.created_prices) == 1  # price created once, then reused across clients
     assert len(gateway.created_subscriptions) == 2
@@ -142,7 +142,7 @@ async def test_subscription_price_is_tax_inclusive(
     cid = await client_id(db)
     item = await _sub_item(db, price=5000)
     pm = await _saved_method(db, cid)
-    res = await as_owner.post("/v1/subscriptions", json=_body(cid, item.id, pm.id))
+    res = await as_owner.post("/v1/subscriptions", json=_body(cid, item.id, pm.id), headers=key())
     assert res.status_code == 201, res.text
     # BC + tax-registered: GST 5% + PST 7% on 5000 → 600 tax → a 5600 tax-inclusive Price
     assert gateway.created_price_amounts == [5600]
@@ -157,7 +157,7 @@ async def test_subscription_price_and_renewal_follow_the_item_tax_class(
     item.tax_class = "federal_only"
     await db.flush()
     pm = await _saved_method(db, cid)
-    ok = await as_owner.post("/v1/subscriptions", json=_body(cid, item.id, pm.id))
+    ok = await as_owner.post("/v1/subscriptions", json=_body(cid, item.id, pm.id), headers=key())
     assert ok.status_code == 201, ok.text
     assert gateway.created_price_amounts == [5250]
     gateway.pay_invoice("in_class", "pi_class_sub", 5250)
@@ -184,7 +184,7 @@ async def test_cached_price_is_replaced_when_the_taxed_amount_changes(
 
     async def subscribe(n: int) -> None:
         res = await as_owner.post(
-            "/v1/subscriptions", json=_body(clients[n], item.id, methods[n].id)
+            "/v1/subscriptions", json=_body(clients[n], item.id, methods[n].id), headers=key()
         )
         assert res.status_code == 201, res.text
 
@@ -239,9 +239,9 @@ async def test_duplicate_active_subscription_conflicts(
     cid = await client_id(db)
     item = await _sub_item(db)
     pm = await _saved_method(db, cid)
-    r1 = await as_owner.post("/v1/subscriptions", json=_body(cid, item.id, pm.id))
+    r1 = await as_owner.post("/v1/subscriptions", json=_body(cid, item.id, pm.id), headers=key())
     assert r1.status_code == 201, r1.text
-    r2 = await as_owner.post("/v1/subscriptions", json=_body(cid, item.id, pm.id))
+    r2 = await as_owner.post("/v1/subscriptions", json=_body(cid, item.id, pm.id), headers=key())
     assert r2.status_code == 409, r2.text
     assert len(gateway.created_subscriptions) == 1  # the duplicate never minted a second Stripe sub
 
@@ -306,7 +306,7 @@ async def test_create_with_non_subscription_item_409(
     cid = await client_id(db)
     item = await _sub_item(db, kind="service")
     pm = await _saved_method(db, cid)
-    res = await as_owner.post("/v1/subscriptions", json=_body(cid, item.id, pm.id))
+    res = await as_owner.post("/v1/subscriptions", json=_body(cid, item.id, pm.id), headers=key())
     assert res.status_code == 409
 
 
@@ -315,7 +315,7 @@ async def test_create_missing_interval_422(as_owner: httpx.AsyncClient, db: Asyn
     cid = await client_id(db)
     item = await _sub_item(db, interval=None, frequency=None)
     pm = await _saved_method(db, cid)
-    res = await as_owner.post("/v1/subscriptions", json=_body(cid, item.id, pm.id))
+    res = await as_owner.post("/v1/subscriptions", json=_body(cid, item.id, pm.id), headers=key())
     assert res.status_code == 422
 
 
@@ -325,7 +325,9 @@ async def test_create_unknown_payment_method_404(
     await enable_payments(db)
     cid = await client_id(db)
     item = await _sub_item(db)
-    res = await as_owner.post("/v1/subscriptions", json=_body(cid, item.id, "pm_nope"))
+    res = await as_owner.post(
+        "/v1/subscriptions", json=_body(cid, item.id, "pm_nope"), headers=key()
+    )
     assert res.status_code == 404
 
 
@@ -333,7 +335,7 @@ async def test_staff_cannot_create_subscription(
     as_staff: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     cid = await client_id(db)
-    res = await as_staff.post("/v1/subscriptions", json=_body(cid, "it_x", "pm_x"))
+    res = await as_staff.post("/v1/subscriptions", json=_body(cid, "it_x", "pm_x"), headers=key())
     assert res.status_code == 403
 
 
@@ -762,7 +764,7 @@ async def test_create_without_stripe_connected_409(
     cid = await client_id(db)
     item = await _sub_item(db)
     pm = await _saved_method(db, cid)
-    res = await as_owner.post("/v1/subscriptions", json=_body(cid, item.id, pm.id))
+    res = await as_owner.post("/v1/subscriptions", json=_body(cid, item.id, pm.id), headers=key())
     assert res.status_code == 409
     assert gateway.created_subscriptions == []
 
@@ -774,7 +776,9 @@ async def test_create_unknown_or_foreign_client_404(
     item = await _sub_item(db)
     foreign = await factory.client(business=await factory.business())
     for cid in ("cl_nope", foreign.id):
-        res = await as_owner.post("/v1/subscriptions", json=_body(cid, item.id, "pm_x"))
+        res = await as_owner.post(
+            "/v1/subscriptions", json=_body(cid, item.id, "pm_x"), headers=key()
+        )
         assert res.status_code == 404
 
 
@@ -782,7 +786,7 @@ async def test_create_unknown_item_404(as_owner: httpx.AsyncClient, db: AsyncSes
     await enable_payments(db)
     cid = await client_id(db)
     pm = await _saved_method(db, cid)
-    res = await as_owner.post("/v1/subscriptions", json=_body(cid, "it_nope", pm.id))
+    res = await as_owner.post("/v1/subscriptions", json=_body(cid, "it_nope", pm.id), headers=key())
     assert res.status_code == 404
 
 
@@ -797,7 +801,7 @@ async def test_staff_cannot_cancel_subscription(
 @pytest.mark.parametrize("path", ["/v1/subscriptions", "/v1/subscriptions/sub_x/cancel"])
 async def test_writes_need_a_session_401(unauth: httpx.AsyncClient, path: str) -> None:
     body = {"client_id": "cl_x", "item_id": "it_x", "payment_method_id": "pm_x"}
-    assert (await unauth.post(path, json=body)).status_code == 401
+    assert (await unauth.post(path, json=body, headers=key())).status_code == 401
 
 
 async def test_a_cached_price_gone_from_stripe_is_replaced(
@@ -809,7 +813,7 @@ async def test_a_cached_price_gone_from_stripe_is_replaced(
     item.stripe_price_id = "price_deleted"
     await db.flush()
     pm = await _saved_method(db, cid)
-    res = await as_owner.post("/v1/subscriptions", json=_body(cid, item.id, pm.id))
+    res = await as_owner.post("/v1/subscriptions", json=_body(cid, item.id, pm.id), headers=key())
     assert res.status_code == 201, res.text
     await db.refresh(item)
     assert item.stripe_price_id == gateway.created_prices[-1] != "price_deleted"
@@ -836,7 +840,7 @@ async def _renew(
 async def _subscribe(as_owner: httpx.AsyncClient, db: AsyncSession, item: Item) -> None:
     cid = await client_id(db)
     pm = await _saved_method(db, cid)
-    ok = await as_owner.post("/v1/subscriptions", json=_body(cid, item.id, pm.id))
+    ok = await as_owner.post("/v1/subscriptions", json=_body(cid, item.id, pm.id), headers=key())
     assert ok.status_code == 201, ok.text
 
 
@@ -1038,7 +1042,7 @@ async def test_a_new_membership_names_the_business_and_client_on_stripe(
     cid = await client_id(db)
     item = await _sub_item(db)
     pm = await _saved_method(db, cid)
-    ok = await as_owner.post("/v1/subscriptions", json=_body(cid, item.id, pm.id))
+    ok = await as_owner.post("/v1/subscriptions", json=_body(cid, item.id, pm.id), headers=key())
     assert ok.status_code == 201, ok.text
     assert gateway.subscription_metadata[gateway.created_subscriptions[-1]] == {
         "business_id": BIZ,
@@ -1129,7 +1133,7 @@ async def test_a_membership_charges_the_platform_fee_at_the_charge_rate(
     pm = await _saved_method(db, cid, method=method)
     pm.mandate_status = "active"
     await db.flush()
-    ok = await as_owner.post("/v1/subscriptions", json=_body(cid, item.id, pm.id))
+    ok = await as_owner.post("/v1/subscriptions", json=_body(cid, item.id, pm.id), headers=key())
     assert ok.status_code == 201, ok.text
     assert gateway.subscription_fee_percents[gateway.created_subscriptions[-1]] == percent
 
@@ -1187,6 +1191,42 @@ async def test_archiving_a_client_ends_their_memberships_at_period_end(
     assert sub.status == "active"  # it bills nothing more and ends when Stripe says so
 
 
+async def test_restoring_a_client_keeps_their_memberships_renewing(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await enable_payments(db)
+    sub = await _active_sub(db, "sub_restore")
+    archived = await as_owner.post(f"/v1/clients/{sub.client_id}/archive", headers=key())
+    assert archived.status_code == 200, archived.text
+    restored = await as_owner.post(f"/v1/clients/{sub.client_id}/restore", headers=key())
+    assert restored.status_code == 200, restored.text
+    assert gateway.kept_subscriptions == ["sub_restore"]
+
+
+async def test_a_card_a_membership_bills_cannot_be_removed(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await enable_payments(db)
+    sub = await _active_sub(db, "sub_card_in_use")
+    pm = await _saved_method(db, sub.client_id, ref="pm_in_use")
+    sub.payment_method_id = pm.id
+    ended = await _seed_sub(db, ref="sub_card_ended", status="canceled")
+    ended.payment_method_id = pm.id
+    await db.flush()
+    pm_id = pm.id
+    refused = await as_owner.delete(f"/v1/payments/methods/{pm_id}")
+    assert (refused.status_code, refused.json()["error"]) == (409, "payment_method_in_use")
+    assert gateway.detached == []
+    await db.execute(
+        update(Subscription)
+        .where(Subscription.provider_ref == "sub_card_in_use")
+        .values(status="canceled")
+    )
+    removed = await as_owner.delete(f"/v1/payments/methods/{pm_id}")
+    assert removed.status_code == 200, removed.text
+    assert gateway.detached == ["pm_in_use"]
+
+
 async def test_archiving_clients_in_bulk_ends_their_memberships_at_period_end(
     as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
 ) -> None:
@@ -1229,7 +1269,9 @@ async def test_a_price_edit_leaves_existing_members_on_their_price(
     assert edited.status_code == 200, edited.text
     newcomer = await _new_client(db, name="Newcomer")
     pm = await _saved_method(db, newcomer, ref="pm_newcomer")
-    ok = await as_owner.post("/v1/subscriptions", json=_body(newcomer, item.id, pm.id))
+    ok = await as_owner.post(
+        "/v1/subscriptions", json=_body(newcomer, item.id, pm.id), headers=key()
+    )
     assert ok.status_code == 201, ok.text
     assert gateway.subscription_prices[first] == old_price
     assert gateway.subscription_prices[gateway.created_subscriptions[-1]] != old_price
