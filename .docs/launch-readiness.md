@@ -2,7 +2,7 @@
 
 The launch QA plan: a pass across every product surface, as 9 areas and 63 tickets. Most of the product is built, so the work is to test each area, fix what comes up and move on. Each ticket is one outcome a business can rely on, and it passes when its QA steps pass on the platforms it names. Each lists the e2e cases that prove it, the cases still to write and what can only be checked by hand.
 
-Linear tracks status: the [Launch QA initiative](https://linear.app/clientbridgeca/initiative/launch-qa-2ad161486768) in the `clientbridgeca` workspace, team Engineering (key `CB`). Each area is a project, each ticket an issue whose description is the ticket's text below, and each dependency a `blocks` relation. The [Launch QA board](https://linear.app/clientbridgeca/view/e48dd1630428) shows every ticket by state.
+Linear tracks status: the [Launch QA initiative](https://linear.app/clientbridgeca/initiative/launch-qa-2ad161486768) in the `clientbridgeca` workspace, team Engineering (key `CB`). Each area is a project, each ticket an issue whose description is the ticket's text below, and each dependency a `blocks` relation. The [Launch QA board](https://linear.app/clientbridgeca/view/e48dd1630428) is the one place to work from. Its columns come from an Order label: 1. Test now (nothing needs to pass first), 2. After sign-up or store builds, and 3. After onboarding. Work the columns left to right; a ticket leaves the board when it passes, and its status icon shows whether it is being tested or fixed.
 
 ## How tickets work
 
