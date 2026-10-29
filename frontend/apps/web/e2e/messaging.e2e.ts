@@ -113,7 +113,7 @@ test("MSG-E2E-03 a message the provider refused keeps its draft and a retry send
     await signIn(page);
     const client = await messageFixture(page);
     // a number set aside for fiction, which the dev text transport refuses like a carrier
-    const refused = "+12505550142";
+    const refused = "+18675550142";
     await renumber(page, client, refused);
     const dialog = await composeMessage(page, client);
     const input = dialog.getByRole("textbox", { name: s.newMessageTitle, exact: true });

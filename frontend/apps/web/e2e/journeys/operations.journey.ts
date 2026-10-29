@@ -87,7 +87,7 @@ test("FLOW-10-A a desk payment is traceable in the operator console's ledger and
         data: {
             name: demoPerson(randomUUID()),
             // a number set aside for fiction, which the dev text transport refuses
-            phone: "+12505550142",
+            phone: "+18675550143",
         },
     });
     expect(created.status(), await created.text()).toBe(201);
