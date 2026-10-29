@@ -45,7 +45,8 @@ def cloud_stack() -> None:
     import pulumi_gcp as gcp
 
     stack = environments.load_cloud()
-    services.require(services.create(stack.project))
+    approved = pulumi.Config().get_bool("googleBusinessEnabled") or False
+    services.require(services.create(stack.project, approved))
     project_number = gcp.organizations.get_project_output(project_id=stack.project).number
     quotas.create(stack.project, stack.region, stack.alert_email)
     net = network.create(stack.region)

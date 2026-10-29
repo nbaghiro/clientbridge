@@ -13,5 +13,5 @@ PRs #39, #43 and #45 shipped the code; their own progress log is in git history 
 
 ## Phase 1: outside setup
 
-- 1.1 — gcloud and ADC reauthenticated. The cloud stack enables the Business Profile APIs whatever `googleBusinessEnabled` says and exports `projectNumber`; infra suite 123 passed. Pending: an administrator's preview and apply, then the project number below.
-  - Project number: _pending apply_
+- 1.1 — Applied 2026-10-29. The cloud stack enables Cloud KMS and the Business Profile APIs whatever `googleBusinessEnabled` says, except `mybusiness.googleapis.com` (the v4 reviews API): Google refused to enable it (403) before approval, so it now waits for the flag. Only the API services were applied (`--target`); the cloud stack's other pending changes (the `max_slot_wal_keep_size` flag on Cloud SQL, the `ledger-drift` metric filter and the `webhook-rejections` metric and alert) are still to apply.
+  - Project number: 162823908109

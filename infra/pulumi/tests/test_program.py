@@ -1529,7 +1529,7 @@ def test_no_route_matches_by_method(stacks: dict[str, Built]) -> None:
                 )
 
 
-def test_business_profile_apis_are_always_on_and_the_key_is_gated() -> None:
+def test_business_profile_apis_are_on_and_reviews_and_the_key_wait_for_the_flag() -> None:
     disabled = build_cloud()
     assert not any("google-business" in item.name for item in disabled.resources)
     enabled = build_cloud({"clientbridge:googleBusinessEnabled": "true"})
@@ -1554,10 +1554,11 @@ def test_business_profile_apis_are_always_on_and_the_key_is_gated() -> None:
         {item.inputs["service"] for item in of_type(built, "gcp:projects/service:Service")}
         for built in (disabled, enabled)
     )
-    assert disabled_apis == enabled_apis == set(services.APIS)
+    assert disabled_apis == set(services.APIS)
+    assert enabled_apis == set(services.APIS) | set(services.AFTER_APPROVAL)
+    assert "mybusiness.googleapis.com" in enabled_apis - disabled_apis
     assert {
         "cloudkms.googleapis.com",
-        "mybusiness.googleapis.com",
         "mybusinessaccountmanagement.googleapis.com",
         "mybusinessbusinessinformation.googleapis.com",
     } <= disabled_apis
