@@ -152,6 +152,7 @@ def cloud_stack() -> None:
     pulumi.export("workloadIdentityProvider", ci.provider.name)
     pulumi.export("builderServiceAccount", ci.builder.email)
     pulumi.export("playPublisher", publisher.email)
+    pulumi.export("projectNumber", project_number)
 
 
 def environment_stack(name: str) -> None:

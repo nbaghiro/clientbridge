@@ -1,197 +1,422 @@
-# Google Business Profile reviews implementation plan
+# Google reviews: finish and launch plan
 
-## Approved execution scope — 2026-10-20
+Proposed 2026-10-29 from an audit of `main` at `8a41a363`. It continues the first execution (PRs #39, #43 and #45); its research plan, schema proposal and task queue are in git history at `9e49d5d2`. Nothing here is approved yet: the Phase 0 decisions and each schema change need explicit approval before work starts (CLAUDE.md). Backend paths are relative to `backend/src/clientbridge/` and frontend paths to `frontend/`.
 
-The user approved continuous implementation on a new branch from main, without commits, pushes or PRs. Implement the final two-table slice in schema.md, including removal of the manual URL column. Preserve existing invitation settings and history; use the existing durable delivery queue. Complete OAuth, discovery, location selection, online reviews, durable explicit replies and reconnect/disconnect on web and mobile. Finish with full validation and a consenting live pilot when external prerequisites are ready.
+## Goal
 
-This scope supersedes broader proposals below: Pub/Sub, additional scheduling columns and production rollout are deferred. Cloud preview is in scope; cloud apply and production migrations are not. The unlinked setup card, disabled integration, empty connected profile and recoverable errors are distinct UI states. Live Google content/recipient actions require specific authorization. See runbook.md for setup, pilot and recovery, and progress.md for actual evidence.
+The plan is finished when Google reviews arrive on every surface below, in production and in the demo, for every business whose owner connects a Google Business Profile. No owner or admin sees "Google reviews are coming soon" outside a deliberate pause (3.15), and staff never see Reviews, by design. Every row has automated coverage (Phase 9) and passes the final walk (10.6).
 
-Status: ready for implementation planning review. Research checked 2026-10-18 against official Google and Pulumi documentation. This branch contains the execution plan and internal collection removal, not a deployed Google API integration. Follow [tasks](tasks.json), [schema proposal](schema.md), and [progress](progress.md).
+| Surface                                              | Done when                                                                                                                                      | Today                                                                                                                    | Steps                               |
+| ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ----------------------------------- |
+| Inbox → Reviews, web and mobile                      | Connect and choose a location; rating, count and reviews; replies with their moderation state; the invitation setting, suggestions and history | Built; never run against Google or on a device                                                                           | 3.1-3.11, Phase 4, 5.2-5.5, 6.1-6.5 |
+| Today, web and mobile                                | Rating, count and unanswered reviews, linking to Reviews; a connect prompt until connected                                                     | Nothing                                                                                                                  | 3.13, 4.7, 5.6, 6.6                 |
+| Client record, web and mobile                        | "Ask for a Google review", disabled with the reason when the client can't be asked                                                             | Nothing                                                                                                                  | 4.7, 5.8, 6.6                       |
+| Completed visit, booking and receipt, web and mobile | "Ask for a Google review" for that booking                                                                                                     | Only the suggestions list in Reviews                                                                                     | 4.7, 5.8, 6.6                       |
+| Setup and the setup checklist, web and mobile        | Connection status and the invitation setting, visible before connecting; a "Connect Google reviews" task                                       | The setting is hidden until connected                                                                                    | 5.7, 6.6                            |
+| Command palette (web) and shell links (both)         | Each opens Reviews                                                                                                                             | The `reviews` link target exists and nothing uses it (`apps/web/src/lib/links.ts:24`, `apps/mobile/src/links.ts:96-101`) | 5.1, 6.6                            |
+| Notifications: push (mobile) and the feed (both)     | A new or changed review alerts owners and admins and opens Reviews                                                                             | Nothing                                                                                                                  | 3.12, 5.10, 6.7                     |
+| The client's text message                            | One neutral text with the location's Google review link and opt-out wording                                                                    | No opt-out wording; sent at 08:00, inside quiet hours                                                                    | 3.7                                 |
+| Connect post-visit page and receipt                  | "Review us on Google" for every client with a completed visit                                                                                  | Nothing                                                                                                                  | 7.1                                 |
+| Demo businesses                                      | Every row above, with simulated reviews                                                                                                        | "Coming soon"                                                                                                            | 3.14                                |
+| Local, staging and production                        | The connect card, never "coming soon" by accident                                                                                              | "Coming soon" everywhere                                                                                                 | 1.5, 1.11, 2.6, 3.15, 10.3          |
 
-Build a Google connection that lets an owner choose their business location, read its Google reviews, publish and manage replies, and send neutral review invitations after appointments. Remove Clientbridge feedback collection entirely; retain invitation history separately from Google content. Provision supporting cloud resources with the existing Python Pulumi program; Google API access approval and OAuth configuration remain explicit operator tasks.
+## Where it stands
 
-## Scope and product decisions
+Google reviews is built but has never run against Google. The first execution shipped OAuth with PKCE and session binding, one location per business, live review reads, durable reply operations reconciled by reading back, and neutral SMS invitations, on web and mobile. Nothing outside the code exists: no Business Profile API access, no OAuth client for it, no consent configuration, no applied cloud resources, and no live or device test. All 19 review e2e families are open, 8 of them P0.
 
-- First release: one Google location per Clientbridge business, with account/location selection, reconnect/disconnect, paginated review viewing, Google-provided rating/count, explicit reply create/edit/delete, refresh status, background invalidation and appointment invitations. Different businesses may select different locations from one Google account. Reject a location already actively bound to another business in the same environment.
-- Keep Google review reads online-only and invitation history synced. Remove internal feedback collection, approval, publication, replies and public testimonials. Never fabricate client or booking matches from Google reviewer names.
-- Send neutral invitations directly to Google. There is no internal rating or feedback form. No incentives, suggested positive ratings, automatic customer review creation, or automatic owner replies.
-- Use Google-supplied review links where available, with the existing manually configured link as a clearly labelled fallback. A link click means a visit to Google, not a posted review or a conversion. Do not match an invitation to a public review without a reliable identifier; Google does not provide that attribution in these APIs.
-- Exclude listing editing, profile creation/claiming/verification, agency APIs, AI replies, review deletion, public Google testimonial widgets, exports, sentiment analysis, historical rating analytics and multi-location rollups. These would need separate product and policy decisions.
+| Area    | State                                                                                        | Where                                                                          |
+| ------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| Backend | Built: 13 routes under `/v1/reviews`, two server-only tables, two jobs                       | `{api,schemas,services,models}/reviews.py`, `integrations/google_business.py`  |
+| Web     | Built: Inbox → Reviews tab, owners and admins only                                           | `apps/web/src/pages/Reviews.tsx`                                               |
+| Mobile  | Built, same tab; never run on a device; one Android bug (6.1)                                | `apps/mobile/src/screens/Reviews.tsx`                                          |
+| Shared  | One view-model and 85 `reviews.*` catalog messages                                           | `packages/app-core/src/domain/reviews.ts`                                      |
+| Connect | Nothing, by decision                                                                         |                                                                                |
+| Infra   | Gated by `googleBusinessEnabled`, which no stack sets; never applied; no Pub/Sub or alerts   | `infra/pulumi/cloud/google_business.py`, `infra/pulumi/kubernetes/settings.py` |
+| Google  | Nothing: no API access, OAuth client or consent screen                                       | Phase 1                                                                        |
+| Tests   | Backend suites pass against fakes; web e2e uses mocked routes; Maestro reaches "unavailable" | `backend/tests/test_reviews*.py`, `apps/web/e2e/shell.e2e.ts:1392`             |
+| Demo    | Every demo business shows "unavailable": no connection rows and no product-side fake         | `backend/tests/google_business.py` (test-only fakes)                           |
 
-Google prohibits selectively soliciting positive reviews. The cleanup in this branch removes the former published-only Google prompt. [Google Maps contribution policy](https://support.google.com/contributionpolicy/answer/7400114?hl=en)
+## Where it lives in the apps
 
-## Original repository audit (before removal)
+Both apps put Reviews in Inbox as a segment only owners and admins see: web at `/inbox?segment=reviews` (`apps/web/src/pages/Inbox.tsx:55-82`, `packages/app-core/src/domain/navigation.ts:140-146`), mobile in the Inbox tab (`apps/mobile/src/screens/Inbox.tsx:62-85`). The OAuth callback returns web users to that tab and native users to `clientbridge://reviews/google` (`services/reviews.py:716-719`).
 
-| Area                   | Existing code and consequence                                                                                                                                                                                                  |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Internal reviews       | `backend/src/clientbridge/{models,schemas,api,services}/reviews.py`: client-linked requests and submissions, local replies, hide/publish and a misleading `sent_to_google` flag. Do not import Google reviews into these rows. |
-| Appointment automation | `services/reviews.py::run_review_requests`: 8 a.m. business time, completed bookings from seven days, booking deduplication. UI manual requests currently omit booking IDs.                                                    |
-| Customer flow          | `services/public.py::PublicReviewService`, Connect `PublicReview.tsx`, shared `publicReview.ts`: 1–3 stars held by default, Google link supplied only after publication.                                                       |
-| Shared UI              | `app-core/src/domain/reviews.ts` plus web/mobile Reviews: a common view-model already exists; settings disappear in the empty state and saving an untouched stored URL clears it.                                              |
-| Delivery               | `services/notifications.py` sends review requests directly. Reuse the queue/transport boundaries in `services/deliveries.py`; do not pretend a requested row proves delivery.                                                  |
-| Infrastructure         | `infra/pulumi/Pulumi.cloud.yaml` targets `clientbridge-platform`, `us-east1`, currently staging only. Cloud stack owns APIs, workload identities, secrets and shared resources; environment stacks own deployments.            |
-| Google sign-in         | `kubernetes/settings.py` sends existing `GOOGLE_OAUTH_*` values to Kratos. GBP authorization is a separate integration and separate credentials; it must not alter sign-in.                                                    |
-| Secrets                | `cloud/secrets.py` provisions containers and readers, never values; `secrets_init.py` provisions generated values. Preserve that boundary.                                                                                     |
+Keep that home. Reviews are client communication, both apps already agree, and the top-level Reviews item in `.docs/design/app-explorer.html:293` predates the five-destination nav. Every other surface in the goal is missing today.
 
-## Google prerequisites and operator setup
+## Phase 0: decide
 
-### Access approval
+Each decision has a recommendation; the steps that depend on it name it.
 
-An operator must confirm a verified Business Profile active for at least 60 days, its matching business website, and their owner/manager access. Obtain the numeric project number for `clientbridge-platform`, apply for Basic API Access using that project and an appropriate profile owner/manager email, and retain the approval evidence. Google documents zero quota as unapproved and 300 QPM as an approval indicator; record actual quotas per service rather than treating that number as a universal limit. [Prerequisites](https://developers.google.com/my-business/content/prereqs)
+| #    | Decision                            | Recommendation                                                                                                                                                                                                                      |
+| ---- | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0.1  | Home for Reviews                    | Keep Inbox → Reviews and add the other surfaces in the goal.                                                                                                                                                                        |
+| 0.2  | Invitation send time                | 09:00 business time, when quiet hours end (`services/business.py:161-168`). The job runs at 08:00 today, inside the window broadcasts respect. A per-business hour is a later schema change.                                        |
+| 0.3  | Opt-out wording in the invitation   | Add it, as broadcasts do: `{business}: Thanks for choosing us! Leave a review on Google: {link} Reply {keyword} to opt out.` A review request is likely a commercial electronic message under CASL; confirm with counsel (1.8).     |
+| 0.4  | Invitations that can't be texted    | Refuse a manual request with a specific code and skip an automatic one, without recording a request or starting the 30-day cooldown. Today both record a request, and a manual one returns 201, even when no text is queued.        |
+| 0.5  | Clients sharing a phone number      | One invitation per number per 30 days, matching the one-per-number rule `fix/messaging-shared-numbers-and-limits` adds for broadcasts and class messages.                                                                           |
+| 0.6  | Google's grant on disconnect        | Revoke it when the disconnecting user has no other active connection, otherwise unlink locally. Allow disconnect while the feature flag is off. Google's API policies require giving up access when a client disassociates.         |
+| 0.7  | Reply operations stuck in `unknown` | Let the owner dismiss one after its first failed read-back and offer Google's `reviewReplyUrl`. Today it blocks that review for up to 7 days.                                                                                       |
+| 0.8  | Lapsed plan (PLN09, REV16)          | Cancel queued reply operations at lapse; disconnect stays allowed (`api/plans.py:43`).                                                                                                                                              |
+| 0.9  | Scope                               | Every surface in the goal ships before the production allowlist is emptied (10.3), including new-review alerts by polling, the Today card, the Connect link and the demo simulator. Pub/Sub, review photos and multi-location wait. |
+| 0.10 | Production pilot                    | A settings allowlist of business IDs for the first production weeks (3.10).                                                                                                                                                         |
+| 0.11 | Google project                      | Keep `clientbridge-platform`. Its consent screen is shared with Google sign-in (operations.md, "Google OAuth"), whose basic scopes are unaffected by adding `business.manage`.                                                      |
+| 0.12 | Cloud changes                       | Make every change in the Pulumi program (`infra/pulumi/`), as the rest of the platform is: APIs, keys, grants, secrets, DNS records, alerts and stack flags. Use the console only where Google has no API (see below).              |
 
-Existing Pulumi files do not prove live approval. A read-only inspection on 2026-10-18 failed because gcloud requires reauthentication. The operator's first steps are:
+Two schema changes follow, each to be presented with exact DDL, data impact and rollback: a partial unique index on `review_requests` (3.9) and, for alerts, a review watermark on `google_business_connections` (3.12). Nothing else here changes the schema.
 
-```sh
-gcloud auth login
-gcloud projects describe clientbridge-platform --format='value(projectNumber)'
-gcloud services list --enabled --project=clientbridge-platform --format='value(config.name)'
-```
+### Infrastructure as code (0.12)
 
-Inspect GBP quotas in Cloud Console and record status in progress.md. Keep API enablement behind a Pulumi feature configuration until approval, so an unavailable restricted API cannot block unrelated cloud deployments. Do not submit access applications or claim their approval automatically.
+Nothing is enabled, created, granted or edited by hand in the Cloud console or with a `gcloud` command that writes. A change goes in a pull request to `infra/pulumi/`. An administrator applies the cloud stack (`Pulumi.cloud.yaml` says so), and `deploy.yml` applies the environment stacks. Provider credentials reach Secret Manager only through `providers_init.py`. `gcloud` is used only to sign in and to read.
 
-### OAuth configuration
+Google has no API for four things, so they stay in the console, as the sign-in OAuth clients and the Firebase terms already do (operations.md, "Google OAuth" and "Mobile app"):
 
-Create dedicated Web application OAuth clients for staging and production in the approved project. Use the Google Auth Platform console for branding, audience, data access, clients and verification. Configure authorized domains, public homepage, privacy policy, terms, support email and developer contacts. Request `https://www.googleapis.com/auth/business.manage`; check its actual classification in the project's Data Access screen and complete whatever brand/data-access verification Google requires. Do not assume it is a restricted scope or promise a particular approval timeline. Prepare a demonstration of connect, location selection, review viewing, deliberate reply publishing and disconnect. [Setup](https://developers.google.com/my-business/content/basic-setup), [verification preparation](https://developers.google.com/identity/protocols/oauth2/production-readiness/sensitive-scope-verification)
+| Console-only                                                                                 | Why                                                                                                                                                       | What goes through code                                                     |
+| -------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| The Basic API Access application (1.3)                                                       | A support form; approval arrives as quota, not as a quota preference that `cloud/quotas.py` could request                                                 | The APIs it covers (1.1), the quota check and the quota alert (2.5)        |
+| Consent screen: branding, audience, data access, publishing status and test users (1.4, 1.6) | Google Auth Platform has no API or Pulumi resource for an External app; the IAP brand API was the only one, covered only Internal apps, and is deprecated | The Search Console verification record for `clientbridge.ca` (1.4)         |
+| OAuth clients for the review callback (1.5)                                                  | Same; the IAP client API covered only IAP's own brand                                                                                                     | Their ID and secret, through `providers_init.py` into Secret Manager (2.4) |
+| Google Business Profile manager access (1.2, 1.10)                                           | Owned by the businesses, not the Cloud project                                                                                                            | Nothing                                                                    |
 
-Register exact callbacks:
+Record each console setting in operations.md (8.1), so it can be checked and recreated. If Google ships an API or Pulumi resource for any of them, move it into the cloud stack.
 
-- Staging: `https://api.staging.clientbridge.ca/v1/google-business/callback`
-- Production: `https://api.clientbridge.ca/v1/google-business/callback`
-- Development: a separate developer client and explicitly registered localhost callback, never a wildcard or production callback override.
+## Phase 1: outside setup
 
-Use server-side authorization-code exchange and offline access. Google OAuth Testing grants with this scope have seven-day refresh-token expiry; staging must exercise reconnect, and production launch must verify the appropriate publishing state. OAuth consent/publishing is project-level: separate clients in this shared project do not create independent test/production consent configurations. If independent consent lifecycles become necessary, provision and request approval for a separate developer-owned project rather than silently splitting the existing infrastructure. [OAuth web server flow](https://developers.google.com/identity/protocols/oauth2/web-server), [token lifetime](https://developers.google.com/identity/protocols/oauth2)
+Start on day one. Google publishes no timeline for its approvals, and they gate every live step; Phases 2 to 9 proceed alongside.
 
-Use console-created credentials as an explicit bootstrap input. Pulumi's similarly named `gcp.iam.OauthClient` targets Workforce Identity Federation, not a consumer Google Auth Platform client. Do not substitute it or an IAP client. [Pulumi resource scope](https://www.pulumi.com/registry/packages/gcp/api-docs/iam/oauthclient/)
+**1.1 Get into the Cloud project and enable the APIs from code.** Run `gcloud auth login` and `gcloud auth application-default login`. The last attempt failed with `invalid_rapt`. Then, in one pull request to `infra/pulumi/`:
 
-### APIs to enable through Pulumi
+- Enable the Business Profile APIs whatever the flag says. Move `cloud/google_business.APIS` into the always-on list at `cloud/services.py:50-53`, leaving `cloud/google_business.py` to create only the key, which stays behind `googleBusinessEnabled`. Update `test_google_business_resources_are_gated_and_use_a_separate_key` (`tests/test_program.py:1531`) to match. The application form (1.3) and its quota both need the APIs enabled, and turning on an API grants nothing until Google approves the project.
+- Export the project number from the cloud stack. `__main__.py:49` already computes it.
 
-Google's setup body lists seven associated APIs, although its generated summary uses a different count. Follow the named list, not the summary count. [Basic setup](https://developers.google.com/my-business/content/basic-setup)
+An administrator previews and applies the cloud stack. Record `pulumi stack output projectNumber --stack cloud` in progress.md.
 
-| Service ID                                     | Use                                                                              |
-| ---------------------------------------------- | -------------------------------------------------------------------------------- |
-| `mybusiness.googleapis.com`                    | v4 review reads and replies                                                      |
-| `mybusinessaccountmanagement.googleapis.com`   | Account discovery                                                                |
-| `mybusinessbusinessinformation.googleapis.com` | Location discovery and metadata                                                  |
-| `mybusinessnotifications.googleapis.com`       | Review event notifications                                                       |
-| `mybusinessverifications.googleapis.com`       | Required family setup; no verification mutations in scope                        |
-| `mybusinessplaceactions.googleapis.com`        | Required family setup; no application calls planned                              |
-| `mybusinesslodging.googleapis.com`             | Required family setup; no application calls planned                              |
-| `pubsub.googleapis.com`                        | Notification delivery                                                            |
-| `cloudkms.googleapis.com`                      | Dedicated OAuth token encryption key; inspect existing bootstrap ownership first |
+**1.2 Line up a qualifying Business Profile.** The applicant must manage a profile that has been verified and active for 60+ days and lists a website, and needs a Business Profile Organization account and the Cloud project ([prerequisites](https://developers.google.com/my-business/content/prereqs)). Use Clientbridge's own profile if it qualifies, otherwise a pilot business that adds you as a manager. Record the profile, its verification age and the applicant email.
 
-Confirm service IDs against Service Usage during the approved-project preflight. Record unavailable APIs as external blockers; no untracked manual API enablement to bypass Pulumi.
+**1.3 Apply for Basic API Access.** Use the [GBP API contact form](https://support.google.com/business/contact/api_default), choose "Application for Basic API Access", give the project number, and send it from an owner or manager email of that profile. Approval shows as quota on the APIs enabled in 1.1: 0 QPM means not approved, 300 QPM approved. Read it without changing anything, with `gcloud alpha services quota list --service=mybusinessbusinessinformation.googleapis.com --consumer=projects/<number>` or on the APIs page. If Google refuses, fix the gap and reapply. A later quota increase goes through the same form, not `cloud/quotas.py`.
 
-## API contract research
+**1.4 Configure the consent screen** in Google Auth Platform. This is console-only, since there is no API for it. Set:
 
-| Capability         | Google contract                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Accounts           | `GET https://mybusinessaccountmanagement.googleapis.com/v1/accounts`, all pages, maximum 20/page. Expand organization/user-group parents as needed and deduplicate reachable accounts. [Reference](https://developers.google.com/my-business/reference/accountmanagement/rest/v1/accounts/list)                                                                                                                                                                                                    |
-| Locations          | `GET https://mybusinessbusinessinformation.googleapis.com/v1/accounts/{id}/locations`, required `readMask`, all pages. Request only name, title, storefrontAddress and metadata needed for selection. [Reference](https://developers.google.com/my-business/reference/businessinformation/rest/v1/accounts.locations/list)                                                                                                                                                                         |
-| Location metadata  | `GET https://mybusinessbusinessinformation.googleapis.com/v1/locations/{id}?readMask=...`. `metadata.newReviewUri` is the customer review URL; `mapsUri` opens the listing. Handle missing fields and service-area businesses without assuming a storefront address. [Get](https://developers.google.com/my-business/reference/businessinformation/rest/v1/locations/get), [metadata](https://developers.google.com/my-business/reference/businessinformation/rest/v1/accounts.locations#Metadata) |
-| Reviews            | `GET https://mybusiness.googleapis.com/v4/accounts/{account}/locations/{location}/reviews`. Verified locations only, maximum 50/page, `nextPageToken`, default `updateTime desc`; response supplies `averageRating` and `totalReviewCount`. [List](https://developers.google.com/my-business/reference/rest/v4/accounts.locations.reviews/list)                                                                                                                                                    |
-| Single review      | `GET https://mybusiness.googleapis.com/v4/accounts/{account}/locations/{location}/reviews/{review}`. Use for event refresh and ambiguous reply reconciliation. [Review guide](https://developers.google.com/my-business/content/review-data)                                                                                                                                                                                                                                                       |
-| Publish/edit reply | `PUT https://mybusiness.googleapis.com/v4/accounts/{account}/locations/{location}/reviews/{review}/reply`, body `{"comment":"..."}`; verified locations only. [Update](https://developers.google.com/my-business/reference/rest/v4/accounts.locations.reviews/updateReply)                                                                                                                                                                                                                         |
-| Remove own reply   | `DELETE` the same `/reply` URL. It removes the business reply, not the customer's review. [Delete](https://developers.google.com/my-business/reference/rest/v4/accounts.locations.reviews/deleteReply)                                                                                                                                                                                                                                                                                             |
-| Reply limits       | Maximum 4096 UTF-8 bytes; account for multibyte characters in server validation and UI counters. [ReviewReply](https://developers.google.com/my-business/reference/rest/v4/accounts.locations.reviews#ReviewReply)                                                                                                                                                                                                                                                                                 |
-| Notifications      | GET/PATCH `https://mybusinessnotifications.googleapis.com/v1/accounts/{id}/notificationSetting`, `updateMask`, topic and `NEW_REVIEW`, `UPDATED_REVIEW`. Events carry `review_name` and `location_name`. [Setup](https://developers.google.com/my-business/content/notification-setup), [setting](https://developers.google.com/my-business/reference/notifications/rest/v1/NotificationSetting)                                                                                                   |
+- app name, logo, support email, homepage, privacy policy and terms URLs;
+- the authorized domain `clientbridge.ca`;
+- audience External;
+- under data access, `https://www.googleapis.com/auth/business.manage`.
 
-Use an injectable `GoogleBusinessGateway` adapter in `integrations/google_business.py`, typed DTOs and recording boundary fakes. Reuse HTTPX; explicit connect/read timeouts, response size limits, redacted errors and a small mapping from Google's star enums to display values. Preserve returned text and attribution. Never let callers supply an arbitrary upstream URL or unscoped resource path.
+Verify the domain in Search Console with a DNS TXT record. Add the `google-site-verification` value to the cloud stack's DNS config (`cloud/dns.py`, next to `clientbridge:mailRecords`) and apply it; don't add it at the registrar or in Cloud DNS by hand. Record how the console classifies the scope, and every value set here, in operations.md.
 
-## Storage and policy decisions
+**1.5 Create three OAuth clients**, type Web application, separate from the sign-in clients. This is console-only, like the sign-in clients. Each ID and secret goes into Secret Manager through `providers_init.py` (2.4), and the dev pair into `backend/.env`. Never paste one into the Secret Manager console.
 
-Google limits cached content to small performance-oriented amounts, securely stored for at most 30 calendar days, and prohibits manipulation/aggregation of that stored content. It also requires authorized replies, easy disassociation, attribution, and prohibits exposing the project as a third-party programmable proxy. These constraints shape the design below. [GBP API policies](https://developers.google.com/my-business/content/policies)
+- dev: `http://localhost:8701/v1/reviews/google/callback` (`.env.example:39`)
+- staging: `https://api.staging.clientbridge.ca/v1/reviews/google/callback`
+- production: `https://api.clientbridge.ca/v1/reviews/google/callback`
 
-**Proposed implementation:** use bounded Redis entries with a 24-hour absolute TTL for recently requested pages, review details and location display metadata. No permanent Google review table, no PowerSync projection, no persisted mobile/browser query cache, no service-worker cache and no Google text in public profiles, exports, audit payloads, logs, command replay bodies or backups. Google tab responses use `Cache-Control: no-store`; the client keeps only foreground memory and clears it on logout, business switch and disconnect. Redis loss is a cache miss, not data loss. Store and display Google's supplied rating/count unchanged rather than calculate a distribution or combine ratings.
+The route is `/v1/reviews/google/callback` (`api/reviews.py:87`).
 
-Cap cached pages per connection (initial target 10 pages) and global memory; fetch older pages on demand. Absolute age is based on upstream retrieval, never extended by a cache hit. Do not persist reviewer avatars; if used later, preserve attribution and address remote-image privacy first. Store only operational connection identifiers durably, with an explicit retention review for those identifiers. A full persistent review warehouse or public republication requires a different approved design.
+**1.6 Run a consent smoke test now.** Set the publishing status to In production. Like test users, it is a console-only setting. Then consent with a Google account that is neither a test user nor a project member. The OAuth 2.0 Playground with the dev client's credentials is enough, since consent needs no API access. Since July 2026 developers have reported that `business.manage` shows as non-sensitive, offers nothing to verify, and still returns `Error 403: access_denied` to outside users ([thread](https://discuss.google.dev/t/oauth-business-manage-shown-as-non-sensitive-in-auth-platform-but-backend-blocks-all-external-users-with-error-403-access-denied-no-submit-for-verification-path-exists/384175)); no fix had been posted by 2026-10-21. If you hit it:
 
-## Pulumi implementation
+- open a Google Cloud support case citing the thread;
+- run staging and the pilot in Testing, with pilot owners as test users (at most 100, and their refresh tokens expire after 7 days, which the app already turns into Reconnect);
+- treat production as blocked until it is fixed.
 
-| Repository surface                           | Planned change                                                                                                                                                                                                                                                              |
-| -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `environments.py`, stack YAML                | Add default-off GBP provisioning/runtime configuration, validate required callbacks and secret references only when enabled. Shared project quotas apply to both environments.                                                                                              |
-| `cloud/services.py`                          | Add gated GBP API family, Pub/Sub and KMS enablement using existing service dependencies and `disable_on_destroy=False`. Avoid importing/bootstrap-owning the same API twice.                                                                                               |
-| New `cloud/google_business.py`               | Per-environment topic, authenticated push subscription, dead-letter topic/subscription, dedicated push service account and dedicated KMS key. Preserve resources during ordinary application rollback.                                                                      |
-| `__main__.py`                                | Wire resources after services and workload identities; export nonsecret topic names, expected push identity/audience and key resource. Environment stack consumes outputs.                                                                                                  |
-| `cloud/secrets.py`, `kubernetes/settings.py` | Add `GOOGLE_BUSINESS_CLIENT_ID` and `GOOGLE_BUSINESS_CLIENT_SECRET` containers. Restrict readers to API/worker. Existing broad PROVIDED expansion must be split so auth/migration/PowerSync do not inherit these values. Feature-off pods must not mount empty new secrets. |
-| `secrets_init.py` / provider setup           | Document secure insertion of console-generated OAuth credentials through stdin/file, no shell arguments, logs or Pulumi secret versions. No per-customer refresh tokens in Secret Manager or Pulumi state.                                                                  |
-| Backend config and deployment                | Supply feature flag, callback URI, topic, push identity/audience and KMS key name; use workload identity for KMS, never service-account JSON keys.                                                                                                                          |
-| `cloud/observability.py`, infra tests        | Cache/refresh failure, auth failure, queue age, Pub/Sub backlog/DLQ and reply reconciliation alerts; mocked resource assertions for IAM and environment isolation.                                                                                                          |
+If the console asks for verification instead, submit the scope justification and a video showing connect, choosing a location, reading, publishing a reply deliberately, and disconnecting.
 
-Grant topic publisher to `mybusiness-api-pubsub@system.gserviceaccount.com`. The Pub/Sub service agent needs token creation on the dedicated push service account; the provisioning principal needs `actAs` for that account. The API verifies JWT signature, issuer, expiry, exact audience, expected service-account email and `email_verified`; a request merely originating from Google is insufficient. Use the GKE HTTPS API endpoint, not Cloud Run invoker roles. [Notification setup](https://developers.google.com/my-business/content/notification-setup), [authenticated push](https://docs.cloud.google.com/pubsub/docs/authenticate-push-subscriptions)
+**1.7 Update the privacy policy and site copy.** The policy names Google only for sign-in (`apps/site/locales/en-CA.json:1021`). Add what Business Profile access reads, that only an encrypted refresh token is kept, that review content is fetched live and not stored, and how to disconnect and revoke access, as Google's API Services User Data Policy requires. Replace the copy that still describes the manual link ("Save your Google review link…", `apps/site/locales/en-CA.json:389, 853, 1641, 1899, 2391, 2637`), then run `make gen-strings`.
 
-Proposed push endpoint: `https://api.<base>/webhooks/google-business`. Configure retry backoff, 60-second ack deadline, 24-hour message retention and dead-letter forwarding after 10 attempts; verify provider-supported bounds and required DLQ publisher/subscriber grants. Alert on any DLQ message and oldest pending event over 15 minutes. Keep all identifiers environment-scoped.
+**1.8 Clear the messaging rules.** Ask counsel to confirm the invitation text under CASL (sender identified, opt-out included) and, for any US clients, TCPA sending hours. Confirm the Twilio sender registration (A2P 10DLC campaign or toll-free verification) lists review invitations among its use cases and sample messages.
 
-Use a dedicated symmetric KMS key per environment for refresh-token envelope encryption, with API/worker encrypter/decrypter access only. Bind tenant and connection ID as authenticated encryption context. Include key version metadata, rotation and restore tests. Do not reuse the Pulumi state key. Runtime OAuth refresh tokens authorize GBP calls; GKE workload identities alone do not grant access to customers' profiles.
+**1.9 Check brand and review policies.** Show Google's attribution as supplied ("Reviews from Google"), don't imitate the Business Profile interface, follow Google's brand permissions, and imply no partnership ([GBP API policies](https://developers.google.com/my-business/content/policies)). Invitations stay neutral and go to every eligible client. Google's [contribution policy](https://support.google.com/contributionpolicy/answer/7400114) forbids selectively soliciting positive reviews, discouraging negative ones, offering incentives and asking for particular content. Put the no-incentive rule in the business terms.
 
-## Application workflows
+**1.10 Recruit pilot businesses.** Two or three consenting owners with verified profiles: one with enough reviews to page, one service-area business without a storefront address, and one with no reviews if you can find one. Get written consent for reads and for a named reply, edit and delete on a genuine review, plus a designated phone for invitations. Google has no sandbox; never create a review to test with.
 
-### Connect and reconnect
+**1.11 Give developers their own key, in code.** A local run needs `GOOGLE_BUSINESS_KMS_KEY` and ADC that can use it (runbook). Add a `dev` key ring and key to `cloud/google_business.py`, granted encrypter/decrypter to a `clientbridge:googleBusinessDevelopers` list in `Pulumi.cloud.yaml`, and export its ID. Then local runs never touch staging's key, and adding a developer is a one-line pull request rather than a console grant. Cover it in the infra suite.
 
-1. An owner/admin starts `POST /v1/google-business/connect`. Require current membership and CSRF protection for browser sessions. Create short-lived, single-use OAuth state bound to actor, business, environment and an allowlisted return target. Use state entropy, a browser binding and PKCE where supported by the chosen Google client flow; test the exact exchange before launch.
-2. Open Google's consent in the system browser. Callback exchanges the code server-side, validates state and granted scopes, then stores an encrypted pending connection. Recheck the initiator's current role before activation. Never carry Google tokens to web/mobile URLs or logs.
-3. Return an opaque one-time completion handle; web and mobile finalize against their authenticated session. Mobile uses a dedicated verified app/universal link and backend-owned flow binding, not an arbitrary redirect or an embedded webview. Token possession alone cannot switch business ownership.
-4. List accessible accounts/locations and require a deliberate selection. Validate account and location ownership using the credential again at save time. Preserve full v1 location and v4 parent identities; do not confuse a Place ID with a location ID.
-5. `POST /v1/google-business/location` atomically binds the selected location with uniqueness checks. Show no profiles, unverified/inaccessible location, denied consent, wrong account, pending Google approval, quota failure and reconnect-required as distinct states.
-6. Refresh access tokens under a per-connection lease. Preserve an existing refresh token if Google omits a new one. On `invalid_grant`, stop retries, mark reconnect-required and clear cached content. Do not treat every 403 as a revoked token; distinguish API disabled, insufficient permissions and profile restrictions.
+Phase exit: the APIs enabled from the cloud stack; non-zero quota on the Business Profile APIs; three OAuth clients; consent works for an outside account, or the blocker is filed and the Testing fallback recorded; privacy policy and site copy published; counsel's answer recorded; pilots recruited.
 
-Use `api/google_business.py` → `services/google_business.py` → models/adapter; service methods enforce owner/admin and `scoped()` tenancy. Proposed RPCs: status, connect, accounts, locations, select location, refresh and disconnect. Read-only discovery/list GETs are online integration reads; document this explicit exception to the usual PowerSync read path in architecture.md. Mutations are online commands, never offline-outbox actions.
+## Phase 2: infrastructure
 
-### Reviews and replies
+Every step here is a change to `infra/pulumi/` with tests in `infra/pulumi/tests/` (`make lint-infra test-infra`). It is applied by an administrator for the cloud stack and by `deploy.yml` for the environment stacks, never by hand in the console (0.12).
 
-`GET /v1/google-business/reviews` accepts an opaque, connection-bound cursor and a supported Google ordering. Fetch the first page on connection/open; refresh expired entries. Display source, location, Google rating/count and last successful fetch. Offline mode clearly says Google reviews require a connection; never present an old persistent replica as current.
+**2.1 Read the flag at call time.** `kubernetes/settings.py:105-109` reads `googleBusinessEnabled` at import, so the infra suite never sees the enabled path. Move the read into the functions. Then test the enabled path's secret containers, readers, mounts, environment variables, IAM members and `protect`, and add an environment-stack test with the flag on (`infra/pulumi/tests/test_program.py:1531`).
 
-`POST /v1/google-business/replies` and `/replies/delete` take an opaque review identifier, an idempotency key and the last observed reply revision. Publish only after the owner/admin presses a button explicitly labelled for Google. Validate UTF-8 byte length and tenant/resource ownership. Preserve a failed draft in foreground memory and show pending, confirmed, failed or outcome-unknown states.
+**2.2 Limit the secrets to the API and worker.** `GOOGLE_BUSINESS_CLIENT_ID` and `GOOGLE_BUSINESS_CLIENT_SECRET` also reach the migrate step and the demo seed CronJob through `MIGRATE_SECRETS` (`kubernetes/settings.py:123-139`, `kubernetes/seed.py:35-44`). Split them out.
 
-Store a durable operation intent before calling Google, serialize writes per review, and return only an operation ID/status through command replay. Never put upstream review content in generic `commands.response`. On timeout or worker death after sending, read back the current reply before retrying. If it matches the authorized text, finish the operation; if it differs, surface the conflict instead of overwriting an external edit. Recheck authority and connection generation at execution time. Google's documented reply methods provide no compare-and-swap precondition, so there remains a narrow race with external writers; disclose it in the engineering design and never claim exactly-once remote mutation.
+**2.3 Pass the KMS key through the stack reference.** Read the cloud stack's `{env}GoogleBusinessKmsKey` export through the reference the environment stack already holds (`infra/pulumi/__main__.py:160`), and drop the hand-copied `googleBusinessKmsKey`. Fail with a clear message when the environment flag is on but the cloud stack's isn't; today that is a KeyError at `__main__.py:190-193`.
 
-Use a readback before edit/delete to detect stale revisions where possible. Disconnect blocks queued writes and invalidates cache immediately. Reply removal needs an explicit product confirmation; a server-side 404 must be classified between already-absent reply and lost review/location access.
+**2.4 Give the secrets a way in.** Add both to `providers_init.py` (read from stdin, never from arguments), `.env.staging.example` and the settings and secrets tables in operations.md. This is the only way the OAuth client from 1.5 reaches an environment.
 
-### Notifications and reconciliation
+**2.5 Alert on the integration** in `cloud/observability.py`, from the log events in 3.8:
 
-Notification settings are account-scoped, not location-scoped. Read existing settings before changing them. If another topic exists, default to polling and show the conflict; do not silently take over another vendor's notifications. If an operator deliberately switches it, record prior configuration and the exact change authorized. Multiple linked locations on one account share one registration. Staging must not take over a production-connected account.
+- a reply operation `unknown` for over an hour;
+- a failed `process_google_operations` run;
+- a spike in `reconnect_required`;
+- sustained Google 429 or 5xx responses;
+- KMS failures;
+- Business Profile API usage above 80% of the approved quota, from the project's `serviceruntime` quota metrics, as the compute quotas already alert (`cloud/quotas.py`).
 
-Push validates identity and payload, maps `location_name` to an active tenant connection, and inserts a deduplicated work item before returning 2xx. Never trust a payload-provided tenant ID. Unknown/unlinked locations can be acknowledged and ignored without persisting their content. Duplicate/out-of-order events invalidate the relevant cache and coalesce fetches; events are hints, not authoritative review bodies. Existing durable webhook storage needs payload minimization or a dedicated operational queue, not indefinite raw event retention.
+**2.6 Enable staging**, through code, in this order:
 
-Use periodic refresh for active connections and manual refresh with throttling. Initial target: refresh recently viewed first pages every 15 minutes with jitter; bounded cached-page refresh every 24 hours. No account-wide historical prefetch. A review absent from one page is not proof of deletion; discard stale page caches and re-fetch, and confirm individual removals with a detail request. The documented event types have no review-deletion event, so polling/cache expiry remains necessary.
+1. A pull request sets `clientbridge:googleBusinessEnabled: true` in `Pulumi.cloud.yaml`. An administrator previews and applies the cloud stack, which creates the key and the empty secret containers.
+2. Populate the two secrets with `providers_init.py`.
+3. A pull request sets the flag in `Pulumi.staging.yaml`. The merge deploys it through `deploy.yml`.
+4. Check that `GET /v1/reviews/google` returns `disconnected` for an owner, not `unavailable`.
 
-On disconnect, remove only this location's association. Clear the account's notification setting only when no active local bindings remain and the remote setting still equals ours. Never restore a stale previous vendor setting over a newer change. Revoke credentials when safe for the OAuth grant, document that revocation can affect other connections sharing that Google authorization, and provide local unlink even when Google is unavailable. Cleanup/revocation failure becomes a visible retryable operation.
+Production follows in 10.3. The cloud stack lists only staging today (`Pulumi.cloud.yaml:13-14`).
 
-### Appointment invitations
+Phase exit: the infra suite covers the enabled path; staging answers `disconnected`; and the only Google settings made outside code are the four console-only ones in 0.12.
 
-- Preserve appointment identity for manual suggestions and automatic requests; validate that booking and client belong together and that the visit is eligible. Use one normal request per booking, with explicit resend handling rather than duplicate rows.
-- Queue each channel atomically with the request using existing delivery infrastructure. Show queued/accepted/failed/ambiguous separately from link-open/submission states, respect existing SMS stop controls, and inspect email consent/suppression rules before enabling automated outreach. Provider acceptance is not recipient delivery.
-- Add an automation enabled setting, local send hour (default current 8 a.m.) and minimum post-completion delay (default next eligible morning). Preserve the current seven-day catch-up bound; add a proposed 30-day client cooldown across bookings to avoid frequent-visitor spam. Freeze the final defaults in schema approval and test timezone/DST behavior.
-- Render Google settings even with zero reviews. Correct the unchanged-link save behavior. Remove the owner-facing share-as-posted action and badge. Existing `sent_to_google` values cannot be backfilled as verified Google posts.
-- Remove the internal form, tokens, moderation settings/actions, local replies, testimonials, ratings, alerts, embeds and all corresponding contracts and fixtures. Keep only request identity and timestamps; the cleanup migration requires explicit data-deletion approval.
+## Phase 3: backend
 
-## Quotas and operational behavior
+Land `fix/messaging-shared-numbers-and-limits` first; it fast-forwards `main` and ties STOP to the phone number, which 3.7 builds on. Run `make gen-api` after any route or schema change and `make gen-messages` after editing the backend catalog.
 
-Several v1 services document 300 QPM, but configure limits from each approved project's actual quotas, including the separate reviews service. Share distributed rate limits across API and workers, reserve capacity for interactive replies, honor Retry-After and use exponential backoff with jitter for 429/5xx. [Usage limits](https://developers.google.com/my-business/content/limits)
+**3.1 Read Google's 2026 review fields** (`integrations/google_business.py:65-89`). Unknown fields are ignored, so nothing breaks today, but these matter:
 
-Budget example, not a Google guarantee: 1,000 active locations polled once per 15 minutes use about 67 first-page requests/minute before pagination, user reads and retries. Poll only active/viewed data and use notifications to invalidate rather than fetch all history. Expose sanitized error codes and last successful fetch, not provider response bodies. Track request counts, latency, 401/403/429, refresh failures, pending operations, cache age and notification conflicts without reviewer text or high-cardinality PII labels.
+- `reviewReply.reviewReplyState` (PENDING, APPROVED or REJECTED; April 2026) and `policyViolation` (July 2026). Today a reply Google rejects in moderation looks published.
+- `reviewReplyUrl` (July 2026), Google's own reply page for the review.
+- `starRating: STAR_RATING_UNSPECIFIED`, which the strict `Literal` rejects, failing the whole page with a 502.
+- `reviewMediaItems` (April 2026): leave it unparsed until photos have a product decision.
 
-## Delivery phases and acceptance
+Read-back confirms a reply only when its text matches and its state isn't REJECTED. A rejection fails the operation with a new code, `google_reply_rejected`, carrying the violation. Source: [Google's change log](https://developers.google.com/my-business/content/change-log).
 
-| Phase | Work and exit condition                                                                                                                                                                                                      |
-| ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 0     | Confirm API access, consent configuration, live project status and the schema proposal; finalize defaults and cache handling. Recording fakes and contract types can start before external approval.                         |
-| 1     | Pulumi resources, secret wiring and adapter. Mock resource tests prove least privilege, disabled mode and environment separation; approved staging preview shows only intended changes.                                      |
-| 2     | OAuth, location selection, reconnect/disconnect and token encryption. Integration tests cover tenant attacks, replay, expired state, lost membership, pagination and token rotation.                                         |
-| 3     | Online Google review tab in web/mobile with bounded cache. Tests cover missing text, anonymous reviewer, star enums, pagination, Unicode, deleted/edited reviews, no cached content after logout/expiry and accurate totals. |
-| 4     | Authorized reply commands and durable reconciliation. Prove idempotency, concurrent writers, timeout-after-success, worker crash, external edit, revoked grant and UTF-8 boundary behavior.                                  |
-| 5     | Pub/Sub notifications and polling fallback. Prove invalid JWT/audience/email rejection, duplicate delivery, account-topic conflict, tenant mapping, queue recovery and shared-account disconnect.                            |
-| 6     | Neutral invitations, reliable request delivery and settings fixes. Prove all ratings see the Google action, manual/automatic deduplication, resend, suppression, cooldown and timezone handling.                             |
-| 7     | Controlled live pilot, observability, policy/retention review, rollback drill and gradual production rollout. Complete all release gates below.                                                                              |
+**3.2 Return API schemas, not integration models.** `GET /v1/reviews/google/reviews` returns the integration's `GoogleReviews` with `response_model_by_alias=False` (`api/reviews.py:139-141`). The generated client therefore has camelCase types the API never sends, and app-core keeps hand-written types (`packages/app-core/src/domain/reviews.ts:154-187`). Add response schemas to `schemas/reviews.py`: the page, each review, the reply with state and violation, the reply URL, `maps_uri`, and `last_success_at` on availability. Map to them in the service, run `make gen-api`, and use the generated types.
 
-Run backend HTTPX/Postgres tests against a fresh isolated database with boundary fakes and the repository happy/4xx/security/idempotency matrix. Shared hooks get behavioral tests; web/Connect browser and real mobile tests exercise OAuth handoff, empty states and publication errors. Regenerate API/client/catalog artifacts when changed; keep Google content out of sync fixtures. Run `make check`, pre-commit and relevant browser/mobile/PowerSync regression gates per slice. Audit each phase for service tenancy, role gates, external side effects, shared UI logic and secret exposure.
+**3.3 Take Google calls out of locks and cache tokens.** Every read holds the business's advisory lock and a database transaction across KMS and Google calls with 20-second timeouts, and every page load costs a KMS decrypt, a token refresh and a location read.
 
-Google has no GBP sandbox. Use consenting real pilot profiles for read operations and an explicitly authorized reply create/edit/delete on an existing genuine review; never create fake reviews for tests. Do not assume `validateOnly` exists on review reply endpoints. [Testing constraint](https://developers.google.com/my-business/content/basic-setup)
+- Cache the access token in Redis per connection and generation until 60 seconds before it expires; the first schema review allowed this.
+- Cache the location's title, `newReviewUri` and `mapsUri` for 24 hours (Google allows up to 30 days). Status and invitations read the cache.
+- Hold the lock only for state changes: completion, selection, disconnect and claiming operations. In `select`, check the role before taking the lock (`services/reviews.py:401`).
+- Reuse one KMS client and a Redis connection pool instead of creating them per call.
 
-## Rollout and rollback
+**3.4 Make errors mean what they say.**
 
-Feature flags independently control connect, read, write and notifications. Ship schema and disabled code first, populate secrets before enabling mounts, then apply cloud preview and staging. Enable a small business allowlist for read-only pilot before replies and invitations. Acceptance requires successful token refresh beyond the initial access-token lifetime, mobile return, revoked-access recovery, account conflict fallback, no sentiment gating, cache expiry, queued-write cancellation and no secrets/content in logs or persistent replicas.
+- A transient Google or KMS failure on a manual request returns 503 `google_unavailable`, not 409 `google_reconnect_required` (`services/reviews.py:96-102`).
+- Save `reconnect_required` when status sees a 401 (`:297-298`), outside the command's transaction, which currently rolls it back.
+- Use a new `google_reply_pending` for "a reply is already in progress" instead of `google_stale_reply` (`:536`), whose message says the reply changed on Google.
+- In the worker, honour `Retry-After`, back off exponentially with jitter instead of a flat 5 minutes, and cap retries with the `attempts` column, which nothing reads today.
 
-Launch requires recorded API access and OAuth publication/verification status, passing live smoke tests, alerts owned, operational runbooks and explicit schema approval. No fixed delivery date depends on unapproved Google access.
+**3.5 Fix the callback and the connection lifecycle.**
 
-Rollback disables new connections/writes/notifications, drains or cancels outstanding operations, purges Google cache and retains the direct Google-link invitation experience. Internal feedback collection must not be restored. Keep credentials encrypted only as required for authorized cleanup, then revoke/delete on disconnect. Do not drop schema or destroy topics/keys as an application rollback. Inspect current remote notification settings before changing them. Move durable operating guidance into operations.md and architecture.md when complete.
+- An unknown or expired `state` redirects back to the app with a result instead of showing 409 JSON in the browser (`complete_google_callback`, `services/reviews.py:690-695`).
+- `error=access_denied` records `google_consent_denied`, so the apps can say the owner declined.
+- Rate-limit the unauthenticated callback (`core/ratelimit.py`).
+- Disconnect works with the flag off as a local wipe. Today `authorize()` returns 503, so stored tokens can't be erased.
+- Revoke per 0.6 with `gateway.revoke` (`integrations/google_business.py:229`, never called), best effort and never blocking the unlink. Override `revoke` in `FakeGoogle`, which would make a real HTTP call today.
+- Audit authorization completion, location selection, disconnect and the switch to reconnect-required, with identifiers only. Run selection through `run_command`, since it claims a location unique across businesses. The apps already send idempotency keys for selection and disconnect, which the backend ignores.
+- Send web returns to the page in 5.2 instead of the full app.
+
+**3.6 Unstick reply operations.**
+
+- Add `POST /v1/reviews/google/operations/{id}/dismiss` (owners and admins) per 0.7. It erases the sealed draft.
+- Use `FOR UPDATE SKIP LOCKED` on the due-operations query in `run_google_operations`, so two workers never claim the same rows.
+- Cancel queued operations when the plan lapses, per 0.8.
+
+**3.7 Fix invitations** (`services/reviews.py`, `services/notifications.py:1195-1310`, `locales/en_CA.po:421`).
+
+- Add the opt-out wording per 0.3.
+- Move the send hour per 0.2 (`businesses_at_hour(db, now, 8)` at `services/reviews.py:153`, asserted by `tests/test_jobs.py:135`), and update the app hint that promises "the morning after".
+- Before recording a request, check that the client can be texted (has a mobile number, and the number isn't stopped), per 0.4. Manual requests get `no_mobile_number` or a new `client_opted_out`.
+- Send one invitation per number per 30 days, per 0.5.
+- Leave archived clients out of the automatic job (REV09). Today it only checks `deleted_at`, whatever `test_review_requests_skip_archived_clients` suggests.
+- Send a manual invitation at once with `send_queued`, as forms do (`api/forms.py:31`), instead of waiting for the next minute's cron.
+- Have the preview refuse when no Google link exists (`services/previews.py:162-169`) instead of rendering a placeholder.
+- Remove the unused `notify` and `notifier` parameters.
+
+**3.8 Log what the integration does.** Neither `services/reviews.py` nor `integrations/google_business.py` has a logger. Emit structured events (action, outcome, Google status, latency and connection id), never tokens, authorization codes, review text or drafts. These events feed 2.5.
+
+**3.9 Enforce one request per booking in the database** (needs approval). Count duplicates read-only on staging and production, then add a partial unique index on `review_requests(business_id, booking_id) WHERE booking_id IS NOT NULL` in a new migration, and map the conflict to `review_already_requested`.
+
+**3.10 Allow a production allowlist** per 0.10: `GOOGLE_BUSINESS_PILOT_BUSINESSES` (comma-separated business IDs; empty means all). Businesses outside it see `unavailable` with the reason `not_launched` (3.15).
+
+**3.11 Clean up.**
+
+- `google_invitation_url` takes its gateway, vault and flow store as arguments instead of calling `get_*` itself (`services/reviews.py:799`).
+- A disconnect that has nothing to do returns the full availability, not a bare state.
+- Demo IDs use the `rr_` prefix (`backend/scripts/demo_engine.py:1586-1601`) where architecture.md documents `rrq_`.
+- Read `key_version` for key rotation, or plan to drop it.
+
+**3.12 New-review alerts (needs approval).** A jittered job every 15 to 30 minutes reads the first page of each active connection and compares it with a stored watermark: the newest `updateTime` seen, which is an identifier, not content. New or updated reviews alert owners and admins through the staff push path (`services/notifications.py:1312`) and a new notification-feed kind. Budget the calls against the approved quota, which staging and production share. Keep Pub/Sub, with its account-level notification setting, a JWT-verified `/webhooks/google-business` and the event tables deferred in the first schema review, for when polling's cost or latency hurts. When it comes, its topic, push subscription and the grant to Google's publisher account go in the cloud stack.
+
+**3.13 Today summary.** `GET /v1/reviews/google/summary` returns the rating, the total, unanswered reviews on the first page and the newest review's time, served from the 24-hour cache.
+
+**3.14 Demo simulator.** Add a demo-only gateway with canned reviews and in-memory replies, enabled for demo businesses as simulated sends are, and labelled as demo data in the app. Without it, Reviews can't be demoed.
+
+**3.15 Say why Reviews is unavailable.** Today `unavailable` means at least one of the five settings is missing (`integrations/google_business.py:403-413`), and both apps then say "Google reviews are coming soon". Add a reason to the availability response: `not_launched` when the integration isn't configured or the business is outside the allowlist (3.10), and `paused` when it is switched off for a business that has a connection, as in a rollback (10.5). Treat a partial configuration as an operator error: when `GOOGLE_BUSINESS_ENABLED` is true and another setting is empty, fail at startup so the rollout stops, instead of showing owners "coming soon".
+
+Phase exit: `make check` passes, each changed route clears the four-part matrix, and the milestone audit is done.
+
+## Phase 4: shared view-model
+
+**4.1 Map every error code.** Use the generated types from 3.2. Map `google_not_found`, `google_invalid_resource`, `idempotency_key_reused` and the new codes from 3.1, 3.4, 3.5 and 3.7 in `googleCodeMessage` (`packages/app-core/src/domain/reviews.ts:196`) and `failureMessage`. `useRequestReview` shows a fixed message (`reviews.ts:131`), which hides the 30-day refusal `review_recently_requested`.
+
+**4.2 Separate page errors from reply errors.** One `error` serves both, so a reply error appears at the top of the page with "Try again", which reloads and discards the open draft (`reviews.ts:250-251`).
+
+**4.3 Count reply bytes the way the server does.** The server trims before counting (`services/reviews.py:504-506`); the apps count the untrimmed text, and only on submit. Expose the bytes left for a live counter, disable Publish past 4,096, and word the limit in plain language in the catalog.
+
+**4.4 Show moderation and outcome states**: in moderation, published, or rejected with its reason; still sending (queued or running) as distinct from unknown; plus "Open on Google" from the reply URL and dismissal (3.6).
+
+**4.5 Fix the connect flow.**
+
+- `close()` runs in a `finally` (`reviews.ts:436-438`), so a close that throws replaces every connect error (6.1). Catch it.
+- After a dismissal, keep polling `complete` for up to two minutes; the handoff survives that long after the callback (`services/reviews.py:714`).
+- Give declined, expired and blocked their own messages.
+- Make Cancel during the post-completion load clear the loading state.
+
+**4.6 Suggest only clients who can be asked.** `REVIEW_SUGGESTIONS_SQL` (`reviews.ts:19`) looks back 3 days where the job looks back 7, and ignores the cooldown, missing numbers and stopped numbers (`consents.phone`, from the messaging branch). So "Ask" can be refused, or record a request that sends nothing. Mirror the server's eligibility, and page the history, since `REVIEW_REQUESTS_SQL` has no limit. Share one `useRequestReview` between the suggestion list and the request sheet, so "Requested" agrees in both (mobile `Reviews.tsx:389, 443`).
+
+**4.7 Add hooks for the new entry points**: the Today summary (3.13), and an "Ask for a review" action that takes a client and an optional booking.
+
+**4.8 Test the shared logic.** In `reviews.test.ts`, cover native connect, cancel, failed and expired authorization, a close that throws, deleting a reply, account and location paging, the byte count, moderation states and the new codes. Cover eligibility in `sql.test.ts`. The suite runs in three time zones.
+
+## Phase 5: web
+
+**5.1 Keep the home and add the ways in** (0.1): put the unused `reviews` target in the command palette (`apps/web/src/components/CommandPalette.tsx`), the Today card (5.6) and Setup (5.7).
+
+**5.2 Finish the popup handoff.** Today:
+
+- Google's redirect loads the whole staff app inside the popup until the next poll closes it.
+- A popup closed by hand goes unnoticed for up to 10 minutes.
+- A blank popup can be left open (`apps/web/src/pages/Reviews.tsx:39-51`).
+
+Google's sign-in pages may sever the opener (COOP), which also makes `popup.closed` read true while the popup is still open, so neither `postMessage` nor `popup.closed` is reliable. Add a small return page outside the app shell. It announces the result on a same-origin `BroadcastChannel`, tries `window.close()`, and says "You can close this window" if that is refused. Keep polling `complete` as the source of truth, and open the popup only after the action is accepted.
+
+**5.3 Polish the list**: stars in the summary, "View on Google" from `maps_uri`, "Edited" when the update and create times differ, dates through `datetime.ts` in the business zone, moderation badges, and the time of the last successful fetch. A "Needs a reply" filter over the loaded pages is fine; stored aggregates are not (GBP API policies).
+
+**5.4 Finish the reply modal**: a live byte counter, the draft kept on error, "Open on Google" when the outcome is unknown or rejected, and dismissal.
+
+**5.5 Fix the copy.** Keep "Google reviews are coming soon" for `not_launched` only. For `paused`, say Google reviews are temporarily unavailable and keep Disconnect (3.5, 3.15). Make the automation hint match 0.2. Change the catalog only, run `make gen-strings`, and update the shell walk that asserts today's wording (`apps/web/e2e/shell.e2e.ts:806-812`).
+
+**5.6 Add a Today card**: rating, count and unanswered reviews, linking to the tab. Owners and admins only, with a one-time "Connect Google" prompt while disconnected.
+
+**5.7 Make the settings reachable.** The "Ask after each visit" toggle renders only while connected (`Reviews.tsx:187`). Show it in Setup with the connection status, disabled with a reason until a location is linked. Add a "Connect Google reviews" task to the setup checklist (`packages/app-core/src/domain/business.ts:766-813`) when the integration is available.
+
+**5.8 Ask from the records.** Add "Ask for a Google review" to the client record (without a booking) and to a completed visit, booking and receipt (with the booking), through the existing preview-then-send path. Disable it, with the reason, when the client was asked in the last 30 days or can't be texted.
+
+**5.9 Make history useful**: page it and link each request to its visit. Showing delivery status needs a read over the deliveries keyed `review:{request_id}`; decide whether that is worth a backend endpoint.
+
+**5.10 Show review alerts in the notification panel** (from 3.12), opening Inbox → Reviews.
+
+## Phase 6: mobile
+
+**6.1 Fix the Android connect bug.** `WebBrowser.dismissAuthSession()` throws `ERR_UNAVAILABLE` on Android: expo-web-browser 57.0.3 has no native auth session there, and its Android module has no `dismissBrowser` (`node_modules/expo-web-browser/build/WebBrowser.js:205-217`). Because the hook calls it in a `finally`, every connect error turns into the generic message. Call it on iOS only (`apps/mobile/src/screens/Reviews.tsx:56-58`), and land 4.5 with it.
+
+**6.2 Don't treat an Android dismissal as a cancel.** The Custom Tab fallback reports `dismiss` whenever the app becomes active before the redirect arrives (`Reviews.tsx:49-54`), which abandons a handoff that may already be complete. Use the grace polling from 4.5.
+
+**6.3 Handle the deep link outside the auth session.** Nothing listens for links (no `Linking` listener or `getInitialURL`), so a late or cold-start `clientbridge://reviews/google` lands on Today. Open Inbox → Reviews and resume. Every build uses the `clientbridge` scheme (`apps/mobile/app.config.ts:77`), so Android shows a chooser when two builds are installed. Per-build schemes change the native fingerprint and need a store build (engineering.md, "Mobile changes"), and the backend's native return URL would move into settings (`services/reviews.py:717`).
+
+**6.4 Add pull to refresh.** Add `onRefresh` and `refreshing` to the `ListPage` contract in `packages/app-core/src/ui.ts` and to both twins, and refresh when the app returns to the foreground.
+
+**6.5 Match web.** Stop the disconnect modal closing mid-request, and disable the delete confirmation's Cancel while busy (web guards both). Show the invitations heading, then bring in 4.2 to 4.4 and the states from 5.5.
+
+**6.6 Add the entry points**: the Today card (`apps/mobile/src/screens/TodayParts.tsx`); "Ask for a review" on client and booking records and the sale ticket; the connection status and invitation setting in Setup; and the shell `reviews` link.
+
+**6.7 Push for new reviews** (from 3.12): route a tap to Inbox → Reviews (`apps/mobile/src/push.ts:62-70`) and add the kind to the notification feed (`packages/app-core/src/domain/notifications.ts:48-56`).
+
+**6.8 Ship it the right way.** JavaScript and copy changes go out as an EAS update. A scheme, intent filter or associated-domain change needs a store build and App Review. Compare fingerprints before merging.
+
+## Phase 7: Connect
+
+Public pages show no Google content, by decision: cached content may be kept for at most 30 days and needs its attribution, and testimonial widgets were left out of scope.
+
+**7.1 Add a "Review us on Google" link** on the post-visit manage page and the receipt, shown to every client with a completed visit, using the cached `newReviewUri` from the public payload. Test it in each page's Connect e2e file (`apps/connect/e2e/<publicPage>.e2e.ts`).
+
+## Phase 8: docs
+
+**8.1 Bring the docs up to date.**
+
+- operations.md: add a Google Business section covering:
+  - the stack keys, the KMS exports (environments and dev) and the developer list;
+  - the three plain settings, the two secrets and who reads them;
+  - each console-only setting from 0.12 and its value, as the Firebase and sign-in sections do;
+  - the alerts and a link to the runbook.
+
+  Also remove the out-of-date "Internal review removal deployment" section (`:423`).
+
+- architecture.md: add `process_google_operations` (every 15 seconds) to the worker schedule, and describe moderation states, caching and revocation.
+- launch-readiness.md: update CLI-47 and the stale QA steps at `:1175`, `:1237`, `:1241` and `:1245`.
+- Also: demo.md `:40` and `:252`; engineering.md `:682` and the walkthrough notes; `.docs/reviews/product/web-and-connect.md:58, 146`; `.docs/reviews/product/mobile.md:156-158, 206`; the comment at `packages/app-core/src/domain/clients.ts:991`.
+
+**8.2 Close out.** When the feature is live, move what lasts into architecture.md and operations.md and delete this folder and its README entry.
+
+## Phase 9: testing
+
+Each step clears the four-part matrix (happy path, each 4xx, security and tenancy, idempotency and edges). Each phase ends with `make check` and the milestone audit.
+
+**9.1 Fill the backend gaps.** Nothing tests these today:
+
+- the accounts, locations and replies/delete routes;
+- the native redirect, a callback carrying `error`, flow expiry and `pending`;
+- `google_location_in_use` and 503 `google_not_configured`;
+- the switch to `reconnect_required` on `invalid_grant`, the 7-day expiry, and cancellation when the actor loses the role;
+- a rate-limited write being requeued, staff getting 403 on every Google route, and `can_request=false`;
+- the real `RedisGoogleFlowStore` (GETDEL and TTL) against the test tier's Redis.
+
+Add the new behaviour from Phase 3 to `test_reviews.py`, `test_reviews_connections.py`, `test_reviews_google.py` and `test_jobs.py`.
+
+**9.2 Keep golden responses.** Scrub real responses from the pilot into `backend/tests/fixtures/google_business/` (anonymous reviewer, rating only, translated text, media, replies pending and rejected, unspecified rating, paging). Run them through `HttpGoogleBusinessGateway` with `httpx.MockTransport`, as the Stripe fixtures are run.
+
+**9.3 Add a credentialed smoke test (REV19)** in `backend/tests/sandbox/`, which `make test-sandbox` runs, skipped without a pilot refresh token and KMS access. It covers a token refresh, accounts, locations, the first reviews page and a KMS round trip with its context, and only reads.
+
+**9.4 Give e2e a Google stand-in.** The P0 families need OAuth, reads and replies end to end. Run a fake Google on the test tier and point the gateway's base URLs at it through settings honoured only when `ENV=dev`, so production keeps fixed upstreams.
+
+**9.5 Write the web cases** in a new `apps/web/e2e/reviews.e2e.ts`: REV01, REV02, REV04 to REV07 and REV12 to REV18, plus one case per web surface in the goal (Today card, client record, visit and receipt actions, Setup, command palette, notification panel). Register each case in `backend/e2e/cases.json` with its families, keep the existing shell walk, and extend the demo walk (`shell.e2e.ts:1531`) to expect simulated reviews. The lane already runs the en-XA pass, axe checks and phone widths.
+
+**9.6 Write the journey.** In `apps/web/e2e/journeys/communication.journey.ts`: ask for a review from a completed visit, find the text in Mailpit with the Google link and the opt-out wording, reply STOP, and see the next request refused (REV07, REV11). The automatic job's hour, window and cooldown stay in `test_jobs.py` under the frozen clock (REV08, REV10). A worker-in-the-loop case can enqueue the cron entry as `backend/e2e/stack.py:388` does.
+
+**9.7 Write the Maestro flows** on the Android lane: `apps/mobile/e2e/reviews.yaml` and `reviews.connect.yaml`. Cover connecting through the stand-in with the deep-link return, dismissing and resuming, choosing a location, replying and disconnecting (REV03), plus each mobile surface in the goal (Today card, record actions, Setup, and a review push opening Reviews). Make the existing flows (`messaging.yaml:26-28`) assert the state they reach.
+
+**9.8 Run the shared and web unit tests** from 4.8 under `make test-frontend`.
+
+**9.9 Do a device pass** on a physical iPhone and an Android phone, and record the results in progress.md:
+
+- connect, cancel partway, and background the app during consent;
+- connect with two builds installed, and decline consent;
+- choose among many accounts and locations;
+- reply with emoji near the byte limit, see moderation pending, then edit and delete;
+- disconnect, and reconnect after revoking access at myaccount.google.com/permissions;
+- go offline.
+
+**9.10 Run the live pilot** on staging with the profiles from 1.10. Follow the runbook's checklist, and add a 7-day token expiry in Testing, a revocation, a reconnect, the quota observed, and an invitation to the designated phone. Record the evidence in progress.md.
+
+## Phase 10: rollout
+
+**10.1 Staging.** Do 2.6, then connect your own profile, then the pilot businesses.
+
+**10.2 Production entry criteria:**
+
+- API access approved.
+- Consent works for an outside account that isn't a test user (1.6).
+- 9.9 and 9.10 recorded.
+- The alerts from 2.5 have an owner.
+- The P0 families are covered, and every row of the goal has an automated case.
+- 1.7 and 1.8 published.
+
+**10.3 Production**, through code, as in 2.6:
+
+1. Add `prod` to `clientbridge:environments` in `Pulumi.cloud.yaml`, if the deploy work hasn't. The administrator applies the cloud stack.
+2. Populate the secrets with `providers_init.py`.
+3. Set the flag and the allowlist from 3.10 in `Pulumi.prod.yaml`. The approved production deploy applies them.
+4. Watch for two weeks, then empty the allowlist with another stack-config pull request.
+
+**10.4 Mobile.** Ship an EAS update or a store build (6.8).
+
+**10.5 Rollback.** Turn off the environment stack's `googleBusinessEnabled` and deploy. Don't change the Deployment with `kubectl`, and leave the cloud stack's flag on, so the key and the secrets stay. `GOOGLE_BUSINESS_ENABLED=false` stops Google calls; connected businesses see the `paused` state (3.15) and can still disconnect (3.5). Invitations stop too, because they need the linked profile's URL. Don't drop the tables or destroy the key; keep the encrypted rows until someone approves what happens to them (runbook).
+
+**10.6 Walk every surface.** With a pilot business in production and a demo business, go through each row of the goal on web, an iPhone and an Android phone, and record the result in progress.md. The plan is done when every row passes, the allowlist is empty, and no environment shows "coming soon".
+
+## Order of work
+
+1. Day one: settle Phase 0, apply 1.1 (the APIs from code), and send 1.2 to 1.6, which starts Google's clock.
+2. While Google reviews the application: 2.1 to 2.5, all of Phase 3, Phases 4 to 7, and 9.1, 9.2 and 9.4 to 9.8, updating docs (8.1) as you go.
+3. When Google approves: 2.6, 9.3, 9.9 and 9.10.
+4. Phase 10, ending with the surface walk (10.6).
+
+## Risks
+
+| Risk                                        | Effect                                  | Mitigation                                                 |
+| ------------------------------------------- | --------------------------------------- | ---------------------------------------------------------- |
+| No published timeline for API access        | Live steps wait                         | Apply on day one; build against fakes and the stand-in     |
+| `business.manage` blocked for outside users | Production owners can't connect         | Smoke test (1.6), a Testing-mode pilot, a support case     |
+| 7-day refresh tokens in Testing             | Pilot owners reconnect weekly           | Expected; the app already turns expiry into Reconnect      |
+| One quota for staging and production        | Staging traffic eats production's quota | Caches (3.3), a polling budget (3.12), the 429 alert (2.5) |
+| Replies held or rejected by moderation      | A reply looks live when it isn't        | 3.1, 4.4                                                   |
+| Review gating or incentives by businesses   | Google removes reviews or penalizes     | Neutral invitations to every eligible client; terms (1.9)  |
+| Messaging law                               | Complaints and penalties                | 0.3, 1.8                                                   |
+| Native changes need App Review              | Slower mobile fixes                     | Keep 6.1, 6.2 and 6.4 JavaScript-only                      |
+| Console-only Google settings drift          | A consent or client change goes unseen  | Recorded in operations.md (8.1), rechecked in 10.6         |

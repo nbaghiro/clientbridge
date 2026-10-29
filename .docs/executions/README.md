@@ -14,7 +14,7 @@ Use a new folder for a separate execution. Record tested behavior, remaining wor
 
 - [Product hardening](product-hardening/plan.md) — fixes on `hardening/product-invariants`; all findings, resolutions and approved schemas in the plan; [QA checklist and results](product-hardening/qa.md).
 
-- [Google Business Profile reviews](google-business-reviews/plan.md) — researched API and Pulumi integration plan; [schema proposal](google-business-reviews/schema.md), [task queue](google-business-reviews/tasks.json), [progress](google-business-reviews/progress.md).
+- [Google reviews: finish and launch](google-business-reviews/plan.md) — proposed; gaps from the 2026-10-29 audit of `main`, Google setup, testing and rollout; [runbook](google-business-reviews/runbook.md), [progress](google-business-reviews/progress.md).
 
 - [Visit flow](visit-flow/plan.md) — check-in requirements and checkout on `feat/visit-flow`; [schema proposal](visit-flow/schema.md), [task queue](visit-flow/tasks.json), [progress](visit-flow/progress.md).
 

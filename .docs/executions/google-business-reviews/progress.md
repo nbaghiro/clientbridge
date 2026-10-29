@@ -1,43 +1,17 @@
-# Google Business Profile implementation progress
+# Google reviews: progress
 
-## Current execution — 2026-10-20
+Evidence for [the plan](plan.md). Record each step's result here, with the date.
 
-User approved continuous implementation in a new branch from main, with no commits, pushes or PRs. Worktree: `/Users/naib/Documents/code/clientbridge-google-complete`; branch: `feat/google-business-reviews-complete`; base: `5e0bad49`.
+## Carried over from the first execution
 
-The approved schema is the final two-table slice in schema.md: encrypted connections and durable reply operations, removal of businesses.google_review_url, and preservation of invitation history. Existing review_requests_enabled and scheduling/cooldown behavior remain. No new internal review collection or Google-content replica is introduced. Pub/Sub and extra scheduling columns are deferred.
+PRs #39, #43 and #45 shipped the code; their own progress log is in git history at `9e49d5d2`. At handover:
 
-## Application implementation
+- `make check` passed with backend, frontend and infra suites, against fakes only. No native-device or real-Google walkthrough has been done.
+- Google API approval, Business Profile quota, the review OAuth clients, consent publishing and a consenting pilot were all unverified.
+- A cloud preview failed with Google `invalid_grant` / `invalid_rapt`; gcloud and ADC needed reauthentication.
+- No live migration, cloud deployment, Google reply or client invitation had been performed.
 
-- Availability distinguishes disabled configuration from an unlinked business.
-- Application OAuth start/callback/completion uses session/tenant binding, single-use state, PKCE and short-lived Redis handoff data.
-- KMS encrypts refresh tokens and owner-authored reply intent with tenant/record context.
-- Account/location selection, online reviews, generation checks, disconnect and reply-operation worker are wired.
-- Invitations resolve Google's location metadata and use the existing durable delivery queue.
-- Both apps have structured setup/unavailable states and profile help. Generated contracts and catalogs updated.
-- Pulumi configuration gates GBP services, dedicated KMS resources and OAuth secrets.
+## Phase 1: outside setup
 
-## Validation
-
-- Latest focused lifecycle/security suite: 10 passed, including independent-session concurrency, tenant/session binding, stale generation and ambiguous-write reconciliation.
-- Frontend package tests passed, including 510 shared tests in each of three timezone runs.
-- Infrastructure suite: 103 passed, including gated Google APIs and isolated KMS keys.
-- Production web build and browser unavailable/unlinked/empty-profile regression passed; desktop and phone-width overflow/accessibility checks included.
-- Final `make check` passed: formatting/lint/types/code generation, 2,331 backend tests with 93.28% coverage (50 deselected by the standard gate), frontend package/timezone suites and 103 infrastructure tests.
-- Table-policy registration, the reviewed sync snapshot and the idempotency error-code assertion are corrected and verified in that final run.
-- Changes remain uncommitted on the implementation branch; no push, PR or merge was performed. Temporary browser preview servers were stopped.
-
-Native-device and real-Google walkthroughs have not been performed. Automated results do not establish live readiness.
-
-## External prerequisites
-
-Google API approval, enabled-service quota, dedicated OAuth clients, consent publishing and a consenting live pilot remain unverified. A cloud preview against the configured GCS state backend failed with Google `invalid_grant` / `invalid_rapt`; gcloud and ADC credentials require reauthentication. No live schema migration, cloud deployment, Google reply or client invitation has been performed during implementation.
-
-Live testing must use a named consenting profile, approved reply content and an explicitly selected invitation recipient. Automated and simulated provider tests cannot establish production OAuth approval or provider behavior.
-
-## PR review follow-up — 2026-10-20
-
-The user subsequently authorized committing/pushing, PR creation, fixing review findings, merging after validation, and preparing the main worktree for localhost testing. PR #45 contains the implementation.
-
-The follow-up preserves connection management when Google reads fail, surfaces terminal reply errors, and commits invitation batches independently per business. A second review also identified and corrected a retry invariant: failed readback of an uncertain write must remain reconciliation-only, never become queued write work. Regression tests cover permission/read failures, definite write rejection, uncertain readback failures, and independent-session tenant-lock release.
-
-Local configuration is documented in `.env.example`; Google Business Profile uses separate credentials from Google sign-in. Gcloud still reports expired authentication; actual project API approval, OAuth credentials and ADC/KMS access remain prerequisites for a real localhost pilot.
+- 1.1 — gcloud and ADC reauthenticated. The cloud stack enables the Business Profile APIs whatever `googleBusinessEnabled` says and exports `projectNumber`; infra suite 123 passed. Pending: an administrator's preview and apply, then the project number below.
+  - Project number: _pending apply_

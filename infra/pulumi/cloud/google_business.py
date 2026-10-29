@@ -7,17 +7,6 @@ import pulumi_gcp as gcp
 
 from environments import Environment
 
-APIS = (
-    "mybusiness.googleapis.com",
-    "mybusinessaccountmanagement.googleapis.com",
-    "mybusinessbusinessinformation.googleapis.com",
-    "mybusinessverifications.googleapis.com",
-    "mybusinessnotifications.googleapis.com",
-    "mybusinessplaceactions.googleapis.com",
-    "mybusinesslodging.googleapis.com",
-    "cloudkms.googleapis.com",
-)
-
 
 def create(
     project: str, region: str, env: Environment, members: Sequence[pulumi.Input[str]]
