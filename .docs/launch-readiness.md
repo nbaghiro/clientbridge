@@ -2,7 +2,7 @@
 
 The launch QA plan: a pass across every product surface, as 9 areas and 63 tickets. Most of the product is built, so the work is to test each area, fix what comes up and move on. Each ticket is one outcome a business can rely on, and it passes when its QA steps pass on the platforms it names. Each lists the e2e cases that prove it, the cases still to write and what can only be checked by hand.
 
-Linear tracks status: the [Launch QA initiative](https://linear.app/clientbridgeca/initiative/launch-qa-2ad161486768) in the `clientbridgeca` workspace, team Engineering (key `CB`). Each area is a project, each ticket an issue whose description is the ticket's text below, and each dependency a `blocks` relation. The [Launch QA board](https://linear.app/clientbridgeca/view/e48dd1630428) is the one place to work from. Its columns come from an Order label: 1. Test now (nothing needs to pass first), 2. After sign-up or store builds, and 3. After onboarding. Work the columns left to right; a ticket leaves the board when it passes, and its status icon shows whether it is being tested or fixed.
+Linear tracks status: the [Launch QA initiative](https://linear.app/clientbridgeca/initiative/launch-qa-2ad161486768) in the `clientbridgeca` workspace, team Engineering (key `CB`). Each area is a project, each ticket an issue whose description is the ticket's text below, and each dependency a `blocks` relation. The [Launch QA board](https://linear.app/clientbridgeca/view/e48dd1630428) is the one place to work from. Its columns come from an Order label and follow the product: 1. Set up and run the day (areas 1 to 3), 2. Book online and get paid (areas 4 and 5), 3. After the sale, messaging and sync (areas 6 and 7, offline and tabs), and 4. Launch, which holds what needs real devices or production and comes last. Work the columns left to right; a ticket leaves the board when it passes, and its status icon shows whether it is being tested or fixed.
 
 ## How tickets work
 
@@ -12,7 +12,7 @@ Linear tracks status: the [Launch QA initiative](https://linear.app/clientbridge
 - **This file comes first.** Change a ticket's text here, then copy it to the Linear description so the two match word for word. Status lives only in Linear: To test, Testing, Fixing, Passed (and Not doing for anything dropped).
 - **Dependencies are rare.** QA runs on the demo businesses, which already have clients, a catalog, staff, hours, Stripe and tax set up, so a ticket depends on another only when its setup needs something that ticket's flow creates and demo data can't supply: a brand-new account or business, or the store builds. Dependencies only suggest an order; everything else can be tested in any order.
 - **Done stays done through automation.** A ticket's Automated by cases run in CI on every pull request, so a change that breaks a Done ticket fails CI before it merges. Retest a Done ticket by hand only when a change touches its By hand only steps; closing its To automate list is what removes that need.
-- **Every ticket uses one layout:** Covers, Before you start, QA steps (each with its expected result), Done when, By hand only (when needed), Automated by, To automate and Depends on. Each one carries an Automation label in Linear (Automated, Partly automated or Manual).
+- **Every ticket uses one layout:** Covers, Before you start, Where to test (one line each for local and staging), QA steps (each with its expected result), Done when, By hand only (when needed), Automated by, To automate and Depends on. Each one carries an Automation label in Linear (Automated, Partly automated or Manual).
 - **Linear changes go through its API:** `linear --workspace clientbridgeca api '<query>' --variables-json '<json>'`. A dependency is `issueRelationCreate` with type `blocks`, from the prerequisite (`issueId`) to the ticket that waits on it (`relatedIssueId`). Priority isn't used.
 
 | Area | Ticket | Linear | Automation |
@@ -92,6 +92,11 @@ A new owner signs up, sets up the business, brings in the team, connects Stripe,
 **Covers:** Web Login and Sign-in & security, mobile Login, the auth service, Mailpit or real email on staging
 **Before you start:** A fresh email address you can read; a Google account on the same address; web, an iPhone and an Android phone with the staging build
 
+**Where to test**
+
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at http://localhost:8700 and mobile in the iOS simulator. Email lands in Mailpit at http://localhost:8715.
+* **Staging:** https://app.staging.clientbridge.ca, with the same logins. Mobile waits on a staging build (CB-61). Mail to the demo's `.example` addresses isn't sent, so use an address you can read.
+
 **QA steps**
 
 1. From the marketing site, click Start free.
@@ -145,6 +150,11 @@ A new owner signs up, sets up the business, brings in the team, connects Stripe,
 **Covers:** Setup > Sign-in & security on web and mobile
 **Before you start:** An owner account from CB-1; an authenticator app; a security key or platform passkey on a laptop
 
+**Where to test**
+
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at http://localhost:8700 and mobile in the iOS simulator. Email lands in Mailpit at http://localhost:8715.
+* **Staging:** https://app.staging.clientbridge.ca, with the same logins. Mobile waits on a staging build (CB-61). Mail to the demo's `.example` addresses isn't sent, so use an address you can read.
+
 **QA steps**
 
 1. Turn on an authenticator app on web.
@@ -181,6 +191,11 @@ A new owner signs up, sets up the business, brings in the team, connects Stripe,
 
 **Covers:** Web and mobile Onboarding, Setup > Business, Get set up, Connect business, booking, pay and shop pages
 **Before you start:** A new account from CB-1 with no business
+
+**Where to test**
+
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile dev-connect`. Open web at http://localhost:8700, mobile in the iOS simulator and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`.
+* **Staging:** https://app.staging.clientbridge.ca and Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`, with the same logins. Mobile waits on a staging build (CB-61).
 
 **QA steps**
 
@@ -220,6 +235,11 @@ A new owner signs up, sets up the business, brings in the team, connects Stripe,
 
 **Covers:** Setup > Team & hours, accept-invite page, role gates on every screen and endpoint, web and mobile
 **Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234; two fresh email addresses for invitees
+
+**Where to test**
+
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at http://localhost:8700 and mobile in the iOS simulator. Email lands in Mailpit at http://localhost:8715.
+* **Staging:** https://app.staging.clientbridge.ca, with the same logins. Mobile waits on a staging build (CB-61). Mail to the demo's `.example` addresses isn't sent, so use an address you can read.
 
 **QA steps**
 
@@ -271,6 +291,11 @@ A new owner signs up, sets up the business, brings in the team, connects Stripe,
 **Covers:** Setup > Team & hours removal dialog, schedule, Connect, the removed member's devices
 **Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234
 
+**Where to test**
+
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile dev-connect`. Open web at http://localhost:8700, mobile in the iOS simulator and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`.
+* **Staging:** https://app.staging.clientbridge.ca and Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`, with the same logins. Mobile waits on a staging build (CB-61).
+
 **QA steps**
 
 1. Remove a member with future visits, a series and a class schedule, choosing reassign.
@@ -303,6 +328,11 @@ A new owner signs up, sets up the business, brings in the team, connects Stripe,
 
 **Covers:** Setup > Getting paid on web and mobile, Stripe embedded onboarding and account management
 **Before you start:** Staging with Stripe in test mode; a new business from CB-3 with no Stripe account
+
+**Where to test**
+
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at http://localhost:8700 and mobile in the iOS simulator. Run `make stripe-setup` once and keep `make stripe-listen` running for card steps.
+* **Staging:** https://app.staging.clientbridge.ca, with the same logins. Mobile waits on a staging build (CB-61). Card steps use the Stripe sandbox; the demos are linked but their Stripe onboarding isn't finished.
 
 **QA steps**
 
@@ -340,6 +370,11 @@ A new owner signs up, sets up the business, brings in the team, connects Stripe,
 
 **Covers:** Setup > Plan on web and mobile, Stripe Checkout and Billing Portal, shell notices, the read-only gate on API and Connect
 **Before you start:** Staging with Stripe in test mode; a new business on its trial; Cedar Coast Pet Care for an existing trial; Stripe test clocks
+
+**Where to test**
+
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile dev-connect`. Open web at http://localhost:8700, mobile in the iOS simulator and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`. Run `make stripe-setup` once and keep `make stripe-listen` running for card steps.
+* **Staging:** https://app.staging.clientbridge.ca and Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`, with the same logins. Mobile waits on a staging build (CB-61). Card steps use the Stripe sandbox; the demos are linked but their Stripe onboarding isn't finished.
 
 **QA steps**
 
@@ -386,6 +421,11 @@ A new owner signs up, sets up the business, brings in the team, connects Stripe,
 **Covers:** Setup > Sales tax on web and mobile, item tax class, invoice and sale tax lines
 **Before you start:** Maple and Main Hair Studio (ON, HST), Birchbark (BC, GST + PST), Clearcoat Mobile Detailing (QC, GST + QST), a new Nova Scotia business
 
+**Where to test**
+
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at http://localhost:8700 and mobile in the iOS simulator.
+* **Staging:** https://app.staging.clientbridge.ca, with the same logins. Mobile waits on a staging build (CB-61).
+
 **QA steps**
 
 1. Ontario, tax on: invoice a $100 service.
@@ -425,6 +465,11 @@ The business loads its clients, what they book for, and everything it sells.
 **Covers:** Clients on web and mobile, the command palette and mobile Search, booking pickers
 **Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234
 
+**Where to test**
+
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at http://localhost:8700 and mobile in the iOS simulator.
+* **Staging:** https://app.staging.clientbridge.ca, with the same logins. Mobile waits on a staging build (CB-61).
+
 **QA steps**
 
 1. Add a client on a phone.
@@ -460,6 +505,11 @@ The business loads its clients, what they book for, and everything it sells.
 
 **Covers:** Client record subjects on web and mobile, booking composer, Connect details step
 **Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234; Brightwater Home Cleaning (properties); Lakeside Learning Studio (students); Northlight Security (sites); Clearcoat (vehicles)
+
+**Where to test**
+
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile dev-connect`. Open web at http://localhost:8700, mobile in the iOS simulator and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`.
+* **Staging:** https://app.staging.clientbridge.ca and Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`, with the same logins. Mobile waits on a staging build (CB-61).
 
 **QA steps**
 
@@ -499,6 +549,11 @@ The business loads its clients, what they book for, and everything it sells.
 **Covers:** Client notes, booking notes, photos, client history on web and mobile
 **Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234; a client with a year of history
 
+**Where to test**
+
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at http://localhost:8700 and mobile in the iOS simulator.
+* **Staging:** https://app.staging.clientbridge.ca, with the same logins. Mobile waits on a staging build (CB-61).
+
 **QA steps**
 
 1. Add a note on a phone and pin it on web.
@@ -535,6 +590,11 @@ The business loads its clients, what they book for, and everything it sells.
 **Covers:** Client tags, merge dialog on web and mobile
 **Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234; a seeded duplicate client
 
+**Where to test**
+
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at http://localhost:8700 and mobile in the iOS simulator.
+* **Staging:** https://app.staging.clientbridge.ca, with the same logins. Mobile waits on a staging build (CB-61).
+
 **QA steps**
 
 1. Tag two clients from the directory.
@@ -561,6 +621,11 @@ The business loads its clients, what they book for, and everything it sells.
 
 **Covers:** Client wallet on web and mobile, Connect payment setup page, Stripe SetupIntents and PAD mandates
 **Before you start:** Staging with Stripe in test mode; Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234
+
+**Where to test**
+
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile dev-connect`. Open web at http://localhost:8700, mobile in the iOS simulator and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`. Run `make stripe-setup` once and keep `make stripe-listen` running for card steps.
+* **Staging:** https://app.staging.clientbridge.ca and Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`, with the same logins. Mobile waits on a staging build (CB-61). Card steps use the Stripe sandbox; the demos are linked but their Stripe onboarding isn't finished.
 
 **QA steps**
 
@@ -597,6 +662,11 @@ The business loads its clients, what they book for, and everything it sells.
 **Covers:** Services & products editor on web and mobile, Setup > Resources, booking page
 **Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234; Ridgeline Strength Studio (Studio and Turf); Riverbend Driving School (three cars)
 
+**Where to test**
+
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at http://localhost:8700 and mobile in the iOS simulator.
+* **Staging:** https://app.staging.clientbridge.ca, with the same logins. Mobile waits on a staging build (CB-61).
+
 **QA steps**
 
 1. Create a 60-minute service with a 10-minute buffer and a 25% deposit, offered by two members.
@@ -631,6 +701,11 @@ The business loads its clients, what they book for, and everything it sells.
 
 **Covers:** Item editor and Stock on web and mobile, Sales, invoice editor, shop
 **Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234
+
+**Where to test**
+
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at http://localhost:8700 and mobile in the iOS simulator.
+* **Staging:** https://app.staging.clientbridge.ca, with the same logins. Mobile waits on a staging build (CB-61).
 
 **QA steps**
 
@@ -675,6 +750,11 @@ The business loads its clients, what they book for, and everything it sells.
 **Covers:** Item editor for entitlement kinds on web and mobile, Sales tiles
 **Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234
 
+**Where to test**
+
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at http://localhost:8700 and mobile in the iOS simulator.
+* **Staging:** https://app.staging.clientbridge.ca, with the same logins. Mobile waits on a staging build (CB-61).
+
 **QA steps**
 
 1. Create a 5-visit package valid for a year for one pet.
@@ -706,6 +786,11 @@ Staff set hours, book, run each visit from arrival to checkout, and nothing is l
 
 **Covers:** Setup > Team & hours on web and mobile, time off and closures, Connect open times
 **Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234
+
+**Where to test**
+
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile dev-connect`. Open web at http://localhost:8700, mobile in the iOS simulator and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`.
+* **Staging:** https://app.staging.clientbridge.ca and Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`, with the same logins. Mobile waits on a staging build (CB-61).
 
 **QA steps**
 
@@ -748,6 +833,11 @@ Staff set hours, book, run each visit from arrival to checkout, and nothing is l
 **Covers:** Schedule on web (day, week, month, staff, agenda) and mobile (day and agenda), booking composer and panel
 **Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234
 
+**Where to test**
+
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at http://localhost:8700 and mobile in the iOS simulator.
+* **Staging:** https://app.staging.clientbridge.ca, with the same logins. Mobile waits on a staging build (CB-61).
+
 **QA steps**
 
 1. Book from the composer.
@@ -788,6 +878,11 @@ Staff set hours, book, run each visit from arrival to checkout, and nothing is l
 **Covers:** Today and the booking panel on web and mobile, check-in sheet, Complete and No-show, auto-complete job
 **Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234; Northlight Security for On my way; a visit with a form and a deposit outstanding
 
+**Where to test**
+
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile worker`. Open web at http://localhost:8700 and mobile in the iOS simulator.
+* **Staging:** https://app.staging.clientbridge.ca, with the same logins. Mobile waits on a staging build (CB-61).
+
 **QA steps**
 
 1. Tap On my way on a house call.
@@ -820,6 +915,11 @@ Staff set hours, book, run each visit from arrival to checkout, and nothing is l
 **Covers:** Series composer and Repeat visits on web and mobile
 **Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234
 
+**Where to test**
+
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at http://localhost:8700 and mobile in the iOS simulator.
+* **Staging:** https://app.staging.clientbridge.ca, with the same logins. Mobile waits on a staging build (CB-61).
+
 **QA steps**
 
 1. Create a weekly series of 6 across a daylight-saving change.
@@ -850,6 +950,11 @@ Staff set hours, book, run each visit from arrival to checkout, and nothing is l
 
 **Covers:** Classes and program board on web and mobile, Connect class and program booking, seat notices
 **Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234 (puppy class); Lakeside Learning Studio (Fall Coding Camp); Ridgeline (full class)
+
+**Where to test**
+
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile dev-connect worker`. Open web at http://localhost:8700, mobile in the iOS simulator and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`. Texts land in Mailpit at http://localhost:8715.
+* **Staging:** https://app.staging.clientbridge.ca and Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`, with the same logins. Mobile waits on a staging build (CB-61). Texts to demo clients show as sent and go nowhere; real texts wait on the Twilio number (Trust Hub approval).
 
 **QA steps**
 
@@ -885,6 +990,11 @@ Staff set hours, book, run each visit from arrival to checkout, and nothing is l
 **Covers:** Booking panel crew, visit records, job photos on web and mobile, insurance receipt
 **Before you start:** Northlight Security (two-person install); Harbourside Massage and Wellness (SOAP notes); Foothills Lawn and Garden (photos)
 
+**Where to test**
+
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at http://localhost:8700 and mobile in the iOS simulator.
+* **Staging:** https://app.staging.clientbridge.ca, with the same logins. Mobile waits on a staging build (CB-61).
+
 **QA steps**
 
 1. Add a helper to an install.
@@ -918,6 +1028,11 @@ Staff set hours, book, run each visit from arrival to checkout, and nothing is l
 
 **Covers:** Setup > Reminders on web and mobile, reminder texts
 **Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234; a client with a real phone on staging
+
+**Where to test**
+
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile worker`. Open web at http://localhost:8700 and mobile in the iOS simulator. Texts land in Mailpit at http://localhost:8715.
+* **Staging:** https://app.staging.clientbridge.ca, with the same logins. Mobile waits on a staging build (CB-61). Texts to demo clients show as sent and go nowhere; real texts wait on the Twilio number (Trust Hub approval).
 
 **QA steps**
 
@@ -956,6 +1071,11 @@ Clients find the business, book and pay a deposit, and change their plans withou
 
 **Covers:** Connect booking page, Setup > Online booking, approvals on the schedule, the reaper job
 **Before you start:** Staging with Stripe in test mode; Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234 (approval for new clients); Cedar Coast (no approval)
+
+**Where to test**
+
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-connect worker`. Open web at http://localhost:8700 and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`. Run `make stripe-setup` once and keep `make stripe-listen` running for card steps.
+* **Staging:** https://app.staging.clientbridge.ca and Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`, with the same logins. Card steps use the Stripe sandbox; the demos are linked but their Stripe onboarding isn't finished.
 
 **QA steps**
 
@@ -998,6 +1118,11 @@ Clients find the business, book and pay a deposit, and change their plans withou
 **Covers:** Connect returning-client verification by SMS code
 **Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234; a client with a pet and a real phone on staging
 
+**Where to test**
+
+* **Local:** `make up migrate seed`, then `make dev-api dev-connect`. Open Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`. Texts land in Mailpit at http://localhost:8715.
+* **Staging:** Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`. Texts to demo clients show as sent and go nowhere; real texts wait on the Twilio number (Trust Hub approval).
+
 **QA steps**
 
 1. Book as a returning client and verify the texted code.
@@ -1032,6 +1157,11 @@ Clients find the business, book and pay a deposit, and change their plans withou
 **Covers:** Connect extras step, booking panel add-ons, invoice from booking
 **Before you start:** Brightwater Home Cleaning (add-ons that lengthen the visit); Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234
 
+**Where to test**
+
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-connect`. Open web at http://localhost:8700 and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`.
+* **Staging:** https://app.staging.clientbridge.ca and Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`, with the same logins.
+
 **QA steps**
 
 1. Book an oven clean add-on online.
@@ -1060,6 +1190,11 @@ Clients find the business, book and pay a deposit, and change their plans withou
 
 **Covers:** Connect manage page `/m/<token>`
 **Before you start:** Staging with Stripe in test mode; Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234
+
+**Where to test**
+
+* **Local:** `make up migrate seed`, then `make dev-api dev-connect`. Open Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`. Texts land in Mailpit at http://localhost:8715.
+* **Staging:** Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`. Texts to demo clients show as sent and go nowhere; real texts wait on the Twilio number (Trust Hub approval).
 
 **QA steps**
 
@@ -1093,6 +1228,11 @@ Clients find the business, book and pay a deposit, and change their plans withou
 
 **Covers:** Connect business page, embed script and widgets, host routing
 **Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234; a scratch HTML page on another origin
+
+**Where to test**
+
+* **Local:** `make up migrate seed`, then `make dev-api dev-connect`. Open Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`.
+* **Staging:** Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`.
 
 **QA steps**
 
@@ -1133,6 +1273,11 @@ Every way a client pays, at the desk, by link or online, ends in the right statu
 **Covers:** Sales on web and mobile: ticket, held tickets, cash, receipts by text
 **Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234
 
+**Where to test**
+
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at http://localhost:8700 and mobile in the iOS simulator. Texts land in Mailpit at http://localhost:8715.
+* **Staging:** https://app.staging.clientbridge.ca, with the same logins. Mobile waits on a staging build (CB-61). Texts to demo clients show as sent and go nowhere; real texts wait on the Twilio number (Trust Hub approval).
+
 **QA steps**
 
 1. Ring up a groom and a shampoo for a client.
@@ -1169,6 +1314,11 @@ Every way a client pays, at the desk, by link or online, ends in the right statu
 **Covers:** Sales card checkout on web, saved card, gift card and package tender
 **Before you start:** Staging with Stripe in test mode; Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234
 
+**Where to test**
+
+* **Local:** `make up migrate seed`, then `make dev-api dev-web`. Open web at http://localhost:8700. Run `make stripe-setup` once and keep `make stripe-listen` running for card steps.
+* **Staging:** https://app.staging.clientbridge.ca, with the same logins. Card steps use the Stripe sandbox; the demos are linked but their Stripe onboarding isn't finished.
+
 **QA steps**
 
 1. Pay a sale with card 4242.
@@ -1201,6 +1351,11 @@ Every way a client pays, at the desk, by link or online, ends in the right statu
 **Covers:** Mobile Sales and invoice payment with Stripe Terminal
 **Before you start:** Staging with Stripe in test mode; an NFC iPhone and an NFC Android phone with the store builds; Stripe test cards for Terminal
 
+**Where to test**
+
+* **Local:** `make up migrate seed`, then `make dev-api dev-mobile` with a development build on a real iPhone or Android phone, since Tap to Pay needs NFC. Run `make stripe-setup` once and keep `make stripe-listen` running.
+* **Staging:** The staging store builds (CB-61) on real phones, against the Stripe sandbox.
+
 **QA steps**
 
 1. On iPhone, ring up a product and pay with Tap to Pay.
@@ -1229,6 +1384,11 @@ Every way a client pays, at the desk, by link or online, ends in the right statu
 
 **Covers:** Sales, invoice and estimate editors, pay link tip, Tap to Pay tip, member perk
 **Before you start:** Staging with Stripe in test mode; Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234; a client with a membership that has a product perk
+
+**Where to test**
+
+* **Local:** `make up migrate seed`, then `make dev-api dev-web`. Open web at http://localhost:8700. Run `make stripe-setup` once and keep `make stripe-listen` running for card steps.
+* **Staging:** https://app.staging.clientbridge.ca, with the same logins. Card steps use the Stripe sandbox; the demos are linked but their Stripe onboarding isn't finished.
 
 **QA steps**
 
@@ -1270,6 +1430,11 @@ Every way a client pays, at the desk, by link or online, ends in the right statu
 **Covers:** Estimate editor on web and mobile, Connect estimate page, convert, book from estimate
 **Before you start:** Northlight Security (estimates with optional lines)
 
+**Where to test**
+
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile dev-connect`. Open web at http://localhost:8700, mobile in the iOS simulator and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`. Texts land in Mailpit at http://localhost:8715.
+* **Staging:** https://app.staging.clientbridge.ca and Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`, with the same logins. Mobile waits on a staging build (CB-61). Texts to demo clients show as sent and go nowhere; real texts wait on the Twilio number (Trust Hub approval).
+
 **QA steps**
 
 1. Write an estimate on a phone with an optional line and send it.
@@ -1309,6 +1474,11 @@ Every way a client pays, at the desk, by link or online, ends in the right statu
 
 **Covers:** Invoice editor on web and mobile, Connect pay and receipt pages, overdue sweep
 **Before you start:** Staging with Stripe in test mode; Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234
+
+**Where to test**
+
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile dev-connect worker`. Open web at http://localhost:8700, mobile in the iOS simulator and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`. Run `make stripe-setup` once and keep `make stripe-listen` running for card steps. Texts land in Mailpit at http://localhost:8715.
+* **Staging:** https://app.staging.clientbridge.ca and Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`, with the same logins. Mobile waits on a staging build (CB-61). Card steps use the Stripe sandbox; the demos are linked but their Stripe onboarding isn't finished. Texts to demo clients show as sent and go nowhere; real texts wait on the Twilio number (Trust Hub approval).
 
 **QA steps**
 
@@ -1356,6 +1526,11 @@ Every way a client pays, at the desk, by link or online, ends in the right statu
 **Covers:** Record payment on web and mobile invoices
 **Before you start:** Staging with Stripe in test mode; Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234; a client with a saved card
 
+**Where to test**
+
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at http://localhost:8700 and mobile in the iOS simulator.
+* **Staging:** https://app.staging.clientbridge.ca, with the same logins. Mobile waits on a staging build (CB-61).
+
 **QA steps**
 
 1. Record $20 cash on a $50 invoice.
@@ -1389,6 +1564,11 @@ Every way a client pays, at the desk, by link or online, ends in the right statu
 **Covers:** Printed document view on web, share on mobile, Connect pages
 **Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234
 
+**Where to test**
+
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile dev-connect`. Open web at http://localhost:8700, mobile in the iOS simulator and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`.
+* **Staging:** https://app.staging.clientbridge.ca and Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`, with the same logins. Mobile waits on a staging build (CB-61).
+
 **QA steps**
 
 1. Print an invoice, an estimate and a receipt from web.
@@ -1418,6 +1598,11 @@ Every way a client pays, at the desk, by link or online, ends in the right statu
 
 **Covers:** Deposit on booking, invoice from booking, no-show and cancel paths
 **Before you start:** Staging with Stripe in test mode; Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234
+
+**Where to test**
+
+* **Local:** `make up migrate seed`, then `make dev-api dev-web`. Open web at http://localhost:8700. Run `make stripe-setup` once and keep `make stripe-listen` running for card steps.
+* **Staging:** https://app.staging.clientbridge.ca, with the same logins. Card steps use the Stripe sandbox; the demos are linked but their Stripe onboarding isn't finished.
 
 **QA steps**
 
@@ -1450,6 +1635,11 @@ Every way a client pays, at the desk, by link or online, ends in the right statu
 **Covers:** Gift cards on web and mobile, gift card checkout, redemption at the desk
 **Before you start:** Staging with Stripe in test mode; Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234
 
+**Where to test**
+
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at http://localhost:8700 and mobile in the iOS simulator. Run `make stripe-setup` once and keep `make stripe-listen` running for card steps.
+* **Staging:** https://app.staging.clientbridge.ca, with the same logins. Mobile waits on a staging build (CB-61). Card steps use the Stripe sandbox; the demos are linked but their Stripe onboarding isn't finished.
+
 **QA steps**
 
 1. Sell a $100 gift card for cash to a recipient.
@@ -1478,6 +1668,11 @@ Every way a client pays, at the desk, by link or online, ends in the right statu
 
 **Covers:** Package checkout, cover at the desk and on invoices, expiry job
 **Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234 (5-bath pack for one pet)
+
+**Where to test**
+
+* **Local:** `make up migrate seed`, then `make dev-api dev-web worker`. Open web at http://localhost:8700. Run `make stripe-setup` once and keep `make stripe-listen` running for card steps.
+* **Staging:** https://app.staging.clientbridge.ca, with the same logins. Card steps use the Stripe sandbox; the demos are linked but their Stripe onboarding isn't finished.
 
 **QA steps**
 
@@ -1511,6 +1706,11 @@ Every way a client pays, at the desk, by link or online, ends in the right statu
 
 **Covers:** Membership checkout, Stripe subscriptions, client panel, covered visits
 **Before you start:** Staging with Stripe in test mode; Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234; Stripe test clocks
+
+**Where to test**
+
+* **Local:** `make up migrate seed`, then `make dev-api dev-web worker`. Open web at http://localhost:8700. Run `make stripe-setup` once and keep `make stripe-listen` running for card steps.
+* **Staging:** https://app.staging.clientbridge.ca, with the same logins. Card steps use the Stripe sandbox; the demos are linked but their Stripe onboarding isn't finished.
 
 **QA steps**
 
@@ -1547,6 +1747,11 @@ Every way a client pays, at the desk, by link or online, ends in the right statu
 
 **Covers:** Connect shop and order page, Sales > Orders on web and mobile, pickup reminder job
 **Before you start:** Staging with Stripe in test mode; Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234
+
+**Where to test**
+
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile dev-connect worker`. Open web at http://localhost:8700, mobile in the iOS simulator and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`. Run `make stripe-setup` once and keep `make stripe-listen` running for card steps. Texts land in Mailpit at http://localhost:8715.
+* **Staging:** https://app.staging.clientbridge.ca and Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`, with the same logins. Mobile waits on a staging build (CB-61). Card steps use the Stripe sandbox; the demos are linked but their Stripe onboarding isn't finished. Texts to demo clients show as sent and go nowhere; real texts wait on the Twilio number (Trust Hub approval).
 
 **QA steps**
 
@@ -1590,6 +1795,11 @@ Money goes back correctly, every figure agrees with Stripe and the bank, and the
 **Covers:** Refund panel on web and mobile, credit notes, Stripe refunds
 **Before you start:** Staging with Stripe in test mode; Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234
 
+**Where to test**
+
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at http://localhost:8700 and mobile in the iOS simulator. Run `make stripe-setup` once and keep `make stripe-listen` running for card steps.
+* **Staging:** https://app.staging.clientbridge.ca, with the same logins. Mobile waits on a staging build (CB-61). Card steps use the Stripe sandbox; the demos are linked but their Stripe onboarding isn't finished.
+
 **QA steps**
 
 1. Refund $10 of a $50 payment, then the rest.
@@ -1629,6 +1839,11 @@ Money goes back correctly, every figure agrees with Stripe and the bank, and the
 **Covers:** Disputes in Payments, Stripe test disputes
 **Before you start:** Staging with Stripe in test mode; Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234
 
+**Where to test**
+
+* **Local:** `make up migrate seed`, then `make dev-api dev-web`. Open web at http://localhost:8700. Run `make stripe-setup` once and keep `make stripe-listen` running for card steps.
+* **Staging:** https://app.staging.clientbridge.ca, with the same logins. Card steps use the Stripe sandbox; the demos are linked but their Stripe onboarding isn't finished.
+
 **QA steps**
 
 1. Open a test inquiry.
@@ -1665,6 +1880,11 @@ Money goes back correctly, every figure agrees with Stripe and the bank, and the
 **Covers:** Today on web and mobile, owner and staff
 **Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234
 
+**Where to test**
+
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at http://localhost:8700 and mobile in the iOS simulator.
+* **Staging:** https://app.staging.clientbridge.ca, with the same logins. Mobile waits on a staging build (CB-61).
+
 **QA steps**
 
 1. Take a payment.
@@ -1697,6 +1917,11 @@ Money goes back correctly, every figure agrees with Stripe and the bank, and the
 **Covers:** Payments > Reports on web and mobile, CSV downloads, bookkeeper ZIP
 **Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234 after a test week of sales, refunds and pay
 
+**Where to test**
+
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at http://localhost:8700 and mobile in the iOS simulator.
+* **Staging:** https://app.staging.clientbridge.ca, with the same logins. Mobile waits on a staging build (CB-61).
+
 **QA steps**
 
 1. Run income, sales by item, GST/HST, PST, T4A, payouts and staff pay for the week.
@@ -1726,6 +1951,11 @@ Money goes back correctly, every figure agrees with Stripe and the bank, and the
 **Covers:** Payments > Tax returns on web and mobile
 **Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234 with a completed quarter
 
+**Where to test**
+
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at http://localhost:8700 and mobile in the iOS simulator.
+* **Staging:** https://app.staging.clientbridge.ca, with the same logins. Mobile waits on a staging build (CB-61).
+
 **QA steps**
 
 1. Download the quarter's GST/HST report and record the return.
@@ -1753,6 +1983,11 @@ Money goes back correctly, every figure agrees with Stripe and the bank, and the
 
 **Covers:** Payments > Payouts on web and mobile, Stripe dashboard, reconciliation job, admin drift
 **Before you start:** Staging with Stripe in test mode; Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234 linked to the Stripe sandbox
+
+**Where to test**
+
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile worker`. Open web at http://localhost:8700 and mobile in the iOS simulator. Run `make stripe-setup` once and keep `make stripe-listen` running for card steps.
+* **Staging:** https://app.staging.clientbridge.ca, with the same logins. Mobile waits on a staging build (CB-61). Card steps use the Stripe sandbox; the demos are linked but their Stripe onboarding isn't finished.
 
 **QA steps**
 
@@ -1794,6 +2029,11 @@ Money goes back correctly, every figure agrees with Stripe and the bank, and the
 
 **Covers:** Payments > Staff pay and My pay on web and mobile, statements, T4A
 **Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234 (Diego on commission)
+
+**Where to test**
+
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at http://localhost:8700 and mobile in the iOS simulator.
+* **Staging:** https://app.staging.clientbridge.ca, with the same logins. Mobile waits on a staging build (CB-61).
 
 **QA steps**
 
@@ -1841,6 +2081,11 @@ The business texts clients from one inbox, respects consent, and sends forms, co
 **Covers:** Inbox on web and mobile, Twilio inbound webhook, admin SMS assignment
 **Before you start:** Staging with Stripe in test mode with Twilio; two businesses with their own numbers; a real phone
 
+**Where to test**
+
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at http://localhost:8700 and mobile in the iOS simulator. Texts land in Mailpit at http://localhost:8715.
+* **Staging:** https://app.staging.clientbridge.ca, with the same logins. Mobile waits on a staging build (CB-61). Texts to demo clients show as sent and go nowhere; real texts wait on the Twilio number (Trust Hub approval).
+
 **QA steps**
 
 1. Text a client and reply from their phone.
@@ -1885,6 +2130,11 @@ The business texts clients from one inbox, respects consent, and sends forms, co
 **Covers:** Client record consent, inbound STOP and START, staff toggle, consent export
 **Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234
 
+**Where to test**
+
+* **Local:** `make up migrate seed`, then `make dev-api dev-web`. Open web at http://localhost:8700. Texts land in Mailpit at http://localhost:8715.
+* **Staging:** https://app.staging.clientbridge.ca, with the same logins. Texts to demo clients show as sent and go nowhere; real texts wait on the Twilio number (Trust Hub approval).
+
 **QA steps**
 
 1. Reply STOP from a client.
@@ -1914,6 +2164,11 @@ The business texts clients from one inbox, respects consent, and sends forms, co
 
 **Covers:** Inbox > Broadcasts on web and mobile, broadcast job
 **Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234
+
+**Where to test**
+
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile worker`. Open web at http://localhost:8700 and mobile in the iOS simulator. Texts land in Mailpit at http://localhost:8715.
+* **Staging:** https://app.staging.clientbridge.ca, with the same logins. Mobile waits on a staging build (CB-61). Texts to demo clients show as sent and go nowhere; real texts wait on the Twilio number (Trust Hub approval).
 
 **QA steps**
 
@@ -1946,6 +2201,11 @@ The business texts clients from one inbox, respects consent, and sends forms, co
 
 **Covers:** Forms on web and mobile, Connect form page, intake job
 **Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234
+
+**Where to test**
+
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile dev-connect worker`. Open web at http://localhost:8700, mobile in the iOS simulator and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`. Texts land in Mailpit at http://localhost:8715.
+* **Staging:** https://app.staging.clientbridge.ca and Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`, with the same logins. Mobile waits on a staging build (CB-61). Texts to demo clients show as sent and go nowhere; real texts wait on the Twilio number (Trust Hub approval).
 
 **QA steps**
 
@@ -1982,6 +2242,11 @@ The business texts clients from one inbox, respects consent, and sends forms, co
 
 **Covers:** Contracts on web and mobile, Connect contract page
 **Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234
+
+**Where to test**
+
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile dev-connect`. Open web at http://localhost:8700, mobile in the iOS simulator and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`. Texts land in Mailpit at http://localhost:8715.
+* **Staging:** https://app.staging.clientbridge.ca and Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`, with the same logins. Mobile waits on a staging build (CB-61). Texts to demo clients show as sent and go nowhere; real texts wait on the Twilio number (Trust Hub approval).
 
 **QA steps**
 
@@ -2020,6 +2285,11 @@ The business texts clients from one inbox, respects consent, and sends forms, co
 
 **Covers:** Inbox > Reviews on web and mobile, review request job, Google Business Profile connection
 **Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234; a Google review link; after Google approval, a test Business Profile
+
+**Where to test**
+
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile worker`. Open web at http://localhost:8700 and mobile in the iOS simulator. Texts land in Mailpit at http://localhost:8715.
+* **Staging:** https://app.staging.clientbridge.ca, with the same logins. Mobile waits on a staging build (CB-61). Texts to demo clients show as sent and go nowhere; real texts wait on the Twilio number (Trust Hub approval). The Google review link waits on Business Profile API access.
 
 **QA steps**
 
@@ -2060,6 +2330,11 @@ Staff run their day on any device, online or not, and every device agrees.
 **Covers:** Web production build with its service worker, mobile release build
 **Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234; a release build on a phone; a production web build
 
+**Where to test**
+
+* **Local:** `make up migrate seed`, then `make up-app` for the production web build with its service worker at http://localhost:8751. Mobile needs a release build.
+* **Staging:** https://app.staging.clientbridge.ca and the staging store builds (CB-61).
+
 **QA steps**
 
 1. Open the web app offline after a visit.
@@ -2098,6 +2373,11 @@ Staff run their day on any device, online or not, and every device agrees.
 
 **Covers:** Web tabs on OPFS and IndexedDB, sign-out, account switch, sync health and debug panel
 **Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234; Chrome, Safari and Firefox
+
+**Where to test**
+
+* **Local:** `make up migrate seed`, then `make dev-api dev-web`. Open web at http://localhost:8700.
+* **Staging:** https://app.staging.clientbridge.ca, with the same logins.
 
 **QA steps**
 
@@ -2144,6 +2424,11 @@ Staff run their day on any device, online or not, and every device agrees.
 **Covers:** Push registration, notifications feed on web and mobile
 **Before you start:** Staging with Stripe in test mode; store builds on an iPhone and an Android phone
 
+**Where to test**
+
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`, with a development build on a real phone, since the simulator gets no push. The web feed is at http://localhost:8700.
+* **Staging:** https://app.staging.clientbridge.ca and the staging store builds (CB-61) on real phones.
+
 **QA steps**
 
 1. Book online.
@@ -2173,6 +2458,11 @@ Staff run their day on any device, online or not, and every device agrees.
 
 **Covers:** Every mobile screen on phones and tablets, screen readers
 **Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234; store builds
+
+**Where to test**
+
+* **Local:** `make up migrate seed`, then `make dev-api dev-mobile` on iPhone, Android and iPad simulators. Screen readers need real devices.
+* **Staging:** The staging store builds (CB-61) on real phones and an iPad, with VoiceOver and TalkBack.
 
 **QA steps**
 
@@ -2210,6 +2500,11 @@ Staff run their day on any device, online or not, and every device agrees.
 **Covers:** EAS builds, TestFlight, Play internal track, OTA updates
 **Before you start:** Staging and production build profiles
 
+**Where to test**
+
+* **Local:** Not applicable: the builds come from EAS.
+* **Staging:** Install the staging builds from TestFlight and the Play internal track. The EAS setup in operations.md isn't done yet.
+
 **QA steps**
 
 1. Install from TestFlight and the Play internal track; sign in as owner and staff.
@@ -2240,6 +2535,11 @@ Clientbridge runs for real: live payments and messages, the admin console, the p
 **Covers:** Production web, mobile, Connect and site addresses with live Stripe, Twilio, Resend, Expo push, Google and storage
 **Before you start:** Production with live keys; one real phone number and card you control
 
+**Where to test**
+
+* **Local:** Not applicable: this ticket runs in production.
+* **Staging:** Not applicable: pass CB-68 on staging first.
+
 **QA steps**
 
 1. Sign in on the production web app and the store builds.
@@ -2269,6 +2569,11 @@ Clientbridge runs for real: live payments and messages, the admin console, the p
 
 **Covers:** Admin app pages and `/v1/admin`
 **Before you start:** An operator account; a non-operator account
+
+**Where to test**
+
+* **Local:** `make up migrate seed`, then `make configure-demo-admin`, restart `make dev-api` and run `make dev-admin`. Open http://localhost:8711 as hannah@birchbark.example.
+* **Staging:** https://admin.staging.clientbridge.ca, which needs a platform-admin grant on staging.
 
 **QA steps**
 
@@ -2306,6 +2611,11 @@ Clientbridge runs for real: live payments and messages, the admin console, the p
 **Covers:** Marketing site pages, contact form, waitlist build
 **Before you start:** The built site on staging
 
+**Where to test**
+
+* **Local:** `make dev-site` at http://localhost:8710, and `make build-site` for the static build.
+* **Staging:** https://staging.clientbridge.ca, which robots.txt keeps out of search.
+
 **QA steps**
 
 1. Search the built site for placeholders.
@@ -2342,6 +2652,11 @@ Clientbridge runs for real: live payments and messages, the admin console, the p
 
 **Covers:** Everything, on staging with the store builds
 **Before you start:** Staging with Stripe in test mode; Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234; Chrome and Safari on a laptop; one iPhone and one Android phone with the store builds
+
+**Where to test**
+
+* **Local:** Not applicable: this runs on staging with the store builds.
+* **Staging:** https://app.staging.clientbridge.ca, the Connect pages on `staging.clientbridge.ca` and the staging store builds (CB-61). Texts to demo clients show as sent and go nowhere; real texts wait on the Twilio number (Trust Hub approval).
 
 **QA steps**
 
