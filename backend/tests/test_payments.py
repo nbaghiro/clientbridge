@@ -21,6 +21,7 @@ from tests.helpers import (
     business_balance,
     card_pay,
     enable_payments,
+    pay_link_card,
     payment,
     payment_by_ref,
     provider_ref,
@@ -273,7 +274,7 @@ async def test_cannot_pay_when_not_onboarded(as_owner: httpx.AsyncClient, db: As
         update(Business).where(Business.id == BIZ).values(stripe_charges_enabled=False)
     )
     inv_id = await sent_invoice(db, number=9001, total=11200, pay_token="tok-not-onboarded")
-    res = await as_owner.post("/pay/tok-not-onboarded/card", json={})
+    res = await pay_link_card(as_owner, db, "tok-not-onboarded")
     assert res.status_code == 409
     assert (
         await db.execute(select(Payment.id).where(Payment.invoice_id == inv_id))
@@ -283,7 +284,7 @@ async def test_cannot_pay_when_not_onboarded(as_owner: httpx.AsyncClient, db: As
 async def test_cannot_pay_void_invoice(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
     await enable_payments(db)
     await sent_invoice(db, number=9001, total=11200, status="void", pay_token="tok-void")
-    assert (await as_owner.post("/pay/tok-void/card", json={})).status_code == 409
+    assert (await pay_link_card(as_owner, db, "tok-void")).status_code == 409
 
 
 async def test_staff_cannot_charge_a_saved_card(

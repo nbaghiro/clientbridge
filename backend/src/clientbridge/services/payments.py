@@ -1858,6 +1858,7 @@ async def record_failed_delivery(db: AsyncSession, event: GatewayEvent, exc: Exc
 
 ACCOUNT_CLOSED = "v2.core.account.closed"
 _OUR_VOID = "expired_order"  # we refund it in full and return our platform fee
+_UNAPPLIED = "unapplied_payment"  # it reached an invoice that no longer owed it; refunded in full
 _REPLAY_WINDOW = timedelta(days=7)
 _REPLAY_PER_ACCOUNT = 100
 _REPLAY_PER_RUN = 500
@@ -2382,37 +2383,32 @@ async def _settle_payment(
             if exc.code != "out_of_stock":
                 raise
             order.status, expired_order = "void", True
+    unapplied = await _unapplied(db, payment)
     fees = await _fees(db, gateway, payment.business_id, intent_id)
     payment.status = "succeeded"
     payment.paid_at = occurred_at or clock.now()
     await db.flush()
     await ledger.post_payment(db, payment, available_at=fees.available_at)
     await ledger.post_fees(db, payment, fees)
-    if expired_order:
-        account_id = await db.scalar(
-            select(Business.stripe_account_id).where(Business.id == payment.business_id)
-        )
-        refund = await create_refund(
+    if unapplied:
+        await _refund_late(
             db,
             gateway,
             payment,
-            account_id,
-            payment.amount_cents,
+            key=f"unapplied:{payment.id}",
+            reason=_UNAPPLIED,
+            action="payment.late_invoice_refund",
+        )
+        return None
+    if expired_order:
+        await _refund_late(
+            db,
+            gateway,
+            payment,
             key=f"expired-order:{payment.id}",
             reason=_OUR_VOID,
-            return_fee=True,
+            action="payment.late_order_refund",
         )
-        db.add(
-            Audit(
-                id=new_id("audit"),
-                business_id=payment.business_id,
-                action="payment.late_order_refund",
-                entity_type="payment",
-                entity_id=payment.id,
-                changes={"refund_id": refund.id, "status": refund.status},
-            )
-        )
-        await db.flush()
         return None
 
     await _sync_parent(db, payment)
@@ -2420,6 +2416,60 @@ async def _settle_payment(
         await _settle_booking_deposit(db, gateway, payment.booking_id)
     gift_card_id = await _settle_entitlement(db, payment)
     return _Settled(payment.id, gift_card_id)
+
+
+async def _unapplied(db: AsyncSession, payment: Payment) -> bool:
+    """A card payment settling on an invoice that was voided or paid another way since."""
+    if payment.invoice_id is None or payment.kind != "payment":
+        return False
+    invoice = await db.scalar(
+        scoped(Invoice, payment.business_id)
+        .where(Invoice.id == payment.invoice_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    if invoice is None:
+        return False
+    status, _ = await ledger.invoice_state(db, invoice)
+    if status in ("void", "refunded"):
+        return True
+    return payment.amount_cents - payment.tip_cents > await ledger.invoice_balance(db, invoice)
+
+
+async def _refund_late(
+    db: AsyncSession,
+    gateway: PaymentGateway,
+    payment: Payment,
+    *,
+    key: str,
+    reason: str,
+    action: str,
+) -> None:
+    """Give back in full a charge that settled after what it paid for was gone."""
+    account_id = await db.scalar(
+        select(Business.stripe_account_id).where(Business.id == payment.business_id)
+    )
+    refund = await create_refund(
+        db,
+        gateway,
+        payment,
+        account_id,
+        payment.amount_cents,
+        key=key,
+        reason=reason,
+        return_fee=True,
+    )
+    db.add(
+        Audit(
+            id=new_id("audit"),
+            business_id=payment.business_id,
+            action=action,
+            entity_type="payment",
+            entity_id=payment.id,
+            changes={"refund_id": refund.id, "status": refund.status},
+        )
+    )
+    await db.flush()
 
 
 async def _fees(
@@ -2452,8 +2502,13 @@ async def _give_back(
 
 async def _apply_refund(db: AsyncSession, refund: Payment, payment: Payment) -> None:
     """Book a refund and roll its parent back."""
-    await _give_back(db, payment, refund.id, lambda: ledger.post_refund(db, refund, payment))
-    if refund.reason == _OUR_VOID:
+    await _give_back(
+        db,
+        payment,
+        refund.id,
+        lambda: ledger.post_refund(db, refund, payment, unapplied=refund.reason == _UNAPPLIED),
+    )
+    if refund.reason in (_OUR_VOID, _UNAPPLIED):
         await ledger.post_fee_return(db, payment, refund.id)
     if await _fully_refunded(db, payment):
         await _reverse_entitlement(db, payment)

@@ -189,6 +189,9 @@
     "api.estimateChanged": {
         "message": "This estimate just changed. Reload the page to see the latest version."
     },
+    "api.invoiceChanged": {
+        "message": "This invoice just changed, so nothing was charged. Check the amount below and try again."
+    },
     "api.depositNotDue": {
         "message": "This deposit is already paid or no longer due."
     },

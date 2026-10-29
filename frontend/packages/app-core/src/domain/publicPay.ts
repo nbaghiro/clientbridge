@@ -15,7 +15,7 @@ import {
     taxRateLabel,
 } from "./printing";
 import { type PublicBrand, usePublicResource } from "./publicResource";
-import { refusal } from "../api";
+import { failedCode, failureMessage, refusal } from "../api";
 import type { IconName } from "../icons";
 
 export interface PublicDocLine {
@@ -183,11 +183,12 @@ export function printedPublicInvoice(
 interface PublicCardIntent {
     client_secret: string;
     stripe_account_id: string;
+    amount_cents: number;
 }
 
 interface PublicPayClient {
     getPublicInvoice: (token: string) => Promise<PublicInvoice>;
-    payCard(token: string, tipCents?: number): Promise<PublicCardIntent>;
+    payCard(token: string, balanceCents: number, tipCents: number): Promise<PublicCardIntent>;
 }
 
 export function createPublicPayClient(baseUrl: string): PublicPayClient {
@@ -201,11 +202,11 @@ export function createPublicPayClient(baseUrl: string): PublicPayClient {
 
     return {
         getPublicInvoice: (token) => request<PublicInvoice>(`/pay/${encodeURIComponent(token)}`),
-        payCard: (token, tipCents = 0) =>
+        payCard: (token, balanceCents, tipCents) =>
             request<PublicCardIntent>(`/pay/${encodeURIComponent(token)}/card`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ tip_cents: tipCents }),
+                body: JSON.stringify({ balance_cents: balanceCents, tip_cents: tipCents }),
             }),
     };
 }
@@ -255,7 +256,7 @@ interface PublicPayForm {
 }
 
 export function usePublicPayForm(pay: PublicPayClient, token: string): PublicPayForm {
-    const { status: load, data: invoice } = usePublicResource(pay.getPublicInvoice, token);
+    const { status: load, data: invoice, retry } = usePublicResource(pay.getPublicInvoice, token);
     const [card, setCard] = useState<PublicCardIntent | null>(null);
     const [paid, setPaid] = useState(false);
     const { busy, error, setError, run } = useAsyncAction();
@@ -265,12 +266,18 @@ export function usePublicPayForm(pay: PublicPayClient, token: string): PublicPay
 
     const tip = usePayLinkTip(invoice);
     const payCard = (): void => {
-        if (tip.error !== null) return;
+        if (tip.error !== null || invoice === null) return;
         run(
             async () => {
-                setCard(await pay.payCard(token, tip.cents));
+                setCard(await pay.payCard(token, invoice.balance_cents, tip.cents));
             },
-            { errorMessage: strings.publicPay.cardStartError },
+            {
+                errorMessage: (e) => {
+                    // the server charges only the balance this page showed, so show the new one
+                    if (failedCode(e) === "invoice_changed") retry();
+                    return failureMessage(e, strings.publicPay.cardStartError);
+                },
+            },
         );
     };
 

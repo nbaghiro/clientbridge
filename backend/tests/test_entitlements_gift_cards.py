@@ -9,6 +9,7 @@ from clientbridge.core.ids import new_id
 from clientbridge.models.billing import Order
 from clientbridge.models.business import Business
 from clientbridge.models.catalog import GiftCard, Item, StockMovement
+from clientbridge.models.ledger import Account, Entry
 from clientbridge.models.payments import Payment
 from clientbridge.services import ledger
 from clientbridge.services.ledger import Leg
@@ -505,6 +506,82 @@ async def test_a_gift_card_with_enough_balance_settles_the_sale(
     assert (out["status"], out["gift_card_cents"]) == ("paid", sale["total_cents"])
     assert out["paid_at"] is not None
     assert await _balance(db, card) == 10000 - int(str(sale["total_cents"]))
+
+
+async def _booked(db: AsyncSession) -> tuple[int, int]:
+    """The business's tax and revenue balances, as credits."""
+    tax = await ledger.account_total(db, BIZ, Account.category == "tax")
+    revenue = await ledger.account_total(db, BIZ, Account.category == "revenue")
+    return -tax, -revenue
+
+
+async def _gst(as_owner: httpx.AsyncClient) -> tuple[int, int]:
+    report = (await as_owner.get("/v1/reports/gst-hst?start=2026-01-01&end=2026-12-31")).json()
+    collected = int(report["tax_collected_cents"]) + int(report["pst_cents"])
+    return collected, int(report["taxable_sales_cents"])
+
+
+async def test_a_sale_paid_by_gift_card_books_its_tax(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await _active_card(db, code="GIFTTAX", balance=10000)
+    tax_before, revenue_before = await _booked(db)
+    gst_before = await _gst(as_owner)
+    sale = await _sale(as_owner)
+    assert (await _apply(as_owner, sale["id"], "GIFTTAX")).json()["status"] == "paid"
+    total, tax = int(str(sale["total_cents"])), int(str(sale["tax_total_cents"]))
+    assert tax > 0
+    tax_after, revenue_after = await _booked(db)
+    assert (tax_after - tax_before, revenue_after - revenue_before) == (tax, total - tax)
+    gst_after = await _gst(as_owner)
+    assert gst_after[0] - gst_before[0] == tax
+    assert gst_after[1] - gst_before[1] == total - tax
+
+
+async def test_a_gift_card_and_cash_book_the_sale_tax_once_with_no_negative_revenue(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    sale = await _sale(as_owner)
+    total, tax = int(str(sale["total_cents"])), int(str(sale["tax_total_cents"]))
+    # the cash part is a dollar, less than the tax, which used to push revenue negative
+    await _active_card(db, code="GIFTMOST", balance=total - 100)
+    tax_before, revenue_before = await _booked(db)
+    assert (await _apply(as_owner, sale["id"], "GIFTMOST")).status_code == 200
+    paid = await as_owner.post(
+        f"/v1/orders/{sale['id']}/cash", json={"tendered_cents": 100}, headers=key()
+    )
+    assert paid.status_code == 200, paid.text
+    tax_after, revenue_after = await _booked(db)
+    assert (tax_after - tax_before, revenue_after - revenue_before) == (tax, total - tax)
+    debits = await db.scalar(
+        select(func.count())
+        .select_from(Entry)
+        .join(Account, Account.id == Entry.account_id)
+        .where(
+            Account.category == "revenue",
+            Entry.amount_cents > 0,
+            Entry.source_id.in_(
+                [
+                    str(sale["id"]),
+                    *await db.scalars(select(Payment.id).where(Payment.order_id == sale["id"])),
+                ]
+            ),
+        )
+    )
+    assert debits == 0
+
+
+async def test_voiding_a_gift_card_sale_gives_its_tax_back(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    sale = await _sale(as_owner)
+    await _active_card(db, code="GIFTHALF", balance=1000)
+    before = await _booked(db)
+    gst_before = await _gst(as_owner)
+    assert (await _apply(as_owner, sale["id"], "GIFTHALF")).status_code == 200
+    assert (await as_owner.post(f"/v1/orders/{sale['id']}/void", headers=key())).status_code == 200
+    assert await _booked(db) == before
+    assert await _gst(as_owner) == gst_before
 
 
 async def test_refunding_the_rest_gives_the_gift_card_balance_back(

@@ -1,5 +1,5 @@
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 
 from sqlalchemy import ColumnElement, Select, and_, case, event, func, or_, select, tuple_
@@ -12,7 +12,7 @@ from clientbridge.core.errors import UnsupportedCurrency
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
 from clientbridge.integrations.stripe import ChargeFees
-from clientbridge.models.billing import Invoice, Order
+from clientbridge.models.billing import Invoice, Line, Order
 from clientbridge.models.catalog import GiftCard, Item, Package
 from clientbridge.models.ledger import Account, Entry
 from clientbridge.models.payments import Payment
@@ -711,13 +711,12 @@ def _tip_contra(payment: Payment) -> list[Leg]:
 
 
 async def _order_sale(db: AsyncSession, payment: Payment) -> list[Leg]:
-    """A sale's revenue and tax, with any held visit deposit applied to it as part payment."""
+    """A sale's revenue and the tax gift cards haven't booked, with held deposits applied."""
     biz = payment.business_id
     assert payment.order_id is not None
-    lines = await fetch_lines(db, biz, "order", payment.order_id)
-    order = await db.get(Order, payment.order_id)
-    sold = order.created_at if order is not None else payment.created_at
-    tax = await issued_tax(db, biz, lines, sold)
+    order, lines, tax = await _order_tax(db, biz, payment.order_id, payment.created_at)
+    booked = await _redeemed_tax(db, biz, payment.order_id)
+    tax = _without(tax, booked)
     paid = payment.amount_cents - payment.tip_cents
     want = (order.total_cents if order is not None else paid) - paid
     applied: list[Leg] = []
@@ -922,7 +921,12 @@ async def _within_holding(db: AsyncSession, account: Account, cents: int) -> int
 
 
 async def refund_legs(
-    db: AsyncSession, original: Payment, returned: int, *, refund_id: str = ""
+    db: AsyncSession,
+    original: Payment,
+    returned: int,
+    *,
+    refund_id: str = "",
+    unapplied: bool = False,
 ) -> list[Leg]:
     """What returning `returned` of a payment unwinds, part by part (the credit note's split)."""
     biz = original.business_id
@@ -934,6 +938,9 @@ async def refund_legs(
     ]
     tip = await tip_returned(db, original, returned, refund_id)
     tip_legs = [Leg("business", biz, "staff_cost", tip)] if tip else []
+    if unapplied:
+        # the payment never paid the invoice off, so only the receivable it credited comes back
+        return [Leg(*_payer(biz, original.client_id), "receivable", returned - tip), *tip_legs]
     base = -sum(entry.amount_cents for entry, _ in credits)
     if base <= 0:
         return [Leg("business", biz, "revenue", returned - tip), *tip_legs]
@@ -980,11 +987,12 @@ async def post_refund(
     *,
     amount: int | None = None,
     ref: str | None = None,
+    unapplied: bool = False,
 ) -> None:
     """Return the money and unwind what it paid for, pro rata."""
     biz = original.business_id
     returned = refund.amount_cents if amount is None else amount
-    legs = await refund_legs(db, original, returned, refund_id=refund.id)
+    legs = await refund_legs(db, original, returned, refund_id=refund.id, unapplied=unapplied)
     subject, _ = await _settlement(db, original)
     tip = sum(leg.amount_cents for leg in legs if leg.category == "staff_cost")
     await post(
@@ -1283,20 +1291,70 @@ def gift_card_status(card: GiftCard, balance_cents: int) -> str:
     return "redeemed" if card.status == "active" and balance_cents == 0 else card.status
 
 
+async def _order_tax(
+    db: AsyncSession, biz: str, order_id: str, fallback: datetime
+) -> tuple[Order | None, list[Line], TaxResult]:
+    lines = await fetch_lines(db, biz, "order", order_id)
+    order = await db.get(Order, order_id)
+    return order, lines, await issued_tax(db, biz, lines, order.created_at if order else fallback)
+
+
+async def _redeemed_tax(db: AsyncSession, biz: str, order_id: str) -> dict[str, int]:
+    """The tax gift cards have booked on a sale so far, by code, net of their reversals."""
+    rows = await db.execute(
+        scoped(Entry, biz)
+        .join(Account, Account.id == Entry.account_id)
+        .where(Entry.source_type == "order", Entry.source_id == order_id, Account.category == "tax")
+        .with_only_columns(Account.code, func.sum(Entry.amount_cents))
+        .group_by(Account.code)
+    )
+    return {code: -int(cents) for code, cents in rows.tuples().all() if cents}
+
+
+def _without(tax: TaxResult, booked: dict[str, int]) -> TaxResult:
+    left = {code: cents - booked.get(code, 0) for code, cents in tax.by_jurisdiction.items()}
+    return replace(tax, tax_total_cents=sum(left.values()), by_jurisdiction=left)
+
+
+async def _redemption_tax(db: AsyncSession, biz: str, order_id: str, amount: int) -> TaxResult:
+    """A redemption's share of the sale's tax: a gift card is taxed when it pays for something."""
+    order, _, tax = await _order_tax(db, biz, order_id, clock.now())
+    if order is None or order.total_cents <= 0:
+        return _without(tax, tax.by_jurisdiction)
+    applied = int(await db.scalar(select(_gift_card_applied_expr(order_id))) or 0)
+    covered = min(order.total_cents, applied + amount)
+    # shares of the running total, so redemptions that cover the sale book exactly its tax
+    through = {
+        code: allocate(cents, [covered, order.total_cents - covered])[0]
+        for code, cents in tax.by_jurisdiction.items()
+    }
+    return _without(replace(tax, by_jurisdiction=through), await _redeemed_tax(db, biz, order_id))
+
+
 async def post_redemption(
     db: AsyncSession, card: GiftCard, amount: int, *, source: tuple[str, str] | None = None
 ) -> None:
     remaining = await gift_card_balance(db, card)
+    biz = card.business_id
+    tax = (
+        await _redemption_tax(db, biz, source[1], amount)
+        if source is not None and source[0] == "order"
+        else None
+    )
     await post(
         db,
-        card.business_id,
+        biz,
         event="redemption",
         ref=f"redemption:{card.id}:{source[1]}:{new_id('journal')}"
         if source
         else f"redemption:{card.id}:{remaining}",
         legs=[
             Leg("gift_card", card.id, "gift_card", amount),
-            Leg("business", card.business_id, "revenue", -amount),
+            *(
+                _sale_legs(biz, amount, tax)
+                if tax is not None
+                else [Leg("business", biz, "revenue", -amount)]
+            ),
         ],
         currency=await _subject_currency(
             db, card.business_id, category="gift_card", subject_type="gift_card", subject_id=card.id

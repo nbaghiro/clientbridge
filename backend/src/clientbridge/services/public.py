@@ -1235,7 +1235,11 @@ class PublicManageService:
             supersede=True,
         )
         await self.db.commit()
-        return PublicCardIntent(client_secret=client_secret, stripe_account_id=account_id)
+        return PublicCardIntent(
+            client_secret=client_secret,
+            stripe_account_id=account_id,
+            amount_cents=booking.deposit_amount_cents,
+        )
 
     def _blocked(
         self,
@@ -1787,15 +1791,21 @@ class PublicPayService:
             tip_for=await _tip_names(self.db, invoice.business_id, lines),
         )
 
-    async def pay_card(self, token: str, data: PublicPayIn | None = None) -> PublicCardIntent:
+    async def pay_card(self, token: str, data: PublicPayIn) -> PublicCardIntent:
         invoice, business = await self._resolve(token)
-        amount = await assert_payable(self.db, invoice)
+        try:
+            amount = await assert_payable(self.db, invoice)
+        except Conflict as exc:
+            raise Conflict(exc.message, code="invoice_changed") from exc
+        if amount != data.balance_cents:
+            # the page shows the balance it loaded; never charge a different one under that label
+            raise Conflict("this invoice changed since it was shown", code="invoice_changed")
         if not business.stripe_charges_enabled or business.stripe_account_id is None:
             raise Conflict("this business can't take card payments yet")
         client = await self.db.get(Client, invoice.client_id)
         if client is None:
             raise NotFound("client not found")
-        tip_cents = data.tip_cents if data is not None else 0
+        tip_cents = data.tip_cents
         if tip_cents > amount:
             raise Unprocessable("a tip can't be more than the amount owed")
         eligible = await tip_lines(
@@ -1824,7 +1834,9 @@ class PublicPayService:
         )
         await self.db.commit()
         return PublicCardIntent(
-            client_secret=client_secret, stripe_account_id=business.stripe_account_id
+            client_secret=client_secret,
+            stripe_account_id=business.stripe_account_id,
+            amount_cents=amount + tip.cents,
         )
 
 

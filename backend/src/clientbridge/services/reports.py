@@ -134,7 +134,10 @@ class ReportService:
         sales = await self.db.execute(
             self._legs(
                 Account.category.in_(("revenue", "deferred")),
-                Entry.event.in_(("invoice", "payment", "refund", "dispute", "forfeit", "reversal")),
+                # a gift card is sold untaxed, so its sale counts when it pays for something
+                Entry.event.in_(
+                    ("invoice", "payment", "redemption", "refund", "dispute", "forfeit", "reversal")
+                ),
                 lo,
                 hi,
             ).with_only_columns(func.coalesce(func.sum(Entry.amount_cents), 0))

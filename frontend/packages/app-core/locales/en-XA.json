@@ -164,6 +164,9 @@
     "api.estimateChanged": {
         "message": "[Ţĥîš éšţîɱåţé ĵûšţ çĥåñĝéð. Ŕéļöåð ţĥé þåĝé ţö šéé ţĥé ļåţéšţ ṽéŕšîöñ. one two three four five]"
     },
+    "api.invoiceChanged": {
+        "message": "[Ţĥîš îñṽöîçé ĵûšţ çĥåñĝéð, šö ñöţĥîñĝ ŵåš çĥåŕĝéð. Çĥéçķ ţĥé åɱöûñţ ƀéļöŵ åñð ţŕý åĝåîñ. one two three four five six]"
+    },
     "api.depositNotDue": {
         "message": "[Ţĥîš ðéþöšîţ îš åļŕéåðý þåîð öŕ ñö ļöñĝéŕ ðûé. one two three]"
     },

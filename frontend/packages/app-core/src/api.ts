@@ -83,6 +83,7 @@ const FAILURES: Record<string, (detail: FailureDetail) => string> = {
     estimate_booked: () => strings.api.estimateBooked,
     estimate_on_visit: () => strings.api.estimateOnVisit,
     estimate_changed: () => strings.api.estimateChanged,
+    invoice_changed: () => strings.api.invoiceChanged,
     deposit_not_due: () => strings.api.depositNotDue,
     deposit_in_progress: () => strings.api.depositInProgress,
     checkout_paid: () => strings.api.checkoutPaid,

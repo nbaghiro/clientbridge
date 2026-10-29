@@ -8143,6 +8143,11 @@ export interface components {
             client_secret: string;
             /** Stripe Account Id */
             stripe_account_id: string;
+            /**
+             * Amount Cents
+             * @description What the card is charged: the balance plus the tip
+             */
+            amount_cents: number;
         };
         /** PublicContractContext */
         PublicContractContext: {
@@ -8612,6 +8617,11 @@ export interface components {
         };
         /** PublicPayIn */
         PublicPayIn: {
+            /**
+             * Balance Cents
+             * @description The balance the client was shown; a different balance is refused
+             */
+            balance_cents: number;
             /**
              * Tip Cents
              * @description A tip for the staff, outside tax
@@ -10633,9 +10643,9 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: {
+        requestBody: {
             content: {
-                "application/json": components["schemas"]["PublicPayIn"] | null;
+                "application/json": components["schemas"]["PublicPayIn"];
             };
         };
         responses: {

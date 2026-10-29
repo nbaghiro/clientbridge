@@ -296,12 +296,16 @@ class TipShareIn(BaseModel):
 
 
 class PublicPayIn(BaseModel):
+    balance_cents: int = Field(
+        ge=0, description="The balance the client was shown; a different balance is refused"
+    )
     tip_cents: int = Field(default=0, ge=0, description="A tip for the staff, outside tax")
 
 
 class PublicCardIntent(BaseModel):
     client_secret: str
     stripe_account_id: str
+    amount_cents: int = Field(description="What the card is charged: the balance plus the tip")
 
 
 class InvoicePaymentIn(Mirror):

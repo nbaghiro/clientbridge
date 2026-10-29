@@ -236,6 +236,18 @@ async def sent_invoice(
     return inv.id
 
 
+async def pay_link_card(
+    api: httpx.AsyncClient, db: AsyncSession, token: str, tip_cents: int = 0
+) -> httpx.Response:
+    """Start a card payment on a pay link with the balance its page would show."""
+    invoice = await db.scalar(
+        select(Invoice).where(Invoice.pay_token == token).execution_options(populate_existing=True)
+    )
+    balance = await ledger.invoice_balance(db, invoice) if invoice is not None else 0
+    body = {"balance_cents": max(balance, 0), "tip_cents": tip_cents}
+    return await api.post(f"/pay/{token}/card", json=body)
+
+
 async def card_pay(
     api: httpx.AsyncClient, db: AsyncSession, invoice_id: str, tip_cents: int = 0
 ) -> str:
@@ -245,7 +257,7 @@ async def card_pay(
     if inv.pay_token is None:
         inv.pay_token = uuid.uuid4().hex
         await db.flush()
-    res = ok(await api.post(f"/pay/{inv.pay_token}/card", json={"tip_cents": tip_cents}))
+    res = ok(await pay_link_card(api, db, inv.pay_token, tip_cents))
     ref = str(res.json()["client_secret"]).removesuffix("_secret")
     return (await payment_by_ref(db, ref)).id
 

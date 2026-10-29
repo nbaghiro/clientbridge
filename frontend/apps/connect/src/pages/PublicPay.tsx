@@ -251,7 +251,7 @@ export function PublicPay() {
                                         stripeAccount={form.card.stripe_account_id}
                                         submitLabel={strings.checkout.pay(
                                             formatMoneyWithCurrency(
-                                                form.tip.totalCents,
+                                                form.card.amount_cents,
                                                 invoice.currency,
                                             ),
                                         )}

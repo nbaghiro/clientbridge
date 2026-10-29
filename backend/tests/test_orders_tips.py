@@ -12,7 +12,16 @@ from clientbridge.services import ledger
 from clientbridge.services.earnings import cancel_returned_tips, load_earning
 from clientbridge.services.ledger import Leg
 from tests.conftest import FakeEmailSender, FakePaymentGateway, FakeSmsSender
-from tests.helpers import enable_payments, key, ok, payment, sent_invoice, settle, stripe_event
+from tests.helpers import (
+    enable_payments,
+    key,
+    ok,
+    pay_link_card,
+    payment,
+    sent_invoice,
+    settle,
+    stripe_event,
+)
 
 BIZ = "bz_birchbark"
 GROOM = {
@@ -258,7 +267,7 @@ async def test_pay_link_takes_a_tip_for_the_invoice(
         )
     )
     await db.flush()
-    res = ok(await unauth.post("/pay/tok_tip/card", json={"tip_cents": 1500}))
+    res = ok(await pay_link_card(unauth, db, "tok_tip", tip_cents=1500))
     assert res.json()["client_secret"]
     pay = (
         await db.execute(
@@ -274,7 +283,7 @@ async def test_pay_link_takes_a_tip_for_the_invoice(
         )
         == 0
     )
-    too_much = await unauth.post("/pay/tok_tip/card", json={"tip_cents": 1})
+    too_much = await pay_link_card(unauth, db, "tok_tip", tip_cents=1)
     assert too_much.status_code == 409
 
 
@@ -316,7 +325,7 @@ async def test_a_second_tipped_instalment_receipt_counts_every_tip_on_the_invoic
     db.add(first)
     await db.flush()
     await ledger.post_payment(db, first)
-    ok(await unauth.post("/pay/tok_two/card", json={"tip_cents": 1000}))
+    ok(await pay_link_card(unauth, db, "tok_two", tip_cents=1000))
     second = (
         await db.execute(
             select(Payment).where(Payment.invoice_id == inv, Payment.status == "pending")
@@ -333,7 +342,7 @@ async def test_pay_link_refuses_a_tip_larger_than_the_bill(
 ) -> None:
     await enable_payments(db)
     await sent_invoice(db, total=1000, pay_token="tok_big")
-    res = await unauth.post("/pay/tok_big/card", json={"tip_cents": 5000})
+    res = await pay_link_card(unauth, db, "tok_big", tip_cents=5000)
     assert res.status_code == 422
 
 
