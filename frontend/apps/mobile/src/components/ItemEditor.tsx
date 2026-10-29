@@ -506,6 +506,13 @@ function PlanFields({ ed }: { ed: PlanEditor }) {
                                 set("frequency", x);
                             }}
                         />
+                        <Text style={styles.label}>{s.membershipCovers}</Text>
+                        <Choice
+                            label={s.membershipCovers}
+                            options={ed.membershipCover.options}
+                            value={ed.membershipCover.value}
+                            onChange={ed.membershipCover.choose}
+                        />
                         <View style={styles.pair}>
                             <Num
                                 label={s.includes}

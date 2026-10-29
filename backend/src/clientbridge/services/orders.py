@@ -153,12 +153,17 @@ class OrderService:
         async def run(cmd: Command) -> OrderOut:
             await self.db.execute(select(Order.id).where(Order.id == order_id).with_for_update())
             status = await _status(self.db, order)
-            if status != "open":
-                raise Conflict(f"a {status} order can't be voided")
             if await self._has_active_payment(order.id):
                 raise Conflict("can't void an order after checkout has started")
+            # a sale gift cards paid in full has no payment to refund, so voiding returns it
+            if status != "open" and not (status == "paid" and order.source == "pos"):
+                raise Conflict(f"a {status} order can't be voided")
             order.status = "void"
             await ledger.reverse_order_redemptions(self.db, order)
+            await self.db.flush()
+            if status == "paid":
+                # while the visits are still on the sale, so they stop reading as paid
+                await sync_order(self.db, order.id)
             await self._link_visits(order, [])
             await self.db.flush()
             cmd.record("order.void", entity_type="order", entity_id=order.id)
@@ -530,7 +535,11 @@ class OrderService:
             if booking.id not in wanted:
                 booking.order_id = None
                 continue
-            if booking.charged_at is not None or booking.package_id is not None:
+            if (
+                booking.charged_at is not None
+                or booking.package_id is not None
+                or booking.subscription_id is not None
+            ):
                 raise Conflict("this visit has already been paid for")
             if booking.invoice_id is not None:
                 invoice = await self.db.get(Invoice, booking.invoice_id)

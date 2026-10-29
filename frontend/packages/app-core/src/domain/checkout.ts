@@ -4,7 +4,14 @@ import { useRef, useState } from "react";
 import { usePublicResource } from "./publicResource";
 import { useAsyncAction } from "../hooks";
 import { strings } from "../strings";
-import { type ApiLike, type Attempt, attemptKey, failedStatus, newIdempotencyKey } from "../api";
+import {
+    type ApiLike,
+    type Attempt,
+    attemptKey,
+    failedStatus,
+    failureMessage,
+    newIdempotencyKey,
+} from "../api";
 
 /** The payment-method choice that means "enter a new card" rather than charge a saved one. */
 export const NEW_CARD = "";
@@ -39,7 +46,7 @@ export interface Checkout {
 
 /** A server without Stripe keys answers 503; say so instead of asking the user to retry. */
 export function paymentErrorMessage(e: unknown, fallback: string): string {
-    return failedStatus(e) === 503 ? strings.payments.notConfigured : fallback;
+    return failedStatus(e) === 503 ? strings.payments.notConfigured : failureMessage(e, fallback);
 }
 
 /** One idempotency key per attempt, kept across retries so a double-submit can't double-charge. */
@@ -81,6 +88,8 @@ export function useCheckout(
                         : { paymentMethodId: method, idempotencyKey },
                 );
             } catch (e) {
+                // only a declined card is final; anything else may have charged, so it keeps its key
+                if (failedStatus(e) === 402) keyRef.current = null;
                 setError(paymentErrorMessage(e, errorMessage));
                 return;
             }

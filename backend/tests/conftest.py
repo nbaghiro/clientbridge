@@ -427,6 +427,7 @@ class FakePaymentGateway:
         self.subscription_metadata: dict[str, dict[str, str]] = {}
         self.canceled_subscriptions: list[str] = []
         self.period_end_cancels: list[str] = []
+        self.kept_subscriptions: list[str] = []
         self.subscription_prices: dict[str, str] = {}
         self.subscription_fee_percents: dict[str, float] = {}
         self._sub_methods: dict[str, str] = {}
@@ -763,6 +764,9 @@ class FakePaymentGateway:
             self.period_end_cancels.append(subscription_id)
         else:
             self.canceled_subscriptions.append(subscription_id)
+
+    async def keep_subscription(self, account_id: str, *, subscription_id: str) -> None:
+        self.kept_subscriptions.append(subscription_id)
 
     async def invoice_for_payment(
         self, account_id: str, intent_id: str

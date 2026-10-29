@@ -164,6 +164,24 @@
     "api.estimateChanged": {
         "message": "[Ţĥîš éšţîɱåţé ĵûšţ çĥåñĝéð. Ŕéļöåð ţĥé þåĝé ţö šéé ţĥé ļåţéšţ ṽéŕšîöñ. one two three four five]"
     },
+    "api.paymentInProgress": {
+        "message": "[Å þåýɱéñţ öñ ţĥîš îñṽöîçé îš šţîļļ ĝöîñĝ ţĥŕöûĝĥ. Ŵåîţ ƒöŕ îţ ţö ƒîñîšĥ, ţĥéñ ţŕý åĝåîñ. one two three four five six]"
+    },
+    "api.membershipVisitsUsed": {
+        "message": "[Ţĥîš ɱéɱƀéŕšĥîþ'š îñçļûðéð ṽîšîţš ƒöŕ ţĥé þéŕîöð åŕé ûšéð. Ŕîñĝ ţĥé ṽîšîţ ûþ îñšţéåð. one two three four five six]"
+    },
+    "api.paymentMethodInUse": {
+        "message": "[Å ɱéɱƀéŕšĥîþ šţîļļ ƀîļļš ţĥîš çåŕð. Çåñçéļ ţĥé ɱéɱƀéŕšĥîþ öŕ ɱöṽé îţ ţö åñöţĥéŕ çåŕð ƒîŕšţ. one two three four five six]"
+    },
+    "api.cardDeclined": {
+        "message": "[Ţĥé çåŕð ŵåš ðéçļîñéð. Ţŕý åñöţĥéŕ çåŕð öŕ þåýɱéñţ ɱéţĥöð. one two three four]"
+    },
+    "api.paymentActionRequired": {
+        "message": "[Ţĥîš çåŕð ñééðš ţĥé çļîéñţ ţö åþþŕöṽé ţĥé þåýɱéñţ. Ûšé å ñéŵ çåŕð öŕ šéñð ţĥéɱ å þåý ļîñķ. one two three four five six]"
+    },
+    "api.invoiceChanged": {
+        "message": "[Ţĥîš îñṽöîçé ĵûšţ çĥåñĝéð, šö ñöţĥîñĝ ŵåš çĥåŕĝéð. Çĥéçķ ţĥé åɱöûñţ ƀéļöŵ åñð ţŕý åĝåîñ. one two three four five six]"
+    },
     "api.depositNotDue": {
         "message": "[Ţĥîš ðéþöšîţ îš åļŕéåðý þåîð öŕ ñö ļöñĝéŕ ðûé. one two three]"
     },
@@ -1565,8 +1583,14 @@
     "pos.desk.usePackage": {
         "message": "[Ûšé þåçķåĝé one two]"
     },
+    "pos.desk.memberDiscount": {
+        "message": "[Ṁéɱƀéŕ ðîšçöûñţ one two]"
+    },
+    "pos.desk.useMembership": {
+        "message": "[Ûšé ɱéɱƀéŕšĥîþ one two]"
+    },
     "pos.desk.coverError": {
-        "message": "[Çöûļðñ’ţ ûšé ţĥé þåçķåĝé. Ţŕý åĝåîñ. one two three]"
+        "message": "[Çöûļðñ’ţ çöṽéŕ ţĥé ṽîšîţ. Ţŕý åĝåîñ. one two three]"
     },
     "pos.desk.giftCardPaid": {
         "message": "[Ĝîƒţ çåŕð one]"
@@ -2134,6 +2158,18 @@
     },
     "pos.desk.refundDone": {
         "message": "[Ŕéƒûñðéð {money}. Çŕéðîţ ñöţé {cn} îš öñ îţš ŵåý ţö ţĥé çļîéñţ. one two three four]"
+    },
+    "pos.desk.returnGiftSale": {
+        "message": "[Ŕéţûŕñ ţö ĝîƒţ çåŕð one two]"
+    },
+    "pos.desk.returnGiftTitle": {
+        "message": "[Ŕéţûŕñ šåļé {n}? one two]"
+    },
+    "pos.desk.returnGiftBody": {
+        "message": "[Å ĝîƒţ çåŕð þåîð ƒöŕ ţĥîš šåļé. Ŕéţûŕñîñĝ îţ þûţš ţĥé åɱöûñţ ƀåçķ öñ ţĥé çåŕð åñð ɱåŕķš ţĥé šåļé ṽöîð. one two three four five six seven]"
+    },
+    "pos.desk.returnGiftDone": {
+        "message": "[{n} îš ŕéţûŕñéð ţö ţĥé ĝîƒţ çåŕð. one two three]"
     },
     "pos.desk.voidTitle": {
         "message": "[Ṽöîð šåļé {n}? one]"
@@ -8516,6 +8552,12 @@
     "catalog.billsEvery": {
         "message": "[Ɓîļļš éṽéŕý one two]"
     },
+    "catalog.anyService": {
+        "message": "[Åñý šéŕṽîçé one two]"
+    },
+    "catalog.membershipCovers": {
+        "message": "[Ṽîšîţš çöṽéŕ one two]"
+    },
     "catalog.includes": {
         "message": "[Ṽîšîţš éåçĥ þéŕîöð one two]"
     },
@@ -11029,6 +11071,12 @@
     },
     "publicPay.paidTitle": {
         "message": "[Ţĥîš îñṽöîçé îš þåîð, ţĥåñķ ýöû one two three]"
+    },
+    "publicPay.closedTitle": {
+        "message": "[Ñöţĥîñĝ îš ðûé öñ ţĥîš îñṽöîçé one two three]"
+    },
+    "publicPay.closedBody": {
+        "message": "[{businessName} çļöšéð ţĥîš îñṽöîçé, šö ţĥéŕé'š ñöţĥîñĝ ţö þåý. Çöñţåçţ ţĥéɱ îƒ ýöû ĥåṽé å ǫûéšţîöñ åƀöûţ îţ. one two three four five six]"
     },
     "publicPay.paidBody": {
         "message": "[Ýöûŕ þåýɱéñţ ţö {businessName} îš çöɱþļéţé. Å ŕéçéîþţ ŵîļļ ƒöļļöŵ ƒŕöɱ ţĥé ƀûšîñéšš. one two three four five]"

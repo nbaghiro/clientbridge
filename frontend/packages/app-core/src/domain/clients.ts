@@ -4,7 +4,7 @@ import { useBusinessQuery as useQuery } from "../hooks";
 
 import { useMemo, useRef, useState } from "react";
 
-import { type ApiLike, type Attempt, attemptKey } from "../api";
+import { type ApiLike, type Attempt, attemptKey, failureMessage } from "../api";
 import {
     dateKey,
     formatDate,
@@ -129,7 +129,8 @@ SELECT c.id, c.name, c.phone, c.status, c.tags, c.archived_at,
           WHERE sj.client_id = c.id AND sj.deleted_at IS NULL) AS subject_names,
        ${nextVisitSql("c.id")} AS next_visit_at,
        (SELECT SUM(a.balance_cents) FROM accounts a WHERE a.owner_type = 'client'
-          AND a.owner_id = c.id AND a.category = 'receivable') AS balance_cents
+          AND a.owner_id = c.id AND a.category = 'receivable'
+          AND a.currency = '${BUSINESS_CURRENCY}') AS balance_cents
 FROM clients c`;
 
 export const CLIENT_DIRECTORY_SQL = `${DIRECTORY_SELECT} ORDER BY c.name COLLATE NOCASE`;
@@ -1248,7 +1249,7 @@ export function useClientWallet(api: ApiLike, clientId: string): ClientWallet {
     const { busy, error, run } = useAsyncAction();
     const act = (id: string, fn: () => Promise<unknown>, message: string): void => {
         setBusyId(id);
-        run(fn, { errorMessage: message });
+        run(fn, { errorMessage: (e) => failureMessage(e, message) });
     };
     return {
         load,

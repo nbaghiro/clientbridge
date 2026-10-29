@@ -11,6 +11,7 @@ from clientbridge.models.payments import Payment, PaymentMethod, PaymentSetupLin
 from clientbridge.services.payments import FeeMethod, application_fee_cents
 from tests.conftest import FakePaymentGateway
 from tests.helpers import card_pay, client_id, enable_payments, provider_ref, sent_invoice
+from tests.helpers import key as retry_key
 
 BIZ = "bz_birchbark"
 LATTE = {"description": "Latte", "quantity": 2, "unit_amount_cents": 500}
@@ -79,7 +80,7 @@ async def _charge_saved(
     cid = await db.execute(select(PaymentMethod.client_id).where(PaymentMethod.id == method_id))
     inv = await sent_invoice(db, client=cid.scalar_one(), total=10_000)
     body = {"method": "card", "amount_cents": 10_000, "payment_method_id": method_id}
-    res = await api.post(f"/v1/invoices/{inv}/payments", json=body)
+    res = await api.post(f"/v1/invoices/{inv}/payments", json=body, headers=retry_key())
     assert res.status_code == 201, res.text
     ref = await provider_ref(db, res.json()["payment_id"])
     return gateway.charges[ref][1]

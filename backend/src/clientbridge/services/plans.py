@@ -631,7 +631,13 @@ async def run_trial_reminders(db: AsyncSession, notifier: Notifier, now: datetim
     """Email the owner at the last 9 a.m. local before the trial ends, and three days earlier."""
     sent = 0
     for business in await businesses_at_hour(db, now, _REMINDER_HOUR):
-        if business.plan_status != "trialing" or now >= business.trial_ends_at:
+        if business.plan_status != "trialing":
+            continue
+        if now >= business.trial_ends_at:
+            # a trial runs out without a Stripe event, so its lapse is noticed here
+            await _warn_live_memberships(db, business, "trial", "expired")
+            await db.commit()
+            sent += await send_queued(db, notifier.email, notifier.sms, notifier.push)
             continue
         tz = zone(business.timezone)
         today = now.astimezone(tz).date()

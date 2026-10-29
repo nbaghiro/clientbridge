@@ -733,6 +733,10 @@ async def test_the_last_reminder_goes_at_the_last_9_am_before_the_trial_ends(
 ) -> None:
     now = await local_hour(db, 9)
     notifier = Notifier(email, sms, push)
+    # without memberships still billing, a trial that ran out sends nothing more
+    await db.execute(
+        update(Subscription).where(Subscription.business_id == BIZ).values(status="canceled")
+    )
     await _trial(db, -timedelta(hours=1), billing_email="owner@example.ca")
     assert await run_trial_reminders(db, notifier, now) == 0
     await _trial(db, timedelta(hours=22), billing_email="owner@example.ca")
@@ -1010,6 +1014,26 @@ async def test_a_lapse_with_live_memberships_emails_the_owner_once(
     email = notice.payload["message"]
     assert isinstance(email, dict) and email["to"] == "owner@example.ca"
     assert "/clients" in str(email["body"])
+
+
+async def test_a_trial_that_runs_out_with_live_memberships_emails_the_owner_once(
+    db: AsyncSession, email: FakeEmailSender, sms: FakeSmsSender, push: FakePushSender
+) -> None:
+    now = await local_hour(db, 9)
+    await _set(
+        db,
+        plan=None,
+        plan_status="trialing",
+        trial_ends_at=now - timedelta(hours=1),
+        stripe_subscription_id=None,
+        billing_email="owner@example.ca",
+    )
+    notifier = Notifier(email, sms, push)
+    await run_trial_reminders(db, notifier, now)
+    await run_trial_reminders(db, notifier, now + timedelta(days=1))
+    (notice,) = await _lapse_notices(db)
+    message = notice.payload["message"]
+    assert isinstance(message, dict) and message["to"] == "owner@example.ca"
 
 
 async def test_a_lapse_without_live_memberships_sends_nothing(

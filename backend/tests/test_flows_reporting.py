@@ -114,7 +114,9 @@ async def test_dashboard_figures_follow_an_invoice(
     db.add(card)
     await db.flush()
     body = {"method": "card", "amount_cents": 4000, "payment_method_id": card.id}
-    part = ok(await api.post(f"/v1/invoices/{draft['id']}/payments", json=body), 201).json()
+    part = ok(
+        await api.post(f"/v1/invoices/{draft['id']}/payments", json=body, headers=retry_key()), 201
+    ).json()
     await settle(api, db, part["payment_id"])
     partial = ok(await api.get("/v1/dashboard/summary")).json()
     assert partial["awaiting_payment_cents"] - start["awaiting_payment_cents"] == 7200

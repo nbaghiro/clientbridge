@@ -546,3 +546,37 @@ async def test_every_report_puts_a_year_end_instant_in_the_same_period(
         "pst_taxable": 10000,
     }
     assert after[outside] == before[outside]
+
+
+async def test_money_in_another_currency_never_mixes_into_the_business_totals(
+    as_owner: httpx.AsyncClient, db: AsyncSession, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(ledger, "SUPPORTED_CURRENCIES", frozenset({"CAD", "USD"}))
+    cid = await client_id(db)
+
+    async def totals() -> tuple[object, ...]:
+        dashboard = (await as_owner.get("/v1/dashboard/summary")).json()
+        gst = (await as_owner.get(f"/v1/reports/gst-hst?{WIDE}")).json()
+        income = (await as_owner.get(f"/v1/reports/summary?{WIDE}")).json()
+        return (
+            dashboard["awaiting_payment_cents"],
+            dashboard["gst_hst_set_aside_cents"],
+            gst["tax_collected_cents"],
+            gst["taxable_sales_cents"],
+            income,
+        )
+
+    before = await totals()
+    await ledger.post(
+        db,
+        BIZ,
+        event="invoice",
+        ref=f"test:usd:{uuid4().hex}",
+        legs=[
+            Leg("client", cid, "receivable", 10500),
+            Leg("business", BIZ, "revenue", -10000),
+            Leg("business", BIZ, "tax", -500, "GST"),
+        ],
+        currency="USD",
+    )
+    assert await totals() == before

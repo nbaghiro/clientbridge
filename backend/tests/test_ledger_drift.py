@@ -47,6 +47,7 @@ async def _charge(
     invoice_id: str | None = None,
     amount: int = 8000,
 ) -> Payment:
+    await enable_payments(db)  # a Stripe charge belongs to the business's Stripe account
     row = Payment(
         id=f"pay_{pi}",
         business_id=BIZ,

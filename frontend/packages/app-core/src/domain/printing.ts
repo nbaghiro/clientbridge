@@ -118,9 +118,13 @@ export function docReference(number: string | null): string {
 const source: Readonly<Record<string, { message: string }>> = english;
 const REASON_KEYS = Object.keys(source).filter((k) => k.startsWith("pos.desk.reasons."));
 
+/** The member discount's reason as stored: English, so it reads the same in every locale. */
+export const MEMBER_DISCOUNT_REASON = english["pos.desk.memberDiscount"].message;
+
 /** A stored discount reason; one of the preset reasons, stored as English text, shows in the active locale. */
 export function discountReason(stored: string | null | undefined): string | null {
     if (stored === null || stored === undefined || stored === "") return null;
+    if (stored === MEMBER_DISCOUNT_REASON) return strings.pos.desk.memberDiscount;
     const preset = REASON_KEYS.findIndex((k) => source[k]?.message === stored);
     return preset === -1 ? stored : (strings.pos.desk.reasons[preset] ?? stored);
 }

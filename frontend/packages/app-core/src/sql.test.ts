@@ -1767,6 +1767,42 @@ describe("app-core SQL against the replica schema", () => {
         db.run("UPDATE bookings SET status = 'completed' WHERE id = 'bk_1'");
     });
 
+    it("offers a membership's included visits and its member discount", () => {
+        db.run("UPDATE bookings SET status = 'confirmed' WHERE id = 'bk_1'");
+        scoped("items", [
+            {
+                id: "it_club",
+                kind: "subscription",
+                name: "Club",
+                price_cents: 6000,
+                visits_per_period: 2,
+                member_discount_bps: 1000,
+            },
+            {
+                id: "it_vip",
+                kind: "subscription",
+                name: "VIP",
+                price_cents: 9000,
+                member_discount_bps: 1500,
+            },
+        ]);
+        scoped("subscriptions", [
+            { id: "su_club", client_id: "cl_ann", item_id: "it_club", status: "active" },
+            { id: "su_vip", client_id: "cl_ann", item_id: "it_vip", status: "past_due" },
+        ]);
+        const day = ["2026-06-26T00:00:00.000Z", "2026-06-27T00:00:00.000Z"];
+        expect(pick(run("CHECKOUT_QUEUE_SQL", day), "cover_subscription_id")).toEqual([
+            { cover_subscription_id: "su_club" },
+        ]);
+        // a lapsed membership gives no discount, so the active one's applies
+        expect(run("MEMBER_DISCOUNT_SQL", ["cl_ann"])).toEqual([{ bps: 1000 }]);
+        expect(run("MEMBER_DISCOUNT_SQL", ["cl_ben"])).toEqual([{ bps: null }]);
+        expect(run("RETAIL_ITEMS_SQL").length).toBeGreaterThan(0);
+        db.run("DELETE FROM subscriptions WHERE id IN ('su_club', 'su_vip')");
+        db.run("DELETE FROM items WHERE id IN ('it_club', 'it_vip')");
+        db.run("UPDATE bookings SET status = 'completed' WHERE id = 'bk_1'");
+    });
+
     it("lists invitation history and Google settings", () => {
         expect(pick(run("REVIEW_REQUESTS_SQL"), "id", "client_name")).toEqual([
             { id: "rrq_1", client_name: "Ann" },

@@ -51,6 +51,42 @@ async def test_cancel_of_a_subscription_from_another_account_is_a_conflict(
         await gateway.cancel_subscription("acct_x", subscription_id="sub_old")
 
 
+def _intent_with(status: str) -> object:
+    async def retrieve(*args: object, **kwargs: object) -> object:
+        return stripe.PaymentIntent.construct_from({"id": "pi_x", "status": status}, "sk_test")
+
+    return retrieve
+
+
+async def test_canceling_an_intent_already_canceled_succeeds(
+    gateway: StripeGateway, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    unexpected = stripe.InvalidRequestError("unexpected state", None)
+    monkeypatch.setattr(stripe.PaymentIntent, "cancel_async", _raises(unexpected))
+    monkeypatch.setattr(stripe.PaymentIntent, "retrieve_async", _intent_with("canceled"))
+    await gateway.cancel_payment_intent("acct_x", payment_intent_id="pi_x")
+
+
+async def test_canceling_an_intent_that_went_through_is_a_conflict(
+    gateway: StripeGateway, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    unexpected = stripe.InvalidRequestError("unexpected state", None)
+    monkeypatch.setattr(stripe.PaymentIntent, "cancel_async", _raises(unexpected))
+    monkeypatch.setattr(stripe.PaymentIntent, "retrieve_async", _intent_with("processing"))
+    with pytest.raises(Conflict) as refused:
+        await gateway.cancel_payment_intent("acct_x", payment_intent_id="pi_x")
+    assert refused.value.code == "payment_in_progress"
+
+
+async def test_canceling_an_intent_the_account_doesnt_have_is_a_conflict(
+    gateway: StripeGateway, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(stripe.PaymentIntent, "cancel_async", _raises(_missing("intent")))
+    monkeypatch.setattr(stripe.PaymentIntent, "retrieve_async", _raises(_missing("intent")))
+    with pytest.raises(Conflict):
+        await gateway.cancel_payment_intent("acct_x", payment_intent_id="pi_gone")
+
+
 async def test_charge_of_a_card_from_another_account_is_a_conflict(
     gateway: StripeGateway, monkeypatch: pytest.MonkeyPatch
 ) -> None:

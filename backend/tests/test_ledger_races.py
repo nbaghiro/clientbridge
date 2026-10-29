@@ -145,8 +145,9 @@ async def test_two_posts_on_one_ref_write_one_journal(
                 return exc
             return None
 
-    winner, loser = await race.run(lambda: post(True), lambda: post(False))
-    assert winner is None and loser is not None
+    first, second = await race.run(lambda: post(True), lambda: post(False))
+    # the second waits on the first's account locks, then finds its journal and returns it
+    assert first is None and second is None
     async with SessionLocal() as check:
         assert await _journals(check, ref) == 1
         assert (
@@ -199,7 +200,9 @@ async def test_two_redemptions_of_one_card_cannot_overspend_it(
                     await race.hold(session)
                 else:
                     await race.join(session)
-                await service.redeem_gift_card(GiftCardRedeem(code=code, amount_cents=700))
+                await service.redeem_gift_card(
+                    GiftCardRedeem(code=code, amount_cents=700), f"race-redeem-{first}"
+                )
             except Conflict as exc:
                 return exc
             return None

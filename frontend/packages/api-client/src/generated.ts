@@ -2599,6 +2599,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/subscriptions/{subscription_id}/cover": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cover Visit With Membership */
+        post: operations["cover_visit_with_membership_v1_subscriptions__subscription_id__cover_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/onboarding": {
         parameters: {
             query?: never;
@@ -7707,6 +7724,11 @@ export interface components {
         PayoutRow: {
             /** Id */
             id: string;
+            /**
+             * Payout Id
+             * @description Stripe's payout id, which the bank deposit matches
+             */
+            payout_id: string | null;
             /** Amount Cents */
             amount_cents: number;
             /** Arrival At */
@@ -8143,6 +8165,11 @@ export interface components {
             client_secret: string;
             /** Stripe Account Id */
             stripe_account_id: string;
+            /**
+             * Amount Cents
+             * @description What the card is charged: the balance plus the tip
+             */
+            amount_cents: number;
         };
         /** PublicContractContext */
         PublicContractContext: {
@@ -8612,6 +8639,11 @@ export interface components {
         };
         /** PublicPayIn */
         PublicPayIn: {
+            /**
+             * Balance Cents
+             * @description The balance the client was shown; a different balance is refused
+             */
+            balance_cents: number;
             /**
              * Tip Cents
              * @description A tip for the staff, outside tax
@@ -10633,9 +10665,9 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: {
+        requestBody: {
             content: {
-                "application/json": components["schemas"]["PublicPayIn"] | null;
+                "application/json": components["schemas"]["PublicPayIn"];
             };
         };
         responses: {
@@ -14372,8 +14404,8 @@ export interface operations {
     record_invoice_payment_v1_invoices__invoice_id__payments_post: {
         parameters: {
             query?: never;
-            header?: {
-                "Idempotency-Key"?: string | null;
+            header: {
+                "Idempotency-Key": string;
                 "x-business-id"?: string;
                 "x-expected-user"?: string;
                 "x-session-token"?: string;
@@ -15284,8 +15316,8 @@ export interface operations {
     record_remittance_v1_payments_remittances_post: {
         parameters: {
             query?: never;
-            header?: {
-                "Idempotency-Key"?: string | null;
+            header: {
+                "Idempotency-Key": string;
                 "x-business-id"?: string;
                 "x-expected-user"?: string;
                 "x-session-token"?: string;
@@ -15507,8 +15539,8 @@ export interface operations {
     pay_order_cash_v1_orders__order_id__cash_post: {
         parameters: {
             query?: never;
-            header?: {
-                "Idempotency-Key"?: string | null;
+            header: {
+                "Idempotency-Key": string;
                 "x-business-id"?: string;
                 "x-expected-user"?: string;
                 "x-session-token"?: string;
@@ -15547,8 +15579,8 @@ export interface operations {
     apply_order_gift_card_v1_orders__order_id__gift_card_post: {
         parameters: {
             query?: never;
-            header?: {
-                "Idempotency-Key"?: string | null;
+            header: {
+                "Idempotency-Key": string;
                 "x-business-id"?: string;
                 "x-expected-user"?: string;
                 "x-session-token"?: string;
@@ -15811,8 +15843,8 @@ export interface operations {
     redeem_gift_card_v1_gift_cards_redeem_post: {
         parameters: {
             query?: never;
-            header?: {
-                "Idempotency-Key"?: string | null;
+            header: {
+                "Idempotency-Key": string;
                 "x-business-id"?: string;
                 "x-expected-user"?: string;
                 "x-session-token"?: string;
@@ -15963,8 +15995,8 @@ export interface operations {
     create_subscription_v1_subscriptions_post: {
         parameters: {
             query?: never;
-            header?: {
-                "Idempotency-Key"?: string | null;
+            header: {
+                "Idempotency-Key": string;
                 "x-business-id"?: string;
                 "x-expected-user"?: string;
                 "x-session-token"?: string;
@@ -16013,6 +16045,46 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubscriptionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cover_visit_with_membership_v1_subscriptions__subscription_id__cover_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "x-business-id"?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
+            };
+            path: {
+                subscription_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PackageCover"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

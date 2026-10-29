@@ -36,8 +36,11 @@ import {
     discountCents,
     docRates,
     issuedTaxes,
+    MEMBER_DISCOUNT_SQL,
     priceDoc,
     invoiceLabel,
+    unchangedOr,
+    withMemberDiscount,
 } from "./billing";
 import { afterReview, outgoing } from "./previews";
 import { utcBeforeSql, utcFromSql, utcSql } from "../datetime";
@@ -1010,6 +1013,20 @@ export function useSale(
     const giftAttempt = useRef<Attempt | null>(null);
     const giftAction = useAsyncAction();
     const client = useQuery<SaleClientRow>(SALE_CLIENT_SQL, [clientId ?? ""]).data[0] ?? null;
+    const memberBps =
+        useQuery<{ bps: number | null }>(MEMBER_DISCOUNT_SQL, [clientId ?? ""]).data[0]?.bps ??
+        null;
+    // a held sale resumes as it was saved; the discount follows a client chosen here
+    const clientChosen = useRef(false);
+    useEffect(() => {
+        if (!clientChosen.current) return;
+        setLines((ls) =>
+            unchangedOr(
+                ls,
+                ls.map((l) => withMemberDiscount(l, l.kind === "product", memberBps)),
+            ),
+        );
+    }, [memberBps]);
     const cards = useQuery<SavedCardRow>(SALE_CARDS_SQL, [clientId ?? ""]).data;
     const [phone, setPhone] = useState("");
     const keyRef = useRef<Attempt | null>(null);
@@ -1155,7 +1172,7 @@ export function useSale(
                     { orderId: saved_.id, tipPart },
                 );
             },
-            { errorMessage: d.payError },
+            { errorMessage: (e) => failureMessage(e, d.payError) },
         );
     };
 
@@ -1211,25 +1228,37 @@ export function useSale(
         setClientId: (id) => {
             keyRef.current = null;
             setInvoiced(null);
+            clientChosen.current = true;
             setClientIdState(id);
             setChosen(null);
         },
         addItem: (item) => {
             edit((ls) => {
+                const fresh = withMemberDiscount(
+                    lineFromItem(item, { staffId: null }),
+                    item.kind === "product",
+                    memberBps,
+                );
                 const same = ls.find(
-                    (l) => l.itemId === item.id && l.bookingId === null && l.discount === null,
+                    (l) =>
+                        l.itemId === item.id &&
+                        l.bookingId === null &&
+                        JSON.stringify(l.discount) === JSON.stringify(fresh.discount),
                 );
                 if (same !== undefined && item.kind === "product")
                     return ls.map((l) =>
                         l.key === same.key ? { ...l, quantity: l.quantity + 1 } : l,
                     );
-                return [...ls, lineFromItem(item, { staffId: null })];
+                return [...ls, fresh];
             });
         },
         addVisit: (visit) => {
             if (lines.some((l) => l.bookingId === visit.bookingId)) return;
             edit((ls) => [...ls, visit.line]);
-            if (clientId === null) setClientIdState(visit.clientId);
+            if (clientId === null) {
+                clientChosen.current = true;
+                setClientIdState(visit.clientId);
+            }
             if (visit.depositCents > 0)
                 setDeposits((m) => ({ ...m, [visit.bookingId]: visit.depositCents }));
         },
@@ -1552,7 +1581,12 @@ SELECT b.id AS booking_id, b.client_id, c.name AS client_name, b.staff_id, ${sta
        st.title AS staff_title, st.role AS staff_role, st.color AS staff_color, s.starts_at, s.ends_at,
        b.price_cents, b.deposit_status, b.deposit_amount_cents, b.order_id, b.charged_at,
        s.item_id, i.name AS item_name, i.kind AS item_kind, i.tax_class, i.color AS item_color,
-       i.price_cents AS item_price_cents, b.package_id,
+       i.price_cents AS item_price_cents, b.package_id, b.subscription_id,
+       (SELECT su.id FROM subscriptions su JOIN items si ON si.id = su.item_id
+        WHERE su.client_id = b.client_id AND su.status = 'active' AND b.status = 'confirmed'
+          AND si.visits_per_period IS NOT NULL
+          AND (si.covers_item_id IS NULL OR si.covers_item_id = s.item_id)
+        ORDER BY su.created_at LIMIT 1) AS cover_subscription_id,
        (SELECT p.id FROM packages p JOIN items pi ON pi.id = p.item_id
         WHERE p.client_id = b.client_id AND p.status = 'active' AND b.status = 'confirmed'
           AND (pi.covers_item_id IS NULL OR pi.covers_item_id = s.item_id)
@@ -1590,7 +1624,24 @@ interface QueueRow {
     item_color: string | null;
     item_price_cents: number | null;
     package_id: string | null;
+    subscription_id: string | null;
     cover_package_id: string | null;
+    cover_subscription_id: string | null;
+}
+
+/** What can settle a started visit instead of a sale: a package session or an included visit. */
+interface VisitCover {
+    via: "package" | "membership";
+    id: string;
+    label: string;
+}
+
+function visitCover(row: QueueRow): VisitCover | null {
+    if (row.cover_package_id !== null)
+        return { via: "package", id: row.cover_package_id, label: d.usePackage };
+    if (row.cover_subscription_id !== null)
+        return { via: "membership", id: row.cover_subscription_id, label: d.useMembership };
+    return null;
 }
 
 export interface CheckoutVisit {
@@ -1606,8 +1657,7 @@ export interface CheckoutVisit {
     end: Date;
     state: VisitState;
     depositCents: number;
-    // the client's active package for this service, which can settle the visit instead of a sale
-    packageId: string | null;
+    cover: VisitCover | null;
     line: SaleLine;
 }
 
@@ -1615,7 +1665,7 @@ function checkoutVisit(row: QueueRow, now: Date): CheckoutVisit {
     const start = parseTimestamp(row.starts_at);
     const end = parseTimestamp(row.ends_at);
     const state: VisitState =
-        row.charged_at !== null || row.package_id !== null
+        row.charged_at !== null || row.package_id !== null || row.subscription_id !== null
             ? "paid"
             : row.order_id !== null
               ? "onTicket"
@@ -1641,7 +1691,7 @@ function checkoutVisit(row: QueueRow, now: Date): CheckoutVisit {
         end,
         state,
         depositCents: row.deposit_status === "collected" ? (row.deposit_amount_cents ?? 0) : 0,
-        packageId: row.cover_package_id,
+        cover: visitCover(row),
         line: {
             key: nextKey(),
             itemId: row.item_id,
@@ -1710,14 +1760,14 @@ export function useLinkedVisit(
     }, [visit, addVisit]);
 }
 
-interface PackageCover {
+interface VisitCovering {
     busy: string | null;
     error: string | null;
     cover: (visit: CheckoutVisit, onDone: () => void) => void;
 }
 
-/** Settles a started visit with the client's package instead of ringing it up. */
-export function usePackageCover(api: ApiLike): PackageCover {
+/** Settles a started visit with the client's package or membership instead of ringing it up. */
+export function useVisitCover(api: ApiLike): VisitCovering {
     const [busy, setBusy] = useState<string | null>(null);
     const attempt = useRef<Attempt | null>(null);
     const action = useAsyncAction();
@@ -1725,13 +1775,14 @@ export function usePackageCover(api: ApiLike): PackageCover {
         busy: action.busy ? busy : null,
         error: action.error,
         cover: (visit, onDone) => {
-            const packageId = visit.packageId;
-            if (packageId === null) return;
+            const by = visit.cover;
+            if (by === null) return;
             setBusy(visit.bookingId);
+            const path = by.via === "package" ? "packages" : "subscriptions";
             action.run(
                 () =>
                     api.post(
-                        `/v1/packages/${packageId}/cover`,
+                        `/v1/${path}/${by.id}/cover`,
                         { booking_id: visit.bookingId },
                         { idempotencyKey: attemptKey(attempt, visit.bookingId) },
                     ),
@@ -2109,12 +2160,13 @@ SELECT p.id, p.kind, p.method, p.amount_cents, p.tip_cents, p.tip_split, p.statu
 FROM payments p WHERE p.order_id = ? AND p.status IN ('succeeded', 'pending')
 ORDER BY p.paid_at`;
 
-// a sale's tax is posted on the journal of each payment that settled it
+// a sale's tax is posted on the journal of each payment and gift card redemption that settled it
 const SALE_TAX_BY_CODE_SQL = `
 SELECT a.code AS code, -SUM(e.amount_cents) AS cents
 FROM entries e JOIN accounts a ON a.id = e.account_id
 WHERE a.category = 'tax'
-  AND e.ref IN (SELECT 'payment:' || p.id FROM payments p WHERE p.order_id = ? AND p.kind = 'payment')
+  AND (e.ref IN (SELECT 'payment:' || p.id FROM payments p WHERE p.order_id = ?1 AND p.kind = 'payment')
+       OR (e.event = 'redemption' AND e.source_type = 'order' AND e.source_id = ?1))
 GROUP BY a.code ORDER BY a.code`;
 
 export const SALE_RECORD_SQL = `
@@ -2190,7 +2242,8 @@ export function discountFrom(
     return { kind, value, reason };
 }
 
-type SaleActionKey = "preparing" | "receipt" | "refund" | "void" | "resume" | "ready" | "pickedUp";
+type SaleActionKey =
+    "preparing" | "receipt" | "refund" | "void" | "returnGift" | "resume" | "ready" | "pickedUp";
 
 interface SaleDetail {
     id: string;
@@ -2314,8 +2367,12 @@ export function useSaleDetail(
             actions.push({ key: "pickedUp", label: d.markPickedUp, tone: "primary" });
         if (status !== "open" && status !== "void")
             actions.push({ key: "receipt", label: d.resendReceipt, tone: "outline" });
-        if (manager && (status === "paid" || status === "partly_refunded"))
+        // gift cards paid this sale in full: there is no payment to refund, so it goes back to them
+        const giftPaid = status === "paid" && lastPaid === null && row.source !== "online";
+        if (manager && (status === "paid" || status === "partly_refunded") && !giftPaid)
             actions.push({ key: "refund", label: d.refund, tone: "outline" });
+        if (manager && giftPaid)
+            actions.push({ key: "returnGift", label: d.returnGiftSale, tone: "danger" });
         if (manager && status === "open")
             actions.push({ key: "void", label: d.voidSale, tone: "danger" });
         const staffOf = (sid: string): SaleStaffRow | undefined =>
@@ -2508,6 +2565,24 @@ export function useSaleActions(
                                     },
                                 ),
                             d.refundDone(formatMoney(cents, BUSINESS_CURRENCY), note),
+                        );
+                    },
+                );
+                return;
+            }
+            if (key === "returnGift") {
+                ask(
+                    {
+                        title: d.returnGiftTitle(detail.number),
+                        message: d.returnGiftBody,
+                        confirmLabel: d.returnGiftSale,
+                        destructive: true,
+                    },
+                    () => {
+                        go(
+                            key,
+                            () => api.post(`/v1/orders/${detail.id}/void`, {}),
+                            d.returnGiftDone(detail.number),
                         );
                     },
                 );

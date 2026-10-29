@@ -1,3 +1,5 @@
+// @vitest-environment happy-dom
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { setPseudoLocale } from "../locale";
@@ -8,6 +10,7 @@ import {
     publicDocLines,
     publicDocTaxes,
     publicInvoiceTotals,
+    usePublicPayForm,
 } from "./publicPay";
 
 const ZONE = "America/Vancouver";
@@ -217,6 +220,59 @@ describe("the public pay page", () => {
             [],
             "hi@birch.test",
         ]);
+    });
+});
+
+describe("starting a card payment", () => {
+    it("sends the balance it shows and reloads when the invoice changed", async () => {
+        let balance = 3748;
+        const loads: number[] = [];
+        const sent: [number, number][] = [];
+        const client = {
+            getPublicInvoice: () => {
+                loads.push(balance);
+                return Promise.resolve(publicInvoice({ balance_cents: balance }));
+            },
+            payCard: (_token: string, balanceCents: number, tipCents: number) => {
+                sent.push([balanceCents, tipCents]);
+                balance = 1000;
+                return Promise.reject(
+                    Object.assign(new Error("409"), { status: 409, code: "invoice_changed" }),
+                );
+            },
+        };
+        const { result } = renderHook(() => usePublicPayForm(client, "tok"));
+        await waitFor(() => {
+            expect(result.current.status).toBe("ready");
+        });
+        act(() => {
+            result.current.payCard();
+        });
+        await waitFor(() => {
+            expect(result.current.error).toBe(strings.api.invoiceChanged);
+        });
+        await waitFor(() => {
+            expect(result.current.invoice?.balance_cents).toBe(1000);
+        });
+        expect(sent).toEqual([[3748, 0]]);
+        expect(loads).toEqual([3748, 1000]);
+    });
+});
+
+describe("a closed invoice", () => {
+    it("offers no payment once the invoice is voided or refunded", async () => {
+        for (const status of ["void", "refunded"]) {
+            const client = {
+                getPublicInvoice: () =>
+                    Promise.resolve(publicInvoice({ status, balance_cents: 0 })),
+                payCard: () => Promise.reject(new Error("never")),
+            };
+            const { result } = renderHook(() => usePublicPayForm(client, "tok"));
+            await waitFor(() => {
+                expect(result.current.status).toBe("ready");
+            });
+            expect(result.current.closed).toBe(true);
+        }
     });
 });
 

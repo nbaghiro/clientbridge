@@ -18,6 +18,7 @@ from clientbridge.models.payments import PaymentMethod, PaymentSetupLink
 from clientbridge.services.payments import default_method_ref, resolve_saved_method_ref
 from tests.conftest import BIZ, Factory, FakePaymentGateway
 from tests.helpers import client_id, column, enable_payments, sent_invoice
+from tests.helpers import key as retry_key
 
 
 async def _link(api: httpx.AsyncClient, db: AsyncSession) -> tuple[PaymentSetupLink, str]:
@@ -373,7 +374,7 @@ async def _active_bank(
 
 async def _charge(api: httpx.AsyncClient, invoice_id: str, method_id: str) -> httpx.Response:
     body = {"method": "card", "amount_cents": 4000, "payment_method_id": method_id}
-    return await api.post(f"/v1/invoices/{invoice_id}/payments", json=body)
+    return await api.post(f"/v1/invoices/{invoice_id}/payments", json=body, headers=retry_key())
 
 
 async def test_a_saved_bank_account_is_charged_under_its_mandate(

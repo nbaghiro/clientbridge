@@ -295,6 +295,9 @@ msgstr "[Å ŕéƒûñð öƒ {amount} ƒŕöɱ {business} ŵåš îššûéð.~
 msgid "refund.body_credit_note"
 msgstr "[Å ŕéƒûñð öƒ {amount} ƒŕöɱ {business} ŵåš îššûéð. Çŕéðîţ ñöţé {credit_note}.~~~~~~~~~~~~~~~~]"
 
+msgid "refund.failed_push"
+msgstr "[Å ŕéƒûñð öƒ {amount} ðîðñ'ţ ĝö ţĥŕöûĝĥ. Çĥéçķ ţĥé þåýɱéñţ åñð ŕéţûŕñ ţĥé ɱöñéý åñöţĥéŕ ŵåý.~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]"
+
 msgid "refund_failed.body"
 msgstr "[Ýöûŕ ƀåñķ çöûļð ñöţ çöɱþļéţé ţĥé ŕéƒûñð öƒ {amount} ƒŕöɱ {business}. {business} ŵîļļ åŕŕåñĝé îţ åñöţĥéŕ ŵåý.~~~~~~~~~~~~~~~~~~~~~~~~~~~~]"
 

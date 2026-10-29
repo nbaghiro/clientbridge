@@ -13,6 +13,7 @@ from clientbridge.models.clients import Client
 from clientbridge.models.payments import Payment, PaymentMethod
 from tests.conftest import Factory, FakePaymentGateway, book_invoice
 from tests.helpers import client_id, enable_payments, new_client
+from tests.helpers import key as retry_key
 
 BIZ = "bz_birchbark"
 GOOD = {"Stripe-Signature": "good"}
@@ -20,7 +21,7 @@ GOOD = {"Stripe-Signature": "good"}
 
 async def _charge(api: httpx.AsyncClient, invoice_id: str, method_id: str) -> httpx.Response:
     body = {"method": "card", "amount_cents": 4000, "payment_method_id": method_id}
-    return await api.post(f"/v1/invoices/{invoice_id}/payments", json=body)
+    return await api.post(f"/v1/invoices/{invoice_id}/payments", json=body, headers=retry_key())
 
 
 async def test_setup_intent_returns_client_secret(

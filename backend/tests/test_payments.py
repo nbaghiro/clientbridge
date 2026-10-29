@@ -21,6 +21,7 @@ from tests.helpers import (
     business_balance,
     card_pay,
     enable_payments,
+    pay_link_card,
     payment,
     payment_by_ref,
     provider_ref,
@@ -67,7 +68,9 @@ async def _charge_saved_card(
         await db.flush()
     body = {"method": "card", "amount_cents": amount, "payment_method_id": pm.id}
     return await api.post(
-        f"/v1/invoices/{invoice_id}/payments", json=body, headers={"Idempotency-Key": idem}
+        f"/v1/invoices/{invoice_id}/payments",
+        json=body,
+        headers={"Idempotency-Key": f"saved-card-{idem}"},
     )
 
 
@@ -226,7 +229,9 @@ async def test_pending_payment_blocks_overpay(
     await card_pay(as_owner, db, inv_id)  # full balance
     # a second method while the first is still pending would overpay → rejected
     cash = await as_owner.post(
-        f"/v1/invoices/{inv_id}/payments", json={"method": "cash", "amount_cents": 1000}
+        f"/v1/invoices/{inv_id}/payments",
+        json={"method": "cash", "amount_cents": 1000},
+        headers=retry_key(),
     )
     assert cash.status_code == 409
 
@@ -263,7 +268,9 @@ async def test_canceled_intent_frees_room(as_owner: httpx.AsyncClient, db: Async
     assert pmt.status == "canceled"
     # the pending row no longer reserves the balance, so another method can take it
     cash = await as_owner.post(
-        f"/v1/invoices/{inv_id}/payments", json={"method": "cash", "amount_cents": 11200}
+        f"/v1/invoices/{inv_id}/payments",
+        json={"method": "cash", "amount_cents": 11200},
+        headers=retry_key(),
     )
     assert cash.status_code == 201, cash.text
 
@@ -273,7 +280,7 @@ async def test_cannot_pay_when_not_onboarded(as_owner: httpx.AsyncClient, db: As
         update(Business).where(Business.id == BIZ).values(stripe_charges_enabled=False)
     )
     inv_id = await sent_invoice(db, number=9001, total=11200, pay_token="tok-not-onboarded")
-    res = await as_owner.post("/pay/tok-not-onboarded/card", json={})
+    res = await pay_link_card(as_owner, db, "tok-not-onboarded")
     assert res.status_code == 409
     assert (
         await db.execute(select(Payment.id).where(Payment.invoice_id == inv_id))
@@ -283,7 +290,7 @@ async def test_cannot_pay_when_not_onboarded(as_owner: httpx.AsyncClient, db: As
 async def test_cannot_pay_void_invoice(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
     await enable_payments(db)
     await sent_invoice(db, number=9001, total=11200, status="void", pay_token="tok-void")
-    assert (await as_owner.post("/pay/tok-void/card", json={})).status_code == 409
+    assert (await pay_link_card(as_owner, db, "tok-void")).status_code == 409
 
 
 async def test_staff_cannot_charge_a_saved_card(
@@ -291,7 +298,7 @@ async def test_staff_cannot_charge_a_saved_card(
 ) -> None:
     inv_id = await sent_invoice(db, number=9001, total=11200)
     body = {"method": "card", "amount_cents": 1000, "payment_method_id": "default"}
-    res = await as_staff.post(f"/v1/invoices/{inv_id}/payments", json=body)
+    res = await as_staff.post(f"/v1/invoices/{inv_id}/payments", json=body, headers=retry_key())
     assert res.status_code == 403
 
 
@@ -344,10 +351,14 @@ async def test_pay_foreign_invoice_404_by_scoping(
     await enable_payments(db)
     foreign_inv = await _foreign_invoice(db, factory)
     body = {"method": "card", "amount_cents": 1000, "payment_method_id": "default"}
-    res = await as_owner.post(f"/v1/invoices/{foreign_inv}/payments", json=body)
+    res = await as_owner.post(
+        f"/v1/invoices/{foreign_inv}/payments", json=body, headers=retry_key()
+    )
     assert res.status_code == 404
     cash = await as_owner.post(
-        f"/v1/invoices/{foreign_inv}/payments", json={"method": "cash", "amount_cents": 1000}
+        f"/v1/invoices/{foreign_inv}/payments",
+        json={"method": "cash", "amount_cents": 1000},
+        headers=retry_key(),
     )
     assert cash.status_code == 404
     # the foreign invoice is untouched — no payment was minted against it

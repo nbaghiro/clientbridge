@@ -70,6 +70,12 @@ interface Strings {
         readonly estimateBooked: string;
         readonly estimateOnVisit: string;
         readonly estimateChanged: string;
+        readonly paymentInProgress: string;
+        readonly membershipVisitsUsed: string;
+        readonly paymentMethodInUse: string;
+        readonly cardDeclined: string;
+        readonly paymentActionRequired: string;
+        readonly invoiceChanged: string;
         readonly depositNotDue: string;
         readonly checkoutPaid: string;
         readonly depositInProgress: string;
@@ -571,6 +577,8 @@ interface Strings {
             readonly addDiscount: string;
             readonly todaysVisits: string;
             readonly usePackage: string;
+            readonly memberDiscount: string;
+            readonly useMembership: string;
             readonly coverError: string;
             readonly giftCardPaid: string;
             readonly giftCardBeforeTip: string;
@@ -758,6 +766,10 @@ interface Strings {
             readonly refundBody: (money: string, card: string, cn: string) => string;
             readonly refundConfirm: (money: string) => string;
             readonly refundDone: (money: string, cn: string) => string;
+            readonly returnGiftSale: string;
+            readonly returnGiftTitle: (n: string) => string;
+            readonly returnGiftBody: string;
+            readonly returnGiftDone: (n: string) => string;
             readonly voidTitle: (n: string) => string;
             readonly voidBody: string;
             readonly voidDone: (n: string) => string;
@@ -3115,6 +3127,8 @@ interface Strings {
         readonly validForDays: string;
         readonly noExpiryHint: string;
         readonly billsEvery: string;
+        readonly anyService: string;
+        readonly membershipCovers: string;
         readonly includes: string;
         readonly includesHint: string;
         readonly memberPerk: string;
@@ -4050,6 +4064,8 @@ interface Strings {
         readonly offlineBody: (businessName: string) => string;
         readonly payByCard: string;
         readonly paidTitle: string;
+        readonly closedTitle: string;
+        readonly closedBody: (businessName: string) => string;
         readonly paidBody: (businessName: string) => string;
         readonly cardStartError: string;
         readonly credit: (method: string, when: string) => string;

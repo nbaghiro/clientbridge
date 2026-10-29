@@ -128,7 +128,9 @@ async def test_charge_saved_card_opens_an_intent(
 async def test_card_needs_a_saved_card(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
     await enable_payments(db)
     inv = await sent_invoice(db, total=3000)
-    res = await as_owner.post(f"/v1/invoices/{inv}/payments", json=_pay("card", 3000))
+    res = await as_owner.post(
+        f"/v1/invoices/{inv}/payments", json=_pay("card", 3000), headers=key()
+    )
     assert res.status_code == 422
 
 
@@ -136,7 +138,9 @@ async def test_card_needs_stripe(as_owner: httpx.AsyncClient, db: AsyncSession) 
     await enable_payments(db, None)
     inv = await sent_invoice(db, total=3000)
     res = await as_owner.post(
-        f"/v1/invoices/{inv}/payments", json=_pay("card", 3000, payment_method_id="default")
+        f"/v1/invoices/{inv}/payments",
+        json=_pay("card", 3000, payment_method_id="default"),
+        headers=key(),
     )
     assert res.status_code == 409
 
@@ -144,14 +148,18 @@ async def test_card_needs_stripe(as_owner: httpx.AsyncClient, db: AsyncSession) 
 async def test_saved_card_only_for_card(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
     inv = await sent_invoice(db, total=3000)
     res = await as_owner.post(
-        f"/v1/invoices/{inv}/payments", json=_pay("cash", 3000, payment_method_id="default")
+        f"/v1/invoices/{inv}/payments",
+        json=_pay("cash", 3000, payment_method_id="default"),
+        headers=key(),
     )
     assert res.status_code == 422
 
 
 async def test_unknown_method_is_refused(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
     inv = await sent_invoice(db, total=3000)
-    res = await as_owner.post(f"/v1/invoices/{inv}/payments", json=_pay("interac", 3000))
+    res = await as_owner.post(
+        f"/v1/invoices/{inv}/payments", json=_pay("interac", 3000), headers=key()
+    )
     assert res.status_code == 422
 
 
@@ -159,7 +167,9 @@ async def test_more_than_the_balance_is_refused(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     inv = await sent_invoice(db, total=3000)
-    res = await as_owner.post(f"/v1/invoices/{inv}/payments", json=_pay("cash", 3001))
+    res = await as_owner.post(
+        f"/v1/invoices/{inv}/payments", json=_pay("cash", 3001), headers=key()
+    )
     assert res.status_code == 409
 
 
@@ -168,11 +178,13 @@ async def test_tendered_must_cover_the_amount(
 ) -> None:
     inv = await sent_invoice(db, total=3000)
     short = await as_owner.post(
-        f"/v1/invoices/{inv}/payments", json=_pay("cash", 3000, tendered_cents=2000)
+        f"/v1/invoices/{inv}/payments", json=_pay("cash", 3000, tendered_cents=2000), headers=key()
     )
     assert short.status_code == 422
     not_cash = await as_owner.post(
-        f"/v1/invoices/{inv}/payments", json=_pay("cheque", 3000, tendered_cents=5000)
+        f"/v1/invoices/{inv}/payments",
+        json=_pay("cheque", 3000, tendered_cents=5000),
+        headers=key(),
     )
     assert not_cash.status_code == 422
 
@@ -181,7 +193,9 @@ async def test_future_date_is_refused(as_owner: httpx.AsyncClient, db: AsyncSess
     inv = await sent_invoice(db, total=3000)
     later = (clock.today(UTC) + timedelta(days=3)).isoformat()
     res = await as_owner.post(
-        f"/v1/invoices/{inv}/payments", json=_pay("etransfer", 3000, received_on=later)
+        f"/v1/invoices/{inv}/payments",
+        json=_pay("etransfer", 3000, received_on=later),
+        headers=key(),
     )
     assert res.status_code == 422
 
@@ -192,33 +206,46 @@ async def test_draft_void_and_paid_take_nothing(
     draft = await sent_invoice(db, total=3000, status="draft")
     void = await sent_invoice(db, total=3000, status="void")
     for inv in (draft, void):
-        res = await as_owner.post(f"/v1/invoices/{inv}/payments", json=_pay("cash", 1000))
+        res = await as_owner.post(
+            f"/v1/invoices/{inv}/payments", json=_pay("cash", 1000), headers=key()
+        )
         assert res.status_code == 409
     paid = await sent_invoice(db, total=1000)
-    ok(await as_owner.post(f"/v1/invoices/{paid}/payments", json=_pay("cash", 1000)), 201)
-    again = await as_owner.post(f"/v1/invoices/{paid}/payments", json=_pay("cash", 1000))
+    ok(
+        await as_owner.post(
+            f"/v1/invoices/{paid}/payments", json=_pay("cash", 1000), headers=key()
+        ),
+        201,
+    )
+    again = await as_owner.post(
+        f"/v1/invoices/{paid}/payments", json=_pay("cash", 1000), headers=key()
+    )
     assert again.status_code == 409
 
 
 async def test_invalid_amount_and_method(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
     inv = await sent_invoice(db, total=3000)
     assert (
-        await as_owner.post(f"/v1/invoices/{inv}/payments", json=_pay("cash", 0))
+        await as_owner.post(f"/v1/invoices/{inv}/payments", json=_pay("cash", 0), headers=key())
     ).status_code == 422
     assert (
-        await as_owner.post(f"/v1/invoices/{inv}/payments", json=_pay("bitcoin", 100))
+        await as_owner.post(
+            f"/v1/invoices/{inv}/payments", json=_pay("bitcoin", 100), headers=key()
+        )
     ).status_code == 422
 
 
 async def test_staff_cannot_record(as_staff: httpx.AsyncClient, db: AsyncSession) -> None:
     inv = await sent_invoice(db, total=3000)
-    res = await as_staff.post(f"/v1/invoices/{inv}/payments", json=_pay("cash", 3000))
+    res = await as_staff.post(
+        f"/v1/invoices/{inv}/payments", json=_pay("cash", 3000), headers=key()
+    )
     assert res.status_code == 403
 
 
 async def test_unauthenticated_cannot_record(unauth: httpx.AsyncClient, db: AsyncSession) -> None:
     inv = await sent_invoice(db, total=3000)
-    res = await unauth.post(f"/v1/invoices/{inv}/payments", json=_pay("cash", 3000))
+    res = await unauth.post(f"/v1/invoices/{inv}/payments", json=_pay("cash", 3000), headers=key())
     assert res.status_code == 401
 
 
@@ -228,7 +255,9 @@ async def test_foreign_invoice_is_not_found(
     other = await factory.business()
     client = await factory.client(business=other)
     inv = await sent_invoice(db, client=client.id, total=3000, business_id=other.id)
-    res = await as_owner.post(f"/v1/invoices/{inv}/payments", json=_pay("cash", 3000))
+    res = await as_owner.post(
+        f"/v1/invoices/{inv}/payments", json=_pay("cash", 3000), headers=key()
+    )
     assert res.status_code == 404
     minted = (
         await db.execute(select(Payment.id).where(Payment.invoice_id == inv))
@@ -268,7 +297,9 @@ async def test_no_receipt_when_not_asked(
     inv = await sent_invoice(db, client=cid, total=3000)
     ok(
         await as_owner.post(
-            f"/v1/invoices/{inv}/payments", json=_pay("cash", 3000, send_receipt=False)
+            f"/v1/invoices/{inv}/payments",
+            json=_pay("cash", 3000, send_receipt=False),
+            headers=key(),
         ),
         201,
     )

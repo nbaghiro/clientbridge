@@ -675,6 +675,10 @@ class PaymentGateway(Protocol):
         self, account_id: str, *, subscription_id: str, at_period_end: bool = False
     ) -> None: ...
 
+    async def keep_subscription(self, account_id: str, *, subscription_id: str) -> None:
+        """Undo a cancel at period end, so the subscription renews again."""
+        ...
+
     async def create_payment_intent(
         self,
         account_id: str,
@@ -1442,6 +1446,14 @@ class StripeGateway:
                 raise Conflict("this subscription is not on the business's Stripe account") from exc
             raise
 
+    async def keep_subscription(self, account_id: str, *, subscription_id: str) -> None:
+        try:
+            await stripe.Subscription.modify_async(
+                subscription_id, cancel_at_period_end=False, stripe_account=account_id
+            )
+        except stripe.InvalidRequestError as exc:  # missing, or already ended at Stripe
+            raise Conflict("this subscription can't be kept renewing") from exc
+
     @_keyed
     async def create_payment_intent(
         self,
@@ -1489,8 +1501,19 @@ class StripeGateway:
     async def cancel_payment_intent(self, account_id: str, *, payment_intent_id: str) -> None:
         try:
             await stripe.PaymentIntent.cancel_async(payment_intent_id, stripe_account=account_id)
-        except stripe.InvalidRequestError as exc:  # processing or succeeded: it can't be undone
-            raise Conflict("this invoice already has a payment in progress") from exc
+        except stripe.InvalidRequestError as exc:
+            try:
+                intent = await stripe.PaymentIntent.retrieve_async(
+                    payment_intent_id, stripe_account=account_id
+                )
+            except stripe.InvalidRequestError:
+                raise Conflict("this payment can't be canceled") from exc
+            if intent.status == "canceled":  # canceled before, by us or from Stripe's side
+                return
+            # processing or succeeded: it can't be undone
+            raise Conflict(
+                "this invoice already has a payment in progress", code="payment_in_progress"
+            ) from exc
 
     @_keyed
     async def refund(

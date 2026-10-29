@@ -90,7 +90,7 @@ async def public_pay_card(
     db: DbSession,
     gateway: GatewayDep,
     _: RateLimited,
-    data: PublicPayIn | None = None,
+    data: PublicPayIn,
 ) -> PublicCardIntent:
     return await PublicPayService(db, gateway).pay_card(token, data)
 

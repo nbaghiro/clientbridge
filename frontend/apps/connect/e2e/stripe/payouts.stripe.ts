@@ -229,7 +229,7 @@ test.describe("payouts", () => {
                     FROM entries WHERE journal_id = ${paidJournal ?? ""} AND business_id = ${demoId("bz_birchbark")}
                     LIMIT 1`;
                 expect(arrival[0]?.day).toBe(arrivalDay);
-                expect(deposits).toContainEqual([paidJournal, arrivalDay, String(net), "paid"]);
+                expect(deposits).toContainEqual([payoutId, arrivalDay, String(net), "paid"]);
                 await info.attach("payout-settled", {
                     body: JSON.stringify({
                         payout: paid,

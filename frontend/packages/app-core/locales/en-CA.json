@@ -189,6 +189,24 @@
     "api.estimateChanged": {
         "message": "This estimate just changed. Reload the page to see the latest version."
     },
+    "api.paymentInProgress": {
+        "message": "A payment on this invoice is still going through. Wait for it to finish, then try again."
+    },
+    "api.membershipVisitsUsed": {
+        "message": "This membership's included visits for the period are used. Ring the visit up instead."
+    },
+    "api.paymentMethodInUse": {
+        "message": "A membership still bills this card. Cancel the membership or move it to another card first."
+    },
+    "api.cardDeclined": {
+        "message": "The card was declined. Try another card or payment method."
+    },
+    "api.paymentActionRequired": {
+        "message": "This card needs the client to approve the payment. Use a new card or send them a pay link."
+    },
+    "api.invoiceChanged": {
+        "message": "This invoice just changed, so nothing was charged. Check the amount below and try again."
+    },
     "api.depositNotDue": {
         "message": "This deposit is already paid or no longer due."
     },
@@ -1716,8 +1734,14 @@
     "pos.desk.usePackage": {
         "message": "Use package"
     },
+    "pos.desk.memberDiscount": {
+        "message": "Member discount"
+    },
+    "pos.desk.useMembership": {
+        "message": "Use membership"
+    },
     "pos.desk.coverError": {
-        "message": "Couldn’t use the package. Try again."
+        "message": "Couldn’t cover the visit. Try again."
     },
     "pos.desk.giftCardPaid": {
         "message": "Gift card"
@@ -2323,6 +2347,20 @@
     "pos.desk.refundDone": {
         "message": "Refunded {money}. Credit note {cn} is on its way to the client.",
         "args": ["money", "cn"]
+    },
+    "pos.desk.returnGiftSale": {
+        "message": "Return to gift card"
+    },
+    "pos.desk.returnGiftTitle": {
+        "message": "Return sale {n}?",
+        "args": ["n"]
+    },
+    "pos.desk.returnGiftBody": {
+        "message": "A gift card paid for this sale. Returning it puts the amount back on the card and marks the sale void."
+    },
+    "pos.desk.returnGiftDone": {
+        "message": "{n} is returned to the gift card.",
+        "args": ["n"]
     },
     "pos.desk.voidTitle": {
         "message": "Void sale {n}?",
@@ -9192,6 +9230,12 @@
     "catalog.billsEvery": {
         "message": "Bills every"
     },
+    "catalog.anyService": {
+        "message": "Any service"
+    },
+    "catalog.membershipCovers": {
+        "message": "Visits cover"
+    },
     "catalog.includes": {
         "message": "Visits each period"
     },
@@ -11846,6 +11890,13 @@
     },
     "publicPay.paidTitle": {
         "message": "This invoice is paid, thank you"
+    },
+    "publicPay.closedTitle": {
+        "message": "Nothing is due on this invoice"
+    },
+    "publicPay.closedBody": {
+        "message": "{businessName} closed this invoice, so there's nothing to pay. Contact them if you have a question about it.",
+        "args": ["businessName"]
     },
     "publicPay.paidBody": {
         "message": "Your payment to {businessName} is complete. A receipt will follow from the business.",

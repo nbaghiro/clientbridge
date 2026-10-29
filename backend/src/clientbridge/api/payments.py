@@ -174,7 +174,7 @@ async def record_remittance(
     data: RemittanceIn,
     principal: CurrentPrincipal,
     db: DbSession,
-    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+    idempotency_key: Annotated[str, Header(alias="Idempotency-Key", min_length=8)],
 ) -> RemittanceOut:
     return await RemittanceService(db, principal).record(data, idempotency_key)
 

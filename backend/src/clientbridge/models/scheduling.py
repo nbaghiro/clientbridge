@@ -78,6 +78,7 @@ class Booking(PKMixin, BusinessScoped, TimestampMixin, SoftDelete, Base):
         Index("ix_bookings_invoice", "invoice_id"),
         Index("ix_bookings_order", "order_id"),
         Index("ix_bookings_package", "package_id"),
+        Index("ix_bookings_subscription", "subscription_id"),
         Index("ix_bookings_subject", "subject_id"),
         Index("ix_bookings_client_id", "client_id"),
         Index("ix_bookings_estimate_id", "estimate_id"),
@@ -93,6 +94,8 @@ class Booking(PKMixin, BusinessScoped, TimestampMixin, SoftDelete, Base):
     client_id: Mapped[str] = mapped_column(ForeignKey("clients.id"), nullable=False)
     subject_id: Mapped[str | None] = mapped_column(ForeignKey("subjects.id"))
     package_id: Mapped[str | None] = mapped_column(ForeignKey("packages.id"))
+    # the membership whose included visits covered this one
+    subscription_id: Mapped[str | None] = mapped_column(ForeignKey("subscriptions.id"))
     invoice_id: Mapped[str | None] = mapped_column(ForeignKey("invoices.id"))
     # the accepted estimate this visit was booked from; one live booking per estimate
     estimate_id: Mapped[str | None] = mapped_column(ForeignKey("estimates.id"))

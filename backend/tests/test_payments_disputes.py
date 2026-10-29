@@ -253,6 +253,20 @@ async def test_an_inquiry_alerts_staff_once_and_books_nothing(
     assert await business_balance(db, "stripe") == before
 
 
+async def test_a_prevented_dispute_books_nothing_and_leaves_the_payment_refundable(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    payment = await _purchase(db, 4500)
+    before = await business_balance(db, "stripe")
+    intent = await _intent(db, payment.id)
+    for verb in ("created", "closed"):
+        event = _dispute(f"evt_prevented_{verb}", intent, "prevented", 4500, verb)
+        assert (await api.post("/webhooks/stripe", content=event, headers=GOOD)).status_code == 200
+    assert await business_balance(db, "stripe") == before
+    await db.refresh(payment)
+    assert payment.dispute_status is None
+
+
 async def test_a_lost_dispute_reads_as_money_back_not_lower_sales(
     as_owner: httpx.AsyncClient, api: httpx.AsyncClient, db: AsyncSession
 ) -> None:

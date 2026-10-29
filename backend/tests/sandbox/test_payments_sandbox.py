@@ -8,6 +8,7 @@ import stripe
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from tests.conftest import BIZ, Factory
+from tests.helpers import pay_link_card
 from tests.sandbox.conftest import StripeEvents, StripeRun
 
 from clientbridge.core.errors import AppError
@@ -54,7 +55,7 @@ async def open_invoice(
     )
     assert response.status_code == 201, response.text
     invoice_id, token = response.json()["id"], response.json()["pay_token"]
-    response = await api.post(f"/pay/{token}/card", json={"tip_cents": 0})
+    response = await pay_link_card(api, db, token, tip_cents=0)
     assert response.status_code == 200, response.text
     payment = await db.scalar(select(Payment).where(Payment.invoice_id == invoice_id))
     assert payment is not None and payment.provider_ref is not None
@@ -110,7 +111,7 @@ async def test_invoice_signed_webhook_replay_and_partial_refunds(
     await db.refresh(payment)
     assert payment.status == "succeeded"
     assert await ledger.collected(db, BIZ, "invoice", invoice_id) == (2000, False)
-    assert (await as_owner.post(f"/pay/{token}/card", json={})).status_code == 409
+    assert (await pay_link_card(as_owner, db, token)).status_code == 409
     assert isinstance(intent.latest_charge, str)
     charge = await stripe.Charge.retrieve_async(
         intent.latest_charge, expand=["balance_transaction"], stripe_account=stripe_run.account
@@ -163,7 +164,7 @@ async def test_decline_leaves_invoice_due_then_retry_settles_once(
     await deliver(as_owner, payload, signature)
     assert (await as_owner.get(f"/pay/{token}")).json()["balance_cents"] == 2000
     assert await ledger.collected(db, BIZ, "invoice", invoice_id) == (0, False)
-    response = await as_owner.post(f"/pay/{token}/card", json={})
+    response = await pay_link_card(as_owner, db, token)
     assert response.status_code == 200, response.text
     current = await db.scalar(
         select(Payment).where(Payment.invoice_id == invoice_id, Payment.status == "pending")

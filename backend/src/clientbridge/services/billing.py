@@ -182,16 +182,21 @@ class BillingService:
     async def void_invoice(self, invoice_id: str) -> InvoiceOut:
         self._assert_admin()
         invoice = await self._invoice(invoice_id)
-        status, _ = await ledger.invoice_state(self.db, invoice)
-        cash, _ = await ledger.collected(self.db, invoice.business_id, "invoice", invoice.id)
-        if status in ("paid", "refunded", "void"):
-            raise Conflict(f"a {status} invoice can't be voided")
-        if cash != 0:
-            raise Conflict("money was taken on this invoice", code="invoice_has_payments")
 
         async def run(cmd: Command) -> InvoiceOut:
+            # payments lock the invoice too, so none can land between these checks and the void
+            await self.db.execute(
+                select(Invoice.id).where(Invoice.id == invoice.id).with_for_update()
+            )
+            await self.db.refresh(invoice)
+            status, _ = await ledger.invoice_state(self.db, invoice)
+            cash, _ = await ledger.collected(self.db, invoice.business_id, "invoice", invoice.id)
+            if status in ("paid", "refunded", "void"):
+                raise Conflict(f"a {status} invoice can't be voided")
+            if cash != 0:
+                raise Conflict("money was taken on this invoice", code="invoice_has_payments")
             if await payment_pending(self.db, invoice):
-                raise Conflict("this invoice has a payment in progress")
+                raise Conflict("this invoice has a payment in progress", code="payment_in_progress")
             await void_issued(self.db, invoice, cmd)
             return await invoice_out(self.db, invoice, await self._lines("invoice", invoice.id))
 

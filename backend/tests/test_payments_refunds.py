@@ -12,6 +12,7 @@ from clientbridge.models.billing import Invoice, Order
 from clientbridge.models.business import User
 from clientbridge.models.catalog import GiftCard, Package
 from clientbridge.models.payments import Payment
+from clientbridge.models.platform import Device
 from clientbridge.models.scheduling import Booking
 from clientbridge.services import ledger
 from clientbridge.services.payments import next_credit_note
@@ -22,6 +23,7 @@ from tests.conftest import (
     Factory,
     FakeEmailSender,
     FakePaymentGateway,
+    FakePushSender,
     FakeSmsSender,
 )
 from tests.helpers import (
@@ -751,6 +753,26 @@ async def test_a_refund_failed_event_puts_the_money_back(
     assert refund.status == "failed"
     invoice = await db.get(Invoice, inv_id)
     assert invoice is not None and (await ledger.invoice_state(db, invoice))[0] == "paid"
+
+
+async def test_a_pending_refund_that_fails_alerts_staff_and_not_the_client(
+    api: httpx.AsyncClient, db: AsyncSession, push: FakePushSender, sms: FakeSmsSender
+) -> None:
+    await enable_payments(db)
+    cid = await client_id(db)
+    payment = await _settled_charge(db, "pi_refund_stalled", client=cid)
+    db.add(
+        Device(id="dvt_refund", business_id=BIZ, user_id="us_dev", token="ExpoRef", platform="ios")
+    )
+    await db.flush()
+    texts = len(sms.sent)
+    await stripe_event(api, "refund.created", _refund_object("pi_refund_stalled", "pending"))
+    await stripe_event(api, "refund.updated", _refund_object("pi_refund_stalled", "failed"))
+    refund = await payment_by_ref(db, "re_pi_refund_stalled")
+    assert refund.status == "failed"
+    alerts = [p for p in push.sent if "didn't go through" in p.body]
+    assert len(alerts) == 1 and alerts[0].data["payment_id"] == payment.id
+    assert len(sms.sent) == texts
 
 
 async def test_sandbox_refund_refusals_reach_the_refund_with_their_retry_keys(

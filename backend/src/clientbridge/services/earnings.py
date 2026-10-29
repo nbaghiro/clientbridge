@@ -674,9 +674,9 @@ async def _accrue(
 
 
 async def accrue_covered_visit(
-    db: AsyncSession, booking: Booking, share: int, package_id: str
+    db: AsyncSession, booking: Booking, share: int, source: tuple[str, str]
 ) -> None:
-    """Accrue each member's earning on a visit a package covered, on the session's share."""
+    """Accrue each member's earning on a visit a package or membership covered, on its share."""
     biz = booking.business_id
     lead = booking.staff_id
     if lead is None:
@@ -707,7 +707,7 @@ async def accrue_covered_visit(
             staff,
             amount,
             ref=f"earning:{booking.id}:{staff.id}:{len(journals)}",
-            source=("package", package_id),
+            source=source,
             subject=("booking", booking.id),
             meta=_visit_meta(basis, staff, cents, service, booking),
         )

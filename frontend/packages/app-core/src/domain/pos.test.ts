@@ -6,7 +6,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { ApiLike } from "../api";
 import { BusinessZoneContext } from "../datetime";
 import { strings } from "../strings";
-import { allocate, discountCents } from "./billing";
+import { allocate, discountCents, withMemberDiscount } from "./billing";
 import { ratesOn } from "./taxes";
 import {
     discountFrom,
@@ -405,5 +405,35 @@ describe("canceling a sale's checkout", () => {
             result.current.cancelCheckout();
         });
         expect(api.posted).toEqual([]);
+    });
+});
+
+describe("the member discount", () => {
+    const line = (kind: string, discount: SaleLine["discount"] = null): SaleLine => ({
+        key: `${kind}-${String(discount?.value ?? 0)}`,
+        itemId: `it_${kind}`,
+        kind,
+        description: kind,
+        unitAmountCents: 1000,
+        quantity: 1,
+        taxClass: "standard",
+        staffId: null,
+        bookingId: null,
+        color: null,
+        imageFileId: null,
+        discount,
+    });
+    const member = { kind: "percent" as const, value: 10, reason: strings.pos.desk.memberDiscount };
+
+    it("takes retail lines only, and keeps a discount staff gave for another reason", () => {
+        const loyalty = { kind: "percent" as const, value: 20, reason: "Loyalty" };
+        const out = [line("product"), line("service"), line("product", loyalty)].map((l) =>
+            withMemberDiscount(l, l.kind === "product", 1000),
+        );
+        expect(out.map((l) => l.discount)).toEqual([member, null, loyalty]);
+    });
+
+    it("comes off when the sale's client has no membership", () => {
+        expect(withMemberDiscount(line("product", member), true, null).discount).toBeNull();
     });
 });

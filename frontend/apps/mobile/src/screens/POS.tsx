@@ -14,7 +14,7 @@ import {
     useCatalogItems,
     useCheckoutQueue,
     openTask,
-    usePackageCover,
+    useVisitCover,
     useRegisterCatalog,
     useSale,
     useSalesViews,
@@ -133,7 +133,7 @@ function VisitCard({
                     busy={covering}
                     onPress={onCover}
                 >
-                    {d.usePackage}
+                    {v.cover?.label}
                 </Button>
             )}
             {onTicket ? (
@@ -183,7 +183,7 @@ function Register({
     setTicketOpen: (open: boolean) => void;
 }) {
     const queue = useCheckoutQueue();
-    const cover = usePackageCover(api);
+    const cover = useVisitCover(api);
     const catalog = useRegisterCatalog();
     const openLink = useOpenLink();
     const visitId = sale.visitId;
@@ -228,7 +228,7 @@ function Register({
                                     }}
                                     covering={cover.busy === v.bookingId}
                                     onCover={
-                                        v.packageId !== null &&
+                                        v.cover !== null &&
                                         (v.state === "ready" || v.state === "inProgress")
                                             ? () => {
                                                   cover.cover(v, () => {

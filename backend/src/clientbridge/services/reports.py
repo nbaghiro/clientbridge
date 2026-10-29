@@ -36,6 +36,7 @@ from clientbridge.schemas.reports import (
 )
 from clientbridge.services import ledger
 from clientbridge.services.business import staff_name
+from clientbridge.services.ledger import BUSINESS_CURRENCY
 from clientbridge.services.tax import FAMILY_CODES, rates_on
 
 _CASH = ("stripe", "bank", "cash")
@@ -134,7 +135,10 @@ class ReportService:
         sales = await self.db.execute(
             self._legs(
                 Account.category.in_(("revenue", "deferred")),
-                Entry.event.in_(("invoice", "payment", "refund", "dispute", "forfeit", "reversal")),
+                # a gift card is sold untaxed, so its sale counts when it pays for something
+                Entry.event.in_(
+                    ("invoice", "payment", "redemption", "refund", "dispute", "forfeit", "reversal")
+                ),
                 lo,
                 hi,
             ).with_only_columns(func.coalesce(func.sum(Entry.amount_cents), 0))
@@ -151,7 +155,12 @@ class ReportService:
         stmt = (
             scoped(Entry, self.biz)
             .join(Account, Account.id == Entry.account_id)
-            .where(account, Entry.occurred_at >= lo, Entry.occurred_at < hi)
+            .where(
+                account,
+                Entry.currency == BUSINESS_CURRENCY,
+                Entry.occurred_at >= lo,
+                Entry.occurred_at < hi,
+            )
         )
         return stmt if entry is None else stmt.where(entry)
 
@@ -396,24 +405,32 @@ class ReportService:
     async def payouts(self, lo: datetime, hi: datetime) -> list[PayoutRow]:
         rows = await self.db.execute(
             self._legs(Account.category == "bank", Entry.event == "payout", lo, hi)
-            .with_only_columns(Entry.journal_id, Entry.ref, Entry.amount_cents, Entry.available_at)
+            .with_only_columns(
+                Entry.journal_id,
+                Entry.ref,
+                Entry.amount_cents,
+                Entry.available_at,
+                Entry.source_type,
+                Entry.source_id,
+            )
             .order_by(Entry.occurred_at.desc())
         )
         payouts = rows.tuples().all()
         failed = await self.db.execute(
             scoped(Entry, self.biz)
             .with_only_columns(Entry.ref)
-            .where(Entry.ref.in_([f"{ref}:failed" for _, ref, _, _ in payouts]))
+            .where(Entry.ref.in_([f"{row[1]}:failed" for row in payouts]))
         )
         returned = set(failed.scalars().all())
         return [
             PayoutRow(
                 id=journal_id,
+                payout_id=source_id if source_type == "stripe_payout" else None,
                 amount_cents=int(cents),
                 arrival_at=arrival,
                 status="failed" if f"{ref}:failed" in returned else "paid",
             )
-            for journal_id, ref, cents, arrival in payouts
+            for journal_id, ref, cents, arrival, source_type, source_id in payouts
         ]
 
     async def export_zip(self, kinds: list[ExportKind], start: date, end: date) -> bytes:
@@ -559,7 +576,7 @@ class ReportService:
             ],
             [
                 [
-                    p.id,
+                    p.payout_id or p.id,
                     p.arrival_at.date().isoformat() if p.arrival_at else "",
                     p.amount_cents,
                     p.status,
@@ -622,6 +639,7 @@ class DashboardService:
             .with_only_columns(func.coalesce(func.sum(Entry.amount_cents), 0))
             .join_from(Entry, Account, Account.id == Entry.account_id)
             .where(
+                Entry.currency == BUSINESS_CURRENCY,
                 Account.category.in_(("stripe", "bank", "cash")),
                 Entry.event.in_(_MONEY_BACK),
                 ~ledger.orphaned(),

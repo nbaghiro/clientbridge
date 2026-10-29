@@ -37,8 +37,12 @@ flowchart LR
 - **Currency.** Every price and charge is in CAD. `SUPPORTED_CURRENCIES` in `services/ledger.py` holds
   the currencies the ledger books, and `ledger.supported()` checks it for every journal, item create and
   update (422 `unsupported_currency`), sale creation and every charge builder before Stripe is called.
-  Ledger accounts are already keyed by currency, so adding one means adding it to that set and checking
-  fees and reports. A Stripe object in another currency that reaches us anyway, such as a payout or a
+  Ledger accounts are already keyed by currency. Every business-wide total (dashboard figures, reports,
+  the GST/HST return, remittances, reconciliation's balance check, and the app's Stripe balance,
+  Deposited, fees and client balances) reads only `BUSINESS_CURRENCY`, the currency the books are kept
+  in, so a second currency can't mix into them; totals of one document already share its currency.
+  Supporting USD still needs a per-business currency in place of that constant, its Stripe setup and
+  its tax. A Stripe object in another currency that reaches us anyway, such as a payout or a
   membership renewal, is refused once as a `payout.refused` or `payment.refused` audit and never booked.
 - **Application fee.** `services/payments.application_fee_cents` computes integer cents as
   `amount × clamp(ceiling_bps − estimated_stripe_bps, 0, max_bps) / 10000`, rounded down.
@@ -88,11 +92,13 @@ flowchart LR
   use it.
 - **Closed accounts.** `v2.core.account.closed` fetches the account like any account event. If Stripe can
   no longer return it, the event alone marks the business disabled (`disabled_reason: closed`, charges and
-  payouts off). Reconciliation and event replay don't skip a closed account yet, and offboarding a business
-  is not built.
+  payouts off). Reconciliation and event replay skip a closed account. Offboarding a business is not
+  built.
 - **Recorded by hand**: cash, cheques and e-Transfers received outside the app (`provider` manual, the
   e-Transfer method stored as `etransfer`); cash lands in the till's `cash` account, a cheque or e-Transfer
-  in `bank`. There is no e-Transfer request or matching.
+  in `bank`. There is no e-Transfer request or matching. Recording one, paying a desk sale in cash,
+  applying a gift card and filing a tax remittance all require an `Idempotency-Key`, so a retry never
+  records the money twice.
 - **PAD/EFT**: pre-authorized debit for recurring. Staff on web or mobile send the client a payment setup link,
   and the client authorizes the bank account on Connect `pay.D/setup`. A charge on a saved bank account is
   recorded as `bank_eft` (`charge_method`) by the invoice, deposit, entitlement and sale builders, and its
@@ -154,17 +160,17 @@ flowchart LR
 
 ## Payment lifecycle and product surfaces
 
-| Flow                                | Implementation and completion                                                                                                                                                                                                                        |
-| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Invoice / public pay link           | API opens a PaymentIntent on the business account; Elements confirms it; successful settlement posts payment and fees against the invoice.                                                                                                           |
-| Booking deposit                     | Shared payment builders create the charge; settlement and booking logic collect/apply/forfeit/refund the deposit through ledger journals.                                                                                                            |
-| Order / online shop                 | Order payment settles the sale through the same payment and ledger services. Product stock and order rules remain in `services/orders.py`.                                                                                                           |
-| Saved card                          | `ensure_customer` reuses the business/client Customer; setup stores a provider reference, then an authorized server command charges it.                                                                                                              |
-| Terminal / Tap to Pay               | API creates the connected-account card-present intent; the reader confirms it and settlement follows. Known clients attach their Customer; walk-ins do not.                                                                                          |
-| Bank authorization / PAD            | Client completes a SetupIntent through a public setup link. Mandate/setup events update local authorization state. A pending debit is not treated as settled.                                                                                        |
-| Membership renewal                  | Connected-account Billing invoice success resolves its PaymentIntent and amount through InvoicePayments, then creates the local paid invoice/payment and journals. Subscription updates fetch current Stripe state. See [Memberships](#memberships). |
-| Gift card / package sale            | Shared builders and settlement issue the entitlement and book the liability/deferred revenue; redemption/usage is a later ledger event.                                                                                                              |
-| Cash / cheque / received e-Transfer | Recorded manually without Stripe; these do not contribute to the Stripe balance or Stripe payouts.                                                                                                                                                   |
+| Flow                                | Implementation and completion                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Invoice / public pay link           | API opens a PaymentIntent on the business account; Elements confirms it; successful settlement posts payment and fees against the invoice.                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| Booking deposit                     | Shared payment builders create the charge; settlement and booking logic collect/apply/forfeit/refund the deposit through ledger journals.                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| Order / online shop                 | Order payment settles the sale through the same payment and ledger services. Product stock and order rules remain in `services/orders.py`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| Saved card                          | `ensure_customer` reuses the business/client Customer; setup stores a provider reference, then an authorized server command charges it.                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| Terminal / Tap to Pay               | API creates the connected-account card-present intent; the reader confirms it and settlement follows. Known clients attach their Customer; walk-ins do not.                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| Bank authorization / PAD            | Client completes a SetupIntent through a public setup link. Mandate/setup events update local authorization state. A pending debit is not treated as settled.                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| Membership renewal                  | Connected-account Billing invoice success resolves its PaymentIntent and amount through InvoicePayments, then creates the local paid invoice/payment and journals. Subscription updates fetch current Stripe state. See [Memberships](#memberships).                                                                                                                                                                                                                                                                                                                                                        |
+| Gift card / package sale            | Shared builders and settlement issue the entitlement and book the liability/deferred revenue; redemption/usage is a later ledger event. A gift card is sold untaxed: redeeming it on a sale books that redemption's share of the sale's tax, and the sale counts in taxable sales then. A manual redemption with no sale books revenue only; it needs an idempotency key, gets its own journal each time and refuses an expired card. A desk sale gift cards paid in full has no payment to refund, so staff return it with Return to gift card, which voids the sale and puts the amount back on the card. |
+| Cash / cheque / received e-Transfer | Recorded manually without Stripe; these do not contribute to the Stripe balance or Stripe payouts.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 
 A browser redirect or successful UI confirmation alone does not prove local settlement. The backend
 must process the provider outcome, obtain fees and commit the payment, parent state and ledger entries.
@@ -179,13 +185,44 @@ An intent that nobody will finish is cancelled rather than left confirmable, so 
   ones.
 - Completing a visit cancels its unpaid deposit intent. A deposit that still settles after the visit
   finished without it is refunded, as after a cancellation.
+- Connect's card form counts a payment as done only once Stripe reports it succeeded or processing.
+  A voided or refunded invoice's pay link shows that nothing is due instead of a Pay button.
+- The pay link sends the balance its page shows, and `POST /pay/{token}/card` refuses a different live
+  balance, or an invoice that was paid or voided meanwhile, with 409 `invoice_changed`; the page then
+  reloads. The response carries the amount the card will be charged, which labels the card form.
+- A card payment that settles after its invoice was voided, or after the invoice was paid another way
+  so it no longer owes that much, is booked and then refunded in full with our platform fee returned
+  (reason `unapplied_payment`). The refund puts back only the receivable the payment credited.
+  `void_invoice` checks for money and pending payments under the invoice lock that payments also take.
 - `POST /v1/orders/{id}/checkout/cancel` cancels a desk sale's open card or Terminal intents so the sale
   can be edited, voided or paid in cash. It answers 409 `checkout_paid` once the card payment went
   through. The web and mobile pay sheets and the mobile reader screen offer it, and changing the tip
   supersedes the open intent instead of being refused.
 - `cancel_stale_intents` (hourly at :45, `payments.run_cancel_stale_intents`) cancels staff-opened desk
-  sale, gift card and package intents that are still pending a day after they opened, 200 per run,
-  newest first. An intent Stripe refuses to cancel is logged and left for the next run.
+  sale, gift card and package intents still pending a day after they opened, and pay-link and deposit
+  card intents still pending after an hour, so an abandoned form never blocks voiding the invoice or
+  recording cash. A saved card charged on an invoice from the desk falls in the same hour: one still
+  pending then waits on an approval no one can give off-session. Bank debits and online orders are left
+  alone. It takes 200 per run, newest first; an intent Stripe refuses to cancel, because it is
+  processing or went through, is logged and left for the next run.
+- Canceling an intent Stripe already canceled counts as canceled, so a declined deposit attempt closed
+  from Stripe's side no longer blocks paying the deposit again. An intent that is processing or
+  succeeded still refuses, with `payment_in_progress`.
+- After a refusal such as a declined card, the desk's next press is a new attempt with a new key, so
+  Stripe asks the bank again instead of replaying the decline. A request that got no answer keeps its
+  key. Staff see the server's reason: a declined card, a card that needs the client to approve, or a
+  payment still in progress.
+- A renewal that needs the client to approve the payment arrives as `invoice.payment_failed` (Stripe sends
+  it with the PaymentIntent at `requires_action`), so the client gets the past-due notice; no separate
+  `invoice.payment_action_required` subscription is needed. A first payment never approved expires the
+  subscription through `customer.subscription.updated` (`incomplete_expired`), which now sends the same
+  cancel notice as a deletion.
+- Creating a membership locks the client and requires an idempotency key, so two quick creates can't
+  both start billing. A saved card or bank account a membership still bills can't be removed
+  (`payment_method_in_use`); one only canceled memberships used is removed after their link is
+  cleared, and Stripe is told last. Restoring an archived client undoes only the end its archive
+  scheduled; a Stripe refusal is logged and the restore goes ahead. A trial that runs out with
+  memberships still billing sends the owner the same notice a lapsed plan does.
 - Subscription creates use the command's idempotency key as Stripe's key, so a retry with a different card
   succeeds and a quick resubscribe starts a new subscription. The no-show charge keys on the card, so a
   new default card after a decline is a new charge.
@@ -223,6 +260,20 @@ saved card or bank account and the platform fee as `application_fee_percent`. It
 - When the business's own plan lapses, its memberships keep billing. The owner can still cancel them
   (`POST /v1/subscriptions/{id}/cancel` is allowed while lapsed) and is emailed once that memberships are
   still charging.
+- **Included visits.** A membership with visits each period covers that many started visits per billing
+  period, of one service or of any. The desk's checkout queue offers Use membership on such a visit
+  (after a package, when the client has one), which calls `POST /v1/subscriptions/{id}/cover`. The
+  command needs an idempotency key, locks the membership, applies the same rules as a package cover
+  (an open, unbilled visit that has started, with an unpaid deposit canceled first), counts the visits
+  covered since the period start (`current_period_end` less one interval, rolled forward when a late
+  renewal left the stored end in the past) and refuses past the count
+  with `membership_visits_used`. The visit records the membership in `bookings.subscription_id` and is
+  completed. The period's price was revenue when it was billed, so a covered visit books no revenue;
+  staff earn on one visit's share of the period's price before tax.
+- **Member discount.** A desk sale or an invoice for a client with an active membership takes the best
+  member discount among their memberships on every retail line, as a line discount named Member
+  discount on the receipt. It follows a client chosen on the sale or invoice; a draft or held sale
+  opens as it was saved. Staff can clear it on any line.
 
 ### Refunds and disputes
 
@@ -251,7 +302,14 @@ application to an invoice, then marks the deposit refunded. The forfeit reversal
 dispute. A refund that fails after it succeeded reverses the refund journal, forfeits the deposit again
 (`restore_forfeit`) and restores a gift card or package the refund had voided. A held deposit goes back
 on the booking's open invoice under an application keyed by the failed refund, so the invoice it reopened
-is paid down again; if that invoice was paid or voided in the meantime, the deposit stays held.
+is paid down again; if that invoice was paid or voided in the meantime, the deposit stays held. Any
+refund that fails or is canceled, including one still pending, pushes an alert to staff that opens the
+original payment, since the money still has to go back; the client is told only about a refund they had
+been told went through. That includes the full refund of a payment that reached a voided invoice or sale:
+if it bounces, the client stays charged until staff return the money another way.
+
+The sale detail shows the tax a sale charged, from its payment and redemption journals; like a refunded
+card sale, a sale returned to its gift card keeps showing what it charged.
 
 A dispute withdrawal posts the disputed amount and fee. A win reinstates funds and any fee Stripe
 actually returns. A loss unwinds the sale through the ledger, capped at what the sale still carries: a
@@ -266,8 +324,13 @@ a lost purchase is booked to `loss` as well; the card or package is voided once 
 cover the whole purchase. The income report counts lost-dispute reversals with refunds instead of as lower
 sales.
 
-An inquiry (`warning_needs_response`) alerts staff once and books nothing; money moves only if it
-escalates. Late opening events cannot reopen a won/lost dispute, and dispute fees and returned fees post
+Dispute and payment-failure events find their payment within the business whose account sent the event,
+as settlement does, so an event can never touch another business's payment. An inquiry
+(`warning_needs_response`) alerts staff once and books nothing; money moves only if it
+escalates. A `prevented` dispute, which the card network settled before any funds left, also books
+nothing and leaves the payment refundable, as does a status we don't know, which is logged. A visit
+cancel skips refunding a disputed deposit, so the dispute decides that money and the cancel still goes
+through; an online order with a disputed payment is refused as "contact the business". Late opening events cannot reopen a won/lost dispute, and dispute fees and returned fees post
 only their newly observed increments, including after the case closed. Embedded dispute management
 handles evidence; our payment records and journals track the financial effect.
 
@@ -341,6 +404,7 @@ the handler creates and reverses the original so a late creation or paid event c
 bank leg is still an accounting movement, not independent evidence of receipt. Reports, the payouts CSV
 and the 30-day Deposited figure read only bank legs, so the Deposited figure counts paid payouts by
 arrival date, independently of the visible history page. Revenue reports never count payouts as sales.
+The payouts CSV names each row by Stripe's payout id, which matches the bank deposit.
 
 Balances, fees and charge history still use the local ledger. Live payout status requires the API and
 Stripe; the payout page currently depends on that online read. No payout-status table is mirrored
@@ -391,7 +455,9 @@ same rule applies to replays and to reconciliation.
 `replay_missed_events` (`payments.run_replay_missed_events`) asks Stripe for events from the last seven
 days that it couldn't deliver (`GET /v1/events?delivery_success=false`), first on the platform and then on
 each connected account, up to 100 per account and 500 per run. It skips event types we don't subscribe to
-(plan events on the platform, `PAYMENT_EVENTS` on connected accounts) and events already processed. For
+(plan events on the platform, `PAYMENT_EVENTS` on connected accounts) and events already processed, and
+only the events it still applies count against the 500, since Stripe keeps listing an event until a later
+delivery of it succeeds. For
 the rest it re-fetches the object at the pinned API version and applies the event the object's current
 state stands for: a PaymentIntent replays as succeeded, canceled or failed, or not at all while it's still
 in progress, a payout as its current status and a SetupIntent as succeeded or failed. The event is applied
@@ -399,14 +465,16 @@ through the normal webhook path under its original id, so a later delivery of th
 nothing, and its notices use the delivery queue and the one-day rule above.
 
 Thin v2 account events don't appear in that list. `GET /v2/core/events` lists them, but it can't filter by
-delivery, so the replay re-reads every account still in progress instead, and a missed KYC event also
-waits for the next account event, reconciliation of the business or the Refresh button.
+delivery, so the replay re-reads every account still in progress, and reconciliation re-reads every
+merchant account each hour, so a paused account whose event was lost is mirrored within the hour. Every
+read of an account takes the business lock first, so an older read never lands after a newer one.
 
 ### Reconciliation
 
-`reconcile_ledger` (`payments.run_reconcile_payments`) visits businesses least recently reconciled first
-and stops starting new businesses after ten minutes, inside the worker's 900-second job timeout. For each
-business with a merchant account it:
+`reconcile_ledger` (`payments.run_reconcile_payments`) visits businesses never reconciled first, then the
+rest in an order that changes each hour, so a business the budget missed is near the front of a later run.
+It stops starting new businesses after ten minutes, inside the worker's 900-second job timeout. For each
+business with a merchant account it re-reads the account (see above), then:
 
 1. Reads the balance transactions created since its cursor, less a day of overlap. The cursor is a
    `ledger.reconciled` audit holding the newest transaction id and `created` that a run reached; each run
@@ -425,7 +493,9 @@ business with a merchant account it:
    expected: its debit is already in Stripe's balance while the ledger books it on success, so the source
    records no finding and the balance check adds pending refunds back until they settle or fail.
 4. Compares the account balance with the ledger, then checks each account's cached balance against its
-   entries.
+   entries. A balance that's off is first noted as `ledger.balance_unsettled`, since a charge whose
+   webhook is still on its way looks the same; it becomes a finding when the next check sees the same
+   residual again, however long until the business's next turn.
 
 A source that answers `retry_later` is skipped until 24 hours after its first transaction's `created`, then
 becomes a `ledger.transaction_drift` finding. A source whose repair raises anything else records a
@@ -514,9 +584,9 @@ every account we create carries ours whichever configuration it starts with.
   events, including its own `deleted`, find it ended and change nothing. An event for a subscription that
   has ended and isn't the business's current one leaves the business as it is.
 - A missed `customer.subscription.created` doesn't strand a paying business. When a new Checkout finds a
-  completed Checkout whose subscription is billing, it adopts that subscription and answers `plan_active`;
-  `GET /v1/plan` (where the Checkout return lands) does the same for a business that isn't on a live plan,
-  and the portal endpoint for one with no subscription recorded.
+  completed Checkout whose subscription is billing, it adopts that subscription and answers `plan_active`,
+  and the portal endpoint does the same for a business with no subscription recorded. `GET /v1/plan`
+  only reads, so a paid Checkout whose event was missed shows once the hourly replay applies it.
 - Lapsed: the business can sign in and read. `api/plans.writable` answers every other write with 402
   `plan_required`, except sign-in, the plan endpoints, devices, onboarding, staff removal, data export,
   refunds and cancelling a client membership; public booking, the shop and estimate acceptance answer 409
@@ -624,16 +694,16 @@ later, rerun linking; you do not need to recreate the Stripe accounts.
 
 ### Credentials and runtime settings
 
-| Setting                             | Purpose                                                                           |
-| ----------------------------------- | --------------------------------------------------------------------------------- |
-| `STRIPE_SECRET_KEY`                 | Backend/worker Stripe API access for this environment.                            |
-| `STRIPE_WEBHOOK_SECRET`             | Connected-account snapshot endpoint signing secret.                               |
-| `STRIPE_THIN_WEBHOOK_SECRET`        | Accounts v2 thin-event destination signing secret.                                |
-| `STRIPE_PLATFORM_WEBHOOK_SECRET`    | Platform plan-subscription endpoint signing secret.                               |
-| `STRIPE_PORTAL_CONFIGURATION`       | Platform Billing Portal configuration ID.                                         |
-| `STRIPE_CONNECT_COUNTRY`            | Connected-account country; defaults to `CA`.                                      |
+| Setting                             | Purpose                                                                                 |
+| ----------------------------------- | --------------------------------------------------------------------------------------- |
+| `STRIPE_SECRET_KEY`                 | Backend/worker Stripe API access for this environment.                                  |
+| `STRIPE_WEBHOOK_SECRET`             | Connected-account snapshot endpoint signing secret.                                     |
+| `STRIPE_THIN_WEBHOOK_SECRET`        | Accounts v2 thin-event destination signing secret.                                      |
+| `STRIPE_PLATFORM_WEBHOOK_SECRET`    | Platform plan-subscription endpoint signing secret.                                     |
+| `STRIPE_PORTAL_CONFIGURATION`       | Platform Billing Portal configuration ID.                                               |
+| `STRIPE_CONNECT_COUNTRY`            | Connected-account country; defaults to `CA`.                                            |
 | `STRIPE_PUBLISHABLE_KEY`            | Mobile configuration, and the web, Connect and admin `/config.js` in every environment. |
-| `clientbridge:stripePublishableKey` | Per-environment Pulumi stack setting for deployed clients.                        |
+| `clientbridge:stripePublishableKey` | Per-environment Pulumi stack setting for deployed clients.                              |
 
 Secret and publishable keys must refer to the same mode/platform account. `core/config.py` checks the
 secret key's mode: with `ENV=prod` it must be a live key (`sk_live_` or `rk_live_`), and every other
@@ -748,19 +818,19 @@ These checks ran against the Clientbridge sandbox on Birchbark (`acct_1UPnLpFGqw
 `2026-09-30.endive`, after the October 26 review of every Stripe flow. Each mismatch they found is fixed
 in the behaviour described above.
 
-| Check | Objects | Result |
-| --- | --- | --- |
-| PAD refund | `pi_3UV9NTFGqw5ObEW50YLhtfF7`, `pyr_1UV9PsFGqw5ObEW53BnAYjve` | A `pyr_` refund whose `payment_refund` transaction exists while the refund is still pending; reconciliation expects it until it settles. |
-| Returned application fee | `ch_3UV9IiFGqw5ObEW51mmgt0DW`, `txn_1UV9JLFGqw5ObEW5BTlr9sd7` | The fee comes back pro rata as an `adjustment` whose source is the charge, and `?source=` leaves it out. |
-| Failed refund | `re_3UV9JpFGqw5ObEW50zW5eBu7`, `txn_1UV9M1FGqw5ObEW5vp32TGxa` | Reported only by `refund.failed`; its `refund_failure` row is also missing from `?source=`, so reconciliation lists it by type. |
-| Dispute after a partial refund | `du_1UV9LxFGqw5ObEW5pv72TyEY` | An inquiry kept the full amount after a part refund; the reinstated part of a lost dispute is booked from the documented balance transactions, not observed. |
-| Refund during a dispute | `du_1UV9K5FGqw5ObEW5RLrvtdnC` | Refused with `charge_disputed` while disputed, allowed during an inquiry. Dispute ids are `du_`. |
-| Off-session PAD charge | `mandate_1UV9N2FGqw5ObEW5wikXrsZS`, `pi_3UV9NTFGqw5ObEW50YLhtfF7` | Succeeds only with `allowed_payment_method_types=["acss_debit"]` and the `mandate`. |
-| PAD mandate for memberships | `sub_1UVBMaFGqw5ObEW5OOAqbrGW`, `mandate_1UVBN7FGqw5ObEW59uyfzvwk` | An interval mandate left a membership's first invoice at `requires_confirmation`; a `default_for: ["invoice", "subscription"]` mandate took one-off charges and billed the membership unprompted. Stripe refuses `default_for` with an interval schedule. |
-| Undelivered events | `evt_3UUs9SFGqw5ObEW50HeXW0Am` | `delivery_success=false` works on the platform and per account, 30 days back. |
-| Closed v2 account | `acct_1UV9OGFGqwSdYFTi` | Retrievable with `closed: true`, which maps to `disabled_reason: closed`. |
-| Bank change in account management | STR-E13 | Account management shows bank details only after Stripe's sign-in, which sends its code to the phone number on the Stripe account, so only the person holding that phone can change the bank. Sending the code shows an hCaptcha, so the lane checks the sign-in and that the bank accounts are unchanged, and a completed bank change stays a manual check. |
-| Standalone `tax_fee` and `stripe_fee` | 18 connected accounts | None exist in the sandbox; they are booked from the documented shape. |
+| Check                                 | Objects                                                            | Result                                                                                                                                                                                                                                                                                                                                                       |
+| ------------------------------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| PAD refund                            | `pi_3UV9NTFGqw5ObEW50YLhtfF7`, `pyr_1UV9PsFGqw5ObEW53BnAYjve`      | A `pyr_` refund whose `payment_refund` transaction exists while the refund is still pending; reconciliation expects it until it settles.                                                                                                                                                                                                                     |
+| Returned application fee              | `ch_3UV9IiFGqw5ObEW51mmgt0DW`, `txn_1UV9JLFGqw5ObEW5BTlr9sd7`      | The fee comes back pro rata as an `adjustment` whose source is the charge, and `?source=` leaves it out.                                                                                                                                                                                                                                                     |
+| Failed refund                         | `re_3UV9JpFGqw5ObEW50zW5eBu7`, `txn_1UV9M1FGqw5ObEW5vp32TGxa`      | Reported only by `refund.failed`; its `refund_failure` row is also missing from `?source=`, so reconciliation lists it by type.                                                                                                                                                                                                                              |
+| Dispute after a partial refund        | `du_1UV9LxFGqw5ObEW5pv72TyEY`                                      | An inquiry kept the full amount after a part refund; the reinstated part of a lost dispute is booked from the documented balance transactions, not observed.                                                                                                                                                                                                 |
+| Refund during a dispute               | `du_1UV9K5FGqw5ObEW5RLrvtdnC`                                      | Refused with `charge_disputed` while disputed, allowed during an inquiry. Dispute ids are `du_`.                                                                                                                                                                                                                                                             |
+| Off-session PAD charge                | `mandate_1UV9N2FGqw5ObEW5wikXrsZS`, `pi_3UV9NTFGqw5ObEW50YLhtfF7`  | Succeeds only with `allowed_payment_method_types=["acss_debit"]` and the `mandate`.                                                                                                                                                                                                                                                                          |
+| PAD mandate for memberships           | `sub_1UVBMaFGqw5ObEW5OOAqbrGW`, `mandate_1UVBN7FGqw5ObEW59uyfzvwk` | An interval mandate left a membership's first invoice at `requires_confirmation`; a `default_for: ["invoice", "subscription"]` mandate took one-off charges and billed the membership unprompted. Stripe refuses `default_for` with an interval schedule.                                                                                                    |
+| Undelivered events                    | `evt_3UUs9SFGqw5ObEW50HeXW0Am`                                     | `delivery_success=false` works on the platform and per account, 30 days back.                                                                                                                                                                                                                                                                                |
+| Closed v2 account                     | `acct_1UV9OGFGqwSdYFTi`                                            | Retrievable with `closed: true`, which maps to `disabled_reason: closed`.                                                                                                                                                                                                                                                                                    |
+| Bank change in account management     | STR-E13                                                            | Account management shows bank details only after Stripe's sign-in, which sends its code to the phone number on the Stripe account, so only the person holding that phone can change the bank. Sending the code shows an hCaptcha, so the lane checks the sign-in and that the bank accounts are unchanged, and a completed bank change stays a manual check. |
+| Standalone `tax_fee` and `stripe_fee` | 18 connected accounts                                              | None exist in the sandbox; they are booked from the documented shape.                                                                                                                                                                                                                                                                                        |
 
 The browser lane's STR-E08 made the funded manual payout the record above still needed: after switching
 the QA merchant to a manual schedule in the embedded component, it paid out exactly its run's net

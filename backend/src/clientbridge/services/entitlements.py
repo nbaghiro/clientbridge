@@ -1,7 +1,8 @@
 import secrets
+from calendar import monthrange
 from datetime import datetime, timedelta
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -45,7 +46,7 @@ from clientbridge.services.payments import (
     subscription_fee_percent,
     subscription_terms,
 )
-from clientbridge.services.tax import tax_for_amount
+from clientbridge.services.tax import tax_for_amount, tax_within
 
 _CODE_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567"  # base32, no easily-confused 0/1/8/9
 
@@ -89,8 +90,8 @@ async def _record_cash(
 async def _settle_cash(db: AsyncSession, payment: Payment) -> None:
     """Book the cash and activate what it bought, once the entitlement row points at it."""
     await ledger.post_payment(db, payment)
-    await activate_purchased_package(db, payment.id)
-    await activate_purchased_gift_card(db, payment.id)
+    await activate_purchased_package(db, payment.business_id, payment.id)
+    await activate_purchased_gift_card(db, payment.business_id, payment.id)
 
 
 class GiftCardService:
@@ -174,15 +175,14 @@ class GiftCardService:
             request=data,
         )
 
-    async def redeem_gift_card(
-        self, data: GiftCardRedeem, idempotency_key: str | None = None
-    ) -> GiftCardOut:
+    async def redeem_gift_card(self, data: GiftCardRedeem, idempotency_key: str) -> GiftCardOut:
         self._assert_admin()
         card = await self._by_code(data.code, lock=True)
 
         async def run(cmd: Command) -> GiftCardOut:
             remaining = await ledger.gift_card_balance(self.db, card)
-            if ledger.gift_card_status(card, remaining) != "active":
+            expired = card.expires_at is not None and card.expires_at <= clock.now()
+            if ledger.gift_card_status(card, remaining) != "active" or expired:
                 raise Conflict("only an active gift card can be redeemed")
             if data.amount_cents <= 0 or data.amount_cents > remaining:
                 raise Conflict("invalid redemption amount")
@@ -269,10 +269,12 @@ async def _gift_card_out(db: AsyncSession, card: GiftCard) -> GiftCardOut:
     )
 
 
-async def activate_purchased_gift_card(db: AsyncSession, payment_id: str) -> str | None:
+async def activate_purchased_gift_card(
+    db: AsyncSession, business_id: str, payment_id: str
+) -> str | None:
     """Activate the gift card a settled purchase paid for; returns its id."""
     card = (
-        await db.execute(select(GiftCard).where(GiftCard.payment_id == payment_id))
+        await db.execute(scoped(GiftCard, business_id).where(GiftCard.payment_id == payment_id))
     ).scalar_one_or_none()
     if card is not None and card.status == "pending":
         card.status = "active"
@@ -281,20 +283,20 @@ async def activate_purchased_gift_card(db: AsyncSession, payment_id: str) -> str
     return None
 
 
-async def void_purchased_gift_card(db: AsyncSession, payment_id: str) -> None:
+async def void_purchased_gift_card(db: AsyncSession, business_id: str, payment_id: str) -> None:
     """Void the gift card a refunded purchase charge paid for (pending/active → void)."""
     card = (
-        await db.execute(select(GiftCard).where(GiftCard.payment_id == payment_id))
+        await db.execute(scoped(GiftCard, business_id).where(GiftCard.payment_id == payment_id))
     ).scalar_one_or_none()
     if card is not None and card.status in ("pending", "active"):
         card.status = "void"
         await db.flush()
 
 
-async def restore_purchased_gift_card(db: AsyncSession, payment_id: str) -> None:
+async def restore_purchased_gift_card(db: AsyncSession, business_id: str, payment_id: str) -> None:
     """Reactivate the gift card voided by a refund that Stripe then failed (void → active)."""
     card = (
-        await db.execute(select(GiftCard).where(GiftCard.payment_id == payment_id))
+        await db.execute(scoped(GiftCard, business_id).where(GiftCard.payment_id == payment_id))
     ).scalar_one_or_none()
     if card is not None and card.status == "void":
         card.status = "active"
@@ -431,21 +433,7 @@ class PackageService:
 
         async def run(cmd: Command) -> PackageOut:
             now = clock.now()
-            billed = booking.invoice_id is not None and (
-                (invoice := await self.db.get(Invoice, booking.invoice_id)) is not None
-                and invoice.status != "void"
-            )
-            if (
-                booking.status != "confirmed"
-                or booking.order_id is not None
-                or booking.charged_at is not None
-                or billed
-            ):
-                raise Conflict("only an open visit that isn't billed can use a package")
-            if booking.deposit_status == "collected":
-                raise Conflict("refund or apply this visit's deposit before using a package")
-            if slot.starts_at > now:
-                raise Conflict("a package covers a visit once it has started")
+            await assert_coverable(self.db, booking, slot)
             covers = (await self._item(package.item_id)).covers_item_id
             if package.client_id != booking.client_id or covers not in (None, slot.item_id):
                 raise Conflict("this package is for another client or service")
@@ -461,15 +449,12 @@ class PackageService:
             used = await ledger.sessions_used(self.db, package)
             if used >= package.sessions_total:
                 raise Conflict("no sessions left on this package")
-            if booking.deposit_status == "pending":
-                if not await cancel_open_deposits(self.db, self.gateway, booking):
-                    raise Conflict("this visit's deposit has just been paid")
-                booking.deposit_status = "none"
+            await release_pending_deposit(self.db, self.gateway, booking)
             booking.package_id = package.id
             booking.status, booking.completed_at = "completed", now
             await complete_when_done(self.db, slot)
             share = await ledger.post_consumption(self.db, package, booking_id=booking.id)
-            await accrue_covered_visit(self.db, booking, share, package.id)
+            await accrue_covered_visit(self.db, booking, share, ("package", package.id))
             if used + 1 >= package.sessions_total:
                 package.status = "used"
             await self.db.flush()
@@ -537,34 +522,89 @@ async def _package_out(db: AsyncSession, package: Package) -> PackageOut:
     )
 
 
-async def activate_purchased_package(db: AsyncSession, payment_id: str) -> None:
+async def activate_purchased_package(db: AsyncSession, business_id: str, payment_id: str) -> None:
     """Activate the package a settled purchase charge paid for (pending → active)."""
     package = (
-        await db.execute(select(Package).where(Package.payment_id == payment_id))
+        await db.execute(scoped(Package, business_id).where(Package.payment_id == payment_id))
     ).scalar_one_or_none()
     if package is not None and package.status == "pending":
         package.status = "active"
         await db.flush()
 
 
-async def void_purchased_package(db: AsyncSession, payment_id: str) -> None:
+async def void_purchased_package(db: AsyncSession, business_id: str, payment_id: str) -> None:
     """Void the package a refunded purchase charge paid for (pending/active → canceled)."""
     package = (
-        await db.execute(select(Package).where(Package.payment_id == payment_id))
+        await db.execute(scoped(Package, business_id).where(Package.payment_id == payment_id))
     ).scalar_one_or_none()
     if package is not None and package.status in ("pending", "active"):
         package.status = "canceled"
         await db.flush()
 
 
-async def restore_purchased_package(db: AsyncSession, payment_id: str) -> None:
+async def restore_purchased_package(db: AsyncSession, business_id: str, payment_id: str) -> None:
     """Reactivate the package canceled by a refund that Stripe then failed (canceled → active)."""
     package = (
-        await db.execute(select(Package).where(Package.payment_id == payment_id))
+        await db.execute(scoped(Package, business_id).where(Package.payment_id == payment_id))
     ).scalar_one_or_none()
     if package is not None and package.status == "canceled":
         package.status = "active"
         await db.flush()
+
+
+async def assert_coverable(db: AsyncSession, booking: Booking, slot: Slot) -> None:
+    """A package or membership covers an open, unbilled visit once it has started."""
+    billed = booking.invoice_id is not None and (
+        (invoice := await db.get(Invoice, booking.invoice_id)) is not None
+        and invoice.status != "void"
+    )
+    if (
+        booking.status != "confirmed"
+        or booking.order_id is not None
+        or booking.charged_at is not None
+        or billed
+    ):
+        raise Conflict("only an open visit that isn't billed can be covered")
+    if booking.deposit_status == "collected":
+        raise Conflict("refund or apply this visit's deposit before covering it")
+    if slot.starts_at > clock.now():
+        raise Conflict("a visit is covered once it has started")
+
+
+async def release_pending_deposit(
+    db: AsyncSession, gateway: PaymentGateway, booking: Booking
+) -> None:
+    """A covered visit needs no deposit, so an unpaid one is canceled first."""
+    if booking.deposit_status != "pending":
+        return
+    if not await cancel_open_deposits(db, gateway, booking):
+        raise Conflict("this visit's deposit has just been paid")
+    booking.deposit_status = "none"
+
+
+def _shift(at: datetime, interval: int, frequency: str, sign: int) -> datetime:
+    if frequency == "day":
+        return at + sign * timedelta(days=interval)
+    if frequency == "week":
+        return at + sign * timedelta(weeks=interval)
+    months = sign * interval * (12 if frequency == "year" else 1)
+    index = at.year * 12 + at.month - 1 + months
+    year, month = divmod(index, 12)
+    day = min(at.day, monthrange(year, month + 1)[1])
+    return at.replace(year=year, month=month + 1, day=day)
+
+
+def period_start(end: datetime, interval: int, frequency: str) -> datetime:
+    """The start of the billing period that ends at `end`."""
+    return _shift(end, interval, frequency, -1)
+
+
+def current_period_start(end: datetime, interval: int, frequency: str) -> datetime:
+    """The start of the period in force now, rolling a period end a late renewal left behind."""
+    now = clock.now()
+    while end <= now:
+        end = _shift(end, interval, frequency, 1)
+    return period_start(end, interval, frequency)
 
 
 class SubscriptionService:
@@ -575,7 +615,7 @@ class SubscriptionService:
         self.gateway = gateway
 
     async def create_subscription(
-        self, data: SubscriptionCreate, idempotency_key: str | None = None
+        self, data: SubscriptionCreate, idempotency_key: str
     ) -> SubscriptionOut:
         self._assert_admin()
         business = await self._business()
@@ -599,6 +639,8 @@ class SubscriptionService:
         pm_ref = pm.provider_ref
 
         async def run(cmd: Command) -> SubscriptionOut:
+            # Stripe charges the first period on create, so two creates for a client never overlap
+            await self.db.execute(select(Client.id).where(Client.id == client.id).with_for_update())
             live = await self.db.scalar(
                 scoped(Subscription, self.biz)
                 .with_only_columns(Subscription.id)
@@ -626,7 +668,7 @@ class SubscriptionService:
                 payment_method_id=pm_ref,
                 metadata=subscription_terms(item, data.client_id),
                 application_fee_percent=subscription_fee_percent(pm.method),
-                idempotency_key=f"sub_{self.biz}_{idempotency_key or secrets.token_hex(16)}",
+                idempotency_key=f"sub_{self.biz}_{idempotency_key}",
             )
             row = Subscription(
                 id=new_id("subscription"),
@@ -685,6 +727,74 @@ class SubscriptionService:
             response_model=SubscriptionOut,
             idempotency_key=idempotency_key,
             request={"subscription_id": subscription_id},
+        )
+
+    async def cover_visit(
+        self, subscription_id: str, data: PackageCover, idempotency_key: str
+    ) -> SubscriptionOut:
+        """Settle a started visit with one of the membership's included visits, completing it."""
+        sub = await self._subscription(subscription_id)
+        booking = await self.db.scalar(
+            scoped(Booking, self.biz, soft_delete=True)
+            .where(Booking.id == data.booking_id)
+            .with_for_update()
+        )
+        if booking is None:
+            raise NotFound("booking not found")
+        assert_can_act_as(self.principal, booking.staff_id)
+        slot = await self.db.get(Slot, booking.slot_id)
+        assert slot is not None
+
+        async def run(cmd: Command) -> SubscriptionOut:
+            # included visits are counted per period, so two covers of one membership take turns
+            await self.db.execute(
+                select(Subscription.id).where(Subscription.id == sub.id).with_for_update()
+            )
+            await self.db.refresh(sub)
+            await assert_coverable(self.db, booking, slot)
+            item = await self._item(sub.item_id)
+            if sub.client_id != booking.client_id or item.covers_item_id not in (
+                None,
+                slot.item_id,
+            ):
+                raise Conflict("this membership is for another client or service")
+            if sub.status != "active" or not item.visits_per_period:
+                raise Conflict("only an active membership with included visits covers a visit")
+            if sub.current_period_end is None or item.interval is None or item.frequency is None:
+                raise Conflict("this membership's billing period isn't known yet")
+            start = current_period_start(sub.current_period_end, item.interval, item.frequency)
+            used = await self.db.scalar(
+                scoped(Booking, self.biz, soft_delete=True)
+                .with_only_columns(func.count())
+                .where(Booking.subscription_id == sub.id, Booking.completed_at >= start)
+            )
+            if int(used or 0) >= item.visits_per_period:
+                raise Conflict(
+                    "this membership's visits for the period are used",
+                    code="membership_visits_used",
+                )
+            await release_pending_deposit(self.db, self.gateway, booking)
+            booking.subscription_id = sub.id
+            booking.status, booking.completed_at = "completed", clock.now()
+            await complete_when_done(self.db, slot)
+            # the period's price was revenue when billed; staff earn one visit's share of it
+            priced = await tax_within(
+                self.db, self.biz, item.price_cents, tax_class=item.tax_class, at=start
+            )
+            share = priced.subtotal_cents // item.visits_per_period
+            await accrue_covered_visit(self.db, booking, share, ("subscription", sub.id))
+            await self.db.flush()
+            cmd.record("subscription.cover", entity_type="booking", entity_id=booking.id)
+            return _subscription_out(sub)
+
+        return await run_command(
+            self.db,
+            self.principal,
+            action="subscription.cover",
+            run=run,
+            response_model=SubscriptionOut,
+            idempotency_key=idempotency_key,
+            request={"subscription_id": subscription_id, **data.model_dump()},
         )
 
     def _assert_admin(self) -> None:

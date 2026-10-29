@@ -140,7 +140,11 @@ async def test_gift_card_sell_redeem_and_expire(
     gid = sold["gift_card_id"]
     assert await gift_card(db, gid) == ("pending", 0)
     assert (
-        await api.post("/v1/gift-cards/redeem", json={"code": sold["code"], "amount_cents": 100})
+        await api.post(
+            "/v1/gift-cards/redeem",
+            json={"code": sold["code"], "amount_cents": 100},
+            headers=retry_key(),
+        )
     ).status_code == 409
 
     await settle(api, db, sold["payment_id"])
@@ -148,15 +152,27 @@ async def test_gift_card_sell_redeem_and_expire(
     assert any(sold["code"] in m.body for m in sms.sent if m.to == "+15145550233")
 
     redeemed = ok(
-        await api.post("/v1/gift-cards/redeem", json={"code": sold["code"], "amount_cents": 2000})
+        await api.post(
+            "/v1/gift-cards/redeem",
+            json={"code": sold["code"], "amount_cents": 2000},
+            headers=retry_key(),
+        )
     ).json()
     assert (redeemed["balance_cents"], redeemed["status"]) == (3000, "active")
     spent = ok(
-        await api.post("/v1/gift-cards/redeem", json={"code": sold["code"], "amount_cents": 3000})
+        await api.post(
+            "/v1/gift-cards/redeem",
+            json={"code": sold["code"], "amount_cents": 3000},
+            headers=retry_key(),
+        )
     ).json()
     assert (spent["balance_cents"], spent["status"]) == (0, "redeemed")
     assert (
-        await api.post("/v1/gift-cards/redeem", json={"code": sold["code"], "amount_cents": 1})
+        await api.post(
+            "/v1/gift-cards/redeem",
+            json={"code": sold["code"], "amount_cents": 1},
+            headers=retry_key(),
+        )
     ).status_code == 409
 
     second = ok(
@@ -171,7 +187,13 @@ async def test_gift_card_sell_redeem_and_expire(
         201,
     ).json()
     await settle(api, db, second["payment_id"])
-    ok(await api.post("/v1/gift-cards/redeem", json={"code": second["code"], "amount_cents": 1500}))
+    ok(
+        await api.post(
+            "/v1/gift-cards/redeem",
+            json={"code": second["code"], "amount_cents": 1500},
+            headers=retry_key(),
+        )
+    )
     revenue = await business_balance(db, "revenue")
     await run_expiry_sweeps(db, await lapse(db, GiftCard, second["gift_card_id"]))
     assert await gift_card(db, second["gift_card_id"]) == ("expired", 0)

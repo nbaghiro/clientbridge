@@ -251,6 +251,26 @@ async def test_a_deposit_paid_from_the_link_is_refunded_on_a_cancel(
     assert (await _row(db, booking.id)).deposit_status == "refunded"
 
 
+async def test_a_disputed_deposit_is_left_to_the_dispute_and_the_visit_still_cancels(
+    api: httpx.AsyncClient,
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    gateway: FakePaymentGateway,
+) -> None:
+    booking = await _seated(as_owner, db)
+    _intent(await _pay(api, booking.manage_token))
+    [deposit] = await _deposits(db, booking.id)
+    await settle(api, db, deposit.id)
+    await db.execute(
+        update(Payment).where(Payment.id == deposit.id).values(dispute_status="needs_response")
+    )
+    refunds = len(gateway.refunds)
+    res = await api.post(f"/manage/{booking.manage_token}/cancel", headers=key())
+    assert res.status_code == 200, res.text
+    assert len(gateway.refunds) == refunds
+    assert (await _row(db, booking.id)).status == "canceled"
+
+
 async def test_another_business_is_paid_into_its_own_account(
     api: httpx.AsyncClient, db: AsyncSession, factory: Factory
 ) -> None:
