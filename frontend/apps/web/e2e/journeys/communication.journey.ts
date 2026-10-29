@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { formatDate, strings } from "@clientbridge/app-core/public";
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { type APIRequestContext, expect, test, type Locator, type Page } from "@playwright/test";
 import { bookingApi } from "../support/bookings";
 import {
     clientPhone,
@@ -30,6 +30,11 @@ import {
 import { freshPhone, textsTo } from "../support/auth";
 import { signIn, navigate } from "../support/session";
 import { demoId, demoPhone } from "@clientbridge/config/e2e/run";
+
+// The intake-form job texts a brand-new client whenever it next runs; these checks count the class's own texts.
+async function classTexts(request: APIRequestContext, phone: string): ReturnType<typeof textsTo> {
+    return (await textsTo(request, phone)).filter((text) => !text.Snippet.includes("/form/"));
+}
 
 const s = strings.messaging;
 const zone = "America/Vancouver";
@@ -94,9 +99,9 @@ test("FLOW-06-A a seat notice queued for the worker honours a STOP that arrives 
         ]);
         // joining the waitlist texts the client once, before any STOP
         await expect
-            .poll(async () => (await textsTo(page.request, phone)).length, { timeout: 90_000 })
+            .poll(async () => (await classTexts(page.request, phone)).length, { timeout: 90_000 })
             .toBe(1);
-        const waitlisted = await textsTo(page.request, phone);
+        const waitlisted = await classTexts(page.request, phone);
         const before = await communicationEvidence(waiting.id);
         expect(before.consents).toEqual([]);
         expect(before.threads).toEqual([]);
@@ -200,7 +205,7 @@ test("FLOW-06-A a seat notice queued for the worker honours a STOP that arrives 
             fixture.slotId,
             waitingId,
         );
-        expect(await textsTo(page.request, phone)).toEqual(waitlisted);
+        expect(await classTexts(page.request, phone)).toEqual(waitlisted);
 
         const other = await observer.newPage();
         await signIn(other);
@@ -291,9 +296,9 @@ test("MSG-E2E-14 a STOP that arrives after a seat notice is queued keeps the wor
         await expectClassState(fixture, [first, second, waiting]);
         // joining the waitlist texts the client once, before any STOP
         await expect
-            .poll(async () => (await textsTo(page.request, phone)).length, { timeout: 90_000 })
+            .poll(async () => (await classTexts(page.request, phone)).length, { timeout: 90_000 })
             .toBe(1);
-        const waitlisted = await textsTo(page.request, phone);
+        const waitlisted = await classTexts(page.request, phone);
         const scope = `seat:${fixture.slotId}:${waitingId}:`;
         expect(await deliveryRows(scope)).toEqual([]);
         expect(await clientOutreach(fixture.waiting.id)).toEqual({
@@ -339,7 +344,7 @@ test("MSG-E2E-14 a STOP that arrives after a seat notice is queued keeps the wor
             })
             .toEqual([["failed", "consent_withdrawn"]]);
         const settled = await deliveryRows(scope);
-        expect(await textsTo(page.request, phone)).toEqual(waitlisted);
+        expect(await classTexts(page.request, phone)).toEqual(waitlisted);
         expect(await clientOutreach(fixture.waiting.id)).toEqual(stopped);
 
         const log = await openInboxThread(page, fixture.waiting);
