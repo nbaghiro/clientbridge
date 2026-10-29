@@ -164,6 +164,15 @@
     "api.estimateChanged": {
         "message": "[Ţĥîš éšţîɱåţé ĵûšţ çĥåñĝéð. Ŕéļöåð ţĥé þåĝé ţö šéé ţĥé ļåţéšţ ṽéŕšîöñ. one two three four five]"
     },
+    "api.paymentInProgress": {
+        "message": "[Å þåýɱéñţ öñ ţĥîš îñṽöîçé îš šţîļļ ĝöîñĝ ţĥŕöûĝĥ. Ŵåîţ ƒöŕ îţ ţö ƒîñîšĥ, ţĥéñ ţŕý åĝåîñ. one two three four five six]"
+    },
+    "api.cardDeclined": {
+        "message": "[Ţĥé çåŕð ŵåš ðéçļîñéð. Ţŕý åñöţĥéŕ çåŕð öŕ þåýɱéñţ ɱéţĥöð. one two three four]"
+    },
+    "api.paymentActionRequired": {
+        "message": "[Ţĥîš çåŕð ñééðš ţĥé çļîéñţ ţö åþþŕöṽé ţĥé þåýɱéñţ. Ûšé å ñéŵ çåŕð öŕ šéñð ţĥéɱ å þåý ļîñķ. one two three four five six]"
+    },
     "api.invoiceChanged": {
         "message": "[Ţĥîš îñṽöîçé ĵûšţ çĥåñĝéð, šö ñöţĥîñĝ ŵåš çĥåŕĝéð. Çĥéçķ ţĥé åɱöûñţ ƀéļöŵ åñð ţŕý åĝåîñ. one two three four five six]"
     },

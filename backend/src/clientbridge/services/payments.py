@@ -8,7 +8,7 @@ from datetime import UTC, datetime, time, timedelta
 from time import monotonic
 from typing import Literal
 
-from sqlalchemy import BigInteger, Integer, Select, Subquery, cast, func, or_, select
+from sqlalchemy import BigInteger, Integer, Select, Subquery, and_, cast, func, or_, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -1015,7 +1015,7 @@ async def _assert_room(db: AsyncSession, invoice: Invoice, amount: int) -> None:
         )
     ).scalar_one()
     if amount > await ledger.invoice_balance(db, invoice) - int(pending):
-        raise Conflict("this invoice already has a payment in progress")
+        raise Conflict("this invoice already has a payment in progress", code="payment_in_progress")
 
 
 async def _assert_order_room(
@@ -1105,23 +1105,35 @@ async def _claim_order_room(
 
 
 _STALE_INTENT_AGE = timedelta(hours=24)
+_ABANDONED_INTENT_AGE = timedelta(hours=1)
 _STALE_INTENT_BATCH = 200
 
 
 async def run_cancel_stale_intents(db: AsyncSession, gateway: PaymentGateway, now: datetime) -> int:
-    """Cancel staff-opened sale, gift card and package intents still unfinished after a day."""
+    """Cancel card intents left unfinished: staff ones after a day, client ones after an hour."""
     desk_sale = select(Order.id).where(Order.id == Payment.order_id, Order.source == "pos")
     gift_card = select(GiftCard.id).where(GiftCard.payment_id == Payment.id)
     package = select(Package.id).where(Package.payment_id == Payment.id)
+    staff_opened = and_(
+        Payment.kind == "payment",
+        desk_sale.exists() | gift_card.exists() | package.exists(),
+        Payment.created_at <= now - _STALE_INTENT_AGE,
+    )
+    # an abandoned pay link or deposit form would otherwise hold the invoice or visit forever
+    client_opened = and_(
+        Payment.method == "card",
+        Payment.invoice_id.is_not(None) | (Payment.kind == "deposit"),
+        Payment.created_at <= now - _ABANDONED_INTENT_AGE,
+    )
     rows = await db.execute(
         select(Payment, Business.stripe_account_id)
         .join(Business, Business.id == Payment.business_id)
         .where(
-            Payment.kind == "payment",
             Payment.provider == "stripe",
             Payment.status == "pending",
-            Payment.created_at <= now - _STALE_INTENT_AGE,
-            desk_sale.exists() | gift_card.exists() | package.exists(),
+            Payment.provider_ref.is_not(None),
+            Business.stripe_account_id.is_not(None),
+            or_(staff_opened, client_opened),
         )
         # newest first, so an intent Stripe refuses to cancel never holds back the rest
         .order_by(Payment.created_at.desc(), Payment.id)

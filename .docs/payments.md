@@ -191,8 +191,17 @@ An intent that nobody will finish is cancelled rather than left confirmable, so 
   through. The web and mobile pay sheets and the mobile reader screen offer it, and changing the tip
   supersedes the open intent instead of being refused.
 - `cancel_stale_intents` (hourly at :45, `payments.run_cancel_stale_intents`) cancels staff-opened desk
-  sale, gift card and package intents that are still pending a day after they opened, 200 per run,
-  newest first. An intent Stripe refuses to cancel is logged and left for the next run.
+  sale, gift card and package intents still pending a day after they opened, and pay-link and deposit
+  card intents still pending after an hour, so an abandoned form never blocks voiding the invoice or
+  recording cash. Bank debits and online orders are left alone. It takes 200 per run, newest first; an
+  intent Stripe refuses to cancel is logged and left for the next run.
+- Canceling an intent Stripe already canceled counts as canceled, so a declined deposit attempt closed
+  from Stripe's side no longer blocks paying the deposit again. An intent that is processing or
+  succeeded still refuses, with `payment_in_progress`.
+- After a refusal such as a declined card, the desk's next press is a new attempt with a new key, so
+  Stripe asks the bank again instead of replaying the decline. A request that got no answer keeps its
+  key. Staff see the server's reason: a declined card, a card that needs the client to approve, or a
+  payment still in progress.
 - Subscription creates use the command's idempotency key as Stripe's key, so a retry with a different card
   succeeds and a quick resubscribe starts a new subscription. The no-show charge keys on the card, so a
   new default card after a decline is a new charge.

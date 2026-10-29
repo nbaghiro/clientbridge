@@ -1489,8 +1489,16 @@ class StripeGateway:
     async def cancel_payment_intent(self, account_id: str, *, payment_intent_id: str) -> None:
         try:
             await stripe.PaymentIntent.cancel_async(payment_intent_id, stripe_account=account_id)
-        except stripe.InvalidRequestError as exc:  # processing or succeeded: it can't be undone
-            raise Conflict("this invoice already has a payment in progress") from exc
+        except stripe.InvalidRequestError as exc:
+            intent = await stripe.PaymentIntent.retrieve_async(
+                payment_intent_id, stripe_account=account_id
+            )
+            if intent.status == "canceled":  # canceled before, by us or from Stripe's side
+                return
+            # processing or succeeded: it can't be undone
+            raise Conflict(
+                "this invoice already has a payment in progress", code="payment_in_progress"
+            ) from exc
 
     @_keyed
     async def refund(

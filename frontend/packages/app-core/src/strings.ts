@@ -70,6 +70,9 @@ interface Strings {
         readonly estimateBooked: string;
         readonly estimateOnVisit: string;
         readonly estimateChanged: string;
+        readonly paymentInProgress: string;
+        readonly cardDeclined: string;
+        readonly paymentActionRequired: string;
         readonly invoiceChanged: string;
         readonly depositNotDue: string;
         readonly checkoutPaid: string;

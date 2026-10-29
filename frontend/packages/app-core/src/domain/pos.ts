@@ -1155,7 +1155,7 @@ export function useSale(
                     { orderId: saved_.id, tipPart },
                 );
             },
-            { errorMessage: d.payError },
+            { errorMessage: (e) => failureMessage(e, d.payError) },
         );
     };
 

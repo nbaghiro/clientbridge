@@ -17,6 +17,7 @@ from tests.helpers import client_id, enable_payments, key, ok, sent_invoice
 
 LATTE = {"description": "Latte", "quantity": 2, "unit_amount_cents": 500}
 DAY = timedelta(hours=24)
+HOUR = timedelta(hours=1)
 
 
 async def _age(db: AsyncSession, payment_id: str, by: timedelta) -> None:
@@ -72,12 +73,7 @@ async def test_staff_opened_intents_a_day_old_are_canceled(
     assert set(refs.scalars().all()) <= set(gateway.canceled_intents)
 
 
-async def test_client_opened_intents_are_left_to_their_own_expiry(
-    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
-) -> None:
-    await enable_payments(db)
-    cid = await client_id(db)
-    invoice_id = await sent_invoice(db, client=cid)
+async def _pay_link_intent(db: AsyncSession, cid: str, *, method: str = "card") -> str:
     invoice_pay = new_id("payment")
     db.add(
         Payment(
@@ -85,24 +81,40 @@ async def test_client_opened_intents_are_left_to_their_own_expiry(
             business_id=BIZ,
             client_id=cid,
             kind="payment",
-            invoice_id=invoice_id,
+            invoice_id=await sent_invoice(db, client=cid),
             amount_cents=5000,
-            method="card",
+            method=method,
             provider="stripe",
-            provider_ref="pi_pay_link_stale",
+            provider_ref=f"pi_{invoice_pay}",
             status="pending",
         )
     )
     await db.flush()
+    return invoice_pay
+
+
+async def test_an_abandoned_pay_link_intent_is_canceled_after_an_hour(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await enable_payments(db)
+    cid = await client_id(db)
+    abandoned = await _pay_link_intent(db, cid)
+    open_form = await _pay_link_intent(db, cid)
+    debit = await _pay_link_intent(db, cid, method="bank_eft")
+    await _age(db, abandoned, HOUR + timedelta(minutes=1))
+    await _age(db, open_form, HOUR - timedelta(minutes=1))
+    await _age(db, debit, DAY * 3)
     online = await _desk_checkout(as_owner)
     order_id = await db.scalar(select(Payment.order_id).where(Payment.id == online))
     await db.execute(update(Order).where(Order.id == order_id).values(source="online"))
-    for payment_id in (invoice_pay, online):
-        await _age(db, payment_id, DAY * 3)
+    await _age(db, online, DAY * 3)
 
     await run_cancel_stale_intents(db, gateway, clock.now())
 
-    assert (await _status(db, invoice_pay), await _status(db, online)) == ("pending", "pending")
+    assert await _status(db, abandoned) == "canceled"
+    # a form still open, a bank debit that takes days, and an online order's own expiry stay
+    statuses = [await _status(db, p) for p in (open_form, debit, online)]
+    assert statuses == ["pending", "pending", "pending"]
 
 
 async def test_an_intent_that_went_through_stays_for_its_webhook(

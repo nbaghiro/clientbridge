@@ -196,7 +196,7 @@ class BillingService:
             if cash != 0:
                 raise Conflict("money was taken on this invoice", code="invoice_has_payments")
             if await payment_pending(self.db, invoice):
-                raise Conflict("this invoice has a payment in progress")
+                raise Conflict("this invoice has a payment in progress", code="payment_in_progress")
             await void_issued(self.db, invoice, cmd)
             return await invoice_out(self.db, invoice, await self._lines("invoice", invoice.id))
 

@@ -13,7 +13,7 @@ import {
     parseCents,
     BUSINESS_CURRENCY,
 } from "../format";
-import { type ApiLike, type Attempt, attemptKey } from "../api";
+import { type ApiLike, type Attempt, attemptKey, failureMessage } from "../api";
 import type { CheckoutMethod } from "./checkout";
 import { expectArrival } from "./sync";
 import type { Intent } from "../ui";
@@ -322,7 +322,7 @@ export function usePaymentRecorder(api: ApiLike, target: RecordTarget): PaymentR
                     lines.push(r.receiptSent(target.clientPhone));
                 setDone({ title: r.doneTitle, lines, paidInFull: res.balance_cents === 0 });
             },
-            { errorMessage: r.error },
+            { errorMessage: (e) => failureMessage(e, r.error) },
         );
     };
 

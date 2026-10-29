@@ -189,6 +189,15 @@
     "api.estimateChanged": {
         "message": "This estimate just changed. Reload the page to see the latest version."
     },
+    "api.paymentInProgress": {
+        "message": "A payment on this invoice is still going through. Wait for it to finish, then try again."
+    },
+    "api.cardDeclined": {
+        "message": "The card was declined. Try another card or payment method."
+    },
+    "api.paymentActionRequired": {
+        "message": "This card needs the client to approve the payment. Use a new card or send them a pay link."
+    },
     "api.invoiceChanged": {
         "message": "This invoice just changed, so nothing was charged. Check the amount below and try again."
     },
