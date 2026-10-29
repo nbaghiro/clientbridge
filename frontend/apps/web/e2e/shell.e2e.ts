@@ -178,6 +178,14 @@ function gridBookings(main: Locator): Locator {
     return main.getByRole("button", { name: /^\d{1,2}:\d{2} [ap]\.m\. – \d/ });
 }
 
+// a class card names its slot's status, which no visit has, and its panel has no Message action
+function gridVisits(main: Locator): Locator {
+    const scheduled = strings.bookings.statusLabel("scheduled");
+    return main.getByRole("button", {
+        name: new RegExp(`^\\d{1,2}:\\d{2} [ap]\\.m\\. – \\d(?!.*${scheduled})`),
+    });
+}
+
 test(
     "XB-E2E-08 owner: shell, today, create menu, search, notifications and account menu",
     { tag: "@browsers" },
@@ -1086,10 +1094,10 @@ test("staff: today, schedule and clients", async ({ page }) => {
         await composer.getByRole("button", { name: strings.common.close }).click();
         await expect(composer).toBeHidden();
         await main.getByRole("button", { name: b.next, exact: true }).click();
-        for (let day = 0; day < 7 && (await gridBookings(main).count()) === 0; day++) {
+        for (let day = 0; day < 7 && (await gridVisits(main).count()) === 0; day++) {
             await main.getByRole("button", { name: b.next, exact: true }).click();
         }
-        await gridBookings(main).first().click();
+        await gridVisits(main).first().click();
         const panel = main.getByRole("complementary").filter({
             has: page.getByRole("button", { name: b.close, exact: true }),
         });
